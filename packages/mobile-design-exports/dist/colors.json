@@ -1,0 +1,253 @@
+{
+  "colorSpace": "sRGB",
+  "dark": {
+    "danger": {
+      "alpha": 1,
+      "blue": 0.41568627450980394,
+      "green": 0.44313725490196076,
+      "red": 0.9411764705882353
+    },
+    "ink": {
+      "faint": {
+        "alpha": 1,
+        "blue": 0.4549019607843137,
+        "green": 0.4196078431372549,
+        "red": 0.4
+      },
+      "ghost": {
+        "alpha": 1,
+        "blue": 0.34509803921568627,
+        "green": 0.30980392156862746,
+        "red": 0.2901960784313726
+      },
+      "muted": {
+        "alpha": 1,
+        "blue": 0.6705882352941176,
+        "green": 0.6352941176470588,
+        "red": 0.615686274509804
+      },
+      "primary": {
+        "alpha": 1,
+        "blue": 0.9411764705882353,
+        "green": 0.9294117647058824,
+        "red": 0.9254901960784314
+      },
+      "soft": {
+        "alpha": 1,
+        "blue": 0.8784313725490196,
+        "green": 0.8588235294117647,
+        "red": 0.8509803921568627
+      }
+    },
+    "warn": {
+      "alpha": 1,
+      "blue": 0.3764705882352941,
+      "green": 0.6901960784313725,
+      "red": 0.8784313725490196
+    }
+  },
+  "increasedContrast": {
+    "dark": {
+      "foregroundRemap": {
+        "faint": "muted",
+        "muted": "soft"
+      },
+      "opaqueSurfaces": {
+        "frame": {
+          "alpha": 1,
+          "blue": 0.24313725490196078,
+          "green": 0.23529411764705882,
+          "red": 0.23529411764705882
+        },
+        "main": {
+          "alpha": 1,
+          "blue": 0.09411764705882353,
+          "green": 0.09411764705882353,
+          "red": 0.09411764705882353
+        },
+        "roster": {
+          "alpha": 1,
+          "blue": 0.14901960784313725,
+          "green": 0.14901960784313725,
+          "red": 0.14901960784313725
+        }
+      },
+      "rolePolicy": {
+        "danger": "Source token retained provisionally; contrast outcome pending Gate 1.",
+        "warn": "Source token retained provisionally; contrast outcome pending Gate 1."
+      },
+      "variants": {
+        "danger": {
+          "alpha": 1,
+          "blue": 0.41568627450980394,
+          "green": 0.44313725490196076,
+          "red": 0.9411764705882353
+        },
+        "ink": {
+          "faint": {
+            "alpha": 1,
+            "blue": 0.4549019607843137,
+            "green": 0.4196078431372549,
+            "red": 0.4
+          },
+          "ghost": {
+            "alpha": 1,
+            "blue": 0.34509803921568627,
+            "green": 0.30980392156862746,
+            "red": 0.2901960784313726
+          },
+          "muted": {
+            "alpha": 1,
+            "blue": 0.6705882352941176,
+            "green": 0.6352941176470588,
+            "red": 0.615686274509804
+          },
+          "primary": {
+            "alpha": 1,
+            "blue": 0.9411764705882353,
+            "green": 0.9294117647058824,
+            "red": 0.9254901960784314
+          },
+          "soft": {
+            "alpha": 1,
+            "blue": 0.8784313725490196,
+            "green": 0.8588235294117647,
+            "red": 0.8509803921568627
+          }
+        },
+        "warn": {
+          "alpha": 1,
+          "blue": 0.3764705882352941,
+          "green": 0.6901960784313725,
+          "red": 0.8784313725490196
+        }
+      }
+    },
+    "light": {
+      "foregroundRemap": {
+        "faint": "muted",
+        "muted": "soft"
+      },
+      "opaqueSurfaces": {
+        "frame": {
+          "alpha": 1,
+          "blue": 0.9607843137254902,
+          "green": 0.9607843137254902,
+          "red": 0.9568627450980393
+        },
+        "main": {
+          "alpha": 1,
+          "blue": 1,
+          "green": 1,
+          "red": 1
+        },
+        "roster": {
+          "alpha": 1,
+          "blue": 0.9882352941176471,
+          "green": 0.9882352941176471,
+          "red": 0.9882352941176471
+        }
+      },
+      "rolePolicy": {
+        "danger": "Source token retained provisionally; contrast outcome pending Gate 1.",
+        "warn": "Source token retained provisionally; contrast outcome pending Gate 1."
+      },
+      "variants": {
+        "danger": {
+          "alpha": 1,
+          "blue": 0.09411764705882353,
+          "green": 0.13725490196078433,
+          "red": 0.7058823529411765
+        },
+        "ink": {
+          "faint": {
+            "alpha": 1,
+            "blue": 0.6274509803921569,
+            "green": 0.5882352941176471,
+            "red": 0.5647058823529412
+          },
+          "ghost": {
+            "alpha": 1,
+            "blue": 0.7490196078431373,
+            "green": 0.7215686274509804,
+            "red": 0.7019607843137254
+          },
+          "muted": {
+            "alpha": 1,
+            "blue": 0.42745098039215684,
+            "green": 0.39215686274509803,
+            "red": 0.37254901960784315
+          },
+          "primary": {
+            "alpha": 1,
+            "blue": 0.13333333333333333,
+            "green": 0.11372549019607843,
+            "red": 0.10588235294117647
+          },
+          "soft": {
+            "alpha": 1,
+            "blue": 0.2784313725490196,
+            "green": 0.24705882352941178,
+            "red": 0.23137254901960785
+          }
+        },
+        "warn": {
+          "alpha": 1,
+          "blue": 0,
+          "green": 0.35294117647058826,
+          "red": 0.5411764705882353
+        }
+      }
+    },
+    "pendingOwnerDecision": "D16",
+    "policy": "Use the desktop’s opaque frame, roster, and main surfaces when transparency is reduced or contrast is increased. Promote faint ink to muted ink and muted ink to soft ink for text that must remain readable.",
+    "status": "proposed"
+  },
+  "light": {
+    "danger": {
+      "alpha": 1,
+      "blue": 0.09411764705882353,
+      "green": 0.13725490196078433,
+      "red": 0.7058823529411765
+    },
+    "ink": {
+      "faint": {
+        "alpha": 1,
+        "blue": 0.6274509803921569,
+        "green": 0.5882352941176471,
+        "red": 0.5647058823529412
+      },
+      "ghost": {
+        "alpha": 1,
+        "blue": 0.7490196078431373,
+        "green": 0.7215686274509804,
+        "red": 0.7019607843137254
+      },
+      "muted": {
+        "alpha": 1,
+        "blue": 0.42745098039215684,
+        "green": 0.39215686274509803,
+        "red": 0.37254901960784315
+      },
+      "primary": {
+        "alpha": 1,
+        "blue": 0.13333333333333333,
+        "green": 0.11372549019607843,
+        "red": 0.10588235294117647
+      },
+      "soft": {
+        "alpha": 1,
+        "blue": 0.2784313725490196,
+        "green": 0.24705882352941178,
+        "red": 0.23137254901960785
+      }
+    },
+    "warn": {
+      "alpha": 1,
+      "blue": 0,
+      "green": 0.35294117647058826,
+      "red": 0.5411764705882353
+    }
+  },
+  "schemaVersion": 1
+}

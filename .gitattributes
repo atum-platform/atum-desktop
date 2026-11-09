@@ -40,3 +40,8 @@ release/examples/**/artifacts/** binary
 *.html  text eol=lf
 *.svg   text eol=lf
 *.ps1   text eol=crlf
+
+# Snapshot documentation is outside the mobile design manifest.
+packages/mobile-design-exports/dist/README.md export-ignore
+# Keep approved snapshot blobs byte-exact on every checkout.
+packages/mobile-design-exports/dist/** -text

@@ -1,0 +1,27 @@
+{
+  "derivation": {
+    "canvas": "Replace the macOS inset rounded tile with the same opaque radial background at full 1024x1024 canvas; scale the unchanged eclipse group to span 768px, centred; preserve the gradients.",
+    "encoder": "packages/mobile-design-exports/scripts/app-icon.mjs lossless BMP-to-PNG RGB encoder",
+    "rasterizer": {
+      "intermediate": "32-bit BMP",
+      "path": "/usr/bin/sips",
+      "version": "sips-316"
+    }
+  },
+  "resource": {
+    "alpha": false,
+    "bitDepth": 8,
+    "colorType": "RGB",
+    "height": 1024,
+    "path": "app-icon/atum-app-icon-1024.png",
+    "preRounded": false,
+    "sha256": "cf67ad54eb5dcc9e4a860e0532fa48b2882c192b55c3e83b287f80e5747248eb",
+    "width": 1024
+  },
+  "role": "application-icon",
+  "schemaVersion": 1,
+  "source": {
+    "path": "apps/desktop/assets/icon-mac.svg",
+    "sha256": "a5abeac37cc01c5f70a31295038c0e32ba5a981060876728ba4e028e0f50035a"
+  }
+}
