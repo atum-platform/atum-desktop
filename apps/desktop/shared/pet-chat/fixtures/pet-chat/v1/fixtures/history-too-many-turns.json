@@ -1,0 +1,56 @@
+{
+  "v": 1,
+  "pet_key": "bundled:gigi",
+  "display_name": "Gigi",
+  "personality": "Poised.",
+  "memory_summary": "",
+  "recent": [
+    {
+      "role": "user",
+      "text": "turn 0",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "pet",
+      "text": "turn 1",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "user",
+      "text": "turn 2",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "pet",
+      "text": "turn 3",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "user",
+      "text": "turn 4",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "pet",
+      "text": "turn 5",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "user",
+      "text": "turn 6",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "pet",
+      "text": "turn 7",
+      "at": "2026-10-27T02:00:00.000Z"
+    },
+    {
+      "role": "user",
+      "text": "turn 8",
+      "at": "2026-10-27T02:00:00.000Z"
+    }
+  ],
+  "messages_today": 1,
+  "daily_cap": 200
+}

@@ -1,0 +1,7 @@
+{
+  "caseId": "foreign_owner",
+  "ownerMatches": false,
+  "liveCloudEnrollment": true,
+  "currentOwnerMacV2Lease": true,
+  "expected": "deny"
+}

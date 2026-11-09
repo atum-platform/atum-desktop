@@ -1,0 +1,122 @@
+{
+ "contract_id": "atum.company-direct-add",
+ "version": "1",
+ "status": "frozen",
+ "header": {
+  "Atum-Company-Wire": "1.12"
+ },
+ "fixtures": [
+  {
+   "file": "fixtures/request.matrix-user.json",
+   "message": "request",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/request.email.json",
+   "message": "request",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/request.invalid-extra.json",
+   "message": "request",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/request.invalid-role.json",
+   "message": "request",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/request.invalid-target.json",
+   "message": "request",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/request.invalid-email-admin.json",
+   "message": "request",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/response.added.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.already-member.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.invited.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.not-allowed.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.roster-full.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.unknown-user.json",
+   "message": "response",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/response.invalid-unknown-user-detail.json",
+   "message": "response",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/response.invalid-added-no-history.json",
+   "message": "response",
+   "expect": "reject"
+  },
+  {
+   "file": "fixtures/readiness.allowed.json",
+   "message": "readiness",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/readiness.invite-only.json",
+   "message": "readiness",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/readiness.not-allowed.json",
+   "message": "readiness",
+   "expect": "accept"
+  },
+  {
+   "file": "fixtures/readiness.invalid-roles.json",
+   "message": "readiness",
+   "expect": "reject"
+  }
+ ],
+ "pack_files": [
+  "README.md",
+  "contract.json",
+  "fixtures/request.matrix-user.json",
+  "fixtures/request.email.json",
+  "fixtures/request.invalid-extra.json",
+  "fixtures/request.invalid-role.json",
+  "fixtures/request.invalid-target.json",
+  "fixtures/request.invalid-email-admin.json",
+  "fixtures/response.added.json",
+  "fixtures/response.already-member.json",
+  "fixtures/response.invited.json",
+  "fixtures/response.not-allowed.json",
+  "fixtures/response.roster-full.json",
+  "fixtures/response.unknown-user.json",
+  "fixtures/response.invalid-unknown-user-detail.json",
+  "fixtures/response.invalid-added-no-history.json",
+  "fixtures/readiness.allowed.json",
+  "fixtures/readiness.invite-only.json",
+  "fixtures/readiness.not-allowed.json",
+  "fixtures/readiness.invalid-roles.json"
+ ]
+}

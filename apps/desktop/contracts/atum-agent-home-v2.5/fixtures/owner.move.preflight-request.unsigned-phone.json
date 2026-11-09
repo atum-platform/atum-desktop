@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "surface": "phone",
+    "authenticatedChannel": "phone"
+  },
+  "idempotencyKey": "00000000-0000-4000-8000-00f765af1c54",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "target": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "chosenModel": {
+    "destination": "mac:00000000-0000-4000-8000-b454f82c5857",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+    "source": "chatgpt_plan",
+    "connectionRef": "conn_codexplan00000001",
+    "model": "gpt-5.6-luna",
+    "effort": "medium"
+  },
+  "catalogRevision": 4,
+  "expectedHomeEpoch": 4,
+  "expectedActiveMoveId": null
+}

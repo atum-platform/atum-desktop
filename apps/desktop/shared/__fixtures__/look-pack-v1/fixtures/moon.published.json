@@ -1,0 +1,166 @@
+{
+  "profile": "atum.look-pack/1",
+  "pack_id": "00000000-0000-4000-8000-177920da9661",
+  "version": 1,
+  "publisher": {
+    "kind": "app",
+    "app_id": "00000000-0000-4000-8000-e79acd97ac88"
+  },
+  "name": {
+    "vi": "Moon",
+    "en": "Moon"
+  },
+  "accent": {
+    "light": "#D8612F",
+    "dark": null
+  },
+  "chat": {
+    "background": {
+      "light": {
+        "tone": "dark",
+        "base": "#0E1D60",
+        "layers": [
+          {
+            "asset": {
+              "sha256": "7b6e946ecb9cbbe0dd1fe6ea799150b2394694f608f5350223265509d34c62dc",
+              "kind": "vector",
+              "width": 600,
+              "height": 600,
+              "variants": [
+                {
+                  "mime": "image/svg+xml",
+                  "sha256": "7b6e946ecb9cbbe0dd1fe6ea799150b2394694f608f5350223265509d34c62dc",
+                  "bytes": 40182,
+                  "width": 600,
+                  "height": 600,
+                  "use": "full"
+                },
+                {
+                  "mime": "image/webp",
+                  "sha256": "d641c5f367275faf52797a8895054d764603692dc7dbb111260c78d8a35b99c2",
+                  "bytes": 88666,
+                  "width": 1440,
+                  "height": 1440,
+                  "use": "full"
+                },
+                {
+                  "mime": "image/webp",
+                  "sha256": "e2eb38a09fdc6f2f281d21105e8a3203352d9eab73070532b4fd4484e75800d1",
+                  "bytes": 186522,
+                  "width": 2880,
+                  "height": 2880,
+                  "use": "full"
+                },
+                {
+                  "mime": "image/webp",
+                  "sha256": "a1e49e7d056adb62e9e4fee67f81079ce76c736942a50fb71edc84c5920027ab",
+                  "bytes": 7980,
+                  "width": 240,
+                  "height": 160,
+                  "use": "thumb"
+                }
+              ]
+            },
+            "fit": "cover",
+            "tile_px": null,
+            "position": "center",
+            "opacity": 0.38
+          }
+        ]
+      },
+      "dark": null
+    },
+    "tokens": {
+      "colors": {
+        "foreground": "#FFFFFF",
+        "background": "#0E1D60",
+        "owner_bubble": "#F7F6F2",
+        "app_bubble": "#FFFFFF",
+        "bubble_foreground": "#151515",
+        "border": "#DDDFE7"
+      },
+      "radii": {
+        "owner_bubble": "xl-tail-end",
+        "app_bubble": "xl-tail-start",
+        "composer": "pill"
+      },
+      "fonts": {
+        "ui": "be-vietnam-pro",
+        "body": "literata"
+      },
+      "composer": {
+        "fill": "#F7F6F2",
+        "ink": "#151515",
+        "action": "#0E1D60",
+        "action_ink": "#FFFFFF"
+      }
+    }
+  },
+  "start_card": {
+    "band": {
+      "tone": "dark",
+      "base": "#0E1D60",
+      "layers": [
+        {
+          "asset": {
+            "sha256": "7b6e946ecb9cbbe0dd1fe6ea799150b2394694f608f5350223265509d34c62dc",
+            "kind": "vector",
+            "width": 600,
+            "height": 600,
+            "variants": [
+              {
+                "mime": "image/svg+xml",
+                "sha256": "7b6e946ecb9cbbe0dd1fe6ea799150b2394694f608f5350223265509d34c62dc",
+                "bytes": 40182,
+                "width": 600,
+                "height": 600,
+                "use": "full"
+              },
+              {
+                "mime": "image/webp",
+                "sha256": "d641c5f367275faf52797a8895054d764603692dc7dbb111260c78d8a35b99c2",
+                "bytes": 88666,
+                "width": 1440,
+                "height": 1440,
+                "use": "full"
+              },
+              {
+                "mime": "image/webp",
+                "sha256": "e2eb38a09fdc6f2f281d21105e8a3203352d9eab73070532b4fd4484e75800d1",
+                "bytes": 186522,
+                "width": 2880,
+                "height": 2880,
+                "use": "full"
+              },
+              {
+                "mime": "image/webp",
+                "sha256": "a1e49e7d056adb62e9e4fee67f81079ce76c736942a50fb71edc84c5920027ab",
+                "bytes": 7980,
+                "width": 240,
+                "height": 160,
+                "use": "thumb"
+              }
+            ]
+          },
+          "fit": "cover",
+          "tile_px": null,
+          "position": "center",
+          "opacity": 0.45
+        }
+      ]
+    }
+  },
+  "regions": {},
+  "derived": {
+    "light": {
+      "worst": "#606A96",
+      "ink": "#FFFFFFFF",
+      "ink_soft": "#FFFFFFF2",
+      "ink_muted": "#FFFFFFE6",
+      "ink_faint": "#FFFFFFB3",
+      "line": "#FFFFFFA6",
+      "scrim": "#0E1D60"
+    }
+  },
+  "digest": "2bc4b2435bdb603ebda29b3b27f63c97c1fc346f726011099f27acd37689eb9f"
+}

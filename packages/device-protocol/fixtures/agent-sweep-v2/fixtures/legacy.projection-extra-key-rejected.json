@@ -1,0 +1,19 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "sourceCursors": {
+    "app:00000000-0000-4000-8000-a3a9e1ed9732:chat": "opaque:unknown",
+    "atum_chats": "legacy:chats",
+    "conversation": "legacy:conversation",
+    "google_calendar": "legacy:mixed-calendar-drive",
+    "google_drive": "opaque:drive:first-independent",
+    "google_mail": "legacy:mail"
+  },
+  "legacySourceWatermarks": {
+    "googleMail": "legacy:mail",
+    "googleCalendar": "legacy:mixed-calendar-drive",
+    "atumChats": "legacy:chats",
+    "conversation": "legacy:conversation",
+    "memory": null,
+    "googleDrive": "must-not-widen-legacy-wire"
+  }
+}

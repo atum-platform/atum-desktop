@@ -1,0 +1,7 @@
+{
+  "kind": "byo",
+  "connectionId": "openai-key",
+  "provider": "openai",
+  "model": "gpt-6-luna",
+  "effort": "medium"
+}

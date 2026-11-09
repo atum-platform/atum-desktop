@@ -1,0 +1,1 @@
+{"steps":[{"from":"absent","to":"provisioning","event":"claim"},{"from":"provisioning","to":"active","event":"create_and_read_back"},{"from":"active","to":"reconciling","event":"authority_changed"},{"from":"reconciling","to":"active","event":"members_confirmed"}]}

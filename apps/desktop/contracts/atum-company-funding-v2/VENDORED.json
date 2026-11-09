@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-funding/2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "6adad50a4c72f0686d8fa3522d75256734084cce",
+  "path": "spec/company-funding/v2",
+  "sha256": "daadcac6f0ed5c10339b42922b443c17267df70a85afecb0cef06149920f79a3",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

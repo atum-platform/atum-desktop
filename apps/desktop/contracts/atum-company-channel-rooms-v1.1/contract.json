@@ -1,0 +1,733 @@
+{
+  "contract_id": "atum.company-channel-rooms",
+  "version": "1.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/a1-multi-room-final-witness.sequence.json",
+    "fixtures/a3-mapped-exclusion-pending-unmapped.response.json",
+    "fixtures/general-readmission-invite-before-unban.sequence.json",
+    "fixtures/general-readmission-unban-invite.sequence.json",
+    "fixtures/reconciliation-complete.sequence.json",
+    "fixtures/reconciliation-skip-witness.sequence.json",
+    "fixtures/room-error-raw.response.json",
+    "fixtures/room-error-stale.response.json",
+    "fixtures/room-plan-missing-exclusions.response.json",
+    "fixtures/room-plan-overflow.response.json",
+    "fixtures/room-plan.request.json",
+    "fixtures/room-plan.response.json",
+    "fixtures/room-reconciled-missing-witness.request.json",
+    "fixtures/room-reconciled.request.json",
+    "fixtures/room-reconciled.response.json"
+  ],
+  "row": "C2 exact admission-scoped hosted-manager room plan",
+  "providers": [
+    "Atum platform company/channel authority"
+  ],
+  "consumers": [
+    "fenced hosted Matrix room manager"
+  ],
+  "base": {
+    "contract": "atum.company-channel-rooms/1",
+    "path": "spec/company-channel-rooms/v1",
+    "kind": "pack",
+    "sha256": "45f785f4db22f330f9d58c88e5af06a655581528f73fa947382e82b37e9fc60e",
+    "rule": "successor; v1 remains frozen"
+  },
+  "plan": {
+    "sets": "desiredRecipients, exclusions, unresolvedAdmissions and possibleGrants are complete exact sets",
+    "generations": [
+      "companyGeneration",
+      "channelGeneration",
+      "planGeneration"
+    ],
+    "exclusions": "processed even when another desired admission is unresolved; identity-less principals with no historical Matrix userId are skipped rather than blocking mapped exclusions",
+    "uncertain": "issued or uncertain invitations are possible grants until witnessed banned"
+  },
+  "completion": {
+    "rule": "current readback plus exact invited, banned, possible-grant witness, metadata and policy sets",
+    "restart": "resume durable effects; never fabricate completion",
+    "retention": "retain at most 100 exclusions; after full ban witness and no possible grant remains, prune oldest fully witnessed exclusions before admitting more work"
+  },
+  "readmission": {
+    "general": "for epoch N exclusion and epoch N+1 recipient, witness unban of the old Matrix identity before inviting the new epoch"
+  },
+  "r1_compatibility": [
+    "pending and uncertain invitations count as possible live grants",
+    "unmapped admission does not block exclusions",
+    "multi-room company removal completes only on the final room witness",
+    "SQL authority ends before witnessed Matrix cleanup"
+  ],
+  "errors": [
+    "stale_plan",
+    "target_mismatch",
+    "plan_too_large",
+    "mapping_unresolved",
+    "witness_incomplete"
+  ],
+  "fixture_relations": [
+    {
+      "id": "room_reconcile.possible_grants_witnessed",
+      "op": "projected_subset",
+      "source": {
+        "file": "fixtures/room-plan.response.json",
+        "path": "possibleGrants",
+        "element": "userId"
+      },
+      "target": {
+        "file": "fixtures/room-reconciled.request.json",
+        "path": "witnessedPossibleGrantUserIds"
+      }
+    },
+    {
+      "id": "room_reconcile.exclusions_banned",
+      "op": "projected_subset",
+      "source": {
+        "file": "fixtures/room-plan.response.json",
+        "path": "exclusions",
+        "element": "memberRef"
+      },
+      "target": {
+        "file": "fixtures/room-reconciled.request.json",
+        "path": "bannedMemberRefs"
+      }
+    },
+    {
+      "id": "room_reconcile_missing.possible_grants_witnessed",
+      "op": "projected_subset",
+      "source": {
+        "file": "fixtures/room-plan.response.json",
+        "path": "possibleGrants",
+        "element": "userId"
+      },
+      "target": {
+        "file": "fixtures/room-reconciled-missing-witness.request.json",
+        "path": "witnessedPossibleGrantUserIds"
+      }
+    }
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "principal": {
+      "ref": "uuid"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 512,
+      "pattern": "@[!-9;-~]{1,255}:[!-~]{1,255}"
+    },
+    "recipient": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "admissionGeneration": {
+          "ref": "generation"
+        },
+        "principal": {
+          "ref": "principal"
+        },
+        "userId": {
+          "ref": "user_id"
+        }
+      }
+    },
+    "exclusion": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "reason": {
+          "enum": [
+            "left",
+            "removed",
+            "company_removed",
+            "epoch_changed"
+          ]
+        }
+      },
+      "optional": {
+        "principal": {
+          "ref": "principal"
+        },
+        "userId": {
+          "ref": "user_id"
+        }
+      }
+    },
+    "unresolved": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "reason": {
+          "enum": [
+            "missing_matrix_mapping",
+            "invitation_uncertain"
+          ]
+        }
+      }
+    },
+    "possible_grant": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "principal": {
+          "ref": "principal"
+        },
+        "userId": {
+          "ref": "user_id"
+        },
+        "source": {
+          "enum": [
+            "acknowledged",
+            "issued",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": {
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "topic": {
+          "type": "string",
+          "min": 0,
+          "max": 250
+        },
+        "posting": {
+          "enum": [
+            "enabled",
+            "archived_read_only"
+          ]
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        }
+      }
+    },
+    "plan_request": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "assignmentEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "plan_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "companyGeneration": {
+          "ref": "generation"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "desiredRecipients": {
+          "type": "array",
+          "items": {
+            "ref": "recipient"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "ref": "exclusion"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "unresolvedAdmissions": {
+          "type": "array",
+          "items": {
+            "ref": "unresolved"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "possibleGrants": {
+          "type": "array",
+          "items": {
+            "ref": "possible_grant"
+          },
+          "min": 0,
+          "max": 200,
+          "unique": true
+        },
+        "action": {
+          "enum": [
+            "reconcile",
+            "archive",
+            "restore"
+          ]
+        },
+        "metadata": {
+          "ref": "metadata"
+        }
+      }
+    },
+    "reconcile_request": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "invitedMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "bannedMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "witnessedPossibleGrantUserIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "min": 0,
+          "max": 200,
+          "unique": true
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        },
+        "policyWitness": {
+          "type": "string",
+          "min": 64,
+          "max": 64,
+          "pattern": "[0-9a-f]{64}"
+        }
+      }
+    },
+    "reconcile_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "complete"
+          ]
+        },
+        "remainingUnresolved": {
+          "type": "integer",
+          "min": 0,
+          "max": 100
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_400",
+            "matrix_403",
+            "matrix_404",
+            "matrix_409",
+            "matrix_429",
+            "matrix_503"
+          ]
+        }
+      }
+    },
+    "error_typed": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_409",
+            "matrix_503"
+          ]
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "stale_plan",
+                "target_mismatch",
+                "plan_too_large",
+                "mapping_unresolved",
+                "witness_incomplete"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_response": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "ref": "error_typed"
+        }
+      ]
+    },
+    "trace_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "enum": [
+            "planned",
+            "effects_started",
+            "witnessed",
+            "complete"
+          ]
+        },
+        "to": {
+          "enum": [
+            "planned",
+            "effects_started",
+            "witnessed",
+            "complete"
+          ]
+        },
+        "event": {
+          "enum": [
+            "begin",
+            "record_effects",
+            "readback",
+            "accept"
+          ]
+        }
+      }
+    },
+    "trace": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "trace_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    }
+  },
+  "directions": {
+    "platform_to_manager": {
+      "from": "Atum platform",
+      "to": "assigned fenced manager",
+      "forbidden_fields": [
+        "leaseToken",
+        "credential",
+        "custody*",
+        "sessionSecret"
+      ]
+    },
+    "manager_to_platform": {
+      "from": "assigned fenced manager",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "credential",
+        "custody*",
+        "sessionSecret",
+        "rawProviderError"
+      ]
+    }
+  },
+  "messages": {
+    "room-plan.request": {
+      "direction": "manager_to_platform",
+      "schema": {
+        "ref": "plan_request"
+      }
+    },
+    "room-plan.response": {
+      "direction": "platform_to_manager",
+      "schema": {
+        "ref": "plan_response"
+      }
+    },
+    "room-reconciled.request": {
+      "direction": "manager_to_platform",
+      "schema": {
+        "ref": "reconcile_request"
+      }
+    },
+    "room-reconciled.response": {
+      "direction": "platform_to_manager",
+      "schema": {
+        "ref": "reconcile_response"
+      }
+    },
+    "room.error.response": {
+      "direction": "platform_to_manager",
+      "schema": {
+        "ref": "error_response"
+      }
+    }
+  },
+  "state_machines": {
+    "reconciliation": {
+      "states": [
+        "planned",
+        "effects_started",
+        "witnessed",
+        "complete"
+      ],
+      "initial": [
+        "planned"
+      ],
+      "terminal": [
+        "complete"
+      ],
+      "transitions": [
+        [
+          "planned",
+          "effects_started",
+          "begin"
+        ],
+        [
+          "effects_started",
+          "effects_started",
+          "record_effects"
+        ],
+        [
+          "effects_started",
+          "witnessed",
+          "readback"
+        ],
+        [
+          "witnessed",
+          "complete",
+          "accept"
+        ]
+      ]
+    },
+    "company_removal": {
+      "states": [
+        "pending",
+        "complete"
+      ],
+      "initial": [
+        "pending"
+      ],
+      "terminal": [
+        "complete"
+      ],
+      "transitions": [
+        [
+          "pending",
+          "pending",
+          "room_witnessed"
+        ],
+        [
+          "pending",
+          "complete",
+          "final_room_witnessed"
+        ]
+      ]
+    },
+    "general_readmission": {
+      "states": [
+        "excluded",
+        "unbanned",
+        "invited"
+      ],
+      "initial": [
+        "excluded"
+      ],
+      "terminal": [
+        "invited"
+      ],
+      "transitions": [
+        [
+          "excluded",
+          "unbanned",
+          "unban_old_epoch"
+        ],
+        [
+          "unbanned",
+          "invited",
+          "invite_new_epoch"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/a1-multi-room-final-witness.sequence.json",
+      "machine": "company_removal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/a3-mapped-exclusion-pending-unmapped.response.json",
+      "message": "room-plan.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/general-readmission-invite-before-unban.sequence.json",
+      "machine": "general_readmission",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/general-readmission-unban-invite.sequence.json",
+      "machine": "general_readmission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reconciliation-complete.sequence.json",
+      "machine": "reconciliation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reconciliation-skip-witness.sequence.json",
+      "machine": "reconciliation",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/room-error-raw.response.json",
+      "message": "room.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/room-error-stale.response.json",
+      "message": "room.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/room-plan-missing-exclusions.response.json",
+      "message": "room-plan.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/room-plan-overflow.response.json",
+      "message": "room-plan.response",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/room-plan.request.json",
+      "message": "room-plan.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/room-plan.response.json",
+      "message": "room-plan.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/room-reconciled-missing-witness.request.json",
+      "message": "room-reconciled.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/room-reconciled.request.json",
+      "message": "room-reconciled.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/room-reconciled.response.json",
+      "message": "room-reconciled.response",
+      "expect": "accept"
+    }
+  ]
+}

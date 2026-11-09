@@ -1,0 +1,27 @@
+{
+  "vectors": [
+    {
+      "path": "turn",
+      "taskWindowMs": 1800000,
+      "grantMaxMs": 1800000,
+      "lostDispatch": "uncertain_no_retry",
+      "activeTermRequired": true
+    },
+    {
+      "path": "occurrence",
+      "taskWindowMs": 7200000,
+      "grantMaxMs": 7200000,
+      "lostDispatch": "uncertain_no_retry",
+      "activeTermRequired": true,
+      "catchupWindowMs": 7200000
+    },
+    {
+      "path": "platform_route",
+      "taskWindowMs": 7200000,
+      "grantMaxMs": 7200000,
+      "lostDispatch": "uncertain_no_retry",
+      "activeTermRequired": true,
+      "clientFallbackMinMs": 7230000
+    }
+  ]
+}

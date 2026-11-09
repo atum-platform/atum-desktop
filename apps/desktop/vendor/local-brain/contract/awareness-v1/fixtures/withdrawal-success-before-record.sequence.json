@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "requested",
+      "to": "purged",
+      "event": "derived_payloads_purged"
+    }
+  ]
+}

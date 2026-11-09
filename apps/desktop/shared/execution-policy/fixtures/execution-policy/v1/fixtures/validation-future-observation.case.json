@@ -1,0 +1,25 @@
+{
+  "caseId": "future_observation",
+  "subject": "status.snapshot",
+  "accepted": false,
+  "violation": "future_observation",
+  "value": {
+    "profile": "atum.execution-status/1",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "policyRevision": 0,
+    "asOf": 100,
+    "state": "idle",
+    "current": null,
+    "desired": "cloud",
+    "order": [
+      "cloud"
+    ],
+    "disabled": [],
+    "destinations": {
+      "cloud": {
+        "state": "ready",
+        "observedAt": 101
+      }
+    }
+  }
+}

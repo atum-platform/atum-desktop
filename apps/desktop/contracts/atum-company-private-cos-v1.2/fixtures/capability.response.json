@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 3,
+  "profile": "atum.company-private-cos/1.2",
+  "capability": "company.private-cos",
+  "supportedProfiles": [
+    "atum.company-private-cos/1",
+    "atum.company-private-cos/1.1",
+    "atum.company-private-cos/1.2"
+  ],
+  "wire": {
+    "header": "Atum-Company-Wire",
+    "value": "1.2"
+  },
+  "displayName": "Chief of Staff",
+  "teamDmPosition": 2,
+  "lazyCreation": true,
+  "fundingKind": "company_wallet",
+  "separatePrice": false,
+  "purgeAfterDays": 30,
+  "userExport": false,
+  "roomType": "io.atum.assistant",
+  "roomName": "Chief of Staff",
+  "roomEncrypted": false,
+  "greetingVersion": 2
+}

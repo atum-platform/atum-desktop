@@ -1,0 +1,73 @@
+{
+  "profile": "atum.agent-sources/1",
+  "snapshotRevision": 21,
+  "snapshotDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "generatedAt": 1793242800000,
+  "sources": [
+    {
+      "descriptor": {
+        "id": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+        "kind": "matrix.bot-room",
+        "connectionRef": "matrix_connection_owner_01",
+        "optOutGate": "team_spaces",
+        "revision": 7,
+        "scopeRef": "room_unknown_app_01",
+        "readCapabilities": [
+          {
+            "operationRef": "matrix.read_scoped_room",
+            "backgroundSafe": true
+          }
+        ],
+        "scan": {
+          "operationRef": "matrix.read_scoped_room",
+          "cursorSemantics": "opaque-v1"
+        },
+        "provenanceTags": [
+          "app-declared",
+          "matrix-derived"
+        ],
+        "policyTags": [
+          "owner-only"
+        ]
+      },
+      "availability": "available",
+      "backgroundEligibility": "eligible",
+      "binding": {
+        "connectionRef": "matrix_connection_owner_01",
+        "scopeRef": "room_unknown_app_01",
+        "descriptorRevision": 7,
+        "authorityRevision": 19
+      }
+    },
+    {
+      "descriptor": {
+        "id": "google_drive",
+        "kind": "google.drive",
+        "connectionRef": "google_connection_owner_01",
+        "optOutGate": "google",
+        "revision": 3,
+        "scopeRef": "google_account_01",
+        "readCapabilities": [
+          {
+            "operationRef": "google.search_drive",
+            "backgroundSafe": true
+          }
+        ],
+        "scan": {
+          "operationRef": "google.search_drive",
+          "cursorSemantics": "opaque-v1"
+        },
+        "provenanceTags": [
+          "google-derived"
+        ],
+        "policyTags": [
+          "google-limited-use-v1",
+          "owner-only"
+        ]
+      },
+      "availability": "not_authorized",
+      "backgroundEligibility": "operation_unresolved",
+      "binding": null
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "decision": "claimed",
+  "occurrenceId": "00000000-0000-4000-8000-9b19c9af73a9",
+  "occurrenceAt": 1793017200000,
+  "effectiveDueAt": 1793017200000,
+  "expiresAt": 1793017320000,
+  "settingsRevision": 1,
+  "ownerTimeZone": "Asia/Ho_Chi_Minh",
+  "policy": {
+    "version": 2,
+    "definitionDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policyDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "normalWindow": {
+      "startHour": 8,
+      "endHour": 21
+    },
+    "sourceIntervalMs": 7200000,
+    "effectiveSourceIntervalMs": 7200000,
+    "quietMs": 600000,
+    "claimLeaseMs": 120000,
+    "activeComputeSeconds": 120,
+    "warmupActiveComputeSeconds": 1800,
+    "warmupOffsetsMs": [
+      300000,
+      900000,
+      2100000,
+      3600000
+    ],
+    "inputTokens": 8000,
+    "outputTokens": 1000,
+    "resultCharacters": 500,
+    "sourceChecksPerLocalDay": 12,
+    "effectiveSourceChecksPerLocalDay": 12,
+    "modelAttemptsPerLocalDay": 8,
+    "effectiveModelAttemptsPerLocalDay": 8,
+    "nonurgentOffersPerLocalDay": 2,
+    "everydayModel": "nguyet-thuc",
+    "warmupReleaseLimit": 2,
+    "warmupReleaseBackoffMs": 120000
+  },
+  "sourceWatermarks": {
+    "googleMail": null,
+    "googleCalendar": null,
+    "atumChats": null,
+    "conversation": null,
+    "memory": null
+  },
+  "occurrenceKind": "followup_sweep"
+}

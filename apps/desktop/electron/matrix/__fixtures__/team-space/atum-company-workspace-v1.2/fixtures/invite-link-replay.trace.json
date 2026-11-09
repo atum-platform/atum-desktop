@@ -1,0 +1,45 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "steps": [
+    {
+      "do": "preview",
+      "person": "lan",
+      "expect": {
+        "result": "preview"
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "replayed",
+        "usesRemaining": 4,
+        "consumedNow": false
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "replayed",
+        "usesRemaining": 4,
+        "consumedNow": false
+      }
+    }
+  ]
+}

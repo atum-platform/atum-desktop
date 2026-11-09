@@ -1,0 +1,34 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "Redeeming while a 1.3 direct invitation is pending atomically accepts that invitation attempt; the attempt becomes terminal accepted and the link consumes no use.",
+  "steps": [
+    {
+      "do": "membership",
+      "person": "lan",
+      "state": "invited"
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 5,
+        "consumedNow": false
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r2",
+      "person": "bao",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    }
+  ]
+}

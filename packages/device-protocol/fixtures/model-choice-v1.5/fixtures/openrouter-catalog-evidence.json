@@ -1,0 +1,51 @@
+{
+  "profile": "atum.openrouter-catalog-evidence/1",
+  "capturedAt": "2026-10-18",
+  "source": "openrouter-models-api",
+  "fullCatalogSha256": "572b1c16944f5296346e9da58d4c82b0743e8768714d61eaeb6e7238edbcc08d",
+  "models": [
+    {
+      "id": "openai/gpt-6-luna",
+      "canonical": "openai/gpt-6-luna-20260922",
+      "providerContextBudget": 1050000,
+      "providerOutputLimit": 128000,
+      "inputUsdPerMtok": "0.20",
+      "outputUsdPerMtok": "0.75",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "none"
+      ],
+      "supportsTools": true,
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ]
+    },
+    {
+      "id": "openai/gpt-6.1-sol",
+      "canonical": "openai/gpt-6.1-sol-20260929",
+      "providerContextBudget": 1050000,
+      "providerOutputLimit": 128000,
+      "inputUsdPerMtok": "2.00",
+      "outputUsdPerMtok": "10.00",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "supportsTools": true,
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ]
+    }
+  ]
+}

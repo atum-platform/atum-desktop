@@ -1,0 +1,32 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "Person eligibility is checked before replay lookup: after removal, replaying the formerly successful r1 returns the same uniform unavailable response as a fresh redemption and discloses no stored receipt.",
+  "steps": [
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    },
+    {
+      "do": "membership",
+      "person": "lan",
+      "state": "removed"
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "unavailable"
+      }
+    }
+  ]
+}

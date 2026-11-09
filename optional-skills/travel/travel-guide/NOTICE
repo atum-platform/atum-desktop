@@ -1,0 +1,6 @@
+Copyright (c) 2026 Magnus Hedemark
+
+Source: magnus919/agent-skills @ dde570064b44cbfcbcc28f17d85389919cc61dcd
+Path: travel-guide/SKILL.md
+Licence: MIT (https://github.com/magnus919/agent-skills/blob/dde570064b44cbfcbcc28f17d85389919cc61dcd/LICENSE.md)
+Modification: modern Hermes wrapper, compatible frontmatter, and the shared Atum safety boundary.

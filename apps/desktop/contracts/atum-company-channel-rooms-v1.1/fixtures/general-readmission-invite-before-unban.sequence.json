@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "excluded",
+      "to": "invited",
+      "event": "invite_new_epoch"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "import",
+  "outcome": "refused",
+  "reason": "request_conflict"
+}

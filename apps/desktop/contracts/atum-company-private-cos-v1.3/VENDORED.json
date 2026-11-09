@@ -1,0 +1,9 @@
+{
+  "contract": "atum.company-private-cos/1.3",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "2517a89593cf26854342479bb1b6aeb7bb214152",
+  "path": "spec/company-private-cos/v1.3",
+  "sha256": "c43f703662b6db4376ff5ca27ad0b7bcb47b587879a31cdcb06751cd761d7023",
+  "protocolPackage": "@atum/protocol@0.7.78",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

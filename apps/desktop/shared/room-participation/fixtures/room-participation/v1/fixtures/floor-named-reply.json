@@ -1,0 +1,27 @@
+{
+  "facts": {
+    "eventId": "$reply",
+    "kind": "named",
+    "candidates": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid",
+      "@assistant-d:example.invalid",
+      "@assistant-e:example.invalid"
+    ],
+    "mentions": [],
+    "replySenderId": "@assistant-b:example.invalid",
+    "ownAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid",
+      "@assistant-d:example.invalid",
+      "@assistant-e:example.invalid"
+    ]
+  },
+  "expected": {
+    "order": [
+      "@assistant-b:example.invalid"
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 3,
+  "companyId": "00000000-0000-4000-8000-da4679f81a15",
+  "target": {
+    "kind": "conversation",
+    "conversationId": "00000000-0000-4000-8000-1a50ef96461f",
+    "conversationKind": "dm",
+    "participantSetDigest": "14c8e0c4286d2c0c829c6e105157a1e6017805c05ec59817e81538a3fc2304dd"
+  },
+  "companyGeneration": 12,
+  "targetGeneration": 4,
+  "planGeneration": 8,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 2,
+      "admissionGeneration": 3,
+      "principal": "00000000-0000-4000-8000-ee3d64602eef",
+      "userId": "@p1:example.invalid"
+    },
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 2,
+      "principal": "00000000-0000-4000-8000-0332c8d01fb3",
+      "userId": "@p2:example.invalid"
+    }
+  ],
+  "exclusions": [
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1,
+      "reason": "removed",
+      "principal": "00000000-0000-4000-8000-6c04333bfe74",
+      "userId": "@p3:example.invalid"
+    }
+  ],
+  "unresolvedAdmissions": [
+    {
+      "memberRef": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
+      "admissionEpoch": 1,
+      "reason": "missing_matrix_mapping"
+    }
+  ],
+  "possibleGrants": [
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1,
+      "principal": "00000000-0000-4000-8000-6c04333bfe74",
+      "userId": "@p3:example.invalid",
+      "source": "uncertain"
+    }
+  ],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "Anh + Bảo",
+    "topic": "",
+    "posting": "enabled",
+    "metadataRevision": 2
+  }
+}

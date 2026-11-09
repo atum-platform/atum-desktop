@@ -1,0 +1,33 @@
+{
+  "id": "!Qk3vLm0wXzRbT:example.invalid",
+  "label": "Linh",
+  "messages": [
+    {
+      "eventId": "$m1abc",
+      "at": 1792000000000,
+      "from": "Linh",
+      "mine": false,
+      "kind": "text",
+      "text": "Mai họp lúc 9 giờ nhé.",
+      "edited": true
+    },
+    {
+      "eventId": "$m2abc",
+      "at": 1792000060000,
+      "from": "Tôi",
+      "mine": true,
+      "kind": "image",
+      "text": "[image]"
+    },
+    {
+      "eventId": "$m3abc",
+      "at": 1792000070000,
+      "from": "Linh",
+      "mine": false,
+      "kind": "other",
+      "text": null,
+      "redacted": true
+    }
+  ],
+  "next": "t11-300_0_0_0_0_0_0_0_0_0"
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "finishing_current_work",
+      "to": "ready",
+      "event": "destination_ready"
+    }
+  ]
+}

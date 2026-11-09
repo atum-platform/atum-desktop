@@ -1,0 +1,6 @@
+{
+  "rule": "checkpoint_loss_acceptance",
+  "acceptCheckpointLoss": true,
+  "lossCode": "cloud_browser_session",
+  "lastCheckpointAtPlatform": 1799998200000
+}

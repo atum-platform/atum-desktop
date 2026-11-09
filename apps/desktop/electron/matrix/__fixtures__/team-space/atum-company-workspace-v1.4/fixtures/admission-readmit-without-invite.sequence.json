@@ -1,0 +1,34 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "invited",
+      "event": "private_invite"
+    },
+    {
+      "from": "invited",
+      "to": "active",
+      "event": "accept"
+    },
+    {
+      "from": "active",
+      "to": "revoking",
+      "event": "remove"
+    },
+    {
+      "from": "revoking",
+      "to": "removed",
+      "event": "witness_removed"
+    },
+    {
+      "from": "removed",
+      "to": "none",
+      "event": "new_admission"
+    },
+    {
+      "from": "none",
+      "to": "active",
+      "event": "accept"
+    }
+  ]
+}

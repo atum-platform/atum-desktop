@@ -1,0 +1,13 @@
+name: atum-device
+version: "0.1.0"
+description: "Run the cloud assistant's file, shell and screen tools on the owner's Mac."
+author: "Atum"
+kind: standalone
+provides_tools:
+  - terminal
+  - read_file
+  - write_file
+  - patch
+  - search_files
+  - computer_use
+  - device_send_file

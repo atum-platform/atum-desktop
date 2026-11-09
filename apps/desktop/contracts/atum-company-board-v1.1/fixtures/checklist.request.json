@@ -1,0 +1,1 @@
+{"schemaVersion":1,"requestId":"00000000-0000-4000-8000-5703e8955d05","operation":"checklist","cardId":"00000000-0000-4000-8000-1794b62d2fb7","expectedCardRevision":5,"mutation":{"action":"add","item":{"itemId":"00000000-0000-4000-8000-6ee800afda90","text":"Check legal copy","order":0}}}

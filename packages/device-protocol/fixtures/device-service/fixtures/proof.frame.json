@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "type": "Proof",
+  "body": {
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "challenge": "rDL2UP41KBQ-HUXX9YTMuS-hROOYPGkfC1WlGW-gu1I",
+    "helloHash": "a1fuFszqu37sV2m_ir2wHX7Ljs6YVr3IJrGYqbBok3k"
+  },
+  "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+  "sig": "Md3XnSmN9oDOooPYW4rDBTaGwjY9hmC5N-WkFkEqb4bsI-9ZlE5UhMZpbME43NAVunIHltW4Qq9CwVhpoMOJiA"
+}

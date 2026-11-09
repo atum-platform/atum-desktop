@@ -1,0 +1,24 @@
+{
+  "caseId": "duplicate_path_different_metadata",
+  "subject": "manifest",
+  "value": {
+    "profile": "atum.cloud-home-read/1",
+    "agentPrincipal": "00000000-0000-4000-8000-e532b820eb2f",
+    "generation": 7,
+    "committedAt": 1791877000000,
+    "files": [
+      {
+        "path": "memories/MEMORY.md",
+        "size": 19,
+        "sha256": "eb469ef2f6ebec6b5f7b830730266a1ac4de8dbee0f698c7e871c601790f0b46"
+      },
+      {
+        "path": "memories/MEMORY.md",
+        "size": 20,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ]
+  },
+  "accepted": false,
+  "violation": "duplicate_path"
+}

@@ -1,0 +1,18 @@
+{
+  "vectors": [
+    {
+      "capability": "model_grant",
+      "channel": "closed_environment",
+      "durable": "none",
+      "boundToTurn": true,
+      "inModelContext": false
+    },
+    {
+      "capability": "refresh_token",
+      "channel": "hydrate_credentials_header",
+      "durable": "none",
+      "boundToTurn": true,
+      "inModelContext": false
+    }
+  ]
+}

@@ -1,0 +1,232 @@
+{
+  "contract_id": "atum.agent-source-gates",
+  "version": 1,
+  "status": "frozen",
+  "protocol_release": "0.7.57",
+  "row": "Owner 2026-10-29: one account-scoped revisioned snapshot projects the six existing source opt-outs to every host",
+  "parameters": {
+    "maximum_route_bytes": 4096,
+    "maximum_revision": 9007199254740991
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "revision": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "gates": {
+      "type": "object",
+      "required": {
+        "google": {
+          "type": "boolean"
+        },
+        "folders": {
+          "type": "boolean"
+        },
+        "messages": {
+          "type": "boolean"
+        },
+        "browser": {
+          "type": "boolean"
+        },
+        "location": {
+          "type": "boolean"
+        },
+        "team_spaces": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "snapshot": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-source-gates/1"
+        },
+        "revision": {
+          "ref": "revision"
+        },
+        "gates": {
+          "ref": "gates"
+        }
+      },
+      "optional": {},
+      "additional": false,
+      "maxEncodedBytes": 4096
+    },
+    "write": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-source-gates/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "expectedRevision": {
+          "ref": "revision"
+        },
+        "gates": {
+          "ref": "gates"
+        }
+      },
+      "optional": {},
+      "additional": false,
+      "maxEncodedBytes": 4096
+    },
+    "write_conflict": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-source-gates/1"
+        },
+        "error": {
+          "const": "revision_conflict"
+        },
+        "current": {
+          "ref": "snapshot"
+        }
+      },
+      "optional": {},
+      "additional": false,
+      "maxEncodedBytes": 4096
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    },
+    "platform_to_owner": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    }
+  },
+  "messages": {
+    "gate.snapshot": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "ref": "snapshot"
+      }
+    },
+    "gate.write": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "write"
+      }
+    },
+    "gate.write-conflict": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "ref": "write_conflict"
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/snapshot-default-on.json",
+      "message": "gate.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/snapshot-max-revision.json",
+      "message": "gate.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/snapshot-selective-off.json",
+      "message": "gate.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/snapshot-unknown-gate-rejected.json",
+      "message": "gate.snapshot",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/write-disable.json",
+      "message": "gate.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/write-extra-field-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/write-gate-type-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "type"
+    },
+    {
+      "file": "fixtures/write-malformed-request-id-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/write-missing-gate-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/write-negative-revision-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/write-reenable.json",
+      "message": "gate.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/write-stale-revision-conflict.json",
+      "message": "gate.write-conflict",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/write-unknown-gate-rejected.json",
+      "message": "gate.write",
+      "expect": "reject",
+      "violation": "unknown_field"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/snapshot-default-on.json",
+    "fixtures/snapshot-max-revision.json",
+    "fixtures/snapshot-selective-off.json",
+    "fixtures/snapshot-unknown-gate-rejected.json",
+    "fixtures/write-disable.json",
+    "fixtures/write-extra-field-rejected.json",
+    "fixtures/write-gate-type-rejected.json",
+    "fixtures/write-malformed-request-id-rejected.json",
+    "fixtures/write-missing-gate-rejected.json",
+    "fixtures/write-negative-revision-rejected.json",
+    "fixtures/write-reenable.json",
+    "fixtures/write-stale-revision-conflict.json",
+    "fixtures/write-unknown-gate-rejected.json"
+  ]
+}

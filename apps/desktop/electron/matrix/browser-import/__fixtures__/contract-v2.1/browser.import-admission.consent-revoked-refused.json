@@ -1,0 +1,100 @@
+{
+  "envelope": {
+    "authenticatedData": {
+      "ownerUserId": "@owner:atum.example",
+      "selectedAgents": [
+        {
+          "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+          "profileIsolation": "separate"
+        }
+      ],
+      "recipientBasis": "primary_default",
+      "computerId": "00000000-0000-4000-8000-b454f82c5857",
+      "attachmentEpoch": 7,
+      "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+      "siteCount": 4,
+      "importId": "00000000-0000-4000-8000-cd2a20671fb6",
+      "expiresAt": 1800000900000,
+      "createdAt": 1800000000000,
+      "hpkeKeyId": "ofHARleIvKeI4HbYMZy9XdYmQ1zr-ztBq_aRcohRL2g",
+      "contentType": "playwright_storage_state_cookies_only",
+      "plaintextEncoding": "RFC8785_JCS_UTF8"
+    },
+    "admissionDigest": "95af6d1889c60a16132b9966c3195935b9d18b5a2d1f32a10bbc6eb4539a6df7",
+    "ciphertextDigest": "a23d3d436812334ed917193c51a3797b877772ef31d6c93575024b457a246b17",
+    "recipient": {
+      "computerId": "00000000-0000-4000-8000-b454f82c5857",
+      "attachmentEpoch": 7
+    },
+    "signer": {
+      "deviceServiceId": "00000000-0000-4000-8000-f80f3c5d3a2c",
+      "approvalKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "signatureAlgorithm": "ECDSA_P256_SHA256_P1363",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "hpke": {
+      "mode": "base",
+      "info": "atum.browser-import/v1",
+      "aadEncoding": "RFC8785_JCS_UTF8",
+      "kem": "DHKEM_X25519_HKDF_SHA256",
+      "kdf": "HKDF_SHA256",
+      "aead": "AES_256_GCM",
+      "encapsulatedKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "ciphertext": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "relayAccess": "ciphertext_only"
+  },
+  "admission": {
+    "importId": "00000000-0000-4000-8000-cd2a20671fb6",
+    "ownerUserId": "@owner:atum.example",
+    "approvedBy": "@owner:atum.example",
+    "approvedAt": 1799999999000,
+    "source": {
+      "browser": "chrome",
+      "profileOrdinal": 1
+    },
+    "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+    "siteCount": 4,
+    "skippedSiteCount": 1,
+    "selectedAgents": [
+      {
+        "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+        "profileIsolation": "separate"
+      }
+    ],
+    "recipientBasis": "primary_default",
+    "recipient": {
+      "computerId": "00000000-0000-4000-8000-b454f82c5857",
+      "attachmentEpoch": 7
+    },
+    "expiresAt": 1800000900000,
+    "consent": "explicit_owner_approval"
+  },
+  "trusted": {
+    "ownerUserId": "@owner:atum.example",
+    "allowedAgents": [
+      "00000000-0000-4000-8000-bd7662a5eeb4"
+    ],
+    "primaryAgentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "computerId": "00000000-0000-4000-8000-b454f82c5857",
+    "authenticatedAttachmentEpoch": 7,
+    "currentAttachmentEpoch": 7,
+    "now": 1800000000000,
+    "admittedAt": 1800000000000,
+    "importIdSeen": false,
+    "eraseState": "none",
+    "removedAfter": null,
+    "consentRevoked": true,
+    "verifiedSignature": {
+      "valid": true,
+      "signerState": "active",
+      "ownerUserId": "@owner:atum.example",
+      "deviceServiceId": "00000000-0000-4000-8000-f80f3c5d3a2c",
+      "approvalKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "consent_revoked"
+  }
+}

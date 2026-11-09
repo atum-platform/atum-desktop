@@ -1,0 +1,14 @@
+{
+  "issuer": "https://auth.atumplatform.com/",
+  "server": "https://chat.atumplatform.com",
+  "nativeClientId": "01J00000000000000000000001",
+  "domain": {
+    "nativeClientId": "01J00000000000000000000003",
+    "resource": "https://api.atumplatform.com/api/matrix/v1"
+  },
+  "managedModel": {
+    "gateway": "https://gateway.atumplatform.com"
+  },
+  "appWorkspace": true,
+  "companyWorkspace": true
+}

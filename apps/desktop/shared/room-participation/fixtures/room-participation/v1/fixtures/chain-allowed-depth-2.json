@@ -1,0 +1,71 @@
+{
+  "facts": {
+    "ownerUserId": "@owner:example.invalid",
+    "agentUserId": "@assistant-c:example.invalid",
+    "ownAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid",
+      "@assistant-d:example.invalid",
+      "@assistant-e:example.invalid"
+    ],
+    "roomMode": "meeting",
+    "now": 2000,
+    "eventId": "$hop-2",
+    "events": [
+      {
+        "eventId": "$owner",
+        "senderUserId": "@owner:example.invalid",
+        "senderVerified": true,
+        "at": 1000,
+        "mentions": [],
+        "roomId": "!meeting:example.invalid",
+        "eventKind": "text"
+      },
+      {
+        "eventId": "$hop-1",
+        "senderUserId": "@assistant-a:example.invalid",
+        "senderVerified": true,
+        "at": 1100,
+        "mentions": [
+          "@assistant-b:example.invalid"
+        ],
+        "roomId": "!meeting:example.invalid",
+        "eventKind": "text",
+        "chain": {
+          "origin": "$owner",
+          "depth": 1,
+          "parent": "$owner"
+        }
+      },
+      {
+        "eventId": "$hop-2",
+        "senderUserId": "@assistant-b:example.invalid",
+        "senderVerified": true,
+        "at": 1200,
+        "mentions": [
+          "@assistant-c:example.invalid"
+        ],
+        "roomId": "!meeting:example.invalid",
+        "eventKind": "text",
+        "chain": {
+          "origin": "$owner",
+          "depth": 2,
+          "parent": "$hop-1"
+        }
+      }
+    ],
+    "spokenAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid"
+    ],
+    "originTurns": 2,
+    "budgetAllowed": true,
+    "roomId": "!meeting:example.invalid"
+  },
+  "expected": {
+    "allowed": true,
+    "origin": "$owner",
+    "depth": 2
+  }
+}

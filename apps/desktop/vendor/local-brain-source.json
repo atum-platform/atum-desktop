@@ -1,0 +1,397 @@
+{
+  "schema": "atum.local-brain.public-source/1",
+  "publicationStatus": "sanitised-public-source",
+  "repository": "https://github.com/atum-platform/atum-app",
+  "path": "apps/desktop/vendor/local-brain",
+  "note": "Public retained-source integrity only. Historical producer commit, binary archive locks and acceptance authority stay private. No binary/release acceptance is implied.",
+  "files": {
+    "README.md": {
+      "sha256": "f54e690698536a7d68fe38ccc8bcaf3728b1619a9e79ff606125cfa0838f72be",
+      "bytes": 11659
+    },
+    "contract/awareness-v1/PINNED-SHA256": {
+      "sha256": "61e79fd22ecd5a5d43ee2daae9bfcd113685dd212bee568ccd279970459103f6",
+      "bytes": 65
+    },
+    "contract/awareness-v1/README.md": {
+      "sha256": "123b4eb21f05970ea0e54305f05cddb7a5fca305047bef6207a4f6ea7d97077e",
+      "bytes": 35709
+    },
+    "contract/awareness-v1/SOURCE.json": {
+      "sha256": "a7827aa1fb3f06e7d347c2c79ccd164f6f9a1592ef2eb07493cbbd1e8e87b0ed",
+      "bytes": 471
+    },
+    "contract/awareness-v1/contract.json": {
+      "sha256": "629e71eae61b7cb29cb929cf7e9473e89666cc9c76dfea7c7e85cd3af387eed5",
+      "bytes": 66488
+    },
+    "contract/awareness-v1/fixtures/correction-receipt.json": {
+      "sha256": "94f0fcb3774826fc1e044626e1232e5c65dff26cd0140cd64932130e9e4a3d6e",
+      "bytes": 140
+    },
+    "contract/awareness-v1/fixtures/correction.json": {
+      "sha256": "e46b3c7a56c106cbf008fa408ed6f1856ef2206f7c8e9552b544cefe4b100184",
+      "bytes": 581
+    },
+    "contract/awareness-v1/fixtures/coverage-needs-keys.json": {
+      "sha256": "e7970bf422c64941b792fcf9347f4c8207798ccefe3a83447379fb32501e61c4",
+      "bytes": 282
+    },
+    "contract/awareness-v1/fixtures/coverage-partial-google-fence.json": {
+      "sha256": "f27aa49aadd19422e776aac3695b9176071141ffb7e99b7e2cd2c42b7c47efdb",
+      "bytes": 249
+    },
+    "contract/awareness-v1/fixtures/coverage-paused-drive.json": {
+      "sha256": "cb588195f6c2259a6123d716fb1864b3eef6b4e3225619a6f3be6d0f22036783",
+      "bytes": 154
+    },
+    "contract/awareness-v1/fixtures/coverage-paused-without-reason.json": {
+      "sha256": "052511d038d2a6c9305a499a530e809c98fbb68196c7d78da99c06b5a574f96d",
+      "bytes": 132
+    },
+    "contract/awareness-v1/fixtures/coverage-ready.json": {
+      "sha256": "e61d779b9f4fd749ab4f0a8cdd54a59f2ff71ff71a931d3e5c99525c29f869b9",
+      "bytes": 307
+    },
+    "contract/awareness-v1/fixtures/coverage-report.json": {
+      "sha256": "f724ed5541ad5234a52a339d66be0aa10fff41b8cffeffb8cc1dec9a7c8b27b5",
+      "bytes": 774
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-all-excluded.json": {
+      "sha256": "f2842ac56e4691c0e1b7e1b1f8cb54f2b4dd76f69d0cab58614b254c1b51a762",
+      "bytes": 284
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-catching_up.json": {
+      "sha256": "8d6bbb7f6de31bedf5fe5a67c50ee2f73c350b10ea425cf035f2046b6f436c3e",
+      "bytes": 287
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-empty-error.json": {
+      "sha256": "05984919862c196769152a68b1aac9d19c06fb3cdf9fd37e50ea099146c2437e",
+      "bytes": 281
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-empty-excluded.json": {
+      "sha256": "4a93f5da03306ea1e3ec5aa3ac80ec2d5825dc0bb0d1290ebd56dfe9ee402bb6",
+      "bytes": 284
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-empty.json": {
+      "sha256": "190fb510fc7222c89be9d92cac46ee0605e928ccc17b47def6a9bc45d2d0ed08",
+      "bytes": 281
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-error.json": {
+      "sha256": "112a3de696020e1a18bee1fb8a4cf4e623e34bd1edddd851f4358901011710b4",
+      "bytes": 281
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-false-excluded.json": {
+      "sha256": "5c7712dff1a9efc299ad7671ea3a94aca3c914ea35e15228cb4496c06e66900b",
+      "bytes": 284
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-needs_keys.json": {
+      "sha256": "57433149531c483fd82993e4ee6f11e64c4bbbb1dca3ef203ab2a457acba1574",
+      "bytes": 286
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-offline.json": {
+      "sha256": "b7b6faf3650e38c0d58fc1a05937e7fc323aeb387521738c2a5a5b6f3ebd962c",
+      "bytes": 283
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-partial.json": {
+      "sha256": "aefdcb1901c5ef021b20152cf4013abca730194e7eb128ee48bf4e9921ef6b5a",
+      "bytes": 283
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-paused.json": {
+      "sha256": "6a8c9b3bfc5c3be4151e151bcb1a51f80e6e1d4387f9f419ebe0da5c14a4fd3c",
+      "bytes": 282
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-ready.json": {
+      "sha256": "f477f95bb2fa8728ddb3c9159a757c2b510ab70d5ee2259133ffc4d99baf2dc3",
+      "bytes": 281
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-unsupported-ready.json": {
+      "sha256": "94c370329fa992fecfa8307c939b6c0799025ffcd65bd0f8d1e244062cde34e8",
+      "bytes": 281
+    },
+    "contract/awareness-v1/fixtures/coverage-summary-wrong-priority.json": {
+      "sha256": "0fbb31ad815fff1c9f5607dd20970a35848a044b0f0f1e3534cf791e3d836dcc",
+      "bytes": 282
+    },
+    "contract/awareness-v1/fixtures/coverage-summary.json": {
+      "sha256": "d370e7d21bd636b1d00df117996b2a0cd724475aba28905ff89c76bf0795ee38",
+      "bytes": 286
+    },
+    "contract/awareness-v1/fixtures/envelope-drive-file-fenced-account.managed.json": {
+      "sha256": "b4da12f8737976a63a12e554559306bb4184a8b6523b5c55bbaf546cf4ac041b",
+      "bytes": 715
+    },
+    "contract/awareness-v1/fixtures/envelope-drive-file.managed.json": {
+      "sha256": "7cc5e2ef3c19bb6e08edeffc3171422d101593ac997eff85a1ee3e22b3503d79",
+      "bytes": 716
+    },
+    "contract/awareness-v1/fixtures/envelope-edit.managed.json": {
+      "sha256": "c02c100039ab93573fb785f9a232e56dc645d3375acd83251ada7c64f2e2b156",
+      "bytes": 806
+    },
+    "contract/awareness-v1/fixtures/envelope-google-derived-to-managed.managed.json": {
+      "sha256": "d6b32697ab265c4836f34e16db5e89ba6f6f4fb1a751cf8397ca3b7735c8b5f5",
+      "bytes": 815
+    },
+    "contract/awareness-v1/fixtures/envelope-human-group-message.managed.json": {
+      "sha256": "b1ec8bde4935d4c8370033812710cf77580499a1a061d342d8d67ccb0c8bab21",
+      "bytes": 748
+    },
+    "contract/awareness-v1/fixtures/envelope-local-google-derived.local.json": {
+      "sha256": "d6b32697ab265c4836f34e16db5e89ba6f6f4fb1a751cf8397ca3b7735c8b5f5",
+      "bytes": 815
+    },
+    "contract/awareness-v1/fixtures/envelope-names-owner.managed.json": {
+      "sha256": "f63b2312a80b70b401bc8a2399259d49ee9e12bda663409514316d572a1fa794",
+      "bytes": 799
+    },
+    "contract/awareness-v1/fixtures/envelope-redaction-with-content.managed.json": {
+      "sha256": "c625971c2ddb130a00d47266a7ae530cda48ef30507c4893817eda3e5ff3fa4b",
+      "bytes": 806
+    },
+    "contract/awareness-v1/fixtures/envelope-redaction.managed.json": {
+      "sha256": "3e2777030bff8abfb18e079c217528b2986db6e4bd5585233b3457064f65c8b3",
+      "bytes": 770
+    },
+    "contract/awareness-v1/fixtures/fence-ack.json": {
+      "sha256": "723d06bfc8ec894e812bc46617fc8da5ea1c9a096fe1ccf64e151d6b5b294b6d",
+      "bytes": 47
+    },
+    "contract/awareness-v1/fixtures/fence-notice.json": {
+      "sha256": "efd34705467d8e3a4da7e88a0f672529d71098504baa11f2d05fbc854681fb1a",
+      "bytes": 39
+    },
+    "contract/awareness-v1/fixtures/google-fence-account-data.json": {
+      "sha256": "efd34705467d8e3a4da7e88a0f672529d71098504baa11f2d05fbc854681fb1a",
+      "bytes": 39
+    },
+    "contract/awareness-v1/fixtures/provenance-marker.json": {
+      "sha256": "92f8432074f402c4c4983e3269c29a565318f5dd0a862c3c987c9d78ad9bcfe7",
+      "bytes": 31
+    },
+    "contract/awareness-v1/fixtures/reader-advance-without-receipt.sequence.json": {
+      "sha256": "47c94d7a4e2f5238183472b047466c9ec85efb5aa6b8605fa6e1a7e47747e593",
+      "bytes": 190
+    },
+    "contract/awareness-v1/fixtures/reader-receipt-retry.sequence.json": {
+      "sha256": "61dc688edf8ee93f8b72073842af17346fbe4864038fb2a03a2861453b60bb8f",
+      "bytes": 388
+    },
+    "contract/awareness-v1/fixtures/reader-restore-rewind.sequence.json": {
+      "sha256": "04b2564a5308fd2de174b275ce10e483e36063dfedb62492a0d185b5a8bcc327",
+      "bytes": 372
+    },
+    "contract/awareness-v1/fixtures/reader-restore-without-rewind.sequence.json": {
+      "sha256": "ed4751a884b54d6a6ef4abfdbc2ea682d85c864a23ddd3ea66d927cc5dbdb872",
+      "bytes": 114
+    },
+    "contract/awareness-v1/fixtures/recall-args-forged-audience.json": {
+      "sha256": "f91d66c64c0871353be0e85958a32184349375df94c67edd36f1b8232c60ee3b",
+      "bytes": 88
+    },
+    "contract/awareness-v1/fixtures/recall-args.json": {
+      "sha256": "5f1bb99e89a854b437540d56d2cc217b26c5a18d2e43c90ae61a97331d01b72c",
+      "bytes": 165
+    },
+    "contract/awareness-v1/fixtures/receipt-accepted.json": {
+      "sha256": "2bd7b400844566237c79f3f0c3669aeb98b7ff19974481d6ebe210d438f609a9",
+      "bytes": 319
+    },
+    "contract/awareness-v1/fixtures/receipt-duplicate.json": {
+      "sha256": "73a33b0dc1f6d0436d304fea1146c34cd8f7db66e53e54fcdd9970bf53b39b10",
+      "bytes": 320
+    },
+    "contract/awareness-v1/fixtures/receipt-refused-fence.json": {
+      "sha256": "6edaf2728360ca3074c6dbad2c06aa3a6b54ee07457f3aae18d55c7a8f7f6ec0",
+      "bytes": 279
+    },
+    "contract/awareness-v1/fixtures/receipt-refused-google.json": {
+      "sha256": "298fa516bca8f4605ae7bbcbde2fce7ce7753752773966cbb3144bdbbe1be05f",
+      "bytes": 385
+    },
+    "contract/awareness-v1/fixtures/retrieval-outage-with-items.json": {
+      "sha256": "1d249215cc6a09d1b712ae467832663c610da8b8c96d417042acedce0464f97d",
+      "bytes": 1341
+    },
+    "contract/awareness-v1/fixtures/retrieval-outage.json": {
+      "sha256": "5b9369f07c22f22fee1c5d3470c83c60d193d5bffd0c1e9ce78b269d2e8fb75b",
+      "bytes": 234
+    },
+    "contract/awareness-v1/fixtures/retrieval-private-google-derived.json": {
+      "sha256": "df1ef736162f2b7604697629740247c5599077d53ad6c45cbfdd5ec8605e5bef",
+      "bytes": 1401
+    },
+    "contract/awareness-v1/fixtures/retrieval-private-request.json": {
+      "sha256": "d4c4f41fbd471482a8e88f1fcb2d37c96b4e5aec1a54578fead1f67d6853a17c",
+      "bytes": 291
+    },
+    "contract/awareness-v1/fixtures/retrieval-private-response.json": {
+      "sha256": "d292fedfb7a7d18a06fc7d79b460b0c1bd3e36f6d86d1fa7017c9c733b68b1bb",
+      "bytes": 3387
+    },
+    "contract/awareness-v1/fixtures/retrieval-shared-room-canary.json": {
+      "sha256": "c9df81c4ec978ff5c80d06422a3b7fd27c2344b44f30f1b2e0d9c36d7533727b",
+      "bytes": 2942
+    },
+    "contract/awareness-v1/fixtures/retrieval-shared-room-google-derived.json": {
+      "sha256": "159afdcb8f5e9c17594e28deda406ff7972f04dd1fcec710978a7e119291685f",
+      "bytes": 1898
+    },
+    "contract/awareness-v1/fixtures/retrieval-shared-room-response.json": {
+      "sha256": "5d32a7b864fd2b2df1ca13ea3c50b7aec180bb3d2bb9a22b1e93fc69677c2d00",
+      "bytes": 1844
+    },
+    "contract/awareness-v1/fixtures/source-rejoin-clears-exclusion.sequence.json": {
+      "sha256": "7d587fc9cc5b1ff77b13928e5b6e142ca8973738ce846408f4de4212d4f275bd",
+      "bytes": 204
+    },
+    "contract/awareness-v1/fixtures/source-rejoin-keeps-exclusion.sequence.json": {
+      "sha256": "14ad9958df4338c285cac4be86c6c2eb081e136de0a8a591022976ec42567377",
+      "bytes": 562
+    },
+    "contract/awareness-v1/fixtures/withdrawal-exclude-source.json": {
+      "sha256": "4872f1426f302808190db5f31bef52d69cc72cca98f175ed0be003006c5e94af",
+      "bytes": 335
+    },
+    "contract/awareness-v1/fixtures/withdrawal-exclude-without-epoch.json": {
+      "sha256": "eedc072ddf0fab6180494230617e1e73c2d4d8ac0ff956169bc0dbf5483acce3",
+      "bytes": 315
+    },
+    "contract/awareness-v1/fixtures/withdrawal-forget-fact.json": {
+      "sha256": "a61811b0a1e04b1c3c6f5f98366669573287f0672b455c33ba6ddfd7df4b6020",
+      "bytes": 267
+    },
+    "contract/awareness-v1/fixtures/withdrawal-receipt-late-purge.json": {
+      "sha256": "c9bf70969911e3d9f1a9ba1c21c7dbc2247c03ee903123767066fc74cc2df157",
+      "bytes": 213
+    },
+    "contract/awareness-v1/fixtures/withdrawal-receipt.json": {
+      "sha256": "ae5d446723eb8e889fbc874872d58a0cf6ce1e4128edea1ac82fc572b1b41c9e",
+      "bytes": 213
+    },
+    "contract/awareness-v1/fixtures/withdrawal-recorded-then-purged.sequence.json": {
+      "sha256": "0b4ab0fbd08a2cffa9bd717572b35a2affe744abb86f6c056bacb3687c9d507a",
+      "bytes": 314
+    },
+    "contract/awareness-v1/fixtures/withdrawal-success-before-record.sequence.json": {
+      "sha256": "9ec9147ae60202f84524020c4af521c72434ea0bb9134c1dcb4a9a480b5518a9",
+      "bytes": 123
+    },
+    "licenses/GBRAIN-LICENSE": {
+      "sha256": "e56fbb5b3d95756f3fa1cfefa24732ec79f18ece1ad08a4e79e00df57e8b198c",
+      "bytes": 1066
+    },
+    "licenses/PGLITE-LICENSE": {
+      "sha256": "a6cba85bc92e0cff7a450b1d873c0eaa2e9fc96bf472df0247a26bec77bf3ff9",
+      "bytes": 10173
+    },
+    "package.json": {
+      "sha256": "65308601e57b2e33ad86f8c32af4aabb2529a61271149a8aeabd71e965b42849",
+      "bytes": 833
+    },
+    "pin.json": {
+      "sha256": "47e93dc4ca2c272a885ee8eb477064de0d31c54438210a489b60d0f639bdc257",
+      "bytes": 1031
+    },
+    "scripts/build-tarball.mjs": {
+      "sha256": "3aa6331f1a506742717a1847f8b4a36f33d51714b2715e11e8939a7fa06d9346",
+      "bytes": 5895
+    },
+    "scripts/fetch-gbrain.mjs": {
+      "sha256": "43a5374b4bffd3e95b6a7c7ebe8454325c92bc2e2d6f84bdb5b47a5036d40964",
+      "bytes": 4233
+    },
+    "scripts/measure.mjs": {
+      "sha256": "2bec3e84f2903445e455a9653d58c6bb65313efce81f691ea7e09c238a3b9ae0",
+      "bytes": 10907
+    },
+    "src/cli.mjs": {
+      "sha256": "f74f60b9006f407591cece8e26d3bab51eaec32181b9fec14daac68b1ab6f6ea",
+      "bytes": 6424
+    },
+    "src/client.mjs": {
+      "sha256": "8912424898ba66704aed26a771b98ca46281de6bf22bfa63397f25266e7e3eda",
+      "bytes": 3539
+    },
+    "src/contract.mjs": {
+      "sha256": "fa5d6b9fec54715f49c34eea50d89142f220a92d3953f0e29be1fcdcb0d0b804",
+      "bytes": 9970
+    },
+    "src/gbrain.mjs": {
+      "sha256": "26d27ac0f84db01cd54d5036f4d90f8fdee09046403f4f7e3e711975c47998c4",
+      "bytes": 11431
+    },
+    "src/jsonrpc.mjs": {
+      "sha256": "f451a10a375f413095f7bb45170acfa83e784233b81f21bde1ee5c43b7f71111",
+      "bytes": 5109
+    },
+    "src/keys.mjs": {
+      "sha256": "d65dba0b0384085e6269fdc1c832babfb9af7063068e65b4d4b4b4e5bf9c8d13",
+      "bytes": 2680
+    },
+    "src/ledger.mjs": {
+      "sha256": "f47be009f72d0f68f18ed8892a6635ba0083686752fefb34df7d73d8762620cb",
+      "bytes": 4112
+    },
+    "src/owner-lock.mjs": {
+      "sha256": "d156fa8867dbc532e4c4d7d3e909f94cec1b58f60cbbbccb18e41044ac2938e0",
+      "bytes": 4002
+    },
+    "src/paths.mjs": {
+      "sha256": "c7aebd2220d9aebcb1fbec423f2b80c9e688b6c5a2b4898a11d0ccfcb9ccf23b",
+      "bytes": 4245
+    },
+    "src/pin.mjs": {
+      "sha256": "e922fe0f6a991fb456e1de98a79932e60c95c003c598eeade81e7d98bae4ff39",
+      "bytes": 1637
+    },
+    "src/recovery.mjs": {
+      "sha256": "351578532a031d028313758b4580cfc88e23fec210b3bec29dd1050835cb9143",
+      "bytes": 3259
+    },
+    "src/service.mjs": {
+      "sha256": "4ce5e67342ca70887f41e8f4af04e7ff705a48bc48c14b46ce9d9fc880412c97",
+      "bytes": 47186
+    },
+    "src/state.mjs": {
+      "sha256": "43820396a11099efa85538c94a58ef778f19106c070b0ac4890553bba0fea233",
+      "bytes": 38272
+    },
+    "src/tar.mjs": {
+      "sha256": "fcf26caa6b35d5f679e99a14e38eb27f2151befb5f8155c3d4010c9994c74c98",
+      "bytes": 11170
+    },
+    "src/window.mjs": {
+      "sha256": "a21b8c0b913ea66fc564a416835ee50e07687beb259b07fe50b92d2493c6db7c",
+      "bytes": 11002
+    },
+    "test/contract.test.mjs": {
+      "sha256": "4482db85ccc2e0eae48926062efb77d8ba647a549db9dc55d93b0910393e673e",
+      "bytes": 3283
+    },
+    "test/durability.test.mjs": {
+      "sha256": "a8efa3f3187cdc4a4461899b06f9c16278c09752fc67b831dd934a2e83145771",
+      "bytes": 9202
+    },
+    "test/fixtures/corpus.mjs": {
+      "sha256": "e726ab6e54b1c8c706f36d70465673bcdb660bb9c83dafe7879e2fe49f595699",
+      "bytes": 6149
+    },
+    "test/helpers.mjs": {
+      "sha256": "ce3a27646ad54182af5bd53c913b1b90189ba8fb538d128476ce612fea0e02a4",
+      "bytes": 3344
+    },
+    "test/local-brain.integration.test.mjs": {
+      "sha256": "c96ba30c92209dcab856279a4bb6f3c516aa0a8a6a5d42e6ac9f9e43251ea284",
+      "bytes": 32916
+    },
+    "test/state.test.mjs": {
+      "sha256": "4bbe843f8cc9ea75a42264823da780d61ced332537821dd0d5bdef1cf1438688",
+      "bytes": 22181
+    },
+    "test/tar.test.mjs": {
+      "sha256": "396e401665dd2be373d5a3f1e45836166baa1598870bb85a433f396a3209069a",
+      "bytes": 4927
+    }
+  }
+}

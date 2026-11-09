@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "state": "publish",
+  "owner": "00000000-0000-4000-8000-19c65f89f0a7",
+  "roomId": "!room:test",
+  "day": "2026-10-07",
+  "cap": 3,
+  "executorId": "00000000-0000-4000-8000-19c65f89f0a7",
+  "agentPrincipal": "00000000-0000-4000-8000-19c65f89f0a7",
+  "agentUserId": "@agent:test",
+  "deviceId": "MAC",
+  "transactionId": "atum-gd-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

@@ -1,0 +1,199 @@
+{
+  "vectors": [
+    {
+      "name": "controller Ed25519 over Execute",
+      "signer": "controller",
+      "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA",
+      "frame": {
+        "v": 1,
+        "type": "Execute",
+        "body": {
+          "commandId": "00000000-0000-4000-8000-38e4e4acfa60",
+          "grantId": "00000000-0000-4000-8000-fce915c29383",
+          "seq": 5,
+          "connectionId": "00000000-0000-4000-8000-67242899d448",
+          "connectionEpoch": 12,
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 7,
+          "tool": "terminal",
+          "toolVersion": 1,
+          "args": {
+            "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+            "timeout": 60
+          },
+          "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+          "inputManifestHash": null,
+          "needs": [],
+          "proposedEffect": "ordinary",
+          "admitBy": 1791100816000,
+          "timeoutMs": 120000,
+          "issuedAt": 1791100801000
+        },
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "sig": "q3aHIj9xBfYmIi6Y0LD65EboMMQTkUJJyIkHKxJWYA4AZHnEnXkidHYT_MlTgAqrE3B1ou__TDoyp83RG2l_DQ"
+      },
+      "valid": true
+    },
+    {
+      "name": "controller signature, damaged",
+      "signer": "controller",
+      "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA",
+      "frame": {
+        "v": 1,
+        "type": "Execute",
+        "body": {
+          "commandId": "00000000-0000-4000-8000-38e4e4acfa60",
+          "grantId": "00000000-0000-4000-8000-fce915c29383",
+          "seq": 5,
+          "connectionId": "00000000-0000-4000-8000-67242899d448",
+          "connectionEpoch": 12,
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 7,
+          "tool": "terminal",
+          "toolVersion": 1,
+          "args": {
+            "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+            "timeout": 60
+          },
+          "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+          "inputManifestHash": null,
+          "needs": [],
+          "proposedEffect": "ordinary",
+          "admitBy": 1791100816000,
+          "timeoutMs": 120000,
+          "issuedAt": 1791100801000
+        },
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "sig": "e3m_HXtFkgVbCHUNaONkT1z4_-deJf51u50cV2QtdVY7iFNgCv8eb2XGUUY5uTH6DRSlHantg_9HI4qOHJzPCg"
+      },
+      "valid": false
+    },
+    {
+      "name": "controller signature, other key",
+      "signer": "controller",
+      "publicKey": "MCowBQYDK2VwAyEAem2S4cUgGsfYZz2VbICRg11cf8nJ2RJqrL31COGEXno",
+      "frame": {
+        "v": 1,
+        "type": "Execute",
+        "body": {
+          "commandId": "00000000-0000-4000-8000-38e4e4acfa60",
+          "grantId": "00000000-0000-4000-8000-fce915c29383",
+          "seq": 5,
+          "connectionId": "00000000-0000-4000-8000-67242899d448",
+          "connectionEpoch": 12,
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 7,
+          "tool": "terminal",
+          "toolVersion": 1,
+          "args": {
+            "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+            "timeout": 60
+          },
+          "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+          "inputManifestHash": null,
+          "needs": [],
+          "proposedEffect": "ordinary",
+          "admitBy": 1791100816000,
+          "timeoutMs": 120000,
+          "issuedAt": 1791100801000
+        },
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "sig": "q3aHIj9xBfYmIi6Y0LD65EboMMQTkUJJyIkHKxJWYA4AZHnEnXkidHYT_MlTgAqrE3B1ou__TDoyp83RG2l_DQ"
+      },
+      "valid": false
+    },
+    {
+      "name": "device ES256 over Hello",
+      "signer": "identity",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "frame": {
+        "v": 1,
+        "type": "Hello",
+        "body": {
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 7,
+          "bootId": "00000000-0000-4000-8000-354570cd5e97",
+          "connectionNonce": "jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM",
+          "policyVersion": 1,
+          "appVersion": "0.18.0",
+          "matrixDeviceId": "MACBOOKQ7ZK",
+          "capabilities": {
+            "terminal": true,
+            "files": true,
+            "computer": {
+              "available": true
+            }
+          },
+          "sentAt": 1791100795000
+        },
+        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
+      },
+      "valid": true
+    },
+    {
+      "name": "device ES256, altered body",
+      "signer": "identity",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "frame": {
+        "v": 1,
+        "type": "Hello",
+        "body": {
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 8,
+          "bootId": "00000000-0000-4000-8000-354570cd5e97",
+          "connectionNonce": "jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM",
+          "policyVersion": 1,
+          "appVersion": "0.18.0",
+          "matrixDeviceId": "MACBOOKQ7ZK",
+          "capabilities": {
+            "terminal": true,
+            "files": true,
+            "computer": {
+              "available": true
+            }
+          },
+          "sentAt": 1791100795000
+        },
+        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
+      },
+      "valid": false
+    },
+    {
+      "name": "device ES256 under the approval key is not the identity",
+      "signer": "identity",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "frame": {
+        "v": 1,
+        "type": "Hello",
+        "body": {
+          "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+          "enrollmentEpoch": 3,
+          "accountEpoch": 7,
+          "bootId": "00000000-0000-4000-8000-354570cd5e97",
+          "connectionNonce": "jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM",
+          "policyVersion": 1,
+          "appVersion": "0.18.0",
+          "matrixDeviceId": "MACBOOKQ7ZK",
+          "capabilities": {
+            "terminal": true,
+            "files": true,
+            "computer": {
+              "available": true
+            }
+          },
+          "sentAt": 1791100795000
+        },
+        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
+      },
+      "valid": false
+    }
+  ]
+}

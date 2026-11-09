@@ -1,0 +1,314 @@
+{
+  "contract_id": "atum.group-paused-notice",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/busy.json",
+    "fixtures/cap-boolean.json",
+    "fixtures/cap-zero.json",
+    "fixtures/claim.json",
+    "fixtures/client-transaction.json",
+    "fixtures/device-override.json",
+    "fixtures/not-paused.json",
+    "fixtures/owner-override.json",
+    "fixtures/publication.json",
+    "fixtures/published.json",
+    "fixtures/receipt.json"
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "room": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "day": {
+      "type": "string",
+      "min": 10,
+      "max": 10,
+      "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+    },
+    "event": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user": {
+      "type": "string",
+      "min": 3,
+      "max": 1024,
+      "pattern": "@[!-~]+:[!-~]+"
+    },
+    "device": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "cap": {
+      "type": "integer",
+      "min": 1,
+      "max": 200
+    },
+    "transaction": {
+      "type": "string",
+      "min": 72,
+      "max": 72,
+      "pattern": "atum-gd-[0-9a-f]{64}"
+    },
+    "claim": {
+      "type": "object",
+      "required": {
+        "operation": {
+          "const": "claim"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "ref": "room"
+        },
+        "day": {
+          "ref": "day"
+        },
+        "dailyTurns": {
+          "ref": "cap"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "published": {
+      "type": "object",
+      "required": {
+        "operation": {
+          "const": "published"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "ref": "room"
+        },
+        "day": {
+          "ref": "day"
+        },
+        "publishedEvent": {
+          "ref": "event"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "publication": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 1
+        },
+        "state": {
+          "const": "publish"
+        },
+        "owner": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "ref": "room"
+        },
+        "day": {
+          "ref": "day"
+        },
+        "cap": {
+          "ref": "cap"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "agentUserId": {
+          "ref": "user"
+        },
+        "deviceId": {
+          "ref": "device"
+        },
+        "transactionId": {
+          "ref": "transaction"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 1
+        },
+        "state": {
+          "const": "published"
+        },
+        "day": {
+          "ref": "day"
+        },
+        "eventId": {
+          "ref": "event"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "refusal": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 1
+        },
+        "state": {
+          "enum": [
+            "busy",
+            "not_paused"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "native_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "deviceId",
+        "agentPrincipal",
+        "transactionId",
+        "access_token",
+        "private_key"
+      ]
+    },
+    "platform_to_native": {
+      "forbidden_fields": [
+        "access_token",
+        "private_key"
+      ]
+    }
+  },
+  "messages": {
+    "claim": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "claim"
+      }
+    },
+    "published": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "published"
+      }
+    },
+    "publication": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "publication"
+      }
+    },
+    "receipt": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "receipt"
+      }
+    },
+    "refusal": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "refusal"
+      }
+    }
+  },
+  "rules": {
+    "authority": "0206 existing room policy row; current owner/native MAS executor/session and protocol2 lease; existing0200 ledger count and room lock",
+    "key": "one owner/room/UTC day; immutable assistant/executor/Matrix device and transaction; no TTL or cross-device resend of uncertain effect",
+    "money": "free publication, no invocation/model/hold",
+    "recovery": "same-device retry under retained transaction; canonical receipt repairs advisory account data; replacement stays busy pending reconciliation"
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/claim.json",
+      "message": "claim",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/published.json",
+      "message": "published",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/publication.json",
+      "message": "publication",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/receipt.json",
+      "message": "receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/busy.json",
+      "message": "refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/not-paused.json",
+      "message": "refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/owner-override.json",
+      "message": "claim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/device-override.json",
+      "message": "claim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/client-transaction.json",
+      "message": "claim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/cap-zero.json",
+      "message": "claim",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/cap-boolean.json",
+      "message": "claim",
+      "expect": "reject",
+      "violation": "type"
+    }
+  ]
+}

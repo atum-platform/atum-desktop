@@ -1,0 +1,31 @@
+{
+  "contract": "atum.awareness/1",
+  "operationId": "00000000-0000-4000-8000-273999424f7b",
+  "source": {
+    "kind": "human_group",
+    "id": "!synthetic-room-0001:example.invalid"
+  },
+  "object": {
+    "kind": "edit",
+    "id": "$LnchDecisionEdit2bC3dE4fG5hI6jK7lM8nO9pQ",
+    "revision": 2,
+    "replaces": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q"
+  },
+  "author": {
+    "kind": "human",
+    "id": "@synthetic-user-0005:example.invalid"
+  },
+  "eventTime": 1790582400000,
+  "observedTime": 1790582400900,
+  "policy": {
+    "epoch": 3,
+    "visibility": "shared",
+    "googleDerived": false,
+    "accountFence": false
+  },
+  "content": {
+    "text": "Let's move the launch to 15 October.",
+    "attachments": []
+  },
+  "digest": "91fcc408e20edba5dda442c88268aea702ff0528e8bcc0dfe15c504769ed9a61"
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "company": {
+    "id": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "Công ty Atum",
+    "role": "member",
+    "authorityGeneration": 7
+  },
+  "members": [
+    {
+      "memberRef": "RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8",
+      "role": "admin",
+      "state": "active",
+      "self": false,
+      "handle": "minh",
+      "displayName": "Minh"
+    },
+    {
+      "memberRef": "nkYQgariaJkLsqK5DOjopVirD0bIPbklFbIRgDxrgew",
+      "role": "member",
+      "state": "active",
+      "self": true,
+      "handle": "lan_nguyen",
+      "displayName": "Lan Nguyễn",
+      "avatarUri": "mxc://atumplatform.com/lan-avatar"
+    }
+  ],
+  "projects": [],
+  "defaultChannelId": "00000000-0000-4000-8000-c52538d87a60"
+}

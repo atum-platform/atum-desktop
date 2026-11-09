@@ -1,0 +1,19 @@
+{
+  "profile": "atum.execution-status/1",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "policyRevision": 0,
+  "asOf": 1791877000000,
+  "state": "idle",
+  "current": null,
+  "desired": "cloud",
+  "order": [
+    "cloud"
+  ],
+  "disabled": [],
+  "destinations": {
+    "cloud": {
+      "state": "ready",
+      "observedAt": 1791876999000
+    }
+  }
+}

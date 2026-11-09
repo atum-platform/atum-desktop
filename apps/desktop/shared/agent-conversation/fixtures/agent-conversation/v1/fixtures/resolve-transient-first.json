@@ -1,0 +1,14 @@
+{
+  "input": {
+    "rooms": [
+      {
+        "roomId": "!a:proof.test",
+        "read": "transient",
+        "marker": null
+      }
+    ]
+  },
+  "expected": {
+    "code": "matrix_conversation_unavailable"
+  }
+}

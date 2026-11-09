@@ -1,0 +1,24 @@
+{
+  "vectors": [
+    {
+      "name": "ATUM_GOOGLE_FENCE_ROUTE",
+      "custody": "configuration",
+      "sandboxPersistence": "none"
+    },
+    {
+      "name": "ATUM_GOOGLE_LATCHED",
+      "custody": "derived_boolean",
+      "sandboxPersistence": "none"
+    },
+    {
+      "name": "ATUM_GOOGLE_TOOLS_URL",
+      "custody": "configuration",
+      "sandboxPersistence": "none"
+    },
+    {
+      "name": "ATUM_GOOGLE_TOOLS_TOKEN",
+      "custody": "memory_only",
+      "sandboxPersistence": "none"
+    }
+  ]
+}

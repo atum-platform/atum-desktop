@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "MigrationAck",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "outcome": "refused",
+    "refusal": "hash_mismatch"
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "aHHTNrcp1zDOLcb3KO-WaKG-loF9CCVZ7rgSz0MPvwcrumNdVOZYNSGyTnF8dEf-5RzQ5PezMQZZdOcS8e2ABg"
+}

@@ -1,0 +1,6 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "update",
+  "outcome": "refused",
+  "reason": "unsupported_schedule"
+}

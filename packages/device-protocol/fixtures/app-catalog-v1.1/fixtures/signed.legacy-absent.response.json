@@ -1,0 +1,14 @@
+{
+  "profile": "atum.app-catalog/1",
+  "apps": [
+    {
+      "app": "andy",
+      "app_id": "00000000-0000-4000-8000-993224b4fe85",
+      "bot": {
+        "v": 1,
+        "user_id": "@app-andy:atumplatform.com",
+        "handle": "andy_bot"
+      }
+    }
+  ]
+}

@@ -1,0 +1,335 @@
+/** Shared literal copy for native consent and the window; no renderer runtime import in main.
+ * Product copy: the person's assistant is "your assistant" (it may be Atum or an agent they
+ * named), the app is Atum, and the runtime's own name stays in logs. One plain sentence
+ * where a sentence will do. Status words (`listening`, `continuousListening`, …) read on their
+ * own, in an assistant's roster row; nothing about listening is said in a chat (0.20). The keys
+ * keep the runtime's word, the wording does not: an assistant is "ready for new messages" or
+ * "answers from this Mac", never "listening" (to a person that word means the microphone).
+ * The prompt card (`approvalTitle` … `promptDetails`) asks in a plain title and one line, with
+ * "Allow" and "Not now"; the raw command, the reason and the setting's name sit behind its
+ * collapsed Details. No seconds count down on the card: `promptDeadlineSoon` says so only in the
+ * last minute (`promptDeadline`, with its seconds, is kept for the phone's copy export).
+ * `replyQuoteUnreadable` is the assistant's own words in its chat (first person), said once
+ * when it holds a reply because it can't read the message that reply answers. `groupJoined` is
+ * its own line, said once, when its owner adds it to a group (publishMatrixGroupNotice); it
+ * discloses addressed participation plus relevance selection and recent context in an owner-only
+ * bot meeting. `groupStale`, `groupMissed`, and `groupRoutingUnavailable` are its own line in a
+ * group, said once per message, when the owner asked it there and no answer is coming: the message
+ * waited too long behind another turn, or this Mac couldn't take it (sent from a phone with no Mac
+ * answering for it, or the group changed under the turn). `deviceUnverified` is its own line, at
+ * most once a day per device, when the owner wrote from one of their devices that isn't verified
+ * yet: it is refused, and this says where to verify it. */
+export const matrixActionCopy = {
+  en: {
+    listenHermes: 'Answer from this Mac for 15 minutes',
+    keepListeningHermes: 'Keep answering from this Mac',
+    keepListeningHelp:
+      'While Atum is open on this Mac, your assistant answers what you send here from your other devices. Quit Atum to stop.',
+    guestKeepListening:
+      'Your other Mac usually answers this assistant with its own files. Keeping this on here makes this Mac answer instead.',
+    listenHelp:
+      'For the next 15 minutes, your assistant answers what you send here from your other devices, and it can use this Mac to do it.',
+    fileHelp: 'Files you send (up to 20 MB) are copied to this Mac and may be shared with the AI model.',
+    listening: 'Your assistant is ready for new messages',
+    listeningStopped: 'Stopped answering',
+    listeningRoomFallback: 'this conversation',
+    continuousListening: 'Your assistant answers from this Mac',
+    continuousListeningPaused: 'Answering is paused',
+    listeningPausedStorage:
+      'Answering stopped, but Atum couldn’t save that. Free up some disk space, then press Stop again.',
+    hermesNeedsInput: 'Your assistant needs your answer',
+    approvalTitle: 'Allow this on your Mac?',
+    approvalAsk: 'Your assistant wants to run something on this Mac. It runs only once.',
+    approvalAllow: 'Allow',
+    approvalDecline: 'Not now',
+    secretTitle: 'Your assistant needs a key to continue',
+    secretAsk: 'Paste it below. It stays on this Mac.',
+    secretPlaceholder: 'Paste it here',
+    secretSavedAs: 'Saved as',
+    sudoAsk: 'Your assistant needs your Mac password to finish this. It stays on this Mac.',
+    sudoPlaceholder: 'Mac password',
+    promptDetails: 'Details',
+    promptDeadline: '{seconds}s left to answer.',
+    promptDeadlineSoon: 'Less than a minute left to answer.',
+    promptDeadlineEnded: 'Time’s up. Waiting for your assistant to finish.',
+    clarificationExpired: 'Your assistant stopped waiting for this answer. Check its reply before you ask again.',
+    promptTurnExpired: 'Time ran out while waiting for your answer. This request won’t run again.',
+    dismissPromptNotice: 'Dismiss',
+    connectHermes: 'Connect your assistant here',
+    runHermes: 'Ask your assistant',
+    cancelHermes: 'Stop',
+    hermesUnconfigured: 'Your assistant isn’t set up on this Mac yet.',
+    hermesInvalid: 'Your assistant couldn’t start on this Mac. Reinstall Atum to fix it; your chats are safe.',
+    hermesUnavailable: 'Your assistant isn’t ready yet. Try reconnecting.',
+    hermesRunning: 'Your assistant is working. Stopping won’t undo what’s already done.',
+    actionCancelled: 'Cancelled. Nothing was run.',
+    actionIgnored: 'This message wasn’t for your assistant, so nothing was run.',
+    replyQuoteUnreadable: 'I couldn’t read the message you replied to — could you say it again?',
+    groupJoined:
+      'Here, I answer only the person who added me. I respond when they address me; in a group with just their assistants, I may also join when my work is relevant. Their message, our work descriptions, one message they quote, and recent messages in that private group may go to AI services to choose and prepare a reply.',
+    groupStale: 'I was busy, and your message waited too long. Could you ask me again?',
+    groupMissed: 'I couldn’t answer this message. Send it again after opening Atum on your Mac.',
+    groupRoutingUnavailable:
+      'I couldn’t choose an assistant for this message. Mention one of us directly, or try again.',
+    deviceUnverified:
+      'I can’t answer messages from a device you haven’t verified yet. Compare the verification symbols on your phone and Mac, then send this again.',
+    actionExpired: 'Permission expired. Nothing was run.',
+    actionUnknown:
+      'This was cut off partway, so only part of it may be done. I won’t redo it on my own, so it doesn’t happen twice. Look at what’s already done, then tell me if you want me to carry on.',
+    actionPending:
+      'The reply is saved but not posted yet. Choose “Ask your assistant” to post it without running anything again.',
+    actionPublished: 'Reply posted.',
+    actionSetupRequired: 'Nothing was run. Finish setting up your model first.',
+    consentTitle: 'Run this on your Mac?',
+    consentHelp: 'Your assistant can use apps, files and the terminal on this Mac. Only allow requests you understand.',
+    consentAllow: 'Run once',
+    consentCancel: 'Cancel'
+  },
+  vi: {
+    listenHermes: 'Trả lời từ máy Mac này trong 15 phút',
+    keepListeningHermes: 'Tiếp tục trả lời từ máy Mac này',
+    keepListeningHelp:
+      'Khi Atum đang mở trên máy Mac này, trợ lý sẽ trả lời những gì bạn gửi tại đây từ các thiết bị khác. Thoát Atum để dừng.',
+    guestKeepListening:
+      'Máy Mac kia của bạn thường trả lời trợ lý này bằng tệp của nó. Bật ở đây sẽ để máy này trả lời thay.',
+    listenHelp:
+      'Trong 15 phút tới, trợ lý sẽ trả lời những gì bạn gửi tại đây từ các thiết bị khác và có thể dùng máy Mac này để làm việc đó.',
+    fileHelp: 'Tệp bạn gửi (tối đa 20 MB) được sao chép vào máy Mac này và có thể được gửi đến mô hình AI.',
+    listening: 'Trợ lý sẵn sàng nhận tin nhắn mới',
+    listeningStopped: 'Đã dừng trả lời',
+    listeningRoomFallback: 'cuộc trò chuyện này',
+    continuousListening: 'Trợ lý trả lời từ máy Mac này',
+    continuousListeningPaused: 'Đã tạm dừng trả lời',
+    listeningPausedStorage:
+      'Đã dừng trả lời nhưng Atum chưa lưu được lựa chọn. Hãy giải phóng dung lượng rồi nhấn Dừng lần nữa.',
+    hermesNeedsInput: 'Trợ lý cần bạn trả lời',
+    approvalTitle: 'Cho phép việc này trên máy Mac?',
+    approvalAsk: 'Trợ lý muốn chạy một việc trên máy Mac này. Việc này chỉ chạy một lần.',
+    approvalAllow: 'Cho phép',
+    approvalDecline: 'Để sau',
+    secretTitle: 'Trợ lý cần một khóa để tiếp tục',
+    secretAsk: 'Dán vào ô bên dưới. Khóa chỉ ở trên máy Mac này.',
+    secretPlaceholder: 'Dán vào đây',
+    secretSavedAs: 'Lưu với tên',
+    sudoAsk: 'Trợ lý cần mật khẩu máy Mac của bạn để làm xong việc này. Mật khẩu chỉ ở trên máy Mac này.',
+    sudoPlaceholder: 'Mật khẩu máy Mac',
+    promptDetails: 'Chi tiết',
+    promptDeadline: 'Còn {seconds} giây để trả lời.',
+    promptDeadlineSoon: 'Còn dưới một phút để trả lời.',
+    promptDeadlineEnded: 'Đã hết giờ. Đang chờ trợ lý hoàn tất.',
+    clarificationExpired: 'Trợ lý đã ngừng chờ câu trả lời này. Hãy xem câu trả lời của trợ lý trước khi hỏi lại.',
+    promptTurnExpired: 'Đã hết thời gian chờ bạn trả lời. Yêu cầu này sẽ không chạy lại.',
+    dismissPromptNotice: 'Ẩn',
+    connectHermes: 'Kết nối trợ lý tại đây',
+    runHermes: 'Hỏi trợ lý',
+    cancelHermes: 'Dừng',
+    hermesUnconfigured: 'Trợ lý chưa được thiết lập trên máy Mac này.',
+    hermesInvalid:
+      'Trợ lý chưa khởi động được trên máy Mac này. Hãy cài lại Atum để khắc phục; các cuộc trò chuyện vẫn an toàn.',
+    hermesUnavailable: 'Trợ lý chưa sẵn sàng. Hãy thử kết nối lại.',
+    hermesRunning: 'Trợ lý đang làm việc. Dừng sẽ không hoàn tác những việc đã xong.',
+    actionCancelled: 'Đã hủy. Chưa chạy gì.',
+    actionIgnored: 'Tin nhắn này không dành cho trợ lý nên chưa chạy gì.',
+    replyQuoteUnreadable: 'Mình chưa đọc được tin nhắn bạn đang trả lời — bạn nhắn lại giúp mình nhé?',
+    groupJoined:
+      'Ở đây, mình chỉ trả lời người đã thêm mình. Mình trả lời khi họ nhắc tên hoặc trả lời tin của mình; trong nhóm chỉ có họ và các trợ lý của họ, mình cũng có thể tham gia khi công việc phù hợp. Tin nhắn của họ, mô tả công việc của các trợ lý, một tin họ trích dẫn và các tin gần đây trong nhóm riêng đó có thể được gửi tới dịch vụ AI để chọn và soạn câu trả lời.',
+    groupStale: 'Mình đang bận nên tin nhắn của bạn đã chờ quá lâu. Bạn nhắn lại giúp mình nhé?',
+    groupMissed: 'Mình chưa trả lời được tin này. Bạn nhắn lại sau khi mở Atum trên máy Mac nhé.',
+    groupRoutingUnavailable:
+      'Mình chưa chọn được trợ lý phù hợp cho tin nhắn này. Bạn nhắc tên một trợ lý hoặc thử lại nhé.',
+    deviceUnverified:
+      'Mình chưa trả lời được tin nhắn từ thiết bị bạn chưa xác minh. Hãy đối chiếu các ký hiệu xác minh trên điện thoại và Mac, rồi gửi lại tin này nhé.',
+    actionExpired: 'Quyền đã hết hạn. Chưa chạy gì.',
+    actionUnknown:
+      'Việc này bị ngắt giữa chừng nên có thể mới làm được một phần. Mình không tự làm lại để khỏi làm hai lần. Bạn xem phần đã xong, rồi nhắn mình nếu muốn làm tiếp nhé.',
+    actionPending: 'Câu trả lời đã được lưu nhưng chưa gửi. Chọn “Hỏi trợ lý” để gửi mà không chạy lại.',
+    actionPublished: 'Đã gửi câu trả lời.',
+    actionSetupRequired: 'Chưa chạy gì. Hãy thiết lập mô hình trước.',
+    consentTitle: 'Chạy việc này trên máy Mac của bạn?',
+    consentHelp:
+      'Trợ lý có thể dùng ứng dụng, tệp và terminal trên máy Mac này. Chỉ cho phép những yêu cầu bạn hiểu rõ.',
+    consentAllow: 'Chạy một lần',
+    consentCancel: 'Hủy'
+  },
+  ja: {
+    listenHermes: 'このMacで15分間返信する',
+    keepListeningHermes: 'このMacで返信を続ける',
+    keepListeningHelp:
+      'このMacでAtumを開いている間、ほかのデバイスからここに送ったメッセージにアシスタントが応答します。止めるにはAtumを終了してください。',
+    guestKeepListening:
+      'このアシスタントには通常、もう一台の Mac がそのファイルを使って返信します。ここで有効にすると、この Mac が代わりに返信します。',
+    listenHelp:
+      'これから15分間、ほかのデバイスからここに送ったメッセージにアシスタントが応答します。そのためにこのMacを使うことがあります。',
+    fileHelp: '送ったファイル（最大20 MB）はこのMacにコピーされ、AIモデルに送られることがあります。',
+    listening: 'アシスタントは新しいメッセージを受け付けています',
+    listeningStopped: '返信を停止しました',
+    listeningRoomFallback: 'この会話',
+    continuousListening: 'アシスタントはこのMacで返信します',
+    continuousListeningPaused: '返信を一時停止中',
+    listeningPausedStorage:
+      '返信は停止しましたが、設定を保存できませんでした。空き容量を確保して、もう一度「停止」を押してください。',
+    hermesNeedsInput: 'アシスタントが回答を待っています',
+    approvalTitle: 'このMacでの実行を許可しますか？',
+    approvalAsk: 'アシスタントがこのMacで何かを実行しようとしています。実行は一度だけです。',
+    approvalAllow: '許可',
+    approvalDecline: '今はしない',
+    secretTitle: '続けるにはキーが必要です',
+    secretAsk: '下に貼り付けてください。キーはこのMacにだけ残ります。',
+    secretPlaceholder: 'ここに貼り付け',
+    secretSavedAs: '保存名',
+    sudoAsk: 'この操作を完了するには、Macのパスワードが必要です。パスワードはこのMacの外には出ません。',
+    sudoPlaceholder: 'Macのパスワード',
+    promptDetails: '詳細',
+    promptDeadline: '回答まで残り{seconds}秒です。',
+    promptDeadlineSoon: '回答までの残り時間は1分未満です。',
+    promptDeadlineEnded: '時間切れです。アシスタントの完了を待っています。',
+    clarificationExpired: 'アシスタントはこの回答の待機を終了しました。もう一度頼む前に返信を確認してください。',
+    promptTurnExpired: '回答を待つ間に時間切れになりました。この要求は再実行されません。',
+    dismissPromptNotice: '閉じる',
+    connectHermes: 'アシスタントをここに接続',
+    runHermes: 'アシスタントに頼む',
+    cancelHermes: '停止',
+    hermesUnconfigured: 'このMacではまだアシスタントが設定されていません。',
+    hermesInvalid:
+      'このMacでアシスタントを起動できませんでした。Atumを再インストールしてください。チャットは失われません。',
+    hermesUnavailable: 'アシスタントの準備ができていません。再接続してみてください。',
+    hermesRunning: 'アシスタントが作業中です。停止しても完了した操作は元に戻りません。',
+    actionCancelled: 'キャンセルしました。何も実行していません。',
+    actionIgnored: 'このメッセージはアシスタント宛てではないため、何も実行していません。',
+    replyQuoteUnreadable: '返信先のメッセージを読み取れませんでした。もう一度送ってもらえますか？',
+    groupJoined:
+      'ここでは、私を追加した人にだけ応答します。メンションや私のメッセージへの返信に応答し、その人とその人のアシスタントだけのグループでは、役に立てるときに会話へ参加することもあります。その人のメッセージ、アシスタントの役割説明、引用した1件、その非公開グループの最近のメッセージは、応答するアシスタントの選択と回答作成のためにAIサービスへ送られることがあります。',
+    groupStale: '手が離せない間に、メッセージの待ち時間が長くなりすぎました。もう一度送ってもらえますか？',
+    groupMissed: 'このメッセージには応答できませんでした。MacでAtumを開いてから、もう一度送ってください。',
+    groupRoutingUnavailable:
+      'このメッセージに適したアシスタントを選べませんでした。直接メンションするか、もう一度お試しください。',
+    deviceUnverified:
+      'まだ検証されていない端末からのメッセージには応答できません。スマートフォンと Mac の検証記号を照合してから、もう一度送ってください。',
+    actionExpired: '許可の期限が切れました。何も実行していません。',
+    actionUnknown:
+      '途中で中断されたため、一部しか終わっていない可能性があります。二重に実行しないよう、自動ではやり直しません。済んだ内容をご確認のうえ、続けたいときはお知らせください。',
+    actionPending:
+      '返信は保存済みですが、まだ投稿されていません。「アシスタントに頼む」を選ぶと、再実行せずに投稿できます。',
+    actionPublished: '返信を投稿しました。',
+    actionSetupRequired: '何も実行していません。先にモデルの設定を完了してください。',
+    consentTitle: 'このMacで実行しますか？',
+    consentHelp:
+      'アシスタントはこのMacのアプリ、ファイル、ターミナルを使えます。内容を理解した要求だけを許可してください。',
+    consentAllow: '一度実行',
+    consentCancel: 'キャンセル'
+  },
+  zh: {
+    listenHermes: '在这台 Mac 上回复 15 分钟',
+    keepListeningHermes: '在这台 Mac 上持续回复',
+    keepListeningHelp: '只要 Atum 在这台 Mac 上打开，助手就会回复你从其他设备发到这里的消息。退出 Atum 即可停止。',
+    guestKeepListening: '你的另一台 Mac 通常会用它的文件回复这位助手。在这里开启后，将改由这台 Mac 回复。',
+    listenHelp: '在接下来的 15 分钟内，助手会回复你从其他设备发到这里的消息，并可能使用这台 Mac 来完成。',
+    fileHelp: '你发送的文件（最大 20 MB）会复制到这台 Mac，并可能发送给 AI 模型。',
+    listening: '助手已准备好接收新消息',
+    listeningStopped: '已停止回复',
+    listeningRoomFallback: '此对话',
+    continuousListening: '助手会在这台 Mac 上回复',
+    continuousListeningPaused: '已暂停回复',
+    listeningPausedStorage: '已停止回复，但 Atum 无法保存此设置。请释放磁盘空间，然后再次点击停止。',
+    hermesNeedsInput: '助手需要你的回答',
+    approvalTitle: '允许在你的 Mac 上执行吗？',
+    approvalAsk: '助手想在这台 Mac 上运行一些操作，且只会运行一次。',
+    approvalAllow: '允许',
+    approvalDecline: '暂不',
+    secretTitle: '助手需要一个密钥才能继续',
+    secretAsk: '请粘贴到下方。它只保存在这台 Mac 上。',
+    secretPlaceholder: '在此粘贴',
+    secretSavedAs: '保存为',
+    sudoAsk: '助手需要你的 Mac 密码才能完成此操作。密码只会留在这台 Mac 上。',
+    sudoPlaceholder: 'Mac 密码',
+    promptDetails: '详情',
+    promptDeadline: '还剩 {seconds} 秒可回答。',
+    promptDeadlineSoon: '剩余回答时间不到一分钟。',
+    promptDeadlineEnded: '时间到了。正在等待助手完成。',
+    clarificationExpired: '助手已停止等待此回答。再次提问前请先查看它的回复。',
+    promptTurnExpired: '等待你回答时已超时。此请求不会再次运行。',
+    dismissPromptNotice: '关闭',
+    connectHermes: '在此连接助手',
+    runHermes: '询问助手',
+    cancelHermes: '停止',
+    hermesUnconfigured: '助手尚未在这台 Mac 上设置。',
+    hermesInvalid: '助手无法在这台 Mac 上启动。请重新安装 Atum；你的聊天记录不受影响。',
+    hermesUnavailable: '助手尚未就绪。请尝试重新连接。',
+    hermesRunning: '助手正在工作。停止不会撤销已完成的操作。',
+    actionCancelled: '已取消，未运行任何内容。',
+    actionIgnored: '此消息不是发给助手的，因此未运行任何内容。',
+    replyQuoteUnreadable: '我没能读到你回复的那条消息，能再说一遍吗？',
+    groupJoined:
+      '在这里，我只回复把我加入群组的人。对方提到我或回复我的消息时，我会回应；在只有对方及其助理的群组中，如果我的工作相关，我也可能参与。对方的消息、助理的工作说明、引用的一条消息以及该私人群组中的近期消息，可能会发送给 AI 服务，用于选择由谁回答并生成回复。',
+    groupStale: '我刚才在忙，你的消息等得太久了。能再发一次吗？',
+    groupMissed: '这条消息我还没能回复。请在 Mac 上打开 Atum 后再发一次。',
+    groupRoutingUnavailable: '无法为这条消息选择合适的助手。请直接提及其中一位，或重试一次。',
+    deviceUnverified: '我暂时无法回复来自未验证设备的消息。请核对手机和 Mac 上的验证符号，然后重新发送这条消息。',
+    actionExpired: '授权已过期，未运行任何内容。',
+    actionUnknown: '这件事中途被打断，可能只完成了一部分。为避免重复执行，我不会自动重做。请先看看已完成的内容，需要继续时告诉我。',
+    actionPending: '回复已保存但尚未发布。选择“询问助手”即可发布，不会重复运行。',
+    actionPublished: '回复已发布。',
+    actionSetupRequired: '未运行任何内容。请先完成模型设置。',
+    consentTitle: '在你的 Mac 上运行此请求？',
+    consentHelp: '助手可以使用这台 Mac 上的应用、文件和终端。只批准你理解的请求。',
+    consentAllow: '执行一次',
+    consentCancel: '取消'
+  },
+  'zh-hant': {
+    listenHermes: '在這台 Mac 上回覆 15 分鐘',
+    keepListeningHermes: '在這台 Mac 上持續回覆',
+    keepListeningHelp: '只要 Atum 在這台 Mac 上開啟，助理就會回覆你從其他裝置傳到這裡的訊息。結束 Atum 即可停止。',
+    guestKeepListening: '你的另一台 Mac 通常會用它的檔案回覆這位助理。在這裡開啟後，將改由這台 Mac 回覆。',
+    listenHelp: '在接下來的 15 分鐘內，助理會回覆你從其他裝置傳到這裡的訊息，並可能使用這台 Mac 來完成。',
+    fileHelp: '你傳送的檔案（最大 20 MB）會複製到這台 Mac，並可能傳送給 AI 模型。',
+    listening: '助理已準備好接收新訊息',
+    listeningStopped: '已停止回覆',
+    listeningRoomFallback: '此對話',
+    continuousListening: '助理會在這台 Mac 上回覆',
+    continuousListeningPaused: '已暫停回覆',
+    listeningPausedStorage: '已停止回覆，但 Atum 無法儲存此設定。請釋放磁碟空間，然後再次點選停止。',
+    hermesNeedsInput: '助理需要你的回答',
+    approvalTitle: '允許在你的 Mac 上執行嗎？',
+    approvalAsk: '助理想在這台 Mac 上執行一些操作，且只會執行一次。',
+    approvalAllow: '允許',
+    approvalDecline: '暫不',
+    secretTitle: '助理需要一組金鑰才能繼續',
+    secretAsk: '請貼到下方。它只會儲存在這台 Mac 上。',
+    secretPlaceholder: '在此貼上',
+    secretSavedAs: '儲存為',
+    sudoAsk: '助理需要你的 Mac 密碼才能完成此操作。密碼只會留在這台 Mac 上。',
+    sudoPlaceholder: 'Mac 密碼',
+    promptDetails: '詳情',
+    promptDeadline: '還剩 {seconds} 秒可回答。',
+    promptDeadlineSoon: '剩餘回答時間不到一分鐘。',
+    promptDeadlineEnded: '時間到了。正在等待助理完成。',
+    clarificationExpired: '助理已停止等待此回答。再次提問前請先查看它的回覆。',
+    promptTurnExpired: '等待你回答時已逾時。此要求不會再次執行。',
+    dismissPromptNotice: '關閉',
+    connectHermes: '在此連接助理',
+    runHermes: '詢問助理',
+    cancelHermes: '停止',
+    hermesUnconfigured: '助理尚未在這台 Mac 上設定。',
+    hermesInvalid: '助理無法在這台 Mac 上啟動。請重新安裝 Atum；你的聊天記錄不受影響。',
+    hermesUnavailable: '助理尚未就緒。請嘗試重新連線。',
+    hermesRunning: '助理正在工作。停止不會撤銷已完成的操作。',
+    actionCancelled: '已取消，未執行任何內容。',
+    actionIgnored: '此訊息不是傳給助理的，因此未執行任何內容。',
+    replyQuoteUnreadable: '我沒能讀到你回覆的那則訊息，能再說一遍嗎？',
+    groupJoined:
+      '在這裡，我只回覆把我加入群組的人。對方提及我或回覆我的訊息時，我會回應；在只有對方及其助理的群組中，如果我的工作相關，我也可能參與。對方的訊息、助理的工作說明、引用的一則訊息以及該私人群組中的近期訊息，可能會傳送給 AI 服務，用於選擇由誰回答並產生回覆。',
+    groupStale: '我剛才在忙，你的訊息等得太久了。能再傳一次嗎？',
+    groupMissed: '這則訊息我還沒能回覆。請在 Mac 上開啟 Atum 後再傳一次。',
+    groupRoutingUnavailable: '無法為這則訊息選擇合適的助理。請直接提及其中一位，或再試一次。',
+    deviceUnverified: '我暫時無法回覆來自未驗證裝置的訊息。請核對手機和 Mac 上的驗證符號，然後重新傳送這則訊息。',
+    actionExpired: '授權已過期，未執行任何內容。',
+    actionUnknown: '這件事中途被打斷，可能只完成了一部分。為避免重複執行，我不會自動重做。請先看看已完成的內容，需要繼續時告訴我。',
+    actionPending: '回覆已儲存但尚未發布。選擇「詢問助理」即可發布，不會重複執行。',
+    actionPublished: '回覆已發布。',
+    actionSetupRequired: '未執行任何內容。請先完成模型設定。',
+    consentTitle: '在你的 Mac 上執行此要求？',
+    consentHelp: '助理可以使用這台 Mac 上的應用程式、檔案和終端機。只批准你理解的要求。',
+    consentAllow: '執行一次',
+    consentCancel: '取消'
+  }
+}

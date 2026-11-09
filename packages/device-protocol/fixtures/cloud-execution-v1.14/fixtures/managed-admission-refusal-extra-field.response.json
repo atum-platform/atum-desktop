@@ -1,0 +1,15 @@
+{
+  "state": "refused",
+  "reason": "daily_cap_exhausted",
+  "cap": {
+    "dailyProtons": 200000,
+    "timeZone": "Asia/Ho_Chi_Minh",
+    "warningPercent": 80,
+    "counts": "atum_billed_only"
+  },
+  "spend": {
+    "day": "2026-10-21",
+    "usedProtons": 200123
+  },
+  "retryAfterMs": 3600000
+}

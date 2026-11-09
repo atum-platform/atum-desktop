@@ -1,0 +1,1398 @@
+{
+  "contract_id": "atum.agent-conversation",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/admit-display.json",
+    "fixtures/admit-earlier-no-main.json",
+    "fixtures/admit-earlier.json",
+    "fixtures/admit-group.json",
+    "fixtures/admit-legacy.json",
+    "fixtures/admit-main.json",
+    "fixtures/admit-stray.json",
+    "fixtures/earlier-typed-refusal.json",
+    "fixtures/earlier-with-no-main.json",
+    "fixtures/marker-earlier.json",
+    "fixtures/marker-future-keys.json",
+    "fixtures/marker-main.json",
+    "fixtures/marker-reject-content-text.json",
+    "fixtures/marker-reject-invalid-role.json",
+    "fixtures/marker-reject-main-other-room.json",
+    "fixtures/marker-reject-missing-main.json",
+    "fixtures/marker-reject-negative-time.json",
+    "fixtures/marker-reject-nested-secret.json",
+    "fixtures/marker-reject-wrong-version.json",
+    "fixtures/marker-rollback.json",
+    "fixtures/migration-block-chosen-denied.json",
+    "fixtures/migration-block-cloud.json",
+    "fixtures/migration-block-fleet.json",
+    "fixtures/migration-block-owner.json",
+    "fixtures/migration-block-turn.json",
+    "fixtures/migration-cloud-ready.json",
+    "fixtures/migration-complete.json",
+    "fixtures/migration-crash-after-main.json",
+    "fixtures/migration-failed-second.json",
+    "fixtures/migration-failed-third.json",
+    "fixtures/migration-reject-half-success.json",
+    "fixtures/migration-rollback-retry.json",
+    "fixtures/migration-rollback.json",
+    "fixtures/migration-single-cloud-block.json",
+    "fixtures/migration-skip-denied.json",
+    "fixtures/migration-success.json",
+    "fixtures/notice-clock-back.json",
+    "fixtures/notice-first.json",
+    "fixtures/notice-next-day.json",
+    "fixtures/notice-non-holder.json",
+    "fixtures/notice-same-day.json",
+    "fixtures/parse-absent.json",
+    "fixtures/parse-invalid-content.json",
+    "fixtures/parse-nonowner.json",
+    "fixtures/parse-owner.json",
+    "fixtures/parse-rollback.json",
+    "fixtures/parse-self-mismatch.json",
+    "fixtures/parse-unknown-keys.json",
+    "fixtures/parse-wrong-state-key.json",
+    "fixtures/parse-wrong-type.json",
+    "fixtures/rank-activity.json",
+    "fixtures/rank-empty.json",
+    "fixtures/rank-future-owner.json",
+    "fixtures/rank-inclusive-30days.json",
+    "fixtures/rank-missing-created.json",
+    "fixtures/rank-old-owner.json",
+    "fixtures/rank-oldest.json",
+    "fixtures/rank-recent-owner.json",
+    "fixtures/rank-tie.json",
+    "fixtures/read-display.json",
+    "fixtures/read-for-turn.json",
+    "fixtures/read-marker-main.json",
+    "fixtures/read-marker-unmarked.json",
+    "fixtures/read-marker.json",
+    "fixtures/resolve-all-unreachable.json",
+    "fixtures/resolve-earlier-only.json",
+    "fixtures/resolve-empty.json",
+    "fixtures/resolve-legacy.json",
+    "fixtures/resolve-main-earlier.json",
+    "fixtures/resolve-main-stray.json",
+    "fixtures/resolve-main.json",
+    "fixtures/resolve-orphan-pointer.json",
+    "fixtures/resolve-race-tie.json",
+    "fixtures/resolve-race-time.json",
+    "fixtures/resolve-raced-stray.json",
+    "fixtures/resolve-replaced.json",
+    "fixtures/resolve-three-mains.json",
+    "fixtures/resolve-transient-first.json",
+    "fixtures/resolve-transient-legacy.json",
+    "fixtures/resolve-transient-marked.json",
+    "fixtures/resolve-unreachable-earlier.json",
+    "fixtures/resolve-unreachable.json",
+    "fixtures/sweep-clean.json",
+    "fixtures/sweep-legacy.json",
+    "fixtures/sweep-marked.json",
+    "fixtures/version-global-rejected.json",
+    "fixtures/version-mac-a.json",
+    "fixtures/version-mac-b.json"
+  ],
+  "types": {
+    "roomId": {
+      "type": "string",
+      "min": 4,
+      "max": 255,
+      "pattern": "![A-Za-z0-9_=/+.-]+:[A-Za-z0-9_.:-]+"
+    },
+    "marker": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "role": {
+          "enum": [
+            "main",
+            "earlier"
+          ]
+        },
+        "main": {
+          "ref": "roomId"
+        },
+        "at": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "parsedMarker": {
+      "type": "object",
+      "required": {
+        "role": {
+          "enum": [
+            "main",
+            "earlier"
+          ]
+        },
+        "main": {
+          "ref": "roomId"
+        },
+        "at": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "resolution": {
+      "type": "object",
+      "required": {
+        "earlier": {
+          "type": "array",
+          "items": {
+            "ref": "roomId"
+          },
+          "unique": true
+        },
+        "stray": {
+          "type": "array",
+          "items": {
+            "ref": "roomId"
+          },
+          "unique": true
+        },
+        "unreachable": {
+          "type": "array",
+          "items": {
+            "ref": "roomId"
+          },
+          "unique": true
+        },
+        "source": {
+          "enum": [
+            "marked",
+            "legacy"
+          ]
+        }
+      },
+      "optional": {
+        "main": {
+          "ref": "roomId"
+        }
+      },
+      "additional": false
+    },
+    "roomFact": {
+      "type": "object",
+      "required": {
+        "roomId": {
+          "ref": "roomId"
+        },
+        "read": {
+          "enum": [
+            "readable",
+            "unreachable",
+            "transient"
+          ]
+        }
+      },
+      "optional": {
+        "marker": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "role": {
+                  "enum": [
+                    "main",
+                    "earlier"
+                  ]
+                },
+                "main": {
+                  "ref": "roomId"
+                },
+                "at": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 9007199254740991
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additional": false
+    },
+    "candidate": {
+      "type": "object",
+      "required": {
+        "roomId": {
+          "ref": "roomId"
+        }
+      },
+      "optional": {
+        "ownerAt": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "activityAt": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "createdAt": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "additional": false
+    }
+  },
+  "directions": {
+    "owner_state": {
+      "forbidden_fields": [
+        "*token*",
+        "*secret*",
+        "*password*",
+        "body",
+        "text",
+        "name",
+        "title",
+        "messages",
+        "prompt",
+        "summary"
+      ]
+    },
+    "owner_account_data": {
+      "forbidden_fields": [
+        "*token*",
+        "*secret*",
+        "*password*",
+        "body",
+        "text",
+        "name",
+        "title",
+        "messages",
+        "prompt",
+        "summary"
+      ]
+    },
+    "host_command": {
+      "forbidden_fields": []
+    },
+    "conformance": {
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "conversation.state": {
+      "direction": "owner_state",
+      "schema": {
+        "type": "object",
+        "required": {
+          "roomId": {
+            "ref": "roomId"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "ref": "marker"
+              },
+              {
+                "type": "object",
+                "required": {},
+                "optional": {},
+                "additional": false
+              }
+            ]
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "version.record": {
+      "direction": "owner_account_data",
+      "schema": {
+        "type": "object",
+        "required": {
+          "type": {
+            "type": "string",
+            "min": 21,
+            "max": 255,
+            "pattern": "io[.]atum[.]app_version[.][A-Za-z0-9_.:-]+"
+          },
+          "content": {
+            "type": "object",
+            "required": {
+              "v": {
+                "const": 1
+              },
+              "version": {
+                "type": "string",
+                "min": 5,
+                "max": 100,
+                "pattern": "[0-9]+[.][0-9]+[.][0-9]+"
+              },
+              "at": {
+                "type": "integer",
+                "min": 0,
+                "max": 9007199254740991
+              }
+            },
+            "optional": {},
+            "additional": false
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "readAssistantRoom.request": {
+      "direction": "host_command",
+      "schema": {
+        "type": "object",
+        "required": {
+          "kind": {
+            "const": "readAssistantRoom"
+          },
+          "roomId": {
+            "ref": "roomId"
+          },
+          "ownerId": {
+            "type": "string",
+            "min": 1,
+            "max": 255
+          },
+          "agentId": {
+            "type": "string",
+            "min": 1,
+            "max": 255
+          }
+        },
+        "optional": {
+          "allowInvite": {
+            "type": "boolean"
+          },
+          "forTurn": {
+            "type": "boolean"
+          }
+        },
+        "additional": false
+      }
+    },
+    "readConversationMarker.request": {
+      "direction": "host_command",
+      "schema": {
+        "type": "object",
+        "required": {
+          "kind": {
+            "const": "readConversationMarker"
+          },
+          "roomId": {
+            "ref": "roomId"
+          },
+          "ownerId": {
+            "type": "string",
+            "min": 1,
+            "max": 255
+          },
+          "agentId": {
+            "type": "string",
+            "min": 1,
+            "max": 255
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "readConversationMarker.response": {
+      "direction": "host_command",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "parsedMarker"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "earlier.refusal": {
+      "direction": "host_command",
+      "schema": {
+        "type": "object",
+        "required": {
+          "code": {
+            "const": "matrix_earlier_conversation"
+          },
+          "roomId": {
+            "ref": "roomId"
+          }
+        },
+        "optional": {
+          "main": {
+            "ref": "roomId"
+          }
+        },
+        "additional": false
+      }
+    },
+    "parse.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "roomId": {
+                "ref": "roomId"
+              },
+              "ownerId": {
+                "type": "string",
+                "min": 1,
+                "max": 255
+              },
+              "event": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": {},
+                    "optional": {},
+                    "additional": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "optional": {},
+            "additional": false
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "ref": "parsedMarker"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "resolve.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "rooms": {
+                "type": "array",
+                "items": {
+                  "ref": "roomFact"
+                },
+                "unique": false
+              }
+            },
+            "optional": {
+              "previous": {
+                "ref": "resolution"
+              }
+            },
+            "additional": false
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "ref": "resolution"
+              },
+              {
+                "type": "object",
+                "required": {
+                  "code": {
+                    "const": "matrix_conversation_unavailable"
+                  }
+                },
+                "optional": {},
+                "additional": false
+              }
+            ]
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "rank.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "now": {
+                "type": "integer",
+                "min": 0,
+                "max": 9007199254740991
+              },
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "ref": "candidate"
+                },
+                "unique": false
+              }
+            },
+            "optional": {},
+            "additional": false
+          },
+          "expected": {
+            "type": "array",
+            "items": {
+              "ref": "roomId"
+            },
+            "unique": true
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "admit.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "roomId": {
+                "ref": "roomId"
+              },
+              "privateAssistant": {
+                "type": "boolean"
+              },
+              "forTurn": {
+                "type": "boolean"
+              },
+              "resolution": {
+                "ref": "resolution"
+              }
+            },
+            "optional": {},
+            "additional": false
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": {
+                  "admit": {
+                    "const": true
+                  }
+                },
+                "optional": {},
+                "additional": false
+              },
+              {
+                "type": "object",
+                "required": {
+                  "admit": {
+                    "const": false
+                  },
+                  "code": {
+                    "const": "matrix_earlier_conversation"
+                  }
+                },
+                "optional": {
+                  "main": {
+                    "ref": "roomId"
+                  }
+                },
+                "additional": false
+              }
+            ]
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "sweep.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "resolution": {
+                "ref": "resolution"
+              },
+              "at": {
+                "type": "integer",
+                "min": 0,
+                "max": 9007199254740991
+              }
+            },
+            "optional": {},
+            "additional": false
+          },
+          "expected": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "roomId": {
+                  "ref": "roomId"
+                },
+                "content": {
+                  "ref": "marker"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "unique": false
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "notice.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "leaseHolder": {
+                "type": "boolean"
+              },
+              "day": {
+                "type": "string",
+                "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+              }
+            },
+            "optional": {
+              "lastDay": {
+                "type": "string",
+                "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+              }
+            },
+            "additional": false
+          },
+          "expected": {
+            "type": "object",
+            "required": {
+              "post": {
+                "type": "boolean"
+              },
+              "modelCalls": {
+                "const": 0
+              },
+              "claims": {
+                "const": 0
+              },
+              "holds": {
+                "const": 0
+              }
+            },
+            "optional": {},
+            "additional": false
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "migration.scenario": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "input": {
+            "type": "object",
+            "required": {
+              "rooms": {
+                "type": "array",
+                "items": {
+                  "ref": "roomId"
+                },
+                "unique": true
+              },
+              "chosen": {
+                "ref": "roomId"
+              },
+              "ownerConfirmed": {
+                "type": "boolean"
+              },
+              "noLiveTurn": {
+                "type": "boolean"
+              },
+              "cloudMayAnswer": {
+                "type": "boolean"
+              },
+              "cloudReady": {
+                "type": "boolean"
+              },
+              "fleetReady": {
+                "type": "boolean"
+              },
+              "writable": {
+                "type": "array",
+                "items": {
+                  "ref": "roomId"
+                },
+                "unique": true
+              }
+            },
+            "optional": {
+              "failAt": {
+                "type": "integer",
+                "min": 0
+              }
+            },
+            "additional": false
+          },
+          "expected": {
+            "type": "object",
+            "required": {
+              "status": {
+                "enum": [
+                  "ready",
+                  "blocked",
+                  "rolled_back",
+                  "rollback_pending"
+                ]
+              },
+              "writes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": {
+                    "roomId": {
+                      "ref": "roomId"
+                    },
+                    "role": {
+                      "enum": [
+                        "main",
+                        "earlier",
+                        "unmarked"
+                      ]
+                    }
+                  },
+                  "optional": {},
+                  "additional": false
+                },
+                "unique": false
+              }
+            },
+            "optional": {
+              "reason": {
+                "enum": [
+                  "owner_confirmation",
+                  "turn_live",
+                  "cloud_not_ready",
+                  "fleet_not_ready",
+                  "chosen_not_writable"
+                ]
+              }
+            },
+            "additional": false
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "main-points-to-self",
+      "message": "conversation.state",
+      "op": "same",
+      "left": "roomId",
+      "right": "content.main",
+      "when": {
+        "path": "content.role",
+        "equals": "main"
+      },
+      "required": true
+    }
+  ],
+  "state_machines": {
+    "migration": {
+      "states": [
+        "unmarked",
+        "prepared",
+        "main_written",
+        "marking_earlier",
+        "complete",
+        "rolling_back",
+        "rollback_pending",
+        "rolled_back"
+      ],
+      "initial": [
+        "unmarked"
+      ],
+      "terminal": [
+        "complete",
+        "rolled_back"
+      ],
+      "transitions": [
+        [
+          "unmarked",
+          "prepared",
+          "gates_and_preflight"
+        ],
+        [
+          "prepared",
+          "main_written",
+          "owner_main_write"
+        ],
+        [
+          "main_written",
+          "marking_earlier",
+          "earlier_write"
+        ],
+        [
+          "marking_earlier",
+          "marking_earlier",
+          "earlier_write"
+        ],
+        [
+          "main_written",
+          "complete",
+          "no_other_writes"
+        ],
+        [
+          "marking_earlier",
+          "complete",
+          "all_writes_done"
+        ],
+        [
+          "prepared",
+          "rolling_back",
+          "write_failure"
+        ],
+        [
+          "main_written",
+          "rolling_back",
+          "write_failure"
+        ],
+        [
+          "marking_earlier",
+          "rolling_back",
+          "write_failure"
+        ],
+        [
+          "rolling_back",
+          "rolled_back",
+          "all_written_cleared"
+        ],
+        [
+          "rolling_back",
+          "rollback_pending",
+          "clear_failed"
+        ],
+        [
+          "rollback_pending",
+          "rolling_back",
+          "retry_clear"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/marker-main.json",
+      "message": "conversation.state",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/marker-earlier.json",
+      "message": "conversation.state",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/marker-rollback.json",
+      "message": "conversation.state",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/marker-future-keys.json",
+      "message": "conversation.state",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/marker-reject-wrong-version.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/marker-reject-negative-time.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/marker-reject-missing-main.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/marker-reject-invalid-role.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/marker-reject-main-other-room.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/marker-reject-content-text.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/marker-reject-nested-secret.json",
+      "message": "conversation.state",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/version-mac-a.json",
+      "message": "version.record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/version-mac-b.json",
+      "message": "version.record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/version-global-rejected.json",
+      "message": "version.record",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/read-for-turn.json",
+      "message": "readAssistantRoom.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-display.json",
+      "message": "readAssistantRoom.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-marker.json",
+      "message": "readConversationMarker.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-marker-main.json",
+      "message": "readConversationMarker.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-marker-unmarked.json",
+      "message": "readConversationMarker.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/earlier-typed-refusal.json",
+      "message": "earlier.refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/earlier-with-no-main.json",
+      "message": "earlier.refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-owner.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-absent.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-rollback.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-nonowner.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-wrong-state-key.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-wrong-type.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-invalid-content.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-self-mismatch.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/parse-unknown-keys.json",
+      "message": "parse.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-empty.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-legacy.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-main.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-main-earlier.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-main-stray.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-race-time.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-race-tie.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-raced-stray.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-unreachable.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-replaced.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-earlier-only.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-orphan-pointer.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-unreachable-earlier.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-all-unreachable.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-three-mains.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-transient-marked.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-transient-legacy.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resolve-transient-first.json",
+      "message": "resolve.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-recent-owner.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-old-owner.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-activity.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-oldest.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-tie.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-missing-created.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-future-owner.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-inclusive-30days.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rank-empty.json",
+      "message": "rank.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-main.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-earlier.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-stray.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-display.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-group.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-legacy.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admit-earlier-no-main.json",
+      "message": "admit.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sweep-marked.json",
+      "message": "sweep.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sweep-legacy.json",
+      "message": "sweep.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sweep-clean.json",
+      "message": "sweep.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/notice-first.json",
+      "message": "notice.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/notice-same-day.json",
+      "message": "notice.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/notice-next-day.json",
+      "message": "notice.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/notice-non-holder.json",
+      "message": "notice.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/notice-clock-back.json",
+      "message": "notice.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-success.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-block-owner.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-block-turn.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-block-cloud.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-block-fleet.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-block-chosen-denied.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-cloud-ready.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-single-cloud-block.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-skip-denied.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-failed-second.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-failed-third.json",
+      "message": "migration.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-complete.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-rollback.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-rollback-retry.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-crash-after-main.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration-reject-half-success.json",
+      "machine": "migration",
+      "expect": "reject",
+      "violation": "transition"
+    }
+  ],
+  "rules": {
+    "authority": "Only owner-sent io.atum.conversation state at empty key is accepted. Owner identity comes from already-authorized assistant-room membership, not marker data. Invalid or nonowner state is unmarked; read failures are explicit.",
+    "resolver": "Private assistant rooms only. Explicit earlier always refuses turns. Readable mains: greatest at, then lowest room ID. Main losers earlier, unmarked rooms stray. Unreachable never main or writable. Any transient keeps previous whole result; without previous throw matrix_conversation_unavailable, never legacy by error.",
+    "ranking": "For proposals sort recent owner messages within inclusive 30 days first, newest first; otherwise last activity newest first; otherwise oldest creation first. Missing creation sorts last. Tie lowest room ID. Future owner timestamps do not count as recent.",
+    "migration": "All gates before any write. Owner-chosen readable/writable main first, then other preflight-writable rooms sorted by ID as earlier. On failure clear all successfully written rooms with {} in reverse order; retry failed clears visibly, never report success. A crash after main yields coherent stray rooms completed by sweep.",
+    "sweep": "With resolved main, only earlier and stray readable rooms get earlier pointing to winner. Never main and never unreachable. No writes on transient or legacy.",
+    "notice": "Static localized m.notice at most once per room per UTC day from current lease holder, zero model calls, ledger claims or holds. Persist last successful day; clock moving backwards cannot resend. Rare double-host notices accepted.",
+    "threads": "v1 ignores unknown marker keys but they carry no authority. Threads remain refused under agent-turns. No reset, fresh marker, epoch, divider or automatic rotation.",
+    "cloud_freeze": "Proposed a/b/c requires written A-APP and C-CT acknowledgement before merge; see README. readAssistantRoom forTurn runs in existing shared Matrix SDK host; readConversationMarker returns owner-checked role/main/at or null; J4 protect_first_n=0 precedes real cloud links."
+  },
+  "publicProjection": {
+    "status": "partial data-only projection",
+    "excludedMembers": [
+      "evidence/README.md",
+      "evidence/authority.json"
+    ],
+    "acceptance": "No private authority/provenance assertion; private source conformance must still validate excluded evidence."
+  }
+}

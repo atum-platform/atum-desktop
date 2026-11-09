@@ -1,0 +1,14 @@
+{
+  "profile": "atum.model-grant/1",
+  "state": "active",
+  "source": "atum",
+  "connectionId": "opencode-go",
+  "alias": "glm-5.2",
+  "model": "glm-5.2",
+  "effort": "high",
+  "policyDigest": "3fd4371d5e5006735eabe91264ac4b67f55c1a9c12c0ddca37863998cba8cac0",
+  "contextBudget": 131072,
+  "outputBudget": 16384,
+  "maxTurnMicroProtons": 0,
+  "connectionRevision": 1
+}

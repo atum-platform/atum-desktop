@@ -1,0 +1,16 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "owner_client",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "ownerUserId": "@owner:atum.example",
+  "computerId": "00000000-0000-4000-8000-b454f82c5857",
+  "attachmentEpoch": 7
+}

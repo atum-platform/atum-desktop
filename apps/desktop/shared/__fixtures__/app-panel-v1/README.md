@@ -1,0 +1,1 @@
+Copied verbatim from atum-platform afc65f8a6c, spec/app-panel/v1/fixtures. Glyph inventory: ../../app-panel-glyphs.json from the same commit. Vendored so desktop verification needs no sibling checkout or network.

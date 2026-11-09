@@ -1,0 +1,6 @@
+{
+  "kind": "readAssistantRoom",
+  "roomId": "!b:proof.test",
+  "ownerId": "@owner:proof.test",
+  "agentId": "@agent:proof.test"
+}

@@ -1,0 +1,587 @@
+{
+  "contract_id": "atum.chatgpt-relay",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/custody.vectors.json",
+    "fixtures/disable.request.json",
+    "fixtures/enable-secret.request.json",
+    "fixtures/enable.request.json",
+    "fixtures/relay-expired.request.frame.json",
+    "fixtures/relay-secret.response.frame.json",
+    "fixtures/relay.request.frame.json",
+    "fixtures/relay.response.frame.json",
+    "fixtures/relay.sequence.json",
+    "fixtures/status-disabled.response.json",
+    "fixtures/status-enabled.response.json"
+  ],
+  "row": "Owner 2026-10-27/28 R2: one selected owner Mac relays ChatGPT-plan calls without exporting its OAuth session",
+  "providers": [
+    "platform migration 0336",
+    "cloud controller device hub",
+    "Atum desktop device service"
+  ],
+  "consumers": [
+    "model-choice/1.5",
+    "cloud-execution/1.14",
+    "desktop Settings and cloud model picker"
+  ],
+  "parameters": {
+    "request_max_bytes": 800000,
+    "response_max_bytes": 800000,
+    "capability_max_ms": 60000,
+    "capability_uses": 1,
+    "active_relays_per_owner": 1
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "model_id": {
+      "type": "string",
+      "min": 1,
+      "max": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "effort": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "model": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "model_id"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 120
+        },
+        "efforts": {
+          "type": "array",
+          "items": {
+            "ref": "effort"
+          },
+          "min": 0,
+          "max": 3,
+          "unique": true
+        },
+        "defaultEffort": {
+          "ref": "effort"
+        },
+        "contextBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "outputBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 200000
+        }
+      }
+    },
+    "relay_status": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.chatgpt-relay/1"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "state": {
+          "enum": [
+            "disabled",
+            "enabled"
+          ]
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "ref": "model"
+          },
+          "min": 0,
+          "max": 64,
+          "unique": true
+        }
+      },
+      "optional": {
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "selectedAt": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "relay_enable": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.chatgpt-relay/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "ref": "model"
+          },
+          "min": 1,
+          "max": 64,
+          "unique": true
+        }
+      }
+    },
+    "relay_disable": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.chatgpt-relay/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "relay_request": {
+      "type": "object",
+      "required": {
+        "capabilityId": {
+          "ref": "uuid"
+        },
+        "ownerPrincipal": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "model": {
+          "ref": "model_id"
+        },
+        "effort": {
+          "ref": "effort"
+        },
+        "relayRevision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "connectionId": {
+          "ref": "uuid"
+        },
+        "connectionEpoch": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "issuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "maxResponseBytes": {
+          "type": "integer",
+          "min": 1,
+          "max": 800000
+        },
+        "requestBytes": {
+          "type": "integer",
+          "min": 1,
+          "max": 800000
+        },
+        "requestJson": {
+          "type": "string",
+          "min": 1,
+          "max": 800000
+        }
+      }
+    },
+    "relay_response": {
+      "type": "object",
+      "required": {
+        "capabilityId": {
+          "ref": "uuid"
+        },
+        "state": {
+          "enum": [
+            "completed",
+            "refused"
+          ]
+        },
+        "status": {
+          "type": "integer",
+          "min": 100,
+          "max": 599
+        }
+      },
+      "optional": {
+        "responseJson": {
+          "type": "string",
+          "min": 1,
+          "max": 800000
+        },
+        "code": {
+          "enum": [
+            "wrong_owner",
+            "wrong_agent",
+            "wrong_device",
+            "stale_connection",
+            "expired",
+            "replayed",
+            "relay_disabled",
+            "model_unavailable",
+            "request_too_large",
+            "response_too_large",
+            "chatgpt_unavailable",
+            "stopped",
+            "invalid_request"
+          ]
+        }
+      }
+    },
+    "controller_frame": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "ChatGptRelayRequest"
+        },
+        "body": {
+          "ref": "relay_request"
+        },
+        "kid": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "sig": {
+          "type": "string",
+          "min": 86,
+          "max": 86,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "device_frame": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "type": {
+          "const": "ChatGptRelayResponse"
+        },
+        "body": {
+          "ref": "relay_response"
+        },
+        "kid": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "sig": {
+          "type": "string",
+          "min": 86,
+          "max": 86,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
+    },
+    "custody_vector": {
+      "type": "object",
+      "required": {
+        "material": {
+          "enum": [
+            "oauth_session",
+            "refresh_token",
+            "relay_capability",
+            "request_content",
+            "response_content"
+          ]
+        },
+        "platform": {
+          "enum": [
+            "absent",
+            "digest_only",
+            "content_transit"
+          ]
+        },
+        "controller": {
+          "enum": [
+            "absent",
+            "capability_and_content"
+          ]
+        },
+        "mac": {
+          "enum": [
+            "hermes_custody",
+            "capability_and_content"
+          ]
+        },
+        "sandbox": {
+          "enum": [
+            "opaque_turn_token",
+            "content_only"
+          ]
+        },
+        "logs": {
+          "const": "metadata_only"
+        },
+        "fallback": {
+          "const": "none"
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "description": "Owner selects or disables one already-enrolled Mac; model metadata only.",
+      "forbidden_fields": [
+        "*token*",
+        "*secret*",
+        "*authorization*",
+        "*refresh*",
+        "*access*"
+      ]
+    },
+    "platform_to_owner": {
+      "description": "Selection and safe model metadata only.",
+      "forbidden_fields": [
+        "*token*",
+        "*secret*",
+        "*authorization*",
+        "*refresh*",
+        "*access*"
+      ]
+    },
+    "controller_to_device": {
+      "description": "One controller-signed, turn-scoped relay capability and bounded chat content.",
+      "forbidden_fields": [
+        "oauthSession",
+        "refreshToken",
+        "accessToken",
+        "authorization"
+      ]
+    },
+    "device_to_controller": {
+      "description": "One bounded projected answer or a closed refusal code.",
+      "forbidden_fields": [
+        "oauthSession",
+        "refreshToken",
+        "accessToken",
+        "authorization"
+      ]
+    },
+    "conformance": {
+      "description": "Custody vectors only.",
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "relay.enable.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "relay_enable"
+      }
+    },
+    "relay.disable.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "relay_disable"
+      }
+    },
+    "relay.status.response": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "ref": "relay_status"
+      }
+    },
+    "frame.ChatGptRelayRequest": {
+      "direction": "controller_to_device",
+      "schema": {
+        "ref": "controller_frame"
+      }
+    },
+    "frame.ChatGptRelayResponse": {
+      "direction": "device_to_controller",
+      "schema": {
+        "ref": "device_frame"
+      }
+    },
+    "chatgpt-relay.custody.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "custody_vector"
+            },
+            "min": 5,
+            "max": 5,
+            "unique": true
+          }
+        }
+      }
+    }
+  },
+  "routes": {
+    "owner": {
+      "GET /api/matrix/v1/chatgpt-relay": "relay.status.response",
+      "POST /api/matrix/v1/chatgpt-relay/enable": "relay.enable.request -> relay.status.response",
+      "POST /api/matrix/v1/chatgpt-relay/disable": "relay.disable.request -> relay.status.response"
+    }
+  },
+  "invariants": [],
+  "state_machines": {
+    "relay": {
+      "states": [
+        "disabled",
+        "enabled"
+      ],
+      "initial": [
+        "disabled"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "disabled",
+          "enabled",
+          "enable"
+        ],
+        [
+          "enabled",
+          "enabled",
+          "transfer"
+        ],
+        [
+          "enabled",
+          "disabled",
+          "disable"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/enable.request.json",
+      "message": "relay.enable.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enable-secret.request.json",
+      "message": "relay.enable.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/disable.request.json",
+      "message": "relay.disable.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-enabled.response.json",
+      "message": "relay.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-disabled.response.json",
+      "message": "relay.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/relay.request.frame.json",
+      "message": "frame.ChatGptRelayRequest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/relay-expired.request.frame.json",
+      "message": "frame.ChatGptRelayRequest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/relay.response.frame.json",
+      "message": "frame.ChatGptRelayResponse",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/relay-secret.response.frame.json",
+      "message": "frame.ChatGptRelayResponse",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/custody.vectors.json",
+      "message": "chatgpt-relay.custody.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/relay.sequence.json",
+      "machine": "relay",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "decision": "claimed",
+  "occurrenceId": "00000000-0000-4000-8000-9b19c9af73a9",
+  "occurrenceAt": 1793017200000,
+  "effectiveDueAt": 1793017200000,
+  "expiresAt": 1793017320000,
+  "settingsRevision": 1,
+  "ownerTimeZone": "Asia/Ho_Chi_Minh",
+  "policy": {
+    "version": 2,
+    "definitionDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "policyDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "normalWindow": {
+      "startHour": 8,
+      "endHour": 21
+    },
+    "sourceIntervalMs": 7200000,
+    "effectiveSourceIntervalMs": 7200000,
+    "quietMs": 600000,
+    "claimLeaseMs": 120000,
+    "activeComputeSeconds": 120,
+    "warmupActiveComputeSeconds": 1800,
+    "warmupOffsetsMs": [
+      300000,
+      900000,
+      2100000,
+      3600000
+    ],
+    "inputTokens": 8000,
+    "outputTokens": 1000,
+    "resultCharacters": 500,
+    "sourceChecksPerLocalDay": 12,
+    "effectiveSourceChecksPerLocalDay": 12,
+    "modelAttemptsPerLocalDay": 8,
+    "effectiveModelAttemptsPerLocalDay": 8,
+    "nonurgentOffersPerLocalDay": 2,
+    "everydayModel": "nguyet-thuc",
+    "warmupReleaseLimit": 2,
+    "warmupReleaseBackoffMs": 120000
+  },
+  "occurrenceKind": "followup_sweep",
+  "admittedSources": {
+    "profile": "atum.agent-sources/1",
+    "snapshotRevision": 31,
+    "snapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sources": [
+      {
+        "descriptor": {
+          "id": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+          "kind": "matrix.bot-room",
+          "connectionRef": "matrix_connection_owner_01",
+          "optOutGate": "team_spaces",
+          "revision": 7,
+          "scopeRef": "room_unknown_app_01",
+          "readCapabilities": [
+            {
+              "operationRef": "matrix.read_scoped_room",
+              "backgroundSafe": true
+            }
+          ],
+          "scan": {
+            "operationRef": "matrix.read_scoped_room",
+            "cursorSemantics": "opaque-v1"
+          },
+          "provenanceTags": [
+            "app-declared",
+            "matrix-derived"
+          ],
+          "policyTags": [
+            "owner-only"
+          ]
+        },
+        "binding": {
+          "connectionRef": "matrix_connection_owner_01",
+          "scopeRef": "room_unknown_app_01",
+          "descriptorRevision": 7,
+          "authorityRevision": 19
+        }
+      },
+      {
+        "descriptor": {
+          "id": "google_drive",
+          "kind": "google.drive",
+          "connectionRef": "google_connection_owner_01",
+          "optOutGate": "google",
+          "revision": 3,
+          "scopeRef": "google_account_01",
+          "readCapabilities": [
+            {
+              "operationRef": "google.search_drive",
+              "backgroundSafe": true
+            }
+          ],
+          "scan": {
+            "operationRef": "google.search_drive",
+            "cursorSemantics": "opaque-v1"
+          },
+          "provenanceTags": [
+            "google-derived"
+          ],
+          "policyTags": [
+            "google-limited-use-v1",
+            "owner-only"
+          ]
+        },
+        "binding": {
+          "connectionRef": "google_connection_owner_01",
+          "scopeRef": "google_account_01",
+          "descriptorRevision": 3,
+          "authorityRevision": 23
+        }
+      }
+    ]
+  },
+  "sourceCursors": {
+    "app:00000000-0000-4000-8000-a3a9e1ed9732:chat": "opaque:room:event_00",
+    "google_drive": "opaque:drive:revision_00"
+  },
+  "cursorBindings": {
+    "app:00000000-0000-4000-8000-a3a9e1ed9732:chat": {
+      "connectionRef": "matrix_connection_owner_01",
+      "scopeRef": "room_unknown_app_01",
+      "descriptorRevision": 7,
+      "authorityRevision": 19
+    },
+    "google_drive": {
+      "connectionRef": "google_connection_owner_01",
+      "scopeRef": "google_account_01",
+      "descriptorRevision": 3,
+      "authorityRevision": 23
+    }
+  }
+}

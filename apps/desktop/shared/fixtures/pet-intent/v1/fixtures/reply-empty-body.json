@@ -1,0 +1,12 @@
+{
+  "msgtype": "m.text",
+  "body": "",
+  "io.atum.pet": {
+    "v": 1,
+    "intents": [
+      {
+        "action": "wave"
+      }
+    ]
+  }
+}

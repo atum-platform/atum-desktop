@@ -1,0 +1,25 @@
+{
+  "policyDigest": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0",
+  "conversationIdentity": "room-session-unchanged",
+  "reseeds": 0,
+  "steps": [
+    {
+      "alias": "nguyet-thuc",
+      "contextBudget": 1000000,
+      "compressBeforeCall": false,
+      "sameSession": true
+    },
+    {
+      "alias": "nhat-thuc",
+      "contextBudget": 120000,
+      "compressBeforeCall": true,
+      "sameSession": true
+    },
+    {
+      "alias": "nguyet-thuc",
+      "contextBudget": 1000000,
+      "compressBeforeCall": false,
+      "sameSession": true
+    }
+  ]
+}

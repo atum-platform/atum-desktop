@@ -1,0 +1,6 @@
+{
+  "rule": "unreachable_checkpoint_loss",
+  "sourceState": "offline",
+  "lossCode": "changes_since_last_checkpoint_lost",
+  "lastCheckpointAtPlatform": 1799998200000
+}

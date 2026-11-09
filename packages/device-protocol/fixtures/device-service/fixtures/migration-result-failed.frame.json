@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "MigrationResult",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "outcome": "failed",
+    "reason": "home_exists"
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "DazApAqtR2F161fsLIdQewk7j4pdoaDuwVrx-Z_03qbcfQ0RIifn3MQ3eAZQrUVilRytvN2NvSleV-VDCCAIAA"
+}

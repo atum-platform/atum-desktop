@@ -1,0 +1,13 @@
+{
+  "requestId": "00000000-0000-4000-8000-80dcbf31a348",
+  "audience": {
+    "class": "private_owner"
+  },
+  "status": "unavailable",
+  "items": [],
+  "coverage": [],
+  "contentBytes": 0,
+  "errors": [
+    "service_unavailable"
+  ]
+}

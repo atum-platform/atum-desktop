@@ -1,0 +1,2615 @@
+{
+  "contract_id": "atum.awareness",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/correction-receipt.json",
+    "fixtures/correction.json",
+    "fixtures/coverage-needs-keys.json",
+    "fixtures/coverage-partial-google-fence.json",
+    "fixtures/coverage-paused-drive.json",
+    "fixtures/coverage-paused-without-reason.json",
+    "fixtures/coverage-ready.json",
+    "fixtures/coverage-report.json",
+    "fixtures/coverage-summary-all-excluded.json",
+    "fixtures/coverage-summary-catching_up.json",
+    "fixtures/coverage-summary-empty-error.json",
+    "fixtures/coverage-summary-empty-excluded.json",
+    "fixtures/coverage-summary-empty.json",
+    "fixtures/coverage-summary-error.json",
+    "fixtures/coverage-summary-false-excluded.json",
+    "fixtures/coverage-summary-needs_keys.json",
+    "fixtures/coverage-summary-offline.json",
+    "fixtures/coverage-summary-partial.json",
+    "fixtures/coverage-summary-paused.json",
+    "fixtures/coverage-summary-ready.json",
+    "fixtures/coverage-summary-unsupported-ready.json",
+    "fixtures/coverage-summary-wrong-priority.json",
+    "fixtures/coverage-summary.json",
+    "fixtures/envelope-drive-file-fenced-account.managed.json",
+    "fixtures/envelope-drive-file.managed.json",
+    "fixtures/envelope-edit.managed.json",
+    "fixtures/envelope-google-derived-to-managed.managed.json",
+    "fixtures/envelope-human-group-message.managed.json",
+    "fixtures/envelope-local-google-derived.local.json",
+    "fixtures/envelope-names-owner.managed.json",
+    "fixtures/envelope-redaction-with-content.managed.json",
+    "fixtures/envelope-redaction.managed.json",
+    "fixtures/fence-ack.json",
+    "fixtures/fence-notice.json",
+    "fixtures/google-fence-account-data.json",
+    "fixtures/provenance-marker.json",
+    "fixtures/reader-advance-without-receipt.sequence.json",
+    "fixtures/reader-receipt-retry.sequence.json",
+    "fixtures/reader-restore-rewind.sequence.json",
+    "fixtures/reader-restore-without-rewind.sequence.json",
+    "fixtures/recall-args-forged-audience.json",
+    "fixtures/recall-args.json",
+    "fixtures/receipt-accepted.json",
+    "fixtures/receipt-duplicate.json",
+    "fixtures/receipt-refused-fence.json",
+    "fixtures/receipt-refused-google.json",
+    "fixtures/retrieval-outage-with-items.json",
+    "fixtures/retrieval-outage.json",
+    "fixtures/retrieval-private-google-derived.json",
+    "fixtures/retrieval-private-request.json",
+    "fixtures/retrieval-private-response.json",
+    "fixtures/retrieval-shared-room-canary.json",
+    "fixtures/retrieval-shared-room-google-derived.json",
+    "fixtures/retrieval-shared-room-response.json",
+    "fixtures/source-rejoin-clears-exclusion.sequence.json",
+    "fixtures/source-rejoin-keeps-exclusion.sequence.json",
+    "fixtures/withdrawal-exclude-source.json",
+    "fixtures/withdrawal-exclude-without-epoch.json",
+    "fixtures/withdrawal-forget-fact.json",
+    "fixtures/withdrawal-receipt-late-purge.json",
+    "fixtures/withdrawal-receipt.json",
+    "fixtures/withdrawal-recorded-then-purged.sequence.json",
+    "fixtures/withdrawal-success-before-record.sequence.json"
+  ],
+  "rows": [
+    "G8-15",
+    "G2-19"
+  ],
+  "parties": {
+    "W1_ingestion_and_reader": "AW",
+    "W2_knowledge_service": "KS",
+    "W3_hermes": "AW",
+    "W4_continuity": "AW",
+    "W5_surfaces": "UI",
+    "google_latch_and_marker": "RT",
+    "W6_harness": "CO"
+  },
+  "matrix_keys": {
+    "event_content": "io.atum.provenance",
+    "account_data": "io.atum.google_fence"
+  },
+  "limits": {
+    "envelope_text_chars": 65536,
+    "envelope_attachments": 16,
+    "query_chars": 2048,
+    "recall_items": 20,
+    "recall_content_bytes": 32768,
+    "item_content_chars": 8192,
+    "coverage_entries": 200,
+    "suppression_ids_per_receipt": 1000,
+    "purge_within_ms": 86400000,
+    "backfill_priority_days": 30
+  },
+  "targets": {
+    "keyword_searchable_p95_ms": 10000,
+    "recall_overhead_p95_ms": 1500,
+    "grounded_answers_min_percent": 90,
+    "benchmark": "the fixed 30-question Vietnamese and English personal-work set (G8-20, G8-41)"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "source_ref": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "assistant_chat",
+            "human_dm",
+            "human_group",
+            "app_exchange",
+            "drive_file",
+            "native_memory",
+            "owner_statement"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        }
+      },
+      "optional": {
+        "agentPrincipal": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "object_ref": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "message",
+            "edit",
+            "redaction",
+            "file_version",
+            "memory_revision"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "author": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "owner",
+            "human",
+            "agent",
+            "app"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "file",
+            "image",
+            "audio"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        },
+        "mime": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[!-~]+"
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "parse": {
+          "enum": [
+            "parsed",
+            "pending",
+            "unsupported"
+          ]
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "required": {},
+      "optional": {
+        "sourceKinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "assistant_chat",
+              "human_dm",
+              "human_group",
+              "app_exchange",
+              "drive_file",
+              "native_memory",
+              "owner_statement"
+            ]
+          },
+          "min": 1,
+          "max": 7,
+          "unique": true
+        },
+        "since": {
+          "ref": "timestamp_ms"
+        },
+        "until": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "audience": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "private_owner"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "background_private"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "shared_room"
+            },
+            "roomId": {
+              "ref": "room_id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "partner"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "appId": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "audience_private": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "private_owner"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "background_private"
+            }
+          }
+        }
+      ]
+    },
+    "audience_shared": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "shared_room"
+            },
+            "roomId": {
+              "ref": "room_id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "class": {
+              "const": "partner"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "appId": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "private"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "room"
+            },
+            "roomId": {
+              "ref": "room_id"
+            }
+          }
+        }
+      ]
+    },
+    "citation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "matrix_event"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "eventId": {
+              "ref": "event_id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "drive_file"
+            },
+            "fileId": {
+              "type": "string",
+              "min": 1,
+              "max": 1024,
+              "pattern": "[!-~]+"
+            },
+            "version": {
+              "type": "string",
+              "min": 1,
+              "max": 1024,
+              "pattern": "[!-~]+"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "memory"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "type": "integer",
+              "min": 1,
+              "max": 9007199254740991
+            }
+          }
+        }
+      ]
+    },
+    "evidence_item": {
+      "type": "object",
+      "required": {
+        "evidenceId": {
+          "ref": "uuid"
+        },
+        "source": {
+          "ref": "source_ref"
+        },
+        "object": {
+          "ref": "object_ref"
+        },
+        "author": {
+          "ref": "author"
+        },
+        "eventTime": {
+          "ref": "timestamp_ms"
+        },
+        "observedTime": {
+          "ref": "timestamp_ms"
+        },
+        "policyEpoch": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "scope": {
+          "ref": "scope"
+        },
+        "epistemic": {
+          "enum": [
+            "statement",
+            "question",
+            "quotation",
+            "proposal",
+            "decision",
+            "commitment",
+            "correction",
+            "unknown"
+          ]
+        },
+        "derivation": {
+          "type": "object",
+          "required": {
+            "parents": {
+              "type": "array",
+              "items": {
+                "ref": "uuid"
+              },
+              "min": 0,
+              "max": 32,
+              "unique": true
+            },
+            "sourceRefs": {
+              "type": "array",
+              "items": {
+                "ref": "object_ref"
+              },
+              "min": 0,
+              "max": 32
+            }
+          }
+        },
+        "digest": {
+          "ref": "sha256"
+        },
+        "citation": {
+          "ref": "citation"
+        },
+        "content": {
+          "type": "string",
+          "min": 0,
+          "max": 8192
+        },
+        "untrustedInput": {
+          "const": true
+        }
+      },
+      "optional": {
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "evidence_item_private": {
+      "type": "object",
+      "required": {
+        "evidenceId": {
+          "ref": "uuid"
+        },
+        "source": {
+          "ref": "source_ref"
+        },
+        "object": {
+          "ref": "object_ref"
+        },
+        "author": {
+          "ref": "author"
+        },
+        "eventTime": {
+          "ref": "timestamp_ms"
+        },
+        "observedTime": {
+          "ref": "timestamp_ms"
+        },
+        "policyEpoch": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "scope": {
+          "ref": "scope"
+        },
+        "epistemic": {
+          "enum": [
+            "statement",
+            "question",
+            "quotation",
+            "proposal",
+            "decision",
+            "commitment",
+            "correction",
+            "unknown"
+          ]
+        },
+        "derivation": {
+          "type": "object",
+          "required": {
+            "parents": {
+              "type": "array",
+              "items": {
+                "ref": "uuid"
+              },
+              "min": 0,
+              "max": 32,
+              "unique": true
+            },
+            "sourceRefs": {
+              "type": "array",
+              "items": {
+                "ref": "object_ref"
+              },
+              "min": 0,
+              "max": 32
+            }
+          }
+        },
+        "digest": {
+          "ref": "sha256"
+        },
+        "citation": {
+          "ref": "citation"
+        },
+        "content": {
+          "type": "string",
+          "min": 0,
+          "max": 8192
+        },
+        "untrustedInput": {
+          "const": true
+        }
+      },
+      "optional": {
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "provenance": {
+          "type": "object",
+          "required": {
+            "google": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "coverage_entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "source": {
+              "ref": "source_ref"
+            },
+            "state": {
+              "const": "ready"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "google_fence",
+                  "cloud_access_ended",
+                  "owner_paused",
+                  "keys_missing",
+                  "backfill_pending",
+                  "unsupported_media",
+                  "service_unavailable",
+                  "device_offline",
+                  "excluded_by_owner",
+                  "temporary_conversation"
+                ]
+              },
+              "min": 0,
+              "max": 0
+            },
+            "asOf": {
+              "ref": "timestamp_ms"
+            }
+          },
+          "optional": {
+            "processedThrough": {
+              "ref": "timestamp_ms"
+            },
+            "backfill": {
+              "type": "object",
+              "required": {
+                "priorityWindowDays": {
+                  "const": 30
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "optional": {
+                "oldestIndexedAt": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "source": {
+              "ref": "source_ref"
+            },
+            "state": {
+              "enum": [
+                "catching_up",
+                "partial",
+                "offline",
+                "excluded",
+                "needs_keys",
+                "paused",
+                "error"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "google_fence",
+                  "cloud_access_ended",
+                  "owner_paused",
+                  "keys_missing",
+                  "backfill_pending",
+                  "unsupported_media",
+                  "service_unavailable",
+                  "device_offline",
+                  "excluded_by_owner",
+                  "temporary_conversation"
+                ]
+              },
+              "min": 1,
+              "max": 10,
+              "unique": true
+            },
+            "asOf": {
+              "ref": "timestamp_ms"
+            }
+          },
+          "optional": {
+            "processedThrough": {
+              "ref": "timestamp_ms"
+            },
+            "backfill": {
+              "type": "object",
+              "required": {
+                "priorityWindowDays": {
+                  "const": 30
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "optional": {
+                "oldestIndexedAt": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "withdrawal_scope": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "fact"
+            },
+            "evidenceId": {
+              "ref": "uuid"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "object"
+            },
+            "source": {
+              "ref": "source_ref"
+            },
+            "objectId": {
+              "type": "string",
+              "min": 1,
+              "max": 1024,
+              "pattern": "[!-~]+"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "source"
+            },
+            "source": {
+              "ref": "source_ref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "account"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "directions": {
+    "reader_to_managed_brain": {
+      "description": "AW's reader (local or the cloud companion) to the per-account managed knowledge service. The owner comes from the authenticated per-account channel.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "account",
+        "audience",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "reader_to_local_brain": {
+      "description": "AW's reader to the local brain on the same Mac.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "account",
+        "audience",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "brain_to_reader": {
+      "description": "The knowledge service's receipts.",
+      "forbidden_fields": [
+        "owner",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "model_to_tool": {
+      "description": "What the model may pass to the recall tool. The controller binds everything else.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "account",
+        "audience",
+        "class",
+        "roomId",
+        "agentPrincipal",
+        "scope",
+        "source",
+        "googleDerived"
+      ]
+    },
+    "controller_to_brain": {
+      "description": "The controller's recall request, with the audience it bound.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "account",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "brain_to_controller": {
+      "description": "The knowledge service's recall answer.",
+      "forbidden_fields": [
+        "owner",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "status_to_client": {
+      "description": "Coverage shown by the surfaces.",
+      "forbidden_fields": [
+        "owner",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    },
+    "runtime_to_matrix": {
+      "description": "Keys the runtime writes into Matrix event content or account data.",
+      "forbidden_fields": [
+        "text",
+        "content",
+        "accessToken",
+        "token",
+        "credential",
+        "recoveryKey"
+      ]
+    }
+  },
+  "messages": {
+    "envelope.managed": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "assistant_chat",
+                      "human_dm",
+                      "human_group",
+                      "app_exchange",
+                      "native_memory",
+                      "owner_statement"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                },
+                "optional": {
+                  "agentPrincipal": {
+                    "ref": "uuid"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "drive_file"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "const": false
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "redaction"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "const": {
+                  "text": "",
+                  "attachments": []
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "envelope.local": {
+      "direction": "reader_to_local_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "assistant_chat",
+                      "human_dm",
+                      "human_group",
+                      "app_exchange",
+                      "native_memory",
+                      "owner_statement"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                },
+                "optional": {
+                  "agentPrincipal": {
+                    "ref": "uuid"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "drive_file"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "redaction"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "const": {
+                  "text": "",
+                  "attachments": []
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "fence.notice": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "since": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "fence.ack": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "type": "object",
+        "required": {
+          "active": {
+            "const": true
+          },
+          "since": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "ingestion.receipt": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "object": {
+                "ref": "object_ref"
+              },
+              "state": {
+                "enum": [
+                  "accepted",
+                  "duplicate",
+                  "superseded"
+                ]
+              },
+              "acceptedRevision": {
+                "type": "integer",
+                "min": 1,
+                "max": 9007199254740991
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "object": {
+                "ref": "object_ref"
+              },
+              "state": {
+                "const": "refused"
+              },
+              "reason": {
+                "enum": [
+                  "google_derived",
+                  "fence_active",
+                  "excluded",
+                  "withdrawn",
+                  "stale_policy_epoch",
+                  "invalid",
+                  "unsupported"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "withdrawal": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "withdrawalId": {
+                "ref": "uuid"
+              },
+              "scope": {
+                "ref": "withdrawal_scope"
+              },
+              "reason": {
+                "enum": [
+                  "forget",
+                  "delete",
+                  "account_deleted"
+                ]
+              },
+              "requestedAt": {
+                "ref": "timestamp_ms"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "withdrawalId": {
+                "ref": "uuid"
+              },
+              "scope": {
+                "ref": "withdrawal_scope"
+              },
+              "reason": {
+                "enum": [
+                  "exclude",
+                  "left_room",
+                  "revoked"
+                ]
+              },
+              "requestedAt": {
+                "ref": "timestamp_ms"
+              },
+              "policyEpoch": {
+                "type": "integer",
+                "min": 1,
+                "max": 9007199254740991
+              }
+            }
+          }
+        ]
+      }
+    },
+    "withdrawal.receipt": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "type": "object",
+        "required": {
+          "withdrawalId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "recorded"
+          },
+          "recordedAt": {
+            "ref": "timestamp_ms"
+          },
+          "purgeBy": {
+            "ref": "timestamp_ms"
+          },
+          "suppressionIds": {
+            "type": "array",
+            "items": {
+              "ref": "uuid"
+            },
+            "min": 1,
+            "max": 1000,
+            "unique": true
+          }
+        }
+      }
+    },
+    "correction": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "operationId": {
+            "ref": "uuid"
+          },
+          "correctionId": {
+            "ref": "uuid"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "evidence"
+                  },
+                  "evidenceId": {
+                    "ref": "uuid"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "object"
+                  },
+                  "source": {
+                    "ref": "source_ref"
+                  },
+                  "objectId": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              }
+            ]
+          },
+          "statement": {
+            "type": "string",
+            "min": 1,
+            "max": 4096
+          },
+          "statedBy": {
+            "const": "owner"
+          },
+          "statedAt": {
+            "ref": "timestamp_ms"
+          }
+        },
+        "optional": {
+          "statementRef": {
+            "type": "object",
+            "required": {
+              "source": {
+                "ref": "source_ref"
+              },
+              "object": {
+                "ref": "object_ref"
+              }
+            }
+          }
+        }
+      }
+    },
+    "correction.receipt": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "type": "object",
+        "required": {
+          "correctionId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "recorded"
+          },
+          "evidenceId": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "recall.tool_args": {
+      "direction": "model_to_tool",
+      "schema": {
+        "type": "object",
+        "required": {
+          "query": {
+            "type": "string",
+            "min": 1,
+            "max": 2048
+          }
+        },
+        "optional": {
+          "filters": {
+            "ref": "filters"
+          },
+          "limit": {
+            "type": "integer",
+            "min": 1,
+            "max": 20
+          }
+        }
+      }
+    },
+    "retrieval.request": {
+      "direction": "controller_to_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "requestId": {
+            "ref": "uuid"
+          },
+          "audience": {
+            "ref": "audience"
+          },
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "query": {
+            "type": "string",
+            "min": 1,
+            "max": 2048
+          },
+          "limits": {
+            "type": "object",
+            "required": {
+              "maxItems": {
+                "type": "integer",
+                "min": 1,
+                "max": 20
+              },
+              "maxContentBytes": {
+                "type": "integer",
+                "min": 1,
+                "max": 32768
+              }
+            }
+          }
+        },
+        "optional": {
+          "filters": {
+            "ref": "filters"
+          }
+        }
+      }
+    },
+    "retrieval.response": {
+      "direction": "brain_to_controller",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "audience": {
+                "ref": "audience_private"
+              },
+              "status": {
+                "enum": [
+                  "ok",
+                  "degraded"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "ref": "evidence_item_private"
+                },
+                "min": 0,
+                "max": 20
+              },
+              "coverage": {
+                "type": "array",
+                "items": {
+                  "ref": "coverage_entry"
+                },
+                "min": 0,
+                "max": 200
+              },
+              "contentBytes": {
+                "type": "integer",
+                "min": 0,
+                "max": 32768
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "audience": {
+                "ref": "audience_shared"
+              },
+              "status": {
+                "enum": [
+                  "ok",
+                  "degraded"
+                ]
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "ref": "evidence_item"
+                },
+                "min": 0,
+                "max": 20
+              },
+              "coverage": {
+                "type": "array",
+                "items": {
+                  "ref": "coverage_entry"
+                },
+                "min": 0,
+                "max": 200
+              },
+              "contentBytes": {
+                "type": "integer",
+                "min": 0,
+                "max": 32768
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "audience": {
+                "ref": "audience"
+              },
+              "status": {
+                "const": "unavailable"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "ref": "evidence_item"
+                },
+                "min": 0,
+                "max": 0
+              },
+              "coverage": {
+                "type": "array",
+                "items": {
+                  "ref": "coverage_entry"
+                },
+                "min": 0,
+                "max": 200
+              },
+              "contentBytes": {
+                "const": 0
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "service_unavailable",
+                    "index_unavailable",
+                    "model_unavailable",
+                    "key_unavailable",
+                    "timeout"
+                  ]
+                },
+                "min": 1,
+                "max": 5,
+                "unique": true
+              }
+            }
+          }
+        ]
+      }
+    },
+    "coverage.entry": {
+      "direction": "status_to_client",
+      "schema": {
+        "ref": "coverage_entry"
+      }
+    },
+    "coverage.summary": {
+      "direction": "status_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "asOf": {
+            "ref": "timestamp_ms"
+          },
+          "state": {
+            "enum": [
+              "ready",
+              "catching_up",
+              "partial",
+              "offline",
+              "excluded",
+              "needs_keys",
+              "paused",
+              "error"
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "required": {
+              "ready": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "catching_up": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "partial": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "offline": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "excluded": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "needs_keys": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "paused": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              },
+              "error": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              }
+            }
+          },
+          "googleFence": {
+            "type": "object",
+            "required": {
+              "active": {
+                "type": "boolean"
+              },
+              "pausedSources": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              }
+            }
+          }
+        }
+      }
+    },
+    "coverage.report": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "ref": "coverage_entry"
+            },
+            "min": 1,
+            "max": 200
+          }
+        }
+      }
+    },
+    "provenance.marker": {
+      "direction": "runtime_to_matrix",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "google": {
+            "const": true
+          }
+        }
+      }
+    },
+    "google_fence.account_data": {
+      "direction": "runtime_to_matrix",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "since": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "coverage.summary_priority",
+      "message": "coverage.summary",
+      "op": "count_priority",
+      "required": true,
+      "left": "state",
+      "right": "counts",
+      "priority": ["error", "needs_keys", "offline", "paused", "partial", "catching_up", "ready"],
+      "ignored": "excluded",
+      "empty": "ready"
+    },
+    {
+      "id": "withdrawal.purge_within_24h",
+      "message": "withdrawal.receipt",
+      "op": "le",
+      "required": true,
+      "left": "purgeBy",
+      "right": [
+        "recordedAt"
+      ],
+      "offset": 86400000
+    },
+    {
+      "id": "retrieval.shared_room_items_scoped_to_room",
+      "message": "retrieval.response",
+      "op": "all_same",
+      "when": {
+        "path": "audience.class",
+        "equals": "shared_room"
+      },
+      "left": "items",
+      "element": "scope.roomId",
+      "right": "audience.roomId"
+    },
+    {
+      "id": "retrieval.partner_items_scoped_to_thread",
+      "message": "retrieval.response",
+      "op": "all_same",
+      "when": {
+        "path": "audience.class",
+        "equals": "partner"
+      },
+      "left": "items",
+      "element": "scope.roomId",
+      "right": "audience.roomId"
+    }
+  ],
+  "state_machines": {
+    "reader_checkpoint": {
+      "states": ["checkpointed", "awaiting_receipt", "receipt_recorded", "rewound"],
+      "initial": ["checkpointed"],
+      "terminal": [],
+      "transitions": [
+        ["checkpointed", "awaiting_receipt", "submit_revision"],
+        ["awaiting_receipt", "awaiting_receipt", "lost_receipt_restart_same_operation"],
+        ["awaiting_receipt", "receipt_recorded", "accepted_receipt"],
+        ["awaiting_receipt", "receipt_recorded", "duplicate_receipt"],
+        ["awaiting_receipt", "receipt_recorded", "superseded_receipt"],
+        ["awaiting_receipt", "receipt_recorded", "named_refusal_receipt"],
+        ["receipt_recorded", "checkpointed", "commit_checkpoint"],
+        ["checkpointed", "rewound", "processed_through_restore_gap"],
+        ["rewound", "awaiting_receipt", "resend_backfill_revision"]
+      ]
+    },
+    "source_inclusion": {
+      "states": [
+        "included",
+        "excluded",
+        "left"
+      ],
+      "initial": [
+        "included",
+        "excluded"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "included",
+          "excluded",
+          "owner_excluded"
+        ],
+        [
+          "excluded",
+          "included",
+          "owner_reincluded"
+        ],
+        [
+          "included",
+          "left",
+          "left_room"
+        ],
+        [
+          "left",
+          "included",
+          "rejoined"
+        ],
+        [
+          "excluded",
+          "excluded",
+          "left_room"
+        ],
+        [
+          "excluded",
+          "excluded",
+          "rejoined"
+        ],
+        [
+          "left",
+          "excluded",
+          "owner_excluded"
+        ]
+      ]
+    },
+    "withdrawal": {
+      "states": [
+        "requested",
+        "recorded",
+        "purged"
+      ],
+      "initial": [
+        "requested"
+      ],
+      "terminal": [
+        "purged"
+      ],
+      "transitions": [
+        [
+          "requested",
+          "recorded",
+          "receipt"
+        ],
+        [
+          "recorded",
+          "recorded",
+          "replayed_after_restore"
+        ],
+        [
+          "recorded",
+          "purged",
+          "derived_payloads_purged"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/reader-receipt-retry.sequence.json",
+      "machine": "reader_checkpoint",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reader-restore-rewind.sequence.json",
+      "machine": "reader_checkpoint",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reader-advance-without-receipt.sequence.json",
+      "machine": "reader_checkpoint",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/reader-restore-without-rewind.sequence.json",
+      "machine": "reader_checkpoint",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/envelope-human-group-message.managed.json",
+      "message": "envelope.managed",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/envelope-edit.managed.json",
+      "message": "envelope.managed",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/envelope-redaction.managed.json",
+      "message": "envelope.managed",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/envelope-redaction-with-content.managed.json",
+      "message": "envelope.managed",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/envelope-names-owner.managed.json",
+      "message": "envelope.managed",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/envelope-google-derived-to-managed.managed.json",
+      "message": "envelope.managed",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/envelope-local-google-derived.local.json",
+      "message": "envelope.local",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/envelope-drive-file.managed.json",
+      "message": "envelope.managed",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/envelope-drive-file-fenced-account.managed.json",
+      "message": "envelope.managed",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/fence-notice.json",
+      "message": "fence.notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/receipt-refused-fence.json",
+      "message": "ingestion.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/receipt-accepted.json",
+      "message": "ingestion.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/receipt-duplicate.json",
+      "message": "ingestion.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/receipt-refused-google.json",
+      "message": "ingestion.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/withdrawal-forget-fact.json",
+      "message": "withdrawal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/withdrawal-exclude-source.json",
+      "message": "withdrawal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/withdrawal-exclude-without-epoch.json",
+      "message": "withdrawal",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/withdrawal-receipt.json",
+      "message": "withdrawal.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/withdrawal-receipt-late-purge.json",
+      "message": "withdrawal.receipt",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/correction.json",
+      "message": "correction",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/recall-args.json",
+      "message": "recall.tool_args",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/recall-args-forged-audience.json",
+      "message": "recall.tool_args",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/retrieval-private-request.json",
+      "message": "retrieval.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retrieval-private-response.json",
+      "message": "retrieval.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retrieval-shared-room-response.json",
+      "message": "retrieval.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retrieval-shared-room-canary.json",
+      "message": "retrieval.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/retrieval-outage.json",
+      "message": "retrieval.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retrieval-outage-with-items.json",
+      "message": "retrieval.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/retrieval-private-google-derived.json",
+      "message": "retrieval.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retrieval-shared-room-google-derived.json",
+      "message": "retrieval.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/coverage-ready.json",
+      "message": "coverage.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-partial-google-fence.json",
+      "message": "coverage.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-paused-drive.json",
+      "message": "coverage.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-needs-keys.json",
+      "message": "coverage.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-paused-without-reason.json",
+      "message": "coverage.entry",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/coverage-summary.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/provenance-marker.json",
+      "message": "provenance.marker",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-fence-account-data.json",
+      "message": "google_fence.account_data",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/source-rejoin-keeps-exclusion.sequence.json",
+      "machine": "source_inclusion",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/source-rejoin-clears-exclusion.sequence.json",
+      "machine": "source_inclusion",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/withdrawal-recorded-then-purged.sequence.json",
+      "machine": "withdrawal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/withdrawal-success-before-record.sequence.json",
+      "machine": "withdrawal",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/fence-ack.json",
+      "message": "fence.ack",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-report.json",
+      "message": "coverage.report",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/correction-receipt.json",
+      "message": "correction.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-error.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-needs_keys.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-offline.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-paused.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-partial.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-catching_up.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-ready.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-all-excluded.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-empty.json",
+      "message": "coverage.summary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/coverage-summary-wrong-priority.json",
+      "message": "coverage.summary",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/coverage-summary-unsupported-ready.json",
+      "message": "coverage.summary",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/coverage-summary-false-excluded.json",
+      "message": "coverage.summary",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/coverage-summary-empty-excluded.json",
+      "message": "coverage.summary",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/coverage-summary-empty-error.json",
+      "message": "coverage.summary",
+      "expect": "reject",
+      "violation": "invariant"
+    }
+  ]
+}

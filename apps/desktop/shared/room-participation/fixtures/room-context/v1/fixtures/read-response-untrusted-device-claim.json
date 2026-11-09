@@ -1,0 +1,9 @@
+{
+  "eventId": "$answer",
+  "senderRef": "@assistant-b:example.invalid",
+  "displayName": "Assistant B",
+  "trust": "own_assistant",
+  "text": "Option A is smaller",
+  "at": 1300,
+  "verified": true
+}

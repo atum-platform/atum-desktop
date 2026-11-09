@@ -1,0 +1,16 @@
+{
+  "profile": "atum.agent-presentation/1",
+  "assistant_id": "00000000-0000-4000-8000-6b84a115855a",
+  "assistant_principal": "00000000-0000-4000-8000-cde71702784b",
+  "title": null,
+  "mark": {
+    "shape": "spark",
+    "color": "violet"
+  },
+  "default_mark": {
+    "shape": "circle",
+    "color": "blue"
+  },
+  "avatar_url": null,
+  "identity_revision": 7
+}

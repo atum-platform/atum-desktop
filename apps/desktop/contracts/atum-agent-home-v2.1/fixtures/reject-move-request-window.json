@@ -1,0 +1,52 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800007200001,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "idempotencyKey": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "source": {
+    "kind": "cloud"
+  },
+  "target": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+  },
+  "expectedHomeEpoch": 4,
+  "expectedPlacementRevision": 9,
+  "requestedAtPlatform": 1800000000000,
+  "intent": "automatic_failover",
+  "priority": "automatic",
+  "trigger": "pending_unreachable",
+  "evidence": {
+    "pendingWork": {
+      "eventLedgerIds": [
+        "00000000-0000-4000-8000-a9703d75e616"
+      ],
+      "occurrenceLedgerIds": [],
+      "observedAtPlatform": 1800000000000,
+      "basis": "durable_event_and_occurrence_ledgers"
+    },
+    "readiness": {
+      "homeEpoch": 4,
+      "epochCommittedAtPlatform": 1799998200000,
+      "lastReadyAtPlatform": 1799999100000,
+      "observedAtPlatform": 1800000000000,
+      "reachable": false,
+      "powerState": "unknown",
+      "unreachableSincePlatform": 1799999100000,
+      "wakeAttemptedAtPlatform": null,
+      "basis": "authenticated_agent_service_readiness"
+    }
+  }
+}

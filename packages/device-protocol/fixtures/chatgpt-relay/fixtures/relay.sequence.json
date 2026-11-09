@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "disabled",
+      "to": "enabled",
+      "event": "enable"
+    },
+    {
+      "from": "enabled",
+      "to": "enabled",
+      "event": "transfer"
+    },
+    {
+      "from": "enabled",
+      "to": "disabled",
+      "event": "disable"
+    }
+  ]
+}

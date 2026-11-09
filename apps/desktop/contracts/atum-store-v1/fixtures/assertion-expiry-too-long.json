@@ -1,0 +1,10 @@
+{
+  "audience": "atum-marketplace-store-v1",
+  "principal": "00000000-0000-4000-8000-7f708f1061f5",
+  "assistantId": null,
+  "method": "GET",
+  "path": "/atum-store/catalog",
+  "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "issuedAt": 1791244800,
+  "expiresAt": 1791244831
+}

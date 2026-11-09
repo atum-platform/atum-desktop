@@ -1,0 +1,8 @@
+{
+  "input": {
+    "roomId": "!a:proof.test",
+    "ownerId": "@owner:proof.test",
+    "event": null
+  },
+  "expected": null
+}

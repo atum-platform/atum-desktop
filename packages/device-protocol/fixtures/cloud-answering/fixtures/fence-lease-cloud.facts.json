@@ -1,0 +1,11 @@
+{
+  "entryPoint": "atum.matrix_executor_lease",
+  "answeringMode": "cloud",
+  "outcome": {
+    "kind": "refused",
+    "response": {
+      "held": false,
+      "reason": "not_eligible"
+    }
+  }
+}

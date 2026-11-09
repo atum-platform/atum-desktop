@@ -1,0 +1,14 @@
+{
+  "input": {
+    "resolution": {
+      "earlier": [
+        "!b:proof.test"
+      ],
+      "stray": [],
+      "unreachable": [],
+      "source": "legacy"
+    },
+    "at": 200
+  },
+  "expected": []
+}

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "profile": "atum.company-private-cos/1",
+  "capability": "company.private-cos",
+  "displayName": "Chief of Staff",
+  "teamDmPosition": 2,
+  "lazyCreation": true,
+  "fundingKind": "company_wallet",
+  "separatePrice": false,
+  "purgeAfterDays": 30,
+  "userExport": false
+}

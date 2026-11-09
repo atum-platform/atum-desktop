@@ -1,0 +1,7 @@
+{
+  "steps": [
+    {"from": "pending", "to": "publishing", "event": "claim"},
+    {"from": "publishing", "to": "published", "event": "publish"},
+    {"from": "published", "to": "published", "event": "replay"}
+  ]
+}

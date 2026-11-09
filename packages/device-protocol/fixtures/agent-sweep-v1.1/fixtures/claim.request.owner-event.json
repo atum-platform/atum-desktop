@@ -1,0 +1,17 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "operation": "claim",
+  "requestId": "00000000-0000-4000-8000-732b4846d2ed",
+  "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+  "activity": {
+    "lastOwnerEvent": {
+      "eventId": "$warmup-owner:test",
+      "at": 1793010000000
+    },
+    "lastDialogueAt": null,
+    "busy": false,
+    "pendingWork": false,
+    "pendingApproval": false,
+    "typing": false
+  }
+}

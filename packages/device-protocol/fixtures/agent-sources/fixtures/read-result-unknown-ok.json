@@ -1,0 +1,32 @@
+{
+  "profile": "atum.agent-sources/1",
+  "requestId": "00000000-0000-4000-8000-576f18824476",
+  "sourceId": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+  "binding": {
+    "connectionRef": "matrix_connection_owner_01",
+    "scopeRef": "room_unknown_app_01",
+    "descriptorRevision": 7,
+    "authorityRevision": 19
+  },
+  "status": "ok",
+  "evidence": [
+    {
+      "profile": "atum.followup-sweep-evidence/2",
+      "evidenceId": "src:dW5rbm93bi1yb29tLWV2ZW50LTE",
+      "sourceId": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+      "observedAt": 1793242800000,
+      "objectRef": "event_01",
+      "anchor": "event_01",
+      "dueAt": null,
+      "content": "An owner-visible event from an integration unknown to product code.",
+      "provenanceTags": [
+        "app-declared",
+        "matrix-derived"
+      ],
+      "policyTags": [
+        "owner-only"
+      ]
+    }
+  ],
+  "cursor": "opaque:room:event_01"
+}

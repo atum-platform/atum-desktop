@@ -1,0 +1,23 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "import",
+  "receiptId": "00000000-0000-4000-8000-94413db91a46",
+  "generation": 7,
+  "imported": [
+    {
+      "homeJobId": "job_morning",
+      "routineId": "00000000-0000-4000-8000-1bba35f3085a"
+    },
+    {
+      "homeJobId": "job_weekly",
+      "routineId": "00000000-0000-4000-8000-8685ea4d53ab"
+    }
+  ],
+  "skipped": [
+    {
+      "homeJobId": "job_every30",
+      "reason": "unsupported",
+      "note": "Atum's cloud does not run a schedule more often than once an hour. Choose an hourly or slower cadence."
+    }
+  ]
+}

@@ -1,0 +1,5127 @@
+{
+  "schemaVersion": 1,
+  "approvedDesignCommit": "ab95e8fc16e92878ea1702f8ca20bad9f1075fb2",
+  "namespace": "src.matrix.mobile-device-copy.mobileDeviceCopy",
+  "entries": {
+    "welcomeStatesLoadingText": {
+      "proposals": [
+        "proposal.1"
+      ],
+      "usagePath": [
+        "welcome",
+        "states",
+        "loading",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Getting ready",
+        "vi": "Đang chuẩn bị"
+      },
+      "effectiveSource": {
+        "en": "Getting ready",
+        "vi": "Đang chuẩn bị"
+      }
+    },
+    "rosterStatesEmptyText": {
+      "proposals": [
+        "proposal.2"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "empty",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Nothing here yet",
+        "vi": "Chưa có nội dung"
+      },
+      "effectiveSource": {
+        "en": "Nothing here yet",
+        "vi": "Chưa có nội dung"
+      }
+    },
+    "signInStatesDeniedText": {
+      "proposals": [
+        "proposal.3"
+      ],
+      "usagePath": [
+        "sign-in",
+        "states",
+        "denied",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This action is not available to your account.",
+        "vi": "Tài khoản của bạn chưa thể thực hiện thao tác này."
+      },
+      "effectiveSource": {
+        "en": "This action is not available to your account.",
+        "vi": "Tài khoản của bạn chưa thể thực hiện thao tác này."
+      }
+    },
+    "chatStatesLowProtonsText": {
+      "proposals": [
+        "proposal.4"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "low-protons",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your Proton balance is low. Your draft is kept.",
+        "vi": "Số dư Proton đang thấp. Bản nháp được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Your Proton balance is low. Your draft is kept.",
+        "vi": "Số dư Proton đang thấp. Bản nháp được giữ lại."
+      }
+    },
+    "cloudConsentStatesTrialEndedText": {
+      "proposals": [
+        "proposal.5"
+      ],
+      "usagePath": [
+        "cloud-consent",
+        "states",
+        "trial-ended",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your cloud trial has ended.",
+        "vi": "Thời gian dùng thử trên đám mây đã kết thúc."
+      },
+      "effectiveSource": {
+        "en": "Your cloud trial has ended.",
+        "vi": "Thời gian dùng thử trên đám mây đã kết thúc."
+      }
+    },
+    "welcomeTitle": {
+      "proposals": [
+        "proposal.6"
+      ],
+      "usagePath": [
+        "welcome",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Your assistant, wherever you are.",
+        "vi": "Trợ lý của bạn, ở mọi nơi."
+      },
+      "effectiveSource": {
+        "en": "Your assistant, wherever you are.",
+        "vi": "Trợ lý của bạn, ở mọi nơi."
+      }
+    },
+    "welcomeBody": {
+      "proposals": [
+        "proposal.7"
+      ],
+      "usagePath": [
+        "welcome",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "One account. Your conversations on your phone and Mac.",
+        "vi": "Một tài khoản. Các cuộc trò chuyện trên điện thoại và máy Mac."
+      },
+      "effectiveSource": {
+        "en": "One account. Your conversations on your phone and Mac.",
+        "vi": "Một tài khoản. Các cuộc trò chuyện trên điện thoại và máy Mac."
+      }
+    },
+    "welcomeActionsSignInLabel": {
+      "proposals": [
+        "proposal.8"
+      ],
+      "usagePath": [
+        "welcome",
+        "actions",
+        "sign-in",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      },
+      "effectiveSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      }
+    },
+    "signInTitle": {
+      "proposals": [
+        "proposal.9"
+      ],
+      "usagePath": [
+        "sign-in",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Sign in to Atum",
+        "vi": "Đăng nhập Atum"
+      },
+      "effectiveSource": {
+        "en": "Sign in to Atum",
+        "vi": "Đăng nhập Atum"
+      }
+    },
+    "signInBody": {
+      "proposals": [
+        "proposal.10"
+      ],
+      "usagePath": [
+        "sign-in",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Choose a sign-in method to continue securely in your browser.",
+        "vi": "Chọn cách đăng nhập để tiếp tục an toàn trong trình duyệt."
+      },
+      "effectiveSource": {
+        "en": "Choose a sign-in method to continue securely in your browser.",
+        "vi": "Chọn cách đăng nhập để tiếp tục an toàn trong trình duyệt."
+      }
+    },
+    "signInCloudConsentText": {
+      "proposals": [
+        "proposal.275"
+      ],
+      "usagePath": [
+        "sign-in",
+        "cloud-consent",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your assistant runs and keeps its memory on Atum's servers.",
+        "vi": "Trợ lý của bạn chạy và lưu trí nhớ trên máy chủ của Atum."
+      },
+      "effectiveSource": {
+        "en": "Your assistant runs and keeps its memory on Atum's servers.",
+        "vi": "Trợ lý của bạn chạy và lưu trí nhớ trên máy chủ của Atum."
+      }
+    },
+    "signInActionsBrowserSignInLabel": {
+      "proposals": [
+        "proposal.11"
+      ],
+      "usagePath": [
+        "sign-in",
+        "actions",
+        "browser-sign-in",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue with Google",
+        "vi": "Tiếp tục với Google"
+      },
+      "effectiveSource": {
+        "en": "Continue with Google",
+        "vi": "Tiếp tục với Google"
+      }
+    },
+    "signInStatesCancelledText": {
+      "proposals": [
+        "proposal.12"
+      ],
+      "usagePath": [
+        "sign-in",
+        "states",
+        "cancelled",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Sign-in cancelled. You can try again.",
+        "vi": "Đã hủy đăng nhập. Bạn có thể thử lại."
+      },
+      "effectiveSource": {
+        "en": "Sign-in cancelled. You can try again.",
+        "vi": "Đã hủy đăng nhập. Bạn có thể thử lại."
+      }
+    },
+    "signInStatesRegistrationClosedText": {
+      "proposals": [
+        "proposal.13"
+      ],
+      "usagePath": [
+        "sign-in",
+        "states",
+        "registration-closed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "New accounts are not available yet. Existing accounts can sign in.",
+        "vi": "Chưa thể tạo tài khoản mới. Bạn vẫn có thể đăng nhập tài khoản hiện có."
+      },
+      "effectiveSource": {
+        "en": "New accounts are not available yet. Existing accounts can sign in.",
+        "vi": "Chưa thể tạo tài khoản mới. Bạn vẫn có thể đăng nhập tài khoản hiện có."
+      }
+    },
+    "browserSignInTitle": {
+      "proposals": [
+        "proposal.14"
+      ],
+      "usagePath": [
+        "browser-sign-in",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Continue in your browser",
+        "vi": "Tiếp tục trong trình duyệt"
+      },
+      "effectiveSource": {
+        "en": "Continue in your browser",
+        "vi": "Tiếp tục trong trình duyệt"
+      }
+    },
+    "browserSignInBody": {
+      "proposals": [
+        "proposal.15"
+      ],
+      "usagePath": [
+        "browser-sign-in",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Return to Atum after you sign in.",
+        "vi": "Trở lại Atum sau khi đăng nhập."
+      },
+      "effectiveSource": {
+        "en": "Return to Atum after you sign in.",
+        "vi": "Trở lại Atum sau khi đăng nhập."
+      }
+    },
+    "browserSignInActionsAccountStepsLabel": {
+      "proposals": [
+        "proposal.16"
+      ],
+      "usagePath": [
+        "browser-sign-in",
+        "actions",
+        "account-steps",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Return to Atum",
+        "vi": "Trở lại Atum"
+      },
+      "effectiveSource": {
+        "en": "Return to Atum",
+        "vi": "Trở lại Atum"
+      }
+    },
+    "browserSignInStatesSubjectMismatchText": {
+      "proposals": [
+        "proposal.17"
+      ],
+      "usagePath": [
+        "browser-sign-in",
+        "states",
+        "subject-mismatch",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "These sign-ins reached different accounts. Sign in again.",
+        "vi": "Hai lần đăng nhập không cùng tài khoản. Hãy đăng nhập lại."
+      },
+      "effectiveSource": {
+        "en": "These sign-ins reached different accounts. Sign in again.",
+        "vi": "Hai lần đăng nhập không cùng tài khoản. Hãy đăng nhập lại."
+      }
+    },
+    "browserSignInStatesDomainUnavailableText": {
+      "proposals": [
+        "proposal.18"
+      ],
+      "usagePath": [
+        "browser-sign-in",
+        "states",
+        "domain-unavailable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your chats are ready. Account services need you to sign in again.",
+        "vi": "Các cuộc trò chuyện đã sẵn sàng. Bạn cần đăng nhập lại để dùng dịch vụ tài khoản."
+      },
+      "effectiveSource": {
+        "en": "Your chats are ready. Account services need you to sign in again.",
+        "vi": "Các cuộc trò chuyện đã sẵn sàng. Bạn cần đăng nhập lại để dùng dịch vụ tài khoản."
+      }
+    },
+    "accountStepsBody": {
+      "proposals": [
+        "proposal.19"
+      ],
+      "usagePath": [
+        "account-steps",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Let friends find you on Atum.",
+        "vi": "Để bạn bè tìm thấy bạn trên Atum."
+      },
+      "effectiveSource": {
+        "en": "Let friends find you on Atum.",
+        "vi": "Để bạn bè tìm thấy bạn trên Atum."
+      }
+    },
+    "accountStepsStatesLeftoverSetupText": {
+      "proposals": [
+        "proposal.20"
+      ],
+      "usagePath": [
+        "account-steps",
+        "states",
+        "leftover-setup",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your account setup is unfinished. Continue where you left off.",
+        "vi": "Thiết lập tài khoản chưa hoàn tất. Tiếp tục từ bước trước."
+      },
+      "effectiveSource": {
+        "en": "Your account setup is unfinished. Continue where you left off.",
+        "vi": "Thiết lập tài khoản chưa hoàn tất. Tiếp tục từ bước trước."
+      }
+    },
+    "backupTitle": {
+      "proposals": [
+        "proposal.21"
+      ],
+      "usagePath": [
+        "backup",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Restore encrypted history",
+        "vi": "Khôi phục lịch sử mã hóa"
+      },
+      "effectiveSource": {
+        "en": "Restore encrypted history",
+        "vi": "Khôi phục lịch sử mã hóa"
+      }
+    },
+    "backupBody": {
+      "proposals": [
+        "proposal.22"
+      ],
+      "usagePath": [
+        "backup",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Your encrypted messages are being restored.",
+        "vi": "Đang khôi phục tin nhắn mã hóa."
+      },
+      "effectiveSource": {
+        "en": "Your encrypted messages are being restored.",
+        "vi": "Đang khôi phục tin nhắn mã hóa."
+      }
+    },
+    "backupActionsChatLabel": {
+      "proposals": [
+        "proposal.23"
+      ],
+      "usagePath": [
+        "backup",
+        "actions",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      },
+      "effectiveSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      }
+    },
+    "backupStatesUnavailableKeysText": {
+      "proposals": [
+        "proposal.24"
+      ],
+      "usagePath": [
+        "backup",
+        "states",
+        "unavailable-keys",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Some messages cannot be restored with the available keys.",
+        "vi": "Một số tin nhắn chưa thể khôi phục bằng các khóa hiện có."
+      },
+      "effectiveSource": {
+        "en": "Some messages cannot be restored with the available keys.",
+        "vi": "Một số tin nhắn chưa thể khôi phục bằng các khóa hiện có."
+      }
+    },
+    "rosterRowsChatDetaila58c16": {
+      "proposals": [
+        "proposal.25"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "chat",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Plan a quiet weekend",
+        "vi": "Lên kế hoạch cuối tuần"
+      },
+      "effectiveSource": {
+        "en": "Plan a quiet weekend",
+        "vi": "Lên kế hoạch cuối tuần"
+      }
+    },
+    "rosterRowsChatLabel": {
+      "proposals": [
+        "proposal.26"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Travel assistant",
+        "vi": "Trợ lý du lịch"
+      },
+      "effectiveSource": {
+        "en": "Travel assistant",
+        "vi": "Trợ lý du lịch"
+      }
+    },
+    "rosterRowsChatDetail987326": {
+      "proposals": [
+        "proposal.27"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "chat",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "A new conversation",
+        "vi": "Cuộc trò chuyện mới"
+      },
+      "effectiveSource": {
+        "en": "A new conversation",
+        "vi": "Cuộc trò chuyện mới"
+      }
+    },
+    "rosterRowsPeopleChatDetaild3e4f2": {
+      "proposals": [
+        "proposal.28"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "people-chat",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "See you tomorrow.",
+        "vi": "Hẹn gặp bạn ngày mai."
+      },
+      "effectiveSource": {
+        "en": "See you tomorrow.",
+        "vi": "Hẹn gặp bạn ngày mai."
+      }
+    },
+    "rosterRowsPeopleChatLabel": {
+      "proposals": [
+        "proposal.29"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "people-chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Book club",
+        "vi": "Câu lạc bộ sách"
+      },
+      "effectiveSource": {
+        "en": "Book club",
+        "vi": "Câu lạc bộ sách"
+      }
+    },
+    "rosterRowsPeopleChatDetail03e995": {
+      "proposals": [
+        "proposal.30"
+      ],
+      "usagePath": [
+        "roster",
+        "rows",
+        "people-chat",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Can we meet on Saturday?",
+        "vi": "Mình gặp nhau vào thứ Bảy nhé?"
+      },
+      "effectiveSource": {
+        "en": "Can we meet on Saturday?",
+        "vi": "Mình gặp nhau vào thứ Bảy nhé?"
+      }
+    },
+    "rosterStatesMutedText": {
+      "proposals": [
+        "proposal.31"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "muted",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Notifications muted. Mentions still appear.",
+        "vi": "Đã tắt thông báo. Nhắc đến bạn vẫn hiển thị."
+      },
+      "effectiveSource": {
+        "en": "Notifications muted. Mentions still appear.",
+        "vi": "Đã tắt thông báo. Nhắc đến bạn vẫn hiển thị."
+      }
+    },
+    "rosterStatesMutedUnreadText": {
+      "proposals": [
+        "proposal.32"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "muted-unread",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Notifications muted",
+        "vi": "Đã tắt thông báo"
+      },
+      "effectiveSource": {
+        "en": "Notifications muted",
+        "vi": "Đã tắt thông báo"
+      }
+    },
+    "rosterStatesReadText": {
+      "proposals": [
+        "proposal.33"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "read",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Marked as read",
+        "vi": "Đã đánh dấu đã đọc"
+      },
+      "effectiveSource": {
+        "en": "Marked as read",
+        "vi": "Đã đánh dấu đã đọc"
+      }
+    },
+    "rosterStatesPinCapText": {
+      "proposals": [
+        "proposal.34"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "pin-cap",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "You can pin up to five chats. Unpin one first.",
+        "vi": "Bạn có thể ghim tối đa năm cuộc trò chuyện. Hãy bỏ ghim một cuộc trước."
+      },
+      "effectiveSource": {
+        "en": "You can pin up to five chats. Unpin one first.",
+        "vi": "Bạn có thể ghim tối đa năm cuộc trò chuyện. Hãy bỏ ghim một cuộc trước."
+      }
+    },
+    "rosterStatesRollbackText": {
+      "proposals": [
+        "proposal.35"
+      ],
+      "usagePath": [
+        "roster",
+        "states",
+        "rollback",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "That change could not be saved. Your previous setting is restored.",
+        "vi": "Chưa lưu được thay đổi. Đã khôi phục thiết lập trước."
+      },
+      "effectiveSource": {
+        "en": "That change could not be saved. Your previous setting is restored.",
+        "vi": "Chưa lưu được thay đổi. Đã khôi phục thiết lập trước."
+      }
+    },
+    "addFriendStatesNotFoundText": {
+      "proposals": [
+        "proposal.36"
+      ],
+      "usagePath": [
+        "add-friend",
+        "states",
+        "not-found",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "No person found with that @name.",
+        "vi": "Không tìm thấy ai với @tên này."
+      },
+      "effectiveSource": {
+        "en": "No person found with that @name.",
+        "vi": "Không tìm thấy ai với @tên này."
+      }
+    },
+    "addFriendStatesNotMessageableText": {
+      "proposals": [
+        "proposal.37"
+      ],
+      "usagePath": [
+        "add-friend",
+        "states",
+        "not-messageable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This account cannot receive a conversation here.",
+        "vi": "Tài khoản này chưa thể nhận cuộc trò chuyện tại đây."
+      },
+      "effectiveSource": {
+        "en": "This account cannot receive a conversation here.",
+        "vi": "Tài khoản này chưa thể nhận cuộc trò chuyện tại đây."
+      }
+    },
+    "addFriendStatesRateLimitedText": {
+      "proposals": [
+        "proposal.38"
+      ],
+      "usagePath": [
+        "add-friend",
+        "states",
+        "rate-limited",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Please wait before searching again.",
+        "vi": "Hãy chờ trước khi tìm lại."
+      },
+      "effectiveSource": {
+        "en": "Please wait before searching again.",
+        "vi": "Hãy chờ trước khi tìm lại."
+      }
+    },
+    "inviteStatesIncomingInviteText": {
+      "proposals": [
+        "proposal.39"
+      ],
+      "usagePath": [
+        "invite",
+        "states",
+        "incoming-invite",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "You were invited to Demo book club.",
+        "vi": "Bạn được mời vào Demo book club."
+      },
+      "effectiveSource": {
+        "en": "You were invited to Demo book club.",
+        "vi": "Bạn được mời vào Demo book club."
+      }
+    },
+    "inviteStatesIncomingInviteActionsPeopleChatLabel": {
+      "proposals": [
+        "proposal.40"
+      ],
+      "usagePath": [
+        "invite",
+        "states",
+        "incoming-invite",
+        "actions",
+        "people-chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Join",
+        "vi": "Tham gia"
+      },
+      "effectiveSource": {
+        "en": "Join",
+        "vi": "Tham gia"
+      }
+    },
+    "inviteStatesIncomingInviteActionsRosterLabel": {
+      "proposals": [
+        "proposal.41"
+      ],
+      "usagePath": [
+        "invite",
+        "states",
+        "incoming-invite",
+        "actions",
+        "roster",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Decline",
+        "vi": "Từ chối"
+      },
+      "effectiveSource": {
+        "en": "Decline",
+        "vi": "Từ chối"
+      }
+    },
+    "moderationTitle": {
+      "proposals": [
+        "proposal.42"
+      ],
+      "usagePath": [
+        "moderation",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Safety and people",
+        "vi": "An toàn và mọi người"
+      },
+      "effectiveSource": {
+        "en": "Safety and people",
+        "vi": "An toàn và mọi người"
+      }
+    },
+    "ignoreTitle": {
+      "proposals": [
+        "proposal.43"
+      ],
+      "usagePath": [
+        "ignore",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Ignore Demo friend?",
+        "vi": "Bỏ qua Demo friend?"
+      },
+      "effectiveSource": {
+        "en": "Ignore Demo friend?",
+        "vi": "Bỏ qua Demo friend?"
+      }
+    },
+    "chatStatesNotAnsweredText": {
+      "proposals": [
+        "proposal.44"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "not-answered",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Not answered",
+        "vi": "Chưa được trả lời"
+      },
+      "effectiveSource": {
+        "en": "Not answered",
+        "vi": "Chưa được trả lời"
+      }
+    },
+    "chatStatesLateAnswerText": {
+      "proposals": [
+        "proposal.45"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "late-answer",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Answer received",
+        "vi": "Đã nhận câu trả lời"
+      },
+      "effectiveSource": {
+        "en": "Answer received",
+        "vi": "Đã nhận câu trả lời"
+      }
+    },
+    "chatStatesBusyOnlyText": {
+      "proposals": [
+        "proposal.46"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "busy-only",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your assistant is busy. Your draft is kept.",
+        "vi": "Trợ lý đang bận. Bản nháp được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Your assistant is busy. Your draft is kept.",
+        "vi": "Trợ lý đang bận. Bản nháp được giữ lại."
+      }
+    },
+    "chatStatesTurnRunningText": {
+      "proposals": [
+        "proposal.47"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "turn-running",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Working on this task",
+        "vi": "Đang thực hiện tác vụ này"
+      },
+      "effectiveSource": {
+        "en": "Working on this task",
+        "vi": "Đang thực hiện tác vụ này"
+      }
+    },
+    "chatStatesStopRequestedText": {
+      "proposals": [
+        "proposal.48"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "stop-requested",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Stop requested. Waiting for confirmation.",
+        "vi": "Đã yêu cầu dừng. Đang chờ xác nhận."
+      },
+      "effectiveSource": {
+        "en": "Stop requested. Waiting for confirmation.",
+        "vi": "Đã yêu cầu dừng. Đang chờ xác nhận."
+      }
+    },
+    "chatStatesStoppedText": {
+      "proposals": [
+        "proposal.49"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "stopped",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Task stopped",
+        "vi": "Đã dừng tác vụ"
+      },
+      "effectiveSource": {
+        "en": "Task stopped",
+        "vi": "Đã dừng tác vụ"
+      }
+    },
+    "chatStatesStatusNoticeText": {
+      "proposals": [
+        "proposal.50"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "status-notice",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Status from your assistant",
+        "vi": "Trạng thái từ trợ lý"
+      },
+      "effectiveSource": {
+        "en": "Status from your assistant",
+        "vi": "Trạng thái từ trợ lý"
+      }
+    },
+    "chatStatesClarificationText": {
+      "proposals": [
+        "proposal.51"
+      ],
+      "usagePath": [
+        "chat",
+        "states",
+        "clarification",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Which day should I plan for?",
+        "vi": "Bạn muốn lên kế hoạch cho ngày nào?"
+      },
+      "effectiveSource": {
+        "en": "Which day should I plan for?",
+        "vi": "Bạn muốn lên kế hoạch cho ngày nào?"
+      }
+    },
+    "dictationStart": {
+      "proposals": [
+        "proposal.276"
+      ],
+      "usagePath": [
+        "chat",
+        "composer",
+        "dictation",
+        "start"
+      ],
+      "approvedSource": {
+        "en": "Dictate",
+        "vi": "Nhập bằng giọng nói"
+      },
+      "effectiveSource": {
+        "en": "Dictate",
+        "vi": "Nhập bằng giọng nói"
+      }
+    },
+    "dictationStop": {
+      "proposals": [
+        "proposal.277"
+      ],
+      "usagePath": [
+        "chat",
+        "composer",
+        "dictation",
+        "stop"
+      ],
+      "approvedSource": {
+        "en": "Stop dictating",
+        "vi": "Dừng nhập giọng nói"
+      },
+      "effectiveSource": {
+        "en": "Stop dictating",
+        "vi": "Dừng nhập giọng nói"
+      }
+    },
+    "dictationPermissionDenied": {
+      "proposals": [
+        "proposal.278"
+      ],
+      "usagePath": [
+        "chat",
+        "composer",
+        "dictation",
+        "permission-denied"
+      ],
+      "approvedSource": {
+        "en": "To dictate, allow the microphone and speech recognition for Atum in Settings.",
+        "vi": "Để nhập bằng giọng nói, hãy cho phép Atum dùng micrô và nhận dạng giọng nói trong Cài đặt."
+      },
+      "effectiveSource": {
+        "en": "To dictate, allow the microphone and speech recognition for Atum in Settings.",
+        "vi": "Để nhập bằng giọng nói, hãy cho phép Atum dùng micrô và nhận dạng giọng nói trong Cài đặt."
+      }
+    },
+    "dictationUnavailable": {
+      "proposals": [
+        "proposal.279"
+      ],
+      "usagePath": [
+        "chat",
+        "composer",
+        "dictation",
+        "unavailable"
+      ],
+      "approvedSource": {
+        "en": "Dictation isn't available right now.",
+        "vi": "Hiện chưa thể nhập bằng giọng nói."
+      },
+      "effectiveSource": {
+        "en": "Dictation isn't available right now.",
+        "vi": "Hiện chưa thể nhập bằng giọng nói."
+      }
+    },
+    "uiMessageTooLong": {
+      "proposals": [
+        "proposal.52"
+      ],
+      "usagePath": [
+        "ui",
+        "messageTooLong"
+      ],
+      "approvedSource": {
+        "en": "Messages can be up to 40 KB. Shorten this message; your draft is kept.",
+        "vi": "Tin nhắn có thể dài tối đa 40 KB. Hãy rút ngắn tin nhắn; bản nháp được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Messages can be up to 40 KB. Shorten this message; your draft is kept.",
+        "vi": "Tin nhắn có thể dài tối đa 40 KB. Hãy rút ngắn tin nhắn; bản nháp được giữ lại."
+      }
+    },
+    "modelPickerTitle": {
+      "proposals": [
+        "proposal.53"
+      ],
+      "usagePath": [
+        "model-picker",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Model for this conversation",
+        "vi": "Mô hình cho cuộc trò chuyện này"
+      },
+      "effectiveSource": {
+        "en": "Model for this conversation",
+        "vi": "Mô hình cho cuộc trò chuyện này"
+      }
+    },
+    "modelPickerStatesSavingText": {
+      "proposals": [
+        "proposal.54"
+      ],
+      "usagePath": [
+        "model-picker",
+        "states",
+        "saving",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Saving your choice…",
+        "vi": "Đang lưu lựa chọn…"
+      },
+      "effectiveSource": {
+        "en": "Saving your choice…",
+        "vi": "Đang lưu lựa chọn…"
+      }
+    },
+    "modelPickerStatesSaveFailedText": {
+      "proposals": [
+        "proposal.55"
+      ],
+      "usagePath": [
+        "model-picker",
+        "states",
+        "save-failed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your choice was not saved. The previous model is kept.",
+        "vi": "Chưa lưu được lựa chọn. Mô hình trước đó được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Your choice was not saved. The previous model is kept.",
+        "vi": "Chưa lưu được lựa chọn. Mô hình trước đó được giữ lại."
+      }
+    },
+    "modelPickerStatesUnavailableText": {
+      "proposals": [
+        "proposal.56"
+      ],
+      "usagePath": [
+        "model-picker",
+        "states",
+        "unavailable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This model is unavailable. Your selection and draft are kept.",
+        "vi": "Mô hình này chưa khả dụng. Lựa chọn và bản nháp được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "This model is unavailable. Your selection and draft are kept.",
+        "vi": "Mô hình này chưa khả dụng. Lựa chọn và bản nháp được giữ lại."
+      }
+    },
+    "modelMemoryTitle": {
+      "proposals": [
+        "proposal.57"
+      ],
+      "usagePath": [
+        "model-memory",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Model & Memory",
+        "vi": "Mô hình và bộ nhớ"
+      },
+      "effectiveSource": {
+        "en": "Model & Memory",
+        "vi": "Mô hình và bộ nhớ"
+      }
+    },
+    "modelMemoryBody": {
+      "proposals": [
+        "proposal.58"
+      ],
+      "usagePath": [
+        "model-memory",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Advanced settings for this assistant are managed on your Mac.",
+        "vi": "Thiết lập nâng cao của trợ lý này được quản lý trên máy Mac."
+      },
+      "effectiveSource": {
+        "en": "Advanced settings for this assistant are managed on your Mac.",
+        "vi": "Thiết lập nâng cao của trợ lý này được quản lý trên máy Mac."
+      }
+    },
+    "modelMemoryRows0Label": {
+      "proposals": [
+        "proposal.59"
+      ],
+      "usagePath": [
+        "model-memory",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Assistant",
+        "vi": "Trợ lý"
+      },
+      "effectiveSource": {
+        "en": "Assistant",
+        "vi": "Trợ lý"
+      }
+    },
+    "modelMemoryRows1Label": {
+      "proposals": [
+        "proposal.60"
+      ],
+      "usagePath": [
+        "model-memory",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Provider and subscription",
+        "vi": "Nhà cung cấp và gói đăng ký"
+      },
+      "effectiveSource": {
+        "en": "Provider and subscription",
+        "vi": "Nhà cung cấp và gói đăng ký"
+      }
+    },
+    "modelMemoryRows1Detail": {
+      "proposals": [
+        "proposal.61"
+      ],
+      "usagePath": [
+        "model-memory",
+        "rows",
+        "1",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Open Atum on your Mac, then this assistant’s Model & Memory.",
+        "vi": "Mở Atum trên máy Mac, rồi vào Mô hình và bộ nhớ của trợ lý này."
+      },
+      "effectiveSource": {
+        "en": "Open Atum on your Mac, then this assistant’s Model & Memory.",
+        "vi": "Mở Atum trên máy Mac, rồi vào Mô hình và bộ nhớ của trợ lý này."
+      }
+    },
+    "modelMemoryActionsModelPickerLabel": {
+      "proposals": [
+        "proposal.62"
+      ],
+      "usagePath": [
+        "model-memory",
+        "actions",
+        "model-picker",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Back to model picker",
+        "vi": "Trở lại bộ chọn mô hình"
+      },
+      "effectiveSource": {
+        "en": "Back to model picker",
+        "vi": "Trở lại bộ chọn mô hình"
+      }
+    },
+    "attachmentsTitle": {
+      "proposals": [
+        "proposal.63"
+      ],
+      "usagePath": [
+        "attachments",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Photos and files",
+        "vi": "Ảnh và tệp"
+      },
+      "effectiveSource": {
+        "en": "Photos and files",
+        "vi": "Ảnh và tệp"
+      }
+    },
+    "attachmentsRows0Label": {
+      "proposals": [
+        "proposal.64"
+      ],
+      "usagePath": [
+        "attachments",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Photo library",
+        "vi": "Thư viện ảnh"
+      },
+      "effectiveSource": {
+        "en": "Photo library",
+        "vi": "Thư viện ảnh"
+      }
+    },
+    "attachmentsRows1Label": {
+      "proposals": [
+        "proposal.65"
+      ],
+      "usagePath": [
+        "attachments",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Choose a file",
+        "vi": "Chọn tệp"
+      },
+      "effectiveSource": {
+        "en": "Choose a file",
+        "vi": "Chọn tệp"
+      }
+    },
+    "attachmentsActionsChatLabel": {
+      "proposals": [
+        "proposal.66"
+      ],
+      "usagePath": [
+        "attachments",
+        "actions",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Add to message",
+        "vi": "Thêm vào tin nhắn"
+      },
+      "effectiveSource": {
+        "en": "Add to message",
+        "vi": "Thêm vào tin nhắn"
+      }
+    },
+    "attachmentsStatesTooLargeText": {
+      "proposals": [
+        "proposal.67"
+      ],
+      "usagePath": [
+        "attachments",
+        "states",
+        "too-large",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This file is larger than 20 MB. Choose a smaller file.",
+        "vi": "Tệp này lớn hơn 20 MB. Hãy chọn tệp nhỏ hơn."
+      },
+      "effectiveSource": {
+        "en": "This file is larger than 20 MB. Choose a smaller file.",
+        "vi": "Tệp này lớn hơn 20 MB. Hãy chọn tệp nhỏ hơn."
+      }
+    },
+    "attachmentsStatesPermissionDeniedText": {
+      "proposals": [
+        "proposal.68"
+      ],
+      "usagePath": [
+        "attachments",
+        "states",
+        "permission-denied",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Choose a photo with the system picker.",
+        "vi": "Chọn ảnh bằng trình chọn của hệ thống."
+      },
+      "effectiveSource": {
+        "en": "Choose a photo with the system picker.",
+        "vi": "Chọn ảnh bằng trình chọn của hệ thống."
+      }
+    },
+    "searchRowsChatLabel": {
+      "proposals": [
+        "proposal.69"
+      ],
+      "usagePath": [
+        "search",
+        "rows",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Quiet weekend",
+        "vi": "Cuối tuần yên tĩnh"
+      },
+      "effectiveSource": {
+        "en": "Quiet weekend",
+        "vi": "Cuối tuần yên tĩnh"
+      }
+    },
+    "checkInsRows1Label": {
+      "proposals": [
+        "proposal.70"
+      ],
+      "usagePath": [
+        "check-ins",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Time",
+        "vi": "Thời gian"
+      },
+      "effectiveSource": {
+        "en": "Time",
+        "vi": "Thời gian"
+      }
+    },
+    "scheduledPostTitle": {
+      "proposals": [
+        "proposal.71"
+      ],
+      "usagePath": [
+        "scheduled-post",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Scheduled message",
+        "vi": "Tin nhắn đã lên lịch"
+      },
+      "effectiveSource": {
+        "en": "Scheduled message",
+        "vi": "Tin nhắn đã lên lịch"
+      }
+    },
+    "scheduledPostBody": {
+      "proposals": [
+        "proposal.72"
+      ],
+      "usagePath": [
+        "scheduled-post",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Demo reminder · tomorrow at 08:00",
+        "vi": "Nhắc việc mẫu · ngày mai lúc 08:00"
+      },
+      "effectiveSource": {
+        "en": "Demo reminder · tomorrow at 08:00",
+        "vi": "Nhắc việc mẫu · ngày mai lúc 08:00"
+      }
+    },
+    "scheduledPostRows0Label": {
+      "proposals": [
+        "proposal.73"
+      ],
+      "usagePath": [
+        "scheduled-post",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Review schedule",
+        "vi": "Xem lịch"
+      },
+      "effectiveSource": {
+        "en": "Review schedule",
+        "vi": "Xem lịch"
+      }
+    },
+    "scheduledPostStatesUnsupportedText": {
+      "proposals": [
+        "proposal.74"
+      ],
+      "usagePath": [
+        "scheduled-post",
+        "states",
+        "unsupported",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Scheduling is not available for this assistant yet.",
+        "vi": "Trợ lý này chưa hỗ trợ lên lịch."
+      },
+      "effectiveSource": {
+        "en": "Scheduling is not available for this assistant yet.",
+        "vi": "Trợ lý này chưa hỗ trợ lên lịch."
+      }
+    },
+    "outcomeTitle": {
+      "proposals": [
+        "proposal.75"
+      ],
+      "usagePath": [
+        "outcome",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Task result",
+        "vi": "Kết quả tác vụ"
+      },
+      "effectiveSource": {
+        "en": "Task result",
+        "vi": "Kết quả tác vụ"
+      }
+    },
+    "outcomeBody": {
+      "proposals": [
+        "proposal.76"
+      ],
+      "usagePath": [
+        "outcome",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Your quiet weekend plan is ready.",
+        "vi": "Kế hoạch cuối tuần yên tĩnh đã sẵn sàng."
+      },
+      "effectiveSource": {
+        "en": "Your quiet weekend plan is ready.",
+        "vi": "Kế hoạch cuối tuần yên tĩnh đã sẵn sàng."
+      }
+    },
+    "outcomeRowsChatLabel": {
+      "proposals": [
+        "proposal.77"
+      ],
+      "usagePath": [
+        "outcome",
+        "rows",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "View the answer",
+        "vi": "Xem câu trả lời"
+      },
+      "effectiveSource": {
+        "en": "View the answer",
+        "vi": "Xem câu trả lời"
+      }
+    },
+    "stopTitle": {
+      "proposals": [
+        "proposal.78"
+      ],
+      "usagePath": [
+        "stop",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Stop this task?",
+        "vi": "Dừng tác vụ này?"
+      },
+      "effectiveSource": {
+        "en": "Stop this task?",
+        "vi": "Dừng tác vụ này?"
+      }
+    },
+    "stopBody": {
+      "proposals": [
+        "proposal.79"
+      ],
+      "usagePath": [
+        "stop",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Work already completed will remain.",
+        "vi": "Những việc đã hoàn tất vẫn được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Work already completed will remain.",
+        "vi": "Những việc đã hoàn tất vẫn được giữ lại."
+      }
+    },
+    "stopStatesCompletedText": {
+      "proposals": [
+        "proposal.80"
+      ],
+      "usagePath": [
+        "stop",
+        "states",
+        "completed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This task has already completed.",
+        "vi": "Tác vụ này đã hoàn tất."
+      },
+      "effectiveSource": {
+        "en": "This task has already completed.",
+        "vi": "Tác vụ này đã hoàn tất."
+      }
+    },
+    "secondSurfaceTitle": {
+      "proposals": [
+        "proposal.81"
+      ],
+      "usagePath": [
+        "second-surface",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Your task continues",
+        "vi": "Tác vụ vẫn tiếp tục"
+      },
+      "effectiveSource": {
+        "en": "Your task continues",
+        "vi": "Tác vụ vẫn tiếp tục"
+      }
+    },
+    "secondSurfaceBody": {
+      "proposals": [
+        "proposal.82"
+      ],
+      "usagePath": [
+        "second-surface",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "You can leave Atum. Your result will be in this conversation.",
+        "vi": "Bạn có thể rời Atum. Kết quả sẽ có trong cuộc trò chuyện này."
+      },
+      "effectiveSource": {
+        "en": "You can leave Atum. Your result will be in this conversation.",
+        "vi": "Bạn có thể rời Atum. Kết quả sẽ có trong cuộc trò chuyện này."
+      }
+    },
+    "secondSurfaceRowsChatLabel": {
+      "proposals": [
+        "proposal.83"
+      ],
+      "usagePath": [
+        "second-surface",
+        "rows",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Return to conversation",
+        "vi": "Trở lại cuộc trò chuyện"
+      },
+      "effectiveSource": {
+        "en": "Return to conversation",
+        "vi": "Trở lại cuộc trò chuyện"
+      }
+    },
+    "cloudConsentTitle": {
+      "proposals": [
+        "proposal.84"
+      ],
+      "usagePath": [
+        "cloud-consent",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Your assistant in the cloud",
+        "vi": "Trợ lý của bạn trên đám mây"
+      },
+      "effectiveSource": {
+        "en": "Your assistant in the cloud",
+        "vi": "Trợ lý của bạn trên đám mây"
+      }
+    },
+    "cloudConsentBody": {
+      "proposals": [
+        "proposal.85"
+      ],
+      "usagePath": [
+        "cloud-consent",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Try cloud hosting for seven days. The trial starts when your first task is admitted. Model funding and hosting are separate.",
+        "vi": "Dùng thử lưu trữ trên đám mây trong bảy ngày. Thời gian bắt đầu khi tác vụ đầu tiên được tiếp nhận. Chi phí mô hình và lưu trữ được tính riêng."
+      },
+      "effectiveSource": {
+        "en": "Try cloud hosting for seven days. The trial starts when your first task is admitted. Model funding and hosting are separate.",
+        "vi": "Dùng thử lưu trữ trên đám mây trong bảy ngày. Thời gian bắt đầu khi tác vụ đầu tiên được tiếp nhận. Chi phí mô hình và lưu trữ được tính riêng."
+      }
+    },
+    "cloudConsentActionsCloudPreparingLabel": {
+      "proposals": [
+        "proposal.86"
+      ],
+      "usagePath": [
+        "cloud-consent",
+        "actions",
+        "cloud-preparing",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Agree and prepare my assistant",
+        "vi": "Đồng ý và chuẩn bị trợ lý"
+      },
+      "effectiveSource": {
+        "en": "Agree and prepare my assistant",
+        "vi": "Đồng ý và chuẩn bị trợ lý"
+      }
+    },
+    "cloudPreparingTitle": {
+      "proposals": [
+        "proposal.87"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Preparing your assistant",
+        "vi": "Đang chuẩn bị trợ lý"
+      },
+      "effectiveSource": {
+        "en": "Preparing your assistant",
+        "vi": "Đang chuẩn bị trợ lý"
+      }
+    },
+    "cloudPreparingBody": {
+      "proposals": [
+        "proposal.88"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Keep this conversation open while your assistant is set up.",
+        "vi": "Giữ cuộc trò chuyện này mở trong khi thiết lập trợ lý."
+      },
+      "effectiveSource": {
+        "en": "Keep this conversation open while your assistant is set up.",
+        "vi": "Giữ cuộc trò chuyện này mở trong khi thiết lập trợ lý."
+      }
+    },
+    "cloudPreparingRowsIdentityHandoffLabel": {
+      "proposals": [
+        "proposal.89"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "rows",
+        "identity-handoff",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Trust handoff",
+        "vi": "Chuyển giao tin cậy"
+      },
+      "effectiveSource": {
+        "en": "Trust handoff",
+        "vi": "Chuyển giao tin cậy"
+      }
+    },
+    "cloudPreparingActionsChatLabel": {
+      "proposals": [
+        "proposal.90"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "actions",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      },
+      "effectiveSource": {
+        "en": "Continue",
+        "vi": "Tiếp tục"
+      }
+    },
+    "cloudPreparingStatesQueuedText": {
+      "proposals": [
+        "proposal.91"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "states",
+        "queued",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your assistant is waiting to start.",
+        "vi": "Trợ lý đang chờ bắt đầu."
+      },
+      "effectiveSource": {
+        "en": "Your assistant is waiting to start.",
+        "vi": "Trợ lý đang chờ bắt đầu."
+      }
+    },
+    "cloudPreparingStatesHandoffFailedText": {
+      "proposals": [
+        "proposal.92"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "states",
+        "handoff-failed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your assistant could not finish setup. Your trial has not started.",
+        "vi": "Trợ lý chưa hoàn tất thiết lập. Thời gian dùng thử chưa bắt đầu."
+      },
+      "effectiveSource": {
+        "en": "Your assistant could not finish setup. Your trial has not started.",
+        "vi": "Trợ lý chưa hoàn tất thiết lập. Thời gian dùng thử chưa bắt đầu."
+      }
+    },
+    "cloudPreparingStatesRecoveryNotSecuredText": {
+      "proposals": [
+        "proposal.93"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "states",
+        "recovery-not-secured",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Couldn’t secure recovery on this iPhone. Nothing was published.",
+        "vi": "Không thể lưu thông tin khôi phục trên iPhone này. Chưa công bố thông tin nào."
+      },
+      "effectiveSource": {
+        "en": "Couldn’t secure recovery on this iPhone. Nothing was published.",
+        "vi": "Không thể lưu thông tin khôi phục trên iPhone này. Chưa công bố thông tin nào."
+      }
+    },
+    "cloudPreparingStatesSetupInterruptedText": {
+      "proposals": [
+        "proposal.94"
+      ],
+      "usagePath": [
+        "cloud-preparing",
+        "states",
+        "setup-interrupted",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Setup interrupted. Resuming setup.",
+        "vi": "Thiết lập bị gián đoạn. Đang tiếp tục thiết lập."
+      },
+      "effectiveSource": {
+        "en": "Setup interrupted. Resuming setup.",
+        "vi": "Thiết lập bị gián đoạn. Đang tiếp tục thiết lập."
+      }
+    },
+    "identityHandoffTitle": {
+      "proposals": [
+        "proposal.95"
+      ],
+      "usagePath": [
+        "identity-handoff",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Trust your cloud assistant",
+        "vi": "Tin cậy trợ lý trên đám mây"
+      },
+      "effectiveSource": {
+        "en": "Trust your cloud assistant",
+        "vi": "Tin cậy trợ lý trên đám mây"
+      }
+    },
+    "identityHandoffBody": {
+      "proposals": [
+        "proposal.96"
+      ],
+      "usagePath": [
+        "identity-handoff",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "This request belongs to the cloud setup you started on this iPhone.",
+        "vi": "Yêu cầu này thuộc quá trình thiết lập đám mây bạn đã bắt đầu trên iPhone này."
+      },
+      "effectiveSource": {
+        "en": "This request belongs to the cloud setup you started on this iPhone.",
+        "vi": "Yêu cầu này thuộc quá trình thiết lập đám mây bạn đã bắt đầu trên iPhone này."
+      }
+    },
+    "identityHandoffActionsCloudPreparingLabel": {
+      "proposals": [
+        "proposal.97"
+      ],
+      "usagePath": [
+        "identity-handoff",
+        "actions",
+        "cloud-preparing",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue setup",
+        "vi": "Tiếp tục thiết lập"
+      },
+      "effectiveSource": {
+        "en": "Continue setup",
+        "vi": "Tiếp tục thiết lập"
+      }
+    },
+    "identityHandoffStatesUnsolicitedText": {
+      "proposals": [
+        "proposal.98"
+      ],
+      "usagePath": [
+        "identity-handoff",
+        "states",
+        "unsolicited",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This iPhone did not start this setup. The request was declined.",
+        "vi": "iPhone này không bắt đầu thiết lập này. Đã từ chối yêu cầu."
+      },
+      "effectiveSource": {
+        "en": "This iPhone did not start this setup. The request was declined.",
+        "vi": "iPhone này không bắt đầu thiết lập này. Đã từ chối yêu cầu."
+      }
+    },
+    "identityHandoffStatesRecoveryUnavailableText": {
+      "proposals": [
+        "proposal.99"
+      ],
+      "usagePath": [
+        "identity-handoff",
+        "states",
+        "recovery_unavailable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Recovery material is unavailable. Setup can’t continue.",
+        "vi": "Không có thông tin khôi phục. Chưa thể tiếp tục thiết lập."
+      },
+      "effectiveSource": {
+        "en": "Recovery material is unavailable. Setup can’t continue.",
+        "vi": "Không có thông tin khôi phục. Chưa thể tiếp tục thiết lập."
+      }
+    },
+    "cloudStatusRows0Label": {
+      "proposals": [
+        "proposal.100"
+      ],
+      "usagePath": [
+        "cloud-status",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Cloud hosting",
+        "vi": "Lưu trữ trên đám mây"
+      },
+      "effectiveSource": {
+        "en": "Cloud hosting",
+        "vi": "Lưu trữ trên đám mây"
+      }
+    },
+    "cloudStatusRows1Label": {
+      "proposals": [
+        "proposal.101"
+      ],
+      "usagePath": [
+        "cloud-status",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Model funding",
+        "vi": "Chi phí mô hình"
+      },
+      "effectiveSource": {
+        "en": "Model funding",
+        "vi": "Chi phí mô hình"
+      }
+    },
+    "cloudStatusRowsRevokeCloudLabel": {
+      "proposals": [
+        "proposal.102"
+      ],
+      "usagePath": [
+        "cloud-status",
+        "rows",
+        "revoke-cloud",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Revoke cloud enrolment",
+        "vi": "Thu hồi đăng ký đám mây"
+      },
+      "effectiveSource": {
+        "en": "Revoke cloud enrolment",
+        "vi": "Thu hồi đăng ký đám mây"
+      }
+    },
+    "cloudStatusStatesStartingText": {
+      "proposals": [
+        "proposal.103"
+      ],
+      "usagePath": [
+        "cloud-status",
+        "states",
+        "starting",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your cloud assistant is starting.",
+        "vi": "Trợ lý trên đám mây đang khởi động."
+      },
+      "effectiveSource": {
+        "en": "Your cloud assistant is starting.",
+        "vi": "Trợ lý trên đám mây đang khởi động."
+      }
+    },
+    "revokeCloudTitle": {
+      "proposals": [
+        "proposal.104"
+      ],
+      "usagePath": [
+        "revoke-cloud",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Revoke cloud enrolment?",
+        "vi": "Thu hồi đăng ký đám mây?"
+      },
+      "effectiveSource": {
+        "en": "Revoke cloud enrolment?",
+        "vi": "Thu hồi đăng ký đám mây?"
+      }
+    },
+    "revokeCloudBody": {
+      "proposals": [
+        "proposal.105"
+      ],
+      "usagePath": [
+        "revoke-cloud",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Your cloud assistant will stop receiving new work. Your conversations and recovery key stay on this iPhone.",
+        "vi": "Trợ lý trên đám mây sẽ không nhận công việc mới. Các cuộc trò chuyện và khóa khôi phục vẫn ở trên iPhone này."
+      },
+      "effectiveSource": {
+        "en": "Your cloud assistant will stop receiving new work. Your conversations and recovery key stay on this iPhone.",
+        "vi": "Trợ lý trên đám mây sẽ không nhận công việc mới. Các cuộc trò chuyện và khóa khôi phục vẫn ở trên iPhone này."
+      }
+    },
+    "revokeCloudActionsCloudStatusLabel": {
+      "proposals": [
+        "proposal.106"
+      ],
+      "usagePath": [
+        "revoke-cloud",
+        "actions",
+        "cloud-status",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Revoke enrolment",
+        "vi": "Thu hồi đăng ký"
+      },
+      "effectiveSource": {
+        "en": "Revoke enrolment",
+        "vi": "Thu hồi đăng ký"
+      }
+    },
+    "revokeCloudStatesRevokedText": {
+      "proposals": [
+        "proposal.107"
+      ],
+      "usagePath": [
+        "revoke-cloud",
+        "states",
+        "revoked",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Cloud enrolment revoked",
+        "vi": "Đã thu hồi đăng ký đám mây"
+      },
+      "effectiveSource": {
+        "en": "Cloud enrolment revoked",
+        "vi": "Đã thu hồi đăng ký đám mây"
+      }
+    },
+    "notificationExampleActionsChatLabel": {
+      "proposals": [
+        "proposal.108"
+      ],
+      "usagePath": [
+        "notification-example",
+        "actions",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Open Atum",
+        "vi": "Mở Atum"
+      },
+      "effectiveSource": {
+        "en": "Open Atum",
+        "vi": "Mở Atum"
+      }
+    },
+    "notificationExampleStatesRevokedText": {
+      "proposals": [
+        "proposal.109"
+      ],
+      "usagePath": [
+        "notification-example",
+        "states",
+        "revoked",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Sign in to continue.",
+        "vi": "Đăng nhập để tiếp tục."
+      },
+      "effectiveSource": {
+        "en": "Sign in to continue.",
+        "vi": "Đăng nhập để tiếp tục."
+      }
+    },
+    "notificationExampleStatesReadOnMacText": {
+      "proposals": [
+        "proposal.110"
+      ],
+      "usagePath": [
+        "notification-example",
+        "states",
+        "read-on-mac",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Already read on another device",
+        "vi": "Đã đọc trên thiết bị khác"
+      },
+      "effectiveSource": {
+        "en": "Already read on another device",
+        "vi": "Đã đọc trên thiết bị khác"
+      }
+    },
+    "inlineReplyActionsChatLabel": {
+      "proposals": [
+        "proposal.111"
+      ],
+      "usagePath": [
+        "inline-reply",
+        "actions",
+        "chat",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Send",
+        "vi": "Gửi"
+      },
+      "effectiveSource": {
+        "en": "Send",
+        "vi": "Gửi"
+      }
+    },
+    "inlineReplyStatesSessionExpiredText": {
+      "proposals": [
+        "proposal.112"
+      ],
+      "usagePath": [
+        "inline-reply",
+        "states",
+        "session-expired",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Sign in to send this reply. Your draft is kept.",
+        "vi": "Đăng nhập để gửi câu trả lời. Bản nháp được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Sign in to send this reply. Your draft is kept.",
+        "vi": "Đăng nhập để gửi câu trả lời. Bản nháp được giữ lại."
+      }
+    },
+    "inlineReplyStatesLockedText": {
+      "proposals": [
+        "proposal.113"
+      ],
+      "usagePath": [
+        "inline-reply",
+        "states",
+        "locked",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Unlock this iPhone to reply.",
+        "vi": "Mở khóa iPhone này để trả lời."
+      },
+      "effectiveSource": {
+        "en": "Unlock this iPhone to reply.",
+        "vi": "Mở khóa iPhone này để trả lời."
+      }
+    },
+    "accountRowsWalletLabel": {
+      "proposals": [
+        "proposal.114"
+      ],
+      "usagePath": [
+        "account",
+        "rows",
+        "wallet",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Protons balance",
+        "vi": "Số dư Proton"
+      },
+      "effectiveSource": {
+        "en": "Protons balance",
+        "vi": "Số dư Proton"
+      }
+    },
+    "devicesRowsTrustLabel": {
+      "proposals": [
+        "proposal.115"
+      ],
+      "usagePath": [
+        "devices",
+        "rows",
+        "trust",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "This iPhone",
+        "vi": "iPhone này"
+      },
+      "effectiveSource": {
+        "en": "This iPhone",
+        "vi": "iPhone này"
+      }
+    },
+    "signOutActionsSignInLabel": {
+      "proposals": [
+        "proposal.116"
+      ],
+      "usagePath": [
+        "sign-out",
+        "actions",
+        "sign-in",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "I saved my key; sign out",
+        "vi": "Tôi đã lưu khóa; đăng xuất"
+      },
+      "effectiveSource": {
+        "en": "I saved my key; sign out",
+        "vi": "Tôi đã lưu khóa; đăng xuất"
+      }
+    },
+    "settingsRowsPrivacyLabel": {
+      "proposals": [
+        "proposal.117"
+      ],
+      "usagePath": [
+        "settings",
+        "rows",
+        "privacy",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Privacy and diagnostics",
+        "vi": "Quyền riêng tư và chẩn đoán"
+      },
+      "effectiveSource": {
+        "en": "Privacy and diagnostics",
+        "vi": "Quyền riêng tư và chẩn đoán"
+      }
+    },
+    "appearanceRows0Label": {
+      "proposals": [
+        "proposal.118"
+      ],
+      "usagePath": [
+        "appearance",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Follow system",
+        "vi": "Theo hệ thống"
+      },
+      "effectiveSource": {
+        "en": "Follow system",
+        "vi": "Theo hệ thống"
+      }
+    },
+    "appearanceRows1Label": {
+      "proposals": [
+        "proposal.119"
+      ],
+      "usagePath": [
+        "appearance",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Light",
+        "vi": "Sáng"
+      },
+      "effectiveSource": {
+        "en": "Light",
+        "vi": "Sáng"
+      }
+    },
+    "appearanceRows2Label": {
+      "proposals": [
+        "proposal.120"
+      ],
+      "usagePath": [
+        "appearance",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Dark",
+        "vi": "Tối"
+      },
+      "effectiveSource": {
+        "en": "Dark",
+        "vi": "Tối"
+      }
+    },
+    "notificationSettingsRows0Label": {
+      "proposals": [
+        "proposal.121"
+      ],
+      "usagePath": [
+        "notification-settings",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Notifications",
+        "vi": "Thông báo"
+      },
+      "effectiveSource": {
+        "en": "Notifications",
+        "vi": "Thông báo"
+      }
+    },
+    "notificationSettingsRows2Label": {
+      "proposals": [
+        "proposal.122"
+      ],
+      "usagePath": [
+        "notification-settings",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Open iPhone Settings",
+        "vi": "Mở Cài đặt iPhone"
+      },
+      "effectiveSource": {
+        "en": "Open iPhone Settings",
+        "vi": "Mở Cài đặt iPhone"
+      }
+    },
+    "privacyTitle": {
+      "proposals": [
+        "proposal.123"
+      ],
+      "usagePath": [
+        "privacy",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Privacy and diagnostics",
+        "vi": "Quyền riêng tư và chẩn đoán"
+      },
+      "effectiveSource": {
+        "en": "Privacy and diagnostics",
+        "vi": "Quyền riêng tư và chẩn đoán"
+      }
+    },
+    "privacyRows0Label": {
+      "proposals": [
+        "proposal.124"
+      ],
+      "usagePath": [
+        "privacy",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Share crash reports",
+        "vi": "Chia sẻ báo cáo lỗi"
+      },
+      "effectiveSource": {
+        "en": "Share crash reports",
+        "vi": "Chia sẻ báo cáo lỗi"
+      }
+    },
+    "privacyRows1Label": {
+      "proposals": [
+        "proposal.125"
+      ],
+      "usagePath": [
+        "privacy",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Share decryption diagnostics",
+        "vi": "Chia sẻ chẩn đoán giải mã"
+      },
+      "effectiveSource": {
+        "en": "Share decryption diagnostics",
+        "vi": "Chia sẻ chẩn đoán giải mã"
+      }
+    },
+    "privacyRows2Label": {
+      "proposals": [
+        "proposal.126"
+      ],
+      "usagePath": [
+        "privacy",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Privacy Policy",
+        "vi": "Chính sách quyền riêng tư"
+      },
+      "effectiveSource": {
+        "en": "Privacy Policy",
+        "vi": "Chính sách quyền riêng tư"
+      }
+    },
+    "aboutRows0Label": {
+      "proposals": [
+        "proposal.127"
+      ],
+      "usagePath": [
+        "about",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Version",
+        "vi": "Phiên bản"
+      },
+      "effectiveSource": {
+        "en": "Version",
+        "vi": "Phiên bản"
+      }
+    },
+    "aboutRows1Label": {
+      "proposals": [
+        "proposal.128"
+      ],
+      "usagePath": [
+        "about",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Licences and notices",
+        "vi": "Giấy phép và ghi nhận"
+      },
+      "effectiveSource": {
+        "en": "Licences and notices",
+        "vi": "Giấy phép và ghi nhận"
+      }
+    },
+    "aboutRows2Label": {
+      "proposals": [
+        "proposal.129"
+      ],
+      "usagePath": [
+        "about",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Updates are available through TestFlight or the App Store.",
+        "vi": "Cập nhật qua TestFlight hoặc App Store."
+      },
+      "effectiveSource": {
+        "en": "Updates are available through TestFlight or the App Store.",
+        "vi": "Cập nhật qua TestFlight hoặc App Store."
+      }
+    },
+    "feedbackInputs0Label": {
+      "proposals": [
+        "proposal.130"
+      ],
+      "usagePath": [
+        "feedback",
+        "inputs",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Tell us what happened",
+        "vi": "Hãy cho chúng tôi biết chuyện gì đã xảy ra"
+      },
+      "effectiveSource": {
+        "en": "Tell us what happened",
+        "vi": "Hãy cho chúng tôi biết chuyện gì đã xảy ra"
+      }
+    },
+    "feedbackActionsAccountLabel": {
+      "proposals": [
+        "proposal.131"
+      ],
+      "usagePath": [
+        "feedback",
+        "actions",
+        "account",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Send feedback",
+        "vi": "Gửi phản hồi"
+      },
+      "effectiveSource": {
+        "en": "Send feedback",
+        "vi": "Gửi phản hồi"
+      }
+    },
+    "deletionRows0Label": {
+      "proposals": [
+        "proposal.132"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Deleted",
+        "vi": "Nội dung sẽ xóa"
+      },
+      "effectiveSource": {
+        "en": "To be deleted",
+        "vi": "Nội dung sẽ xóa"
+      }
+    },
+    "deletionRows0Detail": {
+      "proposals": [
+        "proposal.133"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "0",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Account, encrypted server history, cloud workspace and enrolment. Deletion completes within 30 days.",
+        "vi": "Tài khoản, lịch sử mã hóa trên máy chủ, không gian đám mây và đăng ký. Hoàn tất xóa trong 30 ngày."
+      },
+      "effectiveSource": {
+        "en": "Account, encrypted server history, cloud workspace and enrolment. Deletion completes within 30 days.",
+        "vi": "Tài khoản, lịch sử mã hóa trên máy chủ, không gian đám mây và đăng ký. Hoàn tất xóa trong 30 ngày."
+      }
+    },
+    "deletionRows1Label": {
+      "proposals": [
+        "proposal.134"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Retained",
+        "vi": "Nội dung được giữ"
+      },
+      "effectiveSource": {
+        "en": "Retained",
+        "vi": "Nội dung được giữ"
+      }
+    },
+    "deletionRows1Detail": {
+      "proposals": [
+        "proposal.135"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "1",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Required billing records: up to 10 years. Backups: up to 30 days. Error reports where user deletion is unavailable: up to 90 days. Copies others received, local Mac memory and credentials may remain.",
+        "vi": "Hồ sơ thanh toán bắt buộc: tối đa 10 năm. Bản sao lưu: tối đa 30 ngày. Báo cáo lỗi chưa thể xóa theo người dùng: tối đa 90 ngày. Bản sao người khác đã nhận, bộ nhớ và thông tin xác thực trên máy Mac có thể còn."
+      },
+      "effectiveSource": {
+        "en": "Required billing records: up to 10 years. Backups: up to 30 days. Error reports where user deletion is unavailable: up to 90 days. Copies others received, local Mac memory and credentials may remain.",
+        "vi": "Hồ sơ thanh toán bắt buộc: tối đa 10 năm. Bản sao lưu: tối đa 30 ngày. Báo cáo lỗi chưa thể xóa theo người dùng: tối đa 90 ngày. Bản sao người khác đã nhận, bộ nhớ và thông tin xác thực trên máy Mac có thể còn."
+      }
+    },
+    "deletionRows2Label": {
+      "proposals": [
+        "proposal.136"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Protons and purchases",
+        "vi": "Proton và giao dịch mua"
+      },
+      "effectiveSource": {
+        "en": "Protons and purchases",
+        "vi": "Proton và giao dịch mua"
+      }
+    },
+    "deletionRows2Detail": {
+      "proposals": [
+        "proposal.137"
+      ],
+      "usagePath": [
+        "deletion",
+        "rows",
+        "2",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Unused balance is removed. The server shows whether the fourteen-day refund conditions apply and links to the refund request before deletion.",
+        "vi": "Số dư chưa dùng sẽ bị xóa. Máy chủ cho biết điều kiện hoàn tiền trong mười bốn ngày có áp dụng không và cung cấp liên kết yêu cầu hoàn tiền trước khi xóa."
+      },
+      "effectiveSource": {
+        "en": "Unused balance is removed. The server shows whether the fourteen-day refund conditions apply and links to the refund request before deletion.",
+        "vi": "Số dư chưa dùng sẽ bị xóa. Máy chủ cho biết điều kiện hoàn tiền trong mười bốn ngày có áp dụng không và cung cấp liên kết yêu cầu hoàn tiền trước khi xóa."
+      }
+    },
+    "deletionActionsDeletionReauthLabel": {
+      "proposals": [
+        "proposal.138"
+      ],
+      "usagePath": [
+        "deletion",
+        "actions",
+        "deletion-reauth",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Continue to confirm identity",
+        "vi": "Tiếp tục xác nhận danh tính"
+      },
+      "effectiveSource": {
+        "en": "Continue to confirm identity",
+        "vi": "Tiếp tục xác nhận danh tính"
+      }
+    },
+    "deletionStatesBlockedOwnerText": {
+      "proposals": [
+        "proposal.139"
+      ],
+      "usagePath": [
+        "deletion",
+        "states",
+        "blocked-owner",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Transfer company ownership before deleting your account.",
+        "vi": "Chuyển quyền sở hữu công ty trước khi xóa tài khoản."
+      },
+      "effectiveSource": {
+        "en": "Transfer company ownership before deleting your account.",
+        "vi": "Chuyển quyền sở hữu công ty trước khi xóa tài khoản."
+      }
+    },
+    "deletionStatesBlockedPayoutText": {
+      "proposals": [
+        "proposal.140"
+      ],
+      "usagePath": [
+        "deletion",
+        "states",
+        "blocked-payout",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "A payout must finish before deletion can proceed.",
+        "vi": "Khoản chi trả cần hoàn tất trước khi tiếp tục xóa."
+      },
+      "effectiveSource": {
+        "en": "A payout must finish before deletion can proceed.",
+        "vi": "Khoản chi trả cần hoàn tất trước khi tiếp tục xóa."
+      }
+    },
+    "deletionStatesReconciliationText": {
+      "proposals": [
+        "proposal.141"
+      ],
+      "usagePath": [
+        "deletion",
+        "states",
+        "reconciliation",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "A purchase is still being reconciled. Try again after it completes.",
+        "vi": "Giao dịch mua vẫn đang được đối soát. Thử lại sau khi hoàn tất."
+      },
+      "effectiveSource": {
+        "en": "A purchase is still being reconciled. Try again after it completes.",
+        "vi": "Giao dịch mua vẫn đang được đối soát. Thử lại sau khi hoàn tất."
+      }
+    },
+    "deletionReauthTitle": {
+      "proposals": [
+        "proposal.142"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Confirm it is you",
+        "vi": "Xác nhận danh tính"
+      },
+      "effectiveSource": {
+        "en": "Confirm it is you",
+        "vi": "Xác nhận danh tính"
+      }
+    },
+    "deletionReauthBody": {
+      "proposals": [
+        "proposal.143"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Sign in again to request account deletion.",
+        "vi": "Đăng nhập lại để yêu cầu xóa tài khoản."
+      },
+      "effectiveSource": {
+        "en": "Sign in again to request account deletion.",
+        "vi": "Đăng nhập lại để yêu cầu xóa tài khoản."
+      }
+    },
+    "deletionReauthActionsDeletionProgressLabel": {
+      "proposals": [
+        "proposal.144"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "actions",
+        "deletion-progress",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Confirm deletion",
+        "vi": "Xác nhận xóa"
+      },
+      "effectiveSource": {
+        "en": "Confirm deletion",
+        "vi": "Xác nhận xóa"
+      }
+    },
+    "deletionReauthStatesCancelledText": {
+      "proposals": [
+        "proposal.145"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "states",
+        "cancelled",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Deletion was not requested.",
+        "vi": "Chưa yêu cầu xóa tài khoản."
+      },
+      "effectiveSource": {
+        "en": "Deletion was not requested.",
+        "vi": "Chưa yêu cầu xóa tài khoản."
+      }
+    },
+    "deletionReauthStatesNonceExpiredText": {
+      "proposals": [
+        "proposal.146"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "states",
+        "nonce-expired",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This confirmation expired. Confirm your identity again.",
+        "vi": "Xác nhận đã hết hạn. Hãy xác nhận danh tính lại."
+      },
+      "effectiveSource": {
+        "en": "This confirmation expired. Confirm your identity again.",
+        "vi": "Xác nhận đã hết hạn. Hãy xác nhận danh tính lại."
+      }
+    },
+    "deletionReauthStatesAppleCodeUnavailableText": {
+      "proposals": [
+        "proposal.147"
+      ],
+      "usagePath": [
+        "deletion-reauth",
+        "states",
+        "apple-code-unavailable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Deletion can continue. You may need to disconnect Atum in Apple Settings.",
+        "vi": "Bạn vẫn có thể tiếp tục xóa. Có thể cần ngắt kết nối Atum trong Cài đặt Apple."
+      },
+      "effectiveSource": {
+        "en": "Deletion can continue. You may need to disconnect Atum in Apple Settings.",
+        "vi": "Bạn vẫn có thể tiếp tục xóa. Có thể cần ngắt kết nối Atum trong Cài đặt Apple."
+      }
+    },
+    "deletionProgressTitle": {
+      "proposals": [
+        "proposal.148"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Account deletion",
+        "vi": "Xóa tài khoản"
+      },
+      "effectiveSource": {
+        "en": "Account deletion",
+        "vi": "Xóa tài khoản"
+      }
+    },
+    "deletionProgressBody": {
+      "proposals": [
+        "proposal.149"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Deletion is in progress. You can check here until it is complete.",
+        "vi": "Đang xóa tài khoản. Bạn có thể kiểm tra tại đây đến khi hoàn tất."
+      },
+      "effectiveSource": {
+        "en": "Deletion is in progress. You can check here until it is complete.",
+        "vi": "Đang xóa tài khoản. Bạn có thể kiểm tra tại đây đến khi hoàn tất."
+      }
+    },
+    "deletionProgressStatesAcceptedText": {
+      "proposals": [
+        "proposal.150"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "states",
+        "accepted",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your deletion request was accepted.",
+        "vi": "Đã tiếp nhận yêu cầu xóa."
+      },
+      "effectiveSource": {
+        "en": "Your deletion request was accepted.",
+        "vi": "Đã tiếp nhận yêu cầu xóa."
+      }
+    },
+    "deletionProgressStatesCompleteText": {
+      "proposals": [
+        "proposal.151"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "states",
+        "complete",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your account has been deleted.",
+        "vi": "Tài khoản của bạn đã được xóa."
+      },
+      "effectiveSource": {
+        "en": "Your account has been deleted.",
+        "vi": "Tài khoản của bạn đã được xóa."
+      }
+    },
+    "deletionProgressStatesTokenLostText": {
+      "proposals": [
+        "proposal.152"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "states",
+        "token-lost",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This device cannot check progress. The deletion continues.",
+        "vi": "Thiết bị này không thể kiểm tra tiến độ. Quá trình xóa vẫn tiếp tục."
+      },
+      "effectiveSource": {
+        "en": "This device cannot check progress. The deletion continues.",
+        "vi": "Thiết bị này không thể kiểm tra tiến độ. Quá trình xóa vẫn tiếp tục."
+      }
+    },
+    "deletionProgressStatesReplayText": {
+      "proposals": [
+        "proposal.153"
+      ],
+      "usagePath": [
+        "deletion-progress",
+        "states",
+        "replay",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Checking whether your request was accepted.",
+        "vi": "Đang kiểm tra yêu cầu đã được tiếp nhận chưa."
+      },
+      "effectiveSource": {
+        "en": "Checking whether your request was accepted.",
+        "vi": "Đang kiểm tra yêu cầu đã được tiếp nhận chưa."
+      }
+    },
+    "walletStatesOtherAccountText": {
+      "proposals": [
+        "proposal.154"
+      ],
+      "usagePath": [
+        "wallet",
+        "states",
+        "other-account",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This purchase belongs to another account.",
+        "vi": "Giao dịch mua này thuộc tài khoản khác."
+      },
+      "effectiveSource": {
+        "en": "This purchase belongs to another account.",
+        "vi": "Giao dịch mua này thuộc tài khoản khác."
+      }
+    },
+    "walletStatesNeedsSupportText": {
+      "proposals": [
+        "proposal.155"
+      ],
+      "usagePath": [
+        "wallet",
+        "states",
+        "needs-support",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your payment was recorded and needs support.",
+        "vi": "Thanh toán đã được ghi nhận và cần hỗ trợ."
+      },
+      "effectiveSource": {
+        "en": "Your payment was recorded and needs support.",
+        "vi": "Thanh toán đã được ghi nhận và cần hỗ trợ."
+      }
+    },
+    "walletStatesRefundedText": {
+      "proposals": [
+        "proposal.156"
+      ],
+      "usagePath": [
+        "wallet",
+        "states",
+        "refunded",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This purchase was refunded. Your balance was updated.",
+        "vi": "Giao dịch mua đã được hoàn tiền. Số dư đã được cập nhật."
+      },
+      "effectiveSource": {
+        "en": "This purchase was refunded. Your balance was updated.",
+        "vi": "Giao dịch mua đã được hoàn tiền. Số dư đã được cập nhật."
+      }
+    },
+    "walletTitle": {
+      "proposals": [
+        "proposal.157"
+      ],
+      "usagePath": [
+        "wallet",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Protons balance",
+        "vi": "Số dư Proton"
+      },
+      "effectiveSource": {
+        "en": "Protons balance",
+        "vi": "Số dư Proton"
+      }
+    },
+    "walletRowsWalletHistoryLabel": {
+      "proposals": [
+        "proposal.158"
+      ],
+      "usagePath": [
+        "wallet",
+        "rows",
+        "wallet-history",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Transaction history",
+        "vi": "Lịch sử giao dịch"
+      },
+      "effectiveSource": {
+        "en": "Transaction history",
+        "vi": "Lịch sử giao dịch"
+      }
+    },
+    "walletHistoryTitle": {
+      "proposals": [
+        "proposal.159"
+      ],
+      "usagePath": [
+        "wallet-history",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Transaction history",
+        "vi": "Lịch sử giao dịch"
+      },
+      "effectiveSource": {
+        "en": "Transaction history",
+        "vi": "Lịch sử giao dịch"
+      }
+    },
+    "walletHistoryRows0Label": {
+      "proposals": [
+        "proposal.160"
+      ],
+      "usagePath": [
+        "wallet-history",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Demo task",
+        "vi": "Tác vụ mẫu"
+      },
+      "effectiveSource": {
+        "en": "Demo task",
+        "vi": "Tác vụ mẫu"
+      }
+    },
+    "walletHistoryRows1Label": {
+      "proposals": [
+        "proposal.161"
+      ],
+      "usagePath": [
+        "wallet-history",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Demo credit",
+        "vi": "Khoản cộng mẫu"
+      },
+      "effectiveSource": {
+        "en": "Demo credit",
+        "vi": "Khoản cộng mẫu"
+      }
+    },
+    "packLayoutRows0Label": {
+      "proposals": [
+        "proposal.162"
+      ],
+      "usagePath": [
+        "pack-layout",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Proton pack",
+        "vi": "Gói Proton"
+      },
+      "effectiveSource": {
+        "en": "Proton pack",
+        "vi": "Gói Proton"
+      }
+    },
+    "packLayoutRows0Detail": {
+      "proposals": [
+        "proposal.163"
+      ],
+      "usagePath": [
+        "pack-layout",
+        "rows",
+        "0",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Amount and StoreKit price await owner product decisions.",
+        "vi": "Số lượng và giá StoreKit đang chờ quyết định sản phẩm."
+      },
+      "effectiveSource": {
+        "en": "Amount and StoreKit price await owner product decisions.",
+        "vi": "Số lượng và giá StoreKit đang chờ quyết định sản phẩm."
+      }
+    },
+    "recoverBalanceBody": {
+      "proposals": [
+        "proposal.164"
+      ],
+      "usagePath": [
+        "recover-balance",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Check your balance and any unfinished purchases.",
+        "vi": "Kiểm tra số dư và các giao dịch mua chưa hoàn tất."
+      },
+      "effectiveSource": {
+        "en": "Check your balance and any unfinished purchases.",
+        "vi": "Kiểm tra số dư và các giao dịch mua chưa hoàn tất."
+      }
+    },
+    "storeStatesUnavailableText": {
+      "proposals": [
+        "proposal.165"
+      ],
+      "usagePath": [
+        "store",
+        "states",
+        "unavailable",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "The Store is unavailable. Try again later.",
+        "vi": "Cửa hàng chưa khả dụng. Hãy thử lại sau."
+      },
+      "effectiveSource": {
+        "en": "The Store is unavailable. Try again later.",
+        "vi": "Cửa hàng chưa khả dụng. Hãy thử lại sau."
+      }
+    },
+    "storeTitle": {
+      "proposals": [
+        "proposal.166"
+      ],
+      "usagePath": [
+        "store",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Store",
+        "vi": "Cửa hàng"
+      },
+      "effectiveSource": {
+        "en": "Store",
+        "vi": "Cửa hàng"
+      }
+    },
+    "storeStatesStaleText": {
+      "proposals": [
+        "proposal.167"
+      ],
+      "usagePath": [
+        "store",
+        "states",
+        "stale",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Saved catalog · updated at 09:41",
+        "vi": "Danh mục đã lưu · cập nhật lúc 09:41"
+      },
+      "effectiveSource": {
+        "en": "Saved catalog · updated at 09:41",
+        "vi": "Danh mục đã lưu · cập nhật lúc 09:41"
+      }
+    },
+    "storeDetailTitle": {
+      "proposals": [
+        "proposal.168"
+      ],
+      "usagePath": [
+        "store-detail",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Item details",
+        "vi": "Chi tiết sản phẩm"
+      },
+      "effectiveSource": {
+        "en": "Item details",
+        "vi": "Chi tiết sản phẩm"
+      }
+    },
+    "storeDetailStatesNoOfferText": {
+      "proposals": [
+        "proposal.169"
+      ],
+      "usagePath": [
+        "store-detail",
+        "states",
+        "no-offer",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Price unavailable",
+        "vi": "Chưa có giá"
+      },
+      "effectiveSource": {
+        "en": "Price unavailable",
+        "vi": "Chưa có giá"
+      }
+    },
+    "storeDetailStatesOfferChangedText": {
+      "proposals": [
+        "proposal.170"
+      ],
+      "usagePath": [
+        "store-detail",
+        "states",
+        "offer-changed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This offer has changed. Review the latest details.",
+        "vi": "Ưu đãi đã thay đổi. Hãy xem lại thông tin mới."
+      },
+      "effectiveSource": {
+        "en": "This offer has changed. Review the latest details.",
+        "vi": "Ưu đãi đã thay đổi. Hãy xem lại thông tin mới."
+      }
+    },
+    "storeDetailStatesNoAssistantText": {
+      "proposals": [
+        "proposal.171"
+      ],
+      "usagePath": [
+        "store-detail",
+        "states",
+        "no-assistant",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Choose an eligible assistant before adding this skill.",
+        "vi": "Chọn một trợ lý phù hợp trước khi thêm kỹ năng này."
+      },
+      "effectiveSource": {
+        "en": "Choose an eligible assistant before adding this skill.",
+        "vi": "Chọn một trợ lý phù hợp trước khi thêm kỹ năng này."
+      }
+    },
+    "storeDetailStatesDeliveryPendingText": {
+      "proposals": [
+        "proposal.172"
+      ],
+      "usagePath": [
+        "store-detail",
+        "states",
+        "delivery-pending",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your purchase is recorded. This item is getting ready.",
+        "vi": "Giao dịch đã được ghi nhận. Sản phẩm đang được chuẩn bị."
+      },
+      "effectiveSource": {
+        "en": "Your purchase is recorded. This item is getting ready.",
+        "vi": "Giao dịch đã được ghi nhận. Sản phẩm đang được chuẩn bị."
+      }
+    },
+    "storePurchasedTitle": {
+      "proposals": [
+        "proposal.173"
+      ],
+      "usagePath": [
+        "store-purchased",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Purchased",
+        "vi": "Đã mua"
+      },
+      "effectiveSource": {
+        "en": "Purchased",
+        "vi": "Đã mua"
+      }
+    },
+    "storePurchasedStatesDeliveryPendingText": {
+      "proposals": [
+        "proposal.174"
+      ],
+      "usagePath": [
+        "store-purchased",
+        "states",
+        "delivery-pending",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Your purchase is recorded. This item is getting ready.",
+        "vi": "Giao dịch đã được ghi nhận. Sản phẩm đang được chuẩn bị."
+      },
+      "effectiveSource": {
+        "en": "Your purchase is recorded. This item is getting ready.",
+        "vi": "Giao dịch đã được ghi nhận. Sản phẩm đang được chuẩn bị."
+      }
+    },
+    "storePurchasedStatesRevokedText": {
+      "proposals": [
+        "proposal.175"
+      ],
+      "usagePath": [
+        "store-purchased",
+        "states",
+        "revoked",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Access to this item has ended.",
+        "vi": "Quyền truy cập sản phẩm này đã kết thúc."
+      },
+      "effectiveSource": {
+        "en": "Access to this item has ended.",
+        "vi": "Quyền truy cập sản phẩm này đã kết thúc."
+      }
+    },
+    "storePurchasedStatesCancelledRenewalText": {
+      "proposals": [
+        "proposal.176"
+      ],
+      "usagePath": [
+        "store-purchased",
+        "states",
+        "cancelled-renewal",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Renewal is cancelled. Access continues until the shown date.",
+        "vi": "Đã hủy gia hạn. Quyền truy cập còn đến ngày hiển thị."
+      },
+      "effectiveSource": {
+        "en": "Renewal is cancelled. Access continues until the shown date.",
+        "vi": "Đã hủy gia hạn. Quyền truy cập còn đến ngày hiển thị."
+      }
+    },
+    "storeRecipientTitle": {
+      "proposals": [
+        "proposal.177"
+      ],
+      "usagePath": [
+        "store-recipient",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Choose an assistant",
+        "vi": "Chọn trợ lý"
+      },
+      "effectiveSource": {
+        "en": "Choose an assistant",
+        "vi": "Chọn trợ lý"
+      }
+    },
+    "storeRecipientBody": {
+      "proposals": [
+        "proposal.178"
+      ],
+      "usagePath": [
+        "store-recipient",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "This skill belongs to the assistant you choose.",
+        "vi": "Kỹ năng này thuộc về trợ lý bạn chọn."
+      },
+      "effectiveSource": {
+        "en": "This skill belongs to the assistant you choose.",
+        "vi": "Kỹ năng này thuộc về trợ lý bạn chọn."
+      }
+    },
+    "storeRecipientStatesNoAssistantText": {
+      "proposals": [
+        "proposal.179"
+      ],
+      "usagePath": [
+        "store-recipient",
+        "states",
+        "no-assistant",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "No eligible assistant is available for this skill.",
+        "vi": "Chưa có trợ lý phù hợp với kỹ năng này."
+      },
+      "effectiveSource": {
+        "en": "No eligible assistant is available for this skill.",
+        "vi": "Chưa có trợ lý phù hợp với kỹ năng này."
+      }
+    },
+    "storeRecipientStatesAlreadyOwnedText": {
+      "proposals": [
+        "proposal.180"
+      ],
+      "usagePath": [
+        "store-recipient",
+        "states",
+        "already-owned",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This assistant already has the skill.",
+        "vi": "Trợ lý này đã có kỹ năng."
+      },
+      "effectiveSource": {
+        "en": "This assistant already has the skill.",
+        "vi": "Trợ lý này đã có kỹ năng."
+      }
+    },
+    "storeDeliveryTitle": {
+      "proposals": [
+        "proposal.181"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Purchase and delivery",
+        "vi": "Giao dịch và bàn giao"
+      },
+      "effectiveSource": {
+        "en": "Purchase and delivery",
+        "vi": "Giao dịch và bàn giao"
+      }
+    },
+    "storeDeliveryBody": {
+      "proposals": [
+        "proposal.182"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Check the purchase record and when the item is ready to use.",
+        "vi": "Kiểm tra giao dịch và thời điểm sản phẩm sẵn sàng."
+      },
+      "effectiveSource": {
+        "en": "Check the purchase record and when the item is ready to use.",
+        "vi": "Kiểm tra giao dịch và thời điểm sản phẩm sẵn sàng."
+      }
+    },
+    "storeDeliveryStatesRecordedText": {
+      "proposals": [
+        "proposal.183"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "states",
+        "recorded",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "Purchase recorded. Waiting for delivery.",
+        "vi": "Đã ghi nhận giao dịch. Đang chờ bàn giao."
+      },
+      "effectiveSource": {
+        "en": "Purchase recorded. Waiting for delivery.",
+        "vi": "Đã ghi nhận giao dịch. Đang chờ bàn giao."
+      }
+    },
+    "storeDeliveryStatesDeliveryPendingText": {
+      "proposals": [
+        "proposal.184"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "states",
+        "delivery-pending",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This item is getting ready. You can leave and check later.",
+        "vi": "Sản phẩm đang được chuẩn bị. Bạn có thể quay lại sau."
+      },
+      "effectiveSource": {
+        "en": "This item is getting ready. You can leave and check later.",
+        "vi": "Sản phẩm đang được chuẩn bị. Bạn có thể quay lại sau."
+      }
+    },
+    "storeDeliveryStatesDeliveredText": {
+      "proposals": [
+        "proposal.185"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "states",
+        "delivered",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This item is ready to use.",
+        "vi": "Sản phẩm đã sẵn sàng sử dụng."
+      },
+      "effectiveSource": {
+        "en": "This item is ready to use.",
+        "vi": "Sản phẩm đã sẵn sàng sử dụng."
+      }
+    },
+    "storeDeliveryStatesUncertainText": {
+      "proposals": [
+        "proposal.186"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "states",
+        "uncertain",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "We are checking this purchase. Do not purchase again.",
+        "vi": "Đang kiểm tra giao dịch. Không mua lại."
+      },
+      "effectiveSource": {
+        "en": "We are checking this purchase. Do not purchase again.",
+        "vi": "Đang kiểm tra giao dịch. Không mua lại."
+      }
+    },
+    "storeDeliveryStatesRefundedText": {
+      "proposals": [
+        "proposal.187"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "states",
+        "refunded",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This purchase was refunded.",
+        "vi": "Giao dịch đã được hoàn tiền."
+      },
+      "effectiveSource": {
+        "en": "This purchase was refunded.",
+        "vi": "Giao dịch đã được hoàn tiền."
+      }
+    },
+    "storeDeliveryActionsStorePurchasedLabel": {
+      "proposals": [
+        "proposal.188"
+      ],
+      "usagePath": [
+        "store-delivery",
+        "actions",
+        "store-purchased",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "View Purchased",
+        "vi": "Xem mục Đã mua"
+      },
+      "effectiveSource": {
+        "en": "View Purchased",
+        "vi": "Xem mục Đã mua"
+      }
+    },
+    "storeReviewTitle": {
+      "proposals": [
+        "proposal.189"
+      ],
+      "usagePath": [
+        "store-review",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Review item and access",
+        "vi": "Xem sản phẩm và quyền truy cập"
+      },
+      "effectiveSource": {
+        "en": "Review item and access",
+        "vi": "Xem sản phẩm và quyền truy cập"
+      }
+    },
+    "storeReviewBody": {
+      "proposals": [
+        "proposal.190"
+      ],
+      "usagePath": [
+        "store-review",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Review the item, its recipient and any renewal before acquiring it.",
+        "vi": "Xem sản phẩm, người nhận và điều kiện gia hạn trước khi mua."
+      },
+      "effectiveSource": {
+        "en": "Review the item, its recipient and any renewal before acquiring it.",
+        "vi": "Xem sản phẩm, người nhận và điều kiện gia hạn trước khi mua."
+      }
+    },
+    "storeReviewRows0Label": {
+      "proposals": [
+        "proposal.191"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "0",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Item",
+        "vi": "Sản phẩm"
+      },
+      "effectiveSource": {
+        "en": "Item",
+        "vi": "Sản phẩm"
+      }
+    },
+    "storeReviewRows1Label": {
+      "proposals": [
+        "proposal.192"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "1",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "For assistant",
+        "vi": "Dành cho trợ lý"
+      },
+      "effectiveSource": {
+        "en": "For assistant",
+        "vi": "Dành cho trợ lý"
+      }
+    },
+    "storeReviewRows2Label": {
+      "proposals": [
+        "proposal.193"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "2",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Price",
+        "vi": "Giá"
+      },
+      "effectiveSource": {
+        "en": "Price",
+        "vi": "Giá"
+      }
+    },
+    "storeReviewRows2Detail": {
+      "proposals": [
+        "proposal.194"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "2",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Awaiting a current offer",
+        "vi": "Đang chờ ưu đãi hiện tại"
+      },
+      "effectiveSource": {
+        "en": "Awaiting a current offer",
+        "vi": "Đang chờ ưu đãi hiện tại"
+      }
+    },
+    "storeReviewRows3Label": {
+      "proposals": [
+        "proposal.195"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "3",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Renewal",
+        "vi": "Gia hạn"
+      },
+      "effectiveSource": {
+        "en": "Renewal",
+        "vi": "Gia hạn"
+      }
+    },
+    "storeReviewRows3Detail": {
+      "proposals": [
+        "proposal.196"
+      ],
+      "usagePath": [
+        "store-review",
+        "rows",
+        "3",
+        "detail"
+      ],
+      "approvedSource": {
+        "en": "Show the current offer’s period and renewal terms.",
+        "vi": "Hiển thị kỳ hạn và điều kiện gia hạn của ưu đãi hiện tại."
+      },
+      "effectiveSource": {
+        "en": "Show the current offer’s period and renewal terms.",
+        "vi": "Hiển thị kỳ hạn và điều kiện gia hạn của ưu đãi hiện tại."
+      }
+    },
+    "storeReviewStatesOfferChangedText": {
+      "proposals": [
+        "proposal.197"
+      ],
+      "usagePath": [
+        "store-review",
+        "states",
+        "offer-changed",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "This offer has changed. Review the latest details.",
+        "vi": "Ưu đãi đã thay đổi. Hãy xem lại thông tin mới."
+      },
+      "effectiveSource": {
+        "en": "This offer has changed. Review the latest details.",
+        "vi": "Ưu đãi đã thay đổi. Hãy xem lại thông tin mới."
+      }
+    },
+    "storeReviewStatesCancelledText": {
+      "proposals": [
+        "proposal.198"
+      ],
+      "usagePath": [
+        "store-review",
+        "states",
+        "cancelled",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "No new purchase was made.",
+        "vi": "Chưa thực hiện giao dịch mới."
+      },
+      "effectiveSource": {
+        "en": "No new purchase was made.",
+        "vi": "Chưa thực hiện giao dịch mới."
+      }
+    },
+    "storeReviewStatesUncertainText": {
+      "proposals": [
+        "proposal.199"
+      ],
+      "usagePath": [
+        "store-review",
+        "states",
+        "uncertain",
+        "text"
+      ],
+      "approvedSource": {
+        "en": "We are checking this purchase. Do not purchase again.",
+        "vi": "Đang kiểm tra giao dịch. Không mua lại."
+      },
+      "effectiveSource": {
+        "en": "We are checking this purchase. Do not purchase again.",
+        "vi": "Đang kiểm tra giao dịch. Không mua lại."
+      }
+    },
+    "crashFallbackTitle": {
+      "proposals": [
+        "proposal.200"
+      ],
+      "usagePath": [
+        "crash-fallback",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Atum could not open this screen",
+        "vi": "Atum chưa thể mở màn hình này"
+      },
+      "effectiveSource": {
+        "en": "Atum could not open this screen",
+        "vi": "Atum chưa thể mở màn hình này"
+      }
+    },
+    "crashFallbackBody": {
+      "proposals": [
+        "proposal.201"
+      ],
+      "usagePath": [
+        "crash-fallback",
+        "body"
+      ],
+      "approvedSource": {
+        "en": "Your saved conversations and recovery path are kept.",
+        "vi": "Các cuộc trò chuyện đã lưu và đường khôi phục được giữ lại."
+      },
+      "effectiveSource": {
+        "en": "Your saved conversations and recovery path are kept.",
+        "vi": "Các cuộc trò chuyện đã lưu và đường khôi phục được giữ lại."
+      }
+    },
+    "crashFallbackActionsRecoveryLabel": {
+      "proposals": [
+        "proposal.202"
+      ],
+      "usagePath": [
+        "crash-fallback",
+        "actions",
+        "recovery",
+        "label"
+      ],
+      "approvedSource": {
+        "en": "Open recovery",
+        "vi": "Mở khôi phục"
+      },
+      "effectiveSource": {
+        "en": "Open recovery",
+        "vi": "Mở khôi phục"
+      }
+    },
+    "uiSearch": {
+      "proposals": [
+        "proposal.203"
+      ],
+      "usagePath": [
+        "ui",
+        "search"
+      ],
+      "approvedSource": {
+        "en": "Search",
+        "vi": "Tìm kiếm"
+      },
+      "effectiveSource": {
+        "en": "Search",
+        "vi": "Tìm kiếm"
+      }
+    },
+    "uiMessagePlaceholder": {
+      "proposals": [
+        "proposal.204"
+      ],
+      "usagePath": [
+        "ui",
+        "messagePlaceholder"
+      ],
+      "approvedSource": {
+        "en": "Message…",
+        "vi": "Nhắn tin…"
+      },
+      "effectiveSource": {
+        "en": "Message…",
+        "vi": "Nhắn tin…"
+      }
+    },
+    "uiAddFiles": {
+      "proposals": [
+        "proposal.205"
+      ],
+      "usagePath": [
+        "ui",
+        "addFiles"
+      ],
+      "approvedSource": {
+        "en": "Add photos or files",
+        "vi": "Thêm ảnh hoặc tệp"
+      },
+      "effectiveSource": {
+        "en": "Add photos or files",
+        "vi": "Thêm ảnh hoặc tệp"
+      }
+    },
+    "uiGreeting": {
+      "proposals": [
+        "proposal.206"
+      ],
+      "usagePath": [
+        "ui",
+        "greeting"
+      ],
+      "approvedSource": {
+        "en": "What shall we do today?",
+        "vi": "Hôm nay ta làm gì?"
+      },
+      "effectiveSource": {
+        "en": "What shall we do today?",
+        "vi": "Hôm nay ta làm gì?"
+      }
+    },
+    "uiAnswered": {
+      "proposals": [
+        "proposal.207"
+      ],
+      "usagePath": [
+        "ui",
+        "answered"
+      ],
+      "approvedSource": {
+        "en": "Answered",
+        "vi": "Đã trả lời"
+      },
+      "effectiveSource": {
+        "en": "Answered",
+        "vi": "Đã trả lời"
+      }
+    },
+    "uiChooseConversation": {
+      "proposals": [
+        "proposal.208"
+      ],
+      "usagePath": [
+        "ui",
+        "chooseConversation"
+      ],
+      "approvedSource": {
+        "en": "Choose a conversation",
+        "vi": "Chọn cuộc trò chuyện"
+      },
+      "effectiveSource": {
+        "en": "Choose a conversation",
+        "vi": "Chọn cuộc trò chuyện"
+      }
+    },
+    "uiLockScreen": {
+      "proposals": [
+        "proposal.209"
+      ],
+      "usagePath": [
+        "ui",
+        "lockScreen"
+      ],
+      "approvedSource": {
+        "en": "Lock screen example",
+        "vi": "Ví dụ trên màn hình khóa"
+      },
+      "effectiveSource": {
+        "en": "Lock screen example",
+        "vi": "Ví dụ trên màn hình khóa"
+      }
+    },
+    "uiMessageOptionsHint": {
+      "proposals": [
+        "proposal.210"
+      ],
+      "usagePath": [
+        "ui",
+        "messageOptionsHint"
+      ],
+      "approvedSource": {
+        "en": "Long-press a message for options",
+        "vi": "Nhấn giữ tin nhắn để xem tùy chọn"
+      },
+      "effectiveSource": {
+        "en": "Long-press a message for options",
+        "vi": "Nhấn giữ tin nhắn để xem tùy chọn"
+      }
+    },
+    "uiDeliveryPending": {
+      "proposals": [
+        "proposal.211"
+      ],
+      "usagePath": [
+        "ui",
+        "deliveryPending"
+      ],
+      "approvedSource": {
+        "en": "Getting ready",
+        "vi": "Đang chuẩn bị"
+      },
+      "effectiveSource": {
+        "en": "Getting ready",
+        "vi": "Đang chuẩn bị"
+      }
+    },
+    "uiNoEligibleAssistant": {
+      "proposals": [
+        "proposal.212"
+      ],
+      "usagePath": [
+        "ui",
+        "noEligibleAssistant"
+      ],
+      "approvedSource": {
+        "en": "No eligible assistant",
+        "vi": "Chưa có trợ lý phù hợp"
+      },
+      "effectiveSource": {
+        "en": "No eligible assistant",
+        "vi": "Chưa có trợ lý phù hợp"
+      }
+    },
+    "uiStore": {
+      "proposals": [
+        "proposal.213"
+      ],
+      "usagePath": [
+        "ui",
+        "store"
+      ],
+      "approvedSource": {
+        "en": "Store",
+        "vi": "Cửa hàng"
+      },
+      "effectiveSource": {
+        "en": "Store",
+        "vi": "Cửa hàng"
+      }
+    },
+    "uiFeatured": {
+      "proposals": [
+        "proposal.214"
+      ],
+      "usagePath": [
+        "ui",
+        "featured"
+      ],
+      "approvedSource": {
+        "en": "Featured",
+        "vi": "Nổi bật"
+      },
+      "effectiveSource": {
+        "en": "Featured",
+        "vi": "Nổi bật"
+      }
+    },
+    "uiHires": {
+      "proposals": [
+        "proposal.215"
+      ],
+      "usagePath": [
+        "ui",
+        "hires"
+      ],
+      "approvedSource": {
+        "en": "Hires",
+        "vi": "Trợ lý thuê"
+      },
+      "effectiveSource": {
+        "en": "Hires",
+        "vi": "Trợ lý thuê"
+      }
+    },
+    "uiSkills": {
+      "proposals": [
+        "proposal.216"
+      ],
+      "usagePath": [
+        "ui",
+        "skills"
+      ],
+      "approvedSource": {
+        "en": "Skills",
+        "vi": "Kỹ năng"
+      },
+      "effectiveSource": {
+        "en": "Skills",
+        "vi": "Kỹ năng"
+      }
+    },
+    "uiPets": {
+      "proposals": [
+        "proposal.217"
+      ],
+      "usagePath": [
+        "ui",
+        "pets"
+      ],
+      "approvedSource": {
+        "en": "Pets",
+        "vi": "Thú cưng"
+      },
+      "effectiveSource": {
+        "en": "Pets",
+        "vi": "Thú cưng"
+      }
+    },
+    "uiPurchased": {
+      "proposals": [
+        "proposal.218"
+      ],
+      "usagePath": [
+        "ui",
+        "purchased"
+      ],
+      "approvedSource": {
+        "en": "Purchased",
+        "vi": "Đã mua"
+      },
+      "effectiveSource": {
+        "en": "Purchased",
+        "vi": "Đã mua"
+      }
+    },
+    "uiAdvanced": {
+      "proposals": [
+        "proposal.219"
+      ],
+      "usagePath": [
+        "ui",
+        "advanced"
+      ],
+      "approvedSource": {
+        "en": "Advanced options",
+        "vi": "Tùy chọn nâng cao"
+      },
+      "effectiveSource": {
+        "en": "Advanced options",
+        "vi": "Tùy chọn nâng cao"
+      }
+    },
+    "uiAdvancedHelp": {
+      "proposals": [
+        "proposal.220"
+      ],
+      "usagePath": [
+        "ui",
+        "advancedHelp"
+      ],
+      "approvedSource": {
+        "en": "Model & Memory for this assistant",
+        "vi": "Mô hình và bộ nhớ của trợ lý này"
+      },
+      "effectiveSource": {
+        "en": "Model & Memory for this assistant",
+        "vi": "Mô hình và bộ nhớ của trợ lý này"
+      }
+    },
+    "uiModel": {
+      "proposals": [
+        "proposal.221"
+      ],
+      "usagePath": [
+        "ui",
+        "model"
+      ],
+      "approvedSource": {
+        "en": "Model for this conversation",
+        "vi": "Mô hình cho cuộc trò chuyện này"
+      },
+      "effectiveSource": {
+        "en": "Model for this conversation",
+        "vi": "Mô hình cho cuộc trò chuyện này"
+      }
+    },
+    "uiSelected": {
+      "proposals": [
+        "proposal.222"
+      ],
+      "usagePath": [
+        "ui",
+        "selected"
+      ],
+      "approvedSource": {
+        "en": "Selected",
+        "vi": "Đã chọn"
+      },
+      "effectiveSource": {
+        "en": "Selected",
+        "vi": "Đã chọn"
+      }
+    },
+    "uiPriceUnavailable": {
+      "proposals": [
+        "proposal.223"
+      ],
+      "usagePath": [
+        "ui",
+        "priceUnavailable"
+      ],
+      "approvedSource": {
+        "en": "Price unavailable",
+        "vi": "Chưa có giá"
+      },
+      "effectiveSource": {
+        "en": "Price unavailable",
+        "vi": "Chưa có giá"
+      }
+    },
+    "uiOwned": {
+      "proposals": [
+        "proposal.224"
+      ],
+      "usagePath": [
+        "ui",
+        "owned"
+      ],
+      "approvedSource": {
+        "en": "Owned",
+        "vi": "Đã sở hữu"
+      },
+      "effectiveSource": {
+        "en": "Owned",
+        "vi": "Đã sở hữu"
+      }
+    },
+    "uiItemAgent": {
+      "proposals": [
+        "proposal.225"
+      ],
+      "usagePath": [
+        "ui",
+        "itemAgent"
+      ],
+      "approvedSource": {
+        "en": "Demo planning assistant",
+        "vi": "Trợ lý lập kế hoạch mẫu"
+      },
+      "effectiveSource": {
+        "en": "Demo planning assistant",
+        "vi": "Trợ lý lập kế hoạch mẫu"
+      }
+    },
+    "uiItemAgentSummary": {
+      "proposals": [
+        "proposal.226"
+      ],
+      "usagePath": [
+        "ui",
+        "itemAgentSummary"
+      ],
+      "approvedSource": {
+        "en": "A specialist for practical plans and schedules.",
+        "vi": "Trợ lý chuyên lập kế hoạch và lịch trình thiết thực."
+      },
+      "effectiveSource": {
+        "en": "A specialist for practical plans and schedules.",
+        "vi": "Trợ lý chuyên lập kế hoạch và lịch trình thiết thực."
+      }
+    },
+    "uiItemSkill": {
+      "proposals": [
+        "proposal.227"
+      ],
+      "usagePath": [
+        "ui",
+        "itemSkill"
+      ],
+      "approvedSource": {
+        "en": "Demo writing skill",
+        "vi": "Kỹ năng viết mẫu"
+      },
+      "effectiveSource": {
+        "en": "Demo writing skill",
+        "vi": "Kỹ năng viết mẫu"
+      }
+    },
+    "uiItemSkillSummary": {
+      "proposals": [
+        "proposal.228"
+      ],
+      "usagePath": [
+        "ui",
+        "itemSkillSummary"
+      ],
+      "approvedSource": {
+        "en": "Draft and refine with your chosen assistant.",
+        "vi": "Soạn và chỉnh sửa cùng trợ lý bạn chọn."
+      },
+      "effectiveSource": {
+        "en": "Draft and refine with your chosen assistant.",
+        "vi": "Soạn và chỉnh sửa cùng trợ lý bạn chọn."
+      }
+    },
+    "uiItemPet": {
+      "proposals": [
+        "proposal.229"
+      ],
+      "usagePath": [
+        "ui",
+        "itemPet"
+      ],
+      "approvedSource": {
+        "en": "Demo companion",
+        "vi": "Bạn đồng hành mẫu"
+      },
+      "effectiveSource": {
+        "en": "Demo companion",
+        "vi": "Bạn đồng hành mẫu"
+      }
+    },
+    "uiItemPetSummary": {
+      "proposals": [
+        "proposal.230"
+      ],
+      "usagePath": [
+        "ui",
+        "itemPetSummary"
+      ],
+      "approvedSource": {
+        "en": "An account companion, ready when delivered.",
+        "vi": "Bạn đồng hành của tài khoản, sẵn sàng sau bàn giao."
+      },
+      "effectiveSource": {
+        "en": "An account companion, ready when delivered.",
+        "vi": "Bạn đồng hành của tài khoản, sẵn sàng sau bàn giao."
+      }
+    },
+    "uiAvailability": {
+      "proposals": [
+        "proposal.231"
+      ],
+      "usagePath": [
+        "ui",
+        "availability"
+      ],
+      "approvedSource": {
+        "en": "Acquisition is not available yet.",
+        "vi": "Chưa thể mua sản phẩm."
+      },
+      "effectiveSource": {
+        "en": "Acquisition is not available yet.",
+        "vi": "Chưa thể mua sản phẩm."
+      }
+    },
+    "uiDetails": {
+      "proposals": [
+        "proposal.232"
+      ],
+      "usagePath": [
+        "ui",
+        "details"
+      ],
+      "approvedSource": {
+        "en": "View details",
+        "vi": "Xem chi tiết"
+      },
+      "effectiveSource": {
+        "en": "View details",
+        "vi": "Xem chi tiết"
+      }
+    },
+    "uiOpen": {
+      "proposals": [
+        "proposal.233"
+      ],
+      "usagePath": [
+        "ui",
+        "open"
+      ],
+      "approvedSource": {
+        "en": "Open",
+        "vi": "Mở"
+      },
+      "effectiveSource": {
+        "en": "Open",
+        "vi": "Mở"
+      }
+    },
+    "uiChosenAssistant": {
+      "proposals": [
+        "proposal.234"
+      ],
+      "usagePath": [
+        "ui",
+        "chosenAssistant"
+      ],
+      "approvedSource": {
+        "en": "For assistant",
+        "vi": "Dành cho trợ lý"
+      },
+      "effectiveSource": {
+        "en": "For assistant",
+        "vi": "Dành cho trợ lý"
+      }
+    },
+    "uiAccountOwned": {
+      "proposals": [
+        "proposal.235"
+      ],
+      "usagePath": [
+        "ui",
+        "accountOwned"
+      ],
+      "approvedSource": {
+        "en": "Owned by your account",
+        "vi": "Thuộc tài khoản của bạn"
+      },
+      "effectiveSource": {
+        "en": "Owned by your account",
+        "vi": "Thuộc tài khoản của bạn"
+      }
+    },
+    "uiAgentOwned": {
+      "proposals": [
+        "proposal.236"
+      ],
+      "usagePath": [
+        "ui",
+        "agentOwned"
+      ],
+      "approvedSource": {
+        "en": "Owned · Atum",
+        "vi": "Đã sở hữu · Atum"
+      },
+      "effectiveSource": {
+        "en": "Owned · Atum",
+        "vi": "Đã sở hữu · Atum"
+      }
+    },
+    "uiLifecycle": {
+      "proposals": [
+        "proposal.237"
+      ],
+      "usagePath": [
+        "ui",
+        "lifecycle"
+      ],
+      "approvedSource": {
+        "en": "Purchase and delivery",
+        "vi": "Giao dịch và bàn giao"
+      },
+      "effectiveSource": {
+        "en": "Purchase and delivery",
+        "vi": "Giao dịch và bàn giao"
+      }
+    },
+    "uiRequirements": {
+      "proposals": [
+        "proposal.238"
+      ],
+      "usagePath": [
+        "ui",
+        "requirements"
+      ],
+      "approvedSource": {
+        "en": "Requirements",
+        "vi": "Yêu cầu"
+      },
+      "effectiveSource": {
+        "en": "Requirements",
+        "vi": "Yêu cầu"
+      }
+    },
+    "uiCloudRequired": {
+      "proposals": [
+        "proposal.239"
+      ],
+      "usagePath": [
+        "ui",
+        "cloudRequired"
+      ],
+      "approvedSource": {
+        "en": "Requires an available cloud assistant.",
+        "vi": "Cần trợ lý đám mây khả dụng."
+      },
+      "effectiveSource": {
+        "en": "Requires an available cloud assistant.",
+        "vi": "Cần trợ lý đám mây khả dụng."
+      }
+    },
+    "uiRenewal": {
+      "proposals": [
+        "proposal.240"
+      ],
+      "usagePath": [
+        "ui",
+        "renewal"
+      ],
+      "approvedSource": {
+        "en": "Renewal",
+        "vi": "Gia hạn"
+      },
+      "effectiveSource": {
+        "en": "Renewal",
+        "vi": "Gia hạn"
+      }
+    },
+    "uiRenewalDate": {
+      "proposals": [
+        "proposal.241"
+      ],
+      "usagePath": [
+        "ui",
+        "renewalDate"
+      ],
+      "approvedSource": {
+        "en": "Access until 6 November · demo date",
+        "vi": "Truy cập đến 6 tháng 11 · ngày mẫu"
+      },
+      "effectiveSource": {
+        "en": "Access until 6 November · demo date",
+        "vi": "Truy cập đến 6 tháng 11 · ngày mẫu"
+      }
+    },
+    "uiStale": {
+      "proposals": [
+        "proposal.242"
+      ],
+      "usagePath": [
+        "ui",
+        "stale"
+      ],
+      "approvedSource": {
+        "en": "Saved data · updated at 09:41",
+        "vi": "Dữ liệu đã lưu · cập nhật lúc 09:41"
+      },
+      "effectiveSource": {
+        "en": "Saved data · updated at 09:41",
+        "vi": "Dữ liệu đã lưu · cập nhật lúc 09:41"
+      }
+    },
+    "uiPetMac": {
+      "proposals": [
+        "proposal.243"
+      ],
+      "usagePath": [
+        "ui",
+        "petMac"
+      ],
+      "approvedSource": {
+        "en": "Your companion is available in Atum on your Mac.",
+        "vi": "Bạn đồng hành đã có trong Atum trên máy Mac."
+      },
+      "effectiveSource": {
+        "en": "Your companion is available in Atum on your Mac.",
+        "vi": "Bạn đồng hành đã có trong Atum trên máy Mac."
+      }
+    },
+    "uiLegacyHelp": {
+      "proposals": [
+        "proposal.244"
+      ],
+      "usagePath": [
+        "ui",
+        "legacyHelp"
+      ],
+      "approvedSource": {
+        "en": "Existing selection for this conversation",
+        "vi": "Lựa chọn hiện tại của cuộc trò chuyện này"
+      },
+      "effectiveSource": {
+        "en": "Existing selection for this conversation",
+        "vi": "Lựa chọn hiện tại của cuộc trò chuyện này"
+      }
+    },
+    "teamSpaceTitle": {
+      "proposals": [
+        "proposal.245"
+      ],
+      "usagePath": [
+        "team-space",
+        "title"
+      ],
+      "approvedSource": {
+        "en": "Team space",
+        "vi": "Không gian nhóm"
+      },
+      "effectiveSource": {
+        "en": "Team space",
+        "vi": "Không gian nhóm"
+      }
+    },
+    "teamSpaceSoon": {
+      "proposals": [
+        "proposal.246"
+      ],
+      "usagePath": [
+        "team-space",
+        "soon"
+      ],
+      "approvedSource": {
+        "en": "Team space · Coming soon",
+        "vi": "Không gian nhóm · Sắp có"
+      },
+      "effectiveSource": {
+        "en": "Team space · Coming soon",
+        "vi": "Không gian nhóm · Sắp có"
+      }
+    },
+    "clearSearch": {
+      "proposals": [
+        "proposal.247"
+      ],
+      "usagePath": [
+        "home",
+        "search",
+        "clear"
+      ],
+      "approvedSource": {
+        "en": "Clear search",
+        "vi": "Xóa tìm kiếm"
+      },
+      "effectiveSource": {
+        "en": "Clear search",
+        "vi": "Xóa tìm kiếm"
+      }
+    },
+    "assistantMark": {
+      "proposals": [
+        "proposal.248"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark"
+      ],
+      "approvedSource": {
+        "en": "Mark",
+        "vi": "Biểu tượng"
+      },
+      "effectiveSource": {
+        "en": "Mark",
+        "vi": "Biểu tượng"
+      }
+    },
+    "assistantChangesNextMessage": {
+      "proposals": [
+        "proposal.249"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "instructions",
+        "next-message"
+      ],
+      "approvedSource": {
+        "en": "Changes apply from the next message.",
+        "vi": "Thay đổi áp dụng từ tin nhắn tiếp theo."
+      },
+      "effectiveSource": {
+        "en": "Changes apply from the next message.",
+        "vi": "Thay đổi áp dụng từ tin nhắn tiếp theo."
+      }
+    },
+    "timezoneVietnam": {
+      "proposals": [
+        "proposal.250"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "routines",
+        "timezone",
+        "vietnam"
+      ],
+      "approvedSource": {
+        "en": "Vietnam time",
+        "vi": "Giờ Việt Nam"
+      },
+      "effectiveSource": {
+        "en": "Vietnam time",
+        "vi": "Giờ Việt Nam"
+      }
+    },
+    "markShapeCircle": {
+      "proposals": [
+        "proposal.251"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "circle"
+      ],
+      "approvedSource": {
+        "en": "Circle",
+        "vi": "Hình tròn"
+      },
+      "effectiveSource": {
+        "en": "Circle",
+        "vi": "Hình tròn"
+      }
+    },
+    "markShapeRoundedSquare": {
+      "proposals": [
+        "proposal.252"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "rounded-square"
+      ],
+      "approvedSource": {
+        "en": "Rounded square",
+        "vi": "Hình vuông bo góc"
+      },
+      "effectiveSource": {
+        "en": "Rounded square",
+        "vi": "Hình vuông bo góc"
+      }
+    },
+    "markShapeDiamond": {
+      "proposals": [
+        "proposal.253"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "diamond"
+      ],
+      "approvedSource": {
+        "en": "Diamond",
+        "vi": "Hình thoi"
+      },
+      "effectiveSource": {
+        "en": "Diamond",
+        "vi": "Hình thoi"
+      }
+    },
+    "markShapeSpark": {
+      "proposals": [
+        "proposal.254"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "spark"
+      ],
+      "approvedSource": {
+        "en": "Spark",
+        "vi": "Tia sáng"
+      },
+      "effectiveSource": {
+        "en": "Spark",
+        "vi": "Tia sáng"
+      }
+    },
+    "markShapeClover": {
+      "proposals": [
+        "proposal.255"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "clover"
+      ],
+      "approvedSource": {
+        "en": "Clover",
+        "vi": "Cỏ bốn lá"
+      },
+      "effectiveSource": {
+        "en": "Clover",
+        "vi": "Cỏ bốn lá"
+      }
+    },
+    "markShapeHeart": {
+      "proposals": [
+        "proposal.256"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "heart"
+      ],
+      "approvedSource": {
+        "en": "Heart",
+        "vi": "Trái tim"
+      },
+      "effectiveSource": {
+        "en": "Heart",
+        "vi": "Trái tim"
+      }
+    },
+    "markShapeFlower": {
+      "proposals": [
+        "proposal.257"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "flower"
+      ],
+      "approvedSource": {
+        "en": "Flower",
+        "vi": "Bông hoa"
+      },
+      "effectiveSource": {
+        "en": "Flower",
+        "vi": "Bông hoa"
+      }
+    },
+    "markShapeDrop": {
+      "proposals": [
+        "proposal.258"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "drop"
+      ],
+      "approvedSource": {
+        "en": "Drop",
+        "vi": "Giọt nước"
+      },
+      "effectiveSource": {
+        "en": "Drop",
+        "vi": "Giọt nước"
+      }
+    },
+    "markShapePebble": {
+      "proposals": [
+        "proposal.259"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "pebble"
+      ],
+      "approvedSource": {
+        "en": "Pebble",
+        "vi": "Viên sỏi"
+      },
+      "effectiveSource": {
+        "en": "Pebble",
+        "vi": "Viên sỏi"
+      }
+    },
+    "markShapeTriangle": {
+      "proposals": [
+        "proposal.260"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "triangle"
+      ],
+      "approvedSource": {
+        "en": "Triangle",
+        "vi": "Tam giác"
+      },
+      "effectiveSource": {
+        "en": "Triangle",
+        "vi": "Tam giác"
+      }
+    },
+    "markShapePentagon": {
+      "proposals": [
+        "proposal.261"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "pentagon"
+      ],
+      "approvedSource": {
+        "en": "Pentagon",
+        "vi": "Ngũ giác"
+      },
+      "effectiveSource": {
+        "en": "Pentagon",
+        "vi": "Ngũ giác"
+      }
+    },
+    "markShapeStar": {
+      "proposals": [
+        "proposal.262"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "star"
+      ],
+      "approvedSource": {
+        "en": "Star",
+        "vi": "Ngôi sao"
+      },
+      "effectiveSource": {
+        "en": "Star",
+        "vi": "Ngôi sao"
+      }
+    },
+    "markShapeHexagon": {
+      "proposals": [
+        "proposal.263"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "shape",
+        "hexagon"
+      ],
+      "approvedSource": {
+        "en": "Hexagon",
+        "vi": "Lục giác"
+      },
+      "effectiveSource": {
+        "en": "Hexagon",
+        "vi": "Lục giác"
+      }
+    },
+    "markColorSnow": {
+      "proposals": [
+        "proposal.264"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "snow"
+      ],
+      "approvedSource": {
+        "en": "Snow",
+        "vi": "Trắng tuyết"
+      },
+      "effectiveSource": {
+        "en": "Snow",
+        "vi": "Trắng tuyết"
+      }
+    },
+    "markColorEarth": {
+      "proposals": [
+        "proposal.265"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "earth"
+      ],
+      "approvedSource": {
+        "en": "Earth",
+        "vi": "Nâu đất"
+      },
+      "effectiveSource": {
+        "en": "Earth",
+        "vi": "Nâu đất"
+      }
+    },
+    "markColorCoral": {
+      "proposals": [
+        "proposal.266"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "coral"
+      ],
+      "approvedSource": {
+        "en": "Coral",
+        "vi": "San hô"
+      },
+      "effectiveSource": {
+        "en": "Coral",
+        "vi": "San hô"
+      }
+    },
+    "markColorOrange": {
+      "proposals": [
+        "proposal.267"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "orange"
+      ],
+      "approvedSource": {
+        "en": "Orange",
+        "vi": "Cam"
+      },
+      "effectiveSource": {
+        "en": "Orange",
+        "vi": "Cam"
+      }
+    },
+    "markColorAmber": {
+      "proposals": [
+        "proposal.268"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "amber"
+      ],
+      "approvedSource": {
+        "en": "Amber",
+        "vi": "Hổ phách"
+      },
+      "effectiveSource": {
+        "en": "Amber",
+        "vi": "Hổ phách"
+      }
+    },
+    "markColorMint": {
+      "proposals": [
+        "proposal.269"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "mint"
+      ],
+      "approvedSource": {
+        "en": "Mint",
+        "vi": "Bạc hà"
+      },
+      "effectiveSource": {
+        "en": "Mint",
+        "vi": "Bạc hà"
+      }
+    },
+    "markColorTeal": {
+      "proposals": [
+        "proposal.270"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "teal"
+      ],
+      "approvedSource": {
+        "en": "Teal",
+        "vi": "Xanh mòng két"
+      },
+      "effectiveSource": {
+        "en": "Teal",
+        "vi": "Xanh mòng két"
+      }
+    },
+    "markColorBlue": {
+      "proposals": [
+        "proposal.271"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "blue"
+      ],
+      "approvedSource": {
+        "en": "Blue",
+        "vi": "Xanh lam"
+      },
+      "effectiveSource": {
+        "en": "Blue",
+        "vi": "Xanh lam"
+      }
+    },
+    "markColorViolet": {
+      "proposals": [
+        "proposal.272"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "violet"
+      ],
+      "approvedSource": {
+        "en": "Violet",
+        "vi": "Tím"
+      },
+      "effectiveSource": {
+        "en": "Violet",
+        "vi": "Tím"
+      }
+    },
+    "markColorPink": {
+      "proposals": [
+        "proposal.273"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "pink"
+      ],
+      "approvedSource": {
+        "en": "Pink",
+        "vi": "Hồng"
+      },
+      "effectiveSource": {
+        "en": "Pink",
+        "vi": "Hồng"
+      }
+    },
+    "markColorStone": {
+      "proposals": [
+        "proposal.274"
+      ],
+      "usagePath": [
+        "assistant-card",
+        "mark",
+        "color",
+        "stone"
+      ],
+      "approvedSource": {
+        "en": "Stone",
+        "vi": "Xám đá"
+      },
+      "effectiveSource": {
+        "en": "Stone",
+        "vi": "Xám đá"
+      }
+    }
+  },
+  "copyDispositions": {
+    "deletionRows0Label": "Pre-request disclosure: en Deleted corrected to To be deleted; other languages retain future consequence.",
+    "chatStatesLowProtonsText": "zh/zh-Hant revised from insufficient to low balance; this does not assert zero or deny sending.",
+    "priceUnavailable": "ja explicit unavailable wording instead of absence of price; never implies free.",
+    "terminology": "ja recovery uses 復旧; zh-Hant recovery key uses 復原金鑰; Chinese second-person uses 你 consistently."
+  },
+  "consultations": [
+    "00000000-0000-4000-8000-000000000901",
+    "00000000-0000-4000-8000-000000000902"
+  ]
+}

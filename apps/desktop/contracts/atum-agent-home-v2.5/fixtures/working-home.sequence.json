@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "unmounted",
+      "to": "mounting",
+      "event": "mount_requested"
+    },
+    {
+      "from": "mounting",
+      "to": "mounted",
+      "event": "binding_and_placement_verified"
+    },
+    {
+      "from": "mounted",
+      "to": "read_only",
+      "event": "lease_fenced"
+    },
+    {
+      "from": "read_only",
+      "to": "unmounted",
+      "event": "runtime_stopped"
+    }
+  ]
+}

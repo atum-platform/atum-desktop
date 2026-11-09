@@ -1,0 +1,7 @@
+{
+  "error": "matrix_404",
+  "details": {
+    "reason": "conversation_unavailable",
+    "participantCount": 2
+  }
+}

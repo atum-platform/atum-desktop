@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "Công ty Atum",
+    "role": "admin",
+    "authorityGeneration": 7
+  },
+  "members": [
+    {
+      "principal": "00000000-0000-4000-8000-0e2995a7c133",
+      "role": "admin",
+      "state": "active"
+    },
+    {
+      "principal": "00000000-0000-4000-8000-3ce144c9fd70",
+      "role": "member",
+      "state": "active"
+    }
+  ],
+  "projects": [
+    {
+      "id": "00000000-0000-4000-8000-3cd7bdfe38ac",
+      "displayName": "Ra mắt",
+      "memberPrincipals": [
+        "00000000-0000-4000-8000-0e2995a7c133",
+        "00000000-0000-4000-8000-3ce144c9fd70"
+      ],
+      "collaboration": "not_provisioned"
+    }
+  ]
+}

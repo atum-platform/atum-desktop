@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "received",
+      "to": "refused",
+      "event": "refuse_outside_1_1_subset"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-verification-result-1.schema.json",
+  "title": "Atum deterministic release verification result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "verifier", "verified_at", "bundle_sha256", "candidate_id", "candidate_manifest_sha256", "source_heads", "artifact_sha256s", "supported_target_ids", "gate_ids", "journey_ids", "lifecycle_state", "decision", "issues"],
+  "properties": {
+    "schema": {"const": "atum-release-verification-result/1"},
+    "verifier": {"const": "atum-release-evidence-verifier/1"},
+    "verified_at": {"type": "string", "format": "date-time"},
+    "bundle_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "candidate_id": {"type": ["string", "null"]},
+    "candidate_manifest_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "source_heads": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{40}$"}},
+    "artifact_sha256s": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "supported_target_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "gate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "journey_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "lifecycle_state": {"type": ["string", "null"], "enum": [null, "built", "verified", "candidate", "promoted", "withdrawn", "rolled_back"]},
+    "decision": {"enum": ["pass", "fail"]},
+    "issues": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["code", "path", "message"], "properties": {"code": {"type": "string", "pattern": "^[A-Z0-9_]+$"}, "path": {"type": "string"}, "message": {"type": "string"}}}}
+  }
+}

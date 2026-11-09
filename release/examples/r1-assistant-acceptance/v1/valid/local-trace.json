@@ -1,0 +1,163 @@
+{
+  "schema": "atum-r1-assistant-acceptance-trace/1",
+  "candidate_id": "r1-local-contract-fixture",
+  "source_head_sha": "8b32700fbfe0cdf9c2929d0866eefd411d2565f8",
+  "artifact_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "journey_id": "R1-assistant-completion",
+  "fixture_id": "synthetic-r1-clean-install-v1",
+  "target": {
+    "os": "macos",
+    "os_version": "15.0",
+    "arch": "arm64"
+  },
+  "execution": {
+    "mode": "local",
+    "clean_install": true,
+    "isolated_profile": true,
+    "deployment_credentials_used": false,
+    "github_ruleset_access_used": false
+  },
+  "started_at": "2026-08-31T08:00:00Z",
+  "completed_at": "2026-08-31T08:02:00Z",
+  "valid_until": "2026-09-07T08:02:00Z",
+  "browser": {
+    "presentations": [
+      {
+        "state": "pending",
+        "pane_opened_automatically": false,
+        "technical_detail_available": true,
+        "evidence": ["local://r1/browser-pending"]
+      },
+      {
+        "state": "slow",
+        "pane_opened_automatically": false,
+        "technical_detail_available": true,
+        "evidence": ["local://r1/browser-slow"]
+      },
+      {
+        "state": "success",
+        "pane_opened_automatically": false,
+        "technical_detail_available": true,
+        "evidence": ["local://r1/browser-success"]
+      },
+      {
+        "state": "error",
+        "pane_opened_automatically": false,
+        "technical_detail_available": true,
+        "evidence": ["local://r1/browser-error"]
+      },
+      {
+        "state": "cancelled",
+        "pane_opened_automatically": false,
+        "technical_detail_available": true,
+        "evidence": ["local://r1/browser-cancelled"]
+      }
+    ],
+    "without_grant": {
+      "broker_decision": "denied",
+      "problem_code": "CAPABILITY_DENIED",
+      "attempted_effects": 0,
+      "authority_ref": null,
+      "evidence": ["local://r1/browser-denied-without-grant"]
+    }
+  },
+  "computer_control": {
+    "disclosure": {
+      "capability": "computer_control",
+      "scope": "current assistant task and selected desktop surface",
+      "effect": "may move the pointer, type, and activate visible controls",
+      "presented_before_decision": true,
+      "evidence": ["local://r1/computer-disclosure"]
+    },
+    "initial_choices": [
+      {
+        "decision": "denied",
+        "attempted_effects": 0,
+        "authority_ref": null,
+        "evidence": ["local://r1/computer-deny"]
+      },
+      {
+        "decision": "later",
+        "attempted_effects": 0,
+        "authority_ref": null,
+        "evidence": ["local://r1/computer-later"]
+      }
+    ],
+    "grant": {
+      "decision": "granted",
+      "broker": "S2",
+      "authority_ref": "fixture://s2/grants/computer-control-1",
+      "scope": "current assistant task and selected desktop surface",
+      "evidence": ["local://r1/computer-grant"]
+    },
+    "active_use": {
+      "visible": true,
+      "capability": "computer_control",
+      "authority_ref": "fixture://s2/grants/computer-control-1",
+      "attribution": "Atum is controlling the selected desktop surface",
+      "evidence": ["local://r1/computer-active"]
+    },
+    "revocations": [
+      {
+        "source": "live_surface",
+        "broker": "S2",
+        "authority_ref": "fixture://s2/grants/computer-control-1",
+        "decision": "revoked",
+        "evidence": ["local://r1/computer-revoke-live"]
+      },
+      {
+        "source": "settings",
+        "broker": "S2",
+        "authority_ref": "fixture://s2/grants/computer-control-1",
+        "decision": "revoked",
+        "evidence": ["local://r1/computer-revoke-settings"]
+      }
+    ],
+    "safe_boundary": {
+      "use_started": {
+        "type": "use_started",
+        "grantId": "fixture://s2/grants/computer-control-1",
+        "operationId": "fixture-computer-operation-1",
+        "occurredAt": "2026-08-31T08:01:00Z",
+        "observed_order": 10
+      },
+      "revocation": {
+        "type": "revoked",
+        "grantId": "fixture://s2/grants/computer-control-1",
+        "safeBoundary": "partial_effects",
+        "rendererMessage": "Permission was revoked while the action was running.",
+        "occurredAt": "2026-08-31T08:01:10Z",
+        "observed_order": 11
+      },
+      "use_finished": {
+        "type": "use_finished",
+        "grantId": "fixture://s2/grants/computer-control-1",
+        "operationId": "fixture-computer-operation-1",
+        "outcome": "revoked",
+        "safeBoundary": "partial_effects",
+        "completedOperation": false,
+        "rendererMessage": "Permission was revoked while the action was running. It stopped at the next safe point and may have partial effects.",
+        "occurredAt": "2026-08-31T08:01:11Z",
+        "observed_order": 12
+      },
+      "problem_code": "CAPABILITY_REVOKED",
+      "technical_detail_available": true,
+      "technical_detail": "The action stopped at the next safe point and may have partial effects.",
+      "detail_sanitized": true,
+      "evidence": ["local://r1/computer-safe-boundary"]
+    },
+    "subsequent_attempt": {
+      "broker_decision": "denied",
+      "problem_code": "CAPABILITY_REVOKED",
+      "attempted_effects": 0,
+      "authority_ref": null,
+      "evidence": ["local://r1/computer-subsequent-denial"]
+    }
+  },
+  "redaction_check": {
+    "verifier": "atum-redaction-corpus/1",
+    "corpus_result_ref": "local://r1/redaction-corpus",
+    "result": "pass"
+  },
+  "evidence_ref": "local://r1/assistant-acceptance-trace"
+}

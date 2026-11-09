@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 10,
+  "invitationId": "00000000-0000-4000-8000-662b4919353f",
+  "state": "accepted",
+  "mailStatus": "accepted",
+  "expiresAt": 1800604800,
+  "replayed": false,
+  "email": "person@example.com"
+}

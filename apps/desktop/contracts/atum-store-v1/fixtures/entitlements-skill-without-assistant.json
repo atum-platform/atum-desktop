@@ -1,0 +1,14 @@
+{
+  "entitlements": [
+    {
+      "id": "00000000-0000-4000-8000-576f18824476",
+      "itemId": "skill/research",
+      "kind": "skill",
+      "state": "active",
+      "assistantId": null,
+      "delivery": "cloud",
+      "grantedAt": "2026-10-06T00:00:00.000Z",
+      "subscription": null
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "rule": "conversation_override_disclosure",
+  "count": 2,
+  "lossCode": "conversation_overrides_cleared"
+}

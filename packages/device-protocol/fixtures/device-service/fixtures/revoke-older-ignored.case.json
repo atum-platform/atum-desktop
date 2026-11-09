@@ -1,0 +1,54 @@
+{
+  "name": "revoke-older-ignored",
+  "device": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "signedIn": true,
+    "paused": false,
+    "localScopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "cloudAgents": [
+      "@synthetic-user-0011:example.invalid"
+    ],
+    "pinnedControllerKeys": [
+      "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40",
+        "publicKey": "MCowBQYDK2VwAyEAQuXHPLmfAsGGn2l02PmCQKVsnMINNq76kM2PKH57LO0"
+      }
+    ],
+    "receivedAt": 1791100802000
+  },
+  "lastRevokeSeq": 4,
+  "revoke": {
+    "v": 1,
+    "type": "Revoke",
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "enrollmentEpoch": 3,
+      "revokeSeq": 4
+    },
+    "kid": "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40",
+    "sig": "k5gWAZj1qoDL0jgj0_Sbgc_6FhU9q6W7IbdcL8B7SLATKlleFAGk--ENQoPL8ng2lK8UX6T7nbJpyCRsqaDAAg"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "ignored",
+    "reason": "older_revoke"
+  }
+}

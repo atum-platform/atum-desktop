@@ -1,0 +1,19 @@
+{
+  "facts": {
+    "ownerUserId": "@owner:example.invalid",
+    "agentUserId": "@assistant-a:example.invalid",
+    "senderUserId": "@owner:example.invalid",
+    "senderVerified": true,
+    "roomMode": "meeting",
+    "mode": "joins",
+    "ownAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid"
+    ],
+    "mentions": [],
+    "eventKind": "text",
+    "replySenderId": "@assistant-b:example.invalid"
+  },
+  "expected": "none"
+}

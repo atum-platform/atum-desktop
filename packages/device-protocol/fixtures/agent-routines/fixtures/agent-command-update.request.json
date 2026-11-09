@@ -1,0 +1,16 @@
+{
+  "profile": "atum.agent-routine-command/1",
+  "operation": "update",
+  "requestId": "00000000-0000-4000-8000-5e93f4584056",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "expectedRevision": 3,
+  "title": "Every six hours",
+  "instruction": "Check the queue now.",
+  "schedule": {
+    "kind": "interval",
+    "everyHours": 6
+  },
+  "timezone": "Asia/Ho_Chi_Minh",
+  "enabled": false,
+  "notifications": false
+}

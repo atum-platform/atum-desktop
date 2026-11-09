@@ -1,0 +1,49 @@
+{
+  "vectors": [
+    {
+      "material": "oauth_session",
+      "platform": "absent",
+      "controller": "absent",
+      "mac": "hermes_custody",
+      "sandbox": "opaque_turn_token",
+      "logs": "metadata_only",
+      "fallback": "none"
+    },
+    {
+      "material": "refresh_token",
+      "platform": "absent",
+      "controller": "absent",
+      "mac": "hermes_custody",
+      "sandbox": "opaque_turn_token",
+      "logs": "metadata_only",
+      "fallback": "none"
+    },
+    {
+      "material": "relay_capability",
+      "platform": "digest_only",
+      "controller": "capability_and_content",
+      "mac": "capability_and_content",
+      "sandbox": "opaque_turn_token",
+      "logs": "metadata_only",
+      "fallback": "none"
+    },
+    {
+      "material": "request_content",
+      "platform": "content_transit",
+      "controller": "capability_and_content",
+      "mac": "capability_and_content",
+      "sandbox": "content_only",
+      "logs": "metadata_only",
+      "fallback": "none"
+    },
+    {
+      "material": "response_content",
+      "platform": "content_transit",
+      "controller": "capability_and_content",
+      "mac": "capability_and_content",
+      "sandbox": "content_only",
+      "logs": "metadata_only",
+      "fallback": "none"
+    }
+  ]
+}

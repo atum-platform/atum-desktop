@@ -1,0 +1,29 @@
+{
+  "rooms": [
+    {
+      "id": "!Qk3vLm0wXzRbT:example.invalid",
+      "label": "Linh",
+      "kind": "person",
+      "members": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f"
+      ],
+      "memberCount": 2,
+      "notifications": 3,
+      "highlights": 1,
+      "lastAt": 1792000000000,
+      "last": {
+        "eventId": "$l1abc",
+        "from": "Linh",
+        "mine": false,
+        "text": "Mai họp lúc 9 giờ nhé, nhớ mang hợp đồng."
+      },
+      "encrypted": false
+    }
+  ],
+  "truncated": false
+}

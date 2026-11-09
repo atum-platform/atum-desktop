@@ -1,0 +1,918 @@
+{
+  "contract_id": "atum.agent-turns",
+  "version": "1.4",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/client-progress-answer.sequence.json",
+    "fixtures/client-progress-not-answer.sequence.json",
+    "fixtures/device-end-before-work.sequence.json",
+    "fixtures/device-step.sequence.json",
+    "fixtures/device-touch-id-expire.sequence.json",
+    "fixtures/device-touch-id.sequence.json",
+    "fixtures/device-unreachable-expire.sequence.json",
+    "fixtures/device-unreachable-resume.sequence.json",
+    "fixtures/device-wait-before-route.sequence.json",
+    "fixtures/interim-later.content.json",
+    "fixtures/interim-message.content.json",
+    "fixtures/interim-policy.vectors.json",
+    "fixtures/interim-progress-rejected.content.json",
+    "fixtures/interim-result-rejected.content.json",
+    "fixtures/interim-unmarked-rejected.content.json",
+    "fixtures/progress-edit.content.json",
+    "fixtures/progress-group-rejected.content.json",
+    "fixtures/progress-heartbeat.content.json",
+    "fixtures/progress-original.content.json",
+    "fixtures/progress-policy.vectors.json",
+    "fixtures/progress-result-rejected.content.json",
+    "fixtures/progress-settled.content.json",
+    "fixtures/receipt-policy.vector.json",
+    "fixtures/transient-line-history.sequence.json",
+    "fixtures/transient-line-late-edit.sequence.json",
+    "fixtures/transient-line-live.sequence.json",
+    "fixtures/transient-line-reappears.sequence.json",
+    "fixtures/transient-policy.vector.json",
+    "fixtures/typing-policy.vector.json"
+  ],
+  "base": {
+    "contract": "atum.agent-turns/1.3",
+    "path": "spec/agent-turns/v1.3",
+    "sha256": "65f298794a2a42208ac692c9c8ace8785df6554c864b86bbe1f8757a37f17369",
+    "rule": "additive presentation amendment: every /1 through /1.3 shape, rule and fixture stays; 1.4 makes the progress line transient, adds interim agent messages and states the typing window"
+  },
+  "row": "Owner direction 2026-10-20: agent chat should feel like Grok-bot / Dot (acknowledge, keep working, transient progress)",
+  "providers": [
+    "the Mac executor",
+    "the cloud controller"
+  ],
+  "consumers": [
+    "atum-app desktop",
+    "atum-mobile",
+    "web and other Matrix clients"
+  ],
+  "parameters": {
+    "progress_min_edit_ms": 3000,
+    "progress_heartbeat_ms": 180000,
+    "progress_max_edits_per_turn": 48,
+    "progress_body_max_chars": 1000,
+    "progress_private_chat_only": true,
+    "device_step_progress_ms": 5000,
+    "waiting_device_timeout_ms": 7200000,
+    "touch_id_timeout_ms": 60000,
+    "interim_min_gap_ms": 20000,
+    "interim_body_max_chars": 1000,
+    "typing_timeout_ms": 30000,
+    "typing_renew_ms": 20000
+  },
+  "amendments": [
+    {
+      "id": "A1",
+      "sections": [
+        "receipts",
+        "typing"
+      ],
+      "change": "the owner uses public m.read and public typing by default, controlled by one account privacy setting; off uses m.read.private and no public typing; an agent receipt in a group targets only a message addressed to or admitted by that agent, and cumulative receipts never reveal unrelated group reading"
+    },
+    {
+      "id": "A2",
+      "sections": [
+        "progress"
+      ],
+      "change": "one redacted m.notice rich reply in the owner private chat carries io.atum.progress and is edited in place; groups never receive it; edits are at least 3000 ms apart, at most 48 per turn, at most 1000 characters, and never duplicate the final answer"
+    },
+    {
+      "id": "A3",
+      "sections": [
+        "client_turn"
+      ],
+      "change": "progress_shown, progress_edited and progress_settled keep client_turn working; only the final m.text answer or a terminal status ends what the owner is owed; progress never suppresses the no-reply banner and never becomes the roster preview"
+    },
+    {
+      "id": "A4",
+      "sections": [
+        "progress"
+      ],
+      "change": "message.interim and todo tool completion update the same line; after 180000 ms without new interim text a heartbeat may say only that work continues and elapsed minutes, with no tool names"
+    },
+    {
+      "id": "A5",
+      "sections": [
+        "device_wait"
+      ],
+      "change": "ordinary Mac-routed steps post no separate wait notice; after 5000 ms they may update the progress line with the selected Mac; unreachable and Touch ID waits are published only after a real Mac is selected, name that Mac, resume on reconnect or approval, and an unreachable follow-up expires after 7200000 ms"
+    },
+    {
+      "id": "A6",
+      "sections": [
+        "settlement"
+      ],
+      "change": "the progress root remains after the answer collapsed to its final line, edits are drained before the final answer, and queued or late edits are dropped after settlement"
+    },
+    {
+      "id": "A7",
+      "sections": [
+        "progress"
+      ],
+      "change": "supersedes A6: the progress line is transient. It is redacted by its publisher once the turn has settled and drained, and a client hides any progress line (and any retired fixed \"waiting/waited for your Mac\" status line) whose turn has ended before the redaction lands, and renders no tombstone for a redacted agent message; it never notifies, never reads edited and never becomes the roster preview"
+    },
+    {
+      "id": "A8",
+      "sections": [
+        "progress",
+        "device_wait"
+      ],
+      "change": "tool activity, the todo list and every wait (a slow Mac step, an unreachable Mac before it is an outcome, Touch ID) share the one progress line; an answered wait returns the line to its previous text rather than saying it waited"
+    },
+    {
+      "id": "A9",
+      "sections": [
+        "interim"
+      ],
+      "change": "the agent first interim remark of a turn is a real m.text message marked io.atum.interim:true (the acknowledgement); later remarks are also real messages, at most one per 20000 ms, redacted text only, dropped when they duplicate the answer; interim messages are never the answer and never suppress the no-reply banner"
+    },
+    {
+      "id": "A10",
+      "sections": [
+        "typing"
+      ],
+      "change": "typing is on from the moment the agent takes a message until its answer or a terminal status, renewed every 20000 ms inside the 30000 ms Matrix timeout, and stays on while a Mac does a step; it pauses only while the agent waits for the person"
+    },
+    {
+      "id": "A11",
+      "sections": [
+        "notices"
+      ],
+      "change": "only a real outcome persists as a notice: an unreachable Mac with the way out, out of Protons, trial ended, a routine that could not run, and the interrupted-work verification; text that only says the agent is working, waiting or waited is transient"
+    }
+  ],
+  "types": {
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "progress_phase": {
+      "enum": [
+        "working",
+        "waiting",
+        "settled"
+      ]
+    },
+    "progress_kind": {
+      "enum": [
+        "interim",
+        "todo",
+        "heartbeat",
+        "device",
+        "touch_id",
+        "settled"
+      ]
+    },
+    "progress_marker": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-turns/1.3"
+        },
+        "scope": {
+          "const": "owner_private"
+        },
+        "phase": {
+          "ref": "progress_phase"
+        },
+        "kind": {
+          "ref": "progress_kind"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 48
+        }
+      },
+      "optional": {
+        "device": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "heartbeat": {
+          "type": "boolean"
+        }
+      }
+    },
+    "progress_content": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.notice"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.progress": {
+          "ref": "progress_marker"
+        }
+      },
+      "additional": true
+    },
+    "reply_relation": {
+      "type": "object",
+      "required": {
+        "m.in_reply_to": {
+          "type": "object",
+          "required": {
+            "event_id": {
+              "ref": "event_id"
+            }
+          }
+        }
+      }
+    },
+    "replace_relation": {
+      "type": "object",
+      "required": {
+        "rel_type": {
+          "const": "m.replace"
+        },
+        "event_id": {
+          "ref": "event_id"
+        }
+      }
+    },
+    "interim_content": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.text"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.interim": {
+          "const": true
+        }
+      },
+      "additional": true
+    }
+  },
+  "directions": {
+    "progress_to_owner_room": {
+      "description": "One redacted progress notice in the agent owner private chat. It is presentation, never an outcome or execution authority.",
+      "forbidden_fields": [
+        "io.atum.result",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "conformance": {
+      "description": "Worked policy and state-machine examples; not a wire payload.",
+      "forbidden_fields": [
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "credential",
+        "password"
+      ]
+    },
+    "interim_to_owner_room": {
+      "description": "An interim remark from the agent in its private chat with the owner: an ordinary agent message that is not the answer.",
+      "forbidden_fields": [
+        "io.atum.result",
+        "io.atum.progress",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    }
+  },
+  "messages": {
+    "presentation.progress_notice": {
+      "direction": "progress_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "m.relates_to": {
+            "ref": "reply_relation"
+          },
+          "io.atum.progress": {
+            "ref": "progress_marker"
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.progress_notice_edit": {
+      "direction": "progress_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1002
+          },
+          "m.new_content": {
+            "ref": "progress_content"
+          },
+          "m.relates_to": {
+            "ref": "replace_relation"
+          },
+          "io.atum.progress": {
+            "ref": "progress_marker"
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.receipt_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "ownerDefaultReceipt": {
+            "const": "m.read"
+          },
+          "ownerOffReceipt": {
+            "const": "m.read.private"
+          },
+          "ownerTypingDefault": {
+            "const": true
+          },
+          "agentGroupTarget": {
+            "const": "addressed_or_admitted"
+          },
+          "cumulative": {
+            "const": true
+          }
+        }
+      }
+    },
+    "presentation.progress_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 120
+                },
+                "private": {
+                  "type": "boolean"
+                },
+                "elapsedMs": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 86400000
+                },
+                "edits": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 10000
+                },
+                "decision": {
+                  "enum": [
+                    "publish",
+                    "hold",
+                    "settle",
+                    "drop"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "presentation.interim_message": {
+      "direction": "interim_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.text"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "io.atum.interim": {
+            "const": true
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.transient_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "privateOnly": {
+            "const": true
+          },
+          "redactAtSettle": {
+            "const": true
+          },
+          "clientHidesEnded": {
+            "const": true
+          },
+          "notifies": {
+            "const": false
+          },
+          "rosterPreview": {
+            "const": false
+          },
+          "editedMarker": {
+            "const": false
+          },
+          "persistentNotices": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "device_unreachable",
+                "out_of_protons",
+                "trial_ended",
+                "routine_not_run",
+                "interrupted_work"
+              ]
+            },
+            "min": 5,
+            "max": 5,
+            "unique": true
+          }
+        }
+      }
+    },
+    "presentation.interim_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 120
+                },
+                "private": {
+                  "type": "boolean"
+                },
+                "redacted": {
+                  "type": "boolean"
+                },
+                "first": {
+                  "type": "boolean"
+                },
+                "sinceLastMs": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 86400000
+                },
+                "duplicatesAnswer": {
+                  "type": "boolean"
+                },
+                "decision": {
+                  "enum": [
+                    "publish",
+                    "hold",
+                    "drop"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "presentation.typing_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "startsAt": {
+            "const": "take"
+          },
+          "stopsAt": {
+            "const": "answer_or_terminal"
+          },
+          "renewMs": {
+            "type": "integer",
+            "min": 1000,
+            "max": 60000
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "min": 1000,
+            "max": 120000
+          },
+          "deviceStepKeepsTyping": {
+            "const": true
+          },
+          "personWaitPausesTyping": {
+            "const": true
+          }
+        }
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {
+    "client_progress": {
+      "states": [
+        "sent",
+        "working",
+        "answered",
+        "terminal_unanswered"
+      ],
+      "initial": [
+        "sent"
+      ],
+      "terminal": [
+        "answered",
+        "terminal_unanswered"
+      ],
+      "transitions": [
+        [
+          "sent",
+          "working",
+          "progress_shown"
+        ],
+        [
+          "working",
+          "working",
+          "progress_edited"
+        ],
+        [
+          "working",
+          "working",
+          "progress_settled"
+        ],
+        [
+          "sent",
+          "answered",
+          "final_answer"
+        ],
+        [
+          "working",
+          "answered",
+          "final_answer"
+        ],
+        [
+          "sent",
+          "terminal_unanswered",
+          "terminal_status"
+        ],
+        [
+          "working",
+          "terminal_unanswered",
+          "terminal_status"
+        ]
+      ]
+    },
+    "device_wait": {
+      "states": [
+        "idle",
+        "routed",
+        "working",
+        "waiting_unreachable",
+        "waiting_touch_id",
+        "resumed",
+        "expired",
+        "ended"
+      ],
+      "initial": [
+        "idle"
+      ],
+      "terminal": [
+        "expired",
+        "ended"
+      ],
+      "transitions": [
+        [
+          "idle",
+          "routed",
+          "mac_selected"
+        ],
+        [
+          "idle",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "routed",
+          "working",
+          "work_started"
+        ],
+        [
+          "routed",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "working",
+          "waiting_unreachable",
+          "device_unreachable"
+        ],
+        [
+          "working",
+          "waiting_touch_id",
+          "touch_id_required"
+        ],
+        [
+          "waiting_unreachable",
+          "resumed",
+          "device_reconnected"
+        ],
+        [
+          "waiting_touch_id",
+          "resumed",
+          "touch_id_approved"
+        ],
+        [
+          "waiting_touch_id",
+          "expired",
+          "wait_timeout"
+        ],
+        [
+          "resumed",
+          "working",
+          "work_started"
+        ],
+        [
+          "waiting_unreachable",
+          "expired",
+          "wait_timeout"
+        ],
+        [
+          "working",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "waiting_unreachable",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "waiting_touch_id",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "resumed",
+          "ended",
+          "turn_ended"
+        ]
+      ]
+    },
+    "transient_line": {
+      "states": [
+        "none",
+        "visible",
+        "hidden",
+        "redacted"
+      ],
+      "initial": [
+        "none"
+      ],
+      "terminal": [
+        "redacted"
+      ],
+      "transitions": [
+        [
+          "none",
+          "visible",
+          "progress_shown"
+        ],
+        [
+          "none",
+          "hidden",
+          "loaded_ended"
+        ],
+        [
+          "visible",
+          "visible",
+          "progress_edited"
+        ],
+        [
+          "visible",
+          "hidden",
+          "turn_ended"
+        ],
+        [
+          "hidden",
+          "hidden",
+          "progress_edited"
+        ],
+        [
+          "visible",
+          "redacted",
+          "redaction_landed"
+        ],
+        [
+          "hidden",
+          "redacted",
+          "redaction_landed"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/progress-original.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-edit.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-heartbeat.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-settled.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-result-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/progress-group-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/receipt-policy.vector.json",
+      "message": "presentation.receipt_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-policy.vectors.json",
+      "message": "presentation.progress_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/client-progress-answer.sequence.json",
+      "machine": "client_progress",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/client-progress-not-answer.sequence.json",
+      "machine": "client_progress",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/device-step.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-end-before-work.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-unreachable-resume.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-unreachable-expire.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-touch-id.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-touch-id-expire.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-wait-before-route.sequence.json",
+      "machine": "device_wait",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/interim-message.content.json",
+      "message": "presentation.interim_message",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-later.content.json",
+      "message": "presentation.interim_message",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-result-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/interim-progress-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/interim-unmarked-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/transient-policy.vector.json",
+      "message": "presentation.transient_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-policy.vectors.json",
+      "message": "presentation.interim_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/typing-policy.vector.json",
+      "message": "presentation.typing_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-live.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-history.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-late-edit.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-reappears.sequence.json",
+      "machine": "transient_line",
+      "expect": "reject",
+      "violation": "transition"
+    }
+  ]
+}

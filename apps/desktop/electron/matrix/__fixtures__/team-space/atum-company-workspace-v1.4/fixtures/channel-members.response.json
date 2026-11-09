@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 5,
+  "channelId": "00000000-0000-4000-8000-f19cafd05964",
+  "channelGeneration": 7,
+  "members": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "state": "active",
+      "admissionEpoch": 2,
+      "admissionGeneration": 4
+    },
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "state": "revoking",
+      "admissionEpoch": 1,
+      "admissionGeneration": 3
+    }
+  ]
+}

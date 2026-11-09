@@ -1,0 +1,49 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "owner_client",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "surface": "phone",
+    "authenticatedChannel": "phone"
+  },
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "idempotencyKey": "00000000-0000-4000-8000-00f765af1c54",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "target": {
+    "kind": "cloud"
+  },
+  "expectedHomeEpoch": 4,
+  "expectedActiveMoveId": null,
+  "acceptedPreflight": {
+    "preflightId": "00000000-0000-4000-8000-303617b97302",
+    "preflightRevision": 3,
+    "expiresAtPlatform": 1800000300000,
+    "featureInventoryRevision": 7,
+    "catalogRevision": 0,
+    "chosenModel": {
+      "destination": "cloud",
+      "source": "atum",
+      "connectionRef": "conn_atummanaged000001",
+      "model": "nguyet-thuc",
+      "effort": "medium"
+    },
+    "featureLosses": [
+      "changes_since_last_checkpoint_lost",
+      "model_source_changes_to_atum"
+    ],
+    "lastCheckpointAtPlatform": 1799998200000,
+    "conversationOverrideCount": 0,
+    "checkpointLoss": {
+      "state": "disclosed",
+      "lossCode": "changes_since_last_checkpoint_lost",
+      "lastCheckpointAtPlatform": 1799998200000
+    }
+  },
+  "acceptCheckpointLoss": false
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "pending",
+      "to": "cancelled",
+      "event": "cancel"
+    }
+  ]
+}

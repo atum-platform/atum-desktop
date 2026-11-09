@@ -1,0 +1,11 @@
+{
+  "prior": {
+    "homeEpoch": 4,
+    "state": "published",
+    "eventId": "$event:atum.example"
+  },
+  "currentHomeEpoch": 5,
+  "expect": {
+    "outcome": "retain_key"
+  }
+}

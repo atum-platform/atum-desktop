@@ -1,0 +1,55 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "steps": [
+    {
+      "do": "race",
+      "operations": [
+        {
+          "do": "redeem",
+          "request": "r1",
+          "person": "lan"
+        },
+        {
+          "do": "revoke",
+          "request": "v1",
+          "admin": "minh"
+        }
+      ],
+      "serializations": [
+        {
+          "order": [
+            0,
+            1
+          ],
+          "results": [
+            {
+              "result": "joined",
+              "usesRemaining": 4,
+              "consumedNow": true
+            },
+            {
+              "result": "revoked"
+            }
+          ]
+        },
+        {
+          "order": [
+            1,
+            0
+          ],
+          "results": [
+            {
+              "result": "unavailable"
+            },
+            {
+              "result": "revoked"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "v": 1,
+  "type": "WorkspaceConfirm",
+  "body": {
+    "requestId": "00000000-0000-4000-8000-632afc8c7d35",
+    "grantId": "00000000-0000-4000-8000-5775cb8e18f1",
+    "invocationId": "00000000-0000-4000-8000-282ea33c3829",
+    "connectionId": "00000000-0000-4000-8000-d1d2ae26b2e9",
+    "connectionEpoch": 8,
+    "deviceServiceId": "00000000-0000-4000-8000-9b75346b1fd3",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 3,
+    "writerEpoch": {
+      "leaseGeneration": 4,
+      "leaseTokenHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "resultHash": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "saved": true,
+    "confirmedConflictKeys": [
+      "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    ]
+  },
+  "kid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "sig": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+}

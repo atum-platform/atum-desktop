@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "reply": "Mình buồn ngủ rồi, mai chơi tiếp nhé.",
+  "action": {"action": "sleep"},
+  "recent": [
+    {"role": "user", "text": "hello", "at": "2026-10-27T02:00:00.000Z"},
+    {"role": "pet", "text": "Mình buồn ngủ rồi, mai chơi tiếp nhé.", "at": "2026-10-27T02:00:01.000Z"}
+  ],
+  "messages_today": 200,
+  "daily_cap": 200
+}

@@ -1,0 +1,175 @@
+{
+  "contract_id": "atum.company-private-cos",
+  "version": "1.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/capability.response.json",
+    "fixtures/ensure-accepted.response.json",
+    "fixtures/ensure-unversioned.response.json"
+  ],
+  "row": "version asynchronous private Chief of Staff ensure without weakening v1",
+  "providers": ["Atum platform private CoS authority"],
+  "consumers": ["C-T5 controller", "A-T5 desktop"],
+  "base": {
+    "contract": "atum.company-private-cos/1",
+    "path": "spec/company-private-cos/v1",
+    "kind": "pack",
+    "sha256": "83c2df92714f7cdf1694acdd279bc8ce84cab689bb9133e609637318569b4999",
+    "rule": "additive minor; v1 ensure.response remains unchanged"
+  },
+  "controller_routes": [
+    "GET /api/matrix/v1/cloud/controller/company-private-cos/work",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/identity",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/room-plan",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/room",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/lease",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/session",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/custody",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/ready",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/intake",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/authority",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/dispatched",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/commit",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/outbox",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/greeting",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/published",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/receipt",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/stop",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/recover",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/erase",
+    "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/purge"
+  ],
+  "closed_until_c_t5": [],
+  "private_room_bootstrap": {
+    "route": "POST /api/matrix/v1/cloud/controller/company-private-cos/executors/{executorId}/room-plan",
+    "request": ["schemaVersion", "membershipIncarnation"],
+    "authority": "existing hosted company channel room manager assignment/session/lease",
+    "participants": ["exact active member Matrix user", "exact private CoS Matrix user"],
+    "room_type": "io.atum.assistant",
+    "classification": "company_private_cos",
+    "marker": {
+      "type": "io.atum.company_private_cos",
+      "state_key": "",
+      "content": ["v:1", "classification:company_private_cos", "companyId", "membershipIncarnation", "executorId"]
+    },
+    "policy": {
+      "room_version": "11",
+      "preset": "private_chat",
+      "direct": true,
+      "encrypted": true,
+      "history_visibility": "joined",
+      "join_rule": "invite",
+      "guest_access": "forbidden",
+      "manager_power": 100,
+      "participant_power": 0,
+      "invite_power": 100,
+      "manager_leaves": true,
+      "power_levels": {
+        "users": {"manager": 100, "member": 0, "agent": 0},
+        "users_default": 0,
+        "events_default": 0,
+        "state_default": 100,
+        "invite": 100,
+        "kick": 100,
+        "ban": 100,
+        "redact": 100,
+        "events": {
+          "m.room.join_rules": 100,
+          "m.room.power_levels": 100,
+          "m.room.history_visibility": 100,
+          "m.room.encryption": 100,
+          "m.room.guest_access": 100,
+          "m.room.name": 100,
+          "m.room.avatar": 100,
+          "m.room.topic": 100,
+          "io.atum.company_private_cos": 100,
+          "m.room.server_acl": 100,
+          "m.room.tombstone": 100
+        }
+      }
+    }
+  },
+  "types": {
+    "uuid": {"type":"string","min":36,"max":36,"pattern":"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"},
+    "pair": {
+      "type": "object",
+      "required": {
+        "companyPrincipal": {"ref":"uuid"},
+        "memberPrincipal": {"ref":"uuid"},
+        "membershipIncarnation": {"ref":"uuid"}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "ensure_accepted": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {"const":2},
+        "profile": {"const":"atum.company-private-cos/1.1"},
+        "state": {"const":"preparing"},
+        "pair": {"ref":"pair"},
+        "greetingState": {"const":"pending"},
+        "operationId": {"ref":"uuid"}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "capability": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {"const":2},
+        "profile": {"const":"atum.company-private-cos/1.1"},
+        "capability": {"const":"company.private-cos"},
+        "supportedProfiles": {
+          "type":"array",
+          "items":{"enum":["atum.company-private-cos/1","atum.company-private-cos/1.1"]},
+          "min":2,
+          "max":2,
+          "unique":true
+        },
+        "wire": {
+          "type":"object",
+          "required": {
+            "header":{"const":"Atum-Company-Wire"},
+            "value":{"const":"1.1"}
+          },
+          "optional":{},
+          "additional":false
+        },
+        "displayName":{"const":"Chief of Staff"},
+        "teamDmPosition":{"const":2},
+        "lazyCreation":{"const":true},
+        "fundingKind":{"const":"company_wallet"},
+        "separatePrice":{"const":false},
+        "purgeAfterDays":{"const":30},
+        "userExport":{"const":false}
+      },
+      "optional":{},
+      "additional":false
+    }
+  },
+  "directions": {
+    "platform_to_native": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": ["roomId","homeId","agentPrincipal","executorId","accessToken"]
+    }
+  },
+  "messages": {
+    "capability.response": {
+      "direction": "platform_to_native",
+      "schema": {"ref":"capability"}
+    },
+    "ensure.accepted.response": {
+      "direction": "platform_to_native",
+      "schema": {"ref":"ensure_accepted"}
+    }
+  },
+  "fixtures": [
+    {"file":"fixtures/capability.response.json","message":"capability.response","expect":"accept"},
+    {"file":"fixtures/ensure-accepted.response.json","message":"ensure.accepted.response","expect":"accept"},
+    {"file":"fixtures/ensure-unversioned.response.json","message":"ensure.accepted.response","expect":"reject","violation":"missing"}
+  ]
+}

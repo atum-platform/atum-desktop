@@ -1,0 +1,23 @@
+{
+  "schema": "atum-domain-fixture-index/1",
+  "owner_stream": "S1",
+  "provider_repository": "atum-platform/atum-app",
+  "provider_commit": "99b479a005b1e321a134bd0bfdd58713e21c9372",
+  "contract_name": "desktop-clean-install",
+  "contract_version": "1.0.0",
+  "fixtures": [
+    {
+      "id": "clean-non-power-user-v1",
+      "path": "evidence/fixture-payload.json",
+      "sha256": "b5e44932cf386e317eeae5e5ab0c851562200325efb51aff599fc453297da775",
+      "classification": "synthetic",
+      "contains_user_data": false,
+      "sanitization": null
+    }
+  ],
+  "acceptance_tests": ["S1-clean-install-contract"],
+  "compatible_consumers": ["atum-release-candidate/1"],
+  "rollback_notes": "immutable://rollback-runbook",
+  "deletion_target": "none",
+  "evidence_ref": "immutable://fixture-index"
+}

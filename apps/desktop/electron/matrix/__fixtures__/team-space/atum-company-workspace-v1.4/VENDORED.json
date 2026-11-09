@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-workspace/1.4",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "3d7b224d00b4e213cc6ad4a65e680eb3f806c72a",
+  "path": "spec/company-workspace/v1.4",
+  "sha256": "f6a0a2b912871a9acea15016d3d341d55350008e8e3d5dfd3a92dacb9a295f96",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

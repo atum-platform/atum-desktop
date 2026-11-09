@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-evidence-bundle-1.schema.json",
+  "title": "Atum offline release evidence bundle v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "candidate", "target_policy", "gate_results", "fixture_indexes", "journey_results", "promotion_records", "promotion_evidence_metadata", "telemetry_events"],
+  "properties": {
+    "schema": {"const": "atum-release-evidence-bundle/1"},
+    "candidate": {"type": "string", "minLength": 1},
+    "target_policy": {"type": "string", "minLength": 1},
+    "gate_results": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+    "fixture_indexes": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+    "journey_results": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+    "promotion_records": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 2, "uniqueItems": true},
+    "promotion_evidence_metadata": {"type": "array", "minItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["ref", "local_path", "sha256", "store_class", "immutable", "retention_days"], "properties": {"ref": {"type": "string", "minLength": 1}, "local_path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "store_class": {"type": "string", "minLength": 1}, "immutable": {"type": "boolean"}, "retention_days": {"type": "integer", "minimum": 1}}}},
+    "telemetry_events": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+  }
+}

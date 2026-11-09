@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "absent",
+      "to": "importing",
+      "event": "import_admitted"
+    },
+    {
+      "from": "importing",
+      "to": "imported",
+      "event": "placement_updated"
+    },
+    {
+      "from": "imported",
+      "to": "importing",
+      "event": "import_admitted"
+    }
+  ]
+}

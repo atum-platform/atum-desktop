@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "received",
+      "to": "applied",
+      "event": "apply_1_1_mutation"
+    }
+  ]
+}

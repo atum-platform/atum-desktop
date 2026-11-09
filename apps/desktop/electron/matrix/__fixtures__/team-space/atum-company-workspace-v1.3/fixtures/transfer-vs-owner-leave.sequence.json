@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "owner_current",
+      "to": "transferred",
+      "event": "transfer_commit"
+    },
+    {
+      "from": "transferred",
+      "to": "transferred",
+      "event": "former_owner_leave"
+    }
+  ]
+}

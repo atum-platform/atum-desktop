@@ -1,0 +1,39 @@
+{
+  "items": [
+    {
+      "itemId": "skill/official/productivity/example",
+      "kind": "skill",
+      "title": {
+        "vi": "Gigi",
+        "en": "Gigi"
+      },
+      "summary": {
+        "vi": "Một người bạn",
+        "en": "A companion"
+      },
+      "description": {
+        "vi": "Một người bạn vui tươi",
+        "en": "A cheerful companion"
+      },
+      "tryPrompt": {
+        "vi": "Chọn người bạn này.",
+        "en": "Choose this companion."
+      },
+      "needs": [
+        "Atum"
+      ],
+      "glyph": "🐾",
+      "accent": "#f3c969",
+      "featured": true,
+      "sortOrder": 100,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/example"
+      },
+      "requires": [
+        "skills.hub.1"
+      ]
+    }
+  ]
+}

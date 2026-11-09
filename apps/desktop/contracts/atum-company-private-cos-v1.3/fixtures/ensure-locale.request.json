@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "requestId": "00000000-0000-4000-8000-540eb3b6436f",
+  "action": "ensure",
+  "trigger": "first_company_visit",
+  "locale": "vi"
+}

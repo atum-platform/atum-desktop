@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-domain-fixture-index-1.schema.json",
+  "title": "Atum domain fixture index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "owner_stream", "provider_repository", "provider_commit", "contract_name", "contract_version", "fixtures", "acceptance_tests", "compatible_consumers", "rollback_notes", "deletion_target", "evidence_ref"],
+  "properties": {
+    "schema": {"const": "atum-domain-fixture-index/1"},
+    "owner_stream": {"type": "string", "pattern": "^S[0-8]$"},
+    "provider_repository": {"type": "string", "minLength": 1},
+    "provider_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "contract_name": {"type": "string", "minLength": 1},
+    "contract_version": {"type": "string", "minLength": 1},
+    "fixtures": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "path", "sha256", "classification", "contains_user_data", "sanitization"], "properties": {"id": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "classification": {"enum": ["synthetic", "sanitized-v1", "fault"]}, "contains_user_data": {"const": false}, "sanitization": {"type": ["object", "null"]}}}},
+    "acceptance_tests": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "compatible_consumers": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "rollback_notes": {"type": "string", "minLength": 1},
+    "deletion_target": {"type": "string", "minLength": 1},
+    "evidence_ref": {"type": "string", "minLength": 1}
+  }
+}

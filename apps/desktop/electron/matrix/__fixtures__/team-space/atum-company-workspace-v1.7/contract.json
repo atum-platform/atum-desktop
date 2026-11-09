@@ -1,0 +1,220 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.7",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/set-avatar-actor.request.json",
+    "fixtures/set-avatar-bytes.request.json",
+    "fixtures/set-avatar-http.request.json",
+    "fixtures/set-avatar-replay.response.json",
+    "fixtures/set-avatar-room-leak.response.json",
+    "fixtures/set-avatar-zero-revision.response.json",
+    "fixtures/set-avatar.request.json",
+    "fixtures/set-avatar.response.json"
+  ],
+  "row": "owner/admin idempotent company avatar mutation",
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "desktop",
+    "phone"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.6",
+    "path": "spec/company-workspace/v1.6",
+    "kind": "pack",
+    "sha256": "fe7b147c0ef3b5b73dea81c92a4a768b108c2de8a7144fced30d8407bf1cb0de",
+    "rule": "additive minor; only set_avatar uses schemaVersion 8"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.7",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6"
+    ],
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_7": 8,
+      "scope": "set_avatar only"
+    }
+  },
+  "mutation": {
+    "operation": "set_avatar",
+    "route": "POST /api/matrix/v1/companies/{companyId}/set-avatar",
+    "authorization": [
+      "owner",
+      "admin"
+    ],
+    "input": "user-session uploaded MXC URI",
+    "replay": "exact actor/request/input result",
+    "same_uri": "no revision advance; request and audit receipts remain durable"
+  },
+  "manager": {
+    "source": "durable company avatar URI and revision",
+    "target": "company channel m.room.avatar state",
+    "minimum": "protected default channel (#chung in Vietnamese)",
+    "conversations": "do not inherit company identity",
+    "matrix_space": "not present in the current architecture; no m.space lifecycle is created by this contract"
+  },
+  "security": {
+    "actor": "resolved authenticated caller; never client input",
+    "rpc": "SECURITY DEFINER, search_path pg_catalog and pg_temp, service-role Shell only",
+    "cache": "no-store"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "avatar_uri": {
+      "type": "string",
+      "min": 9,
+      "max": 518,
+      "pattern": "mxc://[A-Za-z0-9._-]{1,255}/[A-Za-z0-9_-]{1,255}"
+    },
+    "set_avatar_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "set_avatar"
+        },
+        "avatarUri": {
+          "ref": "avatar_uri"
+        }
+      }
+    },
+    "set_avatar_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 8
+        },
+        "operation": {
+          "const": "set_avatar"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "avatarUri": {
+          "ref": "avatar_uri"
+        },
+        "avatarRevision": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_7": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "actor",
+        "*principal*",
+        "userId",
+        "roomId",
+        "manager*",
+        "credential",
+        "bytes",
+        "http*",
+        "*Revision"
+      ]
+    },
+    "platform_to_native_v1_7": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "actor",
+        "*principal*",
+        "userId",
+        "roomId",
+        "manager*",
+        "credential",
+        "audit*"
+      ]
+    }
+  },
+  "messages": {
+    "set-avatar.request": {
+      "direction": "native_to_platform_v1_7",
+      "schema": {
+        "ref": "set_avatar_request"
+      }
+    },
+    "set-avatar.response": {
+      "direction": "platform_to_native_v1_7",
+      "schema": {
+        "ref": "set_avatar_response"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/set-avatar-actor.request.json",
+      "message": "set-avatar.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/set-avatar-bytes.request.json",
+      "message": "set-avatar.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/set-avatar-http.request.json",
+      "message": "set-avatar.request",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/set-avatar-replay.response.json",
+      "message": "set-avatar.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/set-avatar-room-leak.response.json",
+      "message": "set-avatar.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/set-avatar-zero-revision.response.json",
+      "message": "set-avatar.response",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/set-avatar.request.json",
+      "message": "set-avatar.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/set-avatar.response.json",
+      "message": "set-avatar.response",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "input": {
+    "roomId": "!meeting:example.invalid",
+    "viewerAgentId": "@assistant-a:example.invalid",
+    "excludeEventId": "$trigger",
+    "window": "shared_addressed",
+    "limits": {
+      "messages": 50,
+      "chars": 12000,
+      "pages": 3,
+      "deadlineMs": 8000
+    }
+  },
+  "roomMode": "meeting",
+  "events": [
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "at": 1200,
+      "verified": true,
+      "decrypted": true,
+      "msgtype": "m.text",
+      "text": "Please compare the options",
+      "trust": "owner"
+    },
+    {
+      "eventId": "$trigger",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "at": 1400,
+      "verified": true,
+      "decrypted": true,
+      "msgtype": "m.text",
+      "text": "What do you think?",
+      "trust": "owner"
+    }
+  ],
+  "expected": {
+    "status": "refused",
+    "code": "matrix_group_room_required"
+  }
+}

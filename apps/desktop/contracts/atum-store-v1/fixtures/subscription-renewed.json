@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "active",
+      "event": "renewed"
+    }
+  ]
+}

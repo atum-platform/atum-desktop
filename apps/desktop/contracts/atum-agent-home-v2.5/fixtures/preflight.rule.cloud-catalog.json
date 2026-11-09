@@ -1,0 +1,7 @@
+{
+  "rule": "cloud_catalog_revision",
+  "target": {
+    "kind": "cloud"
+  },
+  "catalogRevision": 0
+}

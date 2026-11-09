@@ -1,0 +1,31 @@
+{
+  "siteSelections": [
+    {
+      "domain": "github.com",
+      "category": "standard",
+      "disposition": "included",
+      "ownerOverride": false
+    },
+    {
+      "domain": "google.com",
+      "category": "standard",
+      "disposition": "included",
+      "ownerOverride": false
+    },
+    {
+      "domain": "bank.example",
+      "category": "banking",
+      "disposition": "skipped_default",
+      "ownerOverride": false
+    },
+    {
+      "domain": "wallet.example",
+      "category": "wallet",
+      "disposition": "included_owner_override",
+      "ownerOverride": true
+    }
+  ],
+  "cookies": [],
+  "origins": [],
+  "history": []
+}

@@ -1,0 +1,42 @@
+{
+  "caseId": "working_not_acquirable",
+  "policy": {
+    "profile": "atum.execution-policy/1",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "revision": 0,
+    "source": "default",
+    "order": [
+      "cloud",
+      "mac:00000000-0000-4000-8000-b454f82c5857",
+      "mac:00000000-0000-4000-8000-f6222a1106ee"
+    ],
+    "disabled": []
+  },
+  "inventory": {
+    "cloud": {
+      "authority": "valid",
+      "eligible": true,
+      "stable": true,
+      "activity": "working"
+    },
+    "mac:00000000-0000-4000-8000-b454f82c5857": {
+      "authority": "valid",
+      "eligible": true,
+      "stable": true,
+      "activity": "idle"
+    },
+    "mac:00000000-0000-4000-8000-f6222a1106ee": {
+      "authority": "valid",
+      "eligible": true,
+      "stable": true,
+      "activity": "busy"
+    }
+  },
+  "current": null,
+  "activeTurn": false,
+  "expected": {
+    "action": "acquire",
+    "desired": "mac:00000000-0000-4000-8000-b454f82c5857",
+    "reason": "policy_first"
+  }
+}

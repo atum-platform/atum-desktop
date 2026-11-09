@@ -1,0 +1,50 @@
+{
+  "profile": "atum.agent-sweep/1",
+  "operation": "settle",
+  "occurrenceId": "00000000-0000-4000-8000-149a1ef8d82f",
+  "leaseToken": "00000000-0000-4000-8000-1f36c4162676",
+  "resultFingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "usage": {
+    "computeSeconds": 9,
+    "modelAttempts": 1,
+    "inputTokens": 4000,
+    "outputTokens": 70,
+    "modelMicroProtons": 234567
+  },
+  "scan": {
+    "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "watermarks": {
+      "googleMail": "mail-43",
+      "googleCalendar": "calendar-9",
+      "atumChats": "chat-17",
+      "conversation": "event-8",
+      "memory": "memory-3"
+    },
+    "sources": [
+      { "source": "google_mail", "status": "ok" },
+      { "source": "google_calendar", "status": "ok" },
+      { "source": "atum_chats", "status": "ok" },
+      { "source": "conversation", "status": "ok" },
+      { "source": "memory", "status": "ok" }
+    ]
+  },
+  "ownerEventWatermark": {
+    "eventId": "$owner-event:test",
+    "at": 1793010000000
+  },
+  "commit": {
+    "kind": "cloud",
+    "queueSeq": 7,
+    "expectedHomeGeneration": 4
+  },
+  "outcome": "answered",
+  "disposition": "offer",
+  "urgency": "normal",
+  "findingHashes": [
+    "1111111111111111111111111111111111111111111111111111111111111111"
+  ],
+  "outbox": {
+    "outboxId": "00000000-0000-4000-8000-fbd62e9c2632",
+    "bodySha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  }
+}

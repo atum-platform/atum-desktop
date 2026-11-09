@@ -1,0 +1,36 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "cloud_workload",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "target": {
+    "kind": "cloud"
+  },
+  "lineage": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "source": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+    },
+    "homeEpoch": 5,
+    "placementRevision": 12,
+    "generation": 13,
+    "parentGeneration": 12,
+    "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "portableArchiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "portableManifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "outcome": "imported",
+  "reason": null
+}

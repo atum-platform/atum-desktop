@@ -1,0 +1,28 @@
+{
+  "name": "a report that names the later hold",
+  "migration": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "initiator": "00000000-0000-4000-8000-b86a6ca39e23",
+    "state": "reconciling",
+    "staged": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+        "holdUntil": 1791106321000
+      },
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+        "holdUntil": 1791104521000
+      }
+    ]
+  },
+  "issuedAt": 1791101100000,
+  "facts": {
+    "earliestHoldUntil": 1791104521000
+  },
+  "expect": {
+    "outcome": "reported",
+    "expiresAt": 1791103921000,
+    "holdUntil": 1791106321000
+  }
+}

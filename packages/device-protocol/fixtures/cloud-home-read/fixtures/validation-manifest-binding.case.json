@@ -1,0 +1,31 @@
+{
+  "caseId": "manifest_binding",
+  "subject": "file_binding",
+  "value": {
+    "manifest": {
+      "profile": "atum.cloud-home-read/1",
+      "agentPrincipal": "00000000-0000-4000-8000-e532b820eb2f",
+      "generation": 7,
+      "committedAt": 1791877000000,
+      "files": [
+        {
+          "path": "memories/MEMORY.md",
+          "size": 19,
+          "sha256": "eb469ef2f6ebec6b5f7b830730266a1ac4de8dbee0f698c7e871c601790f0b46"
+        }
+      ]
+    },
+    "request": {
+      "generation": 7,
+      "path": "memories/MISSING.md"
+    },
+    "response": {
+      "generation": 7,
+      "path": "memories/MISSING.md",
+      "sha256": "eb469ef2f6ebec6b5f7b830730266a1ac4de8dbee0f698c7e871c601790f0b46",
+      "content": "IyBTeW50aGV0aWMgbWVtb3J5Cg=="
+    }
+  },
+  "accepted": false,
+  "violation": "manifest_binding"
+}

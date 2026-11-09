@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 12,
+  "outcome": "not_allowed",
+  "reason": "admins_only",
+  "replayed": false
+}

@@ -1,0 +1,6 @@
+{
+  "rule": "checkpoint_loss_acceptance",
+  "acceptCheckpointLoss": true,
+  "lossCode": "changes_since_last_checkpoint_lost",
+  "lastCheckpointAtPlatform": 1799998200000
+}

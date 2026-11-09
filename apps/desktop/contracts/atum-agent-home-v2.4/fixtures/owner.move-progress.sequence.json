@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "finishing_current_work",
+      "to": "moving",
+      "event": "source_quiesced"
+    },
+    {
+      "from": "moving",
+      "to": "waiting_for_destination",
+      "event": "cas_committed"
+    },
+    {
+      "from": "waiting_for_destination",
+      "to": "ready",
+      "event": "destination_ready"
+    }
+  ]
+}

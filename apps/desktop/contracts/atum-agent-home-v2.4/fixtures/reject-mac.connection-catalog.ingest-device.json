@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "mac_executor",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "publishId": "00000000-0000-4000-8000-a9703d75e616",
+  "idempotencyKey": "00000000-0000-4000-8000-00f765af1c54",
+  "deviceServiceId": "00000000-0000-4000-8000-f6222a1106ee",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "homeEpoch": 5,
+  "activeMoveId": null,
+  "clientCatalogRevision": 3,
+  "contentSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "generatedAtPlatformEstimate": 1800000000000,
+  "freshUntilPlatform": 1800000060000,
+  "connections": [
+    {
+      "connectionRef": "conn_codexplan00000001",
+      "source": "chatgpt_plan",
+      "providerLabel": "ChatGPT",
+      "state": "available",
+      "models": [
+        {
+          "model": "gpt-5.6-luna",
+          "modelLabel": "GPT-5.6 Luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "defaultEffort": "medium"
+        }
+      ]
+    }
+  ]
+}

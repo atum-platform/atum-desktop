@@ -1,0 +1,17 @@
+Atum mixed ownership notice
+
+Atum-owned original contributions: see LICENSE (all rights reserved).
+Inherited Hermes Agent portions: MIT, copyright 2025 Nous Research; see
+LICENSES/Hermes-Agent-MIT.txt. Changes do not revoke inherited rights.
+Other dependencies and adapted files retain their own terms and notices.
+See THIRD-PARTY.json and existing per-component notices.
+
+
+Hermes-derived content throughout this tree, including modified files, remains
+subject to the preserved Nous Research MIT notice in LICENSES/Hermes-Agent-MIT.txt.
+An absent per-file provenance record does not assert Atum ownership.
+
+Atum-owned code is all rights reserved. No licence is granted beyond the
+viewing and forking rights required by GitHub's terms for public repositories.
+Inherited Hermes MIT and every other third-party licence remain in force,
+with their notices preserved.

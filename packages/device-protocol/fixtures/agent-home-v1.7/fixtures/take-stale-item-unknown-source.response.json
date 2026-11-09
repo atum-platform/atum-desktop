@@ -1,0 +1,17 @@
+{
+  "item": null,
+  "stale": [
+    15
+  ],
+  "staleItems": [
+    {
+      "seq": 15,
+      "source": "phone",
+      "takenLeaseGeneration": 40,
+      "dispatched": true,
+      "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+      "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+      "invocationId": "00000000-0000-4000-8000-f9b799160fa7"
+    }
+  ]
+}

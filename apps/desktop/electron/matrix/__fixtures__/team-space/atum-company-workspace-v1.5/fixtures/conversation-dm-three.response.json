@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 6,
+  "conversation": {
+    "id": "00000000-0000-4000-8000-f6c6b8bb709f",
+    "companyId": "00000000-0000-4000-8000-87c6455cae48",
+    "kind": "dm",
+    "state": "active",
+    "participants": [
+      {
+        "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "admissionEpoch": 2,
+        "handle": "anh",
+        "displayName": "Anh"
+      },
+      {
+        "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+        "admissionEpoch": 1,
+        "handle": "bao",
+        "displayName": "Bảo"
+      },
+      {
+        "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+        "admissionEpoch": 1,
+        "handle": "chi",
+        "displayName": "Chi"
+      }
+    ],
+    "participantSetDigest": "d7e45d3ef85e232caa4d5d184cc2b9c9ad0983ed06741628ddb1c53c94f3b080",
+    "authorityGeneration": 12,
+    "conversationGeneration": 4,
+    "room": {
+      "state": "ready",
+      "roomId": "!dm:example.invalid"
+    },
+    "hidden": false
+  },
+  "replayed": false
+}

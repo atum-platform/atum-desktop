@@ -1,0 +1,7 @@
+# Lockfiles must never be reformatted — main has a repo rule requiring
+# team approval when lockfiles change, so an autofix PR touching one
+# would hang waiting for review.
+package-lock.json
+
+# The contract conformance fixtures are copied byte for byte from atum-platform (see the README beside them).
+apps/desktop/electron/matrix/browser-import/__fixtures__/contract-v2.1/

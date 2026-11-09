@@ -1,0 +1,88 @@
+{
+  "name": "origin-sender-unverified",
+  "assignment": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "agentUserId": "@synthetic-user-0011:example.invalid"
+  },
+  "message": {
+    "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+    "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+    "sender": "@owner-3f9a1c7e5b2d:example.invalid",
+    "senderDevice": "MACBOOKQ7ZK",
+    "senderVerified": false,
+    "senderFingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+    "originServerTs": 1791100800000,
+    "content": {
+      "msgtype": "m.text",
+      "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.",
+      "io.atum.origin": {
+        "v": 1,
+        "dsid": "00000000-0000-4000-8000-b86a6ca39e23",
+        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "ee": 3,
+        "ae": 7,
+        "boot": "00000000-0000-4000-8000-354570cd5e97",
+        "n": "W_YlvsBfdmBcLLPLPUrIgA",
+        "t": 1791100798500,
+        "owner": "@owner-3f9a1c7e5b2d:example.invalid",
+        "agent": "@synthetic-user-0011:example.invalid",
+        "room": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "dev": "MACBOOKQ7ZK",
+        "fpr": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+        "dg": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+        "sig": "qh8JDYfuGuLITeySHt9CuwQugRvTAJswECllm08zqnnIwGsu-fpnEoyPTJ6K_TE9KYRXUJqVs_tOALd5zOKaxg"
+      }
+    }
+  },
+  "assertion": {
+    "v": 1,
+    "dsid": "00000000-0000-4000-8000-b86a6ca39e23",
+    "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+    "ee": 3,
+    "ae": 7,
+    "boot": "00000000-0000-4000-8000-354570cd5e97",
+    "n": "W_YlvsBfdmBcLLPLPUrIgA",
+    "t": 1791100798500,
+    "owner": "@owner-3f9a1c7e5b2d:example.invalid",
+    "agent": "@synthetic-user-0011:example.invalid",
+    "room": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+    "dev": "MACBOOKQ7ZK",
+    "fpr": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+    "dg": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+    "sig": "qh8JDYfuGuLITeySHt9CuwQugRvTAJswECllm08zqnnIwGsu-fpnEoyPTJ6K_TE9KYRXUJqVs_tOALd5zOKaxg"
+  },
+  "registry": [
+    {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "identityKeyId": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+      "enrollmentEpoch": 3,
+      "matrixDeviceId": "MACBOOKQ7ZK",
+      "matrixFingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+      "state": "active"
+    },
+    {
+      "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6mp-ho08TZKqtmUzB9YrIHgAL9cLfnlCQFGSqoQTA6o-vSirFDW4LlO209QfRmmVojTPK07dhy9lMzO7J8Dttg",
+      "identityKeyId": "PIL-JVpVkgdjfjqD0AiDtRqUu2c2Jy-omxRCo4Hsie4",
+      "enrollmentEpoch": 1,
+      "matrixDeviceId": "MINIR8XLWP",
+      "matrixFingerprint": "41W57vigScETydWqv95CQJ54SMugzyYelYQOwFMjwTg",
+      "state": "active"
+    }
+  ],
+  "seenNonces": [],
+  "facts": {
+    "contentDigest": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+    "assertionHash": "1nX6SH_UxKmN5LlVMrfOzC2ljs-wgHeopDB3vcjZQjk",
+    "registryMatch": true,
+    "signatureValid": true,
+    "nonceSeen": false,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "kind": "invalid",
+    "reason": "sender_unverified"
+  }
+}

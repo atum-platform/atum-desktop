@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "MigrationAck",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "outcome": "send",
+    "holdUntil": 1791106321000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "uwa3BAR7KAkbwGv50HRtwwYrF1EBB9Esc6zdNEVwVEAM6bHSW9lkIoF66BhLp2s0BZWh7Fvjfk16fH-PNVr2DA"
+}

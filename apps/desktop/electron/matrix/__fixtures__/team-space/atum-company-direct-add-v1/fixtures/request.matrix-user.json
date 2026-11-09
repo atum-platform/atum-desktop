@@ -1,0 +1,8 @@
+{
+  "requestId": "00000000-0000-4000-8000-72805976e3a7",
+  "target": {
+    "kind": "matrixUser",
+    "memberMatrixUser": "@lan:atum.example"
+  },
+  "role": "member"
+}

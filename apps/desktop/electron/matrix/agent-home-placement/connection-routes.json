@@ -1,0 +1,80 @@
+{
+  "contract": "atum.agent-home/2.5",
+  "wire": "2.5",
+  "resourceBase": "/api/matrix/v1",
+  "agentPrefix": "/agents/{agent}",
+  "note": "The only HTTP calls the desktop makes for placement and connection models. method + path are relative to resourceBase + agentPrefix. Every call sends Atum-Agent-Home-Wire: 2.5, the MAS bearer, no cookie and no query string. connection-routes.test.ts proves the client uses exactly these rows.",
+  "routes": {
+    "readOwner": {
+      "method": "GET",
+      "path": "/home/owner",
+      "response": "owner.home.snapshot"
+    },
+    "preflight": {
+      "method": "POST",
+      "path": "/home/owner/preflight",
+      "request": "owner.home.move.preflight-request",
+      "response": "owner.home.move.preflight"
+    },
+    "requestMove": {
+      "method": "POST",
+      "path": "/home/owner/moves",
+      "request": "owner.home.move.request",
+      "response": "owner.home.move.progress",
+      "refusal": "owner.home.move.refusal"
+    },
+    "cancelMove": {
+      "method": "DELETE",
+      "path": "/home/owner/moves",
+      "request": "owner.home.move.cancel",
+      "response": "owner.home.move.progress",
+      "refusal": "owner.home.move.refusal"
+    },
+    "readProgress": {
+      "method": "GET",
+      "path": "/home/owner/moves/{moveId}",
+      "response": "owner.home.move.progress"
+    },
+    "writeModelChoice": {
+      "method": "PUT",
+      "path": "/home/owner/model-choice",
+      "request": "owner.home.model-choice.write",
+      "response": "owner.home.model-choice.receipt",
+      "refusal": "owner.home.model-choice.refusal"
+    },
+    "readModelApplication": {
+      "method": "GET",
+      "path": "/home/owner/model-choice/application",
+      "response": "home.model-choice.projection"
+    },
+    "reportModelApplication": {
+      "method": "PUT",
+      "path": "/home/model-choice/application",
+      "request": "home.model-choice.application",
+      "response": "home.model-choice.projection"
+    },
+    "readCatalog": {
+      "method": "GET",
+      "path": "/home/catalogs/{deviceServiceId}",
+      "response": "home.connection-catalog"
+    },
+    "publishCatalog": {
+      "method": "PUT",
+      "path": "/home/catalogs",
+      "request": "home.connection-catalog.ingest",
+      "response": "home.connection-catalog.receipt",
+      "refusal": "home.connection-catalog.receipt"
+    },
+    "readImport": {
+      "method": "GET",
+      "path": "/home/imports/{moveId}",
+      "response": "home.archive.import"
+    },
+    "reportImport": {
+      "method": "POST",
+      "path": "/home/imports",
+      "request": "home.archive.import-receipt",
+      "response": "home.archive.import-receipt"
+    }
+  }
+}

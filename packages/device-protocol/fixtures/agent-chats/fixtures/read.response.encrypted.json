@@ -1,0 +1,14 @@
+{
+  "id": "!Zr81pQe2JhNcA:example.invalid",
+  "label": "Bot nhắc việc",
+  "messages": [
+    {
+      "eventId": "$e1abc",
+      "at": 1792000100000,
+      "from": "Bot nhắc việc",
+      "mine": false,
+      "kind": "encrypted",
+      "text": null
+    }
+  ]
+}

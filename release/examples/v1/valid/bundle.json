@@ -1,0 +1,14 @@
+{
+  "schema": "atum-release-evidence-bundle/1",
+  "candidate": "candidate.json",
+  "target_policy": "target-policy.json",
+  "gate_results": ["gate.json"],
+  "fixture_indexes": ["fixture-index.json"],
+  "journey_results": ["journey.json"],
+  "promotion_records": ["promotion-1.json", "promotion-2.json"],
+  "promotion_evidence_metadata": [
+    {"ref": "immutable://promotion-record-1", "local_path": "promotion-1.json", "sha256": "e80164aedfad689fc75aa4c83d330610a4bd08265914df5aa38350a436752cb1", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://promotion-record-2", "local_path": "promotion-2.json", "sha256": "7e2e7a11d7ec617b6a4b4a4dbf96198d9d3e8154544898d59889d1db95f49a19", "store_class": "release-index-v1", "immutable": true, "retention_days": 730}
+  ],
+  "telemetry_events": ["telemetry.json"]
+}

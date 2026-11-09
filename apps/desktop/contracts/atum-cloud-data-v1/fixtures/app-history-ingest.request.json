@@ -1,0 +1,16 @@
+{
+  "contract": "atum.cloud-data/1",
+  "event_id": "moon.turn:2026-08-30:42",
+  "event_type": "turn.completed",
+  "provider_thread_ref": "moon.thread:42",
+  "payload": {"summary": "Report generated"},
+  "artifacts": [
+    {
+      "resource_id": "moon.report:2026-08-30",
+      "title": "Moon report",
+      "type": "document",
+      "requested_copy_mode": "atum_copy"
+    }
+  ],
+  "idempotency_key": "moon.turn:2026-08-30:42"
+}

@@ -1,0 +1,5 @@
+name: atum-managed-provider
+kind: model-provider
+version: 1.0.0
+description: Atum included managed inference
+author: Atum

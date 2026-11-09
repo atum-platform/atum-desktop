@@ -1,0 +1,13 @@
+{
+  "input": {
+    "roomId": "!a:proof.test",
+    "ownerId": "@owner:proof.test",
+    "event": {
+      "type": "io.atum.conversation",
+      "state_key": "",
+      "sender": "@owner:proof.test",
+      "content": {}
+    }
+  },
+  "expected": null
+}

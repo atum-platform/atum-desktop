@@ -1,0 +1,19 @@
+{
+  "input": {
+    "roomId": "!a:proof.test",
+    "privateAssistant": true,
+    "forTurn": true,
+    "resolution": {
+      "earlier": [
+        "!b:proof.test"
+      ],
+      "stray": [],
+      "unreachable": [],
+      "source": "marked",
+      "main": "!a:proof.test"
+    }
+  },
+  "expected": {
+    "admit": true
+  }
+}

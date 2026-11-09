@@ -1,0 +1,28 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "operation": "commit",
+  "seq": 17,
+  "leaseToken": "00000000-0000-4000-8000-803634f44772",
+  "leaseGeneration": 41,
+  "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+  "outcome": "answered",
+  "usage": {
+    "computeSeconds": 38
+  },
+  "expectedGeneration": 16,
+  "home": {
+    "generation": 18,
+    "manifestKey": "v1/00000000-0000-4000-8000-0a17b0bd53cc/00000000-0000-4000-8000-159badba71cd/generations/18.manifest",
+    "manifestSha256": "1212121212121212121212121212121212121212121212121212121212121212",
+    "sizeBytes": 1835008,
+    "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+    "quiesced": true
+  },
+  "outbox": {
+    "outboxId": "00000000-0000-4000-8000-397a66c542d1",
+    "kind": "answer",
+    "bodySha256": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+    "bodyKey": "v1/00000000-0000-4000-8000-0a17b0bd53cc/00000000-0000-4000-8000-159badba71cd/outbox/00000000-0000-4000-8000-397a66c542d1"
+  }
+}

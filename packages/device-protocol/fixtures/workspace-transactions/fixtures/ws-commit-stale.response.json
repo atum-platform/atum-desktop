@@ -1,0 +1,21 @@
+{
+  "result": "stale_inputs",
+  "dependencyCheck": {
+    "at": 1791100830000,
+    "changed": [
+      {
+        "path": "notes/a.md",
+        "expected": "\"etag-a-1\"",
+        "actual": "absent"
+      }
+    ]
+  },
+  "outputs": [
+    {
+      "path": "brief.md",
+      "state": "sibling",
+      "placed": null,
+      "siblingPath": "brief (T 2026-10-04 00000000).md"
+    }
+  ]
+}

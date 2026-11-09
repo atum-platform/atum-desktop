@@ -1,0 +1,34 @@
+{
+  "profile": "atum.app-bot-status/1",
+  "bot": {
+    "v": 1,
+    "user_id": "@app-moon:atumplatform.com",
+    "handle": "moon_bot",
+    "display_name": "Moon",
+    "avatar": {
+      "url": "https://api.atumplatform.com/specialists/moon-bot.png",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "device_generation": 1,
+    "device": null,
+    "state": "starting",
+    "groups": true,
+    "consent": "required",
+    "disclosure_version": 2,
+    "open_route_id": "chat",
+    "open_shared_memory": true,
+    "purchase_route_id": "chat"
+  },
+  "consent": {
+    "state": "required",
+    "disclosure_version": 2,
+    "locale": null,
+    "accepted_at": null
+  },
+  "link": {
+    "state": "never_linked",
+    "ready": false,
+    "available": false
+  },
+  "room_id": "!moonCanonicalRoom:atum.example"
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 6,
+  "operation": "add",
+  "channelId": "00000000-0000-4000-8000-f19cafd05964",
+  "authorityGeneration": 10,
+  "channelGeneration": 2,
+  "admissions": [
+    {
+      "memberRef": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "state": "active",
+      "admissionEpoch": 1,
+      "admissionGeneration": 1
+    }
+  ],
+  "replayed": false
+}

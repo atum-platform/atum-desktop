@@ -1,0 +1,162 @@
+{
+  "vectors": [
+    {
+      "name": "create, no server file, inputs clean",
+      "output": {
+        "path": "brief.md",
+        "mode": "create",
+        "baseEtag": null
+      },
+      "server": {
+        "present": false
+      },
+      "inputChanged": false,
+      "decision": "place",
+      "siblingPath": null,
+      "reason": null
+    },
+    {
+      "name": "create, server file exists, inputs clean",
+      "output": {
+        "path": "brief.md",
+        "mode": "create",
+        "baseEtag": null
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\""
+      },
+      "inputChanged": false,
+      "decision": "sibling",
+      "siblingPath": "brief (T 2026-10-04 00000000).md",
+      "reason": "etag_conflict"
+    },
+    {
+      "name": "replace, matching base ETag, inputs clean",
+      "output": {
+        "path": "brief.md",
+        "mode": "replace",
+        "baseEtag": "\"srv-1\""
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\""
+      },
+      "inputChanged": false,
+      "decision": "place",
+      "siblingPath": null,
+      "reason": null
+    },
+    {
+      "name": "replace, server changed under us",
+      "output": {
+        "path": "brief.md",
+        "mode": "replace",
+        "baseEtag": "\"srv-1\""
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-2\""
+      },
+      "inputChanged": false,
+      "decision": "sibling",
+      "siblingPath": "brief (T 2026-10-04 00000000).md",
+      "reason": "etag_conflict"
+    },
+    {
+      "name": "replace, server file deleted",
+      "output": {
+        "path": "brief.md",
+        "mode": "replace",
+        "baseEtag": "\"srv-1\""
+      },
+      "server": {
+        "present": false
+      },
+      "inputChanged": false,
+      "decision": "sibling",
+      "siblingPath": "brief (T 2026-10-04 00000000).md",
+      "reason": "etag_conflict"
+    },
+    {
+      "name": "create, input changed mid-task",
+      "output": {
+        "path": "brief.md",
+        "mode": "create",
+        "baseEtag": null
+      },
+      "server": {
+        "present": false
+      },
+      "inputChanged": true,
+      "decision": "sibling",
+      "siblingPath": "brief (T 2026-10-04 00000000).md",
+      "reason": "input_changed"
+    },
+    {
+      "name": "replace with a clean base, input changed mid-task",
+      "output": {
+        "path": "brief.md",
+        "mode": "replace",
+        "baseEtag": "\"srv-1\""
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\""
+      },
+      "inputChanged": true,
+      "decision": "sibling",
+      "siblingPath": "brief (T 2026-10-04 00000000).md",
+      "reason": "input_changed"
+    },
+    {
+      "name": "write to an excluded name is refused",
+      "output": {
+        "path": ".hermes/state.db",
+        "mode": "replace",
+        "baseEtag": null
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\"",
+        "excluded": true
+      },
+      "inputChanged": false,
+      "decision": "refused",
+      "siblingPath": null,
+      "reason": "excluded_name"
+    },
+    {
+      "name": "nested path create",
+      "output": {
+        "path": "reports/2026/brief.md",
+        "mode": "create",
+        "baseEtag": null
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\""
+      },
+      "inputChanged": false,
+      "decision": "sibling",
+      "siblingPath": "reports/2026/brief (T 2026-10-04 00000000).md",
+      "reason": "etag_conflict"
+    },
+    {
+      "name": "no extension sibling",
+      "output": {
+        "path": "NOTES",
+        "mode": "create",
+        "baseEtag": null
+      },
+      "server": {
+        "present": true,
+        "etag": "\"srv-1\""
+      },
+      "inputChanged": false,
+      "decision": "sibling",
+      "siblingPath": "NOTES (T 2026-10-04 00000000)",
+      "reason": "etag_conflict"
+    }
+  ]
+}

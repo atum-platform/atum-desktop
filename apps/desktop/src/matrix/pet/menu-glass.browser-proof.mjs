@@ -1,0 +1,72 @@
+/* global window, document */
+import assert from 'node:assert/strict'
+import path from 'node:path'
+
+export async function provePetMenuGlass(page, output) {
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  const hit = page.locator('[data-pet-hit-box]')
+  await hit.waitFor({ state: 'visible' })
+  const clearPoint = await page.locator('[data-matrix-pet-stroll] canvas').evaluate(canvas => {
+    const box = canvas.getBoundingClientRect()
+    const element = document.elementFromPoint(box.right - 1, box.top + 1)
+    return !element?.closest('[data-matrix-pet-stroll]')
+  })
+  assert.equal(clearPoint, true, 'outside the opaque row rectangle passes through the lane')
+  await hit.click({ button: 'right' })
+  const menu = page.getByRole('menu')
+  await menu.waitFor({ state: 'visible' })
+  const labels = ['Chat with Gigi', 'Wave', 'Sit', 'Lounge', 'Change companion', 'Size', 'Hide', 'Pet Store', 'Settings']
+  for (const label of labels) { assert.equal(await menu.getByRole('menuitem', { name: label, exact: true }).count(), 1) }
+  await page.screenshot({ path: path.join(output, 'pet-context-menu.png'), animations: 'disabled' })
+  await page.keyboard.press('Escape')
+  const paw = page.getByRole('button', { name: 'Companion', exact: true })
+  await paw.focus()
+  await page.keyboard.press('Enter')
+  const picker = page.locator('[data-slot="popover-content"]')
+  await picker.waitFor({ state: 'visible' })
+  const pickerBounds = await picker.boundingBox()
+  assert.ok(pickerBounds.y >= 0 && pickerBounds.y + pickerBounds.height <= page.viewportSize().height, 'all picker actions remain inside the resized viewport')
+  for (const label of labels) { assert.equal(await picker.getByRole('button', { name: label, exact: true }).count(), 1) }
+  await picker.getByRole('button', { name: 'Size', exact: true }).click()
+  assert.equal(await picker.getByRole('slider').evaluate(el => document.activeElement === el), true)
+  await picker.getByRole('button', { name: 'Size', exact: true }).click()
+  assert.equal(await picker.getByRole('slider').evaluate(el => document.activeElement === el), true, 'Size refocuses an already open picker')
+  await picker.getByRole('button', { name: 'Wave', exact: true }).click()
+  await picker.waitFor({ state: 'hidden' })
+  assert.equal(await page.locator('[data-pet-pose]').getAttribute('data-pet-pose'), 'wave')
+  await paw.click()
+  await picker.getByRole('button', { name: 'Chat with Gigi', exact: true }).click()
+  const glass = page.locator('[data-pet-glass]')
+  await glass.waitFor({ state: 'visible' })
+  assert.equal(await glass.locator('[data-pet-turn="pet"]').first().innerText(), 'A recent answer from Gigi')
+  const input = glass.getByRole('textbox')
+  await input.fill('Hello from the pet')
+  await page.keyboard.press('Enter')
+  // A regular chat: the words leave the box at once and wait in the thread for the answer.
+  assert.equal(await input.inputValue(), '', 'sent words leave the box')
+  assert.equal(await glass.locator('[data-pet-turn="user"]').last().innerText(), 'Hello from the pet')
+  await glass.locator('[data-pet-turn="pet"]', { hasText: 'Mình ngồi đây.' }).waitFor()
+  assert.deepEqual(await page.evaluate(() => window.petStageProof.chats.map(({ message, locale }) => ({ message, locale }))),
+    [{ message: 'Hello from the pet', locale: 'en' }])
+  assert.equal(await glass.locator('[data-pet-turn="pet"]').last().innerText(), 'Mình ngồi đây.')
+  assert.equal(await glass.locator('[data-pet-thread]').count(), 1)
+  await page.screenshot({ path: path.join(output, 'pet-glass-chat.png'), animations: 'disabled' })
+  await page.evaluate(() => window.petStageProof.failChats(true))
+  await input.fill('Keep a refused message')
+  await page.keyboard.press('Enter')
+  await glass.getByRole('alert').waitFor({ state: 'visible' })
+  assert.equal(await glass.locator('[data-pet-turn="user"]').last().innerText(), 'Keep a refused message')
+  await page.evaluate(() => window.petStageProof.failChats(false))
+  await page.keyboard.press('Escape')
+  await glass.waitFor({ state: 'hidden' })
+  assert.equal(await paw.evaluate(el => document.activeElement === el), true)
+  await paw.click()
+  await picker.getByRole('button', { name: 'Hide', exact: true }).click()
+  await hit.waitFor({ state: 'detached' })
+  await paw.click()
+  assert.equal(await picker.getByRole('button', { name: 'Show', exact: true }).count(), 1)
+  await page.screenshot({ path: path.join(output, 'pet-hidden-actions.png'), animations: 'disabled' })
+  await page.keyboard.press('Escape')
+  return { rightClickItems: labels, keyboardActions: true, sizeRefocus: true, wave: true, petChatOnce: true, acceptedDraftCleared: true, rejectedMessageRetained: true, escapeFocus: true, hiddenSpriteNoMenu: true, outsideBoundsPassThrough: true }
+}

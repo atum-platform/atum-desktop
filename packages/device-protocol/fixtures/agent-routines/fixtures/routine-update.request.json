@@ -1,0 +1,12 @@
+{
+  "operation": "update",
+  "requestId": "00000000-0000-4000-8000-305f7140bf65",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "expectedRevision": 3,
+  "title": "Morning brief",
+  "instruction": "Summarize my priorities and calendar.",
+  "schedule": {"kind": "daily", "hour": 8, "minute": 30},
+  "timezone": "Asia/Ho_Chi_Minh",
+  "enabled": false,
+  "notifications": false
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "returned",
+      "to": "imported",
+      "event": "new_generation_committed"
+    }
+  ]
+}

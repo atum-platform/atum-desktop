@@ -1,0 +1,36 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "steps": [
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "bao",
+      "expect": {
+        "result": "conflict"
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r2",
+      "person": "bao",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 3,
+        "consumedNow": true
+      }
+    }
+  ]
+}

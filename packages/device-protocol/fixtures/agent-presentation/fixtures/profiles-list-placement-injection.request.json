@@ -1,0 +1,12 @@
+{
+  "operation": "list",
+  "placement": {
+    "failoverOrder": [
+      {
+        "kind": "cloud",
+        "online": true,
+        "leaseHolder": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,1713 @@
+{
+  "_source": "docs/shelf/hub/*/listing.json as the Shell projects skills.hub.1 listings",
+  "items": [
+    {
+      "itemId": "skill/official/creative/concept-diagrams",
+      "kind": "skill",
+      "title": {
+        "vi": "Sơ đồ giải thích",
+        "en": "Concept diagrams"
+      },
+      "summary": {
+        "vi": "Vẽ sơ đồ minh hoạ phẳng, rõ ràng cho bất kỳ khái niệm nào, mở ngay trong Atum",
+        "en": "Draw clear, flat explanatory diagrams for any concept and open them right in Atum"
+      },
+      "description": {
+        "vi": "Biến một ý tưởng khó hình dung thành sơ đồ sáng rõ, dễ theo dõi. Trợ lý sẽ sắp xếp câu chuyện và tạo tệp bạn có thể mở ngay trong Atum.",
+        "en": "Turn an idea into a clean visual explanation. Your assistant structures the story and creates a diagram you can open directly in Atum."
+      },
+      "tryPrompt": {
+        "vi": "Vẽ sơ đồ giải thích vòng tuần hoàn của nước cho học sinh lớp 5.",
+        "en": "Draw a diagram explaining the water cycle for a fifth-grade student."
+      },
+      "needs": [],
+      "glyph": "🔷",
+      "accent": "#527aa3",
+      "featured": true,
+      "sortOrder": 1,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/concept-diagrams"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/meme-generation",
+      "kind": "skill",
+      "title": {
+        "vi": "Tạo meme",
+        "en": "Meme maker"
+      },
+      "summary": {
+        "vi": "Làm ảnh meme từ hơn 100 mẫu quen thuộc, có chữ sẵn",
+        "en": "Make captioned memes from more than 100 familiar templates"
+      },
+      "description": {
+        "vi": "Kể cho trợ lý một tình huống vui, trợ lý sẽ chọn mẫu meme quen thuộc phù hợp. Câu chữ được đặt sẵn lên ảnh để bạn xem và chia sẻ ngay.",
+        "en": "Give your assistant a joke or situation and it will choose a familiar meme format. It adds the captions and returns a ready-to-share image."
+      },
+      "tryPrompt": {
+        "vi": "Làm một meme về việc sáng thứ Hai đi làm.",
+        "en": "Make a meme about going to work on Monday morning."
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "😂",
+      "accent": "#a35f78",
+      "featured": true,
+      "sortOrder": 2,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/meme-generation"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/pixel-art",
+      "kind": "skill",
+      "title": {
+        "vi": "Pixel art",
+        "en": "Pixel art"
+      },
+      "summary": {
+        "vi": "Vẽ pixel art theo bảng màu NES, Game Boy, PICO-8",
+        "en": "Draw pixel art with NES, Game Boy, and PICO-8 palettes"
+      },
+      "description": {
+        "vi": "Tạo những bức pixel art gợi nhớ các máy chơi game cổ điển. Chỉ cần mô tả cảnh bạn muốn, trợ lý sẽ chọn bảng màu và dựng hình thật gọn gàng.",
+        "en": "Create charming pixel illustrations in classic game-console palettes. Your assistant can work from a simple scene or transform the feel of an existing image."
+      },
+      "tryPrompt": {
+        "vi": "Vẽ pixel art một chú mèo theo phong cách Game Boy.",
+        "en": "Draw pixel art of a cat in Game Boy style."
+      },
+      "needs": [],
+      "glyph": "👾",
+      "accent": "#657d55",
+      "featured": false,
+      "sortOrder": 3,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/pixel-art"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/creative-ideation",
+      "kind": "skill",
+      "title": {
+        "vi": "Kho phương pháp sáng tạo",
+        "en": "Creative methods"
+      },
+      "summary": {
+        "vi": "Lên ý tưởng bằng các phương pháp sáng tạo có tên tuổi, không chỉ liệt kê",
+        "en": "Develop ideas with named creative methods, not just make a list"
+      },
+      "description": {
+        "vi": "Đi xa hơn một danh sách ý tưởng thông thường bằng những phương pháp sáng tạo đã được kiểm chứng. Trợ lý cũng nói rõ cách đã dùng để bạn dễ chọn và phát triển hướng tốt nhất.",
+        "en": "Move beyond a plain brainstorm with proven creative frameworks. Your assistant explains which methods it used so you can understand and develop the strongest directions."
+      },
+      "tryPrompt": {
+        "vi": "Cho mình 10 ý tưởng tên quán cà phê, dùng 3 phương pháp sáng tạo khác nhau.",
+        "en": "Give me 10 names for a coffee shop using three different creative methods."
+      },
+      "needs": [],
+      "glyph": "💡",
+      "accent": "#9a7638",
+      "featured": false,
+      "sortOrder": 4,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/creative-ideation"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/finance/stocks",
+      "kind": "skill",
+      "title": {
+        "vi": "Giá cổ phiếu",
+        "en": "Stock prices"
+      },
+      "summary": {
+        "vi": "Tra giá, lịch sử và so sánh cổ phiếu, tiền mã hoá",
+        "en": "Look up prices, history, and comparisons for stocks and cryptocurrencies"
+      },
+      "description": {
+        "vi": "Hỏi giá thị trường hiện tại hoặc so sánh biến động trong một khoảng thời gian. Trợ lý sẽ gom các con số thành phần giải thích ngắn gọn, dễ hiểu.",
+        "en": "Ask for current market prices or compare performance over time. Your assistant can turn the figures into a concise, understandable summary."
+      },
+      "tryPrompt": {
+        "vi": "So sánh giá cổ phiếu VNM.VN và VCB.VN trong 6 tháng qua.",
+        "en": "Compare VNM.VN and VCB.VN stock prices over the past six months."
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "📈",
+      "accent": "#397d72",
+      "featured": false,
+      "sortOrder": 5,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/finance/stocks"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/health/fitness-nutrition",
+      "kind": "skill",
+      "title": {
+        "vi": "Tập luyện và dinh dưỡng",
+        "en": "Fitness and nutrition"
+      },
+      "summary": {
+        "vi": "Lập lịch tập, tra bài tập theo nhóm cơ, tính BMI, TDEE và macro",
+        "en": "Plan workouts, find exercises by muscle group, and calculate BMI, TDEE, and macros"
+      },
+      "description": {
+        "vi": "Lập kế hoạch tập luyện vừa sức theo kinh nghiệm và mục tiêu của bạn. Trợ lý cũng có thể tra bài tập phù hợp và giúp ước tính các chỉ số dinh dưỡng hằng ngày.",
+        "en": "Build a practical workout plan around your experience and goals. Your assistant can also look up exercises and help estimate everyday nutrition targets."
+      },
+      "tryPrompt": {
+        "vi": "Lập lịch tập gym 3 buổi một tuần cho người mới, tập trung ngực và lưng.",
+        "en": "Make a three-day-a-week beginner gym plan focused on chest and back."
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "🏋️",
+      "accent": "#9a6048",
+      "featured": false,
+      "sortOrder": 6,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/health/fitness-nutrition"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/productivity/memento-flashcards",
+      "kind": "skill",
+      "title": {
+        "vi": "Thẻ ghi nhớ",
+        "en": "Flashcards"
+      },
+      "summary": {
+        "vi": "Tạo thẻ ghi nhớ từ tài liệu và kiểm tra bạn theo lịch lặp lại ngắt quãng",
+        "en": "Make flashcards from documents and quiz you with spaced repetition"
+      },
+      "description": {
+        "vi": "Biến nội dung đang học thành những thẻ hỏi đáp ngắn gọn. Trợ lý lưu bộ thẻ và kiểm tra lại vào những thời điểm phù hợp để bạn nhớ lâu hơn.",
+        "en": "Turn material you are learning into focused question-and-answer cards. Your assistant keeps the deck and quizzes you again at useful intervals."
+      },
+      "tryPrompt": {
+        "vi": "Tạo 10 thẻ ghi nhớ về các thì trong tiếng Anh rồi kiểm tra mình.",
+        "en": "Make 10 flashcards about English verb tenses, then quiz me."
+      },
+      "needs": [
+        "runs-scripts"
+      ],
+      "glyph": "🗂️",
+      "accent": "#735ca0",
+      "featured": false,
+      "sortOrder": 7,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/memento-flashcards"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/documents/document-template-system",
+      "kind": "skill",
+      "title": {
+        "vi": "Mẫu tài liệu dùng chung",
+        "en": "Team document templates",
+        "ja": "チーム文書テンプレート",
+        "zh": "团队文档模板",
+        "zh-TW": "團隊文件範本"
+      },
+      "summary": {
+        "vi": "Tạo bộ mẫu nhất quán cho báo cáo, đề xuất và tài liệu lặp lại",
+        "en": "Build consistent templates for reports, proposals, and recurring documents",
+        "ja": "レポート、提案書、定型文書の一貫したテンプレートを整備",
+        "zh": "为报告、提案和常用文档建立统一模板",
+        "zh-TW": "為報告、提案與常用文件建立一致範本"
+      },
+      "description": {
+        "vi": "Xác định những tài liệu nên chuẩn hoá, thiết kế cấu trúc dễ điền và lập quy tắc đặt tên, kiểu chữ cùng lịch rà soát để cả nhóm dùng lâu dài.",
+        "en": "Choose which recurring documents deserve a template, define an easy-to-fill structure, and set naming, style, and maintenance rules the whole team can follow.",
+        "ja": "定型化すべき文書を選び、入力しやすい構成と命名・書式・更新ルールを整えて、チームで長く使えるようにします。",
+        "zh": "筛选值得模板化的常用文档，设计易填写的结构，并建立命名、样式和维护规则，方便团队长期使用。",
+        "zh-TW": "挑選值得範本化的常用文件，設計易填寫的結構，並建立命名、樣式與維護規則，方便團隊長期使用。"
+      },
+      "tryPrompt": {
+        "vi": "Tạo bộ mẫu báo cáo tuần và đề xuất dự án cho nhóm 8 người của mình.",
+        "en": "Create reusable weekly-report and project-proposal templates for my eight-person team.",
+        "ja": "8人チーム向けに週次報告書とプロジェクト提案書の再利用可能なテンプレートを作ってください。",
+        "zh": "为我的八人团队创建可复用的周报和项目提案模板。",
+        "zh-TW": "為我的八人團隊建立可重複使用的週報與專案提案範本。"
+      },
+      "needs": [],
+      "glyph": "📄",
+      "accent": "#5479a8",
+      "featured": true,
+      "sortOrder": 8,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/documents/document-template-system"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/documents/formatted-report-writer",
+      "kind": "skill",
+      "title": {
+        "vi": "Báo cáo chuyên nghiệp",
+        "en": "Professional reports",
+        "ja": "プロフェッショナルレポート",
+        "zh": "专业报告",
+        "zh-TW": "專業報告"
+      },
+      "summary": {
+        "vi": "Biến phân tích dài thành báo cáo rõ ý, dễ quét và sẵn sàng gửi",
+        "en": "Turn long analysis into a clear, skimmable, delivery-ready report",
+        "ja": "長い分析を明快で読みやすい提出用レポートに整理",
+        "zh": "把长篇分析整理成清晰、易读、可交付的报告",
+        "zh-TW": "把長篇分析整理成清楚、易讀、可交付的報告"
+      },
+      "description": {
+        "vi": "Sắp xếp nội dung thành tóm tắt điều hành, hệ thống tiêu đề và phần kết luận có bằng chứng để người bận rộn nắm được điểm chính nhanh chóng.",
+        "en": "Structure analysis with an executive summary, a clear heading hierarchy, and evidence-backed conclusions so busy readers can find the point quickly.",
+        "ja": "エグゼクティブサマリー、明確な見出し階層、根拠ある結論で分析を整理し、忙しい読者が要点をすぐつかめるようにします。",
+        "zh": "用执行摘要、清晰的标题层级和有依据的结论组织分析，让忙碌的读者迅速抓住重点。",
+        "zh-TW": "用執行摘要、清楚的標題層級與有依據的結論組織分析，讓忙碌的讀者迅速掌握重點。"
+      },
+      "tryPrompt": {
+        "vi": "Biến phần phân tích thị trường này thành báo cáo 5 trang cho ban điều hành.",
+        "en": "Turn this market analysis into a five-page report for the leadership team.",
+        "ja": "この市場分析を経営陣向けの5ページのレポートにまとめてください。",
+        "zh": "把这份市场分析整理成一份给管理层看的五页报告。",
+        "zh-TW": "把這份市場分析整理成一份供管理層閱讀的五頁報告。"
+      },
+      "needs": [],
+      "glyph": "📝",
+      "accent": "#6a71a7",
+      "featured": false,
+      "sortOrder": 9,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/documents/formatted-report-writer"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/documents/spreadsheet-model-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Mô hình bảng tính",
+        "en": "Spreadsheet model builder",
+        "ja": "表計算モデル設計",
+        "zh": "电子表格模型",
+        "zh-TW": "試算表模型"
+      },
+      "summary": {
+        "vi": "Thiết kế bảng tính có đầu vào, công thức, kết quả và kiểm tra rõ ràng",
+        "en": "Design spreadsheets with clear inputs, formulas, outputs, and checks",
+        "ja": "入力、計算、出力、検証が明確な表計算モデルを設計",
+        "zh": "设计输入、公式、输出和校验都清晰的电子表格",
+        "zh-TW": "設計輸入、公式、輸出與檢查都清楚的試算表"
+      },
+      "description": {
+        "vi": "Tổ chức mô hình để người khác có thể kiểm tra: tách đầu vào, phần tính và đầu ra, giữ công thức nhất quán và thêm các phép kiểm tra lỗi.",
+        "en": "Organize a model so another person can audit it: separate inputs, calculations, and outputs, keep formulas consistent, and add explicit error checks.",
+        "ja": "他の人が監査できるよう、入力・計算・出力を分け、数式を一貫させ、明示的なエラーチェックを加えます。",
+        "zh": "把模型组织成可审计的结构：分离输入、计算和输出，保持公式一致，并加入明确的错误检查。",
+        "zh-TW": "把模型整理成可稽核的結構：分離輸入、計算與輸出，保持公式一致，並加入明確的錯誤檢查。"
+      },
+      "tryPrompt": {
+        "vi": "Giúp mình thiết kế bảng tính dự báo doanh thu 12 tháng mà kế toán có thể kiểm tra.",
+        "en": "Design a 12-month revenue forecast spreadsheet that an accountant can audit.",
+        "ja": "会計担当者が監査できる12か月の売上予測スプレッドシートを設計してください。",
+        "zh": "设计一个会计可以审计的十二个月收入预测表。",
+        "zh-TW": "設計一個會計可以稽核的十二個月營收預測表。"
+      },
+      "needs": [],
+      "glyph": "📊",
+      "accent": "#3f8a70",
+      "featured": true,
+      "sortOrder": 10,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/documents/spreadsheet-model-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/documents/slide-deck-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Bộ slide thuyết phục",
+        "en": "Persuasive slide decks",
+        "ja": "説得力のあるスライド",
+        "zh": "有说服力的幻灯片",
+        "zh-TW": "具說服力的簡報"
+      },
+      "summary": {
+        "vi": "Xây câu chuyện trình bày, mỗi slide một ý và tiêu đề nêu kết luận",
+        "en": "Build a presentation story with one idea per slide and takeaway headlines",
+        "ja": "1枚1メッセージと結論型見出しでプレゼンの物語を構成",
+        "zh": "用一页一观点和结论式标题构建演示叙事",
+        "zh-TW": "用一頁一觀點與結論式標題建立簡報敘事"
+      },
+      "description": {
+        "vi": "Đi từ quyết định cần thuyết phục đến mạch kể, chọn bằng chứng cho từng slide và viết tiêu đề nói rõ điều người xem cần nhớ.",
+        "en": "Start from the decision the deck must support, shape a narrative, choose evidence for each slide, and write headlines that state what the audience should remember.",
+        "ja": "支えるべき意思決定から逆算して物語を組み、各スライドの根拠を選び、聴衆が覚えるべき結論を見出しにします。",
+        "zh": "从演示要支持的决策出发，组织叙事，为每页选择证据，并用标题直接写出观众应记住的结论。",
+        "zh-TW": "從簡報要支持的決策出發，組織敘事，為每頁選擇證據，並用標題直接寫出觀眾應記住的結論。"
+      },
+      "tryPrompt": {
+        "vi": "Lập dàn ý 10 slide để thuyết phục đối tác thử sản phẩm của công ty mình.",
+        "en": "Outline a ten-slide deck that persuades a partner to pilot our product.",
+        "ja": "パートナーに製品の試験導入を提案する10枚のスライド構成を作ってください。",
+        "zh": "规划一份十页简报，说服合作伙伴试用我们的产品。",
+        "zh-TW": "規劃一份十頁簡報，說服合作夥伴試用我們的產品。"
+      },
+      "needs": [],
+      "glyph": "🖥️",
+      "accent": "#9a6848",
+      "featured": false,
+      "sortOrder": 11,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/documents/slide-deck-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/productivity/meeting-agenda",
+      "kind": "skill",
+      "title": {
+        "vi": "Chương trình họp",
+        "en": "Meeting agendas",
+        "ja": "会議アジェンダ",
+        "zh": "会议议程",
+        "zh-TW": "會議議程"
+      },
+      "summary": {
+        "vi": "Lập cuộc họp có mục tiêu, chủ trì, thời lượng và kết quả rõ ràng",
+        "en": "Plan meetings with clear goals, owners, timeboxes, and outcomes",
+        "ja": "目的、担当、時間配分、成果が明確な会議を設計",
+        "zh": "规划目标、负责人、时间和结果都明确的会议",
+        "zh-TW": "規劃目標、負責人、時間與結果都明確的會議"
+      },
+      "description": {
+        "vi": "Chuyển chủ đề họp thành chương trình có thời lượng và kết quả mong đợi cho từng mục; đẩy phần cập nhật một chiều sang hình thức đọc trước.",
+        "en": "Turn meeting topics into a time-boxed agenda with an owner and expected outcome for every item, while moving one-way updates into pre-read material.",
+        "ja": "各項目に担当者、時間枠、期待成果を設定し、一方向の報告は事前資料に移して会議を設計します。",
+        "zh": "把会议主题整理成限时议程，为每项明确负责人和预期结果，并把单向汇报移到会前阅读材料。",
+        "zh-TW": "把會議主題整理成限時議程，為每項明確負責人與預期結果，並把單向報告移到會前閱讀資料。"
+      },
+      "tryPrompt": {
+        "vi": "Lập chương trình họp 45 phút để chốt kế hoạch khai trương cửa hàng mới.",
+        "en": "Build a 45-minute agenda to finalize our new-store opening plan.",
+        "ja": "新店舗の開店計画を確定する45分の会議アジェンダを作ってください。",
+        "zh": "制定一个四十五分钟的会议议程，用来敲定新店开业计划。",
+        "zh-TW": "制定一個四十五分鐘的會議議程，用來敲定新店開幕計畫。"
+      },
+      "needs": [],
+      "glyph": "🗓️",
+      "accent": "#477f9d",
+      "featured": false,
+      "sortOrder": 12,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/meeting-agenda"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/productivity/meeting-notes-to-actions",
+      "kind": "skill",
+      "title": {
+        "vi": "Biên bản thành việc cần làm",
+        "en": "Meeting notes to actions",
+        "ja": "議事録からアクションへ",
+        "zh": "会议记录转行动",
+        "zh-TW": "會議紀錄轉行動"
+      },
+      "summary": {
+        "vi": "Rút quyết định, người phụ trách, hạn và câu hỏi mở từ ghi chú cuộc họp",
+        "en": "Extract decisions, owners, due dates, and open questions from meeting notes",
+        "ja": "議事録から決定、担当、期限、未解決事項を抽出",
+        "zh": "从会议记录中提取决策、负责人、期限和待解问题",
+        "zh-TW": "從會議紀錄中提取決策、負責人、期限與待解問題"
+      },
+      "description": {
+        "vi": "Biến ghi chú hoặc bản chép lời thành bản tóm tắt, danh sách quyết định và bảng việc cần làm; không tự bịa người phụ trách hay thời hạn còn thiếu.",
+        "en": "Convert notes or transcripts into a concise summary, actual decisions, and an action table without inventing missing owners, dates, or tasks.",
+        "ja": "メモや文字起こしを要約、決定事項、アクション表に変換し、不明な担当者や期限を勝手に補いません。",
+        "zh": "把笔记或转录整理成摘要、实际决策和行动表，不擅自补写缺失的负责人、日期或任务。",
+        "zh-TW": "把筆記或逐字稿整理成摘要、實際決策與行動表，不擅自補寫缺少的負責人、日期或任務。"
+      },
+      "tryPrompt": {
+        "vi": "Từ biên bản này, liệt kê quyết định, việc cần làm, người phụ trách và hạn chót.",
+        "en": "Turn these notes into decisions and an action table with owners and deadlines.",
+        "ja": "この議事録から決定事項と、担当者・期限付きのアクション表を作ってください。",
+        "zh": "把这些会议记录整理成决策清单和带负责人、截止日期的行动表。",
+        "zh-TW": "把這些會議紀錄整理成決策清單，以及含負責人與截止日期的行動表。"
+      },
+      "needs": [],
+      "glyph": "✅",
+      "accent": "#4f8862",
+      "featured": true,
+      "sortOrder": 13,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/meeting-notes-to-actions"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/writing/executive-summary",
+      "kind": "skill",
+      "title": {
+        "vi": "Tóm tắt điều hành",
+        "en": "Executive summaries",
+        "ja": "エグゼクティブサマリー",
+        "zh": "执行摘要",
+        "zh-TW": "執行摘要"
+      },
+      "summary": {
+        "vi": "Nén báo cáo dài thành một trang có kết luận, bằng chứng, rủi ro và đề xuất",
+        "en": "Compress long reports into one page with findings, evidence, risks, and a recommendation",
+        "ja": "長い報告書を結論、根拠、リスク、提案を含む1ページに圧縮",
+        "zh": "把长报告压缩成含结论、证据、风险和建议的一页摘要",
+        "zh-TW": "把長報告濃縮成含結論、證據、風險與建議的一頁摘要"
+      },
+      "description": {
+        "vi": "Đưa kết luận lên đầu, chọn 3–5 phát hiện có bằng chứng, nêu rủi ro và kết thúc bằng quyết định hoặc nguồn lực cụ thể cần được phê duyệt.",
+        "en": "Lead with the bottom line, select three to five evidence-backed findings, name risks, and end with the exact decision or resource being requested.",
+        "ja": "結論を先に示し、根拠ある3〜5件の発見、リスク、必要な意思決定や資源を1ページにまとめます。",
+        "zh": "先给出结论，挑选三到五条有证据的发现，说明风险，并明确请求的决策或资源。",
+        "zh-TW": "先給出結論，挑選三到五項有證據的發現，說明風險，並明確提出所需決策或資源。"
+      },
+      "tryPrompt": {
+        "vi": "Tóm tắt báo cáo này thành một trang để giám đốc quyết định có mở chi nhánh hay không.",
+        "en": "Summarize this report on one page so the director can decide whether to open a branch.",
+        "ja": "支店を開くか判断できるよう、この報告書を1ページに要約してください。",
+        "zh": "把这份报告总结成一页，供负责人决定是否开设分店。",
+        "zh-TW": "把這份報告摘要成一頁，供負責人決定是否開設分店。"
+      },
+      "needs": [],
+      "glyph": "📌",
+      "accent": "#8a6b50",
+      "featured": false,
+      "sortOrder": 14,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/writing/executive-summary"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/writing/ghostwriter",
+      "kind": "skill",
+      "title": {
+        "vi": "Viết đúng giọng của bạn",
+        "en": "Write in your voice",
+        "ja": "あなたの文体で書く",
+        "zh": "用你的语气写作",
+        "zh-TW": "用你的語氣寫作"
+      },
+      "summary": {
+        "vi": "Phân tích mẫu bạn cung cấp rồi viết bản nháp mới giữ đúng nhịp, từ vựng và sắc thái",
+        "en": "Analyze samples you provide, then draft new text with the same rhythm, vocabulary, and tone",
+        "ja": "提供された文章を分析し、リズム、語彙、トーンを保った新しい下書きを作成",
+        "zh": "分析你提供的样文，再用相同节奏、词汇和语气起草新内容",
+        "zh-TW": "分析你提供的樣文，再用相同節奏、詞彙與語氣起草新內容"
+      },
+      "description": {
+        "vi": "Tạo hồ sơ giọng viết từ chính mẫu của bạn, chỉ ra đặc điểm nổi bật rồi soạn nội dung mới để bạn duyệt và chỉnh trước khi sử dụng.",
+        "en": "Build a voice profile from writing samples you own, explain its defining traits, and produce a new draft for your review before it is used anywhere.",
+        "ja": "本人が提供した文章から文体プロファイルを作り、特徴を説明し、使用前に確認できる新しい下書きを作成します。",
+        "zh": "根据你拥有的样文建立文风档案，说明主要特征，并生成供你审核后再使用的新稿。",
+        "zh-TW": "根據你擁有的樣文建立文風檔案，說明主要特徵，並產生供你審閱後再使用的新稿。"
+      },
+      "tryPrompt": {
+        "vi": "Dựa trên ba bài mình đã viết, soạn bản nháp thư giới thiệu sản phẩm mới cùng giọng văn.",
+        "en": "Using these three samples, draft a product announcement in my voice.",
+        "ja": "この3つの文章を参考に、私の文体で新製品のお知らせを下書きしてください。",
+        "zh": "参考这三篇样文，用我的语气起草一份新品公告。",
+        "zh-TW": "參考這三篇樣文，用我的語氣起草一份新品公告。"
+      },
+      "needs": [],
+      "glyph": "✒️",
+      "accent": "#715c8f",
+      "featured": false,
+      "sortOrder": 15,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/writing/ghostwriter"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/writing/manuscript-reviser",
+      "kind": "skill",
+      "title": {
+        "vi": "Biên tập bản thảo",
+        "en": "Manuscript reviser",
+        "ja": "原稿リバイザー",
+        "zh": "小说稿件修订",
+        "zh-TW": "小說稿件修訂"
+      },
+      "summary": {
+        "vi": "Rà soát truyện đã viết để sửa nhịp, điểm nhìn, mạch liên tục và câu chữ thừa",
+        "en": "Review existing fiction for pace, point of view, continuity, and unnecessary prose",
+        "ja": "既存の物語をテンポ、視点、整合性、冗長さの面から見直す",
+        "zh": "从节奏、视角、连贯性和冗余文字审阅已有小说",
+        "zh-TW": "從節奏、視角、連貫性與冗餘文字審閱既有小說"
+      },
+      "description": {
+        "vi": "Làm một vòng sửa bản thảo đã có: xác định cảnh bị chậm, lỗi điểm nhìn hoặc chi tiết mâu thuẫn, rồi đề xuất thay đổi nhưng giữ quyền quyết định của tác giả.",
+        "en": "Run a structured revision pass on existing fiction, finding slow scenes, point-of-view drift, and continuity breaks while keeping the author's final judgment intact.",
+        "ja": "既存の物語を構造的に見直し、遅い場面、視点のぶれ、整合性の崩れを見つけ、最終判断は作者に委ねます。",
+        "zh": "对已有小说进行结构化修订，找出拖沓场景、视角漂移和连贯性问题，同时保留作者的最终决定权。",
+        "zh-TW": "對既有小說進行結構化修訂，找出拖沓場景、視角漂移與連貫性問題，同時保留作者的最終決定權。"
+      },
+      "tryPrompt": {
+        "vi": "Đọc chương truyện này, tìm chỗ bị chậm và lỗi mạch nhân vật rồi đề xuất cách sửa.",
+        "en": "Review this chapter for slow passages and character-continuity problems, then suggest revisions.",
+        "ja": "この章のテンポが遅い箇所と人物の連続性の問題を見つけ、修正案を出してください。",
+        "zh": "审阅这一章，找出节奏拖慢和人物连贯性问题，并提出修改建议。",
+        "zh-TW": "審閱這一章，找出節奏拖慢與人物連貫性問題，並提出修改建議。"
+      },
+      "needs": [],
+      "glyph": "📖",
+      "accent": "#a06472",
+      "featured": false,
+      "sortOrder": 16,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/writing/manuscript-reviser"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/finance/budget-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Lập ngân sách cá nhân",
+        "en": "Personal budget builder",
+        "ja": "家計予算づくり",
+        "zh": "个人预算规划",
+        "zh-TW": "個人預算規劃"
+      },
+      "summary": {
+        "vi": "Phân bổ thu nhập, chi phí, quỹ dự phòng và khoản chi không đều theo từng tháng",
+        "en": "Allocate income, expenses, savings, and irregular costs month by month",
+        "ja": "収入、支出、貯蓄、不定期費用を月ごとに配分",
+        "zh": "按月分配收入、支出、储蓄和不定期费用",
+        "zh-TW": "按月分配收入、支出、儲蓄與不定期費用"
+      },
+      "description": {
+        "vi": "Lập ngân sách từ thu nhập thực nhận, điều chỉnh khung 50/30/20 theo hoàn cảnh và dành quỹ cho những khoản lớn nhưng không phát sinh hằng tháng.",
+        "en": "Build a budget from take-home income, adapt the 50/30/20 framework to real constraints, and create sinking funds for large irregular expenses.",
+        "ja": "手取り収入から予算を作り、50/30/20の枠組みを事情に合わせ、不定期の大きな支出に備える積立を設けます。",
+        "zh": "根据到手收入制定预算，按实际情况调整50/30/20框架，并为不定期的大额支出建立专项储备。",
+        "zh-TW": "依實領收入制定預算，按實際情況調整50/30/20架構，並為不定期的大額支出建立專項準備。"
+      },
+      "tryPrompt": {
+        "vi": "Giúp mình lập ngân sách tháng với thu nhập 25 triệu và tiền thuê nhà 8 triệu.",
+        "en": "Help me build a monthly budget with 25 million VND income and 8 million VND rent.",
+        "ja": "月収2,500万VND、家賃800万VNDで月間予算を作ってください。",
+        "zh": "按月收入2500万越南盾、房租800万越南盾帮我制定预算。",
+        "zh-TW": "依月收入2,500萬越南盾、房租800萬越南盾幫我制定預算。"
+      },
+      "needs": [],
+      "glyph": "🧾",
+      "accent": "#4c8266",
+      "featured": true,
+      "sortOrder": 17,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/finance/budget-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/finance/cash-flow-forecast",
+      "kind": "skill",
+      "title": {
+        "vi": "Dự báo dòng tiền",
+        "en": "Cash-flow forecast",
+        "ja": "キャッシュフロー予測",
+        "zh": "现金流预测",
+        "zh-TW": "現金流預測"
+      },
+      "summary": {
+        "vi": "Lập dự báo 13 tuần và 12 tháng để nhìn sớm thiếu hụt tiền mặt",
+        "en": "Build 13-week and 12-month forecasts to see cash shortfalls early",
+        "ja": "13週間と12か月の予測で資金不足を早めに把握",
+        "zh": "通过十三周和十二个月预测提前发现现金缺口",
+        "zh-TW": "透過十三週與十二個月預測提早發現現金缺口"
+      },
+      "description": {
+        "vi": "Sắp xếp tiền vào, tiền ra và thời điểm thanh toán thành dự báo có kịch bản cơ sở, xấu và tốt, kèm số tuần doanh nghiệp còn đủ tiền hoạt động.",
+        "en": "Turn inflows, outflows, and payment timing into base, downside, and upside forecasts, with a clear view of how long the business can keep operating.",
+        "ja": "入出金と支払時期を基準・下振れ・上振れの予測に整理し、事業が何週間運営できるかを明確にします。",
+        "zh": "把流入、流出和付款时间整理成基准、下行情景和上行情景，并清楚显示企业还能运营多久。",
+        "zh-TW": "把流入、流出與付款時間整理成基準、下行情境與上行情境，並清楚顯示企業還能營運多久。"
+      },
+      "tryPrompt": {
+        "vi": "Lập khung dự báo dòng tiền 13 tuần cho cửa hàng có doanh thu và tiền thuê theo tháng.",
+        "en": "Build a 13-week cash-flow forecast structure for a shop with monthly sales and rent.",
+        "ja": "月次売上と家賃がある店舗向けに13週間のキャッシュフロー予測を作ってください。",
+        "zh": "为一家按月产生销售收入和房租支出的店铺建立十三周现金流预测。",
+        "zh-TW": "為一家按月產生銷售收入與房租支出的店舖建立十三週現金流預測。"
+      },
+      "needs": [],
+      "glyph": "💵",
+      "accent": "#39796c",
+      "featured": false,
+      "sortOrder": 18,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/finance/cash-flow-forecast"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/finance/financial-statement-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Báo cáo tài chính liên kết",
+        "en": "Linked financial statements",
+        "ja": "連動財務諸表",
+        "zh": "联动财务报表",
+        "zh-TW": "連動財務報表"
+      },
+      "summary": {
+        "vi": "Nối báo cáo kết quả, bảng cân đối và dòng tiền thành một hệ thống có thể kiểm tra",
+        "en": "Link the income statement, balance sheet, and cash flow into one checkable system",
+        "ja": "損益計算書、貸借対照表、キャッシュフローを検証可能な一つの仕組みに連結",
+        "zh": "把利润表、资产负债表和现金流量表连接成可校验的系统",
+        "zh-TW": "把損益表、資產負債表與現金流量表連結成可檢查的系統"
+      },
+      "description": {
+        "vi": "Hướng dẫn thứ tự dựng ba báo cáo, cách các chỉ tiêu liên kết với nhau và những phép kiểm tra giúp phát hiện số liệu không khớp.",
+        "en": "Follow the right construction order, connect the three statements mechanically, and apply review checks that reveal broken links or imbalances.",
+        "ja": "正しい作成順序で3表を機械的に連動させ、リンク切れや不一致を見つける検証を行います。",
+        "zh": "按正确顺序构建三张报表，机械地连接各项，并用复核检查发现断链或不平衡。",
+        "zh-TW": "依正確順序建立三張報表，機械式連結各項，並用複核檢查找出斷鏈或不平衡。"
+      },
+      "tryPrompt": {
+        "vi": "Giải thích cách nối báo cáo kết quả kinh doanh, bảng cân đối và dòng tiền của công ty nhỏ.",
+        "en": "Show me how to link the income statement, balance sheet, and cash-flow statement for a small company.",
+        "ja": "小規模企業の損益計算書、貸借対照表、キャッシュフロー計算書をどう連動させるか説明してください。",
+        "zh": "说明小公司如何联动利润表、资产负债表和现金流量表。",
+        "zh-TW": "說明小公司如何連動損益表、資產負債表與現金流量表。"
+      },
+      "needs": [],
+      "glyph": "📑",
+      "accent": "#4d7560",
+      "featured": false,
+      "sortOrder": 19,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/finance/financial-statement-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/health/meal-planner",
+      "kind": "skill",
+      "title": {
+        "vi": "Thực đơn tuần",
+        "en": "Weekly meal planner",
+        "ja": "週間献立プラン",
+        "zh": "每周膳食计划",
+        "zh-TW": "每週餐食計畫"
+      },
+      "summary": {
+        "vi": "Lên món thực tế theo số người, ngân sách, thời gian nấu và nguyên liệu sẵn có",
+        "en": "Plan practical meals around household size, budget, cooking time, and available ingredients",
+        "ja": "人数、予算、調理時間、手元の食材に合わせて現実的な献立を作成",
+        "zh": "按人数、预算、烹饪时间和现有食材规划实际可做的餐食",
+        "zh-TW": "依人數、預算、烹調時間與現有食材規劃實際可做的餐食"
+      },
+      "description": {
+        "vi": "Chọn món theo nền đạm, tận dụng nấu theo mẻ, sắp lịch chuẩn bị và gom danh sách mua sắm theo khu vực trong cửa hàng để giảm lãng phí.",
+        "en": "Anchor the week around practical proteins, reuse batch cooking, schedule prep, and produce a deduplicated grocery list grouped by store section.",
+        "ja": "実用的なたんぱく源を軸に作り置きを活用し、下ごしらえ日程と売り場別の重複しない買い物リストを作ります。",
+        "zh": "以实用蛋白质为核心安排一周，利用批量烹饪，规划备餐，并生成按商店区域分组的不重复购物清单。",
+        "zh-TW": "以實用蛋白質為核心安排一週，利用批次烹調，規劃備餐，並產生依商店區域分組的不重複採買清單。"
+      },
+      "tryPrompt": {
+        "vi": "Lên thực đơn 5 bữa tối cho gia đình 4 người, dưới 700.000 đồng và nấu không quá 30 phút.",
+        "en": "Plan five dinners for a family of four under 700,000 VND, each taking no more than 30 minutes.",
+        "ja": "4人家族向けに、合計70万VND以内、各30分以内で作れる夕食を5回分計画してください。",
+        "zh": "为四口之家规划五顿晚餐，总预算不超过70万越南盾，每顿不超过三十分钟。",
+        "zh-TW": "為四口之家規劃五頓晚餐，總預算不超過70萬越南盾，每頓不超過三十分鐘。"
+      },
+      "needs": [],
+      "glyph": "🍲",
+      "accent": "#b06f43",
+      "featured": true,
+      "sortOrder": 20,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/health/meal-planner"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/health/nutrition-planner",
+      "kind": "skill",
+      "title": {
+        "vi": "Mục tiêu dinh dưỡng",
+        "en": "Nutrition targets",
+        "ja": "栄養目標",
+        "zh": "营养目标",
+        "zh-TW": "營養目標"
+      },
+      "summary": {
+        "vi": "Ước tính đạm, năng lượng, chất xơ và nước theo mục tiêu thường ngày",
+        "en": "Estimate protein, energy, fiber, and hydration targets for everyday goals",
+        "ja": "日常の目標に合わせてたんぱく質、エネルギー、食物繊維、水分を推定",
+        "zh": "按日常目标估算蛋白质、能量、纤维和饮水量",
+        "zh-TW": "依日常目標估算蛋白質、能量、纖維與飲水量"
+      },
+      "description": {
+        "vi": "Tạo khung ăn uống có thể duy trì, ghi rõ giả định và cách theo dõi để điều chỉnh. Nội dung chỉ mang tính giáo dục, không thay thế chuyên gia y tế.",
+        "en": "Create a sustainable nutrition framework with explicit assumptions and a review loop for adjustment. It is general education, not medical advice.",
+        "ja": "前提と見直し手順を明示した持続可能な栄養の枠組みを作ります。一般的な学習情報であり、医療助言ではありません。",
+        "zh": "建立可持续的营养框架，说明假设和调整复盘流程。内容仅供一般教育，不构成医疗建议。",
+        "zh-TW": "建立可持續的營養架構，說明假設與調整檢視流程。內容僅供一般教育，不構成醫療建議。"
+      },
+      "tryPrompt": {
+        "vi": "Giúp mình ước tính mục tiêu đạm và chất xơ hằng ngày cho người tập nhẹ ba buổi một tuần.",
+        "en": "Estimate daily protein and fiber targets for someone who trains lightly three times a week.",
+        "ja": "週3回軽く運動する人の1日のたんぱく質と食物繊維の目標を見積もってください。",
+        "zh": "估算每周轻度训练三次的人每日蛋白质和纤维目标。",
+        "zh-TW": "估算每週輕度訓練三次的人每日蛋白質與纖維目標。"
+      },
+      "needs": [],
+      "glyph": "🥗",
+      "accent": "#6f8c4f",
+      "featured": false,
+      "sortOrder": 21,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/health/nutrition-planner"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/health/fitness-program",
+      "kind": "skill",
+      "title": {
+        "vi": "Chương trình HIIT",
+        "en": "Interval fitness program",
+        "ja": "インターバル運動プログラム",
+        "zh": "间歇体能计划",
+        "zh-TW": "間歇體能計畫"
+      },
+      "summary": {
+        "vi": "Xây bài tập HIIT có tỷ lệ tập-nghỉ, lịch tuần và mức tăng tiến rõ ràng",
+        "en": "Build HIIT sessions with clear work-rest ratios, weekly structure, and progression",
+        "ja": "運動・休息比、週間構成、段階的な進め方が明確なHIITを設計",
+        "zh": "制定训练休息比、周结构和进阶都明确的HIIT计划",
+        "zh-TW": "制定訓練休息比、週結構與進階都明確的HIIT計畫"
+      },
+      "description": {
+        "vi": "Chọn định dạng phù hợp với kinh nghiệm và thiết bị, lên mức khởi đầu vừa sức rồi tăng dần. Không dùng cho chấn thương hoặc tình trạng y khoa.",
+        "en": "Choose a format that fits experience and equipment, start conservatively, and progress week by week. It is not for injuries or medical conditions.",
+        "ja": "経験と器具に合う形式を選び、控えめに始めて週ごとに進めます。けがや病状への対応には使いません。",
+        "zh": "按经验和器材选择形式，从保守强度开始并逐周进阶。不用于处理伤病或医疗状况。",
+        "zh-TW": "依經驗與器材選擇形式，從保守強度開始並逐週進階。不用於處理傷病或醫療狀況。"
+      },
+      "tryPrompt": {
+        "vi": "Lập chương trình HIIT 4 tuần tại nhà cho người mới, mỗi buổi 20 phút.",
+        "en": "Build a four-week at-home HIIT plan for a beginner, with 20-minute sessions.",
+        "ja": "初心者向けに、1回20分の自宅HIITを4週間分作ってください。",
+        "zh": "为新手制定四周居家HIIT计划，每次二十分钟。",
+        "zh-TW": "為新手制定四週居家HIIT計畫，每次二十分鐘。"
+      },
+      "needs": [],
+      "glyph": "🏃",
+      "accent": "#a8594f",
+      "featured": false,
+      "sortOrder": 22,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/health/fitness-program"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/learning/study-system",
+      "kind": "skill",
+      "title": {
+        "vi": "Hệ thống học tập",
+        "en": "Study system",
+        "ja": "学習システム",
+        "zh": "学习系统",
+        "zh-TW": "學習系統"
+      },
+      "summary": {
+        "vi": "Biến giáo trình thành lịch học có nhớ lại chủ động, lặp lại ngắt quãng và kiểm tra",
+        "en": "Turn a syllabus into active recall, spaced repetition, and practice testing",
+        "ja": "シラバスを想起練習、間隔反復、模擬テストの計画に変換",
+        "zh": "把教学大纲转成主动回忆、间隔复习和练习测试计划",
+        "zh-TW": "把課綱轉成主動回憶、間隔複習與練習測驗計畫"
+      },
+      "description": {
+        "vi": "Chia nội dung thành đơn vị có thể kiểm tra, sắp lịch ôn theo khoảng cách tăng dần và giữ sổ lỗi để tập trung vào chỗ chưa vững.",
+        "en": "Break material into testable units, schedule expanding review intervals, interleave practice, and keep an error log that directs the next session.",
+        "ja": "内容をテスト可能な単位に分け、間隔を広げて復習し、交互練習とエラーログで次の学習を決めます。",
+        "zh": "把内容拆成可测试单元，安排逐步拉长的复习间隔，交错练习，并用错题记录指导下一次学习。",
+        "zh-TW": "把內容拆成可測驗單元，安排逐步拉長的複習間隔，交錯練習，並用錯題紀錄指引下一次學習。"
+      },
+      "tryPrompt": {
+        "vi": "Lập hệ thống ôn thi 8 tuần từ đề cương môn kinh tế này, có lịch kiểm tra thử.",
+        "en": "Build an eight-week study system from this economics syllabus, including practice tests.",
+        "ja": "この経済学のシラバスから、模擬試験を含む8週間の学習計画を作ってください。",
+        "zh": "根据这份经济学教学大纲制定八周学习系统，并安排练习测试。",
+        "zh-TW": "依這份經濟學課綱制定八週學習系統，並安排練習測驗。"
+      },
+      "needs": [],
+      "glyph": "🎓",
+      "accent": "#586fa3",
+      "featured": true,
+      "sortOrder": 23,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/learning/study-system"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/learning/lesson-plan-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Giáo án trọn buổi",
+        "en": "Complete lesson plans",
+        "ja": "授業計画",
+        "zh": "完整教案",
+        "zh-TW": "完整教案"
+      },
+      "summary": {
+        "vi": "Soạn mục tiêu, tiến trình theo phút, hoạt động, kiểm tra nhanh và phương án dạy lại",
+        "en": "Create objectives, a timed lesson arc, activities, checks, and a reteach rule",
+        "ja": "目標、時間配分、活動、理解確認、再指導ルールを含む授業を設計",
+        "zh": "制定目标、分时流程、活动、检查和重新教学规则",
+        "zh-TW": "制定目標、分時流程、活動、檢查與重新教學規則"
+      },
+      "description": {
+        "vi": "Tạo một buổi học có mục tiêu đo được, phần mở bài, hướng dẫn, luyện tập và kết thúc, kèm dấu hiệu để quyết định tiếp tục hay dạy lại.",
+        "en": "Build one lesson with a measurable objective, hook, instruction, guided practice, closure, and a formative check that decides whether to proceed or reteach.",
+        "ja": "測定可能な目標、導入、説明、練習、まとめ、そして進行か再指導かを決める形成的評価を備えた授業を作ります。",
+        "zh": "设计一节包含可衡量目标、导入、讲解、指导练习、收尾和形成性检查的课程，以决定继续还是重教。",
+        "zh-TW": "設計一節包含可衡量目標、導入、講解、引導練習、收尾與形成性檢查的課程，以決定繼續或重教。"
+      },
+      "tryPrompt": {
+        "vi": "Soạn giáo án 45 phút về phân số cho học sinh lớp 5, có bài kiểm tra nhanh cuối giờ.",
+        "en": "Create a 45-minute lesson on fractions for fifth graders, with an exit check.",
+        "ja": "小学5年生向けに、最後の理解確認を含む45分の分数授業を作ってください。",
+        "zh": "为五年级学生设计一节四十五分钟的分数课，并安排课末检查。",
+        "zh-TW": "為五年級學生設計一節四十五分鐘的分數課，並安排課末檢查。"
+      },
+      "needs": [],
+      "glyph": "🧑‍🏫",
+      "accent": "#a07045",
+      "featured": false,
+      "sortOrder": 24,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/learning/lesson-plan-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/finance/big-purchase-decision",
+      "kind": "skill",
+      "title": {
+        "vi": "Cân nhắc khoản mua lớn",
+        "en": "Big purchase decision",
+        "ja": "大きな買い物の判断",
+        "zh": "大额购买决策",
+        "zh-TW": "大額購買決策"
+      },
+      "summary": {
+        "vi": "So sánh tổng chi phí sở hữu, khả năng chi trả và phương án mua, chờ hoặc bỏ",
+        "en": "Compare total ownership cost, affordability, and a buy, wait, or walk-away choice",
+        "ja": "総保有コストと支払能力を比べ、買う・待つ・見送るを判断",
+        "zh": "比较总持有成本和负担能力，给出购买、等待或放弃建议",
+        "zh-TW": "比較總持有成本與負擔能力，給出購買、等待或放棄建議"
+      },
+      "description": {
+        "vi": "Tính cả giá mua, lãi vay, bảo trì, bảo hiểm và chi phí cơ hội, đặt ngưỡng an toàn rồi đưa ra bảng đánh giá để bạn tự quyết định.",
+        "en": "Include price, financing, maintenance, insurance, and opportunity cost, apply affordability red lines, and return a scored decision for the person to make.",
+        "ja": "価格、融資、維持費、保険、機会費用を含め、支払能力の基準を適用し、本人が決めるための採点結果を示します。",
+        "zh": "计入价格、融资、维护、保险和机会成本，应用负担能力红线，并给出供本人决定的评分结果。",
+        "zh-TW": "計入價格、融資、維護、保險與機會成本，套用負擔能力紅線，並給出供本人決定的評分結果。"
+      },
+      "tryPrompt": {
+        "vi": "Giúp mình đánh giá nên mua, chờ hay bỏ chiếc xe máy điện 45 triệu này.",
+        "en": "Help me decide whether to buy, wait, or walk away from this 45 million VND electric scooter.",
+        "ja": "4,500万VNDの電動スクーターを買う、待つ、見送るのどれがよいか評価してください。",
+        "zh": "帮我评估这辆4500万越南盾的电动摩托车该买、等还是放弃。",
+        "zh-TW": "幫我評估這輛4,500萬越南盾的電動機車該買、等，還是放棄。"
+      },
+      "needs": [],
+      "glyph": "🛒",
+      "accent": "#9b7546",
+      "featured": false,
+      "sortOrder": 25,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/finance/big-purchase-decision"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/travel/geo-places",
+      "kind": "skill",
+      "title": {
+        "vi": "Địa điểm và tọa độ",
+        "en": "Places and coordinates",
+        "ja": "場所と座標",
+        "zh": "地点与坐标",
+        "zh-TW": "地點與座標"
+      },
+      "summary": {
+        "vi": "Tra địa chỉ, tọa độ, mã bưu chính và thông tin quốc gia bằng nguồn mở",
+        "en": "Look up addresses, coordinates, postal codes, and country facts with open data",
+        "ja": "オープンデータで住所、座標、郵便番号、国情報を検索",
+        "zh": "用开放数据查询地址、坐标、邮编和国家信息",
+        "zh-TW": "用開放資料查詢地址、座標、郵遞區號與國家資訊"
+      },
+      "description": {
+        "vi": "Chọn dịch vụ miễn phí phù hợp cho từng loại tra cứu, tuân thủ giới hạn tốc độ và trả về kết quả có đường dẫn nguồn cùng phần giải thích khi địa danh mơ hồ.",
+        "en": "Choose the right keyless source for each lookup, respect public-service rate limits, and return the exact source URL while explaining ambiguous matches.",
+        "ja": "検索内容に合うキー不要の情報源を選び、公開サービスの速度制限を守り、曖昧な一致を説明してURLを返します。",
+        "zh": "为每种查询选择合适的免密钥数据源，遵守公共服务限速，并返回确切来源链接、说明歧义匹配。",
+        "zh-TW": "為每種查詢選擇合適的免金鑰資料源，遵守公共服務限速，並回傳確切來源連結、說明歧義比對。"
+      },
+      "tryPrompt": {
+        "vi": "Tìm tọa độ và mã bưu chính của Chợ Bến Thành, kèm nguồn.",
+        "en": "Find the coordinates and postal code for Ben Thanh Market, with the source URL.",
+        "ja": "ベンタイン市場の座標と郵便番号を情報源URL付きで調べてください。",
+        "zh": "查询滨城市场的坐标和邮编，并附来源链接。",
+        "zh-TW": "查詢濱城市場的座標與郵遞區號，並附來源連結。"
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "📍",
+      "accent": "#3f8090",
+      "featured": false,
+      "sortOrder": 26,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/travel/geo-places"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/research/deep-research",
+      "kind": "skill",
+      "title": {
+        "vi": "Nghiên cứu chuyên sâu",
+        "en": "Deep research",
+        "ja": "詳細調査",
+        "zh": "深度研究",
+        "zh-TW": "深度研究"
+      },
+      "summary": {
+        "vi": "Chia câu hỏi lớn, tìm nhiều nguồn độc lập, đối chiếu rồi viết bản tổng hợp có dẫn nguồn",
+        "en": "Break down a broad question, cross-check independent sources, and write a cited synthesis",
+        "ja": "広い問いを分解し、独立した情報源を照合して引用付きで統合",
+        "zh": "拆解宽泛问题，交叉核对独立来源，并写成带引用的综合报告",
+        "zh-TW": "拆解廣泛問題，交叉核對獨立來源，並寫成附引用的綜合報告"
+      },
+      "description": {
+        "vi": "Lập câu hỏi phụ, ưu tiên nguồn gốc, ghi lại điểm đồng thuận và mâu thuẫn, rồi nêu mức độ tin cậy cùng phần còn chưa biết.",
+        "en": "Decompose the question, prioritize primary sources, record agreement and conflict, and report confidence levels alongside what remains unknown.",
+        "ja": "問いを分解し、一次情報を優先し、合意と対立を記録して、信頼度と未解明点を示します。",
+        "zh": "拆解问题，优先一手来源，记录共识与冲突，并说明置信度和仍未知的部分。",
+        "zh-TW": "拆解問題，優先第一手來源，記錄共識與衝突，並說明信賴程度與仍未知的部分。"
+      },
+      "tryPrompt": {
+        "vi": "Nghiên cứu tác động của du lịch đêm đến doanh thu hộ kinh doanh ở các thành phố Đông Nam Á.",
+        "en": "Research how nighttime tourism affects small-business revenue in Southeast Asian cities.",
+        "ja": "夜間観光が東南アジアの都市の小規模事業者の売上に与える影響を調べてください。",
+        "zh": "研究夜间旅游如何影响东南亚城市小企业的收入。",
+        "zh-TW": "研究夜間旅遊如何影響東南亞城市小型企業的營收。"
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "🔎",
+      "accent": "#4c70a0",
+      "featured": true,
+      "sortOrder": 27,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/research/deep-research"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/research/fact-checker",
+      "kind": "skill",
+      "title": {
+        "vi": "Kiểm chứng thông tin",
+        "en": "Fact checker",
+        "ja": "ファクトチェック",
+        "zh": "事实核查",
+        "zh-TW": "事實查核"
+      },
+      "summary": {
+        "vi": "Kiểm tra một khẳng định qua nhiều nguồn và trả kết luận có mức tin cậy",
+        "en": "Check a claim across multiple sources and return a confidence-calibrated verdict",
+        "ja": "複数の情報源で主張を確認し、信頼度付きの判定を返す",
+        "zh": "通过多个来源核查主张，并给出带置信度的结论",
+        "zh-TW": "透過多個來源查核主張，並給出含信賴程度的結論"
+      },
+      "description": {
+        "vi": "Tách khẳng định cần kiểm tra, tìm nguồn độc lập và nguồn gốc, rồi phân loại là đã xác minh, có khả năng đúng, có khả năng sai, sai hoặc chưa thể biết.",
+        "en": "Isolate the claim, check independent and primary sources, and return a verdict of verified, likely true, likely false, false, or unverifiable.",
+        "ja": "検証する主張を切り分け、独立情報源と一次情報を確認し、確認済み、真らしい、偽らしい、偽、検証不能で判定します。",
+        "zh": "拆分待核查主张，检查独立来源和一手资料，并给出已验证、可能为真、可能为假、错误或无法验证的结论。",
+        "zh-TW": "拆分待查核主張，檢查獨立來源與第一手資料，並給出已驗證、可能為真、可能為假、錯誤或無法驗證的結論。"
+      },
+      "tryPrompt": {
+        "vi": "Kiểm chứng câu 'Việt Nam là nước xuất khẩu cà phê lớn thứ hai thế giới' bằng nguồn mới nhất.",
+        "en": "Fact-check the claim that Vietnam is the world's second-largest coffee exporter using current sources.",
+        "ja": "ベトナムは世界第2位のコーヒー輸出国だという主張を最新の情報源で検証してください。",
+        "zh": "用最新来源核查“越南是世界第二大咖啡出口国”这一说法。",
+        "zh-TW": "用最新來源查核「越南是全球第二大咖啡出口國」這項說法。"
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "🔍",
+      "accent": "#527c85",
+      "featured": false,
+      "sortOrder": 28,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/research/fact-checker"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/color-palette-builder",
+      "kind": "skill",
+      "title": {
+        "vi": "Bảng màu thương hiệu",
+        "en": "Brand color palettes",
+        "ja": "ブランドカラーパレット",
+        "zh": "品牌色彩方案",
+        "zh-TW": "品牌色彩配置"
+      },
+      "summary": {
+        "vi": "Tạo màu chủ đạo, thang sắc độ, vai trò sử dụng và quy tắc tương phản",
+        "en": "Create an anchor color, tonal scales, usage roles, and contrast rules",
+        "ja": "基準色、色調スケール、用途、コントラスト規則を設計",
+        "zh": "创建主色、色阶、使用角色和对比规则",
+        "zh-TW": "建立主色、色階、使用角色與對比規則"
+      },
+      "description": {
+        "vi": "Đi từ một màu chủ đạo đến hệ thống màu có vai trò rõ ràng cho nền, chữ, hành động và trạng thái; kiểm tra khả năng đọc thay vì chỉ chọn màu đẹp.",
+        "en": "Turn one anchor color into a role-based system for surfaces, text, actions, and states, with readability checks instead of relying on taste alone.",
+        "ja": "基準色から背景、文字、操作、状態の役割別システムを作り、好みだけでなく可読性も確認します。",
+        "zh": "从一个主色扩展为用于背景、文字、操作和状态的角色化系统，并检查可读性，而不是只凭审美。",
+        "zh-TW": "從一個主色擴展為用於背景、文字、操作與狀態的角色化系統，並檢查可讀性，而非只憑審美。"
+      },
+      "tryPrompt": {
+        "vi": "Tạo bảng màu dễ đọc cho thương hiệu trà Việt, bắt đầu từ màu xanh lá #356B4A.",
+        "en": "Build an accessible palette for a Vietnamese tea brand starting from #356B4A.",
+        "ja": "#356B4Aを基準に、ベトナム茶ブランド向けの読みやすい配色を作ってください。",
+        "zh": "以#356B4A为主色，为越南茶品牌建立易读的配色。",
+        "zh-TW": "以#356B4A為主色，為越南茶品牌建立易讀的配色。"
+      },
+      "needs": [],
+      "glyph": "🎨",
+      "accent": "#8b62a3",
+      "featured": false,
+      "sortOrder": 29,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/color-palette-builder"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/thumbnail-concept",
+      "kind": "skill",
+      "title": {
+        "vi": "Ý tưởng thumbnail",
+        "en": "Thumbnail concepts",
+        "ja": "サムネイル案",
+        "zh": "缩略图创意",
+        "zh-TW": "縮圖創意"
+      },
+      "summary": {
+        "vi": "Tạo ba hướng thumbnail khác nhau, dễ đọc và đúng với nội dung video",
+        "en": "Create three distinct, legible thumbnail directions that honestly match the video",
+        "ja": "動画内容に正直で読みやすい3つの異なるサムネイル案を作成",
+        "zh": "创建三个不同、易读且真实匹配视频内容的缩略图方向",
+        "zh-TW": "建立三個不同、易讀且真實符合影片內容的縮圖方向"
+      },
+      "description": {
+        "vi": "Ghép tiêu đề và hình ảnh thành lời hứa trung thực, xác định điểm nhìn đầu tiên, chữ trên ảnh, màu sắc và rủi ro khi thu nhỏ trên điện thoại.",
+        "en": "Pair title and image into an honest promise, then specify focal point, overlay text, color direction, and small-screen legibility risks.",
+        "ja": "タイトルと画像を誠実な約束として組み合わせ、焦点、文字、配色、小画面での可読性リスクを定義します。",
+        "zh": "把标题和图像组合成真实承诺，并明确焦点、叠加文字、色彩方向和小屏可读性风险。",
+        "zh-TW": "把標題與圖像組合成真實承諾，並明確焦點、疊加文字、色彩方向與小螢幕可讀性風險。"
+      },
+      "tryPrompt": {
+        "vi": "Đề xuất 3 thumbnail cho video hướng dẫn mở quán cà phê với 100 triệu đồng.",
+        "en": "Propose three thumbnail concepts for a video about opening a café with 100 million VND.",
+        "ja": "1億VNDでカフェを開く動画のサムネイル案を3つ提案してください。",
+        "zh": "为“用一亿越南盾开咖啡店”的视频提出三个缩略图方案。",
+        "zh-TW": "為「用一億越南盾開咖啡店」的影片提出三個縮圖方案。"
+      },
+      "needs": [],
+      "glyph": "🖼️",
+      "accent": "#b05f55",
+      "featured": false,
+      "sortOrder": 30,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/thumbnail-concept"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/video-storyboard",
+      "kind": "skill",
+      "title": {
+        "vi": "Kịch bản phân cảnh video",
+        "en": "Video storyboards",
+        "ja": "動画ストーリーボード",
+        "zh": "视频分镜",
+        "zh-TW": "影片分鏡"
+      },
+      "summary": {
+        "vi": "Chia video thành nhịp kể, cảnh quay, thời lượng và bằng chứng trước khi sản xuất",
+        "en": "Break a video into story beats, shots, timing, and proof before production",
+        "ja": "制作前に動画を物語の節目、ショット、尺、根拠へ分解",
+        "zh": "制作前把视频拆成叙事节拍、镜头、时长和证据",
+        "zh-TW": "製作前把影片拆成敘事節拍、鏡頭、時長與證據"
+      },
+      "description": {
+        "vi": "Lập hook, vấn đề, phần hé lộ, bằng chứng và lời kêu gọi hành động; sau đó chuyển thành danh sách cảnh có mục tiêu, thời lượng và tài sản cần chuẩn bị.",
+        "en": "Plan the hook, problem, reveal, proof, and call to action, then turn them into a shot list with purpose, duration, and required assets.",
+        "ja": "フック、課題、提示、証拠、行動喚起を設計し、目的、尺、必要素材を含むショットリストにします。",
+        "zh": "规划开场、问题、揭示、证据和行动号召，再转换为包含目的、时长和所需素材的镜头清单。",
+        "zh-TW": "規劃開場、問題、揭示、證據與行動呼籲，再轉成包含目的、時長與所需素材的鏡頭清單。"
+      },
+      "tryPrompt": {
+        "vi": "Lập storyboard 45 giây giới thiệu ứng dụng đặt lịch cho tiệm tóc.",
+        "en": "Storyboard a 45-second launch video for a salon appointment app.",
+        "ja": "美容室予約アプリの45秒ローンチ動画を絵コンテにしてください。",
+        "zh": "为美发店预约应用制作四十五秒发布视频分镜。",
+        "zh-TW": "為美髮店預約應用程式製作四十五秒發布影片分鏡。"
+      },
+      "needs": [],
+      "glyph": "🎬",
+      "accent": "#9d5f7b",
+      "featured": true,
+      "sortOrder": 31,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/video-storyboard"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/writing/localization-guide",
+      "kind": "skill",
+      "title": {
+        "vi": "Dịch và bản địa hoá",
+        "en": "Translation and localization",
+        "ja": "翻訳とローカライズ",
+        "zh": "翻译与本地化",
+        "zh-TW": "翻譯與在地化"
+      },
+      "summary": {
+        "vi": "Chuyển nội dung sang ngôn ngữ và vùng đích với giọng điệu, đơn vị và tham chiếu phù hợp",
+        "en": "Adapt content to a target language and region with the right tone, units, and references",
+        "ja": "対象言語と地域に合わせて語調、単位、文化的参照を調整",
+        "zh": "按目标语言和地区调整语气、单位和文化参照",
+        "zh-TW": "依目標語言與地區調整語氣、單位與文化參照"
+      },
+      "description": {
+        "vi": "Giữ nguyên ý chính nhưng thay thành ngữ, mức trang trọng, ngày tháng, tiền tệ và ví dụ văn hoá cho tự nhiên; đánh dấu phần cần người bản ngữ kiểm tra.",
+        "en": "Preserve meaning while adapting idioms, formality, dates, units, currency, and cultural references, with explicit flags for native review.",
+        "ja": "意味を保ちながら慣用句、敬意、日付、単位、通貨、文化的参照を調整し、母語話者の確認が必要な箇所を示します。",
+        "zh": "在保持原意的同时调整习语、正式程度、日期、单位、货币和文化参照，并标出需要母语者复核的部分。",
+        "zh-TW": "在保持原意的同時調整慣用語、正式程度、日期、單位、貨幣與文化參照，並標出需要母語者複核的部分。"
+      },
+      "tryPrompt": {
+        "vi": "Bản địa hoá trang giới thiệu sản phẩm này từ tiếng Anh sang tiếng Việt, giữ giọng thân thiện nhưng chuyên nghiệp.",
+        "en": "Localize this product page from English to Vietnamese in a friendly, professional tone.",
+        "ja": "この製品ページを英語からベトナム語へ、親しみやすくプロらしい調子でローカライズしてください。",
+        "zh": "把这个产品页面从英语本地化为越南语，保持友好而专业的语气。",
+        "zh-TW": "把這個產品頁面從英文在地化為越南文，保持友善而專業的語氣。"
+      },
+      "needs": [],
+      "glyph": "🌐",
+      "accent": "#4d8191",
+      "featured": true,
+      "sortOrder": 32,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/writing/localization-guide"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/productivity/gtd-system",
+      "kind": "skill",
+      "title": {
+        "vi": "Hệ thống GTD",
+        "en": "GTD task system",
+        "ja": "GTDタスク管理",
+        "zh": "GTD任务系统",
+        "zh-TW": "GTD任務系統"
+      },
+      "summary": {
+        "vi": "Thu thập, làm rõ, sắp xếp, rà soát và chọn việc tiếp theo trong một hệ thống đáng tin",
+        "en": "Capture, clarify, organize, review, and choose next actions in one trusted system",
+        "ja": "収集、明確化、整理、見直し、次の行動を一つの信頼できる仕組みに統合",
+        "zh": "在一个可信系统中收集、澄清、整理、回顾并选择下一步行动",
+        "zh-TW": "在一個可信系統中收集、釐清、整理、檢視並選擇下一步行動"
+      },
+      "description": {
+        "vi": "Dọn toàn bộ việc đang vướng trong đầu vào hộp thu thập, biến từng mục thành việc kế tiếp hoặc dự án, rồi duy trì bằng buổi rà soát hằng tuần.",
+        "en": "Move every open loop into an inbox, clarify each item into a next action or project, organize by context, and maintain trust through a weekly review.",
+        "ja": "頭の中の未完了事項を受信箱に集め、次の行動かプロジェクトに明確化し、文脈別に整理して週次レビューで維持します。",
+        "zh": "把所有未完成事项放进入口，澄清为下一步行动或项目，按情境整理，并通过每周回顾保持可信。",
+        "zh-TW": "把所有未完成事項放進收件匣，釐清為下一步行動或專案，依情境整理，並透過每週檢視保持可信。"
+      },
+      "tryPrompt": {
+        "vi": "Giúp mình làm một buổi brain dump rồi sắp toàn bộ việc thành hệ thống GTD đơn giản.",
+        "en": "Guide me through a brain dump and organize everything into a simple GTD system.",
+        "ja": "頭の中のことを全部書き出し、シンプルなGTDシステムに整理してください。",
+        "zh": "带我做一次思维清空，并把所有事情整理成简单的GTD系统。",
+        "zh-TW": "帶我做一次腦內清空，並把所有事情整理成簡單的GTD系統。"
+      },
+      "needs": [],
+      "glyph": "📥",
+      "accent": "#5e72a0",
+      "featured": false,
+      "sortOrder": 33,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/gtd-system"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/productivity/weekly-review",
+      "kind": "skill",
+      "title": {
+        "vi": "Rà soát tuần",
+        "en": "Weekly review",
+        "ja": "週次レビュー",
+        "zh": "每周回顾",
+        "zh-TW": "每週檢視"
+      },
+      "summary": {
+        "vi": "Dọn hộp việc, kiểm tra cam kết và chọn 3–5 kết quả quan trọng cho tuần tới",
+        "en": "Clear inboxes, audit commitments, and choose three to five outcomes for next week",
+        "ja": "受信箱を空にし、約束を点検し、来週の3〜5件の成果を選ぶ",
+        "zh": "清空收件箱、检查承诺，并选出下周三到五个重点成果",
+        "zh-TW": "清空收件匣、檢查承諾，並選出下週三到五個重點成果"
+      },
+      "description": {
+        "vi": "Chạy một buổi rà soát có giới hạn thời gian: xử lý mọi đầu vào, kiểm tra dự án đang mở, nhìn lịch sắp tới và chốt ưu tiên có thể hoàn thành.",
+        "en": "Run a time-boxed reset that processes every inbox, checks open projects and upcoming calendar items, and selects realistic outcomes for the next week.",
+        "ja": "時間を区切って受信箱を処理し、進行中のプロジェクトと予定を確認し、次週の現実的な成果を選びます。",
+        "zh": "进行限时重置：处理所有入口，检查进行中的项目和近期日程，并选定下周可实现的成果。",
+        "zh-TW": "進行限時重整：處理所有收件匣，檢查進行中的專案與近期行程，並選定下週可完成的成果。"
+      },
+      "tryPrompt": {
+        "vi": "Dẫn mình qua buổi rà soát tuần 30 phút và giúp chọn 4 ưu tiên cho tuần sau.",
+        "en": "Guide me through a 30-minute weekly review and help choose four priorities for next week.",
+        "ja": "30分の週次レビューを進め、来週の優先事項を4つ選ぶのを手伝ってください。",
+        "zh": "带我完成三十分钟的每周回顾，并选出下周四个优先事项。",
+        "zh-TW": "帶我完成三十分鐘的每週檢視，並選出下週四個優先事項。"
+      },
+      "needs": [],
+      "glyph": "🔄",
+      "accent": "#6c67a0",
+      "featured": false,
+      "sortOrder": 34,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/productivity/weekly-review"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/creative/brand-naming",
+      "kind": "skill",
+      "title": {
+        "vi": "Đặt tên thương hiệu",
+        "en": "Brand naming",
+        "ja": "ブランドネーミング",
+        "zh": "品牌命名",
+        "zh-TW": "品牌命名"
+      },
+      "summary": {
+        "vi": "Tạo nhiều hướng tên, chấm theo tiêu chí và kiểm tra rủi ro ngôn ngữ, ghi nhớ",
+        "en": "Generate naming directions, score them, and check linguistic and memorability risks",
+        "ja": "複数の命名方向を出し、評価し、言語・記憶上のリスクを確認",
+        "zh": "生成多种命名方向、评分并检查语言和记忆风险",
+        "zh-TW": "產生多種命名方向、評分並檢查語言與記憶風險"
+      },
+      "description": {
+        "vi": "Tạo ít nhất 20 tên theo nhiều kiểu, chấm từng tên theo chiến lược và độ dễ nhớ, rồi sàng lọc nghĩa xấu; không thay thế bước tra cứu nhãn hiệu chuyên nghiệp.",
+        "en": "Generate at least twenty names across several archetypes, score strategic fit and memorability, and screen linguistic risks without pretending to provide trademark clearance.",
+        "ja": "複数の型から20案以上を出し、戦略適合性と記憶性を評価し、言語上のリスクを確認します。商標調査の代わりではありません。",
+        "zh": "按多种命名类型生成至少二十个名称，评估战略契合度和记忆度，并筛查语言风险；不冒充专业商标检索。",
+        "zh-TW": "依多種命名類型產生至少二十個名稱，評估策略契合度與記憶度，並篩查語言風險；不冒充專業商標檢索。"
+      },
+      "tryPrompt": {
+        "vi": "Đặt tên cho thương hiệu đồ ăn vặt Việt ít đường, bán cho dân văn phòng.",
+        "en": "Name a low-sugar Vietnamese snack brand for office workers.",
+        "ja": "オフィスワーカー向けの低糖質ベトナムスナックブランドの名前を考えてください。",
+        "zh": "为面向上班族的低糖越南零食品牌命名。",
+        "zh-TW": "為面向上班族的低糖越南零食品牌命名。"
+      },
+      "needs": [],
+      "glyph": "🏷️",
+      "accent": "#a66e48",
+      "featured": false,
+      "sortOrder": 35,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/creative/brand-naming"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/small-business/product-description-writer",
+      "kind": "skill",
+      "title": {
+        "vi": "Mô tả sản phẩm",
+        "en": "Product descriptions",
+        "ja": "商品説明",
+        "zh": "产品描述",
+        "zh-TW": "產品描述"
+      },
+      "summary": {
+        "vi": "Biến thông số thật thành trang sản phẩm dễ đọc, nêu lợi ích mà không bịa tuyên bố",
+        "en": "Turn real specifications into a scannable product page without invented claims",
+        "ja": "実際の仕様を、誇張のない読みやすい商品ページに変換",
+        "zh": "把真实规格写成易读的产品页，不编造卖点",
+        "zh-TW": "把真實規格寫成易讀的產品頁，不捏造賣點"
+      },
+      "description": {
+        "vi": "Chuyển danh sách tính năng thành tiêu đề, đoạn mở, lợi ích, thông số và lời kêu gọi hành động theo giọng thương hiệu; đánh dấu mọi dữ kiện còn thiếu.",
+        "en": "Turn a feature list into a headline, opening, benefits, specifications, and call to action in the brand voice, while marking every missing fact.",
+        "ja": "機能一覧をブランドの声で見出し、導入、利点、仕様、行動喚起に変え、不足情報を明示します。",
+        "zh": "把功能清单按品牌语气写成标题、开场、利益点、规格和行动号召，并标记所有缺失事实。",
+        "zh-TW": "把功能清單依品牌語氣寫成標題、開場、利益點、規格與行動呼籲，並標記所有缺失事實。"
+      },
+      "tryPrompt": {
+        "vi": "Viết mô tả trang sản phẩm cho bình giữ nhiệt inox 500ml từ bảng thông số này.",
+        "en": "Write a product-page description for a 500 ml stainless-steel bottle using this spec sheet.",
+        "ja": "この仕様表から500mlステンレスボトルの商品説明を書いてください。",
+        "zh": "根据这份规格表为500毫升不锈钢保温瓶写产品页描述。",
+        "zh-TW": "依這份規格表為500毫升不鏽鋼保溫瓶撰寫產品頁描述。"
+      },
+      "needs": [],
+      "glyph": "🛍️",
+      "accent": "#b07845",
+      "featured": false,
+      "sortOrder": 36,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/small-business/product-description-writer"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "skill/official/travel/travel-guide",
+      "kind": "skill",
+      "title": {
+        "vi": "Cẩm nang du lịch riêng",
+        "en": "Personal travel guide",
+        "ja": "パーソナル旅行ガイド",
+        "zh": "个性化旅行指南",
+        "zh-TW": "個人化旅行指南"
+      },
+      "summary": {
+        "vi": "Lập hành trình theo ngày, ngân sách, nhịp đi và sở thích, có nguồn cho thông tin hiện tại",
+        "en": "Plan an itinerary around dates, budget, pace, and preferences, with sources for current facts",
+        "ja": "日程、予算、ペース、好みに合わせ、最新情報に出典を付けた旅程を作成",
+        "zh": "按日期、预算、节奏和偏好规划行程，并为当前信息提供来源",
+        "zh-TW": "依日期、預算、步調與偏好規劃行程，並為即時資訊提供來源"
+      },
+      "description": {
+        "vi": "Hỏi những điều thật sự ảnh hưởng đến chuyến đi, kiểm tra giờ mở cửa, giao thông và giá từ nguồn hiện tại, rồi tạo hành trình có phương án dự phòng mà không đặt chỗ thay bạn.",
+        "en": "Ask only what changes the trip, verify hours, transport, and prices from current sources, and build an itinerary with fallbacks without booking anything.",
+        "ja": "旅程に影響する点だけを確認し、営業時間、交通、料金を最新情報で検証し、予約せず代替案付きの行程を作ります。",
+        "zh": "只询问真正影响行程的信息，从最新来源核对营业时间、交通和价格，并在不代订的前提下给出带备选方案的行程。",
+        "zh-TW": "只詢問真正影響行程的資訊，從最新來源核對營業時間、交通與價格，並在不代訂的前提下提供含備案的行程。"
+      },
+      "tryPrompt": {
+        "vi": "Lập cẩm nang 4 ngày ở Đà Nẵng cho hai người lớn, đi chậm, thích đồ ăn địa phương và ngân sách 12 triệu.",
+        "en": "Plan a four-day Da Nang guide for two adults who prefer a slow pace, local food, and a 12 million VND budget.",
+        "ja": "ゆっくり過ごし、地元料理を楽しみたい大人2人向けに、予算1,200万VNDでダナン4日間のガイドを作ってください。",
+        "zh": "为两位成年人规划四天岘港行程，节奏慢、喜欢当地美食，预算1200万越南盾。",
+        "zh-TW": "為兩位成年人規劃四天峴港行程，步調慢、喜歡在地美食，預算1,200萬越南盾。"
+      },
+      "needs": [
+        "internet"
+      ],
+      "glyph": "🧭",
+      "accent": "#3f7894",
+      "featured": true,
+      "sortOrder": 37,
+      "offer": null,
+      "install": {
+        "source": "hermes_hub",
+        "id": "official/travel/travel-guide"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    }
+  ]
+}

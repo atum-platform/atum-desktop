@@ -1,0 +1,881 @@
+{
+  "contract_id": "atum.execution-policy",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/error-invalid.response.json",
+    "fixtures/error-inventory-changed.response.json",
+    "fixtures/error-request-conflict.response.json",
+    "fixtures/error-revision-conflict.response.json",
+    "fixtures/error-unavailable.response.json",
+    "fixtures/policy-default.response.json",
+    "fixtures/policy-saved.response.json",
+    "fixtures/policy-update-duplicate.request.json",
+    "fixtures/policy-update-runtime-injection.request.json",
+    "fixtures/policy-update.request.json",
+    "fixtures/selection-active-turn-retained.case.json",
+    "fixtures/selection-all-disabled.case.json",
+    "fixtures/selection-authority-lost.case.json",
+    "fixtures/selection-current-preferred.case.json",
+    "fixtures/selection-default-cloud.case.json",
+    "fixtures/selection-idle-yield.case.json",
+    "fixtures/selection-no-eligible.case.json",
+    "fixtures/selection-saved-local.case.json",
+    "fixtures/selection-working-not-acquirable.case.json",
+    "fixtures/status-all-disabled.response.json",
+    "fixtures/status-disabled-active.response.json",
+    "fixtures/status-disabled-yielding.response.json",
+    "fixtures/status-idle.response.json",
+    "fixtures/status-secret.response.json",
+    "fixtures/status-unavailable.response.json",
+    "fixtures/status-working.response.json",
+    "fixtures/status-yielding.response.json",
+    "fixtures/validation-cloud-required.case.json",
+    "fixtures/validation-default-revision.case.json",
+    "fixtures/validation-disabled-subset.case.json",
+    "fixtures/validation-future-observation.case.json",
+    "fixtures/validation-inventory-mismatch.case.json",
+    "fixtures/validation-paused-holder.case.json",
+    "fixtures/validation-saved-revision.case.json"
+  ],
+  "row": "H-F / U13-MACHINES: owner-controlled per-agent executor order and enablement",
+  "supersedes": {
+    "atum.cloud-execution/1.1 A1-A2": "answering mode is no longer a permanent cloud-versus-local partition",
+    "spec/cloud-local-preference/v1": "surface preference is replaced by owner-saved order over one existing lease"
+  },
+  "routes": {
+    "GET /api/matrix/v1/agents/{agentPrincipal}/execution-policy": {
+      "status": "planned",
+      "auth": "owner",
+      "response": "policy.snapshot"
+    },
+    "PUT /api/matrix/v1/agents/{agentPrincipal}/execution-policy": {
+      "status": "planned",
+      "auth": "owner",
+      "request": "policy.update.request",
+      "response": "policy.snapshot"
+    },
+    "GET /api/matrix/v1/agents/{agentPrincipal}/execution-status": {
+      "status": "planned",
+      "auth": "owner",
+      "response": "status.snapshot"
+    }
+  },
+  "parameters": {
+    "maximum_destinations": 65,
+    "active_turn_policy": "finish_current_term_unless_stopped_or_authority_lost",
+    "write_effective_boundary": "before_next_claim"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "revision": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "destination_id": {
+      "type": "string",
+      "pattern": "(?:cloud|mac:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    },
+    "destination_order": {
+      "type": "array",
+      "items": {
+        "ref": "destination_id"
+      },
+      "min": 1,
+      "max": 65,
+      "unique": true
+    },
+    "disabled_destinations": {
+      "type": "array",
+      "items": {
+        "ref": "destination_id"
+      },
+      "min": 0,
+      "max": 65,
+      "unique": true
+    },
+    "policy_snapshot": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.execution-policy/1"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "const": 0
+            },
+            "source": {
+              "const": "default"
+            },
+            "order": {
+              "ref": "destination_order"
+            },
+            "disabled": {
+              "ref": "disabled_destinations"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.execution-policy/1"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "type": "integer",
+              "min": 1,
+              "max": 9007199254740991
+            },
+            "source": {
+              "const": "saved"
+            },
+            "order": {
+              "ref": "destination_order"
+            },
+            "disabled": {
+              "ref": "disabled_destinations"
+            }
+          }
+        }
+      ]
+    },
+    "destination_status_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "ready"
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "working"
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "busy"
+            },
+            "reason": {
+              "const": "busy"
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "yielding"
+            },
+            "reason": {
+              "const": "higher_priority"
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "offline"
+            },
+            "reason": {
+              "enum": [
+                "not_present",
+                "locked",
+                "stale"
+              ]
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "disabled"
+            },
+            "reason": {
+              "const": "owner_disabled"
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "degraded"
+            },
+            "reason": {
+              "enum": [
+                "server_down",
+                "upgrade_required",
+                "model_incompatible",
+                "data_incompatible",
+                "entitlement_required",
+                "consent_required",
+                "execution_failed"
+              ]
+            },
+            "observedAt": {
+              "ref": "timestamp_ms"
+            }
+          }
+        }
+      ]
+    },
+    "destination_statuses": {
+      "type": "object",
+      "required": {},
+      "additional": {
+        "ref": "destination_status_value"
+      },
+      "additionalKeys": {
+        "ref": "destination_id"
+      }
+    },
+    "inventory_value": {
+      "type": "object",
+      "required": {
+        "authority": {
+          "enum": [
+            "valid",
+            "lost"
+          ]
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "stable": {
+          "type": "boolean"
+        },
+        "activity": {
+          "enum": [
+            "idle",
+            "working",
+            "busy"
+          ]
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "required": {},
+      "additional": {
+        "ref": "inventory_value"
+      },
+      "additionalKeys": {
+        "ref": "destination_id"
+      }
+    },
+    "selection_expected": {
+      "type": "object",
+      "required": {
+        "action": {
+          "enum": [
+            "acquire",
+            "retain",
+            "yield",
+            "pause",
+            "wait",
+            "stop"
+          ]
+        },
+        "desired": {
+          "anyOf": [
+            {
+              "ref": "destination_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "enum": [
+            "policy_first",
+            "current_preferred",
+            "active_turn",
+            "all_disabled",
+            "no_eligible",
+            "higher_priority",
+            "authority_lost"
+          ]
+        }
+      }
+    },
+    "validation_subject": {
+      "enum": [
+        "policy.snapshot",
+        "status.snapshot",
+        "selection.input"
+      ]
+    },
+    "validation_violation": {
+      "enum": [
+        "cloud_required",
+        "disabled_subset",
+        "revision_source",
+        "future_observation",
+        "status_coherence",
+        "inventory_mismatch"
+      ]
+    }
+  },
+  "semantic_rules": [
+    {
+      "id": "cloud_required",
+      "rule": "policy order contains cloud exactly once"
+    },
+    {
+      "id": "disabled_subset",
+      "rule": "every disabled destination appears in order"
+    },
+    {
+      "id": "revision_source",
+      "rule": "default has revision 0; saved has revision at least 1"
+    },
+    {
+      "id": "future_observation",
+      "rule": "every status observation is at or before asOf"
+    },
+    {
+      "id": "status_coherence",
+      "rule": "status order, disabled set, current, desired and state describe one representable lease state"
+    },
+    {
+      "id": "inventory_mismatch",
+      "rule": "selection policy and provider inventory name the same destinations; activeTurn has one current holder"
+    }
+  ],
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "agentPrincipal",
+        "revision",
+        "source",
+        "state",
+        "current",
+        "desired",
+        "asOf",
+        "observedAt",
+        "*token*",
+        "*secret*",
+        "*credential*",
+        "*authorization*"
+      ]
+    },
+    "platform_to_owner": {
+      "forbidden_fields": [
+        "owner",
+        "executorId",
+        "leaseToken",
+        "*token*",
+        "*secret*",
+        "*credential*",
+        "*authorization*"
+      ]
+    },
+    "test_vector": {
+      "forbidden_fields": [
+        "owner",
+        "executorId",
+        "leaseToken",
+        "*token*",
+        "*secret*",
+        "*credential*",
+        "*authorization*"
+      ]
+    }
+  },
+  "messages": {
+    "policy.update.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "requestId": {
+            "ref": "uuid"
+          },
+          "expectedRevision": {
+            "ref": "revision"
+          },
+          "order": {
+            "ref": "destination_order"
+          },
+          "disabled": {
+            "ref": "disabled_destinations"
+          }
+        }
+      }
+    },
+    "policy.snapshot": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "ref": "policy_snapshot"
+      }
+    },
+    "status.snapshot": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.execution-status/1"
+          },
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "policyRevision": {
+            "ref": "revision"
+          },
+          "asOf": {
+            "ref": "timestamp_ms"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "working",
+              "yielding",
+              "paused",
+              "unavailable"
+            ]
+          },
+          "current": {
+            "anyOf": [
+              {
+                "ref": "destination_id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "desired": {
+            "anyOf": [
+              {
+                "ref": "destination_id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "order": {
+            "ref": "destination_order"
+          },
+          "disabled": {
+            "ref": "disabled_destinations"
+          },
+          "destinations": {
+            "ref": "destination_statuses"
+          }
+        }
+      }
+    },
+    "selection.case": {
+      "direction": "test_vector",
+      "schema": {
+        "type": "object",
+        "required": {
+          "caseId": {
+            "type": "string",
+            "min": 1,
+            "max": 80,
+            "pattern": "[a-z][a-z0-9_-]*"
+          },
+          "policy": {
+            "ref": "policy_snapshot"
+          },
+          "inventory": {
+            "ref": "inventory"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "ref": "destination_id"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "activeTurn": {
+            "type": "boolean"
+          },
+          "expected": {
+            "ref": "selection_expected"
+          }
+        }
+      }
+    },
+    "error.response": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_400"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "invalid"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_409"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "request_conflict"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_409"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "revision_conflict"
+                  }
+                }
+              },
+              "revision": {
+                "ref": "revision"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_409"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "inventory_changed"
+                  }
+                }
+              },
+              "revision": {
+                "ref": "revision"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_503"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "unavailable"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "validation.case": {
+      "direction": "test_vector",
+      "schema": {
+        "type": "object",
+        "required": {
+          "caseId": {
+            "type": "string",
+            "min": 1,
+            "max": 80,
+            "pattern": "[a-z][a-z0-9_-]*"
+          },
+          "subject": {
+            "ref": "validation_subject"
+          },
+          "value": {
+            "ref": "json_value"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "optional": {
+          "violation": {
+            "ref": "validation_violation"
+          }
+        }
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/policy-default.response.json",
+      "message": "policy.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-saved.response.json",
+      "message": "policy.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-update.request.json",
+      "message": "policy.update.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-update-duplicate.request.json",
+      "message": "policy.update.request",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/policy-update-runtime-injection.request.json",
+      "message": "policy.update.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/status-working.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-yielding.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-disabled-yielding.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-disabled-active.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-all-disabled.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-idle.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-unavailable.response.json",
+      "message": "status.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-secret.response.json",
+      "message": "status.snapshot",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/error-invalid.response.json",
+      "message": "error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-request-conflict.response.json",
+      "message": "error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-revision-conflict.response.json",
+      "message": "error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-inventory-changed.response.json",
+      "message": "error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-unavailable.response.json",
+      "message": "error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-default-cloud.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-saved-local.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-active-turn-retained.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-idle-yield.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-all-disabled.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-no-eligible.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-current-preferred.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-working-not-acquirable.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/selection-authority-lost.case.json",
+      "message": "selection.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-cloud-required.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-disabled-subset.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-default-revision.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-saved-revision.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-future-observation.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-paused-holder.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-inventory-mismatch.case.json",
+      "message": "validation.case",
+      "expect": "accept"
+    }
+  ]
+}

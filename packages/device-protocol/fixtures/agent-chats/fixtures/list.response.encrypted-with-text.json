@@ -1,0 +1,24 @@
+{
+  "rooms": [
+    {
+      "id": "!Zr81pQe2JhNcA:example.invalid",
+      "label": "Bot nhắc việc",
+      "kind": "app",
+      "members": [
+        "Bot nhắc việc"
+      ],
+      "memberCount": 2,
+      "notifications": 2,
+      "highlights": null,
+      "lastAt": 1792000100000,
+      "last": {
+        "eventId": "$e1abc",
+        "from": "Bot nhắc việc",
+        "mine": false,
+        "text": "leaked"
+      },
+      "encrypted": true
+    }
+  ],
+  "truncated": false
+}

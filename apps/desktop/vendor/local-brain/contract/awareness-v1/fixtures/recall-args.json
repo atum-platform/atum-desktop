@@ -1,0 +1,11 @@
+{
+  "query": "launch date decision",
+  "filters": {
+    "sourceKinds": [
+      "human_dm",
+      "human_group"
+    ],
+    "since": 1788080400000
+  },
+  "limit": 8
+}

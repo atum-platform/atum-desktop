@@ -1,0 +1,6 @@
+Copyright (c) 2026 Alexander Ouellet
+
+Source: SkillMedev/skills @ 97a13607d669157a4a16d5ba79b77f208319f7b9
+Path: skills/localization-guide/SKILL.md
+Licence: MIT (https://github.com/SkillMedev/skills/blob/97a13607d669157a4a16d5ba79b77f208319f7b9/LICENSE)
+Modification: modern Hermes wrapper, compatible frontmatter, and the shared Atum safety boundary.

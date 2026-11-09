@@ -1,0 +1,11 @@
+{
+  "account_epoch": "00000000-0000-4000-8000-d98016d67fb8",
+  "projection": {
+    "availability": "unavailable",
+    "profile": null,
+    "state": "unavailable",
+    "version": 0,
+    "can_message": false,
+    "direct_thread_id": null
+  }
+}

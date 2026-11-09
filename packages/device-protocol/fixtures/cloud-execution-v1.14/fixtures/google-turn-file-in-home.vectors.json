@@ -1,0 +1,38 @@
+{
+  "turnMaxMs": 3600000,
+  "maxLifetimeMs": 3600000,
+  "credentials": [
+    {
+      "name": "google_token.json",
+      "contents": "access_token_plus_placeholders",
+      "path": "hermes_home_root",
+      "mode": 384,
+      "maxBytes": 16384,
+      "lifetimeMs": 3600000,
+      "durable": "none",
+      "inHomeFiles": true,
+      "inArchiveFiles": false,
+      "inExport": false,
+      "modelContext": "absent",
+      "fileToolRead": "denied",
+      "toolOutput": "redacted",
+      "answer": "redacted"
+    },
+    {
+      "name": "google_client_secret.json",
+      "contents": "placeholders_only",
+      "path": "hermes_home_root",
+      "mode": 384,
+      "maxBytes": 16384,
+      "lifetimeMs": 3600000,
+      "durable": "none",
+      "inHomeFiles": false,
+      "inArchiveFiles": false,
+      "inExport": false,
+      "modelContext": "absent",
+      "fileToolRead": "denied",
+      "toolOutput": "redacted",
+      "answer": "redacted"
+    }
+  ]
+}

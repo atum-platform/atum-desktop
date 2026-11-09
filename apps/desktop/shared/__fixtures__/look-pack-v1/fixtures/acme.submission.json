@@ -1,0 +1,15 @@
+{
+  "profile": "atum.look-pack/1",
+  "name": { "en": "Acme" },
+  "accent": { "light": "#1D625D", "dark": "#68D4C8" },
+  "chat": {
+    "background": {
+      "light": { "tone": "light", "base": "#F1F5F4", "layers": [] },
+      "dark": { "tone": "dark", "base": "#172421", "layers": [] }
+    },
+    "tokens": null
+  },
+  "start_card": null,
+  "regions": {}
+}
+

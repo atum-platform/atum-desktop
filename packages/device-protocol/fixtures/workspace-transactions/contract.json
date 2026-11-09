@@ -1,0 +1,1210 @@
+{
+  "contract_id": "atum.workspace-transactions",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/etag-conflict.error.json",
+    "fixtures/excluded-name.error.json",
+    "fixtures/grant-names-owner.request.json",
+    "fixtures/grant.request.json",
+    "fixtures/grant.response.json",
+    "fixtures/placement.vectors.json",
+    "fixtures/stale-term.error.json",
+    "fixtures/transaction-committed.sequence.json",
+    "fixtures/transaction-leaks-etag-as-token.manifest.json",
+    "fixtures/transaction-retry-unknown.sequence.json",
+    "fixtures/transaction-sibling.manifest.json",
+    "fixtures/transaction-siblings.sequence.json",
+    "fixtures/transaction-stale.sequence.json",
+    "fixtures/transaction-unknown.sequence.json",
+    "fixtures/transaction.manifest.json",
+    "fixtures/ws-commit-committed.response.json",
+    "fixtures/ws-commit-names-agent.request.json",
+    "fixtures/ws-commit-siblings.response.json",
+    "fixtures/ws-commit-stale.response.json",
+    "fixtures/ws-commit-too-many-outputs.request.json",
+    "fixtures/ws-commit-unknown.response.json",
+    "fixtures/ws-commit.request.json",
+    "fixtures/ws-manifest.request.json",
+    "fixtures/ws-manifest.response.json",
+    "fixtures/ws-read.request.json",
+    "fixtures/ws-stage.request.json",
+    "fixtures/ws-stage.response.json"
+  ],
+  "row": "S1 C0 (one agent everywhere)",
+  "providers": [
+    "DA SQL and the Drive broker (WS-5p): cloud_workspace_grants, cloud_workspace_tasks, the ws_* operations"
+  ],
+  "consumers": [
+    "CX controller (WS-5a): WorkspaceSession",
+    "Desktop device (WS-5a): WorkspaceCopies"
+  ],
+  "routes": {
+    "owner": {
+      "native_base": "/api/matrix/v1",
+      "operations": {
+        "POST /cloud/workspaces": [
+          "grant.request",
+          "grant.response"
+        ]
+      }
+    },
+    "controller": {
+      "base": "/api/matrix/v1/cloud/controller",
+      "operations": {
+        "POST /executors/{executorId}/files": [
+          "ws_manifest",
+          "ws_read",
+          "ws_stage",
+          "ws_commit",
+          "ws_place"
+        ]
+      }
+    }
+  },
+  "s1_rule": "Every hydrated input is a read dependency. If any input changed, outputs are placed as siblings, never overwrites. There is never a retry; unknown is terminal. Deletions and renames are proposed and reported, not applied.",
+  "sibling_naming": "\"<name> (T <yyyy-mm-dd> <task8>)<.ext>\", written if_not_exist",
+  "exclusions": "The engine's setAtumRootExclusions list (csync_exclude.cpp): .hermes/, .env*, keys and databases never hydrate and can never be written.",
+  "parameters": {
+    "manifest_max_entries": 5000,
+    "manifest_max_depth": 16,
+    "outputs_max": 16,
+    "output_max_bytes": 33554432,
+    "total_max_bytes": 67108864,
+    "put_timeout_ms": 120000,
+    "hydrate_max_bytes": 67108864,
+    "hydrate_max_files": 2000
+  },
+  "migrations": {
+    "reserved": {
+      "0178": "WS-5p: cloud_workspace_grants, cloud_workspace_tasks, the ws_* SQL operations gated by the live lease"
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[!-9;-~]+:[!-~]+"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "etag": {
+      "type": "string",
+      "min": 1,
+      "max": 512,
+      "pattern": "[!-~]+"
+    },
+    "ws_path": {
+      "type": "string",
+      "min": 1,
+      "max": 1024,
+      "pattern": "[^\\u0000]+"
+    },
+    "resource": {
+      "type": "object",
+      "required": {
+        "storage": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[!-~]+"
+        },
+        "space": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[!-~]+"
+        },
+        "opaque": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[!-~]+"
+        }
+      }
+    },
+    "local_state": {
+      "enum": [
+        "clean",
+        "dirty",
+        "new",
+        "absent"
+      ]
+    },
+    "device_revision": {
+      "type": "object",
+      "required": {
+        "inode": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "mtimeNs": {
+          "type": "string",
+          "min": 1,
+          "max": 24,
+          "pattern": "[0-9]+"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "manifest_entry": {
+      "type": "object",
+      "required": {
+        "path": {
+          "ref": "ws_path"
+        },
+        "etag": {
+          "ref": "etag"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 33554432
+        },
+        "sha256": {
+          "ref": "sha256_hex"
+        },
+        "kind": {
+          "enum": [
+            "file",
+            "container"
+          ]
+        }
+      }
+    },
+    "input": {
+      "type": "object",
+      "required": {
+        "resource": {
+          "ref": "resource"
+        },
+        "path": {
+          "ref": "ws_path"
+        },
+        "etag": {
+          "ref": "etag"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 33554432
+        },
+        "sha256": {
+          "ref": "sha256_hex"
+        },
+        "source": {
+          "type": "string",
+          "min": 1,
+          "max": 300,
+          "pattern": "cloud|device:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        },
+        "localState": {
+          "ref": "local_state"
+        }
+      },
+      "optional": {
+        "deviceRevision": {
+          "ref": "device_revision"
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": {
+        "path": {
+          "ref": "ws_path"
+        },
+        "mode": {
+          "enum": [
+            "create",
+            "replace"
+          ]
+        },
+        "baseEtag": {
+          "anyOf": [
+            {
+              "ref": "etag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "artifact": {
+          "type": "object",
+          "required": {
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "size": {
+              "type": "integer",
+              "min": 0,
+              "max": 33554432
+            },
+            "staged": {
+              "type": "object",
+              "required": {
+                "artifactId": {
+                  "ref": "uuid"
+                }
+              }
+            }
+          }
+        },
+        "state": {
+          "enum": [
+            "placed",
+            "sibling",
+            "unknown",
+            "not_attempted"
+          ]
+        }
+      },
+      "optional": {
+        "placed": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "resource": {
+                  "ref": "resource"
+                },
+                "etag": {
+                  "ref": "etag"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "siblingPath": {
+          "anyOf": [
+            {
+              "ref": "ws_path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "description": "The owner's native client to DA. The owner is the introspected principal.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "payer",
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "platform_to_owner": {
+      "description": "DA to the owner's client.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "controller_to_platform": {
+      "description": "The controller to DA with its credential; DA derives owner and agent from the executor.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "agentPrincipal",
+        "payer",
+        "accessToken",
+        "credential",
+        "token"
+      ]
+    },
+    "platform_to_controller": {
+      "description": "DA and the Drive broker to the controller.",
+      "forbidden_fields": [
+        "credential",
+        "recoveryKey",
+        "machineAuthKey"
+      ]
+    },
+    "platform_to_client": {
+      "description": "DA's error envelope.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "controller_store": {
+      "description": "The transaction manifest the controller keeps and also writes under <ws>/.atum/tasks/.",
+      "forbidden_fields": [
+        "leaseToken",
+        "credential",
+        "accessToken",
+        "machineAuthKey"
+      ]
+    },
+    "conformance": {
+      "description": "Typed placement vectors; not wire payloads.",
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "grant.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "agentPrincipal": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "grant.response": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "grantId": {
+            "ref": "uuid"
+          },
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "label": {
+            "type": "string",
+            "min": 1,
+            "max": 255,
+            "pattern": "/[!-~ ]+"
+          },
+          "createdAt": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "ws_manifest.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "ws_manifest"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "grantId": {
+            "ref": "uuid"
+          },
+          "taskId": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "ws_manifest.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "ref": "manifest_entry"
+            },
+            "max": 5000
+          },
+          "truncated": {
+            "type": "boolean"
+          },
+          "excluded": {
+            "type": "integer",
+            "min": 0,
+            "max": 1000000
+          }
+        }
+      }
+    },
+    "ws_read.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "ws_read"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "grantId": {
+            "ref": "uuid"
+          },
+          "taskId": {
+            "ref": "uuid"
+          },
+          "resource": {
+            "ref": "resource"
+          },
+          "etag": {
+            "ref": "etag"
+          }
+        }
+      }
+    },
+    "ws_stage.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "ws_stage"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "grantId": {
+            "ref": "uuid"
+          },
+          "taskId": {
+            "ref": "uuid"
+          },
+          "artifactId": {
+            "ref": "uuid"
+          },
+          "sha256": {
+            "ref": "sha256_hex"
+          },
+          "size": {
+            "type": "integer",
+            "min": 0,
+            "max": 33554432
+          }
+        }
+      }
+    },
+    "ws_stage.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "artifactId": {
+            "ref": "uuid"
+          },
+          "staged": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "ws_commit.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "ws_commit"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "grantId": {
+            "ref": "uuid"
+          },
+          "taskId": {
+            "ref": "uuid"
+          },
+          "inputManifestHash": {
+            "ref": "sha256_hex"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "resource": {
+                  "ref": "resource"
+                },
+                "path": {
+                  "ref": "ws_path"
+                },
+                "etag": {
+                  "ref": "etag"
+                }
+              }
+            },
+            "max": 5000
+          },
+          "placements": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "path": {
+                  "ref": "ws_path"
+                },
+                "mode": {
+                  "enum": [
+                    "create",
+                    "replace"
+                  ]
+                },
+                "baseEtag": {
+                  "anyOf": [
+                    {
+                      "ref": "etag"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "artifactId": {
+                  "ref": "uuid"
+                },
+                "sha256": {
+                  "ref": "sha256_hex"
+                }
+              }
+            },
+            "max": 16
+          }
+        }
+      }
+    },
+    "ws_commit.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "result": {
+            "enum": [
+              "committed",
+              "committed_with_siblings",
+              "stale_inputs",
+              "unknown"
+            ]
+          },
+          "dependencyCheck": {
+            "type": "object",
+            "required": {
+              "at": {
+                "ref": "timestamp_ms"
+              },
+              "changed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": {
+                    "path": {
+                      "ref": "ws_path"
+                    },
+                    "expected": {
+                      "ref": "etag"
+                    },
+                    "actual": {
+                      "anyOf": [
+                        {
+                          "ref": "etag"
+                        },
+                        {
+                          "const": "absent"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "max": 5000
+              }
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "path": {
+                  "ref": "ws_path"
+                },
+                "state": {
+                  "enum": [
+                    "placed",
+                    "sibling",
+                    "unknown",
+                    "not_attempted"
+                  ]
+                },
+                "placed": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": {
+                        "resource": {
+                          "ref": "resource"
+                        },
+                        "etag": {
+                          "ref": "etag"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "siblingPath": {
+                  "anyOf": [
+                    {
+                      "ref": "ws_path"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "max": 16
+          }
+        }
+      }
+    },
+    "ws.error": {
+      "direction": "platform_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "error": {
+            "enum": [
+              "matrix_400",
+              "matrix_403",
+              "matrix_404",
+              "matrix_409",
+              "matrix_412",
+              "matrix_503"
+            ]
+          }
+        },
+        "optional": {
+          "details": {
+            "type": "object",
+            "required": {
+              "reason": {
+                "enum": [
+                  "invalid",
+                  "not_eligible",
+                  "stale_term",
+                  "grant_revoked",
+                  "excluded_name",
+                  "too_large",
+                  "too_many",
+                  "depth_exceeded",
+                  "not_found",
+                  "conflict",
+                  "unknown"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "transaction.manifest": {
+      "direction": "controller_store",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "taskId": {
+            "ref": "uuid"
+          },
+          "owner": {
+            "ref": "uuid"
+          },
+          "agent": {
+            "ref": "uuid"
+          },
+          "invocationId": {
+            "ref": "uuid"
+          },
+          "leaseGeneration": {
+            "type": "integer",
+            "min": 1,
+            "max": 9007199254740991
+          },
+          "workspace": {
+            "type": "object",
+            "required": {
+              "resource": {
+                "ref": "resource"
+              },
+              "label": {
+                "type": "string",
+                "min": 1,
+                "max": 255,
+                "pattern": "/[!-~ ]+"
+              }
+            }
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "ref": "input"
+            },
+            "max": 2000
+          },
+          "inputManifestHash": {
+            "ref": "sha256_hex"
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "ref": "output"
+            },
+            "max": 16
+          },
+          "deletionsProposed": {
+            "type": "array",
+            "items": {
+              "ref": "ws_path"
+            },
+            "max": 1000
+          },
+          "dependencyCheck": {
+            "type": "object",
+            "required": {
+              "at": {
+                "ref": "timestamp_ms"
+              },
+              "changed": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": {
+                    "path": {
+                      "ref": "ws_path"
+                    },
+                    "expected": {
+                      "ref": "etag"
+                    },
+                    "actual": {
+                      "anyOf": [
+                        {
+                          "ref": "etag"
+                        },
+                        {
+                          "const": "absent"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "max": 5000
+              }
+            }
+          },
+          "result": {
+            "enum": [
+              "committed",
+              "committed_with_siblings",
+              "stale_inputs",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "placement.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 80
+                },
+                "output": {
+                  "type": "object",
+                  "required": {
+                    "path": {
+                      "ref": "ws_path"
+                    },
+                    "mode": {
+                      "enum": [
+                        "create",
+                        "replace"
+                      ]
+                    },
+                    "baseEtag": {
+                      "anyOf": [
+                        {
+                          "ref": "etag"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "server": {
+                  "type": "object",
+                  "required": {
+                    "present": {
+                      "type": "boolean"
+                    }
+                  },
+                  "optional": {
+                    "etag": {
+                      "ref": "etag"
+                    },
+                    "excluded": {
+                      "type": "boolean"
+                    }
+                  }
+                },
+                "inputChanged": {
+                  "type": "boolean"
+                },
+                "decision": {
+                  "enum": [
+                    "place",
+                    "sibling",
+                    "refused",
+                    "not_attempted"
+                  ]
+                },
+                "siblingPath": {
+                  "anyOf": [
+                    {
+                      "ref": "ws_path"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reason": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "excluded_name",
+                        "input_changed",
+                        "etag_conflict"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {
+    "transaction": {
+      "states": [
+        "open",
+        "staged",
+        "checking",
+        "committed",
+        "committed_with_siblings",
+        "stale_inputs",
+        "unknown"
+      ],
+      "initial": [
+        "open"
+      ],
+      "terminal": [
+        "committed",
+        "committed_with_siblings",
+        "stale_inputs",
+        "unknown"
+      ],
+      "transitions": [
+        [
+          "open",
+          "staged",
+          "stage"
+        ],
+        [
+          "staged",
+          "checking",
+          "recheck_dependencies"
+        ],
+        [
+          "checking",
+          "committed",
+          "all_clean_placed"
+        ],
+        [
+          "checking",
+          "committed_with_siblings",
+          "placed_as_siblings"
+        ],
+        [
+          "checking",
+          "stale_inputs",
+          "inputs_changed"
+        ],
+        [
+          "staged",
+          "unknown",
+          "lost_acknowledgment"
+        ],
+        [
+          "checking",
+          "unknown",
+          "lost_acknowledgment"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/grant.request.json",
+      "message": "grant.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/grant.response.json",
+      "message": "grant.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/grant-names-owner.request.json",
+      "message": "grant.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/ws-manifest.request.json",
+      "message": "ws_manifest.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-manifest.response.json",
+      "message": "ws_manifest.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-read.request.json",
+      "message": "ws_read.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-stage.request.json",
+      "message": "ws_stage.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-stage.response.json",
+      "message": "ws_stage.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit.request.json",
+      "message": "ws_commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit-committed.response.json",
+      "message": "ws_commit.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit-siblings.response.json",
+      "message": "ws_commit.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit-stale.response.json",
+      "message": "ws_commit.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit-unknown.response.json",
+      "message": "ws_commit.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ws-commit-names-agent.request.json",
+      "message": "ws_commit.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/ws-commit-too-many-outputs.request.json",
+      "message": "ws_commit.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/excluded-name.error.json",
+      "message": "ws.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/etag-conflict.error.json",
+      "message": "ws.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/stale-term.error.json",
+      "message": "ws.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction.manifest.json",
+      "message": "transaction.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-sibling.manifest.json",
+      "message": "transaction.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-leaks-etag-as-token.manifest.json",
+      "message": "transaction.manifest",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/transaction-committed.sequence.json",
+      "machine": "transaction",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-siblings.sequence.json",
+      "machine": "transaction",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-stale.sequence.json",
+      "machine": "transaction",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-unknown.sequence.json",
+      "machine": "transaction",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transaction-retry-unknown.sequence.json",
+      "machine": "transaction",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/placement.vectors.json",
+      "message": "placement.vectors",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+name: web-direct
+version: 1.0.0
+description: "Direct page reader — web_extract with no key and no third-party reader: the page is fetched from this machine (through the egress proxy in Atum's cloud sandbox) and cleaned to Markdown-like text."
+author: Atum
+kind: backend
+provides_web_providers:
+  - direct

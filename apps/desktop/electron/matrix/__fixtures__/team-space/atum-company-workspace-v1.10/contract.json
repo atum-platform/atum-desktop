@@ -1,0 +1,544 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.10",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/admin.snapshot.response.json",
+    "fixtures/capabilities.response.json",
+    "fixtures/invitation-accept.response.json",
+    "fixtures/invitation-create-admin.request.json",
+    "fixtures/invitation-create-handle.request.json",
+    "fixtures/invitation-create-handled.response.json",
+    "fixtures/invitation-create-matrix-leak.response.json",
+    "fixtures/invitation-create-missing-handle.response.json",
+    "fixtures/invitation-create-owner.request.json",
+    "fixtures/invitation-create-principal.request.json",
+    "fixtures/invitation-create-uppercase.request.json",
+    "fixtures/invitation-create-v13.response.json",
+    "fixtures/invitation-create.request.json",
+    "fixtures/invitation-create.response.json",
+    "fixtures/invitation-resend.response.json"
+  ],
+  "row": "invite an existing person by Matrix user ID; handle-less invitations",
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "desktop",
+    "phone"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.9",
+    "path": "spec/company-workspace/v1.9",
+    "kind": "pack",
+    "sha256": "1b6d26ab79b9afef4ac73f404d5fdc44406b63df2852ef7a305f72006afb0142",
+    "rule": "additive minor; only the reselected invitation family uses schemaVersion 11"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.10",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8",
+      "1.9"
+    ],
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_10": 11,
+      "scope": "invitation family and its capability probe only"
+    }
+  },
+  "capability": {
+    "name": "company.directory-invitations",
+    "directoryInvitations": true,
+    "absent_platform": "answers the 1.10 probe with its 1.3 capability message, which the 1.10 schema refuses"
+  },
+  "resolution": {
+    "input": "memberMatrixUser",
+    "resolver": "recorded human Matrix user (0177): active human, company issuer",
+    "order": "owner/admin authority before any identity lookup",
+    "client_principal": "never",
+    "client_handle": "never trusted for the target",
+    "refusal": "invitation_unavailable for unknown, unrecorded, foreign-issuer and already-invited people"
+  },
+  "predecessors": {
+    "admin.snapshot.v1_3": "omits handle-less invitations",
+    "invitation-page.v1_8": "omits handle-less invitations; cursor unchanged",
+    "mutations.v1_3": "refuse a handle-less invitation with invitation_unavailable before any change",
+    "accept.v1_1": "admits a handle-less invitee",
+    "memberHandle.v1_3": "unchanged"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "handle": {
+      "type": "string",
+      "min": 3,
+      "max": 32,
+      "pattern": "[a-z][a-z0-9_]{2,31}"
+    },
+    "text120": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "member"
+      ]
+    },
+    "assignable_role": {
+      "enum": [
+        "admin",
+        "member"
+      ]
+    },
+    "member_state": {
+      "enum": [
+        "active",
+        "revoking",
+        "removed"
+      ]
+    },
+    "invitation_state": {
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired",
+        "superseded"
+      ]
+    },
+    "inviter": {
+      "type": "object",
+      "required": {
+        "handle": {
+          "anyOf": [
+            {
+              "ref": "handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "ref": "text120"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": {
+        "channelCreation": {
+          "enum": [
+            "members",
+            "admins_only"
+          ]
+        }
+      }
+    },
+    "member": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "role": {
+          "ref": "role"
+        },
+        "state": {
+          "ref": "member_state"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "matrix_user": {
+      "type": "string",
+      "min": 4,
+      "max": 520,
+      "pattern": "@[a-z0-9._=/-]{1,255}:[A-Za-z0-9.-]{1,253}(:[0-9]{1,5})?"
+    },
+    "invitation": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "targetHandle": {
+          "anyOf": [
+            {
+              "ref": "handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "role": {
+          "ref": "assignable_role"
+        },
+        "state": {
+          "ref": "invitation_state"
+        },
+        "createdAt": {
+          "ref": "epoch"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "inviter": {
+          "ref": "inviter"
+        }
+      },
+      "optional": {
+        "supersededByInvitationId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "create_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "memberMatrixUser": {
+          "ref": "matrix_user"
+        },
+        "role": {
+          "ref": "assignable_role"
+        }
+      }
+    },
+    "create_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 11
+        },
+        "invitation": {
+          "ref": "invitation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "mutation_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 11
+        },
+        "invitation": {
+          "ref": "invitation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "resend_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 11
+        },
+        "superseded": {
+          "ref": "invitation"
+        },
+        "replacement": {
+          "ref": "invitation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "admin_snapshot": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 11
+        },
+        "company": {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "displayName": {
+              "ref": "text120"
+            },
+            "role": {
+              "ref": "role"
+            },
+            "ownerMemberRef": {
+              "ref": "member_ref"
+            },
+            "authorityGeneration": {
+              "ref": "generation"
+            },
+            "policy": {
+              "ref": "policy"
+            }
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "ref": "member"
+          },
+          "min": 1,
+          "max": 100,
+          "unique": true
+        },
+        "invitations": {
+          "type": "array",
+          "items": {
+            "ref": "invitation"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "capabilities_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 11
+        },
+        "wireVersion": {
+          "const": "1.10"
+        },
+        "supportedWireVersions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "min": 1,
+            "max": 8
+          },
+          "min": 1,
+          "max": 16,
+          "unique": true
+        },
+        "features": {
+          "type": "object",
+          "required": {
+            "directoryInvitations": {
+              "const": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_10": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "*principal*",
+        "owner*",
+        "actor*",
+        "*email*",
+        "userId",
+        "mxid",
+        "memberHandle",
+        "roomId",
+        "controller*"
+      ]
+    },
+    "platform_to_native_v1_10": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "*principal*",
+        "*email*",
+        "*token*",
+        "userId",
+        "mxid",
+        "*matrixUser*",
+        "*MatrixUser*",
+        "roomId",
+        "manager*",
+        "credential"
+      ]
+    }
+  },
+  "messages": {
+    "invitation-create.request": {
+      "direction": "native_to_platform_v1_10",
+      "schema": {
+        "ref": "create_request"
+      }
+    },
+    "invitation-create.response": {
+      "direction": "platform_to_native_v1_10",
+      "schema": {
+        "ref": "create_response"
+      }
+    },
+    "invitation-mutation.response": {
+      "direction": "platform_to_native_v1_10",
+      "schema": {
+        "ref": "mutation_response"
+      }
+    },
+    "invitation-resend.response": {
+      "direction": "platform_to_native_v1_10",
+      "schema": {
+        "ref": "resend_response"
+      }
+    },
+    "admin.snapshot.response": {
+      "direction": "platform_to_native_v1_10",
+      "schema": {
+        "ref": "admin_snapshot"
+      }
+    },
+    "capabilities.response": {
+      "direction": "platform_to_native_v1_10",
+      "schema": {
+        "ref": "capabilities_response"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/admin.snapshot.response.json",
+      "message": "admin.snapshot.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities.response.json",
+      "message": "capabilities.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-accept.response.json",
+      "message": "invitation-mutation.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create-admin.request.json",
+      "message": "invitation-create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create-handle.request.json",
+      "message": "invitation-create.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invitation-create-handled.response.json",
+      "message": "invitation-create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create-matrix-leak.response.json",
+      "message": "invitation-create.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invitation-create-missing-handle.response.json",
+      "message": "invitation-create.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invitation-create-owner.request.json",
+      "message": "invitation-create.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/invitation-create-principal.request.json",
+      "message": "invitation-create.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invitation-create-uppercase.request.json",
+      "message": "invitation-create.request",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/invitation-create-v13.response.json",
+      "message": "invitation-create.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/invitation-create.request.json",
+      "message": "invitation-create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create.response.json",
+      "message": "invitation-create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-resend.response.json",
+      "message": "invitation-resend.response",
+      "expect": "accept"
+    }
+  ]
+}

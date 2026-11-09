@@ -1,0 +1,74 @@
+{
+  "name": "migration-offer-closed",
+  "connection": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+    "identityKey": {
+      "kid": "PIL-JVpVkgdjfjqD0AiDtRqUu2c2Jy-omxRCo4Hsie4",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6mp-ho08TZKqtmUzB9YrIHgAL9cLfnlCQFGSqoQTA6o-vSirFDW4LlO209QfRmmVojTPK07dhy9lMzO7J8Dttg"
+    },
+    "enrollmentEpoch": 2,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-bafec445149c"
+  },
+  "agents": [
+    {
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "agentUserId": "@synthetic-user-0011:example.invalid",
+      "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+      "cloudEnrollment": "trusted",
+      "homeGeneration": 0
+    }
+  ],
+  "migrations": [
+    {
+      "migrationId": "00000000-0000-4000-8000-44875ad14494",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "initiator": "00000000-0000-4000-8000-b86a6ca39e23",
+      "state": "reported",
+      "requested": [
+        "00000000-0000-4000-8000-f4d4f0609b55"
+      ],
+      "staged": [
+        "00000000-0000-4000-8000-b86a6ca39e23"
+      ],
+      "holdUntil": 1791106321000
+    }
+  ],
+  "offer": {
+    "v": 1,
+    "type": "MigrationOffer",
+    "body": {
+      "migrationId": "00000000-0000-4000-8000-44875ad14494",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "agentUserId": "@synthetic-user-0011:example.invalid",
+      "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+      "enrollmentEpoch": 2,
+      "accountEpoch": 7,
+      "connectionId": "00000000-0000-4000-8000-bafec445149c",
+      "role": "participant",
+      "archive": {
+        "v": 1,
+        "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "bytes": 4194482,
+        "files": 37
+      },
+      "createdAt": 1791100950000
+    },
+    "kid": "PIL-JVpVkgdjfjqD0AiDtRqUu2c2Jy-omxRCo4Hsie4",
+    "sig": "8bp438jyGnoM9RVOYTEPnPP10Ngax7cDg2Ft3zXazB8-8VjJZvJx1njt3slVX8BHRC9arZnz7J0dRldHbkbdPA"
+  },
+  "receivedAt": 1791100951000,
+  "facts": {
+    "signatureValid": true,
+    "agentEnrolled": true,
+    "homeEmpty": true,
+    "withinCaps": true,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "refusal": "migration_closed"
+  }
+}

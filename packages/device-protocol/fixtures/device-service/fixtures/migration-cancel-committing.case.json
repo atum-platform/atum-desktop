@@ -1,0 +1,49 @@
+{
+  "name": "migration-cancel-committing",
+  "connection": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "identityKey": {
+      "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA"
+    },
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448"
+  },
+  "migration": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "initiator": "00000000-0000-4000-8000-b86a6ca39e23",
+    "requested": [
+      "00000000-0000-4000-8000-f4d4f0609b55"
+    ],
+    "state": "committing"
+  },
+  "cancel": {
+    "v": 1,
+    "type": "MigrationCancel",
+    "body": {
+      "migrationId": "00000000-0000-4000-8000-44875ad14494",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "connectionId": "00000000-0000-4000-8000-67242899d448",
+      "reason": "owner_cancelled"
+    },
+    "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+    "sig": "X8XVOJh_J-X_vPs-Y9VIQjX9Uv7gNt_NkuO9tQSif5rHtfsJggX83cxT4V-TZSrhZfqNgtvR0BTYi2a1XqggJA"
+  },
+  "facts": {
+    "signatureValid": true,
+    "participant": true,
+    "cancellable": false,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "wrong_state"
+  }
+}

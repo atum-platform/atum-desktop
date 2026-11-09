@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "current",
+      "to": "stale",
+      "event": "authority_change"
+    },
+    {
+      "from": "stale",
+      "to": "stale",
+      "event": "stale_file_refused"
+    },
+    {
+      "from": "stale",
+      "to": "stale",
+      "event": "stale_preview_refused"
+    },
+    {
+      "from": "stale",
+      "to": "stale",
+      "event": "reused_epoch_refused"
+    }
+  ]
+}

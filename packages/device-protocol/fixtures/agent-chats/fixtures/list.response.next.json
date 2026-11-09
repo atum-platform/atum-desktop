@@ -1,0 +1,25 @@
+{
+  "rooms": [
+    {
+      "id": "!Qk3vLm0wXzRbT:example.invalid",
+      "label": "Linh",
+      "kind": "person",
+      "members": [
+        "Linh"
+      ],
+      "memberCount": 2,
+      "notifications": 3,
+      "highlights": 1,
+      "lastAt": 1792000000000,
+      "last": {
+        "eventId": "$l1abc",
+        "from": "Linh",
+        "mine": false,
+        "text": "Mai họp lúc 9 giờ nhé, nhớ mang hợp đồng."
+      },
+      "encrypted": false
+    }
+  ],
+  "truncated": true,
+  "next": "l1.WzE3OTIwMDAwMDAwMDAsIiFRazN2TG0wd1h6UmJUOmF0dW1wbGF0Zm9ybS5jb20iXQ"
+}

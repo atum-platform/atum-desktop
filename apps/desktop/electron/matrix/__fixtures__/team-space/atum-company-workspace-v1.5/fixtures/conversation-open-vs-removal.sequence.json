@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "current",
+      "to": "revoked",
+      "event": "participant_removed"
+    },
+    {
+      "from": "revoked",
+      "to": "revoked",
+      "event": "stale_open_refused"
+    }
+  ]
+}

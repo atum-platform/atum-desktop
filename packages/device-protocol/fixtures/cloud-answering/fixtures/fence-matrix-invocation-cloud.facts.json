@@ -1,0 +1,13 @@
+{
+  "entryPoint": "atum.matrix_invocation",
+  "answeringMode": "cloud",
+  "outcome": {
+    "kind": "refused",
+    "response": {
+      "error": "matrix_403",
+      "details": {
+        "reason": "cloud_answering"
+      }
+    }
+  }
+}

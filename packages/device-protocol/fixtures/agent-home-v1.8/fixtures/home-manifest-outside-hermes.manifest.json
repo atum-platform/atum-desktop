@@ -1,0 +1,76 @@
+{
+  "v": 1,
+  "owner": "00000000-0000-4000-8000-0a17b0bd53cc",
+  "agent": "00000000-0000-4000-8000-159badba71cd",
+  "generation": 17,
+  "parent": 16,
+  "createdAt": 1791100838000,
+  "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+  "quiesced": true,
+  "hermes": {
+    "version": "0.11.0",
+    "stateDbUserVersion": 12
+  },
+  "files": [
+    {
+      "path": "hermes/state.db",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 1572864,
+      "mode": 384,
+      "kind": "sqlite"
+    },
+    {
+      "path": "hermes/SOUL.md",
+      "sha256": "1212121212121212121212121212121212121212121212121212121212121212",
+      "size": 2048,
+      "mode": 384,
+      "kind": "file"
+    },
+    {
+      "path": "hermes/memories/MEMORY.md",
+      "sha256": "1313131313131313131313131313131313131313131313131313131313131313",
+      "size": 4096,
+      "mode": 384,
+      "kind": "file"
+    },
+    {
+      "path": "hermes/cron/jobs.json",
+      "sha256": "1414141414141414141414141414141414141414141414141414141414141414",
+      "size": 512,
+      "mode": 384,
+      "kind": "file"
+    },
+    {
+      "path": "controller/keys.json",
+      "sha256": "1515151515151515151515151515151515151515151515151515151515151515",
+      "size": 10,
+      "mode": 384,
+      "kind": "file"
+    }
+  ],
+  "controller": {
+    "conversations": [
+      {
+        "room": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "storedSession": "20261004_080000_ab12cd",
+        "unsubmittedInvocation": null,
+        "snapshot": {
+          "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+          "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+          "toolsDigest": "sha256:7070707070707070707070707070707070707070707070707070707070707070",
+          "systemDigest": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "contextLength": 75000
+        }
+      }
+    ],
+    "schedules": [
+      {
+        "scheduleId": "morning-brief",
+        "definitionDigest": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+        "nextOccurrenceAt": 1791187200000,
+        "catchupWindowMs": 120000
+      }
+    ]
+  }
+}

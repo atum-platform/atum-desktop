@@ -1,0 +1,48 @@
+{
+  "vectors": [
+    {
+      "material": "provider_key",
+      "atRest": "shell_sealed_or_digest",
+      "renderer": "absent",
+      "sandbox": "absent",
+      "logs": "absent",
+      "errors": "absent",
+      "controller": "absent",
+      "protons": 0,
+      "fallback": "none"
+    },
+    {
+      "material": "turn_grant_token",
+      "atRest": "shell_sealed_or_digest",
+      "renderer": "absent",
+      "sandbox": "absent",
+      "logs": "absent",
+      "errors": "absent",
+      "controller": "opaque_turn_token",
+      "protons": 0,
+      "fallback": "none"
+    },
+    {
+      "material": "connection_ciphertext",
+      "atRest": "shell_sealed_or_digest",
+      "renderer": "absent",
+      "sandbox": "absent",
+      "logs": "absent",
+      "errors": "absent",
+      "controller": "opaque_turn_token",
+      "protons": 0,
+      "fallback": "none"
+    },
+    {
+      "material": "model_choice",
+      "atRest": "shell_sealed_or_digest",
+      "renderer": "absent",
+      "sandbox": "absent",
+      "logs": "absent",
+      "errors": "absent",
+      "controller": "opaque_turn_token",
+      "protons": 0,
+      "fallback": "none"
+    }
+  ]
+}

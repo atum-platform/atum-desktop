@@ -1,0 +1,11 @@
+{
+  "outcome": "offer_changed",
+  "offer": {
+    "id": "00000000-0000-4000-8000-471568220011",
+    "version": 2,
+    "priceMicroProtons": 90000000000,
+    "scope": "account",
+    "billingInterval": "one_time",
+    "delivery": "bundled"
+  }
+}

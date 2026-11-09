@@ -1,0 +1,2674 @@
+{
+  "contract_id": "atum.agent-home",
+  "version": "1.8",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/abandon-before-dispatch.response.json",
+    "fixtures/abandon-dispatched.response.json",
+    "fixtures/abandon-reply-unreadable.request.json",
+    "fixtures/abandon-stale.request.json",
+    "fixtures/access-status.vectors.json",
+    "fixtures/answer-524288.body.json",
+    "fixtures/answer-524289.body.json",
+    "fixtures/answer-reply-unreadable.body.json",
+    "fixtures/answer-turn-limit.body.json",
+    "fixtures/answer.body.json",
+    "fixtures/body-key-elsewhere.request.json",
+    "fixtures/claim-heartbeat-automatic.request.json",
+    "fixtures/claim-heartbeat-extra-key.request.json",
+    "fixtures/claim-heartbeat-interactive.request.json",
+    "fixtures/claim-heartbeat-missing-fence.request.json",
+    "fixtures/claim-liveness.vectors.json",
+    "fixtures/commit-names-owner.request.json",
+    "fixtures/commit-occurrence-silent-stopped.request.json",
+    "fixtures/commit-occurrence-silent-with-outbox.request.json",
+    "fixtures/commit-occurrence-silent.request.json",
+    "fixtures/commit-occurrence-without-outbox.request.json",
+    "fixtures/commit-occurrence.request.json",
+    "fixtures/commit-skips-generation.request.json",
+    "fixtures/commit-status-without-code.request.json",
+    "fixtures/commit-stopped.request.json",
+    "fixtures/commit-turn-silent.request.json",
+    "fixtures/commit-without-home.request.json",
+    "fixtures/commit.request.json",
+    "fixtures/commit.response.json",
+    "fixtures/dispatched.request.json",
+    "fixtures/enqueue-duplicate.response.json",
+    "fixtures/enqueue-followup.request.json",
+    "fixtures/enqueue-hash-v1.request.json",
+    "fixtures/enqueue-matrix.request.json",
+    "fixtures/enqueue-names-agent.request.json",
+    "fixtures/enqueue-occurrence.request.json",
+    "fixtures/enqueue-phone.request.json",
+    "fixtures/enqueue.response.json",
+    "fixtures/home-2-gib.response.json",
+    "fixtures/home-file-2-gib.manifest.json",
+    "fixtures/home-file-over-2-gib.manifest.json",
+    "fixtures/home-manifest-64-schedules.manifest.json",
+    "fixtures/home-manifest-65-schedules.manifest.json",
+    "fixtures/home-manifest-outside-hermes.manifest.json",
+    "fixtures/home-manifest-wrong-parent.manifest.json",
+    "fixtures/home-none.response.json",
+    "fixtures/home-over-2-gib.response.json",
+    "fixtures/home.manifest.json",
+    "fixtures/home.request.json",
+    "fixtures/home.response.json",
+    "fixtures/hydration.vectors.json",
+    "fixtures/learn-stale-base.request.json",
+    "fixtures/learn.request.json",
+    "fixtures/learn.response.json",
+    "fixtures/ok.response.json",
+    "fixtures/outbox-publish.sequence.json",
+    "fixtures/outbox-reply-unreadable.response.json",
+    "fixtures/outbox-republish.sequence.json",
+    "fixtures/outbox.request.json",
+    "fixtures/outbox.response.json",
+    "fixtures/published.request.json",
+    "fixtures/queue-followup.sequence.json",
+    "fixtures/queue-full.error.json",
+    "fixtures/queue-release.sequence.json",
+    "fixtures/queue-rerun-done.sequence.json",
+    "fixtures/queue-run.sequence.json",
+    "fixtures/receipt.request.json",
+    "fixtures/release.request.json",
+    "fixtures/stale-generation.error.json",
+    "fixtures/stale-term.error.json",
+    "fixtures/status-access-final.body.json",
+    "fixtures/status-daily-cap-warning.body.json",
+    "fixtures/status-daily-cap.body.json",
+    "fixtures/status-reminder-missed.body.json",
+    "fixtures/status-reply-unreadable.body.json",
+    "fixtures/status-resuming-stop-event.body.json",
+    "fixtures/status-stop-event-owner-event.body.json",
+    "fixtures/status-stopped-with-stop-event.body.json",
+    "fixtures/status-stuck.body.json",
+    "fixtures/status-turn-limit.body.json",
+    "fixtures/status-unknown-code.body.json",
+    "fixtures/status.body.json",
+    "fixtures/stop-targets.vectors.json",
+    "fixtures/take-empty-with-stale.response.json",
+    "fixtures/take-stale-item-names-token.response.json",
+    "fixtures/take-stale-item-unknown-source.response.json",
+    "fixtures/take-stale-items-with-item.response.json",
+    "fixtures/take-stale-items.response.json",
+    "fixtures/take.request.json",
+    "fixtures/take.response.json",
+    "fixtures/wake.request.json",
+    "fixtures/wake.response.json"
+  ],
+  "base": {
+    "contract": "atum.agent-home/1.7",
+    "path": "spec/agent-home/v1.7",
+    "sha256": "11b09a50411bf5421de6b086c47a833e4f9512050b33138bc63bd9810b05968b",
+    "rule": "additive: every 1.7 type, message, invariant, machine and fixture is carried unchanged; agent.commit.request adds one strict occurrence-only silent variant"
+  },
+  "row": "Background follow-up sweep: useful routine occurrences may complete without Matrix delivery",
+  "providers": [
+    "DA (WS-1): queue, home pointer, outbox, in one transaction with the invocation ledger"
+  ],
+  "consumers": [
+    "CX controller (WS-2): inbox, queue worker, home store, outbox publisher",
+    "Owner clients (desktop, phone): Stop of a follow-up or an occurrence"
+  ],
+  "routes": {
+    "controller": {
+      "base": "/api/matrix/v1/cloud/controller",
+      "operations": {
+        "POST /agent": [
+          "agent.abandon.request",
+          "agent.commit.request",
+          "agent.dispatched.request",
+          "agent.enqueue.request",
+          "agent.home.request",
+          "agent.learn.request",
+          "agent.outbox.request",
+          "agent.published.request",
+          "agent.receipt.request",
+          "agent.release.request",
+          "agent.take.request",
+          "agent.wake.request"
+        ]
+      }
+    }
+  },
+  "s3": {
+    "bucket": "atum-agent-homes-<account>",
+    "versioned": true,
+    "delete": "never (the executor role has no s3:DeleteObject)",
+    "layout": {
+      "blobs": "v1/<owner>/<agent>/blobs/<sha256 hex of plaintext>",
+      "manifests": "v1/<owner>/<agent>/generations/<n>.manifest",
+      "outbox": "v1/<owner>/<agent>/outbox/<outboxId>",
+      "staging": "v1/<owner>/<agent>/staging/<migrationId>/<deviceServiceId>/<path>"
+    },
+    "sealing": "packages/cloud-controller seal(): AES-256-GCM, key HKDF-SHA256(workloadKey, salt 'atum.cloud-controller.sealed/1', info 'seal\\u0000home:v1:<owner>:<agent>'), associated data 'ATUMSEAL1\\u0000home:v1:<owner>:<agent>\\u0000<kind>:<sha256 hex>'"
+  },
+  "hydration": {
+    "root": "HERMES_HOME",
+    "allow": [
+      "state.db",
+      "kanban.db",
+      "projects.db",
+      "SOUL.md",
+      "memories/**",
+      "skills/**",
+      "cron/jobs.json"
+    ],
+    "deny_first": [
+      "path rules",
+      "non-regular files",
+      "SQLite sidecars",
+      "dependency trees",
+      "config.yaml, .env, auth.json",
+      "plugins/**",
+      "runtime state"
+    ],
+    "caps": {
+      "bytes": 2147483648,
+      "files": 20000,
+      "path_bytes": 512
+    }
+  },
+  "parameters": {
+    "live_items_per_agent": 100,
+    "live_items_per_owner": 200,
+    "claim_ms": 120000,
+    "home_max_bytes": 2147483648,
+    "home_max_files": 20000,
+    "home_path_max_bytes": 512,
+    "quiesce_max_ms": 60000,
+    "outbox_body_max_bytes": 2097152,
+    "claim_heartbeat_ms": 30000
+  },
+  "migrations": {
+    "reserved": {
+      "0181": "WS-1: occurrences per atum.cloud-execution/1 §9 (claim/dispatch/complete/published at /cloud/controller/occurrences), which enqueue into this pack's queue (reserved as 0177 in C0)",
+      "0182": "WS-1: cloud_agent_queue, cloud_agent_home, cloud_agent_home_history, cloud_agent_outbox, atum.cloud_controller_agent (reserved as 0175 in C0; after 0180 and 0181, which it references)"
+    }
+  },
+  "synthetic_events": {
+    "followup": "$atum-followup-<parentInvocationId>.<waitDeviceServiceId>, in the item's room (the follow-up's own invocation; WS-2 followupEventId)",
+    "occurrence": "$atum-occurrence-<occurrenceId>, in the schedule's room (the occurrence's invocation; 0181)"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[!-9;-~]+:[!-~]+"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "lease_generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "sha256:[0-9a-f]{64}"
+    },
+    "source": {
+      "enum": [
+        "matrix",
+        "occurrence",
+        "followup"
+      ]
+    },
+    "queue_state": {
+      "enum": [
+        "queued",
+        "waiting_device",
+        "taken",
+        "done",
+        "dropped"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "answered",
+        "stopped",
+        "failed",
+        "uncertain"
+      ]
+    },
+    "status_code": {
+      "enum": [
+        "stopped",
+        "failed",
+        "deadline",
+        "couldnt_confirm",
+        "unfunded",
+        "trial_expired",
+        "queue_full",
+        "memory_not_saved",
+        "couldnt_verify_mac",
+        "resuming_on_device",
+        "attachment_unsupported",
+        "thread_unsupported",
+        "saved_to_drive",
+        "saved_as_copy",
+        "save_unconfirmed",
+        "reply_unreadable",
+        "turn_limit",
+        "reminder_missed",
+        "stuck",
+        "access_final",
+        "daily_cap",
+        "daily_cap_warning"
+      ]
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "device"
+            },
+            "deviceServiceId": {
+              "ref": "uuid"
+            },
+            "assertionHash": {
+              "ref": "b64u_sha256"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "other"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "schedule"
+            }
+          }
+        }
+      ]
+    },
+    "manifest_key": {
+      "type": "string",
+      "pattern": "v1/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/generations/(?:0|[1-9][0-9]{0,15})[.]manifest"
+    },
+    "body_key": {
+      "type": "string",
+      "pattern": "v1/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/outbox/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "home_ref": {
+      "type": "object",
+      "required": {
+        "generation": {
+          "ref": "generation"
+        },
+        "manifestKey": {
+          "ref": "manifest_key"
+        },
+        "manifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 2147483648
+        },
+        "imageDigest": {
+          "ref": "digest"
+        },
+        "configDigest": {
+          "ref": "digest"
+        },
+        "quiesced": {
+          "type": "boolean"
+        }
+      }
+    },
+    "outbox_ref": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "kind": {
+              "const": "answer"
+            },
+            "bodySha256": {
+              "ref": "sha256_hex"
+            },
+            "bodyKey": {
+              "ref": "body_key"
+            }
+          },
+          "optional": {
+            "statusCode": {
+              "enum": [
+                "memory_not_saved",
+                "saved_to_drive",
+                "saved_as_copy",
+                "save_unconfirmed"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "kind": {
+              "const": "status"
+            },
+            "statusCode": {
+              "ref": "status_code"
+            },
+            "bodySha256": {
+              "ref": "sha256_hex"
+            },
+            "bodyKey": {
+              "ref": "body_key"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "kind": {
+              "const": "file"
+            },
+            "bodySha256": {
+              "ref": "sha256_hex"
+            },
+            "bodyKey": {
+              "ref": "body_key"
+            }
+          }
+        }
+      ]
+    },
+    "queued_item": {
+      "type": "object",
+      "required": {
+        "seq": {
+          "ref": "seq"
+        },
+        "source": {
+          "ref": "source"
+        },
+        "hashVersion": {
+          "const": 2
+        },
+        "origin": {
+          "ref": "origin"
+        },
+        "enqueuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "takenLeaseGeneration": {
+          "ref": "lease_generation"
+        }
+      },
+      "optional": {
+        "roomId": {
+          "ref": "room_id"
+        },
+        "eventId": {
+          "ref": "event_id"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "parentInvocationId": {
+          "ref": "uuid"
+        },
+        "waitDeviceServiceId": {
+          "ref": "uuid"
+        },
+        "requestHash": {
+          "ref": "sha256_hex"
+        },
+        "senderDevice": {
+          "ref": "device_id"
+        },
+        "originReceiptEvent": {
+          "ref": "event_id"
+        }
+      }
+    },
+    "manifest_file": {
+      "type": "object",
+      "required": {
+        "path": {
+          "type": "string",
+          "min": 1,
+          "max": 512,
+          "pattern": "hermes/[^\\u0000]+"
+        },
+        "sha256": {
+          "ref": "sha256_hex"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 2147483648
+        },
+        "mode": {
+          "type": "integer",
+          "min": 0,
+          "max": 511
+        },
+        "kind": {
+          "enum": [
+            "sqlite",
+            "file"
+          ]
+        }
+      }
+    },
+    "conversation_link": {
+      "type": "object",
+      "required": {
+        "room": {
+          "ref": "room_id"
+        },
+        "storedSession": {
+          "type": "string",
+          "min": 1,
+          "max": 128,
+          "pattern": "[A-Za-z0-9_.:-]+"
+        },
+        "unsubmittedInvocation": {
+          "anyOf": [
+            {
+              "ref": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "snapshot": {
+          "type": "object",
+          "required": {
+            "imageDigest": {
+              "ref": "digest"
+            },
+            "configDigest": {
+              "ref": "digest"
+            },
+            "toolsDigest": {
+              "ref": "digest"
+            },
+            "systemDigest": {
+              "ref": "digest"
+            },
+            "contextLength": {
+              "type": "integer",
+              "min": 4096,
+              "max": 2000000
+            }
+          }
+        }
+      }
+    },
+    "schedule_summary": {
+      "type": "object",
+      "required": {
+        "scheduleId": {
+          "type": "string",
+          "min": 1,
+          "max": 64,
+          "pattern": "[A-Za-z0-9_-]+"
+        },
+        "definitionDigest": {
+          "ref": "sha256_hex"
+        },
+        "nextOccurrenceAt": {
+          "ref": "timestamp_ms"
+        },
+        "catchupWindowMs": {
+          "type": "integer",
+          "min": 120000,
+          "max": 7200000
+        }
+      }
+    },
+    "synthetic_event": {
+      "type": "string",
+      "pattern": "[$]atum-(?:followup-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|occurrence-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    },
+    "stale_item": {
+      "type": "object",
+      "required": {
+        "seq": {
+          "ref": "seq"
+        },
+        "source": {
+          "ref": "source"
+        },
+        "takenLeaseGeneration": {
+          "ref": "lease_generation"
+        },
+        "dispatched": {
+          "type": "boolean"
+        }
+      },
+      "optional": {
+        "roomId": {
+          "ref": "room_id"
+        },
+        "eventId": {
+          "ref": "event_id"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "parentInvocationId": {
+          "ref": "uuid"
+        },
+        "waitDeviceServiceId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "stop_target": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "turn"
+        },
+        "roomId": {
+          "ref": "room_id"
+        },
+        "eventId": {
+          "ref": "event_id"
+        }
+      }
+    },
+    "access_status_vector": {
+      "type": "object",
+      "required": {
+        "code": {
+          "enum": [
+            "turn_limit",
+            "reminder_missed",
+            "stuck",
+            "access_final"
+          ]
+        },
+        "source": {
+          "enum": [
+            "turn",
+            "occurrence",
+            "access"
+          ]
+        },
+        "messageDisposition": {
+          "enum": [
+            "complete",
+            "keep_pending"
+          ]
+        },
+        "earliestNoticeMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 2592000000
+        },
+        "dedupe": {
+          "enum": [
+            "turn",
+            "occurrence",
+            "refusal_episode",
+            "access_lapse"
+          ]
+        },
+        "sessionRotation": {
+          "enum": [
+            "unchanged",
+            "stop_after_notice"
+          ]
+        }
+      }
+    },
+    "claim_heartbeat_request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "operation": {
+              "const": "heartbeat"
+            },
+            "executorId": {
+              "ref": "uuid"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "eventId": {
+              "ref": "event_id"
+            },
+            "requestHash": {
+              "ref": "sha256_hex"
+            },
+            "senderDevice": {
+              "ref": "device_id"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "protocol": {
+              "const": 2
+            },
+            "admission": {
+              "const": "interactive"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "operation": {
+              "const": "heartbeat"
+            },
+            "executorId": {
+              "ref": "uuid"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "eventId": {
+              "ref": "event_id"
+            },
+            "requestHash": {
+              "ref": "sha256_hex"
+            },
+            "senderDevice": {
+              "ref": "device_id"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "protocol": {
+              "const": 2
+            },
+            "admission": {
+              "const": "automatic"
+            },
+            "leaseToken": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "claim_liveness_vector": {
+      "type": "object",
+      "required": {
+        "holder": {
+          "enum": [
+            "live",
+            "silent",
+            "legacy"
+          ]
+        },
+        "heartbeat": {
+          "enum": [
+            "accepted",
+            "absent"
+          ]
+        },
+        "state": {
+          "const": "dispatched"
+        },
+        "result": {
+          "enum": [
+            "rearmed_same_fence",
+            "recoverable_after_claim_ms",
+            "unchanged"
+          ]
+        },
+        "boundMs": {
+          "type": "integer",
+          "min": 0,
+          "max": 120000
+        }
+      }
+    }
+  },
+  "directions": {
+    "controller_to_platform": {
+      "description": "The controller to DA with its credential; DA derives owner and agent from the executor.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "agentPrincipal",
+        "payer",
+        "accessToken",
+        "credential",
+        "token",
+        "privateKey"
+      ]
+    },
+    "platform_to_controller": {
+      "description": "DA to the controller.",
+      "forbidden_fields": [
+        "credential",
+        "recoveryKey",
+        "privateKey",
+        "leaseTokenHash"
+      ]
+    },
+    "platform_to_client": {
+      "description": "DA's error envelope.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "controller_store": {
+      "description": "Objects the controller seals into S3; never read by DA.",
+      "forbidden_fields": [
+        "leaseToken",
+        "credential",
+        "accessToken",
+        "recoveryKey",
+        "privateKey"
+      ]
+    },
+    "conformance": {
+      "description": "Typed test vectors; not wire payloads.",
+      "forbidden_fields": []
+    },
+    "local_to_platform": {
+      "description": "A local executor to DA with its current domain credential; DA derives owner and agent from the executor.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "agentPrincipal",
+        "payer",
+        "accessToken",
+        "credential",
+        "privateKey"
+      ]
+    }
+  },
+  "messages": {
+    "agent.enqueue.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "enqueue"
+              },
+              "source": {
+                "const": "matrix"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "eventId": {
+                "ref": "event_id"
+              },
+              "requestHash": {
+                "ref": "sha256_hex"
+              },
+              "hashVersion": {
+                "const": 2
+              },
+              "senderDevice": {
+                "ref": "device_id"
+              },
+              "origin": {
+                "ref": "origin"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "enqueue"
+              },
+              "source": {
+                "const": "occurrence"
+              },
+              "occurrenceId": {
+                "ref": "uuid"
+              },
+              "origin": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "schedule"
+                  }
+                }
+              }
+            },
+            "optional": {
+              "roomId": {
+                "ref": "room_id"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "enqueue"
+              },
+              "source": {
+                "const": "followup"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "eventId": {
+                "ref": "event_id"
+              },
+              "requestHash": {
+                "ref": "sha256_hex"
+              },
+              "hashVersion": {
+                "const": 2
+              },
+              "parentInvocationId": {
+                "ref": "uuid"
+              },
+              "waitDeviceServiceId": {
+                "ref": "uuid"
+              },
+              "origin": {
+                "ref": "origin"
+              }
+            },
+            "optional": {
+              "senderDevice": {
+                "ref": "device_id"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "agent.enqueue.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "seq": {
+            "ref": "seq"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "waiting_device",
+              "taken",
+              "done",
+              "dropped"
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "agent.receipt.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "receipt"
+          },
+          "seq": {
+            "ref": "seq"
+          },
+          "originReceiptEvent": {
+            "ref": "event_id"
+          }
+        }
+      }
+    },
+    "agent.wake.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "wake"
+          },
+          "deviceServiceId": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "agent.wake.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "woken": {
+            "type": "array",
+            "items": {
+              "ref": "seq"
+            },
+            "max": 100
+          }
+        }
+      }
+    },
+    "agent.take.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "take"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "agent.take.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "item": {
+            "anyOf": [
+              {
+                "ref": "queued_item"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale": {
+            "type": "array",
+            "items": {
+              "ref": "seq"
+            },
+            "max": 100,
+            "unique": true
+          }
+        },
+        "optional": {
+          "staleItems": {
+            "type": "array",
+            "items": {
+              "ref": "stale_item"
+            },
+            "max": 100
+          }
+        }
+      }
+    },
+    "agent.dispatched.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "dispatched"
+          },
+          "seq": {
+            "ref": "seq"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "invocationId": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "agent.release.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "release"
+          },
+          "seq": {
+            "ref": "seq"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "agent.commit.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "commit"
+              },
+              "seq": {
+                "ref": "seq"
+              },
+              "leaseToken": {
+                "ref": "uuid"
+              },
+              "leaseGeneration": {
+                "ref": "lease_generation"
+              },
+              "invocationId": {
+                "ref": "uuid"
+              },
+              "outcome": {
+                "ref": "outcome"
+              },
+              "usage": {
+                "type": "object",
+                "required": {
+                  "computeSeconds": {
+                    "type": "integer",
+                    "min": 0,
+                    "max": 86400
+                  }
+                }
+              },
+              "expectedGeneration": {
+                "ref": "generation"
+              },
+              "outbox": {
+                "ref": "outbox_ref"
+              }
+            },
+            "optional": {
+              "home": {
+                "ref": "home_ref"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "commit"
+              },
+              "seq": {
+                "ref": "seq"
+              },
+              "leaseToken": {
+                "ref": "uuid"
+              },
+              "leaseGeneration": {
+                "ref": "lease_generation"
+              },
+              "occurrenceId": {
+                "ref": "uuid"
+              },
+              "outcome": {
+                "ref": "outcome"
+              },
+              "usage": {
+                "type": "object",
+                "required": {
+                  "computeSeconds": {
+                    "type": "integer",
+                    "min": 0,
+                    "max": 86400
+                  }
+                }
+              },
+              "expectedGeneration": {
+                "ref": "generation"
+              },
+              "outbox": {
+                "ref": "outbox_ref"
+              }
+            },
+            "optional": {
+              "home": {
+                "ref": "home_ref"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "executorId": {
+                "ref": "uuid"
+              },
+              "operation": {
+                "const": "commit"
+              },
+              "seq": {
+                "ref": "seq"
+              },
+              "leaseToken": {
+                "ref": "uuid"
+              },
+              "leaseGeneration": {
+                "ref": "lease_generation"
+              },
+              "occurrenceId": {
+                "ref": "uuid"
+              },
+              "outcome": {
+                "const": "answered"
+              },
+              "usage": {
+                "type": "object",
+                "required": {
+                  "computeSeconds": {
+                    "type": "integer",
+                    "min": 0,
+                    "max": 86400
+                  }
+                }
+              },
+              "expectedGeneration": {
+                "ref": "generation"
+              },
+              "delivery": {
+                "const": "silent"
+              }
+            },
+            "optional": {
+              "home": {
+                "ref": "home_ref"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "agent.commit.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "transactionId": {
+            "ref": "uuid"
+          },
+          "homeGeneration": {
+            "ref": "generation"
+          }
+        }
+      }
+    },
+    "agent.learn.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "learn"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "leaseGeneration": {
+            "ref": "lease_generation"
+          },
+          "expectedGeneration": {
+            "ref": "generation"
+          },
+          "home": {
+            "ref": "home_ref"
+          }
+        }
+      }
+    },
+    "agent.learn.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "homeGeneration": {
+            "ref": "generation"
+          }
+        }
+      }
+    },
+    "agent.abandon.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "abandon"
+          },
+          "seq": {
+            "ref": "seq"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          },
+          "leaseGeneration": {
+            "ref": "lease_generation"
+          },
+          "reason": {
+            "enum": [
+              "stale",
+              "unfunded",
+              "trial_expired",
+              "unverified_origin",
+              "unsupported",
+              "failed"
+            ]
+          },
+          "outbox": {
+            "ref": "outbox_ref"
+          }
+        }
+      }
+    },
+    "agent.abandon.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "transactionId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "enum": [
+              "done",
+              "dropped"
+            ]
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "const": "uncertain"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "agent.outbox.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "outbox"
+          },
+          "leaseToken": {
+            "ref": "uuid"
+          }
+        }
+      }
+    },
+    "agent.outbox.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "outboxId": {
+                  "ref": "uuid"
+                },
+                "kind": {
+                  "enum": [
+                    "answer",
+                    "status",
+                    "file"
+                  ]
+                },
+                "statusCode": {
+                  "anyOf": [
+                    {
+                      "ref": "status_code"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "bodySha256": {
+                  "ref": "sha256_hex"
+                },
+                "bodyKey": {
+                  "ref": "body_key"
+                },
+                "transactionId": {
+                  "ref": "uuid"
+                },
+                "queueSeq": {
+                  "anyOf": [
+                    {
+                      "ref": "seq"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "invocationId": {
+                  "anyOf": [
+                    {
+                      "ref": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "occurrenceId": {
+                  "anyOf": [
+                    {
+                      "ref": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "roomId": {
+                  "anyOf": [
+                    {
+                      "ref": "room_id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "eventId": {
+                  "anyOf": [
+                    {
+                      "ref": "event_id"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "createdAt": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            },
+            "max": 100
+          }
+        }
+      }
+    },
+    "agent.published.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "published"
+          },
+          "outboxId": {
+            "ref": "uuid"
+          },
+          "publishedEvent": {
+            "ref": "event_id"
+          }
+        }
+      }
+    },
+    "agent.home.request": {
+      "direction": "controller_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "operation": {
+            "const": "home"
+          }
+        }
+      }
+    },
+    "agent.home.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "generation": {
+                "const": 0
+              },
+              "manifestKey": {
+                "type": "null"
+              },
+              "manifestSha256": {
+                "type": "null"
+              },
+              "committedAt": {
+                "type": "null"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "generation": {
+                "type": "integer",
+                "min": 1,
+                "max": 9007199254740991
+              },
+              "manifestKey": {
+                "ref": "manifest_key"
+              },
+              "manifestSha256": {
+                "ref": "sha256_hex"
+              },
+              "sizeBytes": {
+                "type": "integer",
+                "min": 0,
+                "max": 2147483648
+              },
+              "imageDigest": {
+                "ref": "digest"
+              },
+              "configDigest": {
+                "ref": "digest"
+              },
+              "quiesced": {
+                "type": "boolean"
+              },
+              "parentGeneration": {
+                "ref": "generation"
+              },
+              "committedAt": {
+                "ref": "timestamp_ms"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "agent.ok.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "ok": {
+            "const": true
+          }
+        }
+      }
+    },
+    "agent.error": {
+      "direction": "platform_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "error": {
+            "enum": [
+              "matrix_400",
+              "matrix_403",
+              "matrix_404",
+              "matrix_409",
+              "matrix_503"
+            ]
+          }
+        },
+        "optional": {
+          "details": {
+            "type": "object",
+            "required": {
+              "reason": {
+                "enum": [
+                  "invalid",
+                  "not_eligible",
+                  "stale_term",
+                  "stale_generation",
+                  "queue_full",
+                  "not_taken",
+                  "already_dispatched",
+                  "wrong_state"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "home.manifest": {
+      "direction": "controller_store",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "owner": {
+            "ref": "uuid"
+          },
+          "agent": {
+            "ref": "uuid"
+          },
+          "generation": {
+            "type": "integer",
+            "min": 1,
+            "max": 9007199254740991
+          },
+          "parent": {
+            "ref": "generation"
+          },
+          "createdAt": {
+            "ref": "timestamp_ms"
+          },
+          "imageDigest": {
+            "ref": "digest"
+          },
+          "configDigest": {
+            "ref": "digest"
+          },
+          "quiesced": {
+            "type": "boolean"
+          },
+          "hermes": {
+            "type": "object",
+            "required": {
+              "version": {
+                "type": "string",
+                "min": 1,
+                "max": 64
+              },
+              "stateDbUserVersion": {
+                "type": "integer",
+                "min": 0,
+                "max": 1000000
+              }
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "ref": "manifest_file"
+            },
+            "max": 20000
+          },
+          "controller": {
+            "type": "object",
+            "required": {
+              "conversations": {
+                "type": "array",
+                "items": {
+                  "ref": "conversation_link"
+                },
+                "max": 1000
+              },
+              "schedules": {
+                "type": "array",
+                "items": {
+                  "ref": "schedule_summary"
+                },
+                "max": 64
+              }
+            }
+          }
+        }
+      }
+    },
+    "outbox.body": {
+      "direction": "controller_store",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "v": {
+                "const": 1
+              },
+              "kind": {
+                "const": "answer"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "text": {
+                "type": "string",
+                "min": 1,
+                "max": 524288
+              }
+            },
+            "optional": {
+              "eventId": {
+                "ref": "event_id"
+              },
+              "statusCode": {
+                "enum": [
+                  "memory_not_saved",
+                  "saved_to_drive",
+                  "saved_as_copy",
+                  "save_unconfirmed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "v": {
+                "const": 1
+              },
+              "kind": {
+                "const": "status"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "statusCode": {
+                "ref": "status_code"
+              }
+            },
+            "optional": {
+              "eventId": {
+                "ref": "event_id"
+              },
+              "devices": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 64
+                },
+                "max": 8
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "v": {
+                "const": 1
+              },
+              "kind": {
+                "const": "file"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "name": {
+                "type": "string",
+                "min": 1,
+                "max": 255
+              },
+              "size": {
+                "type": "integer",
+                "min": 0,
+                "max": 8388608
+              },
+              "sha256": {
+                "ref": "sha256_hex"
+              },
+              "artifactKey": {
+                "type": "string",
+                "min": 1,
+                "max": 512
+              }
+            },
+            "optional": {
+              "eventId": {
+                "ref": "event_id"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "v": {
+                "const": 1
+              },
+              "kind": {
+                "const": "status"
+              },
+              "roomId": {
+                "ref": "room_id"
+              },
+              "statusCode": {
+                "const": "resuming_on_device"
+              },
+              "stopEvent": {
+                "ref": "synthetic_event"
+              }
+            },
+            "optional": {
+              "eventId": {
+                "ref": "event_id"
+              },
+              "devices": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 64
+                },
+                "max": 8
+              }
+            }
+          }
+        ]
+      }
+    },
+    "hydration.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "path": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 600
+                },
+                "entry": {
+                  "enum": [
+                    "file",
+                    "dir",
+                    "symlink",
+                    "hardlink",
+                    "device",
+                    "socket",
+                    "fifo"
+                  ]
+                },
+                "decision": {
+                  "enum": [
+                    "hydrate",
+                    "deny"
+                  ]
+                },
+                "rule": {
+                  "enum": [
+                    "allow:sqlite",
+                    "allow:soul",
+                    "allow:memories",
+                    "allow:skills",
+                    "allow:cron",
+                    "deny:path",
+                    "deny:non_regular",
+                    "deny:sqlite_sidecar",
+                    "deny:dependency_tree",
+                    "deny:settings",
+                    "deny:plugins",
+                    "deny:runtime_state",
+                    "deny:not_allowlisted"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 128
+          }
+        }
+      }
+    },
+    "stop.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 80
+                },
+                "item": {
+                  "type": "object",
+                  "required": {
+                    "source": {
+                      "ref": "source"
+                    },
+                    "roomId": {
+                      "ref": "room_id"
+                    }
+                  },
+                  "optional": {
+                    "eventId": {
+                      "ref": "event_id"
+                    },
+                    "occurrenceId": {
+                      "ref": "uuid"
+                    },
+                    "parentInvocationId": {
+                      "ref": "uuid"
+                    },
+                    "waitDeviceServiceId": {
+                      "ref": "uuid"
+                    }
+                  }
+                },
+                "target": {
+                  "ref": "stop_target"
+                }
+              }
+            },
+            "min": 1,
+            "max": 16
+          }
+        }
+      }
+    },
+    "access.status.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "access_status_vector"
+            },
+            "min": 4,
+            "max": 4,
+            "unique": true
+          }
+        }
+      }
+    },
+    "claim.heartbeat.request": {
+      "direction": "local_to_platform",
+      "schema": {
+        "ref": "claim_heartbeat_request"
+      }
+    },
+    "claim.liveness.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "claim_liveness_vector"
+            },
+            "min": 3,
+            "max": 3,
+            "unique": true
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "commit.home_is_next_generation",
+      "message": "agent.commit.request",
+      "op": "eq",
+      "left": "home.generation",
+      "right": [
+        "expectedGeneration"
+      ],
+      "offset": 1
+    },
+    {
+      "id": "learn.home_is_next_generation",
+      "message": "agent.learn.request",
+      "op": "eq",
+      "left": "home.generation",
+      "right": [
+        "expectedGeneration"
+      ],
+      "offset": 1,
+      "required": true
+    },
+    {
+      "id": "manifest.parent",
+      "message": "home.manifest",
+      "op": "eq",
+      "left": "generation",
+      "right": [
+        "parent"
+      ],
+      "offset": 1,
+      "required": true
+    }
+  ],
+  "state_machines": {
+    "queue_item": {
+      "states": [
+        "queued",
+        "waiting_device",
+        "taken",
+        "done",
+        "dropped"
+      ],
+      "initial": [
+        "queued",
+        "waiting_device"
+      ],
+      "terminal": [
+        "done",
+        "dropped"
+      ],
+      "transitions": [
+        [
+          "waiting_device",
+          "queued",
+          "wake"
+        ],
+        [
+          "queued",
+          "taken",
+          "take"
+        ],
+        [
+          "taken",
+          "queued",
+          "release_before_dispatch"
+        ],
+        [
+          "taken",
+          "done",
+          "commit"
+        ],
+        [
+          "taken",
+          "done",
+          "abandon_after_dispatch"
+        ],
+        [
+          "taken",
+          "dropped",
+          "abandon_before_dispatch"
+        ]
+      ]
+    },
+    "outbox_row": {
+      "states": [
+        "committed",
+        "published"
+      ],
+      "initial": [
+        "committed"
+      ],
+      "terminal": [
+        "published"
+      ],
+      "transitions": [
+        [
+          "committed",
+          "published",
+          "published"
+        ]
+      ]
+    }
+  },
+  "route_extensions": {
+    "local": {
+      "base": "/api/matrix/v1/local-hermes",
+      "operations": {
+        "POST /invocations": [
+          "claim.heartbeat.request"
+        ]
+      }
+    }
+  },
+  "provider_migration": "0256",
+  "amendments": [
+    {
+      "id": "A13",
+      "sections": [
+        "status_code",
+        "outbox.body"
+      ],
+      "change": "the closed status-code enum adds daily_cap_warning (the one-time quiet 80% line in the agent's main conversation; it does not close the message or the turn) and daily_cap (the 100% refusal: the current call finishes, later calls and later turns are refused for the rest of the Asia/Ho_Chi_Minh day, and the status is terminal for that message). Neither code is couldnt_confirm. A cap of 0 emits neither code; a routine refused by the cap records reason daily_cap and posts one summary line. The status body shape, outbox machine, routes and parameters do not change"
+    },
+    {
+      "id": "A14",
+      "sections": [
+        "agent.commit.request",
+        "queue_item",
+        "outbox_row"
+      ],
+      "change": "commit adds exactly one occurrence-only variant: occurrenceId, outcome answered and delivery silent, with no outbox. It is invalid for Matrix turns, follow-ups, any non-answered outcome, or any request carrying outbox. In one transaction it completes the occurrence as answered, advances the optional home exactly as delivered commit does, records the delivery disposition, and moves the queue item to done/answered without creating an outbox row or requiring published. Replay returns the original transactionId and homeGeneration; changing delivered versus silent conflicts. Billing remains answered. Controller requirement: a silent commit refused with matrix_conflict/wrong_state (stale term, stopped or already-ended occurrence) leaves the queue item dispatched and must never be dropped; the controller falls back to an ordinary delivered commit or its existing stop/uncertain handling"
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/enqueue-matrix.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue-phone.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue-occurrence.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue-followup.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue.response.json",
+      "message": "agent.enqueue.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue-duplicate.response.json",
+      "message": "agent.enqueue.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/enqueue-names-agent.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/enqueue-hash-v1.request.json",
+      "message": "agent.enqueue.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/receipt.request.json",
+      "message": "agent.receipt.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/wake.request.json",
+      "message": "agent.wake.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/wake.response.json",
+      "message": "agent.wake.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take.request.json",
+      "message": "agent.take.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take.response.json",
+      "message": "agent.take.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take-empty-with-stale.response.json",
+      "message": "agent.take.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatched.request.json",
+      "message": "agent.dispatched.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/release.request.json",
+      "message": "agent.release.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit.request.json",
+      "message": "agent.commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-without-home.request.json",
+      "message": "agent.commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-stopped.request.json",
+      "message": "agent.commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-occurrence.request.json",
+      "message": "agent.commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit.response.json",
+      "message": "agent.commit.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-skips-generation.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/commit-names-owner.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/commit-status-without-code.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/learn.request.json",
+      "message": "agent.learn.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/learn.response.json",
+      "message": "agent.learn.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/learn-stale-base.request.json",
+      "message": "agent.learn.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/abandon-stale.request.json",
+      "message": "agent.abandon.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/abandon-dispatched.response.json",
+      "message": "agent.abandon.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/abandon-before-dispatch.response.json",
+      "message": "agent.abandon.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/outbox.request.json",
+      "message": "agent.outbox.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/outbox.response.json",
+      "message": "agent.outbox.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/published.request.json",
+      "message": "agent.published.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.request.json",
+      "message": "agent.home.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-none.response.json",
+      "message": "agent.home.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.response.json",
+      "message": "agent.home.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ok.response.json",
+      "message": "agent.ok.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/stale-term.error.json",
+      "message": "agent.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/stale-generation.error.json",
+      "message": "agent.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/queue-full.error.json",
+      "message": "agent.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/body-key-elsewhere.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/home.manifest.json",
+      "message": "home.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-manifest-outside-hermes.manifest.json",
+      "message": "home.manifest",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/home-manifest-wrong-parent.manifest.json",
+      "message": "home.manifest",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/answer.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-unknown-code.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/queue-run.sequence.json",
+      "machine": "queue_item",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/queue-release.sequence.json",
+      "machine": "queue_item",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/queue-followup.sequence.json",
+      "machine": "queue_item",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/queue-rerun-done.sequence.json",
+      "machine": "queue_item",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/outbox-publish.sequence.json",
+      "machine": "outbox_row",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/outbox-republish.sequence.json",
+      "machine": "outbox_row",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/hydration.vectors.json",
+      "message": "hydration.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take-stale-items.response.json",
+      "message": "agent.take.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take-stale-items-with-item.response.json",
+      "message": "agent.take.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/take-stale-item-unknown-source.response.json",
+      "message": "agent.take.response",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/take-stale-item-names-token.response.json",
+      "message": "agent.take.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/abandon-reply-unreadable.request.json",
+      "message": "agent.abandon.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-reply-unreadable.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answer-reply-unreadable.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/outbox-reply-unreadable.response.json",
+      "message": "agent.outbox.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-resuming-stop-event.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-stop-event-owner-event.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/status-stopped-with-stop-event.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/stop-targets.vectors.json",
+      "message": "stop.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-manifest-64-schedules.manifest.json",
+      "message": "home.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-manifest-65-schedules.manifest.json",
+      "message": "home.manifest",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/answer-524288.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answer-524289.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/status-turn-limit.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-reminder-missed.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-stuck.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-access-final.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answer-turn-limit.body.json",
+      "message": "outbox.body",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/access-status.vectors.json",
+      "message": "access.status.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-2-gib.response.json",
+      "message": "agent.home.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-over-2-gib.response.json",
+      "message": "agent.home.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/home-file-2-gib.manifest.json",
+      "message": "home.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-file-over-2-gib.manifest.json",
+      "message": "home.manifest",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/claim-heartbeat-interactive.request.json",
+      "message": "claim.heartbeat.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim-heartbeat-automatic.request.json",
+      "message": "claim.heartbeat.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim-heartbeat-missing-fence.request.json",
+      "message": "claim.heartbeat.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/claim-heartbeat-extra-key.request.json",
+      "message": "claim.heartbeat.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/claim-liveness.vectors.json",
+      "message": "claim.liveness.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-daily-cap.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-daily-cap-warning.body.json",
+      "message": "outbox.body",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-occurrence-silent.request.json",
+      "message": "agent.commit.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-occurrence-silent-with-outbox.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/commit-occurrence-silent-stopped.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/commit-turn-silent.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/commit-occurrence-without-outbox.request.json",
+      "message": "agent.commit.request",
+      "expect": "reject",
+      "violation": "variant"
+    }
+  ]
+}

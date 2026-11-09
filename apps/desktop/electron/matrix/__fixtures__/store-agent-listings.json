@@ -1,0 +1,165 @@
+{
+  "_source": "docs/shelf/agents/{researcher,english-coach,marketer,shop-assistant}/listing.json projected to the Store v1.1 catalog row the Shell serves this desktop (store.ownership.1): first month as priceMicroProtons, the monthly price as renewalPriceMicroProtons, agent-scoped monthly cloud offers; offer ids are placeholders. The held Personal assistant is left out, as at launch.",
+  "items": [
+    {
+      "itemId": "agent/researcher",
+      "kind": "agent",
+      "title": {
+        "vi": "Nhà nghiên cứu",
+        "en": "Researcher"
+      },
+      "summary": {
+        "vi": "Tìm hiểu mọi chủ đề với nguồn rõ ràng, và gửi bản tin hằng tuần về các chủ đề bạn theo dõi",
+        "en": "Researches anything with clear sources, and sends a weekly digest on the topics you follow"
+      },
+      "description": {
+        "vi": "Tìm hiểu mọi chủ đề với nguồn rõ ràng, và gửi bản tin hằng tuần về các chủ đề bạn theo dõi",
+        "en": "Researches anything with clear sources, and sends a weekly digest on the topics you follow"
+      },
+      "tryPrompt": {
+        "vi": "So sánh chi phí sở hữu xe máy điện và xe máy xăng ở Việt Nam trong 3 năm, có dẫn nguồn.",
+        "en": "Summarise what's known about microplastics in bottled water, with sources and what's still uncertain."
+      },
+      "needs": [],
+      "glyph": "🔎",
+      "accent": "#4f7cac",
+      "featured": true,
+      "sortOrder": 10,
+      "offer": {
+        "id": "00000000-0000-4000-8000-62de7b92c7fc",
+        "version": 1,
+        "priceMicroProtons": 8000000000,
+        "renewalPriceMicroProtons": 39000000000,
+        "scope": "agent",
+        "billingInterval": "month",
+        "delivery": "cloud"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "agent/english-coach",
+      "kind": "agent",
+      "title": {
+        "vi": "Gia sư tiếng Anh",
+        "en": "English coach"
+      },
+      "summary": {
+        "vi": "Mỗi ngày một bài học đúng trình độ, luyện nói và chấm bài viết IELTS",
+        "en": "A daily lesson at your level, speaking practice, and IELTS writing feedback"
+      },
+      "description": {
+        "vi": "Mỗi ngày một bài học đúng trình độ, luyện nói và chấm bài viết IELTS",
+        "en": "A daily lesson at your level, speaking practice, and IELTS writing feedback"
+      },
+      "tryPrompt": {
+        "vi": "Kiểm tra trình độ tiếng Anh của mình trong 10 phút.",
+        "en": "Mark my IELTS Task 2 essay and show a stronger version."
+      },
+      "needs": [],
+      "glyph": "🗣️",
+      "accent": "#c9a227",
+      "featured": true,
+      "sortOrder": 11,
+      "offer": {
+        "id": "00000000-0000-4000-8000-16fcf7083963",
+        "version": 1,
+        "priceMicroProtons": 10000000000,
+        "renewalPriceMicroProtons": 49000000000,
+        "scope": "agent",
+        "billingInterval": "month",
+        "delivery": "cloud"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "agent/marketer",
+      "kind": "agent",
+      "title": {
+        "vi": "Chuyên viên marketing",
+        "en": "Marketer"
+      },
+      "summary": {
+        "vi": "Lên kế hoạch và viết bài đăng theo giọng thương hiệu của bạn, và theo dõi đối thủ mỗi tuần",
+        "en": "Plans and writes posts in your brand's voice, and watches your competitors every week"
+      },
+      "description": {
+        "vi": "Lên kế hoạch và viết bài đăng theo giọng thương hiệu của bạn, và theo dõi đối thủ mỗi tuần",
+        "en": "Plans and writes posts in your brand's voice, and watches your competitors every week"
+      },
+      "tryPrompt": {
+        "vi": "Lên kế hoạch nội dung 4 tuần trên Facebook và TikTok cho quán cà phê của mình ở Đà Lạt.",
+        "en": "Write five TikTok hooks for a handmade soap shop, and pick the best one."
+      },
+      "needs": [],
+      "glyph": "📣",
+      "accent": "#d9734e",
+      "featured": true,
+      "sortOrder": 12,
+      "offer": {
+        "id": "00000000-0000-4000-8000-1e9aaf3e8363",
+        "version": 1,
+        "priceMicroProtons": 20000000000,
+        "renewalPriceMicroProtons": 99000000000,
+        "scope": "agent",
+        "billingInterval": "month",
+        "delivery": "cloud"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    },
+    {
+      "itemId": "agent/shop-assistant",
+      "kind": "agent",
+      "title": {
+        "vi": "Trợ lý bán hàng online",
+        "en": "Shop assistant"
+      },
+      "summary": {
+        "vi": "Viết sản phẩm cho Shopee và TikTok Shop, soạn trả lời khách, và tổng hợp đơn hằng ngày",
+        "en": "Writes Shopee and TikTok Shop listings, drafts customer replies, and sums up each day's sales"
+      },
+      "description": {
+        "vi": "Viết sản phẩm cho Shopee và TikTok Shop, soạn trả lời khách, và tổng hợp đơn hằng ngày",
+        "en": "Writes Shopee and TikTok Shop listings, drafts customer replies, and sums up each day's sales"
+      },
+      "tryPrompt": {
+        "vi": "Viết tiêu đề và mô tả TikTok Shop cho áo thun cotton unisex, 3 phiên bản.",
+        "en": "Reply politely to this 2-star review and offer an exchange under our 7-day policy."
+      },
+      "needs": [],
+      "glyph": "🛍️",
+      "accent": "#2f9e8f",
+      "featured": true,
+      "sortOrder": 13,
+      "offer": {
+        "id": "00000000-0000-4000-8000-569a69fa206b",
+        "version": 1,
+        "priceMicroProtons": 20000000000,
+        "renewalPriceMicroProtons": 99000000000,
+        "scope": "agent",
+        "billingInterval": "month",
+        "delivery": "cloud"
+      },
+      "ownership": {
+        "state": "available",
+        "source": null,
+        "assistantIds": [],
+        "until": null
+      }
+    }
+  ]
+}

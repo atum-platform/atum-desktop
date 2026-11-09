@@ -1,0 +1,28 @@
+{
+  "packs": [
+    {
+      "contract_id": "atum.room-context",
+      "version": 1,
+      "path": "fixtures/room-context/v1",
+      "source": "atum-platform/atum-platform:spec/room-context/v1",
+      "sha256": "fef8c838a76d5e2d3f1f3577b64cf106c1a0a832455a903bf3df3abf6e7967f5",
+      "source_commit": "6d64eabb062faef13aa2fb6643b0df5c34b32b4b"
+    },
+    {
+      "contract_id": "atum.room-participation",
+      "version": 1,
+      "path": "fixtures/room-participation/v1",
+      "source": "atum-platform/atum-platform:spec/room-participation/v1",
+      "sha256": "3b4dce462d42a839cfedad2b4b39974c5c0d532fd47b5171df954d69971cf251",
+      "source_commit": "6d64eabb062faef13aa2fb6643b0df5c34b32b4b"
+    },
+    {
+      "contract_id": "atum.group-paused-notice",
+      "version": 1,
+      "path": "fixtures/group-paused-notice/v1",
+      "source": "atum-platform/atum-platform:spec/group-paused-notice/v1",
+      "sha256": "233d50bb1bcdad7773399b0db83e15a9ed924ac5af63a922e1e0431824056e83",
+      "source_commit": "474ae7ce677b1cb0689c595809697ec16f6300ed"
+    }
+  ]
+}

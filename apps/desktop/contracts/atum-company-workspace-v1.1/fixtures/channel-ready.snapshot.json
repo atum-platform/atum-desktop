@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "channel": {
+    "id": "00000000-0000-4000-8000-c52538d87a60",
+    "companyId": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "Ra mắt Việt Nam",
+    "visibility": "company",
+    "state": "active",
+    "projectId": null,
+    "authorityGeneration": 7,
+    "channelGeneration": 2
+  },
+  "memberCount": 3,
+  "room": {
+    "state": "ready",
+    "roomId": "!AbCdEf123:example.invalid"
+  }
+}

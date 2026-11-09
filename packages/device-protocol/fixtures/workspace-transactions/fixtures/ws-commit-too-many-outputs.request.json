@@ -1,0 +1,140 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "leaseToken": "00000000-0000-4000-8000-803634f44772",
+  "grantId": "00000000-0000-4000-8000-c60ae0e68ff3",
+  "operation": "ws_commit",
+  "taskId": "00000000-0000-4000-8000-01779cc5deb8",
+  "inputManifestHash": "9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c",
+  "dependencies": [
+    {
+      "resource": {
+        "storage": "00000000-0000-4000-8000-2a884521bb82",
+        "space": "00000000-0000-4000-8000-91307eebce14",
+        "opaque": "L2FnZW50cy9UL2JyaWVmLm1k"
+      },
+      "path": "notes/a.md",
+      "etag": "\"etag-a-1\""
+    }
+  ],
+  "placements": [
+    {
+      "path": "out-0.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-1.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-2.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-3.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-4.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-5.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-6.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-7.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-8.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-9.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-10.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-11.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-12.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-13.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-14.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-15.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    },
+    {
+      "path": "out-16.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+      "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a"
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "operation": "settle",
+  "occurrenceId": "00000000-0000-4000-8000-1e63fa2c7b34",
+  "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+  "resultFingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "usage": {
+    "computeSeconds": 121,
+    "modelAttempts": 1,
+    "inputTokens": 4000,
+    "outputTokens": 70,
+    "modelMicroProtons": 234567
+  },
+  "scan": {
+    "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "watermarks": {
+      "googleMail": "v-googleMail",
+      "googleCalendar": "v-googleCalendar",
+      "atumChats": "v-atumChats",
+      "conversation": "v-conversation",
+      "memory": "v-memory"
+    },
+    "sources": [
+      {
+        "source": "google_mail",
+        "status": "ok"
+      },
+      {
+        "source": "google_calendar",
+        "status": "ok"
+      },
+      {
+        "source": "atum_chats",
+        "status": "ok"
+      },
+      {
+        "source": "conversation",
+        "status": "ok"
+      },
+      {
+        "source": "memory",
+        "status": "ok"
+      }
+    ]
+  },
+  "ownerEventWatermark": {
+    "eventId": "$warmup-owner:test",
+    "at": 1793010000000
+  },
+  "commit": {
+    "kind": "cloud",
+    "queueSeq": 7,
+    "expectedHomeGeneration": 4
+  },
+  "disposition": "offer",
+  "outcome": "answered",
+  "urgency": "harm_before_morning",
+  "findingHashes": [
+    "1111111111111111111111111111111111111111111111111111111111111111",
+    "2222222222222222222222222222222222222222222222222222222222222222",
+    "3333333333333333333333333333333333333333333333333333333333333333"
+  ],
+  "outbox": {
+    "outboxId": "00000000-0000-4000-8000-1eba75639905",
+    "bodySha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  }
+}

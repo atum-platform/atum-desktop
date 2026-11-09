@@ -1,0 +1,8 @@
+{
+  "checkpointId": "00000000-0000-4000-8000-a9703d75e616",
+  "outcome": "committed",
+  "generation": 13,
+  "selectedGeneration": 13,
+  "placementRevision": 10,
+  "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

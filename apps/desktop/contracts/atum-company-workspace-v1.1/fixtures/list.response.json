@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 2,
+  "companies": [
+    {
+      "id": "00000000-0000-4000-8000-2a39c7cf131c",
+      "displayName": "Công ty Atum",
+      "role": "admin",
+      "authorityGeneration": 7
+    }
+  ],
+  "invitations": [
+    {
+      "id": "00000000-0000-4000-8000-55301f2eb1d3",
+      "companyId": "00000000-0000-4000-8000-345447196296",
+      "displayName": "Another company",
+      "role": "member",
+      "inviter": {
+        "handle": "minh",
+        "displayName": "Minh"
+      }
+    }
+  ],
+  "canCreate": true
+}

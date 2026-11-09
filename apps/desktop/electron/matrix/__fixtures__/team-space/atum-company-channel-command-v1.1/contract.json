@@ -1,0 +1,52 @@
+{
+  "contract_id": "atum.company-channel-command",
+  "version": "1.1",
+  "status": "frozen",
+  "header": {
+    "Atum-Company-Wire": "1.4",
+    "Atum-Company-Channel-Command": "1.1"
+  },
+  "rpc": "company_channel_command_v15",
+  "fixtures": [
+    {
+      "file": "fixtures/create-public.request.json",
+      "expect": "accept",
+      "message": "request"
+    },
+    {
+      "file": "fixtures/create-private.request.json",
+      "expect": "accept",
+      "message": "request"
+    },
+    {
+      "file": "fixtures/add.request.json",
+      "expect": "accept",
+      "message": "request"
+    },
+    {
+      "file": "fixtures/create.response.json",
+      "expect": "accept",
+      "message": "response"
+    },
+    {
+      "file": "fixtures/add.response.json",
+      "expect": "accept",
+      "message": "response"
+    },
+    {
+      "file": "fixtures/duplicate.request.json",
+      "expect": "reject",
+      "message": "request"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/create-public.request.json",
+    "fixtures/create-private.request.json",
+    "fixtures/add.request.json",
+    "fixtures/create.response.json",
+    "fixtures/add.response.json",
+    "fixtures/duplicate.request.json"
+  ]
+}

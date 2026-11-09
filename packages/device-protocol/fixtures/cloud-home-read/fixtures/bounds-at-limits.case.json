@@ -1,0 +1,8 @@
+{
+  "caseId": "at_limits",
+  "fileCount": 4000,
+  "pathUtf8Bytes": 512,
+  "fileBytes": 8388608,
+  "totalBytes": 67108864,
+  "expected": "allow"
+}

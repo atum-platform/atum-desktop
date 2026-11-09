@@ -1,0 +1,57 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "A same-actor requestId reused with a different effective input is a 409 conflict and changes nothing: create maxUses 5, then 8, then a different expiry, and redeem with linkLabel a then b. Two linkLabels are two different tokens; a label is trace-local and never bearer material.",
+  "steps": [
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "maxUses": 5,
+      "expect": {
+        "result": "created"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "maxUses": 8,
+      "expect": {
+        "result": "conflict"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "maxUses": 5,
+      "expiresInSeconds": 3600,
+      "expect": {
+        "result": "conflict"
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "linkLabel": "a",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "linkLabel": "b",
+      "expect": {
+        "result": "conflict"
+      }
+    }
+  ]
+}

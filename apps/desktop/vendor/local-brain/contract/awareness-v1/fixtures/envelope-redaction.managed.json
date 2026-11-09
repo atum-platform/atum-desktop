@@ -1,0 +1,31 @@
+{
+  "contract": "atum.awareness/1",
+  "operationId": "00000000-0000-4000-8000-fd8111f43b88",
+  "source": {
+    "kind": "human_group",
+    "id": "!synthetic-room-0001:example.invalid"
+  },
+  "object": {
+    "kind": "redaction",
+    "id": "$RedactEvt5eF6gH7iJ8kL9mN0oP1qR2sT3u",
+    "revision": 3,
+    "replaces": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q"
+  },
+  "author": {
+    "kind": "human",
+    "id": "@synthetic-user-0005:example.invalid"
+  },
+  "eventTime": 1790665200000,
+  "observedTime": 1790665200700,
+  "policy": {
+    "epoch": 3,
+    "visibility": "shared",
+    "googleDerived": false,
+    "accountFence": false
+  },
+  "content": {
+    "text": "",
+    "attachments": []
+  },
+  "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "platform": "darwin",
+    "arch": "arm64"
+  },
+  "node": {
+    "version": "22.22.0",
+    "archive": "node-v22.22.0-darwin-arm64.tar.gz",
+    "url": "https://nodejs.org/dist/v22.22.0/node-v22.22.0-darwin-arm64.tar.gz",
+    "sha256": "5ed4db0fcf1eaf84d91ad12462631d73bf4576c1377e192d222e48026a902640",
+    "root": "node-v22.22.0-darwin-arm64",
+    "executable": "bin/node",
+    "executableSha256": "913b144fdb40638b1acef7974ab3c33fbd527cc0974cb5da467ab1e6ac51b4d4"
+  },
+  "agentBrowser": {
+    "version": "0.26.0",
+    "packageIntegrity": "sha512-pdqSfjwbFSp+qnwlb2g23e9wXveIOfMi19xpPA9xZUbzEAUp6W4YBZj6Ybj8z4M7WkcbGDDYc+oDIHDt9R3EDQ==",
+    "source": "node_modules/agent-browser/bin/agent-browser-darwin-arm64",
+    "sha256": "18f7af7c57ab522bd80f64112b8d7ff43e63a98d98064ba13a96363aa9ae2650"
+  },
+  "chromium": {
+    "name": "chromium-headless-shell",
+    "browserVersion": "145.0.7632.6",
+    "playwrightVersion": "1.58.2",
+    "revision": "1208",
+    "archive": "chrome-headless-shell-mac-arm64.zip",
+    "url": "https://cdn.playwright.dev/builds/cft/145.0.7632.6/mac-arm64/chrome-headless-shell-mac-arm64.zip",
+    "sha256": "8510b9b1575538aa6a092ed16d981738b2ebf52c5e41ea4c54a7ce16756cdcf5",
+    "root": "chrome-headless-shell-mac-arm64",
+    "executable": "chrome-headless-shell",
+    "executableSha256": "a46b3b1e63163fa2d2437fb6ae967cb5a73b50050bca32f1964e6129b6228244"
+  }
+}

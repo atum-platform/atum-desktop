@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 8,
+  "operation": "set_avatar",
+  "companyId": "00000000-0000-4000-8000-877abe50a90f",
+  "avatarUri": "mxc://matrix.atum.app/company-logo",
+  "avatarRevision": 2,
+  "replayed": false,
+  "roomId": "!default:example.invalid"
+}

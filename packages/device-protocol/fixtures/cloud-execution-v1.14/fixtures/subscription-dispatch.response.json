@@ -1,0 +1,30 @@
+{
+  "invocationId": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "state": "dispatched",
+  "expiresAt": 1793148000000,
+  "grants": {
+    "model": {
+      "token": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "expiresAt": 1793148000000,
+      "source": "opencode_go",
+      "aliases": [
+        "glm-5.2"
+      ],
+      "alias": "glm-5.2",
+      "model": "glm-5.2",
+      "effort": "high",
+      "policyDigest": "3fd4371d5e5006735eabe91264ac4b67f55c1a9c12c0ddca37863998cba8cac0",
+      "contextBudget": 131072,
+      "outputBudget": 16384,
+      "maxTurnMicroProtons": 0,
+      "connectionRevision": 1
+    }
+  },
+  "budget": {
+    "reservationId": "00000000-0000-4000-8000-b454f82c5857",
+    "funding": "wallet",
+    "ceilingMicroProtons": 5000000,
+    "computeSeconds": 120,
+    "firstAdmission": true
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 2,
+  "directoryInvite": "ready",
+  "emailInvite": "ready",
+  "emailCreation": "ready",
+  "emailDelivery": "not_implemented",
+  "inviteLink": "ready",
+  "emailAutoClaim": "active"
+}

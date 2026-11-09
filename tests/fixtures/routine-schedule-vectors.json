@@ -1,0 +1,262 @@
+[
+  {
+    "name": "public-schedule-case-01",
+    "parsed": {
+      "kind": "once",
+      "run_at": "2026-10-21T15:00:00+07:00"
+    },
+    "schedule": {
+      "kind": "once",
+      "runAt": "2026-10-21T15:00:00+07:00"
+    }
+  },
+  {
+    "name": "public-schedule-case-02",
+    "parsed": {
+      "kind": "once",
+      "run_at": "2026-10-21T15:00:00.123456+00:00"
+    },
+    "schedule": {
+      "kind": "once",
+      "runAt": "2026-10-21T15:00:00+00:00"
+    }
+  },
+  {
+    "name": "public-schedule-case-03",
+    "parsed": {
+      "kind": "once",
+      "run_at": "2026-10-21T15:00:00"
+    },
+    "refusal": "The one-time schedule needs a time with its own UTC offset."
+  },
+  {
+    "name": "public-schedule-case-04",
+    "parsed": {
+      "kind": "once"
+    },
+    "refusal": "The one-time schedule has no run time."
+  },
+  {
+    "name": "public-schedule-case-05",
+    "parsed": {
+      "kind": "once",
+      "run_at": "soon"
+    },
+    "refusal": "The one-time schedule's run time could not be read."
+  },
+  {
+    "name": "public-schedule-case-06",
+    "parsed": {
+      "kind": "interval",
+      "minutes": 30
+    },
+    "refusal": "Atum's cloud does not run a schedule more often than once an hour. Choose an hourly or slower cadence, or a daily, weekly or monthly time."
+  },
+  {
+    "name": "public-schedule-case-07",
+    "parsed": {
+      "kind": "interval",
+      "minutes": 90
+    },
+    "refusal": "Repeat intervals must be a whole number of hours (for example every 2 hours)."
+  },
+  {
+    "name": "public-schedule-case-08",
+    "parsed": {
+      "kind": "interval",
+      "minutes": 120
+    },
+    "refusal": "Repeating every N hours is not available in the schedule list yet. Use a daily, weekly or monthly time (for example daily at 09:00), or a one-time schedule."
+  },
+  {
+    "name": "public-schedule-case-09",
+    "parsed": {
+      "kind": "interval",
+      "minutes": 540000
+    },
+    "refusal": "Repeat intervals can be at most one year; use a monthly or one-time schedule instead."
+  },
+  {
+    "name": "public-schedule-case-10",
+    "parsed": {
+      "kind": "interval",
+      "minutes": "x"
+    },
+    "refusal": "The repeat interval could not be read."
+  },
+  {
+    "name": "public-schedule-case-11",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 8 * * *"
+    },
+    "schedule": {
+      "kind": "daily",
+      "hour": 8,
+      "minute": 0
+    }
+  },
+  {
+    "name": "public-schedule-case-12",
+    "parsed": {
+      "kind": "cron",
+      "expr": "59 23 * * *"
+    },
+    "schedule": {
+      "kind": "daily",
+      "hour": 23,
+      "minute": 59
+    }
+  },
+  {
+    "name": "public-schedule-case-13",
+    "parsed": {
+      "kind": "cron",
+      "expr": "30 9 * * 1,3,5"
+    },
+    "schedule": {
+      "kind": "weekly",
+      "hour": 9,
+      "minute": 30,
+      "weekdays": [
+        1,
+        3,
+        5
+      ]
+    }
+  },
+  {
+    "name": "public-schedule-case-14",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 9 * * 0-2"
+    },
+    "schedule": {
+      "kind": "weekly",
+      "hour": 9,
+      "minute": 0,
+      "weekdays": [
+        1,
+        2,
+        7
+      ]
+    }
+  },
+  {
+    "name": "public-schedule-case-15",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 9 * * 7"
+    },
+    "schedule": {
+      "kind": "weekly",
+      "hour": 9,
+      "minute": 0,
+      "weekdays": [
+        7
+      ]
+    }
+  },
+  {
+    "name": "public-schedule-case-16",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 9 * * 5-1"
+    },
+    "refusal": "The weekdays must be plain numbers, lists or ranges (for example 1-5 or 1,3,5)."
+  },
+  {
+    "name": "public-schedule-case-17",
+    "parsed": {
+      "kind": "cron",
+      "expr": "15 7 5 * *"
+    },
+    "schedule": {
+      "kind": "monthly",
+      "day": 5,
+      "hour": 7,
+      "minute": 15
+    }
+  },
+  {
+    "name": "public-schedule-case-18",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 0 28 * *"
+    },
+    "schedule": {
+      "kind": "monthly",
+      "day": 28,
+      "hour": 0,
+      "minute": 0
+    }
+  },
+  {
+    "name": "public-schedule-case-19",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 0 31 * *"
+    },
+    "refusal": "Monthly schedules run on days 1 to 28, so every month has the day."
+  },
+  {
+    "name": "public-schedule-case-20",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 0 1,15 * *"
+    },
+    "refusal": "The day of the month must be one number (lists, ranges and steps are not supported)."
+  },
+  {
+    "name": "public-schedule-case-21",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 9 5 * 1"
+    },
+    "refusal": "A schedule on both a day of the month and a weekday is not supported; choose one."
+  },
+  {
+    "name": "public-schedule-case-22",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 9 * 6 *"
+    },
+    "refusal": "A schedule limited to certain months is not supported. Use a monthly day or a one-time schedule."
+  },
+  {
+    "name": "public-schedule-case-23",
+    "parsed": {
+      "kind": "cron",
+      "expr": "* * * * *"
+    },
+    "refusal": "The schedule repeats within the day (a wildcard, range or step in the minute or hour). Atum's cloud runs a schedule at one time of day: use 'M H * * *' for daily, weekly with weekdays, or a day of the month."
+  },
+  {
+    "name": "public-schedule-case-24",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 */2 * * *"
+    },
+    "refusal": "The schedule repeats within the day (a wildcard, range or step in the minute or hour). Atum's cloud runs a schedule at one time of day: use 'M H * * *' for daily, weekly with weekdays, or a day of the month."
+  },
+  {
+    "name": "public-schedule-case-25",
+    "parsed": {
+      "kind": "cron",
+      "expr": "0 0 8 * * *"
+    },
+    "refusal": "Only five-field cron expressions (minute hour day month weekday) are supported."
+  },
+  {
+    "name": "public-schedule-case-26",
+    "parsed": {
+      "kind": "yearly"
+    },
+    "refusal": "That schedule form is not supported."
+  },
+  {
+    "name": "public-schedule-case-27",
+    "parsed": {},
+    "refusal": "That schedule form is not supported."
+  }
+]

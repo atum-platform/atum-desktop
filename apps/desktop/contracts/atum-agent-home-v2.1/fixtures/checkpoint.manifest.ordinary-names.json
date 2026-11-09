@@ -1,0 +1,80 @@
+{
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "generation": 13,
+  "parentGeneration": 12,
+  "producingHomeEpoch": 4,
+  "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "entries": [
+    {
+      "category": "memory",
+      "path": "memory/ghi-chú hôm nay.md",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "memory",
+      "path": "memory/secret-santa.md",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "skills",
+      "path": "skills/token-counter/SKILL.md",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "skills",
+      "path": "skills/calendar/package.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "skills",
+      "path": "skills/calendar/pnpm-lock.yaml",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "non_secret_config",
+      "path": "config/profiles/personal.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    }
+  ],
+  "contentPolicy": {
+    "memory": "included",
+    "skills": "included",
+    "nonSecretConfig": "included",
+    "routineDefinitions": "included",
+    "portableAppData": "included",
+    "sessionHistoryStateDb": "excluded",
+    "packages": "excluded",
+    "browserSessions": "excluded",
+    "machineWorkspace": "excluded",
+    "credentials": "excluded_all"
+  },
+  "encryption": {
+    "encrypted": true,
+    "keyScope": "owner_agent_home",
+    "credentialMaterialIncluded": false
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "siteSelections": [
+    {
+      "domain": "bank.com",
+      "category": "banking",
+      "disposition": "included",
+      "ownerOverride": false
+    }
+  ],
+  "cookies": [],
+  "origins": []
+}

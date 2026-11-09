@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "intents": [
+    {
+      "action": "go",
+      "place": "left"
+    },
+    {
+      "action": "wave"
+    },
+    {
+      "action": "lounge"
+    }
+  ]
+}

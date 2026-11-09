@@ -1,0 +1,2543 @@
+{
+  "contract_id": "atum.agent-sweep",
+  "version": "1.1",
+  "status": "frozen",
+  "protocol_release": "0.7.52",
+  "migration": "0328_agent_sweep_warmup.sql",
+  "base": {
+    "contract": "atum.agent-sweep/1",
+    "path": "spec/agent-sweep/v1",
+    "sha256": "0827f068dc2b8bfde9cdd6447f3daf186a208ff4f5fe1001d0efb554c9d12675",
+    "rule": "additive negotiated profile: v1 messages remain unchanged; v1.1 adds server-derived warm-up identity, effective scheduling, per-kind compute, the complete server response shape set and the nudge release operation"
+  },
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/claim.defer.json",
+    "fixtures/claim.normal.json",
+    "fixtures/claim.request.json",
+    "fixtures/claim.request.owner-event.json",
+    "fixtures/claim.warmup-missing-index.json",
+    "fixtures/claim.warmup.json",
+    "fixtures/dispatch.defer.json",
+    "fixtures/dispatch.normal.cloud-google.json",
+    "fixtures/dispatch.normal.cloud-managed.json",
+    "fixtures/dispatch.normal.native-google.json",
+    "fixtures/dispatch.normal.native.json",
+    "fixtures/dispatch.request.json",
+    "fixtures/dispatch.warmup-wrong-compute.json",
+    "fixtures/dispatch.warmup.json",
+    "fixtures/dispatch.warmup.native-google.json",
+    "fixtures/native.active-envelope-missing-meta.json",
+    "fixtures/native.active-envelope-wrong-fence.json",
+    "fixtures/native.active-envelope.json",
+    "fixtures/native.claim-envelope-wrong-profile.json",
+    "fixtures/native.claim-envelope.json",
+    "fixtures/native.release-envelope.json",
+    "fixtures/occurrence.lifecycle.json",
+    "fixtures/release.released.json",
+    "fixtures/release.request.json",
+    "fixtures/release.retired.json",
+    "fixtures/result.offer.json",
+    "fixtures/result.silent.json",
+    "fixtures/setting.snapshot.json",
+    "fixtures/setting.write-zero-revision.json",
+    "fixtures/setting.write.json",
+    "fixtures/settle.normal-none.json",
+    "fixtures/settle.normal-offer.json",
+    "fixtures/settle.normal-silent.json",
+    "fixtures/settle.warmup-offer.json",
+    "fixtures/settlement.normal-none.json",
+    "fixtures/settlement.normal-offer.json",
+    "fixtures/settlement.normal-silent.json",
+    "fixtures/settlement.normal-suppressed.json",
+    "fixtures/settlement.warmup-none.json",
+    "fixtures/settlement.warmup-offer.json",
+    "fixtures/settlement.warmup-silent.json",
+    "fixtures/settlement.warmup-suppressed.json"
+  ],
+  "parameters": {
+    "warmup_offsets_ms": [
+      300000,
+      900000,
+      2100000,
+      3600000
+    ],
+    "warmup_active_compute_seconds": 1800,
+    "warmup_release_limit": 2,
+    "warmup_release_backoff_ms": 120000,
+    "day_one_source_interval_ms": 3600000,
+    "baseline_source_interval_ms": 7200000,
+    "day_one_source_checks_per_local_day": 24,
+    "day_one_model_attempts_per_local_day": 16,
+    "baseline_source_checks_per_local_day": 12,
+    "baseline_model_attempts_per_local_day": 8,
+    "nonurgent_offers_per_local_day": 2,
+    "normal_window_start_hour": 8,
+    "normal_window_end_hour": 21
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "sha256": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "token": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]+"
+    },
+    "timestamp": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "positive": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "event": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "watermark": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "min": 1,
+          "max": 512,
+          "pattern": "[!-~]+"
+        }
+      ]
+    },
+    "owner_event": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": {
+            "eventId": {
+              "ref": "event"
+            },
+            "at": {
+              "ref": "timestamp"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "activity": {
+      "type": "object",
+      "required": {
+        "lastOwnerEvent": {
+          "ref": "owner_event"
+        },
+        "lastDialogueAt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "ref": "timestamp"
+            }
+          ]
+        },
+        "busy": {
+          "type": "boolean"
+        },
+        "pendingWork": {
+          "type": "boolean"
+        },
+        "pendingApproval": {
+          "type": "boolean"
+        },
+        "typing": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "watermarks": {
+      "type": "object",
+      "required": {
+        "googleMail": {
+          "ref": "watermark"
+        },
+        "googleCalendar": {
+          "ref": "watermark"
+        },
+        "atumChats": {
+          "ref": "watermark"
+        },
+        "conversation": {
+          "ref": "watermark"
+        },
+        "memory": {
+          "ref": "watermark"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "policy": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 2
+        },
+        "definitionDigest": {
+          "ref": "sha256"
+        },
+        "policyDigest": {
+          "ref": "sha256"
+        },
+        "normalWindow": {
+          "type": "object",
+          "required": {
+            "startHour": {
+              "const": 8
+            },
+            "endHour": {
+              "const": 21
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "sourceIntervalMs": {
+          "const": 7200000
+        },
+        "effectiveSourceIntervalMs": {
+          "type": "integer",
+          "min": 3600000,
+          "max": 7200000
+        },
+        "quietMs": {
+          "const": 600000
+        },
+        "claimLeaseMs": {
+          "const": 120000
+        },
+        "activeComputeSeconds": {
+          "const": 120
+        },
+        "warmupActiveComputeSeconds": {
+          "const": 1800
+        },
+        "warmupOffsetsMs": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "const": 300000
+            },
+            {
+              "const": 900000
+            },
+            {
+              "const": 2100000
+            },
+            {
+              "const": 3600000
+            }
+          ],
+          "min": 4,
+          "max": 4
+        },
+        "inputTokens": {
+          "const": 8000
+        },
+        "outputTokens": {
+          "const": 1000
+        },
+        "resultCharacters": {
+          "const": 500
+        },
+        "sourceChecksPerLocalDay": {
+          "const": 12
+        },
+        "effectiveSourceChecksPerLocalDay": {
+          "type": "integer",
+          "min": 12,
+          "max": 24
+        },
+        "modelAttemptsPerLocalDay": {
+          "const": 8
+        },
+        "effectiveModelAttemptsPerLocalDay": {
+          "type": "integer",
+          "min": 8,
+          "max": 16
+        },
+        "nonurgentOffersPerLocalDay": {
+          "const": 2
+        },
+        "everydayModel": {
+          "const": "nguyet-thuc"
+        },
+        "warmupReleaseLimit": {
+          "const": 2
+        },
+        "warmupReleaseBackoffMs": {
+          "const": 120000
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "setting_snapshot": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep-setting/1"
+        },
+        "assistantId": {
+          "ref": "uuid"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "revision": {
+          "ref": "positive"
+        },
+        "activeForOwner": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "setting_write": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep-setting/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "expectedRevision": {
+          "ref": "positive"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "classifier_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.followup-sweep-result/1"
+            },
+            "decision": {
+              "const": "silent"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.followup-sweep-result/1"
+            },
+            "decision": {
+              "const": "offer"
+            },
+            "evidenceIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 2,
+                "max": 256,
+                "pattern": "[a-z][a-z0-9_-]*:[A-Za-z0-9._~-]+"
+              },
+              "min": 1,
+              "max": 3,
+              "unique": true
+            },
+            "urgency": {
+              "enum": [
+                "normal",
+                "harm_before_morning"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "min": 1,
+              "max": 500,
+              "normalization": "NFC"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "claim": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "claim"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "activity": {
+          "ref": "activity"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "defer": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "defer"
+        },
+        "reason": {
+          "enum": [
+            "disabled",
+            "policy_off",
+            "not_due",
+            "outside_window",
+            "missing_time_zone",
+            "home_unavailable",
+            "stale_lease",
+            "busy",
+            "owner_active",
+            "pending_work",
+            "cap_exhausted",
+            "unfunded",
+            "hire_paused",
+            "entitlement_required",
+            "judgment_backoff",
+            "active_occurrence",
+            "unavailable"
+          ]
+        },
+        "notBefore": {
+          "ref": "timestamp"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "claimed_normal": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "claimed"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceAt": {
+          "ref": "timestamp"
+        },
+        "effectiveDueAt": {
+          "ref": "timestamp"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "ownerTimeZone": {
+          "type": "string",
+          "min": 3,
+          "max": 64,
+          "pattern": "[A-Za-z0-9_+/-]+"
+        },
+        "policy": {
+          "ref": "policy"
+        },
+        "sourceWatermarks": {
+          "ref": "watermarks"
+        },
+        "occurrenceKind": {
+          "const": "followup_sweep"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "claimed_warmup": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "claimed"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceAt": {
+          "ref": "timestamp"
+        },
+        "effectiveDueAt": {
+          "ref": "timestamp"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "ownerTimeZone": {
+          "type": "string",
+          "min": 3,
+          "max": 64,
+          "pattern": "[A-Za-z0-9_+/-]+"
+        },
+        "policy": {
+          "ref": "policy"
+        },
+        "sourceWatermarks": {
+          "ref": "watermarks"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatch": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "dispatch"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "activity": {
+          "ref": "activity"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "budget_normal": {
+      "type": "object",
+      "required": {
+        "reservationId": {
+          "ref": "uuid"
+        },
+        "funding": {
+          "enum": [
+            "trial",
+            "wallet"
+          ]
+        },
+        "ceilingMicroProtons": {
+          "ref": "positive"
+        },
+        "computeSeconds": {
+          "const": 120
+        },
+        "firstAdmission": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "budget_warmup": {
+      "type": "object",
+      "required": {
+        "reservationId": {
+          "ref": "uuid"
+        },
+        "funding": {
+          "enum": [
+            "trial",
+            "wallet"
+          ]
+        },
+        "ceilingMicroProtons": {
+          "ref": "positive"
+        },
+        "computeSeconds": {
+          "const": 1800
+        },
+        "firstAdmission": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "managed_grant": {
+      "type": "object",
+      "required": {
+        "token": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "[A-Za-z0-9_-]+"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "contextBudget": {
+          "const": 8000
+        },
+        "outputBudget": {
+          "const": 1000
+        },
+        "maxTurnMicroProtons": {
+          "ref": "positive"
+        },
+        "ceilingMicroProtons": {
+          "ref": "positive"
+        },
+        "funding": {
+          "enum": [
+            "trial",
+            "wallet"
+          ]
+        },
+        "kind": {
+          "const": "managed"
+        },
+        "alias": {
+          "const": "nguyet-thuc"
+        },
+        "model": {
+          "const": "nguyet-thuc"
+        },
+        "effort": {
+          "const": "medium"
+        },
+        "policyDigest": {
+          "ref": "sha256"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "google_grant": {
+      "type": "object",
+      "required": {
+        "token": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "[A-Za-z0-9_-]+"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "contextBudget": {
+          "const": 8000
+        },
+        "outputBudget": {
+          "const": 1000
+        },
+        "maxTurnMicroProtons": {
+          "ref": "positive"
+        },
+        "ceilingMicroProtons": {
+          "ref": "positive"
+        },
+        "funding": {
+          "enum": [
+            "trial",
+            "wallet"
+          ]
+        },
+        "kind": {
+          "const": "google_protected"
+        },
+        "alias": {
+          "const": "google-protected"
+        },
+        "model": {
+          "const": "google-protected"
+        },
+        "googlePolicy": {
+          "const": "limited_use_v1"
+        },
+        "latchState": {
+          "enum": [
+            "eligible",
+            "latched"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "cloud_authorization_normal": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "cloud"
+        },
+        "budget": {
+          "ref": "budget_normal"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "ref": "managed_grant"
+            },
+            {
+              "ref": "google_grant"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "cloud_authorization_warmup": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "cloud"
+        },
+        "budget": {
+          "ref": "budget_warmup"
+        },
+        "grant": {
+          "anyOf": [
+            {
+              "ref": "managed_grant"
+            },
+            {
+              "ref": "google_grant"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "destination": {
+      "type": "object",
+      "required": {
+        "destination": {
+          "type": "string",
+          "min": 5,
+          "max": 132,
+          "pattern": "[A-Za-z0-9:_-]+"
+        },
+        "source": {
+          "type": "string",
+          "min": 4,
+          "max": 80,
+          "pattern": "[a-z0-9:_-]+"
+        },
+        "model": {
+          "type": "string",
+          "min": 1,
+          "max": 128,
+          "pattern": "[A-Za-z0-9._:/-]+"
+        },
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_authorization_normal": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "native"
+        },
+        "authorizationId": {
+          "ref": "uuid"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "destination": {
+          "ref": "destination"
+        },
+        "protection": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "standard"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "google_protected"
+                },
+                "googlePolicy": {
+                  "const": "limited_use_v1"
+                },
+                "latchState": {
+                  "enum": [
+                    "eligible",
+                    "latched"
+                  ]
+                }
+              },
+              "optional": {},
+              "additional": false
+            }
+          ]
+        },
+        "attribution": {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "lane": {
+              "enum": [
+                "atum_managed",
+                "connected_provider"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "limits": {
+          "type": "object",
+          "required": {
+            "activeComputeSeconds": {
+              "const": 120
+            },
+            "calls": {
+              "const": 1
+            },
+            "inputTokens": {
+              "const": 8000
+            },
+            "outputTokens": {
+              "const": 1000
+            },
+            "maxModelMicroProtons": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "ref": "positive"
+                }
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_authorization_warmup": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "native"
+        },
+        "authorizationId": {
+          "ref": "uuid"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "destination": {
+          "ref": "destination"
+        },
+        "protection": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "standard"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "google_protected"
+                },
+                "googlePolicy": {
+                  "const": "limited_use_v1"
+                },
+                "latchState": {
+                  "enum": [
+                    "eligible",
+                    "latched"
+                  ]
+                }
+              },
+              "optional": {},
+              "additional": false
+            }
+          ]
+        },
+        "attribution": {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "lane": {
+              "enum": [
+                "atum_managed",
+                "connected_provider"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "limits": {
+          "type": "object",
+          "required": {
+            "activeComputeSeconds": {
+              "const": 1800
+            },
+            "calls": {
+              "const": 1
+            },
+            "inputTokens": {
+              "const": 8000
+            },
+            "outputTokens": {
+              "const": 1000
+            },
+            "maxModelMicroProtons": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "ref": "positive"
+                }
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatch_normal": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "dispatched"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceKind": {
+          "const": "followup_sweep"
+        },
+        "warmupNudgeIndex": {
+          "const": null
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "authorization": {
+          "anyOf": [
+            {
+              "ref": "cloud_authorization_normal"
+            },
+            {
+              "ref": "native_authorization_normal"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatch_warmup": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "dispatched"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "authorization": {
+          "anyOf": [
+            {
+              "ref": "cloud_authorization_warmup"
+            },
+            {
+              "ref": "native_authorization_warmup"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "usage": {
+      "type": "object",
+      "required": {
+        "computeSeconds": {
+          "type": "integer",
+          "min": 0,
+          "max": 1800
+        },
+        "modelAttempts": {
+          "type": "integer",
+          "min": 0,
+          "max": 1
+        },
+        "inputTokens": {
+          "type": "integer",
+          "min": 0,
+          "max": 8000
+        },
+        "outputTokens": {
+          "type": "integer",
+          "min": 0,
+          "max": 1000
+        },
+        "modelMicroProtons": {
+          "ref": "timestamp"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "source_status": {
+      "type": "object",
+      "required": {
+        "source": {
+          "enum": [
+            "google_mail",
+            "google_calendar",
+            "atum_chats",
+            "conversation",
+            "memory"
+          ]
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "not_configured",
+            "not_authorized",
+            "unavailable",
+            "failed"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "scan": {
+      "type": "object",
+      "required": {
+        "digest": {
+          "ref": "sha256"
+        },
+        "watermarks": {
+          "ref": "watermarks"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "ref": "source_status"
+          },
+          "min": 0,
+          "max": 5,
+          "unique": true
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "commit_binding": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "cloud"
+            },
+            "queueSeq": {
+              "ref": "positive"
+            },
+            "expectedHomeGeneration": {
+              "ref": "timestamp"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "native"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "homeEpoch": {
+              "ref": "positive"
+            },
+            "executorTerm": {
+              "ref": "positive"
+            },
+            "leaseId": {
+              "ref": "uuid"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "outbox_present": {
+      "type": "object",
+      "required": {
+        "outboxId": {
+          "ref": "uuid"
+        },
+        "bodySha256": {
+          "ref": "sha256"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settle_silent": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "settle"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "resultFingerprint": {
+          "ref": "sha256"
+        },
+        "usage": {
+          "ref": "usage"
+        },
+        "scan": {
+          "ref": "scan"
+        },
+        "ownerEventWatermark": {
+          "ref": "owner_event"
+        },
+        "commit": {
+          "ref": "commit_binding"
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "silent"
+        },
+        "findingHashes": {
+          "type": "array",
+          "items": {
+            "ref": "sha256"
+          },
+          "min": 0,
+          "max": 0
+        },
+        "outbox": {
+          "const": null
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settle_offer": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "settle"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "resultFingerprint": {
+          "ref": "sha256"
+        },
+        "usage": {
+          "ref": "usage"
+        },
+        "scan": {
+          "ref": "scan"
+        },
+        "ownerEventWatermark": {
+          "ref": "owner_event"
+        },
+        "commit": {
+          "ref": "commit_binding"
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "offer"
+        },
+        "urgency": {
+          "enum": [
+            "normal",
+            "harm_before_morning"
+          ]
+        },
+        "findingHashes": {
+          "type": "array",
+          "items": {
+            "ref": "sha256"
+          },
+          "min": 0,
+          "max": 3,
+          "unique": true
+        },
+        "outbox": {
+          "ref": "outbox_present"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settle_none": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "settle"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "resultFingerprint": {
+          "ref": "sha256"
+        },
+        "usage": {
+          "ref": "usage"
+        },
+        "scan": {
+          "ref": "scan"
+        },
+        "ownerEventWatermark": {
+          "ref": "owner_event"
+        },
+        "commit": {
+          "ref": "commit_binding"
+        },
+        "outcome": {
+          "enum": [
+            "failed",
+            "stopped",
+            "uncertain"
+          ]
+        },
+        "disposition": {
+          "const": "none"
+        },
+        "findingHashes": {
+          "type": "array",
+          "items": {
+            "ref": "sha256"
+          },
+          "min": 0,
+          "max": 0
+        },
+        "outbox": {
+          "const": null
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "publication_none": {
+      "type": "object",
+      "required": {
+        "state": {
+          "const": "none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "publication_suppressed": {
+      "type": "object",
+      "required": {
+        "state": {
+          "const": "suppressed"
+        },
+        "reason": {
+          "enum": [
+            "disabled",
+            "owner_active",
+            "duplicate",
+            "stale_authority"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "publication_admitted": {
+      "type": "object",
+      "required": {
+        "state": {
+          "const": "admitted"
+        },
+        "outboxId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_normal_silent": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "followup_sweep"
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "silent"
+        },
+        "publication": {
+          "ref": "publication_none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_normal_offer": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "followup_sweep"
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "offer"
+        },
+        "publication": {
+          "anyOf": [
+            {
+              "ref": "publication_admitted"
+            },
+            {
+              "ref": "publication_suppressed"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_normal_none": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "followup_sweep"
+        },
+        "outcome": {
+          "enum": [
+            "failed",
+            "stopped",
+            "uncertain"
+          ]
+        },
+        "disposition": {
+          "const": "none"
+        },
+        "publication": {
+          "ref": "publication_none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_warmup_silent": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "silent"
+        },
+        "publication": {
+          "ref": "publication_none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_warmup_offer": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "outcome": {
+          "const": "answered"
+        },
+        "disposition": {
+          "const": "offer"
+        },
+        "publication": {
+          "anyOf": [
+            {
+              "ref": "publication_admitted"
+            },
+            {
+              "ref": "publication_suppressed"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "settlement_warmup_none": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "state": {
+          "const": "settled"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "outcome": {
+          "enum": [
+            "failed",
+            "stopped",
+            "uncertain"
+          ]
+        },
+        "disposition": {
+          "const": "none"
+        },
+        "publication": {
+          "ref": "publication_none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "release": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "operation": {
+          "const": "release"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "uuid"
+        },
+        "reason": {
+          "enum": [
+            "invalid_result",
+            "ambiguous_submission",
+            "unusable_claim"
+          ]
+        }
+      },
+      "optional": {
+        "usage": {
+          "ref": "usage"
+        }
+      },
+      "additional": false
+    },
+    "release_released": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "released"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "releaseCount": {
+          "type": "integer",
+          "min": 1,
+          "max": 2
+        },
+        "retryAt": {
+          "ref": "positive"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "release_retired": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sweep/1.1"
+        },
+        "decision": {
+          "const": "retired"
+        },
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "occurrenceKind": {
+          "const": "warmup_nudge"
+        },
+        "warmupNudgeIndex": {
+          "type": "integer",
+          "min": 1,
+          "max": 4
+        },
+        "releaseCount": {
+          "const": 2
+        },
+        "outcome": {
+          "const": "uncertain"
+        },
+        "disposition": {
+          "const": "none"
+        },
+        "receiptId": {
+          "ref": "uuid"
+        },
+        "settingsRevision": {
+          "ref": "positive"
+        },
+        "nextDueAt": {
+          "ref": "positive"
+        },
+        "publication": {
+          "ref": "publication_none"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_meta": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "signer": {
+          "const": "mac_executor"
+        },
+        "signerKeyId": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "[A-Za-z0-9_-]+"
+        },
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "sequence": {
+          "ref": "positive"
+        },
+        "issuedAt": {
+          "ref": "timestamp"
+        },
+        "expiresAt": {
+          "ref": "positive"
+        },
+        "nonce": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "[A-Za-z0-9_-]+"
+        },
+        "signature": {
+          "type": "string",
+          "min": 86,
+          "max": 86,
+          "pattern": "[A-Za-z0-9_-]+"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_lease_fence": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "type": "string",
+          "min": 4,
+          "max": 1024,
+          "pattern": "@[!-~]+"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "homeEpoch": {
+          "ref": "positive"
+        },
+        "executorTerm": {
+          "ref": "positive"
+        },
+        "leaseId": {
+          "ref": "uuid"
+        },
+        "leaseExpiresAtPlatform": {
+          "ref": "timestamp"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_authority_fence": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "type": "string",
+          "min": 4,
+          "max": 1024,
+          "pattern": "@[!-~]+"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "homeEpoch": {
+          "ref": "positive"
+        },
+        "executorTerm": {
+          "ref": "positive"
+        },
+        "leaseId": {
+          "ref": "uuid"
+        },
+        "leaseExpiresAtPlatform": {
+          "ref": "timestamp"
+        },
+        "operation": {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "job"
+            },
+            "id": {
+              "ref": "uuid"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_claim_envelope": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "native_meta"
+        },
+        "home": {
+          "ref": "native_lease_fence"
+        },
+        "request": {
+          "ref": "claim"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_active_envelope": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "native_meta"
+        },
+        "fence": {
+          "ref": "native_authority_fence"
+        },
+        "request": {
+          "anyOf": [
+            {
+              "ref": "dispatch"
+            },
+            {
+              "ref": "settle_silent"
+            },
+            {
+              "ref": "settle_offer"
+            },
+            {
+              "ref": "settle_none"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_release_envelope": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "native_meta"
+        },
+        "home": {
+          "ref": "native_lease_fence"
+        },
+        "request": {
+          "ref": "release"
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "agentPrincipal",
+        "model",
+        "scheduleId",
+        "roomId",
+        "intervalMs",
+        "prompt",
+        "title"
+      ]
+    },
+    "runtime_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "agentPrincipal",
+        "model",
+        "scheduleId",
+        "roomId",
+        "intervalMs",
+        "prompt",
+        "title"
+      ]
+    },
+    "signed_native_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "model",
+        "scheduleId",
+        "roomId",
+        "intervalMs",
+        "prompt",
+        "title"
+      ]
+    },
+    "platform_to_runtime": {
+      "forbidden_fields": [
+        "access_token",
+        "refresh_token",
+        "private_key"
+      ]
+    },
+    "model_to_home": {
+      "forbidden_fields": [
+        "url",
+        "tool",
+        "action",
+        "owner",
+        "agentPrincipal"
+      ]
+    }
+  },
+  "messages": {
+    "setting.snapshot": {
+      "direction": "platform_to_runtime",
+      "schema": {
+        "ref": "setting_snapshot"
+      }
+    },
+    "setting.write": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "setting_write"
+      }
+    },
+    "claim": {
+      "direction": "runtime_to_platform",
+      "schema": {
+        "ref": "claim"
+      }
+    },
+    "claim.response": {
+      "direction": "platform_to_runtime",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "defer"
+          },
+          {
+            "ref": "claimed_normal"
+          },
+          {
+            "ref": "claimed_warmup"
+          }
+        ]
+      }
+    },
+    "dispatch": {
+      "direction": "runtime_to_platform",
+      "schema": {
+        "ref": "dispatch"
+      }
+    },
+    "dispatch.response": {
+      "direction": "platform_to_runtime",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "defer"
+          },
+          {
+            "ref": "dispatch_normal"
+          },
+          {
+            "ref": "dispatch_warmup"
+          }
+        ]
+      }
+    },
+    "settle": {
+      "direction": "runtime_to_platform",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "settle_silent"
+          },
+          {
+            "ref": "settle_offer"
+          },
+          {
+            "ref": "settle_none"
+          }
+        ]
+      }
+    },
+    "settlement": {
+      "direction": "platform_to_runtime",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "settlement_normal_silent"
+          },
+          {
+            "ref": "settlement_normal_offer"
+          },
+          {
+            "ref": "settlement_normal_none"
+          },
+          {
+            "ref": "settlement_warmup_silent"
+          },
+          {
+            "ref": "settlement_warmup_offer"
+          },
+          {
+            "ref": "settlement_warmup_none"
+          }
+        ]
+      }
+    },
+    "release": {
+      "direction": "runtime_to_platform",
+      "schema": {
+        "ref": "release"
+      }
+    },
+    "release.response": {
+      "direction": "platform_to_runtime",
+      "schema": {
+        "anyOf": [
+          {
+            "ref": "release_released"
+          },
+          {
+            "ref": "release_retired"
+          }
+        ]
+      }
+    },
+    "classifier.result": {
+      "direction": "model_to_home",
+      "schema": {
+        "ref": "classifier_result"
+      }
+    },
+    "native.claim-envelope": {
+      "direction": "signed_native_to_platform",
+      "schema": {
+        "ref": "native_claim_envelope"
+      }
+    },
+    "native.active-envelope": {
+      "direction": "signed_native_to_platform",
+      "schema": {
+        "ref": "native_active_envelope"
+      }
+    },
+    "native.release-envelope": {
+      "direction": "signed_native_to_platform",
+      "schema": {
+        "ref": "native_release_envelope"
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "effective_due_is_occurrence",
+      "message": "claim.response",
+      "op": "eq",
+      "left": "effectiveDueAt",
+      "right": [
+        "occurrenceAt"
+      ]
+    },
+    {
+      "id": "silent_usage_is_zero_attempts",
+      "message": "settle",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.inputTokens",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "silent_usage_has_zero_output",
+      "message": "settle",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.outputTokens",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "silent_usage_has_zero_protons",
+      "message": "settle",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.modelMicroProtons",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "release_usage_is_zero_attempts",
+      "message": "release",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.inputTokens",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "release_usage_has_zero_output",
+      "message": "release",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.outputTokens",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "release_usage_has_zero_protons",
+      "message": "release",
+      "when": {
+        "path": "usage.modelAttempts",
+        "equals": 0
+      },
+      "op": "eq",
+      "left": "usage.modelMicroProtons",
+      "right": [],
+      "offset": 0
+    },
+    {
+      "id": "active_fence_is_occurrence_job",
+      "message": "native.active-envelope",
+      "op": "same",
+      "left": "fence.operation.id",
+      "right": "request.occurrenceId"
+    },
+    {
+      "id": "claim_home_lease_is_request_token",
+      "message": "native.claim-envelope",
+      "op": "same",
+      "left": "home.leaseId",
+      "right": "request.leaseToken"
+    },
+    {
+      "id": "release_home_lease_is_request_token",
+      "message": "native.release-envelope",
+      "op": "same",
+      "left": "home.leaseId",
+      "right": "request.leaseToken"
+    }
+  ],
+  "state_machines": {
+    "occurrence": {
+      "states": [
+        "absent",
+        "claimed",
+        "dispatched",
+        "completed",
+        "published",
+        "skipped"
+      ],
+      "initial": [
+        "absent"
+      ],
+      "terminal": [
+        "published",
+        "skipped"
+      ],
+      "transitions": [
+        [
+          "absent",
+          "claimed",
+          "claim_due"
+        ],
+        [
+          "claimed",
+          "claimed",
+          "claim_replay"
+        ],
+        [
+          "claimed",
+          "skipped",
+          "expire_or_disable_or_release"
+        ],
+        [
+          "claimed",
+          "dispatched",
+          "dispatch_admitted"
+        ],
+        [
+          "claimed",
+          "completed",
+          "release_retry_bound_none"
+        ],
+        [
+          "dispatched",
+          "skipped",
+          "release_unconsumed"
+        ],
+        [
+          "dispatched",
+          "completed",
+          "settle_or_release_retry_bound"
+        ],
+        [
+          "completed",
+          "completed",
+          "settle_replay_or_release_replay"
+        ],
+        [
+          "completed",
+          "published",
+          "publication_receipt"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/claim.defer.json",
+      "message": "claim.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.normal.json",
+      "message": "claim.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.request.json",
+      "message": "claim",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.request.owner-event.json",
+      "message": "claim",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.warmup-missing-index.json",
+      "message": "claim.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/claim.warmup.json",
+      "message": "claim.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.defer.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.normal.cloud-google.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.normal.cloud-managed.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.normal.native-google.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.normal.native.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.request.json",
+      "message": "dispatch",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.warmup-wrong-compute.json",
+      "message": "dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/dispatch.warmup.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch.warmup.native-google.json",
+      "message": "dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/native.active-envelope-missing-meta.json",
+      "message": "native.active-envelope",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/native.active-envelope-wrong-fence.json",
+      "message": "native.active-envelope",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/native.active-envelope.json",
+      "message": "native.active-envelope",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/native.claim-envelope-wrong-profile.json",
+      "message": "native.claim-envelope",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/native.claim-envelope.json",
+      "message": "native.claim-envelope",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/native.release-envelope.json",
+      "message": "native.release-envelope",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/release.released.json",
+      "message": "release.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/release.request.json",
+      "message": "release",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/release.retired.json",
+      "message": "release.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result.offer.json",
+      "message": "classifier.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result.silent.json",
+      "message": "classifier.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/setting.snapshot.json",
+      "message": "setting.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/setting.write-zero-revision.json",
+      "message": "setting.write",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/setting.write.json",
+      "message": "setting.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settle.normal-none.json",
+      "message": "settle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settle.normal-offer.json",
+      "message": "settle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settle.normal-silent.json",
+      "message": "settle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settle.warmup-offer.json",
+      "message": "settle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.normal-none.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.normal-offer.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.normal-silent.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.normal-suppressed.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.warmup-none.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.warmup-offer.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.warmup-silent.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/settlement.warmup-suppressed.json",
+      "message": "settlement",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/occurrence.lifecycle.json",
+      "machine": "occurrence",
+      "expect": "accept"
+    }
+  ]
+}

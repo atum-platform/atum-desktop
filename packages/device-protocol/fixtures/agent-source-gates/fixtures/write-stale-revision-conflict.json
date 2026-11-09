@@ -1,0 +1,16 @@
+{
+  "profile": "atum.agent-source-gates/1",
+  "error": "revision_conflict",
+  "current": {
+    "profile": "atum.agent-source-gates/1",
+    "revision": 8,
+    "gates": {
+      "google": false,
+      "folders": true,
+      "messages": false,
+      "browser": true,
+      "location": true,
+      "team_spaces": false
+    }
+  }
+}

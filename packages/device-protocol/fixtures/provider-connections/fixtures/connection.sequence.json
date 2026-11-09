@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "disconnected",
+      "to": "connected",
+      "event": "connect"
+    },
+    {
+      "from": "connected",
+      "to": "connected",
+      "event": "replace_key"
+    },
+    {
+      "from": "connected",
+      "to": "disconnected",
+      "event": "revoke"
+    },
+    {
+      "from": "disconnected",
+      "to": "disconnected",
+      "event": "revoke_refused"
+    }
+  ]
+}

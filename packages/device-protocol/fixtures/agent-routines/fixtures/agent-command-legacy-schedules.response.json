@@ -1,0 +1,6 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "create",
+  "outcome": "refused",
+  "reason": "legacy_schedules_present"
+}

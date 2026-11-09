@@ -1,0 +1,9 @@
+{
+  "roomId": "!a:proof.test",
+  "content": {
+    "v": 1,
+    "role": "main",
+    "main": "!b:proof.test",
+    "at": 100
+  }
+}

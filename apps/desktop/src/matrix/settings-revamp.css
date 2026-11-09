@@ -1,0 +1,146 @@
+/* Settings revamp: fixed eight-destination information architecture over the existing
+   overlay/focus lifecycle. Tokens and primitives remain owned by styles.css. */
+.atum-settings-revamp {
+  width: min(55rem, 100%);
+  height: min(40rem, 100%);
+}
+
+.atum-settings-revamp .atum-settings-nav {
+  width: 12.25rem;
+  padding: 1rem 0.625rem;
+}
+
+.atum-settings-revamp .atum-settings-nav-row {
+  min-height: 2.5rem;
+}
+
+.atum-settings-back {
+  display: none;
+}
+
+.atum-settings-back {
+  align-items: center;
+  gap: 0.1875rem;
+  min-height: 2rem;
+  margin-inline-start: -0.5rem;
+  padding-inline: 0.375rem 0.5rem;
+  border-radius: var(--atum-r-control);
+  color: var(--atum-ink-soft);
+  font-size: var(--atum-t-control);
+}
+
+.atum-settings-back > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.atum-settings-back:is(:hover, :focus-visible) {
+  background: var(--atum-row-hover);
+  color: var(--atum-ink);
+}
+
+/* Faces are circles (Atum Kit 0.1). */
+.atum-settings-profile-avatar,
+.atum-settings-assistant-avatar,
+.atum-settings-nav-avatar {
+  border-radius: 9999px;
+}
+
+.atum-settings-memory-state {
+  display: block;
+  margin-top: 0.125rem;
+}
+
+.atum-settings-assistant-row > .atum-settings-chevron {
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
+
+@media (max-width: 639px) {
+  .atum-settings-layer {
+    padding: 0.75rem;
+  }
+
+  .atum-settings-revamp {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: 40rem;
+  }
+
+  .atum-settings-revamp .atum-settings-nav {
+    width: 100%;
+    height: 100%;
+    padding: 3.5rem 0.75rem 0.75rem;
+    overflow-y: auto;
+    background: var(--atum-roster-bg);
+    box-shadow: none;
+  }
+
+  .atum-settings-revamp .atum-settings-nav-row {
+    min-height: 3.25rem;
+    padding-inline: 0.75rem;
+  }
+
+  .atum-settings-revamp .atum-settings-detail {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .atum-settings-revamp .atum-settings-header {
+    pointer-events: auto;
+  }
+
+  .atum-settings-revamp .atum-settings-panes {
+    display: none;
+    padding-inline: 1rem;
+  }
+
+  .atum-settings-revamp[data-narrow-detail] .atum-settings-nav {
+    display: none;
+  }
+
+  .atum-settings-revamp[data-narrow-detail] .atum-settings-detail {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    pointer-events: auto;
+  }
+
+  .atum-settings-revamp[data-narrow-detail] .atum-settings-panes {
+    display: block;
+  }
+
+  .atum-settings-revamp[data-narrow-detail] .atum-settings-back {
+    display: inline-flex;
+  }
+
+  .atum-settings-revamp .atum-settings-row {
+    min-height: 3.25rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .atum-settings-revamp .atum-settings-row {
+    flex-wrap: wrap;
+  }
+
+  .atum-settings-revamp .atum-settings-row-control {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .atum-settings-revamp .atum-settings-profile .atum-settings-row-control,
+  .atum-settings-revamp .atum-settings-assistant-row .atum-settings-row-control {
+    width: auto;
+  }
+}
+
+/* Atum Kit pages: a destination folded into a page (Privacy & security under Account) follows
+   the page's first sections; its own sections carry the small labels, never a second title. */
+.atum-settings-section {
+  scroll-margin-top: 1rem;
+}

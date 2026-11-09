@@ -1,0 +1,13 @@
+{
+  "home": {
+    "kind": "cloud"
+  },
+  "reachable": false,
+  "pendingWork": true,
+  "policy": "wait_for_home",
+  "paidCloudFallback": false,
+  "expect": {
+    "outcome": "held",
+    "reason": "waiting_for_home"
+  }
+}

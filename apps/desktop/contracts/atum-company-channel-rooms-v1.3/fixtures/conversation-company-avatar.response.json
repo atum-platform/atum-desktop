@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 4,
+  "companyId": "00000000-0000-4000-8000-d7aaaa337a7c",
+  "target": {
+    "kind": "conversation",
+    "conversationId": "00000000-0000-4000-8000-637eba1e3844",
+    "conversationKind": "dm",
+    "participantSetDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "companyGeneration": 5,
+  "targetGeneration": 2,
+  "planGeneration": 2,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 1,
+      "principal": "00000000-0000-4000-8000-7498b7fe344a",
+      "userId": "@p1:example.invalid"
+    }
+  ],
+  "exclusions": [],
+  "unresolvedAdmissions": [],
+  "possibleGrants": [],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "Direct message",
+    "topic": "",
+    "posting": "enabled",
+    "metadataRevision": 2,
+    "avatarUri": "mxc://matrix.atum.app/company-logo",
+    "avatarRevision": 3
+  }
+}

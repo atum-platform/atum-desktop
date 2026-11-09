@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "absent",
+      "to": "importing",
+      "event": "import_admitted"
+    },
+    {
+      "from": "importing",
+      "to": "uncertain",
+      "event": "effect_unknown"
+    },
+    {
+      "from": "uncertain",
+      "to": "imported",
+      "event": "reconciled_imported"
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "note": "Full byte-identical frozen platform packs; canonical.test.ts verifies every declared pin. Device-service uses v1.1; app-catalog transport uses v1.1; agent-home uses v1.5, v1.7 and v1.8; agent-sweep uses frozen v1 and v1.1 plus negotiated v2; agent-sources and agent-source-gates use v1; agent-turns uses v1.4; agent-routines uses v1.3 and agent-presentation uses v1.1; canonical-room, execution-policy, and cloud-home-read use v1; model-choice carries the LU-R1 v1.2 policy and v1.3 destination/cap amendment. cloud-execution carries the 1.10 line-up managed dispatch grant (1.7 managed grant and 1.8 shapes carried unchanged) for the cloud controller, and 1.11 adds the per-agent daily-cap admission refusal additively over 1.10. provider-connections v1, model-choice v1.4 and cloud-execution v1.13 are R1; chatgpt-relay v1, model-choice v1.5 and cloud-execution v1.14 are the R2 Mac relay (migration 0336).",
+  "source": "atum-platform feat/agent-sources-platform 6373fbf0 for agent-source-gates v1; feat/agent-sources-contract 39c9ac5102c55774e057728e2bf4e22f3161d259 for agent-sources v1 and agent-sweep v2; feat/app-catalog-transport-mode-0340 e32def7a for app-catalog v1.1; feat/sweep-warmup 253859de for agent-sweep v1.1; feat/silent-occurrence-delivery c6d8bd7f4ac35de37837e47901622e20f13b9e2e for agent-home v1.8; retained pack provenance stays on each entry",
+  "packs": {
+    "device-service": {
+      "version": "v1.1",
+      "pinned_sha256": "6455023c5b91d375a5b219aed5cb284533ac1be440eb3c59a9e83a2d4e654dcd",
+      "vendored": "full"
+    },
+    "cloud-answering": {
+      "version": "v1",
+      "pinned_sha256": "b7cc639fec4a7ed7b41f80469ac95efcfcd35cf5127092e52dbac415ca50afab",
+      "vendored": "full"
+    },
+    "cloud-home-read": {
+      "version": "v1",
+      "pinned_sha256": "a43866ded03ee35f6aed68f46a6c2396b33847f5aacefb6dcb9543f4ad1cdf88",
+      "vendored": "full"
+    },
+    "agent-home": {
+      "version": "v1.5",
+      "pinned_sha256": "1a12a0b166a0cfe13d284ab872afae9c0fdad12042278cb903e2b4aa76bd330f",
+      "source_commit": "bcd5cb8beee834f201c1d14da60a04dbf660dbb5",
+      "vendored": "full"
+    },
+    "agent-turns": {
+      "version": "v1.4",
+      "pinned_sha256": "a14261fbeca1a3aeada0be006e2f135f63561bcaa36e3fc45c39da777bdc0d33",
+      "source_commit": "62e9fa84f5f2cbb347d127213d281f5d11f06e22",
+      "vendored": "full"
+    },
+    "agent-routines": {
+      "version": "v1.3",
+      "pinned_sha256": "4d46c750272a75a98b4dea0805da378fabd6916028d570208f6259ca59896b81",
+      "vendored": "full"
+    },
+    "agent-presentation": {
+      "version": "v1.1",
+      "pinned_sha256": "290312abedec615cc0a7f3f582babacbb3d692cd07a24455add2f250e8307962",
+      "vendored": "full"
+    },
+    "canonical-room": {
+      "version": "v1",
+      "pinned_sha256": "4b3d9b377b885f343a41fcd8d8ab85a9e4695d903ff42b4f04059280c87ccf12",
+      "vendored": "full"
+    },
+    "execution-policy": {
+      "version": "v1",
+      "pinned_sha256": "adb3df70983d357418d82b5ceebb55b3d49f8fa50ad540d3a368b58612a90c05",
+      "vendored": "full"
+    },
+    "model-choice-v1.2": {
+      "version": "v1.2",
+      "pinned_sha256": "5e687bef3c3d9b28e1ce1471b048fd3c01728377ccbae55990c774a7e6a5ab09",
+      "vendored": "full"
+    },
+    "model-choice": {
+      "version": "v1.3",
+      "pinned_sha256": "d0d410f1fad966150ab208e6f74000231d6408c6f0fea621c3e21fa4902f1bed",
+      "vendored": "full"
+    },
+    "workspace-transactions": {
+      "version": "v1",
+      "pinned_sha256": "d04624fe74eb0474023cdbb76a5225bd3c86ea01ba461246675867a6b66f0266",
+      "vendored": "full"
+    },
+    "cloud-execution": {
+      "version": "v1.10",
+      "pinned_sha256": "9d0ff12e2df9a10ecd93dcc142f62c737ff77c3a9a73965985f6aa01e6beb175",
+      "source_commit": "c6831f7a (atum-platform feat/model-lineup-r1-finish)",
+      "vendored": "full"
+    },
+    "cloud-execution-v1.11": {
+      "version": "v1.11",
+      "pinned_sha256": "7f8c7c477f5c7efd215fb1df3ccb64f2c6c2b2b56fbb04025a14630e3590e69d",
+      "source_commit": "aea375c3 (atum-platform feat/daily-cap-contract-1-11)",
+      "vendored": "full"
+    },
+    "agent-home-v1.7": {
+      "version": "v1.7",
+      "pinned_sha256": "11b09a50411bf5421de6b086c47a833e4f9512050b33138bc63bd9810b05968b",
+      "source_commit": "aea375c3 (atum-platform feat/daily-cap-contract-1-11)",
+      "vendored": "full"
+    },
+    "agent-home-v1.8": {
+      "version": "v1.8",
+      "pinned_sha256": "fd188fea2e68871262e1e98f13ad6ea46b1489db959fc9b1393bad1757570702",
+      "source_commit": "c6d8bd7f (atum-platform feat/silent-occurrence-delivery)",
+      "vendored": "full"
+    },
+    "agent-chats": {
+      "version": "v1",
+      "pinned_sha256": "9c3f96797d1d7e6b989af94f087bfd5c2df3a7b1dbc5620015bddf30118ac025",
+      "source_commit": "5e2c41642b6031d77e58bee40295a3aed3fdc799",
+      "vendored": "full"
+    },
+    "agent-sweep": {
+      "version": "v1",
+      "pinned_sha256": "0827f068dc2b8bfde9cdd6447f3daf186a208ff4f5fe1001d0efb554c9d12675",
+      "source_commit": "05cd0d7d (atum-platform feat/agent-sweep)",
+      "protocol": "0.7.47",
+      "migration": "0316",
+      "vendored": "full"
+    },
+    "agent-sweep-v1.1": {
+      "version": "v1.1",
+      "pinned_sha256": "575c69f085532f68db104237a9a3c391aa0b2740c1227e846801e0cc50f7c7e7",
+      "source_commit": "253859de (atum-platform feat/sweep-warmup)",
+      "protocol": "0.7.52",
+      "migration": "0328",
+      "vendored": "full"
+    },
+    "agent-sources": {
+      "version": "v1",
+      "pinned_sha256": "677365750031f1ccd908710541222605b36dea9cb40ea8dc03b8820635b61902",
+      "source_commit": "39c9ac5102c55774e057728e2bf4e22f3161d259 (atum-platform feat/agent-sources-contract)",
+      "protocol": "0.7.56",
+      "vendored": "full"
+    },
+    "agent-source-gates": {
+      "version": "v1",
+      "pinned_sha256": "74dd2fc488707138bf906eb655138b6b5e70884cd03fb25ad175eace99fb6af4",
+      "source_commit": "6373fbf0 (atum-platform feat/agent-sources-platform)",
+      "protocol": "0.7.57",
+      "vendored": "full"
+    },
+    "agent-sweep-v2": {
+      "version": "v2",
+      "pinned_sha256": "2fe190c09d94145b8afe4d9baf54d8d7588e1363e96671e2add07dbc66f9ae8a",
+      "source_commit": "39c9ac5102c55774e057728e2bf4e22f3161d259 (atum-platform feat/agent-sources-contract)",
+      "protocol": "0.7.56",
+      "vendored": "full"
+    },
+    "app-catalog-v1.1": {
+      "version": "v1.1",
+      "pinned_sha256": "fb30ce0c29749560cf7b0c2e460eb7183da98c2577468bbc3afe6fb19bbb1c04",
+      "source_commit": "e32def7a (atum-platform feat/app-catalog-transport-mode-0340)",
+      "protocol": "0.7.55",
+      "migration": "0340",
+      "vendored": "full"
+    },
+    "provider-connections": {
+      "version": "v1",
+      "pinned_sha256": "343c0a328bbc324a6167f190a7f61f68d3c9d9fcb900be538979856f75d994ef",
+      "source_commit": "9962a7ae (atum-platform feat/subscriptions-r1)",
+      "migration": "0335",
+      "vendored": "full"
+    },
+    "model-choice-v1.4": {
+      "version": "v1.4",
+      "pinned_sha256": "2875cf49ad9d71a01e76ad80ce542e87ab131c362938ebf3e0e00e9ca41ee088",
+      "source_commit": "9962a7ae (atum-platform feat/subscriptions-r1)",
+      "migration": "0335",
+      "vendored": "full"
+    },
+    "cloud-execution-v1.13": {
+      "version": "v1.13",
+      "pinned_sha256": "b881d15d8e1f79a6b6111a78ef8d3c89553739270d534f5fce464ed88728a636",
+      "source_commit": "9962a7ae (atum-platform feat/subscriptions-r1)",
+      "migration": "0335",
+      "vendored": "full"
+    },
+    "chatgpt-relay": {
+      "version": "v1",
+      "pinned_sha256": "972534729db948e280c224b1eba816e011ab196f444fb63ed8d47d87915f1457",
+      "migration": "0336",
+      "vendored": "full"
+    },
+    "model-choice-v1.5": {
+      "version": "v1.5",
+      "pinned_sha256": "01458a5995ce326871249dc9c6a91c4415e0b5279c37d0e52449a3fb654b0dab",
+      "migration": "0336",
+      "vendored": "full"
+    },
+    "cloud-execution-v1.14": {
+      "version": "v1.14",
+      "pinned_sha256": "80523208216dad1b9ea8878ab4aa8223aea4db2a4dbf8aa6f890c5ed57506a3f",
+      "migration": "0336",
+      "vendored": "full"
+    }
+  },
+  "runtime_schema_modules": {
+    "mac-jobs-v1": {
+      "version": "v1",
+      "protocol_version": "0.7.72",
+      "source_commit": "d050a622dc631363ad26a0d66571639b283d35ce",
+      "vendored": "runtime-schema-closure",
+      "path": "../vendor/mac-jobs-0.7.72",
+      "pinned_sha256": "e930014d5a44c45384f48c515cffc7a60f3c53f404b064aee5ddf70cc9a0add7",
+      "pin_target": "SOURCE.json"
+    }
+  }
+}

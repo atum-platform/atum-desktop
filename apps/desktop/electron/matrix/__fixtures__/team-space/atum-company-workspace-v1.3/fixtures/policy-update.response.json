@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 4,
+  "companyId": "00000000-0000-4000-8000-72805976e3a7",
+  "policy": {
+    "channelCreation": "admins_only"
+  },
+  "authorityGeneration": 10,
+  "replayed": false
+}

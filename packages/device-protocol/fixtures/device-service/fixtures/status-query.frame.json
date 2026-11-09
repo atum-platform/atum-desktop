@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "StatusQuery",
+  "body": {
+    "commandIds": [
+      "00000000-0000-4000-8000-38e4e4acfa60",
+      "00000000-0000-4000-8000-5dce7da562ac"
+    ]
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "GsNAl1TzfLPsSPHqtlF3uX6JxeA7wusEOr7f1ZOJYyIPTLb1dtVaxpZnwn9KZN7Tyzs99rOcUCLE_Vv98H6VCg"
+}

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "license": "SIL Open Font License 1.1",
+  "files": [
+    {
+      "sourceRepository": "google/fonts",
+      "sourceCommit": "7085eb89a950e85db5b166b7a58d414544b4140c",
+      "sourcePath": "ofl/cormorantgaramond/CormorantGaramond[wght].ttf",
+      "gitBlob": "d992a83ce525c330fad3a19087746bcb2dc038ee",
+      "sha256": "b20b7d9626dd956b2c5e558692ad328b1f19e3275e2782db4fa07670d83f35e0",
+      "bytes": 1195560,
+      "file": "apps/desktop/src/fonts/CormorantGaramond.ttf"
+    },
+    {
+      "sourceRepository": "google/fonts",
+      "sourceCommit": "7085eb89a950e85db5b166b7a58d414544b4140c",
+      "sourcePath": "ofl/cormorantgaramond/OFL.txt",
+      "gitBlob": "507d70f4565352dbfcf2dfc9b42eb092b57c0be8",
+      "sha256": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956",
+      "bytes": 4387,
+      "file": "apps/desktop/src/fonts/CormorantGaramond-native-OFL.txt"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "profile": "atum.agent-sources/1",
+  "integrationRef": "app.unknown_fixture",
+  "integrationRevision": 7,
+  "sources": [
+    {
+      "id": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+      "kind": "matrix.bot-room",
+      "connectionRef": "matrix_connection_owner_01",
+      "optOutGate": "team_spaces",
+      "revision": 7,
+      "scopeRef": "room_unknown_app_01",
+      "readCapabilities": [
+        {
+          "operationRef": "matrix.read_scoped_room",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "matrix.read_scoped_room",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [
+        "app-declared",
+        "matrix-derived"
+      ],
+      "policyTags": [
+        "owner-only"
+      ]
+    }
+  ]
+}

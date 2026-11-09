@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 4,
+  "company": {
+    "id": "00000000-0000-4000-8000-72805976e3a7",
+    "displayName": "Atum",
+    "role": "owner",
+    "ownerMemberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "authorityGeneration": 7,
+    "policy": {
+      "channelCreation": "members"
+    }
+  },
+  "members": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "role": "admin",
+      "state": "active",
+      "admissionEpoch": 1
+    },
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "role": "admin",
+      "state": "active",
+      "admissionEpoch": 1
+    }
+  ],
+  "invitations": []
+}

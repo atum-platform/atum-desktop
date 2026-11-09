@@ -1,0 +1,30 @@
+{
+  "contract": "atum.awareness/1",
+  "operationId": "00000000-0000-4000-8000-88849e29fb17",
+  "source": {
+    "kind": "drive_file",
+    "id": "personal"
+  },
+  "object": {
+    "kind": "file_version",
+    "id": "5c3e1a7b-drive-file-0001",
+    "revision": 4
+  },
+  "author": {
+    "kind": "owner",
+    "id": "@synthetic-user-0004:example.invalid"
+  },
+  "eventTime": 1790661600000,
+  "observedTime": 1790661602000,
+  "policy": {
+    "epoch": 1,
+    "visibility": "not_applicable",
+    "googleDerived": false,
+    "accountFence": true
+  },
+  "content": {
+    "text": "Q4 plan: ship the trial on 15 October.",
+    "attachments": []
+  },
+  "digest": "b1d107b9cc3ac553adf10e48260fea73f6a469b5bb20dd7e6ac6c00e1c235253"
+}

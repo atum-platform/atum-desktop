@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "reply": "Tới đây!",
+  "action": {"action": "go", "place": "center"},
+  "recent": [
+    {"role": "user", "text": "gigi come", "at": "2026-10-27T02:00:00.000Z"},
+    {"role": "pet", "text": "Tới đây!", "at": "2026-10-27T02:00:01.000Z"}
+  ],
+  "messages_today": 4,
+  "daily_cap": 200
+}

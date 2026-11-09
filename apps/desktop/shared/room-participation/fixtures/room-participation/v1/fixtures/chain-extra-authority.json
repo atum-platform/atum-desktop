@@ -1,0 +1,6 @@
+{
+  "origin": "$owner",
+  "depth": 1,
+  "parent": "$owner",
+  "ownerUserId": "@owner:example.invalid"
+}

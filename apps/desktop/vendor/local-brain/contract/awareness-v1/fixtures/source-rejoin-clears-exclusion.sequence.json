@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "included",
+      "to": "excluded",
+      "event": "owner_excluded"
+    },
+    {
+      "from": "excluded",
+      "to": "included",
+      "event": "rejoined"
+    }
+  ]
+}

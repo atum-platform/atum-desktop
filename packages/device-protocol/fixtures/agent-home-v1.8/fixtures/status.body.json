@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "kind": "status",
+  "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+  "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+  "statusCode": "couldnt_confirm",
+  "devices": [
+    "MacBook Pro"
+  ]
+}

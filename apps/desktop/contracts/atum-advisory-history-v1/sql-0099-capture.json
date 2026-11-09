@@ -1,0 +1,442 @@
+{
+  "contract": "atum.advisory-history-sql/1",
+  "provenance": {
+    "migration": "supabase/migrations/0099_advisory_history_search.sql",
+    "migration_sha256": "29b2fc02c915feafb6d2dc20d17e50e9dba5be77b24cfedb29ff3c6b2f4c3caa",
+    "test": "supabase/tests/0099_advisory_history_search.test.sql",
+    "test_sha256": "b95cb603de2c600e72d0f3abdcb0701f286eb51422ca09371b659ed6f3cf6728",
+    "database": "local transactional pgTAP fixture; rolled back"
+  },
+  "responses": {
+    "next": {
+      "status": "ok",
+      "results": [
+        {
+          "title": "Advisory A one",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-e20ca8ea4a97",
+              "text": "historical filler message 13",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:11.859641+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-42c055510a94",
+              "text": "historical filler message 14",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:12.859995+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-0252a32a68fc",
+              "text": "historical filler message 15",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:13.860359+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-f07f33683bfc",
+              "text": "historical filler message 16",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:14.860716+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-34daac29876d",
+              "text": "historical filler message 17",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:15.861065+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-84f58ae83b8c",
+              "text": "historical filler message 18",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:16.861437+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-3a773822fe5b",
+              "text": "historical filler message 19",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:17.861899+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-4015fd8ed19f",
+              "text": "historical filler message 20",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:18.862283+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-4019f4b3979a",
+              "text": "historical filler message 21",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:19.862675+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-58e9077a970b",
+              "text": "historical filler message 22",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:20.863062+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-3b3fcd00df69",
+              "text": "historical filler message 23",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:21.863432+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-6e3f075033f3",
+              "text": "historical filler message 24",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:22.863839+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogMTIsICJrIjogInIiLCAibyI6ICI5ODAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCAicSI6ICIiLCAiciI6IDEsICJzIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJ2IjogMSwgIngiOiAxMDF9",
+          "conversation_id": "00000000-0000-4000-8000-a361c29b9fa3",
+          "context_revision": 101,
+          "audience_revision": 1
+        }
+      ],
+      "next_reference": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogMjQsICJrIjogInIiLCAibyI6ICI5ODAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCAicSI6ICIiLCAiciI6IDEsICJzIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJ2IjogMSwgIngiOiAxMDF9",
+      "previous_reference": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogNiwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiAiYjMxNTBlMzgtYjk4YS00NmI1LWJmMjEtMDU4ZjJjNmQ1ZmFiIiwgInYiOiAxLCAieCI6IDEwMX0"
+    },
+    "read": {
+      "status": "ok",
+      "results": [
+        {
+          "title": "Advisory A one",
+          "messages": [
+            {
+              "id": "98000000-0000-7000-8000-000000000099",
+              "text": "English decision: launch decision is to ship the staffed limited beta on Friday.",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:15:59.846677+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-08241d7f0705",
+              "text": "Quyết định chuyển nhà vào tháng mười.",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:00.852773+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-8466f699d2fd",
+              "text": "historical filler message 3",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:01.854116+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-32c1bff90c30",
+              "text": "historical filler message 4",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:02.854865+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-32634a980609",
+              "text": "historical filler message 5",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:03.855538+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-9eb54bd9c971",
+              "text": "historical filler message 6",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:04.856193+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-e010a2368fef",
+              "text": "historical filler message 7",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:05.857249+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-09fdfc198d9d",
+              "text": "historical filler message 8",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:06.857664+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-04213ac87ed1",
+              "text": "historical filler message 9",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:07.858042+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-e976eb67510d",
+              "text": "historical filler message 10",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:08.858426+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-46faf918df84",
+              "text": "historical filler message 11",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:09.85889+00:00"
+            },
+            {
+              "id": "00000000-0000-4000-8000-444c20e0fff5",
+              "text": "historical filler message 12",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:10.859286+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiAiYjMxNTBlMzgtYjk4YS00NmI1LWJmMjEtMDU4ZjJjNmQ1ZmFiIiwgInYiOiAxLCAieCI6IDEwMX0",
+          "conversation_id": "00000000-0000-4000-8000-a361c29b9fa3",
+          "context_revision": 101,
+          "audience_revision": 1
+        }
+      ],
+      "next_reference": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogMTIsICJrIjogInIiLCAibyI6ICI5ODAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCAicSI6ICIiLCAiciI6IDEsICJzIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJ2IjogMSwgIngiOiAxMDF9",
+      "previous_reference": null
+    },
+    "discovery": {
+      "status": "ok",
+      "results": [
+        {
+          "title": "Advisory A six",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-d42aca77a60c",
+              "text": "launch decision candidate room 6",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:20:04.89303+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImE1OTAxZmFiLWU3YmQtNDM5NS1hZjRhLWNjZjBkYjFjMTg5OCIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiBudWxsLCAidiI6IDEsICJ4IjogM30",
+          "conversation_id": "00000000-0000-4000-8000-5434c01feca3",
+          "context_revision": 3,
+          "audience_revision": 1
+        },
+        {
+          "title": "Advisory A five",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-722c38663458",
+              "text": "launch decision candidate room 5",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:20:03.892925+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogIjM1YjQxZjA0LWUzMDYtNDE5OS1iYmU5LTZmZWE1MDVkNjE1YiIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiBudWxsLCAidiI6IDEsICJ4IjogNH0",
+          "conversation_id": "00000000-0000-4000-8000-e2b2c7a2491b",
+          "context_revision": 4,
+          "audience_revision": 1
+        },
+        {
+          "title": "Advisory A four",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-df538a5c30c5",
+              "text": "launch decision candidate room 4",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:20:02.892819+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogIjNlNGU0ZGVmLTI0ODUtNGZjOS05ZWUzLWNhMDk4YzM5MGQ0NiIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiBudWxsLCAidiI6IDEsICJ4IjogM30",
+          "conversation_id": "00000000-0000-4000-8000-c2464eb1c63b",
+          "context_revision": 3,
+          "audience_revision": 1
+        },
+        {
+          "title": "Advisory A three",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-ed34a9e7b314",
+              "text": "launch decision candidate room 3",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:20:01.892699+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImJjNDJkNjdiLTk2ZTMtNGQ5Yi05YmMwLWY4NjBhNzlkYmEwOSIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiBudWxsLCAidiI6IDEsICJ4IjogM30",
+          "conversation_id": "00000000-0000-4000-8000-611b52e30f17",
+          "context_revision": 3,
+          "audience_revision": 1
+        },
+        {
+          "title": "Advisory A two",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-d757ba9c14d0",
+              "text": "launch decision candidate room 2",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:20:00.892533+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogIjFjNmI2MmJmLWIwODItNGNjNC05OTM2LWVlNWU2Mjk0YTBjYyIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiBudWxsLCAidiI6IDEsICJ4IjogM30",
+          "conversation_id": "00000000-0000-4000-8000-3672041bfebf",
+          "context_revision": 3,
+          "audience_revision": 1
+        }
+      ],
+      "next_reference": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJrIjogImQiLCAibCI6ICIxYzZiNjJiZi1iMDgyLTRjYzQtOTkzNi1lZTVlNjI5NGEwY2MiLCAibyI6ICI5ODAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCAicSI6ICJsYXVuY2ggZGVjaXNpb24iLCAicyI6IG51bGwsICJ0IjogIjIwMjYtMDktMDZUMTc6MjA6MDAuODkyNTMzKzAwOjAwIiwgInYiOiAxfQ",
+      "previous_reference": null
+    },
+    "vietnamese": {
+      "status": "ok",
+      "results": [
+        {
+          "title": "Advisory A one",
+          "messages": [
+            {
+              "id": "00000000-0000-4000-8000-08241d7f0705",
+              "text": "Quyết định chuyển nhà vào tháng mười.",
+              "speaker": {
+                "id": "00000000-0000-4000-8000-8613f51c43f7",
+                "kind": "owner"
+              },
+              "version": 1,
+              "truncated": false,
+              "created_at": "2026-09-06T17:16:00.852773+00:00"
+            }
+          ],
+          "session_id": "atum-advisory:eyJhIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MTAwLTAwMDAwMDAwMDAwMSIsICJjIjogImIzMTUwZTM4LWI5OGEtNDZiNS1iZjIxLTA1OGYyYzZkNWZhYiIsICJpIjogMCwgImsiOiAiciIsICJvIjogIjk4MDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsICJxIjogIiIsICJyIjogMSwgInMiOiAiYjMxNTBlMzgtYjk4YS00NmI1LWJmMjEtMDU4ZjJjNmQ1ZmFiIiwgInYiOiAxLCAieCI6IDEwMX0",
+          "conversation_id": "00000000-0000-4000-8000-a361c29b9fa3",
+          "context_revision": 101,
+          "audience_revision": 1
+        }
+      ],
+      "next_reference": null,
+      "previous_reference": null
+    }
+  }
+}

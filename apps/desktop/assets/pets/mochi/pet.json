@@ -1,0 +1,16 @@
+{
+  "id": "mochi",
+  "displayName": "Mochi",
+  "description": "A white bichon: round everywhere, and pleased about it.",
+  "spritesheetPath": "spritesheet.webp",
+  "spriteVersionNumber": 3,
+  "size": 1.1,
+  "extraRows": ["sleep", "carried"],
+  "lookOrigin": "yaw5-pitch3-mirrored",
+  "lookYawSteps": 5,
+  "lookPitchSteps": 3,
+  "sizeClass": {"naturalHeightPt": 100},
+  "locomotion": "walk",
+  "anchor": {"footY": 195, "centerX": 95.5},
+  "bounds": {"idle": {"x": 29, "y": 66, "width": 133, "height": 129}, "running-right": {"x": 18, "y": 56, "width": 139, "height": 139}, "running-left": {"x": 35, "y": 56, "width": 139, "height": 139}, "waving": {"x": 29, "y": 61, "width": 133, "height": 139}, "jumping": {"x": 29, "y": 46, "width": 133, "height": 159}, "failed": {"x": 29, "y": 71, "width": 133, "height": 134}, "waiting": {"x": 29, "y": 65, "width": 145, "height": 140}, "running": {"x": 35, "y": 56, "width": 139, "height": 139}, "review": {"x": 29, "y": 66, "width": 133, "height": 129}, "lounging": {"x": 29, "y": 99, "width": 139, "height": 102}, "look-0": {"x": 23, "y": 71, "width": 139, "height": 124}, "look-1": {"x": 29, "y": 71, "width": 133, "height": 124}, "sleep": {"x": 29, "y": 102, "width": 133, "height": 99}, "carried": {"x": 29, "y": 81, "width": 133, "height": 122}}
+}

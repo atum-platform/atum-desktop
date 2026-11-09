@@ -1,0 +1,34 @@
+{
+  "steps": [
+    {
+      "from": "included",
+      "to": "left",
+      "event": "left_room"
+    },
+    {
+      "from": "left",
+      "to": "included",
+      "event": "rejoined"
+    },
+    {
+      "from": "included",
+      "to": "excluded",
+      "event": "owner_excluded"
+    },
+    {
+      "from": "excluded",
+      "to": "excluded",
+      "event": "left_room"
+    },
+    {
+      "from": "excluded",
+      "to": "excluded",
+      "event": "rejoined"
+    },
+    {
+      "from": "excluded",
+      "to": "included",
+      "event": "owner_reincluded"
+    }
+  ]
+}

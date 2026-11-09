@@ -1,0 +1,76 @@
+{
+  "contract": "atum.participant-ref/1",
+  "refs": [
+    {
+      "kind": "user",
+      "id": "00000000-0000-4000-8000-bd7662a5eeb4"
+    },
+    {
+      "kind": "assistant",
+      "id": "00000000-0000-4000-8000-f6222a1106ee"
+    },
+    {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "app_installation_id": "00000000-0000-4000-8000-303617b97302"
+    },
+    {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "app_installation_id": "00000000-0000-4000-8000-00f765af1c54"
+    }
+  ],
+  "invalid_refs": [
+    {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88"
+    },
+    {
+      "kind": "person",
+      "id": "00000000-0000-4000-8000-bd7662a5eeb4"
+    },
+    {
+      "kind": "user",
+      "id": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "app_installation_id": "00000000-0000-4000-8000-303617b97302"
+    },
+    {
+      "kind": "assistant",
+      "id": "00000000-0000-4000-8000-f6222a1106ee",
+      "owner_user_id": "00000000-0000-4000-8000-bd7662a5eeb4"
+    },
+    {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "app_installation_id": "moon"
+    }
+  ],
+  "snapshots": {
+    "aliceMoon": {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "owner_user_id": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "display_name": "Moon",
+      "owner_display_name": "Alice"
+    },
+    "bobMoon": {
+      "kind": "app",
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "owner_user_id": "00000000-0000-4000-8000-b454f82c5857",
+      "display_name": "Moon",
+      "owner_display_name": "Bob"
+    },
+    "assistant": {
+      "kind": "assistant",
+      "id": "00000000-0000-4000-8000-f6222a1106ee",
+      "owner_user_id": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "display_name": "Sage",
+      "avatar_url": "https://atum.example/avatar.png"
+    },
+    "user": {
+      "kind": "user",
+      "id": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "display_name": "Alice"
+    }
+  }
+}

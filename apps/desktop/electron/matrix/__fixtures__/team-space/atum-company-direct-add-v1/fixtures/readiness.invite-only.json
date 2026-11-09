@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 12,
+  "companyId": "00000000-0000-4000-8000-3570bef6c8ca",
+  "directAdd": "invite_only",
+  "policy": "admins",
+  "assignableRoles": [
+    "member"
+  ],
+  "rosterRemaining": 93
+}

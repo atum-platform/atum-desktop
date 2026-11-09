@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "links": [
+    {
+      "id": "00000000-0000-4000-8000-507f79cf6e24",
+      "role": "member",
+      "state": "active",
+      "createdAt": 1792540800,
+      "expiresAt": 1793145600,
+      "maxUses": 5,
+      "uses": 2
+    }
+  ]
+}

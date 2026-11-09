@@ -1,0 +1,15 @@
+{
+  "result": "unknown",
+  "dependencyCheck": {
+    "at": 1791100830000,
+    "changed": []
+  },
+  "outputs": [
+    {
+      "path": "brief.md",
+      "state": "unknown",
+      "placed": null,
+      "siblingPath": null
+    }
+  ]
+}

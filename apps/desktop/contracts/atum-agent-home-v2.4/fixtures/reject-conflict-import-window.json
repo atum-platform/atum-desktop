@@ -1,0 +1,37 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800007200001,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "fence": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "homeEpoch": 4,
+    "executorTerm": 12,
+    "leaseId": "00000000-0000-4000-8000-c8f367a876b2",
+    "leaseExpiresAtPlatform": 1800000060000,
+    "operation": {
+      "kind": "invocation",
+      "id": "00000000-0000-4000-8000-6cc9b1298c8f"
+    }
+  },
+  "quarantineId": "00000000-0000-4000-8000-303617b97302",
+  "reviewId": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "reviewedBy": "@owner:atum.example",
+  "eraseEpoch": 1,
+  "expectedHomeEpoch": 4,
+  "expectedPlacementRevision": 9,
+  "nextPlacementRevision": 10,
+  "parentGeneration": 12,
+  "generation": 13,
+  "sourceManifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "outcome": "imported"
+}

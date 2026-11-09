@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="shortcut icon" href="/apple-touch-icon.png" />
+    <title>Atum</title>
+    <script>
+      // Pre-paint the Atum window ground (SPEC §1 --atum-bg) and colour
+      // scheme before React mounts, so the first frame is the ground and not
+      // a flash of white. The legacy shell repaints its own root after mount.
+      //
+      // On macOS the window carries the sidebar vibrancy material behind a
+      // clear backing (electron/main.ts), and the first frame is meant to be
+      // that frosted material: the launch screen and the sidebar are tints
+      // over it. So the document stays transparent there, and the attribute
+      // tells styles.css which surfaces paint a tint and which paint the ground.
+      try {
+        let scheme = localStorage.getItem('hermes-boot-color-scheme')
+        if (!scheme) {
+          const dark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          scheme = dark ? 'dark' : 'light'
+        }
+        const platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || ''
+        // Only the product shell is glass. The legacy Hermes chrome (the
+        // persisted `hermes.desktop.atum.shell` flag set to false) paints an
+        // opaque body and keeps the pre-painted ground.
+        const productShell = localStorage.getItem('hermes.desktop.atum.shell') !== 'false'
+        if (/mac/i.test(platform) && productShell) {
+          document.documentElement.setAttribute('data-atum-vibrancy', 'sidebar')
+        } else {
+          document.documentElement.style.backgroundColor = scheme === 'dark' ? '#17181C' : '#F4F5F7'
+        }
+        if (scheme === 'dark' || scheme === 'light') {
+          document.documentElement.style.colorScheme = scheme
+        }
+      } catch {
+        // localStorage unavailable — keep UA defaults.
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root" class="scrollbar-dt"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

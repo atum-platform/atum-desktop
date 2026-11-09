@@ -1,0 +1,10 @@
+{
+  "requestId": "00000000-0000-4000-8000-564e93c689af",
+  "policy": {
+    "channelCreation": "members",
+    "publicChannelMembership": "members",
+    "privateChannelMembership": "members",
+    "companyInvitations": "members"
+  },
+  "expectedAuthorityGeneration": 9
+}

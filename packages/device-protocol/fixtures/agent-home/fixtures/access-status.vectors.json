@@ -1,0 +1,36 @@
+{
+  "vectors": [
+    {
+      "code": "turn_limit",
+      "source": "turn",
+      "messageDisposition": "complete",
+      "earliestNoticeMs": 0,
+      "dedupe": "turn",
+      "sessionRotation": "unchanged"
+    },
+    {
+      "code": "reminder_missed",
+      "source": "occurrence",
+      "messageDisposition": "complete",
+      "earliestNoticeMs": 0,
+      "dedupe": "occurrence",
+      "sessionRotation": "unchanged"
+    },
+    {
+      "code": "stuck",
+      "source": "access",
+      "messageDisposition": "keep_pending",
+      "earliestNoticeMs": 300000,
+      "dedupe": "refusal_episode",
+      "sessionRotation": "unchanged"
+    },
+    {
+      "code": "access_final",
+      "source": "access",
+      "messageDisposition": "keep_pending",
+      "earliestNoticeMs": 2592000000,
+      "dedupe": "access_lapse",
+      "sessionRotation": "stop_after_notice"
+    }
+  ]
+}

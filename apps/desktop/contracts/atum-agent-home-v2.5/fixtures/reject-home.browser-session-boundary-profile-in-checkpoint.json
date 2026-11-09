@@ -1,0 +1,9 @@
+{
+  "homeId": "00000000-0000-4000-8000-26ea6f4f0f82",
+  "browserProfilesInPortableCheckpoints": true,
+  "retainedSessionStore": "separate_encrypted_store",
+  "retainedSessionRestoreContract": "atum.cloud-execution/2.1",
+  "retainedSessionRestoreOutcome": "restored_when_current",
+  "accountRestoreBrowserMessage": "browser.restore.record",
+  "cloudRestoreRecordBrowserState": "forbidden"
+}

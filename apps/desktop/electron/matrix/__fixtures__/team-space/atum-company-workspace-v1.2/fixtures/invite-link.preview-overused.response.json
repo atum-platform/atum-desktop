@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 3,
+  "company": {
+    "id": "00000000-0000-4000-8000-68ce1b921bf1",
+    "displayName": "Công ty Atum"
+  },
+  "role": "member",
+  "inviter": {
+    "handle": "minh",
+    "displayName": "Minh"
+  },
+  "expiresAt": 1793145600,
+  "maxUses": 5,
+  "usesRemaining": 6
+}

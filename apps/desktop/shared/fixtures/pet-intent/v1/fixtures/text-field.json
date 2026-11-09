@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "intents": [
+    {
+      "action": "wave",
+      "text": "hello"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 2,
+  "companyId": "00000000-0000-4000-8000-a3df449d52c7",
+  "channelId": "00000000-0000-4000-8000-5d55479c156b",
+  "companyGeneration": 9,
+  "channelGeneration": 7,
+  "planGeneration": 12,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 2,
+      "admissionGeneration": 5,
+      "principal": "00000000-0000-4000-8000-3408bde7bc56",
+      "userId": "@user1:example.invalid"
+    }
+  ],
+  "exclusions": [
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "reason": "removed",
+      "principal": "00000000-0000-4000-8000-83fd7aa7e42e",
+      "userId": "@user2:example.invalid"
+    }
+  ],
+  "unresolvedAdmissions": [
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1,
+      "reason": "missing_matrix_mapping"
+    }
+  ],
+  "possibleGrants": [
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "principal": "00000000-0000-4000-8000-83fd7aa7e42e",
+      "userId": "@user2:example.invalid",
+      "source": "uncertain"
+    }
+  ],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "general",
+    "topic": "Updates",
+    "posting": "enabled",
+    "metadataRevision": 3
+  }
+}

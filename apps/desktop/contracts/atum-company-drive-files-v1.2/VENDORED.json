@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-drive-files/1.2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "28becd378eae5255e5940295038f0489a1f60ffe",
+  "path": "spec/company-drive-files/v1.2",
+  "sha256": "ea95890d6cc735954b7ee67f61a51bb8646b14554955fc6703409ac3c6ebb779",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "dirty",
+      "to": "quiescing",
+      "event": "capture"
+    },
+    {
+      "from": "quiescing",
+      "to": "committing",
+      "event": "epoch_cas"
+    }
+  ]
+}

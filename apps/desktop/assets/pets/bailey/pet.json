@@ -1,0 +1,16 @@
+{
+  "id": "bailey",
+  "displayName": "Bailey",
+  "description": "A Bernese Mountain Dog: big, gentle, and mostly asleep.",
+  "spritesheetPath": "spritesheet.webp",
+  "spriteVersionNumber": 3,
+  "size": 2,
+  "extraRows": ["sleep", "carried"],
+  "lookOrigin": "yaw5-pitch3-mirrored",
+  "lookYawSteps": 5,
+  "lookPitchSteps": 3,
+  "sizeClass": {"naturalHeightPt": 210},
+  "locomotion": "walk",
+  "anchor": {"footY": 195, "centerX": 95.5},
+  "bounds": {"idle": {"x": 32, "y": 78, "width": 127, "height": 117}, "running-right": {"x": 15, "y": 73, "width": 151, "height": 122}, "running-left": {"x": 26, "y": 73, "width": 151, "height": 122}, "waving": {"x": 32, "y": 83, "width": 127, "height": 117}, "jumping": {"x": 32, "y": 52, "width": 127, "height": 153}, "failed": {"x": 26, "y": 78, "width": 133, "height": 127}, "waiting": {"x": 32, "y": 92, "width": 133, "height": 103}, "running": {"x": 32, "y": 73, "width": 139, "height": 122}, "review": {"x": 26, "y": 78, "width": 133, "height": 117}, "lounging": {"x": 32, "y": 103, "width": 127, "height": 98}, "look-0": {"x": 26, "y": 78, "width": 133, "height": 117}, "look-1": {"x": 32, "y": 78, "width": 127, "height": 117}, "sleep": {"x": 32, "y": 103, "width": 127, "height": 98}, "carried": {"x": 32, "y": 78, "width": 127, "height": 125}}
+}

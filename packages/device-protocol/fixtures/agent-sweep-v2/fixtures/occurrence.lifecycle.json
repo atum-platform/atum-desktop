@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "absent",
+      "to": "claimed",
+      "event": "claim_due"
+    },
+    {
+      "from": "claimed",
+      "to": "dispatched",
+      "event": "dispatch_admitted"
+    },
+    {
+      "from": "dispatched",
+      "to": "skipped",
+      "event": "release_unconsumed"
+    }
+  ]
+}

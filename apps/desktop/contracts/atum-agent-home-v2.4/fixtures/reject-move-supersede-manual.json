@@ -1,0 +1,20 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "winningMoveId": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "supersededMoveId": "00000000-0000-4000-8000-303617b97302",
+  "expectedHomeEpoch": 4,
+  "expectedPlacementRevision": 9,
+  "winningIntent": "automatic_failover",
+  "supersededIntent": "manual",
+  "outcome": "superseded"
+}

@@ -1,0 +1,40 @@
+{
+  "input": {
+    "rooms": [
+      {
+        "roomId": "!c:proof.test",
+        "read": "readable",
+        "marker": null
+      },
+      {
+        "roomId": "!b:proof.test",
+        "read": "readable",
+        "marker": {
+          "role": "main",
+          "main": "!b:proof.test",
+          "at": 100
+        }
+      },
+      {
+        "roomId": "!a:proof.test",
+        "read": "readable",
+        "marker": {
+          "role": "main",
+          "main": "!a:proof.test",
+          "at": 100
+        }
+      }
+    ]
+  },
+  "expected": {
+    "earlier": [
+      "!b:proof.test"
+    ],
+    "stray": [
+      "!c:proof.test"
+    ],
+    "unreachable": [],
+    "source": "marked",
+    "main": "!a:proof.test"
+  }
+}

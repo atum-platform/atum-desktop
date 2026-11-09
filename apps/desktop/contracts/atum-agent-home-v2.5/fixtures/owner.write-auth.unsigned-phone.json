@@ -1,0 +1,14 @@
+{
+  "message": "owner.home.move.preflight-request",
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "surface": "phone",
+    "authenticatedChannel": "phone"
+  },
+  "authenticated": {
+    "ownerUserId": "@owner:atum.example",
+    "surface": "phone",
+    "nowPlatform": 1800000000000
+  },
+  "resolvedKey": null
+}

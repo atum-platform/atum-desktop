@@ -1,0 +1,15 @@
+{
+  "source": {
+    "kind": "human_group",
+    "id": "!synthetic-room-0001:example.invalid"
+  },
+  "state": "ready",
+  "reasons": [],
+  "asOf": 1790672400000,
+  "processedThrough": 1790672340000,
+  "backfill": {
+    "priorityWindowDays": 30,
+    "complete": true,
+    "oldestIndexedAt": 1788080400000
+  }
+}

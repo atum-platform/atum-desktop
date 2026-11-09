@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "slug": "moon",
+  "user_id": "@app-moon:atumplatform.com",
+  "handle": "moon_bot",
+  "display_name": "Moon",
+  "state": "active",
+  "transport_mode": "bot_api"
+}

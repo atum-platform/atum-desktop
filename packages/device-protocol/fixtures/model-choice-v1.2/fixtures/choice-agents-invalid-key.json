@@ -1,0 +1,14 @@
+{
+  "v": 2,
+  "source": "atum",
+  "model": "nguyet-thuc",
+  "effort": "medium",
+  "agents": {
+    "wrong": {
+      "v": 2,
+      "source": "atum",
+      "model": "nguyet-thuc",
+      "effort": "medium"
+    }
+  }
+}

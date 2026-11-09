@@ -1,0 +1,44 @@
+/* Small proof page; token values from apps/desktop/src/styles.css, read-only. */
+:root {
+  --atum-bg: #F4F5F7; --atum-bg-high: #FBFBFC; --atum-bg-low: #EEF0F3;
+  --atum-ink: #1B1D22; --atum-ink-soft: #3B3F47; --atum-ink-muted: #5F646D;
+  --atum-glass-strong: rgba(255,255,255,.82); --atum-sunk: rgba(23,25,31,.05);
+  --atum-hover: rgba(23,25,31,.06); --atum-line: rgba(23,25,31,.07);
+  --atum-line-strong: rgba(23,25,31,.12); --atum-on-accent: #F4F5F7;
+  --atum-danger: #B42318; --atum-focus: rgba(23,25,31,.35);
+  --atum-r-input: 12px; --atum-r-button: 10px;
+  --atum-window-bg: radial-gradient(1200px 760px at 18% -10%,var(--atum-bg-high),var(--atum-bg) 50%,var(--atum-bg-low));
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px; line-height: 1.6; color: var(--atum-ink); background: var(--atum-window-bg);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 680px; padding: 28px; margin: 0 auto; }
+header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 44px; }
+.brand { font-weight: 650; font-size: 22px; }
+h1 { font-size: 26px; font-weight: 600; margin: 0; }
+h2 { font-size: 20px; font-weight: 600; margin: 0 0 12px; }
+p { margin: 8px 0 16px; }
+.muted, footer { color: var(--atum-ink-muted); font-size: 12.5px; }
+.intro { color: var(--atum-ink-soft); }
+#notice { padding: 12px 0; border-bottom: 1px solid var(--atum-line); }
+[data-error] { color: var(--atum-danger); }
+section { margin-top: 36px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+button { font: inherit; font-size: 13px; border: 0; border-radius: var(--atum-r-button); padding: 9px 16px; background: var(--atum-ink); color: var(--atum-on-accent); cursor: pointer; }
+button.secondary { background: var(--atum-sunk); color: var(--atum-ink); }
+button.secondary:hover { background: var(--atum-hover); }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, select:focus-visible, input[type=checkbox]:focus-visible { outline: 2px solid var(--atum-focus); outline-offset: 2px; }
+label { display: block; color: var(--atum-ink-soft); font-size: 13px; margin: 18px 0 6px; }
+input:not([type=checkbox]), textarea, select { font: inherit; color: var(--atum-ink); width: 100%; border: 1px solid var(--atum-line-strong); border-radius: var(--atum-r-input); padding: 10px 12px; background: var(--atum-glass-strong); }
+input:not([type=checkbox]):focus, textarea:focus { outline: none; background: var(--atum-bg-high); }
+textarea { min-height: 90px; resize: vertical; }
+form button { margin-top: 12px; }
+.check { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+ol { padding: 0; list-style: none; }
+li { margin: 20px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+li small { display: block; color: var(--atum-ink-muted); }
+footer { border-top: 1px solid var(--atum-line); margin-top: 44px; padding-top: 18px; }
+[hidden] { display: none !important; }
+@media (max-width: 500px) { main { padding: 20px; } header { margin-bottom: 28px; } }

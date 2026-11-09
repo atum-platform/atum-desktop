@@ -1,0 +1,12 @@
+{
+  "id": "gigi",
+  "displayName": "Gigi",
+  "description": "Atum's maltese. The master assistant's companion.",
+  "spritesheetPath": "spritesheet.webp",
+  "spriteVersionNumber": 3,
+  "size": 1,
+  "extraRows": ["sleep", "carried"],
+  "lookOrigin": "yaw5-pitch3-mirrored",
+  "lookYawSteps": 5,
+  "lookPitchSteps": 3
+}

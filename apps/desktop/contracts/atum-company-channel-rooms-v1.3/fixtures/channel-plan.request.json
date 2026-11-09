@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 4,
+  "companyId": "00000000-0000-4000-8000-d7aaaa337a7c",
+  "target": {
+    "kind": "channel",
+    "channelId": "00000000-0000-4000-8000-b77f91533c88"
+  },
+  "assignmentEpoch": 1
+}

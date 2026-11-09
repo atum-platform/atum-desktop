@@ -1,0 +1,20 @@
+{
+  "facts": {
+    "now": 1791244800000,
+    "dailyTurns": 30,
+    "usage": {
+      "v": 1,
+      "day": "2026-10-05",
+      "turns": 200,
+      "pausedNoticed": true
+    }
+  },
+  "expected": {
+    "day": "2026-10-06",
+    "turns": 0,
+    "cap": 30,
+    "remaining": 30,
+    "allowed": true,
+    "notice": false
+  }
+}

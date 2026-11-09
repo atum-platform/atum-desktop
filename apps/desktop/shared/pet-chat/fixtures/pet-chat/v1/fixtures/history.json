@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "pet_key": "personal:00000000-0000-4000-8000-25c26055aeb6",
+  "display_name": "Mochi Jr",
+  "personality": "Gentle, hungry and unbothered by deadlines.",
+  "memory_summary": "Mochi Jr wants a snack.",
+  "recent": [
+    {"role": "user", "text": "are you hungry?", "at": "2026-10-27T02:00:00.000Z"},
+    {"role": "pet", "text": "Mình đói.", "at": "2026-10-27T02:00:01.000Z"}
+  ],
+  "messages_today": 1,
+  "daily_cap": 200
+}

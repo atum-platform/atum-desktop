@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "pending",
+      "to": "pending",
+      "event": "room_witnessed"
+    },
+    {
+      "from": "pending",
+      "to": "complete",
+      "event": "final_room_witnessed"
+    }
+  ]
+}

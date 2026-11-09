@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 3,
+  "links": [
+    {
+      "id": "00000000-0000-4000-8000-507f79cf6e24",
+      "role": "member",
+      "state": "active",
+      "createdAt": 1792540800,
+      "expiresAt": 1793145600,
+      "maxUses": 5,
+      "uses": 2
+    },
+    {
+      "id": "00000000-0000-4000-8000-7d72ef2bd9bc",
+      "role": "member",
+      "state": "exhausted",
+      "createdAt": 1792540800,
+      "expiresAt": 1793145600,
+      "maxUses": 3,
+      "uses": 3
+    },
+    {
+      "id": "00000000-0000-4000-8000-ce2bda7b1efa",
+      "role": "member",
+      "state": "expired",
+      "createdAt": 1792540800,
+      "expiresAt": 1792627200,
+      "maxUses": 5,
+      "uses": 1
+    },
+    {
+      "id": "00000000-0000-4000-8000-07db3083e9ee",
+      "role": "member",
+      "state": "revoked",
+      "createdAt": 1792540800,
+      "expiresAt": 1793145600,
+      "maxUses": 10,
+      "uses": 0
+    }
+  ]
+}

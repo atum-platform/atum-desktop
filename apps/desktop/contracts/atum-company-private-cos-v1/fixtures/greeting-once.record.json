@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "pair": {
+    "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+    "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+    "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+  },
+  "intentId": "00000000-0000-4000-8000-fed461c1aa77",
+  "welcomeVersion": 1,
+  "locale": "vi",
+  "outboxTransactionId": "00000000-0000-4000-8000-9e4b1f5c5687",
+  "state": "published",
+  "publicationCount": 1,
+  "publishedEventId": "$private-cos-greeting-1",
+  "replayed": true
+}

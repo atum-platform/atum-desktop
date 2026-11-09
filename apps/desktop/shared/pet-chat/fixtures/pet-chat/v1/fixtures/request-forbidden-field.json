@@ -1,0 +1,7 @@
+{
+  "ref": {"kind": "bundled", "slug": "gigi"},
+  "message_id": "00000000-0000-4000-8000-a7337229de62",
+  "message": "hello",
+  "locale": "en",
+  "assistant_id": "00000000-0000-4000-8000-d177cfd44d77"
+}

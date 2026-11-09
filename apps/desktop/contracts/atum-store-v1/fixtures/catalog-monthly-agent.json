@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "itemId": "agent/research",
+      "kind": "agent",
+      "title": {
+        "vi": "Gigi",
+        "en": "Gigi"
+      },
+      "summary": {
+        "vi": "Một người bạn",
+        "en": "A companion"
+      },
+      "description": {
+        "vi": "Một người bạn vui tươi",
+        "en": "A cheerful companion"
+      },
+      "tryPrompt": {
+        "vi": "Chọn người bạn này.",
+        "en": "Choose this companion."
+      },
+      "needs": [
+        "Atum"
+      ],
+      "glyph": "🐾",
+      "accent": "#f3c969",
+      "featured": true,
+      "sortOrder": 100,
+      "offer": {
+        "id": "00000000-0000-4000-8000-471568220011",
+        "version": 1,
+        "priceMicroProtons": 90000000000,
+        "scope": "agent",
+        "billingInterval": "month",
+        "delivery": "cloud",
+        "renewalPriceMicroProtons": 1000000000
+      }
+    }
+  ]
+}

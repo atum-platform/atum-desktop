@@ -1,0 +1,14 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "import",
+  "receiptId": "00000000-0000-4000-8000-94413db91a46",
+  "generation": 7,
+  "imported": [],
+  "skipped": [
+    {
+      "homeJobId": "job_every30",
+      "reason": "weird",
+      "note": "x"
+    }
+  ]
+}

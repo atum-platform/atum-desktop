@@ -1,0 +1,33 @@
+{
+  "profile": "atum.agent-home/2.4",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "homeEpoch": 5,
+  "catalogRevision": 4,
+  "receivedAtPlatform": 1800000000000,
+  "freshUntilPlatform": 1800000060000,
+  "freshness": "fresh",
+  "connections": [
+    {
+      "connectionRef": "conn_ownopenai00000001",
+      "source": "own_key:openai",
+      "providerLabel": "OpenAI API",
+      "state": "available",
+      "models": [
+        {
+          "model": "gpt-5.6-luna",
+          "modelLabel": "GPT-5.6 Luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high",
+            "max"
+          ],
+          "defaultEffort": "medium"
+        }
+      ]
+    }
+  ]
+}

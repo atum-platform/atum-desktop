@@ -1,0 +1,112 @@
+{
+  "request": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "eraseFence": {
+      "erasureId": "00000000-0000-4000-8000-303617b97302",
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "eraseEpoch": 5,
+      "issuedAtPlatform": 1800000000000,
+      "expiresAtPlatform": 1800000060000
+    },
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "expectedPlacementRevision": 9,
+    "eraseEpoch": 5,
+    "locations": [
+      {
+        "kind": "cloud"
+      },
+      {
+        "kind": "mac",
+        "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+      }
+    ],
+    "scopes": {
+      "workingHome": true,
+      "checkpoints": true,
+      "snapshots": true,
+      "quarantinedConflicts": true,
+      "credentials": true
+    }
+  },
+  "receipt": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "mac_executor",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "eraseFence": {
+      "erasureId": "00000000-0000-4000-8000-303617b97302",
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "eraseEpoch": 5,
+      "issuedAtPlatform": 1800000000000,
+      "expiresAtPlatform": 1800000060000
+    },
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "eraseEpoch": 5,
+    "outcome": "complete",
+    "requestedLocations": [
+      {
+        "kind": "cloud"
+      },
+      {
+        "kind": "mac",
+        "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+      }
+    ],
+    "coveredLocations": [
+      {
+        "kind": "cloud"
+      },
+      {
+        "kind": "mac",
+        "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+      }
+    ],
+    "locations": [
+      {
+        "location": {
+          "kind": "cloud"
+        },
+        "state": "erased"
+      },
+      {
+        "location": {
+          "kind": "mac",
+          "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+        },
+        "state": "erased"
+      }
+    ],
+    "resurrection": "forbidden",
+    "tombstoneDurable": true
+  },
+  "expect": {
+    "outcome": "accepted",
+    "reason": "erase_fence_and_locations_match"
+  }
+}

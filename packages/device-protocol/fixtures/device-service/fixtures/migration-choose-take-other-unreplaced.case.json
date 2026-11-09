@@ -1,0 +1,113 @@
+{
+  "name": "migration-choose-take-other-unreplaced",
+  "connection": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "identityKey": {
+      "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA"
+    },
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448"
+  },
+  "migration": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "initiator": "00000000-0000-4000-8000-b86a6ca39e23",
+    "state": "reported",
+    "reportSha256": "cc4abc25953d9f570eb3940c56b42b2842da920df1ed42546626a0a72b2ead1c",
+    "report": {
+      "base": "00000000-0000-4000-8000-b86a6ca39e23",
+      "other": "00000000-0000-4000-8000-f4d4f0609b55",
+      "sessions": {
+        "merged": true,
+        "added": 14,
+        "skipped": 2
+      },
+      "memories": [
+        {
+          "path": "memories/MEMORY.md",
+          "addedFromOther": 3
+        },
+        {
+          "path": "memories/USER.md",
+          "addedFromOther": 1
+        }
+      ],
+      "skills": {
+        "bothKept": [
+          {
+            "name": "notes",
+            "otherName": "notes.mini"
+          }
+        ],
+        "onlyBase": [
+          "morning-brief"
+        ],
+        "onlyOther": [
+          "receipts"
+        ]
+      },
+      "oneSided": [
+        {
+          "path": "memories/projects/atum.md",
+          "side": "other",
+          "default": "keep"
+        },
+        {
+          "path": "kanban.db",
+          "side": "base",
+          "default": "keep"
+        }
+      ],
+      "replaced": [
+        {
+          "path": "SOUL.md",
+          "kept": "base"
+        },
+        {
+          "path": "projects.db",
+          "kept": "base"
+        }
+      ],
+      "omitted": 0
+    },
+    "reportExpiresAt": 1791104700000
+  },
+  "choose": {
+    "v": 1,
+    "type": "MigrationChoose",
+    "body": {
+      "migrationId": "00000000-0000-4000-8000-44875ad14494",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "connectionId": "00000000-0000-4000-8000-67242899d448",
+      "reportSha256": "cc4abc25953d9f570eb3940c56b42b2842da920df1ed42546626a0a72b2ead1c",
+      "drop": [
+        "skills/receipts"
+      ],
+      "takeOther": [
+        "kanban.db"
+      ],
+      "decidedAt": 1791101160000
+    },
+    "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+    "sig": "9NmGFfHTbaKbQ7TNj6AtCP_ju-b7GOVpLjhUp1Fi1VH4O7XXhow1T5PX6-1am7ZRGtGj0YbxfBs6f0Is4pCnKQ"
+  },
+  "receivedAt": 1791101161000,
+  "facts": {
+    "signatureValid": true,
+    "dropAllowed": true,
+    "takeOtherAllowed": false,
+    "reportedValue": "reported",
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "invalid_choice"
+  }
+}

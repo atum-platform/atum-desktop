@@ -1,0 +1,881 @@
+{
+  "contract_id": "atum.cloud-home-read",
+  "version": 1,
+  "status": "frozen",
+  "row": "LA Contract 6: bounded owner-authorized committed cloud-home reads",
+  "routes": {
+    "GET /api/matrix/v1/agents/{agentPrincipal}/cloud-home": {
+      "status": "planned",
+      "auth": "owner_mas_plus_live_cloud_enrollment_plus_current_owner_mac_v2_lease",
+      "cache_control": "no-store",
+      "request": "cloud-home.manifest.request",
+      "response": "cloud-home.manifest.response",
+      "absent": "HTTP 204 with empty body or HTTP 200 with JSON null"
+    },
+    "POST /api/matrix/v1/agents/{agentPrincipal}/cloud-home/file": {
+      "status": "planned",
+      "auth": "owner_mas_plus_live_cloud_enrollment_plus_current_owner_mac_v2_lease",
+      "cache_control": "no-store",
+      "request": "cloud-home.file.request",
+      "response": "cloud-home.file.response"
+    }
+  },
+  "parameters": {
+    "maximum_files": 4000,
+    "maximum_path_utf8_bytes": 512,
+    "maximum_file_bytes": 8388608,
+    "maximum_total_bytes": 67108864,
+    "maximum_base64_characters": 11184812
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "positive_integer": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "millis": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "cloud_home_path": {
+      "type": "string",
+      "min": 1,
+      "max": 512
+    },
+    "standard_base64": {
+      "type": "string",
+      "max": 11184812,
+      "pattern": "(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?"
+    },
+    "empty_query": {
+      "type": "object",
+      "required": {}
+    },
+    "manifest_request": {
+      "type": "object",
+      "required": {
+        "method": {
+          "const": "GET"
+        },
+        "query": {
+          "ref": "empty_query"
+        },
+        "body": {
+          "type": "null"
+        }
+      }
+    },
+    "file_entry": {
+      "type": "object",
+      "required": {
+        "path": {
+          "ref": "cloud_home_path"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 8388608
+        },
+        "sha256": {
+          "ref": "sha256"
+        }
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.cloud-home-read/1"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "generation": {
+          "ref": "positive_integer"
+        },
+        "committedAt": {
+          "ref": "millis"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "ref": "file_entry"
+          },
+          "min": 0,
+          "max": 4000,
+          "unique": true
+        }
+      }
+    },
+    "nullable_manifest": {
+      "anyOf": [
+        {
+          "ref": "manifest"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "file_request": {
+      "type": "object",
+      "required": {
+        "generation": {
+          "ref": "positive_integer"
+        },
+        "path": {
+          "ref": "cloud_home_path"
+        }
+      }
+    },
+    "file_response": {
+      "type": "object",
+      "required": {
+        "generation": {
+          "ref": "positive_integer"
+        },
+        "path": {
+          "ref": "cloud_home_path"
+        },
+        "sha256": {
+          "ref": "sha256"
+        },
+        "content": {
+          "ref": "standard_base64"
+        }
+      }
+    },
+    "validation_subject": {
+      "enum": [
+        "manifest",
+        "file_binding"
+      ]
+    },
+    "validation_violation": {
+      "enum": [
+        "path",
+        "duplicate_path",
+        "total_size",
+        "content_base64",
+        "content_digest",
+        "generation_binding",
+        "path_binding",
+        "manifest_binding"
+      ]
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authorization_case": {
+      "type": "object",
+      "required": {
+        "caseId": {
+          "type": "string",
+          "min": 1,
+          "max": 80,
+          "pattern": "[a-z][a-z0-9_-]*"
+        },
+        "ownerMatches": {
+          "type": "boolean"
+        },
+        "liveCloudEnrollment": {
+          "type": "boolean"
+        },
+        "currentOwnerMacV2Lease": {
+          "type": "boolean"
+        },
+        "expected": {
+          "enum": [
+            "allow",
+            "deny"
+          ]
+        }
+      }
+    },
+    "bounds_case": {
+      "type": "object",
+      "required": {
+        "caseId": {
+          "type": "string",
+          "min": 1,
+          "max": 80,
+          "pattern": "[a-z][a-z0-9_-]*"
+        },
+        "fileCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "pathUtf8Bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "fileBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "totalBytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "expected": {
+          "enum": [
+            "allow",
+            "home_too_large"
+          ]
+        }
+      }
+    },
+    "path_mapping_case": {
+      "type": "object",
+      "required": {
+        "caseId": {
+          "type": "string",
+          "min": 1,
+          "max": 80,
+          "pattern": "[a-z][a-z0-9_-]*"
+        },
+        "committedPath": {
+          "type": "string",
+          "min": 1,
+          "max": 1024
+        },
+        "apiPath": {
+          "anyOf": [
+            {
+              "ref": "cloud_home_path"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "included": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "agent",
+        "agentId",
+        "agentPrincipal",
+        "executor",
+        "executorId",
+        "device",
+        "deviceId",
+        "deviceServiceId",
+        "lease",
+        "leaseId",
+        "leaseToken",
+        "bucket",
+        "bucketKey",
+        "objectKey",
+        "encryptionKey",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint",
+        "url"
+      ]
+    },
+    "platform_to_owner_manifest": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "executor",
+        "executorId",
+        "device",
+        "deviceId",
+        "deviceServiceId",
+        "lease",
+        "leaseId",
+        "leaseToken",
+        "bucket",
+        "bucketKey",
+        "objectKey",
+        "storageKey",
+        "encryption",
+        "encryptionKey",
+        "manifestKey",
+        "SOUL.md",
+        "config",
+        ".env",
+        "auth",
+        "plugins",
+        "cron",
+        "sqlite",
+        "runtime",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint",
+        "url",
+        "content"
+      ]
+    },
+    "platform_to_owner_file": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "executor",
+        "executorId",
+        "device",
+        "deviceId",
+        "deviceServiceId",
+        "lease",
+        "leaseId",
+        "leaseToken",
+        "bucket",
+        "bucketKey",
+        "objectKey",
+        "storageKey",
+        "encryption",
+        "encryptionKey",
+        "manifestKey",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint",
+        "url"
+      ]
+    },
+    "test_vector": {
+      "forbidden_fields": [
+        "ownerPrincipal",
+        "executorId",
+        "deviceId",
+        "leaseToken",
+        "bucketKey",
+        "objectKey",
+        "encryptionKey",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*"
+      ]
+    }
+  },
+  "messages": {
+    "cloud-home.manifest.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "manifest_request"
+      }
+    },
+    "cloud-home.manifest.response": {
+      "direction": "platform_to_owner_manifest",
+      "schema": {
+        "ref": "nullable_manifest"
+      }
+    },
+    "cloud-home.file.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "file_request"
+      }
+    },
+    "cloud-home.file.response": {
+      "direction": "platform_to_owner_file",
+      "schema": {
+        "ref": "file_response"
+      }
+    },
+    "cloud-home.error.response": {
+      "direction": "platform_to_owner_manifest",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_400"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "invalid"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_409"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "home_too_large"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "error": {
+                "const": "matrix_503"
+              },
+              "details": {
+                "type": "object",
+                "required": {
+                  "reason": {
+                    "const": "unavailable"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "cloud-home.validation.case": {
+      "direction": "test_vector",
+      "schema": {
+        "type": "object",
+        "required": {
+          "caseId": {
+            "type": "string",
+            "min": 1,
+            "max": 80,
+            "pattern": "[a-z][a-z0-9_-]*"
+          },
+          "subject": {
+            "ref": "validation_subject"
+          },
+          "value": {
+            "ref": "json_value"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        },
+        "optional": {
+          "violation": {
+            "ref": "validation_violation"
+          }
+        }
+      }
+    },
+    "cloud-home.authorization.case": {
+      "direction": "test_vector",
+      "schema": {
+        "ref": "authorization_case"
+      }
+    },
+    "cloud-home.bounds.case": {
+      "direction": "test_vector",
+      "schema": {
+        "ref": "bounds_case"
+      }
+    },
+    "cloud-home.path-mapping.case": {
+      "direction": "test_vector",
+      "schema": {
+        "ref": "path_mapping_case"
+      }
+    }
+  },
+  "semantic_rules": [
+    {
+      "id": "committed_only",
+      "rule": "manifest is the latest committed generation; staging or orphan object-store data is never visible"
+    },
+    {
+      "id": "path",
+      "rule": "only USER.md and regular files below memories/ or skills/; relative POSIX; no backslash, NUL, empty, dot, dot-dot, dot-prefixed, directory, symlink, or non-regular entry"
+    },
+    {
+      "id": "bounds",
+      "rule": "after hermes-prefix stripping and allowlist projection: at most 4000 unique API paths, 512 UTF-8 bytes per path, 8 MiB per file, and 64 MiB cumulative plaintext; if that complete projected subset exceeds any read bound, refuse the whole read as matrix_409/home_too_large with no truncation or partial manifest"
+    },
+    {
+      "id": "namespace",
+      "rule": "committed manifest paths are rooted at hermes/; expose HERMES_HOME-relative API paths by stripping exactly one leading hermes/ and include only allowed USER.md, memories/**, or skills/** entries; file lookup re-adds that exact prefix"
+    },
+    {
+      "id": "immutable_binding",
+      "rule": "file generation, path, size and digest bind the exact immutable committed manifest; never substitute the current generation after manifest read"
+    },
+    {
+      "id": "plaintext_digest",
+      "rule": "response sha256 is lowercase SHA-256 of decoded standard-base64 plaintext and matches the committed manifest entry"
+    },
+    {
+      "id": "authorization",
+      "rule": "allow only authenticated owner plus owned agent live cloud enrollment plus one current owner Mac v2 lease holding that agent; caller cannot nominate a Mac or term"
+    },
+    {
+      "id": "privacy",
+      "rule": "foreign agent or home existence is not disclosed; no object keys, encryption material, lease data, credentials, prompts, unrelated files, or content/path/digest logging"
+    },
+    {
+      "id": "one_way",
+      "rule": "read only cloud-to-Mac; no upload, delete, list-other-generation, merge, or writeback surface"
+    },
+    {
+      "id": "path_collision",
+      "rule": "API paths are byte-exact and case-sensitive; a consumer that detects two distinct paths colliding under its target filesystem semantics must abort the whole hydration rather than overwrite, normalize, or pick one"
+    }
+  ],
+  "rollout": {
+    "contract_first": "both manifest and file routes remain unavailable until implemented and enabled together",
+    "absent_capability": "404, 405, or 501 remains the desktop not-shipped outcome; other failures are closed and never partial",
+    "over_bound_home": "matrix_409/home_too_large is stable and covers the complete allowed projection; never truncate, page, or mislabel it as temporary unavailability",
+    "activation": "production enablement requires explicit owner go and serialized production receipts"
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/authorization-allow.case.json",
+      "message": "cloud-home.authorization.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authorization-foreign-owner.case.json",
+      "message": "cloud-home.authorization.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authorization-no-enrollment.case.json",
+      "message": "cloud-home.authorization.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authorization-no-mac-lease.case.json",
+      "message": "cloud-home.authorization.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/bounds-at-limits.case.json",
+      "message": "cloud-home.bounds.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/bounds-file-too-large.case.json",
+      "message": "cloud-home.bounds.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/bounds-path-too-large.case.json",
+      "message": "cloud-home.bounds.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/bounds-too-many.case.json",
+      "message": "cloud-home.bounds.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/bounds-total-too-large.case.json",
+      "message": "cloud-home.bounds.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-home-too-large.response.json",
+      "message": "cloud-home.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-invalid.response.json",
+      "message": "cloud-home.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-unavailable.response.json",
+      "message": "cloud-home.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/file-malformed-base64.response.json",
+      "message": "cloud-home.file.response",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/file-owner-injection.request.json",
+      "message": "cloud-home.file.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/file-token-leak.response.json",
+      "message": "cloud-home.file.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/file.request.json",
+      "message": "cloud-home.file.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/file.response.json",
+      "message": "cloud-home.file.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/manifest-absent.response.json",
+      "message": "cloud-home.manifest.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/manifest-body-identity.request.json",
+      "message": "cloud-home.manifest.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/manifest-duplicate.response.json",
+      "message": "cloud-home.manifest.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/manifest-file-too-large.response.json",
+      "message": "cloud-home.manifest.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/manifest-query-identity.request.json",
+      "message": "cloud-home.manifest.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/manifest-storage-key-leak.response.json",
+      "message": "cloud-home.manifest.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/manifest.request.json",
+      "message": "cloud-home.manifest.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/manifest.response.json",
+      "message": "cloud-home.manifest.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/path-mapping-double-prefix.case.json",
+      "message": "cloud-home.path-mapping.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/path-mapping-memory.case.json",
+      "message": "cloud-home.path-mapping.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/path-mapping-outside-root.case.json",
+      "message": "cloud-home.path-mapping.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/path-mapping-soul-excluded.case.json",
+      "message": "cloud-home.path-mapping.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/path-mapping-user.case.json",
+      "message": "cloud-home.path-mapping.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-absolute-path.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-backslash-path.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-content-base64.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-digest-mismatch.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-dot-segment.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-dotfile.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-duplicate-path-different-metadata.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-empty-segment.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-manifest-binding.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-nul-path.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-path-mismatch.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-path-too-long.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-root.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-stale-generation.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-total-overflow.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/validation-valid-binding.case.json",
+      "message": "cloud-home.validation.case",
+      "expect": "accept"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/authorization-allow.case.json",
+    "fixtures/authorization-foreign-owner.case.json",
+    "fixtures/authorization-no-enrollment.case.json",
+    "fixtures/authorization-no-mac-lease.case.json",
+    "fixtures/bounds-at-limits.case.json",
+    "fixtures/bounds-file-too-large.case.json",
+    "fixtures/bounds-path-too-large.case.json",
+    "fixtures/bounds-too-many.case.json",
+    "fixtures/bounds-total-too-large.case.json",
+    "fixtures/error-home-too-large.response.json",
+    "fixtures/error-invalid.response.json",
+    "fixtures/error-unavailable.response.json",
+    "fixtures/file-malformed-base64.response.json",
+    "fixtures/file-owner-injection.request.json",
+    "fixtures/file-token-leak.response.json",
+    "fixtures/file.request.json",
+    "fixtures/file.response.json",
+    "fixtures/manifest-absent.response.json",
+    "fixtures/manifest-body-identity.request.json",
+    "fixtures/manifest-duplicate.response.json",
+    "fixtures/manifest-file-too-large.response.json",
+    "fixtures/manifest-query-identity.request.json",
+    "fixtures/manifest-storage-key-leak.response.json",
+    "fixtures/manifest.request.json",
+    "fixtures/manifest.response.json",
+    "fixtures/path-mapping-double-prefix.case.json",
+    "fixtures/path-mapping-memory.case.json",
+    "fixtures/path-mapping-outside-root.case.json",
+    "fixtures/path-mapping-soul-excluded.case.json",
+    "fixtures/path-mapping-user.case.json",
+    "fixtures/validation-absolute-path.case.json",
+    "fixtures/validation-backslash-path.case.json",
+    "fixtures/validation-content-base64.case.json",
+    "fixtures/validation-digest-mismatch.case.json",
+    "fixtures/validation-dot-segment.case.json",
+    "fixtures/validation-dotfile.case.json",
+    "fixtures/validation-duplicate-path-different-metadata.case.json",
+    "fixtures/validation-empty-segment.case.json",
+    "fixtures/validation-manifest-binding.case.json",
+    "fixtures/validation-nul-path.case.json",
+    "fixtures/validation-path-mismatch.case.json",
+    "fixtures/validation-path-too-long.case.json",
+    "fixtures/validation-root.case.json",
+    "fixtures/validation-stale-generation.case.json",
+    "fixtures/validation-total-overflow.case.json",
+    "fixtures/validation-valid-binding.case.json"
+  ]
+}

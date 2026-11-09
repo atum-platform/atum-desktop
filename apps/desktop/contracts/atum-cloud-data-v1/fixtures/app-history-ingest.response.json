@@ -1,0 +1,15 @@
+{
+  "contract": "atum.cloud-data/1",
+  "event_id": "moon.turn:2026-08-30:42",
+  "record_id": "00000000-0000-4000-8000-072e4e6126bd",
+  "durability": "committed",
+  "artifacts": [
+    {
+      "resource_id": "moon.report:2026-08-30",
+      "requested_copy_mode": "atum_copy",
+      "effective_copy_mode": "metadata_only",
+      "copy_decision": "partner_copy_permission_not_evidenced"
+    }
+  ],
+  "recorded_at": "2026-08-30T12:01:01Z"
+}

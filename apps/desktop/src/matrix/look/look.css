@@ -1,0 +1,290 @@
+/* One generic renderer. Selectors never receive an app slug, pack name or id.
+   Atum Kit (FlowAppLook): the ground fills only the chat's content card — the title band stays
+   Atum's frame — with the card's radius and edge. Base colour and layer 1 are one pseudo-element
+   (layer 1's opacity is a veil of the base over it); layer 2 is the other. */
+.atum-shell [data-atum-chat][data-atum-look='pack'] {
+  position: relative;
+  isolation: isolate;
+  background: transparent !important;
+  color: var(--atum-ink);
+}
+
+.atum-shell [data-atum-chat][data-atum-look='pack']::before,
+.atum-shell [data-atum-chat][data-atum-look='pack']::after {
+  content: '';
+  position: absolute;
+  inset: var(--atum-l-header) var(--atum-card-inset-right, 0px) 0 0;
+  z-index: 0;
+  border-radius: var(--atum-r-panel);
+  pointer-events: none;
+  will-change: auto;
+}
+
+.atum-shell [data-atum-chat][data-atum-look='pack']::before {
+  background-color: var(--look-base);
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--look-base) calc((1 - var(--look-l1-opacity, 0)) * 100%), transparent),
+      color-mix(in srgb, var(--look-base) calc((1 - var(--look-l1-opacity, 0)) * 100%), transparent)
+    ),
+    var(--look-l1-image, none);
+  background-position:
+    0 0,
+    var(--look-l1-position, center);
+  background-size:
+    100% 100%,
+    var(--look-l1-size, cover);
+  background-repeat: no-repeat, var(--look-l1-repeat, no-repeat);
+  box-shadow: var(--atum-main-edge);
+}
+
+.atum-shell [data-atum-chat][data-atum-look='pack']::after {
+  background-image: var(--look-l2-image, none);
+  background-position: var(--look-l2-position, center);
+  background-size: var(--look-l2-size, cover);
+  background-repeat: var(--look-l2-repeat, no-repeat);
+  opacity: var(--look-l2-opacity, 0);
+}
+
+.atum-shell [data-atum-chat][data-atum-look='pack'] > * {
+  z-index: 1;
+}
+
+/* The title band is Atum's frame: window ink, no scrim (styles.css resets its ramp). */
+.atum-shell [data-atum-chat][data-atum-look='pack'] > [data-atum-main-header] {
+  color: var(--atum-ink);
+}
+
+/** Preserve user-visible identity, state and recovery behavior across connection changes. */
+.atum-shell [data-atum-chat][data-atum-look='pack'] .atum-divider {
+  --divider-ground: var(--look-scrim, var(--look-base));
+}
+
+/* A notice on a ground is window UI on its own opaque material, never ink on the ground. */
+.atum-shell [data-atum-chat][data-atum-look='pack'] .notice-band {
+  background: var(--atum-root-glass-strong);
+  -webkit-backdrop-filter: var(--ak-blur);
+  backdrop-filter: var(--ak-blur);
+}
+
+.atum-shell [data-atum-look='pack'] [data-slot='aui_assistant-message-content'],
+.atum-shell [data-atum-look='pack'] [data-app-history-source] {
+  color: var(--atum-ink-muted);
+}
+
+/* A pack contributes bubble colours only. Shape, spacing and type remain Atum's. */
+.atum-shell [data-atum-look-tokens] .composer-human-message {
+  border-color: color-mix(in srgb, var(--look-bubble-border) 55%, transparent);
+}
+
+.atum-shell [data-atum-look-tokens] :is(.matrix-chat-bubble, .app-history-message) {
+  /* Nested Matrix UI (reply quotes, reaction controls and future message
+     affordances) reads the ordinary Atum ramp. Re-scope the whole ramp to the
+     opaque bubble, otherwise a dark ground's white ink becomes white-on-white
+     inside the bubble while still reserving its layout. */
+  --atum-ink: var(--look-bubble-ink);
+  --atum-ink-soft: color-mix(in srgb, var(--look-bubble-ink) 82%, transparent);
+  --atum-ink-muted: color-mix(in srgb, var(--look-bubble-ink) 68%, transparent);
+  --atum-ink-faint: color-mix(in srgb, var(--look-bubble-ink) 52%, transparent);
+  --atum-line: color-mix(in srgb, var(--look-bubble-ink) 16%, transparent);
+  --atum-line-strong: var(--look-bubble-border);
+  --atum-hover: color-mix(in srgb, var(--look-bubble-ink) 6%, transparent);
+  --atum-pressed: color-mix(in srgb, var(--look-bubble-ink) 10%, transparent);
+
+  border-color: var(--look-bubble-border);
+  background: var(--look-app-bubble);
+  color: var(--look-bubble-ink);
+}
+
+.atum-shell [data-atum-look-tokens] :is(.matrix-chat-bubble, .app-history-message) .aui-md,
+.atum-shell [data-atum-look-tokens] :is(.matrix-chat-bubble, .app-history-message) .aui-md :where(p, li, blockquote) {
+  color: var(--look-bubble-ink);
+}
+
+.atum-shell
+  [data-atum-look-tokens]
+  :is(.matrix-chat-bubble, .app-history-message)
+  .aui-md
+  :where(strong, h1, h2, h3, h4, a) {
+  color: var(--look-bubble-ink);
+}
+
+.atum-shell [data-atum-look-tokens] [data-app-history-source] {
+  color: var(--atum-ink-muted);
+}
+
+/* On a ground the composer is the kit's own glass in the ground's tone: the chat column carries
+   `.ak-dark` or `.ak-light` (app.tsx), so `--ak-glass` is already the right material (FlowAppLook:
+   dark glass on a dark ground). Its radius, type, rim, shadow and blur stay Atum's; its plate is
+   the kit glass instead of the window composer's white. */
+.atum-shell [data-atum-chat][data-atum-look='pack'] [data-matrix-kit-composer] [data-slot='composer-surface'] {
+  background: var(--ak-glass);
+}
+
+.atum-shell [data-atum-look-colors] [data-matrix-kit-composer] .ak-iconbtn--primary {
+  background: var(--look-accent, var(--ak-ink));
+  color: var(--ak-on-ink);
+}
+
+.atum-shell [data-atum-look-colors] [data-matrix-kit-composer] .ak-iconbtn--primary:hover {
+  background: color-mix(in srgb, var(--look-accent, var(--ak-ink)) 88%, var(--ak-ink));
+}
+
+/* On a dark ground, the other side's bubbles are a translucent tint of the pack's bubble colour
+   with light words (FlowAppLook: white at about 12%), so the ground shows through as frosted
+   glass; your own bubble keeps its solid pack colour. */
+.atum-shell [data-atum-look-tokens][data-atum-look-tone='dark'] :is(.matrix-chat-bubble, .app-history-message) {
+  --look-bubble-ink: #f1f2f8;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--look-app-bubble) 12%, transparent);
+}
+
+/* A borrowed ground keeps Atum's own bubble identity. */
+.atum-shell [data-atum-look='pack']:not([data-atum-look-tokens]) [data-slot='aui_assistant-message-content'],
+.atum-shell [data-atum-look='pack']:not([data-atum-look-tokens]) [data-slot='aui_assistant-message-content'] .aui-md,
+.atum-shell
+  [data-atum-look='pack']:not([data-atum-look-tokens])
+  [data-slot='aui_assistant-message-content']
+  .aui-md
+  :where(p, li, blockquote, strong, h1, h2, h3, h4, a) {
+  color: var(--atum-ink);
+}
+
+/* Start-card band: only avatar and >=18px white display name sit here. */
+.atum-look-start-band {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--look-base, var(--atum-card));
+}
+
+.atum-look-start-band::before,
+.atum-look-start-band::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--look-l1-image, none);
+  background-position: var(--look-l1-position, center);
+  background-size: var(--look-l1-size, cover);
+  background-repeat: var(--look-l1-repeat, no-repeat);
+  opacity: var(--look-l1-opacity, 0);
+}
+
+[data-atum-look-preview] {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--look-base, var(--atum-main-bg));
+}
+
+[data-atum-look-preview]::before,
+[data-atum-look-preview]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--look-l1-image, none);
+  background-position: var(--look-l1-position, center);
+  background-size: var(--look-l1-size, cover);
+  background-repeat: var(--look-l1-repeat, no-repeat);
+  opacity: var(--look-l1-opacity, 0);
+}
+
+[data-atum-look-preview]::after {
+  background-image: var(--look-l2-image, none);
+  background-position: var(--look-l2-position, center);
+  background-size: var(--look-l2-size, cover);
+  background-repeat: var(--look-l2-repeat, no-repeat);
+  opacity: var(--look-l2-opacity, 0);
+}
+
+.atum-look-start-band::after {
+  background-image: var(--look-l2-image, none);
+  background-position: var(--look-l2-position, center);
+  background-size: var(--look-l2-size, cover);
+  background-repeat: var(--look-l2-repeat, no-repeat);
+  opacity: var(--look-l2-opacity, 0);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .atum-shell [data-atum-chat][data-atum-look='pack'] [data-matrix-kit-composer] [data-slot='composer-fill'] {
+    background: var(--ak-raised) !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .atum-shell [data-atum-chat][data-atum-look='pack']::before,
+  .atum-shell [data-atum-chat][data-atum-look='pack']::after,
+  .atum-look-start-band::before,
+  .atum-look-start-band::after,
+  [data-atum-look-preview]::before,
+  [data-atum-look-preview]::after {
+    opacity: 0 !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .atum-shell [data-atum-chat][data-atum-look='pack']::before,
+  .atum-look-start-band::before {
+    opacity: calc(var(--look-l1-opacity, 0) * 0.5);
+  }
+
+  .atum-shell [data-atum-chat][data-atum-look='pack']::after,
+  .atum-look-start-band::after {
+    opacity: calc(var(--look-l2-opacity, 0) * 0.5);
+  }
+
+  [data-atum-look-preview]::before {
+    opacity: calc(var(--look-l1-opacity, 0) * 0.5);
+  }
+
+  [data-atum-look-preview]::after {
+    opacity: calc(var(--look-l2-opacity, 0) * 0.5);
+  }
+}
+
+@media (forced-colors: active) {
+  .atum-shell [data-atum-chat][data-atum-look],
+  .atum-look-start-band {
+    background: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  .atum-shell [data-atum-chat][data-atum-look]::before,
+  .atum-shell [data-atum-chat][data-atum-look]::after,
+  .atum-look-start-band::before,
+  .atum-look-start-band::after {
+    display: none;
+  }
+
+  [data-atum-look-preview] {
+    background: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  [data-atum-look-preview]::before,
+  [data-atum-look-preview]::after {
+    display: none;
+  }
+
+  .atum-shell [data-atum-look-tokens] :is(.composer-human-message, .matrix-chat-bubble, .app-history-message) {
+    border: 1px solid CanvasText !important;
+    background: Canvas !important;
+    color: CanvasText !important;
+    forced-color-adjust: auto;
+  }
+
+  .atum-shell [data-atum-look='pack'] [data-matrix-kit-composer] [data-slot='composer-fill'] {
+    background: Canvas !important;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .atum-shell [data-atum-look-colors] [data-matrix-kit-composer] .ak-iconbtn--primary {
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "Ready",
+  "body": {
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "heartbeatMs": 5000,
+    "serverTime": 1791100795200
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "kIIpw4aDNAeUuDsruydWyLY6eM9qT6UzMDz-l6-JxJCc3zRUIy9M_OwFztBTnBM6TWODjnMG8O3C7VkozjOoAQ"
+}

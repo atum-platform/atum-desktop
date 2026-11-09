@@ -1,0 +1,8 @@
+{
+  "caseId": "mode_cloud_enabled",
+  "cloudEnabled": true,
+  "liveCloudTurn": false,
+  "currentMode": "local",
+  "expectedMode": "cloud",
+  "deferred": false
+}

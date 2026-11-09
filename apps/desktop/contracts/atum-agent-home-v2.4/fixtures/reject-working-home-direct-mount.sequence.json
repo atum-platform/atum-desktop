@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "unmounted",
+      "to": "mounted",
+      "event": "binding_and_placement_verified"
+    }
+  ]
+}

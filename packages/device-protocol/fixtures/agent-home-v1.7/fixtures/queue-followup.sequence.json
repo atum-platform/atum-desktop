@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "waiting_device",
+      "to": "queued",
+      "event": "wake"
+    },
+    {
+      "from": "queued",
+      "to": "taken",
+      "event": "take"
+    },
+    {
+      "from": "taken",
+      "to": "done",
+      "event": "abandon_after_dispatch"
+    }
+  ]
+}

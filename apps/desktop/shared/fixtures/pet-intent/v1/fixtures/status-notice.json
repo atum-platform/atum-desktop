@@ -1,0 +1,16 @@
+{
+  "msgtype": "m.notice",
+  "body": "Here is my reply.",
+  "io.atum.pet": {
+    "v": 1,
+    "intents": [
+      {
+        "action": "wave"
+      }
+    ]
+  },
+  "io.atum.result": {
+    "invocation": "00000000-0000-4000-8000-000000000001",
+    "transaction": "synthetic-reply"
+  }
+}

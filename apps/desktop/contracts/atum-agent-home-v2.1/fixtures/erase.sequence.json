@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "requested",
+      "event": "erase_requested"
+    },
+    {
+      "from": "requested",
+      "to": "sweeping",
+      "event": "fence_home"
+    },
+    {
+      "from": "sweeping",
+      "to": "pending_offline",
+      "event": "offline_location"
+    },
+    {
+      "from": "pending_offline",
+      "to": "tombstoned",
+      "event": "remaining_locations_erased"
+    },
+    {
+      "from": "tombstoned",
+      "to": "complete",
+      "event": "tombstone_committed"
+    }
+  ]
+}

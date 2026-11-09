@@ -1,0 +1,27 @@
+{
+  "contract_id": "atum.company-invites",
+  "version": "2",
+  "status": "frozen",
+  "header": {
+    "Atum-Company-Wire": "1.3 (capabilities) | 1.9 (mail status)",
+    "Atum-Company-Invites": "2"
+  },
+  "fixtures": [
+    { "file": "fixtures/capabilities.response.json", "message": "capabilities", "expect": "accept" },
+    { "file": "fixtures/capabilities.verification-required.response.json", "message": "capabilities", "expect": "accept" },
+    { "file": "fixtures/capabilities.invalid.response.json", "message": "capabilities", "expect": "reject" },
+    { "file": "fixtures/mail-status.sent.response.json", "message": "mail-status", "expect": "accept" },
+    { "file": "fixtures/mail-status.failed.response.json", "message": "mail-status", "expect": "accept" },
+    { "file": "fixtures/mail-status.invalid.response.json", "message": "mail-status", "expect": "reject" }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/capabilities.response.json",
+    "fixtures/capabilities.verification-required.response.json",
+    "fixtures/capabilities.invalid.response.json",
+    "fixtures/mail-status.sent.response.json",
+    "fixtures/mail-status.failed.response.json",
+    "fixtures/mail-status.invalid.response.json"
+  ]
+}

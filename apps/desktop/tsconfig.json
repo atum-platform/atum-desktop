@@ -1,0 +1,35 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "types": ["node"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@hermes/plugin-sdk": ["./src/sdk/index.ts"],
+      "@hermes/shared/billing": ["../shared/src/billing-types.ts"],
+      "@hermes/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "../shared/src"],
+  "exclude": ["e2e", "electron", "playwright.config.ts"]
+  // No project reference to tsconfig.electron.json on purpose. The main-process
+  // docx preview (electron/docx-extract.ts) compiles two renderer modules —
+  // src/lib/docx-markdown.ts and src/lib/xml-lite.ts — into its own program, so
+  // both projects own those files. With a reference in place TypeScript would
+  // redirect this project's imports of them to the OTHER project's declaration
+  // output and fail with TS6305 until that project had been built, which would
+  // make a plain `tsc -p . --noEmit` depend on build order. The two projects are
+  // built and typechecked separately anyway (see the scripts in package.json).
+}

@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "active",
+      "event": "public_join"
+    },
+    {
+      "from": "active",
+      "to": "revoking",
+      "event": "leave"
+    },
+    {
+      "from": "revoking",
+      "to": "left",
+      "event": "witness_left"
+    },
+    {
+      "from": "left",
+      "to": "none",
+      "event": "new_admission"
+    },
+    {
+      "from": "none",
+      "to": "active",
+      "event": "public_join"
+    }
+  ]
+}

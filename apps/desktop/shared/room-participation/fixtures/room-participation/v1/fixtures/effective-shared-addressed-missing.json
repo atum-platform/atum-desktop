@@ -1,0 +1,7 @@
+{
+  "facts": {
+    "roomMode": "shared",
+    "meetingDefault": "addressed"
+  },
+  "expected": "addressed"
+}

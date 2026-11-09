@@ -1,0 +1,1 @@
+{"steps":[{"from":"reserved","to":"writing","event":"upload_started"},{"from":"writing","to":"unknown","event":"provider_effect_unknown"},{"from":"unknown","to":"ready","event":"stat_hash_reconciled"},{"from":"ready","to":"published","event":"matrix_event_bound"}]}

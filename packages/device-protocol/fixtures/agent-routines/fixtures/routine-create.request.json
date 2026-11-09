@@ -1,0 +1,10 @@
+{
+  "operation": "create",
+  "requestId": "00000000-0000-4000-8000-ab798b5c9eee",
+  "title": "Morning brief",
+  "instruction": "Summarize my priorities.",
+  "schedule": {"kind": "weekly", "hour": 8, "minute": 30, "weekdays": [1, 2, 3, 4, 5]},
+  "timezone": "Asia/Ho_Chi_Minh",
+  "enabled": true,
+  "notifications": true
+}

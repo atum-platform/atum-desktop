@@ -1,0 +1,142 @@
+{
+  "vectors": [
+    {
+      "name": "plain text with its origin assertion",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.",
+        "io.atum.origin": {
+          "v": 1,
+          "dsid": "00000000-0000-4000-8000-b86a6ca39e23",
+          "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+          "ee": 3,
+          "ae": 7,
+          "boot": "00000000-0000-4000-8000-354570cd5e97",
+          "n": "W_YlvsBfdmBcLLPLPUrIgA",
+          "t": 1791100798500,
+          "owner": "@owner-3f9a1c7e5b2d:example.invalid",
+          "agent": "@synthetic-user-0011:example.invalid",
+          "room": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+          "dev": "MACBOOKQ7ZK",
+          "fpr": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+          "dg": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+          "sig": "qh8JDYfuGuLITeySHt9CuwQugRvTAJswECllm08zqnnIwGsu-fpnEoyPTJ6K_TE9KYRXUJqVs_tOALd5zOKaxg"
+        }
+      },
+      "digestInput": "{\"body\":\"Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.\",\"msgtype\":\"m.text\"}",
+      "dg": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+      "requestHash": "342398792ea6d7bff151a0ec86f165a19352ed0d6e9f57ff49c26fccb0584e44"
+    },
+    {
+      "name": "same content without an assertion digests the same",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit."
+      },
+      "digestInput": "{\"body\":\"Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.\",\"msgtype\":\"m.text\"}",
+      "dg": "NCOYeS6m17_xUaDshvFloZNS7Q1un1f_ScJvzLBYTkQ",
+      "requestHash": "342398792ea6d7bff151a0ec86f165a19352ed0d6e9f57ff49c26fccb0584e44"
+    },
+    {
+      "name": "explicit mention",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.",
+        "m.mentions": {
+          "user_ids": [
+            "@synthetic-user-0011:example.invalid"
+          ]
+        }
+      },
+      "digestInput": "{\"body\":\"Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.\",\"m.mentions\":{\"user_ids\":[\"@synthetic-user-0011:example.invalid\"]},\"msgtype\":\"m.text\"}",
+      "dg": "GfjMkIPBXtdfji-LxuE4Ee2Tmlt2tm-dAN61MTHdX0Q",
+      "requestHash": "19f8cc9083c15ed75f8e2f8bc6e13811ed939a5b76b66f9d00deb53131dd5f44"
+    },
+    {
+      "name": "reply (m.relates_to) is covered",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "> <@synthetic-user-0011:example.invalid> Done.\n\nNow do it on the mini",
+        "m.relates_to": {
+          "m.in_reply_to": {
+            "event_id": "$q2Wn5mB8vC1xZ4lK7jH0gF3dS6aP9oI2uY5tR8eW1qA"
+          }
+        }
+      },
+      "digestInput": "{\"body\":\"> <@synthetic-user-0011:example.invalid> Done.\\n\\nNow do it on the mini\",\"m.relates_to\":{\"m.in_reply_to\":{\"event_id\":\"$q2Wn5mB8vC1xZ4lK7jH0gF3dS6aP9oI2uY5tR8eW1qA\"}},\"msgtype\":\"m.text\"}",
+      "dg": "OV9ZRghT4nWNEJlBrGllwfxSQpEP_8b-Ar8QUqkn55Y",
+      "requestHash": "395f59460853e2758d109941ac6965c1fc5242910fffc6fe02bf1052a927e796"
+    },
+    {
+      "name": "task-file selection is covered",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.",
+        "io.atum.task-files": {
+          "version": 1,
+          "requestIds": [
+            "00000000-0000-4000-8000-01779cc5deb8"
+          ]
+        }
+      },
+      "digestInput": "{\"body\":\"Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.\",\"io.atum.task-files\":{\"requestIds\":[\"00000000-0000-4000-8000-01779cc5deb8\"],\"version\":1},\"msgtype\":\"m.text\"}",
+      "dg": "H7ue4V3KQ3GFH5mZocRxVjbbbWN-lawOuynW0vHPCik",
+      "requestHash": "1fbb9ee15dca4371851f9999a1c4715636db6d637e95ac0ebb29d6d2f1cf0a29"
+    },
+    {
+      "name": "encrypted attachment info and hashes are covered",
+      "version": 2,
+      "content": {
+        "msgtype": "m.file",
+        "body": "notes.md",
+        "info": {
+          "mimetype": "text/markdown",
+          "size": 1204
+        },
+        "file": {
+          "v": "v2",
+          "url": "mxc://atumplatform.com/AbCdEfGhIjKlMnOp",
+          "key": {
+            "kty": "oct",
+            "alg": "A256CTR",
+            "ext": true,
+            "k": "qcHVMSgYg-71CauWBezXI5qkaRb0LuIy-Wx5kIaHMIA",
+            "key_ops": [
+              "encrypt",
+              "decrypt"
+            ]
+          },
+          "iv": "X85+XgHN+HEAAAAAAAAAAA",
+          "hashes": {
+            "sha256": "2UBt5Wq3MIfp/1JS4z/jbFbQuZWjUcvQg5d7cYkP8kE"
+          }
+        }
+      },
+      "digestInput": "{\"body\":\"notes.md\",\"file\":{\"hashes\":{\"sha256\":\"2UBt5Wq3MIfp/1JS4z/jbFbQuZWjUcvQg5d7cYkP8kE\"},\"iv\":\"X85+XgHN+HEAAAAAAAAAAA\",\"key\":{\"alg\":\"A256CTR\",\"ext\":true,\"k\":\"qcHVMSgYg-71CauWBezXI5qkaRb0LuIy-Wx5kIaHMIA\",\"key_ops\":[\"encrypt\",\"decrypt\"],\"kty\":\"oct\"},\"url\":\"mxc://atumplatform.com/AbCdEfGhIjKlMnOp\",\"v\":\"v2\"},\"info\":{\"mimetype\":\"text/markdown\",\"size\":1204},\"msgtype\":\"m.file\"}",
+      "dg": "0eE77NjRibqG6j6N-EiI0yvQPHiLe2Sf6PwO1yhcprg",
+      "requestHash": "d1e13becd8d189ba86ea3e8df84888d32bd03c788b7b649fe8fc0ed7285ca6b8"
+    },
+    {
+      "name": "decomposed Vietnamese text is NFC-normalized",
+      "version": 2,
+      "content": {
+        "msgtype": "m.text",
+        "body": "Ghi “xin chào” vào Việt.txt"
+      },
+      "digestInput": "{\"body\":\"Ghi “xin chào” vào Việt.txt\",\"msgtype\":\"m.text\"}",
+      "dg": "VNFtjfDDaz_clkiKxcROPl_oxuYz2VBj-5fHu1zYQ8c",
+      "requestHash": "54d16d8df0c36b3fdc96488ac5c44e3e5fe8c6e633d95063fb97c7bb5cd843c7"
+    },
+    {
+      "name": "v1 (today's): sha256 of the body only",
+      "version": 1,
+      "body": "Make ~/Desktop/s1-demo/hello.txt containing today's date, open it in TextEdit.",
+      "requestHash": "97a51c7191107ce8846b3a74c76dcbfc8c7d0d38ae9b1313e20173d4b5ea0de8"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "vectors": [
+    {
+      "envBase": "controller_broker",
+      "envKey": "opaque_turn_grant",
+      "envAlias": "selected_model",
+      "oauthOnMacOnly": true,
+      "atumBilling": false,
+      "fallback": "none"
+    }
+  ]
+}

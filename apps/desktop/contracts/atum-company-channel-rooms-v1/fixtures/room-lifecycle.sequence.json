@@ -1,0 +1,1 @@
+{"steps":[{"from":"new","to":"unknown","event":"begin_create"},{"from":"unknown","to":"bound","event":"bind"},{"from":"bound","to":"ready","event":"reconcile"},{"from":"ready","to":"archived","event":"archive"},{"from":"archived","to":"bound","event":"restore"},{"from":"bound","to":"ready","event":"reconcile"}]}

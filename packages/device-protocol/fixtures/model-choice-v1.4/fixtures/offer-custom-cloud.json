@@ -1,0 +1,48 @@
+{
+  "v": 1,
+  "kind": "atum.agent-models/1",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "atum": [
+    {
+      "id": "nguyet-thuc",
+      "displayName": "Nguyệt Thực",
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "openai-key",
+      "kind": "custom",
+      "provider": "openai",
+      "displayName": "OpenAI của bạn",
+      "scope": "thisMac",
+      "status": "connected",
+      "models": [
+        {
+          "id": "gpt-6-luna",
+          "displayName": "GPT-6 Luna",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      ],
+      "runtimes": [
+        {
+          "runtime": "cloud"
+        }
+      ]
+    }
+  ],
+  "runtimes": [
+    {
+      "runtime": "mac:mac-a",
+      "appVersion": "0.18.4"
+    }
+  ]
+}

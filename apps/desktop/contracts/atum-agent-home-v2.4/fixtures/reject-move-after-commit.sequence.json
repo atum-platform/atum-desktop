@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "requested",
+      "event": "request"
+    },
+    {
+      "from": "requested",
+      "to": "draining",
+      "event": "drain"
+    },
+    {
+      "from": "draining",
+      "to": "ready_to_commit",
+      "event": "quiesced"
+    },
+    {
+      "from": "ready_to_commit",
+      "to": "committed",
+      "event": "cas_commit"
+    },
+    {
+      "from": "committed",
+      "to": "requested",
+      "event": "request"
+    }
+  ]
+}

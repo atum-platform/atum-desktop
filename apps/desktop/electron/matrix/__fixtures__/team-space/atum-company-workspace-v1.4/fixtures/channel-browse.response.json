@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 5,
+  "channels": [
+    {
+      "id": "00000000-0000-4000-8000-f19cafd05964",
+      "companyId": "00000000-0000-4000-8000-3f27f2fc4915",
+      "displayName": "general",
+      "visibility": "public",
+      "topic": "Team updates",
+      "purpose": "Daily coordination",
+      "state": "active",
+      "memberCount": 3,
+      "joined": true,
+      "systemKey": "default"
+    }
+  ]
+}

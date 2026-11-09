@@ -1,0 +1,7126 @@
+{
+  "contract_id": "atum.agent-home",
+  "version": "2.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/authority.bad-signature.json",
+    "fixtures/authority.checkpoint.accepted.json",
+    "fixtures/authority.checkpoint.cloud-signer-on-mac.json",
+    "fixtures/authority.checkpoint.stale-epoch.json",
+    "fixtures/authority.checkpoint.stale-term.json",
+    "fixtures/authority.checkpoint.wrong-lease.json",
+    "fixtures/authority.checkpoint.wrong-mac-location.json",
+    "fixtures/authority.connector_effect.accepted.json",
+    "fixtures/authority.connector_effect.cloud-signer-on-mac.json",
+    "fixtures/authority.connector_effect.stale-epoch.json",
+    "fixtures/authority.connector_effect.stale-term.json",
+    "fixtures/authority.connector_effect.wrong-lease.json",
+    "fixtures/authority.connector_effect.wrong-mac-location.json",
+    "fixtures/authority.device_effect.accepted.json",
+    "fixtures/authority.device_effect.cloud-signer-on-mac.json",
+    "fixtures/authority.device_effect.stale-epoch.json",
+    "fixtures/authority.device_effect.stale-term.json",
+    "fixtures/authority.device_effect.wrong-lease.json",
+    "fixtures/authority.device_effect.wrong-mac-location.json",
+    "fixtures/authority.expired-platform-lease.json",
+    "fixtures/authority.matrix_publication.accepted.json",
+    "fixtures/authority.matrix_publication.cloud-signer-on-mac.json",
+    "fixtures/authority.matrix_publication.stale-epoch.json",
+    "fixtures/authority.matrix_publication.stale-term.json",
+    "fixtures/authority.matrix_publication.wrong-lease.json",
+    "fixtures/authority.matrix_publication.wrong-mac-location.json",
+    "fixtures/authority.renewed-lease-same-expiry.json",
+    "fixtures/authority.signature-expired.json",
+    "fixtures/authority.unpinned-mac-key.json",
+    "fixtures/authority.work_admission.accepted.json",
+    "fixtures/authority.work_admission.cloud-signer-on-mac.json",
+    "fixtures/authority.work_admission.stale-epoch.json",
+    "fixtures/authority.work_admission.stale-term.json",
+    "fixtures/authority.work_admission.wrong-lease.json",
+    "fixtures/authority.work_admission.wrong-mac-location.json",
+    "fixtures/checkpoint.capture.json",
+    "fixtures/checkpoint.capture.mixed-skips.json",
+    "fixtures/checkpoint.commit.json",
+    "fixtures/checkpoint.committed.json",
+    "fixtures/checkpoint.manifest.json",
+    "fixtures/checkpoint.manifest.mixed-capture-result.json",
+    "fixtures/checkpoint.manifest.ordinary-names.json",
+    "fixtures/checkpoint.portable.commit.json",
+    "fixtures/checkpoint.result.committed.json",
+    "fixtures/checkpoint.result.failed.json",
+    "fixtures/checkpoint.sequence.json",
+    "fixtures/checkpoint.verification-failed.json",
+    "fixtures/claim.compatibility.claimed.json",
+    "fixtures/claim.compatibility.update-required.json",
+    "fixtures/erase-receipt.offline-mac-own-fence.json",
+    "fixtures/erase-receipt.pending-offline-full-coverage.json",
+    "fixtures/erase-receipt.wrong-fence.json",
+    "fixtures/erase.sequence.json",
+    "fixtures/executor.lease.mac.json",
+    "fixtures/executor.lease.renewed-same-expiry.json",
+    "fixtures/failover.asleep-wake-attempt.json",
+    "fixtures/failover.chain-bounce-impossible.json",
+    "fixtures/failover.clock-skew-too-soon.json",
+    "fixtures/failover.fresh-takeover-delay.json",
+    "fixtures/failover.home-ready.json",
+    "fixtures/failover.no-pending-work.json",
+    "fixtures/failover.old-wake-new-unreachable-episode.json",
+    "fixtures/failover.pending-unreachable.json",
+    "fixtures/failover.routine-due-offline.json",
+    "fixtures/failover.skips-unavailable-destination.json",
+    "fixtures/failover.strict-local-no-backup-lost.json",
+    "fixtures/failover.wake-grace.json",
+    "fixtures/home.conflict.import.json",
+    "fixtures/home.conflict.quarantine.json",
+    "fixtures/home.erase.receipt.complete.json",
+    "fixtures/home.erase.receipt.pending-offline.json",
+    "fixtures/home.erase.request.json",
+    "fixtures/home.erase.tombstone.json",
+    "fixtures/home.mount.request.json",
+    "fixtures/home.mount.result.json",
+    "fixtures/home.placement.rollback.json",
+    "fixtures/home.placement.update.json",
+    "fixtures/home.policy.default.json",
+    "fixtures/home.policy.strict-local-no-backup.json",
+    "fixtures/home.restore.record.json",
+    "fixtures/home.restore.request.json",
+    "fixtures/home.return.mac-woke-during-move.json",
+    "fixtures/home.return.report.json",
+    "fixtures/idle-return.move.json",
+    "fixtures/idle-return.reject-stay-put.json",
+    "fixtures/import-once.first.json",
+    "fixtures/import-once.refused-key.json",
+    "fixtures/import-once.refused-manifest.json",
+    "fixtures/import-once.replay.json",
+    "fixtures/mac-executor.key-rotation.json",
+    "fixtures/mac-executor.key.json",
+    "fixtures/matrix.publication.enqueue.json",
+    "fixtures/matrix.publication.receipt.json",
+    "fixtures/migration.import.json",
+    "fixtures/migration.reconcile.sequence.json",
+    "fixtures/migration.result.already-imported.json",
+    "fixtures/migration.result.imported.json",
+    "fixtures/migration.sequence.json",
+    "fixtures/move-arbitration.aborted-fresh.json",
+    "fixtures/move-arbitration.already-committed-exact.json",
+    "fixtures/move-arbitration.committed-preserved.json",
+    "fixtures/move-arbitration.mac-cloud-mac-round-trip.json",
+    "fixtures/move-arbitration.manual-retargets-manual.json",
+    "fixtures/move-arbitration.manual-wins.json",
+    "fixtures/move-arbitration.reject-committed-other-epoch.json",
+    "fixtures/move-arbitration.replay.json",
+    "fixtures/move-arbitration.superseded-fresh.json",
+    "fixtures/move.abort-committed-preserved.json",
+    "fixtures/move.abort.json",
+    "fixtures/move.commit.json",
+    "fixtures/move.drain.json",
+    "fixtures/move.request.automatic.json",
+    "fixtures/move.request.go-home-idle.json",
+    "fixtures/move.request.manual.json",
+    "fixtures/move.request.sleep.json",
+    "fixtures/move.sequence.json",
+    "fixtures/move.sleep-handoff.deferred.json",
+    "fixtures/move.supersede.manual.json",
+    "fixtures/pending-work.routine-offline.json",
+    "fixtures/placement.record.cloud.json",
+    "fixtures/placement.record.mac.json",
+    "fixtures/portable-checkpoint.sequence.json",
+    "fixtures/post-erase.reject-checkpoint_commit.json",
+    "fixtures/post-erase.reject-conflict_import.json",
+    "fixtures/post-erase.reject-declared-newer-epoch.json",
+    "fixtures/post-erase.reject-return_report.json",
+    "fixtures/protected-operation.checkpoint.json",
+    "fixtures/protected-operation.connector_effect.json",
+    "fixtures/protected-operation.device_effect.json",
+    "fixtures/protected-operation.matrix_publication.json",
+    "fixtures/protected-operation.work_admission.json",
+    "fixtures/publication.sequence.json",
+    "fixtures/readiness.observation.json",
+    "fixtures/readiness.report.mac.json",
+    "fixtures/reject-below-floor-at-floor.json",
+    "fixtures/reject-binding-mismatch-mounted-rw.json",
+    "fixtures/reject-checkpoint-capture-parent.json",
+    "fixtures/reject-checkpoint-capture-window.json",
+    "fixtures/reject-checkpoint-commit-before-verify.sequence.json",
+    "fixtures/reject-checkpoint-committed-parent.json",
+    "fixtures/reject-checkpoint-manifest-browser-session.json",
+    "fixtures/reject-checkpoint-manifest-credential-material.json",
+    "fixtures/reject-checkpoint-manifest-parent.json",
+    "fixtures/reject-checkpoint-manifest-unencrypted.json",
+    "fixtures/reject-checkpoint-mid-write.json",
+    "fixtures/reject-checkpoint-parent-not-selected.json",
+    "fixtures/reject-checkpoint-parent.json",
+    "fixtures/reject-checkpoint-path-absolute.json",
+    "fixtures/reject-checkpoint-path-auth-json.json",
+    "fixtures/reject-checkpoint-path-browser-profile.json",
+    "fixtures/reject-checkpoint-path-cookies.json",
+    "fixtures/reject-checkpoint-path-credential.json",
+    "fixtures/reject-checkpoint-path-db-shm.json",
+    "fixtures/reject-checkpoint-path-db-wal.json",
+    "fixtures/reject-checkpoint-path-db.json",
+    "fixtures/reject-checkpoint-path-default-cookies.json",
+    "fixtures/reject-checkpoint-path-env.json",
+    "fixtures/reject-checkpoint-path-id-rsa.json",
+    "fixtures/reject-checkpoint-path-netrc.json",
+    "fixtures/reject-checkpoint-path-node-modules.json",
+    "fixtures/reject-checkpoint-path-npmrc.json",
+    "fixtures/reject-checkpoint-path-package-tree.json",
+    "fixtures/reject-checkpoint-path-parent.json",
+    "fixtures/reject-checkpoint-path-pem.json",
+    "fixtures/reject-checkpoint-path-session-db.json",
+    "fixtures/reject-checkpoint-path-ssh-ed25519.json",
+    "fixtures/reject-checkpoint-path-state-db.json",
+    "fixtures/reject-checkpoint-path-symlink-escape.json",
+    "fixtures/reject-checkpoint-path-workspace.json",
+    "fixtures/reject-checkpoint-path-wrong-category.json",
+    "fixtures/reject-checkpoint-reopen-sealed.sequence.json",
+    "fixtures/reject-checkpoint-skips-placement-revision.json",
+    "fixtures/reject-checkpoint-stale-epoch.json",
+    "fixtures/reject-checkpoint-stale-self-consistent-generation.json",
+    "fixtures/reject-checkpoint-unverified-upload.json",
+    "fixtures/reject-checkpoint-window.json",
+    "fixtures/reject-checkpoint-writable.json",
+    "fixtures/reject-checkpoint-wrong-producing-epoch.json",
+    "fixtures/reject-checkpoint-wrong-signer.json",
+    "fixtures/reject-conflict-auto-promoted.json",
+    "fixtures/reject-conflict-import-not-owner-reviewed.json",
+    "fixtures/reject-conflict-import-parent.json",
+    "fixtures/reject-conflict-import-skips-revision.json",
+    "fixtures/reject-conflict-import-stale-epoch.json",
+    "fixtures/reject-conflict-import-window.json",
+    "fixtures/reject-double-import.json",
+    "fixtures/reject-erase-complete-missing-location.json",
+    "fixtures/reject-erase-complete-with-offline-pending.json",
+    "fixtures/reject-erase-pending-missing-location.json",
+    "fixtures/reject-erase-resurrection.sequence.json",
+    "fixtures/reject-executor-lease-nonpositive-window.json",
+    "fixtures/reject-failed-checkpoint-advances-revision.json",
+    "fixtures/reject-failed-checkpoint-selects-attempt.json",
+    "fixtures/reject-home-erase-receipt-window.json",
+    "fixtures/reject-home-erase-window.json",
+    "fixtures/reject-home-mount-window.json",
+    "fixtures/reject-home-mount-wrong-signer.json",
+    "fixtures/reject-home-policy-never-cloud-enabled.json",
+    "fixtures/reject-home-policy-slow-sweep.json",
+    "fixtures/reject-home-return-window.json",
+    "fixtures/reject-home-unencrypted.json",
+    "fixtures/reject-import-case-key-derivation.json",
+    "fixtures/reject-import-key-derivation.json",
+    "fixtures/reject-import-replay-key-derivation.json",
+    "fixtures/reject-import-replay-other-generation.json",
+    "fixtures/reject-import-replay-other-key.json",
+    "fixtures/reject-import-replay-other-manifest.json",
+    "fixtures/reject-mac-executor-rotation-nonpositive-window.json",
+    "fixtures/reject-mac-executor-rotation-same-key.json",
+    "fixtures/reject-mac-executor-rotation-skips-epoch.json",
+    "fixtures/reject-mac-executor-rotation-unpinned-key.json",
+    "fixtures/reject-mac-executor-rotation-window.json",
+    "fixtures/reject-mac-executor-rotation-wrong-device.json",
+    "fixtures/reject-matrix-publication-direct-token.json",
+    "fixtures/reject-matrix-publication-serialization-revision.json",
+    "fixtures/reject-matrix-publication-window.json",
+    "fixtures/reject-migration-double-import.sequence.json",
+    "fixtures/reject-migration-window.json",
+    "fixtures/reject-migration-wrong-signer.json",
+    "fixtures/reject-mounted-below-floor.json",
+    "fixtures/reject-move-abort-window.json",
+    "fixtures/reject-move-after-commit.sequence.json",
+    "fixtures/reject-move-already-committed-wrong-epoch.json",
+    "fixtures/reject-move-automatic-no-evidence.json",
+    "fixtures/reject-move-automatic-no-pending-ledger.json",
+    "fixtures/reject-move-commit-below-floor.json",
+    "fixtures/reject-move-commit-same-source-target.json",
+    "fixtures/reject-move-commit-skips-epoch.json",
+    "fixtures/reject-move-commit-skips-revision.json",
+    "fixtures/reject-move-commit-window.json",
+    "fixtures/reject-move-drain-window.json",
+    "fixtures/reject-move-manual-as-automatic.json",
+    "fixtures/reject-move-request-window.json",
+    "fixtures/reject-move-same-source-target.json",
+    "fixtures/reject-move-sleep-failure-without-slow-fallback.json",
+    "fixtures/reject-move-supersede-manual.json",
+    "fixtures/reject-move-supersede-window.json",
+    "fixtures/reject-pending-work-visible-reply-basis.json",
+    "fixtures/reject-placement-below-floor.json",
+    "fixtures/reject-placement-committed-active-move.json",
+    "fixtures/reject-placement-lowers-floor.json",
+    "fixtures/reject-placement-mac-without-device.json",
+    "fixtures/reject-placement-skips-revision.json",
+    "fixtures/reject-placement-window.json",
+    "fixtures/reject-placement-wrong-signer.json",
+    "fixtures/reject-portable-checkpoint-parent.json",
+    "fixtures/reject-portable-checkpoint-window.json",
+    "fixtures/reject-publication-bypass-relay.sequence.json",
+    "fixtures/reject-publication-refused-with-event.json",
+    "fixtures/reject-publication-sending-with-reason.json",
+    "fixtures/reject-readiness-future-platform-time.json",
+    "fixtures/reject-readiness-reachable-not-wakeable.json",
+    "fixtures/reject-readiness-report-window.json",
+    "fixtures/reject-readiness-unauthenticated-signer.json",
+    "fixtures/reject-refused-key-with-same-key.json",
+    "fixtures/reject-refused-manifest-with-same-manifest.json",
+    "fixtures/reject-restore-browser-sessions.json",
+    "fixtures/reject-return-auto-promote.sequence.json",
+    "fixtures/reject-rollback-below-floor-as-applied.json",
+    "fixtures/reject-sleep-handoff-unreachable-commit.sequence.json",
+    "fixtures/reject-update-required-mounted-rw.json",
+    "fixtures/reject-working-home-direct-mount.sequence.json",
+    "fixtures/restore.reject-tombstoned-home.json",
+    "fixtures/return-conflict.sequence.json",
+    "fixtures/sleep-handoff.abort-to-slow-rule.sequence.json",
+    "fixtures/sleep-handoff.unreachable-aborts.sequence.json",
+    "fixtures/working-home.sequence.json"
+  ],
+  "require_reject_per_invariant": true,
+  "require_illegal_transition_per_machine": true,
+  "dependencies": [
+    {
+      "contract": "atum.device-service/3",
+      "path": "spec/device-service/v3",
+      "sha256": "3b91faa104672cf761b3109b653807c9ebc430dc9a695714b5e94972864bd513"
+    },
+    {
+      "contract": "atum.cloud-execution/2",
+      "path": "spec/cloud-execution/v2",
+      "sha256": "285c5871e43565f1a5eea0c9bdae1afafb43112cfd9ce52839a22dd4ed007b36"
+    }
+  ],
+  "row": "Portable one-home placement, interval checkpoints, slow failover and server-side effect fencing",
+  "homeModel": {
+    "working": "one encrypted, mounted, writable home bound to owner/agent/computer/disk",
+    "recovery": "sealed generations are immutable; the one platform placement record carries selectedGeneration and changes by placementRevision",
+    "migration": "one import key has one terminal generation; replay returns already_imported and never imports twice",
+    "generationLineage": "v1.x agent.commit generations and v2 sealed checkpoints are the same monotonic generation lineage; existing state is imported once, never renumbered into a parallel lineage",
+    "importKeyDerivation": "base64url(sha256(utf8('atum.agent-home.v2.import\\0' + deviceServiceId + '\\0' + homeIdentity + '\\0' + generation)))",
+    "processMemory": "not a checkpoint format"
+  },
+  "compatibility": {
+    "minimumDeviceProtocol": 3,
+    "minimumHomeFormat": 2,
+    "rollbackFloor": "declared per home",
+    "oldControllerMigratedAgent": "claim_denied",
+    "oldClient": "update_required"
+  },
+  "signing": {
+    "inheritedFrom": "atum.device-service/3",
+    "domain": "atum.device-service.v3\\u0000",
+    "admission": "same pinned-key, commandId/nonce replay, owner/agent/computer binding and expiry rules as device-service/3",
+    "signers": {
+      "home.mount.request": [
+        "platform_controller"
+      ],
+      "checkpoint.commit": [
+        "cloud_workload"
+      ],
+      "home.placement.update": [
+        "platform_controller"
+      ],
+      "migration.import": [
+        "platform_controller"
+      ],
+      "home.readiness.report": [
+        "cloud_workload",
+        "mac_executor"
+      ],
+      "home.mac-executor.key-rotation": [
+        "mac_executor"
+      ],
+      "home.checkpoint.capture": [
+        "cloud_workload",
+        "mac_executor"
+      ],
+      "home.move.request": [
+        "platform_controller"
+      ],
+      "home.move.drain": [
+        "platform_controller"
+      ],
+      "home.move.commit": [
+        "platform_controller"
+      ],
+      "home.move.abort": [
+        "platform_controller"
+      ],
+      "home.move.supersede": [
+        "platform_controller"
+      ],
+      "home.checkpoint.commit": [
+        "platform_controller"
+      ],
+      "matrix.publication.enqueue": [
+        "cloud_workload",
+        "mac_executor"
+      ],
+      "home.return.report": [
+        "mac_executor"
+      ],
+      "home.conflict.import": [
+        "platform_controller"
+      ],
+      "home.erase.request": [
+        "platform_controller"
+      ],
+      "home.erase.receipt": [
+        "cloud_workload",
+        "mac_executor"
+      ]
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[!-9;-~]+:[!-~]+"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "key_id": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "sig64": {
+      "type": "string",
+      "min": 86,
+      "max": 86,
+      "pattern": "[A-Za-z0-9_-]{86}"
+    },
+    "semver": {
+      "type": "string",
+      "min": 5,
+      "max": 64,
+      "pattern": "[0-9]+[.][0-9]+[.][0-9]+(?:[-+][A-Za-z0-9.-]+)?"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "sequence": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "owner_binding": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "computerId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "runtime_epochs": {
+      "type": "object",
+      "required": {
+        "enrollmentEpoch": {
+          "ref": "epoch"
+        },
+        "attachmentEpoch": {
+          "ref": "epoch"
+        },
+        "runtimeEpoch": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "signed_meta": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "signer": {
+          "enum": [
+            "platform_controller",
+            "cloud_workload",
+            "owner_client"
+          ]
+        },
+        "signerKeyId": {
+          "ref": "key_id"
+        },
+        "sequence": {
+          "ref": "sequence"
+        },
+        "issuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "nonce": {
+          "ref": "b64u_sha256"
+        },
+        "signature": {
+          "ref": "sig64"
+        }
+      }
+    },
+    "platform_meta": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "signer": {
+          "const": "platform_controller"
+        },
+        "signerKeyId": {
+          "ref": "key_id"
+        },
+        "sequence": {
+          "ref": "sequence"
+        },
+        "issuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "nonce": {
+          "ref": "b64u_sha256"
+        },
+        "signature": {
+          "ref": "sig64"
+        }
+      }
+    },
+    "workload_meta": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "signer": {
+          "const": "cloud_workload"
+        },
+        "signerKeyId": {
+          "ref": "key_id"
+        },
+        "sequence": {
+          "ref": "sequence"
+        },
+        "issuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "nonce": {
+          "ref": "b64u_sha256"
+        },
+        "signature": {
+          "ref": "sig64"
+        }
+      }
+    },
+    "optional_sha256": {
+      "anyOf": [
+        {
+          "ref": "sha256_hex"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "home_binding": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "computerId": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "diskId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "compatibility": {
+      "type": "object",
+      "required": {
+        "homeFormat": {
+          "type": "integer",
+          "min": 2,
+          "max": 2
+        },
+        "minimumExecutorVersion": {
+          "ref": "semver"
+        },
+        "minimumControllerProtocol": {
+          "type": "integer",
+          "min": 3,
+          "max": 3
+        },
+        "rollbackFloorGeneration": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "mount_request": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "binding": {
+          "ref": "home_binding"
+        },
+        "epochs": {
+          "ref": "runtime_epochs"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "mount_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "requestId": {
+              "ref": "uuid"
+            },
+            "commandId": {
+              "ref": "uuid"
+            },
+            "binding": {
+              "ref": "home_binding"
+            },
+            "epochs": {
+              "ref": "runtime_epochs"
+            },
+            "outcome": {
+              "const": "mounted"
+            },
+            "placementRevision": {
+              "ref": "epoch"
+            },
+            "selectedGeneration": {
+              "ref": "epoch"
+            },
+            "workingHome": {
+              "type": "object",
+              "required": {
+                "mode": {
+                  "const": "mounted_read_write"
+                },
+                "path": {
+                  "const": "/home/atum"
+                },
+                "encrypted": {
+                  "const": true
+                }
+              }
+            },
+            "compatibility": {
+              "ref": "compatibility"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "requestId": {
+              "ref": "uuid"
+            },
+            "commandId": {
+              "ref": "uuid"
+            },
+            "binding": {
+              "ref": "home_binding"
+            },
+            "epochs": {
+              "ref": "runtime_epochs"
+            },
+            "outcome": {
+              "enum": [
+                "update_required",
+                "binding_mismatch",
+                "unavailable"
+              ]
+            },
+            "placementRevision": {
+              "ref": "epoch"
+            },
+            "selectedGeneration": {
+              "ref": "epoch"
+            },
+            "workingHome": {
+              "type": "object",
+              "required": {
+                "mode": {
+                  "const": "not_mounted"
+                },
+                "path": {
+                  "const": "/home/atum"
+                },
+                "encrypted": {
+                  "const": true
+                }
+              }
+            },
+            "compatibility": {
+              "ref": "compatibility"
+            }
+          }
+        }
+      ]
+    },
+    "checkpoint_commit": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "workload_meta"
+        },
+        "binding": {
+          "ref": "home_binding"
+        },
+        "epochs": {
+          "ref": "runtime_epochs"
+        },
+        "generation": {
+          "ref": "epoch"
+        },
+        "parentGeneration": {
+          "ref": "epoch"
+        },
+        "manifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "reason": {
+          "enum": [
+            "idle_stop",
+            "job_checkpoint",
+            "owner_requested",
+            "migration"
+          ]
+        }
+      }
+    },
+    "checkpoint_committed": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "binding": {
+          "ref": "home_binding"
+        },
+        "generation": {
+          "ref": "epoch"
+        },
+        "parentGeneration": {
+          "ref": "epoch"
+        },
+        "manifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "sealed": {
+          "const": true
+        },
+        "immutable": {
+          "const": true
+        },
+        "writable": {
+          "const": false
+        }
+      }
+    },
+    "placement_update": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "binding": {
+          "ref": "home_binding"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "nextPlacementRevision": {
+          "ref": "epoch"
+        },
+        "selectedGeneration": {
+          "ref": "epoch"
+        },
+        "previousRollbackFloorGeneration": {
+          "ref": "epoch"
+        },
+        "rollbackFloorGeneration": {
+          "ref": "epoch"
+        },
+        "generationSealed": {
+          "const": true
+        },
+        "reason": {
+          "enum": [
+            "checkpoint",
+            "restore",
+            "migration",
+            "rollback"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "applied",
+            "below_floor",
+            "stale_revision"
+          ]
+        }
+      }
+    },
+    "migration_import": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "binding": {
+          "ref": "home_binding"
+        },
+        "migrationId": {
+          "ref": "uuid"
+        },
+        "importKey": {
+          "ref": "b64u_sha256"
+        },
+        "source": {
+          "type": "object",
+          "required": {
+            "kind": {
+              "enum": [
+                "mac_home",
+                "legacy_cloud_home",
+                "agent_commit_v1"
+              ]
+            },
+            "deviceServiceId": {
+              "ref": "uuid"
+            },
+            "homeIdentity": {
+              "ref": "uuid"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            },
+            "format": {
+              "type": "integer",
+              "min": 1,
+              "max": 2
+            }
+          }
+        },
+        "targetGeneration": {
+          "ref": "epoch"
+        },
+        "minimumCompatibleExecutor": {
+          "ref": "semver"
+        }
+      }
+    },
+    "migration_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "requestId": {
+              "ref": "uuid"
+            },
+            "commandId": {
+              "ref": "uuid"
+            },
+            "binding": {
+              "ref": "home_binding"
+            },
+            "migrationId": {
+              "ref": "uuid"
+            },
+            "importKey": {
+              "ref": "b64u_sha256"
+            },
+            "outcome": {
+              "const": "imported"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            },
+            "placementRevision": {
+              "ref": "epoch"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "requestId": {
+              "ref": "uuid"
+            },
+            "commandId": {
+              "ref": "uuid"
+            },
+            "binding": {
+              "ref": "home_binding"
+            },
+            "migrationId": {
+              "ref": "uuid"
+            },
+            "importKey": {
+              "ref": "b64u_sha256"
+            },
+            "outcome": {
+              "const": "already_imported"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            },
+            "placementRevision": {
+              "ref": "epoch"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "requestId": {
+              "ref": "uuid"
+            },
+            "commandId": {
+              "ref": "uuid"
+            },
+            "binding": {
+              "ref": "home_binding"
+            },
+            "migrationId": {
+              "ref": "uuid"
+            },
+            "importKey": {
+              "ref": "b64u_sha256"
+            },
+            "outcome": {
+              "enum": [
+                "refused",
+                "failed_no_effect",
+                "uncertain"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "binding_mismatch",
+                "source_changed",
+                "executor_too_old",
+                "placement_conflict",
+                "effect_unknown"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "claim_compatibility": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "binding": {
+              "ref": "home_binding"
+            },
+            "migrated": {
+              "type": "boolean"
+            },
+            "controllerProtocol": {
+              "type": "integer",
+              "min": 3,
+              "max": 9007199254740991
+            },
+            "executorVersion": {
+              "ref": "semver"
+            },
+            "clientKind": {
+              "enum": [
+                "desktop",
+                "phone",
+                "controller"
+              ]
+            },
+            "outcome": {
+              "const": "claimed"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "binding": {
+              "ref": "home_binding"
+            },
+            "migrated": {
+              "type": "boolean"
+            },
+            "controllerProtocol": {
+              "type": "integer",
+              "min": 1,
+              "max": 9007199254740991
+            },
+            "executorVersion": {
+              "ref": "semver"
+            },
+            "clientKind": {
+              "enum": [
+                "desktop",
+                "phone",
+                "controller"
+              ]
+            },
+            "outcome": {
+              "const": "update_required"
+            },
+            "reason": {
+              "enum": [
+                "old_controller",
+                "old_client",
+                "executor_too_old",
+                "home_format_too_new"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "import_once_case": {
+      "type": "object",
+      "required": {
+        "request": {
+          "ref": "migration_import"
+        },
+        "prior": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "importKey": {
+                  "ref": "b64u_sha256"
+                },
+                "generation": {
+                  "ref": "epoch"
+                },
+                "manifestSha256": {
+                  "ref": "sha256_hex"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nullValue": {
+          "const": null
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "imported"
+                },
+                "generation": {
+                  "ref": "epoch"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "already_imported"
+                },
+                "generation": {
+                  "ref": "epoch"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "generation": {
+                  "const": null
+                },
+                "reason": {
+                  "enum": [
+                    "key_mismatch",
+                    "manifest_mismatch"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "home_location": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "cloud"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "mac"
+            },
+            "deviceServiceId": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "operation_identity": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "invocation"
+            },
+            "id": {
+              "ref": "uuid"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "job"
+            },
+            "id": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "executor_meta": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "commandId": {
+          "ref": "uuid"
+        },
+        "signer": {
+          "enum": [
+            "cloud_workload",
+            "mac_executor"
+          ]
+        },
+        "signerKeyId": {
+          "ref": "key_id"
+        },
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "sequence": {
+          "ref": "sequence"
+        },
+        "issuedAt": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "nonce": {
+          "ref": "b64u_sha256"
+        },
+        "signature": {
+          "ref": "sig64"
+        }
+      }
+    },
+    "mac_executor_key": {
+      "type": "object",
+      "required": {
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "keyEpoch": {
+          "ref": "epoch"
+        },
+        "keyId": {
+          "ref": "key_id"
+        },
+        "publicKey": {
+          "type": "string",
+          "min": 122,
+          "max": 122,
+          "pattern": "[A-Za-z0-9_-]{122}"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "retired"
+          ]
+        },
+        "activatedAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "retiredAtPlatform": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "mac_executor_key_rotation": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "previousKeyId": {
+          "ref": "key_id"
+        },
+        "currentKeyEpoch": {
+          "ref": "epoch"
+        },
+        "nextKeyEpoch": {
+          "ref": "epoch"
+        },
+        "nextKeyId": {
+          "ref": "key_id"
+        },
+        "nextPublicKey": {
+          "type": "string",
+          "min": 122,
+          "max": 122,
+          "pattern": "[A-Za-z0-9_-]{122}"
+        }
+      }
+    },
+    "executor_lease_fence": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "homeEpoch": {
+          "ref": "epoch"
+        },
+        "executorTerm": {
+          "ref": "epoch"
+        },
+        "leaseId": {
+          "ref": "uuid"
+        },
+        "leaseExpiresAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "authority_fence": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "homeEpoch": {
+          "ref": "epoch"
+        },
+        "executorTerm": {
+          "ref": "epoch"
+        },
+        "leaseId": {
+          "ref": "uuid"
+        },
+        "leaseExpiresAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "operation": {
+          "ref": "operation_identity"
+        }
+      }
+    },
+    "placement_move": {
+      "type": "object",
+      "required": {
+        "moveId": {
+          "ref": "uuid"
+        },
+        "idempotencyKey": {
+          "ref": "uuid"
+        },
+        "intent": {
+          "enum": [
+            "manual",
+            "automatic_failover",
+            "sleep_handoff",
+            "go_home_when_idle"
+          ]
+        },
+        "status": {
+          "enum": [
+            "requested",
+            "draining",
+            "ready_to_commit",
+            "committed",
+            "aborted",
+            "superseded"
+          ]
+        },
+        "source": {
+          "ref": "home_location"
+        },
+        "target": {
+          "ref": "home_location"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "requestedAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "active_placement_move": {
+      "type": "object",
+      "required": {
+        "moveId": {
+          "ref": "uuid"
+        },
+        "idempotencyKey": {
+          "ref": "uuid"
+        },
+        "intent": {
+          "enum": [
+            "manual",
+            "automatic_failover",
+            "sleep_handoff",
+            "go_home_when_idle"
+          ]
+        },
+        "status": {
+          "enum": [
+            "requested",
+            "draining",
+            "ready_to_commit",
+            "aborted",
+            "superseded"
+          ]
+        },
+        "source": {
+          "ref": "home_location"
+        },
+        "target": {
+          "ref": "home_location"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "requestedAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "placement_record": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "location": {
+          "ref": "home_location"
+        },
+        "homeEpoch": {
+          "ref": "epoch"
+        },
+        "placementRevision": {
+          "ref": "epoch"
+        },
+        "selectedGeneration": {
+          "ref": "epoch"
+        },
+        "rollbackFloorGeneration": {
+          "ref": "epoch"
+        },
+        "activeMove": {
+          "anyOf": [
+            {
+              "ref": "active_placement_move"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "policyRevision": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "executor_lease": {
+      "type": "object",
+      "required": {
+        "fence": {
+          "ref": "executor_lease_fence"
+        },
+        "location": {
+          "ref": "home_location"
+        },
+        "issuedAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "draining",
+            "expired",
+            "revoked"
+          ]
+        }
+      }
+    },
+    "move_request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "idempotencyKey": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "source": {
+              "ref": "home_location"
+            },
+            "target": {
+              "ref": "home_location"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "requestedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "intent": {
+              "const": "manual"
+            },
+            "priority": {
+              "const": "manual"
+            },
+            "trigger": {
+              "const": "owner_request"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "idempotencyKey": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "source": {
+              "ref": "home_location"
+            },
+            "target": {
+              "ref": "home_location"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "requestedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "intent": {
+              "const": "automatic_failover"
+            },
+            "priority": {
+              "const": "automatic"
+            },
+            "trigger": {
+              "const": "pending_unreachable"
+            },
+            "evidence": {
+              "ref": "automatic_failover_evidence"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "idempotencyKey": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "source": {
+              "ref": "home_location"
+            },
+            "target": {
+              "ref": "home_location"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "requestedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "intent": {
+              "const": "go_home_when_idle"
+            },
+            "priority": {
+              "const": "automatic"
+            },
+            "trigger": {
+              "const": "idle_return"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "idempotencyKey": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "source": {
+              "ref": "home_location"
+            },
+            "target": {
+              "ref": "home_location"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "requestedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "intent": {
+              "const": "sleep_handoff"
+            },
+            "priority": {
+              "const": "best_effort"
+            },
+            "trigger": {
+              "const": "sleep_signal"
+            }
+          }
+        }
+      ]
+    },
+    "automatic_failover_evidence": {
+      "type": "object",
+      "required": {
+        "pendingWork": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "eventLedgerIds": {
+                  "type": "array",
+                  "items": {
+                    "ref": "uuid"
+                  },
+                  "min": 1,
+                  "max": 10000,
+                  "unique": true
+                },
+                "occurrenceLedgerIds": {
+                  "type": "array",
+                  "items": {
+                    "ref": "uuid"
+                  },
+                  "max": 10000,
+                  "unique": true
+                },
+                "observedAtPlatform": {
+                  "ref": "timestamp_ms"
+                },
+                "basis": {
+                  "const": "durable_event_and_occurrence_ledgers"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "eventLedgerIds": {
+                  "type": "array",
+                  "items": {
+                    "ref": "uuid"
+                  },
+                  "max": 10000,
+                  "unique": true
+                },
+                "occurrenceLedgerIds": {
+                  "type": "array",
+                  "items": {
+                    "ref": "uuid"
+                  },
+                  "min": 1,
+                  "max": 10000,
+                  "unique": true
+                },
+                "observedAtPlatform": {
+                  "ref": "timestamp_ms"
+                },
+                "basis": {
+                  "const": "durable_event_and_occurrence_ledgers"
+                }
+              }
+            }
+          ]
+        },
+        "readiness": {
+          "type": "object",
+          "required": {
+            "homeEpoch": {
+              "ref": "epoch"
+            },
+            "epochCommittedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "lastReadyAtPlatform": {
+              "anyOf": [
+                {
+                  "ref": "timestamp_ms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "observedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "reachable": {
+              "const": false
+            },
+            "powerState": {
+              "enum": [
+                "awake",
+                "asleep_wakeable",
+                "asleep_not_wakeable",
+                "unknown"
+              ]
+            },
+            "unreachableSincePlatform": {
+              "ref": "timestamp_ms"
+            },
+            "wakeAttemptedAtPlatform": {
+              "anyOf": [
+                {
+                  "ref": "timestamp_ms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "basis": {
+              "const": "authenticated_agent_service_readiness"
+            }
+          }
+        }
+      }
+    },
+    "move_drain": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "deadlineAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "mode": {
+              "const": "ordinary"
+            },
+            "result": {
+              "enum": [
+                "requested",
+                "quiesced",
+                "timed_out",
+                "unreachable"
+              ]
+            },
+            "fallback": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "deadlineAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "mode": {
+              "const": "best_effort_sleep"
+            },
+            "result": {
+              "enum": [
+                "requested",
+                "quiesced"
+              ]
+            },
+            "fallback": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "moveId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "deadlineAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "mode": {
+              "const": "best_effort_sleep"
+            },
+            "result": {
+              "enum": [
+                "timed_out",
+                "unreachable"
+              ]
+            },
+            "fallback": {
+              "const": "ordinary_slow_rule"
+            }
+          }
+        }
+      ]
+    },
+    "move_commit": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "moveId": {
+          "ref": "uuid"
+        },
+        "idempotencyKey": {
+          "ref": "uuid"
+        },
+        "source": {
+          "ref": "home_location"
+        },
+        "target": {
+          "ref": "home_location"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "nextHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "nextPlacementRevision": {
+          "ref": "epoch"
+        },
+        "selectedGeneration": {
+          "ref": "epoch"
+        },
+        "rollbackFloorGeneration": {
+          "ref": "epoch"
+        },
+        "outcome": {
+          "enum": [
+            "committed",
+            "already_committed",
+            "stale_cas",
+            "superseded",
+            "aborted"
+          ]
+        },
+        "committedAtPlatform": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "move_abort": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "moveId": {
+          "ref": "uuid"
+        },
+        "idempotencyKey": {
+          "ref": "uuid"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "reason": {
+          "enum": [
+            "drain_failed",
+            "target_unavailable",
+            "owner_cancelled",
+            "sleep_budget_elapsed"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "aborted",
+            "already_aborted",
+            "stale_cas",
+            "committed_epoch_preserved"
+          ]
+        }
+      }
+    },
+    "move_supersede": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "winningMoveId": {
+          "ref": "uuid"
+        },
+        "supersededMoveId": {
+          "ref": "uuid"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "winningIntent": {
+          "const": "manual"
+        },
+        "supersededIntent": {
+          "enum": [
+            "manual",
+            "automatic_failover",
+            "sleep_handoff",
+            "go_home_when_idle"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "superseded",
+            "already_superseded",
+            "committed_epoch_preserved"
+          ]
+        }
+      }
+    },
+    "portable_manifest_entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "category": {
+              "const": "memory"
+            },
+            "path": {
+              "type": "string",
+              "min": 1,
+              "max": 4096,
+              "pattern": "(?!.*(?:^|/)(?:[.]|[.][.]|[nN][oO][dD][eE]_[mM][oO][dD][uU][lL][eE][sS]|[sS][iI][tT][eE]-[pP][aA][cC][kK][aA][gG][eE][sS]|[vV][eE][nN][vV]|[.][vV][eE][nN][vV]|[pP][aA][cC][kK][aA][gG][eE]|[pP][aA][cC][kK][aA][gG][eE][sS]|[wW][oO][rR][kK][sS][pP][aA][cC][eE]|[bB][rR][oO][wW][sS][eE][rR]|[bB][rR][oO][wW][sS][eE][rR][sS]|[cC][hH][rR][oO][mM][eE]|[cC][hH][rR][oO][mM][iI][uU][mM]|[fF][iI][rR][eE][fF][oO][xX]|[sS][aA][fF][aA][rR][iI]|[uU][sS][eE][rR] [dD][aA][tT][aA]|[.][mM][oO][zZ][iI][lL][lL][aA]|[gG][oO][oO][gG][lL][eE]-[cC][hH][rR][oO][mM][eE]|[dD][eE][fF][aA][uU][lL][tT]|[pP][rR][oO][fF][iI][lL][eE] [^/]*|[.][sS][sS][hH]|[.][gG][nN][uU][pP][gG]|[.][aA][wW][sS]|[.][kK][uU][bB][eE]|[cC][oO][oO][kK][iI][eE][sS][^/]*|[lL][oO][gG][iI][nN] [dD][aA][tT][aA][^/]*|[lL][oO][cC][aA][lL] [sS][tT][aA][tT][eE]|[wW][eE][bB] [dD][aA][tT][aA][^/]*|[aA][uU][tT][hH][.][jJ][sS][oO][nN]|[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS][^/]*[.][jJ][sS][oO][nN]|[.][eE][nN][vV][^/]*|[.][nN][eE][tT][rR][cC]|[.][nN][pP][mM][rR][cC]|[.][pP][yY][pP][iI][rR][cC]|[.][gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]|[^/]*[.][kK][eE][yY][cC][hH][aA][iI][nN][^/]*|[iI][dD]_[rR][sS][aA][^/]*|[iI][dD]_[eE][dD]25519[^/]*|[iI][dD]_[eE][cC][dD][sS][aA][^/]*|[^/]*[.][pP][eE][mM]|[^/]*[.][kK][eE][yY]|[^/]*[.][pP]12|[^/]*[.][pP][fF][xX]|[^/]*[.][dD][bB]|[^/]*[.][sS][qQ][lL][iI][tT][eE][^/]*|[^/]*-(?:[wW][aA][lL]|[sS][hH][mM]|[jJ][oO][uU][rR][nN][aA][lL]))(?:/|$))(?!.*(?:^|/)[.][cC][oO][nN][fF][iI][gG]/[gG][cC][lL][oO][uU][dD](?:/|$))memory/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+(?:/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+)*",
+              "normalization": "NFC"
+            },
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "stable": {
+              "const": true
+            },
+            "fileType": {
+              "const": "regular_file"
+            },
+            "symlinkTraversal": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "category": {
+              "const": "skills"
+            },
+            "path": {
+              "type": "string",
+              "min": 1,
+              "max": 4096,
+              "pattern": "(?!.*(?:^|/)(?:[.]|[.][.]|[nN][oO][dD][eE]_[mM][oO][dD][uU][lL][eE][sS]|[sS][iI][tT][eE]-[pP][aA][cC][kK][aA][gG][eE][sS]|[vV][eE][nN][vV]|[.][vV][eE][nN][vV]|[pP][aA][cC][kK][aA][gG][eE]|[pP][aA][cC][kK][aA][gG][eE][sS]|[wW][oO][rR][kK][sS][pP][aA][cC][eE]|[bB][rR][oO][wW][sS][eE][rR]|[bB][rR][oO][wW][sS][eE][rR][sS]|[cC][hH][rR][oO][mM][eE]|[cC][hH][rR][oO][mM][iI][uU][mM]|[fF][iI][rR][eE][fF][oO][xX]|[sS][aA][fF][aA][rR][iI]|[uU][sS][eE][rR] [dD][aA][tT][aA]|[.][mM][oO][zZ][iI][lL][lL][aA]|[gG][oO][oO][gG][lL][eE]-[cC][hH][rR][oO][mM][eE]|[dD][eE][fF][aA][uU][lL][tT]|[pP][rR][oO][fF][iI][lL][eE] [^/]*|[.][sS][sS][hH]|[.][gG][nN][uU][pP][gG]|[.][aA][wW][sS]|[.][kK][uU][bB][eE]|[cC][oO][oO][kK][iI][eE][sS][^/]*|[lL][oO][gG][iI][nN] [dD][aA][tT][aA][^/]*|[lL][oO][cC][aA][lL] [sS][tT][aA][tT][eE]|[wW][eE][bB] [dD][aA][tT][aA][^/]*|[aA][uU][tT][hH][.][jJ][sS][oO][nN]|[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS][^/]*[.][jJ][sS][oO][nN]|[.][eE][nN][vV][^/]*|[.][nN][eE][tT][rR][cC]|[.][nN][pP][mM][rR][cC]|[.][pP][yY][pP][iI][rR][cC]|[.][gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]|[^/]*[.][kK][eE][yY][cC][hH][aA][iI][nN][^/]*|[iI][dD]_[rR][sS][aA][^/]*|[iI][dD]_[eE][dD]25519[^/]*|[iI][dD]_[eE][cC][dD][sS][aA][^/]*|[^/]*[.][pP][eE][mM]|[^/]*[.][kK][eE][yY]|[^/]*[.][pP]12|[^/]*[.][pP][fF][xX]|[^/]*[.][dD][bB]|[^/]*[.][sS][qQ][lL][iI][tT][eE][^/]*|[^/]*-(?:[wW][aA][lL]|[sS][hH][mM]|[jJ][oO][uU][rR][nN][aA][lL]))(?:/|$))(?!.*(?:^|/)[.][cC][oO][nN][fF][iI][gG]/[gG][cC][lL][oO][uU][dD](?:/|$))skills/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+(?:/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+)*",
+              "normalization": "NFC"
+            },
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "stable": {
+              "const": true
+            },
+            "fileType": {
+              "const": "regular_file"
+            },
+            "symlinkTraversal": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "category": {
+              "const": "non_secret_config"
+            },
+            "path": {
+              "type": "string",
+              "min": 1,
+              "max": 4096,
+              "pattern": "(?!.*(?:^|/)(?:[.]|[.][.]|[nN][oO][dD][eE]_[mM][oO][dD][uU][lL][eE][sS]|[sS][iI][tT][eE]-[pP][aA][cC][kK][aA][gG][eE][sS]|[vV][eE][nN][vV]|[.][vV][eE][nN][vV]|[pP][aA][cC][kK][aA][gG][eE]|[pP][aA][cC][kK][aA][gG][eE][sS]|[wW][oO][rR][kK][sS][pP][aA][cC][eE]|[bB][rR][oO][wW][sS][eE][rR]|[bB][rR][oO][wW][sS][eE][rR][sS]|[cC][hH][rR][oO][mM][eE]|[cC][hH][rR][oO][mM][iI][uU][mM]|[fF][iI][rR][eE][fF][oO][xX]|[sS][aA][fF][aA][rR][iI]|[uU][sS][eE][rR] [dD][aA][tT][aA]|[.][mM][oO][zZ][iI][lL][lL][aA]|[gG][oO][oO][gG][lL][eE]-[cC][hH][rR][oO][mM][eE]|[dD][eE][fF][aA][uU][lL][tT]|[pP][rR][oO][fF][iI][lL][eE] [^/]*|[.][sS][sS][hH]|[.][gG][nN][uU][pP][gG]|[.][aA][wW][sS]|[.][kK][uU][bB][eE]|[cC][oO][oO][kK][iI][eE][sS][^/]*|[lL][oO][gG][iI][nN] [dD][aA][tT][aA][^/]*|[lL][oO][cC][aA][lL] [sS][tT][aA][tT][eE]|[wW][eE][bB] [dD][aA][tT][aA][^/]*|[aA][uU][tT][hH][.][jJ][sS][oO][nN]|[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS][^/]*[.][jJ][sS][oO][nN]|[.][eE][nN][vV][^/]*|[.][nN][eE][tT][rR][cC]|[.][nN][pP][mM][rR][cC]|[.][pP][yY][pP][iI][rR][cC]|[.][gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]|[^/]*[.][kK][eE][yY][cC][hH][aA][iI][nN][^/]*|[iI][dD]_[rR][sS][aA][^/]*|[iI][dD]_[eE][dD]25519[^/]*|[iI][dD]_[eE][cC][dD][sS][aA][^/]*|[^/]*[.][pP][eE][mM]|[^/]*[.][kK][eE][yY]|[^/]*[.][pP]12|[^/]*[.][pP][fF][xX]|[^/]*[.][dD][bB]|[^/]*[.][sS][qQ][lL][iI][tT][eE][^/]*|[^/]*-(?:[wW][aA][lL]|[sS][hH][mM]|[jJ][oO][uU][rR][nN][aA][lL]))(?:/|$))(?!.*(?:^|/)[.][cC][oO][nN][fF][iI][gG]/[gG][cC][lL][oO][uU][dD](?:/|$))config/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+(?:/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+)*",
+              "normalization": "NFC"
+            },
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "stable": {
+              "const": true
+            },
+            "fileType": {
+              "const": "regular_file"
+            },
+            "symlinkTraversal": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "category": {
+              "const": "routine_definitions"
+            },
+            "path": {
+              "type": "string",
+              "min": 1,
+              "max": 4096,
+              "pattern": "(?!.*(?:^|/)(?:[.]|[.][.]|[nN][oO][dD][eE]_[mM][oO][dD][uU][lL][eE][sS]|[sS][iI][tT][eE]-[pP][aA][cC][kK][aA][gG][eE][sS]|[vV][eE][nN][vV]|[.][vV][eE][nN][vV]|[pP][aA][cC][kK][aA][gG][eE]|[pP][aA][cC][kK][aA][gG][eE][sS]|[wW][oO][rR][kK][sS][pP][aA][cC][eE]|[bB][rR][oO][wW][sS][eE][rR]|[bB][rR][oO][wW][sS][eE][rR][sS]|[cC][hH][rR][oO][mM][eE]|[cC][hH][rR][oO][mM][iI][uU][mM]|[fF][iI][rR][eE][fF][oO][xX]|[sS][aA][fF][aA][rR][iI]|[uU][sS][eE][rR] [dD][aA][tT][aA]|[.][mM][oO][zZ][iI][lL][lL][aA]|[gG][oO][oO][gG][lL][eE]-[cC][hH][rR][oO][mM][eE]|[dD][eE][fF][aA][uU][lL][tT]|[pP][rR][oO][fF][iI][lL][eE] [^/]*|[.][sS][sS][hH]|[.][gG][nN][uU][pP][gG]|[.][aA][wW][sS]|[.][kK][uU][bB][eE]|[cC][oO][oO][kK][iI][eE][sS][^/]*|[lL][oO][gG][iI][nN] [dD][aA][tT][aA][^/]*|[lL][oO][cC][aA][lL] [sS][tT][aA][tT][eE]|[wW][eE][bB] [dD][aA][tT][aA][^/]*|[aA][uU][tT][hH][.][jJ][sS][oO][nN]|[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS][^/]*[.][jJ][sS][oO][nN]|[.][eE][nN][vV][^/]*|[.][nN][eE][tT][rR][cC]|[.][nN][pP][mM][rR][cC]|[.][pP][yY][pP][iI][rR][cC]|[.][gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]|[^/]*[.][kK][eE][yY][cC][hH][aA][iI][nN][^/]*|[iI][dD]_[rR][sS][aA][^/]*|[iI][dD]_[eE][dD]25519[^/]*|[iI][dD]_[eE][cC][dD][sS][aA][^/]*|[^/]*[.][pP][eE][mM]|[^/]*[.][kK][eE][yY]|[^/]*[.][pP]12|[^/]*[.][pP][fF][xX]|[^/]*[.][dD][bB]|[^/]*[.][sS][qQ][lL][iI][tT][eE][^/]*|[^/]*-(?:[wW][aA][lL]|[sS][hH][mM]|[jJ][oO][uU][rR][nN][aA][lL]))(?:/|$))(?!.*(?:^|/)[.][cC][oO][nN][fF][iI][gG]/[gG][cC][lL][oO][uU][dD](?:/|$))routines/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+(?:/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+)*",
+              "normalization": "NFC"
+            },
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "stable": {
+              "const": true
+            },
+            "fileType": {
+              "const": "regular_file"
+            },
+            "symlinkTraversal": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "category": {
+              "const": "portable_app_data"
+            },
+            "path": {
+              "type": "string",
+              "min": 1,
+              "max": 4096,
+              "pattern": "(?!.*(?:^|/)(?:[.]|[.][.]|[nN][oO][dD][eE]_[mM][oO][dD][uU][lL][eE][sS]|[sS][iI][tT][eE]-[pP][aA][cC][kK][aA][gG][eE][sS]|[vV][eE][nN][vV]|[.][vV][eE][nN][vV]|[pP][aA][cC][kK][aA][gG][eE]|[pP][aA][cC][kK][aA][gG][eE][sS]|[wW][oO][rR][kK][sS][pP][aA][cC][eE]|[bB][rR][oO][wW][sS][eE][rR]|[bB][rR][oO][wW][sS][eE][rR][sS]|[cC][hH][rR][oO][mM][eE]|[cC][hH][rR][oO][mM][iI][uU][mM]|[fF][iI][rR][eE][fF][oO][xX]|[sS][aA][fF][aA][rR][iI]|[uU][sS][eE][rR] [dD][aA][tT][aA]|[.][mM][oO][zZ][iI][lL][lL][aA]|[gG][oO][oO][gG][lL][eE]-[cC][hH][rR][oO][mM][eE]|[dD][eE][fF][aA][uU][lL][tT]|[pP][rR][oO][fF][iI][lL][eE] [^/]*|[.][sS][sS][hH]|[.][gG][nN][uU][pP][gG]|[.][aA][wW][sS]|[.][kK][uU][bB][eE]|[cC][oO][oO][kK][iI][eE][sS][^/]*|[lL][oO][gG][iI][nN] [dD][aA][tT][aA][^/]*|[lL][oO][cC][aA][lL] [sS][tT][aA][tT][eE]|[wW][eE][bB] [dD][aA][tT][aA][^/]*|[aA][uU][tT][hH][.][jJ][sS][oO][nN]|[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS][^/]*[.][jJ][sS][oO][nN]|[.][eE][nN][vV][^/]*|[.][nN][eE][tT][rR][cC]|[.][nN][pP][mM][rR][cC]|[.][pP][yY][pP][iI][rR][cC]|[.][gG][iI][tT]-[cC][rR][eE][dD][eE][nN][tT][iI][aA][lL][sS]|[^/]*[.][kK][eE][yY][cC][hH][aA][iI][nN][^/]*|[iI][dD]_[rR][sS][aA][^/]*|[iI][dD]_[eE][dD]25519[^/]*|[iI][dD]_[eE][cC][dD][sS][aA][^/]*|[^/]*[.][pP][eE][mM]|[^/]*[.][kK][eE][yY]|[^/]*[.][pP]12|[^/]*[.][pP][fF][xX]|[^/]*[.][dD][bB]|[^/]*[.][sS][qQ][lL][iI][tT][eE][^/]*|[^/]*-(?:[wW][aA][lL]|[sS][hH][mM]|[jJ][oO][uU][rR][nN][aA][lL]))(?:/|$))(?!.*(?:^|/)[.][cC][oO][nN][fF][iI][gG]/[gG][cC][lL][oO][uU][dD](?:/|$))apps/portable/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+(?:/[^/\\\\\\u0000-\\u001F\\u007F-\\u009F]+)*",
+              "normalization": "NFC"
+            },
+            "sha256": {
+              "ref": "sha256_hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "stable": {
+              "const": true
+            },
+            "fileType": {
+              "const": "regular_file"
+            },
+            "symlinkTraversal": {
+              "const": "none"
+            }
+          }
+        }
+      ]
+    },
+    "checkpoint_skipped_path": {
+      "type": "object",
+      "required": {
+        "category": {
+          "enum": [
+            "memory",
+            "skills",
+            "non_secret_config",
+            "routine_definitions",
+            "portable_app_data"
+          ]
+        },
+        "reasonCode": {
+          "enum": [
+            "invalid_relative_path",
+            "outside_category",
+            "credential_or_key_material",
+            "browser_profile",
+            "database_or_sidecar",
+            "package_tree",
+            "machine_workspace",
+            "non_regular_file",
+            "symlink_escape"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "pathSha256": {
+          "ref": "sha256_hex"
+        }
+      }
+    },
+    "portable_manifest": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "generation": {
+          "ref": "epoch"
+        },
+        "parentGeneration": {
+          "ref": "epoch"
+        },
+        "producingHomeEpoch": {
+          "ref": "epoch"
+        },
+        "manifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "ref": "portable_manifest_entry"
+          },
+          "min": 1,
+          "max": 100000
+        },
+        "encryption": {
+          "type": "object",
+          "required": {
+            "encrypted": {
+              "const": true
+            },
+            "keyScope": {
+              "const": "owner_agent_home"
+            },
+            "credentialMaterialIncluded": {
+              "const": false
+            }
+          }
+        },
+        "contentPolicy": {
+          "type": "object",
+          "required": {
+            "memory": {
+              "const": "included"
+            },
+            "skills": {
+              "const": "included"
+            },
+            "nonSecretConfig": {
+              "const": "included"
+            },
+            "routineDefinitions": {
+              "const": "included"
+            },
+            "portableAppData": {
+              "const": "included"
+            },
+            "sessionHistoryStateDb": {
+              "const": "excluded"
+            },
+            "packages": {
+              "const": "excluded"
+            },
+            "browserSessions": {
+              "const": "excluded"
+            },
+            "machineWorkspace": {
+              "const": "excluded"
+            },
+            "credentials": {
+              "const": "excluded_all"
+            }
+          }
+        }
+      }
+    },
+    "checkpoint_capture": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "fence": {
+          "ref": "authority_fence"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "generation": {
+          "ref": "epoch"
+        },
+        "parentGeneration": {
+          "ref": "epoch"
+        },
+        "dirty": {
+          "const": true
+        },
+        "reason": {
+          "enum": [
+            "cadence_dirty",
+            "idle",
+            "manual",
+            "move_drain"
+          ]
+        },
+        "manifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "includedFiles": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "skipped": {
+          "type": "array",
+          "items": {
+            "ref": "checkpoint_skipped_path"
+          },
+          "max": 100000
+        },
+        "consistency": {
+          "type": "object",
+          "required": {
+            "writersQuiesced": {
+              "const": true
+            },
+            "sqliteMethod": {
+              "const": "sqlite_backup"
+            },
+            "stableFilesStaged": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "portable_checkpoint_commit": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "nextPlacementRevision": {
+              "ref": "epoch"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "selectedGenerationBefore": {
+              "ref": "epoch"
+            },
+            "parentGeneration": {
+              "ref": "epoch"
+            },
+            "producingHomeEpoch": {
+              "ref": "epoch"
+            },
+            "eraseEpoch": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            },
+            "uploadVerified": {
+              "const": true
+            },
+            "outcome": {
+              "enum": [
+                "committed",
+                "already_committed",
+                "stale_epoch",
+                "stale_revision"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "platform_meta"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "expectedHomeEpoch": {
+              "ref": "epoch"
+            },
+            "expectedPlacementRevision": {
+              "ref": "epoch"
+            },
+            "nextPlacementRevision": {
+              "ref": "epoch"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "selectedGenerationBefore": {
+              "ref": "epoch"
+            },
+            "parentGeneration": {
+              "ref": "epoch"
+            },
+            "producingHomeEpoch": {
+              "ref": "epoch"
+            },
+            "eraseEpoch": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            },
+            "uploadVerified": {
+              "const": false
+            },
+            "outcome": {
+              "const": "verification_failed"
+            }
+          }
+        }
+      ]
+    },
+    "checkpoint_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "checkpointId": {
+              "ref": "uuid"
+            },
+            "outcome": {
+              "const": "committed"
+            },
+            "generation": {
+              "ref": "epoch"
+            },
+            "selectedGeneration": {
+              "ref": "epoch"
+            },
+            "placementRevision": {
+              "ref": "epoch"
+            },
+            "manifestSha256": {
+              "ref": "sha256_hex"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "checkpointId": {
+              "ref": "uuid"
+            },
+            "outcome": {
+              "const": "failed_previous_selected"
+            },
+            "attemptedGeneration": {
+              "ref": "epoch"
+            },
+            "selectedGenerationBefore": {
+              "ref": "epoch"
+            },
+            "selectedGenerationAfter": {
+              "ref": "epoch"
+            },
+            "placementRevisionBefore": {
+              "ref": "epoch"
+            },
+            "placementRevisionAfter": {
+              "ref": "epoch"
+            },
+            "reason": {
+              "enum": [
+                "quiesce_failed",
+                "sqlite_backup_failed",
+                "staging_failed",
+                "upload_failed",
+                "verification_failed",
+                "stale_epoch"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "readiness_report": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "fence": {
+          "ref": "executor_lease_fence"
+        },
+        "reportedAtLocal": {
+          "ref": "timestamp_ms"
+        },
+        "powerState": {
+          "enum": [
+            "awake",
+            "asleep_wakeable",
+            "asleep_not_wakeable",
+            "unknown"
+          ]
+        },
+        "checks": {
+          "type": "object",
+          "required": {
+            "homeAccessible": {
+              "type": "boolean"
+            },
+            "runtimeUsable": {
+              "type": "boolean"
+            },
+            "matrixIntakeWorking": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "readiness_observation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "homeEpoch": {
+              "ref": "epoch"
+            },
+            "receivedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "lastReadyAtPlatform": {
+              "anyOf": [
+                {
+                  "ref": "timestamp_ms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reachable": {
+              "const": false
+            },
+            "powerState": {
+              "const": "asleep_not_wakeable"
+            },
+            "basis": {
+              "const": "authenticated_agent_service_readiness"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "homeEpoch": {
+              "ref": "epoch"
+            },
+            "receivedAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "lastReadyAtPlatform": {
+              "anyOf": [
+                {
+                  "ref": "timestamp_ms"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reachable": {
+              "type": "boolean"
+            },
+            "powerState": {
+              "enum": [
+                "awake",
+                "asleep_wakeable",
+                "unknown"
+              ]
+            },
+            "basis": {
+              "const": "authenticated_agent_service_readiness"
+            }
+          }
+        }
+      ]
+    },
+    "pending_work_snapshot": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "observedAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "eventLedger": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": {
+              "id": {
+                "ref": "uuid"
+              },
+              "state": {
+                "enum": [
+                  "queued",
+                  "taken",
+                  "dispatched",
+                  "completed",
+                  "stopped",
+                  "uncertain"
+                ]
+              }
+            }
+          },
+          "max": 10000
+        },
+        "occurrenceLedger": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": {
+              "id": {
+                "ref": "uuid"
+              },
+              "state": {
+                "enum": [
+                  "due",
+                  "claimed",
+                  "completed",
+                  "stopped"
+                ]
+              },
+              "dueAt": {
+                "ref": "timestamp_ms"
+              }
+            }
+          },
+          "max": 10000
+        },
+        "basis": {
+          "const": "durable_event_and_occurrence_ledgers"
+        },
+        "visibleReplyStateIgnored": {
+          "const": true
+        }
+      }
+    },
+    "home_destination_policy": {
+      "type": "object",
+      "required": {
+        "destination": {
+          "ref": "home_location"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "home_policy": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "ref": "epoch"
+            },
+            "backupEnabled": {
+              "type": "boolean"
+            },
+            "neverRunInCloud": {
+              "const": false
+            },
+            "checkpointCadenceMs": {
+              "type": "integer",
+              "min": 60000,
+              "max": 86400000
+            },
+            "failoverDelayMs": {
+              "type": "integer",
+              "min": 60000,
+              "max": 86400000
+            },
+            "eligibilitySweepMs": {
+              "type": "integer",
+              "min": 30000,
+              "max": 300000
+            },
+            "fallbackOrder": {
+              "type": "array",
+              "items": {
+                "ref": "home_destination_policy"
+              },
+              "min": 1,
+              "max": 32,
+              "unique": true
+            },
+            "returnMode": {
+              "enum": [
+                "stay_put",
+                "go_home_when_idle"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "ref": "epoch"
+            },
+            "backupEnabled": {
+              "type": "boolean"
+            },
+            "neverRunInCloud": {
+              "const": true
+            },
+            "checkpointCadenceMs": {
+              "type": "integer",
+              "min": 60000,
+              "max": 86400000
+            },
+            "failoverDelayMs": {
+              "type": "integer",
+              "min": 60000,
+              "max": 86400000
+            },
+            "eligibilitySweepMs": {
+              "type": "integer",
+              "min": 30000,
+              "max": 300000
+            },
+            "fallbackOrder": {
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": {
+                      "destination": {
+                        "type": "object",
+                        "required": {
+                          "kind": {
+                            "const": "cloud"
+                          }
+                        }
+                      },
+                      "enabled": {
+                        "const": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": {
+                      "destination": {
+                        "type": "object",
+                        "required": {
+                          "kind": {
+                            "const": "mac"
+                          },
+                          "deviceServiceId": {
+                            "ref": "uuid"
+                          }
+                        }
+                      },
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
+              },
+              "min": 1,
+              "max": 32,
+              "unique": true
+            },
+            "returnMode": {
+              "enum": [
+                "stay_put",
+                "go_home_when_idle"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "protected_operation": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "work_admission",
+            "checkpoint",
+            "connector_effect",
+            "device_effect",
+            "matrix_publication"
+          ]
+        },
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "fence": {
+          "ref": "authority_fence"
+        },
+        "placement": {
+          "ref": "home_location"
+        },
+        "requestedAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "authority_case": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "work_admission",
+            "checkpoint",
+            "connector_effect",
+            "device_effect",
+            "matrix_publication"
+          ]
+        },
+        "presented": {
+          "type": "object",
+          "required": {
+            "meta": {
+              "ref": "executor_meta"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            }
+          }
+        },
+        "trusted": {
+          "type": "object",
+          "required": {
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "homeEpoch": {
+              "ref": "epoch"
+            },
+            "executorTerm": {
+              "ref": "epoch"
+            },
+            "leaseId": {
+              "ref": "uuid"
+            },
+            "leaseExpiresAtPlatform": {
+              "ref": "timestamp_ms"
+            },
+            "operation": {
+              "ref": "operation_identity"
+            },
+            "placement": {
+              "ref": "home_location"
+            },
+            "pinnedSignerKeyId": {
+              "ref": "key_id"
+            },
+            "signatureValid": {
+              "type": "boolean"
+            },
+            "nowPlatform": {
+              "ref": "timestamp_ms"
+            }
+          }
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "accepted"
+                },
+                "reason": {
+                  "const": "current_authority"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "reason": {
+                  "enum": [
+                    "wrong_owner",
+                    "wrong_agent",
+                    "wrong_home",
+                    "stale_home_epoch",
+                    "stale_executor_term",
+                    "wrong_operation",
+                    "wrong_lease",
+                    "lease_expired",
+                    "wrong_signer_location",
+                    "unpinned_signer_key",
+                    "bad_signature",
+                    "signature_expired"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "matrix_publication_enqueue": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "fence": {
+          "ref": "authority_fence"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "moveSerializationRevision": {
+          "ref": "epoch"
+        },
+        "outboxId": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "ref": "room_id"
+        },
+        "transactionId": {
+          "type": "string",
+          "min": 1,
+          "max": 255
+        },
+        "payloadSha256": {
+          "ref": "sha256_hex"
+        }
+      }
+    },
+    "matrix_publication_receipt": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "moveSerializationRevision": {
+              "ref": "epoch"
+            },
+            "state": {
+              "const": "published"
+            },
+            "eventId": {
+              "ref": "event_id"
+            },
+            "reason": {
+              "const": null
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "moveSerializationRevision": {
+              "ref": "epoch"
+            },
+            "state": {
+              "const": "refused"
+            },
+            "eventId": {
+              "const": null
+            },
+            "reason": {
+              "enum": [
+                "stale_authority",
+                "move_in_progress",
+                "matrix_error",
+                "effect_unknown"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "moveSerializationRevision": {
+              "ref": "epoch"
+            },
+            "state": {
+              "const": "sending"
+            },
+            "eventId": {
+              "anyOf": [
+                {
+                  "ref": "event_id"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "const": null
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "outboxId": {
+              "ref": "uuid"
+            },
+            "fence": {
+              "ref": "authority_fence"
+            },
+            "moveSerializationRevision": {
+              "ref": "epoch"
+            },
+            "state": {
+              "enum": [
+                "queued",
+                "admitted",
+                "uncertain"
+              ]
+            },
+            "eventId": {
+              "anyOf": [
+                {
+                  "ref": "event_id"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "stale_authority",
+                    "move_in_progress",
+                    "matrix_error",
+                    "effect_unknown"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "return_report": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "location": {
+          "ref": "home_location"
+        },
+        "sourceHomeEpoch": {
+          "ref": "epoch"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "observedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "observedMoveId": {
+          "anyOf": [
+            {
+              "ref": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseGeneration": {
+          "ref": "epoch"
+        },
+        "sourceManifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "currentManifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "divergent": {
+          "const": true
+        }
+      }
+    },
+    "conflict_quarantine": {
+      "type": "object",
+      "required": {
+        "quarantineId": {
+          "ref": "uuid"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "sourceLocation": {
+          "ref": "home_location"
+        },
+        "sourceHomeEpoch": {
+          "ref": "epoch"
+        },
+        "baseGeneration": {
+          "ref": "epoch"
+        },
+        "sourceManifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "currentManifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "status": {
+          "const": "quarantined"
+        },
+        "autoPromoted": {
+          "const": false
+        },
+        "autoMerged": {
+          "const": false
+        },
+        "sessionHistoryIncluded": {
+          "const": false
+        }
+      }
+    },
+    "conflict_import": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "fence": {
+          "ref": "authority_fence"
+        },
+        "quarantineId": {
+          "ref": "uuid"
+        },
+        "reviewId": {
+          "ref": "uuid"
+        },
+        "reviewedBy": {
+          "ref": "user_id"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "expectedHomeEpoch": {
+          "ref": "epoch"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "nextPlacementRevision": {
+          "ref": "epoch"
+        },
+        "parentGeneration": {
+          "ref": "epoch"
+        },
+        "generation": {
+          "ref": "epoch"
+        },
+        "sourceManifestSha256": {
+          "ref": "sha256_hex"
+        },
+        "outcome": {
+          "enum": [
+            "imported",
+            "refused",
+            "stale_cas"
+          ]
+        }
+      }
+    },
+    "erase_location": {
+      "type": "object",
+      "required": {
+        "location": {
+          "ref": "home_location"
+        },
+        "state": {
+          "enum": [
+            "erased",
+            "pending_offline"
+          ]
+        }
+      }
+    },
+    "erase_fence": {
+      "type": "object",
+      "required": {
+        "erasureId": {
+          "ref": "uuid"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "issuedAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "expiresAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "home_erase_request": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "platform_meta"
+        },
+        "eraseFence": {
+          "ref": "erase_fence"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "expectedPlacementRevision": {
+          "ref": "epoch"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "min": 1,
+          "max": 32,
+          "unique": true
+        },
+        "scopes": {
+          "type": "object",
+          "required": {
+            "workingHome": {
+              "const": true
+            },
+            "checkpoints": {
+              "const": true
+            },
+            "snapshots": {
+              "const": true
+            },
+            "quarantinedConflicts": {
+              "const": true
+            },
+            "credentials": {
+              "const": true
+            }
+          }
+        }
+      }
+    },
+    "home_erase_receipt": {
+      "type": "object",
+      "required": {
+        "meta": {
+          "ref": "executor_meta"
+        },
+        "eraseFence": {
+          "ref": "erase_fence"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "outcome": {
+          "enum": [
+            "complete",
+            "pending_offline"
+          ]
+        },
+        "requestedLocations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "min": 1,
+          "max": 32,
+          "unique": true
+        },
+        "coveredLocations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "max": 32,
+          "unique": true
+        },
+        "locations": {
+          "type": "array",
+          "items": {
+            "ref": "erase_location"
+          },
+          "min": 1,
+          "max": 32
+        },
+        "resurrection": {
+          "const": "forbidden"
+        },
+        "tombstoneDurable": {
+          "const": true
+        }
+      }
+    },
+    "portable_restore_record": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "sourceGeneration": {
+          "ref": "epoch"
+        },
+        "checkedEraseEpoch": {
+          "ref": "epoch"
+        },
+        "browserSessionsOnRestore": {
+          "const": "excluded"
+        },
+        "freshBrowserSignInRequired": {
+          "const": true
+        }
+      }
+    },
+    "restore_request": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "sourceGeneration": {
+          "ref": "epoch"
+        },
+        "observedEraseEpoch": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "erase_tombstone": {
+      "type": "object",
+      "required": {
+        "erasureId": {
+          "ref": "uuid"
+        },
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "eraseEpoch": {
+          "ref": "epoch"
+        },
+        "requestedLocations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "min": 1,
+          "max": 32,
+          "unique": true
+        },
+        "erasedLocations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "max": 32,
+          "unique": true
+        },
+        "status": {
+          "enum": [
+            "pending_offline",
+            "complete"
+          ]
+        },
+        "committedAtPlatform": {
+          "ref": "timestamp_ms"
+        }
+      }
+    },
+    "move_arbitration_case": {
+      "type": "object",
+      "required": {
+        "current": {
+          "ref": "placement_move"
+        },
+        "incoming": {
+          "ref": "placement_move"
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "replay"
+                },
+                "reason": {
+                  "enum": [
+                    "same_intent",
+                    "already_committed_exact_epoch"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "fresh"
+                },
+                "reason": {
+                  "enum": [
+                    "terminal_move_replaced",
+                    "committed_history_advanced"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "supersede"
+                },
+                "reason": {
+                  "enum": [
+                    "manual_beats_uncommitted_automation",
+                    "manual_retargets_uncommitted_manual"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "reason": {
+                  "enum": [
+                    "committed_epoch_preserved",
+                    "committed_epoch_mismatch",
+                    "automatic_cannot_supersede",
+                    "idempotency_conflict"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "failover_case": {
+      "type": "object",
+      "required": {
+        "nowPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "lastReadyAtPlatform": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "epochCommittedAtPlatform": {
+          "ref": "timestamp_ms"
+        },
+        "localClock": {
+          "ref": "timestamp_ms"
+        },
+        "pendingEvents": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "dueOccurrences": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "homeReachable": {
+          "type": "boolean"
+        },
+        "homePowerState": {
+          "enum": [
+            "awake",
+            "asleep_wakeable",
+            "asleep_not_wakeable",
+            "unknown"
+          ]
+        },
+        "unreachableSincePlatform": {
+          "ref": "timestamp_ms"
+        },
+        "wakeAttemptedAtPlatform": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentLocation": {
+          "ref": "home_location"
+        },
+        "policy": {
+          "ref": "home_policy"
+        },
+        "availableDestinations": {
+          "type": "array",
+          "items": {
+            "ref": "home_location"
+          },
+          "max": 32,
+          "unique": true
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "move"
+                },
+                "target": {
+                  "ref": "home_location"
+                },
+                "reason": {
+                  "const": "pending_and_unreachable"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "wake"
+                },
+                "reason": {
+                  "const": "asleep_wakeable"
+                },
+                "graceUntilPlatform": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "stay"
+                },
+                "reason": {
+                  "enum": [
+                    "no_pending_work",
+                    "failover_delay_not_elapsed",
+                    "home_ready",
+                    "wake_grace_not_elapsed"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "unavailable"
+                },
+                "reason": {
+                  "enum": [
+                    "no_enabled_destination",
+                    "strictly_local_home_lost",
+                    "state_unrecoverable_without_backup"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "idle_return_case": {
+      "type": "object",
+      "required": {
+        "idle": {
+          "type": "boolean"
+        },
+        "currentLocation": {
+          "ref": "home_location"
+        },
+        "preferredHome": {
+          "ref": "home_location"
+        },
+        "policy": {
+          "ref": "home_policy"
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "move"
+                },
+                "target": {
+                  "ref": "home_location"
+                },
+                "reason": {
+                  "const": "idle_return_enabled"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "reason": {
+                  "const": "stay_put_policy"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "stay"
+                },
+                "reason": {
+                  "enum": [
+                    "not_idle",
+                    "already_home"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "erase_receipt_case": {
+      "type": "object",
+      "required": {
+        "request": {
+          "ref": "home_erase_request"
+        },
+        "receipt": {
+          "ref": "home_erase_receipt"
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "accepted"
+                },
+                "reason": {
+                  "const": "erase_fence_and_locations_match"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "reason": {
+                  "enum": [
+                    "erase_fence_mismatch",
+                    "incomplete_location_coverage"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "post_erase_case": {
+      "type": "object",
+      "required": {
+        "tombstone": {
+          "ref": "erase_tombstone"
+        },
+        "operation": {
+          "type": "object",
+          "required": {
+            "kind": {
+              "enum": [
+                "checkpoint_commit",
+                "conflict_import",
+                "return_report"
+              ]
+            },
+            "ownerUserId": {
+              "ref": "user_id"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "homeId": {
+              "ref": "uuid"
+            },
+            "eraseEpoch": {
+              "ref": "epoch"
+            }
+          }
+        },
+        "expect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "accepted"
+                },
+                "reason": {
+                  "const": "different_home"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "outcome": {
+                  "const": "refused"
+                },
+                "reason": {
+                  "const": "erase_tombstone_fence"
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "directions": {
+    "cloud_workload_enrollment": {
+      "forbidden_fields": [
+        "ownerUserId",
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken"
+      ]
+    },
+    "cloud_workload_to_registry": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken"
+      ]
+    },
+    "controller_to_computer": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken",
+        "credential",
+        "modelGrant",
+        "grantToken"
+      ]
+    },
+    "computer_to_controller": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken",
+        "credential",
+        "modelGrant",
+        "grantToken"
+      ]
+    },
+    "owner_to_controller": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken",
+        "credential",
+        "modelGrant",
+        "grantToken"
+      ]
+    },
+    "platform_internal": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken",
+        "credential",
+        "modelGrant",
+        "grantToken"
+      ]
+    },
+    "conformance": {
+      "forbidden_fields": [
+        "accessToken",
+        "refreshToken",
+        "privateKey",
+        "leaseToken"
+      ]
+    }
+  },
+  "messages": {
+    "home.mount.request": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "mount_request"
+      }
+    },
+    "home.mount.result": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "mount_result"
+      }
+    },
+    "checkpoint.commit": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "checkpoint_commit"
+      }
+    },
+    "checkpoint.committed": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "checkpoint_committed"
+      }
+    },
+    "home.placement.update": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "placement_update"
+      }
+    },
+    "migration.import": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "migration_import"
+      }
+    },
+    "migration.result": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "migration_result"
+      }
+    },
+    "claim.compatibility": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "claim_compatibility"
+      }
+    },
+    "case.import_once": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "import_once_case"
+      }
+    },
+    "home.placement.record": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "placement_record"
+      }
+    },
+    "home.executor.lease": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "executor_lease"
+      }
+    },
+    "home.mac-executor.key": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "mac_executor_key"
+      }
+    },
+    "home.mac-executor.key-rotation": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "mac_executor_key_rotation"
+      }
+    },
+    "home.move.request": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "move_request"
+      }
+    },
+    "home.move.drain": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "move_drain"
+      }
+    },
+    "home.move.commit": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "move_commit"
+      }
+    },
+    "home.move.abort": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "move_abort"
+      }
+    },
+    "home.move.supersede": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "move_supersede"
+      }
+    },
+    "home.checkpoint.manifest": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "portable_manifest"
+      }
+    },
+    "home.checkpoint.capture": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "checkpoint_capture"
+      }
+    },
+    "home.checkpoint.commit": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "portable_checkpoint_commit"
+      }
+    },
+    "home.checkpoint.result": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "checkpoint_result"
+      }
+    },
+    "home.readiness.report": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "readiness_report"
+      }
+    },
+    "home.readiness.observation": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "readiness_observation"
+      }
+    },
+    "home.pending-work.snapshot": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "pending_work_snapshot"
+      }
+    },
+    "home.policy": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "home_policy"
+      }
+    },
+    "home.protected-operation": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "protected_operation"
+      }
+    },
+    "matrix.publication.enqueue": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "matrix_publication_enqueue"
+      }
+    },
+    "matrix.publication.receipt": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "matrix_publication_receipt"
+      }
+    },
+    "home.return.report": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "return_report"
+      }
+    },
+    "home.conflict.quarantine": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "conflict_quarantine"
+      }
+    },
+    "home.conflict.import": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "conflict_import"
+      }
+    },
+    "home.erase.request": {
+      "direction": "controller_to_computer",
+      "schema": {
+        "ref": "home_erase_request"
+      }
+    },
+    "home.erase.receipt": {
+      "direction": "computer_to_controller",
+      "schema": {
+        "ref": "home_erase_receipt"
+      }
+    },
+    "home.erase.tombstone": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "erase_tombstone"
+      }
+    },
+    "home.restore.request": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "restore_request"
+      }
+    },
+    "home.restore.record": {
+      "direction": "platform_internal",
+      "schema": {
+        "ref": "portable_restore_record"
+      }
+    },
+    "case.authority_admission": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "authority_case"
+      }
+    },
+    "case.move_arbitration": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "move_arbitration_case"
+      }
+    },
+    "case.failover": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "failover_case"
+      }
+    },
+    "case.idle_return": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "idle_return_case"
+      }
+    },
+    "case.erase_receipt": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "erase_receipt_case"
+      }
+    },
+    "case.post_erase": {
+      "direction": "conformance",
+      "schema": {
+        "ref": "post_erase_case"
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "home.mount.expires_within_limit",
+      "message": "home.mount.request",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "checkpoint.commit.expires_within_limit",
+      "message": "checkpoint.commit",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "home.placement.expires_within_limit",
+      "message": "home.placement.update",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "migration.import.expires_within_limit",
+      "message": "migration.import",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "checkpoint.parent_precedes_generation",
+      "message": "checkpoint.commit",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "committed.parent_precedes_generation",
+      "message": "checkpoint.committed",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "mount.mounted_at_or_above_floor",
+      "message": "home.mount.result",
+      "op": "le",
+      "left": "compatibility.rollbackFloorGeneration",
+      "right": [
+        "selectedGeneration"
+      ],
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "mounted"
+      }
+    },
+    {
+      "id": "placement.revision_advances",
+      "message": "home.placement.update",
+      "op": "eq",
+      "left": "nextPlacementRevision",
+      "right": [
+        "expectedPlacementRevision"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "applied"
+      }
+    },
+    {
+      "id": "placement.applied_at_or_above_floor",
+      "message": "home.placement.update",
+      "op": "le",
+      "left": "rollbackFloorGeneration",
+      "right": [
+        "selectedGeneration"
+      ],
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "applied"
+      }
+    },
+    {
+      "id": "placement.floor_never_decreases",
+      "message": "home.placement.update",
+      "op": "le",
+      "left": "previousRollbackFloorGeneration",
+      "right": [
+        "rollbackFloorGeneration"
+      ],
+      "required": true
+    },
+    {
+      "id": "placement.below_floor_is_below",
+      "message": "home.placement.update",
+      "op": "le",
+      "left": "selectedGeneration",
+      "right": [
+        "rollbackFloorGeneration"
+      ],
+      "required": true,
+      "offset": -1,
+      "when": {
+        "path": "outcome",
+        "equals": "below_floor"
+      }
+    },
+    {
+      "id": "migration.import_key.derived",
+      "message": "migration.import",
+      "op": "sha256_b64u_join",
+      "output": "importKey",
+      "prefix": "atum.agent-home.v2.import\u0000",
+      "separator": "\u0000",
+      "parts": [
+        "source.deviceServiceId",
+        "source.homeIdentity",
+        "source.generation"
+      ],
+      "required": true
+    },
+    {
+      "id": "import_once.imported_key_derived",
+      "message": "case.import_once",
+      "op": "sha256_b64u_join",
+      "output": "request.importKey",
+      "prefix": "atum.agent-home.v2.import\u0000",
+      "separator": "\u0000",
+      "parts": [
+        "request.source.deviceServiceId",
+        "request.source.homeIdentity",
+        "request.source.generation"
+      ],
+      "when": {
+        "path": "expect.outcome",
+        "equals": "imported"
+      },
+      "required": true
+    },
+    {
+      "id": "import_once.replay_key_derived",
+      "message": "case.import_once",
+      "op": "sha256_b64u_join",
+      "output": "request.importKey",
+      "prefix": "atum.agent-home.v2.import\u0000",
+      "separator": "\u0000",
+      "parts": [
+        "request.source.deviceServiceId",
+        "request.source.homeIdentity",
+        "request.source.generation"
+      ],
+      "when": {
+        "path": "expect.outcome",
+        "equals": "already_imported"
+      },
+      "required": true
+    },
+    {
+      "id": "import_once.first_has_no_prior",
+      "message": "case.import_once",
+      "op": "same",
+      "left": "prior",
+      "right": "nullValue",
+      "required": true,
+      "when": {
+        "path": "expect.outcome",
+        "equals": "imported"
+      }
+    },
+    {
+      "id": "import_once.same_key",
+      "message": "case.import_once",
+      "op": "same",
+      "left": "request.importKey",
+      "right": "prior.importKey",
+      "required": true,
+      "when": {
+        "path": "expect.outcome",
+        "equals": "already_imported"
+      }
+    },
+    {
+      "id": "import_once.same_manifest",
+      "message": "case.import_once",
+      "op": "same",
+      "left": "request.source.manifestSha256",
+      "right": "prior.manifestSha256",
+      "required": true,
+      "when": {
+        "path": "expect.outcome",
+        "equals": "already_imported"
+      }
+    },
+    {
+      "id": "import_once.same_generation",
+      "message": "case.import_once",
+      "op": "same",
+      "left": "expect.generation",
+      "right": "prior.generation",
+      "required": true,
+      "when": {
+        "path": "expect.outcome",
+        "equals": "already_imported"
+      }
+    },
+    {
+      "id": "import_once.refused_key_mismatch",
+      "message": "case.import_once",
+      "op": "not_same",
+      "left": "request.importKey",
+      "right": "prior.importKey",
+      "required": true,
+      "when": {
+        "path": "expect.reason",
+        "equals": "key_mismatch"
+      }
+    },
+    {
+      "id": "import_once.refused_manifest_mismatch",
+      "message": "case.import_once",
+      "op": "not_same",
+      "left": "request.source.manifestSha256",
+      "right": "prior.manifestSha256",
+      "required": true,
+      "when": {
+        "path": "expect.reason",
+        "equals": "manifest_mismatch"
+      }
+    },
+    {
+      "id": "placement.selected_at_or_above_floor",
+      "message": "home.placement.record",
+      "op": "le",
+      "left": "rollbackFloorGeneration",
+      "right": [
+        "selectedGeneration"
+      ],
+      "required": true
+    },
+    {
+      "id": "executor_lease.expires_after_issue",
+      "message": "home.executor.lease",
+      "op": "le",
+      "left": "issuedAtPlatform",
+      "right": [
+        "expiresAtPlatform"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "mac_executor.rotation.expires_after_issue",
+      "message": "home.mac-executor.key-rotation",
+      "op": "le",
+      "left": "meta.issuedAt",
+      "right": [
+        "meta.expiresAt"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "mac_executor.rotation.expires_within_limit",
+      "message": "home.mac-executor.key-rotation",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "mac_executor.rotation.device_binding",
+      "message": "home.mac-executor.key-rotation",
+      "op": "same",
+      "left": "meta.deviceServiceId",
+      "right": "deviceServiceId",
+      "required": true
+    },
+    {
+      "id": "mac_executor.rotation.previous_key_signed",
+      "message": "home.mac-executor.key-rotation",
+      "op": "same",
+      "left": "meta.signerKeyId",
+      "right": "previousKeyId",
+      "required": true
+    },
+    {
+      "id": "mac_executor.rotation.next_epoch",
+      "message": "home.mac-executor.key-rotation",
+      "op": "eq",
+      "left": "nextKeyEpoch",
+      "right": [
+        "currentKeyEpoch"
+      ],
+      "required": true,
+      "offset": 1
+    },
+    {
+      "id": "mac_executor.rotation.new_key_differs",
+      "message": "home.mac-executor.key-rotation",
+      "op": "not_same",
+      "left": "nextKeyId",
+      "right": "previousKeyId",
+      "required": true
+    },
+    {
+      "id": "move.request.expires_within_limit",
+      "message": "home.move.request",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "move.request.source_differs_from_target",
+      "message": "home.move.request",
+      "op": "not_same",
+      "left": "source",
+      "right": "target",
+      "required": true
+    },
+    {
+      "id": "move.drain.expires_within_limit",
+      "message": "home.move.drain",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "move.commit.expires_within_limit",
+      "message": "home.move.commit",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "move.commit.source_differs_from_target",
+      "message": "home.move.commit",
+      "op": "not_same",
+      "left": "source",
+      "right": "target",
+      "required": true
+    },
+    {
+      "id": "move.abort.expires_within_limit",
+      "message": "home.move.abort",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "move.supersede.expires_within_limit",
+      "message": "home.move.supersede",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "move.commit.epoch_advances",
+      "message": "home.move.commit",
+      "op": "eq",
+      "left": "nextHomeEpoch",
+      "right": [
+        "expectedHomeEpoch"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "committed"
+      }
+    },
+    {
+      "id": "move.commit.revision_advances",
+      "message": "home.move.commit",
+      "op": "eq",
+      "left": "nextPlacementRevision",
+      "right": [
+        "expectedPlacementRevision"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "committed"
+      }
+    },
+    {
+      "id": "move.commit.selected_at_or_above_floor",
+      "message": "home.move.commit",
+      "op": "le",
+      "left": "rollbackFloorGeneration",
+      "right": [
+        "selectedGeneration"
+      ],
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "committed"
+      }
+    },
+    {
+      "id": "move.replay.epoch_exact",
+      "message": "home.move.commit",
+      "op": "eq",
+      "left": "nextHomeEpoch",
+      "right": [
+        "expectedHomeEpoch"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "already_committed"
+      }
+    },
+    {
+      "id": "move.replay.revision_exact",
+      "message": "home.move.commit",
+      "op": "eq",
+      "left": "nextPlacementRevision",
+      "right": [
+        "expectedPlacementRevision"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "already_committed"
+      }
+    },
+    {
+      "id": "manifest.parent_precedes_generation",
+      "message": "home.checkpoint.manifest",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "capture.parent_precedes_generation",
+      "message": "home.checkpoint.capture",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "checkpoint.capture.expires_within_limit",
+      "message": "home.checkpoint.capture",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "portable_checkpoint.commit.expires_within_limit",
+      "message": "home.checkpoint.commit",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "checkpoint.expected_epoch_matches_fence",
+      "message": "home.checkpoint.commit",
+      "op": "same",
+      "left": "expectedHomeEpoch",
+      "right": "fence.homeEpoch",
+      "required": true
+    },
+    {
+      "id": "checkpoint.producing_epoch_matches_fence",
+      "message": "home.checkpoint.commit",
+      "op": "same",
+      "left": "producingHomeEpoch",
+      "right": "fence.homeEpoch",
+      "required": true
+    },
+    {
+      "id": "checkpoint.revision_advances",
+      "message": "home.checkpoint.commit",
+      "op": "eq",
+      "left": "nextPlacementRevision",
+      "right": [
+        "expectedPlacementRevision"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "committed"
+      }
+    },
+    {
+      "id": "portable_checkpoint.parent_precedes_generation",
+      "message": "home.checkpoint.commit",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "portable_checkpoint.parent_is_selected_generation",
+      "message": "home.checkpoint.commit",
+      "op": "same",
+      "left": "parentGeneration",
+      "right": "selectedGenerationBefore",
+      "required": true
+    },
+    {
+      "id": "portable_checkpoint.strictly_advances_selected",
+      "message": "home.checkpoint.commit",
+      "op": "le",
+      "left": "selectedGenerationBefore",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "checkpoint.failure_keeps_selected",
+      "message": "home.checkpoint.result",
+      "op": "same",
+      "left": "selectedGenerationBefore",
+      "right": "selectedGenerationAfter",
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "failed_previous_selected"
+      }
+    },
+    {
+      "id": "checkpoint.failure_keeps_revision",
+      "message": "home.checkpoint.result",
+      "op": "same",
+      "left": "placementRevisionBefore",
+      "right": "placementRevisionAfter",
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "failed_previous_selected"
+      }
+    },
+    {
+      "id": "readiness.platform_time_orders_ready",
+      "message": "home.readiness.observation",
+      "op": "le",
+      "left": "lastReadyAtPlatform",
+      "right": [
+        "receivedAtPlatform"
+      ],
+      "required": true
+    },
+    {
+      "id": "readiness.report.expires_within_limit",
+      "message": "home.readiness.report",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "matrix.publication.expires_within_limit",
+      "message": "matrix.publication.enqueue",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "matrix.publication.serializes_expected_revision",
+      "message": "matrix.publication.enqueue",
+      "op": "same",
+      "left": "moveSerializationRevision",
+      "right": "expectedPlacementRevision",
+      "required": true
+    },
+    {
+      "id": "return.report.expires_within_limit",
+      "message": "home.return.report",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "conflict.import.expires_within_limit",
+      "message": "home.conflict.import",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "conflict.import.epoch_matches_fence",
+      "message": "home.conflict.import",
+      "op": "same",
+      "left": "expectedHomeEpoch",
+      "right": "fence.homeEpoch",
+      "required": true
+    },
+    {
+      "id": "conflict.import.reviewed_by_owner",
+      "message": "home.conflict.import",
+      "op": "same",
+      "left": "reviewedBy",
+      "right": "fence.ownerUserId",
+      "required": true
+    },
+    {
+      "id": "erase.request.expires_within_limit",
+      "message": "home.erase.request",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "erase.receipt.expires_within_limit",
+      "message": "home.erase.receipt",
+      "op": "le",
+      "left": "meta.expiresAt",
+      "right": [
+        "meta.issuedAt"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "conflict.import.revision_advances",
+      "message": "home.conflict.import",
+      "op": "eq",
+      "left": "nextPlacementRevision",
+      "right": [
+        "expectedPlacementRevision"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "outcome",
+        "equals": "imported"
+      }
+    },
+    {
+      "id": "conflict.import.parent_precedes_generation",
+      "message": "home.conflict.import",
+      "op": "le",
+      "left": "parentGeneration",
+      "right": [
+        "generation"
+      ],
+      "required": true,
+      "offset": -1,
+      "when": {
+        "path": "outcome",
+        "equals": "imported"
+      }
+    },
+    {
+      "id": "erase.complete_has_no_pending_location",
+      "message": "home.erase.receipt",
+      "op": "count_match",
+      "left": "locations",
+      "match": {
+        "state": "pending_offline"
+      },
+      "count": 0,
+      "when": {
+        "path": "outcome",
+        "equals": "complete"
+      },
+      "required": true
+    },
+    {
+      "id": "erase.complete_covers_requested_locations",
+      "message": "home.erase.receipt",
+      "op": "same",
+      "left": "requestedLocations",
+      "right": "coveredLocations",
+      "required": true,
+      "when": {
+        "path": "outcome",
+        "equals": "complete"
+      }
+    },
+    {
+      "id": "erase.receipt_reports_every_location",
+      "message": "home.erase.receipt",
+      "op": "erase_location_coverage",
+      "requested": "requestedLocations",
+      "covered": "coveredLocations",
+      "locations": "locations",
+      "location": "location",
+      "state": "state",
+      "outcome": "outcome",
+      "erased": "erased",
+      "complete": "complete",
+      "required": true
+    }
+  ],
+  "state_machines": {
+    "working_home": {
+      "states": [
+        "unmounted",
+        "mounting",
+        "mounted",
+        "read_only",
+        "unavailable"
+      ],
+      "initial": [
+        "unmounted",
+        "unavailable"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "unmounted",
+          "mounting",
+          "mount_requested"
+        ],
+        [
+          "mounting",
+          "mounted",
+          "binding_and_placement_verified"
+        ],
+        [
+          "mounting",
+          "unavailable",
+          "mount_failed"
+        ],
+        [
+          "mounted",
+          "read_only",
+          "lease_fenced"
+        ],
+        [
+          "read_only",
+          "unmounted",
+          "runtime_stopped"
+        ],
+        [
+          "mounted",
+          "unmounted",
+          "clean_unmount"
+        ],
+        [
+          "unavailable",
+          "unmounted",
+          "storage_repaired"
+        ]
+      ]
+    },
+    "checkpoint": {
+      "states": [
+        "working",
+        "committing",
+        "sealed",
+        "rejected"
+      ],
+      "initial": [
+        "working"
+      ],
+      "terminal": [
+        "sealed",
+        "rejected"
+      ],
+      "transitions": [
+        [
+          "working",
+          "committing",
+          "commit_requested"
+        ],
+        [
+          "committing",
+          "sealed",
+          "manifest_verified"
+        ],
+        [
+          "committing",
+          "rejected",
+          "verification_failed"
+        ]
+      ]
+    },
+    "migration": {
+      "states": [
+        "absent",
+        "importing",
+        "imported",
+        "failed_no_effect",
+        "uncertain"
+      ],
+      "initial": [
+        "absent"
+      ],
+      "terminal": [
+        "imported",
+        "failed_no_effect"
+      ],
+      "transitions": [
+        [
+          "absent",
+          "importing",
+          "import_admitted"
+        ],
+        [
+          "importing",
+          "imported",
+          "placement_updated"
+        ],
+        [
+          "importing",
+          "failed_no_effect",
+          "failed_before_effect"
+        ],
+        [
+          "importing",
+          "uncertain",
+          "effect_unknown"
+        ],
+        [
+          "uncertain",
+          "imported",
+          "reconciled_imported"
+        ],
+        [
+          "uncertain",
+          "failed_no_effect",
+          "reconciled_no_effect"
+        ]
+      ]
+    },
+    "move": {
+      "states": [
+        "idle",
+        "requested",
+        "draining",
+        "ready_to_commit",
+        "committed",
+        "aborted",
+        "superseded"
+      ],
+      "initial": [
+        "idle"
+      ],
+      "terminal": [
+        "committed",
+        "aborted",
+        "superseded"
+      ],
+      "transitions": [
+        [
+          "idle",
+          "requested",
+          "request"
+        ],
+        [
+          "requested",
+          "draining",
+          "drain"
+        ],
+        [
+          "draining",
+          "ready_to_commit",
+          "quiesced"
+        ],
+        [
+          "draining",
+          "ready_to_commit",
+          "source_unreachable"
+        ],
+        [
+          "ready_to_commit",
+          "committed",
+          "cas_commit"
+        ],
+        [
+          "requested",
+          "aborted",
+          "abort"
+        ],
+        [
+          "draining",
+          "aborted",
+          "abort"
+        ],
+        [
+          "ready_to_commit",
+          "aborted",
+          "abort"
+        ],
+        [
+          "requested",
+          "superseded",
+          "manual_supersedes_automation"
+        ],
+        [
+          "draining",
+          "superseded",
+          "manual_supersedes_automation"
+        ],
+        [
+          "ready_to_commit",
+          "superseded",
+          "manual_supersedes_automation"
+        ]
+      ]
+    },
+    "sleep_handoff": {
+      "states": [
+        "idle",
+        "requested",
+        "draining",
+        "ready_to_commit",
+        "committed",
+        "aborted"
+      ],
+      "initial": [
+        "idle"
+      ],
+      "terminal": [
+        "committed",
+        "aborted"
+      ],
+      "transitions": [
+        [
+          "idle",
+          "requested",
+          "sleep_request"
+        ],
+        [
+          "requested",
+          "draining",
+          "best_effort_drain"
+        ],
+        [
+          "draining",
+          "ready_to_commit",
+          "quiesced"
+        ],
+        [
+          "ready_to_commit",
+          "committed",
+          "cas_commit"
+        ],
+        [
+          "draining",
+          "aborted",
+          "timed_out"
+        ],
+        [
+          "draining",
+          "aborted",
+          "source_unreachable"
+        ]
+      ]
+    },
+    "portable_checkpoint": {
+      "states": [
+        "dirty",
+        "quiescing",
+        "staging",
+        "uploading",
+        "verifying",
+        "committing",
+        "committed",
+        "previous_selected"
+      ],
+      "initial": [
+        "dirty"
+      ],
+      "terminal": [
+        "committed",
+        "previous_selected"
+      ],
+      "transitions": [
+        [
+          "dirty",
+          "quiescing",
+          "capture"
+        ],
+        [
+          "quiescing",
+          "staging",
+          "writers_quiesced"
+        ],
+        [
+          "staging",
+          "uploading",
+          "stable_files_staged"
+        ],
+        [
+          "uploading",
+          "verifying",
+          "upload_finished"
+        ],
+        [
+          "verifying",
+          "committing",
+          "upload_verified"
+        ],
+        [
+          "committing",
+          "committed",
+          "epoch_cas"
+        ],
+        [
+          "quiescing",
+          "previous_selected",
+          "capture_failed"
+        ],
+        [
+          "staging",
+          "previous_selected",
+          "capture_failed"
+        ],
+        [
+          "uploading",
+          "previous_selected",
+          "capture_failed"
+        ],
+        [
+          "verifying",
+          "previous_selected",
+          "capture_failed"
+        ],
+        [
+          "committing",
+          "previous_selected",
+          "stale_cas"
+        ]
+      ]
+    },
+    "publication": {
+      "states": [
+        "queued",
+        "admitted",
+        "sending",
+        "published",
+        "refused",
+        "uncertain"
+      ],
+      "initial": [
+        "queued"
+      ],
+      "terminal": [
+        "published",
+        "refused",
+        "uncertain"
+      ],
+      "transitions": [
+        [
+          "queued",
+          "admitted",
+          "authority_verified"
+        ],
+        [
+          "queued",
+          "refused",
+          "authority_refused"
+        ],
+        [
+          "queued",
+          "refused",
+          "move_started"
+        ],
+        [
+          "admitted",
+          "sending",
+          "serialized_after_move"
+        ],
+        [
+          "admitted",
+          "refused",
+          "authority_changed"
+        ],
+        [
+          "sending",
+          "published",
+          "matrix_receipt"
+        ],
+        [
+          "sending",
+          "uncertain",
+          "effect_unknown"
+        ]
+      ]
+    },
+    "return_conflict": {
+      "states": [
+        "returned",
+        "quarantined",
+        "reviewed",
+        "importing",
+        "imported",
+        "discarded"
+      ],
+      "initial": [
+        "returned"
+      ],
+      "terminal": [
+        "imported",
+        "discarded"
+      ],
+      "transitions": [
+        [
+          "returned",
+          "quarantined",
+          "divergence_detected"
+        ],
+        [
+          "quarantined",
+          "reviewed",
+          "explicit_review"
+        ],
+        [
+          "reviewed",
+          "importing",
+          "import_requested"
+        ],
+        [
+          "importing",
+          "imported",
+          "new_generation_committed"
+        ],
+        [
+          "quarantined",
+          "discarded",
+          "discard"
+        ]
+      ]
+    },
+    "erase": {
+      "states": [
+        "active",
+        "requested",
+        "sweeping",
+        "pending_offline",
+        "tombstoned",
+        "complete"
+      ],
+      "initial": [
+        "active"
+      ],
+      "terminal": [
+        "complete"
+      ],
+      "transitions": [
+        [
+          "active",
+          "requested",
+          "erase_requested"
+        ],
+        [
+          "requested",
+          "sweeping",
+          "fence_home"
+        ],
+        [
+          "sweeping",
+          "pending_offline",
+          "offline_location"
+        ],
+        [
+          "sweeping",
+          "tombstoned",
+          "all_locations_erased"
+        ],
+        [
+          "pending_offline",
+          "sweeping",
+          "location_returns"
+        ],
+        [
+          "pending_offline",
+          "tombstoned",
+          "remaining_locations_erased"
+        ],
+        [
+          "tombstoned",
+          "complete",
+          "tombstone_committed"
+        ]
+      ]
+    }
+  },
+  "base": {
+    "contract": "atum.agent-home/2",
+    "path": "spec/agent-home/v2",
+    "kind": "pack",
+    "sha256": "2ac4dc5322726c139303a1983afbe13a851c3ee1b75a67528fe1140b4e0dab8a",
+    "rule": "additive portable-placement minor; every v2 fixture remains byte-identical"
+  },
+  "placementAuthority": {
+    "owner": "platform",
+    "writableHomesPerAgent": 1,
+    "defaultLocation": "cloud",
+    "authorityLease": "short executor term under home epoch",
+    "revisionRule": "checkpoints advance placementRevision and selectedGeneration; only authority-changing move commits advance homeEpoch",
+    "activeMoveRule": "a committed move is immutable history; placement.activeMove clears on commit, and a later epoch/revision may start a new move",
+    "legacyReconciliation": "the v2 placement record and import-once generation lineage remain canonical; this minor widens location and executor authentication",
+    "messageAuthority": "home.placement.update and home.mount.request remain cloud-controller-only; home.placement.record is the widened platform-owned portable authority"
+  },
+  "checkpointPolicy": {
+    "defaultCadenceMs": 900000,
+    "encrypted": true,
+    "captureWhen": [
+      "dirty interval",
+      "idle",
+      "manual move drain"
+    ],
+    "portable": [
+      "memory",
+      "skills",
+      "non-secret config",
+      "routine definitions",
+      "portable app data"
+    ],
+    "excluded": [
+      "session history state.db",
+      "packages",
+      "browser sessions",
+      "machine workspace",
+      "credentials"
+    ],
+    "pathRule": "NFC Unicode relative paths with spaces are allowed; exact credential, key, browser-profile, database/sidecar and excluded-tree patterns are skipped before manifest construction",
+    "skippedCaptureRule": "capture records only category, reasonCode, count and pathSha256 for excluded paths; a manifest that lists an excluded path is invalid",
+    "consistency": "quiesce writers, SQLite backup, stable-file staging, upload verification, then current-epoch CAS"
+  },
+  "failoverPolicy": {
+    "defaultDelayMs": 900000,
+    "defaultSweepMs": 60000,
+    "requiresPendingWork": true,
+    "unreachableBasis": "no recent platform-timestamped authenticated agent-service readiness covering home, runtime and Matrix intake",
+    "delayOrigin": "max(lastReadyAtPlatform, epochCommittedAtPlatform)",
+    "asleepIsDistinct": true,
+    "wakeRule": "asleep_wakeable triggers one wake attempt bound to the current unreachableSincePlatform episode and an eligibility-sweep grace period before takeover",
+    "postTakeoverDefault": "stay_put"
+  },
+  "policyDefaults": {
+    "backupEnabled": true,
+    "neverRunInCloud": false,
+    "checkpointCadenceMs": 900000,
+    "failoverDelayMs": 900000,
+    "eligibilitySweepMs": 60000,
+    "returnMode": "stay_put"
+  },
+  "fixedInvariants": {
+    "epochCAS": [
+      "move.commit.epoch_advances",
+      "move.commit.revision_advances",
+      "checkpoint.expected_epoch_matches_fence",
+      "checkpoint.revision_advances"
+    ],
+    "expiryFencing": [
+      "executor_lease.expires_after_issue",
+      "mac_executor.rotation.expires_within_limit",
+      "move.request.expires_within_limit"
+    ],
+    "uncertainty": [
+      "checkpoint.failure_keeps_selected",
+      "checkpoint.failure_keeps_revision",
+      "erase.complete_has_no_pending_location"
+    ],
+    "noSecretCopies": [
+      "portable_manifest closed category path grammar",
+      "credentialMaterialIncluded=false",
+      "credentials=excluded_all"
+    ]
+  },
+  "executorAuthentication": {
+    "cloud": "cloud_workload is admitted only on a cloud-held placement with the platform-pinned workload key",
+    "mac": {
+      "signer": "mac_executor",
+      "algorithm": "P-256",
+      "binding": "the active pinned key is bound to exactly one deviceServiceId and keyEpoch",
+      "admission": "signerKeyId must equal the active pinned key; the signature must verify; meta.deviceServiceId must equal placement.location.deviceServiceId",
+      "rotation": "the previous active pinned key signs the bounded rotation frame; previousKeyId equals signerKeyId; nextKeyEpoch increments exactly once; nextKeyId differs; the prior key is retired atomically",
+      "expiry": "every executor frame has expiresAt after issuedAt, at most two hours later, and is refused unless nowPlatform is before expiresAt",
+      "renewal": "every renewal issues a new leaseId; the presented expiry must exactly match the platform-trusted expiry"
+    },
+    "wakingRule": "a waking home is quarantined until it reads placement and reacquires current authority"
+  },
+  "matrixPublication": {
+    "path": "authority-enforcing relay/outbox",
+    "serialization": "publication admission and send are serialized against move commit",
+    "directAgentSend": "forbidden"
+  },
+  "eraseSemantics": {
+    "covers": [
+      "working home",
+      "sealed checkpoints",
+      "snapshots",
+      "quarantined conflicts",
+      "credentials"
+    ],
+    "offlineDevices": "durable pending deletion until erased",
+    "resurrection": "forbidden by erase epoch tombstone",
+    "receiptCoverage": "complete and pending_offline receipts report every requested location as erased or pending; complete coveredLocations equals the reported location set",
+    "restore": "a tombstone refuses every operation and restore for its homeId regardless of a declared epoch; re-creating an agent allocates a new homeId; browser sessions excluded"
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/home.mount.request.json",
+      "message": "home.mount.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.mount.result.json",
+      "message": "home.mount.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.commit.json",
+      "message": "checkpoint.commit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.committed.json",
+      "message": "checkpoint.committed",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.placement.update.json",
+      "message": "home.placement.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration.import.json",
+      "message": "migration.import",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration.result.imported.json",
+      "message": "migration.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration.result.already-imported.json",
+      "message": "migration.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.compatibility.claimed.json",
+      "message": "claim.compatibility",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/claim.compatibility.update-required.json",
+      "message": "claim.compatibility",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.placement.rollback.json",
+      "message": "home.placement.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/import-once.first.json",
+      "message": "case.import_once",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/import-once.replay.json",
+      "message": "case.import_once",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/import-once.refused-key.json",
+      "message": "case.import_once",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/import-once.refused-manifest.json",
+      "message": "case.import_once",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-writable.json",
+      "message": "checkpoint.committed",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-home-mount-window.json",
+      "message": "home.mount.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-window.json",
+      "message": "checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-placement-window.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-migration-window.json",
+      "message": "migration.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-placement-skips-revision.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-parent.json",
+      "message": "checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-committed-parent.json",
+      "message": "checkpoint.committed",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-rollback-below-floor-as-applied.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-below-floor-at-floor.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-placement-lowers-floor.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-replay-other-key.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-replay-other-generation.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-replay-other-manifest.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-key-derivation.json",
+      "message": "migration.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-case-key-derivation.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-import-replay-key-derivation.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-refused-key-with-same-key.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-refused-manifest-with-same-manifest.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-double-import.json",
+      "message": "case.import_once",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-home-unencrypted.json",
+      "message": "home.mount.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-binding-mismatch-mounted-rw.json",
+      "message": "home.mount.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-update-required-mounted-rw.json",
+      "message": "home.mount.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-mounted-below-floor.json",
+      "message": "home.mount.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-home-mount-wrong-signer.json",
+      "message": "home.mount.request",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-wrong-signer.json",
+      "message": "checkpoint.commit",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-placement-wrong-signer.json",
+      "message": "home.placement.update",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-migration-wrong-signer.json",
+      "message": "migration.import",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/working-home.sequence.json",
+      "machine": "working_home",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.sequence.json",
+      "machine": "checkpoint",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration.sequence.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/migration.reconcile.sequence.json",
+      "machine": "migration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-working-home-direct-mount.sequence.json",
+      "machine": "working_home",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-reopen-sealed.sequence.json",
+      "machine": "checkpoint",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/reject-migration-double-import.sequence.json",
+      "machine": "migration",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/placement.record.cloud.json",
+      "message": "home.placement.record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/placement.record.mac.json",
+      "message": "home.placement.record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-placement-committed-active-move.json",
+      "message": "home.placement.record",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-placement-below-floor.json",
+      "message": "home.placement.record",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-placement-mac-without-device.json",
+      "message": "home.placement.record",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/executor.lease.mac.json",
+      "message": "home.executor.lease",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/executor.lease.renewed-same-expiry.json",
+      "message": "home.executor.lease",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-executor-lease-nonpositive-window.json",
+      "message": "home.executor.lease",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/mac-executor.key.json",
+      "message": "home.mac-executor.key",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/mac-executor.key-rotation.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-wrong-device.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-unpinned-key.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-skips-epoch.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-same-key.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-window.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-mac-executor-rotation-nonpositive-window.json",
+      "message": "home.mac-executor.key-rotation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/move.request.manual.json",
+      "message": "home.move.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.request.automatic.json",
+      "message": "home.move.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.request.go-home-idle.json",
+      "message": "home.move.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.request.sleep.json",
+      "message": "home.move.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-manual-as-automatic.json",
+      "message": "home.move.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-move-request-window.json",
+      "message": "home.move.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-automatic-no-evidence.json",
+      "message": "home.move.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-move-automatic-no-pending-ledger.json",
+      "message": "home.move.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-move-same-source-target.json",
+      "message": "home.move.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/move.drain.json",
+      "message": "home.move.drain",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.sleep-handoff.deferred.json",
+      "message": "home.move.drain",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-sleep-failure-without-slow-fallback.json",
+      "message": "home.move.drain",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-move-drain-window.json",
+      "message": "home.move.drain",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/move.commit.json",
+      "message": "home.move.commit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-commit-skips-epoch.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-commit-skips-revision.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-commit-below-floor.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-commit-window.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-commit-same-source-target.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-move-already-committed-wrong-epoch.json",
+      "message": "home.move.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/move.abort.json",
+      "message": "home.move.abort",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.abort-committed-preserved.json",
+      "message": "home.move.abort",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-abort-window.json",
+      "message": "home.move.abort",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/move.supersede.manual.json",
+      "message": "home.move.supersede",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-supersede-manual.json",
+      "message": "home.move.supersede",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-move-supersede-window.json",
+      "message": "home.move.supersede",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/checkpoint.manifest.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.manifest.ordinary-names.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.manifest.mixed-capture-result.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-manifest-parent.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-manifest-browser-session.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-manifest-unencrypted.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-manifest-credential-material.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-state-db.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-session-db.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-env.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-credential.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-cookies.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-default-cookies.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-auth-json.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-id-rsa.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-netrc.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-npmrc.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-pem.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-ssh-ed25519.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-db.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-db-wal.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-db-shm.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-browser-profile.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-node-modules.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-package-tree.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-workspace.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-parent.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-absolute.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-symlink-escape.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-path-wrong-category.json",
+      "message": "home.checkpoint.manifest",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/checkpoint.capture.json",
+      "message": "home.checkpoint.capture",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.capture.mixed-skips.json",
+      "message": "home.checkpoint.capture",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-mid-write.json",
+      "message": "home.checkpoint.capture",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-capture-parent.json",
+      "message": "home.checkpoint.capture",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-capture-window.json",
+      "message": "home.checkpoint.capture",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/checkpoint.portable.commit.json",
+      "message": "home.checkpoint.commit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-unverified-upload.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/checkpoint.verification-failed.json",
+      "message": "home.checkpoint.commit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-stale-epoch.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-wrong-producing-epoch.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-skips-placement-revision.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-portable-checkpoint-parent.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-parent-not-selected.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-stale-self-consistent-generation.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-portable-checkpoint-window.json",
+      "message": "home.checkpoint.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/checkpoint.result.committed.json",
+      "message": "home.checkpoint.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/checkpoint.result.failed.json",
+      "message": "home.checkpoint.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-failed-checkpoint-selects-attempt.json",
+      "message": "home.checkpoint.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-failed-checkpoint-advances-revision.json",
+      "message": "home.checkpoint.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/readiness.report.mac.json",
+      "message": "home.readiness.report",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-readiness-unauthenticated-signer.json",
+      "message": "home.readiness.report",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/reject-readiness-report-window.json",
+      "message": "home.readiness.report",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/readiness.observation.json",
+      "message": "home.readiness.observation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-readiness-future-platform-time.json",
+      "message": "home.readiness.observation",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-readiness-reachable-not-wakeable.json",
+      "message": "home.readiness.observation",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/pending-work.routine-offline.json",
+      "message": "home.pending-work.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-pending-work-visible-reply-basis.json",
+      "message": "home.pending-work.snapshot",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/home.policy.default.json",
+      "message": "home.policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.policy.strict-local-no-backup.json",
+      "message": "home.policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-home-policy-slow-sweep.json",
+      "message": "home.policy",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-home-policy-never-cloud-enabled.json",
+      "message": "home.policy",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/protected-operation.work_admission.json",
+      "message": "home.protected-operation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/protected-operation.checkpoint.json",
+      "message": "home.protected-operation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/protected-operation.connector_effect.json",
+      "message": "home.protected-operation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/protected-operation.device_effect.json",
+      "message": "home.protected-operation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/protected-operation.matrix_publication.json",
+      "message": "home.protected-operation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.accepted.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.stale-epoch.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.stale-term.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.wrong-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.cloud-signer-on-mac.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.work_admission.wrong-mac-location.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.accepted.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.stale-epoch.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.stale-term.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.wrong-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.cloud-signer-on-mac.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.checkpoint.wrong-mac-location.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.accepted.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.stale-epoch.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.stale-term.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.wrong-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.cloud-signer-on-mac.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.connector_effect.wrong-mac-location.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.accepted.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.stale-epoch.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.stale-term.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.wrong-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.cloud-signer-on-mac.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.device_effect.wrong-mac-location.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.accepted.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.stale-epoch.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.stale-term.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.wrong-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.cloud-signer-on-mac.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.matrix_publication.wrong-mac-location.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.expired-platform-lease.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.renewed-lease-same-expiry.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.unpinned-mac-key.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.bad-signature.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority.signature-expired.json",
+      "message": "case.authority_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/matrix.publication.enqueue.json",
+      "message": "matrix.publication.enqueue",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/matrix.publication.receipt.json",
+      "message": "matrix.publication.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-matrix-publication-window.json",
+      "message": "matrix.publication.enqueue",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-matrix-publication-direct-token.json",
+      "message": "matrix.publication.enqueue",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/reject-matrix-publication-serialization-revision.json",
+      "message": "matrix.publication.enqueue",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-publication-refused-with-event.json",
+      "message": "matrix.publication.receipt",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reject-publication-sending-with-reason.json",
+      "message": "matrix.publication.receipt",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/home.return.report.json",
+      "message": "home.return.report",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.return.mac-woke-during-move.json",
+      "message": "home.return.report",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-home-return-window.json",
+      "message": "home.return.report",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/home.conflict.quarantine.json",
+      "message": "home.conflict.quarantine",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-conflict-auto-promoted.json",
+      "message": "home.conflict.quarantine",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/home.conflict.import.json",
+      "message": "home.conflict.import",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-conflict-import-skips-revision.json",
+      "message": "home.conflict.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-conflict-import-parent.json",
+      "message": "home.conflict.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-conflict-import-window.json",
+      "message": "home.conflict.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-conflict-import-stale-epoch.json",
+      "message": "home.conflict.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-conflict-import-not-owner-reviewed.json",
+      "message": "home.conflict.import",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/home.erase.request.json",
+      "message": "home.erase.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-home-erase-window.json",
+      "message": "home.erase.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/home.erase.receipt.pending-offline.json",
+      "message": "home.erase.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.erase.receipt.complete.json",
+      "message": "home.erase.receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-erase-complete-with-offline-pending.json",
+      "message": "home.erase.receipt",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-erase-complete-missing-location.json",
+      "message": "home.erase.receipt",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-erase-pending-missing-location.json",
+      "message": "home.erase.receipt",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/reject-home-erase-receipt-window.json",
+      "message": "home.erase.receipt",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/home.erase.tombstone.json",
+      "message": "home.erase.tombstone",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.restore.request.json",
+      "message": "home.restore.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home.restore.record.json",
+      "message": "home.restore.record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-restore-browser-sessions.json",
+      "message": "home.restore.record",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/erase-receipt.offline-mac-own-fence.json",
+      "message": "case.erase_receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/erase-receipt.pending-offline-full-coverage.json",
+      "message": "case.erase_receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/erase-receipt.wrong-fence.json",
+      "message": "case.erase_receipt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/post-erase.reject-checkpoint_commit.json",
+      "message": "case.post_erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/post-erase.reject-conflict_import.json",
+      "message": "case.post_erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/post-erase.reject-return_report.json",
+      "message": "case.post_erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/post-erase.reject-declared-newer-epoch.json",
+      "message": "case.post_erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/restore.reject-tombstoned-home.json",
+      "message": "case.post_erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.manual-wins.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.manual-retargets-manual.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.committed-preserved.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.mac-cloud-mac-round-trip.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.replay.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.already-committed-exact.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.reject-committed-other-epoch.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.aborted-fresh.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move-arbitration.superseded-fresh.json",
+      "message": "case.move_arbitration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.pending-unreachable.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.routine-due-offline.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.clock-skew-too-soon.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.fresh-takeover-delay.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.chain-bounce-impossible.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.no-pending-work.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.home-ready.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.skips-unavailable-destination.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.asleep-wake-attempt.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.old-wake-new-unreachable-episode.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.wake-grace.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/failover.strict-local-no-backup-lost.json",
+      "message": "case.failover",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/idle-return.move.json",
+      "message": "case.idle_return",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/idle-return.reject-stay-put.json",
+      "message": "case.idle_return",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/move.sequence.json",
+      "machine": "move",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-move-after-commit.sequence.json",
+      "machine": "move",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/sleep-handoff.abort-to-slow-rule.sequence.json",
+      "machine": "sleep_handoff",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sleep-handoff.unreachable-aborts.sequence.json",
+      "machine": "sleep_handoff",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-sleep-handoff-unreachable-commit.sequence.json",
+      "machine": "sleep_handoff",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/portable-checkpoint.sequence.json",
+      "machine": "portable_checkpoint",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-checkpoint-commit-before-verify.sequence.json",
+      "machine": "portable_checkpoint",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/publication.sequence.json",
+      "machine": "publication",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-publication-bypass-relay.sequence.json",
+      "machine": "publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/return-conflict.sequence.json",
+      "machine": "return_conflict",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-return-auto-promote.sequence.json",
+      "machine": "return_conflict",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/erase.sequence.json",
+      "machine": "erase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reject-erase-resurrection.sequence.json",
+      "machine": "erase",
+      "expect": "reject",
+      "violation": "transition"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "ChatGptRelayResponse",
+  "body": {
+    "capabilityId": "00000000-0000-4000-8000-f6222a1106ee",
+    "state": "completed",
+    "status": 200,
+    "responseJson": "{\"id\":\"synthetic\",\"object\":\"chat.completion\",\"model\":\"gpt-5.6-luna\",\"choices\":[]}"
+  },
+  "kid": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+  "sig": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"
+}

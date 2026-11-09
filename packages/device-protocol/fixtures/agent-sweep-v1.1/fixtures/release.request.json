@@ -1,0 +1,14 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "operation": "release",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+  "reason": "invalid_result",
+  "usage": {
+    "computeSeconds": 121,
+    "modelAttempts": 1,
+    "inputTokens": 2000,
+    "outputTokens": 12,
+    "modelMicroProtons": 4000
+  }
+}

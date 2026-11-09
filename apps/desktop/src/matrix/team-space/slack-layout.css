@@ -1,0 +1,73 @@
+/** Preserve user-visible identity, state and recovery behavior across connection changes. */
+.atum-shell [data-team-space-layout] {
+  --composer-width: 100%;
+  overflow-x: clip;
+}
+
+.atum-shell [data-team-space-layout] [data-slot='aui_thread-content'] {
+  max-width: none;
+  padding-inline: 0;
+  --conversation-turn-gap: 0;
+}
+
+/* Every message sits on the left, yours included: no bubble column, no right-aligned box. */
+.atum-shell [data-team-space-layout] [data-slot='aui_user-message-root'] {
+  align-items: stretch;
+}
+
+.atum-shell [data-team-space-layout] [data-slot='aui_user-bubble-actions'] {
+  align-self: stretch;
+  width: auto;
+  max-width: none;
+}
+
+.atum-shell [data-team-space-layout] .matrix-flat-message {
+  color: var(--atum-ink);
+  font-size: 0.9375rem;
+  line-height: 1.46668;
+  white-space: pre-wrap;
+}
+
+.atum-shell [data-team-space-layout] .matrix-flat-message :where(p) {
+  margin-block: 0;
+}
+
+/* Slack's message actions float over the row's top edge, at its end. */
+.atum-shell [data-team-space-layout] [data-matrix-message-id] > [data-matrix-message-toolbar='corner'] {
+  top: -1rem;
+  right: 1.25rem;
+}
+
+/* The box: a plain bordered field the column's width (less Slack's 20px gutters), not a floating pill. */
+.atum-shell [data-team-space-layout] [data-slot='composer-root'] {
+  width: calc(100% - 2.5rem);
+  border-radius: 0.625rem;
+}
+
+.atum-shell [data-team-space-layout] [data-slot='composer-surface'] {
+  border-radius: inherit;
+  border-color: var(--atum-line-strong);
+}
+
+.atum-shell [data-team-space-layout] [data-slot='composer-surface']:focus-within {
+  border-color: color-mix(in srgb, var(--atum-ink) 45%, transparent);
+}
+
+/* The message column's own inset belongs to bubbles; a flat run starts at the name's edge. */
+.atum-shell [data-team-space-layout] [data-slot='aui_assistant-message-content'] {
+  padding-inline: 0;
+}
+
+/* Slack's box is pinned under the messages, not floated over them: the dock's band is solid ground. */
+.atum-shell [data-team-space-layout] [data-matrix-dock-edge] {
+  background: var(--atum-main-bg, var(--atum-card));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* The channel intro starts where a run's face does (Slack's 20px gutter), with room above it at the top of history. */
+.atum-shell [data-team-space-layout] [data-matrix-channel-intro] {
+  padding: 1.5rem 1.25rem 1rem;
+}

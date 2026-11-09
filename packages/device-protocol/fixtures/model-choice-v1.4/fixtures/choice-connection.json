@@ -1,0 +1,6 @@
+{
+  "v": 2,
+  "source": "connection",
+  "connectionId": "openai-key",
+  "model": "gpt-6-luna"
+}

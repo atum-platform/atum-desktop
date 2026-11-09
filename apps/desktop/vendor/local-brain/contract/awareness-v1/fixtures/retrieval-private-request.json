@@ -1,0 +1,12 @@
+{
+  "requestId": "00000000-0000-4000-8000-9716dc638218",
+  "audience": {
+    "class": "private_owner"
+  },
+  "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+  "query": "What did we decide about the launch date?",
+  "limits": {
+    "maxItems": 8,
+    "maxContentBytes": 16384
+  }
+}

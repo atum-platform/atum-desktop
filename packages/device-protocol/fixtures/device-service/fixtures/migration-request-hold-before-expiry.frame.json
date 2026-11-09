@@ -1,0 +1,19 @@
+{
+  "v": 1,
+  "type": "MigrationRequest",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "agentUserId": "@synthetic-user-0011:example.invalid",
+    "initiatorDeviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "targetDeviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-bafec445149c",
+    "issuedAt": 1791100925000,
+    "expiresAt": 1791101525000,
+    "holdUntil": 1791101524999
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "btuD8IgvkhJjAzT6RgUHub5TEvu7egzew9SQIp1Hs9dtelcu2foVhkxZ1_551yQH23Et3lsFIOA6DZPSWzxmAw"
+}

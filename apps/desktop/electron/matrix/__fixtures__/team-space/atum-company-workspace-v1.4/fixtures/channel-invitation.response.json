@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 5,
+  "invitation": {
+    "id": "00000000-0000-4000-8000-38fdf4747966",
+    "channelId": "00000000-0000-4000-8000-f19cafd05964",
+    "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+    "state": "pending",
+    "createdAt": 1800000000,
+    "expiresAt": 1800604800
+  },
+  "channelGeneration": 8,
+  "replayed": false
+}

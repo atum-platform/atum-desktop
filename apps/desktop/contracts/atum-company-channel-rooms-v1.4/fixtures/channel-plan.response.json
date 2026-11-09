@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 5,
+  "companyId": "00000000-0000-4000-8000-e8e991ff25c1",
+  "target": {
+    "kind": "channel",
+    "channelId": "00000000-0000-4000-8000-6f2cedaf1378"
+  },
+  "companyGeneration": 5,
+  "targetGeneration": 2,
+  "planGeneration": 2,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 1,
+      "principal": "00000000-0000-4000-8000-b6a66c9164ee",
+      "userId": "@p1:example.invalid"
+    }
+  ],
+  "exclusions": [],
+  "unresolvedAdmissions": [],
+  "possibleGrants": [],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "chung",
+    "topic": "Team description",
+    "posting": "enabled",
+    "metadataRevision": 2,
+    "avatarUri": "mxc://matrix.atum.app/company-logo",
+    "avatarRevision": 3
+  },
+  "roomMentionUserIds": [
+    "@p1:example.invalid"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "requestId": "44444444-4444-4444-8444-444444444444",
+    "commandId": "55555555-5555-4555-8555-555555555555",
+    "signer": "mac_executor",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "deviceServiceId": "22222222-2222-4222-8222-222222222222",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "fence": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "11111111-1111-4111-8111-111111111111",
+    "homeId": "99999999-9999-4999-8999-999999999999",
+    "homeEpoch": 4,
+    "executorTerm": 12,
+    "leaseId": "88888888-8888-4888-8888-888888888888",
+    "leaseExpiresAtPlatform": 1800000060000
+  },
+  "expectedPlacementRevision": 9,
+  "moveSerializationRevision": 9,
+  "outboxId": "66666666-6666-4666-8666-666666666666",
+  "publicationKind": "notice",
+  "clientKey": "desktop:notice:42",
+  "roomId": "!room:atum.example",
+  "transactionId": "agent-home-unledgered-42",
+  "payloadSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "payloadBytes": 56
+}

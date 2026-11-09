@@ -1,0 +1,24 @@
+{
+  "name": "migration-report-one-mac",
+  "migration": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "initiator": "00000000-0000-4000-8000-b86a6ca39e23",
+    "state": "collecting",
+    "staged": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+        "holdUntil": 1791106321000
+      }
+    ]
+  },
+  "issuedAt": 1791101530000,
+  "facts": {
+    "earliestHoldUntil": 1791106321000
+  },
+  "expect": {
+    "outcome": "reported",
+    "expiresAt": 1791105130000,
+    "holdUntil": 1791106321000
+  }
+}

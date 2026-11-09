@@ -1,0 +1,12 @@
+{
+  "profile": "atum.agent-source-gates/1",
+  "requestId": "00000000-0000-4000-8000-acb65a58e810",
+  "expectedRevision": 0,
+  "gates": {
+    "google": true,
+    "folders": true,
+    "messages": true,
+    "browser": true,
+    "team_spaces": true
+  }
+}

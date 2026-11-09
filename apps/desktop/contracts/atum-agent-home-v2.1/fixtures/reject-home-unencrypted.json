@@ -1,0 +1,30 @@
+{
+  "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+  "binding": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "computerId": "00000000-0000-4000-8000-b454f82c5857",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "diskId": "00000000-0000-4000-8000-f6222a1106ee"
+  },
+  "epochs": {
+    "enrollmentEpoch": 2,
+    "attachmentEpoch": 7,
+    "runtimeEpoch": 4
+  },
+  "outcome": "mounted",
+  "placementRevision": 9,
+  "selectedGeneration": 12,
+  "workingHome": {
+    "mode": "mounted_read_write",
+    "path": "/home/atum",
+    "encrypted": false
+  },
+  "compatibility": {
+    "homeFormat": 2,
+    "minimumExecutorVersion": "2.0.0",
+    "minimumControllerProtocol": 3,
+    "rollbackFloorGeneration": 10
+  }
+}

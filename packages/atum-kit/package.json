@@ -1,0 +1,28 @@
+{
+  "name": "@atum/kit",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Atum Kit 0.1: the shared token and component layer for desktop, web and phone. tokens.json is the single source; dist/ is generated and committed.",
+  "exports": {
+    "./atum-kit.css": "./dist/atum-kit.css",
+    "./tokens.json": "./tokens.json",
+    "./icon": "./src/icon.tsx"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "check": "node scripts/build.mjs --check && npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "@phosphor-icons/core": "2.1.1"
+  },
+  "peerDependencies": {
+    "react": "*"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}

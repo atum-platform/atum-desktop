@@ -1,0 +1,21 @@
+{
+  "caseId": "off_stale_taken_resets",
+  "savedPolicy": true,
+  "cloudEnabled": true,
+  "liveCloudTerm": false,
+  "currentAnsweringMode": "cloud",
+  "cloudBusy": false,
+  "takenUnderLiveTerm": false,
+  "staleTaken": true,
+  "macTerm": true,
+  "expected": {
+    "outcome": "reset",
+    "policyPresent": false,
+    "answeringMode": "local",
+    "cloudAuthority": "removed",
+    "macAuthority": "preserved",
+    "source": "default",
+    "revision": 0,
+    "defaultCloudFirstIsRoutingAuthority": false
+  }
+}

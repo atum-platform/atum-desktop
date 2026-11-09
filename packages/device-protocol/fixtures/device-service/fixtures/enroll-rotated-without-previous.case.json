@@ -1,0 +1,59 @@
+{
+  "name": "rotation accepted without the previous approval key",
+  "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+  "activeControllerKeys": [
+    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+  ],
+  "stored": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "approvalKeyId": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+    "state": "active"
+  },
+  "otherActive": [],
+  "request": {
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "osVersion": "26.6.2",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECEpLucCNdBxAoHpTss_gF7Bh-YjRjX4lV4h-eu4u6J7kAGJSCyqPfcUwm41sZRWHhkJjSb9H5xZbcwZAHI1nKQ",
+      "matrix": {
+        "userId": "@owner-3f9a1c7e5b2d:example.invalid",
+        "deviceId": "MACBOOKQ7ZK",
+        "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+      },
+      "enrollmentEpoch": 4,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "controllerKeys": [
+        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      ],
+      "issuedAt": 1791097200000,
+      "previousApprovalKid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo"
+    },
+    "sigs": {
+      "identity": "pDuvC0nqEHz65bEuu25dcjnWaUhZiuZcfP9Q1KeQGX4NmwER62JzPN_dXOuSRzPT3IJjmOyupGc2C2WXK420EQ",
+      "approval": "gHapfqtgT5lu3q8tYCNn6toKlIw2I54WP4iLtLncWkcWr1n7SnEZbnhC40V3xgBk4hk1MGRYcwPsUGoyCYDpWw"
+    }
+  },
+  "facts": {
+    "identityValid": true,
+    "approvalValid": true,
+    "previousApprovalValid": false,
+    "one": 1,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "rotated",
+    "status": "200"
+  }
+}

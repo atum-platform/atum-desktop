@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "state": "preparing",
+  "pair": {
+    "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+    "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+    "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+  },
+  "greetingState": "pending",
+  "binding": {
+    "scope": {
+      "pair": {
+        "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+        "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+        "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+      },
+      "authorityEpoch": 7,
+      "contextEpoch": 1,
+      "homeGeneration": 1
+    },
+    "agentPrincipal": "00000000-0000-4000-8000-c539893904f0",
+    "agentUserId": "@private_cos_a:atum.example",
+    "executorId": "00000000-0000-4000-8000-261fdbcb7dc1",
+    "homeId": "00000000-0000-4000-8000-eec8ec5cf84c",
+    "roomId": "!private-cos-a:atum.example",
+    "storeGeneration": 1,
+    "profileDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

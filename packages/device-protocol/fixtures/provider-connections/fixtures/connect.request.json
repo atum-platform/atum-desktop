@@ -1,0 +1,9 @@
+{
+  "profile": "atum.provider-connections/1",
+  "requestId": "00000000-0000-4000-8000-303617b97302",
+  "provider": "opencode_go",
+  "credential": {
+    "kind": "api_key",
+    "value": "synthetic-opencode-go-key"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "insufficient_protons",
+    "message_key": "messaging.error.insufficient_protons",
+    "retryable": false,
+    "request_id": "req_331"
+  }
+}

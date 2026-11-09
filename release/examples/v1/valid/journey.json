@@ -1,0 +1,22 @@
+{
+  "schema": "atum-release-journey-result/1",
+  "candidate_id": "v2.0.0-rc.1+99b479a",
+  "source_head_sha": "99b479a005b1e321a134bd0bfdd58713e21c9372",
+  "artifact_sha256": "17a52ae1f0fe4f86af453a2000f2add2303bed97b65c86d301094ecabd538cc2",
+  "journey_id": "J1-clean-install-assistant",
+  "fixture_id": "clean-non-power-user-v1",
+  "os": "macos",
+  "os_version": "15.0",
+  "arch": "arm64",
+  "started_at": "2026-08-30T03:05:00Z",
+  "completed_at": "2026-08-30T03:07:00Z",
+  "valid_until": "2026-09-06T03:07:00Z",
+  "duration_ms": 120000,
+  "result": "pass",
+  "steps": [
+    {"id": "install", "result": "pass", "problem_code": null, "evidence": ["immutable://journey-attachment"]}
+  ],
+  "owner_on_failure": "S1",
+  "redaction_check": {"verifier": "atum-redaction-corpus/1", "corpus_result_ref": "immutable://redaction-corpus", "result": "pass"},
+  "evidence_ref": "immutable://journey-result"
+}

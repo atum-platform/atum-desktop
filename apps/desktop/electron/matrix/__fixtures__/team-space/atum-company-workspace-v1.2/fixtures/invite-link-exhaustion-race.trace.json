@@ -1,0 +1,57 @@
+{
+  "link": {
+    "maxUses": 1,
+    "expiresInSeconds": 604800
+  },
+  "steps": [
+    {
+      "do": "race",
+      "operations": [
+        {
+          "do": "redeem",
+          "request": "r1",
+          "person": "lan"
+        },
+        {
+          "do": "redeem",
+          "request": "r2",
+          "person": "bao"
+        }
+      ],
+      "serializations": [
+        {
+          "order": [
+            0,
+            1
+          ],
+          "results": [
+            {
+              "result": "joined",
+              "usesRemaining": 0,
+              "consumedNow": true
+            },
+            {
+              "result": "unavailable"
+            }
+          ]
+        },
+        {
+          "order": [
+            1,
+            0
+          ],
+          "results": [
+            {
+              "result": "unavailable"
+            },
+            {
+              "result": "joined",
+              "usesRemaining": 0,
+              "consumedNow": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

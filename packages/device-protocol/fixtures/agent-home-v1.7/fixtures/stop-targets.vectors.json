@@ -1,0 +1,45 @@
+{
+  "vectors": [
+    {
+      "name": "an owner's message stops by its own event",
+      "item": {
+        "source": "matrix",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU"
+      },
+      "target": {
+        "kind": "turn",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU"
+      }
+    },
+    {
+      "name": "a follow-up stops by its synthetic event, not the owner's message it answers",
+      "item": {
+        "source": "followup",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+        "parentInvocationId": "00000000-0000-4000-8000-f9b799160fa7",
+        "waitDeviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55"
+      },
+      "target": {
+        "kind": "turn",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "eventId": "$atum-followup-00000000-0000-4000-8000-f9b799160fa7.00000000-0000-4000-8000-f4d4f0609b55"
+      }
+    },
+    {
+      "name": "an occurrence stops by its synthetic event in the schedule's room",
+      "item": {
+        "source": "occurrence",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "occurrenceId": "00000000-0000-4000-8000-cd2855c9e608"
+      },
+      "target": {
+        "kind": "turn",
+        "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "eventId": "$atum-occurrence-00000000-0000-4000-8000-cd2855c9e608"
+      }
+    }
+  ]
+}

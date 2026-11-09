@@ -1,0 +1,7 @@
+{
+  "requestId": "00000000-0000-4000-8000-266cf79454ab",
+  "operation": "remove",
+  "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+  "expectedChannelGeneration": 7,
+  "expectedAdmissionGeneration": 3
+}

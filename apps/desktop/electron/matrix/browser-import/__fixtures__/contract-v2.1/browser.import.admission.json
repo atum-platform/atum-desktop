@@ -1,0 +1,26 @@
+{
+  "importId": "00000000-0000-4000-8000-cd2a20671fb6",
+  "ownerUserId": "@owner:atum.example",
+  "approvedBy": "@owner:atum.example",
+  "approvedAt": 1799999999000,
+  "source": {
+    "browser": "chrome",
+    "profileOrdinal": 1
+  },
+  "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+  "siteCount": 4,
+  "skippedSiteCount": 1,
+  "selectedAgents": [
+    {
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "profileIsolation": "separate"
+    }
+  ],
+  "recipientBasis": "primary_default",
+  "recipient": {
+    "computerId": "00000000-0000-4000-8000-b454f82c5857",
+    "attachmentEpoch": 7
+  },
+  "expiresAt": 1800000900000,
+  "consent": "explicit_owner_approval"
+}

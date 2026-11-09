@@ -1,0 +1,64 @@
+{
+  "opens": [
+    {
+      "companyId": "00000000-0000-4000-8000-87c6455cae48",
+      "participants": [
+        {
+          "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "admissionEpoch": 2
+        },
+        {
+          "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+          "admissionEpoch": 1
+        }
+      ],
+      "conversationId": "00000000-0000-4000-8000-f6c6b8bb709f"
+    },
+    {
+      "companyId": "00000000-0000-4000-8000-87c6455cae48",
+      "participants": [
+        {
+          "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "admissionEpoch": 2
+        },
+        {
+          "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+          "admissionEpoch": 1
+        }
+      ],
+      "conversationId": "00000000-0000-4000-8000-f6c6b8bb709f"
+    },
+    {
+      "companyId": "00000000-0000-4000-8000-87c6455cae48",
+      "participants": [
+        {
+          "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "admissionEpoch": 2
+        },
+        {
+          "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+          "admissionEpoch": 1
+        },
+        {
+          "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+          "admissionEpoch": 1
+        }
+      ],
+      "conversationId": "00000000-0000-4000-8000-8a4e23bab81e"
+    },
+    {
+      "companyId": "00000000-0000-4000-8000-87c6455cae48",
+      "participants": [
+        {
+          "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "admissionEpoch": 3
+        },
+        {
+          "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+          "admissionEpoch": 1
+        }
+      ],
+      "conversationId": "00000000-0000-4000-8000-84529e4e0710"
+    }
+  ]
+}

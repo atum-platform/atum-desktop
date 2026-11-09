@@ -1,0 +1,54 @@
+@import '../../styles.css';
+
+html,
+body,
+#matrix-pet-root {
+  margin: 0;
+  background: transparent !important;
+  overflow: hidden;
+}
+.matrix-pet-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  user-select: none;
+}
+.matrix-pet-overlay-panel {
+  /* Matches PANEL_WIDTH and PANEL_HEIGHT in electron/matrix/pet-overlay.ts. */
+  width: 320px;
+  height: 384px;
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  padding: 6px;
+}
+.matrix-pet-overlay-status {
+  padding: 8px;
+  font-size: 12px;
+  max-height: 100px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+/* The chat box fills the panel above the pet; only the box takes the pointer. */
+.matrix-pet-overlay-chat {
+  height: 100%;
+  pointer-events: auto;
+  user-select: text;
+}
+.matrix-pet-overlay-sprite {
+  position: relative;
+  flex: none;
+}
+.matrix-pet-overlay-canvas {
+  pointer-events: none;
+}
+.matrix-pet-overlay-hit {
+  position: absolute;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+}
+.matrix-pet-overlay-hit:active {
+  cursor: grabbing;
+}

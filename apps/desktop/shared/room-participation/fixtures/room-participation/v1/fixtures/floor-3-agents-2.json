@@ -1,0 +1,25 @@
+{
+  "facts": {
+    "eventId": "$floor-2",
+    "kind": "everyone",
+    "candidates": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid"
+    ],
+    "mentions": [],
+    "ownAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid",
+      "@assistant-d:example.invalid",
+      "@assistant-e:example.invalid"
+    ]
+  },
+  "expected": {
+    "order": [
+      "@assistant-a:example.invalid",
+      "@assistant-c:example.invalid"
+    ]
+  }
+}

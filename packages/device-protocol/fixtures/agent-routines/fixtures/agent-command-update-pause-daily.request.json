@@ -1,0 +1,17 @@
+{
+  "profile": "atum.agent-routine-command/1",
+  "operation": "update",
+  "requestId": "00000000-0000-4000-8000-89b481283507",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "expectedRevision": 1,
+  "title": "Morning brief",
+  "instruction": "Summarize my priorities.",
+  "schedule": {
+    "kind": "daily",
+    "hour": 8,
+    "minute": 0
+  },
+  "timezone": "Asia/Ho_Chi_Minh",
+  "enabled": false,
+  "notifications": true
+}

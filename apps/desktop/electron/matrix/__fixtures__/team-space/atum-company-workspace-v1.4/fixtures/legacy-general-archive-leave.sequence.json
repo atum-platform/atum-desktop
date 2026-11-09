@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "provisioning",
+      "to": "active",
+      "event": "provision"
+    },
+    {
+      "from": "active",
+      "to": "active",
+      "event": "legacy_general_archive_or_leave"
+    }
+  ]
+}

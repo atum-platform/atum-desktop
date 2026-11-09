@@ -1,0 +1,1 @@
+{"steps":[{"from":"active","to":"draining","event":"reassign"},{"from":"draining","to":"released","event":"fenced_release"}]}

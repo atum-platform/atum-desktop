@@ -1,0 +1,2326 @@
+{
+  "contract_id": "atum.model-choice",
+  "version": "1.3",
+  "status": "frozen",
+  "base": {
+    "contract": "atum.model-choice/1.2",
+    "path": "spec/model-choice/v1.2",
+    "sha256": "5e687bef3c3d9b28e1ce1471b048fd3c01728377ccbae55990c774a7e6a5ab09",
+    "rule": "additive: every 1.2 type, message and fixture is carried byte for byte; 1.3 adds destination/source choice and daily-cap records"
+  },
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/answer-atum.json",
+    "fixtures/answer-connection-name.json",
+    "fixtures/answer-own.json",
+    "fixtures/answer-secret-array.json",
+    "fixtures/byo-custom-provider.json",
+    "fixtures/byo-grant.json",
+    "fixtures/byo-secret.json",
+    "fixtures/choice-agents-invalid-key.json",
+    "fixtures/choice-agents-invalid-value.json",
+    "fixtures/choice-agents.json",
+    "fixtures/choice-atum-with-connection.json",
+    "fixtures/choice-atum.json",
+    "fixtures/choice-connection-missing-id.json",
+    "fixtures/choice-connection.json",
+    "fixtures/choice-default-effort.json",
+    "fixtures/choice-effort-unknown.json",
+    "fixtures/choice-endpoint-model.json",
+    "fixtures/choice-legacy.json",
+    "fixtures/choice-put.json",
+    "fixtures/choice-secret-root.json",
+    "fixtures/choice-v2-downgrade.json",
+    "fixtures/choice-write-secret.request.json",
+    "fixtures/choice-write.request.json",
+    "fixtures/daily-cap-default.request.json",
+    "fixtures/daily-cap-negative.request.json",
+    "fixtures/daily-cap-refuse-extra-turn.sequence.json",
+    "fixtures/daily-cap-unlimited.request.json",
+    "fixtures/daily-cap.sequence.json",
+    "fixtures/default-agent.json",
+    "fixtures/default-empty.json",
+    "fixtures/default-invalid-value.json",
+    "fixtures/default-secret-map.json",
+    "fixtures/destination-cloud-atum.request.json",
+    "fixtures/destination-cloud-chatgpt.request.json",
+    "fixtures/destination-cloud-own-key.request.json",
+    "fixtures/destination-duplicate.snapshot.json",
+    "fixtures/destination-exhausted-below-cap.snapshot.json",
+    "fixtures/destination-exhausted.snapshot.json",
+    "fixtures/destination-mac-atum-max.request.json",
+    "fixtures/destination-mac-atum-provider-model.request.json",
+    "fixtures/destination-mac-atum.request.json",
+    "fixtures/destination-mac-chatgpt.request.json",
+    "fixtures/destination-mac-own-key.request.json",
+    "fixtures/destination-secret.request.json",
+    "fixtures/destination-spend-mismatch.snapshot.json",
+    "fixtures/destination-uncapped.snapshot.json",
+    "fixtures/destination-warning.snapshot.json",
+    "fixtures/destination.snapshot.json",
+    "fixtures/effort-vocabulary-provider.json",
+    "fixtures/effort-vocabulary.json",
+    "fixtures/error-choice-unavailable.response.json",
+    "fixtures/error-entitlement.response.json",
+    "fixtures/error-invalid.response.json",
+    "fixtures/error-policy-changed.response.json",
+    "fixtures/error-request-conflict.response.json",
+    "fixtures/error-revision-conflict.response.json",
+    "fixtures/error-unavailable.response.json",
+    "fixtures/grant-default.response.json",
+    "fixtures/grant-saved.response.json",
+    "fixtures/grant-unavailable.response.json",
+    "fixtures/offer-cloud.json",
+    "fixtures/offer-custom-cloud.json",
+    "fixtures/offer-duplicate-effort.json",
+    "fixtures/offer-empty.json",
+    "fixtures/offer-invalid-version.json",
+    "fixtures/offer-local-cloud.json",
+    "fixtures/offer-mac.json",
+    "fixtures/offer-missing-version.json",
+    "fixtures/offer-nonreasoning.json",
+    "fixtures/offer-plan-account.json",
+    "fixtures/offer-plan-cloud.json",
+    "fixtures/offer-plan.json",
+    "fixtures/offer-secret-accessToken.json",
+    "fixtures/offer-secret-baseUrl.json",
+    "fixtures/offer-secret-endpoint.json",
+    "fixtures/offer-secret-my_api_key.json",
+    "fixtures/offer-secret-nestedSECRETvalue.json",
+    "fixtures/offer-secret-passwordHint.json",
+    "fixtures/offer-secret-proxyAuthorization.json",
+    "fixtures/offer-secret-refresh_token.json",
+    "fixtures/offer-secret-url.json",
+    "fixtures/openrouter-catalog-evidence.json",
+    "fixtures/policy-map.json",
+    "fixtures/provider-default.response.json",
+    "fixtures/provider-saved.response.json",
+    "fixtures/provider-unavailable.response.json"
+  ],
+  "routes": {
+    "GET /api/matrix/v1/agents/{agentId}/models": {
+      "response": "provider.snapshot",
+      "auth": "owner",
+      "enabled_by": "ATUM_MATRIX_MODEL_CHOICE_SYNC_ENABLED"
+    },
+    "PUT /api/matrix/v1/agents/{agentId}/model-choice": {
+      "request": "choice.write.request",
+      "response": "provider.snapshot",
+      "auth": "owner",
+      "enabled_by": "ATUM_MATRIX_MODEL_CHOICE_SYNC_ENABLED"
+    },
+    "POST /api/matrix/v1/connections/byo": {
+      "auth": "owner",
+      "enabled_by": "ATUM_MATRIX_BYO_KEYS_ENABLED",
+      "credential_ingress": "TLS to fixed-provider encrypt-only API; raw keys are not any message in this pack"
+    },
+    "GET /api/matrix/v1/connections/byo": {
+      "auth": "owner",
+      "enabled_by": "ATUM_MATRIX_BYO_KEYS_ENABLED",
+      "response": "sanitized connectionDescriptor[]"
+    },
+    "DELETE /api/matrix/v1/connections/byo/{id}": {
+      "auth": "owner",
+      "enabled_by": "ATUM_MATRIX_BYO_KEYS_ENABLED"
+    },
+    "GET /api/matrix/v1/agents/{agentId}/model-destinations": {
+      "response": "destination.snapshot",
+      "auth": "owner",
+      "status": "contract_first"
+    },
+    "PUT /api/matrix/v1/agents/{agentId}/model-destinations": {
+      "request": "destination.choice.write",
+      "response": "destination.snapshot",
+      "auth": "owner",
+      "status": "contract_first"
+    },
+    "PUT /api/matrix/v1/agents/{agentId}/model-daily-cap": {
+      "request": "daily-cap.write",
+      "response": "destination.snapshot",
+      "auth": "owner",
+      "status": "contract_first"
+    }
+  },
+  "types": {
+    "effort": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ]
+    },
+    "agentPrincipal": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "modelRef": {
+      "type": "string",
+      "min": 1,
+      "max": 200,
+      "pattern": "[A-Za-z0-9][A-Za-z0-9._/-]*"
+    },
+    "connectionId": {
+      "type": "string",
+      "min": 1,
+      "max": 128,
+      "pattern": "[A-Za-z0-9][A-Za-z0-9_-]*"
+    },
+    "provider": {
+      "type": "string",
+      "min": 1,
+      "max": 64,
+      "pattern": "[a-z0-9][a-z0-9_-]*"
+    },
+    "byoProvider": {
+      "enum": [
+        "openai",
+        "google",
+        "anthropic",
+        "openrouter"
+      ]
+    },
+    "appVersion": {
+      "type": "string",
+      "min": 5,
+      "max": 80,
+      "pattern": "[0-9]+[.][0-9]+[.][0-9]+([-+][A-Za-z0-9.-]+)?"
+    },
+    "macRuntime": {
+      "type": "object",
+      "required": {
+        "runtime": {
+          "type": "string",
+          "min": 5,
+          "max": 132,
+          "pattern": "mac:[A-Za-z0-9_-]+"
+        }
+      },
+      "optional": {
+        "appVersion": {
+          "ref": "appVersion"
+        }
+      }
+    },
+    "cloudRuntime": {
+      "type": "object",
+      "required": {
+        "runtime": {
+          "const": "cloud"
+        }
+      }
+    },
+    "modelDescriptor": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "modelRef"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 120
+        },
+        "efforts": {
+          "type": "array",
+          "items": {
+            "ref": "effort"
+          },
+          "min": 0,
+          "max": 4,
+          "unique": true
+        }
+      }
+    },
+    "connectionStatus": {
+      "enum": [
+        "connected",
+        "not_connected",
+        "needs_attention"
+      ]
+    },
+    "runtime": {
+      "anyOf": [
+        {
+          "ref": "macRuntime"
+        },
+        {
+          "ref": "cloudRuntime"
+        }
+      ]
+    },
+    "connectionDescriptor": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "connectionId"
+            },
+            "provider": {
+              "ref": "provider"
+            },
+            "displayName": {
+              "type": "string",
+              "min": 1,
+              "max": 120
+            },
+            "status": {
+              "ref": "connectionStatus"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "ref": "modelDescriptor"
+              },
+              "min": 0,
+              "max": 256
+            },
+            "kind": {
+              "enum": [
+                "plan",
+                "local",
+                "custom"
+              ]
+            },
+            "scope": {
+              "const": "thisMac"
+            },
+            "runtimes": {
+              "type": "array",
+              "items": {
+                "ref": "macRuntime"
+              },
+              "min": 1,
+              "max": 64
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "connectionId"
+            },
+            "provider": {
+              "ref": "provider"
+            },
+            "displayName": {
+              "type": "string",
+              "min": 1,
+              "max": 120
+            },
+            "status": {
+              "ref": "connectionStatus"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "ref": "modelDescriptor"
+              },
+              "min": 0,
+              "max": 256
+            },
+            "kind": {
+              "const": "apiKey"
+            },
+            "scope": {
+              "const": "thisMac"
+            },
+            "runtimes": {
+              "type": "array",
+              "items": {
+                "ref": "macRuntime"
+              },
+              "min": 1,
+              "max": 64
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "connectionId"
+            },
+            "provider": {
+              "ref": "byoProvider"
+            },
+            "displayName": {
+              "type": "string",
+              "min": 1,
+              "max": 120
+            },
+            "status": {
+              "ref": "connectionStatus"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "ref": "modelDescriptor"
+              },
+              "min": 0,
+              "max": 256
+            },
+            "kind": {
+              "const": "apiKey"
+            },
+            "scope": {
+              "const": "account"
+            },
+            "runtimes": {
+              "type": "array",
+              "items": {
+                "ref": "runtime"
+              },
+              "min": 1,
+              "max": 64
+            }
+          }
+        }
+      ]
+    },
+    "choiceEntry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "v": {
+              "const": 2
+            },
+            "source": {
+              "const": "atum"
+            },
+            "model": {
+              "ref": "modelRef"
+            }
+          },
+          "optional": {
+            "effort": {
+              "ref": "effort"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "v": {
+              "const": 2
+            },
+            "source": {
+              "const": "connection"
+            },
+            "connectionId": {
+              "ref": "connectionId"
+            },
+            "model": {
+              "ref": "modelRef"
+            }
+          },
+          "optional": {
+            "effort": {
+              "ref": "effort"
+            }
+          }
+        }
+      ]
+    },
+    "modelChoice": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "model": {
+              "ref": "modelRef"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "v": {
+              "const": 2
+            },
+            "source": {
+              "const": "atum"
+            },
+            "model": {
+              "ref": "modelRef"
+            }
+          },
+          "optional": {
+            "effort": {
+              "ref": "effort"
+            },
+            "agents": {
+              "type": "object",
+              "additional": {
+                "ref": "choiceEntry"
+              },
+              "additionalKeys": {
+                "ref": "agentPrincipal"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "v": {
+              "const": 2
+            },
+            "source": {
+              "const": "connection"
+            },
+            "connectionId": {
+              "ref": "connectionId"
+            },
+            "model": {
+              "ref": "modelRef"
+            }
+          },
+          "optional": {
+            "effort": {
+              "ref": "effort"
+            },
+            "agents": {
+              "type": "object",
+              "additional": {
+                "ref": "choiceEntry"
+              },
+              "additionalKeys": {
+                "ref": "agentPrincipal"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "agentModelDefault": {
+      "type": "object",
+      "additional": {
+        "ref": "choiceEntry"
+      },
+      "additionalKeys": {
+        "ref": "agentPrincipal"
+      }
+    },
+    "agentModelsOffer": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "kind": {
+          "const": "atum.agent-models/1"
+        },
+        "agentPrincipal": {
+          "ref": "agentPrincipal"
+        },
+        "atum": {
+          "type": "array",
+          "items": {
+            "ref": "modelDescriptor"
+          },
+          "min": 1,
+          "max": 64
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "ref": "connectionDescriptor"
+          },
+          "min": 0,
+          "max": 64
+        },
+        "runtimes": {
+          "type": "array",
+          "items": {
+            "ref": "runtime"
+          },
+          "min": 1,
+          "max": 64
+        }
+      }
+    },
+    "answeredWith": {
+      "type": "object",
+      "required": {
+        "source": {
+          "enum": [
+            "atum",
+            "own"
+          ]
+        }
+      },
+      "optional": {
+        "effort": {
+          "ref": "effort"
+        }
+      }
+    },
+    "byoGrantDescriptor": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "byo"
+        },
+        "connectionId": {
+          "ref": "connectionId"
+        },
+        "provider": {
+          "ref": "byoProvider"
+        },
+        "model": {
+          "ref": "modelRef"
+        }
+      },
+      "optional": {
+        "effort": {
+          "ref": "effort"
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[a-f0-9]{64}"
+    },
+    "revision": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "policyAlias": {
+      "type": "string",
+      "min": 1,
+      "max": 40,
+      "pattern": "[a-z0-9][a-z0-9-]*"
+    },
+    "positiveTokens": {
+      "type": "integer",
+      "min": 1,
+      "max": 2000000
+    },
+    "usdPerMtok": {
+      "type": "string",
+      "min": 1,
+      "max": 32,
+      "pattern": "(?:0|[1-9][0-9]*)(?:[.][0-9]{1,8})?"
+    },
+    "verifiedEfforts": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "low",
+          "medium",
+          "high"
+        ]
+      },
+      "min": 1,
+      "max": 3,
+      "unique": true
+    },
+    "inputModalities": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "text",
+          "image",
+          "video",
+          "file",
+          "audio"
+        ]
+      },
+      "min": 1,
+      "max": 5,
+      "unique": true
+    },
+    "policyModel": {
+      "type": "object",
+      "required": {
+        "alias": {
+          "ref": "policyAlias"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 120
+        },
+        "providerModel": {
+          "ref": "modelRef"
+        },
+        "providerCanonical": {
+          "ref": "modelRef"
+        },
+        "providerContextBudget": {
+          "ref": "positiveTokens"
+        },
+        "providerOutputLimit": {
+          "ref": "positiveTokens"
+        },
+        "contextBudget": {
+          "ref": "positiveTokens"
+        },
+        "outputBudget": {
+          "ref": "positiveTokens"
+        },
+        "efforts": {
+          "ref": "verifiedEfforts"
+        },
+        "defaultEffort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "inputModalities": {
+          "ref": "inputModalities"
+        },
+        "inputUsdPerMtok": {
+          "ref": "usdPerMtok"
+        },
+        "outputUsdPerMtok": {
+          "ref": "usdPerMtok"
+        },
+        "maxTurnMicroProtons": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "supportsTools": {
+          "const": true
+        }
+      }
+    },
+    "policyMap": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.managed-model-policy/1"
+        },
+        "policyVersion": {
+          "type": "string",
+          "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}[.][1-9][0-9]*"
+        },
+        "defaultModel": {
+          "ref": "policyAlias"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "ref": "policyModel"
+          },
+          "min": 1,
+          "max": 16,
+          "unique": true
+        }
+      }
+    },
+    "modelEligibility": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "ready"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "policy_disabled",
+                "model_not_allowed",
+                "cloud_unavailable",
+                "entitlement_required",
+                "consent_required",
+                "cost_limit",
+                "data_restricted",
+                "provider_unavailable"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "modelCost": {
+      "type": "object",
+      "required": {
+        "currency": {
+          "const": "USD"
+        },
+        "inputPerMtok": {
+          "ref": "usdPerMtok"
+        },
+        "outputPerMtok": {
+          "ref": "usdPerMtok"
+        },
+        "maxTurnMicroProtons": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "providerModel": {
+      "type": "object",
+      "required": {
+        "alias": {
+          "ref": "policyAlias"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 120
+        },
+        "providerModel": {
+          "ref": "modelRef"
+        },
+        "contextBudget": {
+          "ref": "positiveTokens"
+        },
+        "outputBudget": {
+          "ref": "positiveTokens"
+        },
+        "efforts": {
+          "ref": "verifiedEfforts"
+        },
+        "defaultEffort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "inputModalities": {
+          "ref": "inputModalities"
+        },
+        "supportsTools": {
+          "const": true
+        },
+        "cost": {
+          "ref": "modelCost"
+        },
+        "eligibility": {
+          "ref": "modelEligibility"
+        }
+      }
+    },
+    "atumChoice": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 2
+        },
+        "source": {
+          "const": "atum"
+        },
+        "model": {
+          "ref": "policyAlias"
+        }
+      },
+      "optional": {
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        }
+      }
+    },
+    "managedGrant": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.model-grant/1"
+            },
+            "state": {
+              "const": "active"
+            },
+            "alias": {
+              "ref": "policyAlias"
+            },
+            "model": {
+              "ref": "policyAlias"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "ref": "sha256"
+            },
+            "contextBudget": {
+              "ref": "positiveTokens"
+            },
+            "outputBudget": {
+              "ref": "positiveTokens"
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 9007199254740991
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.model-grant/1"
+            },
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "policy_disabled",
+                "model_not_allowed",
+                "cloud_unavailable",
+                "entitlement_required",
+                "consent_required",
+                "cost_limit",
+                "data_restricted",
+                "provider_unavailable"
+              ]
+            },
+            "policyDigest": {
+              "ref": "sha256"
+            }
+          }
+        }
+      ]
+    },
+    "providerSnapshot": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.model-choice/1.1"
+        },
+        "agentPrincipal": {
+          "ref": "agentPrincipal"
+        },
+        "revision": {
+          "ref": "revision"
+        },
+        "source": {
+          "enum": [
+            "default",
+            "saved"
+          ]
+        },
+        "policyVersion": {
+          "type": "string",
+          "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}[.][1-9][0-9]*"
+        },
+        "policyDigest": {
+          "ref": "sha256"
+        },
+        "choice": {
+          "ref": "atumChoice"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "ref": "providerModel"
+          },
+          "min": 1,
+          "max": 16,
+          "unique": true
+        },
+        "runtimes": {
+          "type": "array",
+          "items": {
+            "ref": "cloudRuntime"
+          },
+          "min": 1,
+          "max": 1,
+          "unique": true
+        },
+        "grant": {
+          "ref": "managedGrant"
+        }
+      }
+    },
+    "choiceWrite": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.model-choice/1.1"
+        },
+        "requestId": {
+          "ref": "agentPrincipal"
+        },
+        "expectedRevision": {
+          "ref": "revision"
+        },
+        "policyDigest": {
+          "ref": "sha256"
+        },
+        "choice": {
+          "ref": "atumChoice"
+        }
+      }
+    },
+    "providerError": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_400"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "const": "invalid"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_403"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "enum": [
+                    "entitlement_required",
+                    "consent_required"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_409"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "enum": [
+                    "request_conflict",
+                    "model_unavailable",
+                    "effort_unavailable",
+                    "cost_limit",
+                    "data_restricted"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_409"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "const": "revision_conflict"
+                }
+              }
+            },
+            "revision": {
+              "ref": "revision"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_409"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "const": "policy_changed"
+                }
+              }
+            },
+            "policyDigest": {
+              "ref": "sha256"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_503"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "const": "unavailable"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "catalogEvidence": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.openrouter-catalog-evidence/1"
+        },
+        "capturedAt": {
+          "type": "string",
+          "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        },
+        "source": {
+          "const": "openrouter-models-api"
+        },
+        "fullCatalogSha256": {
+          "ref": "sha256"
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": {
+              "id": {
+                "ref": "modelRef"
+              },
+              "canonical": {
+                "ref": "modelRef"
+              },
+              "providerContextBudget": {
+                "ref": "positiveTokens"
+              },
+              "providerOutputLimit": {
+                "ref": "positiveTokens"
+              },
+              "inputUsdPerMtok": {
+                "ref": "usdPerMtok"
+              },
+              "outputUsdPerMtok": {
+                "ref": "usdPerMtok"
+              },
+              "efforts": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 20
+                },
+                "min": 1,
+                "max": 8,
+                "unique": true
+              },
+              "inputModalities": {
+                "ref": "inputModalities"
+              },
+              "supportsTools": {
+                "const": true
+              }
+            }
+          },
+          "min": 1,
+          "max": 16,
+          "unique": true
+        }
+      }
+    },
+    "effortVocabulary": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "productLevels": {
+          "type": "array",
+          "items": {
+            "ref": "effort"
+          },
+          "min": 4,
+          "max": 4,
+          "unique": true
+        },
+        "families": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": {
+              "family": {
+                "type": "string",
+                "min": 1,
+                "max": 128
+              },
+              "aliases": {
+                "type": "array",
+                "items": {
+                  "ref": "modelRef"
+                },
+                "min": 1,
+                "max": 64,
+                "unique": true
+              },
+              "providerField": {
+                "type": "string",
+                "min": 1,
+                "max": 128
+              },
+              "mapping": {
+                "type": "object",
+                "required": {
+                  "low": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "min": 1,
+                        "max": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "medium": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "min": 1,
+                        "max": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "high": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "min": 1,
+                        "max": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "max": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "min": 1,
+                        "max": 128
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "availableEfforts": {
+                "type": "array",
+                "items": {
+                  "ref": "effort"
+                },
+                "min": 0,
+                "max": 4,
+                "unique": true
+              },
+              "maxRequiresLiveVerification": {
+                "const": true
+              }
+            }
+          },
+          "min": 1,
+          "max": 64
+        }
+      }
+    },
+    "managed_effort": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "destination_id": {
+      "anyOf": [
+        {
+          "const": "cloud"
+        },
+        {
+          "type": "string",
+          "min": 5,
+          "max": 132,
+          "pattern": "mac:[A-Za-z0-9_-]+"
+        }
+      ]
+    },
+    "own_key_source": {
+      "type": "string",
+      "min": 9,
+      "max": 80,
+      "pattern": "own_key:[a-z0-9][a-z0-9_-]*"
+    },
+    "destination_choice": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "destination": {
+              "const": "cloud"
+            },
+            "source": {
+              "const": "atum"
+            },
+            "model": {
+              "ref": "policyAlias"
+            },
+            "effort": {
+              "ref": "managed_effort"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "destination": {
+              "type": "string",
+              "min": 5,
+              "max": 132,
+              "pattern": "mac:[A-Za-z0-9_-]+"
+            },
+            "source": {
+              "const": "atum"
+            },
+            "model": {
+              "ref": "policyAlias"
+            },
+            "effort": {
+              "ref": "managed_effort"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "destination": {
+              "type": "string",
+              "min": 5,
+              "max": 132,
+              "pattern": "mac:[A-Za-z0-9_-]+"
+            },
+            "source": {
+              "const": "chatgpt_plan"
+            },
+            "model": {
+              "ref": "modelRef"
+            },
+            "effort": {
+              "ref": "effort"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "destination": {
+              "type": "string",
+              "min": 5,
+              "max": 132,
+              "pattern": "mac:[A-Za-z0-9_-]+"
+            },
+            "source": {
+              "ref": "own_key_source"
+            },
+            "model": {
+              "ref": "modelRef"
+            },
+            "effort": {
+              "ref": "effort"
+            }
+          }
+        }
+      ]
+    },
+    "recommended_choice": {
+      "type": "object",
+      "required": {
+        "source": {
+          "const": "atum"
+        },
+        "model": {
+          "ref": "policyAlias"
+        },
+        "effort": {
+          "ref": "managed_effort"
+        }
+      }
+    },
+    "daily_cap": {
+      "type": "object",
+      "required": {
+        "dailyProtons": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "timeZone": {
+          "const": "Asia/Ho_Chi_Minh"
+        },
+        "warningPercent": {
+          "const": 80
+        },
+        "counts": {
+          "const": "atum_billed_only"
+        }
+      }
+    },
+    "daily_spend": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "day": {
+              "type": "string",
+              "min": 10,
+              "max": 10,
+              "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "normal"
+            },
+            "notice": {
+              "const": "none"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "day": {
+              "type": "string",
+              "min": 10,
+              "max": 10,
+              "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "warning"
+            },
+            "notice": {
+              "const": "eighty_percent"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "day": {
+              "type": "string",
+              "min": 10,
+              "max": 10,
+              "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "exhausted"
+            },
+            "notice": {
+              "const": "exhausted"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "directions": {
+    "owner_private": {
+      "description": "Owner-private Matrix account data, never room state.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "owner_to_platform": {
+      "description": "Authenticated owner changes only their AI settings. Owner identity is derived by the server.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "runtime_to_owner": {
+      "description": "Sanitized model/runtime offers to the authenticated owner.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "answer_to_owner": {
+      "description": "Source stamp for owner-only rooms; omitted for any non-owner human.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "platform_to_gateway": {
+      "description": "Bounded BYO descriptor; key material is decrypted only inside the gateway.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "contract_fixture": {
+      "description": "Product vocabulary mappings; they do not enable live capabilities.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "destination_owner_to_provider": {
+      "description": "The authenticated owner changes one agent destination choice or daily cap; owner and agent identities are server-derived.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "destination_provider_to_owner": {
+      "description": "Sanitized per-destination choices, recommendation, cap and spend state for the authenticated owner.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    }
+  },
+  "messages": {
+    "model.choice": {
+      "direction": "owner_private",
+      "schema": {
+        "ref": "modelChoice"
+      }
+    },
+    "agent.default": {
+      "direction": "owner_private",
+      "schema": {
+        "ref": "agentModelDefault"
+      }
+    },
+    "agent.models": {
+      "direction": "runtime_to_owner",
+      "schema": {
+        "ref": "agentModelsOffer"
+      }
+    },
+    "answer.source": {
+      "direction": "answer_to_owner",
+      "schema": {
+        "ref": "answeredWith"
+      }
+    },
+    "byo.grant": {
+      "direction": "platform_to_gateway",
+      "schema": {
+        "ref": "byoGrantDescriptor"
+      }
+    },
+    "effort.vocabulary": {
+      "direction": "contract_fixture",
+      "schema": {
+        "ref": "effortVocabulary"
+      }
+    },
+    "choice.put": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "choiceEntry"
+      }
+    },
+    "policy.map": {
+      "direction": "contract_fixture",
+      "schema": {
+        "ref": "policyMap"
+      }
+    },
+    "catalog.evidence": {
+      "direction": "contract_fixture",
+      "schema": {
+        "ref": "catalogEvidence"
+      }
+    },
+    "provider.snapshot": {
+      "direction": "runtime_to_owner",
+      "schema": {
+        "ref": "providerSnapshot"
+      }
+    },
+    "choice.write.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "choiceWrite"
+      }
+    },
+    "managed.grant": {
+      "direction": "platform_to_gateway",
+      "schema": {
+        "ref": "managedGrant"
+      }
+    },
+    "provider.error": {
+      "direction": "runtime_to_owner",
+      "schema": {
+        "ref": "providerError"
+      }
+    },
+    "destination.choice.write": {
+      "direction": "destination_owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.model-choice/1.3"
+          },
+          "requestId": {
+            "ref": "agentPrincipal"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "policyDigest": {
+            "ref": "sha256"
+          },
+          "choice": {
+            "ref": "destination_choice"
+          }
+        }
+      }
+    },
+    "daily-cap.write": {
+      "direction": "destination_owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.model-choice/1.3"
+          },
+          "requestId": {
+            "ref": "agentPrincipal"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "dailyProtons": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          }
+        }
+      }
+    },
+    "destination.snapshot": {
+      "direction": "destination_provider_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.model-choice/1.3"
+          },
+          "agentPrincipal": {
+            "ref": "agentPrincipal"
+          },
+          "revision": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "policyDigest": {
+            "ref": "sha256"
+          },
+          "recommended": {
+            "ref": "recommended_choice"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "ref": "destination_choice"
+            },
+            "min": 0,
+            "max": 65,
+            "unique": true
+          },
+          "dailyCap": {
+            "ref": "daily_cap"
+          },
+          "spend": {
+            "ref": "daily_spend"
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "exhausted-spend-reaches-cap",
+      "message": "destination.snapshot",
+      "when": {
+        "path": "spend.state",
+        "equals": "exhausted"
+      },
+      "op": "le",
+      "left": "dailyCap.dailyProtons",
+      "right": [
+        "spend.usedProtons"
+      ],
+      "required": true
+    }
+  ],
+  "state_machines": {
+    "daily_cap": {
+      "states": [
+        "available",
+        "warned",
+        "exhausted"
+      ],
+      "initial": [
+        "available"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "available",
+          "available",
+          "day_reset"
+        ],
+        [
+          "available",
+          "warned",
+          "cross_80_percent"
+        ],
+        [
+          "available",
+          "exhausted",
+          "call_finishes_past_100_percent"
+        ],
+        [
+          "warned",
+          "exhausted",
+          "call_finishes_past_100_percent"
+        ],
+        [
+          "warned",
+          "available",
+          "day_reset"
+        ],
+        [
+          "exhausted",
+          "available",
+          "day_reset"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/choice-legacy.json",
+      "message": "model.choice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-atum.json",
+      "message": "model.choice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-default-effort.json",
+      "message": "model.choice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-connection.json",
+      "message": "model.choice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-agents.json",
+      "message": "model.choice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/default-agent.json",
+      "message": "agent.default",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/default-empty.json",
+      "message": "agent.default",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/offer-mac.json",
+      "message": "agent.models",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/offer-missing-version.json",
+      "message": "agent.models",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/offer-cloud.json",
+      "message": "agent.models",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/offer-plan.json",
+      "message": "agent.models",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/offer-nonreasoning.json",
+      "message": "agent.models",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answer-own.json",
+      "message": "answer.source",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answer-atum.json",
+      "message": "answer.source",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/byo-grant.json",
+      "message": "byo.grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-put.json",
+      "message": "choice.put",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effort-vocabulary.json",
+      "message": "effort.vocabulary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-effort-unknown.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/choice-connection-missing-id.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/choice-atum-with-connection.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/choice-v2-downgrade.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/choice-agents-invalid-value.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/choice-agents-invalid-key.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/default-invalid-value.json",
+      "message": "agent.default",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-plan-cloud.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-plan-account.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-local-cloud.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-custom-cloud.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-invalid-version.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-duplicate-effort.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/offer-empty.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/byo-custom-provider.json",
+      "message": "byo.grant",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/answer-connection-name.json",
+      "message": "answer.source",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/choice-endpoint-model.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/offer-secret-accessToken.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-refresh_token.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-nestedSECRETvalue.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-my_api_key.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-proxyAuthorization.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-passwordHint.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-baseUrl.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-endpoint.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/offer-secret-url.json",
+      "message": "agent.models",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/choice-secret-root.json",
+      "message": "model.choice",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/default-secret-map.json",
+      "message": "agent.default",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/answer-secret-array.json",
+      "message": "answer.source",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/byo-secret.json",
+      "message": "byo.grant",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/policy-map.json",
+      "message": "policy.map",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/openrouter-catalog-evidence.json",
+      "message": "catalog.evidence",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/provider-default.response.json",
+      "message": "provider.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/provider-saved.response.json",
+      "message": "provider.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/provider-unavailable.response.json",
+      "message": "provider.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-write.request.json",
+      "message": "choice.write.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/choice-write-secret.request.json",
+      "message": "choice.write.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/grant-default.response.json",
+      "message": "managed.grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/grant-saved.response.json",
+      "message": "managed.grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/grant-unavailable.response.json",
+      "message": "managed.grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-invalid.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-entitlement.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-request-conflict.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-revision-conflict.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-policy-changed.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-choice-unavailable.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-unavailable.response.json",
+      "message": "provider.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effort-vocabulary-provider.json",
+      "message": "effort.vocabulary",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-cloud-atum.request.json",
+      "message": "destination.choice.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-cloud-chatgpt.request.json",
+      "message": "destination.choice.write",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/destination-cloud-own-key.request.json",
+      "message": "destination.choice.write",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/destination-mac-atum.request.json",
+      "message": "destination.choice.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-mac-atum-max.request.json",
+      "message": "destination.choice.write",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/destination-mac-atum-provider-model.request.json",
+      "message": "destination.choice.write",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/destination-mac-chatgpt.request.json",
+      "message": "destination.choice.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-mac-own-key.request.json",
+      "message": "destination.choice.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-secret.request.json",
+      "message": "destination.choice.write",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/daily-cap-default.request.json",
+      "message": "daily-cap.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/daily-cap-unlimited.request.json",
+      "message": "daily-cap.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/daily-cap-negative.request.json",
+      "message": "daily-cap.write",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/destination.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-warning.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-exhausted.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-uncapped.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/destination-exhausted-below-cap.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/destination-spend-mismatch.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/destination-duplicate.snapshot.json",
+      "message": "destination.snapshot",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/daily-cap.sequence.json",
+      "machine": "daily_cap",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/daily-cap-refuse-extra-turn.sequence.json",
+      "machine": "daily_cap",
+      "expect": "reject",
+      "violation": "transition"
+    }
+  ],
+  "row": "Reliability-first §16.4 contract 2: per-destination/source choice and daily cap (2026-10-18)",
+  "amendments": [
+    {
+      "id": "LU-R1",
+      "change": "policy 2026-10-17.1 contains Nguyệt Thực 1.3 on GPT-6 Luna and Nhật Thực 1.1 on GPT-6.1 Sol; Thái Cực has no server alias and remains a client-only disabled row"
+    },
+    {
+      "id": "MONEY",
+      "change": "Nguyệt Thực keeps its existing pin and budgets; Nhật Thực uses 120000 input and 16384 output so its worst hold stays below the unchanged 20000-Proton turn ceiling"
+    },
+    {
+      "id": "ALIAS-RETIREMENT",
+      "change": "when this policy activates, a saved choice whose alias is absent from the two-row map is atomically rewritten to the server recommendation at a higher revision and produces a visible policy-change notice; the server never emits an invalid snapshot or silently preserves a retired provider route"
+    },
+    {
+      "id": "WIRE",
+      "change": "the provider wire profile remains atum.model-choice/1.1; no route, flag, migration, dispatch alias or production value changes in this contract pack"
+    },
+    {
+      "id": "DESTINATION-SOURCE",
+      "change": "the server stores at most one choice per destination; cloud accepts only Atum, while ChatGPT-plan and own-key choices remain Mac-local and secret-free"
+    },
+    {
+      "id": "CAP-STATE",
+      "change": "daily spend state is derived from the configured cap: cap 0 is always normal, otherwise below 80 percent is normal, 80 percent through below 100 percent is warning, and at or above 100 percent is exhausted after the completed call"
+    }
+  ],
+  "parameters": {
+    "default_daily_protons": 200000,
+    "unlimited_daily_protons": 0,
+    "warning_percent": 80,
+    "day_boundary_timezone": "Asia/Ho_Chi_Minh",
+    "counted_spend": "atum_billed_only"
+  }
+}

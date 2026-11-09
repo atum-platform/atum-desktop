@@ -1,0 +1,42 @@
+{
+  "name": "approval-valid",
+  "device": {
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "accountEpoch": 7,
+    "approvalKey": {
+      "kid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ"
+    },
+    "usedNonces": [],
+    "now": 1791100804000
+  },
+  "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+  "capability": "ssh_agent",
+  "approve": {
+    "v": 1,
+    "type": "Approve",
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "accountEpoch": 7,
+      "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+      "capability": "ssh_agent",
+      "target": "ssh -T git@github.com",
+      "destination": "github.com:22",
+      "createdAt": 1791100803000,
+      "expiresAt": 1791100863000,
+      "nonce": "udYKaa4tTHqGlwD2_LUoQA"
+    },
+    "kid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+    "sig": "Rpj-BDSE17dXvpemLnMuUDobpgEG-9RdLRjk-FI_iNz1bHu9RM79bu2iRg6wdF_M8fuHnizDocU5U6KmvPk_kw"
+  },
+  "facts": {
+    "signatureValid": true,
+    "approvalHash": "dNcwp9WrwVlCzdeT4WvJLa-mg96AyJ7N53TnMJctOm0",
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "valid",
+    "approvalHash": "dNcwp9WrwVlCzdeT4WvJLa-mg96AyJ7N53TnMJctOm0"
+  }
+}

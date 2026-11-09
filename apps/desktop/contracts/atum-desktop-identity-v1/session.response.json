@@ -1,0 +1,17 @@
+{
+  "user": {
+    "id": "00000000-0000-4000-8000-11e594f48195",
+    "display_name": "Nguyễn An Anh",
+    "handle": "binh-sen-4821",
+    "avatar_url": null,
+    "handle_customized": false,
+    "next_handle_change_at": null
+  },
+  "realtime": {
+    "transport": "supabase_private_broadcast",
+    "topic": "user:00000000-0000-4000-8000-11e594f48195:messaging:v1",
+    "event": "sync_available"
+  },
+  "server_time": "2026-09-02T00:00:00.000Z",
+  "sync_cursor": null
+}

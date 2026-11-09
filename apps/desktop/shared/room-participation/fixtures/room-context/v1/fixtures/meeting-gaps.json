@@ -1,0 +1,67 @@
+{
+  "input": {
+    "roomId": "!meeting:example.invalid",
+    "viewerAgentId": "@assistant-a:example.invalid",
+    "excludeEventId": "$trigger",
+    "window": "meeting",
+    "limits": {
+      "messages": 50,
+      "chars": 12000,
+      "pages": 3,
+      "deadlineMs": 8000
+    }
+  },
+  "roomMode": "meeting",
+  "events": [
+    {
+      "eventId": "$self",
+      "senderRef": "@assistant-a:example.invalid",
+      "displayName": "Assistant A",
+      "at": 1100,
+      "verified": true,
+      "decrypted": true,
+      "msgtype": "m.text",
+      "text": "Earlier answer",
+      "trust": "self"
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "at": 1200,
+      "verified": true,
+      "decrypted": false,
+      "msgtype": "m.text",
+      "text": "Please compare the options",
+      "trust": "owner"
+    },
+    {
+      "eventId": "$answer",
+      "senderRef": "@assistant-b:example.invalid",
+      "displayName": "Assistant B",
+      "at": 1300,
+      "verified": false,
+      "decrypted": true,
+      "msgtype": "m.text",
+      "text": "Option A is smaller",
+      "trust": "own_assistant"
+    },
+    {
+      "eventId": "$trigger",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "at": 1400,
+      "verified": true,
+      "decrypted": true,
+      "msgtype": "m.text",
+      "text": "What do you think?",
+      "trust": "owner"
+    }
+  ],
+  "expected": {
+    "status": "ok",
+    "lines": [],
+    "gaps": 2,
+    "omitted": 0
+  }
+}

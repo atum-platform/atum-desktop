@@ -1,0 +1,22 @@
+{
+  "operationId": "00000000-0000-4000-8000-4a1e6678c967",
+  "correctionId": "00000000-0000-4000-8000-f0cca65fbb6d",
+  "target": {
+    "kind": "evidence",
+    "evidenceId": "70f935cc-2c2a-8913-a35a-81300d46f107"
+  },
+  "statement": "The launch is on 16 October, not 15.",
+  "statedBy": "owner",
+  "statedAt": 1790676000000,
+  "statementRef": {
+    "source": {
+      "kind": "assistant_chat",
+      "id": "!synthetic-room-0002:example.invalid"
+    },
+    "object": {
+      "kind": "message",
+      "id": "$OwnerSaysSixteenthEvt5eF6gH7iJ8kL9mN0oP1q",
+      "revision": 1
+    }
+  }
+}

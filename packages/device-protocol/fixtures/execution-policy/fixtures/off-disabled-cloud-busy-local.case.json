@@ -1,0 +1,21 @@
+{
+  "caseId": "off_disabled_cloud_busy_local",
+  "savedPolicy": true,
+  "cloudEnabled": false,
+  "liveCloudTerm": true,
+  "currentAnsweringMode": "local",
+  "cloudBusy": true,
+  "takenUnderLiveTerm": false,
+  "staleTaken": false,
+  "macTerm": true,
+  "expected": {
+    "outcome": "queue_busy",
+    "policyPresent": true,
+    "answeringMode": "local",
+    "cloudAuthority": "preserved",
+    "macAuthority": "preserved",
+    "source": "saved",
+    "revision": 2,
+    "defaultCloudFirstIsRoutingAuthority": false
+  }
+}

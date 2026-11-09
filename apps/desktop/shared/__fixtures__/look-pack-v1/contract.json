@@ -1,0 +1,43 @@
+{
+  "profile": "atum.look-pack/1",
+  "gallery_profile": "atum.look-gallery/1",
+  "room_account_data_type": "io.atum.chat.look",
+  "protocol_package": "@atum/protocol@0.7.49",
+  "limits": {
+    "published_bytes": 16384,
+    "assets": 6,
+    "vector_raw_bytes": 196608,
+    "vector_gzip_bytes": 65536,
+    "vector_path_commands": 20000,
+    "raster_bytes": 1500000,
+    "raster_side": 4096,
+    "raster_pixels": 12000000,
+    "layers": 2,
+    "gallery_items": 24
+  },
+  "refusal_reasons": [
+    "schema_invalid",
+    "code_not_allowed",
+    "asset_type",
+    "svg_unsafe",
+    "raster_invalid",
+    "contrast_ground",
+    "tone_mismatch",
+    "contrast_tokens",
+    "contrast_accent",
+    "font_unknown"
+  ],
+  "fixtures": [
+    "moon",
+    "acme",
+    "arbitrary-css",
+    "svg-script",
+    "svg-external-href",
+    "low-contrast",
+    "accent-dark-fail",
+    "oversize",
+    "unknown-region",
+    "tone-mismatch"
+  ]
+}
+

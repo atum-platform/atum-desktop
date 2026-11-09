@@ -1,0 +1,30 @@
+{
+  "name": "migration-upload-short",
+  "offer": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "archive": {
+      "v": 1,
+      "sha256": "b5d80dac9ec9eba8c89f8e2624a37691292e0a8f56221e2ecb5538a936b2bd9a",
+      "bytes": 261,
+      "files": 1
+    }
+  },
+  "chunks": [
+    {
+      "header": {
+        "migrationId": "00000000-0000-4000-8000-44875ad14494",
+        "offset": 0,
+        "size": 64
+      },
+      "bytes": "eyJmaWxlcyI6W3sia2luZCI6ImZpbGUiLCJtb2RlIjozODQsInBhdGgiOiJTT1VMLm1kIiwic2hhMjU2IjoiYQ"
+    }
+  ],
+  "facts": {
+    "receivedBytes": 64,
+    "receivedSha256": "d4ca60a746bf314eb194845f83803034619348530e2c12515bc4ead260513dd1"
+  },
+  "expect": {
+    "outcome": "refused",
+    "refusal": "size_mismatch"
+  }
+}

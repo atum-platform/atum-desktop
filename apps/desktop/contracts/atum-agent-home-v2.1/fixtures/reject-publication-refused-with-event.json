@@ -1,0 +1,20 @@
+{
+  "outboxId": "00000000-0000-4000-8000-a9703d75e616",
+  "fence": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "homeEpoch": 4,
+    "executorTerm": 12,
+    "leaseId": "00000000-0000-4000-8000-c8f367a876b2",
+    "leaseExpiresAtPlatform": 1800000060000,
+    "operation": {
+      "kind": "invocation",
+      "id": "00000000-0000-4000-8000-6cc9b1298c8f"
+    }
+  },
+  "moveSerializationRevision": 9,
+  "state": "refused",
+  "eventId": "$event:atum.example",
+  "reason": "stale_authority"
+}

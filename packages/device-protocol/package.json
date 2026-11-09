@@ -1,0 +1,16 @@
+{
+  "name": "@atum/device-protocol",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Shared canonical JSON, digests and C0 message types for the Atum device protocol (atum.device-service/1). Canonical JSON is a byte-for-byte port of the platform canonicalJson; the controller, device hub and desktop device service all import this one module.",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test"
+  }
+}

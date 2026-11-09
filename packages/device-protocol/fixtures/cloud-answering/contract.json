@@ -1,0 +1,1330 @@
+{
+  "contract_id": "atum.cloud-answering",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/agent-projection-default.entry.json",
+    "fixtures/agent-projection-no-mode.entry.json",
+    "fixtures/agent-projection.entry.json",
+    "fixtures/answering-conflict.error.json",
+    "fixtures/answering-hybrid.request.json",
+    "fixtures/answering-names-owner.request.json",
+    "fixtures/answering-needs-cloud.error.json",
+    "fixtures/answering-queue-busy.error.json",
+    "fixtures/answering-round-trip.sequence.json",
+    "fixtures/answering-starts-cloud.sequence.json",
+    "fixtures/answering-to-cloud.request.json",
+    "fixtures/answering-to-local.request.json",
+    "fixtures/answering.response.json",
+    "fixtures/digest.vectors.json",
+    "fixtures/fence-claim.denied.json",
+    "fixtures/fence-cloud-claim-passed-through.facts.json",
+    "fixtures/fence-lease-cloud.facts.json",
+    "fixtures/fence-lease-with-403.facts.json",
+    "fixtures/fence-lease.refusal.json",
+    "fixtures/fence-local-passes-through.facts.json",
+    "fixtures/fence-matrix-agent-executor-begin-cloud.facts.json",
+    "fixtures/fence-matrix-executor-begin-cloud.facts.json",
+    "fixtures/fence-matrix-invocation-cloud.facts.json",
+    "fixtures/fence-matrix-local-executor-begin-cloud.facts.json",
+    "fixtures/origin-absent.case.json",
+    "fixtures/origin-accepted-edited-content.case.json",
+    "fixtures/origin-accepted-fingerprint-mismatch.case.json",
+    "fixtures/origin-accepted-replay.case.json",
+    "fixtures/origin-accepted-skew.case.json",
+    "fixtures/origin-account-epoch-zero.assertion.json",
+    "fixtures/origin-bad-signature.case.json",
+    "fixtures/origin-binding-mismatch.case.json",
+    "fixtures/origin-clock-skew.case.json",
+    "fixtures/origin-content-edited.case.json",
+    "fixtures/origin-extra-field.assertion.json",
+    "fixtures/origin-fingerprint-mismatch.case.json",
+    "fixtures/origin-forged-by-other-key.case.json",
+    "fixtures/origin-key-mismatch.case.json",
+    "fixtures/origin-malformed.case.json",
+    "fixtures/origin-missing-sig.assertion.json",
+    "fixtures/origin-names-other-agent.case.json",
+    "fixtures/origin-names-other-owner.case.json",
+    "fixtures/origin-names-other-room.case.json",
+    "fixtures/origin-other-matrix-device.case.json",
+    "fixtures/origin-replayed-nonce.case.json",
+    "fixtures/origin-revoked-service.case.json",
+    "fixtures/origin-sender-not-owner.case.json",
+    "fixtures/origin-sender-unverified.case.json",
+    "fixtures/origin-stale-enrollment.case.json",
+    "fixtures/origin-unknown-service.case.json",
+    "fixtures/origin-verified.case.json",
+    "fixtures/origin.assertion.json",
+    "fixtures/origin.content.json"
+  ],
+  "row": "S1 C0 (one agent everywhere)",
+  "providers": [
+    "DA (WS-1): answering mode, local fences, request hash v2 at the ledger"
+  ],
+  "consumers": [
+    "Desktop (WS-3b): mode, origin signing",
+    "CX controller (WS-2, WS-3a): origin verification, digest v2"
+  ],
+  "routes": {
+    "owner": {
+      "native_base": "/api/matrix/v1",
+      "operations": {
+        "POST /agents/{agentPrincipal}/answering": [
+          "answering.request",
+          "answering.response"
+        ]
+      }
+    }
+  },
+  "local_entry_points": [
+    "atum.matrix_executor_lease",
+    "atum.matrix_invocation",
+    "atum.matrix_executor_begin",
+    "atum.matrix_agent_executor_begin",
+    "atum.matrix_local_executor_begin"
+  ],
+  "unchanged_functions": [
+    "atum_private.matrix_executor_lease_selected",
+    "atum_private.matrix_invocation_selected",
+    "atum.cloud_controller_lease",
+    "atum.cloud_controller_invocation"
+  ],
+  "origin": {
+    "matrix_content_key": "io.atum.origin",
+    "signed_bytes": "utf8(\"atum.origin.v1\\u0000\" + canonicalJson(assertion without sig))",
+    "signature": "ES256 (P-256, SHA-256), IEEE P1363 r||s, unpadded base64url, by the device service's identity key",
+    "assertion_hash": "unpadded base64url(sha256(signed bytes))"
+  },
+  "request_digest": {
+    "version": 2,
+    "input": "canonicalJson(the decrypted m.room.message content without its top-level io.atum.origin key)",
+    "dg": "unpadded base64url(sha256(input))",
+    "requestHash": "lowercase hex(sha256(input)), 64 characters",
+    "canonical_json": "packages/protocol/src/host-fs.ts canonicalJson"
+  },
+  "parameters": {
+    "origin_skew_ms": 300000,
+    "nonce_window_days": 7,
+    "request_hash_hex_length": 64
+  },
+  "migrations": {
+    "reserved": {
+      "0179": "WS-1: answering_mode column, projection field, switch function, five local wrappers (reserved as 0174 in C0; renumbered because 0174-0177 were taken by other lanes)"
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[!-9;-~]+:[!-~]+"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "key_id": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "sig64": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{86}"
+    },
+    "nonce16": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{22}"
+    },
+    "spki_p256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{122}"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9+/]{43}"
+    },
+    "boot_id": {
+      "type": "string",
+      "pattern": "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "answering_mode": {
+      "enum": [
+        "local",
+        "cloud"
+      ]
+    },
+    "origin_assertion": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "dsid": {
+          "ref": "uuid"
+        },
+        "kid": {
+          "ref": "key_id"
+        },
+        "ee": {
+          "ref": "epoch"
+        },
+        "ae": {
+          "ref": "epoch"
+        },
+        "boot": {
+          "ref": "boot_id"
+        },
+        "n": {
+          "ref": "nonce16"
+        },
+        "t": {
+          "ref": "timestamp_ms"
+        },
+        "owner": {
+          "ref": "user_id"
+        },
+        "agent": {
+          "ref": "user_id"
+        },
+        "room": {
+          "ref": "room_id"
+        },
+        "dev": {
+          "ref": "device_id"
+        },
+        "fpr": {
+          "ref": "fingerprint"
+        },
+        "dg": {
+          "ref": "b64u_sha256"
+        },
+        "sig": {
+          "ref": "sig64"
+        }
+      }
+    },
+    "lease_refusal": {
+      "type": "object",
+      "required": {
+        "held": {
+          "const": false
+        },
+        "reason": {
+          "const": "not_eligible"
+        }
+      }
+    },
+    "cloud_answering_denied": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_403"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "cloud_answering"
+            }
+          }
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "description": "The owner's native client to DA. The owner is the introspected principal.",
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "principal",
+        "payer",
+        "agentUserId",
+        "state",
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "platform_to_owner": {
+      "description": "DA to the owner's client.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "platform_to_client": {
+      "description": "DA's error envelope.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "platform_to_local": {
+      "description": "DA's answers to a local executor at the five fenced entry points.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken"
+      ]
+    },
+    "owner_device_to_controller": {
+      "description": "Inside the owner's Megolm-encrypted m.room.message content.",
+      "forbidden_fields": [
+        "accessToken",
+        "credential",
+        "token",
+        "leaseToken",
+        "privateKey"
+      ]
+    },
+    "conformance": {
+      "description": "Typed test vectors and verification cases; not wire payloads.",
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "answering.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "type": "object",
+        "required": {
+          "mode": {
+            "ref": "answering_mode"
+          },
+          "expectedMode": {
+            "ref": "answering_mode"
+          }
+        }
+      }
+    },
+    "answering.response": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "mode": {
+            "ref": "answering_mode"
+          },
+          "changedAt": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "answering.error": {
+      "direction": "platform_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "error": {
+            "enum": [
+              "matrix_400",
+              "matrix_403",
+              "matrix_404",
+              "matrix_409"
+            ]
+          }
+        },
+        "optional": {
+          "details": {
+            "type": "object",
+            "required": {
+              "reason": {
+                "enum": [
+                  "invalid",
+                  "answering_conflict",
+                  "cloud_enrollment_required",
+                  "queue_busy",
+                  "agent_inactive"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "agent_projection.entry": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "answering": {
+            "ref": "answering_mode"
+          }
+        },
+        "optional": {
+          "answeringChangedAt": {
+            "anyOf": [
+              {
+                "ref": "timestamp_ms"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additional": true
+      }
+    },
+    "local_fence.lease_refusal": {
+      "direction": "platform_to_local",
+      "schema": {
+        "ref": "lease_refusal"
+      }
+    },
+    "local_fence.denied": {
+      "direction": "platform_to_local",
+      "schema": {
+        "ref": "cloud_answering_denied"
+      }
+    },
+    "local_fence.facts": {
+      "direction": "conformance",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "entryPoint": {
+                "const": "atum.matrix_executor_lease"
+              },
+              "answeringMode": {
+                "const": "cloud"
+              },
+              "outcome": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "refused"
+                  },
+                  "response": {
+                    "ref": "lease_refusal"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "entryPoint": {
+                "enum": [
+                  "atum.matrix_invocation",
+                  "atum.matrix_executor_begin",
+                  "atum.matrix_agent_executor_begin",
+                  "atum.matrix_local_executor_begin"
+                ]
+              },
+              "answeringMode": {
+                "const": "cloud"
+              },
+              "outcome": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "refused"
+                  },
+                  "response": {
+                    "ref": "cloud_answering_denied"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "entryPoint": {
+                "enum": [
+                  "atum.matrix_executor_lease",
+                  "atum.matrix_invocation",
+                  "atum.matrix_executor_begin",
+                  "atum.matrix_agent_executor_begin",
+                  "atum.matrix_local_executor_begin"
+                ]
+              },
+              "answeringMode": {
+                "const": "local"
+              },
+              "outcome": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "inner"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "origin.assertion": {
+      "direction": "owner_device_to_controller",
+      "schema": {
+        "ref": "origin_assertion"
+      }
+    },
+    "origin.content": {
+      "direction": "owner_device_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "type": "string",
+            "min": 1,
+            "max": 64
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 65536
+          },
+          "io.atum.origin": {
+            "ref": "origin_assertion"
+          }
+        },
+        "additional": true
+      }
+    },
+    "digest.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": {
+                    "name": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 80
+                    },
+                    "version": {
+                      "const": 2
+                    },
+                    "content": {
+                      "type": "object",
+                      "additional": true
+                    },
+                    "digestInput": {
+                      "type": "string",
+                      "min": 2,
+                      "max": 70000
+                    },
+                    "dg": {
+                      "ref": "b64u_sha256"
+                    },
+                    "requestHash": {
+                      "ref": "sha256_hex"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": {
+                    "name": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 80
+                    },
+                    "version": {
+                      "const": 1
+                    },
+                    "body": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 65536
+                    },
+                    "requestHash": {
+                      "ref": "sha256_hex"
+                    }
+                  }
+                }
+              ]
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "origin.case": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "name": {
+            "type": "string",
+            "min": 1,
+            "max": 80
+          },
+          "assignment": {
+            "type": "object",
+            "required": {
+              "ownerUserId": {
+                "ref": "user_id"
+              },
+              "agentUserId": {
+                "ref": "user_id"
+              }
+            }
+          },
+          "message": {
+            "type": "object",
+            "required": {
+              "roomId": {
+                "ref": "room_id"
+              },
+              "eventId": {
+                "ref": "event_id"
+              },
+              "sender": {
+                "ref": "user_id"
+              },
+              "senderDevice": {
+                "ref": "device_id"
+              },
+              "senderVerified": {
+                "type": "boolean"
+              },
+              "senderFingerprint": {
+                "ref": "fingerprint"
+              },
+              "originServerTs": {
+                "ref": "timestamp_ms"
+              },
+              "content": {
+                "type": "object",
+                "additional": true
+              }
+            }
+          },
+          "assertion": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additional": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "registry": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "deviceServiceId": {
+                  "ref": "uuid"
+                },
+                "identityKey": {
+                  "ref": "spki_p256"
+                },
+                "identityKeyId": {
+                  "ref": "key_id"
+                },
+                "enrollmentEpoch": {
+                  "ref": "epoch"
+                },
+                "matrixDeviceId": {
+                  "ref": "device_id"
+                },
+                "matrixFingerprint": {
+                  "ref": "fingerprint"
+                },
+                "state": {
+                  "enum": [
+                    "active",
+                    "revoked"
+                  ]
+                }
+              }
+            },
+            "max": 16
+          },
+          "seenNonces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "deviceServiceId": {
+                  "ref": "uuid"
+                },
+                "n": {
+                  "ref": "nonce16"
+                },
+                "t": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            },
+            "max": 64
+          },
+          "facts": {
+            "type": "object",
+            "required": {
+              "contentDigest": {
+                "ref": "b64u_sha256"
+              },
+              "assertionHash": {
+                "anyOf": [
+                  {
+                    "ref": "b64u_sha256"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "registryMatch": {
+                "type": "boolean"
+              },
+              "signatureValid": {
+                "type": "boolean"
+              },
+              "nonceSeen": {
+                "type": "boolean"
+              },
+              "trueValue": {
+                "const": true
+              },
+              "falseValue": {
+                "const": false
+              }
+            }
+          },
+          "expect": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "device"
+                  },
+                  "deviceServiceId": {
+                    "ref": "uuid"
+                  },
+                  "assertionHash": {
+                    "ref": "b64u_sha256"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "other"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "invalid"
+                  },
+                  "reason": {
+                    "enum": [
+                      "malformed",
+                      "sender_not_owner",
+                      "sender_unverified",
+                      "wrong_owner",
+                      "wrong_agent",
+                      "wrong_room",
+                      "device_mismatch",
+                      "fingerprint_mismatch",
+                      "unknown_device_service",
+                      "key_mismatch",
+                      "stale_enrollment",
+                      "binding_mismatch",
+                      "bad_signature",
+                      "digest_mismatch",
+                      "clock_skew",
+                      "replayed"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "origin.sender_is_owner",
+      "message": "origin.case",
+      "op": "same",
+      "left": "message.sender",
+      "right": "assignment.ownerUserId",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.sender_verified",
+      "message": "origin.case",
+      "op": "same",
+      "left": "message.senderVerified",
+      "right": "facts.trueValue",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.names_owner",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.owner",
+      "right": "message.sender",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.names_agent",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.agent",
+      "right": "assignment.agentUserId",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.names_room",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.room",
+      "right": "message.roomId",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.same_matrix_device",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.dev",
+      "right": "message.senderDevice",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.same_fingerprint",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.fpr",
+      "right": "message.senderFingerprint",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.registry",
+      "message": "origin.case",
+      "op": "same",
+      "left": "facts.registryMatch",
+      "right": "facts.trueValue",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.signature",
+      "message": "origin.case",
+      "op": "same",
+      "left": "facts.signatureValid",
+      "right": "facts.trueValue",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.digest",
+      "message": "origin.case",
+      "op": "same",
+      "left": "assertion.dg",
+      "right": "facts.contentDigest",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.not_after_event",
+      "message": "origin.case",
+      "op": "le",
+      "left": "assertion.t",
+      "right": [
+        "message.originServerTs"
+      ],
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      },
+      "offset": 300000
+    },
+    {
+      "id": "origin.not_before_event",
+      "message": "origin.case",
+      "op": "le",
+      "left": "message.originServerTs",
+      "right": [
+        "assertion.t"
+      ],
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      },
+      "offset": 300000
+    },
+    {
+      "id": "origin.fresh_nonce",
+      "message": "origin.case",
+      "op": "same",
+      "left": "facts.nonceSeen",
+      "right": "facts.falseValue",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.assertion_hash",
+      "message": "origin.case",
+      "op": "same",
+      "left": "expect.assertionHash",
+      "right": "facts.assertionHash",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    },
+    {
+      "id": "origin.service",
+      "message": "origin.case",
+      "op": "same",
+      "left": "expect.deviceServiceId",
+      "right": "assertion.dsid",
+      "required": true,
+      "when": {
+        "path": "expect.kind",
+        "equals": "device"
+      }
+    }
+  ],
+  "state_machines": {
+    "answering_mode": {
+      "states": [
+        "local",
+        "cloud"
+      ],
+      "initial": [
+        "local"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "local",
+          "cloud",
+          "switch_to_cloud"
+        ],
+        [
+          "cloud",
+          "local",
+          "switch_to_local"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/answering-to-cloud.request.json",
+      "message": "answering.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-to-local.request.json",
+      "message": "answering.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering.response.json",
+      "message": "answering.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-conflict.error.json",
+      "message": "answering.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-needs-cloud.error.json",
+      "message": "answering.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-queue-busy.error.json",
+      "message": "answering.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-names-owner.request.json",
+      "message": "answering.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/answering-hybrid.request.json",
+      "message": "answering.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/agent-projection.entry.json",
+      "message": "agent_projection.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-projection-default.entry.json",
+      "message": "agent_projection.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-projection-no-mode.entry.json",
+      "message": "agent_projection.entry",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/fence-lease.refusal.json",
+      "message": "local_fence.lease_refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-claim.denied.json",
+      "message": "local_fence.denied",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-lease-cloud.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-matrix-invocation-cloud.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-matrix-executor-begin-cloud.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-matrix-agent-executor-begin-cloud.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-matrix-local-executor-begin-cloud.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-local-passes-through.facts.json",
+      "message": "local_fence.facts",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fence-cloud-claim-passed-through.facts.json",
+      "message": "local_fence.facts",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/fence-lease-with-403.facts.json",
+      "message": "local_fence.facts",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/answering-round-trip.sequence.json",
+      "machine": "answering_mode",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/answering-starts-cloud.sequence.json",
+      "machine": "answering_mode",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/origin.assertion.json",
+      "message": "origin.assertion",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin.content.json",
+      "message": "origin.content",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-missing-sig.assertion.json",
+      "message": "origin.assertion",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/origin-account-epoch-zero.assertion.json",
+      "message": "origin.assertion",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/origin-extra-field.assertion.json",
+      "message": "origin.assertion",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/digest.vectors.json",
+      "message": "digest.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-verified.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-absent.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-malformed.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-sender-not-owner.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-sender-unverified.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-names-other-owner.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-names-other-agent.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-names-other-room.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-other-matrix-device.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-fingerprint-mismatch.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-unknown-service.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-revoked-service.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-key-mismatch.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-stale-enrollment.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-binding-mismatch.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-bad-signature.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-forged-by-other-key.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-content-edited.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-clock-skew.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-replayed-nonce.case.json",
+      "message": "origin.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/origin-accepted-edited-content.case.json",
+      "message": "origin.case",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/origin-accepted-fingerprint-mismatch.case.json",
+      "message": "origin.case",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/origin-accepted-replay.case.json",
+      "message": "origin.case",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/origin-accepted-skew.case.json",
+      "message": "origin.case",
+      "expect": "reject",
+      "violation": "invariant"
+    }
+  ]
+}

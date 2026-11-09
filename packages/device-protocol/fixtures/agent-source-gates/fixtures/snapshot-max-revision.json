@@ -1,0 +1,12 @@
+{
+  "profile": "atum.agent-source-gates/1",
+  "revision": 9007199254740991,
+  "gates": {
+    "google": true,
+    "folders": true,
+    "messages": true,
+    "browser": true,
+    "location": true,
+    "team_spaces": true
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "exhausted",
+      "event": "uses_exhausted"
+    },
+    {
+      "from": "exhausted",
+      "to": "revoked",
+      "event": "revoke"
+    }
+  ]
+}

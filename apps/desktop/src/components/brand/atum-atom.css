@@ -1,0 +1,80 @@
+/** Preserve user-visible identity, state and recovery behavior across connection changes. */
+/* Layered with the components, so a call site's utilities (size-*, hidden) win. */
+@layer components {
+  .atum-atom {
+    --atum-atom-turn: 1600ms;
+    --atum-atom-rest-angle: -45deg;
+    --atum-atom-radius: 43.75%;
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
+
+  .atum-atom > * {
+    position: absolute;
+    inset: 0;
+  }
+
+  .atum-atom-orbit {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .atum-atom-orbit circle {
+    fill: none;
+    stroke: currentColor;
+    stroke-opacity: 0.55;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .atum-atom-nucleus,
+  .atum-atom-electron {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    border-radius: 50%;
+    background: currentColor;
+    translate: -50% -50%;
+  }
+
+  .atum-atom > .atum-atom-nucleus {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: 15%;
+    height: 15%;
+  }
+
+  .atum-atom-electron {
+    top: calc(50% - var(--atum-atom-radius));
+    left: 50%;
+    width: max(2.25px, 13%);
+    height: max(2.25px, 13%);
+  }
+
+  .atum-atom-track {
+    position: absolute;
+    inset: 0;
+    transform: rotate(var(--atum-atom-rest-angle));
+    animation: atum-atom-orbit var(--atum-atom-turn) linear infinite;
+  }
+
+  @keyframes atum-atom-orbit {
+    from {
+      transform: rotate(var(--atum-atom-rest-angle));
+    }
+    to {
+      transform: rotate(calc(var(--atum-atom-rest-angle) + 1turn));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .atum-atom-track {
+      animation: none !important;
+      transform: rotate(var(--atum-atom-rest-angle)) !important;
+    }
+  }
+}

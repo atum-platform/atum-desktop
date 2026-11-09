@@ -1,0 +1,13 @@
+{
+  "id": "!Qk3vLm0wXzRbT:example.invalid",
+  "label": "Linh",
+  "messages": [
+    {
+      "at": 1792000000000,
+      "from": "Linh",
+      "mine": false,
+      "kind": "text",
+      "text": "Mai họp."
+    }
+  ]
+}

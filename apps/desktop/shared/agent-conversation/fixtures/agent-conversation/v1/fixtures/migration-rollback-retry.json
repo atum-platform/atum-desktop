@@ -1,0 +1,34 @@
+{
+  "steps": [
+    {
+      "from": "unmarked",
+      "to": "prepared",
+      "event": "gates_and_preflight"
+    },
+    {
+      "from": "prepared",
+      "to": "main_written",
+      "event": "owner_main_write"
+    },
+    {
+      "from": "main_written",
+      "to": "rolling_back",
+      "event": "write_failure"
+    },
+    {
+      "from": "rolling_back",
+      "to": "rollback_pending",
+      "event": "clear_failed"
+    },
+    {
+      "from": "rollback_pending",
+      "to": "rolling_back",
+      "event": "retry_clear"
+    },
+    {
+      "from": "rolling_back",
+      "to": "rolled_back",
+      "event": "all_written_cleared"
+    }
+  ]
+}

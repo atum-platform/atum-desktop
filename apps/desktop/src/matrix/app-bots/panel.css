@@ -1,0 +1,329 @@
+/* An app's side panel: one Kit layout for every app (
+   restored 2026-11-07, ).
+
+     home   the app's identity, then its pages as one column of Kit capsules centred on the panel
+     page   Atum's bar (Back, the app, the page, Open in browser) over the app's own view
+
+   Selectors never name an app, a slug or a pack. An app's look arrives only as the custom
+   properties resolveAppPanelLook sets from its declared look pack. */
+
+.app-panel {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  /* The side panel's own card: the ground takes its corner. */
+  border-radius: var(--atum-r-panel);
+  color: var(--ak-ink);
+}
+
+.app-panel-home {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* Home: the app's identity, the way its Store sheet and start card show it. */
+.app-panel-identity {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--ak-s3);
+  padding: var(--ak-s6) var(--ak-s5) 0;
+}
+
+/* The pages fill the rest of the home. The bottom padding mirrors the identity block (its top
+   padding plus the 56px avatar), so the column centres on the panel, not on the space below the
+   identity. When the pages outgrow the panel the column's auto margins collapse and it scrolls. */
+.app-panel-pages {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding: var(--ak-s6) var(--ak-s5) calc(var(--ak-s6) + 3.5rem);
+}
+
+.app-panel-page-list {
+  display: flex;
+  width: min(100%, 18rem);
+  flex-direction: column;
+  align-self: center;
+  gap: var(--ak-s2);
+  margin-block: auto;
+}
+
+/* A page: a Kit capsule, glyph at the start and the name centred, so a column of names of any
+   length reads as one centred stack. */
+.app-panel-page {
+  display: grid;
+  width: 100%;
+  grid-template-columns: var(--ak-i-md) minmax(0, 1fr) var(--ak-i-md);
+  gap: var(--ak-s2);
+}
+
+.app-panel-page > .ak-icon {
+  width: var(--ak-i-md);
+  height: var(--ak-i-md);
+  margin: 0;
+  color: var(--ak-ink-2);
+}
+
+.app-panel-page-label {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+.app-panel-page-skeleton {
+  height: var(--ak-h-lg);
+  border-radius: var(--ak-r-full);
+}
+
+.app-panel-primary {
+  width: 100%;
+}
+
+/* A page: Atum's bar (Back, the app, the page) over the app's own view. */
+.app-panel-bar {
+  display: flex;
+  height: var(--ak-h-lg);
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--ak-s2);
+  padding: 0 var(--ak-s2) 0 var(--ak-s2);
+  border-bottom: 0.5px solid var(--ak-line);
+}
+
+.app-panel-view {
+  min-height: 0;
+  flex: 1;
+  color: var(--ak-ink);
+}
+
+/* An app tile with no icon: the accent tile is white ink on the app's colour; with no accent
+   declared it is the Kit's neutral raised squircle. */
+.app-panel [data-app-catalog-tile] {
+  color: #fff;
+}
+
+.app-panel [data-app-catalog-tile]:not([style]) {
+  background: var(--ak-raised);
+  box-shadow: var(--ak-shadow-1);
+  color: var(--ak-ink);
+}
+
+/* ---------- Host states inside an open page (app-view.tsx, panelPresentation) ---------- */
+
+/* One glyph, one line, at most one Kit capsule. */
+.app-panel-state {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ak-s3);
+  padding: var(--ak-s6);
+  color: var(--ak-ink-2);
+  font: var(--ak-t-body);
+  text-align: center;
+}
+
+.app-panel-state > p {
+  max-width: 30ch;
+  text-wrap: balance;
+}
+
+.app-panel-state > .ak-icon {
+  width: var(--ak-i-xl);
+  height: var(--ak-i-xl);
+  color: var(--ak-ink-3);
+}
+
+.app-panel-state > .ak-btn {
+  margin-top: var(--ak-s1);
+}
+
+/* Opening: the page's ground with a 2px indeterminate line. */
+.app-panel-progress {
+  height: 2px;
+  overflow: hidden;
+  background: var(--ak-fill-quiet);
+}
+
+.app-panel-progress::after {
+  content: '';
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--ak-ink-3);
+  animation: app-panel-loading 1.2s var(--ak-ease) infinite alternate;
+}
+
+@keyframes app-panel-loading {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(285%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-panel-progress::after {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* ---------- The app's look ---------- */
+
+/* On a ground the panel takes the Kit theme of the ground's tone (`.ak-dark`/`.ak-light`, set
+   in panel.tsx) and the pack's derived ink ramp, exactly as the chat card does. */
+.app-panel[data-atum-look='pack'] {
+  --ak-ink: var(--atum-ink);
+  --ak-ink-2: var(--atum-ink-muted);
+  --ak-ink-3: var(--atum-ink-faint);
+  --ak-line: color-mix(in srgb, var(--atum-ink) 14%, transparent);
+  --ak-fill-quiet: color-mix(in srgb, var(--atum-ink) 6%, transparent);
+
+  background: var(--look-base);
+}
+
+.app-panel[data-atum-look='pack']::before,
+.app-panel[data-atum-look='pack']::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.app-panel[data-atum-look='pack']::before {
+  background-image: var(--look-l1-image, none);
+  background-position: var(--look-l1-position, center);
+  background-size: var(--look-l1-size, cover);
+  background-repeat: var(--look-l1-repeat, no-repeat);
+  opacity: var(--look-l1-opacity, 0);
+}
+
+.app-panel[data-atum-look='pack']::after {
+  background-image: var(--look-l2-image, none);
+  background-position: var(--look-l2-position, center);
+  background-size: var(--look-l2-size, cover);
+  background-repeat: var(--look-l2-repeat, no-repeat);
+  opacity: var(--look-l2-opacity, 0);
+}
+
+/* The capsules are the same material as the app's bubbles: on a dark ground a translucent tint
+   of white over the art, on a light ground solid white with the Kit's first shadow, so the art
+   never runs behind a name. Content, not floating chrome, so no glass blur (STYLE §7). */
+.app-panel[data-atum-look-tone='dark'] .app-panel-page {
+  background: color-mix(in srgb, var(--look-tile, #ffffff) 12%, transparent);
+}
+
+.app-panel[data-atum-look-tone='dark'] .app-panel-page:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--look-tile, #ffffff) 18%, transparent);
+}
+
+.app-panel[data-atum-look-tone='dark'] .app-panel-page:active:not(:disabled) {
+  background: color-mix(in srgb, var(--look-tile, #ffffff) 24%, transparent);
+}
+
+.app-panel[data-atum-look-tone='light'] .app-panel-page {
+  background: var(--look-tile, #ffffff);
+  box-shadow: var(--ak-shadow-1);
+}
+
+.app-panel[data-atum-look-tone='light'] .app-panel-page:hover:not(:disabled),
+.app-panel[data-atum-look-tone='light'] .app-panel-page:active:not(:disabled) {
+  background: color-mix(in srgb, var(--look-tile, #ffffff) 94%, var(--atum-ink));
+}
+
+.app-panel[data-atum-look='pack'] .ak-skeleton {
+  background: color-mix(in srgb, var(--look-tile, var(--atum-ink)) 14%, transparent);
+}
+
+.app-panel[data-atum-look-tone='light'] .ak-skeleton {
+  background: color-mix(in srgb, var(--atum-ink) 8%, transparent);
+}
+
+/* A notice on a ground is window UI on its own glass, never ink on the art. */
+.app-panel[data-atum-look='pack'] .notice-band {
+  background: var(--ak-glass);
+  -webkit-backdrop-filter: var(--ak-blur);
+  backdrop-filter: var(--ak-blur);
+}
+
+/* The bar over an app page is the ground's own glass. */
+.app-panel[data-atum-look='pack'] .app-panel-bar {
+  background: color-mix(in srgb, var(--look-base) 72%, transparent);
+  -webkit-backdrop-filter: var(--ak-blur);
+  backdrop-filter: var(--ak-blur);
+}
+
+/* Under the bar the app's own page covers the host. Until it does (opening, a failure) the host
+   is the declared page base, else the ground's plain base colour, opaque, so its words read on it
+   rather than on the art. A page base of the other tone carries its own Kit theme (panel.tsx). */
+.app-panel[data-atum-look='pack'] [data-app-panel-view] {
+  --atum-card: var(--app-panel-page-base, var(--look-base));
+}
+
+/* The pack's one accent goes to the panel's one primary action, as it goes to the send button. */
+.app-panel[data-app-panel-accent] .app-panel-primary {
+  background: var(--look-accent);
+  color: #fff;
+}
+
+.app-panel[data-app-panel-accent] .app-panel-primary:hover {
+  background: color-mix(in srgb, var(--look-accent) 88%, #000);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-panel[data-atum-look='pack']::before,
+  .app-panel[data-atum-look='pack']::after {
+    opacity: 0 !important;
+  }
+
+  .app-panel[data-atum-look='pack'] :is(.notice-band, .app-panel-bar) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .app-panel[data-atum-look='pack']::before {
+    opacity: calc(var(--look-l1-opacity, 0) * 0.5);
+  }
+
+  .app-panel[data-atum-look='pack']::after {
+    opacity: calc(var(--look-l2-opacity, 0) * 0.5);
+  }
+}
+
+@media (forced-colors: active) {
+  .app-panel[data-atum-look] {
+    background: Canvas !important;
+    color: CanvasText !important;
+  }
+
+  .app-panel[data-atum-look]::before,
+  .app-panel[data-atum-look]::after {
+    display: none;
+  }
+
+  .app-panel-page {
+    border: 1px solid ButtonText;
+  }
+
+  .app-panel[data-app-panel-accent] .app-panel-primary {
+    background: ButtonFace;
+    color: ButtonText;
+  }
+}

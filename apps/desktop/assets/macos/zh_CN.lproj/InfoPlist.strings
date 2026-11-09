@@ -1,0 +1,19 @@
+/* Why macOS asks, in this language (scripts/matrix-usage-descriptions.mjs is the source). */
+"NSMicrophoneUsageDescription" = "让你可以用语音和助手对话。";
+"NSAudioCaptureUsageDescription" = "仅在你请助手录制 Mac 上正在播放的声音时使用。";
+"NSCameraUsageDescription" = "仅在你请助手用相机拍照或录像时使用。";
+"NSBluetoothAlwaysUsageDescription" = "仅在你请助手使用蓝牙设备时使用。";
+"NSBluetoothPeripheralUsageDescription" = "仅在你请助手使用蓝牙设备时使用。";
+"NSAppleEventsUsageDescription" = "让助手在你需要时，在你选择的应用（如 Word 或备忘录）中工作。";
+"NSDesktopFolderUsageDescription" = "让助手在你需要时查找并处理桌面上的文件。";
+"NSDocumentsFolderUsageDescription" = "让助手在你需要时查找并处理你的文稿。";
+"NSDownloadsFolderUsageDescription" = "让助手在你需要时查找并处理你下载的文件。";
+"NSRemovableVolumesUsageDescription" = "让助手在你需要时处理 U 盘或存储卡上的文件。";
+"NSNetworkVolumesUsageDescription" = "让助手在你需要时处理网络磁盘上的文件。";
+"NSCalendarsUsageDescription" = "让助手在你需要时查看日历并添加或修改日程。";
+"NSCalendarsFullAccessUsageDescription" = "让助手在你需要时查看日历并添加或修改日程。";
+"NSRemindersUsageDescription" = "让助手在你需要时查看、添加和完成提醒事项。";
+"NSRemindersFullAccessUsageDescription" = "让助手在你需要时查看、添加和完成提醒事项。";
+"NSContactsUsageDescription" = "让助手在你需要时从通讯录中查找联系人，例如给对方发消息或邮件。";
+"NSPhotoLibraryUsageDescription" = "让助手在你需要时查找并使用照片图库中的照片。";
+"NSLocalNetworkUsageDescription" = "让助手在你需要时连接你网络中的设备，例如打印机或另一台电脑。";

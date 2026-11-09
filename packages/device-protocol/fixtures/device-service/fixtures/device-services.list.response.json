@@ -1,0 +1,56 @@
+{
+  "deviceServices": [
+    {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "identityKeyId": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+      "approvalKeyId": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+      "matrix": {
+        "deviceId": "MACBOOKQ7ZK",
+        "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+      },
+      "enrollmentEpoch": 3,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "pinnedControllerKeys": [
+        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      ],
+      "state": "active",
+      "revokeSeq": 4,
+      "createdAt": 1790236800000,
+      "rotatedAt": 1791014400000,
+      "revokedAt": null
+    },
+    {
+      "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+      "displayName": "Mac mini",
+      "platform": "macos",
+      "identityKeyId": "PIL-JVpVkgdjfjqD0AiDtRqUu2c2Jy-omxRCo4Hsie4",
+      "approvalKeyId": "s-swAWXVNcE-zbcQGZYZk4X7dQPE8UmIAU6z2bEUe7o",
+      "matrix": {
+        "deviceId": "MINIR8XLWP",
+        "fingerprint": "41W57vigScETydWqv95CQJ54SMugzyYelYQOwFMjwTg"
+      },
+      "enrollmentEpoch": 1,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "pinnedControllerKeys": [
+        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      ],
+      "state": "active",
+      "revokeSeq": 0,
+      "createdAt": 1790236800000,
+      "rotatedAt": null,
+      "revokedAt": null
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "packs": [
+    {
+      "contract_id": "atum.agent-conversation",
+      "version": 1,
+      "path": "fixtures/agent-conversation/v1",
+      "source": "atum-platform/atum-platform:spec/agent-conversation/v1",
+      "sha256": "7480613655e28360b6fba428e8306084d9b627bd27c5e0feebf65560d4a1455e",
+      "source_commit": "d76462400953226de0873146be4a61fd731419ea",
+      "status": "merged"
+    },
+    {
+      "contract_id": "atum.agent-conversation",
+      "version": "1.1",
+      "path": "fixtures/agent-conversation/v1.1",
+      "source": "atum-platform/atum-platform:spec/agent-conversation/v1.1",
+      "sha256": "4812d1f626a1e35ca31f5979dfe3d8de73e98f25591f17342c52e11ad6e8d025",
+      "source_commit": "fa243ae2293053f56138e22aa7998f3871f1d0ed",
+      "status": "unmerged"
+    }
+  ]
+}

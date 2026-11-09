@@ -1,0 +1,30 @@
+{
+  "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+  "state": "dispatched",
+  "expiresAt": 1791108000000,
+  "grants": {
+    "model": {
+      "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "expiresAt": 1791108000000,
+      "aliases": [
+        "google-protected"
+      ],
+      "alias": "google-protected",
+      "model": "google-protected",
+      "googlePolicy": "limited_use_v1",
+      "latchState": "eligible",
+      "contextBudget": 1032192,
+      "outputBudget": 16384,
+      "maxTurnMicroProtons": 17040015360,
+      "ceilingMicroProtons": 20000000000,
+      "funding": "trial"
+    }
+  },
+  "budget": {
+    "reservationId": "00000000-0000-4000-8000-c4d7987c8062",
+    "funding": "trial",
+    "ceilingMicroProtons": 20000000000,
+    "computeSeconds": 7200,
+    "firstAdmission": false
+  }
+}

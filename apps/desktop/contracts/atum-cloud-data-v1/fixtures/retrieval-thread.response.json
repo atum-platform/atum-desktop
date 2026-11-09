@@ -1,0 +1,27 @@
+{
+  "contract": "atum.cloud-data/1",
+  "bundle_id": "00000000-0000-4000-8000-6964221939c9",
+  "agent_class": "conversation",
+  "scope": {"kind": "p2p_thread", "id": "00000000-0000-4000-8000-95eb2692c90e"},
+  "source_watermark": 1043,
+  "items": [
+    {
+      "item_id": "00000000-0000-4000-8000-d4312aa5d4eb",
+      "content": "The corrected meeting time is 15:00.",
+      "source": {
+        "record_id": "00000000-0000-4000-8000-576f18824476",
+        "record_kind": "message",
+        "revision": 2,
+        "generation": 2,
+        "lifecycle": "active",
+        "occurred_at": "2026-08-30T12:00:00Z"
+      },
+      "provenance": {"source_kind": "message", "recorded_at": "2026-08-30T12:00:01Z"},
+      "untrusted_input": true
+    }
+  ],
+  "content_utf8_bytes": 36,
+  "truncated": false,
+  "fresh": true,
+  "created_at": "2026-08-30T12:02:00Z"
+}

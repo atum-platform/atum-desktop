@@ -1,0 +1,45 @@
+{
+  "request": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "binding": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "computerId": "00000000-0000-4000-8000-b454f82c5857",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "diskId": "00000000-0000-4000-8000-f6222a1106ee"
+    },
+    "migrationId": "00000000-0000-4000-8000-303617b97302",
+    "importKey": "rHvqgxZsjDJjiqwkgEifmJZQhJakht6bvkmnXFSJ0Po",
+    "source": {
+      "kind": "agent_commit_v1",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389",
+      "homeIdentity": "00000000-0000-4000-8000-6cc9b1298c8f",
+      "generation": 12,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "format": 1
+    },
+    "targetGeneration": 20,
+    "minimumCompatibleExecutor": "2.0.0"
+  },
+  "prior": {
+    "importKey": "rHvqgxZsjDJjiqwkgEifmJZQhJakht6bvkmnXFSJ0Po",
+    "generation": 20,
+    "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "nullValue": null,
+  "expect": {
+    "outcome": "refused",
+    "generation": null,
+    "reason": "key_mismatch"
+  }
+}

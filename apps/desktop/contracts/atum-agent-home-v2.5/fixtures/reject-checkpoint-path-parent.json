@@ -1,0 +1,35 @@
+{
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "generation": 13,
+  "parentGeneration": 12,
+  "producingHomeEpoch": 4,
+  "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "entries": [
+    {
+      "category": "memory",
+      "path": "memory/../state.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 1,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    }
+  ],
+  "contentPolicy": {
+    "memory": "included",
+    "skills": "included",
+    "nonSecretConfig": "included",
+    "routineDefinitions": "included",
+    "portableAppData": "included",
+    "sessionHistoryStateDb": "excluded",
+    "packages": "excluded",
+    "browserSessions": "excluded",
+    "machineWorkspace": "excluded",
+    "credentials": "excluded_all"
+  },
+  "encryption": {
+    "encrypted": true,
+    "keyScope": "owner_agent_home",
+    "credentialMaterialIncluded": false
+  }
+}

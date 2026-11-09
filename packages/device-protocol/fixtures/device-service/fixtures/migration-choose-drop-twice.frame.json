@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "type": "MigrationChoose",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "reportSha256": "cc4abc25953d9f570eb3940c56b42b2842da920df1ed42546626a0a72b2ead1c",
+    "drop": [
+      "skills/receipts",
+      "skills/receipts"
+    ],
+    "takeOther": [
+      "SOUL.md"
+    ],
+    "decidedAt": 1791101160000
+  },
+  "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+  "sig": "Q8Cz6H2k1JADy1uTYCGAOBGENoRZs01jNZi3GqPa5hcUrRrwHxdu8EoOGdiP7beQl3Sr8zBayyye1D5O9wuiGg"
+}

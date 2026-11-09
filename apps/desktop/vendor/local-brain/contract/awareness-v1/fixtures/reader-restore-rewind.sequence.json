@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {"from": "checkpointed", "to": "rewound", "event": "processed_through_restore_gap"},
+    {"from": "rewound", "to": "awaiting_receipt", "event": "resend_backfill_revision"},
+    {"from": "awaiting_receipt", "to": "receipt_recorded", "event": "accepted_receipt"},
+    {"from": "receipt_recorded", "to": "checkpointed", "event": "commit_checkpoint"}
+  ]
+}

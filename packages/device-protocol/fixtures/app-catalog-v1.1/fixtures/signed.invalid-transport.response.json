@@ -1,0 +1,15 @@
+{
+  "profile": "atum.app-catalog/1",
+  "apps": [
+    {
+      "app": "moon",
+      "app_id": "00000000-0000-4000-8000-e79acd97ac88",
+      "bot": {
+        "v": 1,
+        "user_id": "@app-moon:atumplatform.com",
+        "handle": "moon_bot",
+        "transport_mode": "future_transport"
+      }
+    }
+  ]
+}

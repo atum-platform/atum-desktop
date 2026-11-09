@@ -1,0 +1,27 @@
+{
+  "message": "owner.home.move.request",
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "owner_client",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "surface": "desktop",
+    "authenticatedChannel": "desktop"
+  },
+  "authenticated": {
+    "ownerUserId": "@owner:atum.example",
+    "surface": "desktop",
+    "nowPlatform": 1800000000000
+  },
+  "resolvedKey": {
+    "state": "active",
+    "ownerUserId": "@owner:atum.example",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "signatureValid": false
+  }
+}

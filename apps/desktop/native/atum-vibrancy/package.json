@@ -1,0 +1,7 @@
+{
+  "name": "atum-vibrancy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Panel-local and seam-masked native glass bridge for the Atum floating-glass material: runtime-detected NSGlassEffectView (Liquid Glass, macOS 26+) with an NSVisualEffectView fallback (macOS only).",
+  "main": "build/Release/atum_vibrancy.node"
+}

@@ -1,0 +1,178 @@
+{
+  "contract_id": "atum.cloud-data",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/app-history-forged-authority.request.json",
+    "fixtures/app-history-ingest.request.json",
+    "fixtures/app-history-ingest.response.json",
+    "fixtures/app-history-sync.response.json",
+    "fixtures/derived-invalidation-sync.response.json",
+    "fixtures/p2p-sync.response.json",
+    "fixtures/retrieval-forged-authority.request.json",
+    "fixtures/retrieval-invalidated-source.response.json",
+    "fixtures/retrieval-thread.request.json",
+    "fixtures/retrieval-thread.response.json",
+    "fixtures/sync-cursor-expired.response.json",
+    "validate.mjs",
+    "validate.py"
+  ],
+  "amends": [
+    "atum.local-macos.hosted-messaging/1",
+    "atum.local-macos-messaging/2",
+    "atum.artifact/1"
+  ],
+  "authority": {
+    "authenticated_subject": "derived_from_verified_bearer",
+    "authorization": "server_intersection_with_live_s2_grants",
+    "raw_record": "exactly_one_canonical_source",
+    "stored_content": "untrusted_model_input",
+    "realtime": "latency_hint_only",
+    "backfill": "authoritative"
+  },
+  "server_owned_fields": [
+    "account_id",
+    "actor_id",
+    "app_id",
+    "change_id",
+    "created_at",
+    "generation",
+    "lifecycle",
+    "occurred_at",
+    "owner_id",
+    "provenance",
+    "recorded_at",
+    "revision",
+    "scope",
+    "status",
+    "storage_bucket",
+    "storage_path",
+    "updated_at",
+    "verified"
+  ],
+  "scope_kinds": ["personal", "p2p_thread", "app_thread"],
+  "record_kinds": ["message", "app_event", "artifact", "memory_fact"],
+  "change_operations": ["upsert", "tombstone", "invalidate"],
+  "artifact_copy_modes": ["atum_copy", "external_only", "metadata_only"],
+  "lifecycle_states": ["active", "superseded", "deleted", "invalidated"],
+  "sync": {
+    "cursor": "opaque_user_bound_server_token",
+    "ordering": "monotonic_change_id",
+    "change_id_type": "json_integer",
+    "dedupe_key": ["change_id"],
+    "reset": "explicit_sync_cursor_expired",
+    "reset_error_code": "SYNC_CURSOR_EXPIRED",
+    "error_codes": [
+      "SYNC_CURSOR_EXPIRED",
+      "SYNC_SCOPE_DENIED",
+      "SYNC_BACKFILL_REQUIRED",
+      "INVALID_REQUEST"
+    ],
+    "tombstone_allowed_fields": [
+      "record_id",
+      "record_kind",
+      "scope",
+      "generation",
+      "lifecycle"
+    ],
+    "invalidation_allowed_fields": [
+      "record_id",
+      "record_kind",
+      "scope",
+      "generation",
+      "lifecycle",
+      "reason"
+    ],
+    "memory_fact_operations": ["tombstone", "invalidate"],
+    "tombstones_required": true
+  },
+  "app_history_ingest": {
+    "allowed_request_fields": [
+      "contract",
+      "event_id",
+      "event_type",
+      "provider_thread_ref",
+      "payload",
+      "artifacts",
+      "idempotency_key"
+    ],
+    "artifact_allowed_request_fields": [
+      "resource_id",
+      "title",
+      "type",
+      "requested_copy_mode"
+    ],
+    "server_derived": [
+      "account_id",
+      "app_id",
+      "scope",
+      "provenance",
+      "recorded_at",
+      "revision",
+      "generation",
+      "lifecycle",
+      "storage_bucket",
+      "storage_path"
+    ],
+    "acknowledgement": {
+      "copy_mode_may_downgrade": true,
+      "allowed_copy_modes": ["atum_copy", "external_only", "metadata_only"],
+      "durable_before_ack": true
+    }
+  },
+  "retrieval": {
+    "one_scope_per_request": true,
+    "allowed_request_fields": [
+      "contract",
+      "agent_class",
+      "scope",
+      "purpose",
+      "max_items",
+      "max_content_utf8_bytes"
+    ],
+    "max_items": 50,
+    "max_content_utf8_bytes": 65536,
+    "max_sources_per_derived_item": 16,
+    "continuation": "none_in_v1",
+    "fresh_false_semantics": "entire_bundle_unusable",
+    "forbidden_request_fields": [
+      "account_id",
+      "actor_id",
+      "app_id",
+      "capability",
+      "grant",
+      "owner_id",
+      "provenance",
+      "storage_path",
+      "system_instruction",
+      "tool_authority",
+      "user_id"
+    ],
+    "excluded_lifecycle_states": ["superseded", "deleted", "invalidated"],
+    "error_codes": [
+      "MEMORY_PROVENANCE_MISSING",
+      "MEMORY_SCOPE_DENIED",
+      "CLOUD_HISTORY_UNAVAILABLE",
+      "INVALID_REQUEST"
+    ]
+  },
+  "fixtures": {
+    "positive": [
+      "fixtures/p2p-sync.response.json",
+      "fixtures/app-history-sync.response.json",
+      "fixtures/derived-invalidation-sync.response.json",
+      "fixtures/sync-cursor-expired.response.json",
+      "fixtures/app-history-ingest.request.json",
+      "fixtures/app-history-ingest.response.json",
+      "fixtures/retrieval-thread.request.json",
+      "fixtures/retrieval-thread.response.json"
+    ],
+    "adversarial": [
+      "fixtures/app-history-forged-authority.request.json",
+      "fixtures/retrieval-forged-authority.request.json",
+      "fixtures/retrieval-invalidated-source.response.json"
+    ]
+  }
+}

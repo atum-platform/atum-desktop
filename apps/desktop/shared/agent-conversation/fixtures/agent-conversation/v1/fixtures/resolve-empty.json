@@ -1,0 +1,11 @@
+{
+  "input": {
+    "rooms": []
+  },
+  "expected": {
+    "earlier": [],
+    "stray": [],
+    "unreachable": [],
+    "source": "legacy"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "operation": "dispatch",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+  "activity": {
+    "lastOwnerEvent": null,
+    "lastDialogueAt": 1793010000000,
+    "busy": false,
+    "pendingWork": false,
+    "pendingApproval": false,
+    "typing": false
+  }
+}

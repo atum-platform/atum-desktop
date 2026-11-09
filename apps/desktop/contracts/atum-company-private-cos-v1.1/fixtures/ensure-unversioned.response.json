@@ -1,0 +1,10 @@
+{
+  "state": "preparing",
+  "pair": {
+    "companyPrincipal": "00000000-0000-4000-8000-540eb3b6436f",
+    "memberPrincipal": "00000000-0000-4000-8000-7b0cac15d6b0",
+    "membershipIncarnation": "00000000-0000-4000-8000-ed2914fe0e5a"
+  },
+  "greetingState": "pending",
+  "operationId": "00000000-0000-4000-8000-ea3f14245121"
+}

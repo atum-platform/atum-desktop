@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "collecting",
+      "to": "abandoned",
+      "event": "cancelled"
+    }
+  ]
+}

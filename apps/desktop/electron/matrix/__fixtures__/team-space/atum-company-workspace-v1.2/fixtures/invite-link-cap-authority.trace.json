@@ -1,0 +1,34 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "Authorization is checked before the live-link cap and the rate limit: a plain member at the 20-live-link cap is denied with 403 and never learns the cap was reached; an active admin at the same cap is limited with 409 invite_link_limit_reached.",
+  "steps": [
+    {
+      "do": "live_links",
+      "count": 20
+    },
+    {
+      "do": "role",
+      "person": "minh",
+      "role": "member"
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c2",
+      "admin": "linh",
+      "expect": {
+        "result": "limited"
+      }
+    }
+  ]
+}

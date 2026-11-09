@@ -1,0 +1,19 @@
+/* Why macOS asks, in this language (scripts/matrix-usage-descriptions.mjs is the source). */
+"NSMicrophoneUsageDescription" = "讓你可以用語音和助理對話。";
+"NSAudioCaptureUsageDescription" = "僅在你請助理錄製 Mac 上正在播放的聲音時使用。";
+"NSCameraUsageDescription" = "僅在你請助理用相機拍照或錄影時使用。";
+"NSBluetoothAlwaysUsageDescription" = "僅在你請助理使用藍牙裝置時使用。";
+"NSBluetoothPeripheralUsageDescription" = "僅在你請助理使用藍牙裝置時使用。";
+"NSAppleEventsUsageDescription" = "讓助理在你需要時，在你選擇的 App（如 Word 或備忘錄）中工作。";
+"NSDesktopFolderUsageDescription" = "讓助理在你需要時尋找並處理桌面上的檔案。";
+"NSDocumentsFolderUsageDescription" = "讓助理在你需要時尋找並處理你的文件。";
+"NSDownloadsFolderUsageDescription" = "讓助理在你需要時尋找並處理你下載的檔案。";
+"NSRemovableVolumesUsageDescription" = "讓助理在你需要時處理隨身碟或記憶卡上的檔案。";
+"NSNetworkVolumesUsageDescription" = "讓助理在你需要時處理網路磁碟上的檔案。";
+"NSCalendarsUsageDescription" = "讓助理在你需要時查看行事曆並新增或修改活動。";
+"NSCalendarsFullAccessUsageDescription" = "讓助理在你需要時查看行事曆並新增或修改活動。";
+"NSRemindersUsageDescription" = "讓助理在你需要時查看、新增和完成提醒事項。";
+"NSRemindersFullAccessUsageDescription" = "讓助理在你需要時查看、新增和完成提醒事項。";
+"NSContactsUsageDescription" = "讓助理在你需要時從聯絡人中查找對象，例如傳訊息或寄電子郵件給對方。";
+"NSPhotoLibraryUsageDescription" = "讓助理在你需要時查找並使用照片圖庫中的照片。";
+"NSLocalNetworkUsageDescription" = "讓助理在你需要時連線到你網路中的裝置，例如印表機或另一台電腦。";

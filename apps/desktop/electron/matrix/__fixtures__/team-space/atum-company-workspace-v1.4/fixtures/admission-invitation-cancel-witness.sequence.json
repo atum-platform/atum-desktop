@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "invited",
+      "event": "private_invite"
+    },
+    {
+      "from": "invited",
+      "to": "revoking",
+      "event": "cancel"
+    },
+    {
+      "from": "revoking",
+      "to": "none",
+      "event": "witness_withdrawal"
+    }
+  ]
+}

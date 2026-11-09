@@ -1,0 +1,14 @@
+# Atum has one human maintainer. Ownership requests do not require self-approval.
+/.github/ @minhnkn22
+/LICENSE @minhnkn22
+/NOTICE @minhnkn22
+/LICENSES/ @minhnkn22
+/contracts/ @minhnkn22
+/design/ @minhnkn22
+/packages/atum-contracts/ @minhnkn22
+/packages/mobile-design-exports/ @minhnkn22
+/packages/atum-kit/ @minhnkn22
+/apps/desktop/contracts/ @minhnkn22
+/apps/desktop/shared/ @minhnkn22
+/ios/Vendor/AtumDesign/ @minhnkn22
+/atum-design.lock @minhnkn22

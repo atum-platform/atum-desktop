@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "delivery_pending",
+      "to": "granted",
+      "event": "delivery_granted"
+    },
+    {
+      "from": "granted",
+      "to": "completed",
+      "event": "settled"
+    },
+    {
+      "from": "completed",
+      "to": "delivery_pending",
+      "event": "retry"
+    }
+  ]
+}

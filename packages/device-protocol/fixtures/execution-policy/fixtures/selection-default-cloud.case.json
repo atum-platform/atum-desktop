@@ -1,0 +1,42 @@
+{
+  "caseId": "default_cloud_first",
+  "policy": {
+    "profile": "atum.execution-policy/1",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "revision": 0,
+    "source": "default",
+    "order": [
+      "cloud",
+      "mac:00000000-0000-4000-8000-b454f82c5857",
+      "mac:00000000-0000-4000-8000-f6222a1106ee"
+    ],
+    "disabled": []
+  },
+  "inventory": {
+    "cloud": {
+      "authority": "valid",
+      "eligible": true,
+      "stable": true,
+      "activity": "idle"
+    },
+    "mac:00000000-0000-4000-8000-b454f82c5857": {
+      "authority": "valid",
+      "eligible": true,
+      "stable": true,
+      "activity": "idle"
+    },
+    "mac:00000000-0000-4000-8000-f6222a1106ee": {
+      "authority": "valid",
+      "eligible": false,
+      "stable": false,
+      "activity": "idle"
+    }
+  },
+  "current": null,
+  "activeTurn": false,
+  "expected": {
+    "action": "acquire",
+    "desired": "cloud",
+    "reason": "policy_first"
+  }
+}

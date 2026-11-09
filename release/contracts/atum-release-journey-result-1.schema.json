@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-journey-result-1.schema.json",
+  "title": "Atum release journey result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "candidate_id", "source_head_sha", "artifact_sha256", "journey_id", "fixture_id", "os", "os_version", "arch", "started_at", "completed_at", "valid_until", "duration_ms", "result", "steps", "owner_on_failure", "redaction_check", "evidence_ref"],
+  "properties": {
+    "schema": {"const": "atum-release-journey-result/1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "source_head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "journey_id": {"type": "string", "minLength": 1},
+    "fixture_id": {"type": "string", "minLength": 1},
+    "os": {"enum": ["macos", "windows", "linux"]},
+    "os_version": {"type": "string", "minLength": 1},
+    "arch": {"enum": ["arm64", "x64"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "valid_until": {"type": "string", "format": "date-time"},
+    "duration_ms": {"type": "integer", "minimum": 1},
+    "result": {"enum": ["pass", "fail", "blocked", "cancelled", "skipped"]},
+    "steps": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["id", "result", "problem_code", "evidence"], "properties": {"id": {"type": "string", "minLength": 1}, "result": {"enum": ["pass", "fail", "blocked"]}, "problem_code": {"type": ["string", "null"]}, "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}}}}},
+    "owner_on_failure": {"type": "string", "pattern": "^S[0-8]$"},
+    "redaction_check": {"type": "object", "additionalProperties": false, "required": ["verifier", "corpus_result_ref", "result"], "properties": {"verifier": {"type": "string", "minLength": 1}, "corpus_result_ref": {"type": "string", "minLength": 1}, "result": {"const": "pass"}}},
+    "evidence_ref": {"type": "string", "minLength": 1}
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "vectors": [
+    {
+      "material": "provider_key",
+      "atRest": "shell_sealed_or_digest",
+      "renderer": "absent",
+      "sandbox": "absent",
+      "logs": "absent",
+      "errors": "absent",
+      "controller": "absent",
+      "protons": 0,
+      "fallback": "atum_billing"
+    }
+  ]
+}

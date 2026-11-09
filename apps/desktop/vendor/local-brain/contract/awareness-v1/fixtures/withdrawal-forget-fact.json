@@ -1,0 +1,10 @@
+{
+  "operationId": "00000000-0000-4000-8000-2eef5bbc7d0f",
+  "withdrawalId": "00000000-0000-4000-8000-072ff481df71",
+  "scope": {
+    "kind": "fact",
+    "evidenceId": "70f935cc-2c2a-8913-a35a-81300d46f107"
+  },
+  "reason": "forget",
+  "requestedAt": 1790672400000
+}

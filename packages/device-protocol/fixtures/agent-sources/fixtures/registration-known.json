@@ -1,0 +1,32 @@
+{
+  "profile": "atum.agent-sources/1",
+  "integrationRef": "builtin.google",
+  "integrationRevision": 3,
+  "sources": [
+    {
+      "id": "google_drive",
+      "kind": "google.drive",
+      "connectionRef": "google_connection_owner_01",
+      "optOutGate": "google",
+      "revision": 3,
+      "scopeRef": "google_account_01",
+      "readCapabilities": [
+        {
+          "operationRef": "google.search_drive",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "google.search_drive",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [
+        "google-derived"
+      ],
+      "policyTags": [
+        "google-limited-use-v1",
+        "owner-only"
+      ]
+    }
+  ]
+}

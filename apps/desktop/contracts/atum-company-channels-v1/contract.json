@@ -1,0 +1,178 @@
+{
+  "contract_id": "atum.company-channels",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/channel-create-client-authority.request.json",
+    "fixtures/channel-create.request.json",
+    "fixtures/channel-room.pending.json",
+    "fixtures/channel-room.ready-null.json",
+    "fixtures/channel-room.ready.json",
+    "fixtures/channel-room.request.json",
+    "fixtures/channel.directory.json",
+    "fixtures/channel.sequence.json",
+    "fixtures/channel.snapshot.json",
+    "fixtures/room-create.json",
+    "fixtures/room.sequence.json"
+  ],
+  "row": "Team Space T0/T1 channel authority",
+  "providers": ["Atum platform company authority and operated Matrix room manager"],
+  "consumers": ["Atum desktop Team Space", "Atum cloud services controller"],
+  "supersedes": {
+    "product": "atum.team-space/1 where it binds collaboration to one encrypted project room",
+    "room": "atum.company-rooms/2 for new plain company channels"
+  },
+  "types": {
+    "uuid": {"type":"string","min":36,"max":36,"pattern":"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"},
+    "room_id": {"type":"string","min":4,"max":512,"pattern":"![!-9;-~]{1,255}:[!-~]{1,255}"},
+    "user_id": {"type":"string","min":4,"max":512,"pattern":"@[!-9;-~]{1,255}:[!-~]{1,255}"},
+    "display_name": {"type":"string","min":1,"max":80},
+    "generation": {"type":"integer","min":1,"max":9007199254740991},
+    "channel": {
+      "type":"object",
+      "required": {
+        "id":{"ref":"uuid"},
+        "companyId":{"ref":"uuid"},
+        "displayName":{"ref":"display_name"},
+        "visibility":{"const":"company"},
+        "state":{"enum":["provisioning","active","archived"]},
+        "projectId":{"anyOf":[{"ref":"uuid"},{"const":null}]},
+        "authorityGeneration":{"ref":"generation"},
+        "channelGeneration":{"ref":"generation"}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "room_pending": {
+      "type":"object",
+      "required": {
+        "state":{"enum":["not_provisioned","provisioning","reconciling","failed"]},
+        "roomId":{"const":null}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "room_ready": {
+      "type":"object",
+      "required": {"state":{"const":"ready"},"roomId":{"ref":"room_id"}},
+      "optional": {},
+      "additional": false
+    },
+    "room_projection": {"anyOf":[{"ref":"room_pending"},{"ref":"room_ready"}]},
+    "channel_snapshot": {
+      "type":"object",
+      "required": {
+        "schemaVersion":{"const":1},
+        "channel":{"ref":"channel"},
+        "memberPrincipals":{"type":"array","items":{"ref":"uuid"},"min":1,"max":100,"unique":true},
+        "room":{"ref":"room_projection"}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "channel_directory": {
+      "type":"object",
+      "required": {
+        "schemaVersion":{"const":1},
+        "channels":{"type":"array","items":{"ref":"channel_snapshot"},"min":0,"max":100,"unique":true}
+      },
+      "optional": {},
+      "additional": false
+    },
+    "channel_create_request": {
+      "type":"object",
+      "required": {"requestId":{"ref":"uuid"},"displayName":{"ref":"display_name"}},
+      "optional": {"projectId":{"ref":"uuid"}},
+      "additional": false
+    },
+    "channel_room_request": {
+      "type":"object",
+      "required": {"companyId":{"ref":"uuid"},"channelId":{"ref":"uuid"}},
+      "optional": {},
+      "additional": false
+    },
+    "room_create": {
+      "type":"object",
+      "required": {
+        "schemaVersion":{"const":1},
+        "roomVersion":{"const":"11"},
+        "type":{"const":"io.atum.company_channel.v1"},
+        "companyId":{"ref":"uuid"},
+        "channelId":{"ref":"uuid"},
+        "managerUserId":{"ref":"user_id"},
+        "plain":{"const":true},
+        "historyVisibility":{"const":"shared"},
+        "inviteOnly":{"const":true},
+        "guestsAllowed":{"const":false},
+        "managerPower":{"const":100},
+        "memberPower":{"const":0}
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "native_to_platform": {
+      "from":"authenticated native client",
+      "to":"Atum platform",
+      "forbidden_fields":["actor","actorId","controller","manager*","roomId","*Generation","payer","agent*"]
+    },
+    "platform_to_native": {
+      "from":"Atum platform",
+      "to":"authenticated native client",
+      "forbidden_fields":["controller","managerMasUser","leaseToken","accessToken","credential","sessionId"]
+    },
+    "manager_to_matrix": {
+      "from":"fenced room manager",
+      "to":"Matrix homeserver",
+      "forbidden_fields":["leaseToken","accessToken","credential","payer","model","tool","transcript"]
+    }
+  },
+  "messages": {
+    "channel-create.request":{"direction":"native_to_platform","schema":{"ref":"channel_create_request"}},
+    "channel-directory.response":{"direction":"platform_to_native","schema":{"ref":"channel_directory"}},
+    "channel.snapshot":{"direction":"platform_to_native","schema":{"ref":"channel_snapshot"}},
+    "channel-room.request":{"direction":"native_to_platform","schema":{"ref":"channel_room_request"}},
+    "channel-room.response":{"direction":"platform_to_native","schema":{"ref":"channel_snapshot"}},
+    "room-create":{"direction":"manager_to_matrix","schema":{"ref":"room_create"}}
+  },
+  "invariants": [],
+  "state_machines": {
+    "channel": {
+      "states":["provisioning","active","archived"],
+      "initial":["provisioning"],
+      "terminal":[],
+      "transitions":[
+        ["provisioning","active","room_ready"],
+        ["active","archived","archive"],
+        ["archived","active","restore"]
+      ]
+    },
+    "room": {
+      "states":["new","unknown","bound","ready"],
+      "initial":["new"],
+      "terminal":[],
+      "transitions":[
+        ["new","unknown","begin_create"],
+        ["unknown","bound","bind"],
+        ["bound","ready","reconcile"],
+        ["ready","bound","authority_changed"]
+      ]
+    }
+  },
+  "fixtures": [
+    {"file":"fixtures/channel-create.request.json","message":"channel-create.request","expect":"accept"},
+    {"file":"fixtures/channel-create-client-authority.request.json","message":"channel-create.request","expect":"reject","violation":"forbidden_field"},
+    {"file":"fixtures/channel.directory.json","message":"channel-directory.response","expect":"accept"},
+    {"file":"fixtures/channel.snapshot.json","message":"channel.snapshot","expect":"accept"},
+    {"file":"fixtures/channel-room.request.json","message":"channel-room.request","expect":"accept"},
+    {"file":"fixtures/channel-room.pending.json","message":"channel-room.response","expect":"accept"},
+    {"file":"fixtures/channel-room.ready.json","message":"channel-room.response","expect":"accept"},
+    {"file":"fixtures/channel-room.ready-null.json","message":"channel-room.response","expect":"reject","violation":"variant"},
+    {"file":"fixtures/room-create.json","message":"room-create","expect":"accept"},
+    {"file":"fixtures/channel.sequence.json","machine":"channel","expect":"accept"},
+    {"file":"fixtures/room.sequence.json","machine":"room","expect":"accept"}
+  ]
+}

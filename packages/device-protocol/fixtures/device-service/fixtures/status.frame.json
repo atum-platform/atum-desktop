@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "type": "Status",
+  "body": {
+    "receipts": [
+      {
+        "commandId": "00000000-0000-4000-8000-38e4e4acfa60",
+        "commandHash": "jz7r9W_KqEuVZcoVTCS6nAV8vt0mrEvWv8riBkbP2eY",
+        "seq": 5,
+        "state": "completed",
+        "result": {
+          "exitCode": 0,
+          "output": ""
+        },
+        "artifacts": [],
+        "startedAt": 1791100802100,
+        "endedAt": 1791100802400
+      }
+    ]
+  },
+  "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+  "sig": "Fw3FLQgue8GZMfRE5W6twa4AGq3zwyqbWGnlCJiOu40VpeFxKMBOuktFndML6E2vUSR_TnFFMOxbSxHyfVzxQQ"
+}

@@ -1,0 +1,5 @@
+{
+  "steps": [
+    {"from": "checkpointed", "to": "checkpointed", "event": "processed_through_restore_gap"}
+  ]
+}

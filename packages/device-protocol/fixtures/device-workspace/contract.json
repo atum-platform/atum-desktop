@@ -1,0 +1,916 @@
+{
+  "contract_id": "atum.device-workspace",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/confirm-committed.json",
+    "fixtures/finalize-negative-window.json",
+    "fixtures/finalize-too-long.json",
+    "fixtures/hello-legacy.json",
+    "fixtures/hello-unknown-version.json",
+    "fixtures/hello.json",
+    "fixtures/ready-legacy.json",
+    "fixtures/ready-unknown-version.json",
+    "fixtures/ready.json",
+    "fixtures/result-nonempty.json",
+    "fixtures/result-oversized-artifact.json",
+    "fixtures/result-partial-conflict.json",
+    "fixtures/result-path-as-artifact-id.json",
+    "fixtures/result-too-many-artifacts.json",
+    "fixtures/result-wrong-device.json",
+    "fixtures/result-wrong-task.json",
+    "fixtures/workspaceconfirm-missing-lease.json",
+    "fixtures/workspaceconfirm-names-owner.json",
+    "fixtures/workspaceconfirm.json",
+    "fixtures/workspacefinalize-missing-lease.json",
+    "fixtures/workspacefinalize-names-owner.json",
+    "fixtures/workspacefinalize.json",
+    "fixtures/workspacerefused-missing-lease.json",
+    "fixtures/workspacerefused-names-owner.json",
+    "fixtures/workspacerefused.json",
+    "fixtures/workspaceresult-missing-lease.json",
+    "fixtures/workspaceresult-names-owner.json",
+    "fixtures/workspaceresult.json"
+  ],
+  "dependencies": [
+    {
+      "contract": "atum.device-service/1.1",
+      "path": "../../device-service/v1.1",
+      "sha256": "6455023c5b91d375a5b219aed5cb284533ac1be440eb3c59a9e83a2d4e654dcd"
+    }
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "key_id": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "sig64": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{86}"
+    },
+    "rand32": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "boot_id": {
+      "type": "string",
+      "pattern": "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "hello": {
+      "type": "object",
+      "required": {
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "enrollmentEpoch": {
+          "ref": "epoch"
+        },
+        "accountEpoch": {
+          "ref": "epoch"
+        },
+        "bootId": {
+          "ref": "boot_id"
+        },
+        "connectionNonce": {
+          "ref": "rand32"
+        },
+        "policyVersion": {
+          "type": "integer",
+          "min": 1,
+          "max": 1000000
+        },
+        "appVersion": {
+          "type": "string",
+          "min": 1,
+          "max": 64,
+          "pattern": "[0-9A-Za-z.+-]+"
+        },
+        "matrixDeviceId": {
+          "ref": "device_id"
+        },
+        "capabilities": {
+          "type": "object",
+          "required": {
+            "terminal": {
+              "type": "boolean"
+            },
+            "files": {
+              "type": "boolean"
+            },
+            "computer": {
+              "type": "object",
+              "required": {
+                "available": {
+                  "type": "boolean"
+                }
+              },
+              "optional": {
+                "reason": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 200
+                }
+              }
+            }
+          }
+        },
+        "sentAt": {
+          "ref": "timestamp_ms"
+        }
+      },
+      "optional": {
+        "workspaceProtocol": {
+          "const": 1
+        }
+      }
+    },
+    "ready": {
+      "type": "object",
+      "required": {
+        "connectionId": {
+          "ref": "uuid"
+        },
+        "connectionEpoch": {
+          "ref": "epoch"
+        },
+        "heartbeatMs": {
+          "const": 5000
+        },
+        "serverTime": {
+          "ref": "timestamp_ms"
+        }
+      },
+      "optional": {
+        "workspaceProtocol": {
+          "const": 1
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": {
+        "name": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[^/\\\\\\u0000-\\u001f]+"
+        },
+        "size": {
+          "type": "integer",
+          "min": 0,
+          "max": 8388608
+        },
+        "sha256": {
+          "ref": "b64u_sha256"
+        }
+      }
+    }
+  },
+  "directions": {
+    "device_to_controller": {
+      "forbidden_fields": [
+        "ownerUserId",
+        "agentPrincipal",
+        "agentUserId",
+        "leaseToken",
+        "privateKey",
+        "accessToken"
+      ]
+    },
+    "controller_to_device": {
+      "forbidden_fields": [
+        "ownerUserId",
+        "agentPrincipal",
+        "agentUserId",
+        "leaseToken",
+        "privateKey",
+        "accessToken"
+      ]
+    }
+  },
+  "messages": {
+    "frame.WorkspaceFinalize": {
+      "direction": "controller_to_device",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "WorkspaceFinalize"
+          },
+          "body": {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "grantId": {
+                "ref": "uuid"
+              },
+              "invocationId": {
+                "ref": "uuid"
+              },
+              "connectionId": {
+                "ref": "uuid"
+              },
+              "connectionEpoch": {
+                "ref": "epoch"
+              },
+              "deviceServiceId": {
+                "ref": "uuid"
+              },
+              "enrollmentEpoch": {
+                "ref": "epoch"
+              },
+              "accountEpoch": {
+                "ref": "epoch"
+              },
+              "writerEpoch": {
+                "type": "object",
+                "required": {
+                  "leaseGeneration": {
+                    "ref": "epoch"
+                  },
+                  "leaseTokenHash": {
+                    "ref": "b64u_sha256"
+                  }
+                }
+              },
+              "issuedAt": {
+                "ref": "timestamp_ms"
+              },
+              "expiresAt": {
+                "ref": "timestamp_ms"
+              }
+            }
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    },
+    "frame.WorkspaceResult": {
+      "direction": "device_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "WorkspaceResult"
+          },
+          "body": {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "grantId": {
+                "ref": "uuid"
+              },
+              "invocationId": {
+                "ref": "uuid"
+              },
+              "connectionId": {
+                "ref": "uuid"
+              },
+              "connectionEpoch": {
+                "ref": "epoch"
+              },
+              "deviceServiceId": {
+                "ref": "uuid"
+              },
+              "enrollmentEpoch": {
+                "ref": "epoch"
+              },
+              "accountEpoch": {
+                "ref": "epoch"
+              },
+              "writerEpoch": {
+                "type": "object",
+                "required": {
+                  "leaseGeneration": {
+                    "ref": "epoch"
+                  },
+                  "leaseTokenHash": {
+                    "ref": "b64u_sha256"
+                  }
+                }
+              },
+              "manifest": {
+                "type": "object",
+                "required": {
+                  "v": {
+                    "const": 1
+                  },
+                  "deviceServiceId": {
+                    "ref": "uuid"
+                  },
+                  "taskId": {
+                    "ref": "uuid"
+                  },
+                  "folder": {
+                    "type": "string",
+                    "min": 2,
+                    "max": 255,
+                    "pattern": "/[!-~ ]+"
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": {
+                        "path": {
+                          "type": "string",
+                          "min": 1,
+                          "max": 1024,
+                          "pattern": "[^\\u0000]+"
+                        },
+                        "size": {
+                          "type": "integer",
+                          "min": 0,
+                          "max": 33554432
+                        },
+                        "sha256": {
+                          "ref": "sha256_hex"
+                        },
+                        "inode": {
+                          "type": "integer",
+                          "min": 0
+                        },
+                        "mtimeNs": {
+                          "type": "string",
+                          "pattern": "[0-9]{1,24}"
+                        },
+                        "server": {
+                          "anyOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "required": {
+                                "resource": {
+                                  "type": "object",
+                                  "required": {
+                                    "storage": {
+                                      "type": "string",
+                                      "min": 1,
+                                      "max": 255,
+                                      "pattern": "[!-~]+"
+                                    },
+                                    "space": {
+                                      "type": "string",
+                                      "min": 1,
+                                      "max": 255,
+                                      "pattern": "[!-~]+"
+                                    },
+                                    "opaque": {
+                                      "type": "string",
+                                      "min": 1,
+                                      "max": 255,
+                                      "pattern": "[!-~]+"
+                                    }
+                                  }
+                                },
+                                "etag": {
+                                  "type": "string",
+                                  "min": 1,
+                                  "max": 512,
+                                  "pattern": "[!-~]+"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "max": 2000
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "artifacts": {
+                "type": "array",
+                "items": {
+                  "ref": "artifact"
+                },
+                "max": 16
+              },
+              "deleted": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 1024,
+                  "pattern": "[^\\u0000]+"
+                },
+                "max": 2000
+              },
+              "complete": {
+                "type": "boolean"
+              },
+              "resultHash": {
+                "ref": "b64u_sha256"
+              },
+              "conflicts": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": {
+                    "key": {
+                      "ref": "sha256_hex"
+                    },
+                    "path": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 1024,
+                      "pattern": "[^\\u0000]+"
+                    },
+                    "artifactName": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 255,
+                      "pattern": "[^/\\\\\\u0000-\\u001f]+"
+                    },
+                    "label": {
+                      "type": "string",
+                      "min": 2,
+                      "max": 255,
+                      "pattern": "/[!-~ ]+"
+                    }
+                  }
+                },
+                "max": 16
+              },
+              "outputs": {
+                "type": "array",
+                "max": 16,
+                "items": {
+                  "type": "object",
+                  "required": {
+                    "path": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 1024,
+                      "pattern": "[^\\u0000]+"
+                    },
+                    "artifactName": {
+                      "type": "string",
+                      "min": 1,
+                      "max": 255,
+                      "pattern": "[^/\\\\\\u0000-\\u001f]+"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    },
+    "frame.WorkspaceConfirm": {
+      "direction": "controller_to_device",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "WorkspaceConfirm"
+          },
+          "body": {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "grantId": {
+                "ref": "uuid"
+              },
+              "invocationId": {
+                "ref": "uuid"
+              },
+              "connectionId": {
+                "ref": "uuid"
+              },
+              "connectionEpoch": {
+                "ref": "epoch"
+              },
+              "deviceServiceId": {
+                "ref": "uuid"
+              },
+              "enrollmentEpoch": {
+                "ref": "epoch"
+              },
+              "accountEpoch": {
+                "ref": "epoch"
+              },
+              "writerEpoch": {
+                "type": "object",
+                "required": {
+                  "leaseGeneration": {
+                    "ref": "epoch"
+                  },
+                  "leaseTokenHash": {
+                    "ref": "b64u_sha256"
+                  }
+                }
+              },
+              "resultHash": {
+                "ref": "b64u_sha256"
+              },
+              "saved": {
+                "type": "boolean"
+              },
+              "confirmedConflictKeys": {
+                "type": "array",
+                "items": {
+                  "ref": "sha256_hex"
+                },
+                "max": 16
+              }
+            }
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    },
+    "frame.WorkspaceRefused": {
+      "direction": "device_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "WorkspaceRefused"
+          },
+          "body": {
+            "type": "object",
+            "required": {
+              "requestId": {
+                "ref": "uuid"
+              },
+              "grantId": {
+                "ref": "uuid"
+              },
+              "invocationId": {
+                "ref": "uuid"
+              },
+              "connectionId": {
+                "ref": "uuid"
+              },
+              "connectionEpoch": {
+                "ref": "epoch"
+              },
+              "deviceServiceId": {
+                "ref": "uuid"
+              },
+              "enrollmentEpoch": {
+                "ref": "epoch"
+              },
+              "accountEpoch": {
+                "ref": "epoch"
+              },
+              "writerEpoch": {
+                "type": "object",
+                "required": {
+                  "leaseGeneration": {
+                    "ref": "epoch"
+                  },
+                  "leaseTokenHash": {
+                    "ref": "b64u_sha256"
+                  }
+                }
+              },
+              "reason": {
+                "enum": [
+                  "unavailable",
+                  "stopped",
+                  "expired",
+                  "binding_mismatch",
+                  "quiescence_failed"
+                ]
+              }
+            }
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    },
+    "frame.Hello": {
+      "direction": "device_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "Hello"
+          },
+          "body": {
+            "ref": "hello"
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    },
+    "frame.Ready": {
+      "direction": "controller_to_device",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "type": {
+            "const": "Ready"
+          },
+          "body": {
+            "ref": "ready"
+          },
+          "kid": {
+            "ref": "key_id"
+          },
+          "sig": {
+            "ref": "sig64"
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "finalize-window",
+      "message": "frame.WorkspaceFinalize",
+      "op": "le",
+      "left": "body.expiresAt",
+      "right": [
+        "body.issuedAt"
+      ],
+      "offset": 120000,
+      "required": true
+    },
+    {
+      "id": "finalize-nonnegative-window",
+      "message": "frame.WorkspaceFinalize",
+      "op": "le",
+      "left": "body.issuedAt",
+      "right": [
+        "body.expiresAt"
+      ],
+      "required": true
+    },
+    {
+      "id": "result-task",
+      "message": "frame.WorkspaceResult",
+      "op": "same",
+      "left": "body.manifest.taskId",
+      "right": "body.invocationId",
+      "required": true
+    },
+    {
+      "id": "result-device",
+      "message": "frame.WorkspaceResult",
+      "op": "same",
+      "left": "body.manifest.deviceServiceId",
+      "right": "body.deviceServiceId",
+      "required": true
+    }
+  ],
+  "parameters": {
+    "request_max_ms": 120000,
+    "artifacts_max": 16,
+    "artifact_max_bytes": 8388608,
+    "artifacts_total_max_bytes": 67108864
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/hello.json",
+      "message": "frame.Hello",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/hello-unknown-version.json",
+      "message": "frame.Hello",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/ready.json",
+      "message": "frame.Ready",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ready-unknown-version.json",
+      "message": "frame.Ready",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/workspacefinalize.json",
+      "message": "frame.WorkspaceFinalize",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/workspacefinalize-names-owner.json",
+      "message": "frame.WorkspaceFinalize",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/workspacefinalize-missing-lease.json",
+      "message": "frame.WorkspaceFinalize",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/workspaceresult.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/workspaceresult-names-owner.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/workspaceresult-missing-lease.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/workspaceconfirm.json",
+      "message": "frame.WorkspaceConfirm",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/workspaceconfirm-names-owner.json",
+      "message": "frame.WorkspaceConfirm",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/workspaceconfirm-missing-lease.json",
+      "message": "frame.WorkspaceConfirm",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/workspacerefused.json",
+      "message": "frame.WorkspaceRefused",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/workspacerefused-names-owner.json",
+      "message": "frame.WorkspaceRefused",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/workspacerefused-missing-lease.json",
+      "message": "frame.WorkspaceRefused",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/finalize-too-long.json",
+      "message": "frame.WorkspaceFinalize",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/result-wrong-task.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/result-wrong-device.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/hello-legacy.json",
+      "message": "frame.Hello",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ready-legacy.json",
+      "message": "frame.Ready",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/finalize-negative-window.json",
+      "message": "frame.WorkspaceFinalize",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/result-nonempty.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-partial-conflict.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-too-many-artifacts.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/result-oversized-artifact.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/result-path-as-artifact-id.json",
+      "message": "frame.WorkspaceResult",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/confirm-committed.json",
+      "message": "frame.WorkspaceConfirm",
+      "expect": "accept"
+    }
+  ],
+  "signing": {
+    "domain": "atum.device-service.v1\\0{type}\\0",
+    "controller": "Ed25519",
+    "device": "ES256 IEEE P1363",
+    "body": "canonical JSON; same immutable service/1.1 signing rules"
+  }
+}

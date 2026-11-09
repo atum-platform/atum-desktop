@@ -1,0 +1,106 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "Create and revoke replay scope is (actor, requestId) for an active admin: minh creates c1, linh is a conflict on c1, minh replays c1; minh revokes v0 and linh is a conflict on v0; then a demoted and a revoking admin are denied on every call including replays.",
+  "steps": [
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "expect": {
+        "result": "created"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "linh",
+      "expect": {
+        "result": "conflict"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "expect": {
+        "result": "replayed"
+      }
+    },
+    {
+      "do": "revoke",
+      "request": "v0",
+      "admin": "minh",
+      "expect": {
+        "result": "revoked"
+      }
+    },
+    {
+      "do": "revoke",
+      "request": "v0",
+      "admin": "linh",
+      "expect": {
+        "result": "conflict"
+      }
+    },
+    {
+      "do": "demote",
+      "person": "minh"
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "minh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c2",
+      "admin": "minh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "revoke",
+      "request": "v1",
+      "admin": "minh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "membership",
+      "person": "linh",
+      "state": "revoking"
+    },
+    {
+      "do": "create",
+      "request": "c1",
+      "admin": "linh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "create",
+      "request": "c3",
+      "admin": "linh",
+      "expect": {
+        "result": "denied"
+      }
+    },
+    {
+      "do": "revoke",
+      "request": "v2",
+      "admin": "linh",
+      "expect": {
+        "result": "denied"
+      }
+    }
+  ]
+}

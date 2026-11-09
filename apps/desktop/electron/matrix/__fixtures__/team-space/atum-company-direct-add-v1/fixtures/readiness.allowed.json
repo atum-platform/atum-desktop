@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 12,
+  "companyId": "00000000-0000-4000-8000-3570bef6c8ca",
+  "directAdd": "allowed",
+  "policy": "members",
+  "assignableRoles": [
+    "member",
+    "admin"
+  ],
+  "rosterRemaining": 93
+}

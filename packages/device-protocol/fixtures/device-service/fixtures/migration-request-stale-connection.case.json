@@ -1,0 +1,52 @@
+{
+  "name": "migration-request-stale-connection",
+  "device": {
+    "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-bafec445149c",
+    "pinnedControllerKeys": [
+      "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA"
+      }
+    ],
+    "localAgents": [
+      "@synthetic-user-0011:example.invalid"
+    ],
+    "receivedAt": 1791100926000
+  },
+  "request": {
+    "v": 1,
+    "type": "MigrationRequest",
+    "body": {
+      "migrationId": "00000000-0000-4000-8000-44875ad14494",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "agentUserId": "@synthetic-user-0011:example.invalid",
+      "initiatorDeviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "targetDeviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+      "enrollmentEpoch": 2,
+      "accountEpoch": 7,
+      "connectionId": "00000000-0000-4000-8000-9173192c8880",
+      "issuedAt": 1791100925000,
+      "expiresAt": 1791101525000,
+      "holdUntil": 1791106321000
+    },
+    "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+    "sig": "28kqT2EnFjL90atPCemTQ7DEezYsu8hF8RJGDhJgyaGPyZOFjidhe0fBmaVPkNZHtkh5h2-mQKS1PZOyQpHMBQ"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "hasLocalHome": true,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "ignored",
+    "reason": "stale_connection"
+  }
+}

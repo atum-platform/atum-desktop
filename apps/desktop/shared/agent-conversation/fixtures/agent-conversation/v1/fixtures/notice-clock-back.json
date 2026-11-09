@@ -1,0 +1,13 @@
+{
+  "input": {
+    "leaseHolder": true,
+    "day": "2026-10-07",
+    "lastDay": "2026-10-08"
+  },
+  "expected": {
+    "post": false,
+    "modelCalls": 0,
+    "claims": 0,
+    "holds": 0
+  }
+}

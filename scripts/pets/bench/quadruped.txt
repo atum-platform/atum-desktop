@@ -1,0 +1,14 @@
+# kind | concept — one per line; the kind is what a correct design must be.
+dog | a scruffy grey terrier with a white chest
+dog | a chubby golden retriever puppy
+dog | a black and tan dachshund, very long, very short legs
+dog | a fluffy white samoyed with a big smile
+dog | a tiny chihuahua with enormous ears
+dog | a brindle boxer with a white blaze
+cat | a ginger tabby cat
+cat | a sleek black cat with green eyes
+cat | a fluffy grey persian
+fox | a red fox with a white-tipped tail
+rabbit | a lop-eared brown bunny
+pig | a small pink pig with a curly tail
+bear | a chubby brown bear cub

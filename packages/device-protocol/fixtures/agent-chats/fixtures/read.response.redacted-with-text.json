@@ -1,0 +1,15 @@
+{
+  "id": "!Qk3vLm0wXzRbT:example.invalid",
+  "label": "Linh",
+  "messages": [
+    {
+      "eventId": "$m3abc",
+      "at": 1792000070000,
+      "from": "Linh",
+      "mine": false,
+      "kind": "other",
+      "text": "still here",
+      "redacted": true
+    }
+  ]
+}

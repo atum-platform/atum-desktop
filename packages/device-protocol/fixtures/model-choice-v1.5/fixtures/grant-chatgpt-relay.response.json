@@ -1,0 +1,14 @@
+{
+  "profile": "atum.model-grant/1",
+  "state": "active",
+  "source": "chatgpt_plan",
+  "alias": "gpt-5.6-luna",
+  "model": "gpt-5.6-luna",
+  "effort": "medium",
+  "policyDigest": "972534729db948e280c224b1eba816e011ab196f444fb63ed8d47d87915f1457",
+  "contextBudget": 196608,
+  "outputBudget": 16384,
+  "maxTurnMicroProtons": 0,
+  "relayRevision": 1,
+  "relayDeviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+}

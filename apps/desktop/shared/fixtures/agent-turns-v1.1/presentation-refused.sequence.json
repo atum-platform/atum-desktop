@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "observed",
+      "to": "refused",
+      "event": "refused_with_status_line"
+    }
+  ]
+}

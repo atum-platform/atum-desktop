@@ -1,0 +1,29 @@
+{
+  "schema": "atum.local-brain.pin/1",
+  "gbrain": {
+    "upstream": "https://github.com/garrytan/gbrain",
+    "licence": "MIT",
+    "tag": "v0.59.20.0",
+    "commit": "a9c46ffbf68447cf0b157cac6843e994e61fc4b8",
+    "releasedAt": "2026-09-29T13:10:59Z",
+    "assets": {
+      "darwin-arm64": {
+        "name": "gbrain-darwin-arm64",
+        "url": "https://github.com/garrytan/gbrain/releases/download/v0.59.20.0/gbrain-darwin-arm64",
+        "size": 145975794,
+        "sha256": "3d76f213158c1676c7e658b945e1e37fb41f4286a3a8a8e234c4509c5fdd1ae3"
+      },
+      "linux-x64": {
+        "name": "gbrain-linux-x64",
+        "url": "https://github.com/garrytan/gbrain/releases/download/v0.59.20.0/gbrain-linux-x64",
+        "size": 164394464,
+        "sha256": "1db1da62c11547de32f2893533870b96e19b2c82b73f17fdc7510f0537d69807"
+      }
+    }
+  },
+  "pglite": {
+    "licence": "Apache-2.0",
+    "version": "0.4.3",
+    "via": "embedded in the GBrain binary, as GBrain v0.59.20.0's package.json pins @electric-sql/pglite exactly"
+  }
+}

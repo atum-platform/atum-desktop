@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "requested",
+      "to": "recorded",
+      "event": "receipt"
+    },
+    {
+      "from": "recorded",
+      "to": "recorded",
+      "event": "replayed_after_restore"
+    },
+    {
+      "from": "recorded",
+      "to": "purged",
+      "event": "derived_payloads_purged"
+    }
+  ]
+}

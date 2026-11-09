@@ -1,0 +1,37 @@
+{
+  "input": {
+    "rooms": [
+      "!a:proof.test",
+      "!b:proof.test",
+      "!c:proof.test"
+    ],
+    "chosen": "!b:proof.test",
+    "ownerConfirmed": true,
+    "noLiveTurn": true,
+    "cloudMayAnswer": false,
+    "cloudReady": false,
+    "fleetReady": true,
+    "writable": [
+      "!a:proof.test",
+      "!b:proof.test",
+      "!c:proof.test"
+    ]
+  },
+  "expected": {
+    "status": "ready",
+    "writes": [
+      {
+        "roomId": "!b:proof.test",
+        "role": "main"
+      },
+      {
+        "roomId": "!a:proof.test",
+        "role": "earlier"
+      },
+      {
+        "roomId": "!c:proof.test",
+        "role": "earlier"
+      }
+    ]
+  }
+}

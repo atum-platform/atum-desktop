@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "planned",
+      "to": "effects_started",
+      "event": "begin"
+    },
+    {
+      "from": "effects_started",
+      "to": "complete",
+      "event": "accept"
+    }
+  ]
+}

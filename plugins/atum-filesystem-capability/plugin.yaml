@@ -1,0 +1,9 @@
+name: atum-filesystem-capability
+version: "0.1.0"
+description: "Fail-closed Atum filesystem authorization and write completion attestation."
+author: "Atum"
+kind: backend
+hooks:
+  - pre_tool_call
+  - post_tool_call
+  - transform_tool_result

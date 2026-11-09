@@ -1,0 +1,88 @@
+{
+  "name": "grant-stale-connection",
+  "device": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "signedIn": true,
+    "paused": false,
+    "localScopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "cloudAgents": [
+      "@synthetic-user-0011:example.invalid"
+    ],
+    "pinnedControllerKeys": [
+      "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA"
+      }
+    ],
+    "receivedAt": 1791100802000
+  },
+  "originLog": [
+    {
+      "assertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
+      "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+      "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU"
+    }
+  ],
+  "grant": {
+    "v": 1,
+    "type": "TurnGrant",
+    "body": {
+      "grantId": "00000000-0000-4000-8000-fce915c29383",
+      "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+      "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+      "agentUserId": "@synthetic-user-0011:example.invalid",
+      "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+      "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+      "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+      "originKind": "device",
+      "originAssertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
+      "writerEpoch": {
+        "leaseGeneration": 41,
+        "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+      },
+      "targetDeviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer"
+      ],
+      "connectionId": "00000000-0000-4000-8000-9173192c8880",
+      "issuedAt": 1791100800000,
+      "expiresAt": 1791102600000
+    },
+    "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+    "sig": "e8dQQsFyzzk2An0Z1fdn4Rg24imjzzne-Vbr9JkqHOc1MU7mic9TznnwIYQRoRE5pgoCW2rteBzLPfmIuBmkBQ"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "agentServed": true,
+    "originMatches": true,
+    "effectiveScopes": [
+      "terminal",
+      "files",
+      "computer"
+    ],
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "refusal": "stale_connection"
+  }
+}

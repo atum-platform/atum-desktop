@@ -1,0 +1,71 @@
+{
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "generation": 13,
+  "parentGeneration": 12,
+  "producingHomeEpoch": 4,
+  "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "entries": [
+    {
+      "category": "memory",
+      "path": "memory/facts.json",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "bytes": 120,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "skills",
+      "path": "skills/calendar/SKILL.md",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "bytes": 640,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "non_secret_config",
+      "path": "config/portable.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "bytes": 80,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "routine_definitions",
+      "path": "routines/definitions.json",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "bytes": 90,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    },
+    {
+      "category": "portable_app_data",
+      "path": "apps/portable/index.json",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "bytes": 210,
+      "stable": true,
+      "fileType": "regular_file",
+      "symlinkTraversal": "none"
+    }
+  ],
+  "contentPolicy": {
+    "memory": "included",
+    "skills": "included",
+    "nonSecretConfig": "included",
+    "routineDefinitions": "included",
+    "portableAppData": "included",
+    "sessionHistoryStateDb": "excluded",
+    "packages": "excluded",
+    "browserSessions": "included",
+    "machineWorkspace": "excluded",
+    "credentials": "excluded_all"
+  },
+  "encryption": {
+    "encrypted": true,
+    "keyScope": "owner_agent_home",
+    "credentialMaterialIncluded": false
+  }
+}

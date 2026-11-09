@@ -1,0 +1,9 @@
+{
+  "issuer": "https://auth.atumplatform.com/",
+  "masUser": "01J00000000000000000000001",
+  "matrixUser": "@synthetic-user-0015:example.invalid",
+  "fingerprint": "\\xabababababababababababababababababababababababababababababababab",
+  "fingerprintKeyVersion": 1,
+  "proof": "upstream_verified_claim",
+  "email": "person@example.com"
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 5,
+  "channels": [
+    {
+      "id": "00000000-0000-4000-8000-f19cafd05964",
+      "companyId": "00000000-0000-4000-8000-3f27f2fc4915",
+      "displayName": "secret",
+      "visibility": "private",
+      "topic": "",
+      "purpose": "",
+      "state": "active",
+      "memberCount": 2,
+      "joined": false
+    }
+  ]
+}

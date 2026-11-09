@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "type": "Execute",
+  "body": {
+    "commandId": "00000000-0000-4000-8000-38e4e4acfa60",
+    "grantId": "00000000-0000-4000-8000-fce915c29383",
+    "seq": 5,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "tool": "terminal",
+    "toolVersion": 1,
+    "args": {
+      "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+      "timeout": 60
+    },
+    "inputManifestHash": null,
+    "needs": [],
+    "proposedEffect": "ordinary",
+    "admitBy": 1791100816000,
+    "timeoutMs": 120000,
+    "issuedAt": 1791100801000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "q3aHIj9xBfYmIi6Y0LD65EboMMQTkUJJyIkHKxJWYA4AZHnEnXkidHYT_MlTgAqrE3B1ou__TDoyp83RG2l_DQ"
+}

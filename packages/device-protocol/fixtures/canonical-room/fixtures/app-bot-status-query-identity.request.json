@@ -1,0 +1,7 @@
+{
+  "method": "GET",
+  "query": {
+    "ownerPrincipal": "00000000-0000-4000-8000-08ec0dabd6b1"
+  },
+  "body": null
+}

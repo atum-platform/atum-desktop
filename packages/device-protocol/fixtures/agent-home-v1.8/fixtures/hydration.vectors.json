@@ -1,0 +1,244 @@
+{
+  "vectors": [
+    {
+      "path": "state.db",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:sqlite"
+    },
+    {
+      "path": "kanban.db",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:sqlite"
+    },
+    {
+      "path": "projects.db",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:sqlite"
+    },
+    {
+      "path": "SOUL.md",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:soul"
+    },
+    {
+      "path": "memories/MEMORY.md",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:memories"
+    },
+    {
+      "path": "memories/USER.md",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:memories"
+    },
+    {
+      "path": "skills/notes/SKILL.md",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:skills"
+    },
+    {
+      "path": "skills/notes/scripts/run.py",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:skills"
+    },
+    {
+      "path": "cron/jobs.json",
+      "entry": "file",
+      "decision": "hydrate",
+      "rule": "allow:cron"
+    },
+    {
+      "path": "config.yaml",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:settings"
+    },
+    {
+      "path": ".env",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:settings"
+    },
+    {
+      "path": "auth.json",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:settings"
+    },
+    {
+      "path": "plugins/atum-device/__init__.py",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:plugins"
+    },
+    {
+      "path": "plugins/other/plugin.yaml",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:plugins"
+    },
+    {
+      "path": "state.db-wal",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:sqlite_sidecar"
+    },
+    {
+      "path": "state.db-shm",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:sqlite_sidecar"
+    },
+    {
+      "path": "memories/MEMORY.md-journal",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:sqlite_sidecar"
+    },
+    {
+      "path": "logs/agent.log",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "sessions/abc.json",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "mcp.json",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "skins/dark.yaml",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "hooks/pre.py",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "checkpoints/x.json",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "gateway.pid",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:runtime_state"
+    },
+    {
+      "path": "gateway.lock",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:runtime_state"
+    },
+    {
+      "path": "processes.json",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:runtime_state"
+    },
+    {
+      "path": "crypto.db",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "response_store.db",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "skills/notes/.venv/bin/python",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:dependency_tree"
+    },
+    {
+      "path": "skills/notes/node_modules/x/index.js",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:dependency_tree"
+    },
+    {
+      "path": "memories/link.md",
+      "entry": "symlink",
+      "decision": "deny",
+      "rule": "deny:non_regular"
+    },
+    {
+      "path": "memories/hard.md",
+      "entry": "hardlink",
+      "decision": "deny",
+      "rule": "deny:non_regular"
+    },
+    {
+      "path": "skills/sock",
+      "entry": "socket",
+      "decision": "deny",
+      "rule": "deny:non_regular"
+    },
+    {
+      "path": "memories/fifo",
+      "entry": "fifo",
+      "decision": "deny",
+      "rule": "deny:non_regular"
+    },
+    {
+      "path": "../outside.md",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:path"
+    },
+    {
+      "path": "/etc/passwd",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:path"
+    },
+    {
+      "path": "memories//double.md",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:path"
+    },
+    {
+      "path": "memories/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.md",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:path"
+    },
+    {
+      "path": "cron/output/run.txt",
+      "entry": "file",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    },
+    {
+      "path": "state.db",
+      "entry": "dir",
+      "decision": "deny",
+      "rule": "deny:not_allowlisted"
+    }
+  ]
+}

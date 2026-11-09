@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 3,
+  "directoryInvite": "inactive",
+  "emailInvite": "inactive",
+  "emailCreation": "inactive",
+  "emailDelivery": "not_configured",
+  "inviteLink": "inactive",
+  "emailAutoClaim": "verification_required",
+  "directAdd": "inactive"
+}

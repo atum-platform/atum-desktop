@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "not_started",
+      "to": "started",
+      "event": "admitted_before_spawn"
+    },
+    {
+      "from": "started",
+      "to": "unknown",
+      "event": "restart_or_stop_mid_effect"
+    },
+    {
+      "from": "unknown",
+      "to": "started",
+      "event": "admitted_before_spawn"
+    }
+  ]
+}

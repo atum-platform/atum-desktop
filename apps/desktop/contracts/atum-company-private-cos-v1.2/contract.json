@@ -1,0 +1,68 @@
+{
+  "contract_id": "atum.company-private-cos",
+  "version": "1.2",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/capability.response.json",
+    "fixtures/greeting.claim.card.json",
+    "fixtures/greeting.claim.json",
+    "fixtures/greeting.matrix-content.card.json",
+    "fixtures/greeting.matrix-content.json"
+  ],
+  "row": "integrate platform, controller and desktop private Chief of Staff seams",
+  "providers": ["Atum platform private CoS authority"],
+  "consumers": ["C-T5 controller", "A-T5 desktop"],
+  "base": {
+    "contract": "atum.company-private-cos/1.1",
+    "path": "spec/company-private-cos/v1.1",
+    "kind": "pack",
+    "sha256": "9c15254d2373c6b61dc35297805baa0d4d0e69492badb071b8d035514a07a606",
+    "rule": "additive integration minor; v1 and v1.1 bytes remain frozen"
+  },
+  "capability_route": {
+    "method": "GET",
+    "path": "/api/matrix/v1/cloud/controller/company-private-cos",
+    "enabled": "capability.response",
+    "disabled_status": 404
+  },
+  "room": {
+    "type": "io.atum.assistant",
+    "name": "Chief of Staff",
+    "encrypted": false,
+    "encryption_event": "must_be_absent",
+    "bound_resume": "room-plan in ready returns the exact bound roomId and create-room type",
+    "join": "member and private CoS join the exact bound room; full state is verified after both joins",
+    "ordinary_addressing": "m.mentions.user_ids contains the private CoS Matrix user",
+    "protected_encryption_threshold": 100
+  },
+  "greeting": {
+    "publish_after": "both exact room participants joined and full state verified",
+    "mention": "m.mentions.user_ids contains only the member Matrix user",
+    "agent_pill": "@Chief of Staff links to the private CoS Matrix user",
+    "locale": "member preference en or vi; ja/zh/zh-hant and unknown fall back to en",
+    "link": "welcome/2 getting_started card when present; otherwise https://atumplatform.com/#atum-board/{companyId}/{boardId}",
+    "published_link": "plain body appends title: URL; formatted_body appends an anchor whose href is the exact claim link URL and whose text is the exact platform-authored claim link title"
+  },
+  "work": {
+    "active": "every bound ready pair for the controller is listed",
+    "teardown": "retired pairs remain listed until MAS session revoke is acknowledged",
+    "room_plan_states": ["create", "bound", "ready"]
+  },
+  "retirement": {
+    "mas_sessions": "revoked through the existing Company AI MAS session authority",
+    "atum_access": "revoked immediately",
+    "synapse_history": {
+      "state": "follow_up",
+      "reason": "no existing platform Synapse admin room-purge write authority"
+    }
+  },
+  "fixtures": [
+    {"file":"fixtures/capability.response.json","message":"capability.response","expect":"accept"},
+    {"file":"fixtures/greeting.claim.card.json","message":"greeting.claim.card","expect":"accept"},
+    {"file":"fixtures/greeting.claim.json","message":"greeting.claim","expect":"accept"},
+    {"file":"fixtures/greeting.matrix-content.card.json","message":"greeting.matrix-content.card","expect":"accept"},
+    {"file":"fixtures/greeting.matrix-content.json","message":"greeting.matrix-content","expect":"accept"}
+  ]
+}

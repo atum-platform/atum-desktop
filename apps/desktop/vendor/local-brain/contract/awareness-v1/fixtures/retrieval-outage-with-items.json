@@ -1,0 +1,50 @@
+{
+  "requestId": "00000000-0000-4000-8000-80dcbf31a348",
+  "audience": {
+    "class": "private_owner"
+  },
+  "status": "unavailable",
+  "items": [
+    {
+      "evidenceId": "5ab554e3-5bb9-80b1-b32d-2092518b98d1",
+      "source": {
+        "kind": "human_dm",
+        "id": "!AnDirectRmHt5Vb8Nc:example.invalid"
+      },
+      "object": {
+        "kind": "message",
+        "id": "$AnConfirmsEvt3cD4eF5gH6iJ7kL8mN9oP0qR1sT",
+        "revision": 1
+      },
+      "author": {
+        "kind": "human",
+        "id": "@synthetic-user-0006:example.invalid"
+      },
+      "eventTime": 1790600400000,
+      "observedTime": 1790600401100,
+      "policyEpoch": 1,
+      "scope": {
+        "kind": "room",
+        "roomId": "!AnDirectRmHt5Vb8Nc:example.invalid"
+      },
+      "epistemic": "decision",
+      "derivation": {
+        "parents": [],
+        "sourceRefs": []
+      },
+      "digest": "dd66b3bc7da23adab5d6461bcbd178f077e0223b0f0c84c030e40cefd1d92352",
+      "citation": {
+        "kind": "matrix_event",
+        "roomId": "!AnDirectRmHt5Vb8Nc:example.invalid",
+        "eventId": "$AnConfirmsEvt3cD4eF5gH6iJ7kL8mN9oP0qR1sT"
+      },
+      "content": "Chốt ngày 15/10 nhé, nhà đầu tư đồng ý rồi.",
+      "untrustedInput": true
+    }
+  ],
+  "coverage": [],
+  "contentBytes": 58,
+  "errors": [
+    "service_unavailable"
+  ]
+}

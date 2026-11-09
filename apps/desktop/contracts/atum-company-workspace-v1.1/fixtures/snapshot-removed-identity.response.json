@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "company": {
+    "id": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "Công ty Atum",
+    "role": "admin",
+    "authorityGeneration": 7
+  },
+  "members": [
+    {
+      "memberRef": "RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8",
+      "role": "admin",
+      "state": "active",
+      "self": true,
+      "handle": "minh",
+      "displayName": "Minh"
+    },
+    {
+      "memberRef": "zCKifP-gRbcTfvfkPTU5D2RQFZUXphRuXqmRiJNlDW4",
+      "role": "member",
+      "state": "removed",
+      "self": false,
+      "handle": "dung",
+      "displayName": null
+    }
+  ],
+  "projects": [],
+  "defaultChannelId": "00000000-0000-4000-8000-c52538d87a60"
+}

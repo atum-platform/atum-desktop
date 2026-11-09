@@ -1,0 +1,25 @@
+{
+  "vectors": [
+    {
+      "holder": "live",
+      "heartbeat": "accepted",
+      "state": "dispatched",
+      "result": "rearmed_same_fence",
+      "boundMs": 120000
+    },
+    {
+      "holder": "silent",
+      "heartbeat": "absent",
+      "state": "dispatched",
+      "result": "recoverable_after_claim_ms",
+      "boundMs": 120000
+    },
+    {
+      "holder": "legacy",
+      "heartbeat": "absent",
+      "state": "dispatched",
+      "result": "unchanged",
+      "boundMs": 120000
+    }
+  ]
+}

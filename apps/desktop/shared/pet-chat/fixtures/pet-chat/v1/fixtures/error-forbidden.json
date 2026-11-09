@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "forbidden",
+    "message_key": "messaging.error.forbidden",
+    "retryable": false,
+    "request_id": "req_pet_forbidden",
+    "details": {"reason": "matrix_denied"}
+  }
+}

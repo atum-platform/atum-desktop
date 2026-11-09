@@ -1,0 +1,11 @@
+{
+  "schema": "atum-release-gate-result/1",
+  "gate_id": "verify-release",
+  "candidate_id": "v2.0.0-rc.1+99b479a",
+  "source_head_sha": "99b479a005b1e321a134bd0bfdd58713e21c9372",
+  "artifact_sha256s": ["17a52ae1f0fe4f86af453a2000f2add2303bed97b65c86d301094ecabd538cc2"],
+  "result": "skipped",
+  "completed_at": "2026-08-30T03:00:00Z",
+  "valid_until": "2026-09-06T03:00:00Z",
+  "evidence_ref": "immutable://gate-ci"
+}

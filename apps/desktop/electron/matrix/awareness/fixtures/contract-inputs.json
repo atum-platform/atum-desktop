@@ -1,0 +1,1278 @@
+{
+  "contractMerge": "681aef96e916f8957b54881e3bef034fa1f3c9e9",
+  "messages": {
+    "envelope.managed": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "assistant_chat",
+                      "human_dm",
+                      "human_group",
+                      "app_exchange",
+                      "native_memory",
+                      "owner_statement"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                },
+                "optional": {
+                  "agentPrincipal": {
+                    "ref": "uuid"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "drive_file"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "const": false
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "const": false
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "redaction"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "const": {
+                  "text": "",
+                  "attachments": []
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "envelope.local": {
+      "direction": "reader_to_local_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "assistant_chat",
+                      "human_dm",
+                      "human_group",
+                      "app_exchange",
+                      "native_memory",
+                      "owner_statement"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                },
+                "optional": {
+                  "agentPrincipal": {
+                    "ref": "uuid"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "drive_file"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "enum": [
+                      "message",
+                      "edit",
+                      "file_version",
+                      "memory_revision"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  }
+                },
+                "optional": {
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "type": "object",
+                "required": {
+                  "text": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 65536
+                  },
+                  "attachments": {
+                    "type": "array",
+                    "items": {
+                      "ref": "attachment"
+                    },
+                    "min": 0,
+                    "max": 16
+                  }
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "contract": {
+                "const": "atum.awareness/1"
+              },
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "author": {
+                "ref": "author"
+              },
+              "eventTime": {
+                "ref": "timestamp_ms"
+              },
+              "observedTime": {
+                "ref": "timestamp_ms"
+              },
+              "policy": {
+                "type": "object",
+                "required": {
+                  "epoch": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "visibility": {
+                    "enum": [
+                      "joined",
+                      "invited",
+                      "shared",
+                      "world_readable",
+                      "not_applicable"
+                    ]
+                  },
+                  "googleDerived": {
+                    "type": "boolean"
+                  },
+                  "accountFence": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "digest": {
+                "ref": "sha256"
+              },
+              "object": {
+                "type": "object",
+                "required": {
+                  "kind": {
+                    "const": "redaction"
+                  },
+                  "id": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "min": 1,
+                    "max": 9007199254740991
+                  },
+                  "replaces": {
+                    "type": "string",
+                    "min": 1,
+                    "max": 1024,
+                    "pattern": "[!-~]+"
+                  }
+                }
+              },
+              "content": {
+                "const": {
+                  "text": "",
+                  "attachments": []
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "ingestion.receipt": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "object": {
+                "ref": "object_ref"
+              },
+              "state": {
+                "enum": [
+                  "accepted",
+                  "duplicate",
+                  "superseded"
+                ]
+              },
+              "acceptedRevision": {
+                "type": "integer",
+                "min": 1,
+                "max": 9007199254740991
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "source": {
+                "ref": "source_ref"
+              },
+              "object": {
+                "ref": "object_ref"
+              },
+              "state": {
+                "const": "refused"
+              },
+              "reason": {
+                "enum": [
+                  "google_derived",
+                  "fence_active",
+                  "excluded",
+                  "withdrawn",
+                  "stale_policy_epoch",
+                  "invalid",
+                  "unsupported"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "withdrawal": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "withdrawalId": {
+                "ref": "uuid"
+              },
+              "scope": {
+                "ref": "withdrawal_scope"
+              },
+              "reason": {
+                "enum": [
+                  "forget",
+                  "delete",
+                  "account_deleted"
+                ]
+              },
+              "requestedAt": {
+                "ref": "timestamp_ms"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "operationId": {
+                "ref": "uuid"
+              },
+              "withdrawalId": {
+                "ref": "uuid"
+              },
+              "scope": {
+                "ref": "withdrawal_scope"
+              },
+              "reason": {
+                "enum": [
+                  "exclude",
+                  "left_room",
+                  "revoked"
+                ]
+              },
+              "requestedAt": {
+                "ref": "timestamp_ms"
+              },
+              "policyEpoch": {
+                "type": "integer",
+                "min": 1,
+                "max": 9007199254740991
+              }
+            }
+          }
+        ]
+      }
+    },
+    "withdrawal.receipt": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "type": "object",
+        "required": {
+          "withdrawalId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "recorded"
+          },
+          "recordedAt": {
+            "ref": "timestamp_ms"
+          },
+          "purgeBy": {
+            "ref": "timestamp_ms"
+          },
+          "suppressionIds": {
+            "type": "array",
+            "items": {
+              "ref": "uuid"
+            },
+            "min": 1,
+            "max": 1000,
+            "unique": true
+          }
+        }
+      }
+    },
+    "fence.notice": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "since": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "fence.ack": {
+      "direction": "brain_to_reader",
+      "schema": {
+        "type": "object",
+        "required": {
+          "active": {
+            "const": true
+          },
+          "since": {
+            "ref": "timestamp_ms"
+          }
+        }
+      }
+    },
+    "coverage.report": {
+      "direction": "reader_to_managed_brain",
+      "schema": {
+        "type": "object",
+        "required": {
+          "entries": {
+            "type": "array",
+            "items": {
+              "ref": "coverage_entry"
+            },
+            "min": 1,
+            "max": 200
+          }
+        }
+      }
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "source_ref": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "assistant_chat",
+            "human_dm",
+            "human_group",
+            "app_exchange",
+            "drive_file",
+            "native_memory",
+            "owner_statement"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        }
+      },
+      "optional": {
+        "agentPrincipal": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "object_ref": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "message",
+            "edit",
+            "redaction",
+            "file_version",
+            "memory_revision"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "author": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "owner",
+            "human",
+            "agent",
+            "app"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        }
+      }
+    },
+    "attachment": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "enum": [
+            "file",
+            "image",
+            "audio"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "min": 1,
+          "max": 1024,
+          "pattern": "[!-~]+"
+        },
+        "mime": {
+          "type": "string",
+          "min": 1,
+          "max": 255,
+          "pattern": "[!-~]+"
+        },
+        "bytes": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "parse": {
+          "enum": [
+            "parsed",
+            "pending",
+            "unsupported"
+          ]
+        }
+      }
+    },
+    "coverage_entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "source": {
+              "ref": "source_ref"
+            },
+            "state": {
+              "const": "ready"
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "google_fence",
+                  "cloud_access_ended",
+                  "owner_paused",
+                  "keys_missing",
+                  "backfill_pending",
+                  "unsupported_media",
+                  "service_unavailable",
+                  "device_offline",
+                  "excluded_by_owner",
+                  "temporary_conversation"
+                ]
+              },
+              "min": 0,
+              "max": 0
+            },
+            "asOf": {
+              "ref": "timestamp_ms"
+            }
+          },
+          "optional": {
+            "processedThrough": {
+              "ref": "timestamp_ms"
+            },
+            "backfill": {
+              "type": "object",
+              "required": {
+                "priorityWindowDays": {
+                  "const": 30
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "optional": {
+                "oldestIndexedAt": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "source": {
+              "ref": "source_ref"
+            },
+            "state": {
+              "enum": [
+                "catching_up",
+                "partial",
+                "offline",
+                "excluded",
+                "needs_keys",
+                "paused",
+                "error"
+              ]
+            },
+            "reasons": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "google_fence",
+                  "cloud_access_ended",
+                  "owner_paused",
+                  "keys_missing",
+                  "backfill_pending",
+                  "unsupported_media",
+                  "service_unavailable",
+                  "device_offline",
+                  "excluded_by_owner",
+                  "temporary_conversation"
+                ]
+              },
+              "min": 1,
+              "max": 10,
+              "unique": true
+            },
+            "asOf": {
+              "ref": "timestamp_ms"
+            }
+          },
+          "optional": {
+            "processedThrough": {
+              "ref": "timestamp_ms"
+            },
+            "backfill": {
+              "type": "object",
+              "required": {
+                "priorityWindowDays": {
+                  "const": 30
+                },
+                "complete": {
+                  "type": "boolean"
+                }
+              },
+              "optional": {
+                "oldestIndexedAt": {
+                  "ref": "timestamp_ms"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "withdrawal_scope": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "fact"
+            },
+            "evidenceId": {
+              "ref": "uuid"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "object"
+            },
+            "source": {
+              "ref": "source_ref"
+            },
+            "objectId": {
+              "type": "string",
+              "min": 1,
+              "max": 1024,
+              "pattern": "[!-~]+"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "source"
+            },
+            "source": {
+              "ref": "source_ref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "account"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "vectors": {
+    "envelope-human-group-message.managed.json": {
+      "contract": "atum.awareness/1",
+      "operationId": "00000000-0000-4000-8000-a2b7a60e5804",
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "object": {
+        "kind": "message",
+        "id": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q",
+        "revision": 1
+      },
+      "author": {
+        "kind": "human",
+        "id": "@synthetic-user-0005:example.invalid"
+      },
+      "eventTime": 1790578800000,
+      "observedTime": 1790578801500,
+      "policy": {
+        "epoch": 3,
+        "visibility": "shared",
+        "googleDerived": false,
+        "accountFence": false
+      },
+      "content": {
+        "text": "Let's move the launch to 14 October.",
+        "attachments": []
+      },
+      "digest": "0d242eb4b24b4ea2c16b84e23f274495df8851dc2cfbf8da4cedcc09f1dfb6fb"
+    },
+    "envelope-edit.managed.json": {
+      "contract": "atum.awareness/1",
+      "operationId": "00000000-0000-4000-8000-273999424f7b",
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "object": {
+        "kind": "edit",
+        "id": "$LnchDecisionEdit2bC3dE4fG5hI6jK7lM8nO9pQ",
+        "revision": 2,
+        "replaces": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q"
+      },
+      "author": {
+        "kind": "human",
+        "id": "@synthetic-user-0005:example.invalid"
+      },
+      "eventTime": 1790582400000,
+      "observedTime": 1790582400900,
+      "policy": {
+        "epoch": 3,
+        "visibility": "shared",
+        "googleDerived": false,
+        "accountFence": false
+      },
+      "content": {
+        "text": "Let's move the launch to 15 October.",
+        "attachments": []
+      },
+      "digest": "91fcc408e20edba5dda442c88268aea702ff0528e8bcc0dfe15c504769ed9a61"
+    },
+    "envelope-redaction.managed.json": {
+      "contract": "atum.awareness/1",
+      "operationId": "00000000-0000-4000-8000-fd8111f43b88",
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "object": {
+        "kind": "redaction",
+        "id": "$RedactEvt5eF6gH7iJ8kL9mN0oP1qR2sT3u",
+        "revision": 3,
+        "replaces": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q"
+      },
+      "author": {
+        "kind": "human",
+        "id": "@synthetic-user-0005:example.invalid"
+      },
+      "eventTime": 1790665200000,
+      "observedTime": 1790665200700,
+      "policy": {
+        "epoch": 3,
+        "visibility": "shared",
+        "googleDerived": false,
+        "accountFence": false
+      },
+      "content": {
+        "text": "",
+        "attachments": []
+      },
+      "digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "receipt-accepted.json": {
+      "operationId": "00000000-0000-4000-8000-a2b7a60e5804",
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "object": {
+        "kind": "message",
+        "id": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q",
+        "revision": 1
+      },
+      "state": "accepted",
+      "acceptedRevision": 1
+    },
+    "withdrawal-exclude-source.json": {
+      "operationId": "00000000-0000-4000-8000-17bdc2e43b4e",
+      "withdrawalId": "00000000-0000-4000-8000-fd273f1aa63d",
+      "scope": {
+        "kind": "source",
+        "source": {
+          "kind": "human_group",
+          "id": "!synthetic-room-0001:example.invalid"
+        }
+      },
+      "reason": "exclude",
+      "requestedAt": 1790676000000,
+      "policyEpoch": 4
+    },
+    "withdrawal-receipt.json": {
+      "withdrawalId": "00000000-0000-4000-8000-072ff481df71",
+      "state": "recorded",
+      "recordedAt": 1790672400400,
+      "purgeBy": 1790758800400,
+      "suppressionIds": [
+        "00000000-0000-4000-8000-d63d65f98f72"
+      ]
+    },
+    "fence-notice.json": {
+      "v": 1,
+      "since": 1790240400000
+    }
+  }
+}

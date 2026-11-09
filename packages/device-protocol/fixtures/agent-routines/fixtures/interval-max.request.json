@@ -1,0 +1,13 @@
+{
+  "operation": "create",
+  "requestId": "00000000-0000-4000-8000-d9477843b376",
+  "title": "Annual interval",
+  "instruction": "Check the queue.",
+  "schedule": {
+    "kind": "interval",
+    "everyHours": 8760
+  },
+  "timezone": "UTC",
+  "enabled": true,
+  "notifications": true
+}

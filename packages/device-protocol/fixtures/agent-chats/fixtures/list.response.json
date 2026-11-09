@@ -1,0 +1,43 @@
+{
+  "rooms": [
+    {
+      "id": "!Qk3vLm0wXzRbT:example.invalid",
+      "label": "Linh",
+      "kind": "person",
+      "members": [
+        "Linh"
+      ],
+      "memberCount": 2,
+      "notifications": 3,
+      "highlights": 1,
+      "lastAt": 1792000000000,
+      "last": {
+        "eventId": "$l1abc",
+        "from": "Linh",
+        "mine": false,
+        "text": "Mai họp lúc 9 giờ nhé, nhớ mang hợp đồng."
+      },
+      "encrypted": false
+    },
+    {
+      "id": "!Zr81pQe2JhNcA:example.invalid",
+      "label": "Bot nhắc việc",
+      "kind": "app",
+      "members": [
+        "Bot nhắc việc"
+      ],
+      "memberCount": 2,
+      "notifications": 2,
+      "highlights": null,
+      "lastAt": 1792000100000,
+      "last": {
+        "eventId": "$e1abc",
+        "from": "Bot nhắc việc",
+        "mine": false,
+        "text": null
+      },
+      "encrypted": true
+    }
+  ],
+  "truncated": false
+}

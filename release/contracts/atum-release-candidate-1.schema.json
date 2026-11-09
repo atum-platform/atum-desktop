@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-candidate-1.schema.json",
+  "title": "Atum immutable release candidate manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "candidate_id", "release_train", "created_at", "source", "target_policy", "required_gates", "required_journeys", "artifacts", "gate_results", "fixture_indexes", "journey_results", "telemetry_schema", "telemetry_events", "privacy", "predecessor", "evidence_policy", "evidence_metadata", "runbooks"],
+  "properties": {
+    "schema": {"const": "atum-release-candidate/1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "release_train": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["repository", "head_sha", "workflow_run_id", "required_check", "clean"], "properties": {"repository": {"type": "string", "minLength": 1}, "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "workflow_run_id": {"type": "integer", "minimum": 1}, "required_check": {"const": "verify / release"}, "clean": {"const": true}}}},
+    "target_policy": {"type": "string", "minLength": 1},
+    "required_gates": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "required_journeys": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "artifacts": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["artifact_id", "target_id", "os", "os_min", "arch", "format", "filename", "local_path", "size_bytes", "sha256", "build_config_sha256", "build_config_ref", "sbom", "provenance", "signing"], "properties": {"artifact_id": {"type": "string", "minLength": 1}, "target_id": {"type": "string", "minLength": 1}, "os": {"enum": ["macos", "windows", "linux"]}, "os_min": {"type": "string", "minLength": 1}, "arch": {"enum": ["arm64", "x64"]}, "format": {"type": "string", "minLength": 1}, "filename": {"type": "string", "minLength": 1}, "local_path": {"type": "string", "minLength": 1}, "size_bytes": {"type": "integer", "minimum": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "build_config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "build_config_ref": {"type": "string", "minLength": 1}, "sbom": {"type": "object", "additionalProperties": false, "required": ["format", "evidence_ref", "sha256"], "properties": {"format": {"type": "string", "minLength": 1}, "evidence_ref": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}, "provenance": {"type": "object", "additionalProperties": false, "required": ["format", "evidence_ref", "sha256"], "properties": {"format": {"type": "string", "minLength": 1}, "evidence_ref": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}, "signing": {"type": "object", "additionalProperties": false, "required": ["policy", "identity", "verification"], "properties": {"policy": {"enum": ["required", "not-applicable"]}, "identity": {"type": ["string", "null"]}, "verification": {"type": ["string", "null"]}}}}}},
+    "gate_results": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "fixture_indexes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "journey_results": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "telemetry_schema": {"const": "atum-release-reliability-event/1"},
+    "telemetry_events": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "privacy": {"type": "object", "additionalProperties": false, "required": ["fixtures_synthetic_or_sanitized", "redaction_status", "product_telemetry_collection"], "properties": {"fixtures_synthetic_or_sanitized": {"const": true}, "redaction_status": {"const": "pass"}, "product_telemetry_collection": {"const": "disabled"}}},
+    "predecessor": {"type": "object", "additionalProperties": false, "required": ["kind", "artifact_ref", "artifact_sha256", "restore_procedure_ref", "compatibility_mode"], "properties": {"kind": {"enum": ["previous_promoted_v2", "supported_v1_lineage"]}, "artifact_ref": {"type": "string", "minLength": 1}, "artifact_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "restore_procedure_ref": {"type": "string", "minLength": 1}, "compatibility_mode": {"enum": ["backward_compatible", "forward_only_with_restore"]}}},
+    "evidence_policy": {"type": "object", "additionalProperties": false, "required": ["approved_store_classes", "retention_floor_days"], "properties": {"approved_store_classes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}, "retention_floor_days": {"type": "integer", "minimum": 1}}},
+    "evidence_metadata": {"type": "array", "minItems": 1, "items": {"type": "object", "additionalProperties": false, "required": ["ref", "local_path", "sha256", "store_class", "immutable", "retention_days"], "properties": {"ref": {"type": "string", "minLength": 1}, "local_path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "store_class": {"type": "string", "minLength": 1}, "immutable": {"type": "boolean"}, "retention_days": {"type": "integer", "minimum": 1}}}},
+    "runbooks": {"type": "object", "additionalProperties": false, "required": ["promote", "rollback", "support"], "properties": {"promote": {"type": "string", "minLength": 1}, "rollback": {"type": "string", "minLength": 1}, "support": {"type": "string", "minLength": 1}}}
+  }
+}

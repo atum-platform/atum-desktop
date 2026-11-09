@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "pair": {
+    "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+    "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+    "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+  },
+  "homeId": "00000000-0000-4000-8000-eec8ec5cf84c",
+  "homeGeneration": 1,
+  "retiredAtMs": 1793500000000,
+  "purgeAtMs": 1796092000000,
+  "access": "granted",
+  "restoreOnRejoin": true,
+  "userExport": "download",
+  "financeReceipts": "with_home",
+  "state": "retired",
+  "homeState": "retained_pending_purge",
+  "memoryState": "retained_pending_purge",
+  "sessions": "active",
+  "schedules": "enabled"
+}

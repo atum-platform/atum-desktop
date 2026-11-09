@@ -1,0 +1,15 @@
+{
+  "operationId": "00000000-0000-4000-8000-d50049bbea8d",
+  "source": {
+    "kind": "assistant_chat",
+    "id": "!AssistantRmGm8Vd2Kf:example.invalid",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd"
+  },
+  "object": {
+    "kind": "message",
+    "id": "$InboxSummaryEvt6fG7hI8jK9lM0nO1pQ2rS3t",
+    "revision": 1
+  },
+  "state": "refused",
+  "reason": "google_derived"
+}

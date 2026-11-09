@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "queued",
+      "to": "taken",
+      "event": "take"
+    },
+    {
+      "from": "taken",
+      "to": "queued",
+      "event": "release_before_dispatch"
+    },
+    {
+      "from": "queued",
+      "to": "taken",
+      "event": "take"
+    },
+    {
+      "from": "taken",
+      "to": "dropped",
+      "event": "abandon_before_dispatch"
+    }
+  ]
+}

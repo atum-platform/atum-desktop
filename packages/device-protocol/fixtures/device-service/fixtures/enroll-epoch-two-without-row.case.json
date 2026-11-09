@@ -1,0 +1,52 @@
+{
+  "name": "enroll-epoch-two-without-row",
+  "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+  "activeControllerKeys": [
+    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+  ],
+  "stored": null,
+  "otherActive": [],
+  "request": {
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "osVersion": "26.6.2",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "matrix": {
+        "userId": "@owner-3f9a1c7e5b2d:example.invalid",
+        "deviceId": "MACBOOKQ7ZK",
+        "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+      },
+      "enrollmentEpoch": 2,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "controllerKeys": [
+        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      ],
+      "issuedAt": 1791014400000
+    },
+    "sigs": {
+      "identity": "cX1XpvgP2fdqD38sw5DTFx2CK14coLegyRbPhdPTKMpRPNCEl081KlMWvh832VpXlIcl67bR8JkciwTkhrB0Wg",
+      "approval": "CGBbRMYsdyTwdaWQBlMfWVvq43TSoJjEjss381ZUWCkhQc-SvgtCkpaKmSwZMXFrh2p193n2DYStiEO9DD8DiA"
+    }
+  },
+  "facts": {
+    "identityValid": true,
+    "approvalValid": true,
+    "previousApprovalValid": false,
+    "one": 1,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "status": "403",
+    "reason": "rotation_unauthorized"
+  }
+}

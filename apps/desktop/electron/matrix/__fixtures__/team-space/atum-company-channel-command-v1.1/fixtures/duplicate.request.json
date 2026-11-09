@@ -1,0 +1,10 @@
+{
+  "requestId": "00000000-0000-4000-8000-3f27f2fc4915",
+  "operation": "create",
+  "displayName": "Launch",
+  "visibility": "public",
+  "initialMemberRefs": [
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "facts": {
+    "ownerUserId": "@owner:example.invalid",
+    "agentUserId": "@assistant-b:example.invalid",
+    "ownAgentIds": [
+      "@assistant-a:example.invalid",
+      "@assistant-b:example.invalid",
+      "@assistant-c:example.invalid"
+    ],
+    "roomMode": "meeting",
+    "now": 2000,
+    "eventId": "$answer-a",
+    "events": [
+      {
+        "eventId": "$owner",
+        "senderUserId": "@owner:example.invalid",
+        "senderVerified": true,
+        "at": 1000,
+        "mentions": [],
+        "roomId": "!meeting:example.invalid",
+        "eventKind": "text"
+      },
+      {
+        "eventId": "$answer-a",
+        "senderUserId": "@assistant-a:example.invalid",
+        "senderVerified": true,
+        "at": 1500,
+        "mentions": [
+          "@assistant-b:example.invalid"
+        ],
+        "chain": {
+          "origin": "$missing",
+          "depth": 1,
+          "parent": "$owner"
+        },
+        "roomId": "!meeting:example.invalid",
+        "eventKind": "text"
+      }
+    ],
+    "spokenAgentIds": [
+      "@assistant-a:example.invalid"
+    ],
+    "originTurns": 1,
+    "budgetAllowed": true,
+    "roomId": "!meeting:example.invalid"
+  },
+  "expected": {
+    "allowed": false,
+    "code": "invalid_chain"
+  }
+}

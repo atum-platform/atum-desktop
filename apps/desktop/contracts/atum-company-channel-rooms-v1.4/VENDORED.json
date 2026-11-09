@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-channel-rooms/1.4",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "c2efdba37833ce5bcaf031702e108651139694cc",
+  "path": "spec/company-channel-rooms/v1.4",
+  "sha256": "4b09cf0cefe8f90efdee262a65520f5e514e07a314a8aaf363ab7525d528fc29",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

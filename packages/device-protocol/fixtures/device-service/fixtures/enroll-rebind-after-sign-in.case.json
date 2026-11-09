@@ -1,0 +1,60 @@
+{
+  "name": "enroll-rebind-after-sign-in",
+  "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+  "activeControllerKeys": [
+    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+  ],
+  "stored": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "approvalKeyId": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+    "state": "active"
+  },
+  "otherActive": [],
+  "request": {
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "osVersion": "26.6.2",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "matrix": {
+        "userId": "@owner-3f9a1c7e5b2d:example.invalid",
+        "deviceId": "MACBOOKNEW2",
+        "fingerprint": "sRb2SeRHvuCB8YFTdj+2r34ShOblqJ7SBM+RwDjk6Fo"
+      },
+      "enrollmentEpoch": 4,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "controllerKeys": [
+        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      ],
+      "issuedAt": 1791014400000,
+      "previousApprovalKid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo"
+    },
+    "sigs": {
+      "identity": "QRytDH-LjcLJo3aodVH3AcGrK6sju7_Mk0ZHpk5a_HOpYB7CE0hQEn05ceL3ZJfEXrHnR8f14uCiHrGkc-OJxw",
+      "approval": "cI1zB9EtfstCihaL1N-sO6diZz91ZqsqRQ9H0JQ1C6X2v4pb4C2rqfxHFGemHwidg8v-H6qdOeVUB1pkgrGjiw",
+      "previousApproval": "cI1zB9EtfstCihaL1N-sO6diZz91ZqsqRQ9H0JQ1C6X2v4pb4C2rqfxHFGemHwidg8v-H6qdOeVUB1pkgrGjiw"
+    }
+  },
+  "facts": {
+    "identityValid": true,
+    "approvalValid": true,
+    "previousApprovalValid": true,
+    "one": 1,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "rotated",
+    "status": "200"
+  }
+}

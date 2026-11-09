@@ -1,0 +1,22 @@
+{
+  "result": "committed",
+  "dependencyCheck": {
+    "at": 1791100830000,
+    "changed": []
+  },
+  "outputs": [
+    {
+      "path": "brief.md",
+      "state": "placed",
+      "placed": {
+        "resource": {
+          "storage": "00000000-0000-4000-8000-2a884521bb82",
+          "space": "00000000-0000-4000-8000-91307eebce14",
+          "opaque": "L2FnZW50cy9UL2JyaWVmLm1k"
+        },
+        "etag": "\"etag-brief-1\""
+      },
+      "siblingPath": null
+    }
+  ]
+}

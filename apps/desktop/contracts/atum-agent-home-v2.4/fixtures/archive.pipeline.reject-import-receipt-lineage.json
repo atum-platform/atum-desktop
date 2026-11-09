@@ -1,0 +1,236 @@
+{
+  "direction": "cloud_to_mac",
+  "export": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "cloud_workload",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "fence": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "homeEpoch": 4,
+      "executorTerm": 12,
+      "leaseId": "00000000-0000-4000-8000-c8f367a876b2",
+      "leaseExpiresAtPlatform": 1800000060000
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "expectedActiveMoveId": "00000000-0000-4000-8000-303617b97302",
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "exportAdapter": "cloud_home_store_v1",
+    "sourceArchiveSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "sourceSealing": "controller_workload_key_custody",
+    "workloadKeysExposed": false
+  },
+  "exportReceipt": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "sourceArchiveSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "outcome": "exported",
+    "reason": null
+  },
+  "conversion": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "conversionAdapter": "trusted_controller_portable_archive_v1",
+    "sourceArchiveSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "portableArchiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "portableManifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "outputSealing": "owner_agent_home",
+    "workloadKeysExposed": false,
+    "verified": true
+  },
+  "conversionReceipt": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "sourceArchiveSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "portableArchiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "outcome": "converted",
+    "reason": null
+  },
+  "import": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "platform_controller",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+    },
+    "importAdapter": "portable_home_import_v1",
+    "portableArchiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "portableManifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "outputSealing": "owner_agent_home",
+    "credentialMaterialIncluded": false
+  },
+  "importReceipt": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "mac_executor",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+    },
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+    },
+    "lineage": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-f2da1f9533d4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "source": {
+        "kind": "cloud"
+      },
+      "homeEpoch": 4,
+      "placementRevision": 10,
+      "generation": 12,
+      "parentGeneration": 11,
+      "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "portableArchiveSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "portableManifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "outcome": "imported",
+    "reason": null
+  },
+  "commit": {
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "source": {
+      "kind": "cloud"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+    },
+    "selectedGeneration": 12,
+    "expectedPlacementRevision": 10,
+    "nextPlacementRevision": 11
+  },
+  "ordering": [
+    "source_checkpoint",
+    "cloud_export",
+    "controller_conversion",
+    "target_import",
+    "target_receipt",
+    "move_commit"
+  ],
+  "expect": {
+    "outcome": "refused",
+    "reason": "lineage_mismatch"
+  }
+}

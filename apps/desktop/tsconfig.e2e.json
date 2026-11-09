@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@playwright/test"],
+    "composite": true
+  },
+  // `app-view/partitions.ts` is imported by the app-view isolation spec so
+  // the E2E proof runs the real derivation and sweep, not a copy. It is
+  // dependency-free (see its header), so listing the one file is enough.
+  "include": ["e2e", "playwright.config.ts", "electron/app-view/partitions.ts", "shared/atum-utilities.ts", "shared/skills-launcher.ts", "shared/word-companion.ts"],
+  "exclude": ["src"]
+}

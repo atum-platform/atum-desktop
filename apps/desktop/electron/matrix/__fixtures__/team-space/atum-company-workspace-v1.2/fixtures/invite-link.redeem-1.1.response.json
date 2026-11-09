@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 2,
+  "companyId": "00000000-0000-4000-8000-68ce1b921bf1",
+  "memberRef": "JDle0Nv3KQ9BfNKq-IM-sAoOQ1_ueYtjQz8llt4Y1Dc",
+  "role": "member",
+  "state": "active",
+  "link": {
+    "id": "00000000-0000-4000-8000-507f79cf6e24",
+    "maxUses": 5,
+    "usesRemaining": 4,
+    "consumedNow": true,
+    "replayed": false
+  }
+}

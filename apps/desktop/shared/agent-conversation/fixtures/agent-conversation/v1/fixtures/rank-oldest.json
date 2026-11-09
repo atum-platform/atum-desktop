@@ -1,0 +1,19 @@
+{
+  "input": {
+    "now": 3000000000,
+    "candidates": [
+      {
+        "roomId": "!a:proof.test",
+        "createdAt": 20
+      },
+      {
+        "roomId": "!b:proof.test",
+        "createdAt": 10
+      }
+    ]
+  },
+  "expected": [
+    "!b:proof.test",
+    "!a:proof.test"
+  ]
+}

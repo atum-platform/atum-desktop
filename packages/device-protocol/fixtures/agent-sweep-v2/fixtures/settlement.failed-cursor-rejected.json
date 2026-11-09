@@ -1,0 +1,159 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "admittedSources": {
+    "profile": "atum.agent-sources/1",
+    "snapshotRevision": 31,
+    "snapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sources": [
+      {
+        "descriptor": {
+          "id": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+          "kind": "matrix.bot-room",
+          "connectionRef": "matrix_connection_owner_01",
+          "optOutGate": "team_spaces",
+          "revision": 7,
+          "scopeRef": "room_unknown_app_01",
+          "readCapabilities": [
+            {
+              "operationRef": "matrix.read_scoped_room",
+              "backgroundSafe": true
+            }
+          ],
+          "scan": {
+            "operationRef": "matrix.read_scoped_room",
+            "cursorSemantics": "opaque-v1"
+          },
+          "provenanceTags": [
+            "app-declared",
+            "matrix-derived"
+          ],
+          "policyTags": [
+            "owner-only"
+          ]
+        },
+        "binding": {
+          "connectionRef": "matrix_connection_owner_01",
+          "scopeRef": "room_unknown_app_01",
+          "descriptorRevision": 7,
+          "authorityRevision": 19
+        }
+      },
+      {
+        "descriptor": {
+          "id": "google_drive",
+          "kind": "google.drive",
+          "connectionRef": "google_connection_owner_01",
+          "optOutGate": "google",
+          "revision": 3,
+          "scopeRef": "google_account_01",
+          "readCapabilities": [
+            {
+              "operationRef": "google.search_drive",
+              "backgroundSafe": true
+            }
+          ],
+          "scan": {
+            "operationRef": "google.search_drive",
+            "cursorSemantics": "opaque-v1"
+          },
+          "provenanceTags": [
+            "google-derived"
+          ],
+          "policyTags": [
+            "google-limited-use-v1",
+            "owner-only"
+          ]
+        },
+        "binding": {
+          "connectionRef": "google_connection_owner_01",
+          "scopeRef": "google_account_01",
+          "descriptorRevision": 3,
+          "authorityRevision": 23
+        }
+      }
+    ]
+  },
+  "settlement": {
+    "profile": "atum.agent-sweep/2",
+    "operation": "settle",
+    "occurrenceId": "00000000-0000-4000-8000-1e63fa2c7b34",
+    "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+    "resultFingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "usage": {
+      "computeSeconds": 121,
+      "modelAttempts": 1,
+      "inputTokens": 4000,
+      "outputTokens": 70,
+      "modelMicroProtons": 234567
+    },
+    "scan": {
+      "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "sourceSnapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "cursorDeltas": {
+        "app:00000000-0000-4000-8000-a3a9e1ed9732:chat": "opaque:room:event_01",
+        "google_drive": "opaque:drive:revision_01"
+      },
+      "sources": [
+        {
+          "sourceId": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+          "binding": {
+            "connectionRef": "matrix_connection_owner_01",
+            "scopeRef": "room_unknown_app_01",
+            "descriptorRevision": 7,
+            "authorityRevision": 19
+          },
+          "status": "failed",
+          "evidenceIds": [],
+          "provenanceTags": [
+            "app-declared",
+            "matrix-derived"
+          ],
+          "policyTags": [
+            "owner-only"
+          ]
+        },
+        {
+          "sourceId": "google_drive",
+          "binding": {
+            "connectionRef": "google_connection_owner_01",
+            "scopeRef": "google_account_01",
+            "descriptorRevision": 3,
+            "authorityRevision": 23
+          },
+          "status": "ok",
+          "evidenceIds": [
+            "src:ZHJpdmUtZmlsZS0x"
+          ],
+          "provenanceTags": [
+            "google-derived"
+          ],
+          "policyTags": [
+            "google-limited-use-v1",
+            "owner-only"
+          ]
+        }
+      ]
+    },
+    "ownerEventWatermark": {
+      "eventId": "$warmup-owner:test",
+      "at": 1793010000000
+    },
+    "commit": {
+      "kind": "cloud",
+      "queueSeq": 7,
+      "expectedHomeGeneration": 4
+    },
+    "disposition": "offer",
+    "outcome": "answered",
+    "urgency": "harm_before_morning",
+    "findingHashes": [
+      "1111111111111111111111111111111111111111111111111111111111111111",
+      "2222222222222222222222222222222222222222222222222222222222222222",
+      "3333333333333333333333333333333333333333333333333333333333333333"
+    ],
+    "outbox": {
+      "outboxId": "00000000-0000-4000-8000-1eba75639905",
+      "bodySha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "profile": "atum.followup-sweep-evidence/2",
+  "evidenceIds": [
+    "src:dW5rbm93bi1yb29tLWV2ZW50LTE"
+  ],
+  "sourceIds": [
+    "app:00000000-0000-4000-8000-a3a9e1ed9732:chat"
+  ],
+  "provenanceTags": [
+    "app-declared",
+    "google-derived",
+    "matrix-derived"
+  ],
+  "policyTags": [
+    "google-limited-use-v1",
+    "owner-only"
+  ]
+}

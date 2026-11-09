@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "committed",
+      "to": "published",
+      "event": "published"
+    }
+  ]
+}

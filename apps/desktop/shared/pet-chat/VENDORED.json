@@ -1,0 +1,13 @@
+{
+  "packs": [
+    {
+      "contract_id": "atum.pet-chat",
+      "version": 1,
+      "path": "fixtures/pet-chat/v1",
+      "source": "atum-platform/atum-platform:spec/pet-chat/v1",
+      "sha256": "8301d6692ba4013ab2163d3b4b872ca7ada095bf4283cca6f4923fef6c6c6e22",
+      "source_commit": "42aaf6b28dd41f1b5b51b1c1edd35a90d0d23713",
+      "status": "frozen"
+    }
+  ]
+}

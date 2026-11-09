@@ -1,0 +1,14 @@
+{
+  "requestId": "00000000-0000-4000-8000-bb8859f17dee",
+  "companyId": "00000000-0000-4000-8000-49e71e77e770",
+  "audience": {
+    "kind": "conversation",
+    "conversation_id": "00000000-0000-4000-8000-abd61e4a475a"
+  },
+  "viewerAdmissionEpoch": 2,
+  "audienceGeneration": 7,
+  "name": "brief.pdf",
+  "contentType": "application/pdf",
+  "size": 1024,
+  "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

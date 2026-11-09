@@ -1,0 +1,681 @@
+{
+  "contract_id": "atum.provider-connections",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/chat-provider.request.json",
+    "fixtures/chat-secret.response.json",
+    "fixtures/chat-stream.request.json",
+    "fixtures/chat.request.json",
+    "fixtures/chat.response.json",
+    "fixtures/connect-ciphertext.request.json",
+    "fixtures/connect-long-key.request.json",
+    "fixtures/connect-missing-key.request.json",
+    "fixtures/connect-owner.request.json",
+    "fixtures/connect-unknown-provider.request.json",
+    "fixtures/connect.request.json",
+    "fixtures/connection.sequence.json",
+    "fixtures/custody-durable.vectors.json",
+    "fixtures/custody-fallback.vectors.json",
+    "fixtures/custody.vectors.json",
+    "fixtures/disconnect-negative.request.json",
+    "fixtures/disconnect.request.json",
+    "fixtures/status-connected.response.json",
+    "fixtures/status-disconnected.response.json",
+    "fixtures/status-secret.response.json"
+  ],
+  "row": "Owner 2026-10-27 account-wide subscriptions, R1: OpenCode Go custody, model offer and subscription edge",
+  "providers": [
+    "Platform Shell POST /api/matrix/v1/provider-connections/connect (sealed custody)",
+    "Platform Shell POST /api/provider-connections/opencode-go/v1/chat/completions (subscription edge)",
+    "atum.provider_connection_connect/status/revoke/resolve/erase (migration 0335, service_role only)"
+  ],
+  "consumers": [
+    "desktop Settings and model picker",
+    "cloud controller and sandbox",
+    "model-choice/1.4",
+    "cloud-execution/1.13"
+  ],
+  "parameters": {
+    "upstream": "https://opencode.ai/zen/go/v1",
+    "max_request_bytes": 400000,
+    "max_key_bytes": 512,
+    "request_timeout_ms": 120000,
+    "max_output_tokens": 16384,
+    "protons": 0
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "provider": {
+      "enum": [
+        "opencode_go"
+      ]
+    },
+    "model_id": {
+      "type": "string",
+      "min": 1,
+      "max": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "effort": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "connection_state": {
+      "enum": [
+        "disconnected",
+        "connected"
+      ]
+    },
+    "model_policy": {
+      "enum": [
+        "none",
+        "subscription"
+      ]
+    },
+    "model_descriptor": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "model_id"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 120
+        },
+        "efforts": {
+          "type": "array",
+          "items": {
+            "ref": "effort"
+          },
+          "min": 0,
+          "max": 3,
+          "unique": true
+        },
+        "defaultEffort": {
+          "ref": "effort"
+        },
+        "contextBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "outputBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        }
+      }
+    },
+    "connection": {
+      "type": "object",
+      "required": {
+        "provider": {
+          "ref": "provider"
+        },
+        "state": {
+          "ref": "connection_state"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "models": {
+          "type": "array",
+          "items": {
+            "ref": "model_descriptor"
+          },
+          "min": 0,
+          "max": 64,
+          "unique": true
+        },
+        "modelPolicy": {
+          "ref": "model_policy"
+        }
+      },
+      "optional": {
+        "connectedAt": {
+          "ref": "timestamp_ms"
+        },
+        "keyVersion": {
+          "type": "integer",
+          "min": 1,
+          "max": 2147483647
+        }
+      }
+    },
+    "connection_status": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.provider-connections/1"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "connections": {
+          "type": "array",
+          "items": {
+            "ref": "connection"
+          },
+          "min": 1,
+          "max": 1
+        }
+      }
+    },
+    "credential": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "api_key"
+        },
+        "value": {
+          "type": "string",
+          "min": 1,
+          "max": 512,
+          "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+        }
+      }
+    },
+    "connect_request": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.provider-connections/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "provider": {
+          "ref": "provider"
+        },
+        "credential": {
+          "ref": "credential"
+        }
+      }
+    },
+    "disconnect_request": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.provider-connections/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "provider": {
+          "ref": "provider"
+        },
+        "expectedRevision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "chat_message": {
+      "type": "object",
+      "required": {
+        "role": {
+          "enum": [
+            "system",
+            "user",
+            "assistant",
+            "tool"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "min": 0,
+          "max": 200000
+        }
+      }
+    },
+    "chat_request": {
+      "type": "object",
+      "required": {
+        "model": {
+          "ref": "model_id"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "ref": "chat_message"
+          },
+          "min": 1,
+          "max": 64
+        },
+        "stream": {
+          "const": false
+        }
+      },
+      "optional": {
+        "max_tokens": {
+          "type": "integer",
+          "min": 1,
+          "max": 16384
+        },
+        "stop": {
+          "anyOf": [
+            {
+              "type": "string",
+              "min": 0,
+              "max": 200
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 0,
+                "max": 200
+              },
+              "max": 4
+            }
+          ]
+        }
+      }
+    },
+    "chat_response": {
+      "type": "object",
+      "required": {
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 200
+        },
+        "object": {
+          "const": "chat.completion"
+        },
+        "created": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "model": {
+          "ref": "model_id"
+        },
+        "choices": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": {
+              "index": {
+                "type": "integer",
+                "min": 0,
+                "max": 64
+              },
+              "finish_reason": {
+                "type": "string",
+                "min": 1,
+                "max": 40
+              },
+              "message": {
+                "type": "object",
+                "required": {
+                  "role": {
+                    "const": "assistant"
+                  },
+                  "content": {
+                    "type": "string",
+                    "min": 0,
+                    "max": 400000
+                  }
+                }
+              }
+            }
+          },
+          "min": 1,
+          "max": 16
+        },
+        "usage": {
+          "type": "object",
+          "required": {
+            "prompt_tokens": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "completion_tokens": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "total_tokens": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            }
+          }
+        }
+      }
+    },
+    "custody_vector": {
+      "type": "object",
+      "required": {
+        "material": {
+          "enum": [
+            "provider_key",
+            "connection_ciphertext",
+            "turn_grant_token",
+            "model_choice"
+          ]
+        },
+        "atRest": {
+          "const": "shell_sealed_or_digest"
+        },
+        "renderer": {
+          "const": "absent"
+        },
+        "sandbox": {
+          "const": "absent"
+        },
+        "logs": {
+          "const": "absent"
+        },
+        "errors": {
+          "const": "absent"
+        },
+        "controller": {
+          "enum": [
+            "absent",
+            "opaque_turn_token"
+          ]
+        },
+        "protons": {
+          "type": "integer",
+          "min": 0,
+          "max": 0
+        },
+        "fallback": {
+          "const": "none"
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_credential_to_platform": {
+      "description": "The authenticated owner submits a provider key once, over TLS. The server derives the owner; only the Shell seals it, and SQL never sees plaintext.",
+      "forbidden_fields": [
+        "owner",
+        "principal",
+        "agent",
+        "ciphertext",
+        "keyVersion",
+        "secretRef"
+      ]
+    },
+    "platform_to_owner": {
+      "description": "Sanitized connection status and model offer for the authenticated owner; the stored key is never returned.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "*ciphertext*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "capability_to_platform": {
+      "description": "A turn-scoped opaque grant token and an OpenAI-compatible chat body from the sandbox. No provider key, URL or account identity may appear.",
+      "forbidden_fields": [
+        "*secret*",
+        "*token*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "*ciphertext*",
+        "provider",
+        "baseUrl",
+        "endpoint",
+        "url",
+        "owner",
+        "principal"
+      ]
+    },
+    "platform_to_capability": {
+      "description": "A projected OpenAI-compatible response. The provider key, the connection ciphertext and any upstream error body stay server-side.",
+      "forbidden_fields": [
+        "*secret*",
+        "*api_key*",
+        "*authorization*",
+        "*password*",
+        "*ciphertext*",
+        "baseUrl",
+        "endpoint",
+        "url"
+      ]
+    },
+    "conformance": {
+      "description": "Custody vectors; never wire or storage.",
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "connection.connect.request": {
+      "direction": "owner_credential_to_platform",
+      "schema": {
+        "ref": "connect_request"
+      }
+    },
+    "connection.disconnect.request": {
+      "direction": "owner_credential_to_platform",
+      "schema": {
+        "ref": "disconnect_request"
+      }
+    },
+    "connection.status.response": {
+      "direction": "platform_to_owner",
+      "schema": {
+        "ref": "connection_status"
+      }
+    },
+    "subscription.chat.request": {
+      "direction": "capability_to_platform",
+      "schema": {
+        "ref": "chat_request"
+      }
+    },
+    "subscription.chat.response": {
+      "direction": "platform_to_capability",
+      "schema": {
+        "ref": "chat_response"
+      }
+    },
+    "provider-connections.custody.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "custody_vector"
+            },
+            "min": 4,
+            "max": 4,
+            "unique": true
+          }
+        }
+      }
+    }
+  },
+  "routes": {
+    "owner": {
+      "GET /api/matrix/v1/provider-connections": "connection.status.response",
+      "POST /api/matrix/v1/provider-connections/connect": "connection.connect.request -> connection.status.response",
+      "POST /api/matrix/v1/provider-connections/disconnect": "connection.disconnect.request -> connection.status.response"
+    },
+    "capability": {
+      "POST /api/provider-connections/opencode-go/v1/chat/completions": "subscription.chat.request -> subscription.chat.response"
+    }
+  },
+  "invariants": [],
+  "state_machines": {
+    "connection": {
+      "states": [
+        "disconnected",
+        "connected"
+      ],
+      "initial": [
+        "disconnected"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "disconnected",
+          "connected",
+          "connect"
+        ],
+        [
+          "connected",
+          "connected",
+          "replace_key"
+        ],
+        [
+          "connected",
+          "disconnected",
+          "revoke"
+        ],
+        [
+          "disconnected",
+          "disconnected",
+          "revoke_refused"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/connect.request.json",
+      "message": "connection.connect.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/connect-owner.request.json",
+      "message": "connection.connect.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/connect-ciphertext.request.json",
+      "message": "connection.connect.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/connect-missing-key.request.json",
+      "message": "connection.connect.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/connect-long-key.request.json",
+      "message": "connection.connect.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/connect-unknown-provider.request.json",
+      "message": "connection.connect.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/disconnect.request.json",
+      "message": "connection.disconnect.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/disconnect-negative.request.json",
+      "message": "connection.disconnect.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/status-disconnected.response.json",
+      "message": "connection.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-connected.response.json",
+      "message": "connection.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-secret.response.json",
+      "message": "connection.status.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/chat.request.json",
+      "message": "subscription.chat.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chat-provider.request.json",
+      "message": "subscription.chat.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/chat-stream.request.json",
+      "message": "subscription.chat.request",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/chat.response.json",
+      "message": "subscription.chat.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chat-secret.response.json",
+      "message": "subscription.chat.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/custody.vectors.json",
+      "message": "provider-connections.custody.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/custody-durable.vectors.json",
+      "message": "provider-connections.custody.vectors",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/custody-fallback.vectors.json",
+      "message": "provider-connections.custody.vectors",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/connection.sequence.json",
+      "machine": "connection",
+      "expect": "accept"
+    }
+  ]
+}

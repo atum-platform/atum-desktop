@@ -1,0 +1,156 @@
+{
+  "manifest": {
+    "profile": "atum.remote-app-manifest/1",
+    "manifest_version": "1.0.0",
+    "app": {
+      "id": "00000000-0000-4000-8000-e79acd97ac88",
+      "slug": "moon",
+      "app_version_id": "00000000-0000-4000-8000-a9703d75e616",
+      "name": {
+        "vi": "Moon",
+        "en": "Moon"
+      },
+      "icon": {
+        "url": "https://atum.test/specialists/moon-avatar.png",
+        "sha256": "e280025e8a5cae2725d55afd0cb27a44c6d1706051943f87175e3a73111d041c"
+      },
+      "verified": true,
+      "availability": "available"
+    },
+    "compatibility": {
+      "desktop": {
+        "minimum": "0.0.0",
+        "maximum_exclusive": null
+      },
+      "provider_protocol_header": "0",
+      "provider_profiles": [
+        "atum.turn/1",
+        "atum.turn-memory/1"
+      ]
+    },
+    "link": {
+      "mode": "external_account",
+      "state": "linked"
+    },
+    "agent": {
+      "mode": "remote_turn",
+      "profile": "moon",
+      "context_profile": "app-thread/1",
+      "capabilities": [
+        "intake.modal",
+        "panel.artifact",
+        "panel.embed",
+        "response.streaming"
+      ]
+    },
+    "launch": null,
+    "routes": [
+      {
+        "id": "chat",
+        "label": {
+          "vi": "Chat",
+          "en": "Chat"
+        },
+        "icon": "message",
+        "path": "/chat",
+        "placements": [
+          "menu"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "library",
+        "label": {
+          "vi": "Thư viện",
+          "en": "Library"
+        },
+        "icon": "books",
+        "path": "/thu-vien",
+        "placements": [
+          "menu"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "readings",
+        "label": {
+          "vi": "Luận Giải",
+          "en": "Readings"
+        },
+        "icon": "book-2",
+        "path": "/readings",
+        "placements": [
+          "menu",
+          "composer"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "nhan-duyen",
+        "label": {
+          "vi": "Nhân Duyên",
+          "en": "Compatibility"
+        },
+        "icon": "hearts",
+        "path": "/nhan-duyen",
+        "placements": [
+          "menu",
+          "composer"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "tarot",
+        "label": {
+          "vi": "Tarot",
+          "en": "Tarot"
+        },
+        "icon": "cards",
+        "path": "/tarot",
+        "placements": [
+          "menu",
+          "composer"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "do-gio-sinh",
+        "label": {
+          "vi": "Dò Giờ Sinh",
+          "en": "Birth Time Finder"
+        },
+        "icon": "clock-search",
+        "path": "/birth-time-explorer/start",
+        "placements": [
+          "menu"
+        ],
+        "session": "none"
+      },
+      {
+        "id": "top-up",
+        "label": {
+          "vi": "Nạp tin nhắn",
+          "en": "Top Up Messages"
+        },
+        "icon": "coin",
+        "path": "/pricing",
+        "placements": [
+          "composer"
+        ],
+        "session": "none"
+      }
+    ],
+    "artifacts": {
+      "profile": "atum.resource-ref/0"
+    }
+  },
+  "web_origin": "https://moon.atumplatform.com",
+  "network_origins": [
+    {
+      "origin": "https://data.example",
+      "kinds": [
+        "connect"
+      ]
+    }
+  ]
+}

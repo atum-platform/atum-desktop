@@ -1,0 +1,12 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [],
+  "next_cursor": "opaque-forged-token",
+  "has_more": false,
+  "server_time": "2026-08-30T12:01:02Z",
+  "account_id": "00000000-0000-4000-8000-4fc671db5dc6",
+  "app_id": "moon",
+  "provider_id": "moon-provider",
+  "web_origin": "https://renderer-chosen.invalid",
+  "authority": { "verified": true }
+}

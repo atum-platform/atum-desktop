@@ -1,0 +1,360 @@
+{
+  "contract_id": "atum.company-funding",
+  "version": "2.1",
+  "status": "frozen",
+  "protocol_release": "pending-protocol-bump",
+  "migration": "0392_company_member_fund.sql",
+  "base": {
+    "contract": "atum.company-funding/2",
+    "path": "spec/company-funding/v2",
+    "sha256": "daadcac6f0ed5c10339b42922b443c17267df70a85afecb0cef06149920f79a3",
+    "rule": "additive member-to-company transfer route; every /2 message and route stays byte-identical"
+  },
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/fund-authority.request.json",
+    "fixtures/fund-bad-split.response.json",
+    "fixtures/fund-bucket.request.json",
+    "fixtures/fund-conflict.response.json",
+    "fixtures/fund-insufficient.response.json",
+    "fixtures/fund-member-denied.response.json",
+    "fixtures/fund-over-max.request.json",
+    "fixtures/fund.request.json",
+    "fixtures/fund.response.json"
+  ],
+  "row": "Owner decision D2 (2026-11-02): owners and admins fund the company wallet from their own Protons",
+  "providers": [
+    "Atum company funding authority"
+  ],
+  "consumers": [
+    "Atum desktop native bridge",
+    "Atum Team Space UI"
+  ],
+  "routes": [
+    "POST /api/matrix/v1/companies/{companyId}/wallet/fund"
+  ],
+  "route_authorization": {
+    "member_fund": "active_owner_or_admin_of_a_live_company",
+    "ordinary_member": "403"
+  },
+  "unit": {
+    "name": "micro_proton",
+    "micro_protons_per_proton": 1000000
+  },
+  "error_statuses": {
+    "400": "invalid",
+    "403": "denied",
+    "404": "not_found",
+    "409": "conflict_or_insufficient_protons",
+    "503": "unavailable"
+  },
+  "acceptance_requirements": [
+    "authority_is_checked_before_any_balance_read",
+    "promo_moves_first_then_paid_each_into_the_same_company_bucket",
+    "earned_and_held_protons_never_move",
+    "same_request_same_actor_company_and_amount_is_exact_replay_else_conflict",
+    "a_retired_or_suspended_company_is_denied",
+    "a_sole_member_cannot_leave_a_company_their_transfer_funded"
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "micro_protons": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "positive_micro_protons": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "balances": {
+      "type": "object",
+      "required": {
+        "paid": {
+          "ref": "micro_protons"
+        },
+        "earned": {
+          "ref": "micro_protons"
+        },
+        "promo": {
+          "ref": "micro_protons"
+        },
+        "held": {
+          "ref": "micro_protons"
+        },
+        "available": {
+          "ref": "micro_protons"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "wallet": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "unit": {
+          "const": "micro_proton"
+        },
+        "balances": {
+          "ref": "balances"
+        },
+        "checkoutOpen": {
+          "type": "boolean"
+        },
+        "canTopUp": {
+          "type": "boolean"
+        },
+        "aiEnabled": {
+          "type": "boolean"
+        },
+        "policyRevision": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "protons": {
+      "type": "integer",
+      "min": 1,
+      "max": 1000000
+    },
+    "fund_request": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "protons": {
+          "ref": "protons"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "fund_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "protons": {
+          "ref": "protons"
+        },
+        "amountMicroProtons": {
+          "ref": "positive_micro_protons"
+        },
+        "fromPromoMicroProtons": {
+          "ref": "micro_protons"
+        },
+        "fromPaidMicroProtons": {
+          "ref": "micro_protons"
+        },
+        "wallet": {
+          "ref": "wallet"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "funding_error": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "error": {
+          "type": "object",
+          "required": {
+            "code": {
+              "enum": [
+                "denied",
+                "budget_exhausted",
+                "conflict",
+                "unavailable",
+                "insufficient_protons"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "messages": {
+    "fund.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "fund_request"
+      }
+    },
+    "fund.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "fund_response"
+      }
+    },
+    "funding-error.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "funding_error"
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform": {
+      "from": "authenticated native owner",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "actor",
+        "actorId",
+        "companyId",
+        "purchasedBy",
+        "payer",
+        "amountVnd",
+        "paidMicroProtons",
+        "promoMicroProtons",
+        "checkoutUrl",
+        "returnUrl",
+        "cancelUrl"
+      ]
+    },
+    "platform_to_native": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "actor",
+        "purchasedBy",
+        "payerPrincipal",
+        "orderCode",
+        "providerId",
+        "paymentReference",
+        "ledgerId",
+        "reservationId",
+        "taskId",
+        "agentPrincipal",
+        "requesterPrincipal"
+      ]
+    }
+  },
+  "invariants": [
+    {
+      "id": "fund-split-sums",
+      "message": "fund.response",
+      "op": "sum_eq",
+      "left": [
+        "fromPromoMicroProtons",
+        "fromPaidMicroProtons"
+      ],
+      "right": [
+        "amountMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "fund-wallet-company",
+      "message": "fund.response",
+      "op": "same",
+      "left": "wallet.companyId",
+      "right": "companyId",
+      "required": true
+    },
+    {
+      "id": "fund-wallet-available-equation",
+      "message": "fund.response",
+      "op": "sum_eq",
+      "left": [
+        "wallet.balances.available",
+        "wallet.balances.held"
+      ],
+      "right": [
+        "wallet.balances.paid",
+        "wallet.balances.earned",
+        "wallet.balances.promo"
+      ],
+      "required": true
+    }
+  ],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/fund-authority.request.json",
+      "message": "fund.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/fund-bad-split.response.json",
+      "message": "fund.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/fund-bucket.request.json",
+      "message": "fund.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/fund-conflict.response.json",
+      "message": "funding-error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fund-insufficient.response.json",
+      "message": "funding-error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fund-member-denied.response.json",
+      "message": "funding-error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fund-over-max.request.json",
+      "message": "fund.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/fund.request.json",
+      "message": "fund.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/fund.response.json",
+      "message": "fund.response",
+      "expect": "accept"
+    }
+  ]
+}

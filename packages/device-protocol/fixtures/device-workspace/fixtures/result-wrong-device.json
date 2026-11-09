@@ -1,0 +1,34 @@
+{
+  "v": 1,
+  "type": "WorkspaceResult",
+  "body": {
+    "requestId": "00000000-0000-4000-8000-632afc8c7d35",
+    "grantId": "00000000-0000-4000-8000-5775cb8e18f1",
+    "invocationId": "00000000-0000-4000-8000-282ea33c3829",
+    "connectionId": "00000000-0000-4000-8000-d1d2ae26b2e9",
+    "connectionEpoch": 8,
+    "deviceServiceId": "00000000-0000-4000-8000-9b75346b1fd3",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 3,
+    "writerEpoch": {
+      "leaseGeneration": 4,
+      "leaseTokenHash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    "manifest": {
+      "v": 1,
+      "deviceServiceId": "00000000-0000-4000-8000-6bd93e4d35b8",
+      "taskId": "00000000-0000-4000-8000-282ea33c3829",
+      "folder": "/Agents/T",
+      "files": [],
+      "truncated": false
+    },
+    "artifacts": [],
+    "deleted": [],
+    "complete": true,
+    "resultHash": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "conflicts": [],
+    "outputs": []
+  },
+  "kid": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "sig": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+}

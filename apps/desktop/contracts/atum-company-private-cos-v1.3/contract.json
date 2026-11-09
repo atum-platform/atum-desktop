@@ -1,0 +1,52 @@
+{
+  "contract_id": "atum.company-private-cos",
+  "version": "1.3",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/capability.response.json",
+    "fixtures/ensure-locale.request.json",
+    "fixtures/room-attempt.json"
+  ],
+  "row": "locale capture, ready replay, one room attempt and Company AI session recovery parity",
+  "providers": ["Atum platform private CoS authority"],
+  "consumers": ["C-T5 controller", "A-T5 desktop"],
+  "base": {
+    "contract": "atum.company-private-cos/1.2",
+    "path": "spec/company-private-cos/v1.2",
+    "kind": "pack",
+    "sha256": "5402d96815927295c277e88343557ae2b0b5c7ca826968902a3f092f960ff65f",
+    "rule": "additive minor; v1 through v1.2 bytes remain frozen"
+  },
+  "ensure": {
+    "optional_locale": ["en", "vi", "ja", "zh", "zh-hant"],
+    "storage": "membership incarnation pair",
+    "greeting_normalization": {"vi":"vi", "en":"en", "ja":"en", "zh":"en", "zh-hant":"en", "missing":"en"}
+  },
+  "binding": {
+    "ready_replay": "same executor, incarnation, identity, room and profile returns the current ready view",
+    "changed_input": "conflict or denial with no mutation"
+  },
+  "room_attempt": {
+    "identity": "attemptId is stable for the membership incarnation",
+    "marker": "the create-room marker contains the same attemptId",
+    "recovery": "before creating, find a room with this exact marker; if found bind it instead of creating another"
+  },
+  "session": {
+    "expired": "same-session regenerate is admitted after recorded expiry",
+    "unknown_rotate": "retain current session and retry; never move identity to attention",
+    "post_commit_attach_failure": "retry performs rotate against the committed same session",
+    "stale_pending_takeover_ms": 360000
+  },
+  "funding": {
+    "private_subject_kind": "company_private_cos",
+    "predecessor_channel_subject_kind": "company_ai",
+    "compatibility": "0323 and 0390-0394 pgTAP suites must pass after 0395"
+  },
+  "fixtures": [
+    {"file":"fixtures/capability.response.json","message":"capability.response","expect":"accept"},
+    {"file":"fixtures/ensure-locale.request.json","message":"ensure.request","expect":"accept"},
+    {"file":"fixtures/room-attempt.json","message":"room-attempt","expect":"accept"}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "available",
+      "to": "available",
+      "event": "day_reset"
+    },
+    {
+      "from": "available",
+      "to": "warned",
+      "event": "cross_80_percent"
+    },
+    {
+      "from": "warned",
+      "to": "exhausted",
+      "event": "call_finishes_past_100_percent"
+    },
+    {
+      "from": "exhausted",
+      "to": "available",
+      "event": "day_reset"
+    }
+  ]
+}

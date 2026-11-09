@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "type": "Stop",
+  "body": {
+    "reason": "local_stop",
+    "accountEpoch": 7,
+    "grantIds": [
+      "00000000-0000-4000-8000-fce915c29383"
+    ]
+  },
+  "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+  "sig": "Pw1IsaaEa_TpUQgmVr6QpBy5p6HGe6k4Ajn1Uzf_bXjZr2X9ztvfZ2-c-9m0fI0eA-bhw5VnhqYbN67wYWy2yQ"
+}

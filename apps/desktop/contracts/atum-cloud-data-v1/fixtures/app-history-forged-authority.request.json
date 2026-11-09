@@ -1,0 +1,13 @@
+{
+  "contract": "atum.cloud-data/1",
+  "event_id": "moon.turn:2026-08-30:43",
+  "event_type": "turn.completed",
+  "provider_thread_ref": "moon.thread:43",
+  "payload": {"summary": "Forged authority"},
+  "artifacts": [],
+  "idempotency_key": "moon.turn:2026-08-30:43",
+  "account_id": "00000000-0000-4000-8000-4fc671db5dc6",
+  "app_id": "moon",
+  "storage_path": "foreign-account/private.pdf",
+  "provenance": {"verified": true}
+}

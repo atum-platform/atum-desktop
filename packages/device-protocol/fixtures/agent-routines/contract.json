@@ -1,0 +1,1737 @@
+{
+  "contract_id": "atum.agent-routines",
+  "version": "1.3",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/agent-command-create-daily.request.json",
+    "fixtures/agent-command-create-daily.response.json",
+    "fixtures/agent-command-create-state-injection.request.json",
+    "fixtures/agent-command-create.request.json",
+    "fixtures/agent-command-create.response.json",
+    "fixtures/agent-command-delete.request.json",
+    "fixtures/agent-command-delete.response.json",
+    "fixtures/agent-command-denied.response.json",
+    "fixtures/agent-command-identity-injection.request.json",
+    "fixtures/agent-command-import-all-skipped.response.json",
+    "fixtures/agent-command-import-bad-job-id.request.json",
+    "fixtures/agent-command-import-draft-both-forms.request.json",
+    "fixtures/agent-command-import-empty.request.json",
+    "fixtures/agent-command-import-identity-injection.request.json",
+    "fixtures/agent-command-import-raw-cron.request.json",
+    "fixtures/agent-command-import-request-conflict.response.json",
+    "fixtures/agent-command-import-result-bad-reason.response.json",
+    "fixtures/agent-command-import-result-extra-field.response.json",
+    "fixtures/agent-command-import-stale-generation.response.json",
+    "fixtures/agent-command-import-too-many.request.json",
+    "fixtures/agent-command-import-unavailable.response.json",
+    "fixtures/agent-command-import-unknown-field.request.json",
+    "fixtures/agent-command-import.request.json",
+    "fixtures/agent-command-import.response.json",
+    "fixtures/agent-command-invalid.response.json",
+    "fixtures/agent-command-legacy-schedules.response.json",
+    "fixtures/agent-command-list.request.json",
+    "fixtures/agent-command-list.response.json",
+    "fixtures/agent-command-malformed-identity.response.json",
+    "fixtures/agent-command-not-found.response.json",
+    "fixtures/agent-command-occurrence-injection.request.json",
+    "fixtures/agent-command-quota.response.json",
+    "fixtures/agent-command-raw-cron.request.json",
+    "fixtures/agent-command-request-conflict.response.json",
+    "fixtures/agent-command-revision-conflict.response.json",
+    "fixtures/agent-command-run.request.json",
+    "fixtures/agent-command-run.response.json",
+    "fixtures/agent-command-secret-injection.request.json",
+    "fixtures/agent-command-token-injection.request.json",
+    "fixtures/agent-command-unavailable.response.json",
+    "fixtures/agent-command-unknown-field.request.json",
+    "fixtures/agent-command-unsupported-schedule-extra-field.response.json",
+    "fixtures/agent-command-unsupported-schedule-on-run.response.json",
+    "fixtures/agent-command-unsupported-schedule-on-update.response.json",
+    "fixtures/agent-command-unsupported-schedule.response.json",
+    "fixtures/agent-command-update-missing-revision.request.json",
+    "fixtures/agent-command-update-pause-daily.request.json",
+    "fixtures/agent-command-update-pause-daily.response.json",
+    "fixtures/agent-command-update.request.json",
+    "fixtures/agent-command-update.response.json",
+    "fixtures/controller-inventory.request.json",
+    "fixtures/controller-inventory.response.json",
+    "fixtures/controller.snapshot.json",
+    "fixtures/interval-above-max.request.json",
+    "fixtures/interval-max.request.json",
+    "fixtures/interval-min.request.json",
+    "fixtures/interval-owner-create.request.json",
+    "fixtures/interval-unknown-field.request.json",
+    "fixtures/interval-zero.request.json",
+    "fixtures/routine-action.request.json",
+    "fixtures/routine-create.request.json",
+    "fixtures/routine-mutation.response.json",
+    "fixtures/routine-raw-cron.request.json",
+    "fixtures/routine-runs.snapshot.json",
+    "fixtures/routine-update.request.json",
+    "fixtures/routines.snapshot.json"
+  ],
+  "row": "Contract 3: agent routines interval, executor commands, unsupported schedule refusal and old-job import",
+  "providers": [
+    "atum-platform routine authority",
+    "atum-app cloud controller"
+  ],
+  "consumers": [
+    "atum-mobile",
+    "atum-app"
+  ],
+  "routes": {
+    "native_base": "/api/matrix/v1",
+    "operations": {
+      "GET /agents/{assistantId}/routines": [
+        null,
+        "routines.snapshot"
+      ],
+      "POST /agents/{assistantId}/routines create": [
+        "routine.create",
+        "routine.mutation-result"
+      ],
+      "POST /agents/{assistantId}/routines update": [
+        "routine.update",
+        "routine.mutation-result"
+      ],
+      "POST /agents/{assistantId}/routines action": [
+        "routine.action",
+        "routine.mutation-result"
+      ],
+      "GET /agents/{assistantId}/routines/{routineId}/runs": [
+        null,
+        "routine-runs.snapshot"
+      ],
+      "GET /cloud/controller/executors/{executorId}/routines": [
+        null,
+        "controller.snapshot"
+      ],
+      "POST /cloud/controller/executors/{executorId}/routines/inventory": [
+        "controller-inventory.write",
+        "controller-inventory.snapshot"
+      ],
+      "POST /cloud/controller/executors/{executorId}/routines/commands": [
+        "agent-routine.command",
+        "agent-routine.command-result"
+      ]
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "[a-f0-9]{64}"
+    },
+    "schedule_id": {
+      "type": "string",
+      "min": 1,
+      "max": 64,
+      "pattern": "[A-Za-z0-9_-]+"
+    },
+    "revision": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "millis": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "nullable_millis": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "ref": "millis"
+        }
+      ]
+    },
+    "title": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "instruction": {
+      "type": "string",
+      "min": 1,
+      "max": 20000
+    },
+    "timezone": {
+      "type": "string",
+      "min": 1,
+      "max": 64
+    },
+    "schedule": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "once"
+            },
+            "runAt": {
+              "type": "string",
+              "min": 20,
+              "max": 40,
+              "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,6})?(Z|[+-][0-9]{2}(:[0-9]{2})?)"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "daily"
+            },
+            "hour": {
+              "type": "integer",
+              "min": 0,
+              "max": 23
+            },
+            "minute": {
+              "type": "integer",
+              "min": 0,
+              "max": 59
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "weekly"
+            },
+            "hour": {
+              "type": "integer",
+              "min": 0,
+              "max": 23
+            },
+            "minute": {
+              "type": "integer",
+              "min": 0,
+              "max": 59
+            },
+            "weekdays": {
+              "type": "array",
+              "min": 1,
+              "max": 7,
+              "unique": true,
+              "items": {
+                "type": "integer",
+                "min": 1,
+                "max": 7
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "monthly"
+            },
+            "day": {
+              "type": "integer",
+              "min": 1,
+              "max": 28
+            },
+            "hour": {
+              "type": "integer",
+              "min": 0,
+              "max": 23
+            },
+            "minute": {
+              "type": "integer",
+              "min": 0,
+              "max": 59
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "interval"
+            },
+            "everyHours": {
+              "ref": "interval_hours"
+            }
+          }
+        }
+      ]
+    },
+    "last_run": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": {
+            "occurrenceId": {
+              "ref": "uuid"
+            },
+            "scheduledAt": {
+              "ref": "millis"
+            },
+            "state": {
+              "enum": [
+                "claimed",
+                "dispatched",
+                "skipped",
+                "completed"
+              ]
+            }
+          },
+          "optional": {
+            "outcome": {
+              "enum": [
+                "answered",
+                "stopped",
+                "failed",
+                "uncertain"
+              ]
+            },
+            "skipReason": {
+              "type": "string",
+              "min": 1,
+              "max": 64
+            }
+          }
+        }
+      ]
+    },
+    "routine": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "title": {
+          "ref": "title"
+        },
+        "instruction": {
+          "ref": "instruction"
+        },
+        "schedule": {
+          "ref": "schedule"
+        },
+        "timezone": {
+          "ref": "timezone"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "notifications": {
+          "type": "boolean"
+        },
+        "revision": {
+          "ref": "revision"
+        },
+        "nextRunAt": {
+          "ref": "nullable_millis"
+        },
+        "lastRun": {
+          "ref": "last_run"
+        }
+      }
+    },
+    "run": {
+      "type": "object",
+      "required": {
+        "occurrenceId": {
+          "ref": "uuid"
+        },
+        "scheduledAt": {
+          "ref": "millis"
+        },
+        "state": {
+          "enum": [
+            "claimed",
+            "dispatched",
+            "skipped",
+            "completed"
+          ]
+        }
+      },
+      "optional": {
+        "outcome": {
+          "enum": [
+            "answered",
+            "stopped",
+            "failed",
+            "uncertain"
+          ]
+        },
+        "skipReason": {
+          "type": "string",
+          "min": 1,
+          "max": 64
+        },
+        "publishedEvent": {
+          "type": "string",
+          "min": 2,
+          "max": 1024
+        }
+      }
+    },
+    "interval_hours": {
+      "type": "integer",
+      "min": 1,
+      "max": 8760
+    },
+    "agent_routine_command": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "list"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "create"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "title": {
+              "ref": "title"
+            },
+            "instruction": {
+              "ref": "instruction"
+            },
+            "schedule": {
+              "ref": "schedule"
+            },
+            "timezone": {
+              "ref": "timezone"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "notifications": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "update"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "routineId": {
+              "ref": "uuid"
+            },
+            "expectedRevision": {
+              "ref": "revision"
+            },
+            "title": {
+              "ref": "title"
+            },
+            "instruction": {
+              "ref": "instruction"
+            },
+            "schedule": {
+              "ref": "schedule"
+            },
+            "timezone": {
+              "ref": "timezone"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "notifications": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "run"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "routineId": {
+              "ref": "uuid"
+            },
+            "expectedRevision": {
+              "ref": "revision"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "delete"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "routineId": {
+              "ref": "uuid"
+            },
+            "expectedRevision": {
+              "ref": "revision"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command/1"
+            },
+            "operation": {
+              "const": "import"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "generation": {
+              "ref": "millis"
+            },
+            "jobs": {
+              "type": "array",
+              "min": 1,
+              "max": 16,
+              "items": {
+                "ref": "import_draft"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "agent_routine_command_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "list"
+            },
+            "serverTime": {
+              "ref": "millis"
+            },
+            "legacyState": {
+              "enum": [
+                "unknown",
+                "clear",
+                "present"
+              ]
+            },
+            "routines": {
+              "type": "array",
+              "min": 0,
+              "max": 64,
+              "unique": true,
+              "items": {
+                "ref": "routine"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "create"
+            },
+            "routine": {
+              "ref": "routine"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "update"
+            },
+            "routine": {
+              "ref": "routine"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "run"
+            },
+            "routine": {
+              "ref": "routine"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "delete"
+            },
+            "outcome": {
+              "const": "deleted"
+            },
+            "routineId": {
+              "ref": "uuid"
+            },
+            "revision": {
+              "ref": "revision"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "enum": [
+                "list",
+                "create",
+                "update",
+                "run",
+                "delete"
+              ]
+            },
+            "outcome": {
+              "const": "refused"
+            },
+            "reason": {
+              "enum": [
+                "request_conflict",
+                "legacy_schedules_present",
+                "quota",
+                "not_found",
+                "denied"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "enum": [
+                "update",
+                "run",
+                "delete"
+              ]
+            },
+            "outcome": {
+              "const": "refused"
+            },
+            "reason": {
+              "const": "revision_conflict"
+            },
+            "revision": {
+              "ref": "revision"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "enum": [
+                "list",
+                "create",
+                "update",
+                "run",
+                "delete"
+              ]
+            },
+            "outcome": {
+              "const": "error"
+            },
+            "reason": {
+              "enum": [
+                "invalid",
+                "unavailable"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "enum": [
+                "create",
+                "update"
+              ]
+            },
+            "outcome": {
+              "const": "refused"
+            },
+            "reason": {
+              "const": "unsupported_schedule"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "import"
+            },
+            "receiptId": {
+              "ref": "uuid"
+            },
+            "generation": {
+              "ref": "millis"
+            },
+            "imported": {
+              "type": "array",
+              "min": 0,
+              "max": 16,
+              "unique": true,
+              "items": {
+                "ref": "import_imported"
+              }
+            },
+            "skipped": {
+              "type": "array",
+              "min": 0,
+              "max": 16,
+              "unique": true,
+              "items": {
+                "ref": "import_skipped"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "import"
+            },
+            "outcome": {
+              "const": "refused"
+            },
+            "reason": {
+              "enum": [
+                "request_conflict",
+                "stale_generation"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-routine-command-result/1"
+            },
+            "operation": {
+              "const": "import"
+            },
+            "outcome": {
+              "const": "error"
+            },
+            "reason": {
+              "enum": [
+                "invalid",
+                "unavailable"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "home_job_id": {
+      "type": "string",
+      "min": 1,
+      "max": 64,
+      "pattern": "[A-Za-z0-9_-]+"
+    },
+    "import_note": {
+      "type": "string",
+      "min": 1,
+      "max": 400
+    },
+    "import_draft": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "homeJobId": {
+              "ref": "home_job_id"
+            },
+            "title": {
+              "ref": "title"
+            },
+            "instruction": {
+              "ref": "instruction"
+            },
+            "schedule": {
+              "ref": "schedule"
+            },
+            "timezone": {
+              "ref": "timezone"
+            },
+            "notifications": {
+              "type": "boolean"
+            },
+            "enableOnClear": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "homeJobId": {
+              "ref": "home_job_id"
+            },
+            "title": {
+              "ref": "title"
+            },
+            "unsupportedReason": {
+              "ref": "import_note"
+            }
+          }
+        }
+      ]
+    },
+    "import_imported": {
+      "type": "object",
+      "required": {
+        "homeJobId": {
+          "ref": "home_job_id"
+        },
+        "routineId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "import_skipped": {
+      "type": "object",
+      "required": {
+        "homeJobId": {
+          "ref": "home_job_id"
+        },
+        "reason": {
+          "enum": [
+            "unsupported",
+            "invalid",
+            "quota"
+          ]
+        },
+        "note": {
+          "ref": "import_note"
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_provider": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistantPrincipal",
+        "agentPrincipal",
+        "cron",
+        "provider",
+        "*token*",
+        "credential",
+        "password"
+      ]
+    },
+    "provider_to_owner": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "*token*",
+        "credential",
+        "password"
+      ]
+    },
+    "provider_to_controller": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistantId",
+        "timezone",
+        "schedule",
+        "revision",
+        "*token*",
+        "credential",
+        "password"
+      ]
+    },
+    "controller_to_provider": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistantId",
+        "prompt",
+        "title",
+        "timezone",
+        "schedule",
+        "*token*",
+        "credential",
+        "password"
+      ]
+    },
+    "agent_to_provider": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistant",
+        "assistantId",
+        "assistantPrincipal",
+        "agent",
+        "agentPrincipal",
+        "executor",
+        "executorId",
+        "provider",
+        "cron",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "auth",
+        "*authorization*",
+        "*token*",
+        "apiKey",
+        "api_key",
+        "*api_key*",
+        "baseUrl",
+        "endpoint",
+        "url",
+        "billing",
+        "funding",
+        "grant",
+        "reservation",
+        "occurrence",
+        "occurrenceId",
+        "definitionDigest",
+        "state"
+      ]
+    },
+    "provider_to_agent": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistant",
+        "assistantId",
+        "assistantPrincipal",
+        "agent",
+        "agentPrincipal",
+        "executor",
+        "executorId",
+        "provider",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "auth",
+        "*authorization*",
+        "*token*",
+        "apiKey",
+        "api_key",
+        "*api_key*",
+        "baseUrl",
+        "endpoint",
+        "url",
+        "billing",
+        "funding",
+        "grant",
+        "reservation"
+      ]
+    }
+  },
+  "messages": {
+    "routine.create": {
+      "direction": "owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "operation": {
+            "const": "create"
+          },
+          "requestId": {
+            "ref": "uuid"
+          },
+          "title": {
+            "ref": "title"
+          },
+          "instruction": {
+            "ref": "instruction"
+          },
+          "schedule": {
+            "ref": "schedule"
+          },
+          "timezone": {
+            "ref": "timezone"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "notifications": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "routine.update": {
+      "direction": "owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "operation": {
+            "const": "update"
+          },
+          "requestId": {
+            "ref": "uuid"
+          },
+          "routineId": {
+            "ref": "uuid"
+          },
+          "expectedRevision": {
+            "ref": "revision"
+          },
+          "title": {
+            "ref": "title"
+          },
+          "instruction": {
+            "ref": "instruction"
+          },
+          "schedule": {
+            "ref": "schedule"
+          },
+          "timezone": {
+            "ref": "timezone"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "notifications": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "routine.action": {
+      "direction": "owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "operation": {
+            "enum": [
+              "run",
+              "delete"
+            ]
+          },
+          "requestId": {
+            "ref": "uuid"
+          },
+          "routineId": {
+            "ref": "uuid"
+          },
+          "expectedRevision": {
+            "ref": "revision"
+          }
+        }
+      }
+    },
+    "routine.mutation-result": {
+      "direction": "provider_to_owner",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": {
+              "profile": {
+                "const": "atum.agent-routines/1"
+              },
+              "routine": {
+                "ref": "routine"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": {
+              "profile": {
+                "const": "atum.agent-routines/1"
+              },
+              "outcome": {
+                "const": "deleted"
+              },
+              "routineId": {
+                "ref": "uuid"
+              },
+              "revision": {
+                "ref": "revision"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "routines.snapshot": {
+      "direction": "provider_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.agent-routines/1"
+          },
+          "assistantId": {
+            "ref": "uuid"
+          },
+          "assistantPrincipal": {
+            "ref": "uuid"
+          },
+          "serverTime": {
+            "ref": "millis"
+          },
+          "legacyState": {
+            "enum": [
+              "unknown",
+              "clear",
+              "present"
+            ]
+          },
+          "routines": {
+            "type": "array",
+            "min": 0,
+            "max": 64,
+            "unique": true,
+            "items": {
+              "ref": "routine"
+            }
+          }
+        }
+      }
+    },
+    "routine-runs.snapshot": {
+      "direction": "provider_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.agent-routine-runs/1"
+          },
+          "routineId": {
+            "ref": "uuid"
+          },
+          "runs": {
+            "type": "array",
+            "min": 0,
+            "max": 20,
+            "unique": true,
+            "items": {
+              "ref": "run"
+            }
+          }
+        }
+      }
+    },
+    "controller.snapshot": {
+      "direction": "provider_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.controller-routines/1"
+          },
+          "agentPrincipal": {
+            "ref": "uuid"
+          },
+          "legacyState": {
+            "enum": [
+              "unknown",
+              "clear",
+              "present"
+            ]
+          },
+          "routines": {
+            "type": "array",
+            "min": 0,
+            "max": 64,
+            "unique": true,
+            "items": {
+              "type": "object",
+              "required": {
+                "scheduleId": {
+                  "ref": "schedule_id"
+                },
+                "definitionDigest": {
+                  "ref": "sha256"
+                },
+                "nextOccurrenceAt": {
+                  "ref": "millis"
+                },
+                "catchupWindowMs": {
+                  "type": "integer",
+                  "min": 120000,
+                  "max": 7200000
+                },
+                "title": {
+                  "ref": "title"
+                },
+                "prompt": {
+                  "ref": "instruction"
+                },
+                "notifications": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "controller-inventory.write": {
+      "direction": "controller_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.controller-routine-inventory/1"
+          },
+          "generation": {
+            "ref": "millis"
+          },
+          "schedules": {
+            "type": "array",
+            "min": 0,
+            "max": 64,
+            "unique": true,
+            "items": {
+              "type": "object",
+              "required": {
+                "scheduleId": {
+                  "ref": "schedule_id"
+                },
+                "definitionDigest": {
+                  "ref": "sha256"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "controller-inventory.snapshot": {
+      "direction": "provider_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.controller-routine-inventory/1"
+          },
+          "state": {
+            "enum": [
+              "clear",
+              "present"
+            ]
+          },
+          "legacyCount": {
+            "type": "integer",
+            "min": 0,
+            "max": 64
+          },
+          "generation": {
+            "ref": "millis"
+          }
+        }
+      }
+    },
+    "agent-routine.command": {
+      "direction": "agent_to_provider",
+      "schema": {
+        "ref": "agent_routine_command"
+      }
+    },
+    "agent-routine.command-result": {
+      "direction": "provider_to_agent",
+      "schema": {
+        "ref": "agent_routine_command_result"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/agent-command-create-daily.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-create-daily.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-create-state-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-create.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-create.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-delete.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-delete.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-denied.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-identity-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-import-all-skipped.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-import-bad-job-id.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-draft-both-forms.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-empty.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-identity-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-import-raw-cron.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-import-request-conflict.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-import-result-bad-reason.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-result-extra-field.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-stale-generation.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-import-too-many.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import-unavailable.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-import-unknown-field.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-import.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-import.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-invalid.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-legacy-schedules.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-list.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-list.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-malformed-identity.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-not-found.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-occurrence-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-quota.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-raw-cron.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-request-conflict.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-revision-conflict.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-run.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-run.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-secret-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-token-injection.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-command-unavailable.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-unknown-field.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-unsupported-schedule-extra-field.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-unsupported-schedule-on-run.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-unsupported-schedule-on-update.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-unsupported-schedule.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-update-missing-revision.request.json",
+      "message": "agent-routine.command",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agent-command-update-pause-daily.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-update-pause-daily.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-update.request.json",
+      "message": "agent-routine.command",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-command-update.response.json",
+      "message": "agent-routine.command-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/controller-inventory.request.json",
+      "message": "controller-inventory.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/controller-inventory.response.json",
+      "message": "controller-inventory.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/controller.snapshot.json",
+      "message": "controller.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interval-above-max.request.json",
+      "message": "routine.create",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/interval-max.request.json",
+      "message": "routine.create",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interval-min.request.json",
+      "message": "routine.create",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interval-owner-create.request.json",
+      "message": "routine.create",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interval-unknown-field.request.json",
+      "message": "routine.create",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/interval-zero.request.json",
+      "message": "routine.create",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/routine-action.request.json",
+      "message": "routine.action",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/routine-create.request.json",
+      "message": "routine.create",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/routine-mutation.response.json",
+      "message": "routine.mutation-result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/routine-raw-cron.request.json",
+      "message": "routine.create",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/routine-runs.snapshot.json",
+      "message": "routine-runs.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/routine-update.request.json",
+      "message": "routine.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/routines.snapshot.json",
+      "message": "routines.snapshot",
+      "expect": "accept"
+    }
+  ],
+  "base": {
+    "contract": "atum.agent-routines/1.2",
+    "path": "spec/agent-routines/v1.2",
+    "sha256": "387e37647b188ef9e0ca1f4e2006172f9e45a067648341d7722859cb75260421",
+    "rule": "additive: every 1.2 fixture is carried byte for byte; 1.3 adds the executor command import and its closed results"
+  },
+  "amendments": [
+    "A1: a structurally valid schedule kind the authority does not yet accept on the command route is refused with unsupported_schedule, never dropped, rewritten or reported as invalid",
+    "A2: the executor command route gains operation import: a home's old scheduled jobs become paused routines in one atomic call with a durable receipt; jobs the cloud cannot represent are recorded as skipped with a reason, never dropped"
+  ],
+  "semantics": {
+    "interval_schedule": {
+      "unit": "elapsed_utc_hours",
+      "timezone": "display_only_for_interval_length",
+      "first_run_anchor": "accepted_create_time",
+      "reanchor": "accepted_resume_false_to_true_or_schedule_or_timezone_change_time",
+      "preserved_anchor": "all_other_updates_preserve_nextRunAt",
+      "phase_carrier": "stored_nextRunAt",
+      "advancement": "from_prior_scheduled_instant_never_completion",
+      "missed_slots": "skip_to_earliest_strictly_future_scheduled_instant",
+      "bounds": {
+        "everyHours": {
+          "min": 1,
+          "max": 8760,
+          "meaning": "one_year_operational_and_recurring_arithmetic_safety_limit; use_once_or_monthly_for_longer_periods"
+        }
+      },
+      "owner_route_activation": "contract_first_until_LA9; emit_interval_only_after_LB8_and_LC7_compatibility",
+      "older_consumer_rule": "retain_and_display_unknown_schedule_kinds_as_read_only_unsupported_instead_of_rejecting_the_snapshot"
+    },
+    "executor_command": {
+      "authenticated_binding": "server_derives_owner_assistant_and_agent_from_authenticated_executor_binding",
+      "path_binding": "path_executorId_must_equal_authenticated_controllerCloudBinding; body_cannot_override",
+      "idempotency": "exact_mutation_replay_returns_same_result; same_requestId_with_different_bytes_conflicts",
+      "legacy_gate": "legacyState_remains_visible; create_run_and_enabled_update_are_denied_unless_clear",
+      "cron_spawn_guard": "sandbox_consumer_refuses_scheduling_when_current_run_was_cron_spawned; not_an_authority_fence",
+      "pause_resume": "full_replacement_update_with_enabled_false_or_true",
+      "failure_results": "closed_refused_or_error_result; revision_conflict_includes_current_revision",
+      "unsupported_schedule": "create_or_update_whose_schedule_matches_the_schedule_type_but_whose_kind_the_authority_has_not_activated_on_this_route; today_interval_until_LA9_activation; refused_with_the_reason_never_dropped_or_reported_as_invalid; the_consumer_tells_the_owner_and_chooses_a_supported_kind",
+      "import": {
+        "purpose": "one_time_receipted_move_of_a_homes_old_scheduled_jobs_into_the_routines_list",
+        "paused": "every_imported_routine_is_created_enabled_false_whatever_the_home_job_state_was; the_owner_turns_on_the_ones_they_want",
+        "legacy_gate": "import_inserts_only_disabled_rows_so_it_is_allowed_while_legacyState_is_present",
+        "atomic": "one_call_inserts_every_row_and_the_receipt_or_none",
+        "idempotent": "each_homeJobId_is_imported_at_most_once_per_agent; a_repeat_returns_the_first_routineId_and_creates_nothing; same_requestId_replays_the_same_result",
+        "skipped": "unsupported_and_invalid_are_final_and_recorded_with_a_note; quota_is_not_recorded_and_may_be_imported_later",
+        "enableOnClear": "a_true_flag_enables_that_routine_when_the_home_inventory_next_reports_clear_only_if_it_is_still_disabled_and_unedited; the_flag_is_then_spent",
+        "stale_generation": "refused_when_the_home_generation_is_older_than_the_latest_inventory_report",
+        "bounds": {
+          "jobs": {
+            "min": 1,
+            "max": 16
+          }
+        },
+        "consumer_rule": "disable_the_home_jobs_named_in_imported_or_final_skipped_only_after_the_result; leave_quota_skipped_jobs_live"
+      }
+    }
+  }
+}

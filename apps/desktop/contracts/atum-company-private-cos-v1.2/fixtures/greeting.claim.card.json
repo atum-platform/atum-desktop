@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "resource": "greeting",
+  "claimed": true,
+  "locale": "en",
+  "text": "Welcome! I’m your private Chief of Staff—ask @Chief of Staff here, or open your company board.",
+  "mention": { "userId": "@member:atum.example" },
+  "agentPill": {
+    "userId": "@private-cos:atum.example",
+    "displayName": "Chief of Staff",
+    "label": "@Chief of Staff",
+    "href": "https://matrix.to/#/@private-cos:atum.example"
+  },
+  "link": {
+    "kind": "company_board_card",
+    "companyId": "00000000-0000-4000-8000-540eb3b6436f",
+    "boardId": "00000000-0000-4000-8000-7b0cac15d6b0",
+    "cardId": "00000000-0000-4000-8000-ed2914fe0e5a",
+    "title": "How to use your company space",
+    "url": "https://atumplatform.com/#atum-board/00000000-0000-4000-8000-540eb3b6436f/00000000-0000-4000-8000-7b0cac15d6b0/card/00000000-0000-4000-8000-ed2914fe0e5a"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "operation": "create",
+  "requestId": "00000000-0000-4000-8000-fbe5ce9e47ff",
+  "title": "Too long",
+  "instruction": "Check the queue.",
+  "schedule": {
+    "kind": "interval",
+    "everyHours": 8761
+  },
+  "timezone": "UTC",
+  "enabled": true,
+  "notifications": true
+}

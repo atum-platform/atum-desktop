@@ -1,0 +1,18 @@
+{
+  "asOf": 1790672400000,
+  "state": "excluded",
+  "counts": {
+    "ready": 0,
+    "catching_up": 0,
+    "partial": 0,
+    "offline": 0,
+    "excluded": 0,
+    "needs_keys": 0,
+    "paused": 0,
+    "error": 0
+  },
+  "googleFence": {
+    "active": false,
+    "pausedSources": 0
+  }
+}

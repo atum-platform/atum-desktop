@@ -1,0 +1,1287 @@
+{
+  "profile": "atum.agent-sources/1",
+  "integrationRef": "fixture.max_sources",
+  "integrationRevision": 1,
+  "sources": [
+    {
+      "id": "source.00",
+      "kind": "fixture.source",
+      "connectionRef": "connection_0",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_0",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.01",
+      "kind": "fixture.source",
+      "connectionRef": "connection_1",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_1",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.02",
+      "kind": "fixture.source",
+      "connectionRef": "connection_2",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_2",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.03",
+      "kind": "fixture.source",
+      "connectionRef": "connection_3",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_3",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.04",
+      "kind": "fixture.source",
+      "connectionRef": "connection_4",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_4",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.05",
+      "kind": "fixture.source",
+      "connectionRef": "connection_5",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_5",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.06",
+      "kind": "fixture.source",
+      "connectionRef": "connection_6",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_6",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.07",
+      "kind": "fixture.source",
+      "connectionRef": "connection_7",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_7",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.08",
+      "kind": "fixture.source",
+      "connectionRef": "connection_8",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_8",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.09",
+      "kind": "fixture.source",
+      "connectionRef": "connection_9",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_9",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.10",
+      "kind": "fixture.source",
+      "connectionRef": "connection_10",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_10",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.11",
+      "kind": "fixture.source",
+      "connectionRef": "connection_11",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_11",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.12",
+      "kind": "fixture.source",
+      "connectionRef": "connection_12",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_12",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.13",
+      "kind": "fixture.source",
+      "connectionRef": "connection_13",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_13",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.14",
+      "kind": "fixture.source",
+      "connectionRef": "connection_14",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_14",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.15",
+      "kind": "fixture.source",
+      "connectionRef": "connection_15",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_15",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.16",
+      "kind": "fixture.source",
+      "connectionRef": "connection_16",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_16",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.17",
+      "kind": "fixture.source",
+      "connectionRef": "connection_17",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_17",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.18",
+      "kind": "fixture.source",
+      "connectionRef": "connection_18",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_18",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.19",
+      "kind": "fixture.source",
+      "connectionRef": "connection_19",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_19",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.20",
+      "kind": "fixture.source",
+      "connectionRef": "connection_20",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_20",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.21",
+      "kind": "fixture.source",
+      "connectionRef": "connection_21",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_21",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.22",
+      "kind": "fixture.source",
+      "connectionRef": "connection_22",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_22",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.23",
+      "kind": "fixture.source",
+      "connectionRef": "connection_23",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_23",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.24",
+      "kind": "fixture.source",
+      "connectionRef": "connection_24",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_24",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.25",
+      "kind": "fixture.source",
+      "connectionRef": "connection_25",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_25",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.26",
+      "kind": "fixture.source",
+      "connectionRef": "connection_26",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_26",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.27",
+      "kind": "fixture.source",
+      "connectionRef": "connection_27",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_27",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.28",
+      "kind": "fixture.source",
+      "connectionRef": "connection_28",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_28",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.29",
+      "kind": "fixture.source",
+      "connectionRef": "connection_29",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_29",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.30",
+      "kind": "fixture.source",
+      "connectionRef": "connection_30",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_30",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.31",
+      "kind": "fixture.source",
+      "connectionRef": "connection_31",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_31",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.32",
+      "kind": "fixture.source",
+      "connectionRef": "connection_32",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_32",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.33",
+      "kind": "fixture.source",
+      "connectionRef": "connection_33",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_33",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.34",
+      "kind": "fixture.source",
+      "connectionRef": "connection_34",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_34",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.35",
+      "kind": "fixture.source",
+      "connectionRef": "connection_35",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_35",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.36",
+      "kind": "fixture.source",
+      "connectionRef": "connection_36",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_36",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.37",
+      "kind": "fixture.source",
+      "connectionRef": "connection_37",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_37",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.38",
+      "kind": "fixture.source",
+      "connectionRef": "connection_38",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_38",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.39",
+      "kind": "fixture.source",
+      "connectionRef": "connection_39",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_39",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.40",
+      "kind": "fixture.source",
+      "connectionRef": "connection_40",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_40",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.41",
+      "kind": "fixture.source",
+      "connectionRef": "connection_41",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_41",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.42",
+      "kind": "fixture.source",
+      "connectionRef": "connection_42",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_42",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.43",
+      "kind": "fixture.source",
+      "connectionRef": "connection_43",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_43",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.44",
+      "kind": "fixture.source",
+      "connectionRef": "connection_44",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_44",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.45",
+      "kind": "fixture.source",
+      "connectionRef": "connection_45",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_45",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.46",
+      "kind": "fixture.source",
+      "connectionRef": "connection_46",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_46",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.47",
+      "kind": "fixture.source",
+      "connectionRef": "connection_47",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_47",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.48",
+      "kind": "fixture.source",
+      "connectionRef": "connection_48",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_48",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.49",
+      "kind": "fixture.source",
+      "connectionRef": "connection_49",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_49",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.50",
+      "kind": "fixture.source",
+      "connectionRef": "connection_50",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_50",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.51",
+      "kind": "fixture.source",
+      "connectionRef": "connection_51",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_51",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.52",
+      "kind": "fixture.source",
+      "connectionRef": "connection_52",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_52",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.53",
+      "kind": "fixture.source",
+      "connectionRef": "connection_53",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_53",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.54",
+      "kind": "fixture.source",
+      "connectionRef": "connection_54",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_54",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.55",
+      "kind": "fixture.source",
+      "connectionRef": "connection_55",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_55",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.56",
+      "kind": "fixture.source",
+      "connectionRef": "connection_56",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_56",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.57",
+      "kind": "fixture.source",
+      "connectionRef": "connection_57",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_57",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.58",
+      "kind": "fixture.source",
+      "connectionRef": "connection_58",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_58",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.59",
+      "kind": "fixture.source",
+      "connectionRef": "connection_59",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_59",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.60",
+      "kind": "fixture.source",
+      "connectionRef": "connection_60",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_60",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.61",
+      "kind": "fixture.source",
+      "connectionRef": "connection_61",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_61",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.62",
+      "kind": "fixture.source",
+      "connectionRef": "connection_62",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_62",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    },
+    {
+      "id": "source.63",
+      "kind": "fixture.source",
+      "connectionRef": "connection_63",
+      "optOutGate": null,
+      "revision": 1,
+      "scopeRef": "scope_63",
+      "readCapabilities": [
+        {
+          "operationRef": "fixture.read",
+          "backgroundSafe": true
+        }
+      ],
+      "scan": {
+        "operationRef": "fixture.read",
+        "cursorSemantics": "opaque-v1"
+      },
+      "provenanceTags": [],
+      "policyTags": []
+    }
+  ]
+}

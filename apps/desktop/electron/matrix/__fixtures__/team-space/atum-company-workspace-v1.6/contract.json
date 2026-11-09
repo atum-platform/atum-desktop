@@ -1,0 +1,349 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.6",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/channel-browse-duplicate.response.json",
+    "fixtures/channel-browse-empty-channel.response.json",
+    "fixtures/channel-browse-empty.response.json",
+    "fixtures/channel-browse-missing-generation.response.json",
+    "fixtures/channel-browse-private.response.json",
+    "fixtures/channel-browse-room-leak.response.json",
+    "fixtures/channel-browse-zero-generation.response.json",
+    "fixtures/channel-browse.response.json",
+    "fixtures/invitation-self-directory-duplicate.response.json",
+    "fixtures/invitation-self-directory-empty.response.json",
+    "fixtures/invitation-self-directory-inviter-leak.response.json",
+    "fixtures/invitation-self-directory-target-leak.response.json",
+    "fixtures/invitation-self-directory-terminal-state.response.json",
+    "fixtures/invitation-self-directory.response.json"
+  ],
+  "row": "Team Space A1 joinable browse and A2 invitee directory",
+  "providers": [
+    "Atum platform company and channel authority"
+  ],
+  "consumers": [
+    "desktop",
+    "phone"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.5",
+    "path": "spec/company-workspace/v1.5",
+    "kind": "pack",
+    "sha256": "4cdb01a6be636a3f0b83dbd806861e601f69a4fde023516aa18ed09c6c60aa86",
+    "rule": "additive minor; only the A1/A2 reads use schemaVersion 7"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.6",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5"
+    ],
+    "unchanged_schema_versions": {
+      "1.1": 2,
+      "1.2": 3,
+      "1.3": 4,
+      "1.4": 5,
+      "1.5": 6
+    },
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_6": 7,
+      "scope": "new A1/A2 reads only"
+    }
+  },
+  "browse": {
+    "addition": "channelGeneration is required on every 1.6 public summary",
+    "join": "the existing join expectedChannelGeneration is copied from this summary",
+    "old_wires": "1.4 and 1.5 retain schemaVersion 5 and their exact old public summary"
+  },
+  "invitation_directory": {
+    "scope": "authenticated caller pending unexpired attempts only",
+    "fields": [
+      "id",
+      "companyId",
+      "companyDisplayName",
+      "role",
+      "expiresAt"
+    ],
+    "absent": [
+      "target identity",
+      "inviter",
+      "state/history",
+      "company roster",
+      "authority generation",
+      "other invitees"
+    ],
+    "expiry": "applied synchronously before projection",
+    "route": "GET /api/matrix/v1/company-invitations"
+  },
+  "security": {
+    "actor": "resolved authenticated caller; never client input",
+    "rpc": "SECURITY DEFINER, search_path pg_catalog and pg_temp, service-role Shell only",
+    "cache": "no-store"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "channel_name": {
+      "type": "string",
+      "min": 1,
+      "max": 80
+    },
+    "company_name": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "topic": {
+      "type": "string",
+      "min": 0,
+      "max": 250
+    },
+    "purpose": {
+      "type": "string",
+      "min": 0,
+      "max": 500
+    },
+    "channel_state": {
+      "enum": [
+        "provisioning",
+        "active",
+        "archived"
+      ]
+    },
+    "public_summary": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "ref": "channel_name"
+        },
+        "visibility": {
+          "const": "public"
+        },
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        },
+        "state": {
+          "ref": "channel_state"
+        },
+        "memberCount": {
+          "type": "integer",
+          "min": 0,
+          "max": 100
+        },
+        "joined": {
+          "type": "boolean"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        }
+      },
+      "optional": {
+        "systemKey": {
+          "const": "default"
+        }
+      }
+    },
+    "browse_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 7
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "ref": "public_summary"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "invitation_summary": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "companyDisplayName": {
+          "ref": "company_name"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "member"
+          ]
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "invitation_directory": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 7
+        },
+        "invitations": {
+          "type": "array",
+          "items": {
+            "ref": "invitation_summary"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    }
+  },
+  "directions": {
+    "platform_to_native_v1_6": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "*principal*",
+        "userId",
+        "mxid",
+        "roomId",
+        "memberRef",
+        "targetHandle",
+        "inviter",
+        "authorityGeneration",
+        "*token*",
+        "credential"
+      ]
+    }
+  },
+  "messages": {
+    "channel-browse.response": {
+      "direction": "platform_to_native_v1_6",
+      "schema": {
+        "ref": "browse_response"
+      }
+    },
+    "invitation-self-directory.response": {
+      "direction": "platform_to_native_v1_6",
+      "schema": {
+        "ref": "invitation_directory"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/channel-browse-duplicate.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/channel-browse-empty-channel.response.json",
+      "message": "channel-browse.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-browse-empty.response.json",
+      "message": "channel-browse.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-browse-missing-generation.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/channel-browse-private.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/channel-browse-room-leak.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/channel-browse-zero-generation.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/channel-browse.response.json",
+      "message": "channel-browse.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-self-directory-duplicate.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/invitation-self-directory-empty.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-self-directory-inviter-leak.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invitation-self-directory-target-leak.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invitation-self-directory-terminal-state.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invitation-self-directory.response.json",
+      "message": "invitation-self-directory.response",
+      "expect": "accept"
+    }
+  ]
+}

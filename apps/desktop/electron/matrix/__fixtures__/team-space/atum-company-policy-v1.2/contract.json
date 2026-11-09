@@ -1,0 +1,45 @@
+{
+  "contract_id": "atum.company-policy",
+  "version": "1.2",
+  "status": "frozen",
+  "header": {
+    "Atum-Company-Wire": "1.3",
+    "Atum-Company-Policy": "1.2"
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/update.request.json",
+      "message": "request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/update.response.json",
+      "message": "response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admins.request.json",
+      "message": "request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invalid.request.json",
+      "message": "request",
+      "expect": "reject"
+    },
+    {
+      "file": "fixtures/read.response.json",
+      "message": "snapshot",
+      "expect": "accept"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/update.request.json",
+    "fixtures/update.response.json",
+    "fixtures/admins.request.json",
+    "fixtures/invalid.request.json",
+    "fixtures/read.response.json"
+  ]
+}

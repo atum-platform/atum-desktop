@@ -1,0 +1,344 @@
+{
+  "contract_id": "atum.pet-intent",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/coordinates.json",
+    "fixtures/empty-intents.json",
+    "fixtures/four-intents.json",
+    "fixtures/gesture-with-place.json",
+    "fixtures/go-center.json",
+    "fixtures/go-left.json",
+    "fixtures/go-right.json",
+    "fixtures/go-without-place.json",
+    "fixtures/jump.json",
+    "fixtures/lounge.json",
+    "fixtures/missing-intents.json",
+    "fixtures/missing-version.json",
+    "fixtures/non-array.json",
+    "fixtures/null-intents.json",
+    "fixtures/pet-identity.json",
+    "fixtures/place-alias.json",
+    "fixtures/private-agent-reply.json",
+    "fixtures/reply-empty-body.json",
+    "fixtures/reply-extra-intent-field.json",
+    "fixtures/reply-four-intents.json",
+    "fixtures/reply-missing-body.json",
+    "fixtures/reply-missing-mixin.json",
+    "fixtures/reply-unknown-action.json",
+    "fixtures/sit.json",
+    "fixtures/status-notice.json",
+    "fixtures/text-field.json",
+    "fixtures/three-intents.json",
+    "fixtures/unknown-action.json",
+    "fixtures/unknown-envelope-key.json",
+    "fixtures/unknown-place.json",
+    "fixtures/url-field.json",
+    "fixtures/wave.json",
+    "fixtures/wrong-version.json"
+  ],
+  "providers": [
+    "Mac executor",
+    "cloud controller"
+  ],
+  "consumers": [
+    "desktop pet stage",
+    "future native pet stage"
+  ],
+  "types": {
+    "pet.command": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "action": {
+              "const": "go"
+            },
+            "place": {
+              "enum": [
+                "left",
+                "right",
+                "center"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "action": {
+              "enum": [
+                "wave",
+                "jump",
+                "sit",
+                "lounge"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "pet.mixin": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "intents": {
+          "type": "array",
+          "items": {
+            "ref": "pet.command"
+          },
+          "min": 1,
+          "max": 3
+        }
+      }
+    }
+  },
+  "directions": {
+    "agent_pet_mixin": {
+      "description": "Only the cosmetic io.atum.pet value; identity and geometry come from the room and pet stage.",
+      "forbidden_fields": [
+        "x",
+        "y",
+        "coordinates",
+        "targetX",
+        "targetY",
+        "text",
+        "body",
+        "url",
+        "petId",
+        "pet_id",
+        "slug",
+        "agentPrincipal",
+        "roomId"
+      ]
+    },
+    "agent_reply_to_private_room": {
+      "description": "Ordinary encrypted m.text reply from the room\u2019s own assistant; no standalone pet event.",
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "pet.mixin": {
+      "direction": "agent_pet_mixin",
+      "schema": {
+        "ref": "pet.mixin"
+      }
+    },
+    "pet.reply_content": {
+      "direction": "agent_reply_to_private_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.text"
+          },
+          "body": {
+            "type": "string",
+            "min": 1
+          },
+          "io.atum.pet": {
+            "ref": "pet.mixin"
+          }
+        },
+        "additional": true
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/go-left.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/go-right.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/go-center.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/wave.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/jump.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sit.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/lounge.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/three-intents.json",
+      "message": "pet.mixin",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/four-intents.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/empty-intents.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/go-without-place.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/gesture-with-place.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/coordinates.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/text-field.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/url-field.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/pet-identity.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/wrong-version.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/unknown-action.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/unknown-place.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/place-alias.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/unknown-envelope-key.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/non-array.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "type"
+    },
+    {
+      "file": "fixtures/private-agent-reply.json",
+      "message": "pet.reply_content",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-notice.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/reply-four-intents.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/reply-unknown-action.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reply-extra-intent-field.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reply-missing-mixin.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/reply-missing-body.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/reply-empty-body.json",
+      "message": "pet.reply_content",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/missing-version.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/missing-intents.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/null-intents.json",
+      "message": "pet.mixin",
+      "expect": "reject",
+      "violation": "type"
+    }
+  ]
+}

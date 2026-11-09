@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 3,
+  "companyId": "00000000-0000-4000-8000-da4679f81a15",
+  "target": {
+    "kind": "channel",
+    "channelId": "00000000-0000-4000-8000-cef489678018"
+  },
+  "planGeneration": 8,
+  "invitedMemberRefs": [
+    "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI"
+  ],
+  "bannedMemberRefs": [
+    "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM"
+  ],
+  "witnessedPossibleGrantUserIds": [],
+  "metadataRevision": 2,
+  "policyWitness": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

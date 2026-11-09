@@ -1,0 +1,1 @@
+{"steps":[{"from":"provisioning","to":"active","event":"room_ready"},{"from":"active","to":"archived","event":"archive"},{"from":"archived","to":"active","event":"restore"}]}

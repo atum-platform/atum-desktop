@@ -1,0 +1,869 @@
+{
+  "contract_id": "atum.company-drive-files",
+  "version": "1.2",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/audience-readmission.sequence.json",
+    "fixtures/audience-revoked.sequence.json",
+    "fixtures/download-grant.request.json",
+    "fixtures/download-grant.response.json",
+    "fixtures/error-revoked.response.json",
+    "fixtures/error-stale-epoch.response.json",
+    "fixtures/matrix-file-channel.content.json",
+    "fixtures/matrix-file-conversation.content.json",
+    "fixtures/matrix-file-mxc.content.json",
+    "fixtures/preview-private-channel.request.json",
+    "fixtures/preview-public-channel.request.json",
+    "fixtures/preview-resource.response.json",
+    "fixtures/preview.request.json",
+    "fixtures/preview.response.json",
+    "fixtures/publish.request.json",
+    "fixtures/publish.response.json",
+    "fixtures/reserve-conversation.request.json",
+    "fixtures/reserve-private-channel.request.json",
+    "fixtures/reserve-public-channel.request.json",
+    "fixtures/reserve.response.json",
+    "fixtures/stale-file-preview-epoch.sequence.json",
+    "fixtures/status.request.json",
+    "fixtures/status.response.json"
+  ],
+  "row": "C2/C3 admission- and participation-scoped Team Space files and previews",
+  "providers": [
+    "Atum platform file authority and Drive ingress"
+  ],
+  "consumers": [
+    "native Matrix clients",
+    "preview worker"
+  ],
+  "base": {
+    "contract": "atum.company-drive-files/1.1",
+    "path": "spec/company-drive-files/v1.1",
+    "kind": "pack",
+    "sha256": "3a456a31c87a6cd8e096cec8ef70f7685a8a975b755e9bf23d26386a6531c128",
+    "rule": "additive v2 reference family; v1/v1.1 bytes remain frozen"
+  },
+  "audience": {
+    "union": [
+      "channel",
+      "conversation"
+    ],
+    "channel": "active company membership at current epoch AND active channel admission; signed target carries immutable public/private visibility",
+    "conversation": "active company membership at recorded epoch AND current participation",
+    "non_grants": [
+      "admin rank",
+      "Matrix membership",
+      "room history",
+      "copied reference",
+      "hidden state",
+      "project membership",
+      "provider resource"
+    ]
+  },
+  "operations": {
+    "reserve": "request/response bind company, exact audience, viewer epoch and audience generation before allocating upload session",
+    "publish": "request/response recheck exact audience and immutable file hash before ready",
+    "status": "request/response is authority-scoped and exposes no provider resource",
+    "download_grant": "short-lived opaque grant id bound to viewer epoch and audience generation; no URL/token projected",
+    "preview": "request/response bound to target, viewer epoch, audience generation and transform version"
+  },
+  "checks": [
+    "reserve",
+    "upload write",
+    "status",
+    "publish",
+    "download grant",
+    "ingress byte read",
+    "thumbnail",
+    "preview"
+  ],
+  "preview": {
+    "scope": [
+      "file revision",
+      "company",
+      "target kind and UUID",
+      "audience generation",
+      "viewer admission epoch",
+      "transform version"
+    ],
+    "cache": "fresh audience check before serve; URL alone never keys cache",
+    "projection": "no resource id, provider URL, credential or reusable renderer bearer"
+  },
+  "replay": {
+    "scope": "(actor, requestId)",
+    "target": "immutable; kind, UUID, visibility or generation change conflicts",
+    "provider": "reconcile deterministic identity and stat/hash; never blind second write"
+  },
+  "compatibility": {
+    "legacy": "v1/v1.1 only for admitted legacy public channels",
+    "restricted": "private channels and conversations require v2",
+    "fallback": "omit unsupported files; never raw mxc"
+  },
+  "errors": [
+    "audience_revoked",
+    "target_mismatch",
+    "admission_epoch_stale",
+    "audience_generation_stale",
+    "preview_scope_mismatch",
+    "preview_unavailable"
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "revision": {
+      "type": "integer",
+      "min": 1,
+      "max": 1
+    },
+    "size": {
+      "type": "integer",
+      "min": 0,
+      "max": 20971520
+    },
+    "sha256": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "name": {
+      "type": "string",
+      "min": 1,
+      "max": 255
+    },
+    "content_type": {
+      "type": "string",
+      "min": 3,
+      "max": 128,
+      "pattern": "[A-Za-z0-9!#$&^_.+-]{1,64}/[A-Za-z0-9!#$&^_.+-]{1,63}"
+    },
+    "channel_audience": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "channel"
+        },
+        "channel_id": {
+          "ref": "uuid"
+        },
+        "visibility": {
+          "enum": [
+            "public",
+            "private"
+          ]
+        }
+      }
+    },
+    "conversation_audience": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "conversation"
+        },
+        "conversation_id": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "audience": {
+      "anyOf": [
+        {
+          "ref": "channel_audience"
+        },
+        {
+          "ref": "conversation_audience"
+        }
+      ]
+    },
+    "file_ref": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 2
+        },
+        "company_id": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "ref": "audience"
+        },
+        "file_id": {
+          "ref": "uuid"
+        },
+        "revision": {
+          "ref": "revision"
+        },
+        "name": {
+          "ref": "name"
+        },
+        "content_type": {
+          "ref": "content_type"
+        },
+        "size": {
+          "ref": "size"
+        },
+        "sha256": {
+          "ref": "sha256"
+        }
+      }
+    },
+    "reserve_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "ref": "audience"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "name": {
+          "ref": "name"
+        },
+        "contentType": {
+          "ref": "content_type"
+        },
+        "size": {
+          "ref": "size"
+        },
+        "sha256": {
+          "ref": "sha256"
+        }
+      }
+    },
+    "reserve_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "file": {
+          "ref": "file_ref"
+        },
+        "uploadSessionId": {
+          "ref": "uuid"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "publish_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "file": {
+          "ref": "file_ref"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "publish_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "file": {
+          "ref": "file_ref"
+        },
+        "status": {
+          "const": "ready"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "status_request": {
+      "type": "object",
+      "required": {
+        "file": {
+          "ref": "file_ref"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "status_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "fileId": {
+          "ref": "uuid"
+        },
+        "status": {
+          "enum": [
+            "reserved",
+            "uploading",
+            "ready",
+            "failed"
+          ]
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "grant_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "file": {
+          "ref": "file_ref"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "grant_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "fileId": {
+          "ref": "uuid"
+        },
+        "downloadGrantId": {
+          "ref": "uuid"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "preview_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "file": {
+          "ref": "file_ref"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "transformVersion": {
+          "ref": "generation"
+        }
+      }
+    },
+    "preview_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "fileId": {
+          "ref": "uuid"
+        },
+        "previewId": {
+          "ref": "uuid"
+        },
+        "contentType": {
+          "ref": "content_type"
+        },
+        "size": {
+          "ref": "size"
+        },
+        "scopeDigest": {
+          "ref": "sha256"
+        },
+        "audienceGeneration": {
+          "ref": "generation"
+        },
+        "viewerAdmissionEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "file_info": {
+      "type": "object",
+      "required": {
+        "mimetype": {
+          "ref": "content_type"
+        },
+        "size": {
+          "ref": "size"
+        }
+      }
+    },
+    "matrix_content": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.file"
+        },
+        "body": {
+          "ref": "name"
+        },
+        "info": {
+          "ref": "file_info"
+        },
+        "io.atum.company_file": {
+          "ref": "file_ref"
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "status": {
+          "anyOf": [
+            {
+              "const": 400
+            },
+            {
+              "const": 403
+            },
+            {
+              "const": 404
+            },
+            {
+              "const": 409
+            },
+            {
+              "const": 429
+            },
+            {
+              "const": 503
+            }
+          ]
+        },
+        "headers": {
+          "type": "object",
+          "required": {
+            "cacheControl": {
+              "const": "no-store"
+            }
+          }
+        },
+        "body": {
+          "type": "object",
+          "required": {
+            "errcode": {
+              "enum": [
+                "matrix_invalid",
+                "matrix_denied",
+                "matrix_not_found",
+                "matrix_conflict",
+                "matrix_limit",
+                "matrix_unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "audience_revoked",
+                "target_mismatch",
+                "admission_epoch_stale",
+                "audience_generation_stale",
+                "preview_scope_mismatch",
+                "preview_unavailable",
+                "provider_unavailable"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "audience_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "enum": [
+            "current",
+            "revoked"
+          ]
+        },
+        "to": {
+          "enum": [
+            "current",
+            "revoked"
+          ]
+        },
+        "event": {
+          "enum": [
+            "authority_change",
+            "readmission"
+          ]
+        }
+      }
+    },
+    "audience_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "audience_step"
+          },
+          "min": 1,
+          "max": 4
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform": {
+      "from": "authenticated native main",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "principal",
+        "userId",
+        "mxid",
+        "space",
+        "resource",
+        "etag",
+        "credential",
+        "localPath"
+      ]
+    },
+    "platform_to_native": {
+      "from": "Atum platform",
+      "to": "authenticated native main",
+      "forbidden_fields": [
+        "principal",
+        "userId",
+        "mxid",
+        "space",
+        "resource",
+        "etag",
+        "credential",
+        "localPath",
+        "uploadUrl",
+        "downloadUrl",
+        "*token*"
+      ]
+    },
+    "matrix_reference": {
+      "from": "Atum Matrix SDK",
+      "to": "Matrix homeserver",
+      "forbidden_fields": [
+        "url",
+        "file",
+        "token",
+        "grantToken",
+        "space",
+        "resource",
+        "etag",
+        "credential",
+        "localPath"
+      ]
+    }
+  },
+  "messages": {
+    "reserve-v2.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "reserve_request"
+      }
+    },
+    "reserve-v2.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "reserve_response"
+      }
+    },
+    "publish-v2.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "publish_request"
+      }
+    },
+    "publish-v2.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "publish_response"
+      }
+    },
+    "status-v2.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "status_request"
+      }
+    },
+    "status-v2.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "status_response"
+      }
+    },
+    "download-grant-v2.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "grant_request"
+      }
+    },
+    "download-grant-v2.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "grant_response"
+      }
+    },
+    "preview.request": {
+      "direction": "native_to_platform",
+      "schema": {
+        "ref": "preview_request"
+      }
+    },
+    "preview.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "preview_response"
+      }
+    },
+    "matrix-file-v2.content": {
+      "direction": "matrix_reference",
+      "schema": {
+        "ref": "matrix_content"
+      }
+    },
+    "error-v2.response": {
+      "direction": "platform_to_native",
+      "schema": {
+        "ref": "error_plain"
+      }
+    }
+  },
+  "state_machines": {
+    "audience_lifecycle": {
+      "states": [
+        "current",
+        "revoked"
+      ],
+      "initial": [
+        "current"
+      ],
+      "terminal": [
+        "revoked"
+      ],
+      "transitions": [
+        [
+          "current",
+          "revoked",
+          "authority_change"
+        ]
+      ]
+    },
+    "authority_epoch": {
+      "states": [
+        "current",
+        "stale"
+      ],
+      "initial": [
+        "current"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "current",
+          "stale",
+          "authority_change"
+        ],
+        [
+          "stale",
+          "stale",
+          "stale_file_refused"
+        ],
+        [
+          "stale",
+          "stale",
+          "stale_preview_refused"
+        ],
+        [
+          "stale",
+          "stale",
+          "reused_epoch_refused"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/audience-readmission.sequence.json",
+      "machine": "audience_lifecycle",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/audience-revoked.sequence.json",
+      "machine": "audience_lifecycle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/download-grant.request.json",
+      "message": "download-grant-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/download-grant.response.json",
+      "message": "download-grant-v2.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-revoked.response.json",
+      "message": "error-v2.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-stale-epoch.response.json",
+      "message": "error-v2.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/matrix-file-channel.content.json",
+      "message": "matrix-file-v2.content",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/matrix-file-conversation.content.json",
+      "message": "matrix-file-v2.content",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/matrix-file-mxc.content.json",
+      "message": "matrix-file-v2.content",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/preview-private-channel.request.json",
+      "message": "preview.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/preview-public-channel.request.json",
+      "message": "preview.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/preview-resource.response.json",
+      "message": "preview.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/preview.request.json",
+      "message": "preview.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/preview.response.json",
+      "message": "preview.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/publish.request.json",
+      "message": "publish-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/publish.response.json",
+      "message": "publish-v2.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reserve-conversation.request.json",
+      "message": "reserve-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reserve-private-channel.request.json",
+      "message": "reserve-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reserve-public-channel.request.json",
+      "message": "reserve-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reserve.response.json",
+      "message": "reserve-v2.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/stale-file-preview-epoch.sequence.json",
+      "machine": "authority_epoch",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status.request.json",
+      "message": "status-v2.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status.response.json",
+      "message": "status-v2.response",
+      "expect": "accept"
+    }
+  ]
+}

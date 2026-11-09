@@ -1,0 +1,453 @@
+{
+  "v": 1,
+  "owner": "00000000-0000-4000-8000-0a17b0bd53cc",
+  "agent": "00000000-0000-4000-8000-159badba71cd",
+  "generation": 17,
+  "parent": 16,
+  "createdAt": 1791100838000,
+  "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+  "quiesced": true,
+  "hermes": {
+    "version": "0.11.0",
+    "stateDbUserVersion": 12
+  },
+  "files": [
+    {
+      "path": "hermes/state.db",
+      "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "size": 1572864,
+      "mode": 384,
+      "kind": "sqlite"
+    },
+    {
+      "path": "hermes/SOUL.md",
+      "sha256": "1212121212121212121212121212121212121212121212121212121212121212",
+      "size": 2048,
+      "mode": 384,
+      "kind": "file"
+    },
+    {
+      "path": "hermes/memories/MEMORY.md",
+      "sha256": "1313131313131313131313131313131313131313131313131313131313131313",
+      "size": 4096,
+      "mode": 384,
+      "kind": "file"
+    },
+    {
+      "path": "hermes/cron/jobs.json",
+      "sha256": "1414141414141414141414141414141414141414141414141414141414141414",
+      "size": 512,
+      "mode": 384,
+      "kind": "file"
+    }
+  ],
+  "controller": {
+    "conversations": [
+      {
+        "room": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+        "storedSession": "20261004_080000_ab12cd",
+        "unsubmittedInvocation": null,
+        "snapshot": {
+          "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+          "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+          "toolsDigest": "sha256:7070707070707070707070707070707070707070707070707070707070707070",
+          "systemDigest": "sha256:5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "contextLength": 75000
+        }
+      }
+    ],
+    "schedules": [
+      {
+        "scheduleId": "schedule-1",
+        "definitionDigest": "0101010101010101010101010101010101010101010101010101010101010101",
+        "nextOccurrenceAt": 1791187200000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-2",
+        "definitionDigest": "0202020202020202020202020202020202020202020202020202020202020202",
+        "nextOccurrenceAt": 1791187260000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-3",
+        "definitionDigest": "0303030303030303030303030303030303030303030303030303030303030303",
+        "nextOccurrenceAt": 1791187320000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-4",
+        "definitionDigest": "0404040404040404040404040404040404040404040404040404040404040404",
+        "nextOccurrenceAt": 1791187380000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-5",
+        "definitionDigest": "0505050505050505050505050505050505050505050505050505050505050505",
+        "nextOccurrenceAt": 1791187440000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-6",
+        "definitionDigest": "0606060606060606060606060606060606060606060606060606060606060606",
+        "nextOccurrenceAt": 1791187500000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-7",
+        "definitionDigest": "0707070707070707070707070707070707070707070707070707070707070707",
+        "nextOccurrenceAt": 1791187560000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-8",
+        "definitionDigest": "0808080808080808080808080808080808080808080808080808080808080808",
+        "nextOccurrenceAt": 1791187620000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-9",
+        "definitionDigest": "0909090909090909090909090909090909090909090909090909090909090909",
+        "nextOccurrenceAt": 1791187680000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-10",
+        "definitionDigest": "0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
+        "nextOccurrenceAt": 1791187740000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-11",
+        "definitionDigest": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        "nextOccurrenceAt": 1791187800000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-12",
+        "definitionDigest": "0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c",
+        "nextOccurrenceAt": 1791187860000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-13",
+        "definitionDigest": "0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d",
+        "nextOccurrenceAt": 1791187920000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-14",
+        "definitionDigest": "0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e",
+        "nextOccurrenceAt": 1791187980000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-15",
+        "definitionDigest": "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f",
+        "nextOccurrenceAt": 1791188040000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-16",
+        "definitionDigest": "1010101010101010101010101010101010101010101010101010101010101010",
+        "nextOccurrenceAt": 1791188100000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-17",
+        "definitionDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "nextOccurrenceAt": 1791188160000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-18",
+        "definitionDigest": "1212121212121212121212121212121212121212121212121212121212121212",
+        "nextOccurrenceAt": 1791188220000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-19",
+        "definitionDigest": "1313131313131313131313131313131313131313131313131313131313131313",
+        "nextOccurrenceAt": 1791188280000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-20",
+        "definitionDigest": "1414141414141414141414141414141414141414141414141414141414141414",
+        "nextOccurrenceAt": 1791188340000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-21",
+        "definitionDigest": "1515151515151515151515151515151515151515151515151515151515151515",
+        "nextOccurrenceAt": 1791188400000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-22",
+        "definitionDigest": "1616161616161616161616161616161616161616161616161616161616161616",
+        "nextOccurrenceAt": 1791188460000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-23",
+        "definitionDigest": "1717171717171717171717171717171717171717171717171717171717171717",
+        "nextOccurrenceAt": 1791188520000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-24",
+        "definitionDigest": "1818181818181818181818181818181818181818181818181818181818181818",
+        "nextOccurrenceAt": 1791188580000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-25",
+        "definitionDigest": "1919191919191919191919191919191919191919191919191919191919191919",
+        "nextOccurrenceAt": 1791188640000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-26",
+        "definitionDigest": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+        "nextOccurrenceAt": 1791188700000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-27",
+        "definitionDigest": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b",
+        "nextOccurrenceAt": 1791188760000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-28",
+        "definitionDigest": "1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c",
+        "nextOccurrenceAt": 1791188820000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-29",
+        "definitionDigest": "1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d",
+        "nextOccurrenceAt": 1791188880000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-30",
+        "definitionDigest": "1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e",
+        "nextOccurrenceAt": 1791188940000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-31",
+        "definitionDigest": "1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f",
+        "nextOccurrenceAt": 1791189000000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-32",
+        "definitionDigest": "2020202020202020202020202020202020202020202020202020202020202020",
+        "nextOccurrenceAt": 1791189060000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-33",
+        "definitionDigest": "2121212121212121212121212121212121212121212121212121212121212121",
+        "nextOccurrenceAt": 1791189120000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-34",
+        "definitionDigest": "2222222222222222222222222222222222222222222222222222222222222222",
+        "nextOccurrenceAt": 1791189180000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-35",
+        "definitionDigest": "2323232323232323232323232323232323232323232323232323232323232323",
+        "nextOccurrenceAt": 1791189240000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-36",
+        "definitionDigest": "2424242424242424242424242424242424242424242424242424242424242424",
+        "nextOccurrenceAt": 1791189300000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-37",
+        "definitionDigest": "2525252525252525252525252525252525252525252525252525252525252525",
+        "nextOccurrenceAt": 1791189360000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-38",
+        "definitionDigest": "2626262626262626262626262626262626262626262626262626262626262626",
+        "nextOccurrenceAt": 1791189420000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-39",
+        "definitionDigest": "2727272727272727272727272727272727272727272727272727272727272727",
+        "nextOccurrenceAt": 1791189480000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-40",
+        "definitionDigest": "2828282828282828282828282828282828282828282828282828282828282828",
+        "nextOccurrenceAt": 1791189540000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-41",
+        "definitionDigest": "2929292929292929292929292929292929292929292929292929292929292929",
+        "nextOccurrenceAt": 1791189600000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-42",
+        "definitionDigest": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+        "nextOccurrenceAt": 1791189660000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-43",
+        "definitionDigest": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b",
+        "nextOccurrenceAt": 1791189720000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-44",
+        "definitionDigest": "2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c2c",
+        "nextOccurrenceAt": 1791189780000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-45",
+        "definitionDigest": "2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d",
+        "nextOccurrenceAt": 1791189840000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-46",
+        "definitionDigest": "2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e",
+        "nextOccurrenceAt": 1791189900000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-47",
+        "definitionDigest": "2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f",
+        "nextOccurrenceAt": 1791189960000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-48",
+        "definitionDigest": "3030303030303030303030303030303030303030303030303030303030303030",
+        "nextOccurrenceAt": 1791190020000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-49",
+        "definitionDigest": "3131313131313131313131313131313131313131313131313131313131313131",
+        "nextOccurrenceAt": 1791190080000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-50",
+        "definitionDigest": "3232323232323232323232323232323232323232323232323232323232323232",
+        "nextOccurrenceAt": 1791190140000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-51",
+        "definitionDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+        "nextOccurrenceAt": 1791190200000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-52",
+        "definitionDigest": "3434343434343434343434343434343434343434343434343434343434343434",
+        "nextOccurrenceAt": 1791190260000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-53",
+        "definitionDigest": "3535353535353535353535353535353535353535353535353535353535353535",
+        "nextOccurrenceAt": 1791190320000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-54",
+        "definitionDigest": "3636363636363636363636363636363636363636363636363636363636363636",
+        "nextOccurrenceAt": 1791190380000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-55",
+        "definitionDigest": "3737373737373737373737373737373737373737373737373737373737373737",
+        "nextOccurrenceAt": 1791190440000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-56",
+        "definitionDigest": "3838383838383838383838383838383838383838383838383838383838383838",
+        "nextOccurrenceAt": 1791190500000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-57",
+        "definitionDigest": "3939393939393939393939393939393939393939393939393939393939393939",
+        "nextOccurrenceAt": 1791190560000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-58",
+        "definitionDigest": "3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a",
+        "nextOccurrenceAt": 1791190620000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-59",
+        "definitionDigest": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b",
+        "nextOccurrenceAt": 1791190680000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-60",
+        "definitionDigest": "3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c",
+        "nextOccurrenceAt": 1791190740000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-61",
+        "definitionDigest": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+        "nextOccurrenceAt": 1791190800000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-62",
+        "definitionDigest": "3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e",
+        "nextOccurrenceAt": 1791190860000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-63",
+        "definitionDigest": "3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f",
+        "nextOccurrenceAt": 1791190920000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-64",
+        "definitionDigest": "4040404040404040404040404040404040404040404040404040404040404040",
+        "nextOccurrenceAt": 1791190980000,
+        "catchupWindowMs": 120000
+      },
+      {
+        "scheduleId": "schedule-65",
+        "definitionDigest": "4141414141414141414141414141414141414141414141414141414141414141",
+        "nextOccurrenceAt": 1791191040000,
+        "catchupWindowMs": 120000
+      }
+    ]
+  }
+}

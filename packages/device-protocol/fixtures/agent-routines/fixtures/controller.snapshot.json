@@ -1,0 +1,14 @@
+{
+  "profile": "atum.controller-routines/1",
+  "agentPrincipal": "00000000-0000-4000-8000-7d54ce62756b",
+  "legacyState": "clear",
+  "routines": [{
+    "scheduleId": "ar_22800000000040008000000000000003",
+    "definitionDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "nextOccurrenceAt": 1800003600000,
+    "catchupWindowMs": 7200000,
+    "title": "Morning brief",
+    "prompt": "Summarize my priorities.",
+    "notifications": true
+  }]
+}

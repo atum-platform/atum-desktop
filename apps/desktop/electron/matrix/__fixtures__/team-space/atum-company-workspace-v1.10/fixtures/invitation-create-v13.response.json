@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 4,
+  "invitation": {
+    "id": "00000000-0000-4000-8000-aaa402adeff6",
+    "companyId": "00000000-0000-4000-8000-0db372f1c6f8",
+    "targetHandle": null,
+    "role": "member",
+    "state": "pending",
+    "createdAt": 1800000000,
+    "expiresAt": 1800604800,
+    "inviter": {
+      "handle": "owner_person",
+      "displayName": null
+    }
+  },
+  "authorityGeneration": 3,
+  "replayed": false
+}

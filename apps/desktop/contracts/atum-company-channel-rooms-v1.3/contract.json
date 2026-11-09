@@ -1,0 +1,637 @@
+{
+  "contract_id": "atum.company-channel-rooms",
+  "version": "1.3",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/channel-plan-http-avatar.response.json",
+    "fixtures/channel-plan-missing-avatar.response.json",
+    "fixtures/channel-plan-zero-avatar-revision.response.json",
+    "fixtures/channel-plan.request.json",
+    "fixtures/channel-plan.response.json",
+    "fixtures/channel-reconciled.request.json",
+    "fixtures/channel-reconciled.response.json",
+    "fixtures/conversation-company-avatar.response.json",
+    "fixtures/conversation-plan.response.json"
+  ],
+  "row": "manager-applied company channel avatars",
+  "providers": [
+    "Atum platform room authority"
+  ],
+  "consumers": [
+    "fenced hosted Matrix room manager"
+  ],
+  "base": {
+    "contract": "atum.company-channel-rooms/1.2",
+    "path": "spec/company-channel-rooms/v1.2",
+    "kind": "pack",
+    "sha256": "2b5e043c39140a97a5af08e45a51dfa76675259f0d2fce6bdf9e2a0892c2cf6a",
+    "rule": "additive negotiated successor; 1.2 remains frozen"
+  },
+  "plan": {
+    "schemaVersion": 4,
+    "old_managers": "continue on exact 1.2",
+    "channel": "durable company avatar URI/revision",
+    "conversation": "avatar null/revision zero"
+  },
+  "reconciliation": {
+    "write": "manager writes m.room.avatar only for channel targets",
+    "order": "write and read back Matrix state before acknowledging avatarRevision",
+    "stale": "rejected and left pending"
+  },
+  "space": {
+    "state": "no current Matrix company m.space lifecycle",
+    "default_channel": "ordinary work scan includes #chung"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "digest": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "revision": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "principal": {
+      "ref": "uuid"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 512,
+      "pattern": "@[!-9;-~]{1,255}:[!-~]{1,255}"
+    },
+    "avatar_uri": {
+      "type": "string",
+      "min": 9,
+      "max": 518,
+      "pattern": "mxc://[A-Za-z0-9._-]{1,255}/[A-Za-z0-9_-]{1,255}"
+    },
+    "channel_target": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "channel"
+        },
+        "channelId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "conversation_target": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "conversation"
+        },
+        "conversationId": {
+          "ref": "uuid"
+        },
+        "conversationKind": {
+          "enum": [
+            "dm",
+            "group_dm"
+          ]
+        },
+        "participantSetDigest": {
+          "ref": "digest"
+        }
+      }
+    },
+    "target": {
+      "anyOf": [
+        {
+          "ref": "channel_target"
+        },
+        {
+          "ref": "conversation_target"
+        }
+      ]
+    },
+    "recipient": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "admissionGeneration": {
+          "ref": "generation"
+        },
+        "principal": {
+          "ref": "principal"
+        },
+        "userId": {
+          "ref": "user_id"
+        }
+      }
+    },
+    "exclusion": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "reason": {
+          "enum": [
+            "left",
+            "removed",
+            "company_removed",
+            "epoch_changed"
+          ]
+        }
+      },
+      "optional": {
+        "principal": {
+          "ref": "principal"
+        },
+        "userId": {
+          "ref": "user_id"
+        }
+      }
+    },
+    "unresolved": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "reason": {
+          "enum": [
+            "missing_matrix_mapping",
+            "invitation_uncertain"
+          ]
+        }
+      }
+    },
+    "possible_grant": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "source": {
+          "enum": [
+            "acknowledged",
+            "issued",
+            "uncertain"
+          ]
+        },
+        "userId": {
+          "ref": "user_id"
+        }
+      },
+      "optional": {
+        "principal": {
+          "ref": "principal"
+        }
+      }
+    },
+    "metadata_none": {
+      "type": "object",
+      "required": {
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "topic": {
+          "type": "string",
+          "min": 0,
+          "max": 250
+        },
+        "posting": {
+          "enum": [
+            "enabled",
+            "archived_read_only",
+            "participant_read_only"
+          ]
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        },
+        "avatarUri": {
+          "const": null
+        },
+        "avatarRevision": {
+          "const": 0
+        }
+      }
+    },
+    "metadata_avatar": {
+      "type": "object",
+      "required": {
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "topic": {
+          "type": "string",
+          "min": 0,
+          "max": 250
+        },
+        "posting": {
+          "enum": [
+            "enabled",
+            "archived_read_only"
+          ]
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        },
+        "avatarUri": {
+          "ref": "avatar_uri"
+        },
+        "avatarRevision": {
+          "ref": "generation"
+        }
+      }
+    },
+    "metadata": {
+      "anyOf": [
+        {
+          "ref": "metadata_none"
+        },
+        {
+          "ref": "metadata_avatar"
+        }
+      ]
+    },
+    "plan_request": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "target": {
+          "ref": "target"
+        },
+        "assignmentEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "channel_plan_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "target": {
+          "ref": "channel_target"
+        },
+        "companyGeneration": {
+          "ref": "generation"
+        },
+        "targetGeneration": {
+          "ref": "generation"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "desiredRecipients": {
+          "type": "array",
+          "items": {
+            "ref": "recipient"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "ref": "exclusion"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "unresolvedAdmissions": {
+          "type": "array",
+          "items": {
+            "ref": "unresolved"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "possibleGrants": {
+          "type": "array",
+          "items": {
+            "ref": "possible_grant"
+          },
+          "min": 0,
+          "max": 200,
+          "unique": true
+        },
+        "action": {
+          "enum": [
+            "reconcile",
+            "archive",
+            "restore"
+          ]
+        },
+        "metadata": {
+          "ref": "metadata"
+        }
+      }
+    },
+    "conversation_plan_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "target": {
+          "ref": "conversation_target"
+        },
+        "companyGeneration": {
+          "ref": "generation"
+        },
+        "targetGeneration": {
+          "ref": "generation"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "desiredRecipients": {
+          "type": "array",
+          "items": {
+            "ref": "recipient"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "ref": "exclusion"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "unresolvedAdmissions": {
+          "type": "array",
+          "items": {
+            "ref": "unresolved"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "possibleGrants": {
+          "type": "array",
+          "items": {
+            "ref": "possible_grant"
+          },
+          "min": 0,
+          "max": 200,
+          "unique": true
+        },
+        "action": {
+          "enum": [
+            "reconcile",
+            "archive",
+            "restore"
+          ]
+        },
+        "metadata": {
+          "ref": "metadata_none"
+        }
+      }
+    },
+    "plan_response": {
+      "anyOf": [
+        {
+          "ref": "channel_plan_response"
+        },
+        {
+          "ref": "conversation_plan_response"
+        }
+      ]
+    },
+    "reconcile_request": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "target": {
+          "ref": "target"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "invitedMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "bannedMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        },
+        "witnessedPossibleGrantUserIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "min": 0,
+          "max": 200,
+          "unique": true
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        },
+        "avatarRevision": {
+          "ref": "revision"
+        },
+        "policyWitness": {
+          "ref": "digest"
+        }
+      }
+    },
+    "reconcile_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "target": {
+          "ref": "target"
+        },
+        "planGeneration": {
+          "ref": "generation"
+        },
+        "state": {
+          "enum": [
+            "pending",
+            "complete"
+          ]
+        },
+        "remainingUnresolved": {
+          "type": "integer",
+          "min": 0,
+          "max": 100
+        }
+      }
+    }
+  },
+  "directions": {
+    "manager_to_platform": {
+      "from": "assigned fenced manager",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "credential",
+        "custody*",
+        "sessionSecret"
+      ]
+    },
+    "platform_to_manager": {
+      "from": "Atum platform",
+      "to": "assigned fenced manager",
+      "forbidden_fields": [
+        "credential",
+        "custody*",
+        "sessionSecret"
+      ]
+    }
+  },
+  "messages": {
+    "room-target-plan.request": {
+      "direction": "manager_to_platform",
+      "schema": {
+        "ref": "plan_request"
+      }
+    },
+    "room-target-plan.response": {
+      "direction": "platform_to_manager",
+      "schema": {
+        "ref": "plan_response"
+      }
+    },
+    "room-target-reconciled.request": {
+      "direction": "manager_to_platform",
+      "schema": {
+        "ref": "reconcile_request"
+      }
+    },
+    "room-target-reconciled.response": {
+      "direction": "platform_to_manager",
+      "schema": {
+        "ref": "reconcile_response"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/channel-plan-http-avatar.response.json",
+      "message": "room-target-plan.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-plan-missing-avatar.response.json",
+      "message": "room-target-plan.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-plan-zero-avatar-revision.response.json",
+      "message": "room-target-plan.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-plan.request.json",
+      "message": "room-target-plan.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-plan.response.json",
+      "message": "room-target-plan.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-reconciled.request.json",
+      "message": "room-target-reconciled.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-reconciled.response.json",
+      "message": "room-target-reconciled.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-company-avatar.response.json",
+      "message": "room-target-plan.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/conversation-plan.response.json",
+      "message": "room-target-plan.response",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "facts": {
+    "shared_room": true,
+    "reply_only": false,
+    "pet_surface": false
+  },
+  "expected": {
+    "key": "room:shared=1:reply=0:pet=0",
+    "tools": "shared_ceiling",
+    "memory": false,
+    "petTool": false
+  }
+}

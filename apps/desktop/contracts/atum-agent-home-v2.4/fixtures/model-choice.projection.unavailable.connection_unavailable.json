@@ -1,0 +1,28 @@
+{
+  "profile": "atum.agent-home/2.4",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+  "homeId": "00000000-0000-4000-8000-e8d95748107a",
+  "homeEpoch": 5,
+  "activeMoveId": null,
+  "placementRevision": 11,
+  "choiceRevision": 11,
+  "catalogRevision": 4,
+  "choice": {
+    "destination": "mac:00000000-0000-4000-8000-b454f82c5857",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+    "source": "chatgpt_plan",
+    "connectionRef": "conn_codexplan00000001",
+    "model": "gpt-5.6-luna",
+    "effort": "medium"
+  },
+  "applicationBoundary": "next_turn_boundary",
+  "preferencePersistence": "persisted",
+  "status": "unavailable",
+  "reason": "connection_unavailable",
+  "turnDisposition": "held",
+  "billingSourceChange": "forbidden",
+  "appliedAtPlatform": null,
+  "appliedTurnSequence": null
+}

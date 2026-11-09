@@ -1,0 +1,7 @@
+{
+  "v": 2,
+  "source": "atum",
+  "model": "nguyet-thuc",
+  "effort": "medium",
+  "connectionId": "openai-key"
+}

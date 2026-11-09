@@ -1,0 +1,16 @@
+{
+  "contract": "atum.drive-engine/1.1",
+  "wire_protocol": 1,
+  "source_repository": "https://github.com/atum-platform/atum-app",
+  "source_base_commit": "95ac18dd76c0c9517008c5492b7754732ed4db93",
+  "note": "Canonical S4-3 pack, not yet vendored into the engine. Vendor the merged app commit and this digest; the record excludes itself.",
+  "digest_algorithm": "SHA-256 of sorted compact [repository-relative-path, file-sha256] JSON lines, each ending LF",
+  "pinned_sha256": "d273a1e201425d28b479f2614415575cd1cd695efbb1b6fbc81d04ff2f851ccb",
+  "files": {
+    "apps/desktop/electron/matrix/__fixtures__/drive-engine-1.1/facts.jsonl": "c376ee3d5aa38fe1d58a2bad8bc68b3955866ae8b32c60ec3c45c283befbf110",
+    "apps/desktop/electron/matrix/__fixtures__/drive-engine-1.1/handshake.jsonl": "c7a2b277560dc008048fb55bddf76551267090fe21248406a67ea08c65c2c17e",
+    "apps/desktop/electron/matrix/__fixtures__/drive-engine-1.1/invalid.jsonl": "368ff4568c5202403931afdf7977b68c17ec8932392c723a187b148f059514f6",
+    "apps/desktop/electron/matrix/__fixtures__/drive-engine-1.1/trash.jsonl": "728b8cf2ef6389d45b70d324973a7ea64b61dc64a8f83e3fc7bb42b74dae6c8f",
+    "docs/contracts/2026-10-06-drive-engine-1.1.md": "e719fde58cee27f6ee06f67ffaa14fe3cceb1b0165f5c98eed876a00cf548c1f"
+  }
+}

@@ -1,0 +1,2134 @@
+{
+  "contract_id": "atum.store",
+  "version": "1.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/assertion-eight-claims.json",
+    "fixtures/assertion-empty-caps.json",
+    "fixtures/assertion-expiry-too-long.json",
+    "fixtures/assertion-extra-claim.json",
+    "fixtures/assertion-nine-claims.json",
+    "fixtures/cancel-agent.json",
+    "fixtures/capabilities-absent.json",
+    "fixtures/capabilities-duplicate.json",
+    "fixtures/capabilities-empty.json",
+    "fixtures/capabilities-malformed.json",
+    "fixtures/capabilities-too-long.json",
+    "fixtures/capabilities-too-many.json",
+    "fixtures/capabilities-unknown.json",
+    "fixtures/capabilities-valid.json",
+    "fixtures/catalog-empty.json",
+    "fixtures/catalog-hub-delivery-rejected.json",
+    "fixtures/catalog-monthly-agent.json",
+    "fixtures/catalog-null-offer.json",
+    "fixtures/catalog-one-bad-row.json",
+    "fixtures/catalog-pet.json",
+    "fixtures/entitlements-agent-without-subscription.json",
+    "fixtures/entitlements-agent.json",
+    "fixtures/entitlements-empty.json",
+    "fixtures/entitlements-gift-stopgap.json",
+    "fixtures/entitlements-hub-delivery-rejected.json",
+    "fixtures/entitlements-one-bad-row.json",
+    "fixtures/entitlements-pet-assistant-rejected.json",
+    "fixtures/entitlements-pet.json",
+    "fixtures/entitlements-skill-without-assistant.json",
+    "fixtures/entitlements-skill.json",
+    "fixtures/gateway-readiness-off.json",
+    "fixtures/gateway-readiness-on.json",
+    "fixtures/gateway-readiness-unsigned.json",
+    "fixtures/marketplace-requires-hub.json",
+    "fixtures/ownership-available.json",
+    "fixtures/ownership-gift.json",
+    "fixtures/ownership-owned-over-visit.json",
+    "fixtures/ownership-purchased.json",
+    "fixtures/ownership-skill-assistant.json",
+    "fixtures/ownership-visiting.json",
+    "fixtures/purchase-agent.json",
+    "fixtures/purchase-client-names-payer.json",
+    "fixtures/purchase-client-names-priceMicroProtons.json",
+    "fixtures/purchase-client-names-principal.json",
+    "fixtures/purchase-completed-reopened.json",
+    "fixtures/purchase-consent-false.json",
+    "fixtures/purchase-delivery-failed.json",
+    "fixtures/purchase-pet.json",
+    "fixtures/purchase-refunded.json",
+    "fixtures/purchase-settled.json",
+    "fixtures/purchase-version-zero.json",
+    "fixtures/purchases-completed.json",
+    "fixtures/purchases-empty.json",
+    "fixtures/purchases-negative-amount.json",
+    "fixtures/result-already-owned.json",
+    "fixtures/result-completed-no-entitlement.json",
+    "fixtures/result-completed.json",
+    "fixtures/result-offer-changed.json",
+    "fixtures/result-pending.json",
+    "fixtures/result-refused-feature_unavailable.json",
+    "fixtures/result-refused-forbidden.json",
+    "fixtures/result-refused-insufficient_protons.json",
+    "fixtures/result-refused-offer_unavailable.json",
+    "fixtures/result-refused-pet_credit_reserved.json",
+    "fixtures/result-reversed.json",
+    "fixtures/result-unknown-refusal.json",
+    "fixtures/result-wrong-assistant.json",
+    "fixtures/result-wrong-item.json",
+    "fixtures/subscription-cancelled-lapsed.json",
+    "fixtures/subscription-lapsed-renewed.json",
+    "fixtures/subscription-renewed.json",
+    "fixtures/v11-cancel-source-purchase.json",
+    "fixtures/v11-catalog-gift-owned.json",
+    "fixtures/v11-catalog-hub-skill.json",
+    "fixtures/v11-catalog-unavailable.json",
+    "fixtures/v11-catalog-visiting.json",
+    "fixtures/v11-entitlement-compensation.json",
+    "fixtures/v11-entitlement-gift.json",
+    "fixtures/v11-entitlement-promo.json",
+    "fixtures/v11-entitlement-purchase.json",
+    "fixtures/v11-ownership-visit-as-owned.json",
+    "fixtures/v11-requires-public-leak.json",
+    "fixtures/v11-result-gift-owned.json",
+    "fixtures/v11-source-unknown.json"
+  ],
+  "directions": {
+    "client_to_shell": {
+      "from": "client",
+      "to": "Shell",
+      "forbidden_fields": [
+        "principal",
+        "payer",
+        "price",
+        "priceMicroProtons",
+        "amountMicroProtons",
+        "source",
+        "ownership"
+      ]
+    },
+    "shell_to_client": {
+      "from": "Shell",
+      "to": "client",
+      "forbidden_fields": [
+        "apiKey",
+        "privateKey",
+        "protectedBody",
+        "serviceKey",
+        "receipt",
+        "requires"
+      ]
+    },
+    "shell_to_marketplace": {
+      "from": "Shell",
+      "to": "Marketplace",
+      "forbidden_fields": [
+        "privateKey",
+        "serviceKey"
+      ]
+    },
+    "marketplace_to_shell": {
+      "from": "Marketplace",
+      "to": "Shell",
+      "forbidden_fields": [
+        "protectedBody",
+        "privateKey",
+        "serviceKey"
+      ]
+    },
+    "gateway_to_marketplace": {
+      "from": "gateway",
+      "to": "Marketplace",
+      "forbidden_fields": [
+        "apiKey",
+        "serviceKey",
+        "protectedBody"
+      ]
+    },
+    "conformance": {
+      "from": "fixture evidence",
+      "to": "consumer test",
+      "forbidden_fields": []
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+    },
+    "count": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "version": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "timestamp": {
+      "type": "string",
+      "min": 1,
+      "max": 40,
+      "pattern": "[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T[0-2][0-9]:[0-5][0-9]:[0-5][0-9]([.][0-9]{1,6})?(Z|[+-][0-2][0-9]:[0-5][0-9])"
+    },
+    "localized_copy": {
+      "type": "object",
+      "required": {
+        "vi": {
+          "type": "string",
+          "min": 1,
+          "max": 12000,
+          "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "offer": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "version": {
+              "ref": "version"
+            },
+            "priceMicroProtons": {
+              "ref": "count"
+            },
+            "scope": {
+              "enum": [
+                "account",
+                "agent"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "cloud",
+                "bundled"
+              ]
+            },
+            "billingInterval": {
+              "const": "one_time"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "version": {
+              "ref": "version"
+            },
+            "priceMicroProtons": {
+              "ref": "count"
+            },
+            "scope": {
+              "enum": [
+                "account",
+                "agent"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "cloud",
+                "bundled"
+              ]
+            },
+            "billingInterval": {
+              "const": "month"
+            },
+            "renewalPriceMicroProtons": {
+              "ref": "count"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "catalog_item": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "pet"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "pet/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "skill"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "skill/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            },
+            "install": {
+              "ref": "install"
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "agent"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "agent/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            }
+          },
+          "additional": true
+        }
+      ]
+    },
+    "subscription": {
+      "type": "object",
+      "required": {
+        "state": {
+          "enum": [
+            "active",
+            "cancelled",
+            "lapsed"
+          ]
+        },
+        "renewAt": {
+          "ref": "timestamp"
+        },
+        "priceMicroProtons": {
+          "ref": "count"
+        },
+        "offerVersion": {
+          "ref": "version"
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "entitlement": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "state": {
+              "enum": [
+                "active",
+                "revoked"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "cloud",
+                "bundled"
+              ]
+            },
+            "grantedAt": {
+              "ref": "timestamp"
+            },
+            "kind": {
+              "const": "pet"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "pet/[a-z0-9][a-z0-9_/-]{0,119}"
+            },
+            "assistantId": {
+              "type": "null"
+            },
+            "subscription": {
+              "type": "null"
+            }
+          },
+          "optional": {
+            "source": {
+              "ref": "source"
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "state": {
+              "enum": [
+                "active",
+                "revoked"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "cloud",
+                "bundled"
+              ]
+            },
+            "grantedAt": {
+              "ref": "timestamp"
+            },
+            "kind": {
+              "const": "skill"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "skill/[a-z0-9][a-z0-9_/-]{0,119}"
+            },
+            "assistantId": {
+              "ref": "uuid"
+            },
+            "subscription": {
+              "type": "null"
+            }
+          },
+          "optional": {
+            "source": {
+              "ref": "source"
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "state": {
+              "enum": [
+                "active",
+                "revoked"
+              ]
+            },
+            "delivery": {
+              "enum": [
+                "cloud",
+                "bundled"
+              ]
+            },
+            "grantedAt": {
+              "ref": "timestamp"
+            },
+            "kind": {
+              "const": "agent"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "agent/[a-z0-9][a-z0-9_/-]{0,119}"
+            },
+            "assistantId": {
+              "ref": "uuid"
+            },
+            "subscription": {
+              "ref": "subscription"
+            }
+          },
+          "optional": {
+            "source": {
+              "ref": "source"
+            }
+          },
+          "additional": true
+        }
+      ]
+    },
+    "purchase": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "itemId": {
+          "type": "string",
+          "min": 1,
+          "max": 128,
+          "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+        },
+        "offerId": {
+          "ref": "uuid"
+        },
+        "offerVersion": {
+          "ref": "version"
+        },
+        "idempotencyKey": {
+          "ref": "uuid"
+        },
+        "assistantId": {
+          "anyOf": [
+            {
+              "ref": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "amountMicroProtons": {
+          "ref": "count"
+        },
+        "createdAt": {
+          "ref": "timestamp"
+        },
+        "state": {
+          "enum": [
+            "delivery_pending",
+            "granted",
+            "completed",
+            "reversed"
+          ]
+        }
+      },
+      "optional": {
+        "source": {
+          "const": "purchase"
+        }
+      },
+      "additional": true
+    },
+    "purchase_intent": {
+      "type": "object",
+      "required": {
+        "offerId": {
+          "ref": "uuid"
+        },
+        "offerVersion": {
+          "ref": "version"
+        }
+      },
+      "optional": {
+        "assistantId": {
+          "ref": "uuid"
+        },
+        "consentRenewal": {
+          "const": true
+        }
+      },
+      "additional": false
+    },
+    "purchase_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "outcome": {
+              "const": "purchased"
+            },
+            "purchase": {
+              "type": "object",
+              "required": {
+                "id": {
+                  "ref": "uuid"
+                },
+                "itemId": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 128,
+                  "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+                },
+                "offerId": {
+                  "ref": "uuid"
+                },
+                "offerVersion": {
+                  "ref": "version"
+                },
+                "idempotencyKey": {
+                  "ref": "uuid"
+                },
+                "assistantId": {
+                  "anyOf": [
+                    {
+                      "ref": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "amountMicroProtons": {
+                  "ref": "count"
+                },
+                "createdAt": {
+                  "ref": "timestamp"
+                },
+                "state": {
+                  "enum": [
+                    "granted",
+                    "completed"
+                  ]
+                }
+              },
+              "optional": {},
+              "additional": true
+            },
+            "entitlement": {
+              "ref": "entitlement"
+            }
+          },
+          "optional": {},
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "outcome": {
+              "const": "purchased"
+            },
+            "purchase": {
+              "type": "object",
+              "required": {
+                "id": {
+                  "ref": "uuid"
+                },
+                "itemId": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 128,
+                  "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+                },
+                "offerId": {
+                  "ref": "uuid"
+                },
+                "offerVersion": {
+                  "ref": "version"
+                },
+                "idempotencyKey": {
+                  "ref": "uuid"
+                },
+                "assistantId": {
+                  "anyOf": [
+                    {
+                      "ref": "uuid"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "amountMicroProtons": {
+                  "ref": "count"
+                },
+                "createdAt": {
+                  "ref": "timestamp"
+                },
+                "state": {
+                  "enum": [
+                    "delivery_pending",
+                    "reversed"
+                  ]
+                }
+              },
+              "optional": {},
+              "additional": true
+            },
+            "entitlement": {
+              "anyOf": [
+                {
+                  "ref": "entitlement"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "optional": {},
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "outcome": {
+              "const": "already_owned"
+            },
+            "purchase": {
+              "type": "null"
+            },
+            "entitlement": {
+              "ref": "entitlement"
+            }
+          },
+          "optional": {},
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "outcome": {
+              "const": "offer_changed"
+            },
+            "offer": {
+              "ref": "offer"
+            }
+          },
+          "optional": {},
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "outcome": {
+              "const": "refused"
+            },
+            "code": {
+              "enum": [
+                "insufficient_protons",
+                "offer_unavailable",
+                "feature_unavailable",
+                "pet_credit_reserved",
+                "forbidden"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": true
+        }
+      ]
+    },
+    "source": {
+      "enum": [
+        "purchase",
+        "gift",
+        "compensation",
+        "promo"
+      ]
+    },
+    "ownership": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "owned"
+            },
+            "source": {
+              "ref": "source"
+            },
+            "assistantIds": {
+              "type": "array",
+              "items": {
+                "ref": "uuid"
+              },
+              "max": 1000,
+              "unique": true
+            },
+            "until": {
+              "anyOf": [
+                {
+                  "ref": "timestamp"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "visiting"
+            },
+            "source": {
+              "const": "visit"
+            },
+            "assistantIds": {
+              "type": "array",
+              "items": {
+                "ref": "uuid"
+              },
+              "max": 0
+            },
+            "until": {
+              "ref": "timestamp"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "available"
+            },
+            "source": {
+              "type": "null"
+            },
+            "assistantIds": {
+              "type": "array",
+              "items": {
+                "ref": "uuid"
+              },
+              "max": 0
+            },
+            "until": {
+              "type": "null"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "install": {
+      "type": "object",
+      "required": {
+        "source": {
+          "const": "hermes_hub"
+        },
+        "id": {
+          "type": "string",
+          "min": 1,
+          "max": 200,
+          "pattern": "official/[a-z0-9_-]+/[a-z0-9_-]+"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "capability_token": {
+      "type": "string",
+      "min": 3,
+      "max": 256,
+      "pattern": "[a-z][a-z0-9-]*([.][a-z0-9-]+)*[.][0-9]{1,3}"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "ref": "capability_token"
+      },
+      "max": 16,
+      "min": 1,
+      "unique": true
+    },
+    "internal_catalog_item": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "pet"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "pet/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "ref": "capability_token"
+              },
+              "max": 16,
+              "unique": true
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "skill"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "skill/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            },
+            "install": {
+              "ref": "install"
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "ref": "capability_token"
+              },
+              "max": 16,
+              "unique": true
+            }
+          },
+          "additional": true
+        },
+        {
+          "type": "object",
+          "required": {
+            "title": {
+              "ref": "localized_copy"
+            },
+            "summary": {
+              "ref": "localized_copy"
+            },
+            "description": {
+              "ref": "localized_copy"
+            },
+            "tryPrompt": {
+              "ref": "localized_copy"
+            },
+            "needs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+              },
+              "max": 20
+            },
+            "glyph": {
+              "type": "string",
+              "min": 1,
+              "max": 8,
+              "pattern": "[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f]+"
+            },
+            "accent": {
+              "type": "string",
+              "min": 7,
+              "max": 7,
+              "pattern": "#[a-fA-F0-9]{6}"
+            },
+            "featured": {
+              "type": "boolean"
+            },
+            "sortOrder": {
+              "ref": "count"
+            },
+            "offer": {
+              "anyOf": [
+                {
+                  "ref": "offer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "kind": {
+              "const": "agent"
+            },
+            "itemId": {
+              "type": "string",
+              "min": 1,
+              "max": 128,
+              "pattern": "agent/[a-z0-9][a-z0-9_/-]{0,119}"
+            }
+          },
+          "optional": {
+            "ownership": {
+              "ref": "ownership"
+            },
+            "deliverable": {
+              "type": "boolean"
+            },
+            "requires": {
+              "type": "array",
+              "items": {
+                "ref": "capability_token"
+              },
+              "max": 16,
+              "unique": true
+            }
+          },
+          "additional": true
+        }
+      ]
+    }
+  },
+  "messages": {
+    "catalog.response": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "items": {
+            "type": "array",
+            "items": {
+              "ref": "catalog_item"
+            },
+            "max": 1000
+          }
+        },
+        "optional": {},
+        "additional": true
+      }
+    },
+    "entitlements.response": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "entitlements": {
+            "type": "array",
+            "items": {
+              "ref": "entitlement"
+            },
+            "max": 1000
+          }
+        },
+        "optional": {},
+        "additional": true
+      }
+    },
+    "purchases.response": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "purchases": {
+            "type": "array",
+            "items": {
+              "ref": "purchase"
+            },
+            "max": 1000
+          }
+        },
+        "optional": {},
+        "additional": true
+      }
+    },
+    "purchase.request": {
+      "direction": "client_to_shell",
+      "schema": {
+        "ref": "purchase_intent"
+      }
+    },
+    "purchase.result": {
+      "direction": "shell_to_client",
+      "schema": {
+        "ref": "purchase_result"
+      }
+    },
+    "cancel.result": {
+      "direction": "shell_to_client",
+      "schema": {
+        "ref": "entitlement"
+      }
+    },
+    "assertion.claims": {
+      "direction": "shell_to_marketplace",
+      "schema": {
+        "type": "object",
+        "required": {
+          "audience": {
+            "const": "atum-marketplace-store-v1"
+          },
+          "principal": {
+            "ref": "uuid"
+          },
+          "assistantId": {
+            "anyOf": [
+              {
+                "ref": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "method": {
+            "enum": [
+              "GET",
+              "POST"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "min": 1,
+            "max": 256,
+            "pattern": "/atum-store/[a-zA-Z0-9/_-]+"
+          },
+          "digest": {
+            "type": "string",
+            "min": 64,
+            "max": 64,
+            "pattern": "[a-f0-9]{64}"
+          },
+          "issuedAt": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          },
+          "expiresAt": {
+            "type": "integer",
+            "min": 0,
+            "max": 9007199254740991
+          }
+        },
+        "optional": {
+          "caps": {
+            "ref": "capabilities"
+          }
+        },
+        "additional": false
+      }
+    },
+    "marketplace.catalog.response": {
+      "direction": "marketplace_to_shell",
+      "schema": {
+        "type": "object",
+        "required": {
+          "items": {
+            "type": "array",
+            "items": {
+              "ref": "internal_catalog_item"
+            },
+            "max": 1000
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "readiness.response": {
+      "direction": "gateway_to_marketplace",
+      "schema": {
+        "type": "object",
+        "required": {
+          "body": {
+            "type": "object",
+            "required": {
+              "mode": {
+                "enum": [
+                  "on",
+                  "off"
+                ]
+              },
+              "at": {
+                "type": "integer",
+                "min": 0,
+                "max": 9007199254740991
+              }
+            },
+            "optional": {},
+            "additional": false
+          },
+          "signature": {
+            "type": "string",
+            "min": 64,
+            "max": 64,
+            "pattern": "[a-f0-9]{64}"
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "capabilities.case": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "header": {
+            "anyOf": [
+              {
+                "type": "string",
+                "min": 0,
+                "max": 1024
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effective": {
+            "type": "array",
+            "items": {
+              "ref": "capability_token"
+            },
+            "max": 16,
+            "unique": true
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    },
+    "ownership.case": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "item": {
+            "ref": "catalog_item"
+          },
+          "entitlements": {
+            "type": "array",
+            "items": {
+              "ref": "entitlement"
+            },
+            "max": 1000
+          },
+          "petAccess": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": {
+                  "state": {
+                    "enum": [
+                      "owned",
+                      "visiting",
+                      "available"
+                    ]
+                  },
+                  "until": {
+                    "anyOf": [
+                      {
+                        "ref": "timestamp"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "optional": {},
+                "additional": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected": {
+            "ref": "ownership"
+          }
+        },
+        "optional": {},
+        "additional": false
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "purchase_entitlement_itemId",
+      "message": "purchase.result",
+      "op": "same",
+      "left": "purchase.itemId",
+      "right": "entitlement.itemId",
+      "when": {
+        "path": "outcome",
+        "equals": "purchased"
+      }
+    },
+    {
+      "id": "purchase_entitlement_assistantId",
+      "message": "purchase.result",
+      "op": "same",
+      "left": "purchase.assistantId",
+      "right": "entitlement.assistantId",
+      "when": {
+        "path": "outcome",
+        "equals": "purchased"
+      }
+    },
+    {
+      "id": "assertion_lifetime",
+      "message": "assertion.claims",
+      "op": "eq",
+      "left": "expiresAt",
+      "right": [
+        "issuedAt"
+      ],
+      "offset": 30,
+      "required": true
+    }
+  ],
+  "state_machines": {
+    "purchase": {
+      "states": [
+        "delivery_pending",
+        "granted",
+        "completed",
+        "reversed"
+      ],
+      "initial": [
+        "delivery_pending"
+      ],
+      "terminal": [
+        "reversed"
+      ],
+      "transitions": [
+        [
+          "delivery_pending",
+          "granted",
+          "delivery_granted"
+        ],
+        [
+          "granted",
+          "completed",
+          "settled"
+        ],
+        [
+          "delivery_pending",
+          "reversed",
+          "delivery_failed"
+        ],
+        [
+          "granted",
+          "reversed",
+          "settlement_failed"
+        ],
+        [
+          "completed",
+          "reversed",
+          "operator_refund"
+        ]
+      ]
+    },
+    "subscription": {
+      "states": [
+        "active",
+        "cancelled",
+        "lapsed"
+      ],
+      "initial": [
+        "active"
+      ],
+      "terminal": [
+        "lapsed"
+      ],
+      "transitions": [
+        [
+          "active",
+          "active",
+          "renewed"
+        ],
+        [
+          "active",
+          "cancelled",
+          "cancelled"
+        ],
+        [
+          "active",
+          "lapsed",
+          "renewal_refused"
+        ],
+        [
+          "cancelled",
+          "lapsed",
+          "period_ended"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/catalog-pet.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/catalog-empty.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/catalog-null-offer.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/catalog-monthly-agent.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/catalog-hub-delivery-rejected.json",
+      "message": "catalog.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/catalog-one-bad-row.json",
+      "message": "catalog.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/entitlements-pet.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/entitlements-skill.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/entitlements-agent.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/entitlements-gift-stopgap.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/entitlements-empty.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/entitlements-pet-assistant-rejected.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/entitlements-hub-delivery-rejected.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/entitlements-one-bad-row.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/entitlements-skill-without-assistant.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/entitlements-agent-without-subscription.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/purchases-completed.json",
+      "message": "purchases.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchases-empty.json",
+      "message": "purchases.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchases-negative-amount.json",
+      "message": "purchases.response",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/purchase-pet.json",
+      "message": "purchase.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-agent.json",
+      "message": "purchase.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-client-names-principal.json",
+      "message": "purchase.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/purchase-client-names-payer.json",
+      "message": "purchase.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/purchase-client-names-priceMicroProtons.json",
+      "message": "purchase.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/purchase-version-zero.json",
+      "message": "purchase.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/purchase-consent-false.json",
+      "message": "purchase.request",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/result-completed.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-pending.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-reversed.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-already-owned.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-offer-changed.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-refused-insufficient_protons.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-refused-offer_unavailable.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-refused-feature_unavailable.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-refused-pet_credit_reserved.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-refused-forbidden.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-unknown-refusal.json",
+      "message": "purchase.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/result-completed-no-entitlement.json",
+      "message": "purchase.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/result-wrong-item.json",
+      "message": "purchase.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/result-wrong-assistant.json",
+      "message": "purchase.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/cancel-agent.json",
+      "message": "cancel.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-settled.json",
+      "machine": "purchase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-delivery-failed.json",
+      "machine": "purchase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-refunded.json",
+      "machine": "purchase",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/purchase-completed-reopened.json",
+      "machine": "purchase",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/subscription-cancelled-lapsed.json",
+      "machine": "subscription",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/subscription-renewed.json",
+      "machine": "subscription",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/subscription-lapsed-renewed.json",
+      "machine": "subscription",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/v11-catalog-gift-owned.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-catalog-visiting.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-catalog-unavailable.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-catalog-hub-skill.json",
+      "message": "catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-entitlement-purchase.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-entitlement-gift.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-entitlement-compensation.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-entitlement-promo.json",
+      "message": "entitlements.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-result-gift-owned.json",
+      "message": "purchase.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-cancel-source-purchase.json",
+      "message": "cancel.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-source-unknown.json",
+      "message": "entitlements.response",
+      "expect": "reject",
+      "violation": "variant",
+      "legacy_expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-ownership-visit-as-owned.json",
+      "message": "catalog.response",
+      "expect": "reject",
+      "violation": "variant",
+      "legacy_expect": "accept"
+    },
+    {
+      "file": "fixtures/v11-requires-public-leak.json",
+      "message": "catalog.response",
+      "expect": "reject",
+      "violation": "forbidden_field",
+      "legacy_expect": "accept"
+    },
+    {
+      "file": "fixtures/assertion-eight-claims.json",
+      "message": "assertion.claims",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/assertion-nine-claims.json",
+      "message": "assertion.claims",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/assertion-empty-caps.json",
+      "message": "assertion.claims",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/assertion-extra-claim.json",
+      "message": "assertion.claims",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/assertion-expiry-too-long.json",
+      "message": "assertion.claims",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/marketplace-requires-hub.json",
+      "message": "marketplace.catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/gateway-readiness-on.json",
+      "message": "readiness.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/gateway-readiness-off.json",
+      "message": "readiness.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/gateway-readiness-unsigned.json",
+      "message": "readiness.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/capabilities-absent.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-empty.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-valid.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-duplicate.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-unknown.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-malformed.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-too-many.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-too-long.json",
+      "message": "capabilities.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-gift.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-purchased.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-visiting.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-available.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-skill-assistant.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-owned-over-visit.json",
+      "message": "ownership.case",
+      "expect": "accept"
+    }
+  ],
+  "routes": {
+    "public_base": "/api/matrix/v1/store",
+    "operations": {
+      "GET /catalog": [
+        null,
+        "catalog.response"
+      ],
+      "GET /entitlements": [
+        null,
+        "entitlements.response"
+      ],
+      "GET /purchases": [
+        null,
+        "purchases.response"
+      ],
+      "POST /purchases": [
+        "purchase.request",
+        "purchase.result"
+      ],
+      "POST /entitlements/{id}/cancel": [
+        "{}",
+        "cancel.result"
+      ]
+    }
+  },
+  "base": {
+    "contract": "atum.store/1",
+    "path": "spec/store/v1",
+    "sha256": "21797ed1d33b1f9fa558e16809f0c5846d8ba9f58b73ee804a535c5f661c0c83",
+    "rule": "additive minor; unchanged base fixtures carried byte for byte"
+  },
+  "capability_catalogue": [
+    "store.ownership.1",
+    "skills.prefix.1",
+    "agents.schedules.1",
+    "skills.hub.1",
+    "pets.art.2"
+  ],
+  "reserved_capabilities": [
+    "agents.schedules.cloud.1",
+    "pets.package.1"
+  ]
+}

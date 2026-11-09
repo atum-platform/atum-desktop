@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "scope": {
+    "pair": {
+      "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+      "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+      "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+    },
+    "authorityEpoch": 7,
+    "contextEpoch": 1,
+    "homeGeneration": 1
+  },
+  "homeId": "00000000-0000-4000-8000-eec8ec5cf84c",
+  "storeGeneration": 1,
+  "namespaceDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "encryption": "existing_encrypted_custody",
+  "writer": "serialized_lease_holder",
+  "contentRetention": {
+    "policy": "retired_private_cos",
+    "purgeAfterDays": 30,
+    "userExport": "none"
+  },
+  "financeReceiptRetention": "separate"
+}

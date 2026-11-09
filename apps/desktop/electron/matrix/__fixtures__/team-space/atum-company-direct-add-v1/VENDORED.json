@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-direct-add/1",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "8c18ad4293d81485c48aad44f53fe3452d908e9c",
+  "path": "spec/company-direct-add/v1",
+  "sha256": "2f00cbf5aa39f1f8e3e76d7c4c50c65fbd3c737c3dc823ad3b842195fdb44354",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

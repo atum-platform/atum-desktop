@@ -1,0 +1,14 @@
+.atum-document-reading { background: var(--atum-canvas-backdrop, #e9e8e4); }
+.atum-document-reading .preview-markdown { max-width: none; padding: 0; font: inherit; color: inherit; }
+.atum-document-reading :is(p, li, table, th, td) { font-size: inherit; line-height: inherit; color: inherit; }
+.atum-document-reading :is(h1, h2, h3, h4, h5, h6) { font-family: var(--document-heading-font); color: var(--document-accent); line-height: 1.2; }
+.atum-document-reading h1 { font-size: var(--document-h1); }
+.atum-document-reading h2 { font-size: var(--document-h2); }
+.atum-document-reading h3 { font-size: var(--document-h3); }
+.atum-document-reading h4 { font-size: var(--document-h4); }
+.atum-document-reading h5 { font-size: var(--document-h5); }
+.atum-document-reading h6 { font-size: var(--document-h6); }
+@media (forced-colors: active) {
+  .atum-document-reading > div { background: Canvas !important; color: CanvasText !important; box-shadow: none !important; }
+  .atum-document-reading :is(h1, h2, h3, h4, h5, h6) { color: CanvasText; }
+}

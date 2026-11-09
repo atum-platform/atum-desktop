@@ -1,0 +1,13 @@
+{
+  "operation": "create",
+  "requestId": "00000000-0000-4000-8000-3a3cb1b7cbce",
+  "title": "Hourly",
+  "instruction": "Check the queue.",
+  "schedule": {
+    "kind": "interval",
+    "everyHours": 1
+  },
+  "timezone": "UTC",
+  "enabled": true,
+  "notifications": true
+}

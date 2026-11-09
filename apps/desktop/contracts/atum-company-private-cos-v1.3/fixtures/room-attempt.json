@@ -1,0 +1,17 @@
+{
+  "attemptId": "00000000-0000-4000-8000-540eb3b6436f",
+  "state": "create",
+  "roomId": null,
+  "marker": {
+    "type": "io.atum.company_private_cos",
+    "stateKey": "",
+    "content": {
+      "v": 1,
+      "classification": "company_private_cos",
+      "companyId": "00000000-0000-4000-8000-7b0cac15d6b0",
+      "membershipIncarnation": "00000000-0000-4000-8000-ed2914fe0e5a",
+      "executorId": "00000000-0000-4000-8000-ea3f14245121",
+      "attemptId": "00000000-0000-4000-8000-540eb3b6436f"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "atum-release-reliability-event/1",
+  "event": "journey_checkpoint",
+  "occurred_at_bucket": "2026-08-30T03:00:00Z",
+  "app_version": "2.0.0-rc.1",
+  "release_channel": "candidate",
+  "artifact_prefix": "17a52ae1f0fe",
+  "os_family": "macos",
+  "os_major": "15",
+  "arch": "arm64",
+  "result": "success",
+  "problem_code": null,
+  "duration_bucket": "30to120s",
+  "user_id": "forbidden-identity"
+}

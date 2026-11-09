@@ -1,0 +1,13 @@
+{
+  "packs": [
+    {
+      "contract_id": "atum.execution-policy",
+      "version": 1,
+      "path": "fixtures/execution-policy/v1",
+      "source": "atum-platform/atum-platform:spec/execution-policy/v1",
+      "sha256": "5b4970347ec077e672e007572d12161af594df69b705270b6f2846125f09d502",
+      "source_commit": "4f1a2b2e705a1997d80c168cfeb98b310428e377",
+      "status": "merged"
+    }
+  ]
+}

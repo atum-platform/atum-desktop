@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "current",
+      "to": "revoked",
+      "event": "authority_change"
+    },
+    {
+      "from": "revoked",
+      "to": "current",
+      "event": "readmission"
+    }
+  ]
+}

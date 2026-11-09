@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "invited",
+      "event": "private_invite"
+    },
+    {
+      "from": "invited",
+      "to": "none",
+      "event": "decline"
+    }
+  ]
+}

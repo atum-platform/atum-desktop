@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 4,
+  "wireVersion": "1.3",
+  "supportedWireVersions": [
+    "1",
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5"
+  ],
+  "features": {
+    "ownership": true,
+    "invitationLifecycle": true,
+    "capabilityDiscovery": true,
+    "channelAdmission": true,
+    "companyConversations": true
+  },
+  "activation": {
+    "teamAdmin": "active",
+    "channelAdmission": "active",
+    "companyConversations": "inactive"
+  },
+  "controller": {
+    "roomReconciliation": "ready"
+  }
+}

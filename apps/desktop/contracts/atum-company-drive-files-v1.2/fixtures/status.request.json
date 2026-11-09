@@ -1,0 +1,18 @@
+{
+  "file": {
+    "v": 2,
+    "company_id": "00000000-0000-4000-8000-49e71e77e770",
+    "audience": {
+      "kind": "conversation",
+      "conversation_id": "00000000-0000-4000-8000-abd61e4a475a"
+    },
+    "file_id": "00000000-0000-4000-8000-1b481f0c36d7",
+    "revision": 1,
+    "name": "brief.pdf",
+    "content_type": "application/pdf",
+    "size": 1024,
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "viewerAdmissionEpoch": 2,
+  "audienceGeneration": 4
+}

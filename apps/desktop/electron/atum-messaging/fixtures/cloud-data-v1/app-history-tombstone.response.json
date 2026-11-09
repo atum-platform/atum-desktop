@@ -1,0 +1,22 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 2050,
+      "operation": "tombstone",
+      "tombstone": {
+        "record_id": "00000000-0000-4000-8000-b4b6412c243e",
+        "record_kind": "artifact",
+        "scope": {
+          "kind": "app_thread",
+          "id": "00000000-0000-4000-8000-676a3a34ff0f"
+        },
+        "generation": 3,
+        "lifecycle": "deleted"
+      }
+    }
+  ],
+  "next_cursor": "opaque-sync-token-5",
+  "has_more": false,
+  "server_time": "2026-08-30T12:02:30Z"
+}

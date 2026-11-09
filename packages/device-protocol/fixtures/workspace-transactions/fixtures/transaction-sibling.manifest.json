@@ -1,0 +1,81 @@
+{
+  "v": 1,
+  "taskId": "00000000-0000-4000-8000-01779cc5deb8",
+  "owner": "00000000-0000-4000-8000-0a17b0bd53cc",
+  "agent": "00000000-0000-4000-8000-159badba71cd",
+  "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+  "leaseGeneration": 41,
+  "workspace": {
+    "resource": {
+      "storage": "00000000-0000-4000-8000-2a884521bb82",
+      "space": "00000000-0000-4000-8000-91307eebce14",
+      "opaque": "L2FnZW50cy9UL2JyaWVmLm1k"
+    },
+    "label": "/Agents/T"
+  },
+  "inputManifestHash": "9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c9c",
+  "inputs": [
+    {
+      "resource": {
+        "storage": "00000000-0000-4000-8000-2a884521bb82",
+        "space": "00000000-0000-4000-8000-91307eebce14",
+        "opaque": "L2FnZW50cy9UL2JyaWVmLm1k"
+      },
+      "path": "notes/a.md",
+      "etag": "\"etag-a-1\"",
+      "size": 1200,
+      "sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "source": "cloud",
+      "localState": "clean"
+    },
+    {
+      "resource": {
+        "storage": "00000000-0000-4000-8000-2a884521bb82",
+        "space": "00000000-0000-4000-8000-91307eebce14",
+        "opaque": "L2FnZW50cy9UL2JyaWVmLm1k"
+      },
+      "path": "notes/b.md",
+      "etag": "\"etag-b-1\"",
+      "size": 800,
+      "sha256": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b",
+      "source": "device:00000000-0000-4000-8000-b86a6ca39e23",
+      "localState": "dirty",
+      "deviceRevision": {
+        "inode": 884210,
+        "mtimeNs": "1759564800000000000",
+        "size": 800
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "path": "brief.md",
+      "mode": "create",
+      "baseEtag": null,
+      "artifact": {
+        "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+        "size": 2048,
+        "staged": {
+          "artifactId": "00000000-0000-4000-8000-38e4e4acfa60"
+        }
+      },
+      "state": "sibling",
+      "placed": null,
+      "siblingPath": "brief (T 2026-10-04 00000000).md"
+    }
+  ],
+  "deletionsProposed": [
+    "old.md"
+  ],
+  "dependencyCheck": {
+    "at": 1791100830000,
+    "changed": [
+      {
+        "path": "notes/a.md",
+        "expected": "\"etag-a-1\"",
+        "actual": "\"etag-a-2\""
+      }
+    ]
+  },
+  "result": "committed_with_siblings"
+}

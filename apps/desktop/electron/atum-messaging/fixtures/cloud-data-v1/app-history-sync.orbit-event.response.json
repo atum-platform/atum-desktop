@@ -1,0 +1,36 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 4099,
+      "operation": "upsert",
+      "record": {
+        "record_id": "00000000-0000-4000-8000-3ef3fee99f1a",
+        "record_kind": "app_event",
+        "scope": {
+          "kind": "app_thread",
+          "id": "00000000-0000-4000-8000-895b72a9a384"
+        },
+        "revision": 1,
+        "generation": 1,
+        "lifecycle": "active",
+        "payload": {
+          "event_type": "turn.completed",
+          "summary": "Orbit completed a synthetic turn"
+        },
+        "provenance": {
+          "source_kind": "app_event",
+          "source_id": "00000000-0000-4000-8000-292e10f94557",
+          "source_revision": 1,
+          "origin_app": "orbit"
+        },
+        "occurred_at": "2026-08-30T12:02:50Z",
+        "recorded_at": "2026-08-30T12:02:51Z",
+        "untrusted_input": true
+      }
+    }
+  ],
+  "next_cursor": "opaque-orbit-token-event",
+  "has_more": true,
+  "server_time": "2026-08-30T12:02:52Z"
+}

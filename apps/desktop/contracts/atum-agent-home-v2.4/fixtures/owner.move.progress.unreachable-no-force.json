@@ -1,0 +1,23 @@
+{
+  "profile": "atum.agent-home/2.4",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "sequence": 2,
+  "source": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "target": {
+    "kind": "cloud"
+  },
+  "updatedAtPlatform": 1800000000000,
+  "state": "failed",
+  "baseMoveStatus": "aborted",
+  "reason": "source_unreachable",
+  "currentAuthoritativeHome": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "oldHomeResumed": true
+}

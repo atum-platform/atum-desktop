@@ -1,0 +1,59 @@
+{
+  "appId": "com.atum.matrix-candidate",
+  "productName": "Atum",
+  "executableName": "Atum Matrix Candidate",
+  "copyright": "© 2026 Anka Ventures Vietnam Company Limited",
+  "electronVersion": "44.10.1",
+  "extends": null,
+  "directories": {
+    "app": "dist-matrix",
+    "output": "release-matrix"
+  },
+  "protocols": [
+    {
+      "name": "Atum Protocol",
+      "schemes": ["atum"]
+    }
+  ],
+  "files": ["**/*", "!**/*.map", "!node_modules{,/**/*}"],
+  "npmRebuild": false,
+  "asar": true,
+  "asarUnpack": ["atum-app-window", "atum-device-key"],
+  "afterPack": "scripts/matrix-after-pack.mjs",
+  "mac": {
+    "identity": "-",
+    "hardenedRuntime": false,
+    "minimumSystemVersion": "13.0",
+    "target": "dir",
+    "signIgnore": ["/Contents/Resources/drive-engine/.*"],
+    "extendInfo": {
+      "CFBundleDisplayName": "Atum Matrix Candidate",
+      "LSHasLocalizedDisplayName": true,
+      "NSMicrophoneUsageDescription": "Để bạn nói chuyện với trợ lý bằng giọng nói.\nSo you can talk to your assistant by voice.",
+      "NSAudioCaptureUsageDescription": "Chỉ khi bạn nhờ trợ lý ghi lại âm thanh đang phát trên máy Mac.\nOnly when you ask your assistant to record sound playing on your Mac.",
+      "NSCameraUsageDescription": "Chỉ khi bạn nhờ trợ lý chụp ảnh hoặc quay video bằng camera.\nOnly when you ask your assistant to take a photo or video with the camera.",
+      "NSBluetoothAlwaysUsageDescription": "Chỉ khi bạn nhờ trợ lý làm việc với một thiết bị Bluetooth.\nOnly when you ask your assistant to work with a Bluetooth device.",
+      "NSBluetoothPeripheralUsageDescription": "Chỉ khi bạn nhờ trợ lý làm việc với một thiết bị Bluetooth.\nOnly when you ask your assistant to work with a Bluetooth device.",
+      "NSAppleEventsUsageDescription": "Để trợ lý làm việc trong ứng dụng bạn chọn, như Word hay Ghi chú, khi bạn nhờ.\nSo your assistant can work in an app you choose, such as Word or Notes, when you ask.",
+      "NSDesktopFolderUsageDescription": "Để trợ lý tìm và làm việc với các tệp trên Màn hình nền khi bạn cần.\nSo your assistant can find and work with files on your Desktop when you ask.",
+      "NSDocumentsFolderUsageDescription": "Để trợ lý tìm và làm việc với tài liệu của bạn khi bạn cần.\nSo your assistant can find and work with your documents when you ask.",
+      "NSDownloadsFolderUsageDescription": "Để trợ lý tìm và làm việc với các tệp bạn đã tải về khi bạn cần.\nSo your assistant can find and work with files you downloaded when you ask.",
+      "NSRemovableVolumesUsageDescription": "Để trợ lý làm việc với tệp trên ổ USB hay thẻ nhớ khi bạn nhờ.\nSo your assistant can work with files on a USB drive or memory card when you ask.",
+      "NSNetworkVolumesUsageDescription": "Để trợ lý làm việc với tệp trên ổ mạng khi bạn nhờ.\nSo your assistant can work with files on a network drive when you ask.",
+      "NSCalendarsUsageDescription": "Để trợ lý xem lịch và thêm hoặc sửa sự kiện khi bạn nhờ.\nSo your assistant can check your calendar and add or change events when you ask.",
+      "NSCalendarsFullAccessUsageDescription": "Để trợ lý xem lịch và thêm hoặc sửa sự kiện khi bạn nhờ.\nSo your assistant can check your calendar and add or change events when you ask.",
+      "NSRemindersUsageDescription": "Để trợ lý xem, thêm và đánh dấu xong lời nhắc khi bạn nhờ.\nSo your assistant can read, add and complete your reminders when you ask.",
+      "NSRemindersFullAccessUsageDescription": "Để trợ lý xem, thêm và đánh dấu xong lời nhắc khi bạn nhờ.\nSo your assistant can read, add and complete your reminders when you ask.",
+      "NSContactsUsageDescription": "Để trợ lý tìm người trong Danh bạ khi bạn nhờ, ví dụ để nhắn tin hay gửi email.\nSo your assistant can look someone up in your contacts when you ask, for example to message or email them.",
+      "NSPhotoLibraryUsageDescription": "Để trợ lý tìm và dùng ảnh trong thư viện Ảnh khi bạn nhờ.\nSo your assistant can find and use pictures in your Photos library when you ask.",
+      "NSLocalNetworkUsageDescription": "Để trợ lý kết nối với thiết bị trong mạng của bạn, như máy in hay máy tính khác, khi bạn nhờ.\nSo your assistant can reach devices on your network, such as a printer or another computer, when you ask."
+    },
+    "extraResources": [
+      { "from": "assets/macos/vi.lproj/InfoPlist.strings", "to": "vi.lproj/InfoPlist.strings" },
+      { "from": "assets/macos/ja.lproj/InfoPlist.strings", "to": "ja.lproj/InfoPlist.strings" },
+      { "from": "assets/macos/zh_CN.lproj/InfoPlist.strings", "to": "zh_CN.lproj/InfoPlist.strings" },
+      { "from": "assets/macos/zh_TW.lproj/InfoPlist.strings", "to": "zh_TW.lproj/InfoPlist.strings" },
+      { "from": "third-party/licenses", "to": "licenses" }
+    ]
+  }
+}

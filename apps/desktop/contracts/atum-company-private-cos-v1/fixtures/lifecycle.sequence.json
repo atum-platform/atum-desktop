@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {"from": "uncreated", "to": "preparing", "event": "ensure"},
+    {"from": "preparing", "to": "ready", "event": "bind"},
+    {"from": "ready", "to": "retired", "event": "membership_lost"},
+    {"from": "retired", "to": "purged", "event": "retention_due"}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "operation": "abandon",
+  "seq": 15,
+  "leaseToken": "00000000-0000-4000-8000-803634f44772",
+  "leaseGeneration": 41,
+  "reason": "stale",
+  "outbox": {
+    "outboxId": "00000000-0000-4000-8000-397a66c542d1",
+    "kind": "status",
+    "bodySha256": "0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+    "bodyKey": "v1/00000000-0000-4000-8000-0a17b0bd53cc/00000000-0000-4000-8000-159badba71cd/outbox/00000000-0000-4000-8000-397a66c542d1",
+    "statusCode": "couldnt_confirm"
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "kind": "device_effect",
+  "presented": {
+    "meta": {
+      "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+      "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+      "signer": "mac_executor",
+      "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "sequence": 12,
+      "issuedAt": 1800000000000,
+      "expiresAt": 1800000015000,
+      "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+      "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+    },
+    "fence": {
+      "ownerUserId": "@owner:atum.example",
+      "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+      "homeId": "00000000-0000-4000-8000-e8d95748107a",
+      "homeEpoch": 4,
+      "executorTerm": 12,
+      "leaseId": "00000000-0000-4000-8000-c8f367a876b2",
+      "leaseExpiresAtPlatform": 1800000060000,
+      "operation": {
+        "kind": "invocation",
+        "id": "00000000-0000-4000-8000-6cc9b1298c8f"
+      }
+    }
+  },
+  "trusted": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "homeEpoch": 4,
+    "executorTerm": 12,
+    "leaseId": "00000000-0000-4000-8000-c8f367a876b2",
+    "leaseExpiresAtPlatform": 1800000060000,
+    "operation": {
+      "kind": "invocation",
+      "id": "00000000-0000-4000-8000-6cc9b1298c8f"
+    },
+    "placement": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "pinnedSignerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "signatureValid": true,
+    "nowPlatform": 1800000000000
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "wrong_signer_location"
+  }
+}

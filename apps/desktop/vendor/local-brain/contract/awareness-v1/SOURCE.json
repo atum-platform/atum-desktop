@@ -1,0 +1,11 @@
+{
+  "schema": "atum.local-brain.vendored-contract/1",
+  "contract": "atum.awareness/1",
+  "note": "Byte-for-byte vendored copy of the frozen spec/awareness/v1 contract pack. The canonical pack is the source of truth; package tests reject any drift.",
+  "source": {
+    "repository": "atum-platform",
+    "branch": "main",
+    "commit": "2efe5e94a9394a40639b464a8df425c07f3f04db",
+    "packDigest": "f2578c9ddee69e4279d5c397d663cd7db7559e5fa232357c76295b92e28928f3"
+  }
+}

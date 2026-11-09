@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-policy/1.2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "1c3a059f02d413730f2149cf629ed680a359eee8",
+  "path": "spec/company-policy/v1.2",
+  "sha256": "1616e3b4698cd0b63bc23013d0ff862708ee6c2ee957ce750496853252a0c5c5",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "delivery_pending",
+      "to": "reversed",
+      "event": "delivery_failed"
+    }
+  ]
+}

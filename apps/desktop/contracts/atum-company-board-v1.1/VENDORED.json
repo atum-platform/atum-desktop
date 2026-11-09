@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-board/1.1",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "297eb1585cf4c99dccf872c11b3c4675102bddad",
+  "path": "spec/company-board/v1.1",
+  "sha256": "25afcf932966ca78fbe43ef4699691749b888fac7aff5ced3f68871142bab767",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

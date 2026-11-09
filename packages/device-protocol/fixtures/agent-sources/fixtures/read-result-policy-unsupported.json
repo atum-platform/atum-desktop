@@ -1,0 +1,16 @@
+{
+  "profile": "atum.agent-sources/1",
+  "requestId": "00000000-0000-4000-8000-cb3c7031a0b0",
+  "sourceId": "app:00000000-0000-4000-8000-a3a9e1ed9732:chat",
+  "binding": {
+    "connectionRef": "matrix_connection_owner_01",
+    "scopeRef": "room_unknown_app_01",
+    "descriptorRevision": 7,
+    "authorityRevision": 19
+  },
+  "status": "policy_unsupported",
+  "evidence": [],
+  "unsupportedPolicyTags": [
+    "future-mandatory-policy-v9"
+  ]
+}

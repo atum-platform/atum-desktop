@@ -1,0 +1,53 @@
+{
+  "name": "an older revoke applied over a newer one",
+  "device": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "signedIn": true,
+    "paused": false,
+    "localScopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "cloudAgents": [
+      "@synthetic-user-0011:example.invalid"
+    ],
+    "pinnedControllerKeys": [
+      "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA"
+      }
+    ],
+    "receivedAt": 1791100802000
+  },
+  "lastRevokeSeq": 4,
+  "revoke": {
+    "v": 1,
+    "type": "Revoke",
+    "body": {
+      "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+      "enrollmentEpoch": 3,
+      "revokeSeq": 3
+    },
+    "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+    "sig": "hyYdIW6Tl2Cufi915Q0QAYhKRYQnw3l4158h_NlJGV2HbeiXBAvcOtGknpZuL0Eh6jKWk5rBo1DhrPtSE0uJBQ"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "applied"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "steps": [
+    {"from": "checkpointed", "to": "awaiting_receipt", "event": "submit_revision"},
+    {"from": "awaiting_receipt", "to": "awaiting_receipt", "event": "lost_receipt_restart_same_operation"},
+    {"from": "awaiting_receipt", "to": "receipt_recorded", "event": "duplicate_receipt"},
+    {"from": "receipt_recorded", "to": "checkpointed", "event": "commit_checkpoint"}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "v": 2,
+  "source": "atum",
+  "model": "nguyet-thuc",
+  "effort": "medium",
+  "agents": {
+    "00000000-0000-4000-8000-bd7662a5eeb4": {
+      "v": 2,
+      "source": "connection",
+      "connectionId": "openai-key",
+      "model": "gpt-6-luna",
+      "effort": "high"
+    }
+  }
+}

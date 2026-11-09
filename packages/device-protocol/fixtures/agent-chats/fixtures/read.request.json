@@ -1,0 +1,6 @@
+{
+  "op": "read",
+  "id": "!Qk3vLm0wXzRbT:example.invalid",
+  "limit": 20,
+  "before": "t12-345_0_0_0_0_0_0_0_0_0"
+}

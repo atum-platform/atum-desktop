@@ -1,0 +1,23 @@
+{
+  "input": {
+    "roomId": "!c:proof.test",
+    "privateAssistant": true,
+    "forTurn": true,
+    "resolution": {
+      "earlier": [
+        "!b:proof.test"
+      ],
+      "stray": [
+        "!c:proof.test"
+      ],
+      "unreachable": [],
+      "source": "marked",
+      "main": "!a:proof.test"
+    }
+  },
+  "expected": {
+    "admit": false,
+    "code": "matrix_earlier_conversation",
+    "main": "!a:proof.test"
+  }
+}

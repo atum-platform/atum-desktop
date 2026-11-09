@@ -1,0 +1,19 @@
+{
+  "companyId": "00000000-0000-4000-8000-87c6455cae48",
+  "kind": "group_dm",
+  "participants": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 2
+    },
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1
+    },
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1
+    }
+  ],
+  "participantSetDigest": "8fab695f5680fd6baf8fa79201da8a0d1a2c2f5c6827b13a0991407cac2db61a"
+}

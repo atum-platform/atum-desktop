@@ -1,0 +1,10 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "leaseToken": "00000000-0000-4000-8000-803634f44772",
+  "grantId": "00000000-0000-4000-8000-c60ae0e68ff3",
+  "operation": "ws_stage",
+  "taskId": "00000000-0000-4000-8000-01779cc5deb8",
+  "artifactId": "00000000-0000-4000-8000-38e4e4acfa60",
+  "sha256": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+  "size": 2048
+}

@@ -1,0 +1,39 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "A removed person gets no oracle from either surface: preview and redeem both answer the uniform unavailable, with no company name, inviter, expiry or liveness.",
+  "steps": [
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    },
+    {
+      "do": "membership",
+      "person": "lan",
+      "state": "removed"
+    },
+    {
+      "do": "preview",
+      "person": "lan",
+      "expect": {
+        "result": "unavailable"
+      }
+    },
+    {
+      "do": "redeem",
+      "request": "r2",
+      "person": "lan",
+      "expect": {
+        "result": "unavailable"
+      }
+    }
+  ]
+}

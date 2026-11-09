@@ -1,0 +1,63 @@
+{
+  "v": 1,
+  "productLevels": [
+    "low",
+    "medium",
+    "high",
+    "max"
+  ],
+  "families": [
+    {
+      "family": "openrouter-openai",
+      "aliases": [
+        "default",
+        "nguyet-thuc",
+        "nhat-thuc",
+        "binh-minh"
+      ],
+      "providerField": "reasoning.effort",
+      "mapping": {
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "max": null
+      },
+      "availableEfforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "maxRequiresLiveVerification": true
+    },
+    {
+      "family": "openrouter-moonshot",
+      "aliases": [
+        "hatch"
+      ],
+      "providerField": "reasoning.effort",
+      "mapping": {
+        "low": null,
+        "medium": null,
+        "high": null,
+        "max": null
+      },
+      "availableEfforts": [],
+      "maxRequiresLiveVerification": true
+    },
+    {
+      "family": "openrouter-google",
+      "aliases": [
+        "google-protected"
+      ],
+      "providerField": "reasoning.effort",
+      "mapping": {
+        "low": null,
+        "medium": null,
+        "high": null,
+        "max": null
+      },
+      "availableEfforts": [],
+      "maxRequiresLiveVerification": true
+    }
+  ]
+}

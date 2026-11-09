@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 4,
+  "operation": "join",
+  "channelId": "00000000-0000-4000-8000-f19cafd05964",
+  "authorityGeneration": 10,
+  "channelGeneration": 8,
+  "admission": {
+    "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "state": "active",
+    "admissionEpoch": 2,
+    "admissionGeneration": 4
+  },
+  "replayed": false
+}

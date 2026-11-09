@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "open",
+      "to": "staged",
+      "event": "stage"
+    },
+    {
+      "from": "staged",
+      "to": "checking",
+      "event": "recheck_dependencies"
+    },
+    {
+      "from": "checking",
+      "to": "committed",
+      "event": "all_clean_placed"
+    }
+  ]
+}

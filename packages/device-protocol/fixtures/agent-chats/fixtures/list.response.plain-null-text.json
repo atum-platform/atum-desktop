@@ -1,0 +1,24 @@
+{
+  "rooms": [
+    {
+      "id": "!Qk3vLm0wXzRbT:example.invalid",
+      "label": "Linh",
+      "kind": "person",
+      "members": [
+        "Linh"
+      ],
+      "memberCount": 2,
+      "notifications": 3,
+      "highlights": 1,
+      "lastAt": 1792000000000,
+      "last": {
+        "eventId": "$l1abc",
+        "from": "Linh",
+        "mine": false,
+        "text": null
+      },
+      "encrypted": false
+    }
+  ],
+  "truncated": false
+}

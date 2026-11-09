@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-project-brain/2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "a4cebd1128ede7f007aade7d3a9768a47fdabac5",
+  "path": "spec/company-project-brain/v2",
+  "sha256": "0a026f498d96c47ff07a2ffc6607af8a47dd47488896b09468e65474cff4ed50",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

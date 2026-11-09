@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "profile": "atum.agent-home/2.4",
+  "ownerUserId": "@owner:atum.example",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "placement": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "location": {
+      "kind": "cloud"
+    },
+    "homeEpoch": 4,
+    "activeMove": null
+  },
+  "currentHomeReachability": {
+    "state": "reachable",
+    "lastSeenAtPlatform": 1800000000000
+  },
+  "eligibleDevices": [
+    {
+      "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+      "displayName": "Mac mini",
+      "eligibility": "ready"
+    }
+  ],
+  "moveCapability": {
+    "state": "unavailable",
+    "reason": "client_update_required"
+  },
+  "observedAtPlatform": 1800000000000
+}

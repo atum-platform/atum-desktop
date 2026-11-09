@@ -1,0 +1,392 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.9",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/email-invitation.claim-email.request.json",
+    "fixtures/email-invitation.claim.request.json",
+    "fixtures/email-invitation.create-email-leak.response.json",
+    "fixtures/email-invitation.create-existing.response.json",
+    "fixtures/email-invitation.create-token-leak.response.json",
+    "fixtures/email-invitation.create.request.json",
+    "fixtures/email-invitation.create.response.json",
+    "fixtures/invite-link.email-bound-refusal.json",
+    "fixtures/mas-email-absent.result.json",
+    "fixtures/mas-email-hidden.match.json",
+    "fixtures/mas-verified-email-raw.fact.json",
+    "fixtures/mas-verified-email.fact.json"
+  ],
+  "row": "verified-email company invitations and no-click claim",
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "desktop",
+    "phone"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.8",
+    "path": "spec/company-workspace/v1.8",
+    "kind": "pack",
+    "sha256": "8ca943f6bf6b16c2c153246f51b0a64e94326c52c856ad54eb7f878634f2c4c2",
+    "rule": "additive minor; only email invitation messages use schemaVersion 10"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.9",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4",
+      "1.5",
+      "1.6",
+      "1.7",
+      "1.8"
+    ],
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_9": 10,
+      "scope": "email invitation messages only"
+    }
+  },
+  "capability": {
+    "name": "company.email-invitations",
+    "emailInvitations": true,
+    "emailAutoClaim": [
+      "active",
+      "verification_required"
+    ],
+    "fail_closed_default": "verification_required"
+  },
+  "privacy": {
+    "directory_hidden": "verified_match with hidden visibility; invitation resolution still uses the account",
+    "absent": "only a complete authoritative MAS lookup with zero matches",
+    "outward_acknowledgement": "identical accepted response"
+  },
+  "verification": {
+    "list_resource_is_proof": false,
+    "accepted_proofs": [
+      "password_registration",
+      "upstream_verified_claim",
+      "privileged_verified_assertion"
+    ],
+    "unproven_behavior": "fail closed; never absent; no automatic claim"
+  },
+  "legacy": {
+    "preview": "email_invite_claim_required",
+    "redeem": "email_invite_claim_required",
+    "rule": "email-bound links never use bearer redemption; ordinary share links are unchanged"
+  },
+  "lifecycle": {
+    "expiry_seconds": 604800,
+    "role": "member",
+    "uses": 1,
+    "no_click_claim": true,
+    "p1_mail": "private durable outbox only; no sender"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "email": {
+      "type": "string",
+      "min": 3,
+      "max": 254,
+      "pattern": "[^\\s@]+@[^\\s@]+\\.[^\\s@]+"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "fingerprint": {
+      "type": "string",
+      "min": 66,
+      "max": 66,
+      "pattern": "\\\\x[0-9a-f]{64}"
+    },
+    "create_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "email": {
+          "ref": "email"
+        },
+        "locale": {
+          "enum": [
+            "vi",
+            "en"
+          ]
+        }
+      }
+    },
+    "create_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 10
+        },
+        "invitationId": {
+          "ref": "uuid"
+        },
+        "state": {
+          "const": "accepted"
+        },
+        "mailStatus": {
+          "const": "accepted"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "claim_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "verified_fact": {
+      "type": "object",
+      "required": {
+        "issuer": {
+          "type": "string",
+          "min": 1,
+          "max": 2048
+        },
+        "masUser": {
+          "type": "string",
+          "min": 26,
+          "max": 26
+        },
+        "matrixUser": {
+          "type": "string",
+          "min": 4,
+          "max": 520
+        },
+        "fingerprint": {
+          "ref": "fingerprint"
+        },
+        "fingerprintKeyVersion": {
+          "type": "integer",
+          "min": 1,
+          "max": 255
+        },
+        "proof": {
+          "enum": [
+            "password_registration",
+            "upstream_verified_claim",
+            "privileged_verified_assertion"
+          ]
+        }
+      }
+    },
+    "resolution_match": {
+      "type": "object",
+      "required": {
+        "state": {
+          "const": "verified_match"
+        },
+        "fact": {
+          "ref": "verified_fact"
+        },
+        "directoryVisibility": {
+          "enum": [
+            "visible",
+            "hidden"
+          ]
+        }
+      }
+    },
+    "resolution_absent": {
+      "type": "object",
+      "required": {
+        "state": {
+          "const": "absent"
+        }
+      }
+    },
+    "legacy_refusal": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_409"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "email_invite_claim_required"
+            },
+            "retryable": {
+              "const": false
+            }
+          }
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_9": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "actor",
+        "principal",
+        "issuer",
+        "masUser",
+        "matrixUser",
+        "fingerprint",
+        "token",
+        "verified"
+      ]
+    },
+    "platform_to_native_v1_9": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "email",
+        "actor",
+        "principal",
+        "issuer",
+        "masUser",
+        "matrixUser",
+        "fingerprint",
+        "token",
+        "profile"
+      ]
+    },
+    "trusted_server_v1_9": {
+      "from": "verified MAS fact adapter",
+      "to": "Atum company authority",
+      "forbidden_fields": [
+        "email",
+        "token"
+      ]
+    }
+  },
+  "messages": {
+    "email-invitation.create.request": {
+      "direction": "native_to_platform_v1_9",
+      "schema": {
+        "ref": "create_request"
+      }
+    },
+    "email-invitation.create.response": {
+      "direction": "platform_to_native_v1_9",
+      "schema": {
+        "ref": "create_response"
+      }
+    },
+    "email-invitation.claim.request": {
+      "direction": "native_to_platform_v1_9",
+      "schema": {
+        "ref": "claim_request"
+      }
+    },
+    "mas-verified-email.fact": {
+      "direction": "trusted_server_v1_9",
+      "schema": {
+        "ref": "verified_fact"
+      }
+    },
+    "mas-email-resolution.match": {
+      "direction": "trusted_server_v1_9",
+      "schema": {
+        "ref": "resolution_match"
+      }
+    },
+    "mas-email-resolution.absent": {
+      "direction": "trusted_server_v1_9",
+      "schema": {
+        "ref": "resolution_absent"
+      }
+    },
+    "invite-link.email-bound-refusal": {
+      "direction": "platform_to_native_v1_9",
+      "schema": {
+        "ref": "legacy_refusal"
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/email-invitation.claim-email.request.json",
+      "message": "email-invitation.claim.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/email-invitation.claim.request.json",
+      "message": "email-invitation.claim.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/email-invitation.create-email-leak.response.json",
+      "message": "email-invitation.create.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/email-invitation.create-existing.response.json",
+      "message": "email-invitation.create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/email-invitation.create-token-leak.response.json",
+      "message": "email-invitation.create.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/email-invitation.create.request.json",
+      "message": "email-invitation.create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/email-invitation.create.response.json",
+      "message": "email-invitation.create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.email-bound-refusal.json",
+      "message": "invite-link.email-bound-refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/mas-email-absent.result.json",
+      "message": "mas-email-resolution.absent",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/mas-email-hidden.match.json",
+      "message": "mas-email-resolution.match",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/mas-verified-email-raw.fact.json",
+      "message": "mas-verified-email.fact",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/mas-verified-email.fact.json",
+      "message": "mas-verified-email.fact",
+      "expect": "accept"
+    }
+  ]
+}

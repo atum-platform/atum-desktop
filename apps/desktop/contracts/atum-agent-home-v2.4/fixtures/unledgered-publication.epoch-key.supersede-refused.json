@@ -1,0 +1,11 @@
+{
+  "prior": {
+    "homeEpoch": 4,
+    "state": "refused",
+    "eventId": null
+  },
+  "currentHomeEpoch": 5,
+  "expect": {
+    "outcome": "supersede_refused"
+  }
+}

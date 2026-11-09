@@ -1,0 +1,449 @@
+{
+  "contract_id": "atum.pet-chat",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/error-forbidden.json",
+    "fixtures/error-insufficient-protons.json",
+    "fixtures/history-too-many-turns.json",
+    "fixtures/history.json",
+    "fixtures/history.request.json",
+    "fixtures/reply-come.json",
+    "fixtures/reply-daily-limit-nap.json",
+    "fixtures/reply-too-long.json",
+    "fixtures/reply-unknown-action.json",
+    "fixtures/reply-with-action.json",
+    "fixtures/reply.json",
+    "fixtures/request-empty-message.json",
+    "fixtures/request-forbidden-field.json",
+    "fixtures/request.json"
+  ],
+  "row": "Pets as their own companions: owner decision 2026-10-27. A pet chats through its own closed managed alias with its own personality and memory; it is never a roster agent.",
+  "providers": [
+    "Shell POST /api/matrix/v1/pets/chat",
+    "Shell POST /api/matrix/v1/pets/chat/history"
+  ],
+  "consumers": [
+    "Atum desktop"
+  ],
+  "parameters": {
+    "message_max_chars": 500,
+    "reply_max_chars": 240,
+    "memory_summary_max_chars": 600,
+    "personality_max_chars": 4000,
+    "recent_turns_max": 8,
+    "daily_cap": 200,
+    "max_output_tokens": 160,
+    "personality_max_output_tokens": 80,
+    "prompt_max_bytes": 12000
+  },
+  "types": {
+    "locale": {
+      "enum": [
+        "vi",
+        "en",
+        "ja",
+        "zh",
+        "zh-hant"
+      ]
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "iso_timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,6})?(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "pet_ref": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "bundled"
+            },
+            "slug": {
+              "enum": [
+                "gigi",
+                "cookie",
+                "mochi",
+                "bailey"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "personal"
+            },
+            "pet_id": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "user_turn": {
+      "type": "object",
+      "required": {
+        "role": {
+          "const": "user"
+        },
+        "text": {
+          "type": "string",
+          "min": 1,
+          "max": 500
+        },
+        "at": {
+          "ref": "iso_timestamp"
+        }
+      }
+    },
+    "pet_turn": {
+      "type": "object",
+      "required": {
+        "role": {
+          "const": "pet"
+        },
+        "text": {
+          "type": "string",
+          "min": 1,
+          "max": 240
+        },
+        "at": {
+          "ref": "iso_timestamp"
+        }
+      }
+    },
+    "turn": {
+      "anyOf": [
+        {
+          "ref": "user_turn"
+        },
+        {
+          "ref": "pet_turn"
+        }
+      ]
+    },
+    "action": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "action": {
+              "enum": [
+                "sit",
+                "lounge",
+                "sleep",
+                "jump",
+                "wave"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "action": {
+              "const": "go"
+            },
+            "place": {
+              "const": "center"
+            }
+          }
+        }
+      ]
+    },
+    "recent": {
+      "type": "array",
+      "items": {
+        "ref": "turn"
+      },
+      "max": 8
+    },
+    "pet_key": {
+      "type": "string",
+      "pattern": "^(bundled:(gigi|cookie|mochi|bailey)|personal:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
+    }
+  },
+  "directions": {
+    "client_to_shell": {
+      "forbidden_fields": [
+        "assistant_id",
+        "room_id",
+        "conversation_id",
+        "agent_id",
+        "principal",
+        "owner_id",
+        "owner_user_id",
+        "account_id",
+        "model",
+        "tools",
+        "tool_choice",
+        "system"
+      ]
+    },
+    "shell_to_client": {
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "pet.chat.request": {
+      "direction": "client_to_shell",
+      "schema": {
+        "type": "object",
+        "required": {
+          "ref": {
+            "ref": "pet_ref"
+          },
+          "message_id": {
+            "ref": "uuid"
+          },
+          "message": {
+            "type": "string",
+            "min": 1,
+            "max": 500
+          },
+          "locale": {
+            "ref": "locale"
+          }
+        }
+      }
+    },
+    "pet.chat.reply": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "reply": {
+            "type": "string",
+            "min": 1,
+            "max": 240
+          },
+          "action": {
+            "anyOf": [
+              {
+                "ref": "action"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent": {
+            "ref": "recent"
+          },
+          "messages_today": {
+            "type": "integer",
+            "min": 0,
+            "max": 200
+          },
+          "daily_cap": {
+            "const": 200
+          }
+        }
+      }
+    },
+    "pet.history.request": {
+      "direction": "client_to_shell",
+      "schema": {
+        "type": "object",
+        "required": {
+          "ref": {
+            "ref": "pet_ref"
+          }
+        }
+      }
+    },
+    "pet.history.reply": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "v": {
+            "const": 1
+          },
+          "pet_key": {
+            "ref": "pet_key"
+          },
+          "display_name": {
+            "type": "string",
+            "min": 1,
+            "max": 400
+          },
+          "personality": {
+            "type": "string",
+            "min": 0,
+            "max": 4000
+          },
+          "memory_summary": {
+            "type": "string",
+            "min": 0,
+            "max": 600
+          },
+          "recent": {
+            "ref": "recent"
+          },
+          "messages_today": {
+            "type": "integer",
+            "min": 0,
+            "max": 200
+          },
+          "daily_cap": {
+            "const": 200
+          }
+        }
+      }
+    },
+    "pet.error": {
+      "direction": "shell_to_client",
+      "schema": {
+        "type": "object",
+        "required": {
+          "error": {
+            "type": "object",
+            "required": {
+              "code": {
+                "enum": [
+                  "insufficient_protons",
+                  "not_found",
+                  "invalid_request",
+                  "forbidden",
+                  "rate_limited",
+                  "temporarily_unavailable"
+                ]
+              }
+            },
+            "optional": {
+              "message_key": {
+                "type": "string",
+                "min": 1,
+                "max": 120,
+                "pattern": "^messaging[.]error[.][a-z_]+$"
+              },
+              "retryable": {
+                "type": "boolean"
+              },
+              "request_id": {
+                "type": "string",
+                "min": 1,
+                "max": 128,
+                "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+              },
+              "retry_after_ms": {
+                "type": "integer",
+                "min": 0
+              },
+              "details": {
+                "type": "object",
+                "additional": true
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "reply_is_bounded",
+      "message": "pet.chat.reply",
+      "op": "array_length",
+      "left": "recent",
+      "max": 8
+    },
+    {
+      "id": "history_is_bounded",
+      "message": "pet.history.reply",
+      "op": "array_length",
+      "left": "recent",
+      "max": 8
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/request.json",
+      "message": "pet.chat.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/request-empty-message.json",
+      "message": "pet.chat.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/request-forbidden-field.json",
+      "message": "pet.chat.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/reply.json",
+      "message": "pet.chat.reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reply-with-action.json",
+      "message": "pet.chat.reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reply-come.json",
+      "message": "pet.chat.reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reply-daily-limit-nap.json",
+      "message": "pet.chat.reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/reply-unknown-action.json",
+      "message": "pet.chat.reply",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reply-too-long.json",
+      "message": "pet.chat.reply",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/history.request.json",
+      "message": "pet.history.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/history.json",
+      "message": "pet.history.reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/history-too-many-turns.json",
+      "message": "pet.history.reply",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/error-insufficient-protons.json",
+      "message": "pet.error",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-forbidden.json",
+      "message": "pet.error",
+      "expect": "accept"
+    }
+  ],
+  "protocol_package": "@atum/protocol@0.7.53"
+}

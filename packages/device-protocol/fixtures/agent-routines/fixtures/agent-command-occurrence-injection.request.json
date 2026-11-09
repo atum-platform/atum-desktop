@@ -1,0 +1,10 @@
+{
+  "profile": "atum.agent-routine-command/1",
+  "operation": "run",
+  "requestId": "00000000-0000-4000-8000-1e9772964c8d",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "expectedRevision": 3,
+  "occurrenceId": "00000000-0000-4000-8000-16feb14cda5b",
+  "definitionDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "state": "claimed"
+}

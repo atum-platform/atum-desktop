@@ -1,0 +1,8 @@
+{
+  "contract": "atum.cloud-data/1",
+  "agent_class": "conversation",
+  "scope": {"kind": "p2p_thread", "id": "00000000-0000-4000-8000-95eb2692c90e"},
+  "purpose": "answer_user",
+  "max_items": 20,
+  "max_content_utf8_bytes": 32768
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "working",
+      "to": "committing",
+      "event": "commit_requested"
+    },
+    {
+      "from": "committing",
+      "to": "sealed",
+      "event": "manifest_verified"
+    }
+  ]
+}

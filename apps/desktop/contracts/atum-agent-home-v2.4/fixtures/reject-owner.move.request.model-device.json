@@ -1,0 +1,46 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "owner_client",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "surface": "phone",
+    "authenticatedChannel": "phone"
+  },
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "idempotencyKey": "00000000-0000-4000-8000-00f765af1c54",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "target": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "expectedHomeEpoch": 4,
+  "expectedActiveMoveId": null,
+  "acceptedPreflight": {
+    "preflightId": "00000000-0000-4000-8000-303617b97302",
+    "preflightRevision": 3,
+    "expiresAtPlatform": 1800000300000,
+    "featureInventoryRevision": 7,
+    "catalogRevision": 4,
+    "chosenModel": {
+      "destination": "mac:00000000-0000-4000-8000-f6222a1106ee",
+      "deviceServiceId": "00000000-0000-4000-8000-f6222a1106ee",
+      "source": "chatgpt_plan",
+      "connectionRef": "conn_codexplan00000001",
+      "model": "gpt-5.6-luna",
+      "effort": "medium"
+    },
+    "featureLosses": [],
+    "lastCheckpointAtPlatform": 1799999940000,
+    "conversationOverrideCount": 0,
+    "checkpointLoss": {
+      "state": "not_required"
+    }
+  },
+  "acceptCheckpointLoss": false
+}

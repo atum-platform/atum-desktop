@@ -1,0 +1,31 @@
+{
+  "vectors": [
+    {
+      "name": "job.start Ed25519",
+      "algorithm": "Ed25519",
+      "publicKey": "MCowBQYDK2VwAyEAaz2AUzaUFMFBQhnZl1s4qFlNZWLQpXqyynNeVLpB_fg",
+      "message": "job.start",
+      "signedBytesUtf8": "atum.device-service.v3\u0000job.start\u0000{\"authorityExpiresAt\":1800000020000,\"authorityGrantId\":\"00000000-0000-4000-8000-cd2a20671fb6\",\"binding\":{\"agentPrincipal\":\"00000000-0000-4000-8000-bd7662a5eeb4\",\"computerId\":\"00000000-0000-4000-8000-b454f82c5857\",\"ownerUserId\":\"@owner:atum.example\"},\"capabilityRevision\":5,\"checkpointable\":true,\"epochs\":{\"attachmentEpoch\":7,\"enrollmentEpoch\":2,\"runtimeEpoch\":4},\"jobId\":\"00000000-0000-4000-8000-a9703d75e616\",\"meta\":{\"commandId\":\"00000000-0000-4000-8000-fbfe405ca65f\",\"expiresAt\":1800000015000,\"issuedAt\":1800000000000,\"nonce\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"requestId\":\"00000000-0000-4000-8000-f1d11edf5c5c\",\"sequence\":12,\"signer\":\"platform_controller\",\"signerKeyId\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"},\"restartPolicy\":\"recover_if_checkpointable\"}",
+      "signature": "N0EPAH-Q2dNd9ClLwK5_S2Wi-yOGT6kZ36FMaJoCqO6qIYqNkL8Npuode593SuSJ18lMNW04-BXisL3SJmHzBg",
+      "valid": true
+    },
+    {
+      "name": "job.start damaged Ed25519",
+      "algorithm": "Ed25519",
+      "publicKey": "MCowBQYDK2VwAyEAaz2AUzaUFMFBQhnZl1s4qFlNZWLQpXqyynNeVLpB_fg",
+      "message": "job.start",
+      "signedBytesUtf8": "atum.device-service.v3\u0000job.start\u0000{\"authorityExpiresAt\":1800000020000,\"authorityGrantId\":\"00000000-0000-4000-8000-cd2a20671fb6\",\"binding\":{\"agentPrincipal\":\"00000000-0000-4000-8000-bd7662a5eeb4\",\"computerId\":\"00000000-0000-4000-8000-b454f82c5857\",\"ownerUserId\":\"@owner:atum.example\"},\"capabilityRevision\":5,\"checkpointable\":true,\"epochs\":{\"attachmentEpoch\":7,\"enrollmentEpoch\":2,\"runtimeEpoch\":4},\"jobId\":\"00000000-0000-4000-8000-a9703d75e616\",\"meta\":{\"commandId\":\"00000000-0000-4000-8000-fbfe405ca65f\",\"expiresAt\":1800000015000,\"issuedAt\":1800000000000,\"nonce\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"requestId\":\"00000000-0000-4000-8000-f1d11edf5c5c\",\"sequence\":12,\"signer\":\"platform_controller\",\"signerKeyId\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"},\"restartPolicy\":\"recover_if_checkpointable\"}",
+      "signature": "NkEPAH-Q2dNd9ClLwK5_S2Wi-yOGT6kZ36FMaJoCqO6qIYqNkL8Npuode593SuSJ18lMNW04-BXisL3SJmHzBg",
+      "valid": false
+    },
+    {
+      "name": "job.start ECDSA P-256",
+      "algorithm": "ECDSA_P256",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhuuGuoRy15IxfwajxFycGT1WZnsO1HxW0ZGPSl_ftRG38pO5vK6_pVnPPomXLTkbR7AzhLikLRqmSN6WPfC-Yw",
+      "message": "job.start",
+      "signedBytesUtf8": "atum.device-service.v3\u0000job.start\u0000{\"authorityExpiresAt\":1800000020000,\"authorityGrantId\":\"00000000-0000-4000-8000-cd2a20671fb6\",\"binding\":{\"agentPrincipal\":\"00000000-0000-4000-8000-bd7662a5eeb4\",\"computerId\":\"00000000-0000-4000-8000-b454f82c5857\",\"ownerUserId\":\"@owner:atum.example\"},\"capabilityRevision\":5,\"checkpointable\":true,\"epochs\":{\"attachmentEpoch\":7,\"enrollmentEpoch\":2,\"runtimeEpoch\":4},\"jobId\":\"00000000-0000-4000-8000-a9703d75e616\",\"meta\":{\"commandId\":\"00000000-0000-4000-8000-fbfe405ca65f\",\"expiresAt\":1800000015000,\"issuedAt\":1800000000000,\"nonce\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"requestId\":\"00000000-0000-4000-8000-f1d11edf5c5c\",\"sequence\":12,\"signer\":\"platform_controller\",\"signerKeyId\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"},\"restartPolicy\":\"recover_if_checkpointable\"}",
+      "signature": "Um2itEMRskYs9iSVaAhKPkKzUkYHQ5hagazvW1sN88P4DtaQMprbXrPW287wPcjdmMEdm-Nu5vxHBEAjKviygA",
+      "valid": true
+    }
+  ]
+}

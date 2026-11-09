@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "agents": {
+    "@assistant-a:example.invalid": {
+      "mode": "off",
+      "speak": {
+        "future": true
+      }
+    }
+  },
+  "dailyTurns": 30,
+  "consentEpoch": 7,
+  "futureSetting": "keep"
+}

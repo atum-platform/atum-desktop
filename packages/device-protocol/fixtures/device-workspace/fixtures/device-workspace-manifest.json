@@ -1,0 +1,32 @@
+{
+  "v": 1,
+  "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+  "taskId": "00000000-0000-4000-8000-f9b799160fa7",
+  "folder": "/Agents/T",
+  "files": [
+    {
+      "path": "notes/a.md",
+      "size": 1200,
+      "sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "inode": 884210,
+      "mtimeNs": "1759564800000000000",
+      "server": {
+        "resource": {
+          "storage": "00000000-0000-4000-8000-2a884521bb82",
+          "space": "00000000-0000-4000-8000-91307eebce14",
+          "opaque": "00000000-0000-4000-8000-3a46dbd4fcce"
+        },
+        "etag": "\"etag-a-1\""
+      }
+    },
+    {
+      "path": "notes/b.md",
+      "size": 800,
+      "sha256": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b",
+      "inode": 884211,
+      "mtimeNs": "1759564800000000001",
+      "server": null
+    }
+  ],
+  "truncated": false
+}

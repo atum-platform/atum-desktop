@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-reliability-event-1.schema.json",
+  "title": "Atum privacy-bounded release reliability event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "event", "occurred_at_bucket", "app_version", "release_channel", "artifact_prefix", "os_family", "os_major", "arch", "result", "problem_code", "duration_bucket"],
+  "properties": {
+    "schema": {"const": "atum-release-reliability-event/1"},
+    "event": {"enum": ["startup_result", "update_result", "journey_checkpoint", "crash", "partner_surface_result", "dm_delivery_result"]},
+    "occurred_at_bucket": {"type": "string", "format": "date-time"},
+    "app_version": {"type": "string", "minLength": 1},
+    "release_channel": {"enum": ["stable", "candidate", "dogfood"]},
+    "artifact_prefix": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "os_family": {"enum": ["macos", "windows", "linux"]},
+    "os_major": {"type": "string", "pattern": "^[0-9]+$"},
+    "arch": {"enum": ["arm64", "x64"]},
+    "result": {"enum": ["success", "failure", "cancelled"]},
+    "problem_code": {"type": ["string", "null"], "pattern": "^[A-Z0-9_]+$"},
+    "duration_bucket": {"enum": ["lt1s", "1to5s", "5to30s", "30to120s", "gte120s"]}
+  }
+}

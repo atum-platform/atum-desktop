@@ -1,0 +1,34 @@
+{
+  "profile": "atum.agent-sweep/1",
+  "decision": "dispatched",
+  "occurrenceId": "00000000-0000-4000-8000-149a1ef8d82f",
+  "expiresAt": 1793017320000,
+  "settingsRevision": 1,
+  "authorization": {
+    "kind": "native",
+    "authorizationId": "00000000-0000-4000-8000-463bfa64f08a",
+    "expiresAt": 1793017320000,
+    "destination": {
+      "destination": "mac:raymond",
+      "source": "atum",
+      "model": "nguyet-thuc",
+      "effort": "medium"
+    },
+    "protection": {
+      "kind": "google_protected",
+      "googlePolicy": "limited_use_v1",
+      "latchState": "latched"
+    },
+    "attribution": {
+      "id": "00000000-0000-4000-8000-5bb08005840f",
+      "lane": "atum_managed"
+    },
+    "limits": {
+      "activeComputeSeconds": 120,
+      "calls": 1,
+      "inputTokens": 8000,
+      "outputTokens": 1000,
+      "maxModelMicroProtons": 300000000
+    }
+  }
+}

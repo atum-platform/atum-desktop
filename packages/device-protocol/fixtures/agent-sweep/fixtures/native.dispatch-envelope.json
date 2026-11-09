@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-8367aa935e8c",
+    "commandId": "00000000-0000-4000-8000-cf7dabaa8939",
+    "signer": "mac_executor",
+    "signerKeyId": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "deviceServiceId": "00000000-0000-4000-8000-3ce3b2422bb8",
+    "sequence": 9,
+    "issuedAt": 1793017190000,
+    "expiresAt": 1793017320000,
+    "nonce": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "signature": "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"
+  },
+  "fence": {
+    "ownerUserId": "@owner:test",
+    "agentPrincipal": "00000000-0000-4000-8000-dec97132ebbf",
+    "homeId": "00000000-0000-4000-8000-d0aa05a3a29d",
+    "homeEpoch": 3,
+    "executorTerm": 4,
+    "leaseId": "00000000-0000-4000-8000-1f36c4162676",
+    "leaseExpiresAtPlatform": 1793017320000,
+    "operation": {
+      "kind": "job",
+      "id": "00000000-0000-4000-8000-149a1ef8d82f"
+    }
+  },
+  "request": {
+    "profile": "atum.agent-sweep/1",
+    "operation": "dispatch",
+    "occurrenceId": "00000000-0000-4000-8000-149a1ef8d82f",
+    "leaseToken": "00000000-0000-4000-8000-1f36c4162676",
+    "activity": {
+      "lastOwnerEvent": {
+        "eventId": "$owner-event:test",
+        "at": 1793010000000
+      },
+      "lastDialogueAt": 1793010060000,
+      "busy": false,
+      "pendingWork": false,
+      "pendingApproval": false,
+      "typing": false
+    }
+  }
+}

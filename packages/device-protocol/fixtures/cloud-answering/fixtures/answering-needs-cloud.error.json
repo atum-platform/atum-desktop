@@ -1,0 +1,6 @@
+{
+  "error": "matrix_403",
+  "details": {
+    "reason": "cloud_enrollment_required"
+  }
+}

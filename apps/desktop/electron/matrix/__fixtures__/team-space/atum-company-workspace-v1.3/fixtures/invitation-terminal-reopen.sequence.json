@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "pending",
+      "to": "declined",
+      "event": "decline"
+    },
+    {
+      "from": "declined",
+      "to": "pending",
+      "event": "resend"
+    }
+  ]
+}

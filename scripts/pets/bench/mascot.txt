@@ -1,0 +1,13 @@
+# kind | concept — one per line; the kind is what a correct design must be.
+slime | a mint green slime with a sprout on its head
+blob | a round blue blob with big eyes
+ghost | a friendly little ghost, pale and see-through-looking
+cloud | a fluffy pink cloud with a sleepy face
+mushroom | a red mushroom with white spots and tiny feet
+robot | a boxy grey robot with an antenna and stub arms
+egg | a speckled egg with a shy face
+slime | a purple slime, mischievous
+robot | a mint-coloured helper robot with round eyes
+ghost | a tall dark ghost with a wide grin
+mushroom | a brown mushroom, calm and mossy
+blob | a lemon-yellow blob with stub feet, always bouncing

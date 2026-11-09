@@ -1,0 +1,20 @@
+{
+  "profile": "atum.agent-routine-command-result/1",
+  "operation": "create",
+  "routine": {
+    "id": "00000000-0000-4000-8000-736e81c7ee66",
+    "title": "Morning brief",
+    "instruction": "Summarize my priorities.",
+    "schedule": {
+      "kind": "daily",
+      "hour": 8,
+      "minute": 0
+    },
+    "timezone": "Asia/Ho_Chi_Minh",
+    "enabled": true,
+    "notifications": true,
+    "revision": 1,
+    "nextRunAt": 1800061200000,
+    "lastRun": null
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 5,
+  "companyId": "00000000-0000-4000-8000-e8e991ff25c1",
+  "target": {
+    "kind": "channel",
+    "channelId": "00000000-0000-4000-8000-6f2cedaf1378"
+  },
+  "planGeneration": 2,
+  "invitedMemberRefs": [
+    "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE"
+  ],
+  "bannedMemberRefs": [],
+  "witnessedPossibleGrantUserIds": [],
+  "metadataRevision": 2,
+  "avatarRevision": 3,
+  "roomMentionUserIds": [
+    "@p1:example.invalid"
+  ],
+  "policyWitness": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

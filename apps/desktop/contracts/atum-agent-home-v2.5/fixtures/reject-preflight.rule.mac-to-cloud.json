@@ -1,0 +1,9 @@
+{
+  "rule": "mac_to_cloud_disclosures",
+  "target": {
+    "kind": "cloud"
+  },
+  "codes": [
+    "local_tools_unavailable"
+  ]
+}

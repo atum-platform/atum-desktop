@@ -1,0 +1,17 @@
+{
+  "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+  "binding": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "computerId": "00000000-0000-4000-8000-b454f82c5857",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "diskId": "00000000-0000-4000-8000-f6222a1106ee"
+  },
+  "migrationId": "00000000-0000-4000-8000-303617b97302",
+  "importKey": "rHvqgxZsjDJjiqwkgEifmJZQhJakht6bvkmnXFSJ0Po",
+  "outcome": "already_imported",
+  "generation": 20,
+  "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "placementRevision": 11
+}

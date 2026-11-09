@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://atum.app/contracts/atum-release-promotion-record-1.schema.json",
+  "title": "Atum append-only release promotion record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "channel", "candidate_id", "candidate_manifest_sha256", "previous_candidate_id", "transition", "lease_id", "actor", "occurred_at", "reason_code", "evidence_ref"],
+  "properties": {
+    "schema": {"const": "atum-release-promotion-record/1"},
+    "channel": {"type": "string", "minLength": 1},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "candidate_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "previous_candidate_id": {"type": ["string", "null"]},
+    "transition": {"enum": ["built_to_verified", "built_to_withdrawn", "verified_to_candidate", "verified_to_withdrawn", "candidate_to_promoted", "candidate_to_withdrawn", "promoted_to_rolled_back"]},
+    "lease_id": {"type": "string", "minLength": 1},
+    "actor": {"type": "string", "minLength": 1},
+    "occurred_at": {"type": "string", "format": "date-time"},
+    "reason_code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+    "evidence_ref": {"type": "string", "minLength": 1}
+  }
+}

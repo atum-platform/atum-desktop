@@ -1,0 +1,16 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "operation": "learn",
+  "leaseToken": "00000000-0000-4000-8000-803634f44772",
+  "leaseGeneration": 41,
+  "expectedGeneration": 15,
+  "home": {
+    "generation": 18,
+    "manifestKey": "v1/00000000-0000-4000-8000-0a17b0bd53cc/00000000-0000-4000-8000-159badba71cd/generations/18.manifest",
+    "manifestSha256": "1212121212121212121212121212121212121212121212121212121212121212",
+    "sizeBytes": 1835008,
+    "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+    "quiesced": true
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "entitlements": [
+    {
+      "id": "00000000-0000-4000-8000-576f18824476",
+      "itemId": "pet/gigi",
+      "kind": "pet",
+      "state": "active",
+      "assistantId": "00000000-0000-4000-8000-cb3c7031a0b0",
+      "delivery": "bundled",
+      "grantedAt": "2026-10-06T00:00:00.000Z",
+      "subscription": null
+    }
+  ]
+}

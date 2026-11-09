@@ -1,0 +1,130 @@
+{
+  "contract_id": "atum.social",
+  "version": 1,
+  "profile": "s5.1-social-v1",
+  "status": "frozen",
+  "predecessor": null,
+  "supported_versions": [
+    1
+  ],
+  "version_header": "x-atum-social-version",
+  "version_default_when_absent": 1,
+  "unsupported_version": {
+    "http_status": 409,
+    "error_code": "feature_unavailable",
+    "minimum_supported": 1,
+    "maximum_supported": 1
+  },
+  "identity": {
+    "account_epoch_type": "uuid",
+    "profile_id_type": "uuid",
+    "auth_subject_exposed": false,
+    "account_epoch_required_on_mutation_and_sync": true
+  },
+  "lookup": {
+    "method": "GET",
+    "path": "/api/desktop/v1/social/lookup?q={exact_handle}",
+    "available_profile_fields": [
+      "avatar",
+      "display_name",
+      "handle",
+      "profile_id",
+      "verified"
+    ],
+    "neutral_unavailable_projection": {
+      "availability": "unavailable",
+      "profile": null,
+      "state": "unavailable",
+      "version": 0,
+      "can_message": false,
+      "direct_thread_id": null
+    },
+    "indistinguishable_causes": [
+      "missing",
+      "blocked_by_peer",
+      "private",
+      "policy_denied",
+      "inactive_account"
+    ],
+    "forbidden_fields": [
+      "auth_user_id",
+      "email",
+      "phone",
+      "reason"
+    ]
+  },
+  "mutation": {
+    "method": "POST",
+    "path": "/api/desktop/v1/social/mutations",
+    "actions": [
+      "accept",
+      "block",
+      "decline",
+      "request",
+      "unblock"
+    ],
+    "request_fields": [
+      "account_epoch",
+      "action",
+      "client_operation_id",
+      "target_profile_id"
+    ],
+    "idempotency_header": "idempotency-key",
+    "idempotency_conflict_code": "idempotency_conflict",
+    "acknowledgement_is_committed": true
+  },
+  "projection": {
+    "states": [
+      "none",
+      "outgoing_pending",
+      "incoming_pending",
+      "connected",
+      "blocked_by_me",
+      "unavailable"
+    ],
+    "version_type": "positive_json_integer_after_first_change",
+    "direct_thread": "one stable id per unordered account pair",
+    "can_message": "true only for connected with a committed direct thread and no pairwise block",
+    "block": "acknowledgement returns can_message=false, removes both directional contact rows, retains history",
+    "unblock": "returns none and never restores contact rows or connection"
+  },
+  "sync": {
+    "method": "GET",
+    "path": "/api/desktop/v1/social/sync?account_epoch={uuid}&cursor={opaque}&limit={1..100}",
+    "initial_cursor": null,
+    "ordering": "change_id ascending",
+    "cursor_account_epoch_bound": true,
+    "epoch_mismatch_code": "account_epoch_mismatch",
+    "restart_rule": "replay changes from the initial cursor, then persist next_cursor"
+  },
+  "scope_exclusions": [
+    "attachments",
+    "message_delivery",
+    "typing_payloads"
+  ],
+  "provider_mapping": {
+    "profile": "atum.handles plus opaque social_profile_id",
+    "relationship": "directional atum.contacts rows",
+    "block": "atum.blocks and existing message/block enforcement",
+    "direct_thread": "atum.ensure_direct_conversation",
+    "replay": "atum.social_change_ledger",
+    "epoch": "active atum.account_memberships.id"
+  },
+  "fixtures": [
+    "fixtures/account-epoch-mismatch.response.json",
+    "fixtures/lookup-unavailable.response.json",
+    "fixtures/s5-social-flow.json",
+    "fixtures/unsupported-version.response.json"
+  ],
+  "pack_files": [],
+  "publicProjection": {
+    "status": "partial data-only projection",
+    "excludedMembers": [
+      "fixtures/account-epoch-mismatch.response.json",
+      "fixtures/lookup-unavailable.response.json",
+      "fixtures/s5-social-flow.json",
+      "fixtures/unsupported-version.response.json"
+    ],
+    "acceptance": "No private authority/provenance assertion; private source conformance must still validate excluded evidence."
+  }
+}

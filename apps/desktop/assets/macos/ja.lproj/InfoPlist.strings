@@ -1,0 +1,19 @@
+/* Why macOS asks, in this language (scripts/matrix-usage-descriptions.mjs is the source). */
+"NSMicrophoneUsageDescription" = "音声でアシスタントと話せるようにします。";
+"NSAudioCaptureUsageDescription" = "Mac で再生中の音声の録音をアシスタントに頼んだときだけ使います。";
+"NSCameraUsageDescription" = "カメラでの写真やビデオの撮影をアシスタントに頼んだときだけ使います。";
+"NSBluetoothAlwaysUsageDescription" = "Bluetooth 機器での作業をアシスタントに頼んだときだけ使います。";
+"NSBluetoothPeripheralUsageDescription" = "Bluetooth 機器での作業をアシスタントに頼んだときだけ使います。";
+"NSAppleEventsUsageDescription" = "頼んだときに、Word やメモなど選んだアプリでアシスタントが作業できるようにします。";
+"NSDesktopFolderUsageDescription" = "アシスタントが必要なときにデスクトップのファイルを探して扱えるようにします。";
+"NSDocumentsFolderUsageDescription" = "アシスタントが必要なときに書類を探して扱えるようにします。";
+"NSDownloadsFolderUsageDescription" = "アシスタントが必要なときにダウンロードしたファイルを探して扱えるようにします。";
+"NSRemovableVolumesUsageDescription" = "頼んだときに、アシスタントが USB ドライブやメモリカードのファイルを扱えるようにします。";
+"NSNetworkVolumesUsageDescription" = "頼んだときに、アシスタントがネットワークドライブのファイルを扱えるようにします。";
+"NSCalendarsUsageDescription" = "頼んだときに、アシスタントがカレンダーを確認し、予定を追加・変更できるようにします。";
+"NSCalendarsFullAccessUsageDescription" = "頼んだときに、アシスタントがカレンダーを確認し、予定を追加・変更できるようにします。";
+"NSRemindersUsageDescription" = "頼んだときに、アシスタントがリマインダーを確認・追加・完了できるようにします。";
+"NSRemindersFullAccessUsageDescription" = "頼んだときに、アシスタントがリマインダーを確認・追加・完了できるようにします。";
+"NSContactsUsageDescription" = "頼んだときに、メッセージやメールを送るためなどにアシスタントが連絡先から人を探せるようにします。";
+"NSPhotoLibraryUsageDescription" = "頼んだときに、アシスタントが写真ライブラリの写真を探して使えるようにします。";
+"NSLocalNetworkUsageDescription" = "頼んだときに、プリンタや別のコンピュータなどネットワーク上の機器にアシスタントが接続できるようにします。";

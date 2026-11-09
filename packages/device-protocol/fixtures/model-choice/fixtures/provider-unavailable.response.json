@@ -1,0 +1,84 @@
+{
+  "profile": "atum.model-choice/1.1",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "revision": 1,
+  "source": "saved",
+  "policyVersion": "2026-10-17.1",
+  "policyDigest": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0",
+  "choice": {
+    "v": 2,
+    "source": "atum",
+    "model": "nhat-thuc",
+    "effort": "medium"
+  },
+  "models": [
+    {
+      "alias": "nguyet-thuc",
+      "displayName": "Nguyệt Thực 1.3",
+      "providerModel": "openai/gpt-6-luna",
+      "contextBudget": 1000000,
+      "outputBudget": 16384,
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "defaultEffort": "medium",
+      "cost": {
+        "currency": "USD",
+        "inputPerMtok": "0.20",
+        "outputPerMtok": "0.75",
+        "maxTurnMicroProtons": 10317213000
+      },
+      "eligibility": {
+        "state": "ready"
+      },
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "supportsTools": true
+    },
+    {
+      "alias": "nhat-thuc",
+      "displayName": "Nhật Thực 1.1",
+      "providerModel": "openai/gpt-6.1-sol",
+      "contextBudget": 120000,
+      "outputBudget": 16384,
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "defaultEffort": "medium",
+      "cost": {
+        "currency": "USD",
+        "inputPerMtok": "2.00",
+        "outputPerMtok": "10.00",
+        "maxTurnMicroProtons": 19626624000
+      },
+      "eligibility": {
+        "state": "unavailable",
+        "reason": "model_not_allowed"
+      },
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ],
+      "supportsTools": true
+    }
+  ],
+  "runtimes": [
+    {
+      "runtime": "cloud"
+    }
+  ],
+  "grant": {
+    "profile": "atum.model-grant/1",
+    "state": "unavailable",
+    "reason": "model_not_allowed",
+    "policyDigest": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0"
+  }
+}

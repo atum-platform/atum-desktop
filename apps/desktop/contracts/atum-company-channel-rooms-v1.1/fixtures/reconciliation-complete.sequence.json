@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "planned",
+      "to": "effects_started",
+      "event": "begin"
+    },
+    {
+      "from": "effects_started",
+      "to": "effects_started",
+      "event": "record_effects"
+    },
+    {
+      "from": "effects_started",
+      "to": "witnessed",
+      "event": "readback"
+    },
+    {
+      "from": "witnessed",
+      "to": "complete",
+      "event": "accept"
+    }
+  ]
+}

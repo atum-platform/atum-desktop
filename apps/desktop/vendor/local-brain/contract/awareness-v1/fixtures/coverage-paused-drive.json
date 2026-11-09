@@ -1,0 +1,11 @@
+{
+  "source": {
+    "kind": "drive_file",
+    "id": "personal"
+  },
+  "state": "paused",
+  "reasons": [
+    "google_fence"
+  ],
+  "asOf": 1790672400000
+}

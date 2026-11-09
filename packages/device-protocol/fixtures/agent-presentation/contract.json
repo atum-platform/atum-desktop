@@ -1,0 +1,715 @@
+{
+  "contract_id": "atum.agent-presentation",
+  "version": "1.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/presentation-invalid-shape.request.json",
+    "fixtures/presentation-write.request.json",
+    "fixtures/presentation.snapshot.json",
+    "fixtures/profiles-list-controller-lease-leak.response.json",
+    "fixtures/profiles-list-controller.response.json",
+    "fixtures/profiles-list-executor-device-injection.request.json",
+    "fixtures/profiles-list-native-cloud-only-holder.response.json",
+    "fixtures/profiles-list-native-device-leak.response.json",
+    "fixtures/profiles-list-native-duplicate-mac-names.response.json",
+    "fixtures/profiles-list-native-executor-leak.response.json",
+    "fixtures/profiles-list-native-lease-token-leak.response.json",
+    "fixtures/profiles-list-native-matrix-user.response.json",
+    "fixtures/profiles-list-native-owner-injection.request.json",
+    "fixtures/profiles-list-native-reason-leak.response.json",
+    "fixtures/profiles-list-native.request.json",
+    "fixtures/profiles-list-native.response.json",
+    "fixtures/profiles-list-owner-role-injection.request.json",
+    "fixtures/profiles-list-placement-cloud-name.response.json",
+    "fixtures/profiles-list-placement-injection.request.json",
+    "fixtures/profiles-list-placement-mac-no-name.response.json",
+    "fixtures/profiles-list-placement-nonboolean.response.json",
+    "fixtures/profiles-list-placement-unknown-field.response.json",
+    "fixtures/profiles-list-placement-unknown-kind.response.json",
+    "fixtures/profiles-list-secret-injection.request.json",
+    "fixtures/profiles-list-title-injection.request.json",
+    "fixtures/profiles-list.request.json"
+  ],
+  "row": "LA Contract 4: agent-profile list projection",
+  "providers": [
+    "atum-platform assistant identity authority"
+  ],
+  "consumers": [
+    "atum-mobile",
+    "atum-app"
+  ],
+  "routes": {
+    "native_base": "/api/matrix/v1",
+    "operations": {
+      "GET /agents/{assistantId}/presentation": [
+        null,
+        "presentation.snapshot"
+      ],
+      "PUT /agents/{assistantId}/presentation": [
+        "presentation.write",
+        "presentation.snapshot"
+      ],
+      "POST /agent-profiles list": [
+        "profiles.list.native.request",
+        "profiles.list.native"
+      ],
+      "POST /cloud/controller/executors/{executorId}/profiles list": [
+        "profiles.list.request",
+        "profiles.list.controller"
+      ]
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        }
+      ]
+    },
+    "mark_shape": {
+      "enum": [
+        "circle",
+        "rounded_square",
+        "diamond",
+        "spark",
+        "clover",
+        "heart",
+        "flower",
+        "drop",
+        "pebble",
+        "triangle",
+        "pentagon",
+        "star",
+        "hexagon"
+      ]
+    },
+    "mark_color": {
+      "enum": [
+        "snow",
+        "earth",
+        "coral",
+        "orange",
+        "amber",
+        "mint",
+        "teal",
+        "blue",
+        "violet",
+        "pink",
+        "stone"
+      ]
+    },
+    "mark": {
+      "type": "object",
+      "required": {
+        "shape": {
+          "ref": "mark_shape"
+        },
+        "color": {
+          "ref": "mark_color"
+        }
+      }
+    },
+    "https_url": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "min": 9,
+          "max": 2048,
+          "pattern": "https://[!-~]+"
+        }
+      ]
+    },
+    "matrix_user": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[^:\\s]+:[^\\s]+"
+    },
+    "failover_entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "cloud"
+            },
+            "online": {
+              "type": "boolean"
+            },
+            "leaseHolder": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "mac"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 64
+            },
+            "online": {
+              "type": "boolean"
+            },
+            "leaseHolder": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    },
+    "placement": {
+      "type": "object",
+      "required": {
+        "failoverOrder": {
+          "type": "array",
+          "min": 1,
+          "max": 65,
+          "items": {
+            "ref": "failover_entry"
+          }
+        }
+      }
+    },
+    "profiles_list_request": {
+      "type": "object",
+      "required": {
+        "operation": {
+          "const": "list"
+        }
+      }
+    },
+    "native_profiles_list_request": {
+      "type": "object",
+      "required": {
+        "originPrincipal": {
+          "ref": "uuid"
+        },
+        "request": {
+          "ref": "profiles_list_request"
+        }
+      }
+    },
+    "native_agent_profile": {
+      "type": "object",
+      "required": {
+        "principal": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 4096
+        },
+        "title": {
+          "ref": "title"
+        },
+        "isMain": {
+          "type": "boolean"
+        },
+        "definitionRevision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "identityRevision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "avatarUrl": {
+          "ref": "https_url"
+        },
+        "placement": {
+          "ref": "placement"
+        }
+      }
+    },
+    "controller_agent_profile": {
+      "type": "object",
+      "required": {
+        "principal": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 4096
+        },
+        "title": {
+          "ref": "title"
+        },
+        "isMain": {
+          "type": "boolean"
+        },
+        "definitionRevision": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "identityRevision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "avatarUrl": {
+          "ref": "https_url"
+        },
+        "placement": {
+          "ref": "placement"
+        }
+      },
+      "optional": {
+        "matrixUser": {
+          "ref": "matrix_user"
+        }
+      }
+    }
+  },
+  "directions": {
+    "owner_to_provider": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "assistant_id",
+        "assistant_principal",
+        "avatar_url",
+        "*token*",
+        "credential",
+        "password",
+        "storage_path"
+      ]
+    },
+    "provider_to_owner": {
+      "forbidden_fields": [
+        "*token*",
+        "credential",
+        "password",
+        "storage_path"
+      ]
+    },
+    "profiles_list_request": {
+      "forbidden_fields": [
+        "title",
+        "placement",
+        "online",
+        "leaseHolder",
+        "failoverOrder",
+        "order",
+        "owner",
+        "ownerPrincipal",
+        "role",
+        "isMain",
+        "executor",
+        "executorId",
+        "device",
+        "deviceId",
+        "deviceService",
+        "deviceServiceId",
+        "destination",
+        "destinationId",
+        "matrixUser",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*api_key*",
+        "apiKey",
+        "endpoint",
+        "url"
+      ]
+    },
+    "provider_to_native": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "role",
+        "executor",
+        "executorId",
+        "device",
+        "deviceId",
+        "deviceService",
+        "deviceServiceId",
+        "destination",
+        "destinationId",
+        "matrixUser",
+        "matrixDevice",
+        "matrixDeviceId",
+        "policyRevision",
+        "leaseToken",
+        "leaseExpiry",
+        "leaseExpiresAt",
+        "expiresAt",
+        "reason",
+        "diagnostic",
+        "disabled",
+        "eligible",
+        "stable",
+        "activity",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*api_key*",
+        "apiKey",
+        "endpoint",
+        "url"
+      ]
+    },
+    "provider_to_controller": {
+      "forbidden_fields": [
+        "owner",
+        "ownerPrincipal",
+        "role",
+        "device",
+        "deviceId",
+        "deviceService",
+        "deviceServiceId",
+        "destination",
+        "destinationId",
+        "policyRevision",
+        "leaseToken",
+        "leaseExpiry",
+        "leaseExpiresAt",
+        "expiresAt",
+        "reason",
+        "diagnostic",
+        "matrixDevice",
+        "matrixDeviceId",
+        "disabled",
+        "eligible",
+        "stable",
+        "activity",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*api_key*",
+        "apiKey",
+        "endpoint",
+        "url"
+      ]
+    }
+  },
+  "messages": {
+    "presentation.write": {
+      "direction": "owner_to_provider",
+      "schema": {
+        "type": "object",
+        "required": {
+          "expected_identity_revision": {
+            "type": "integer",
+            "min": 1,
+            "max": 9007199254740991
+          },
+          "title": {
+            "ref": "title"
+          },
+          "mark": {
+            "ref": "mark"
+          }
+        }
+      }
+    },
+    "presentation.snapshot": {
+      "direction": "provider_to_owner",
+      "schema": {
+        "type": "object",
+        "required": {
+          "profile": {
+            "const": "atum.agent-presentation/1"
+          },
+          "assistant_id": {
+            "ref": "uuid"
+          },
+          "assistant_principal": {
+            "ref": "uuid"
+          },
+          "title": {
+            "ref": "title"
+          },
+          "mark": {
+            "ref": "mark"
+          },
+          "default_mark": {
+            "ref": "mark"
+          },
+          "avatar_url": {
+            "ref": "https_url"
+          },
+          "identity_revision": {
+            "type": "integer",
+            "min": 1,
+            "max": 9007199254740991
+          }
+        }
+      }
+    },
+    "profiles.list.request": {
+      "direction": "profiles_list_request",
+      "schema": {
+        "ref": "profiles_list_request"
+      }
+    },
+    "profiles.list.native.request": {
+      "direction": "profiles_list_request",
+      "schema": {
+        "ref": "native_profiles_list_request"
+      }
+    },
+    "profiles.list.native": {
+      "direction": "provider_to_native",
+      "schema": {
+        "type": "object",
+        "required": {
+          "originPrincipal": {
+            "ref": "uuid"
+          },
+          "originIsMain": {
+            "type": "boolean"
+          },
+          "agents": {
+            "type": "array",
+            "min": 1,
+            "max": 100,
+            "items": {
+              "ref": "native_agent_profile"
+            }
+          }
+        }
+      }
+    },
+    "profiles.list.controller": {
+      "direction": "provider_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "executorId": {
+            "ref": "uuid"
+          },
+          "originPrincipal": {
+            "ref": "uuid"
+          },
+          "originIsMain": {
+            "type": "boolean"
+          },
+          "agents": {
+            "type": "array",
+            "min": 1,
+            "max": 100,
+            "items": {
+              "ref": "controller_agent_profile"
+            }
+          }
+        }
+      }
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/presentation-invalid-shape.request.json",
+      "message": "presentation.write",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/presentation-write.request.json",
+      "message": "presentation.write",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/presentation.snapshot.json",
+      "message": "presentation.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-controller-lease-leak.response.json",
+      "message": "profiles.list.controller",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-controller.response.json",
+      "message": "profiles.list.controller",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-executor-device-injection.request.json",
+      "message": "profiles.list.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-cloud-only-holder.response.json",
+      "message": "profiles.list.native",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-native-device-leak.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-duplicate-mac-names.response.json",
+      "message": "profiles.list.native",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-native-executor-leak.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-lease-token-leak.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-matrix-user.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-owner-injection.request.json",
+      "message": "profiles.list.native.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native-reason-leak.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-native.request.json",
+      "message": "profiles.list.native.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-native.response.json",
+      "message": "profiles.list.native",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profiles-list-owner-role-injection.request.json",
+      "message": "profiles.list.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-cloud-name.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-injection.request.json",
+      "message": "profiles.list.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-mac-no-name.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-nonboolean.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-unknown-field.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/profiles-list-placement-unknown-kind.response.json",
+      "message": "profiles.list.native",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/profiles-list-secret-injection.request.json",
+      "message": "profiles.list.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list-title-injection.request.json",
+      "message": "profiles.list.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/profiles-list.request.json",
+      "message": "profiles.list.request",
+      "expect": "accept"
+    }
+  ],
+  "base": {
+    "contract": "atum.agent-presentation/1",
+    "path": "spec/agent-presentation/v1",
+    "sha256": "4e53e33ff78563548018fec4f17ff5e76b48886b0b9a96e8aef6a48ef8165a0b",
+    "rule": "additive: every v1 fixture is carried byte for byte; v1 presentation.snapshot is unchanged and does not acquire placement"
+  },
+  "amendments": [
+    "A1: adds the existing agent-profile list projection only",
+    "A2: v1 presentation.snapshot remains unchanged and never exposes placement",
+    "A3: placement is a safe server projection, not policy or lease state"
+  ],
+  "semantics": {
+    "profile_list": {
+      "title": "canonical_normalized_atum.assistants.title; null_means_absent_and_is_not_a_role_or_authority_claim",
+      "failover_order": "server_policy_projected_failover_order_of_cloud_plus_active_device_services_including_disabled_destinations_without_a_disabled_flag",
+      "mac_name": "device_service_registry_display_name_not_a_uuid",
+      "online": "server_derived_eligible_and_stable",
+      "lease_holder": "derived_from_one_current_unexpired_lease_per_agent_placement; at_most_one_true_and_possibly_none",
+      "origin_binding": "originPrincipal_names_one_agents_entry_and_originIsMain_equals_that_entries_isMain",
+      "native_request_envelope": "native_route_posts_exactly_{originPrincipal,request:profiles.list.request}; caller_names_originPrincipal_but_SQL_reauthorizes_it_under_the_MAS_owner_and_it_is_never_an_authority_grant",
+      "controller_request_envelope": "controller_route_posts_profiles.list.request_literally; path_executorId_must_match_the_authenticated_controller_binding",
+      "roster_bound": "response_contains_1_to_100_agents; server_implementation_must_cap_or_fail_closed_before_emission",
+      "online_scope": "online_is_reachability_only_not_dispatch_authority; a_disabled_destination_can_be_online_and_clients_must_not_infer_selection",
+      "hidden": "never_expose_disabled_flags_policy_revision_destination_executor_device_service_or_matrix_device_ids_lease_tokens_or_expiry_internal_reasons_or_diagnostics_credentials_endpoints_or_secrets",
+      "contract_first": "later_implementation_updates_the_strict_desktop_shared_parser_with_LB_before_the_server_emits_fields; no_route_migration_or_runtime_activation_now",
+      "errors": "surrounding_denied_invalid_and_unavailable_forms_remain_outside_these_success_envelopes"
+    },
+    "request_fence": "request_cannot_supply_title_placement_online_lease_holder_order_owner_role_main_executor_or_device_fields_or_secret_shaped_fields",
+    "placement": {
+      "exact": "{failoverOrder:[cloud|mac]}",
+      "failover_order_bounds": {
+        "min": 1,
+        "max": 65
+      },
+      "duplicate_mac_display_names": "allowed; no_canonical_unique_constraint",
+      "cloud_cardinality": "exactly_one_cloud_entry_per_failoverOrder"
+    }
+  }
+}

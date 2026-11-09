@@ -1,0 +1,12 @@
+{
+  "source": {
+    "kind": "assistant_chat",
+    "id": "!AssistantRmGm8Vd2Kf:example.invalid",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd"
+  },
+  "state": "partial",
+  "reasons": [
+    "google_fence"
+  ],
+  "asOf": 1790672400000
+}

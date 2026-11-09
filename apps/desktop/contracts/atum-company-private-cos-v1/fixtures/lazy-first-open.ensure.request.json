@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "requestId": "00000000-0000-4000-8000-7d4ef186dc5c",
+  "action": "ensure",
+  "trigger": "dm_open"
+}

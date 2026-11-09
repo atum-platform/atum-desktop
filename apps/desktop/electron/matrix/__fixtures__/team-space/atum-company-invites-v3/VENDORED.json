@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-invites/3",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "8c18ad4293d81485c48aad44f53fe3452d908e9c",
+  "path": "spec/company-invites/v3",
+  "sha256": "b0c6317a2f68355da03a960a8db159ff2c350779b5bdba5f1d579fca27420773",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

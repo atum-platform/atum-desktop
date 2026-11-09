@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "status": 409,
+  "headers": {
+    "cacheControl": "no-store"
+  },
+  "body": {
+    "errcode": "matrix_conflict",
+    "reason": "admission_epoch_stale"
+  }
+}

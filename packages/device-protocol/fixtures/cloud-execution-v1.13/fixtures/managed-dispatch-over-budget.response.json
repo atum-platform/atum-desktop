@@ -1,0 +1,30 @@
+{
+  "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+  "state": "dispatched",
+  "expiresAt": 1791108000000,
+  "grants": {
+    "model": {
+      "token": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      "expiresAt": 1791108000000,
+      "aliases": [
+        "glm"
+      ],
+      "alias": "glm",
+      "model": "glm",
+      "effort": "high",
+      "policyDigest": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03",
+      "contextBudget": 1000000,
+      "outputBudget": 16384,
+      "maxTurnMicroProtons": 1985107500,
+      "ceilingMicroProtons": 20000000000,
+      "funding": "trial"
+    }
+  },
+  "budget": {
+    "reservationId": "00000000-0000-4000-8000-c4d7987c8062",
+    "funding": "trial",
+    "ceilingMicroProtons": 1000000000,
+    "computeSeconds": 7200,
+    "firstAdmission": false
+  }
+}

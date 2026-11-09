@@ -1,0 +1,8 @@
+{
+  "schema": "atum-release-target-policy/1",
+  "policy_id": "immutable://target-policy",
+  "support_window_days": 365,
+  "targets": [
+    {"target_id": "macos-arm64-dmg", "os": "macos", "os_min": "15.0", "arch": "arm64", "format": "dmg"}
+  ]
+}

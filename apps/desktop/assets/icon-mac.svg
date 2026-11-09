@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="atum-app-bg" cx="50%" cy="36%" r="90%">
+      <stop offset="0%" stop-color="#201E1A" />
+      <stop offset="55%" stop-color="#171511" />
+      <stop offset="100%" stop-color="#100F0D" />
+    </radialGradient>
+    <radialGradient id="atum-app-halo">
+      <stop offset="62%" stop-color="#EFEEEA" stop-opacity="0" />
+      <stop offset="78%" stop-color="#EFEEEA" stop-opacity=".22" />
+      <stop offset="100%" stop-color="#EFEEEA" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <!-- macOS does not mask ICNS artwork for us. Keep the canvas transparent and
+       draw one standard optical-size rounded tile, so Dock/Launchpad match the
+       neighboring system icons instead of showing a hard full-canvas square. -->
+  <rect x="96" y="96" width="832" height="832" rx="184" fill="url(#atum-app-bg)" />
+  <g transform="translate(232 232) scale(8.75)">
+    <circle cx="32" cy="32" r="32" fill="url(#atum-app-halo)" />
+    <circle cx="32" cy="32" r="27.5" fill="#EFEEEA" />
+    <circle cx="30" cy="34" r="26" fill="#0B0B0A" />
+    <circle cx="49.5" cy="14.5" r="4.6" fill="#EFEEEA" />
+  </g>
+</svg>

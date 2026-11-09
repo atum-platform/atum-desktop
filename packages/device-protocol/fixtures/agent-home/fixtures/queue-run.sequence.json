@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "queued",
+      "to": "taken",
+      "event": "take"
+    },
+    {
+      "from": "taken",
+      "to": "done",
+      "event": "commit"
+    }
+  ]
+}

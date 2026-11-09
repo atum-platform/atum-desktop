@@ -1,0 +1,7 @@
+{
+  "facts": {
+    "timestamp": 1000,
+    "now": 121000
+  },
+  "expected": true
+}

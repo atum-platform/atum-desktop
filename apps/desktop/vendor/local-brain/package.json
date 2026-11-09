@@ -1,0 +1,22 @@
+{
+  "name": "@atum/local-brain",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The local brain: pinned GBrain with PGLite behind one Atum-owned process per Mac account (G8-37·KS, S3 G8-40).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "atum-local-brain": "./src/cli.mjs"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "fetch-gbrain": "node scripts/fetch-gbrain.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test:unit": "node --test test/contract.test.mjs test/state.test.mjs test/durability.test.mjs test/tar.test.mjs",
+    "test:integration": "LOCAL_BRAIN_REQUIRE_BINARY=1 node --test --test-concurrency=1 test/local-brain.integration.test.mjs",
+    "measure": "node scripts/measure.mjs",
+    "build:tarball": "node scripts/build-tarball.mjs"
+  }
+}

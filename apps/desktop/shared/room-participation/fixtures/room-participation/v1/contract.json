@@ -1,0 +1,1516 @@
+{
+  "contract_id": "atum.room-participation",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/agent-entry.json",
+    "fixtures/agent-unknown-mode.json",
+    "fixtures/bad-usage-day.json",
+    "fixtures/budget-above.json",
+    "fixtures/budget-already-noticed.json",
+    "fixtures/budget-below.json",
+    "fixtures/budget-cap.json",
+    "fixtures/budget-raised.json",
+    "fixtures/budget-utc-rollover.json",
+    "fixtures/chain-allowed-depth-2.json",
+    "fixtures/chain-allowed-depth-3.json",
+    "fixtures/chain-allowed.json",
+    "fixtures/chain-depth-0.json",
+    "fixtures/chain-depth-4.json",
+    "fixtures/chain-extra-authority.json",
+    "fixtures/chain-refuse-cycle.json",
+    "fixtures/chain-refuse-foreign-origin.json",
+    "fixtures/chain-refuse-foreign-room.json",
+    "fixtures/chain-refuse-foreign.json",
+    "fixtures/chain-refuse-forged-depth.json",
+    "fixtures/chain-refuse-forged-origin.json",
+    "fixtures/chain-refuse-future-origin.json",
+    "fixtures/chain-refuse-missing.json",
+    "fixtures/chain-refuse-nontext-origin.json",
+    "fixtures/chain-refuse-nontext-parent.json",
+    "fixtures/chain-refuse-not-addressed.json",
+    "fixtures/chain-refuse-origin-cap.json",
+    "fixtures/chain-refuse-repeat.json",
+    "fixtures/chain-refuse-room-cap.json",
+    "fixtures/chain-refuse-shared.json",
+    "fixtures/chain-refuse-stale.json",
+    "fixtures/chain-refuse-too-deep.json",
+    "fixtures/chain-refuse-unclaimed-origin.json",
+    "fixtures/chain-refuse-untrusted-origin.json",
+    "fixtures/chain-refuse-untrusted.json",
+    "fixtures/chain-stamp.json",
+    "fixtures/effective-meeting-addressed-addressed.json",
+    "fixtures/effective-meeting-addressed-joins.json",
+    "fixtures/effective-meeting-addressed-missing.json",
+    "fixtures/effective-meeting-addressed-off.json",
+    "fixtures/effective-meeting-joins-addressed.json",
+    "fixtures/effective-meeting-joins-joins.json",
+    "fixtures/effective-meeting-joins-missing.json",
+    "fixtures/effective-meeting-joins-off.json",
+    "fixtures/effective-shared-addressed-addressed.json",
+    "fixtures/effective-shared-addressed-joins.json",
+    "fixtures/effective-shared-addressed-missing.json",
+    "fixtures/effective-shared-addressed-off.json",
+    "fixtures/effective-shared-joins-addressed.json",
+    "fixtures/effective-shared-joins-joins.json",
+    "fixtures/effective-shared-joins-missing.json",
+    "fixtures/effective-shared-joins-off.json",
+    "fixtures/floor-3-agents-0.json",
+    "fixtures/floor-3-agents-1.json",
+    "fixtures/floor-3-agents-2.json",
+    "fixtures/floor-3-agents-3.json",
+    "fixtures/floor-3-agents-4.json",
+    "fixtures/floor-5-agents-0.json",
+    "fixtures/floor-5-agents-1.json",
+    "fixtures/floor-5-agents-2.json",
+    "fixtures/floor-5-agents-3.json",
+    "fixtures/floor-5-agents-4.json",
+    "fixtures/floor-empty.json",
+    "fixtures/floor-human-mention-reply.json",
+    "fixtures/floor-named-order.json",
+    "fixtures/floor-named-reply.json",
+    "fixtures/floor-none.json",
+    "fixtures/floor-off-mentioned-no-reply-fallback.json",
+    "fixtures/freshness-first-no-exemption.json",
+    "fixtures/freshness-floor-max-age.json",
+    "fixtures/freshness-floor-second.json",
+    "fixtures/freshness-future-anchor.json",
+    "fixtures/freshness-future-event.json",
+    "fixtures/freshness-normal.json",
+    "fixtures/freshness-old-hint.json",
+    "fixtures/freshness-stale.json",
+    "fixtures/negative-usage.json",
+    "fixtures/policy-boolean-cap.json",
+    "fixtures/policy-empty.json",
+    "fixtures/policy-forged-owner.json",
+    "fixtures/policy-forged-toolset.json",
+    "fixtures/policy-high-cap.json",
+    "fixtures/policy-low-cap.json",
+    "fixtures/policy-preserves-extensions.json",
+    "fixtures/profile-000.json",
+    "fixtures/profile-001.json",
+    "fixtures/profile-010.json",
+    "fixtures/profile-011.json",
+    "fixtures/profile-100.json",
+    "fixtures/profile-101.json",
+    "fixtures/profile-110.json",
+    "fixtures/profile-111.json",
+    "fixtures/trigger-addressed-mentioned.json",
+    "fixtures/trigger-addressed-plain.json",
+    "fixtures/trigger-assistant-sender.json",
+    "fixtures/trigger-edit.json",
+    "fixtures/trigger-explicit-other-wins.json",
+    "fixtures/trigger-file.json",
+    "fixtures/trigger-foreign-sender.json",
+    "fixtures/trigger-human-mention.json",
+    "fixtures/trigger-meeting-everyone.json",
+    "fixtures/trigger-mentioned.json",
+    "fixtures/trigger-not-member.json",
+    "fixtures/trigger-notice.json",
+    "fixtures/trigger-off-mentioned.json",
+    "fixtures/trigger-off-plain.json",
+    "fixtures/trigger-reaction.json",
+    "fixtures/trigger-redaction.json",
+    "fixtures/trigger-reply-to-other.json",
+    "fixtures/trigger-reply-to-self.json",
+    "fixtures/trigger-shared-mentioned.json",
+    "fixtures/trigger-shared-other-mentioned.json",
+    "fixtures/trigger-shared-plain.json",
+    "fixtures/trigger-shared-reply.json",
+    "fixtures/trigger-thread.json",
+    "fixtures/trigger-unverified-owner.json",
+    "fixtures/usage.json"
+  ],
+  "types": {
+    "user_id": {
+      "type": "string",
+      "min": 3,
+      "max": 1024,
+      "pattern": "@[!-~]+:[!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "mode": {
+      "enum": [
+        "off",
+        "addressed",
+        "joins"
+      ]
+    },
+    "room_mode": {
+      "enum": [
+        "meeting",
+        "shared"
+      ]
+    },
+    "agent_entry": {
+      "type": "object",
+      "required": {
+        "mode": {
+          "ref": "mode"
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "policy": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "agents": {
+          "type": "object",
+          "required": {},
+          "optional": {},
+          "additional": true
+        }
+      },
+      "optional": {
+        "dailyTurns": {
+          "type": "integer",
+          "min": 1,
+          "max": 200
+        }
+      },
+      "additional": true
+    },
+    "usage": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "day": {
+          "type": "string",
+          "min": 10,
+          "max": 10,
+          "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        },
+        "turns": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "optional": {
+        "pausedNoticed": {
+          "type": "boolean"
+        }
+      },
+      "additional": true
+    },
+    "chain_stamp": {
+      "type": "object",
+      "required": {
+        "origin": {
+          "ref": "event_id"
+        },
+        "depth": {
+          "type": "integer",
+          "min": 1,
+          "max": 3
+        },
+        "parent": {
+          "ref": "event_id"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "trigger_facts": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentUserId": {
+          "ref": "user_id"
+        },
+        "senderUserId": {
+          "ref": "user_id"
+        },
+        "senderVerified": {
+          "type": "boolean"
+        },
+        "roomMode": {
+          "ref": "room_mode"
+        },
+        "mode": {
+          "ref": "mode"
+        },
+        "ownAgentIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 10,
+          "unique": true
+        },
+        "eventKind": {
+          "enum": [
+            "text",
+            "edit",
+            "reaction",
+            "redaction",
+            "thread",
+            "file",
+            "notice"
+          ]
+        }
+      },
+      "optional": {
+        "replySenderId": {
+          "ref": "user_id"
+        }
+      },
+      "additional": false
+    },
+    "trigger": {
+      "enum": [
+        "named",
+        "everyone",
+        "none"
+      ]
+    },
+    "floor_facts": {
+      "type": "object",
+      "required": {
+        "eventId": {
+          "ref": "event_id"
+        },
+        "kind": {
+          "enum": [
+            "named",
+            "everyone",
+            "none"
+          ]
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 10,
+          "unique": true
+        },
+        "ownAgentIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        }
+      },
+      "optional": {
+        "replySenderId": {
+          "ref": "user_id"
+        }
+      },
+      "additional": false
+    },
+    "floor": {
+      "type": "object",
+      "required": {
+        "order": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "effective_facts": {
+      "type": "object",
+      "required": {
+        "roomMode": {
+          "ref": "room_mode"
+        },
+        "meetingDefault": {
+          "enum": [
+            "addressed",
+            "joins"
+          ]
+        }
+      },
+      "optional": {
+        "stored": {
+          "ref": "mode"
+        }
+      },
+      "additional": false
+    },
+    "budget_facts": {
+      "type": "object",
+      "required": {
+        "now": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "dailyTurns": {
+          "type": "integer",
+          "min": 1,
+          "max": 200
+        },
+        "usage": {
+          "ref": "usage"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "budget": {
+      "type": "object",
+      "required": {
+        "day": {
+          "type": "string",
+          "min": 10,
+          "max": 10
+        },
+        "turns": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "cap": {
+          "type": "integer",
+          "min": 1,
+          "max": 200
+        },
+        "remaining": {
+          "type": "integer",
+          "min": 0,
+          "max": 200
+        },
+        "allowed": {
+          "type": "boolean"
+        },
+        "notice": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "freshness_facts": {
+      "type": "object",
+      "required": {
+        "timestamp": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "now": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "optional": {
+        "floor": {
+          "type": "object",
+          "required": {
+            "acceptedAt": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "position": {
+              "type": "integer",
+              "min": 0,
+              "max": 4
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "additional": false
+    },
+    "profile_flags": {
+      "type": "object",
+      "required": {
+        "shared_room": {
+          "type": "boolean"
+        },
+        "reply_only": {
+          "type": "boolean"
+        },
+        "pet_surface": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "profile": {
+      "type": "object",
+      "required": {
+        "key": {
+          "type": "string",
+          "min": 1,
+          "max": 100
+        },
+        "tools": {
+          "enum": [
+            "standard",
+            "shared_ceiling",
+            "none"
+          ]
+        },
+        "memory": {
+          "type": "boolean"
+        },
+        "petTool": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "trigger_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "trigger_facts"
+        },
+        "expected": {
+          "ref": "trigger"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "floor_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "floor_facts"
+        },
+        "expected": {
+          "ref": "floor"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "effective_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "effective_facts"
+        },
+        "expected": {
+          "ref": "mode"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "budget_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "budget_facts"
+        },
+        "expected": {
+          "ref": "budget"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "freshness_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "freshness_facts"
+        },
+        "expected": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "profile_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "profile_flags"
+        },
+        "expected": {
+          "ref": "profile"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "chain_event": {
+      "type": "object",
+      "required": {
+        "eventId": {
+          "ref": "event_id"
+        },
+        "senderUserId": {
+          "ref": "user_id"
+        },
+        "senderVerified": {
+          "type": "boolean"
+        },
+        "at": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "mentions": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 10,
+          "unique": true
+        },
+        "roomId": {
+          "ref": "room_id"
+        },
+        "eventKind": {
+          "enum": [
+            "text",
+            "notice",
+            "edit",
+            "thread",
+            "file",
+            "reaction",
+            "redaction"
+          ]
+        }
+      },
+      "optional": {
+        "chain": {
+          "type": "object",
+          "required": {
+            "origin": {
+              "ref": "event_id"
+            },
+            "depth": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "parent": {
+              "ref": "event_id"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "additional": false
+    },
+    "chain_facts": {
+      "type": "object",
+      "required": {
+        "ownerUserId": {
+          "ref": "user_id"
+        },
+        "agentUserId": {
+          "ref": "user_id"
+        },
+        "ownAgentIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        },
+        "roomMode": {
+          "ref": "room_mode"
+        },
+        "now": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "eventId": {
+          "ref": "event_id"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "ref": "chain_event"
+          },
+          "max": 7,
+          "unique": false
+        },
+        "spokenAgentIds": {
+          "type": "array",
+          "items": {
+            "ref": "user_id"
+          },
+          "max": 5,
+          "unique": true
+        },
+        "originTurns": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "budgetAllowed": {
+          "type": "boolean"
+        },
+        "roomId": {
+          "ref": "room_id"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "chain_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "allowed": {
+              "const": true
+            },
+            "origin": {
+              "ref": "event_id"
+            },
+            "depth": {
+              "type": "integer",
+              "min": 1,
+              "max": 3
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "allowed": {
+              "const": false
+            },
+            "code": {
+              "enum": [
+                "shared_room",
+                "untrusted_sender",
+                "foreign_sender",
+                "missing_event",
+                "invalid_chain",
+                "stale_origin",
+                "repeat_agent",
+                "origin_cap",
+                "room_cap",
+                "not_addressed"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "chain_scenario": {
+      "type": "object",
+      "required": {
+        "facts": {
+          "ref": "chain_facts"
+        },
+        "expected": {
+          "ref": "chain_result"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    }
+  },
+  "directions": {
+    "owner_sdk_account_data": {
+      "forbidden_fields": [
+        "ownerUserId",
+        "payer",
+        "verified",
+        "toolsets",
+        "shared_room",
+        "reply_only",
+        "pet_surface",
+        "access_token",
+        "private_key"
+      ]
+    },
+    "agent_to_room": {
+      "forbidden_fields": [
+        "access_token",
+        "private_key"
+      ]
+    },
+    "consumer_vectors": {
+      "forbidden_fields": [
+        "access_token",
+        "private_key"
+      ]
+    }
+  },
+  "messages": {
+    "trigger.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "trigger_scenario"
+      }
+    },
+    "floor.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "floor_scenario"
+      }
+    },
+    "effective.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "effective_scenario"
+      }
+    },
+    "budget.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "budget_scenario"
+      }
+    },
+    "freshness.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "freshness_scenario"
+      }
+    },
+    "chain.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "chain_scenario"
+      }
+    },
+    "profile.scenario": {
+      "direction": "consumer_vectors",
+      "schema": {
+        "ref": "profile_scenario"
+      }
+    },
+    "policy": {
+      "direction": "owner_sdk_account_data",
+      "schema": {
+        "ref": "policy"
+      }
+    },
+    "usage": {
+      "direction": "owner_sdk_account_data",
+      "schema": {
+        "ref": "usage"
+      }
+    },
+    "agent.entry": {
+      "direction": "owner_sdk_account_data",
+      "schema": {
+        "ref": "agent_entry"
+      }
+    },
+    "chain.stamp": {
+      "direction": "agent_to_room",
+      "schema": {
+        "ref": "chain_stamp"
+      }
+    }
+  },
+  "rules": {
+    "account_data": {
+      "policy_type": "io.atum.room.agents",
+      "usage_type": "io.atum.room.usage",
+      "scope": "owner private per-room account data, never room state",
+      "writer": "owner SDK only",
+      "unknown_keys": "preserve on write, including agent-entry speak and consentEpoch; they confer no authority"
+    },
+    "policy_validation": "Validate every agents map key as a Matrix user ID and each value using agent_entry. The generic checker cannot express dynamic object values: consumer tests must validate entries. Malformed known values fail closed; never treat an invalid mode as a missing entry.",
+    "effective_mode": "Missing meeting entry uses MATRIX_MEETING_DEFAULT=addressed until migration 0200 is live with owner approval, then joins. Missing shared entry is addressed. Shared ceiling maps stored joins to addressed; off remains off.",
+    "trigger": "Only verified top-level owner text. Off is none. Explicit own-assistant mentions win over replies; X named only if mentioned, else none when any own assistant named. Otherwise reply to own assistant names only that assistant. Plain meeting text is everyone only for joins; shared plain text never triggers. m.mentions.room and body-text inference are not triggers.",
+    "floor": {
+      "algorithm": "Everyone: SHA-256 of UTF-8(eventId + \":\" + agentUserId), ascending digest, userId tie-break; first two joined joins candidates. Named: eligible mentioned assistants in mention order, or reply target if no own assistant is mentioned. Eligibility/policy re-read before claim. No candidate no claim.",
+      "EVERYONE_ANSWERS_MAX": 2,
+      "FLOOR_WAIT_MS": 180000,
+      "pollMs": 2000,
+      "FLOOR_MAX_AGE_MS": 330000,
+      "freshnessMs": 120000
+    },
+    "settled": "Earlier verified m.text or m.notice must reply to owner trigger event. Waiting emits no typing; run after bounded wait even if predecessor Mac is away. Membership change invalidates. Per-room Mac serial queue prevents simultaneous local model calls.",
+    "freshness": "Position >0 only, acceptedAt >= timestamp, acceptedAt <= now, acceptedAt-timestamp <=120000 AND now-timestamp <=330000. Otherwise 120000 age bound; future timestamps are refused. Re-read at pre-dispatch.",
+    "cap": {
+      "unit": "answers claimed per room per UTC day, including named and chain turns",
+      "default": 30,
+      "min": 1,
+      "max": 200,
+      "authority": "client account data early check is advisory; migration 0200 atomically caps ledger claims across agents/Macs, with hold; refuse room_cap before charging",
+      "notice": "First floor agent publishes once per room UTC day; raising cap resumes; named messages never bypass",
+      "rollover": "A different valid UTC day resets turns and pausedNoticed"
+    },
+    "chain": {
+      "key": "io.atum.chain (io.atum.turn remains local-turn marker)",
+      "CHAIN_DEPTH_MAX": 3,
+      "CHAIN_TURNS_MAX": 6,
+      "originAgeMs": 600000,
+      "verification": "Read actual events via owner SDK; room/verified sender/member authority independent of content. Walk current event parent to owner origin; stamp depth must equal actual number of assistant events; each stamped origin same, parent in same room, max three; reject cycles/missing/foreign/untrusted/stale/future/repeat target/origin cap/daily cap. Origin is real verified owner top-level text; chain explicitly names next own assistant. Chain sender is a narrow meeting-only exception to E.3, never shared.",
+      "publication": "Owner reply stamps depth 1 and parent owner origin. Child reply stamps depth+1 and parent current assistant event only below depth 3. Each assistant event ID claimed once; origin/depth binding enforced by 0200.",
+      "result_depth": "chain_result.depth is the validated CURRENT incoming assistant event stamp depth, not the responding agent next stamp. A child reply may publish depth+1 only when current depth<3. At incoming depth 3 it may reply without forwarding a new chain stamp.",
+      "ledger_facts": "originTurns and spokenAgentIds are read from authoritative per-origin admitted claims, never client content. A chain requires at least one admitted origin turn (originTurns>=1); zero turns is invalid_chain. The walked origin owner text must have actually started the admitted chain."
+    },
+    "profiles": {
+      "interaction_table": "Eight profile.scenario fixtures are normative. reply_only has no tools or memory, including pet; shared_room ceiling never widens and has no pet tool; pet_surface permits the pet tool only on an otherwise standard private session under Plan 3 host reply handshake. All flag combinations have distinct fixed keys. Shared chain intake remains refused.",
+      "toolsets": "No terminal, files, code, web, browser, memory, session_search, skills, Google, cron, MCP, messaging, delegation or sending in reply_only; background tasks equally constrained. Resume across any profile combination refused.",
+      "conversation_key": "Existing (agent, device, owner, room, mode, audience) plus reply_only and pet_surface; shared bit already follows mode; schema key is the profile suffix only, not a replacement identity. No toolset change inside conversation.",
+      "implementation_order": "Plan 3 PT-10a -> Plan 1 slice 6 -> Plan 3 PT-10b, one server.py claim and combined test. Host must not declare a group room a pet surface; pet intents never publish in group/shared replies."
+    },
+    "disclosure": "No join notice in meeting rooms. Before first shared answer after audience change post existing five-locale groupJoined, then persist disclosedAudience with link. Unchanged audience no repeat. Offline membership change still detected at next turn.",
+    "room_port": [
+      "readMembers",
+      "readPolicy",
+      "readRecent",
+      "readSettled",
+      "readOwnerEvent",
+      "publish"
+    ],
+    "release_gate": "Keep MATRIX_MEETING_DEFAULT addressed until 0200 applied with owner go and gateway proof. Slices 3+4 ship together. CLOUD_GROUP_ROOMS default off. shareGroupKeys legacy guard/deletion condition belongs only to Plan 5 P5-5/P5-6 interop matrix."
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/policy-empty.json",
+      "message": "policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-preserves-extensions.json",
+      "message": "policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agent-entry.json",
+      "message": "agent.entry",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/usage.json",
+      "message": "usage",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-stamp.json",
+      "message": "chain.stamp",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-low-cap.json",
+      "message": "policy",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/policy-high-cap.json",
+      "message": "policy",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/policy-boolean-cap.json",
+      "message": "policy",
+      "expect": "reject",
+      "violation": "type"
+    },
+    {
+      "file": "fixtures/policy-forged-owner.json",
+      "message": "policy",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/policy-forged-toolset.json",
+      "message": "policy",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agent-unknown-mode.json",
+      "message": "agent.entry",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/negative-usage.json",
+      "message": "usage",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/bad-usage-day.json",
+      "message": "usage",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/chain-depth-0.json",
+      "message": "chain.stamp",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/chain-depth-4.json",
+      "message": "chain.stamp",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/chain-extra-authority.json",
+      "message": "chain.stamp",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/trigger-meeting-everyone.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-mentioned.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-reply-to-self.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-explicit-other-wins.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-reply-to-other.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-addressed-plain.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-addressed-mentioned.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-off-mentioned.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-off-plain.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-shared-plain.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-shared-mentioned.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-shared-reply.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-shared-other-mentioned.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-foreign-sender.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-assistant-sender.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-unverified-owner.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-not-member.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-human-mention.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-edit.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-reaction.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-redaction.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-thread.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-file.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/trigger-notice.json",
+      "message": "trigger.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-addressed-missing.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-addressed-off.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-addressed-addressed.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-addressed-joins.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-joins-missing.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-joins-off.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-joins-addressed.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-meeting-joins-joins.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-addressed-missing.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-addressed-off.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-addressed-addressed.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-addressed-joins.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-joins-missing.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-joins-off.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-joins-addressed.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effective-shared-joins-joins.json",
+      "message": "effective.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-3-agents-0.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-3-agents-1.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-3-agents-2.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-3-agents-3.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-3-agents-4.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-5-agents-0.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-5-agents-1.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-5-agents-2.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-5-agents-3.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-5-agents-4.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-named-order.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-named-reply.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-none.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-empty.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-below.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-cap.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-already-noticed.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-raised.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-utc-rollover.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/budget-above.json",
+      "message": "budget.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-normal.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-stale.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-floor-second.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-floor-max-age.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-old-hint.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-first-no-exemption.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-future-event.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/freshness-future-anchor.json",
+      "message": "freshness.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-allowed.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-shared.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-repeat.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-origin-cap.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-room-cap.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-stale.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-missing.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-untrusted.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-foreign.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-not-addressed.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-forged-depth.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-too-deep.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-cycle.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-forged-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-000.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-001.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-010.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-011.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-100.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-101.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-110.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-111.json",
+      "message": "profile.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-foreign-room.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-untrusted-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-foreign-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-nontext-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-future-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-nontext-parent.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-refuse-unclaimed-origin.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-allowed-depth-2.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/chain-allowed-depth-3.json",
+      "message": "chain.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-off-mentioned-no-reply-fallback.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/floor-human-mention-reply.json",
+      "message": "floor.scenario",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "profile": "atum.execution-status/1",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "policyRevision": 3,
+  "asOf": 1791877000000,
+  "state": "working",
+  "current": "cloud",
+  "desired": "cloud",
+  "order": [
+    "cloud",
+    "mac:00000000-0000-4000-8000-b454f82c5857"
+  ],
+  "disabled": [
+    "cloud",
+    "mac:00000000-0000-4000-8000-b454f82c5857"
+  ],
+  "destinations": {
+    "cloud": {
+      "state": "working",
+      "observedAt": 1791876999000
+    },
+    "mac:00000000-0000-4000-8000-b454f82c5857": {
+      "state": "disabled",
+      "reason": "owner_disabled",
+      "observedAt": 1791876999000
+    }
+  }
+}

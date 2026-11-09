@@ -1,0 +1,8 @@
+{
+  "caseId": "file_too_large",
+  "fileCount": 1,
+  "pathUtf8Bytes": 20,
+  "fileBytes": 8388609,
+  "totalBytes": 8388609,
+  "expected": "home_too_large"
+}

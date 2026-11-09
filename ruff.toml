@@ -1,0 +1,621 @@
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+# The oldest Python we support (requires-python): quote-stripping (UP037) and every other
+# version-gated fix must stay valid where annotations are evaluated eagerly (< 3.14).
+target-version = "py311"
+
+[format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+
+[lint]
+exclude = [
+    ".bzr",
+    ".git",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+  ]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+select = [
+  "YTT101",
+  "YTT102",
+  "YTT103",
+  "YTT201",
+  "YTT202",
+  "YTT203",
+  "YTT204",
+  "YTT301",
+  "YTT302",
+  "YTT303",
+  "ASYNC100",
+  "ASYNC105",
+  "ASYNC115",
+  "ASYNC116",
+  "ASYNC210",
+  "ASYNC220",
+  "ASYNC221",
+  "ASYNC222",
+  "ASYNC230",
+  "ASYNC251",
+  #  "S102",
+  #  "S110",
+  #  "S112",
+  #  "BLE001",
+  "B002",
+  "B003",
+  "B004",
+  "B005",
+  "B006",
+  #  "B008",
+  "B009",
+  "B010",
+  "B012",
+  "B013",
+  "B014",
+  "B015",
+  "B016",
+  #  "B017",
+  #  "B018",
+  "B019",
+  "B020",
+  "B021",
+  #  "B022",
+  #  "B023",
+  "B025",
+  #  "B026",
+  "B029",
+  #  "B030",
+  "B031",
+  "B032",
+  "B033",
+  "B035",
+  #  "B039",
+  "C400",
+  #  "C401",
+  #  "C402",
+  "C403",
+  "C404",
+  "C405",
+  #  "C406",
+  #  "C408",
+  #  "C409",
+  "C410",
+  "C411",
+  #  "C413",
+  "C414",
+  "C415",
+  #  "C417",
+  "C418",
+  #  "C419",
+  #  "C901",
+  #  "DTZ001",
+  "DTZ002",
+  #  "DTZ003",
+  "DTZ004",
+  #  "DTZ005",
+  #  "DTZ006",
+  #  "DTZ007",
+  #  "DTZ011",
+  "DTZ012",
+  "DTZ901",
+  "T100",
+  #  "EXE001",
+  #  "EXE002",
+  "EXE004",
+  "EXE005",
+  "FA100",
+  "FA102",
+  "INT001",
+  "INT002",
+  "INT003",
+  #  "ISC004",
+  #  "LOG001",
+  "LOG002",
+  "LOG009",
+  #  "LOG014",
+  #  "LOG015",
+  "G010",
+  "G101",
+  #  "G201",
+  "G202",
+  "PIE790",
+  "PIE794",
+  "PIE796",
+  "PIE800",
+  "PIE804",
+  "PIE807",
+  "PIE808",
+  #  "PIE810",
+  "PYI001",
+  "PYI002",
+  "PYI003",
+  "PYI004",
+  "PYI005",
+  "PYI006",
+  "PYI007",
+  "PYI008",
+  "PYI009",
+  "PYI010",
+  "PYI012",
+  "PYI013",
+  "PYI015",
+  "PYI016",
+  "PYI017",
+  "PYI018",
+  "PYI019",
+  "PYI020",
+  "PYI025",
+  "PYI026",
+  "PYI029",
+  "PYI030",
+  "PYI032",
+  "PYI033",
+  #  "PYI034",
+  "PYI035",
+  "PYI036",
+  "PYI041",
+  "PYI042",
+  "PYI043",
+  "PYI044",
+  "PYI045",
+  "PYI046",
+  "PYI047",
+  "PYI048",
+  "PYI049",
+  "PYI050",
+  "PYI052",
+  "PYI055",
+  "PYI057",
+  "PYI058",
+  "PYI059",
+  "PYI061",
+  "PYI062",
+  "PYI063",
+  "PYI064",
+  "PYI066",
+  "PT010",
+  #  "PT014",
+  "PT020",
+  "PT025",
+  "PT026",
+  "PT031",
+  "RET501",
+  "SIM101",
+  #  "SIM102",
+  #  "SIM103",
+  "SIM107",
+  #  "SIM113",
+  "SIM114",
+  #  "SIM115",
+  #  "SIM117",
+  #  "SIM118",
+  #  "SIM201",
+  "SIM202",
+  "SIM208",
+  "SIM210",
+  #  "SIM211",
+  "SIM220",
+  "SIM221",
+  "SIM222",
+  "SIM223",
+  #  "SIM401",
+  #  "SIM905",
+  "SIM911",
+  "TC004",
+  "TC005",
+  "TC007",
+  "TC010",
+  "PTH124",
+  "PTH210",
+  #  "FLY002",
+  #  "I001",
+  #  "N999",
+  "PERF101",
+  #  "PERF102",
+  "PERF402",
+  "E722",
+  "E902",
+  "W605",
+  "D419",
+  #  "F401",
+  #  "F402",
+  "F404",
+  "F407",
+  "F501",
+  "F502",
+  "F503",
+  "F504",
+  "F505",
+  "F506",
+  "F507",
+  "F508",
+  "F509",
+  "F521",
+  "F522",
+  "F523",
+  "F524",
+  "F525",
+  "F541",
+  #  "F601",
+  "F602",
+  "F621",
+  "F622",
+  "F631",
+  "F632",
+  "F633",
+  "F634",
+  "F701",
+  "F702",
+  "F704",
+  "F706",
+  "F707",
+  #  "F811",
+  #  "F821",
+  "F822",
+  "F823",
+  "F841",
+  "F842",
+  "F901",
+  "PGH005",
+  "PLC0105",
+  "PLC0131",
+  "PLC0132",
+  "PLC0205",
+  "PLC0206",
+  "PLC0208",
+  "PLC0414",
+  "PLC3002",
+  "PLE0100",
+  "PLE0101",
+  "PLE0115",
+  "PLE0116",
+  "PLE0117",
+  "PLE0118",
+  "PLE0303",
+  "PLE0304",
+  "PLE0305",
+  "PLE0307",
+  "PLE0308",
+  "PLE0309",
+  "PLE0604",
+  #  "PLE0605",
+  "PLE0643",
+  #  "PLE0704",
+  "PLE1132",
+  "PLE1142",
+  "PLE1205",
+  "PLE1206",
+  "PLE1300",
+  "PLE1307",
+  "PLE1310",
+  "PLE1507",
+  "PLE1519",
+  "PLE1520",
+  "PLE1700",
+  #  "PLE2502",
+  "PLE2510",
+  "PLE2512",
+  "PLE2513",
+  "PLE2514",
+  "PLE2515",
+  #  "PLR0124",
+  "PLR0133",
+  "PLR0206",
+  "PLR0402",
+  #  "PLR1704",
+  "PLR1708",
+  "PLR1711",
+  "PLR1716",
+  "PLR1722",
+  "PLR1730",
+  "PLR1733",
+  "PLR1736",
+  "PLR2044",
+  "PLW0120",
+  "PLW0127",
+  "PLW0128",
+  "PLW0129",
+  "PLW0131",
+  "PLW0133",
+  "PLW0177",
+  "PLW0211",
+  "PLW0245",
+  "PLW0406",
+  #  "PLW0602",
+  "PLW0604",
+  "PLW0642",
+  "PLW0711",
+  "PLW1501",
+  "PLW1507",
+  #  "PLW1508",
+  "PLW1509",
+  "PLW1510",
+  "PLW2101",
+  "UP001",
+  "UP003",
+  "UP004",
+  "UP005",
+  "UP006",
+  "UP007",
+  "UP008",
+  "UP009",
+  "UP010",
+  "UP011",
+  "UP012",
+  "UP014",
+  "UP017",
+  "UP018",
+  "UP019",
+  "UP020",
+  "UP021",
+  "UP022",
+  "UP023",
+  "UP024",
+  "UP025",
+  "UP026",
+  "UP028",
+  "UP029",
+  "UP030",
+  "UP031",
+  "UP032",
+  "UP033",
+  "UP034",
+  #  "UP035",
+  "UP036",
+  "UP037",
+  "UP039",
+  "UP040",
+  "UP041",
+  "UP043",
+  "UP044",
+  #"UP045",
+  #  "UP046",  # deferred: fix is PEP 695 class syntax (3.12+), project floor is py3.11
+  #  "UP047",  # deferred: fix is PEP 695 generic-callable syntax (3.12+), project floor is py3.11
+  "UP049",
+  "UP050",
+  "FURB105",
+  "FURB122",
+  "FURB129",
+  "FURB132",
+  "FURB136",
+  "FURB157",
+  "FURB161",
+  "FURB162",
+  "FURB163",
+  "FURB166",
+  "FURB167",
+  "FURB168",
+  "FURB169",
+  "FURB177",
+  "FURB181",
+  "FURB188",
+  "FURB192",
+  "RUF007",
+  "RUF008",
+  "RUF009",
+  "RUF010",
+  #  "RUF012",
+  "RUF013",
+  "RUF015",
+  "RUF016",
+  "RUF017",
+  "RUF018",
+  "RUF019",
+  "RUF020",
+  "RUF022",
+  "RUF023",
+  "RUF024",
+  "RUF026",
+  "RUF028",
+  "RUF030",
+  "RUF032",
+  "RUF033",
+  "RUF034",
+  "RUF040",
+  "RUF041",
+  "RUF046",
+  "RUF048",
+  "RUF049",
+  "RUF051",
+  "RUF053",
+  "RUF057",
+  "RUF058",
+  "RUF059",
+  "RUF063",
+  "RUF068",
+  "RUF100",
+  "RUF101",
+  "RUF200",
+  #  "TRY002",
+  #  "TRY004",
+  #  "TRY201",
+  #  "TRY203",
+  #  "TRY401",
+  "TID251",
+]
+
+[lint.flake8-tidy-imports.banned-api]
+"pm.uv".msg = "Use PM's semantic Python operations, not an installer executable."
+"pm.client.uv".msg = "Use PM's semantic Python operations."
+"pm.install.uv".msg = "The raw uv bridge was removed; use PM operations."
+"pm._uv".msg = "Tool acquisition is private to PM."
+"pm.environment".msg = "The environment engine is private; use PM operations."
+"pm.runtime_stage".msg = "PM stages its own worker runtime; consumers call pm operations."
+
+[lint.per-file-ignores]
+"apps/desktop/electron/fixtures/**" = ["TID251"]
+"pm/**" = ["TID251"]
+"tests/pm/**" = ["TID251"]
+# Atum catch-up baseline: upstream v0.22.5's strict config is clean, while
+# these pre-existing Atum-only or Atum-modified files carry the listed rules.
+# Keep this file/rule-specific so every other upstream rule remains enforced;
+# remove entries as the corresponding Atum backlog is repaired.
+"agent/atum_google_fence.py" = ["RUF022"]
+"agent/pet/generate/voxel.py" = ["RUF022", "RUF100"]
+"agent/pet/payload.py" = ["RUF100"]
+"cron/check_ins.py" = ["UP006"]
+"gateway/claude_sidecar.py" = ["F841", "UP037", "UP041"]
+"gateway/kimi_sidecar.py" = ["UP041"]
+"hermes_cli/atum_content_sync.py" = ["RUF100"]
+"hermes_cli/atum_home.py" = ["FURB167", "UP037"]
+"hermes_cli/atum_home_portable.py" = ["RUF022", "UP012"]
+"hermes_cli/atum_store_proof.py" = ["RUF059", "RUF100"]
+"hermes_cli/web_routers/files.py" = ["UP006"]
+"optional-skills/travel/travel-guide/scripts/render-travel-guide.py" = ["UP031", "UP032"]
+"optional-skills/travel/travel-guide/scripts/sanitize-trip-brief.py" = ["UP031"]
+"optional-skills/travel/travel-guide/scripts/validate-trip-brief.py" = ["UP031"]
+"packages/cloud-sandbox/entrypoint/computer_installer.py" = ["UP022"]
+"packages/cloud-sandbox/entrypoint/sandbox_env.py" = ["PLC0206"]
+"packages/cloud-sandbox/entrypoint/test_computer_installer.py" = ["UP022"]
+"packages/cloud-sandbox/entrypoint/test_home_transfer.py" = ["RUF100", "UP017"]
+"packages/cloud-sandbox/entrypoint/test_image_apt_sources.py" = ["UP022"]
+"packages/cloud-sandbox/entrypoint/workspace_files.py" = ["UP012"]
+"packages/cloud-sandbox/host/agent_home_executor.py" = ["FURB167", "UP022", "UP037"]
+"packages/cloud-sandbox/host/prove_cloud_computer.py" = ["F841", "UP022"]
+"packages/cloud-sandbox/s1/collect_receipts.py" = ["UP017"]
+"plugins/atum-filesystem-capability/__init__.py" = ["RET501", "UP006"]
+"plugins/web/direct/provider.py" = ["RUF100", "UP006", "UP041"]
+"scripts/build_default_pet.py" = ["RUF100"]
+"scripts/pets/breeds.py" = ["RUF007", "RUF059", "UP037"]
+"scripts/pets/hatch_bench.py" = ["RUF100"]
+"scripts/pets/plans/bird.py" = ["RUF022", "RUF059", "UP037"]
+"scripts/pets/plans/mascot.py" = ["F841", "RUF022", "RUF059", "UP037"]
+"scripts/pets/plans/quadruped.py" = ["RUF022", "RUF059", "RUF100"]
+"scripts/pets/spec.py" = ["RUF022", "UP031", "UP037"]
+"scripts/pets/voxel.py" = ["UP037"]
+"scripts/proof_awareness_recall.py" = ["RUF100"]
+"scripts/release/verify_candidate.py" = ["F841", "UP017"]
+"scripts/release/verify_r1_assistant_acceptance.py" = ["UP017"]
+"tests/agent/test_anthropic_adapter_atum.py" = ["F841", "RUF015", "RUF059"]
+"tests/agent/test_atum_advisory_retrieval_history.py" = ["RUF100"]
+"tests/agent/test_atum_google_fence.py" = ["PIE807", "PLR0402"]
+"tests/agent/test_atum_google_fence_e2e.py" = ["RUF100"]
+"tests/agent/test_auxiliary_client_atum.py" = ["B010", "F841", "FURB168", "RUF059"]
+"tests/agent/test_auxiliary_runtime_cache_key_atum.py" = ["PIE807"]
+"tests/agent/test_curator.py" = ["PLR1711", "RET501"]
+"tests/agent/test_design_bench.py" = ["RUF100"]
+"tests/agent/test_file_safety_credentials.py" = ["PLR0402"]
+"tests/agent/test_file_safety_credentials_atum.py" = ["PLR0402"]
+"tests/agent/test_hatch_bench.py" = ["RUF100"]
+"tests/agent/test_model_catalog_refresh.py" = ["PIE807", "PLW1510"]
+"tests/agent/test_pet_bundled.py" = ["PLR0402"]
+"tests/agent/test_pet_contact_stills.py" = ["RUF100"]
+"tests/agent/test_pet_download.py" = ["RUF100"]
+"tests/agent/test_pet_house_atlases.py" = ["RUF100"]
+"tests/agent/test_pet_optional_rows.py" = ["RUF100"]
+"tests/agent/test_pet_plans.py" = ["RUF100"]
+"tests/agent/test_pet_previews.py" = ["RUF100"]
+"tests/agent/test_pet_rig.py" = ["RUF100"]
+"tests/agent/test_pet_sheet.py" = ["PLR0402"]
+"tests/agent/test_pet_size.py" = ["RUF100"]
+"tests/agent/test_pet_spec.py" = ["RUF059", "RUF100"]
+"tests/agent/test_pet_voxel.py" = ["RUF100"]
+"tests/agent/test_pets_generator.py" = ["RUF059", "RUF100"]
+"tests/agent/test_pets_v5.py" = ["RUF100"]
+"tests/agent/test_prompt_builder.py" = ["F841"]
+"tests/agent/test_prompt_builder_atum.py" = ["F841", "PIE807", "RUF059"]
+"tests/agent/test_run_agent.py" = ["F841"]
+"tests/agent/test_skill_command_enumeration.py" = ["PIE807", "PLR0402"]
+"tests/agent/test_workspace_route_guard.py" = ["RUF100"]
+"tests/agent/transports/test_chat_completions.py" = ["PLR0402"]
+"tests/agent/transports/test_chat_completions_atum.py" = ["PLR0402", "RUF100"]
+"tests/agent/transports/test_codex_app_server_session_atum.py" = ["RUF059"]
+"tests/computer_use/test_cua_spawn_env_sanitization_atum.py" = ["RUF059"]
+"tests/conftest.py" = ["RUF007", "RUF100"]
+"tests/feasibility/live_hermes_probe.py" = ["PLW1510"]
+"tests/feasibility/shared_http_probe.py" = ["PLW1510"]
+"tests/feasibility/shared_process_probe.py" = ["PLW1510"]
+"tests/hermes_cli/test_atum_agent_content.py" = ["PLW1510"]
+"tests/hermes_cli/test_atum_device_host.py" = ["RUF015"]
+"tests/hermes_cli/test_atum_home_portable.py" = ["PLW1510"]
+"tests/hermes_cli/test_atum_home_schedules.py" = ["UP017"]
+"tests/hermes_cli/test_custom_endpoint_cleanup.py" = ["PLR0402"]
+"tests/hermes_cli/test_dashboard_admin_endpoints_atum.py" = ["PIE807", "PLR0402", "RUF015", "RUF019"]
+"tests/hermes_cli/test_gateway_service_atum.py" = ["F841", "PIE804", "PIE807", "PLW1510", "RUF034", "RUF059"]
+"tests/hermes_cli/test_gui_command_atum.py" = ["F841"]
+"tests/hermes_cli/test_matrix_debug_share.py" = ["RUF059"]
+"tests/hermes_cli/test_model_switch_custom_providers_atum.py" = ["PIE807"]
+"tests/hermes_cli/test_shared_group_turn.py" = ["PLW1510"]
+"tests/hermes_cli/test_shared_persona_approval.py" = ["UP012"]
+"tests/hermes_cli/test_store_enforcement_gate.py" = ["PIE807", "RUF059", "RUF100"]
+"tests/hermes_cli/test_web_server.py" = ["PLR0402"]
+"tests/hermes_cli/test_web_server_atum.py" = ["F841", "PIE807", "PLR0402", "PLR1711", "RET501", "RUF059", "UP017"]
+"tests/hermes_cli/test_web_server_curator.py" = ["RUF059"]
+"tests/hermes_cli/test_web_server_local_maintenance.py" = ["RUF059"]
+"tests/hermes_cli/test_web_server_mcp_matrix.py" = ["PLR0402"]
+"tests/hermes_cli/test_web_server_speak_stream.py" = ["PLR0402"]
+"tests/hermes_cli/test_web_server_speak_stream_atum.py" = ["PIE807", "PLR0402"]
+"tests/integration/test_task_recovery_process.py" = ["RUF100"]
+"tests/release/test_verify_candidate.py" = ["UP017"]
+"tests/scripts/test_run_tests_parallel_atum.py" = ["PLW1510"]
+"tests/security/test_gitspawn_config_injection_atum.py" = ["PLW1510", "RUF059"]
+"tests/skills/test_google_workspace_api.py" = ["UP017"]
+"tests/skills/test_google_workspace_api_atum.py" = ["UP017"]
+"tests/skills/test_google_workspace_atum_cloud.py" = ["UP017"]
+"tests/test_keychain_isolation.py" = ["PLW1510"]
+"tests/test_live_system_guard_self_test.py" = ["PLW1510"]
+"tests/test_live_system_guard_self_test_atum.py" = ["PLW1510"]
+"tests/test_session_identity_isolation.py" = ["PLR0402"]
+"tests/test_store_publication.py" = ["PLW1510"]
+"tests/test_windows_subprocess_no_window_flags_atum.py" = ["RUF059"]
+"tests/tools/test_approval_consent_durability.py" = ["PLR0402"]
+"tests/tools/test_approval_request_identity.py" = ["PLR0402"]
+"tests/tools/test_atum_google_tool.py" = ["RUF100"]
+"tests/tools/test_bundled_skill_add.py" = ["PLR0402"]
+"tests/tools/test_checkpoint_manager.py" = ["F841"]
+"tests/tools/test_checkpoint_manager_atum.py" = ["F841", "PLW1510", "RUF013", "RUF059"]
+"tests/tools/test_computer_use_atum.py" = ["F841", "RUF013", "RUF059", "RUF100", "UP006", "UP031"]
+"tests/tools/test_execution_flag_detection.py" = ["PLW1510"]
+"tests/tools/test_execution_flag_detection_atum.py" = ["PLR0402", "PLW1510"]
+"tests/tools/test_file_tools_atum.py" = ["PLR0402"]
+"tests/tools/test_lazy_deps_atum.py" = ["PIE807"]
+"tests/tools/test_lazy_deps_durable_target_atum.py" = ["PIE807"]
+"tests/tools/test_local_env_blocklist.py" = ["F841"]
+"tests/tools/test_managed_browserbase_and_modal_atum.py" = ["PIE807", "UP031"]
+"tests/tools/test_skills_hub_archive.py" = ["F841"]
+"tests/tools/test_skills_hub_atum.py" = ["PIE807", "RUF059", "UP006"]
+"tests/tools/test_skills_sync.py" = ["F841"]
+"tests/tools/test_skills_sync_atum.py" = ["F841"]
+"tests/tui_gateway/test_approval_allowlist_rpc.py" = ["PLR0402"]
+"tests/tui_gateway/test_async_delivery_capability.py" = ["PLR0402"]
+"tests/tui_gateway/test_atum_catalog_binding.py" = ["PIE807"]
+"tests/tui_gateway/test_atum_device_binding.py" = ["RUF059"]
+"tests/tui_gateway/test_inline_rpc_gil_starvation.py" = ["F841"]
+"tests/tui_gateway/test_matrix_effort_profile.py" = ["PLW1510"]
+"tests/tui_gateway/test_pet_voxel_rpc.py" = ["PLR0402", "RUF015", "RUF100"]
+"tests/tui_gateway/test_request_recovery.py" = ["PIE807", "RUF059"]
+"tests/tui_gateway/test_seeded_history.py" = ["PLR0402"]
+"tests/tui_gateway/test_surface_context.py" = ["PIE807"]
+"tools/atum_agent_tasks_tool.py" = ["FURB167"]
+"tools/atum_agents_tool.py" = ["FURB167"]
+"tools/atum_google_tool.py" = ["RUF100", "UP006"]
+"tools/atum_mac_tool.py" = ["FURB162"]
+"tools/cronjob_cloud_routines.py" = ["FURB167", "UP006", "UP017"]
+"website/scripts/extract-skills.py" = ["FURB188", "UP017"]
+"website/scripts/generate-skill-docs.py" = ["F841", "FURB188", "PLC0206"]
+
+[lint.mccabe]
+max-complexity = 20

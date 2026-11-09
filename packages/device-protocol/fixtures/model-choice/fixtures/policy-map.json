@@ -1,0 +1,57 @@
+{
+  "profile": "atum.managed-model-policy/1",
+  "policyVersion": "2026-10-17.1",
+  "defaultModel": "nguyet-thuc",
+  "models": [
+    {
+      "alias": "nguyet-thuc",
+      "displayName": "Nguyệt Thực 1.3",
+      "providerModel": "openai/gpt-6-luna",
+      "providerCanonical": "openai/gpt-6-luna-20260922",
+      "providerContextBudget": 1050000,
+      "providerOutputLimit": 128000,
+      "contextBudget": 1000000,
+      "outputBudget": 16384,
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "defaultEffort": "medium",
+      "inputUsdPerMtok": "0.20",
+      "outputUsdPerMtok": "0.75",
+      "maxTurnMicroProtons": 10317213000,
+      "supportsTools": true,
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ]
+    },
+    {
+      "alias": "nhat-thuc",
+      "displayName": "Nhật Thực 1.1",
+      "providerModel": "openai/gpt-6.1-sol",
+      "providerCanonical": "openai/gpt-6.1-sol-20260929",
+      "providerContextBudget": 1050000,
+      "providerOutputLimit": 128000,
+      "contextBudget": 120000,
+      "outputBudget": 16384,
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "defaultEffort": "medium",
+      "inputUsdPerMtok": "2.00",
+      "outputUsdPerMtok": "10.00",
+      "maxTurnMicroProtons": 19626624000,
+      "supportsTools": true,
+      "inputModalities": [
+        "file",
+        "image",
+        "text"
+      ]
+    }
+  ]
+}

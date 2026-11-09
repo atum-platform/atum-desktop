@@ -1,0 +1,51 @@
+{
+  "nowPlatform": 1800000000000,
+  "lastReadyAtPlatform": 1799999100001,
+  "epochCommittedAtPlatform": 1799998200000,
+  "localClock": 1800086400000,
+  "pendingEvents": 1,
+  "dueOccurrences": 0,
+  "homeReachable": false,
+  "homePowerState": "unknown",
+  "unreachableSincePlatform": 1799999100001,
+  "wakeAttemptedAtPlatform": null,
+  "currentLocation": {
+    "kind": "cloud"
+  },
+  "policy": {
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "revision": 2,
+    "backupEnabled": true,
+    "neverRunInCloud": false,
+    "checkpointCadenceMs": 900000,
+    "failoverDelayMs": 900000,
+    "eligibilitySweepMs": 60000,
+    "fallbackOrder": [
+      {
+        "destination": {
+          "kind": "cloud"
+        },
+        "enabled": true
+      },
+      {
+        "destination": {
+          "kind": "mac",
+          "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+        },
+        "enabled": true
+      }
+    ],
+    "returnMode": "stay_put"
+  },
+  "availableDestinations": [
+    {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    }
+  ],
+  "expect": {
+    "outcome": "stay",
+    "reason": "failover_delay_not_elapsed"
+  }
+}

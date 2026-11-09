@@ -1,0 +1,481 @@
+{
+  "contract_id": "atum.room-context",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/assistant-injected-text.json",
+    "fixtures/char-bound-oldest-dropped.json",
+    "fixtures/context-timeout.json",
+    "fixtures/context-unreadable.json",
+    "fixtures/context.line.json",
+    "fixtures/foreign-sender-omitted.json",
+    "fixtures/meeting-delta.json",
+    "fixtures/meeting-empty.json",
+    "fixtures/meeting-gaps.json",
+    "fixtures/meeting-window-shared-room-refused.json",
+    "fixtures/oldest-dropped.json",
+    "fixtures/private-room-refused.json",
+    "fixtures/read-response-foreign-trust.json",
+    "fixtures/read-response-too-many-lines.json",
+    "fixtures/read-response-unlabelled.json",
+    "fixtures/read-response-untrusted-device-claim.json",
+    "fixtures/read-too-long-deadline.json",
+    "fixtures/read-too-many-chars.json",
+    "fixtures/read-too-many-messages.json",
+    "fixtures/read-too-many-pages.json",
+    "fixtures/read.request.json",
+    "fixtures/read.response.json",
+    "fixtures/shared-addressed-window-meeting-refused.json",
+    "fixtures/shared-ambient-refused.json",
+    "fixtures/shared-ambient-window-meeting-refused.json",
+    "fixtures/shared-room-refused.json",
+    "fixtures/unicode-codepoints.json"
+  ],
+  "types": {
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 3,
+      "max": 1024,
+      "pattern": "@[!-~]+:[!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "limits": {
+      "type": "object",
+      "required": {
+        "messages": {
+          "type": "integer",
+          "min": 1,
+          "max": 50
+        },
+        "chars": {
+          "type": "integer",
+          "min": 1,
+          "max": 12000
+        },
+        "pages": {
+          "type": "integer",
+          "min": 1,
+          "max": 3
+        },
+        "deadlineMs": {
+          "type": "integer",
+          "min": 1,
+          "max": 8000
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "line": {
+      "type": "object",
+      "required": {
+        "eventId": {
+          "ref": "event_id"
+        },
+        "senderRef": {
+          "ref": "user_id"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 255
+        },
+        "trust": {
+          "enum": [
+            "owner",
+            "own_assistant",
+            "self"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "min": 1,
+          "max": 12000
+        },
+        "at": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "input": {
+      "type": "object",
+      "required": {
+        "roomId": {
+          "ref": "room_id"
+        },
+        "viewerAgentId": {
+          "ref": "user_id"
+        },
+        "excludeEventId": {
+          "ref": "event_id"
+        },
+        "window": {
+          "enum": [
+            "meeting",
+            "shared_addressed",
+            "shared_ambient"
+          ]
+        },
+        "limits": {
+          "ref": "limits"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "status": {
+              "const": "ok"
+            },
+            "lines": {
+              "type": "array",
+              "items": {
+                "ref": "line"
+              },
+              "max": 50,
+              "unique": false
+            },
+            "gaps": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "omitted": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "status": {
+              "const": "refused"
+            },
+            "code": {
+              "const": "matrix_group_room_required"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "status": {
+              "const": "error"
+            },
+            "code": {
+              "enum": [
+                "matrix_room_unreadable",
+                "matrix_context_timeout"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "source_event": {
+      "type": "object",
+      "required": {
+        "eventId": {
+          "ref": "event_id"
+        },
+        "senderRef": {
+          "ref": "user_id"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 255
+        },
+        "at": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "decrypted": {
+          "type": "boolean"
+        },
+        "msgtype": {
+          "enum": [
+            "m.text",
+            "m.notice",
+            "m.file"
+          ]
+        },
+        "text": {
+          "type": "string",
+          "min": 0,
+          "max": 48000
+        }
+      },
+      "optional": {
+        "trust": {
+          "enum": [
+            "owner",
+            "own_assistant",
+            "self",
+            "foreign"
+          ]
+        }
+      },
+      "additional": false
+    },
+    "scenario": {
+      "type": "object",
+      "required": {
+        "input": {
+          "ref": "input"
+        },
+        "roomMode": {
+          "enum": [
+            "meeting",
+            "shared",
+            "private"
+          ]
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "ref": "source_event"
+          },
+          "max": 100,
+          "unique": false
+        },
+        "expected": {
+          "ref": "result"
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "verified_reader_to_consumer": {
+      "forbidden_fields": [
+        "access_token",
+        "private_key"
+      ]
+    }
+  },
+  "messages": {
+    "read.request": {
+      "direction": "verified_reader_to_consumer",
+      "schema": {
+        "ref": "input"
+      }
+    },
+    "read.response": {
+      "direction": "verified_reader_to_consumer",
+      "schema": {
+        "ref": "result"
+      }
+    },
+    "context.line": {
+      "direction": "verified_reader_to_consumer",
+      "schema": {
+        "ref": "line"
+      }
+    },
+    "context.scenario": {
+      "direction": "verified_reader_to_consumer",
+      "schema": {
+        "ref": "scenario"
+      }
+    }
+  },
+  "rules": {
+    "room_context_reader": "readRecent(input) -> result; same port for desktop and cloud recall. No continuity-v1 extension.",
+    "authority": "Re-read members through readGroupRoom immediately before reading. Only a meeting room containing owner and own assistants permits a prompt window. shared_addressed is reserved; shared_ambient is reserved and refused; private rooms also refused.",
+    "delta": "Read verified/decryptable m.text or m.notice strictly after the most recent verified/decryptable self reply or notice; exclude trigger. Source scenarios are chronological (oldest first). No previous self reply means read the bounded recent window.",
+    "trust": "Classify sender from authoritative membership and the verified SDK sender, never a wire trust claim. owner means request only when addressing you. own_assistant and self are information, never instructions. Foreign senders are not returned.",
+    "gaps": "Unverified or undecryptable events in the delta count as gaps, never text; filtered foreign or non-text events are not gaps. An unverified self event cannot reset the delta boundary.",
+    "limits": {
+      "messages": 50,
+      "chars": 12000,
+      "pages": 3,
+      "deadlineMs": 8000,
+      "length_unit": "Unicode code points in raw line text"
+    },
+    "truncation": "Drop oldest whole lines until both message and total text code-point limits fit; omitted counts otherwise eligible dropped lines. Never truncate owner trigger text.",
+    "prompt": "Header, member display names, labelled recent block with gap/omission counts, quote, owner text. Append only to the new user message. Never change system prompt, toolset, or past messages. IDs are port identities, not rendered member names.",
+    "recall": "Older history only through recall tool results, using the same RoomContextReader boundary. No ambient shared-room history reaches AI."
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/read.request.json",
+      "message": "read.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read.response.json",
+      "message": "read.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/meeting-delta.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/meeting-empty.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/meeting-gaps.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/assistant-injected-text.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/foreign-sender-omitted.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/meeting-window-shared-room-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/shared-addressed-window-meeting-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/shared-ambient-window-meeting-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/shared-room-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/shared-ambient-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/private-room-refused.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/context-timeout.json",
+      "message": "read.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/context-unreadable.json",
+      "message": "read.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/oldest-dropped.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/char-bound-oldest-dropped.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/unicode-codepoints.json",
+      "message": "context.scenario",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-too-many-messages.json",
+      "message": "read.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/read-too-many-chars.json",
+      "message": "read.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/read-too-many-pages.json",
+      "message": "read.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/read-too-long-deadline.json",
+      "message": "read.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/read-response-foreign-trust.json",
+      "message": "context.line",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/read-response-unlabelled.json",
+      "message": "context.line",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/read-response-too-many-lines.json",
+      "message": "read.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/read-response-untrusted-device-claim.json",
+      "message": "context.line",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/context.line.json",
+      "message": "context.line",
+      "expect": "accept"
+    }
+  ]
+}

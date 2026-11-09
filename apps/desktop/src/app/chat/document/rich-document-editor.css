@@ -1,0 +1,46 @@
+.atum-rich-document-editor { background: var(--atum-canvas-backdrop, #e9e8e4); }
+.atum-rich-document-sheet { position: relative; }
+.atum-rich-document-sheet > div:first-child { min-height: inherit; }
+.atum-rich-document-sheet .ProseMirror { min-height: inherit; outline: none; white-space: pre-wrap; word-wrap: break-word; }
+.atum-rich-document-sheet .ProseMirror:focus { outline: none; box-shadow: none; }
+.atum-rich-document-sheet .ProseMirror ::selection { background: #b9d4f7; }
+.atum-rich-document-sheet .ProseMirror p { margin: 0 0 var(--document-paragraph-space, 0.6em); }
+.atum-rich-document-sheet .ProseMirror :is(h1, h2, h3, h4, h5, h6) { color: var(--document-accent); font-family: var(--document-heading-font); line-height: 1.2; margin: 1em 0 0.45em; }
+.atum-rich-document-sheet .ProseMirror h1 { font-size: var(--document-h1); }
+.atum-rich-document-sheet .ProseMirror h2 { font-size: var(--document-h2); }
+.atum-rich-document-sheet .ProseMirror h3 { font-size: var(--document-h3); }
+.atum-rich-document-sheet .ProseMirror h4 { font-size: var(--document-h4); }
+.atum-rich-document-sheet .ProseMirror h5 { font-size: var(--document-h5); }
+.atum-rich-document-sheet .ProseMirror h6 { font-size: var(--document-h6); }
+.atum-rich-document-sheet .ProseMirror blockquote { border-left: 3px solid color-mix(in srgb, var(--document-accent) 38%, transparent); color: #444; margin: 0.8em 0; padding-left: 1em; }
+.atum-rich-document-sheet .ProseMirror pre { background: #f4f3f0; border-radius: 0.25rem; font-family: var(--font-mono); font-size: 0.9em; overflow-x: auto; padding: 0.75em; }
+.atum-rich-document-sheet .ProseMirror code { font-family: var(--font-mono); }
+.atum-rich-document-sheet .ProseMirror :is(ul, ol) { margin: 0.6em 0; padding-left: 1.6em; }
+.atum-rich-document-sheet .ProseMirror ul { list-style: disc; }
+.atum-rich-document-sheet .ProseMirror ol { list-style: decimal; }
+.atum-rich-document-sheet .ProseMirror li > p { margin-bottom: 0.25em; }
+.atum-rich-document-sheet .ProseMirror :is(th, td) { position: relative; }
+.atum-rich-document-sheet .ProseMirror [data-align="left"] { text-align: left; }
+.atum-rich-document-sheet .ProseMirror [data-align="center"] { text-align: center; }
+.atum-rich-document-sheet .ProseMirror [data-align="right"] { text-align: right; }
+.atum-rich-document-sheet .ProseMirror table { border-collapse: collapse; margin: 0.8em 0; table-layout: fixed; width: 100%; }
+.atum-rich-document-sheet .ProseMirror :is(th, td) { border: 1px solid #d4d1ca; min-width: 4em; padding: 0.4em 0.55em; vertical-align: top; }
+.atum-rich-document-sheet .ProseMirror th { background: #f4f3f0; font-weight: 600; }
+.atum-rich-document-sheet .ProseMirror .selectedCell::after { background: color-mix(in srgb, #b9d4f7 62%, transparent); content: ''; inset: 0; pointer-events: none; position: absolute; }
+.atum-rich-document-sheet .ProseMirror a { color: var(--document-accent); text-decoration: underline; }
+.atum-rich-document-refused { color: #555; margin: 0; }
+.atum-rich-document-sheet[data-unavailable] .ProseMirror { cursor: not-allowed; opacity: 0.58; }
+@media (forced-colors: active) {
+  .atum-rich-document-editor { background: Canvas; }
+  .atum-rich-document-sheet { background: Canvas !important; box-shadow: none !important; color: CanvasText !important; }
+  .atum-rich-document-sheet .ProseMirror :is(h1, h2, h3, h4, h5, h6) { color: CanvasText; }
+  .atum-rich-document-sheet .ProseMirror a { color: LinkText; }
+  .atum-rich-document-sheet .ProseMirror ::selection { background: Highlight; color: HighlightText; }
+}
+
+.atum-rich-document-sheet .document-search-match { background: color-mix(in srgb, var(--document-accent) 16%, transparent); }
+.atum-rich-document-sheet .document-search-current { outline: 1px solid var(--document-accent); background: color-mix(in srgb, var(--document-accent) 28%, transparent); }
+@media (forced-colors: active) {
+  .atum-rich-document-sheet .document-search-match { background: Mark; color: MarkText; }
+  .atum-rich-document-sheet .document-search-current { outline: 2px solid Highlight; }
+}

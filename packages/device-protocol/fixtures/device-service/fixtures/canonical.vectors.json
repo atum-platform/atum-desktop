@@ -1,0 +1,104 @@
+{
+  "vectors": [
+    {
+      "name": "scalars",
+      "inputJson": "[null,true,false,0,-1,9007199254740991,-9007199254740991,\"\"]",
+      "result": "ok",
+      "canonical": "[null,true,false,0,-1,9007199254740991,-9007199254740991,\"\"]",
+      "sha256": "0320a685ca423edaeccd905bd565c8013c7155a7c3a1f165b695869bc2e647c5"
+    },
+    {
+      "name": "sorted keys, nested",
+      "inputJson": "{\"b\":{\"z\":1,\"a\":[3,2,1]},\"a\":{},\"c\":[]}",
+      "result": "ok",
+      "canonical": "{\"a\":{},\"b\":{\"a\":[3,2,1],\"z\":1},\"c\":[]}",
+      "sha256": "e4b96dcb78b879fce674ce3a155a81421d30387cbf19bf2491ee11799775c7cf"
+    },
+    {
+      "name": "no whitespace survives",
+      "inputJson": " { \"k\" : [ 1 , 2 ] , \"j\" : \"v\" } ",
+      "result": "ok",
+      "canonical": "{\"j\":\"v\",\"k\":[1,2]}",
+      "sha256": "4812b35e65339fa48fcda7f5d1838f9e199daf6277b933f52075744dd5ef8a22"
+    },
+    {
+      "name": "string escapes as JSON.stringify",
+      "inputJson": "{\"s\":\"quote\\\" backslash\\\\ slash/ nl\\n tab\\t cr\\r bs\\b ff\\f nul\\u0000 us\\u001f del\\u007f ls\\u2028 ps\\u2029\"}",
+      "result": "ok",
+      "canonical": "{\"s\":\"quote\\\" backslash\\\\ slash/ nl\\n tab\\t cr\\r bs\\b ff\\f nul\\u0000 us\\u001f del ls  ps \"}",
+      "sha256": "8a3dc4fc16e2c7c8c019c9a9c353ef3b6bf9cec053fa1edf37401b610f3f9fe8"
+    },
+    {
+      "name": "non-ASCII stays raw UTF-8",
+      "inputJson": "{\"vi\":\"Tiếng Việt\",\"zh\":\"中文\",\"emoji\":\"\\ud83d\\ude00\"}",
+      "result": "ok",
+      "canonical": "{\"emoji\":\"😀\",\"vi\":\"Tiếng Việt\",\"zh\":\"中文\"}",
+      "sha256": "0da5683b1a6893658bfd8f592a252b74275b27530b6d0090dcd33163e17eed59"
+    },
+    {
+      "name": "strings are NFC-normalized",
+      "inputJson": "{\"decomposed\":\"Vie\\u0323\\u0302t\",\"composed\":\"Việt\"}",
+      "result": "ok",
+      "canonical": "{\"composed\":\"Việt\",\"decomposed\":\"Việt\"}",
+      "sha256": "e7029de2a815bac88e7f55c6361205adc498802aa54b4b89091b04bf437a3b57"
+    },
+    {
+      "name": "keys are NFC-normalized",
+      "inputJson": "{\"cafe\\u0301\":1}",
+      "result": "ok",
+      "canonical": "{\"café\":1}",
+      "sha256": "4ba6f859a6604763e30e1afc74dd00bf3b245be58d902b5d1ae0eaa119e8a141"
+    },
+    {
+      "name": "keys sort by UTF-16 code unit, not code point",
+      "inputJson": "{\"\\uff61\":1,\"\\ud83d\\ude00\":2,\"z\":3,\"Z\":4,\"\\u00e9\":5}",
+      "result": "ok",
+      "canonical": "{\"Z\":4,\"z\":3,\"é\":5,\"😀\":2,\"｡\":1}",
+      "sha256": "dec1505bc7aa49ead55c7ee8e32a66c015f0d5013c4403d6a0a79cd852edbf6f"
+    },
+    {
+      "name": "integer-valued number tokens are integers",
+      "inputJson": "{\"a\":1.0,\"b\":1e3,\"c\":-0,\"d\":0.5e1}",
+      "result": "ok",
+      "canonical": "{\"a\":1,\"b\":1000,\"c\":0,\"d\":5}",
+      "sha256": "826a24e45924df97aa4df76c0fa95ac57cf48f908c9954f4ec4e11fc1e5e4e9f"
+    },
+    {
+      "name": "digest-v2 content example",
+      "inputJson": "{\"msgtype\":\"m.text\",\"body\":\"Make hello.txt\",\"m.mentions\":{\"user_ids\":[\"@synthetic-user-0011:example.invalid\"]}}",
+      "result": "ok",
+      "canonical": "{\"body\":\"Make hello.txt\",\"m.mentions\":{\"user_ids\":[\"@synthetic-user-0011:example.invalid\"]},\"msgtype\":\"m.text\"}",
+      "sha256": "6a86910ed92a72b8fec2016304c93ff369cbd7fce01a4dbce423f97794b5b436"
+    },
+    {
+      "name": "fraction",
+      "inputJson": "{\"a\":1.5}",
+      "result": "error",
+      "error": "unsafe_number"
+    },
+    {
+      "name": "beyond safe integer",
+      "inputJson": "{\"a\":9007199254740992}",
+      "result": "error",
+      "error": "unsafe_number"
+    },
+    {
+      "name": "lone surrogate in a string",
+      "inputJson": "{\"a\":\"\\ud800\"}",
+      "result": "error",
+      "error": "not_scalar_value"
+    },
+    {
+      "name": "lone surrogate in a key",
+      "inputJson": "{\"\\udc00\":1}",
+      "result": "error",
+      "error": "not_scalar_value"
+    },
+    {
+      "name": "keys collide after NFC",
+      "inputJson": "{\"e\\u0301\":1,\"\\u00e9\":2}",
+      "result": "error",
+      "error": "nfc_key_collision"
+    }
+  ]
+}

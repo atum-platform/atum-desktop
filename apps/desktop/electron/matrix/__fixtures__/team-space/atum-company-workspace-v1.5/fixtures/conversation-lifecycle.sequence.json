@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "provisioning",
+      "to": "active",
+      "event": "provision"
+    },
+    {
+      "from": "active",
+      "to": "read_only",
+      "event": "participant_removed"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "model": "glm-5.2",
+  "messages": [
+    {
+      "role": "user",
+      "content": "synthetic turn"
+    }
+  ],
+  "stream": false,
+  "provider": "opencode_go"
+}

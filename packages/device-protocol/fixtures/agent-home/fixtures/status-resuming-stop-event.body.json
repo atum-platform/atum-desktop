@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "kind": "status",
+  "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+  "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+  "statusCode": "resuming_on_device",
+  "devices": [
+    "Mac mini"
+  ],
+  "stopEvent": "$atum-followup-00000000-0000-4000-8000-f9b799160fa7.00000000-0000-4000-8000-f4d4f0609b55"
+}

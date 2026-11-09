@@ -1,0 +1,887 @@
+{
+  "contract_id": "atum.agent-sources",
+  "version": 1,
+  "status": "frozen",
+  "protocol_release": "0.7.56",
+  "row": "Owner 2026-10-29: private, default-on agent source descriptors compose with existing live grants; unknown IDs and kinds remain valid",
+  "parameters": {
+    "maximum_sources": 64,
+    "maximum_source_id_characters": 160,
+    "maximum_cursor_bytes": 2048,
+    "maximum_cursor_map_bytes": 65536,
+    "maximum_descriptor_bytes": 65536,
+    "maximum_tags_per_list": 16,
+    "maximum_tag_bytes": 64,
+    "maximum_complete_route_bytes": 262144
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "sha256": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "positive": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "timestamp": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "source_id": {
+      "type": "string",
+      "min": 1,
+      "max": 160,
+      "pattern": "[a-z0-9][a-z0-9._:-]*",
+      "notValues": [
+        "__proto__",
+        "constructor",
+        "prototype"
+      ]
+    },
+    "reference": {
+      "type": "string",
+      "min": 1,
+      "max": 256,
+      "pattern": "[A-Za-z0-9][A-Za-z0-9._:/-]*"
+    },
+    "operation_ref": {
+      "type": "string",
+      "min": 1,
+      "max": 256,
+      "pattern": "[A-Za-z0-9][A-Za-z0-9._:/-]*"
+    },
+    "tag": {
+      "type": "string",
+      "min": 1,
+      "max": 64,
+      "pattern": "[a-z0-9][a-z0-9._:-]*"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "ref": "tag"
+      },
+      "min": 0,
+      "max": 16,
+      "unique": true
+    },
+    "cursor": {
+      "type": "string",
+      "min": 1,
+      "max": 2048,
+      "pattern": "[ -~]+"
+    },
+    "cursors": {
+      "type": "object",
+      "required": {},
+      "optional": {},
+      "additional": {
+        "ref": "cursor"
+      },
+      "additionalKeys": {
+        "ref": "source_id"
+      },
+      "maxProperties": 64,
+      "maxEncodedBytes": 65536
+    },
+    "binding": {
+      "type": "object",
+      "required": {
+        "connectionRef": {
+          "ref": "reference"
+        },
+        "scopeRef": {
+          "ref": "reference"
+        },
+        "descriptorRevision": {
+          "ref": "positive"
+        },
+        "authorityRevision": {
+          "ref": "positive"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "read_capability": {
+      "type": "object",
+      "required": {
+        "operationRef": {
+          "ref": "operation_ref"
+        },
+        "backgroundSafe": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "scan_recipe": {
+      "type": "object",
+      "required": {
+        "operationRef": {
+          "ref": "operation_ref"
+        },
+        "cursorSemantics": {
+          "type": "string",
+          "min": 1,
+          "max": 64,
+          "pattern": "[a-z0-9][a-z0-9._:-]*"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "descriptor": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "source_id"
+        },
+        "kind": {
+          "type": "string",
+          "min": 1,
+          "max": 160,
+          "pattern": "[a-z0-9][a-z0-9._:-]*"
+        },
+        "connectionRef": {
+          "ref": "reference"
+        },
+        "optOutGate": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "min": 1,
+              "max": 64,
+              "pattern": "[a-z][a-z0-9_]*"
+            }
+          ]
+        },
+        "revision": {
+          "ref": "positive"
+        },
+        "scopeRef": {
+          "ref": "reference"
+        },
+        "readCapabilities": {
+          "type": "array",
+          "items": {
+            "ref": "read_capability"
+          },
+          "min": 1,
+          "max": 32,
+          "unique": true
+        },
+        "scan": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "ref": "scan_recipe"
+            }
+          ]
+        },
+        "provenanceTags": {
+          "ref": "tags"
+        },
+        "policyTags": {
+          "ref": "tags"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "descriptors": {
+      "type": "array",
+      "items": {
+        "ref": "descriptor"
+      },
+      "min": 0,
+      "max": 64,
+      "maxEncodedBytes": 65536
+    },
+    "registration": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sources/1"
+        },
+        "integrationRef": {
+          "ref": "reference"
+        },
+        "integrationRevision": {
+          "ref": "positive"
+        },
+        "sources": {
+          "ref": "descriptors"
+        }
+      },
+      "optional": {},
+      "additional": false,
+      "maxEncodedBytes": 262144
+    },
+    "access_entry": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "descriptor": {
+              "ref": "descriptor"
+            },
+            "availability": {
+              "const": "available"
+            },
+            "backgroundEligibility": {
+              "enum": [
+                "eligible",
+                "no_scan_recipe",
+                "operation_not_background_safe",
+                "operation_unresolved",
+                "policy_unsupported"
+              ]
+            },
+            "binding": {
+              "ref": "binding"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "descriptor": {
+              "ref": "descriptor"
+            },
+            "availability": {
+              "enum": [
+                "not_configured",
+                "not_authorized",
+                "unavailable"
+              ]
+            },
+            "backgroundEligibility": {
+              "enum": [
+                "no_scan_recipe",
+                "operation_not_background_safe",
+                "operation_unresolved",
+                "policy_unsupported"
+              ]
+            },
+            "binding": {
+              "type": "null"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "access_snapshot": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sources/1"
+        },
+        "snapshotRevision": {
+          "ref": "positive"
+        },
+        "snapshotDigest": {
+          "ref": "sha256"
+        },
+        "generatedAt": {
+          "ref": "timestamp"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "ref": "access_entry"
+          },
+          "min": 0,
+          "max": 64,
+          "maxEncodedBytes": 65536
+        }
+      },
+      "optional": {},
+      "additional": false,
+      "maxEncodedBytes": 262144
+    },
+    "read_request": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sources/1"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "sourceId": {
+          "ref": "source_id"
+        },
+        "operationRef": {
+          "ref": "operation_ref"
+        },
+        "mode": {
+          "enum": [
+            "interactive",
+            "background"
+          ]
+        },
+        "binding": {
+          "ref": "binding"
+        }
+      },
+      "optional": {
+        "cursor": {
+          "ref": "cursor"
+        }
+      },
+      "additional": false,
+      "maxEncodedBytes": 262144
+    },
+    "evidence": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.followup-sweep-evidence/2"
+        },
+        "evidenceId": {
+          "type": "string",
+          "min": 6,
+          "max": 256,
+          "pattern": "src:[A-Za-z0-9_-]+"
+        },
+        "sourceId": {
+          "ref": "source_id"
+        },
+        "observedAt": {
+          "ref": "timestamp"
+        },
+        "objectRef": {
+          "type": "string",
+          "min": 1,
+          "max": 512,
+          "pattern": "[ -~]+"
+        },
+        "anchor": {
+          "type": "string",
+          "min": 1,
+          "max": 512,
+          "pattern": "[ -~]+"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "ref": "timestamp"
+            }
+          ]
+        },
+        "content": {
+          "type": "string",
+          "min": 1,
+          "max": 8000
+        },
+        "provenanceTags": {
+          "ref": "tags"
+        },
+        "policyTags": {
+          "ref": "tags"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "read_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-sources/1"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "sourceId": {
+              "ref": "source_id"
+            },
+            "binding": {
+              "ref": "binding"
+            },
+            "status": {
+              "const": "ok"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "ref": "evidence"
+              },
+              "min": 0,
+              "max": 64,
+              "unique": true
+            }
+          },
+          "optional": {
+            "cursor": {
+              "ref": "cursor"
+            }
+          },
+          "additional": false,
+          "maxEncodedBytes": 262144
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-sources/1"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "sourceId": {
+              "ref": "source_id"
+            },
+            "binding": {
+              "ref": "binding"
+            },
+            "status": {
+              "const": "partial"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "ref": "evidence"
+              },
+              "min": 1,
+              "max": 64,
+              "unique": true
+            }
+          },
+          "optional": {
+            "cursor": {
+              "ref": "cursor"
+            }
+          },
+          "additional": false,
+          "maxEncodedBytes": 262144
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-sources/1"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "sourceId": {
+              "ref": "source_id"
+            },
+            "binding": {
+              "ref": "binding"
+            },
+            "status": {
+              "enum": [
+                "not_configured",
+                "not_authorized",
+                "unavailable",
+                "failed",
+                "budget_skipped"
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "ref": "evidence"
+              },
+              "min": 0,
+              "max": 0
+            }
+          },
+          "optional": {},
+          "additional": false,
+          "maxEncodedBytes": 262144
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-sources/1"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "sourceId": {
+              "ref": "source_id"
+            },
+            "binding": {
+              "ref": "binding"
+            },
+            "status": {
+              "const": "policy_unsupported"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "ref": "evidence"
+              },
+              "min": 0,
+              "max": 0
+            },
+            "unsupportedPolicyTags": {
+              "type": "array",
+              "items": {
+                "ref": "tag"
+              },
+              "min": 1,
+              "max": 16,
+              "unique": true
+            }
+          },
+          "optional": {},
+          "additional": false,
+          "maxEncodedBytes": 262144
+        }
+      ]
+    },
+    "cursor_binding_decision": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-sources/1"
+        },
+        "sourceId": {
+          "ref": "source_id"
+        },
+        "storedCursor": {
+          "ref": "cursor"
+        },
+        "storedBinding": {
+          "ref": "binding"
+        },
+        "currentBinding": {
+          "ref": "binding"
+        },
+        "decision": {
+          "enum": [
+            "reuse",
+            "reset"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "tagged_derivation": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.followup-sweep-evidence/2"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "min": 6,
+            "max": 256,
+            "pattern": "src:[A-Za-z0-9_-]+"
+          },
+          "min": 1,
+          "max": 64,
+          "unique": true
+        },
+        "sourceIds": {
+          "type": "array",
+          "items": {
+            "ref": "source_id"
+          },
+          "min": 1,
+          "max": 64,
+          "unique": true
+        },
+        "provenanceTags": {
+          "ref": "tags"
+        },
+        "policyTags": {
+          "ref": "tags"
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "integration_to_host": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    },
+    "host_to_runtime": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    },
+    "provider_to_host": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    },
+    "host_internal": {
+      "forbidden_fields": [
+        "*credential*",
+        "*password*",
+        "*secret*",
+        "*token*"
+      ]
+    }
+  },
+  "messages": {
+    "integration.registration": {
+      "direction": "integration_to_host",
+      "schema": {
+        "ref": "registration"
+      }
+    },
+    "access.snapshot": {
+      "direction": "host_to_runtime",
+      "schema": {
+        "ref": "access_snapshot"
+      }
+    },
+    "read.request": {
+      "direction": "host_internal",
+      "schema": {
+        "ref": "read_request"
+      }
+    },
+    "read.result": {
+      "direction": "provider_to_host",
+      "schema": {
+        "ref": "read_result"
+      }
+    },
+    "cursor.map": {
+      "direction": "host_internal",
+      "schema": {
+        "ref": "cursors"
+      }
+    },
+    "cursor.binding-decision": {
+      "direction": "host_internal",
+      "schema": {
+        "ref": "cursor_binding_decision"
+      }
+    },
+    "derived.output": {
+      "direction": "host_internal",
+      "schema": {
+        "ref": "tagged_derivation"
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "registration.sources_sorted_unique",
+      "message": "integration.registration",
+      "op": "sorted_unique",
+      "left": "sources",
+      "element": "id",
+      "required": true
+    },
+    {
+      "id": "access.sources_sorted_unique",
+      "message": "access.snapshot",
+      "op": "sorted_unique",
+      "left": "sources",
+      "element": "descriptor.id",
+      "required": true
+    },
+    {
+      "id": "read.evidence_same_source",
+      "message": "read.result",
+      "op": "all_same",
+      "left": "evidence",
+      "element": "sourceId",
+      "right": "sourceId"
+    },
+    {
+      "id": "derived.evidence_sorted_unique",
+      "message": "derived.output",
+      "op": "sorted_unique",
+      "left": "evidenceIds",
+      "required": true
+    },
+    {
+      "id": "derived.sources_sorted_unique",
+      "message": "derived.output",
+      "op": "sorted_unique",
+      "left": "sourceIds",
+      "required": true
+    }
+  ],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/access-snapshot.json",
+      "message": "access.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/cursor-binding-reset.json",
+      "message": "cursor.binding-decision",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/cursor-map-64.json",
+      "message": "cursor.map",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/cursor-map-65-rejected.json",
+      "message": "cursor.map",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/cursor-map-oversize-rejected.json",
+      "message": "cursor.map",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/cursor-oversize-rejected.json",
+      "message": "cursor.map",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/cursor-prototype-key-rejected.json",
+      "message": "cursor.map",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/derived-output-tags.json",
+      "message": "derived.output",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-request-unknown.json",
+      "message": "read.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-result-empty-success.json",
+      "message": "read.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-result-failed.json",
+      "message": "read.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-result-partial.json",
+      "message": "read.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-result-policy-unsupported.json",
+      "message": "read.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/read-result-unknown-ok.json",
+      "message": "read.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/registration-64-sources.json",
+      "message": "integration.registration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/registration-65-sources-rejected.json",
+      "message": "integration.registration",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/registration-descriptors-oversize-rejected.json",
+      "message": "integration.registration",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/registration-duplicate-source.json",
+      "message": "integration.registration",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/registration-known.json",
+      "message": "integration.registration",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/registration-secret-rejected.json",
+      "message": "integration.registration",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/registration-unknown-source-kind.json",
+      "message": "integration.registration",
+      "expect": "accept"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/access-snapshot.json",
+    "fixtures/cursor-binding-reset.json",
+    "fixtures/cursor-map-64.json",
+    "fixtures/cursor-map-65-rejected.json",
+    "fixtures/cursor-map-oversize-rejected.json",
+    "fixtures/cursor-oversize-rejected.json",
+    "fixtures/cursor-prototype-key-rejected.json",
+    "fixtures/derived-output-tags.json",
+    "fixtures/read-request-unknown.json",
+    "fixtures/read-result-empty-success.json",
+    "fixtures/read-result-failed.json",
+    "fixtures/read-result-partial.json",
+    "fixtures/read-result-policy-unsupported.json",
+    "fixtures/read-result-unknown-ok.json",
+    "fixtures/registration-64-sources.json",
+    "fixtures/registration-65-sources-rejected.json",
+    "fixtures/registration-descriptors-oversize-rejected.json",
+    "fixtures/registration-duplicate-source.json",
+    "fixtures/registration-known.json",
+    "fixtures/registration-secret-rejected.json",
+    "fixtures/registration-unknown-source-kind.json"
+  ]
+}

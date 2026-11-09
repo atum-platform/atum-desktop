@@ -1,0 +1,1284 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.3",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/admin-snapshot-no-owner.response.json",
+    "fixtures/admin-snapshot-schema-2.response.json",
+    "fixtures/admin-snapshot.response.json",
+    "fixtures/capabilities-active.response.json",
+    "fixtures/capabilities-extra.response.json",
+    "fixtures/error-invitation-unavailable.response.json",
+    "fixtures/error-owner-transfer.response.json",
+    "fixtures/error-unknown-reason.response.json",
+    "fixtures/invitation-accept.sequence.json",
+    "fixtures/invitation-admin-cancel.request.json",
+    "fixtures/invitation-cancel.sequence.json",
+    "fixtures/invitation-create-guest.request.json",
+    "fixtures/invitation-create.request.json",
+    "fixtures/invitation-create.response.json",
+    "fixtures/invitation-decline.sequence.json",
+    "fixtures/invitation-expire.sequence.json",
+    "fixtures/invitation-mutation-declined.response.json",
+    "fixtures/invitation-resend-same-id.response.json",
+    "fixtures/invitation-resend.request.json",
+    "fixtures/invitation-resend.response.json",
+    "fixtures/invitation-resend.sequence.json",
+    "fixtures/invitation-self-cancel.request.json",
+    "fixtures/invitation-self-decline.request.json",
+    "fixtures/invitation-terminal-reopen.sequence.json",
+    "fixtures/legacy-generation-conflict.response.json",
+    "fixtures/legacy-owner-transfer-required.response.json",
+    "fixtures/owner-leave-vs-transfer.sequence.json",
+    "fixtures/ownership-transfer-missing-generation.request.json",
+    "fixtures/ownership-transfer-replay.response.json",
+    "fixtures/ownership-transfer.request.json",
+    "fixtures/ownership-transfer.response.json",
+    "fixtures/policy-update.request.json",
+    "fixtures/policy-update.response.json",
+    "fixtures/removal-vs-role-change.sequence.json",
+    "fixtures/role-change-owner.request.json",
+    "fixtures/role-change-vs-removal.sequence.json",
+    "fixtures/role-change.request.json",
+    "fixtures/role-change.response.json",
+    "fixtures/transfer-vs-owner-leave.sequence.json"
+  ],
+  "row": "C1 Team administration: single owner, roles, invitation attempts, capabilities and audit",
+  "providers": [
+    "Atum platform company authority and Shell native routes"
+  ],
+  "consumers": [
+    "Atum desktop Team Space",
+    "Atum phone Team Space",
+    "hosted room controller capability gate"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.2",
+    "path": "spec/company-workspace/v1.2",
+    "kind": "pack",
+    "sha256": "0fc711022a043c94594390092a9579b41cc2ee420a798efcb7e515487ff58e7c",
+    "rule": "additive minor version; 1.1 schema 2 and 1.2 schema 3 messages remain byte-identical; only 1.3 messages use schema 4"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.3",
+    "accepted_values": {
+      "1": "v1 byte-identical",
+      "1.1": "v1.1 byte-identical",
+      "1.2": "v1.2 byte-identical",
+      "1.3": "v1.2 plus C1 messages"
+    },
+    "absent": "v1 byte-identical",
+    "unknown_value": "400 matrix_400, no effect",
+    "vary": "Atum-Company-Wire",
+    "cache": "no-store",
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1": 1,
+      "v1_1": 2,
+      "v1_2": 3,
+      "v1_3": 4,
+      "scope": "new C1 messages only"
+    }
+  },
+  "authority": {
+    "owner": "exactly one active human owner in every nonempty company; old wires project owner as admin",
+    "transfer": "atomic under target-person quota then company lock; target active human; former owner stays admin; authority generation and audit advance",
+    "admin_boundary": "admins cannot alter owner or another admin; owner-only admin promotion/demotion; rank never grants private audience",
+    "admission_epoch": "stable memberRef plus a monotonically increasing internal admission epoch; readmission restores no restricted grant",
+    "locks": "accept/create with reserved capacity, ownership transfer and role change acquire target-person quota then company, then invitation/link where applicable"
+  },
+  "invitations": {
+    "expiry_seconds": 604800,
+    "machine": "pending to accepted, declined, cancelled, expired or superseded",
+    "resend": "fresh invitation id and expiry; old pending attempt becomes superseded; replay returns same replacement",
+    "enforcement": "expiry checked on reads and acceptance; sweeper is cleanup only; legacy routes use current terminal checks",
+    "migration": "an existing pending invitation without expiresAt receives expiresAt = migration time + 604800 seconds",
+    "email": "not supported until a verified-email assertion contract exists; use handle or copy invite link"
+  },
+  "capabilities": {
+    "authenticated": true,
+    "mutation_rule": "clients never downgrade and retry a mutation after an ambiguous result",
+    "activation": "feature support, tenant activation and room-controller readiness are distinct fields"
+  },
+  "replay": {
+    "scope": "(actor, requestId)",
+    "changed_input": "409 and no effect",
+    "cross_actor": "409 and no stored receipt disclosure",
+    "reauthorization": "current privilege rechecked except narrow self receipts: a former owner may replay their own completed ownership transfer and an invitee may confirm their own accept/decline",
+    "removal": "replay never revives membership or a terminal invitation"
+  },
+  "policy_update": {
+    "authority": "owner or active admin per Decision 3",
+    "generation": "expectedAuthorityGeneration is required; success advances authorityGeneration",
+    "replay": "(actor, requestId), immutable policy input and current authority",
+    "effect": "channelCreation members (default) or admins_only affects future channel creation only; existing channels and admissions are unchanged",
+    "audit": "record actor, old/new policy and generations without message content or credentials"
+  },
+  "authority_generation": {
+    "bumps": [
+      "membership admission/revocation commit",
+      "role change",
+      "ownership transfer",
+      "policy update"
+    ],
+    "stable": [
+      "invitation create",
+      "decline",
+      "cancel",
+      "expire",
+      "resend until membership acceptance"
+    ],
+    "invitee_projection": "invitation responses do not expose company authorityGeneration to an invitee; admin-only mutation responses may carry it"
+  },
+  "audience": {
+    "member": "own role/policy and own invitations",
+    "admin": "authorized roster and invitation history",
+    "owner": "admin audience plus owner-only controls",
+    "invitee": "own attempt plus bounded inviter/company projection",
+    "outsider": "nothing; guessed ids normalize"
+  },
+  "audit": {
+    "events": [
+      "membership",
+      "role",
+      "ownership",
+      "policy",
+      "invitation"
+    ],
+    "excludes": [
+      "message content",
+      "bearer tokens",
+      "email address",
+      "Matrix credentials",
+      "provider errors"
+    ]
+  },
+  "compatibility": {
+    "old_owner_projection": "owner is admin",
+    "old_invitation_projection": "pending attempt only",
+    "shared_enforcement": "legacy routes cannot remove owner, accept terminal attempt, or grant admin by ordinary admin",
+    "error_mapping": {
+      "owner_transfer_required": "1.1/1.2 last_admin body",
+      "owner_generation_conflict": "plain matrix_409",
+      "role_change_forbidden": "plain matrix_409",
+      "invitation_terminal": "plain matrix_409",
+      "owner_target_unavailable": "plain matrix_404"
+    },
+    "unchanged_schema_versions": {
+      "1.1": 2,
+      "1.2": 3
+    }
+  },
+  "error_codes": [
+    "owner_transfer_required",
+    "owner_generation_conflict",
+    "role_change_forbidden",
+    "owner_target_unavailable",
+    "invitation_unavailable",
+    "invitation_terminal",
+    "invitation_expired",
+    "invitation_changed_input"
+  ],
+  "invariants": [
+    {
+      "id": "admin_snapshot.exactly_one_active_owner",
+      "message": "admin.snapshot.response",
+      "op": "count_match",
+      "left": "members",
+      "match": {
+        "role": "owner",
+        "state": "active"
+      },
+      "count": 1,
+      "required": true
+    },
+    {
+      "id": "invitation_resend.fresh_id",
+      "message": "invitation-resend.response",
+      "op": "not_same",
+      "left": "superseded.id",
+      "right": "replacement.id",
+      "required": true
+    }
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "handle": {
+      "type": "string",
+      "min": 3,
+      "max": 32,
+      "pattern": "[a-z][a-z0-9_]{2,31}"
+    },
+    "handle_input": {
+      "type": "string",
+      "min": 3,
+      "max": 33,
+      "pattern": "@?[A-Za-z][A-Za-z0-9_]{2,31}"
+    },
+    "text120": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "role": {
+      "enum": [
+        "owner",
+        "admin",
+        "member"
+      ]
+    },
+    "assignable_role": {
+      "enum": [
+        "admin",
+        "member"
+      ]
+    },
+    "member_state": {
+      "enum": [
+        "active",
+        "revoking",
+        "removed"
+      ]
+    },
+    "invitation_state": {
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired",
+        "superseded"
+      ]
+    },
+    "inviter": {
+      "type": "object",
+      "required": {
+        "handle": {
+          "anyOf": [
+            {
+              "ref": "handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "ref": "text120"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": {
+        "channelCreation": {
+          "enum": [
+            "members",
+            "admins_only"
+          ]
+        }
+      }
+    },
+    "activation": {
+      "enum": [
+        "inactive",
+        "active"
+      ]
+    },
+    "capabilities_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "wireVersion": {
+          "const": "1.3"
+        },
+        "supportedWireVersions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "1",
+              "1.1",
+              "1.2",
+              "1.3",
+              "1.4",
+              "1.5"
+            ]
+          },
+          "min": 4,
+          "max": 6,
+          "unique": true
+        },
+        "features": {
+          "type": "object",
+          "required": {
+            "ownership": {
+              "const": true
+            },
+            "invitationLifecycle": {
+              "const": true
+            },
+            "capabilityDiscovery": {
+              "const": true
+            },
+            "channelAdmission": {
+              "type": "boolean"
+            },
+            "companyConversations": {
+              "type": "boolean"
+            }
+          }
+        },
+        "activation": {
+          "type": "object",
+          "required": {
+            "teamAdmin": {
+              "ref": "activation"
+            },
+            "channelAdmission": {
+              "ref": "activation"
+            },
+            "companyConversations": {
+              "ref": "activation"
+            }
+          }
+        },
+        "controller": {
+          "type": "object",
+          "required": {
+            "roomReconciliation": {
+              "enum": [
+                "not_ready",
+                "ready"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "member": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "role": {
+          "ref": "role"
+        },
+        "state": {
+          "ref": "member_state"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "invitation": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "targetHandle": {
+          "ref": "handle"
+        },
+        "role": {
+          "ref": "assignable_role"
+        },
+        "state": {
+          "ref": "invitation_state"
+        },
+        "createdAt": {
+          "ref": "epoch"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "inviter": {
+          "ref": "inviter"
+        }
+      },
+      "optional": {
+        "supersededByInvitationId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "admin_snapshot": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "company": {
+          "type": "object",
+          "required": {
+            "id": {
+              "ref": "uuid"
+            },
+            "displayName": {
+              "ref": "text120"
+            },
+            "role": {
+              "ref": "role"
+            },
+            "ownerMemberRef": {
+              "ref": "member_ref"
+            },
+            "authorityGeneration": {
+              "ref": "generation"
+            },
+            "policy": {
+              "ref": "policy"
+            }
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "ref": "member"
+          },
+          "min": 1,
+          "max": 100,
+          "unique": true
+        },
+        "invitations": {
+          "type": "array",
+          "items": {
+            "ref": "invitation"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "role_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "role": {
+          "ref": "assignable_role"
+        },
+        "expectedAuthorityGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "role_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "role": {
+          "ref": "assignable_role"
+        },
+        "ownerMemberRef": {
+          "ref": "member_ref"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "transfer_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "targetMemberRef": {
+          "ref": "member_ref"
+        },
+        "expectedAuthorityGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "transfer_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "previousOwnerMemberRef": {
+          "ref": "member_ref"
+        },
+        "ownerMemberRef": {
+          "ref": "member_ref"
+        },
+        "previousOwnerRole": {
+          "const": "admin"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "policy_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "policy": {
+          "ref": "policy"
+        },
+        "expectedAuthorityGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "policy_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "policy": {
+          "ref": "policy"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "invitation_create_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "memberHandle": {
+          "ref": "handle_input"
+        },
+        "role": {
+          "ref": "assignable_role"
+        }
+      }
+    },
+    "invitation_create_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "invitation": {
+          "ref": "invitation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "invitation_self_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "action": {
+          "enum": [
+            "accept",
+            "decline"
+          ]
+        }
+      }
+    },
+    "invitation_admin_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "action": {
+          "const": "cancel"
+        }
+      }
+    },
+    "invitation_mutation_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "invitation": {
+          "ref": "invitation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "invitation_resend_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "invitation_resend_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 4
+        },
+        "superseded": {
+          "ref": "invitation"
+        },
+        "replacement": {
+          "ref": "invitation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_400",
+            "matrix_401",
+            "matrix_403",
+            "matrix_404",
+            "matrix_409",
+            "matrix_429",
+            "matrix_503"
+          ]
+        }
+      }
+    },
+    "error_conflict": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_409"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "owner_transfer_required",
+                "owner_generation_conflict",
+                "role_change_forbidden",
+                "invitation_terminal",
+                "invitation_expired",
+                "invitation_changed_input"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_unavailable": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_404"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "owner_target_unavailable",
+                "invitation_unavailable"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_response": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "ref": "error_conflict"
+        },
+        {
+          "ref": "error_unavailable"
+        }
+      ]
+    },
+    "legacy_error": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "type": "object",
+          "required": {
+            "error": {
+              "const": "matrix_409"
+            },
+            "details": {
+              "type": "object",
+              "required": {
+                "reason": {
+                  "const": "last_admin"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "invitation_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "invitation_state"
+        },
+        "to": {
+          "ref": "invitation_state"
+        },
+        "event": {
+          "enum": [
+            "accept",
+            "decline",
+            "cancel",
+            "expire",
+            "resend"
+          ]
+        }
+      }
+    },
+    "invitation_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "invitation_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_3": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "*principal*",
+        "owner*",
+        "actor*",
+        "*email*",
+        "userId",
+        "mxid",
+        "roomId",
+        "controller*"
+      ]
+    },
+    "platform_to_native_v1_3": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "*principal*",
+        "*email*",
+        "*token*",
+        "userId",
+        "mxid",
+        "roomId",
+        "manager*",
+        "credential"
+      ]
+    }
+  },
+  "messages": {
+    "capabilities.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "capabilities_response"
+      }
+    },
+    "admin.snapshot.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "admin_snapshot"
+      }
+    },
+    "role-change.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "role_request"
+      }
+    },
+    "role-change.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "role_response"
+      }
+    },
+    "ownership-transfer.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "transfer_request"
+      }
+    },
+    "ownership-transfer.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "transfer_response"
+      }
+    },
+    "policy-update.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "policy_request"
+      }
+    },
+    "policy-update.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "policy_response"
+      }
+    },
+    "invitation-create.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "invitation_create_request"
+      }
+    },
+    "invitation-create.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "invitation_create_response"
+      }
+    },
+    "invitation-self.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "invitation_self_request"
+      }
+    },
+    "invitation-admin.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "invitation_admin_request"
+      }
+    },
+    "invitation-mutation.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "invitation_mutation_response"
+      }
+    },
+    "invitation-resend.request": {
+      "direction": "native_to_platform_v1_3",
+      "schema": {
+        "ref": "invitation_resend_request"
+      }
+    },
+    "invitation-resend.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "invitation_resend_response"
+      }
+    },
+    "admin.error.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "error_response"
+      }
+    },
+    "legacy-admin.error.response": {
+      "direction": "platform_to_native_v1_3",
+      "schema": {
+        "ref": "legacy_error"
+      }
+    }
+  },
+  "state_machines": {
+    "invitation_attempt": {
+      "states": [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired",
+        "superseded"
+      ],
+      "initial": [
+        "pending"
+      ],
+      "terminal": [
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired",
+        "superseded"
+      ],
+      "transitions": [
+        [
+          "pending",
+          "accepted",
+          "accept"
+        ],
+        [
+          "pending",
+          "declined",
+          "decline"
+        ],
+        [
+          "pending",
+          "cancelled",
+          "cancel"
+        ],
+        [
+          "pending",
+          "expired",
+          "expire"
+        ],
+        [
+          "pending",
+          "superseded",
+          "resend"
+        ]
+      ]
+    },
+    "ownership_transfer_race": {
+      "states": [
+        "owner_current",
+        "transferred"
+      ],
+      "initial": [
+        "owner_current"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "owner_current",
+          "transferred",
+          "transfer_commit"
+        ],
+        [
+          "owner_current",
+          "owner_current",
+          "owner_leave_refused"
+        ],
+        [
+          "transferred",
+          "transferred",
+          "former_owner_leave"
+        ]
+      ]
+    },
+    "role_removal_race": {
+      "states": [
+        "current",
+        "role_changed",
+        "removed"
+      ],
+      "initial": [
+        "current"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "current",
+          "role_changed",
+          "role_change_commit"
+        ],
+        [
+          "role_changed",
+          "removed",
+          "removal_commit"
+        ],
+        [
+          "current",
+          "removed",
+          "removal_commit"
+        ],
+        [
+          "removed",
+          "removed",
+          "role_change_refused"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/admin-snapshot-no-owner.response.json",
+      "message": "admin.snapshot.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/admin-snapshot-schema-2.response.json",
+      "message": "admin.snapshot.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/admin-snapshot.response.json",
+      "message": "admin.snapshot.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-active.response.json",
+      "message": "capabilities.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/capabilities-extra.response.json",
+      "message": "capabilities.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/error-invitation-unavailable.response.json",
+      "message": "admin.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-owner-transfer.response.json",
+      "message": "admin.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-unknown-reason.response.json",
+      "message": "admin.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/invitation-accept.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-admin-cancel.request.json",
+      "message": "invitation-admin.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-cancel.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create-guest.request.json",
+      "message": "invitation-create.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/invitation-create.request.json",
+      "message": "invitation-create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-create.response.json",
+      "message": "invitation-create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-decline.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-expire.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-mutation-declined.response.json",
+      "message": "invitation-mutation.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-resend-same-id.response.json",
+      "message": "invitation-resend.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invitation-resend.request.json",
+      "message": "invitation-resend.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-resend.response.json",
+      "message": "invitation-resend.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-resend.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-self-cancel.request.json",
+      "message": "invitation-self.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/invitation-self-decline.request.json",
+      "message": "invitation-self.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invitation-terminal-reopen.sequence.json",
+      "machine": "invitation_attempt",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/legacy-generation-conflict.response.json",
+      "message": "legacy-admin.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-owner-transfer-required.response.json",
+      "message": "legacy-admin.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/owner-leave-vs-transfer.sequence.json",
+      "machine": "ownership_transfer_race",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-transfer-missing-generation.request.json",
+      "message": "ownership-transfer.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/ownership-transfer-replay.response.json",
+      "message": "ownership-transfer.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-transfer.request.json",
+      "message": "ownership-transfer.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ownership-transfer.response.json",
+      "message": "ownership-transfer.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-update.request.json",
+      "message": "policy-update.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/policy-update.response.json",
+      "message": "policy-update.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/removal-vs-role-change.sequence.json",
+      "machine": "role_removal_race",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/role-change-owner.request.json",
+      "message": "role-change.request",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/role-change-vs-removal.sequence.json",
+      "machine": "role_removal_race",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/role-change.request.json",
+      "message": "role-change.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/role-change.response.json",
+      "message": "role-change.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transfer-vs-owner-leave.sequence.json",
+      "machine": "ownership_transfer_race",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "input": {
+    "now": 3000000000,
+    "candidates": [
+      {
+        "roomId": "!a:proof.test",
+        "ownerAt": 408000000
+      },
+      {
+        "roomId": "!b:proof.test",
+        "ownerAt": 407999999,
+        "activityAt": 3000000000
+      }
+    ]
+  },
+  "expected": [
+    "!a:proof.test",
+    "!b:proof.test"
+  ]
+}

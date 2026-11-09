@@ -1,0 +1,9 @@
+{
+  "withdrawalId": "00000000-0000-4000-8000-072ff481df71",
+  "state": "recorded",
+  "recordedAt": 1790672400400,
+  "purgeBy": 1790931600400,
+  "suppressionIds": [
+    "00000000-0000-4000-8000-d63d65f98f72"
+  ]
+}

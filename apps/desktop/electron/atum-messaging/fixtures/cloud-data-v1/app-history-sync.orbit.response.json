@@ -1,0 +1,35 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 4100,
+      "operation": "upsert",
+      "record": {
+        "record_id": "00000000-0000-4000-8000-9dfd00e61274",
+        "record_kind": "artifact",
+        "scope": { "kind": "app_thread", "id": "00000000-0000-4000-8000-895b72a9a384" },
+        "revision": 2,
+        "generation": 3,
+        "lifecycle": "active",
+        "payload": {
+          "resource_id": "orbit.note:7",
+          "title": "Orbit note",
+          "type": "note",
+          "copy_mode": "metadata_only"
+        },
+        "provenance": {
+          "source_kind": "app_event",
+          "source_id": "00000000-0000-4000-8000-b45e8854637b",
+          "source_revision": 2,
+          "origin_app": "orbit"
+        },
+        "occurred_at": "2026-08-30T12:03:00Z",
+        "recorded_at": "2026-08-30T12:03:01Z",
+        "untrusted_input": true
+      }
+    }
+  ],
+  "next_cursor": "opaque-orbit-token-1",
+  "has_more": false,
+  "server_time": "2026-08-30T12:03:02Z"
+}

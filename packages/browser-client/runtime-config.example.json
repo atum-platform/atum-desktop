@@ -1,0 +1,6 @@
+{
+  "issuer": "https://mas.localhost/",
+  "baseUrl": "https://matrix.localhost",
+  "clientId": "REPLACE_WITH_DISPOSABLE_MAS_PUBLIC_CLIENT_ID",
+  "redirectUri": "http://localhost:4317/callback"
+}

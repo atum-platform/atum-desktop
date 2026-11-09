@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 3,
+  "companyId": "00000000-0000-4000-8000-da4679f81a15",
+  "target": {
+    "kind": "conversation",
+    "conversationId": "00000000-0000-4000-8000-1a50ef96461f",
+    "conversationKind": "dm",
+    "participantSetDigest": "14c8e0c4286d2c0c829c6e105157a1e6017805c05ec59817e81538a3fc2304dd"
+  },
+  "planGeneration": 8,
+  "state": "complete",
+  "remainingUnresolved": 0
+}

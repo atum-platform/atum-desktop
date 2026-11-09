@@ -1,0 +1,21 @@
+{
+  "caseId": "off_live_cloud_busy",
+  "savedPolicy": true,
+  "cloudEnabled": true,
+  "liveCloudTerm": true,
+  "currentAnsweringMode": "cloud",
+  "cloudBusy": true,
+  "takenUnderLiveTerm": false,
+  "staleTaken": false,
+  "macTerm": true,
+  "expected": {
+    "outcome": "queue_busy",
+    "policyPresent": true,
+    "answeringMode": "cloud",
+    "cloudAuthority": "preserved",
+    "macAuthority": "preserved",
+    "source": "saved",
+    "revision": 2,
+    "defaultCloudFirstIsRoutingAuthority": false
+  }
+}

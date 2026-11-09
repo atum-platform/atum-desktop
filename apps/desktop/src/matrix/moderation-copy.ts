@@ -1,0 +1,110 @@
+import { type Locale, useI18n } from '@/i18n'
+
+const en = {
+  ignoredPeople: 'Blocked people',
+  ignore: 'Ignore',
+  unignore: 'Unblock',
+  empty: 'No one is blocked.',
+  notice: 'You won’t see their messages or invites, and they aren’t told.',
+  ignoredHelp: 'They can’t reach you here, and they aren’t told.',
+  ignoredHow: 'Choose Block person in a chat’s menu.',
+  ban: 'Ban from room',
+  unban: 'Unban',
+  banned: 'Banned',
+  confirmBan: 'Confirm room ban',
+  confirmUnban: 'Confirm unban',
+  banNotice: 'They can’t rejoin this chat. Messages they already received stay with them.',
+  report: 'Report message',
+  confirmReport: 'Confirm report',
+  cancel: 'Cancel',
+  reportNotice: 'Report this message as abuse? Atum doesn’t send its text, and the person isn’t blocked.',
+  reportSent: 'Report sent. No message text was sent and the person was not blocked.'
+}
+
+const copies: Record<Locale, typeof en> = {
+  en,
+  vi: {
+    ignoredPeople: 'Người đã chặn',
+    ignore: 'Ẩn người này',
+    unignore: 'Bỏ chặn',
+    empty: 'Chưa chặn ai.',
+    notice: 'Bạn sẽ không thấy tin nhắn hay lời mời của họ, và họ không được thông báo.',
+    ignoredHelp: 'Họ không thể liên lạc với bạn ở đây, và họ không được thông báo.',
+    ignoredHow: 'Chọn Chặn người này trong menu cuộc trò chuyện.',
+    ban: 'Cấm khỏi phòng',
+    unban: 'Bỏ cấm',
+    banned: 'Đã bị cấm',
+    confirmBan: 'Xác nhận cấm khỏi phòng',
+    confirmUnban: 'Xác nhận bỏ cấm',
+    banNotice: 'Họ không thể tham gia lại cuộc trò chuyện này. Tin nhắn họ đã nhận vẫn còn ở phía họ.',
+    report: 'Báo cáo tin nhắn',
+    confirmReport: 'Xác nhận báo cáo',
+    cancel: 'Hủy',
+    reportNotice: 'Báo cáo tin nhắn này là lạm dụng? Atum không gửi nội dung tin nhắn và người này không bị chặn.',
+    reportSent: 'Đã gửi báo cáo. Không có nội dung tin nhắn nào được gửi và người đó không bị chặn.'
+  },
+  ja: {
+    ignoredPeople: '無視している人',
+    ignore: '無視',
+    unignore: '無視を解除',
+    empty: '無視している人はいません。',
+    notice: '相手のメッセージや招待が表示されなくなります。相手には通知されません。',
+    ignoredHelp: 'ここではあなたに連絡できなくなります。相手には通知されません。',
+    ignoredHow: '無視するには、チャットのメンバー一覧で相手の横にある「無視」を選びます。',
+    ban: 'ルームから追放',
+    unban: '追放を解除',
+    banned: '追放済み',
+    confirmBan: 'ルームからの追放を確定',
+    confirmUnban: '追放解除を確定',
+    banNotice: '相手はこのチャットに再参加できなくなります。すでに受け取ったメッセージは相手の手元に残ります。',
+    report: 'メッセージを報告',
+    confirmReport: '報告を確定',
+    cancel: 'キャンセル',
+    reportNotice: 'このメッセージを不正行為として報告しますか？Atumは本文を送信せず、相手をブロックしません。',
+    reportSent: '報告を送信しました。本文は送信されず、相手はブロックされていません。'
+  },
+  zh: {
+    ignoredPeople: '已忽略的人',
+    ignore: '忽略',
+    unignore: '取消忽略',
+    empty: '尚未忽略任何人。',
+    notice: '你将看不到对方的消息和邀请，对方也不会收到通知。',
+    ignoredHelp: '对方无法在这里联系你，也不会收到通知。',
+    ignoredHow: '要忽略某人，请在对话的成员列表中选择其旁边的“忽略”。',
+    ban: '禁止加入房间',
+    unban: '解除封禁',
+    banned: '已封禁',
+    confirmBan: '确认房间封禁',
+    confirmUnban: '确认解除封禁',
+    banNotice: '对方将无法再次加入此对话。对方已收到的消息仍会保留。',
+    report: '举报消息',
+    confirmReport: '确认举报',
+    cancel: '取消',
+    reportNotice: '将这条消息举报为滥用？Atum 不会发送消息内容，也不会屏蔽对方。',
+    reportSent: '举报已发送。未发送消息文本，也未屏蔽对方。'
+  },
+  'zh-hant': {
+    ignoredPeople: '已忽略的人',
+    ignore: '忽略',
+    unignore: '取消忽略',
+    empty: '尚未忽略任何人。',
+    notice: '你將看不到對方的訊息和邀請，對方也不會收到通知。',
+    ignoredHelp: '對方無法在這裡聯絡你，也不會收到通知。',
+    ignoredHow: '要忽略某人，請在對話的成員清單中選擇其旁邊的「忽略」。',
+    ban: '禁止加入房間',
+    unban: '解除封鎖',
+    banned: '已封鎖',
+    confirmBan: '確認房間封鎖',
+    confirmUnban: '確認解除封鎖',
+    banNotice: '對方將無法再次加入此對話。對方已收到的訊息仍會保留。',
+    report: '檢舉訊息',
+    confirmReport: '確認檢舉',
+    cancel: '取消',
+    reportNotice: '將這則訊息檢舉為濫用？Atum 不會傳送訊息內容，也不會封鎖對方。',
+    reportSent: '檢舉已送出。未傳送訊息文字，也未封鎖對方。'
+  }
+}
+
+export function useModerationCopy() {
+  return copies[useI18n().locale]
+}

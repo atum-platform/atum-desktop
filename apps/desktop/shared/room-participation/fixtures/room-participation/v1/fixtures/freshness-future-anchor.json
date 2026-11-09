@@ -1,0 +1,11 @@
+{
+  "facts": {
+    "timestamp": 1000,
+    "now": 2000,
+    "floor": {
+      "acceptedAt": 3000,
+      "position": 1
+    }
+  },
+  "expected": false
+}

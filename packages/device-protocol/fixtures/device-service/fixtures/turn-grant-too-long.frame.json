@@ -1,0 +1,32 @@
+{
+  "v": 1,
+  "type": "TurnGrant",
+  "body": {
+    "grantId": "00000000-0000-4000-8000-fce915c29383",
+    "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "agentUserId": "@synthetic-user-0011:example.invalid",
+    "invocationId": "00000000-0000-4000-8000-f9b799160fa7",
+    "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+    "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+    "originKind": "device",
+    "originAssertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
+    "writerEpoch": {
+      "leaseGeneration": 41,
+      "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+    },
+    "targetDeviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "scopes": [
+      "terminal",
+      "files",
+      "computer"
+    ],
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "issuedAt": 1791100800000,
+    "expiresAt": 1791102600001
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "RSgwzxX-iZwnGtLyhuezb6Od8TaTfkgQBKOBpnu3pUY-uK4thmwfyK9qs6sp5Som_H3G69qpoRejQzZ8qn3iCA"
+}

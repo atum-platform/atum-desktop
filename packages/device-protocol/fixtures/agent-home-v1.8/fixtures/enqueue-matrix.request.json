@@ -1,0 +1,15 @@
+{
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "operation": "enqueue",
+  "source": "matrix",
+  "roomId": "!t4Hq9xZ2pL7mK1vN:example.invalid",
+  "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+  "requestHash": "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+  "hashVersion": 2,
+  "senderDevice": "MACBOOKQ7ZK",
+  "origin": {
+    "kind": "device",
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "assertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "observed",
+      "to": "working",
+      "event": "work_started"
+    }
+  ]
+}

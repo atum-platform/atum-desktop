@@ -1,0 +1,13 @@
+# kind | concept — one per line; the kind is what a correct design must be.
+chick | a round yellow chick, all fluff
+owl | a small brown owl with tufted ears and big eyes
+penguin | a chubby little penguin with a white belly
+parrot | a green parrot with a red crest and a hooked beak
+duck | a white duck with an orange bill
+bird | a plump blue songbird
+owl | a snowy white owl
+penguin | an emperor penguin chick, grey and fluffy
+parrot | a blue and gold macaw
+chick | a black chick with a yellow beak
+duck | a mallard drake with a green head
+bird | a red robin with a puffed chest

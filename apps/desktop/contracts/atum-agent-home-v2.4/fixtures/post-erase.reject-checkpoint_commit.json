@@ -1,0 +1,40 @@
+{
+  "tombstone": {
+    "erasureId": "00000000-0000-4000-8000-303617b97302",
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "eraseEpoch": 5,
+    "requestedLocations": [
+      {
+        "kind": "cloud"
+      },
+      {
+        "kind": "mac",
+        "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+      }
+    ],
+    "erasedLocations": [
+      {
+        "kind": "cloud"
+      },
+      {
+        "kind": "mac",
+        "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+      }
+    ],
+    "status": "complete",
+    "committedAtPlatform": 1800000000000
+  },
+  "operation": {
+    "kind": "checkpoint_commit",
+    "ownerUserId": "@owner:atum.example",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "homeId": "00000000-0000-4000-8000-e8d95748107a",
+    "eraseEpoch": 5
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "erase_tombstone_fence"
+  }
+}

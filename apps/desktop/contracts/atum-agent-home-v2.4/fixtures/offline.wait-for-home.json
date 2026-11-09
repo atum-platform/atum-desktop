@@ -1,0 +1,14 @@
+{
+  "home": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857"
+  },
+  "reachable": false,
+  "pendingWork": true,
+  "policy": "wait_for_home",
+  "paidCloudFallback": false,
+  "expect": {
+    "outcome": "held",
+    "reason": "waiting_for_home"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "link": {
+    "maxUses": 1,
+    "expiresInSeconds": 604800
+  },
+  "steps": [
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "token": "PUBLIC_FIXTURE_ONLY_61818fe4de417671d243876c2279bbbe",
+      "expect": {
+        "result": "unavailable"
+      }
+    }
+  ]
+}

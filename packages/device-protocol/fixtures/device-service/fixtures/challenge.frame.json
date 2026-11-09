@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "Challenge",
+  "body": {
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "challenge": "rDL2UP41KBQ-HUXX9YTMuS-hROOYPGkfC1WlGW-gu1I",
+    "helloHash": "a1fuFszqu37sV2m_ir2wHX7Ljs6YVr3IJrGYqbBok3k",
+    "issuedAt": 1791100795100
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "olAZsFgVqv7PCUHpE8L5P4mIu4y9Tyuxv_y_YjOSO_ghclI5inmOB7LCYBTffL7E1-pqDWZEupUhvfwzUVYZCg"
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@atum/model-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared local model broker, grant admission and gateway transport. No server lifecycle or provisioning.",
+  "scripts": {
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run --cache=false",
+    "check": "npm run typecheck && npm run test"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  }
+}

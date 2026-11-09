@@ -1,0 +1,73 @@
+{
+  "requestId": "00000000-0000-4000-8000-38c9f3ee3f12",
+  "audience": {
+    "class": "shared_room",
+    "roomId": "!synthetic-room-0001:example.invalid"
+  },
+  "status": "ok",
+  "items": [
+    {
+      "evidenceId": "70f935cc-2c2a-8913-a35a-81300d46f107",
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "object": {
+        "kind": "edit",
+        "id": "$LnchDecisionEdit2bC3dE4fG5hI6jK7lM8nO9pQ",
+        "revision": 2
+      },
+      "author": {
+        "kind": "human",
+        "id": "@synthetic-user-0005:example.invalid"
+      },
+      "eventTime": 1790582400000,
+      "observedTime": 1790582400900,
+      "policyEpoch": 3,
+      "scope": {
+        "kind": "room",
+        "roomId": "!synthetic-room-0001:example.invalid"
+      },
+      "epistemic": "proposal",
+      "derivation": {
+        "parents": [],
+        "sourceRefs": [
+          {
+            "kind": "message",
+            "id": "$LnchDecisionEvt1aB2cD3eF4gH5iJ6kL7mN8oP9q",
+            "revision": 1
+          }
+        ]
+      },
+      "digest": "91fcc408e20edba5dda442c88268aea702ff0528e8bcc0dfe15c504769ed9a61",
+      "citation": {
+        "kind": "matrix_event",
+        "roomId": "!synthetic-room-0001:example.invalid",
+        "eventId": "$LnchDecisionEdit2bC3dE4fG5hI6jK7lM8nO9pQ"
+      },
+      "content": "Let's move the launch to 15 October.",
+      "untrustedInput": true,
+      "provenance": {
+        "google": true
+      }
+    }
+  ],
+  "coverage": [
+    {
+      "source": {
+        "kind": "human_group",
+        "id": "!synthetic-room-0001:example.invalid"
+      },
+      "state": "ready",
+      "reasons": [],
+      "asOf": 1790672400000,
+      "processedThrough": 1790672340000,
+      "backfill": {
+        "priorityWindowDays": 30,
+        "complete": true,
+        "oldestIndexedAt": 1788080400000
+      }
+    }
+  ],
+  "contentBytes": 36
+}

@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "owner_client",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "surface": "phone",
+    "authenticatedChannel": "phone"
+  },
+  "cancelId": "00000000-0000-4000-8000-a9703d75e616",
+  "idempotencyKey": "00000000-0000-4000-8000-fbfe405ca65f",
+  "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "expectedHomeEpoch": 4,
+  "expectedActiveMoveId": "00000000-0000-4000-8000-303617b97302"
+}

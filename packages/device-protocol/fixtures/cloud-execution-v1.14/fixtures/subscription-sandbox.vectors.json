@@ -1,0 +1,12 @@
+{
+  "vectors": [
+    {
+      "envBase": "platform_subscription_edge",
+      "envKey": "opaque_turn_grant",
+      "envAlias": "selected_model",
+      "atumBilling": false,
+      "fallback": "none",
+      "durableProviderKey": false
+    }
+  ]
+}

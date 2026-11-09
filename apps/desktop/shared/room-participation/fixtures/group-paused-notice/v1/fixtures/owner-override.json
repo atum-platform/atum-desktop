@@ -1,0 +1,9 @@
+{
+  "operation": "claim",
+  "executorId": "00000000-0000-4000-8000-19c65f89f0a7",
+  "leaseToken": "00000000-0000-4000-8000-19c65f89f0a7",
+  "roomId": "!room:test",
+  "day": "2026-10-07",
+  "dailyTurns": 3,
+  "owner": "00000000-0000-4000-8000-19c65f89f0a7"
+}

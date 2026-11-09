@@ -1,0 +1,12 @@
+{
+  "roomId": "!meeting:example.invalid",
+  "viewerAgentId": "@assistant-a:example.invalid",
+  "excludeEventId": "$trigger",
+  "window": "meeting",
+  "limits": {
+    "messages": 50,
+    "chars": 12001,
+    "pages": 3,
+    "deadlineMs": 8000
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "name": "bytes that do not match the offer staged",
+  "offer": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "archive": {
+      "v": 1,
+      "sha256": "b5d80dac9ec9eba8c89f8e2624a37691292e0a8f56221e2ecb5538a936b2bd9a",
+      "bytes": 261,
+      "files": 1
+    }
+  },
+  "chunks": [
+    {
+      "header": {
+        "migrationId": "00000000-0000-4000-8000-44875ad14494",
+        "offset": 0,
+        "size": 64
+      },
+      "bytes": "eyJmaWxlcyI6W3sia2luZCI6ImZpbGUiLCJtb2RlIjozODQsInBhdGgiOiJTT1VMLm1kIiwic2hhMjU2IjoiYQ"
+    },
+    {
+      "header": {
+        "migrationId": "00000000-0000-4000-8000-44875ad14494",
+        "offset": 64,
+        "size": 197
+      },
+      "bytes": "YjIyOTQxN2I1ODI1NDM3MjVkNWYwMzk4YmQwZDNmNWJjMTE2MDNjYTRkZWJiNzczYjdmMzI1YTFmOWY1MGEzIiwic2l6ZSI6MzF9XSwiaGVybWVzIjp7InN0YXRlRGJVc2VyVmVyc2lvbiI6MTIsInZlcnNpb24iOiIwLjExLjAifSwic2NoZWR1bGVzIjpbXSwic2tpcHBlZCI6W10sInYiOjF9CkkgYW0gVCwgdGhlIG93bmVyJ3MgYXNzaXN0YW50Lwo"
+    }
+  ],
+  "facts": {
+    "receivedBytes": 261,
+    "receivedSha256": "116811cfa176f6aa0dda16d1660f170b5b0f6d0e6f93a2189d5e6f8212be2b21"
+  },
+  "expect": {
+    "outcome": "staged"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 12,
+  "outcome": "added",
+  "companyId": "00000000-0000-4000-8000-3570bef6c8ca",
+  "memberRef": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "role": "member",
+  "invitationId": "00000000-0000-4000-8000-933779c60f5b",
+  "authorityGeneration": 10,
+  "replayed": false
+}

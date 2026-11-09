@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "channel": {
+    "id": "00000000-0000-4000-8000-c52538d87a60",
+    "companyId": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "general",
+    "visibility": "company",
+    "state": "provisioning",
+    "projectId": null,
+    "authorityGeneration": 7,
+    "channelGeneration": 1
+  },
+  "memberPrincipals": [
+    "00000000-0000-4000-8000-0e2995a7c133"
+  ],
+  "room": {
+    "state": "not_provisioned",
+    "roomId": null
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "profile": "atum.cloud-home-read/1",
+  "agentPrincipal": "00000000-0000-4000-8000-e532b820eb2f",
+  "generation": 7,
+  "committedAt": 1791877000000,
+  "files": [
+    {
+      "path": "USER.md",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "memories/MEMORY.md",
+      "size": 19,
+      "sha256": "eb469ef2f6ebec6b5f7b830730266a1ac4de8dbee0f698c7e871c601790f0b46"
+    }
+  ]
+}

@@ -1,0 +1,489 @@
+{
+  "contract_id": "atum.canonical-room",
+  "version": 1,
+  "status": "frozen",
+  "row": "LA Contract 5: owner-private canonical Matrix room read projections",
+  "routes": {
+    "GET /api/matrix/v1/apps/{slug}/bot": {
+      "status": "contract_first",
+      "auth": "owner_mas",
+      "cache_control": "no-store",
+      "request": "app-bot.status.request",
+      "response": "app-bot.status.response",
+      "path_binding": "slug_is_resolved_server_side_to_an_active_app; the request schema intentionally names_no_slug_or_identity"
+    },
+    "GET /api/matrix/v1/agents": {
+      "status": "contract_first",
+      "auth": "owner_mas",
+      "cache_control": "no-store",
+      "request": "agents.list.request",
+      "response": "agents.list.response"
+    },
+    "GET /api/matrix/web/v1/agents": {
+      "status": "contract_first",
+      "auth": "owner_browser",
+      "cache_control": "no-store",
+      "request": "agents.list.request",
+      "response": "agents.list.response",
+      "mirror": "exact_same_projection_as_GET_/api/matrix/v1/agents"
+    }
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "matrix_room_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "![!-9;-~]+:[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "empty_query": {
+      "type": "object",
+      "required": {}
+    },
+    "owner_get_request": {
+      "type": "object",
+      "required": {
+        "method": {
+          "const": "GET"
+        },
+        "query": {
+          "ref": "empty_query"
+        },
+        "body": {
+          "type": "null"
+        }
+      }
+    },
+    "agents_get_request": {
+      "type": "object",
+      "required": {
+        "method": {
+          "const": "GET"
+        },
+        "query": {
+          "type": "object",
+          "required": {},
+          "additional": {
+            "ref": "json_value"
+          }
+        },
+        "body": {
+          "ref": "json_value"
+        }
+      }
+    },
+    "app_bot_status": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.app-bot-status/1"
+        },
+        "room_id": {
+          "anyOf": [
+            {
+              "ref": "matrix_room_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additional": true
+    },
+    "agent_row": {
+      "type": "object",
+      "required": {
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "anyOf": [
+            {
+              "ref": "matrix_room_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additional": true
+    },
+    "agents_list": {
+      "type": "array",
+      "min": 0,
+      "items": {
+        "ref": "agent_row"
+      }
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "principal",
+        "user",
+        "userId",
+        "agent",
+        "agentId",
+        "agentPrincipal",
+        "executor",
+        "executorId",
+        "controller",
+        "controllerId",
+        "app",
+        "appId",
+        "appSlug",
+        "slug",
+        "roomId",
+        "room_id",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint",
+        "url"
+      ]
+    },
+    "agents_ignored_transport": {
+      "forbidden_fields": []
+    },
+    "platform_to_app_owner": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "principal",
+        "agent",
+        "agentId",
+        "agentPrincipal",
+        "executor",
+        "executorId",
+        "controller",
+        "controllerId",
+        "lease",
+        "leaseId",
+        "leaseToken",
+        "roomAccessToken",
+        "roomEventId",
+        "roomHistory",
+        "roomMembers",
+        "roomContent",
+        "roomAccountData",
+        "mappingOwner",
+        "mappingPrincipal",
+        "mappingAppId",
+        "internalMapping",
+        "*metadata*",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint"
+      ]
+    },
+    "platform_to_agents_owner": {
+      "forbidden_fields": [
+        "owner",
+        "ownerId",
+        "ownerPrincipal",
+        "executor",
+        "executorId",
+        "controller",
+        "controllerId",
+        "device",
+        "deviceId",
+        "device_id",
+        "deviceService",
+        "deviceServiceId",
+        "lease",
+        "leaseId",
+        "leaseToken",
+        "event",
+        "eventId",
+        "history",
+        "member",
+        "members",
+        "content",
+        "roomHistory",
+        "roomMembers",
+        "roomContent",
+        "roomAccountData",
+        "catalog",
+        "public",
+        "appHost",
+        "internalMapping",
+        "*metadata*",
+        "*secret*",
+        "*credential*",
+        "*password*",
+        "*token*",
+        "*authorization*",
+        "apiKey",
+        "api_key",
+        "endpoint"
+      ]
+    }
+  },
+  "messages": {
+    "app-bot.status.request": {
+      "direction": "owner_to_platform",
+      "schema": {
+        "ref": "owner_get_request"
+      }
+    },
+    "app-bot.status.response": {
+      "direction": "platform_to_app_owner",
+      "schema": {
+        "ref": "app_bot_status"
+      }
+    },
+    "agents.list.request": {
+      "direction": "agents_ignored_transport",
+      "schema": {
+        "ref": "agents_get_request"
+      }
+    },
+    "agents.list.response": {
+      "direction": "platform_to_agents_owner",
+      "schema": {
+        "ref": "agents_list"
+      }
+    }
+  },
+  "semantics": {
+    "room_id": {
+      "exact_format": "^![!-9;-~]+:[!-~]+$",
+      "utf8_bytes": {
+        "min": 4,
+        "max": 1024
+      },
+      "legacy_sibling": "the_existing_app-bot_outcome_input_only_checks_min_3_and_leading_!; canonical_room_output_intentionally_requires_a_full_room_id_with_server_name",
+      "null": "no_server_recorded_canonical_mapping; null_never_triggers_discovery_creation_or_fallback",
+      "missing": "incompatible_response_not_equivalent_to_null",
+      "meaning": "owner_private_routing_metadata_only_not_room_membership_or_authorization_evidence"
+    },
+    "reads": {
+      "identity": "MAS_or_browser_authenticated_owner_principal_is_server_derived; app_bot_rejects_query_or_body_identity; agents_routes_ignore_query_and_body_bytes_so_they_never_select_owner_agent_or_controller",
+      "app_bot": "path_slug_resolves_server_side_to_an_active_app; mapping_key_is_authenticated_owner_plus_resolved_app_id",
+      "agents": "returns_only_the_owners_active_top_level_agents_in_existing_server_order; roomId_maps_to_agentPrincipal_and_is_required_on_every_top_level_row; when_legacy_principal_is_present_it_equals_agentPrincipal; nested_retired_agents_are_legacy_tombstones_and_must_not_acquire_roomId_or_be_used_as_active_mappings",
+      "web_agents": "GET_/api/matrix/web/v1/agents_returns_the_exact_same_owner_projection_and_roomId_field_as_the_native_agents_route",
+      "privacy": "no_store; canonical_mapping_addition_exposes_only_room_id_or_null_and_no_controller_app_host_or_public_catalog_surface; existing_app_bot_v1_published_metadata_is_not_respecified",
+      "consent": "a_mapping_may_be_returned_before_consent_or_link_readiness_but_never_implies_activation_or_authorization",
+      "compatibility": "strict_consumers_must_accept_required_additive_room_id_and_roomId_fields_before_server_emission; older_consumers_are_not_activation_safe"
+    },
+    "deferred": "LA10 implementation, database migration, and all mapping write authority, repair, backfill, cleanup, room creation, race, retirement, and move behavior; controller backfill remains outside this owner-only contract"
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/agents-list-body-controller.request.json",
+      "message": "agents.list.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agents-list-default-with-retired.response.json",
+      "message": "agents.list.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agents-list-device-lease-leak.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agents-list-empty.response.json",
+      "message": "agents.list.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agents-list-event-history-leak.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agents-list-executor-leak.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agents-list-malformed-room.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agents-list-member-leak.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/agents-list-missing-room.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/agents-list-mixed.response.json",
+      "message": "agents.list.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agents-list-oversized-room.response.json",
+      "message": "agents.list.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/agents-list-query-identity.request.json",
+      "message": "agents.list.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/agents-list.request.json",
+      "message": "agents.list.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/app-bot-status-body-identity.request.json",
+      "message": "app-bot.status.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/app-bot-status-internal-mapping.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/app-bot-status-malformed-room.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/app-bot-status-mapped.response.json",
+      "message": "app-bot.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/app-bot-status-metadata-secret.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/app-bot-status-missing-room.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/app-bot-status-null.response.json",
+      "message": "app-bot.status.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/app-bot-status-oversized-room.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/app-bot-status-query-identity.request.json",
+      "message": "app-bot.status.request",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/app-bot-status-room-token.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/app-bot-status-short-room.response.json",
+      "message": "app-bot.status.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/app-bot-status.request.json",
+      "message": "app-bot.status.request",
+      "expect": "accept"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/agents-list-body-controller.request.json",
+    "fixtures/agents-list-default-with-retired.response.json",
+    "fixtures/agents-list-device-lease-leak.response.json",
+    "fixtures/agents-list-empty.response.json",
+    "fixtures/agents-list-event-history-leak.response.json",
+    "fixtures/agents-list-executor-leak.response.json",
+    "fixtures/agents-list-malformed-room.response.json",
+    "fixtures/agents-list-member-leak.response.json",
+    "fixtures/agents-list-missing-room.response.json",
+    "fixtures/agents-list-mixed.response.json",
+    "fixtures/agents-list-oversized-room.response.json",
+    "fixtures/agents-list-query-identity.request.json",
+    "fixtures/agents-list.request.json",
+    "fixtures/app-bot-status-body-identity.request.json",
+    "fixtures/app-bot-status-internal-mapping.response.json",
+    "fixtures/app-bot-status-malformed-room.response.json",
+    "fixtures/app-bot-status-mapped.response.json",
+    "fixtures/app-bot-status-metadata-secret.response.json",
+    "fixtures/app-bot-status-missing-room.response.json",
+    "fixtures/app-bot-status-null.response.json",
+    "fixtures/app-bot-status-oversized-room.response.json",
+    "fixtures/app-bot-status-query-identity.request.json",
+    "fixtures/app-bot-status-room-token.response.json",
+    "fixtures/app-bot-status-short-room.response.json",
+    "fixtures/app-bot-status.request.json"
+  ]
+}

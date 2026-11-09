@@ -1,0 +1,448 @@
+{
+  "schema": "atum.engine-components/1",
+  "engine": {
+    "name": "Atum Drive engine",
+    "sourceCommit": "90aa0070fd6254fc47a41870728d547d414186cc",
+    "sourceUrl": "https://github.com/atum-platform/atum-drive-companion/tree/drive-engine-0.20.19",
+    "sourceTag": "drive-engine-0.20.19",
+    "sourceTagCommit": "9bbd41e2ea6f66ff9b8cf196010e4a0e84af60c4",
+    "buildingUrl": "https://github.com/atum-platform/atum-drive-companion/blob/drive-engine-0.20.19/BUILDING.md",
+    "instructionsUrl": "https://github.com/atum-platform/atum-drive-companion/blob/main/BUILDING.md",
+    "releaseUrl": "https://github.com/atum-platform/atum-drive-companion/releases/tag/drive-engine-0.18",
+    "versionsFrom": ".craft.shelf in the engine source; cross-checked against the shipped libraries' install names and current versions (otool -L)"
+  },
+  "components": [
+    {
+      "id": "opencloud-desktop",
+      "name": "Atum Drive engine (a modified OpenCloud Desktop)",
+      "version": "4.0.0",
+      "license": "GPL-2.0-or-later (source); this binary is distributed under GPL-3.0",
+      "copyright": [
+        "Copyright (C) the ownCloud Desktop and OpenCloud Desktop authors (named in each source file)",
+        "Changes by Atum (Anka Ventures Vietnam Company Limited), 2 to 23 October 2026"
+      ],
+      "source": "engine",
+      "licenseFiles": [
+        "texts/GPL-2.0.txt",
+        "texts/GPL-3.0.txt"
+      ],
+      "files": [
+        "MacOS/AtumDrive",
+        "MacOS/atum-drivecmd",
+        "Frameworks/libOpenCloudGui.dylib",
+        "Frameworks/libOpenCloudLibSync.0.dylib",
+        "Frameworks/libOpenCloudResources.0.dylib",
+        "PlugIns/OpenCloud_vfs_off.so"
+      ],
+      "includes": [
+        {
+          "name": "QProgressIndicator",
+          "version": "from src/3rdparty/QProgressIndicator",
+          "license": "MIT",
+          "copyright": [
+            "Copyright (c) 2011 Morgan Leborgne"
+          ],
+          "licenseFiles": [
+            "engine/qprogressindicator-LICENSE.txt"
+          ],
+          "where": "built into libOpenCloudGui"
+        },
+        {
+          "name": "Font Awesome 7 Free Solid (font)",
+          "version": "7.3.1",
+          "license": "OFL-1.1",
+          "copyright": [
+            "Copyright (c) Font Awesome (https://fontawesome.com)"
+          ],
+          "licenseFiles": [
+            "engine/fontawesome-LICENSE.txt",
+            "texts/OFL-1.1.txt"
+          ],
+          "where": "embedded in libOpenCloudResources"
+        },
+        {
+          "name": "Remix Icon (font)",
+          "version": "4.6",
+          "license": "Apache-2.0",
+          "copyright": [
+            "Copyright (C) the Remix Icon authors (https://remixicon.com)"
+          ],
+          "licenseFiles": [
+            "engine/remixicon-License.txt"
+          ],
+          "where": "embedded in libOpenCloudResources"
+        }
+      ]
+    },
+    {
+      "id": "atum-artwork",
+      "name": "Atum artwork (the engine's icon)",
+      "version": "4.0.0",
+      "license": "CC0-1.0",
+      "copyright": [
+        "Dedicated to the public domain by Anka Ventures Vietnam Company Limited"
+      ],
+      "source": "engine",
+      "licenseFiles": [
+        "texts/CC0-1.0.txt"
+      ],
+      "files": [
+        "Resources/atum.icns"
+      ]
+    },
+    {
+      "id": "qt",
+      "name": "Qt",
+      "version": "6.11.1",
+      "license": "LGPL-3.0-only",
+      "copyright": [
+        "Copyright (C) The Qt Company Ltd. and other contributors"
+      ],
+      "source": "https://github.com/atum-platform/atum-drive-companion/releases/tag/drive-engine-0.18",
+      "licenseFiles": [
+        "texts/LGPL-3.0.txt",
+        "texts/GPL-3.0.txt",
+        "engine/qt-third-party.txt",
+        "texts/Apache-2.0.txt",
+        "texts/CC0-1.0.txt",
+        "texts/Unicode-3.0.txt"
+      ],
+      "files": [
+        "Frameworks/Qt*.framework",
+        "PlugIns/platforms/libqcocoa.dylib",
+        "PlugIns/platforms/libqminimal.dylib",
+        "PlugIns/tls/libqsecuretransportbackend.dylib"
+      ],
+      "notes": [
+        "Built by KDE Craft from the qtbase and qtdeclarative 6.11.1 sources. Craft patches qtbase with the files in libs/qt6/qtbase/.craft of craft-blueprints-kde revision 11b07503ab24e84affc5ed9c94093f8b03b05fd4 (0001-Implement-QTEST_MAX_WARNINGS.patch, qstandardpaths-extra-dirs-macos.diff, qstandardpaths-fix-genericdatalocation.diff), so this QtCore differs from upstream Qt. qtdeclarative is built without changes."
+      ],
+      "sourceArchives": [
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/qtbase-everywhere-src-6.11.1.tar.xz",
+          "sha256": "d9594a31228aa23ad6b531719a29b45f0f3989fe6c136d45767ea179f233c1ac"
+        },
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/qtdeclarative-everywhere-src-6.11.1.tar.xz",
+          "sha256": "52e670f670b0304f534b24f98c47ceb8a41bb710464414ebc9527ec71cc86aa4"
+        },
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/qt-6.11.1-craft-recipes-11b07503.tar.gz",
+          "sha256": "67b8d33490c4e92906df220d8f21fdf42417a9f0a2fc0802a5fab7e4cf56cd2a"
+        }
+      ]
+    },
+    {
+      "id": "glib",
+      "name": "GLib",
+      "version": "2.86.0",
+      "license": "LGPL-2.1-or-later",
+      "copyright": [
+        "Copyright (C) the GLib authors"
+      ],
+      "source": "https://github.com/atum-platform/atum-drive-companion/releases/tag/drive-engine-0.18",
+      "licenseFiles": [
+        "texts/LGPL-2.1.txt"
+      ],
+      "files": [
+        "Frameworks/libglib-2.0.0.dylib",
+        "Frameworks/libgthread-2.0.0.dylib"
+      ],
+      "notes": [
+        "Built by KDE Craft from the unmodified glib-2.86.0 source."
+      ],
+      "sourceArchives": [
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/glib-2.86.0.tar.xz",
+          "sha256": "b5739972d737cfb0d6fd1e7f163dfe650e2e03740bb3b8d408e4d1faea580d6d"
+        },
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/glib-2.86.0-gettext-0.22.3-craft-recipes.tar.gz",
+          "sha256": "864024f45d730b6a92d74748044c41a3e479e35f4522228744abe6f6dcc54d58"
+        }
+      ]
+    },
+    {
+      "id": "libintl",
+      "name": "GNU gettext runtime library (libintl)",
+      "version": "0.22.3",
+      "license": "LGPL-2.1-or-later",
+      "copyright": [
+        "Copyright (C) Free Software Foundation, Inc."
+      ],
+      "source": "https://github.com/atum-platform/atum-drive-companion/releases/tag/drive-engine-0.18",
+      "licenseFiles": [
+        "texts/LGPL-2.1.txt"
+      ],
+      "files": [
+        "Frameworks/libintl.8.dylib"
+      ],
+      "notes": [
+        "Built by KDE Craft from the gettext-0.22.3 source. Craft's gettext patches change gettext-tools and the top-level build files, not the libintl sources shipped here."
+      ],
+      "sourceArchives": [
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/gettext-0.22.3.tar.gz",
+          "sha256": "839a260b2314ba66274dae7d245ec19fce190a3aa67869bf31354cb558df42c7"
+        },
+        {
+          "url": "https://github.com/atum-platform/atum-drive-companion/releases/download/drive-engine-0.18/glib-2.86.0-gettext-0.22.3-craft-recipes.tar.gz",
+          "sha256": "864024f45d730b6a92d74748044c41a3e479e35f4522228744abe6f6dcc54d58"
+        }
+      ]
+    },
+    {
+      "id": "qtkeychain",
+      "name": "QtKeychain",
+      "version": "0.16.0",
+      "license": "BSD-3-Clause",
+      "copyright": [
+        "Copyright (C) 2011-2015 Frank Osterfeld and the QtKeychain contributors"
+      ],
+      "source": "https://github.com/frankosterfeld/qtkeychain/tree/0.16.0",
+      "licenseFiles": [
+        "engine/qtkeychain-COPYING.txt"
+      ],
+      "files": [
+        "Frameworks/libqt6keychain.1.dylib"
+      ]
+    },
+    {
+      "id": "kdsingleapplication",
+      "name": "KDSingleApplication",
+      "version": "1.2.0",
+      "license": "MIT",
+      "copyright": [
+        "Copyright (C) 2019 Klarälvdalens Datakonsult AB, a KDAB Group company"
+      ],
+      "source": "https://github.com/KDAB/KDSingleApplication/tree/v1.2.0",
+      "licenseFiles": [
+        "engine/kdsingleapplication-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libkdsingleapplication-qt6.1.2.dylib"
+      ]
+    },
+    {
+      "id": "libre-graph-api",
+      "name": "libre-graph-api-cpp-qt-client",
+      "version": "1.0.7",
+      "license": "Apache-2.0",
+      "copyright": [
+        "Copyright (C) the Libre Graph API authors"
+      ],
+      "source": "https://github.com/opencloud-eu/libre-graph-api-cpp-qt-client/tree/v1.0.7",
+      "licenseFiles": [
+        "engine/libregraphapi-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libLibreGraphAPI.1.dylib"
+      ]
+    },
+    {
+      "id": "openssl",
+      "name": "OpenSSL",
+      "version": "3.6.3",
+      "license": "Apache-2.0",
+      "copyright": [
+        "Copyright (c) 1998-2026 The OpenSSL Project Authors",
+        "Copyright (c) 1995-1998 Eric A. Young, Tim J. Hudson"
+      ],
+      "source": "https://github.com/openssl/openssl/tree/openssl-3.6.3",
+      "licenseFiles": [
+        "engine/openssl-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libcrypto.3.dylib",
+        "Frameworks/libssl.3.dylib"
+      ]
+    },
+    {
+      "id": "icu",
+      "name": "ICU (International Components for Unicode)",
+      "version": "78.1",
+      "license": "Unicode-3.0",
+      "copyright": [
+        "Copyright (C) 2016-2025 Unicode, Inc."
+      ],
+      "source": "https://github.com/unicode-org/icu/tree/release-78.1",
+      "licenseFiles": [
+        "engine/icu-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libicudata.78.dylib",
+        "Frameworks/libicui18n.78.dylib",
+        "Frameworks/libicuuc.78.dylib"
+      ]
+    },
+    {
+      "id": "freetype",
+      "name": "FreeType",
+      "version": "2.14.1",
+      "license": "FTL",
+      "copyright": [
+        "Copyright (C) 1996-2025 David Turner, Robert Wilhelm, Werner Lemberg and the FreeType Project",
+        "Portions of this software are copyright (C) 2025 The FreeType Project (https://freetype.org). All rights reserved."
+      ],
+      "source": "https://gitlab.freedesktop.org/freetype/freetype/-/tree/VER-2-14-1",
+      "licenseFiles": [
+        "engine/freetype-LICENSE.txt",
+        "engine/freetype-FTL.txt"
+      ],
+      "files": [
+        "Frameworks/libfreetype.6.dylib"
+      ]
+    },
+    {
+      "id": "harfbuzz",
+      "name": "HarfBuzz",
+      "version": "11.2.0",
+      "license": "MIT-Modern-Variant",
+      "copyright": [
+        "Copyright (C) the HarfBuzz authors, named in its licence text"
+      ],
+      "source": "https://github.com/harfbuzz/harfbuzz/tree/11.2.0",
+      "licenseFiles": [
+        "engine/harfbuzz-COPYING.txt"
+      ],
+      "files": [
+        "Frameworks/libharfbuzz.0.dylib"
+      ]
+    },
+    {
+      "id": "libpng",
+      "name": "libpng",
+      "version": "1.6.45",
+      "license": "libpng-2.0",
+      "copyright": [
+        "Copyright (c) 1995-2025 The PNG Reference Library Authors",
+        "Copyright (c) 2018-2025 Cosmin Truta",
+        "Copyright (c) 2000-2002, 2004, 2006-2018 Glenn Randers-Pehrson",
+        "Copyright (c) 1996-1997 Andreas Dilger",
+        "Copyright (c) 1995-1996 Guy Eric Schalnat, Group 42, Inc."
+      ],
+      "source": "https://github.com/pnggroup/libpng/tree/v1.6.45",
+      "licenseFiles": [
+        "engine/libpng-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libpng16.16.dylib",
+        "Frameworks/png.framework"
+      ]
+    },
+    {
+      "id": "pcre2",
+      "name": "PCRE2",
+      "version": "10.44",
+      "license": "BSD-3-Clause WITH PCRE2-exception",
+      "copyright": [
+        "Copyright (c) 1997-2024 University of Cambridge",
+        "Copyright (c) 2009-2024 Zoltan Herczeg"
+      ],
+      "source": "https://github.com/PCRE2Project/pcre2/tree/pcre2-10.44",
+      "licenseFiles": [
+        "engine/pcre2-LICENCE.txt"
+      ],
+      "files": [
+        "Frameworks/libpcre2-16.0.dylib",
+        "Frameworks/libpcre2-8.0.dylib"
+      ]
+    },
+    {
+      "id": "brotli",
+      "name": "Brotli",
+      "version": "1.1.0",
+      "license": "MIT",
+      "copyright": [
+        "Copyright (c) 2009, 2010, 2013-2016 by the Brotli Authors"
+      ],
+      "source": "https://github.com/google/brotli/tree/v1.1.0",
+      "licenseFiles": [
+        "engine/brotli-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libbrotlicommon.1.dylib",
+        "Frameworks/libbrotlidec.1.dylib"
+      ]
+    },
+    {
+      "id": "bzip2",
+      "name": "bzip2 (libbzip2)",
+      "version": "1.0.8",
+      "license": "bzip2-1.0.6",
+      "copyright": [
+        "Copyright (C) 1996-2019 Julian R Seward"
+      ],
+      "source": "https://sourceware.org/bzip2/",
+      "licenseFiles": [
+        "engine/bzip2-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libbz2.1.0.dylib"
+      ]
+    },
+    {
+      "id": "libb2",
+      "name": "libb2 (BLAKE2)",
+      "version": "0.98.1",
+      "license": "CC0-1.0",
+      "copyright": [
+        "Dedicated to the public domain by the BLAKE2 authors"
+      ],
+      "source": "https://github.com/BLAKE2/libb2/tree/v0.98.1",
+      "licenseFiles": [
+        "engine/libb2-COPYING.txt"
+      ],
+      "files": [
+        "Frameworks/libb2.1.dylib"
+      ]
+    },
+    {
+      "id": "zlib",
+      "name": "zlib",
+      "version": "1.3.1",
+      "license": "Zlib",
+      "copyright": [
+        "Copyright (C) 1995-2022 Jean-loup Gailly and Mark Adler"
+      ],
+      "source": "https://github.com/madler/zlib/tree/v1.3.1",
+      "licenseFiles": [
+        "engine/zlib-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libz.1.dylib"
+      ]
+    },
+    {
+      "id": "zstd",
+      "name": "Zstandard (zstd)",
+      "version": "1.5.7",
+      "license": "BSD-3-Clause",
+      "copyright": [
+        "Copyright (c) Meta Platforms, Inc. and affiliates"
+      ],
+      "source": "https://github.com/facebook/zstd/tree/v1.5.7",
+      "licenseFiles": [
+        "engine/zstd-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libzstd.1.dylib"
+      ]
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite",
+      "version": "3.50.4",
+      "license": "blessing",
+      "copyright": [
+        "The SQLite source code is in the public domain"
+      ],
+      "source": "https://sqlite.org/src/timeline?t=version-3.50.4",
+      "licenseFiles": [
+        "engine/sqlite-LICENSE.txt"
+      ],
+      "files": [
+        "Frameworks/libsqlite3.3.dylib"
+      ]
+    }
+  ]
+}

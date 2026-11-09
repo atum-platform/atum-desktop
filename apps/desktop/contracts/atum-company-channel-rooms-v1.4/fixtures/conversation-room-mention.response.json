@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 5,
+  "companyId": "00000000-0000-4000-8000-e8e991ff25c1",
+  "target": {
+    "kind": "conversation",
+    "conversationId": "00000000-0000-4000-8000-97b162b1b869",
+    "conversationKind": "dm",
+    "participantSetDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "companyGeneration": 5,
+  "targetGeneration": 2,
+  "planGeneration": 2,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 1,
+      "principal": "00000000-0000-4000-8000-b6a66c9164ee",
+      "userId": "@p1:example.invalid"
+    }
+  ],
+  "exclusions": [],
+  "unresolvedAdmissions": [],
+  "possibleGrants": [],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "Direct message",
+    "topic": "",
+    "posting": "enabled",
+    "metadataRevision": 2,
+    "avatarUri": null,
+    "avatarRevision": 0
+  },
+  "roomMentionUserIds": [
+    "@p1:example.invalid"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 2049,
+      "operation": "invalidate",
+      "invalidation": {
+        "record_id": "00000000-0000-4000-8000-2d3b8b4fcac4",
+        "record_kind": "memory_fact",
+        "scope": {"kind": "app_thread", "id": "00000000-0000-4000-8000-676a3a34ff0f"},
+        "generation": 2,
+        "lifecycle": "invalidated",
+        "reason": "source_generation_advanced"
+      }
+    }
+  ],
+  "next_cursor": "opaque-sync-token-4",
+  "has_more": false,
+  "server_time": "2026-08-30T12:02:01Z"
+}

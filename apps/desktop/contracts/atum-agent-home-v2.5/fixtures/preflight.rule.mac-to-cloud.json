@@ -1,0 +1,12 @@
+{
+  "rule": "mac_to_cloud_disclosures",
+  "target": {
+    "kind": "cloud"
+  },
+  "codes": [
+    "local_browser_sessions_unavailable",
+    "local_files_unavailable",
+    "local_tools_unavailable",
+    "model_source_changes_to_atum"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 4,
+  "invitation": {
+    "id": "00000000-0000-4000-8000-3e6e169a72d6",
+    "companyId": "00000000-0000-4000-8000-72805976e3a7",
+    "targetHandle": "lan_nguyen",
+    "role": "member",
+    "state": "declined",
+    "createdAt": 1800000000,
+    "expiresAt": 1800604800,
+    "inviter": {
+      "handle": "minh",
+      "displayName": "Minh"
+    }
+  },
+  "replayed": false
+}

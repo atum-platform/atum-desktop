@@ -1,0 +1,40 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 1042,
+      "operation": "upsert",
+      "record": {
+        "record_id": "00000000-0000-4000-8000-576f18824476",
+        "record_kind": "message",
+        "scope": {"kind": "p2p_thread", "id": "00000000-0000-4000-8000-95eb2692c90e"},
+        "revision": 2,
+        "generation": 2,
+        "lifecycle": "active",
+        "payload": {"content": "Corrected meeting time", "kind": "text"},
+        "provenance": {
+          "source_kind": "message",
+          "source_id": "00000000-0000-4000-8000-576f18824476",
+          "source_revision": 2
+        },
+        "occurred_at": "2026-08-30T12:00:00Z",
+        "recorded_at": "2026-08-30T12:00:01Z",
+        "untrusted_input": true
+      }
+    },
+    {
+      "change_id": 1043,
+      "operation": "tombstone",
+      "tombstone": {
+        "record_id": "00000000-0000-4000-8000-4b2f94c54b02",
+        "record_kind": "message",
+        "scope": {"kind": "p2p_thread", "id": "00000000-0000-4000-8000-95eb2692c90e"},
+        "generation": 3,
+        "lifecycle": "deleted"
+      }
+    }
+  ],
+  "next_cursor": "opaque-sync-token-2",
+  "has_more": false,
+  "server_time": "2026-08-30T12:00:02Z"
+}

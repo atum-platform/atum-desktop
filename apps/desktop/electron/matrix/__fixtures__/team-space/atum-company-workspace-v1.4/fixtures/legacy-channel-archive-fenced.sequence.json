@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "received",
+      "to": "fenced",
+      "event": "lock_read_current_generation"
+    },
+    {
+      "from": "fenced",
+      "to": "applied",
+      "event": "apply_1_1_mutation"
+    }
+  ]
+}

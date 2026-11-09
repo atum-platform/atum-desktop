@@ -1,0 +1,54 @@
+{
+  "contract": "atum.group-addressing/1",
+  "header": {
+    "name": "x-atum-group-addressing",
+    "value": "1"
+  },
+  "limits": {
+    "humans": 32,
+    "specialists": 4,
+    "targets": 8,
+    "invocation_code_points": 20000,
+    "quote_code_points": 4000
+  },
+  "carrier": "atum.addressed-mentions/1",
+  "provider_profile": "atum.turn-room/1",
+  "availability": [
+    "available",
+    "specialist_not_linked",
+    "specialist_room_unsupported"
+  ],
+  "invocation_kind": [
+    "mention",
+    "reply"
+  ],
+  "context_policy": "addressed_only",
+  "job_errors": [
+    "mention_revoked",
+    "quote_revoked",
+    "invocation_revoked",
+    "specialist_revoked",
+    "membership_revoked",
+    "assistant_retired",
+    "specialist_room_unsupported",
+    "specialist_not_linked",
+    "preflight_unavailable",
+    "provider_unreachable",
+    "provider_failed",
+    "entitlement_exhausted",
+    "lease_expired",
+    "allowance_exhausted"
+  ],
+  "request_errors": [
+    "specialist_not_addressable",
+    "stale_specialist",
+    "invalid_quote",
+    "invalid_mention",
+    "unsupported_target",
+    "mention_cardinality",
+    "group_retired",
+    "forbidden",
+    "temporarily_unavailable",
+    "rate_limited"
+  ]
+}

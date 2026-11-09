@@ -1,0 +1,29 @@
+{
+  "v": 1,
+  "type": "MigrationReport",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "snapshots": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+        "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "bytes": 4194465,
+        "files": 37
+      }
+    ],
+    "missing": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+        "reason": "offline"
+      }
+    ],
+    "report": null,
+    "reportSha256": null,
+    "issuedAt": 1791101530000,
+    "expiresAt": 1791105130000,
+    "holdUntil": 1791106321000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "UBwNp9CTemaNfwUgASnhTHOT6FJqj3Yzg2ZFi3L4eHnXd4fMFQUVxOPsKATeBf3rYUterQrSrKPQQTWH9kNyCg"
+}

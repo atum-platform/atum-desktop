@@ -1,0 +1,13 @@
+{
+  "schema": "atum-release-promotion-record/1",
+  "channel": "stable",
+  "candidate_id": "v2.0.0-rc.1+99b479a",
+  "candidate_manifest_sha256": "1d46019febdab436d9532afc0d50b6927a1e63fbfab61b4ae1e874c0c16fd24a",
+  "previous_candidate_id": null,
+  "transition": "verified_to_candidate",
+  "lease_id": "offline-example-lease",
+  "actor": "github-environment:release-evidence-example",
+  "occurred_at": "2026-08-30T03:11:00Z",
+  "reason_code": "CANDIDATE_APPROVED",
+  "evidence_ref": "immutable://promotion-record-2"
+}

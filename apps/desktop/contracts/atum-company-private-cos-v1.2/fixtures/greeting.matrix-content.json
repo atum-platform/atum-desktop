@@ -1,0 +1,7 @@
+{
+  "msgtype": "m.text",
+  "body": "Welcome! I’m your private Chief of Staff—ask @Chief of Staff here, or open your company board.\n\nOpen company board: https://atumplatform.com/#atum-board/00000000-0000-4000-8000-540eb3b6436f/00000000-0000-4000-8000-7b0cac15d6b0",
+  "format": "org.matrix.custom.html",
+  "formatted_body": "Welcome! I’m your private Chief of Staff—ask <a href=\"https://matrix.to/#/@private-cos:atum.example\">@Chief of Staff</a> here, or open your company board.<br><br><a href=\"https://atumplatform.com/#atum-board/00000000-0000-4000-8000-540eb3b6436f/00000000-0000-4000-8000-7b0cac15d6b0\">Open company board</a>",
+  "m.mentions": { "user_ids": ["@member:atum.example"] }
+}

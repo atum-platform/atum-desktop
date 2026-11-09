@@ -1,0 +1,415 @@
+{
+  "status": "ok",
+  "lines": [
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    },
+    {
+      "eventId": "$question",
+      "senderRef": "@owner:example.invalid",
+      "displayName": "Owner",
+      "trust": "owner",
+      "text": "Please compare the options",
+      "at": 1200
+    }
+  ],
+  "gaps": 0,
+  "omitted": 0
+}

@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "unmarked",
+      "to": "prepared",
+      "event": "gates_and_preflight"
+    },
+    {
+      "from": "prepared",
+      "to": "main_written",
+      "event": "owner_main_write"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "requestId": "00000000-0000-4000-8000-ba58ff7e081b",
+  "operation": "set_avatar",
+  "avatarUri": "mxc://matrix.atum.app/company-logo",
+  "actor": "00000000-0000-4000-8000-3f6c8223a437"
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@atum/browser-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Bounded browser-local human Matrix first-device proof (G8-22).",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p . --noEmit",
+    "test": "vitest run",
+    "test:proof": "node --test proof/*.test.mjs",
+    "check": "npm run typecheck && npm run test && npm run test:proof && npm run build",
+    "serve": "node serve.mjs"
+  },
+  "dependencies": {
+    "@matrix-org/matrix-sdk-crypto-wasm": "18.8.0",
+    "matrix-js-sdk": "42.4.0",
+    "openid-client": "6.8.8"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1",
+    "fake-indexeddb": "6.2.5",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12"
+  }
+}

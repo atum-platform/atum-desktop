@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "lapsed",
+      "event": "renewal_refused"
+    },
+    {
+      "from": "lapsed",
+      "to": "active",
+      "event": "renewed"
+    }
+  ]
+}

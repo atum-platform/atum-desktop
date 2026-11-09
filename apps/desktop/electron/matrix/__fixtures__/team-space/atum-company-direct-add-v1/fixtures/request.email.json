@@ -1,0 +1,9 @@
+{
+  "requestId": "00000000-0000-4000-8000-4ddf7748f9cd",
+  "target": {
+    "kind": "email",
+    "email": "lan@example.com",
+    "locale": "vi"
+  },
+  "role": "member"
+}

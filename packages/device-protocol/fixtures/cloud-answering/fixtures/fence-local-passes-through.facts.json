@@ -1,0 +1,7 @@
+{
+  "entryPoint": "atum.matrix_invocation",
+  "answeringMode": "local",
+  "outcome": {
+    "kind": "inner"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "decision": "released",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "occurrenceKind": "warmup_nudge",
+  "warmupNudgeIndex": 1,
+  "releaseCount": 1,
+  "retryAt": 1793017920000
+}

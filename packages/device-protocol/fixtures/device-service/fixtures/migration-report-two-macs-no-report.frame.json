@@ -1,0 +1,30 @@
+{
+  "v": 1,
+  "type": "MigrationReport",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "snapshots": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+        "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "bytes": 4194465,
+        "files": 37
+      },
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+        "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "bytes": 4194482,
+        "files": 37
+      }
+    ],
+    "missing": [],
+    "report": null,
+    "reportSha256": null,
+    "issuedAt": 1791101100000,
+    "expiresAt": 1791104700000,
+    "holdUntil": 1791106321000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "N6zAt3FHutdghPjdL8V3pbMM8zCKQOvNYnVErV6Mwf4NNZt6cMtT9fN9u93UFMGH1VdNfwFcSJolPgD1mJ-aDw"
+}

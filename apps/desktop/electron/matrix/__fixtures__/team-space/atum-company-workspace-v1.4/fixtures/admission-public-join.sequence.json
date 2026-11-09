@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "active",
+      "event": "public_join"
+    }
+  ]
+}

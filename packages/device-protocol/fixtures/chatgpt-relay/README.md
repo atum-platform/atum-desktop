@@ -1,0 +1,3 @@
+# `atum.chatgpt-relay/1`: ChatGPT plan through one owner Mac
+
+The owner selects one enrolled Mac. ChatGPT OAuth and refresh material remain in Hermes custody on that Mac. Each cloud model call is a controller-signed, single-use capability bound to owner, agent, invocation, model, device and connection for at most 60 seconds. Requests and responses are capped at 800000 and 800000 bytes. Disable, transfer, sign-out and disconnect refuse new calls; the Mac aborts its local in-flight calls. Logs contain identifiers, closed codes, sizes and timings only—never content or credentials. There is no Atum-billed fallback.

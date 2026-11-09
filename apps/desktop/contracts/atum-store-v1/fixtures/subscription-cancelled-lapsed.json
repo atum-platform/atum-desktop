@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "cancelled",
+      "event": "cancelled"
+    },
+    {
+      "from": "cancelled",
+      "to": "lapsed",
+      "event": "period_ended"
+    }
+  ]
+}

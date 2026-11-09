@@ -1,0 +1,11 @@
+{
+  "mode": "launch",
+  "issuer": "https://mas.example.com/",
+  "baseUrl": "https://matrix.example.com",
+  "clientId": "REPLACE_WITH_BROWSER_MATRIX_PUBLIC_CLIENT_ID",
+  "redirectUri": "https://web.example.com/callback",
+  "domain": {
+    "clientId": "REPLACE_WITH_DISTINCT_BROWSER_DOMAIN_PUBLIC_CLIENT_ID",
+    "apiBaseUrl": "https://api.example.com"
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <title>Atum · First device</title>
+    <link rel="stylesheet" href="/page.css">
+    <script type="module" src="/page.js"></script>
+  </head>
+  <body>
+    <main>
+      <header><span class="brand">Atum</span><span class="muted">Browser · local proof</span></header>
+      <h1>Your first device</h1>
+      <p class="intro">Sign in, keep your recovery key safe, and read your encrypted rooms.</p>
+      <p id="notice" role="status" aria-live="polite">Checking this browser…</p>
+      <div class="actions"><button id="login" disabled>Sign in with MAS</button><button id="signout" class="secondary" disabled>Sign out</button></div>
+      <section aria-label="Device"><h2>This browser</h2><p id="identity">Signed out</p><p id="security" class="muted"></p></section>
+      <section id="domain" aria-label="Account connection" hidden>
+        <h2>Your account</h2><p id="domain-notice" role="status" aria-live="polite">Connect your account to see your Protons.</p>
+        <div class="actions"><button id="domain-connect" disabled>Connect account</button><button id="domain-refresh" class="secondary" disabled>Refresh Protons</button><button id="domain-assistant" class="secondary" disabled>Prepare my assistant</button></div>
+        <p id="domain-result"></p>
+        <section id="cloud" aria-label="Cloud first use">
+          <h2>Cloud work</h2><p id="cloud-notice" role="status" aria-live="polite">Refresh cloud status to see the offer and your agents.</p>
+          <div class="actions"><button id="cloud-refresh" class="secondary" disabled>Refresh cloud status</button><button id="drive-account" class="secondary" disabled>Turn on Drive</button></div>
+          <p id="cloud-summary"></p><p id="cloud-terms" class="muted"></p>
+          <div class="actions"><button id="cloud-accept" disabled>Accept trial</button><button id="cloud-decline" class="secondary" disabled>Decline trial</button></div>
+          <p id="cloud-funding-summary" class="muted"></p><label class="check"><input id="cloud-wallet" type="checkbox">Allow my wallet for future cloud work</label><button id="cloud-funding" class="secondary" disabled>Save wallet choice</button>
+          <p>When you turn on cloud, Atum hosts a device for your agent. That device can decrypt its conversations and files while it works. Verify the device before it can answer. You can revoke cloud access at any time.</p>
+          <label for="cloud-agent">Agent</label><select id="cloud-agent" disabled><option value="">Choose an agent</option></select><p id="cloud-enrollment" class="muted"></p>
+          <div class="actions"><button id="cloud-enroll" disabled>Turn on cloud for this agent</button><button id="cloud-handoff" class="secondary" disabled>Open verification window</button></div><p id="cloud-scheduling" class="muted"></p><p id="cloud-result"></p>
+        </section>
+      </section>
+      <section aria-label="Recovery">
+        <h2>Recovery</h2>
+        <p class="muted">For a new account, create a recovery key and save it somewhere private. For an existing account, use your saved key.</p>
+        <button id="create-key" class="secondary" disabled>Create recovery key</button>
+        <div id="staged" hidden><label for="recovery-key">Save this recovery key privately</label><textarea id="recovery-key" readonly autocomplete="off" spellcheck="false"></textarea>
+          <label class="check"><input type="checkbox" id="saved">I saved this key outside this browser</label>
+          <div class="actions"><button id="setup" disabled>Set up recovery</button><button id="discard" class="secondary">Discard</button></div>
+        </div>
+        <form id="restore-form"><label for="restore-key">Your saved recovery key</label><input id="restore-key" type="password" autocomplete="off" spellcheck="false" disabled>
+          <button id="restore" class="secondary" disabled>Restore recovery</button>
+        </form>
+      </section>
+      <section aria-label="Encrypted room reader"><h2>Encrypted rooms</h2><label for="rooms">Room</label><select id="rooms" disabled><option value="">Choose an encrypted room</option></select><ol id="messages"></ol></section>
+      <footer>Requires a secure context (HTTPS or localhost), IndexedDB and Web Locks. One active tab owns this persistent device. Keep this origin and browser profile to resume it. Cloud work starts only after you accept a server offer and complete Matrix verification.</footer>
+    </main>
+  </body>
+</html>

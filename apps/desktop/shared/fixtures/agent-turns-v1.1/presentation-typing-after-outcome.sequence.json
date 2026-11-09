@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "observed",
+      "to": "admitted",
+      "event": "trust_fence_lease_passed"
+    },
+    {
+      "from": "admitted",
+      "to": "ended",
+      "event": "outcome_published"
+    },
+    {
+      "from": "ended",
+      "to": "working",
+      "event": "work_resumed"
+    }
+  ]
+}

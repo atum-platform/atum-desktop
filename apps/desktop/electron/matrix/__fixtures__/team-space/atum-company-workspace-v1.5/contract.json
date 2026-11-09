@@ -1,0 +1,965 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.5",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/conversation-directory-private-admin.response.json",
+    "fixtures/conversation-directory.response.json",
+    "fixtures/conversation-dm-three.response.json",
+    "fixtures/conversation-error-leak.response.json",
+    "fixtures/conversation-error-unavailable.response.json",
+    "fixtures/conversation-expand-two.request.json",
+    "fixtures/conversation-expand.request.json",
+    "fixtures/conversation-group.response.json",
+    "fixtures/conversation-hidden.request.json",
+    "fixtures/conversation-hidden.response.json",
+    "fixtures/conversation-lifecycle-delete.sequence.json",
+    "fixtures/conversation-lifecycle.sequence.json",
+    "fixtures/conversation-noncanonical.response.json",
+    "fixtures/conversation-open-duplicate.request.json",
+    "fixtures/conversation-open-schema-5.response.json",
+    "fixtures/conversation-open-unordered.request.json",
+    "fixtures/conversation-open-vs-removal.sequence.json",
+    "fixtures/conversation-open.request.json",
+    "fixtures/conversation-open.response.json",
+    "fixtures/conversation-open.trace.json",
+    "fixtures/conversation-participation-readmit.sequence.json",
+    "fixtures/conversation-participation-remove.sequence.json",
+    "fixtures/conversation-reused-epoch.sequence.json",
+    "fixtures/legacy-conversation-error.response.json",
+    "fixtures/participant-digest-dm.vector.json",
+    "fixtures/participant-digest-group.vector.json"
+  ],
+  "row": "C3 company DMs and group DMs",
+  "providers": [
+    "Atum platform conversation authority"
+  ],
+  "consumers": [
+    "hosted room manager",
+    "desktop",
+    "phone",
+    "search and file providers"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.4",
+    "path": "spec/company-workspace/v1.4",
+    "kind": "pack",
+    "sha256": "f6a0a2b912871a9acea15016d3d341d55350008e8e3d5dfd3a92dacb9a295f96",
+    "rule": "additive minor; only C3 messages use schemaVersion 6"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.5",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3",
+      "1.4"
+    ],
+    "unchanged_schema_versions": {
+      "1.1": 2,
+      "1.2": 3,
+      "1.3": 4,
+      "1.4": 5
+    },
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_5": 6,
+      "scope": "new C3 messages only"
+    },
+    "old_clients": "no conversations; new room metadata must be quarantined, never Personal"
+  },
+  "identity": {
+    "key": "company plus canonical sorted (memberRef, admissionEpoch) participant set",
+    "dm": "exactly 2 humans",
+    "group_dm": "3 to 9 humans",
+    "cross_scope": "another company and Personal are always distinct",
+    "expand": "opens another immutable participant-set conversation with no copied history or files",
+    "digest": {
+      "prefix": "atum.company-conversation-participant-set/1",
+      "sort": "ascending UTF-8 bytes of memberRef",
+      "encoding": "UTF-8, LF line endings, no BOM; prefix, companyId, kind and one member=<memberRef>:<base-10 admissionEpoch> line each, including final LF",
+      "hash": "SHA-256 lowercase hexadecimal"
+    }
+  },
+  "authority": {
+    "effective": "active company membership at recorded epoch AND current conversation participation",
+    "admin": "rank grants nothing",
+    "manager": "hosted manager provisions every room",
+    "classification": "company conversation target; never Personal or fake channel"
+  },
+  "replay": {
+    "scope": "(actor, requestId)",
+    "open": "atomic get-or-create by canonical participant epoch set",
+    "changed_input": "409 no effect",
+    "cross_actor": "409 no receipt disclosure"
+  },
+  "removal": {
+    "commit": "platform authority ends immediately",
+    "matrix": "joined, invited and uncertain effects require witnessed exclusion",
+    "continuation": "at least 2 current participants may continue; otherwise read_only; read_only is terminal for that immutable participant set",
+    "readmission": "new epoch restores no old conversation; there is no read_only to active transition"
+  },
+  "hidden": {
+    "scope": "per user presentation only",
+    "authority": "unchanged",
+    "operations": [
+      "hide",
+      "unhide"
+    ]
+  },
+  "compatibility": {
+    "activation": "minimum safe desktop and phone classifier required",
+    "rollback": "disable opens first; retain ACLs, bindings, effects, preferences and files; never recast Personal",
+    "errors": "old wires receive plain matrix_404/409 only"
+  },
+  "errors": [
+    "conversation_unavailable",
+    "participant_unavailable",
+    "participant_limit",
+    "participant_set_conflict",
+    "admission_epoch_conflict",
+    "conversation_read_only"
+  ],
+  "invariants": [
+    {
+      "id": "conversation_open.dm_size",
+      "message": "conversation-open.response",
+      "op": "array_length",
+      "left": "conversation.participants",
+      "exact": 2,
+      "required": true,
+      "when": {
+        "path": "conversation.kind",
+        "equals": "dm"
+      }
+    },
+    {
+      "id": "conversation_open.group_size",
+      "message": "conversation-open.response",
+      "op": "array_length",
+      "left": "conversation.participants",
+      "min": 3,
+      "max": 9,
+      "required": true,
+      "when": {
+        "path": "conversation.kind",
+        "equals": "group_dm"
+      }
+    },
+    {
+      "id": "conversation_open.canonical_order",
+      "message": "conversation-open.response",
+      "op": "sorted_unique",
+      "left": "conversation.participants",
+      "element": "memberRef",
+      "required": true
+    },
+    {
+      "id": "conversation_open.digest",
+      "message": "conversation-open.response",
+      "op": "participant_digest",
+      "company": "conversation.companyId",
+      "kind": "conversation.kind",
+      "participants": "conversation.participants",
+      "member": "memberRef",
+      "epoch": "admissionEpoch",
+      "output": "conversation.participantSetDigest",
+      "prefix": "atum.company-conversation-participant-set/1"
+    },
+    {
+      "id": "digest_vector.canonical_order",
+      "message": "participant-digest.vector",
+      "op": "sorted_unique",
+      "left": "participants",
+      "element": "memberRef",
+      "required": true
+    },
+    {
+      "id": "digest_vector.value",
+      "message": "participant-digest.vector",
+      "op": "participant_digest",
+      "company": "companyId",
+      "kind": "kind",
+      "participants": "participants",
+      "member": "memberRef",
+      "epoch": "admissionEpoch",
+      "output": "participantSetDigest",
+      "prefix": "atum.company-conversation-participant-set/1"
+    }
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "handle": {
+      "type": "string",
+      "min": 3,
+      "max": 32,
+      "pattern": "[a-z][a-z0-9_]{2,31}"
+    },
+    "text120": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "digest": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "kind": {
+      "enum": [
+        "dm",
+        "group_dm"
+      ]
+    },
+    "state": {
+      "enum": [
+        "provisioning",
+        "active",
+        "read_only"
+      ]
+    },
+    "participant_state": {
+      "enum": [
+        "active",
+        "revoking",
+        "removed"
+      ]
+    },
+    "room": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "enum": [
+                "not_provisioned",
+                "provisioning",
+                "reconciling",
+                "failed"
+              ]
+            },
+            "roomId": {
+              "const": null
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "ready"
+            },
+            "roomId": {
+              "type": "string",
+              "min": 4,
+              "max": 512,
+              "pattern": "![!-9;-~]{1,255}:[!-~]{1,255}"
+            }
+          }
+        }
+      ]
+    },
+    "participant": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "handle": {
+          "anyOf": [
+            {
+              "ref": "handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "ref": "text120"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "conversation": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "kind": {
+          "ref": "kind"
+        },
+        "state": {
+          "ref": "state"
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "ref": "participant"
+          },
+          "min": 2,
+          "max": 9,
+          "unique": true
+        },
+        "participantSetDigest": {
+          "ref": "digest"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "conversationGeneration": {
+          "ref": "generation"
+        },
+        "room": {
+          "ref": "room"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      }
+    },
+    "directory": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 6
+        },
+        "conversations": {
+          "type": "array",
+          "items": {
+            "ref": "conversation"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "open_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "participantMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 2,
+          "max": 9,
+          "unique": true
+        }
+      }
+    },
+    "expand_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "sourceConversationId": {
+          "ref": "uuid"
+        },
+        "participantMemberRefs": {
+          "type": "array",
+          "items": {
+            "ref": "member_ref"
+          },
+          "min": 3,
+          "max": 9,
+          "unique": true
+        }
+      }
+    },
+    "open_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 6
+        },
+        "conversation": {
+          "ref": "conversation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "hidden_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "hidden": {
+          "type": "boolean"
+        }
+      }
+    },
+    "hidden_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 6
+        },
+        "conversationId": {
+          "ref": "uuid"
+        },
+        "hidden": {
+          "type": "boolean"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_400",
+            "matrix_401",
+            "matrix_403",
+            "matrix_404",
+            "matrix_409",
+            "matrix_429",
+            "matrix_503"
+          ]
+        }
+      }
+    },
+    "error_404": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_404"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "conversation_unavailable",
+                "participant_unavailable"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_409": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_409"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "participant_limit",
+                "participant_set_conflict",
+                "admission_epoch_conflict",
+                "conversation_read_only"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_response": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "ref": "error_404"
+        },
+        {
+          "ref": "error_409"
+        }
+      ]
+    },
+    "lifecycle_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "state"
+        },
+        "to": {
+          "ref": "state"
+        },
+        "event": {
+          "enum": [
+            "provision",
+            "participant_removed"
+          ]
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "lifecycle_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    },
+    "participation_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "participant_state"
+        },
+        "to": {
+          "ref": "participant_state"
+        },
+        "event": {
+          "enum": [
+            "company_remove",
+            "ban_witness"
+          ]
+        }
+      }
+    },
+    "participation": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "participation_step"
+          },
+          "min": 1,
+          "max": 4
+        }
+      }
+    },
+    "trace_epoch": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        }
+      }
+    },
+    "trace_open": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "ref": "trace_epoch"
+          },
+          "min": 2,
+          "max": 9,
+          "unique": true
+        },
+        "conversationId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "open_trace": {
+      "type": "object",
+      "required": {
+        "opens": {
+          "type": "array",
+          "items": {
+            "ref": "trace_open"
+          },
+          "min": 2,
+          "max": 8
+        }
+      }
+    },
+    "digest_vector": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "kind": {
+          "ref": "kind"
+        },
+        "participants": {
+          "type": "array",
+          "items": {
+            "ref": "trace_epoch"
+          },
+          "min": 2,
+          "max": 9,
+          "unique": true
+        },
+        "participantSetDigest": {
+          "ref": "digest"
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_5": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "*principal*",
+        "userId",
+        "mxid",
+        "roomId",
+        "participantAdmissionEpoch",
+        "controller*"
+      ]
+    },
+    "platform_to_native_v1_5": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "*principal*",
+        "userId",
+        "mxid",
+        "*token*",
+        "manager*",
+        "credential"
+      ]
+    },
+    "test_trace": {
+      "from": "conformance trace",
+      "to": "provider tests",
+      "forbidden_fields": [
+        "roomId",
+        "userId",
+        "mxid"
+      ]
+    }
+  },
+  "messages": {
+    "conversation-directory.response": {
+      "direction": "platform_to_native_v1_5",
+      "schema": {
+        "ref": "directory"
+      }
+    },
+    "conversation-open.request": {
+      "direction": "native_to_platform_v1_5",
+      "schema": {
+        "ref": "open_request"
+      }
+    },
+    "conversation-expand.request": {
+      "direction": "native_to_platform_v1_5",
+      "schema": {
+        "ref": "expand_request"
+      }
+    },
+    "conversation-open.response": {
+      "direction": "platform_to_native_v1_5",
+      "schema": {
+        "ref": "open_response"
+      }
+    },
+    "conversation-hidden.request": {
+      "direction": "native_to_platform_v1_5",
+      "schema": {
+        "ref": "hidden_request"
+      }
+    },
+    "conversation-hidden.response": {
+      "direction": "platform_to_native_v1_5",
+      "schema": {
+        "ref": "hidden_response"
+      }
+    },
+    "conversation.error.response": {
+      "direction": "platform_to_native_v1_5",
+      "schema": {
+        "ref": "error_response"
+      }
+    },
+    "legacy-conversation.error.response": {
+      "direction": "platform_to_native_v1_5",
+      "schema": {
+        "ref": "error_plain"
+      }
+    },
+    "conversation-open.trace": {
+      "direction": "test_trace",
+      "schema": {
+        "ref": "open_trace"
+      }
+    },
+    "participant-digest.vector": {
+      "direction": "test_trace",
+      "schema": {
+        "ref": "digest_vector"
+      }
+    }
+  },
+  "state_machines": {
+    "conversation_lifecycle": {
+      "states": [
+        "provisioning",
+        "active",
+        "read_only"
+      ],
+      "initial": [
+        "provisioning"
+      ],
+      "terminal": [
+        "read_only"
+      ],
+      "transitions": [
+        [
+          "provisioning",
+          "active",
+          "provision"
+        ],
+        [
+          "active",
+          "read_only",
+          "participant_removed"
+        ]
+      ]
+    },
+    "conversation_participation": {
+      "states": [
+        "active",
+        "revoking",
+        "removed"
+      ],
+      "initial": [
+        "active"
+      ],
+      "terminal": [
+        "removed"
+      ],
+      "transitions": [
+        [
+          "active",
+          "revoking",
+          "company_remove"
+        ],
+        [
+          "revoking",
+          "removed",
+          "ban_witness"
+        ]
+      ]
+    },
+    "conversation_authority": {
+      "states": [
+        "current",
+        "revoked"
+      ],
+      "initial": [
+        "current"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "current",
+          "revoked",
+          "participant_removed"
+        ],
+        [
+          "revoked",
+          "revoked",
+          "stale_open_refused"
+        ],
+        [
+          "revoked",
+          "revoked",
+          "reused_epoch_refused"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/conversation-directory-private-admin.response.json",
+      "message": "conversation-directory.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/conversation-directory.response.json",
+      "message": "conversation-directory.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-dm-three.response.json",
+      "message": "conversation-open.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/conversation-error-leak.response.json",
+      "message": "conversation.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/conversation-error-unavailable.response.json",
+      "message": "conversation.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-expand-two.request.json",
+      "message": "conversation-expand.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/conversation-expand.request.json",
+      "message": "conversation-expand.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-group.response.json",
+      "message": "conversation-open.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-hidden.request.json",
+      "message": "conversation-hidden.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-hidden.response.json",
+      "message": "conversation-hidden.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-lifecycle-delete.sequence.json",
+      "machine": "conversation_lifecycle",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/conversation-lifecycle.sequence.json",
+      "machine": "conversation_lifecycle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-noncanonical.response.json",
+      "message": "conversation-open.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/conversation-open-duplicate.request.json",
+      "message": "conversation-open.request",
+      "expect": "reject",
+      "violation": "unique"
+    },
+    {
+      "file": "fixtures/conversation-open-schema-5.response.json",
+      "message": "conversation-open.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/conversation-open-unordered.request.json",
+      "message": "conversation-open.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-open-vs-removal.sequence.json",
+      "machine": "conversation_authority",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-open.request.json",
+      "message": "conversation-open.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-open.response.json",
+      "message": "conversation-open.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-open.trace.json",
+      "message": "conversation-open.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-participation-readmit.sequence.json",
+      "machine": "conversation_participation",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/conversation-participation-remove.sequence.json",
+      "machine": "conversation_participation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conversation-reused-epoch.sequence.json",
+      "machine": "conversation_authority",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-conversation-error.response.json",
+      "message": "legacy-conversation.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/participant-digest-dm.vector.json",
+      "message": "participant-digest.vector",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/participant-digest-group.vector.json",
+      "message": "participant-digest.vector",
+      "expect": "accept"
+    }
+  ]
+}

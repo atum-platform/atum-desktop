@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "finishing_current_work",
+      "to": "reconciling",
+      "event": "effect_unknown"
+    },
+    {
+      "from": "reconciling",
+      "to": "waiting_for_destination",
+      "event": "reconciled_committed"
+    },
+    {
+      "from": "waiting_for_destination",
+      "to": "ready",
+      "event": "destination_ready"
+    }
+  ]
+}

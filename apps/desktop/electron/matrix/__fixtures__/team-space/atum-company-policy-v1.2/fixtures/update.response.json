@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 4,
+  "companyId": "00000000-0000-4000-8000-72805976e3a7",
+  "policy": {
+    "channelCreation": "members",
+    "publicChannelMembership": "members",
+    "privateChannelMembership": "members",
+    "companyInvitations": "members"
+  },
+  "authorityGeneration": 10,
+  "replayed": false
+}

@@ -1,0 +1,113 @@
+/*
+ * A link preview under a message (link-preview-card.tsx): a plain card like a file card (STYLE.md
+ * §10 Files: hairline, --ak-r-xl, surface), the page's picture as a leading tile, then site, title
+ * and description. Concentric corners: card 20 − padding 12 = picture 8. It arrives with a fade
+ * (no space is held for it while it loads), and the × shows on hover or keyboard focus.
+ */
+.atum-link-preview {
+  position: relative;
+  container-type: inline-size;
+  width: min(100%, 22.5rem);
+  margin-top: var(--ak-s1);
+  border: 1px solid var(--ak-line);
+  border-radius: var(--ak-r-xl);
+  background: var(--ak-surface);
+  white-space: normal;
+  animation: atum-link-preview-in 200ms var(--ak-ease) both;
+}
+
+/* Your own message in a bubble chat: the card lines up under the bubble on the right. */
+.atum-link-preview[data-own] {
+  margin-inline-start: auto;
+}
+
+.atum-link-preview__link {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ak-s3);
+  padding: var(--ak-s3);
+  padding-inline-end: calc(var(--ak-s3) + var(--ak-h-sm));
+  border-radius: inherit;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 120ms var(--ak-ease);
+}
+
+.atum-link-preview__link:hover {
+  background: var(--ak-fill-hover);
+}
+
+.atum-link-preview__link:focus-visible {
+  outline: 3px solid var(--ak-focus);
+  outline-offset: 1px;
+}
+
+.atum-link-preview__image {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--ak-r-sm);
+  background: var(--ak-sunk);
+  object-fit: cover;
+}
+
+.atum-link-preview__words {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atum-link-preview__site {
+  overflow: hidden;
+  color: var(--ak-ink-3);
+  font: var(--ak-t-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atum-link-preview__title,
+.atum-link-preview__description {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+}
+
+.atum-link-preview__title {
+  color: var(--ak-ink);
+  font: var(--ak-t-body-strong);
+}
+
+.atum-link-preview__description {
+  color: var(--ak-ink-2);
+  font: var(--ak-t-callout);
+}
+
+.atum-link-preview__hide {
+  position: absolute;
+  top: var(--ak-s2);
+  inset-inline-end: var(--ak-s2);
+  opacity: 0;
+  transition: opacity 120ms var(--ak-ease);
+}
+
+.atum-link-preview:hover .atum-link-preview__hide,
+.atum-link-preview:focus-within .atum-link-preview__hide {
+  opacity: 1;
+}
+
+/* A narrow side panel keeps the words and drops the picture. */
+@container (max-width: 240px) {
+  .atum-link-preview__image {
+    display: none;
+  }
+}
+
+@keyframes atum-link-preview-in {
+  from {
+    opacity: 0;
+  }
+}

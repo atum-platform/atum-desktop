@@ -1,0 +1,8 @@
+{
+  "approvedAgentRole": "main",
+  "beforeFirstReadAlias": "google-protected",
+  "afterFirstReadAlias": "google-protected",
+  "afterDisconnectAlias": "google-protected",
+  "savedManagedChoiceRetained": true,
+  "otherAgents": "not_eligible"
+}

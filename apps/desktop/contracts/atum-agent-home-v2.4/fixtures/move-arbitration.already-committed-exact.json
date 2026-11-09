@@ -1,0 +1,38 @@
+{
+  "current": {
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "idempotencyKey": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "intent": "manual",
+    "status": "committed",
+    "source": {
+      "kind": "cloud"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "expectedHomeEpoch": 4,
+    "expectedPlacementRevision": 9,
+    "requestedAtPlatform": 1800000000000
+  },
+  "incoming": {
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "idempotencyKey": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "intent": "manual",
+    "status": "requested",
+    "source": {
+      "kind": "cloud"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "expectedHomeEpoch": 4,
+    "expectedPlacementRevision": 9,
+    "requestedAtPlatform": 1800000000000
+  },
+  "expect": {
+    "outcome": "replay",
+    "reason": "already_committed_exact_epoch"
+  }
+}

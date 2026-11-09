@@ -1,0 +1,14 @@
+{
+  "operation": "create",
+  "requestId": "00000000-0000-4000-8000-f2b7acd67e56",
+  "title": "Every six hours",
+  "instruction": "Check the queue.",
+  "schedule": {
+    "kind": "interval",
+    "everyHours": 6,
+    "jitterMinutes": 5
+  },
+  "timezone": "Asia/Ho_Chi_Minh",
+  "enabled": true,
+  "notifications": true
+}

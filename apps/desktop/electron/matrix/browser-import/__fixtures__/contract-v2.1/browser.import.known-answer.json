@@ -1,0 +1,134 @@
+{
+  "inputs": {
+    "authenticatedData": {
+      "ownerUserId": "@owner:atum.example",
+      "selectedAgents": [
+        {
+          "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+          "profileIsolation": "separate"
+        }
+      ],
+      "recipientBasis": "primary_default",
+      "computerId": "00000000-0000-4000-8000-b454f82c5857",
+      "attachmentEpoch": 7,
+      "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+      "siteCount": 4,
+      "importId": "00000000-0000-4000-8000-cd2a20671fb6",
+      "expiresAt": 1800000900000,
+      "createdAt": 1800000000000,
+      "hpkeKeyId": "ofHARleIvKeI4HbYMZy9XdYmQ1zr-ztBq_aRcohRL2g",
+      "contentType": "playwright_storage_state_cookies_only",
+      "plaintextEncoding": "RFC8785_JCS_UTF8"
+    },
+    "admission": {
+      "importId": "00000000-0000-4000-8000-cd2a20671fb6",
+      "ownerUserId": "@owner:atum.example",
+      "approvedBy": "@owner:atum.example",
+      "approvedAt": 1799999999000,
+      "source": {
+        "browser": "chrome",
+        "profileOrdinal": 1
+      },
+      "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+      "siteCount": 4,
+      "skippedSiteCount": 1,
+      "selectedAgents": [
+        {
+          "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+          "profileIsolation": "separate"
+        }
+      ],
+      "recipientBasis": "primary_default",
+      "recipient": {
+        "computerId": "00000000-0000-4000-8000-b454f82c5857",
+        "attachmentEpoch": 7
+      },
+      "expiresAt": 1800000900000,
+      "consent": "explicit_owner_approval"
+    },
+    "siteSelections": [
+      {
+        "domain": "github.com",
+        "category": "standard",
+        "disposition": "included",
+        "ownerOverride": false
+      },
+      {
+        "domain": "google.com",
+        "category": "standard",
+        "disposition": "included",
+        "ownerOverride": false
+      },
+      {
+        "domain": "bank.example",
+        "category": "banking",
+        "disposition": "skipped_default",
+        "ownerOverride": false
+      },
+      {
+        "domain": "wallet.example",
+        "category": "wallet",
+        "disposition": "included_owner_override",
+        "ownerOverride": true
+      }
+    ],
+    "hpkePublicKey": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "ciphertextDigest": "a23d3d436812334ed917193c51a3797b877772ef31d6c93575024b457a246b17",
+    "bundle": {
+      "siteSelections": [
+        {
+          "domain": "github.com",
+          "category": "standard",
+          "disposition": "included",
+          "ownerOverride": false
+        },
+        {
+          "domain": "google.com",
+          "category": "standard",
+          "disposition": "included",
+          "ownerOverride": false
+        },
+        {
+          "domain": "bank.example",
+          "category": "banking",
+          "disposition": "skipped_default",
+          "ownerOverride": false
+        },
+        {
+          "domain": "wallet.example",
+          "category": "wallet",
+          "disposition": "included_owner_override",
+          "ownerOverride": true
+        }
+      ],
+      "cookies": [
+        {
+          "name": "session",
+          "value": "opaque-cookie",
+          "domain": ".github.com",
+          "path": "/",
+          "expires": 1800000000,
+          "httpOnly": true,
+          "secure": true,
+          "sameSite": "Lax"
+        }
+      ],
+      "origins": []
+    },
+    "encryptedSites": {
+      "sites": [
+        "github.com",
+        "google.com"
+      ]
+    }
+  },
+  "outputs": {
+    "aadJcsUtf8Base64url": "eyJhdHRhY2htZW50RXBvY2giOjcsImNvbXB1dGVySWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC1iNDU0ZjgyYzU4NTciLCJjb250ZW50VHlwZSI6InBsYXl3cmlnaHRfc3RvcmFnZV9zdGF0ZV9jb29raWVzX29ubHkiLCJjcmVhdGVkQXQiOjE4MDAwMDAwMDAwMDAsImV4cGlyZXNBdCI6MTgwMDAwMDkwMDAwMCwiaHBrZUtleUlkIjoib2ZIQVJsZUl2S2VJNEhiWU1aeTlYZFltUTF6ci16dEJxX2FSY29oUkwyZyIsImltcG9ydElkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtY2QyYTIwNjcxZmI2Iiwib3duZXJVc2VySWQiOiJAb3duZXI6YXR1bS5leGFtcGxlIiwicGxhaW50ZXh0RW5jb2RpbmciOiJSRkM4Nzg1X0pDU19VVEY4IiwicmVjaXBpZW50QmFzaXMiOiJwcmltYXJ5X2RlZmF1bHQiLCJzZWxlY3RlZEFnZW50cyI6W3siYWdlbnRQcmluY2lwYWwiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC1iZDc2NjJhNWVlYjQiLCJwcm9maWxlSXNvbGF0aW9uIjoic2VwYXJhdGUifV0sInNpdGVDb3VudCI6NCwic2l0ZXNEaWdlc3QiOiJIU2oxWlZDb3ducmxWZ2t1QlI1VWktRzhnTldoaHpLdUo2aDRRMGk5OGd3In0",
+    "admissionDigest": "95af6d1889c60a16132b9966c3195935b9d18b5a2d1f32a10bbc6eb4539a6df7",
+    "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+    "hpkeKeyId": "ofHARleIvKeI4HbYMZy9XdYmQ1zr-ztBq_aRcohRL2g",
+    "bundleJcsUtf8Base64url": "eyJjb29raWVzIjpbeyJkb21haW4iOiIuZ2l0aHViLmNvbSIsImV4cGlyZXMiOjE4MDAwMDAwMDAsImh0dHBPbmx5Ijp0cnVlLCJuYW1lIjoic2Vzc2lvbiIsInBhdGgiOiIvIiwic2FtZVNpdGUiOiJMYXgiLCJzZWN1cmUiOnRydWUsInZhbHVlIjoib3BhcXVlLWNvb2tpZSJ9XSwib3JpZ2lucyI6W10sInNpdGVTZWxlY3Rpb25zIjpbeyJjYXRlZ29yeSI6InN0YW5kYXJkIiwiZGlzcG9zaXRpb24iOiJpbmNsdWRlZCIsImRvbWFpbiI6ImdpdGh1Yi5jb20iLCJvd25lck92ZXJyaWRlIjpmYWxzZX0seyJjYXRlZ29yeSI6InN0YW5kYXJkIiwiZGlzcG9zaXRpb24iOiJpbmNsdWRlZCIsImRvbWFpbiI6Imdvb2dsZS5jb20iLCJvd25lck92ZXJyaWRlIjpmYWxzZX0seyJjYXRlZ29yeSI6ImJhbmtpbmciLCJkaXNwb3NpdGlvbiI6InNraXBwZWRfZGVmYXVsdCIsImRvbWFpbiI6ImJhbmsuZXhhbXBsZSIsIm93bmVyT3ZlcnJpZGUiOmZhbHNlfSx7ImNhdGVnb3J5Ijoid2FsbGV0IiwiZGlzcG9zaXRpb24iOiJpbmNsdWRlZF9vd25lcl9vdmVycmlkZSIsImRvbWFpbiI6IndhbGxldC5leGFtcGxlIiwib3duZXJPdmVycmlkZSI6dHJ1ZX1dfQ",
+    "encryptedSitesJcsUtf8Base64url": "eyJzaXRlcyI6WyJnaXRodWIuY29tIiwiZ29vZ2xlLmNvbSJdfQ",
+    "signatureInputBase64url": "YXR1bS5icm93c2VyLWltcG9ydC92MQB7ImF0dGFjaG1lbnRFcG9jaCI6NywiY29tcHV0ZXJJZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLWI0NTRmODJjNTg1NyIsImNvbnRlbnRUeXBlIjoicGxheXdyaWdodF9zdG9yYWdlX3N0YXRlX2Nvb2tpZXNfb25seSIsImNyZWF0ZWRBdCI6MTgwMDAwMDAwMDAwMCwiZXhwaXJlc0F0IjoxODAwMDAwOTAwMDAwLCJocGtlS2V5SWQiOiJvZkhBUmxlSXZLZUk0SGJZTVp5OVhkWW1RMXpyLXp0QnFfYVJjb2hSTDJnIiwiaW1wb3J0SWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC1jZDJhMjA2NzFmYjYiLCJvd25lclVzZXJJZCI6IkBvd25lcjphdHVtLmV4YW1wbGUiLCJwbGFpbnRleHRFbmNvZGluZyI6IlJGQzg3ODVfSkNTX1VURjgiLCJyZWNpcGllbnRCYXNpcyI6InByaW1hcnlfZGVmYXVsdCIsInNlbGVjdGVkQWdlbnRzIjpbeyJhZ2VudFByaW5jaXBhbCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLWJkNzY2MmE1ZWViNCIsInByb2ZpbGVJc29sYXRpb24iOiJzZXBhcmF0ZSJ9XSwic2l0ZUNvdW50Ijo0LCJzaXRlc0RpZ2VzdCI6IkhTajFaVkNvd25ybFZna3VCUjVVaS1HOGdOV2hoekt1SjZoNFEwaTk4Z3cifQCVr20YicYKFhMrmWbDGVk1udGLWi0fMqELvG60U5pt96I9PUNoEjNO2RcZPFGjeXuHd3LvMdbJNXUCS0V6JGsX"
+  }
+}

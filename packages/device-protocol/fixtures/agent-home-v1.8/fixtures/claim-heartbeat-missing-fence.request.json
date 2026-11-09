@@ -1,0 +1,10 @@
+{
+  "operation": "heartbeat",
+  "executorId": "00000000-0000-4000-8000-1e06b6722ae5",
+  "roomId": "!claim:example.invalid",
+  "eventId": "$turn",
+  "requestHash": "abababababababababababababababababababababababababababababababab",
+  "senderDevice": "OWNERPHONE",
+  "protocol": 2,
+  "admission": "interactive"
+}

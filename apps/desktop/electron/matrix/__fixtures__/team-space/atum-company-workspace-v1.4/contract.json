@@ -1,0 +1,1656 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.4",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/admission-invitation-cancel-witness.sequence.json",
+    "fixtures/admission-invitation-decline-without-witness.sequence.json",
+    "fixtures/admission-invitation-decline-witness.sequence.json",
+    "fixtures/admission-invitation-expire-witness.sequence.json",
+    "fixtures/admission-leave.sequence.json",
+    "fixtures/admission-private-accept.sequence.json",
+    "fixtures/admission-private-readmit.sequence.json",
+    "fixtures/admission-public-join.sequence.json",
+    "fixtures/admission-public-readmit.sequence.json",
+    "fixtures/admission-public-rejoin-after-removal.sequence.json",
+    "fixtures/admission-readmit-without-invite.sequence.json",
+    "fixtures/admission-remove.sequence.json",
+    "fixtures/channel-accept.request.json",
+    "fixtures/channel-admitted-default-private.snapshot.json",
+    "fixtures/channel-admitted-directory.response.json",
+    "fixtures/channel-admitted-private.snapshot.json",
+    "fixtures/channel-admitted-public.snapshot.json",
+    "fixtures/channel-archive-restore.sequence.json",
+    "fixtures/channel-archive.request.json",
+    "fixtures/channel-browse-private.response.json",
+    "fixtures/channel-browse.response.json",
+    "fixtures/channel-cancel.request.json",
+    "fixtures/channel-command-schema-4.response.json",
+    "fixtures/channel-command.response.json",
+    "fixtures/channel-create-company.request.json",
+    "fixtures/channel-create-private.request.json",
+    "fixtures/channel-create-public.request.json",
+    "fixtures/channel-decline.request.json",
+    "fixtures/channel-invitation-accept.sequence.json",
+    "fixtures/channel-invitation-cancel.sequence.json",
+    "fixtures/channel-invitation-decline.sequence.json",
+    "fixtures/channel-invitation-expire.sequence.json",
+    "fixtures/channel-invitation.response.json",
+    "fixtures/channel-invite.request.json",
+    "fixtures/channel-join.request.json",
+    "fixtures/channel-leave.request.json",
+    "fixtures/channel-members.response.json",
+    "fixtures/channel-metadata-empty.request.json",
+    "fixtures/channel-metadata.request.json",
+    "fixtures/channel-remove.request.json",
+    "fixtures/channel-visibility-change.request.json",
+    "fixtures/error-channel-unavailable.response.json",
+    "fixtures/error-default-protected.response.json",
+    "fixtures/error-private-disclosure.response.json",
+    "fixtures/error-visibility-immutable.response.json",
+    "fixtures/legacy-channel-archive-fenced.sequence.json",
+    "fixtures/legacy-channel-archive-unfenced.sequence.json",
+    "fixtures/legacy-channel-error.response.json",
+    "fixtures/legacy-channel-unsupported-refused.sequence.json",
+    "fixtures/legacy-general-archive-leave.sequence.json"
+  ],
+  "row": "C2 public/private channels and admission",
+  "providers": [
+    "Atum platform channel authority"
+  ],
+  "consumers": [
+    "hosted room manager",
+    "desktop",
+    "phone",
+    "search and file providers"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.3",
+    "path": "spec/company-workspace/v1.3",
+    "kind": "pack",
+    "sha256": "3bceb11b539c34cea10219dbd951ffee8397016e9c49375bec4acee24a8444c7",
+    "rule": "additive minor; only C2 messages use schemaVersion 5"
+  },
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.4",
+    "previous": [
+      "1",
+      "1.1",
+      "1.2",
+      "1.3"
+    ],
+    "absent": "v1",
+    "unknown_value": "400 matrix_400, no effect",
+    "vary": "Atum-Company-Wire",
+    "unchanged_schema_versions": {
+      "1.1": 2,
+      "1.2": 3,
+      "1.3": 4
+    },
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1_4": 5,
+      "scope": "new C2 messages only"
+    }
+  },
+  "authority": {
+    "key": "(company, channel, member, membershipAdmissionEpoch)",
+    "prerequisite": "active company membership at matching epoch",
+    "non_grants": [
+      "Matrix membership",
+      "room id",
+      "cached directory",
+      "project association",
+      "admin rank"
+    ],
+    "visibility": "immutable; update_metadata may carry visibility only so the server can compare it to stored visibility and return channel_visibility_immutable on change",
+    "manager": "hosted manager provisions every room; clients never do",
+    "moderation": "creator is immutable channel owner; channel owner and admitted active company admins may invite/remove/archive, but admin rank without admission grants no metadata or action"
+  },
+  "audience": {
+    "effective": "active company membership AND matching current membership admission epoch AND active channel admission",
+    "public_browse": "active company members receive bounded public metadata only",
+    "private": "non-admitted users receive no metadata, count, existence, search, file, preview, notification or room binding",
+    "admin": "rank does not grant private access"
+  },
+  "default_channel": {
+    "systemKey": "default",
+    "rules": [
+      "public",
+      "auto-admitted",
+      "cannot leave",
+      "cannot remove independently",
+      "cannot archive except company retirement",
+      "cannot change visibility"
+    ],
+    "legacy_enforcement": true
+  },
+  "migration": {
+    "existing": "all company-wide channels become public forever with active-member admission backfill",
+    "preserve": [
+      "channel UUID",
+      "room binding",
+      "immutable create event",
+      "history",
+      "file references"
+    ],
+    "private": "new channel and room; no history/file copy",
+    "new_members": "default channel only",
+    "pending_invitations": "any existing pending channel invitation without expiresAt receives migration time + 604800 seconds"
+  },
+  "admissions": {
+    "reentry": "left/removed advances to a new none row/generation; public then self-joins, private requires a fresh pending invitation and accept",
+    "public_removal": "not a durable ban; after witnessed removal and a fresh none generation an active company member may self-join again",
+    "invitations": "pending invitation expires after 604800 seconds and may be accepted or self-declined, admin-cancelled, or synchronously expired; decline/cancel/expire move admission to revoking and require possible-grant ban witnesses before none; every terminal attempt is immutable",
+    "members_read": "admitted moderators receive memberRef plus admission state/generations; revoking remains visible as pending cleanup"
+  },
+  "concurrency": {
+    "rule": "every 1.4 mutation except create requires expectedChannelGeneration; admission mutations also require expectedAdmissionGeneration; stale values return admission_generation_conflict and never last-write-wins",
+    "legacy_routes": "1.1 create/archive/restore only; archive/restore read current generation under the channel lock and apply against it, while newer mutations fail closed on the legacy error surface"
+  },
+  "replay": {
+    "scope": "(actor, requestId)",
+    "reauthorize": true,
+    "changed_input": "409 no effect",
+    "cross_actor": "409 no stored receipt disclosure"
+  },
+  "compatibility": {
+    "old_directory": "admitted public channels only, mapped to visibility company",
+    "old_private": "omitted even when admitted",
+    "security": "current server audience applies to stale clients",
+    "legacy_mutations": "restricted to 1.1 create/archive/restore; non-create is fenced by a current-generation read under the channel lock and all newer mutations are refused",
+    "errors": "new typed reasons map to plain matrix_400/403/404/409 on old wires; #general archive/leave remains default protected on legacy routes"
+  },
+  "activation": {
+    "public": "may activate when current clients safely parse public admission",
+    "private": "requires minimum desktop/phone classifier support; otherwise private creation and admission remain inactive",
+    "manager": "advance assignment epoch and require exact-plan readback before either activation"
+  },
+  "dependent_surfaces": [
+    "search",
+    "file reserve/publish/grant/ingress",
+    "thumbnail/preview",
+    "push/mentions/counts",
+    "catch-up/link unfurl",
+    "project readers"
+  ],
+  "error_codes": [
+    "channel_unavailable",
+    "channel_invitation_unavailable",
+    "channel_not_admitted",
+    "channel_creation_restricted",
+    "channel_visibility_immutable",
+    "default_channel_protected",
+    "channel_archived",
+    "channel_name_conflict",
+    "admission_generation_conflict"
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "name": {
+      "type": "string",
+      "min": 1,
+      "max": 80
+    },
+    "topic": {
+      "type": "string",
+      "min": 0,
+      "max": 250
+    },
+    "purpose": {
+      "type": "string",
+      "min": 0,
+      "max": 500
+    },
+    "visibility": {
+      "enum": [
+        "public",
+        "private"
+      ]
+    },
+    "channel_state": {
+      "enum": [
+        "provisioning",
+        "active",
+        "archived"
+      ]
+    },
+    "admission_state": {
+      "enum": [
+        "invited",
+        "active",
+        "revoking",
+        "left",
+        "removed"
+      ]
+    },
+    "invitation_state": {
+      "enum": [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired"
+      ]
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "room_state": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "enum": [
+                "not_provisioned",
+                "provisioning",
+                "reconciling",
+                "failed"
+              ]
+            },
+            "roomId": {
+              "const": null
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "state": {
+              "const": "ready"
+            },
+            "roomId": {
+              "type": "string",
+              "min": 4,
+              "max": 512,
+              "pattern": "![!-9;-~]{1,255}:[!-~]{1,255}"
+            }
+          }
+        }
+      ]
+    },
+    "public_summary": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "ref": "name"
+        },
+        "visibility": {
+          "const": "public"
+        },
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        },
+        "state": {
+          "ref": "channel_state"
+        },
+        "memberCount": {
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        "joined": {
+          "type": "boolean"
+        }
+      },
+      "optional": {
+        "systemKey": {
+          "const": "default"
+        }
+      }
+    },
+    "browse_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "ref": "public_summary"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "admission": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "state": {
+          "ref": "admission_state"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "admissionGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "channel_regular": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "ref": "name"
+        },
+        "visibility": {
+          "ref": "visibility"
+        },
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        },
+        "state": {
+          "ref": "channel_state"
+        },
+        "ownerMemberRef": {
+          "ref": "member_ref"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        }
+      }
+    },
+    "channel_default": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "ref": "name"
+        },
+        "visibility": {
+          "const": "public"
+        },
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        },
+        "state": {
+          "ref": "channel_state"
+        },
+        "ownerMemberRef": {
+          "ref": "member_ref"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "metadataRevision": {
+          "ref": "generation"
+        },
+        "systemKey": {
+          "const": "default"
+        }
+      }
+    },
+    "channel": {
+      "anyOf": [
+        {
+          "ref": "channel_regular"
+        },
+        {
+          "ref": "channel_default"
+        }
+      ]
+    },
+    "admitted_snapshot": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "channel": {
+          "ref": "channel"
+        },
+        "selfAdmission": {
+          "ref": "admission"
+        },
+        "memberCount": {
+          "type": "integer",
+          "min": 1,
+          "max": 100
+        },
+        "room": {
+          "ref": "room_state"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "join",
+              "leave",
+              "invite",
+              "accept",
+              "remove",
+              "update_metadata",
+              "archive",
+              "restore"
+            ]
+          },
+          "min": 0,
+          "max": 8,
+          "unique": true
+        }
+      }
+    },
+    "admitted_directory": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "ref": "admitted_snapshot"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "channel_member": {
+      "type": "object",
+      "required": {
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "state": {
+          "ref": "admission_state"
+        },
+        "admissionEpoch": {
+          "ref": "generation"
+        },
+        "admissionGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "channel_members": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "ref": "channel_member"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "channel_invitation": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "state": {
+          "ref": "invitation_state"
+        },
+        "createdAt": {
+          "ref": "epoch"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        }
+      }
+    },
+    "invitation_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "invitation": {
+          "ref": "channel_invitation"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "create_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "create"
+        },
+        "displayName": {
+          "ref": "name"
+        },
+        "visibility": {
+          "ref": "visibility"
+        }
+      },
+      "optional": {
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        }
+      }
+    },
+    "join_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "join"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "leave_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "leave"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        },
+        "expectedAdmissionGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "invite_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "invite"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "accept_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "accept"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        },
+        "expectedAdmissionGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "decline_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "decline"
+        },
+        "invitationId": {
+          "ref": "uuid"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "cancel_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "cancel"
+        },
+        "invitationId": {
+          "ref": "uuid"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "remove_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "remove"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        },
+        "expectedAdmissionGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "metadata_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "const": "update_metadata"
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      },
+      "optional": {
+        "displayName": {
+          "ref": "name"
+        },
+        "topic": {
+          "ref": "topic"
+        },
+        "purpose": {
+          "ref": "purpose"
+        },
+        "visibility": {
+          "ref": "visibility"
+        }
+      }
+    },
+    "lifecycle_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "operation": {
+          "enum": [
+            "archive",
+            "restore"
+          ]
+        },
+        "expectedChannelGeneration": {
+          "ref": "generation"
+        }
+      }
+    },
+    "command_request": {
+      "anyOf": [
+        {
+          "ref": "create_request"
+        },
+        {
+          "ref": "join_request"
+        },
+        {
+          "ref": "leave_request"
+        },
+        {
+          "ref": "invite_request"
+        },
+        {
+          "ref": "accept_request"
+        },
+        {
+          "ref": "decline_request"
+        },
+        {
+          "ref": "cancel_request"
+        },
+        {
+          "ref": "remove_request"
+        },
+        {
+          "ref": "metadata_request"
+        },
+        {
+          "ref": "lifecycle_request"
+        }
+      ]
+    },
+    "command_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "operation": {
+          "enum": [
+            "create",
+            "join",
+            "leave",
+            "invite",
+            "accept",
+            "decline",
+            "cancel",
+            "remove",
+            "update_metadata",
+            "archive",
+            "restore"
+          ]
+        },
+        "channelId": {
+          "ref": "uuid"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "channelGeneration": {
+          "ref": "generation"
+        },
+        "admission": {
+          "anyOf": [
+            {
+              "ref": "admission"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_400",
+            "matrix_401",
+            "matrix_403",
+            "matrix_404",
+            "matrix_409",
+            "matrix_429",
+            "matrix_503"
+          ]
+        }
+      }
+    },
+    "error_404": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_404"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "channel_unavailable",
+                "channel_invitation_unavailable"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_403": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_403"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "channel_not_admitted",
+                "channel_creation_restricted"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_409": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_409"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "channel_visibility_immutable",
+                "default_channel_protected",
+                "channel_archived",
+                "channel_name_conflict",
+                "admission_generation_conflict"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "error_response": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "ref": "error_404"
+        },
+        {
+          "ref": "error_403"
+        },
+        {
+          "ref": "error_409"
+        }
+      ]
+    },
+    "admission_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "enum": [
+            "none",
+            "invited",
+            "active",
+            "revoking",
+            "left",
+            "removed"
+          ]
+        },
+        "to": {
+          "enum": [
+            "none",
+            "invited",
+            "active",
+            "revoking",
+            "left",
+            "removed"
+          ]
+        },
+        "event": {
+          "enum": [
+            "new_admission",
+            "public_join",
+            "default_join",
+            "private_invite",
+            "accept",
+            "decline",
+            "cancel",
+            "expire",
+            "leave",
+            "remove",
+            "witness_withdrawal",
+            "witness_left",
+            "witness_removed"
+          ]
+        }
+      }
+    },
+    "admission_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "admission_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    },
+    "lifecycle_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "channel_state"
+        },
+        "to": {
+          "ref": "channel_state"
+        },
+        "event": {
+          "enum": [
+            "provision",
+            "archive",
+            "restore",
+            "reconcile"
+          ]
+        }
+      }
+    },
+    "lifecycle_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "lifecycle_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    },
+    "invitation_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "invitation_state"
+        },
+        "to": {
+          "ref": "invitation_state"
+        },
+        "event": {
+          "enum": [
+            "accept",
+            "decline",
+            "cancel",
+            "expire"
+          ]
+        }
+      }
+    },
+    "invitation_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "invitation_step"
+          },
+          "min": 1,
+          "max": 4
+        }
+      }
+    },
+    "legacy_mutation_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "enum": [
+            "received",
+            "fenced",
+            "applied",
+            "refused"
+          ]
+        },
+        "to": {
+          "enum": [
+            "received",
+            "fenced",
+            "applied",
+            "refused"
+          ]
+        },
+        "event": {
+          "enum": [
+            "lock_read_current_generation",
+            "apply_1_1_mutation",
+            "refuse_outside_1_1_subset"
+          ]
+        }
+      }
+    },
+    "legacy_mutation_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "legacy_mutation_step"
+          },
+          "min": 1,
+          "max": 3
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_4": {
+      "from": "authenticated native client",
+      "to": "Atum platform",
+      "forbidden_fields": [
+        "*principal*",
+        "userId",
+        "mxid",
+        "roomId",
+        "visibilityAfter",
+        "controller*"
+      ]
+    },
+    "platform_to_native_v1_4": {
+      "from": "Atum platform",
+      "to": "authenticated native client",
+      "forbidden_fields": [
+        "*principal*",
+        "userId",
+        "mxid",
+        "*token*",
+        "manager*",
+        "credential"
+      ]
+    }
+  },
+  "messages": {
+    "channel-browse.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "browse_response"
+      }
+    },
+    "channel-admitted-directory.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "admitted_directory"
+      }
+    },
+    "channel-admitted.snapshot": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "admitted_snapshot"
+      }
+    },
+    "channel-members.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "channel_members"
+      }
+    },
+    "channel-invitation.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "invitation_response"
+      }
+    },
+    "channel-command.request": {
+      "direction": "native_to_platform_v1_4",
+      "schema": {
+        "ref": "command_request"
+      }
+    },
+    "channel-command.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "command_response"
+      }
+    },
+    "channel.error.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "error_response"
+      }
+    },
+    "legacy-channel.error.response": {
+      "direction": "platform_to_native_v1_4",
+      "schema": {
+        "ref": "error_plain"
+      }
+    }
+  },
+  "state_machines": {
+    "channel_admission": {
+      "states": [
+        "none",
+        "invited",
+        "active",
+        "revoking",
+        "left",
+        "removed"
+      ],
+      "initial": [
+        "none"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "left",
+          "none",
+          "new_admission"
+        ],
+        [
+          "removed",
+          "none",
+          "new_admission"
+        ],
+        [
+          "none",
+          "active",
+          "public_join"
+        ],
+        [
+          "none",
+          "active",
+          "default_join"
+        ],
+        [
+          "none",
+          "invited",
+          "private_invite"
+        ],
+        [
+          "invited",
+          "active",
+          "accept"
+        ],
+        [
+          "invited",
+          "revoking",
+          "decline"
+        ],
+        [
+          "invited",
+          "revoking",
+          "cancel"
+        ],
+        [
+          "invited",
+          "revoking",
+          "expire"
+        ],
+        [
+          "revoking",
+          "none",
+          "witness_withdrawal"
+        ],
+        [
+          "active",
+          "revoking",
+          "leave"
+        ],
+        [
+          "active",
+          "revoking",
+          "remove"
+        ],
+        [
+          "invited",
+          "revoking",
+          "remove"
+        ],
+        [
+          "revoking",
+          "left",
+          "witness_left"
+        ],
+        [
+          "revoking",
+          "removed",
+          "witness_removed"
+        ]
+      ]
+    },
+    "channel_lifecycle": {
+      "states": [
+        "provisioning",
+        "active",
+        "archived"
+      ],
+      "initial": [
+        "provisioning"
+      ],
+      "terminal": [],
+      "transitions": [
+        [
+          "provisioning",
+          "active",
+          "provision"
+        ],
+        [
+          "active",
+          "archived",
+          "archive"
+        ],
+        [
+          "archived",
+          "provisioning",
+          "restore"
+        ],
+        [
+          "provisioning",
+          "active",
+          "reconcile"
+        ]
+      ]
+    },
+    "channel_invitation": {
+      "states": [
+        "pending",
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired"
+      ],
+      "initial": [
+        "pending"
+      ],
+      "terminal": [
+        "accepted",
+        "declined",
+        "cancelled",
+        "expired"
+      ],
+      "transitions": [
+        [
+          "pending",
+          "accepted",
+          "accept"
+        ],
+        [
+          "pending",
+          "declined",
+          "decline"
+        ],
+        [
+          "pending",
+          "cancelled",
+          "cancel"
+        ],
+        [
+          "pending",
+          "expired",
+          "expire"
+        ]
+      ]
+    },
+    "legacy_channel_mutation": {
+      "states": [
+        "received",
+        "fenced",
+        "applied",
+        "refused"
+      ],
+      "initial": [
+        "received"
+      ],
+      "terminal": [
+        "applied",
+        "refused"
+      ],
+      "transitions": [
+        [
+          "received",
+          "fenced",
+          "lock_read_current_generation"
+        ],
+        [
+          "fenced",
+          "applied",
+          "apply_1_1_mutation"
+        ],
+        [
+          "received",
+          "refused",
+          "refuse_outside_1_1_subset"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/admission-invitation-cancel-witness.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-invitation-decline-without-witness.sequence.json",
+      "machine": "channel_admission",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/admission-invitation-decline-witness.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-invitation-expire-witness.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-leave.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-private-accept.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-private-readmit.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-public-join.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-public-readmit.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-public-rejoin-after-removal.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/admission-readmit-without-invite.sequence.json",
+      "machine": "channel_admission",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/admission-remove.sequence.json",
+      "machine": "channel_admission",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-accept.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-admitted-default-private.snapshot.json",
+      "message": "channel-admitted.snapshot",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-admitted-directory.response.json",
+      "message": "channel-admitted-directory.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-admitted-private.snapshot.json",
+      "message": "channel-admitted.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-admitted-public.snapshot.json",
+      "message": "channel-admitted.snapshot",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-archive-restore.sequence.json",
+      "machine": "channel_lifecycle",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-archive.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-browse-private.response.json",
+      "message": "channel-browse.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/channel-browse.response.json",
+      "message": "channel-browse.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-cancel.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-command-schema-4.response.json",
+      "message": "channel-command.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/channel-command.response.json",
+      "message": "channel-command.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-create-company.request.json",
+      "message": "channel-command.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-create-private.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-create-public.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-decline.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invitation-accept.sequence.json",
+      "machine": "channel_invitation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invitation-cancel.sequence.json",
+      "machine": "channel_invitation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invitation-decline.sequence.json",
+      "machine": "channel_invitation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invitation-expire.sequence.json",
+      "machine": "channel_invitation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invitation.response.json",
+      "message": "channel-invitation.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-invite.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-join.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-leave.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-members.response.json",
+      "message": "channel-members.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-metadata-empty.request.json",
+      "message": "channel-command.request",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/channel-metadata.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-remove.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/channel-visibility-change.request.json",
+      "message": "channel-command.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-channel-unavailable.response.json",
+      "message": "channel.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-default-protected.response.json",
+      "message": "channel.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-private-disclosure.response.json",
+      "message": "channel.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/error-visibility-immutable.response.json",
+      "message": "channel.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-channel-archive-fenced.sequence.json",
+      "machine": "legacy_channel_mutation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-channel-archive-unfenced.sequence.json",
+      "machine": "legacy_channel_mutation",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/legacy-channel-error.response.json",
+      "message": "legacy-channel.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-channel-unsupported-refused.sequence.json",
+      "machine": "legacy_channel_mutation",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/legacy-general-archive-leave.sequence.json",
+      "machine": "channel_lifecycle",
+      "expect": "reject",
+      "violation": "transition"
+    }
+  ]
+}

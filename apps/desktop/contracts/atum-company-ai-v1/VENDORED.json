@@ -1,0 +1,8 @@
+{
+  "contract": "atum.company-ai/1",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "6adad50a4c72f0686d8fa3522d75256734084cce",
+  "path": "spec/company-ai/v1",
+  "sha256": "a80e474fc0eb28c0b6dc3c86d1eaabc679e9474563a2378d7892c52e53ccfed0",
+  "publicationStatus": "sanitised public pack; historical acceptance not applicable"
+}

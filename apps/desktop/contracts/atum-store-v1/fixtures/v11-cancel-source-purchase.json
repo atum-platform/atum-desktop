@@ -1,0 +1,16 @@
+{
+  "id": "00000000-0000-4000-8000-576f18824476",
+  "itemId": "agent/research",
+  "kind": "agent",
+  "state": "active",
+  "assistantId": "00000000-0000-4000-8000-cb3c7031a0b0",
+  "delivery": "cloud",
+  "grantedAt": "2026-10-06T00:00:00.000Z",
+  "subscription": {
+    "state": "cancelled",
+    "renewAt": "2026-10-13T00:00:00.000Z",
+    "priceMicroProtons": 1000000000,
+    "offerVersion": 1
+  },
+  "source": "purchase"
+}

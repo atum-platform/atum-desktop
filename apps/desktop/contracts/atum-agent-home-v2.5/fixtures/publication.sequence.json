@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "queued",
+      "to": "admitted",
+      "event": "authority_verified"
+    },
+    {
+      "from": "admitted",
+      "to": "sending",
+      "event": "serialized_after_move"
+    },
+    {
+      "from": "sending",
+      "to": "published",
+      "event": "matrix_receipt"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "facts": {
+    "roomMode": "meeting",
+    "meetingDefault": "addressed",
+    "stored": "joins"
+  },
+  "expected": "joins"
+}

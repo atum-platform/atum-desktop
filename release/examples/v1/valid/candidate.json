@@ -1,0 +1,71 @@
+{
+  "schema": "atum-release-candidate/1",
+  "candidate_id": "v2.0.0-rc.1+99b479a",
+  "release_train": "R1",
+  "created_at": "2026-08-30T02:00:00Z",
+  "source": [
+    {
+      "repository": "atum-platform/atum-app",
+      "head_sha": "99b479a005b1e321a134bd0bfdd58713e21c9372",
+      "workflow_run_id": 123456789,
+      "required_check": "verify / release",
+      "clean": true
+    }
+  ],
+  "target_policy": "immutable://target-policy",
+  "required_gates": ["verify-release"],
+  "required_journeys": ["J1-clean-install-assistant"],
+  "artifacts": [
+    {
+      "artifact_id": "macos-arm64-dmg",
+      "target_id": "macos-arm64-dmg",
+      "os": "macos",
+      "os_min": "15.0",
+      "arch": "arm64",
+      "format": "dmg",
+      "filename": "Atum-2.0.0-rc.1-mac-arm64.dmg",
+      "local_path": "artifacts/Atum-2.0.0-rc.1-mac-arm64.dmg",
+      "size_bytes": 71,
+      "sha256": "17a52ae1f0fe4f86af453a2000f2add2303bed97b65c86d301094ecabd538cc2",
+      "build_config_sha256": "c51aa2ea8c0ccbfad5d58f69adaa55d8b7580cf714ed79b614c57726bd36da82",
+      "build_config_ref": "immutable://build-config",
+      "sbom": {"format": "SPDX-2.3", "evidence_ref": "immutable://sbom", "sha256": "0faa256c8bd1d4756680732f4bc3edd585c5f3a37cb089d5c6777015e9ecd2a6"},
+      "provenance": {"format": "SLSA-v1", "evidence_ref": "immutable://provenance", "sha256": "8e2a1ae13f0bcba486b905780b9438d89dd7cc1f4510bbc2aae15a4748fa18de"},
+      "signing": {"policy": "required", "identity": "Developer ID Application: Synthetic Atum", "verification": "immutable://signing-verification"}
+    }
+  ],
+  "gate_results": ["immutable://gate-ci"],
+  "fixture_indexes": ["immutable://fixture-index"],
+  "journey_results": ["immutable://journey-result"],
+  "telemetry_schema": "atum-release-reliability-event/1",
+  "telemetry_events": ["immutable://telemetry-event"],
+  "privacy": {"fixtures_synthetic_or_sanitized": true, "redaction_status": "pass", "product_telemetry_collection": "disabled"},
+  "predecessor": {
+    "kind": "supported_v1_lineage",
+    "artifact_ref": "immutable://predecessor-artifact",
+    "artifact_sha256": "8f7bebf477bafcd4290320814bc10f4b9afb5f1da8bcfad8c02fd19f182ba609",
+    "restore_procedure_ref": "immutable://restore-procedure",
+    "compatibility_mode": "forward_only_with_restore"
+  },
+  "evidence_policy": {"approved_store_classes": ["release-index-v1"], "retention_floor_days": 365},
+  "evidence_metadata": [
+    {"ref": "immutable://target-policy", "local_path": "target-policy.json", "sha256": "9b53b7f00c4535f9e593594f26891c7375df420319ded141c66e1ab66bda1f8b", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://build-config", "local_path": "evidence/build-config.json", "sha256": "c51aa2ea8c0ccbfad5d58f69adaa55d8b7580cf714ed79b614c57726bd36da82", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://sbom", "local_path": "evidence/sbom.spdx.json", "sha256": "0faa256c8bd1d4756680732f4bc3edd585c5f3a37cb089d5c6777015e9ecd2a6", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://provenance", "local_path": "evidence/provenance.json", "sha256": "8e2a1ae13f0bcba486b905780b9438d89dd7cc1f4510bbc2aae15a4748fa18de", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://signing-verification", "local_path": "evidence/signing-verification.txt", "sha256": "bba265367a2a29b92cc4f1a0d61db37e389126626490ea33f61ca0d4c1e9fa71", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://gate-ci", "local_path": "gate.json", "sha256": "3b523dd351564cd6b326e9edb3466f54cf1ca0522d4933d29f9997cd7a1d946c", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://gate-log", "local_path": "evidence/gate-log.txt", "sha256": "107ca1ca322b2277b0ced79e3bd12f5ef595e28efd3a77acfb53e9d4ba7c1883", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://fixture-index", "local_path": "fixture-index.json", "sha256": "24296aec8fb10e7c7612bd7f9ac480f3c7c593216e68dca60b744f91ba655897", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://journey-result", "local_path": "journey.json", "sha256": "a32053930769761d4915477b7bec4cac78dddf16d93942168d8d2dd5a229088d", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://journey-attachment", "local_path": "evidence/journey-attachment.txt", "sha256": "49a88a5e95fcabaf24b4dc7f5cdce80119136305fe85c88843c1186eeb3b06ed", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://redaction-corpus", "local_path": "evidence/redaction-corpus.txt", "sha256": "cadc8e1ca12c18976f6ea4e409f733ce0b8a20e400399e92c950034a293ce7f4", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://telemetry-event", "local_path": "telemetry.json", "sha256": "76f9e27bec1587f56f9197daca473ed1771250dc4965ad93a3b86101a85d2021", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://predecessor-artifact", "local_path": "artifacts/Atum-1.9.0-mac-arm64.dmg", "sha256": "8f7bebf477bafcd4290320814bc10f4b9afb5f1da8bcfad8c02fd19f182ba609", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://restore-procedure", "local_path": "evidence/restore.md", "sha256": "5bfea8d67202ee902d37b865dcf6acc66a6fa350541914cc2f47e021ba35ae48", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://promote-runbook", "local_path": "evidence/promote.md", "sha256": "377babe45a20d1e3c7f5477588cfea63fac03143048220f9cf2d737580d0855a", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://rollback-runbook", "local_path": "evidence/rollback.md", "sha256": "d7e6f2431b1da932cc2a07c651aac3e634a3c6402529390f4642c783127082f7", "store_class": "release-index-v1", "immutable": true, "retention_days": 730},
+    {"ref": "immutable://support-runbook", "local_path": "evidence/support.md", "sha256": "66c85d446028ba0e0ed90586aeed7e159cbbf177f247a48a41c3b5222b2025c9", "store_class": "release-index-v1", "immutable": true, "retention_days": 730}
+  ],
+  "runbooks": {"promote": "immutable://promote-runbook", "rollback": "immutable://rollback-runbook", "support": "immutable://support-runbook"}
+}

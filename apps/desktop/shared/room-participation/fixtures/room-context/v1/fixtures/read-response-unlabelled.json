@@ -1,0 +1,7 @@
+{
+  "eventId": "$answer",
+  "senderRef": "@assistant-b:example.invalid",
+  "displayName": "Assistant B",
+  "text": "Option A is smaller",
+  "at": 1300
+}

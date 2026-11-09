@@ -1,0 +1,7 @@
+{
+  "caseId": "allow",
+  "ownerMatches": true,
+  "liveCloudEnrollment": true,
+  "currentOwnerMacV2Lease": true,
+  "expected": "allow"
+}

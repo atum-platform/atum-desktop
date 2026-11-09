@@ -1,0 +1,10 @@
+{
+  "checkpointId": "00000000-0000-4000-8000-a9703d75e616",
+  "outcome": "failed_previous_selected",
+  "attemptedGeneration": 13,
+  "selectedGenerationBefore": 12,
+  "selectedGenerationAfter": 12,
+  "placementRevisionBefore": 9,
+  "placementRevisionAfter": 9,
+  "reason": "upload_failed"
+}

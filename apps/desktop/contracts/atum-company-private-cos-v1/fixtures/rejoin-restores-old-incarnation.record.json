@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "previous": {
+    "pair": {
+      "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+      "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+      "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+    },
+    "homeId": "00000000-0000-4000-8000-eec8ec5cf84c",
+    "homeGeneration": 1,
+    "state": "retired",
+    "access": "denied",
+    "roomBinding": "tombstoned"
+  },
+  "current": {
+    "pair": {
+      "companyPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+      "memberPrincipal": "00000000-0000-4000-8000-1399762cf502",
+      "membershipIncarnation": "00000000-0000-4000-8000-ef0a78a27144"
+    },
+    "state": "uncreated",
+    "greetingState": "pending"
+  },
+  "restoration": "forbidden",
+  "schedulesResume": false
+}

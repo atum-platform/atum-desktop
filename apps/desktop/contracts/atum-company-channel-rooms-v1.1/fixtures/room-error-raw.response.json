@@ -1,0 +1,7 @@
+{
+  "error": "matrix_503",
+  "details": {
+    "reason": "provider_timeout",
+    "rawProviderError": "timeout"
+  }
+}

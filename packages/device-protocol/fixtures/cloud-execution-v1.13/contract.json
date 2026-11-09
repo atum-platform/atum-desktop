@@ -1,0 +1,2122 @@
+{
+  "contract_id": "atum.cloud-execution",
+  "version": "1.13",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/execution-window-30m.vectors.json",
+    "fixtures/execution-window.vectors.json",
+    "fixtures/google-dispatch-eligible.response.json",
+    "fixtures/google-dispatch-latched.response.json",
+    "fixtures/google-dispatch-managed-alias.response.json",
+    "fixtures/google-dispatch-over-budget.response.json",
+    "fixtures/google-routing.vector.json",
+    "fixtures/google-sandbox-env.vectors.json",
+    "fixtures/google-turn-file-extra-name.vectors.json",
+    "fixtures/google-turn-file-in-home.vectors.json",
+    "fixtures/google-turn-file-long-lived.vectors.json",
+    "fixtures/google-turn-file.vectors.json",
+    "fixtures/managed-admission-refusal-at-cap.response.json",
+    "fixtures/managed-admission-refusal-below-cap.response.json",
+    "fixtures/managed-admission-refusal-cap-zero.response.json",
+    "fixtures/managed-admission-refusal-daily-cap.response.json",
+    "fixtures/managed-admission-refusal-day-shape.response.json",
+    "fixtures/managed-admission-refusal-extra-field.response.json",
+    "fixtures/managed-admission-refusal-timezone.response.json",
+    "fixtures/managed-admission-refusal-unknown-reason.response.json",
+    "fixtures/managed-admission-vectors-cap-zero-refusal.json",
+    "fixtures/managed-admission-vectors-daily-cap.json",
+    "fixtures/managed-dispatch-alias-mismatch.response.json",
+    "fixtures/managed-dispatch-context-drift.response.json",
+    "fixtures/managed-dispatch-default.response.json",
+    "fixtures/managed-dispatch-endpoint.response.json",
+    "fixtures/managed-dispatch-gemini.response.json",
+    "fixtures/managed-dispatch-max-effort.response.json",
+    "fixtures/managed-dispatch-over-budget.response.json",
+    "fixtures/managed-lineup-alias-mismatch.response.json",
+    "fixtures/managed-lineup-context-drift.response.json",
+    "fixtures/managed-lineup-default.response.json",
+    "fixtures/managed-lineup-endpoint.response.json",
+    "fixtures/managed-lineup-max-effort.response.json",
+    "fixtures/managed-lineup-nguyet-thuc.response.json",
+    "fixtures/managed-lineup-nhat-thuc.response.json",
+    "fixtures/managed-lineup-over-budget.response.json",
+    "fixtures/managed-lineup-previous-digest.response.json",
+    "fixtures/managed-lineup-retired-alias.response.json",
+    "fixtures/managed-lineup-session-large-small-large.vectors.json",
+    "fixtures/managed-session-large-small-large.vectors.json",
+    "fixtures/sandbox-capability-durable.vectors.json",
+    "fixtures/sandbox-capability-unknown.vectors.json",
+    "fixtures/sandbox-capability.vectors.json",
+    "fixtures/subscription-dispatch-atum-source.response.json",
+    "fixtures/subscription-dispatch-protons.response.json",
+    "fixtures/subscription-dispatch.response.json",
+    "fixtures/subscription-sandbox-provider-key.vectors.json",
+    "fixtures/subscription-sandbox.vectors.json"
+  ],
+  "base": {
+    "contract": "atum.cloud-execution/1.12",
+    "path": "spec/cloud-execution/v1.12",
+    "sha256": "d8f556eba8d40ea7761e271faee028cb2c1af8660144cf2a755acddcdf9741ef",
+    "rule": "additive: every 1.12 type, message, invariant and fixture is carried unchanged; 1.13 adds the subscription model grant and its dispatch response"
+  },
+  "row": "Owner 2026-10-27 account-wide subscriptions, R1: the OpenCode Go subscription grant on a cloud turn",
+  "amendments": [
+    {
+      "id": "A1",
+      "sections": [
+        "§6.1",
+        "§9"
+      ],
+      "change": "a successfully dispatched turn or scheduled occurrence may remain live for at most 7,200,000 ms; the model grant never outlives that task and all existing stop, lease, funding and expiry fences remain"
+    },
+    {
+      "id": "A2",
+      "sections": [
+        "§6.1",
+        "§10"
+      ],
+      "change": "platform-route dispatch and its client fallback cover the same two-hour task window; the pre-dispatch claim remains short and replay-safe, and a lost dispatch response remains uncertain rather than retried"
+    },
+    {
+      "id": "A3",
+      "sections": [
+        "§6.2"
+      ],
+      "change": "production computeSeconds may move from 1,800 to 7,200 only in the serialized money-policy operation; this contract does not change that row or authorize the switch"
+    },
+    {
+      "id": "A4",
+      "sections": [
+        "§6.3"
+      ],
+      "change": "a managed dispatch carries one singleton alias, its logical model and effort, the immutable managed policy-map digest, exact context/output budgets and a max-turn hold no larger than the task ceiling; default source is alias default with logical model nguyet-thuc, while an explicit saved choice uses its named alias"
+    },
+    {
+      "id": "A5",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "the controller accepts every frozen managed alias instead of hard-coding default, admits exactly that singleton grant to the broker, applies the effort and per-alias budgets before the call, and never accepts provider endpoints, credentials, arbitrary reasoning objects or a cloud ChatGPT subscription"
+    },
+    {
+      "id": "A6",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "conversation compatibility includes the immutable policy-map digest, not selected alias or numeric budget; switching large to small compresses before the next call, switching back does not reseed or expand beyond the selected row"
+    },
+    {
+      "id": "A7",
+      "sections": [
+        "§6.3",
+        "§6.4"
+      ],
+      "change": "for canonical Main with a ready account Google grant or durable latch, DA issues only the strict google-protected grant from turn start; saved H-M choice remains stored but inactive and clients surface google_protected_only; every other agent remains not_eligible until P-D12"
+    },
+    {
+      "id": "A8",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "the cloud sandbox accepts exactly ATUM_GOOGLE_FENCE_ROUTE, ATUM_GOOGLE_LATCHED, ATUM_GOOGLE_TOOLS_URL and ATUM_GOOGLE_TOOLS_TOKEN as optional Google entries; the access token is memory-only, refresh credentials never enter controller or sandbox, and a latched turn refuses broad egress tools"
+    },
+    {
+      "id": "A10",
+      "sections": [
+        "§6.3"
+      ],
+      "change": "once policy 2026-10-17.1 is active the platform's managed dispatch carries managed_lineup_grant: one singleton alias from default, nguyet-thuc or nhat-thuc, its logical model, a low/medium/high effort, the policy-map digest 489e82bc…, the policy row's exact context and output budgets, and a max-turn hold no larger than the task ceiling. default is the unsaved-agent alias and carries nguyet-thuc's numbers. The 1.7 managed_model_grant (digest 53c77b31…, six rows) is not emitted for new dispatches"
+    },
+    {
+      "id": "A11",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "which of the three aliases dispatch can reach is the platform's cloud_dispatch_policy row, a data setting. The controller accepts exactly the alias the grant names, admits the singleton grant to the broker, and applies per-alias window and effort limits itself; a controller window cap is at most the grant's contextBudget and never changes the grant, the catalogue or the digest"
+    },
+    {
+      "id": "A12",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "supersedes 1.7 A6 for line-up grants: conversation compatibility is a fixed controller compatibility value that changes only when tools or the system prompt change, not the policy-map digest, so a catalogue revision never reseeds a conversation. Switching alias keeps one session identity; a switch to a smaller contextBudget compresses before the next call, and a switch back does not expand beyond the selected row"
+    },
+    {
+      "id": "A13",
+      "sections": [
+        "§6.3",
+        "§6.4"
+      ],
+      "change": "a managed admission may be refused with managed.admission.refusal: state refused, reason daily_cap_exhausted, the agent's cap (dailyProtons at least 1, timeZone Asia/Ho_Chi_Minh, warningPercent 80, counts atum_billed_only) and the Asia/Ho_Chi_Minh day's spend (day, usedProtons). usedProtons is held plus settled Atum-billed spend, ceiled once to Protons; it is at least dailyProtons in every refusal. A call admitted before the cap was reached finishes and its full charge is recorded; later calls and later turns are refused. dailyProtons 0 means no cap and never appears in a refusal. The refusal is not stored: every admission re-reads the cap, so a raise admits the next call and a lower cap below spend refuses the next one. It clears at 00:00 Asia/Ho_Chi_Minh of the next day or with a cap raise; no retry duration is carried. A refused occurrence skips with reason daily_cap; no other reason is valid in this message, and a refusal is never couldnt_confirm"
+    },
+    {
+      "id": "A14",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "wire mapping: the platform returns the refusal in its existing controller error envelope as HTTP 403 {error:'matrix_403',details:{reason:'daily_cap_exhausted',cap,spend}}; the Mac owner-managed edge returns {error:'daily_cap_exhausted',retryable:false,details:{reason,cap,spend}}. details is this pack's refusal without state, so consumers that know only {error,details.reason} keep working. The sandbox's provider error code is atum_daily_cap_exhausted. The refusal is terminal for that message and is never an uncertain outcome"
+    },
+    {
+      "id": "A15",
+      "sections": [
+        "§6.3",
+        "§6.4"
+      ],
+      "change": "the turn sandbox may hold exactly one Google credential, and it arrives out of band: the hydrate archive's credentials map, whose only names are google_token.json and google_client_secret.json. google_token.json is written at the root of the turn's ephemeral HERMES_HOME, mode 0600, at most 16384 bytes, and holds the at-most-one-hour access token with the 13 scopes of 0290 plus the literal non-secret placeholder atum-cloud-managed at refresh_token, client_id and client_secret; google_client_secret.json holds only the same placeholder and the localhost redirect. Neither file is in a home's file list, among the archive's files, in a persisted archive or an export; neither is in model context, and neither survives the turn. The real refresh credential never leaves the Shell and no wire carries it. The agent's own file tools refuse google_token.json and credential-shaped values are redacted from tool output and the final answer. Adding a credential name is a contract change. See atum.google-connection/2"
+    },
+    {
+      "id": "A16",
+      "sections": [
+        "§6.4"
+      ],
+      "change": "the closed sandbox environment list is unchanged and gains no Google or credential name. The model grant remains its only credential-shaped value (ATUM_MODEL_BASE_URL, ATUM_MODEL_KEY, ATUM_MODEL_ALIAS): opaque, aliased, ceilinged and lease-bound. 1.8 A8's four optional Google entries are superseded: the full-power controller of 0290 emits ATUM_GOOGLE_FENCE_ROUTE, ATUM_GOOGLE_LATCHED, ATUM_GOOGLE_TOOLS_URL and ATUM_GOOGLE_TOOLS_TOKEN nowhere, and the Google access token travels only in the hydrate credentials header of A15. No durable secret, refresh credential, provider key, recovery key, controller credential, storage or database credential enters by either channel"
+    },
+    {
+      "id": "A17",
+      "sections": [
+        "§6.3",
+        "§6.4"
+      ],
+      "change": "when the agent's live cloud destination choice is source opencode_go, the platform returns subscription.dispatch.response: one singleton grant whose token is opaque, whose alias and model are the selected subscription model, whose policyDigest is the server-owned provider catalogue digest, whose context/output budgets are that model's catalogue row, whose maxTurnMicroProtons is exactly 0, and whose connectionRevision is the live connection revision. The controller sets the existing three ATUM_MODEL_* names only: base URL = the platform subscription edge (derived from source, never on the wire), key = the opaque grant token, alias = the model. The provider key, the connection ciphertext and every Atum Proton reservation for the model stay outside the controller and the sandbox. A revoked connection makes the grant unavailable (provider_unavailable); it is never replaced by an Atum grant"
+    }
+  ],
+  "types": {
+    "execution_window_vector": {
+      "type": "object",
+      "required": {
+        "path": {
+          "enum": [
+            "turn",
+            "occurrence",
+            "platform_route"
+          ]
+        },
+        "taskWindowMs": {
+          "const": 7200000
+        },
+        "grantMaxMs": {
+          "const": 7200000
+        },
+        "lostDispatch": {
+          "const": "uncertain_no_retry"
+        },
+        "activeTermRequired": {
+          "const": true
+        }
+      },
+      "optional": {
+        "catchupWindowMs": {
+          "type": "integer",
+          "min": 120000,
+          "max": 7200000
+        },
+        "clientFallbackMinMs": {
+          "type": "integer",
+          "min": 7200000,
+          "max": 86400000
+        }
+      }
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "sha256_hex": {
+      "type": "string",
+      "pattern": "[0-9a-f]{64}"
+    },
+    "b64u_sha256": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "room_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "![!-~]+"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "user_id": {
+      "type": "string",
+      "min": 4,
+      "max": 1024,
+      "pattern": "@[!-9;-~]+:[!-~]+"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "json_value": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additional": true
+        },
+        {
+          "type": "array",
+          "items": {
+            "ref": "json_value"
+          }
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "managed_model_grant": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "default"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "default"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 1000000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 10317213000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "nguyet-thuc"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "nguyet-thuc"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 1000000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 10317213000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "gemini"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "gemini"
+            },
+            "model": {
+              "const": "gemini"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 450000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 19388484000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "glm"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "glm"
+            },
+            "model": {
+              "const": "glm"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 1000000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 1985107500
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "muse"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "muse"
+            },
+            "model": {
+              "const": "muse"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 256000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 18936139500
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "sonnet"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "sonnet"
+            },
+            "model": {
+              "const": "sonnet"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+            },
+            "contextBudget": {
+              "const": 120000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 19626624000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "managed_session_step": {
+      "type": "object",
+      "required": {
+        "alias": {
+          "enum": [
+            "nguyet-thuc",
+            "gemini",
+            "glm",
+            "muse",
+            "sonnet"
+          ]
+        },
+        "contextBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "compressBeforeCall": {
+          "type": "boolean"
+        },
+        "sameSession": {
+          "const": true
+        }
+      }
+    },
+    "google_protected_grant": {
+      "type": "object",
+      "required": {
+        "token": {
+          "type": "string",
+          "pattern": "[A-Za-z0-9_-]{43}"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "const": "google-protected"
+          },
+          "min": 1,
+          "max": 1,
+          "unique": true
+        },
+        "alias": {
+          "const": "google-protected"
+        },
+        "model": {
+          "const": "google-protected"
+        },
+        "googlePolicy": {
+          "const": "limited_use_v1"
+        },
+        "latchState": {
+          "enum": [
+            "eligible",
+            "latched"
+          ]
+        },
+        "contextBudget": {
+          "const": 1032192
+        },
+        "outputBudget": {
+          "const": 16384
+        },
+        "maxTurnMicroProtons": {
+          "type": "integer",
+          "min": 1,
+          "max": 17040015360
+        },
+        "ceilingMicroProtons": {
+          "type": "integer",
+          "min": 1,
+          "max": 20000000000
+        },
+        "funding": {
+          "enum": [
+            "trial",
+            "wallet"
+          ]
+        }
+      }
+    },
+    "google_env_vector": {
+      "type": "object",
+      "required": {
+        "name": {
+          "enum": [
+            "ATUM_GOOGLE_FENCE_ROUTE",
+            "ATUM_GOOGLE_LATCHED",
+            "ATUM_GOOGLE_TOOLS_URL",
+            "ATUM_GOOGLE_TOOLS_TOKEN"
+          ]
+        },
+        "custody": {
+          "enum": [
+            "configuration",
+            "derived_boolean",
+            "memory_only"
+          ]
+        },
+        "sandboxPersistence": {
+          "const": "none"
+        }
+      }
+    },
+    "managed_lineup_grant": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "default"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "default"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0"
+            },
+            "contextBudget": {
+              "const": 1000000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 10317213000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "nguyet-thuc"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "nguyet-thuc"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0"
+            },
+            "contextBudget": {
+              "const": 1000000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 10317213000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "token": {
+              "type": "string",
+              "pattern": "[A-Za-z0-9_-]{43}"
+            },
+            "expiresAt": {
+              "ref": "timestamp_ms"
+            },
+            "aliases": {
+              "type": "array",
+              "items": {
+                "const": "nhat-thuc"
+              },
+              "min": 1,
+              "max": 1,
+              "unique": true
+            },
+            "alias": {
+              "const": "nhat-thuc"
+            },
+            "model": {
+              "const": "nhat-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "const": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0"
+            },
+            "contextBudget": {
+              "const": 120000
+            },
+            "outputBudget": {
+              "const": 16384
+            },
+            "maxTurnMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 19626624000
+            },
+            "ceilingMicroProtons": {
+              "type": "integer",
+              "min": 1,
+              "max": 20000000000
+            },
+            "funding": {
+              "enum": [
+                "trial",
+                "wallet"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "managed_lineup_session_step": {
+      "type": "object",
+      "required": {
+        "alias": {
+          "enum": [
+            "nguyet-thuc",
+            "nhat-thuc"
+          ]
+        },
+        "contextBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "compressBeforeCall": {
+          "type": "boolean"
+        },
+        "sameSession": {
+          "const": true
+        }
+      }
+    },
+    "model_daily_cap": {
+      "type": "object",
+      "required": {
+        "dailyProtons": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        },
+        "timeZone": {
+          "const": "Asia/Ho_Chi_Minh"
+        },
+        "warningPercent": {
+          "const": 80
+        },
+        "counts": {
+          "const": "atum_billed_only"
+        }
+      }
+    },
+    "model_daily_spend": {
+      "type": "object",
+      "required": {
+        "day": {
+          "type": "string",
+          "min": 10,
+          "max": 10,
+          "pattern": "[0-9]{4}-[0-9]{2}-[0-9]{2}"
+        },
+        "usedProtons": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "managed_admission_vector": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "capProtons": {
+              "const": 0
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "outcome": {
+              "const": "admitted"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "cap": {
+              "ref": "model_daily_cap"
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "outcome": {
+              "const": "admitted"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "cap": {
+              "ref": "model_daily_cap"
+            },
+            "usedProtons": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "outcome": {
+              "const": "daily_cap_exhausted"
+            }
+          }
+        }
+      ]
+    },
+    "google_turn_credential": {
+      "type": "object",
+      "required": {
+        "name": {
+          "enum": [
+            "google_token.json",
+            "google_client_secret.json"
+          ]
+        },
+        "contents": {
+          "enum": [
+            "access_token_plus_placeholders",
+            "placeholders_only"
+          ]
+        },
+        "path": {
+          "const": "hermes_home_root"
+        },
+        "mode": {
+          "const": 384
+        },
+        "maxBytes": {
+          "const": 16384
+        },
+        "lifetimeMs": {
+          "type": "integer",
+          "min": 1,
+          "max": 3600000
+        },
+        "durable": {
+          "const": "none"
+        },
+        "inHomeFiles": {
+          "const": false
+        },
+        "inArchiveFiles": {
+          "const": false
+        },
+        "inExport": {
+          "const": false
+        },
+        "modelContext": {
+          "const": "absent"
+        },
+        "fileToolRead": {
+          "const": "denied"
+        },
+        "toolOutput": {
+          "const": "redacted"
+        },
+        "answer": {
+          "const": "redacted"
+        }
+      }
+    },
+    "sandbox_capability": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "capability": {
+              "const": "model_grant"
+            },
+            "channel": {
+              "const": "closed_environment"
+            },
+            "durable": {
+              "const": "none"
+            },
+            "boundToTurn": {
+              "const": true
+            },
+            "inModelContext": {
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "capability": {
+              "const": "google_access_token_file"
+            },
+            "channel": {
+              "const": "hydrate_credentials_header"
+            },
+            "durable": {
+              "const": "none"
+            },
+            "boundToTurn": {
+              "const": true
+            },
+            "inModelContext": {
+              "const": false
+            }
+          }
+        }
+      ]
+    },
+    "subscription_model_grant": {
+      "type": "object",
+      "required": {
+        "token": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "^[A-Za-z0-9_-]{43}$"
+        },
+        "expiresAt": {
+          "ref": "timestamp_ms"
+        },
+        "source": {
+          "const": "opencode_go"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "min": 1,
+            "max": 200,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+          },
+          "min": 1,
+          "max": 1,
+          "unique": true
+        },
+        "alias": {
+          "type": "string",
+          "min": 1,
+          "max": 200,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "model": {
+          "type": "string",
+          "min": 1,
+          "max": 200,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+        },
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "policyDigest": {
+          "ref": "sha256_hex"
+        },
+        "contextBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "outputBudget": {
+          "type": "integer",
+          "min": 1,
+          "max": 2000000
+        },
+        "maxTurnMicroProtons": {
+          "const": 0
+        },
+        "connectionRevision": {
+          "type": "integer",
+          "min": 1,
+          "max": 9007199254740991
+        }
+      }
+    },
+    "subscription_sandbox": {
+      "type": "object",
+      "required": {
+        "envBase": {
+          "const": "platform_subscription_edge"
+        },
+        "envKey": {
+          "const": "opaque_turn_grant"
+        },
+        "envAlias": {
+          "const": "selected_model"
+        },
+        "atumBilling": {
+          "type": "boolean"
+        },
+        "fallback": {
+          "const": "none"
+        },
+        "durableProviderKey": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "directions": {
+    "conformance": {
+      "description": "Synthetic timing vectors, never a wire payload.",
+      "forbidden_fields": []
+    },
+    "platform_to_controller": {
+      "description": "DA's successful managed dispatch projection.",
+      "forbidden_fields": [
+        "refreshToken",
+        "accessToken",
+        "providerKey",
+        "connectionId",
+        "endpoint",
+        "baseUrl",
+        "authorization"
+      ]
+    }
+  },
+  "messages": {
+    "execution.window.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "execution_window_vector"
+            },
+            "min": 3,
+            "max": 3,
+            "unique": true
+          }
+        }
+      }
+    },
+    "managed.dispatch.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "invocationId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "dispatched"
+          },
+          "expiresAt": {
+            "ref": "timestamp_ms"
+          },
+          "grants": {
+            "type": "object",
+            "required": {
+              "model": {
+                "ref": "managed_model_grant"
+              }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "required": {
+              "reservationId": {
+                "ref": "uuid"
+              },
+              "funding": {
+                "enum": [
+                  "trial",
+                  "wallet"
+                ]
+              },
+              "ceilingMicroProtons": {
+                "type": "integer",
+                "min": 1,
+                "max": 20000000000
+              },
+              "computeSeconds": {
+                "type": "integer",
+                "min": 1,
+                "max": 86400
+              },
+              "firstAdmission": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "additional": true
+      }
+    },
+    "managed.session.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "policyDigest": {
+            "const": "53c77b31c774170dddd8f94561651d786dced5b0d7b743d9fb92d3f68b6d4e03"
+          },
+          "conversationIdentity": {
+            "type": "string",
+            "min": 1,
+            "max": 128
+          },
+          "reseeds": {
+            "const": 0
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "ref": "managed_session_step"
+            },
+            "min": 3,
+            "max": 3
+          }
+        }
+      }
+    },
+    "google.dispatch.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "invocationId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "dispatched"
+          },
+          "expiresAt": {
+            "ref": "timestamp_ms"
+          },
+          "grants": {
+            "type": "object",
+            "required": {
+              "model": {
+                "ref": "google_protected_grant"
+              }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "required": {
+              "reservationId": {
+                "ref": "uuid"
+              },
+              "funding": {
+                "enum": [
+                  "trial",
+                  "wallet"
+                ]
+              },
+              "ceilingMicroProtons": {
+                "type": "integer",
+                "min": 1,
+                "max": 20000000000
+              },
+              "computeSeconds": {
+                "type": "integer",
+                "min": 1,
+                "max": 86400
+              },
+              "firstAdmission": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "additional": true
+      }
+    },
+    "google.sandbox-env.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "google_env_vector"
+            },
+            "min": 4,
+            "max": 4,
+            "unique": true
+          }
+        }
+      }
+    },
+    "google.routing.vector": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "approvedAgentRole": {
+            "const": "main"
+          },
+          "beforeFirstReadAlias": {
+            "const": "google-protected"
+          },
+          "afterFirstReadAlias": {
+            "const": "google-protected"
+          },
+          "afterDisconnectAlias": {
+            "const": "google-protected"
+          },
+          "savedManagedChoiceRetained": {
+            "const": true
+          },
+          "otherAgents": {
+            "const": "not_eligible"
+          }
+        }
+      }
+    },
+    "managed.lineup.dispatch.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "invocationId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "dispatched"
+          },
+          "expiresAt": {
+            "ref": "timestamp_ms"
+          },
+          "grants": {
+            "type": "object",
+            "required": {
+              "model": {
+                "ref": "managed_lineup_grant"
+              }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "required": {
+              "reservationId": {
+                "ref": "uuid"
+              },
+              "funding": {
+                "enum": [
+                  "trial",
+                  "wallet"
+                ]
+              },
+              "ceilingMicroProtons": {
+                "type": "integer",
+                "min": 1,
+                "max": 20000000000
+              },
+              "computeSeconds": {
+                "type": "integer",
+                "min": 1,
+                "max": 86400
+              },
+              "firstAdmission": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "additional": true
+      }
+    },
+    "managed.lineup.session.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "policyDigest": {
+            "const": "489e82bcce6008fd0cae824623b3e323bf7a8820a18e34bf8bab815f7999d7a0"
+          },
+          "conversationIdentity": {
+            "type": "string",
+            "min": 1,
+            "max": 128
+          },
+          "reseeds": {
+            "const": 0
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "ref": "managed_lineup_session_step"
+            },
+            "min": 3,
+            "max": 3
+          }
+        }
+      }
+    },
+    "managed.admission.refusal": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "state": {
+            "const": "refused"
+          },
+          "reason": {
+            "enum": [
+              "daily_cap_exhausted"
+            ]
+          },
+          "cap": {
+            "ref": "model_daily_cap"
+          },
+          "spend": {
+            "ref": "model_daily_spend"
+          }
+        }
+      }
+    },
+    "managed.admission.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "managed_admission_vector"
+            },
+            "min": 3,
+            "max": 3,
+            "unique": true
+          }
+        }
+      }
+    },
+    "google.turn-file.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "turnMaxMs": {
+            "const": 3600000
+          },
+          "maxLifetimeMs": {
+            "type": "integer",
+            "min": 1,
+            "max": 3600000
+          },
+          "credentials": {
+            "type": "array",
+            "items": {
+              "ref": "google_turn_credential"
+            },
+            "min": 2,
+            "max": 2
+          }
+        }
+      }
+    },
+    "sandbox.capability.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "sandbox_capability"
+            },
+            "min": 2,
+            "max": 2,
+            "unique": true
+          }
+        }
+      }
+    },
+    "subscription.dispatch.response": {
+      "direction": "platform_to_controller",
+      "schema": {
+        "type": "object",
+        "required": {
+          "invocationId": {
+            "ref": "uuid"
+          },
+          "state": {
+            "const": "dispatched"
+          },
+          "expiresAt": {
+            "ref": "timestamp_ms"
+          },
+          "grants": {
+            "type": "object",
+            "required": {
+              "model": {
+                "ref": "subscription_model_grant"
+              }
+            }
+          },
+          "budget": {
+            "type": "object",
+            "required": {
+              "reservationId": {
+                "ref": "uuid"
+              },
+              "funding": {
+                "enum": [
+                  "trial",
+                  "wallet"
+                ]
+              },
+              "ceilingMicroProtons": {
+                "type": "integer",
+                "min": 1,
+                "max": 20000000000
+              },
+              "computeSeconds": {
+                "type": "integer",
+                "min": 1,
+                "max": 86400
+              },
+              "firstAdmission": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "additional": true
+      }
+    },
+    "subscription.sandbox.vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "ref": "subscription_sandbox"
+            },
+            "min": 1,
+            "max": 4,
+            "unique": true
+          }
+        }
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "managed_grant.expires_with_task",
+      "message": "managed.dispatch.response",
+      "op": "same",
+      "left": "grants.model.expiresAt",
+      "right": "expiresAt",
+      "required": true
+    },
+    {
+      "id": "managed_grant.funding_matches_budget",
+      "message": "managed.dispatch.response",
+      "op": "same",
+      "left": "grants.model.funding",
+      "right": "budget.funding",
+      "required": true
+    },
+    {
+      "id": "managed_grant.ceiling_within_budget",
+      "message": "managed.dispatch.response",
+      "op": "le",
+      "left": "grants.model.ceilingMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "managed_grant.max_turn_within_budget",
+      "message": "managed.dispatch.response",
+      "op": "le",
+      "left": "grants.model.maxTurnMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "google_grant.expires_with_task",
+      "message": "google.dispatch.response",
+      "op": "same",
+      "left": "grants.model.expiresAt",
+      "right": "expiresAt",
+      "required": true
+    },
+    {
+      "id": "google_grant.funding_matches_budget",
+      "message": "google.dispatch.response",
+      "op": "same",
+      "left": "grants.model.funding",
+      "right": "budget.funding",
+      "required": true
+    },
+    {
+      "id": "google_grant.ceiling_within_budget",
+      "message": "google.dispatch.response",
+      "op": "le",
+      "left": "grants.model.ceilingMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "google_grant.max_turn_within_budget",
+      "message": "google.dispatch.response",
+      "op": "le",
+      "left": "grants.model.maxTurnMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "lineup_grant.expires_with_task",
+      "message": "managed.lineup.dispatch.response",
+      "op": "same",
+      "left": "grants.model.expiresAt",
+      "right": "expiresAt",
+      "required": true
+    },
+    {
+      "id": "lineup_grant.funding_matches_budget",
+      "message": "managed.lineup.dispatch.response",
+      "op": "same",
+      "left": "grants.model.funding",
+      "right": "budget.funding",
+      "required": true
+    },
+    {
+      "id": "lineup_grant.ceiling_within_budget",
+      "message": "managed.lineup.dispatch.response",
+      "op": "le",
+      "left": "grants.model.ceilingMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "lineup_grant.max_turn_within_budget",
+      "message": "managed.lineup.dispatch.response",
+      "op": "le",
+      "left": "grants.model.maxTurnMicroProtons",
+      "right": [
+        "budget.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "daily_cap_refusal.at_or_over_cap",
+      "message": "managed.admission.refusal",
+      "op": "le",
+      "left": "cap.dailyProtons",
+      "right": [
+        "spend.usedProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "google_turn_file.within_turn",
+      "message": "google.turn-file.vectors",
+      "op": "le",
+      "left": "maxLifetimeMs",
+      "right": [
+        "turnMaxMs"
+      ],
+      "required": true
+    }
+  ],
+  "state_machines": {},
+  "dependencies": [
+    {
+      "contract": "atum.google-connection/1",
+      "path": "spec/google-connection/v1",
+      "sha256": "b67d404ef06dc49b4920c71be82923e433b629889db5944beb082729f730136d"
+    },
+    {
+      "contract": "atum.owner-time-zone/1",
+      "path": "spec/owner-time-zone/v1",
+      "sha256": "bd2bd490f471cfba7f94ac689b94ff23bb87bdb979971cef877083083e8170e3"
+    },
+    {
+      "contract": "atum.model-choice/1.2",
+      "path": "spec/model-choice/v1.2",
+      "sha256": "5e687bef3c3d9b28e1ce1471b048fd3c01728377ccbae55990c774a7e6a5ab09"
+    },
+    {
+      "contract": "atum.model-choice/1.3",
+      "path": "spec/model-choice/v1.3",
+      "sha256": "d0d410f1fad966150ab208e6f74000231d6408c6f0fea621c3e21fa4902f1bed"
+    },
+    {
+      "contract": "atum.google-connection/2",
+      "path": "spec/google-connection/v2",
+      "sha256": "2e1d775d1907a8b5df70c7997d95911999047d9fb0634318d95f2b82ed68b74b"
+    },
+    {
+      "contract": "atum.provider-connections/1",
+      "path": "spec/provider-connections/v1",
+      "sha256": "343c0a328bbc324a6167f190a7f61f68d3c9d9fcb900be538979856f75d994ef"
+    },
+    {
+      "contract": "atum.model-choice/1.4",
+      "path": "spec/model-choice/v1.4",
+      "sha256": "2875cf49ad9d71a01e76ad80ce542e87ab131c362938ebf3e0e00e9ca41ee088"
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/execution-window.vectors.json",
+      "message": "execution.window.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/execution-window-30m.vectors.json",
+      "message": "execution.window.vectors",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/managed-dispatch-default.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-dispatch-gemini.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-dispatch-alias-mismatch.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-dispatch-max-effort.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-dispatch-context-drift.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-dispatch-over-budget.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/managed-dispatch-endpoint.response.json",
+      "message": "managed.dispatch.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/managed-session-large-small-large.vectors.json",
+      "message": "managed.session.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-dispatch-eligible.response.json",
+      "message": "google.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-dispatch-latched.response.json",
+      "message": "google.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-dispatch-managed-alias.response.json",
+      "message": "google.dispatch.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/google-dispatch-over-budget.response.json",
+      "message": "google.dispatch.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/google-sandbox-env.vectors.json",
+      "message": "google.sandbox-env.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-routing.vector.json",
+      "message": "google.routing.vector",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-lineup-default.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-lineup-nguyet-thuc.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-lineup-nhat-thuc.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-lineup-previous-digest.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-lineup-retired-alias.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-lineup-alias-mismatch.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-lineup-max-effort.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-lineup-context-drift.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/managed-lineup-over-budget.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/managed-lineup-endpoint.response.json",
+      "message": "managed.lineup.dispatch.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/managed-lineup-session-large-small-large.vectors.json",
+      "message": "managed.lineup.session.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-daily-cap.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-at-cap.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-admission-vectors-daily-cap.json",
+      "message": "managed.admission.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-below-cap.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-cap-zero.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-unknown-reason.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-timezone.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-day-shape.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/managed-admission-refusal-extra-field.response.json",
+      "message": "managed.admission.refusal",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/managed-admission-vectors-cap-zero-refusal.json",
+      "message": "managed.admission.vectors",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/google-turn-file.vectors.json",
+      "message": "google.turn-file.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/google-turn-file-in-home.vectors.json",
+      "message": "google.turn-file.vectors",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/google-turn-file-extra-name.vectors.json",
+      "message": "google.turn-file.vectors",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/google-turn-file-long-lived.vectors.json",
+      "message": "google.turn-file.vectors",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/sandbox-capability.vectors.json",
+      "message": "sandbox.capability.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sandbox-capability-durable.vectors.json",
+      "message": "sandbox.capability.vectors",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/sandbox-capability-unknown.vectors.json",
+      "message": "sandbox.capability.vectors",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/subscription-dispatch.response.json",
+      "message": "subscription.dispatch.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/subscription-dispatch-protons.response.json",
+      "message": "subscription.dispatch.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/subscription-dispatch-atum-source.response.json",
+      "message": "subscription.dispatch.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/subscription-sandbox.vectors.json",
+      "message": "subscription.sandbox.vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/subscription-sandbox-provider-key.vectors.json",
+      "message": "subscription.sandbox.vectors",
+      "expect": "reject",
+      "violation": "const"
+    }
+  ]
+}

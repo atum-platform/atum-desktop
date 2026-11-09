@@ -1,0 +1,38 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "decision": "dispatched",
+  "occurrenceId": "00000000-0000-4000-8000-1e63fa2c7b34",
+  "occurrenceKind": "followup_sweep",
+  "warmupNudgeIndex": null,
+  "expiresAt": 1793017320000,
+  "settingsRevision": 1,
+  "authorization": {
+    "kind": "native",
+    "authorizationId": "00000000-0000-4000-8000-3aa3aede30e4",
+    "expiresAt": 1793017320000,
+    "destination": {
+      "destination": "mac:raymond",
+      "source": "atum",
+      "model": "nguyet-thuc",
+      "effort": "medium"
+    },
+    "protection": {
+      "kind": "google_protected",
+      "googlePolicy": "limited_use_v1",
+      "latchState": "latched"
+    },
+    "attribution": {
+      "id": "00000000-0000-4000-8000-b307bb8f59b1",
+      "lane": "atum_managed"
+    },
+    "limits": {
+      "activeComputeSeconds": 120,
+      "calls": 1,
+      "inputTokens": 8000,
+      "outputTokens": 1000,
+      "maxModelMicroProtons": 300000000
+    }
+  },
+  "sourceSnapshotRevision": 31,
+  "sourceSnapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

@@ -1,0 +1,24 @@
+{
+  "outcome": "purchased",
+  "purchase": {
+    "id": "00000000-0000-4000-8000-4b2f94c54b02",
+    "state": "completed",
+    "itemId": "pet/gigi",
+    "offerId": "00000000-0000-4000-8000-471568220011",
+    "offerVersion": 1,
+    "idempotencyKey": "00000000-0000-4000-8000-6789912c6209",
+    "assistantId": null,
+    "amountMicroProtons": 90000000000,
+    "createdAt": "2026-10-06T00:00:00.000Z"
+  },
+  "entitlement": {
+    "id": "00000000-0000-4000-8000-576f18824476",
+    "itemId": "pet/gigi",
+    "kind": "pet",
+    "state": "active",
+    "assistantId": null,
+    "delivery": "bundled",
+    "grantedAt": "2026-10-06T00:00:00.000Z",
+    "subscription": null
+  }
+}

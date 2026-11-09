@@ -1,0 +1,78 @@
+{
+  "profile": "s5.1-social-v1",
+  "accounts": {
+    "alice_epoch": "00000000-0000-4000-8000-d98016d67fb8",
+    "bob_epoch": "00000000-0000-4000-8000-85a2939c3fce"
+  },
+  "steps": [
+    {
+      "event": "lookup",
+      "actor": "alice",
+      "response": {
+        "account_epoch": "00000000-0000-4000-8000-d98016d67fb8",
+        "projection": {
+          "availability": "available",
+          "profile": {
+            "profile_id": "00000000-0000-4000-8000-e03cc076d760",
+            "display_name": "Bob",
+            "handle": "social-bob",
+            "verified": false,
+            "avatar": null
+          },
+          "state": "none",
+          "version": 0,
+          "can_message": false,
+          "direct_thread_id": null
+        }
+      }
+    },
+    {
+      "event": "request_ack",
+      "operation_id": "00000000-0000-4000-8000-03dd42e49c44",
+      "actor": "alice",
+      "state": "outgoing_pending",
+      "peer_state": "incoming_pending",
+      "can_message": false
+    },
+    {
+      "event": "accept_ack",
+      "operation_id": "00000000-0000-4000-8000-77a53fad731d",
+      "actor": "bob",
+      "state": "connected",
+      "can_message": true,
+      "direct_thread_id": "00000000-0000-4000-8000-1d1ea877549e"
+    },
+    {
+      "event": "block_ack",
+      "operation_id": "00000000-0000-4000-8000-07f20b52b9a0",
+      "actor": "alice",
+      "state": "blocked_by_me",
+      "can_message": false,
+      "direct_thread_id": "00000000-0000-4000-8000-1d1ea877549e",
+      "history_retained": true
+    },
+    {
+      "event": "blocked_peer_lookup",
+      "actor": "bob",
+      "projection_fixture": "lookup-unavailable.response.json"
+    },
+    {
+      "event": "unblock_ack",
+      "operation_id": "00000000-0000-4000-8000-42a9a91d205e",
+      "actor": "alice",
+      "state": "none",
+      "can_message": false,
+      "direct_thread_id": "00000000-0000-4000-8000-1d1ea877549e",
+      "reconnected": false
+    },
+    {
+      "event": "restart_sync",
+      "actor": "alice",
+      "account_epoch": "00000000-0000-4000-8000-d98016d67fb8",
+      "cursor": null,
+      "states_in_order": ["outgoing_pending", "connected", "blocked_by_me", "none"],
+      "next_cursor": "NzMwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDExOjc",
+      "has_more": false
+    }
+  ]
+}

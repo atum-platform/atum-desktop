@@ -1,0 +1,5 @@
+name: atum-company
+version: "0.1.0"
+description: "Company Chief of Staff domain tools (board, files, brain, people), loaded only from the accepted table."
+author: "Atum"
+kind: standalone

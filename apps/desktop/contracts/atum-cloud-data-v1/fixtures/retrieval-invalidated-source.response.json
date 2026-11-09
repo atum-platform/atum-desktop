@@ -1,0 +1,27 @@
+{
+  "contract": "atum.cloud-data/1",
+  "bundle_id": "00000000-0000-4000-8000-70c0fab15147",
+  "agent_class": "remote_app",
+  "scope": {"kind": "app_thread", "id": "00000000-0000-4000-8000-676a3a34ff0f"},
+  "source_watermark": 2049,
+  "items": [
+    {
+      "item_id": "00000000-0000-4000-8000-2d3b8b4fcac4",
+      "content": "Stale derived claim",
+      "source": {
+        "record_id": "00000000-0000-4000-8000-b4b6412c243e",
+        "record_kind": "memory_fact",
+        "revision": 1,
+        "generation": 1,
+        "lifecycle": "invalidated",
+        "occurred_at": "2026-08-30T12:01:00Z"
+      },
+      "provenance": {"source_kind": "derived", "recorded_at": "2026-08-30T12:01:01Z"},
+      "untrusted_input": true
+    }
+  ],
+  "content_utf8_bytes": 19,
+  "truncated": false,
+  "fresh": false,
+  "created_at": "2026-08-30T12:02:00Z"
+}

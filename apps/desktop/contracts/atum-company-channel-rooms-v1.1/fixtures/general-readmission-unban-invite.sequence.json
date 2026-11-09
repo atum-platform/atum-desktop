@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "excluded",
+      "to": "unbanned",
+      "event": "unban_old_epoch"
+    },
+    {
+      "from": "unbanned",
+      "to": "invited",
+      "event": "invite_new_epoch"
+    }
+  ]
+}

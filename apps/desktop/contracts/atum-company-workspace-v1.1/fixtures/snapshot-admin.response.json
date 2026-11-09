@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 2,
+  "company": {
+    "id": "00000000-0000-4000-8000-2a39c7cf131c",
+    "displayName": "Công ty Atum",
+    "role": "admin",
+    "authorityGeneration": 7
+  },
+  "members": [
+    {
+      "memberRef": "RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8",
+      "role": "admin",
+      "state": "active",
+      "self": true,
+      "handle": "minh",
+      "displayName": "Minh"
+    },
+    {
+      "memberRef": "nkYQgariaJkLsqK5DOjopVirD0bIPbklFbIRgDxrgew",
+      "role": "member",
+      "state": "active",
+      "self": false,
+      "handle": "lan_nguyen",
+      "displayName": "Lan Nguyễn",
+      "avatarUri": "mxc://atumplatform.com/lan-avatar"
+    },
+    {
+      "memberRef": "DBmU8tVC5nRl7iK9TD1_HUAMix4-Oxfk7bPM6--O_T8",
+      "role": "member",
+      "state": "invited",
+      "self": false,
+      "handle": "bao_tran",
+      "displayName": null
+    },
+    {
+      "memberRef": "Qb4yOWEGhKxrTtmzGJA-6CVFxwxjxoEvcX3R2mHddaU",
+      "role": "member",
+      "state": "revoking",
+      "self": false,
+      "handle": "chi",
+      "displayName": "Chi"
+    },
+    {
+      "memberRef": "zCKifP-gRbcTfvfkPTU5D2RQFZUXphRuXqmRiJNlDW4",
+      "role": "member",
+      "state": "removed",
+      "self": false,
+      "handle": null,
+      "displayName": null
+    }
+  ],
+  "projects": [
+    {
+      "id": "00000000-0000-4000-8000-3cd7bdfe38ac",
+      "displayName": "Ra mắt",
+      "memberRefs": [
+        "RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8",
+        "nkYQgariaJkLsqK5DOjopVirD0bIPbklFbIRgDxrgew"
+      ],
+      "collaboration": "not_provisioned"
+    }
+  ],
+  "defaultChannelId": "00000000-0000-4000-8000-c52538d87a60"
+}

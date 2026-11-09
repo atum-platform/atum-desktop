@@ -1,0 +1,8 @@
+{
+  "contract": "atum.cloud-data/1",
+  "error": {
+    "code": "SYNC_CURSOR_EXPIRED",
+    "reset": "explicit_sync_cursor_expired",
+    "message": "The opaque sync cursor is no longer valid; request a bounded backfill."
+  }
+}

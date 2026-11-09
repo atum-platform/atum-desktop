@@ -1,0 +1,18 @@
+{
+  "vectors": [
+    {
+      "capability": "model_grant",
+      "channel": "closed_environment",
+      "durable": "none",
+      "boundToTurn": true,
+      "inModelContext": false
+    },
+    {
+      "capability": "google_access_token_file",
+      "channel": "hydrate_credentials_header",
+      "durable": "none",
+      "boundToTurn": true,
+      "inModelContext": false
+    }
+  ]
+}

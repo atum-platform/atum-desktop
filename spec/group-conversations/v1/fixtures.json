@@ -1,0 +1,137 @@
+{
+  "contract": "atum.group-conversations/1",
+  "capability": {
+    "contract": "atum.group-conversations/1",
+    "creation_enabled": true,
+    "human_member_limit": 32
+  },
+  "conversation": {
+    "id": "00000000-0000-4000-8000-9c954858acdb",
+    "kind": "group",
+    "title": "Weekend plans",
+    "specialist": null,
+    "group": {
+      "conversation_id": "00000000-0000-4000-8000-9c954858acdb",
+      "title": "Weekend plans",
+      "revision": 2,
+      "retired_at": null,
+      "membership_epoch": 1,
+      "updated_at": "2026-09-06T01:00:00.000Z",
+      "members": [
+        {
+          "user_id": "00000000-0000-4000-8000-b80f11e3d30c",
+          "display_name": "An",
+          "handle": "an-group",
+          "role": "owner",
+          "membership_epoch": 1
+        },
+        {
+          "user_id": "00000000-0000-4000-8000-616bcb4dd223",
+          "display_name": "Binh",
+          "handle": "binh-group",
+          "role": "member",
+          "membership_epoch": 1
+        },
+        {
+          "user_id": "00000000-0000-4000-8000-8ede65ffa266",
+          "display_name": "Chi",
+          "handle": "chi-group",
+          "role": "member",
+          "membership_epoch": 1
+        }
+      ]
+    },
+    "participants": [
+      {
+        "type": "user",
+        "id": "00000000-0000-4000-8000-b80f11e3d30c",
+        "display_name": "An"
+      },
+      {
+        "type": "user",
+        "id": "00000000-0000-4000-8000-616bcb4dd223",
+        "display_name": "Binh"
+      },
+      {
+        "type": "user",
+        "id": "00000000-0000-4000-8000-8ede65ffa266",
+        "display_name": "Chi"
+      }
+    ],
+    "read_state": {
+      "last_read_message_id": null,
+      "read_at": null
+    },
+    "state": {
+      "pinned": false,
+      "muted": false,
+      "archived": false
+    },
+    "created_at": "2026-09-06T01:00:00.000Z",
+    "updated_at": "2026-09-06T01:00:00.000Z"
+  },
+  "detail": {
+    "group": {
+      "conversation_id": "00000000-0000-4000-8000-9c954858acdb",
+      "title": "Weekend plans",
+      "revision": 2,
+      "retired_at": null,
+      "membership_epoch": 1,
+      "updated_at": "2026-09-06T01:00:00.000Z",
+      "members": [
+        {
+          "user_id": "00000000-0000-4000-8000-b80f11e3d30c",
+          "display_name": "An",
+          "handle": "an-group",
+          "role": "owner",
+          "membership_epoch": 1
+        },
+        {
+          "user_id": "00000000-0000-4000-8000-616bcb4dd223",
+          "display_name": "Binh",
+          "handle": "binh-group",
+          "role": "member",
+          "membership_epoch": 1
+        },
+        {
+          "user_id": "00000000-0000-4000-8000-8ede65ffa266",
+          "display_name": "Chi",
+          "handle": "chi-group",
+          "role": "member",
+          "membership_epoch": 1
+        }
+      ]
+    },
+    "events": [
+      {
+        "id": "00000000-0000-4000-8000-1dd43e8689ba",
+        "conversation_id": "00000000-0000-4000-8000-9c954858acdb",
+        "actor_user_id": "00000000-0000-4000-8000-b80f11e3d30c",
+        "subject_user_id": "00000000-0000-4000-8000-b80f11e3d30c",
+        "specialist": null,
+        "kind": "created",
+        "created_at": "2026-09-06T01:00:00.000Z",
+        "identity_snapshot": {
+          "display_name": "An",
+          "handle": "an-group"
+        }
+      }
+    ],
+    "next_cursor": null,
+    "has_more": false
+  },
+  "removal_change": {
+    "change_id": "5",
+    "entity": "conversation",
+    "operation": "delete",
+    "entity_id": "00000000-0000-4000-8000-9c954858acdb",
+    "conversation_id": "00000000-0000-4000-8000-9c954858acdb",
+    "value": null,
+    "occurred_at": "2026-09-06T02:00:00.000Z"
+  },
+  "unknown_conversation": {
+    "id": "00000000-0000-4000-8000-9c954858acdb",
+    "kind": "future-room",
+    "updated_at": "2026-09-06T01:00:00.000Z"
+  }
+}

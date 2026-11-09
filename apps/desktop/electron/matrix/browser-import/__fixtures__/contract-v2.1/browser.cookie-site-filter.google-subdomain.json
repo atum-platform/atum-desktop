@@ -1,0 +1,17 @@
+{
+  "cookieDomain": ".mail.google.com",
+  "verifiedSites": {
+    "sitesDigest": "HSj1ZVCownrlVgkuBR5Ui-G8gNWhhzKuJ6h4Q0i98gw",
+    "siteCount": 4,
+    "skippedSiteCount": 1,
+    "includedSites": [
+      "github.com",
+      "google.com",
+      "wallet.example"
+    ],
+    "skippedSites": [
+      "bank.example"
+    ]
+  },
+  "allowed": true
+}

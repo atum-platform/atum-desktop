@@ -1,0 +1,37 @@
+/* Atum icon system . Imported once from styles.css.
+ *
+ * One rendered stroke for every Tabler glyph at every size. non-scaling-stroke makes
+ * stroke-width a screen-pixel value, so a 12px close and a 28px empty-state glyph
+ * draw the same line. CSS beats the SVG presentation attribute, so a stray
+ * `strokeWidth={…}` / `stroke={…}` prop is a no-op; don't add new ones.
+ */
+:root {
+  --atum-icon-stroke: 1.125px;
+}
+
+/* App icons are Phosphor (lib/phosphor-icon.tsx): filled outlines with the Light weight built in,
+   so they take no stroke. They never shrink in a flex row, as the Tabler glyphs did not. */
+.atum-icon {
+  flex: none;
+}
+
+.tabler-icon {
+  flex: none;
+  stroke-width: var(--atum-icon-stroke);
+}
+
+.tabler-icon :is(path, circle, rect, line, polyline, polygon, ellipse) {
+  vector-effect: non-scaling-stroke;
+}
+
+/* Spinner ring reads slightly heavier than line icons (≈1.5px). */
+.tabler-icon.atum-spinner {
+  stroke-width: calc(var(--atum-icon-stroke) * 1.33);
+}
+
+/* Reduced motion: no turning. The 15% track and quarter arc still read as a wait. */
+@media (prefers-reduced-motion: reduce) {
+  .atum-spinner.animate-spin {
+    animation: none;
+  }
+}

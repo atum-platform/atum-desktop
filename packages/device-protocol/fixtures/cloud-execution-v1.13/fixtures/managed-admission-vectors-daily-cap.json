@@ -1,0 +1,29 @@
+{
+  "vectors": [
+    {
+      "capProtons": 0,
+      "usedProtons": 250000,
+      "outcome": "admitted"
+    },
+    {
+      "cap": {
+        "dailyProtons": 200000,
+        "timeZone": "Asia/Ho_Chi_Minh",
+        "warningPercent": 80,
+        "counts": "atum_billed_only"
+      },
+      "usedProtons": 199999,
+      "outcome": "admitted"
+    },
+    {
+      "cap": {
+        "dailyProtons": 200000,
+        "timeZone": "Asia/Ho_Chi_Minh",
+        "warningPercent": 80,
+        "counts": "atum_billed_only"
+      },
+      "usedProtons": 200000,
+      "outcome": "daily_cap_exhausted"
+    }
+  ]
+}

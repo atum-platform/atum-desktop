@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 3,
+  "replayed": false,
+  "link": {
+    "id": "00000000-0000-4000-8000-5f5a037dcd81",
+    "companyId": "00000000-0000-4000-8000-68ce1b921bf1",
+    "role": "member",
+    "state": "active",
+    "createdAt": 1792540800,
+    "expiresAt": 1793145600,
+    "maxUses": 10,
+    "uses": 0,
+    "url": "https://atum.app/j/_zm3Eyg-DCUFhmipWdySfRozEyuh7bYs7IgR17ygSvw"
+  }
+}

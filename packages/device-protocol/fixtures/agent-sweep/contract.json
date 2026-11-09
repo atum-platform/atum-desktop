@@ -1,0 +1,656 @@
+{
+  "contract_id": "atum.agent-sweep",
+  "version": 1,
+  "status": "frozen",
+  "protocol_release": "0.7.47",
+  "migration": "0316_builtin_followup_sweeps.sql",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/claim.claimed.json",
+    "fixtures/claim.defer.json",
+    "fixtures/claim.request.json",
+    "fixtures/dispatch.cloud-google.json",
+    "fixtures/dispatch.cloud-managed.json",
+    "fixtures/dispatch.native-google.json",
+    "fixtures/dispatch.native.json",
+    "fixtures/dispatch.request.json",
+    "fixtures/native.dispatch-envelope.json",
+    "fixtures/occurrence.lifecycle.json",
+    "fixtures/result.offer.json",
+    "fixtures/result.silent.json",
+    "fixtures/setting.snapshot.json",
+    "fixtures/setting.write.json",
+    "fixtures/settle.none.json",
+    "fixtures/settle.offer.json",
+    "fixtures/settle.silent.json",
+    "fixtures/settlement.offer.json",
+    "fixtures/settlement.silent.json"
+  ],
+  "parameters": {
+    "system_schedule_id": "sys_followup_sweep_v1",
+    "default_enabled": true,
+    "source_interval_ms": 7200000,
+    "quiet_ms": 600000,
+    "claim_lease_ms": 120000,
+    "active_compute_seconds": 120,
+    "input_tokens": 8000,
+    "output_tokens": 1000,
+    "result_characters": 500,
+    "source_checks_per_local_day": 12,
+    "model_attempts_per_local_day": 8,
+    "nonurgent_offers_per_local_day": 2,
+    "pending_finding_ms": 21600000,
+    "finding_retention_days": 30,
+    "normal_window_start_hour": 8,
+    "normal_window_end_hour": 21,
+    "everyday_model": "nguyet-thuc",
+    "everyday_effort": "medium"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "sha256": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "token": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "timestamp": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "positive": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "event": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "watermark": {
+      "anyOf": [
+        { "type": "null" },
+        { "type": "string", "min": 1, "max": 512, "pattern": "[!-~]+" }
+      ]
+    },
+    "owner_event": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": {
+            "eventId": { "ref": "event" },
+            "at": { "ref": "timestamp" }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "activity": {
+      "type": "object",
+      "required": {
+        "lastOwnerEvent": { "ref": "owner_event" },
+        "lastDialogueAt": { "anyOf": [{ "type": "null" }, { "ref": "timestamp" }] },
+        "busy": { "type": "boolean" },
+        "pendingWork": { "type": "boolean" },
+        "pendingApproval": { "type": "boolean" },
+        "typing": { "type": "boolean" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "watermarks": {
+      "type": "object",
+      "required": {
+        "googleMail": { "ref": "watermark" },
+        "googleCalendar": { "ref": "watermark" },
+        "atumChats": { "ref": "watermark" },
+        "conversation": { "ref": "watermark" },
+        "memory": { "ref": "watermark" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "policy": {
+      "type": "object",
+      "required": {
+        "version": { "const": 1 },
+        "definitionDigest": { "ref": "sha256" },
+        "policyDigest": { "ref": "sha256" },
+        "normalWindow": {
+          "type": "object",
+          "required": { "startHour": { "const": 8 }, "endHour": { "const": 21 } },
+          "optional": {},
+          "additional": false
+        },
+        "sourceIntervalMs": { "const": 7200000 },
+        "quietMs": { "const": 600000 },
+        "claimLeaseMs": { "const": 120000 },
+        "activeComputeSeconds": { "const": 120 },
+        "inputTokens": { "const": 8000 },
+        "outputTokens": { "const": 1000 },
+        "resultCharacters": { "const": 500 },
+        "sourceChecksPerLocalDay": { "const": 12 },
+        "modelAttemptsPerLocalDay": { "const": 8 },
+        "nonurgentOffersPerLocalDay": { "const": 2 },
+        "everydayModel": { "const": "nguyet-thuc" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "setting_snapshot": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep-setting/1" },
+        "assistantId": { "ref": "uuid" },
+        "enabled": { "type": "boolean" },
+        "revision": { "ref": "positive" },
+        "activeForOwner": { "type": "boolean" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "setting_write": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep-setting/1" },
+        "requestId": { "ref": "uuid" },
+        "expectedRevision": { "ref": "positive" },
+        "enabled": { "type": "boolean" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "claim": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "operation": { "const": "claim" },
+        "requestId": { "ref": "uuid" },
+        "leaseToken": { "ref": "uuid" },
+        "activity": { "ref": "activity" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "defer": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "decision": { "const": "defer" },
+        "reason": {
+          "enum": [
+            "disabled", "policy_off", "not_due", "outside_window", "missing_time_zone",
+            "home_unavailable", "stale_lease", "busy", "owner_active", "pending_work",
+            "cap_exhausted", "unfunded", "hire_paused", "entitlement_required",
+            "judgment_backoff", "active_occurrence", "unavailable"
+          ]
+        },
+        "notBefore": { "ref": "timestamp" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "claimed": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "decision": { "const": "claimed" },
+        "occurrenceId": { "ref": "uuid" },
+        "occurrenceAt": { "ref": "timestamp" },
+        "expiresAt": { "ref": "positive" },
+        "settingsRevision": { "ref": "positive" },
+        "ownerTimeZone": { "type": "string", "min": 3, "max": 64, "pattern": "[A-Za-z0-9_+/-]+" },
+        "policy": { "ref": "policy" },
+        "sourceWatermarks": { "ref": "watermarks" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatch": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "operation": { "const": "dispatch" },
+        "occurrenceId": { "ref": "uuid" },
+        "leaseToken": { "ref": "uuid" },
+        "activity": { "ref": "activity" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "cloud_budget": {
+      "type": "object",
+      "required": {
+        "reservationId": { "ref": "uuid" },
+        "funding": { "enum": ["trial", "wallet"] },
+        "ceilingMicroProtons": { "ref": "positive" },
+        "computeSeconds": { "const": 120 },
+        "firstAdmission": { "type": "boolean" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "managed_grant": {
+      "type": "object",
+      "required": {
+        "kind": { "const": "managed" },
+        "token": { "ref": "token" },
+        "expiresAt": { "ref": "positive" },
+        "contextBudget": { "const": 8000 },
+        "outputBudget": { "const": 1000 },
+        "maxTurnMicroProtons": { "ref": "positive" },
+        "ceilingMicroProtons": { "ref": "positive" },
+        "funding": { "enum": ["trial", "wallet"] },
+        "alias": { "const": "nguyet-thuc" },
+        "model": { "const": "nguyet-thuc" },
+        "effort": { "const": "medium" },
+        "policyDigest": { "ref": "sha256" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "google_grant": {
+      "type": "object",
+      "required": {
+        "kind": { "const": "google_protected" },
+        "token": { "ref": "token" },
+        "expiresAt": { "ref": "positive" },
+        "contextBudget": { "const": 8000 },
+        "outputBudget": { "const": 1000 },
+        "maxTurnMicroProtons": { "ref": "positive" },
+        "ceilingMicroProtons": { "ref": "positive" },
+        "funding": { "enum": ["trial", "wallet"] },
+        "alias": { "const": "google-protected" },
+        "model": { "const": "google-protected" },
+        "googlePolicy": { "const": "limited_use_v1" },
+        "latchState": { "enum": ["eligible", "latched"] }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "cloud_authorization": {
+      "type": "object",
+      "required": {
+        "kind": { "const": "cloud" },
+        "budget": { "ref": "cloud_budget" },
+        "grant": { "anyOf": [{ "ref": "managed_grant" }, { "ref": "google_grant" }] }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_authorization": {
+      "type": "object",
+      "required": {
+        "kind": { "const": "native" },
+        "authorizationId": { "ref": "uuid" },
+        "expiresAt": { "ref": "positive" },
+        "destination": {
+          "type": "object",
+          "required": {
+            "destination": { "type": "string", "min": 5, "max": 132, "pattern": "[A-Za-z0-9:_-]+" },
+            "source": { "type": "string", "min": 4, "max": 80, "pattern": "[a-z0-9:_-]+" },
+            "model": { "type": "string", "min": 1, "max": 128, "pattern": "[A-Za-z0-9._:/-]+" },
+            "effort": { "enum": ["low", "medium", "high"] }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "protection": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": { "kind": { "const": "standard" } },
+              "optional": {},
+              "additional": false
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": { "const": "google_protected" },
+                "googlePolicy": { "const": "limited_use_v1" },
+                "latchState": { "enum": ["eligible", "latched"] }
+              },
+              "optional": {},
+              "additional": false
+            }
+          ]
+        },
+        "attribution": {
+          "type": "object",
+          "required": {
+            "id": { "ref": "uuid" },
+            "lane": { "enum": ["atum_managed", "connected_provider"] }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "limits": {
+          "type": "object",
+          "required": {
+            "activeComputeSeconds": { "const": 120 },
+            "calls": { "const": 1 },
+            "inputTokens": { "const": 8000 },
+            "outputTokens": { "const": 1000 },
+            "maxModelMicroProtons": {
+              "anyOf": [{ "type": "null" }, { "ref": "positive" }]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatched": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "decision": { "const": "dispatched" },
+        "occurrenceId": { "ref": "uuid" },
+        "expiresAt": { "ref": "positive" },
+        "settingsRevision": { "ref": "positive" },
+        "authorization": { "anyOf": [{ "ref": "cloud_authorization" }, { "ref": "native_authorization" }] }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "usage": {
+      "type": "object",
+      "required": {
+        "computeSeconds": { "type": "integer", "min": 0, "max": 120 },
+        "modelAttempts": { "type": "integer", "min": 0, "max": 1 },
+        "inputTokens": { "type": "integer", "min": 0, "max": 8000 },
+        "outputTokens": { "type": "integer", "min": 0, "max": 1000 },
+        "modelMicroProtons": { "ref": "timestamp" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "source_status": {
+      "type": "object",
+      "required": {
+        "source": { "enum": ["google_mail", "google_calendar", "atum_chats", "conversation", "memory"] },
+        "status": { "enum": ["ok", "not_configured", "not_authorized", "unavailable", "failed"] }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "scan": {
+      "type": "object",
+      "required": {
+        "digest": { "ref": "sha256" },
+        "watermarks": { "ref": "watermarks" },
+        "sources": { "type": "array", "items": { "ref": "source_status" }, "min": 0, "max": 5, "unique": true }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "commit_binding": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": { "const": "cloud" },
+            "queueSeq": { "ref": "positive" },
+            "expectedHomeGeneration": { "ref": "timestamp" }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": { "const": "native" },
+            "homeId": { "ref": "uuid" },
+            "homeEpoch": { "ref": "positive" },
+            "executorTerm": { "ref": "positive" },
+            "leaseId": { "ref": "uuid" }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "outbox": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": { "outboxId": { "ref": "uuid" }, "bodySha256": { "ref": "sha256" } },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "settle": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "operation": { "const": "settle" },
+        "occurrenceId": { "ref": "uuid" },
+        "leaseToken": { "ref": "uuid" },
+        "resultFingerprint": { "ref": "sha256" },
+        "usage": { "ref": "usage" },
+        "scan": { "ref": "scan" },
+        "ownerEventWatermark": { "ref": "owner_event" },
+        "commit": { "ref": "commit_binding" },
+        "outcome": { "enum": ["answered", "failed", "stopped", "uncertain"] },
+        "disposition": { "enum": ["silent", "offer", "none"] },
+        "findingHashes": { "type": "array", "items": { "ref": "sha256" }, "min": 0, "max": 3, "unique": true },
+        "outbox": { "ref": "outbox" }
+      },
+      "optional": {
+        "urgency": { "enum": ["normal", "harm_before_morning"] }
+      },
+      "additional": false
+    },
+    "publication": {
+      "anyOf": [
+        { "type": "object", "required": { "state": { "const": "none" } }, "optional": {}, "additional": false },
+        {
+          "type": "object",
+          "required": {
+            "state": { "const": "suppressed" },
+            "reason": { "enum": ["disabled", "owner_active", "duplicate", "stale_authority"] }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": { "state": { "const": "admitted" }, "outboxId": { "ref": "uuid" } },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "settlement": {
+      "type": "object",
+      "required": {
+        "profile": { "const": "atum.agent-sweep/1" },
+        "state": { "const": "settled" },
+        "occurrenceId": { "ref": "uuid" },
+        "outcome": { "enum": ["answered", "failed", "stopped", "uncertain"] },
+        "disposition": { "enum": ["silent", "offer", "none"] },
+        "receiptId": { "ref": "uuid" },
+        "settingsRevision": { "ref": "positive" },
+        "nextDueAt": { "ref": "positive" },
+        "publication": { "ref": "publication" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "classifier_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "profile": { "const": "atum.followup-sweep-result/1" },
+            "decision": { "const": "silent" }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "profile": { "const": "atum.followup-sweep-result/1" },
+            "decision": { "const": "offer" },
+            "evidenceIds": {
+              "type": "array",
+              "items": { "type": "string", "min": 2, "max": 256, "pattern": "[A-Za-z0-9._:~-]+" },
+              "min": 1,
+              "max": 3,
+              "unique": true
+            },
+            "urgency": { "enum": ["normal", "harm_before_morning"] },
+            "text": { "type": "string", "min": 1, "max": 500, "normalization": "NFC" }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "native_meta": {
+      "type": "object",
+      "required": {
+        "requestId": { "ref": "uuid" },
+        "commandId": { "ref": "uuid" },
+        "signer": { "const": "mac_executor" },
+        "signerKeyId": { "ref": "token" },
+        "deviceServiceId": { "ref": "uuid" },
+        "sequence": { "ref": "positive" },
+        "issuedAt": { "ref": "timestamp" },
+        "expiresAt": { "ref": "positive" },
+        "nonce": { "ref": "token" },
+        "signature": { "type": "string", "min": 86, "max": 86, "pattern": "[A-Za-z0-9_-]{86}" }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_fence": {
+      "type": "object",
+      "required": {
+        "ownerUserId": { "type": "string", "min": 4, "max": 1024, "pattern": "@[!-~]+" },
+        "agentPrincipal": { "ref": "uuid" },
+        "homeId": { "ref": "uuid" },
+        "homeEpoch": { "ref": "positive" },
+        "executorTerm": { "ref": "positive" },
+        "leaseId": { "ref": "uuid" },
+        "leaseExpiresAtPlatform": { "ref": "positive" },
+        "operation": {
+          "type": "object",
+          "required": { "kind": { "const": "job" }, "id": { "ref": "uuid" } },
+          "optional": {},
+          "additional": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "native_dispatch_envelope": {
+      "type": "object",
+      "required": {
+        "meta": { "ref": "native_meta" },
+        "fence": { "ref": "native_fence" },
+        "request": { "ref": "dispatch" }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "owner_to_platform": {
+      "forbidden_fields": ["owner", "agentPrincipal", "model", "scheduleId", "roomId", "intervalMs", "prompt", "title"]
+    },
+    "runtime_to_platform": {
+      "forbidden_fields": ["owner", "agentPrincipal", "model", "scheduleId", "roomId", "intervalMs", "prompt", "title"]
+    },
+    "signed_native_to_platform": {
+      "forbidden_fields": ["owner", "model", "scheduleId", "roomId", "intervalMs", "prompt", "title"]
+    },
+    "platform_to_runtime": {
+      "forbidden_fields": ["access_token", "refresh_token", "private_key"]
+    },
+    "model_to_home": {
+      "forbidden_fields": ["url", "tool", "action", "owner", "agentPrincipal"]
+    }
+  },
+  "messages": {
+    "setting.snapshot": { "direction": "platform_to_runtime", "schema": { "ref": "setting_snapshot" } },
+    "setting.write": { "direction": "owner_to_platform", "schema": { "ref": "setting_write" } },
+    "claim": { "direction": "runtime_to_platform", "schema": { "ref": "claim" } },
+    "claim.response": { "direction": "platform_to_runtime", "schema": { "anyOf": [{ "ref": "defer" }, { "ref": "claimed" }] } },
+    "dispatch": { "direction": "runtime_to_platform", "schema": { "ref": "dispatch" } },
+    "dispatch.response": { "direction": "platform_to_runtime", "schema": { "anyOf": [{ "ref": "defer" }, { "ref": "dispatched" }] } },
+    "settle": { "direction": "runtime_to_platform", "schema": { "ref": "settle" } },
+    "settlement": { "direction": "platform_to_runtime", "schema": { "ref": "settlement" } },
+    "classifier.result": { "direction": "model_to_home", "schema": { "ref": "classifier_result" } },
+    "native.dispatch-envelope": { "direction": "signed_native_to_platform", "schema": { "ref": "native_dispatch_envelope" } }
+  },
+  "invariants": [
+    {
+      "id": "claim_expiry_after_occurrence",
+      "message": "claim.response",
+      "op": "le",
+      "left": "occurrenceAt",
+      "right": ["expiresAt"],
+      "offset": -1
+    }
+  ],
+  "state_machines": {
+    "occurrence": {
+      "states": ["absent", "claimed", "dispatched", "completed", "published", "skipped"],
+      "initial": ["absent"],
+      "terminal": ["published", "skipped"],
+      "transitions": [
+        ["absent", "claimed", "claim_due"],
+        ["claimed", "claimed", "claim_replay"],
+        ["claimed", "skipped", "expire_or_disable"],
+        ["claimed", "dispatched", "dispatch_admitted"],
+        ["dispatched", "completed", "settle"],
+        ["completed", "completed", "settle_replay"],
+        ["completed", "published", "publication_receipt"]
+      ]
+    }
+  },
+  "fixtures": [
+    { "file": "fixtures/setting.snapshot.json", "message": "setting.snapshot", "expect": "accept" },
+    { "file": "fixtures/setting.write.json", "message": "setting.write", "expect": "accept" },
+    { "file": "fixtures/claim.request.json", "message": "claim", "expect": "accept" },
+    { "file": "fixtures/claim.defer.json", "message": "claim.response", "expect": "accept" },
+    { "file": "fixtures/claim.claimed.json", "message": "claim.response", "expect": "accept" },
+    { "file": "fixtures/dispatch.request.json", "message": "dispatch", "expect": "accept" },
+    { "file": "fixtures/dispatch.cloud-managed.json", "message": "dispatch.response", "expect": "accept" },
+    { "file": "fixtures/dispatch.cloud-google.json", "message": "dispatch.response", "expect": "accept" },
+    { "file": "fixtures/dispatch.native.json", "message": "dispatch.response", "expect": "accept" },
+    { "file": "fixtures/dispatch.native-google.json", "message": "dispatch.response", "expect": "accept" },
+    { "file": "fixtures/settle.silent.json", "message": "settle", "expect": "accept" },
+    { "file": "fixtures/settle.offer.json", "message": "settle", "expect": "accept" },
+    { "file": "fixtures/settle.none.json", "message": "settle", "expect": "accept" },
+    { "file": "fixtures/settlement.silent.json", "message": "settlement", "expect": "accept" },
+    { "file": "fixtures/settlement.offer.json", "message": "settlement", "expect": "accept" },
+    { "file": "fixtures/result.silent.json", "message": "classifier.result", "expect": "accept" },
+    { "file": "fixtures/result.offer.json", "message": "classifier.result", "expect": "accept" },
+    { "file": "fixtures/native.dispatch-envelope.json", "message": "native.dispatch-envelope", "expect": "accept" },
+    { "file": "fixtures/occurrence.lifecycle.json", "machine": "occurrence", "expect": "accept" }
+  ]
+}

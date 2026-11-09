@@ -1,0 +1,22 @@
+{
+  "profile": "atum.app-panel/1",
+  "default_page": "library",
+  "pages": [
+    {
+      "route_id": "library",
+      "glyph": "article"
+    },
+    {
+      "route_id": "readings",
+      "glyph": "yin-yang",
+      "tag": {
+        "vi": "Beta",
+        "en": "Beta"
+      }
+    },
+    {
+      "route_id": "library",
+      "glyph": "article"
+    }
+  ]
+}

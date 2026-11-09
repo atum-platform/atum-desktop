@@ -1,0 +1,38 @@
+{
+  "input": {
+    "resolution": {
+      "earlier": [
+        "!b:proof.test"
+      ],
+      "stray": [
+        "!c:proof.test"
+      ],
+      "unreachable": [
+        "!d:proof.test"
+      ],
+      "source": "marked",
+      "main": "!a:proof.test"
+    },
+    "at": 200
+  },
+  "expected": [
+    {
+      "roomId": "!b:proof.test",
+      "content": {
+        "v": 1,
+        "role": "earlier",
+        "main": "!a:proof.test",
+        "at": 200
+      }
+    },
+    {
+      "roomId": "!c:proof.test",
+      "content": {
+        "v": 1,
+        "role": "earlier",
+        "main": "!a:proof.test",
+        "at": 200
+      }
+    }
+  ]
+}

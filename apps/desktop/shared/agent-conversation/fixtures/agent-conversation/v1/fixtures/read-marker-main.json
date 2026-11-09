@@ -1,0 +1,5 @@
+{
+  "role": "main",
+  "main": "!a:proof.test",
+  "at": 100
+}

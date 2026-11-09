@@ -1,0 +1,16 @@
+{
+  "caseId": "cloud_required",
+  "subject": "policy.snapshot",
+  "accepted": false,
+  "violation": "cloud_required",
+  "value": {
+    "profile": "atum.execution-policy/1",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "revision": 1,
+    "source": "saved",
+    "order": [
+      "mac:00000000-0000-4000-8000-b454f82c5857"
+    ],
+    "disabled": []
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "profile": "atum.app-panel/1",
+  "default_page": "readings",
+  "pages": [
+    {
+      "route_id": "top-up",
+      "glyph": "article"
+    },
+    {
+      "route_id": "readings",
+      "glyph": "yin-yang",
+      "tag": {
+        "vi": "Beta",
+        "en": "Beta"
+      }
+    }
+  ]
+}

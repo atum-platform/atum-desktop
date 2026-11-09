@@ -1,0 +1,6 @@
+{
+  "upload_id": "00000000-0000-4000-8000-6e19e97fb048",
+  "upload_url": "https://<project>.supabase.co/storage/v1/object/upload/sign/atum-avatars-v1/<user_id>/00000000-0000-4000-8000-6e19e97fb048.png?token=<opaque>",
+  "upload_headers": { "content-type": "image/png" },
+  "expires_at": "2026-09-02T02:00:00+00:00"
+}

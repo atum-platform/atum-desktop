@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "reply": "Mình ngồi đây.",
+  "action": {"action": "sit"},
+  "recent": [
+    {"role": "user", "text": "gigi sit", "at": "2026-10-27T02:00:00.000Z"},
+    {"role": "pet", "text": "Mình ngồi đây.", "at": "2026-10-27T02:00:01.000Z"}
+  ],
+  "messages_today": 3,
+  "daily_cap": 200
+}

@@ -1,0 +1,25 @@
+{
+  "originPrincipal": "00000000-0000-4000-8000-fa2b298ca938",
+  "originIsMain": true,
+  "agents": [
+    {
+      "principal": "00000000-0000-4000-8000-fa2b298ca938",
+      "displayName": "Moon",
+      "title": null,
+      "isMain": true,
+      "definitionRevision": 0,
+      "identityRevision": 1,
+      "avatarUrl": null,
+      "matrixUser": "@moon:atum.example",
+      "placement": {
+        "failoverOrder": [
+          {
+            "kind": "cloud",
+            "online": true,
+            "leaseHolder": false
+          }
+        ]
+      }
+    }
+  ]
+}

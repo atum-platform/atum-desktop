@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "companies": [],
+  "invitations": [
+    {
+      "id": "00000000-0000-4000-8000-55301f2eb1d3",
+      "companyId": "00000000-0000-4000-8000-345447196296",
+      "displayName": "Another company",
+      "role": "member",
+      "inviter": {
+        "handle": "minh",
+        "displayName": "Minh",
+        "memberRef": "RiUVmyo5zEPwmNwDTzUkOZ9pssoNpuFAbofjwAsJyS8"
+      }
+    }
+  ],
+  "canCreate": false
+}

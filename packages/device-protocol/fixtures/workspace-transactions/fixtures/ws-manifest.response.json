@@ -1,0 +1,27 @@
+{
+  "entries": [
+    {
+      "path": "notes/a.md",
+      "etag": "\"etag-a-1\"",
+      "size": 1200,
+      "sha256": "1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "kind": "file"
+    },
+    {
+      "path": "notes/b.md",
+      "etag": "\"etag-b-1\"",
+      "size": 800,
+      "sha256": "1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b",
+      "kind": "file"
+    },
+    {
+      "path": "notes",
+      "etag": "\"etag-dir\"",
+      "size": 0,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "kind": "container"
+    }
+  ],
+  "truncated": false,
+  "excluded": 3
+}

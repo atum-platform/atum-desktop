@@ -1,0 +1,38 @@
+{
+  "current": {
+    "moveId": "00000000-0000-4000-8000-303617b97302",
+    "idempotencyKey": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "intent": "automatic_failover",
+    "status": "committed",
+    "source": {
+      "kind": "cloud"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "expectedHomeEpoch": 4,
+    "expectedPlacementRevision": 9,
+    "requestedAtPlatform": 1800000000000
+  },
+  "incoming": {
+    "moveId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "idempotencyKey": "00000000-0000-4000-8000-a9703d75e616",
+    "intent": "manual",
+    "status": "requested",
+    "source": {
+      "kind": "cloud"
+    },
+    "target": {
+      "kind": "mac",
+      "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+    },
+    "expectedHomeEpoch": 4,
+    "expectedPlacementRevision": 9,
+    "requestedAtPlatform": 1800000000000
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "committed_epoch_preserved"
+  }
+}

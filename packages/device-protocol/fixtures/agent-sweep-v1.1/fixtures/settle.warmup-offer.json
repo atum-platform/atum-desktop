@@ -1,0 +1,47 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "operation": "settle",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "leaseToken": "00000000-0000-4000-8000-0687b864df1e",
+  "resultFingerprint": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "usage": {
+    "computeSeconds": 121,
+    "modelAttempts": 1,
+    "inputTokens": 4000,
+    "outputTokens": 70,
+    "modelMicroProtons": 234567
+  },
+  "scan": {
+    "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "watermarks": {
+      "googleMail": null,
+      "googleCalendar": null,
+      "atumChats": null,
+      "conversation": null,
+      "memory": null
+    },
+    "sources": [
+      {
+        "source": "conversation",
+        "status": "ok"
+      }
+    ]
+  },
+  "ownerEventWatermark": {
+    "eventId": "$warmup-owner:test",
+    "at": 1793010000000
+  },
+  "commit": {
+    "kind": "cloud",
+    "queueSeq": 7,
+    "expectedHomeGeneration": 4
+  },
+  "disposition": "offer",
+  "outcome": "answered",
+  "urgency": "normal",
+  "findingHashes": [],
+  "outbox": {
+    "outboxId": "00000000-0000-4000-8000-44328c724bf2",
+    "bodySha256": "2222222222222222222222222222222222222222222222222222222222222222"
+  }
+}

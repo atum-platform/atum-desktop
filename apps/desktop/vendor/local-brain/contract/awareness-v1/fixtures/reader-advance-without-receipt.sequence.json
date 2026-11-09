@@ -1,0 +1,6 @@
+{
+  "steps": [
+    {"from": "checkpointed", "to": "awaiting_receipt", "event": "submit_revision"},
+    {"from": "awaiting_receipt", "to": "checkpointed", "event": "commit_checkpoint"}
+  ]
+}

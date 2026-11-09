@@ -1,0 +1,12 @@
+{
+  "id": "cookie",
+  "displayName": "Cookie",
+  "description": "A Yorkshire terrier: small, steel-blue and tan, ears up.",
+  "spritesheetPath": "spritesheet.webp",
+  "spriteVersionNumber": 3,
+  "size": 0.85,
+  "extraRows": ["sleep", "carried"],
+  "lookOrigin": "yaw5-pitch3-mirrored",
+  "lookYawSteps": 5,
+  "lookPitchSteps": 3
+}

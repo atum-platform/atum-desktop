@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "local",
+      "to": "cloud",
+      "event": "switch_to_cloud"
+    },
+    {
+      "from": "cloud",
+      "to": "local",
+      "event": "switch_to_local"
+    }
+  ]
+}

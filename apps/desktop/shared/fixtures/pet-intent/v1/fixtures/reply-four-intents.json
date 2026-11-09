@@ -1,0 +1,21 @@
+{
+  "msgtype": "m.text",
+  "body": "A normal reply.",
+  "io.atum.pet": {
+    "v": 1,
+    "intents": [
+      {
+        "action": "wave"
+      },
+      {
+        "action": "wave"
+      },
+      {
+        "action": "wave"
+      },
+      {
+        "action": "wave"
+      }
+    ]
+  }
+}

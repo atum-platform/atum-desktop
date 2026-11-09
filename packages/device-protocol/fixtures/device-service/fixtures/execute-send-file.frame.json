@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "type": "Execute",
+  "body": {
+    "commandId": "00000000-0000-4000-8000-7b7ee1efda84",
+    "grantId": "00000000-0000-4000-8000-fce915c29383",
+    "seq": 6,
+    "connectionId": "00000000-0000-4000-8000-67242899d448",
+    "connectionEpoch": 12,
+    "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "tool": "send_file",
+    "toolVersion": 1,
+    "args": {
+      "path": "~/Desktop/s1-demo/hello.txt"
+    },
+    "argsHash": "q3dzr3mjg2MSHIBEUeXOQewfRutMYbhPGUAgycbBFB8",
+    "inputManifestHash": null,
+    "needs": [],
+    "proposedEffect": "ordinary",
+    "admitBy": 1791100816000,
+    "timeoutMs": 120000,
+    "issuedAt": 1791100801000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "m8uVRi8_9vE7hXwIU-edQ01U1zWCkuhpREGP4sLFoe9VX5A_v0MzOeN8x_H3lXhYLtpRU8fuc2yMuU3nlQK6Aw"
+}

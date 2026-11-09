@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "open",
+      "to": "staged",
+      "event": "stage"
+    },
+    {
+      "from": "staged",
+      "to": "unknown",
+      "event": "lost_acknowledgment"
+    }
+  ]
+}

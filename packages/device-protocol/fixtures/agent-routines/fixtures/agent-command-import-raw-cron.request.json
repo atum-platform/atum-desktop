@@ -1,0 +1,22 @@
+{
+  "profile": "atum.agent-routine-command/1",
+  "operation": "import",
+  "requestId": "00000000-0000-4000-8000-4a6b67efc0eb",
+  "generation": 7,
+  "jobs": [
+    {
+      "homeJobId": "job_morning",
+      "title": "Morning brief",
+      "instruction": "Morning brief: do what the old job did.",
+      "schedule": {
+        "kind": "daily",
+        "hour": 8,
+        "minute": 0
+      },
+      "timezone": "Asia/Ho_Chi_Minh",
+      "notifications": true,
+      "enableOnClear": false,
+      "cron": "0 8 * * *"
+    }
+  ]
+}

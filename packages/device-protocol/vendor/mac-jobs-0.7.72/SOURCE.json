@@ -1,0 +1,17 @@
+{
+  "repository": "atum-platform",
+  "commit": "d050a622dc631363ad26a0d66571639b283d35ce",
+  "protocol": "0.7.72",
+  "files": {
+    "occurrence-outcome.js": "ae4b5f82a8dd041fa13101b7ab40effdfe37a23dbf86d75bcc29263d94a7b6bd",
+    "occurrence-outcome.d.ts": "d857f0ce4ad78460ff5ac996b82708db38d4031bf097057d96a4f9d4fa469953",
+    "scheduled-jobs.js": "98f84a94621c17527a7c8e4a96008c8eefbab1b984be45b574b20bb87c2c2d9a",
+    "scheduled-jobs.d.ts": "1eae7832940bfed60caca5c64817b52805740354f1df77ca4de3dfa727962b97",
+    "mac-jobs.js": "f584d0f14a5463bd4cce22ed8c35aaa8cb184004ec6be9faed109fd64a32cfc0",
+    "mac-jobs.d.ts": "1c888e355f9ca4029483f9bce016f54afadd9901c27e69c4a83ee7f36d9fe6e8",
+    "agent-home-placement.js": "a84d92aa51af7a0f8c42705abb1bc973032c08f15d17dda81944aa3f232248ee",
+    "agent-home-placement.d.ts": "cd9c55c56534ae58445dec140578612757d06d6c9b88b75dda60d130088e623c",
+    "host-fs.js": "1e79a5fe361e2ce1f393efe9e7beb053701f7e7b43bef7e214e0fd131abec2f8",
+    "host-fs.d.ts": "04a8e452e4c311491a32d773f798a1af4ad6ec706ac0b732130528ec142b98b7"
+  }
+}

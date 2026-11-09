@@ -1,0 +1,122 @@
+{
+  "capabilities": {
+    "contract": "atum.group-addressing/1",
+    "enabled": true,
+    "mention_cardinality": 8,
+    "quote_limit": 4000,
+    "specialist_member_limit": 4,
+    "specialist_catalog": [
+      {
+        "specialist": "moon",
+        "display_name": "Moon",
+        "avatar": "☾",
+        "room_supported": true
+      }
+    ]
+  },
+  "specialist": {
+    "specialist": "moon",
+    "display_name": "Moon",
+    "avatar": "☾",
+    "membership_epoch": 1,
+    "availability": "available"
+  },
+  "specialist_catalog": [
+    {
+      "specialist": "moon",
+      "display_name": "Moon",
+      "avatar": "☾",
+      "room_supported": true
+    }
+  ],
+  "targets": {
+    "contract": "atum.addressed-mentions/1",
+    "mention_cardinality": 8,
+    "targets": [
+      {
+        "target": {
+          "type": "specialist",
+          "id": "moon"
+        },
+        "revision": 1,
+        "display_name": "Moon",
+        "avatar": "☾",
+        "availability": "available"
+      },
+      {
+        "target": {
+          "type": "assistant",
+          "id": "00000000-0000-4000-8000-af64b0e314ff"
+        },
+        "revision": 1,
+        "display_name": "Mai",
+        "avatar": "🌿",
+        "availability": "available"
+      }
+    ]
+  },
+  "send": {
+    "client_message_id": "00000000-0000-4000-8000-809dd5e69e5f",
+    "content": "@Moon @Mai help",
+    "locale": "en",
+    "reply_to_message_id": null,
+    "attachment_ids": [],
+    "mentions": {
+      "contract": "atum.addressed-mentions/1",
+      "targets": [
+        {
+          "target": {
+            "type": "specialist",
+            "id": "moon"
+          },
+          "revision": 1,
+          "start_offset": 0,
+          "end_offset": 5
+        },
+        {
+          "target": {
+            "type": "assistant",
+            "id": "00000000-0000-4000-8000-af64b0e314ff"
+          },
+          "revision": 1,
+          "start_offset": 6,
+          "end_offset": 10
+        }
+      ]
+    },
+    "quoted_message": {
+      "message_id": "00000000-0000-4000-8000-7f4afca2c5f9",
+      "source_version": 1
+    }
+  },
+  "provider_request": {
+    "profile": "atum.turn-room/1",
+    "turn_id": "00000000-0000-4000-8000-dda787f7e547",
+    "conversation_id": "00000000-0000-4000-8000-86616a96b280",
+    "subject": {
+      "subject_id": "ps_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "installation_id": "00000000-0000-4000-8000-665abcad39f0",
+      "locale": "en",
+      "display_name": "Member A",
+      "link_epoch": 1
+    },
+    "invocation": {
+      "kind": "mention",
+      "text": "@Moon @Mai help"
+    },
+    "quote": {
+      "text": "Explicitly shared message"
+    },
+    "context": {
+      "channel": "atum",
+      "client": "desktop",
+      "room": {
+        "policy": "addressed_only"
+      },
+      "capabilities": {
+        "version": 1,
+        "enabled": []
+      }
+    }
+  }
+}

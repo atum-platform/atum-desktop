@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "license": "SIL Open Font License 1.1",
+  "fonts": [
+    {
+      "family": "Be Vietnam Pro",
+      "version": "upstream main snapshot 804e62d81abbbcdcce5686069c69b41b8c245192 (2021-08-14)",
+      "sourceRepository": "https://github.com/bettergui/BeVietnamPro",
+      "sourceCommit": "804e62d81abbbcdcce5686069c69b41b8c245192",
+      "licenseFile": "apps/desktop/third-party/licenses/app/be-vietnam-pro-OFL.txt",
+      "files": [
+        {
+          "file": "apps/desktop/src/fonts/BeVietnamPro-Regular.woff2",
+          "sourceUrl": "https://github.com/bettergui/BeVietnamPro/blob/804e62d81abbbcdcce5686069c69b41b8c245192/fonts/webfonts/BeVietnamPro-Regular.woff2",
+          "sha256": "907ebfa4a4bd967cdcb313b2889655ff9fb90d5fd4f193723aa99142d14a1652",
+          "bytes": 38064
+        },
+        {
+          "file": "apps/desktop/src/fonts/BeVietnamPro-Medium.woff2",
+          "sourceUrl": "https://github.com/bettergui/BeVietnamPro/blob/804e62d81abbbcdcce5686069c69b41b8c245192/fonts/webfonts/BeVietnamPro-Medium.woff2",
+          "sha256": "15a399b6a57023c665fa8aca7f4691d36c512b17cc36f74bd9dc077487ac9ffc",
+          "bytes": 40232
+        },
+        {
+          "file": "apps/desktop/src/fonts/BeVietnamPro-SemiBold.woff2",
+          "sourceUrl": "https://github.com/bettergui/BeVietnamPro/blob/804e62d81abbbcdcce5686069c69b41b8c245192/fonts/webfonts/BeVietnamPro-SemiBold.woff2",
+          "sha256": "91329e727900425300269d9402c32e9e020943783fc0b9457f0b7419bef90dbf",
+          "bytes": 40464
+        }
+      ]
+    },
+    {
+      "family": "Literata",
+      "version": "3.103",
+      "sourceRepository": "https://github.com/googlefonts/literata",
+      "sourceCommit": "0c2761b727a1b3a7cffd313c37f0f5163dfc7a63",
+      "licenseFile": "apps/desktop/third-party/licenses/app/literata-OFL.txt",
+      "files": [
+        {
+          "file": "apps/desktop/src/fonts/Literata-Regular.woff2",
+          "sourceUrl": "https://github.com/googlefonts/literata/blob/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/webfonts/Literata-Regular.woff2",
+          "sha256": "94f47c83bbae42da280fdeccad202ea904edb07020d98979f99efad2f75f1b1e",
+          "bytes": 97440
+        },
+        {
+          "file": "apps/desktop/src/fonts/Literata-SemiBold.woff2",
+          "sourceUrl": "https://github.com/googlefonts/literata/blob/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63/fonts/webfonts/Literata-SemiBold.woff2",
+          "sha256": "9a2d0ab6b769f6c6571468ce0465d70d37522f3dd9adb9704eb98c9b0d164511",
+          "bytes": 106476
+        }
+      ]
+    }
+  ]
+}

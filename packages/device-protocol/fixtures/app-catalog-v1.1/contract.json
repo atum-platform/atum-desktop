@@ -1,0 +1,193 @@
+{
+  "contract_id": "atum.app-catalog-transport",
+  "version": "1.1",
+  "status": "frozen",
+  "protocol_release": "0.7.55",
+  "migration": "0340_app_catalog_transport_mode.sql",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/signed.bot-api.response.json",
+    "fixtures/signed.invalid-transport.response.json",
+    "fixtures/signed.legacy-absent.response.json",
+    "fixtures/sql.user-bot-row.json"
+  ],
+  "row": "Owner 2026-10-28: signed user app catalog exposes transport authority before first reply; new external chat registrations default to Bot API without a Start, consent or Connect gate",
+  "providers": [
+    "atum.app_bot_catalog(uuid) (service_role only)",
+    "Platform Shell authenticated Matrix app catalog and workspace"
+  ],
+  "consumers": [
+    "Atum desktop",
+    "Atum phone"
+  ],
+  "compatibility": {
+    "wire_profiles": [
+      "atum.app-catalog/1",
+      "atum.app-workspace/1"
+    ],
+    "older_client": "ignores additive bot.transport_mode",
+    "new_client_with_older_catalog": "defaults absent bot.transport_mode to legacy_turn",
+    "producer": "always emits a closed transport_mode for every non-null bot"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"
+    },
+    "slug": {
+      "type": "string",
+      "min": 1,
+      "max": 72,
+      "pattern": "[a-z][a-z0-9_-]*"
+    },
+    "transport_mode": {
+      "enum": [
+        "legacy_turn",
+        "bot_api"
+      ]
+    },
+    "sql_user_bot": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "slug": {
+          "ref": "slug"
+        },
+        "transport_mode": {
+          "ref": "transport_mode"
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "signed_bot": {
+      "type": "object",
+      "required": {
+        "v": {
+          "const": 1
+        },
+        "user_id": {
+          "type": "string",
+          "min": 3,
+          "max": 255
+        },
+        "handle": {
+          "type": "string",
+          "min": 1,
+          "max": 72
+        }
+      },
+      "optional": {
+        "transport_mode": {
+          "ref": "transport_mode"
+        }
+      },
+      "additional": true
+    },
+    "descriptor": {
+      "type": "object",
+      "required": {
+        "app": {
+          "ref": "slug"
+        },
+        "app_id": {
+          "ref": "uuid"
+        },
+        "bot": {
+          "anyOf": [
+            {
+              "ref": "signed_bot"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "optional": {},
+      "additional": true
+    },
+    "signed_catalog": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.app-catalog/1"
+        },
+        "apps": {
+          "type": "array",
+          "items": {
+            "ref": "descriptor"
+          },
+          "min": 0,
+          "max": 100,
+          "unique": true
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "database_to_shell": {
+      "forbidden_fields": [
+        "token",
+        "digest",
+        "secret_token",
+        "webhook_url"
+      ]
+    },
+    "shell_to_client": {
+      "forbidden_fields": [
+        "token",
+        "digest",
+        "secret_token",
+        "webhook_url",
+        "issuer",
+        "mas_user",
+        "session_id"
+      ]
+    }
+  },
+  "messages": {
+    "database.user_bot_catalog.row": {
+      "direction": "database_to_shell",
+      "schema": {
+        "ref": "sql_user_bot"
+      }
+    },
+    "signed.app_catalog.response": {
+      "direction": "shell_to_client",
+      "schema": {
+        "ref": "signed_catalog"
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/signed.bot-api.response.json",
+      "message": "signed.app_catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/signed.invalid-transport.response.json",
+      "message": "signed.app_catalog.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/signed.legacy-absent.response.json",
+      "message": "signed.app_catalog.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/sql.user-bot-row.json",
+      "message": "database.user_bot_catalog.row",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "contract": "atum.cloud-data/1",
+  "changes": [
+    {
+      "change_id": 2048,
+      "operation": "upsert",
+      "record": {
+        "record_id": "00000000-0000-4000-8000-b4b6412c243e",
+        "record_kind": "artifact",
+        "scope": { "kind": "app_thread", "id": "00000000-0000-4000-8000-676a3a34ff0f" },
+        "revision": 1,
+        "generation": 1,
+        "lifecycle": "active",
+        "payload": {
+          "resource_id": "moon.report:2026-08-30",
+          "title": "Moon report",
+          "type": "document",
+          "copy_mode": "atum_copy",
+          "content_type": "application/pdf",
+          "byte_size": 128000,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "provenance": {
+          "source_kind": "app_event",
+          "source_id": "00000000-0000-4000-8000-072e4e6126bd",
+          "source_revision": 1,
+          "origin_app": "moon"
+        },
+        "occurred_at": "2026-08-30T12:01:00Z",
+        "recorded_at": "2026-08-30T12:01:01Z",
+        "untrusted_input": true
+      }
+    }
+  ],
+  "next_cursor": "opaque-sync-token-3",
+  "has_more": false,
+  "server_time": "2026-08-30T12:01:02Z"
+}

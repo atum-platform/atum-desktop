@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "moveId": "00000000-0000-4000-8000-303617b97302",
+  "idempotencyKey": "00000000-0000-4000-8000-f1d11edf5c5c",
+  "source": {
+    "kind": "cloud"
+  },
+  "target": {
+    "kind": "mac",
+    "deviceServiceId": "00000000-0000-4000-8000-0bb5de138389"
+  },
+  "expectedHomeEpoch": 4,
+  "nextHomeEpoch": 5,
+  "expectedPlacementRevision": 9,
+  "nextPlacementRevision": 11,
+  "selectedGeneration": 13,
+  "rollbackFloorGeneration": 10,
+  "outcome": "committed",
+  "committedAtPlatform": 1800000000000
+}

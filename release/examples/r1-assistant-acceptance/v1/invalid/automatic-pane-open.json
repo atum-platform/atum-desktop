@@ -1,0 +1,49 @@
+{
+  "schema": "atum-r1-assistant-acceptance-trace/1",
+  "candidate_id": "r1-invalid-auto-open",
+  "source_head_sha": "8b32700fbfe0cdf9c2929d0866eefd411d2565f8",
+  "artifact_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+  "journey_id": "R1-assistant-completion",
+  "fixture_id": "fault-r1-auto-open-v1",
+  "target": {"os": "macos", "os_version": "15.0", "arch": "arm64"},
+  "execution": {"mode": "packaged", "clean_install": true, "isolated_profile": true, "deployment_credentials_used": false, "github_ruleset_access_used": false},
+  "started_at": "2026-08-31T08:00:00Z",
+  "completed_at": "2026-08-31T08:02:00Z",
+  "valid_until": "2026-09-07T08:02:00Z",
+  "browser": {
+    "presentations": [
+      {"state": "pending", "pane_opened_automatically": true, "technical_detail_available": true, "evidence": ["local://fault/pending"]},
+      {"state": "slow", "pane_opened_automatically": false, "technical_detail_available": true, "evidence": ["local://fault/slow"]},
+      {"state": "success", "pane_opened_automatically": false, "technical_detail_available": true, "evidence": ["local://fault/success"]},
+      {"state": "error", "pane_opened_automatically": false, "technical_detail_available": true, "evidence": ["local://fault/error"]},
+      {"state": "cancelled", "pane_opened_automatically": false, "technical_detail_available": true, "evidence": ["local://fault/cancelled"]}
+    ],
+    "without_grant": {"broker_decision": "denied", "problem_code": "CAPABILITY_DENIED", "attempted_effects": 0, "authority_ref": null, "evidence": ["local://fault/browser-denied"]}
+  },
+  "computer_control": {
+    "disclosure": {"capability": "computer_control", "scope": "fixture scope", "effect": "fixture effect", "presented_before_decision": true, "evidence": ["local://fault/disclosure"]},
+    "initial_choices": [
+      {"decision": "denied", "attempted_effects": 0, "authority_ref": null, "evidence": ["local://fault/deny"]},
+      {"decision": "later", "attempted_effects": 0, "authority_ref": null, "evidence": ["local://fault/later"]}
+    ],
+    "grant": {"decision": "granted", "broker": "S2", "authority_ref": "fixture://s2/grants/invalid-1", "scope": "fixture scope", "evidence": ["local://fault/grant"]},
+    "active_use": {"visible": true, "capability": "computer_control", "authority_ref": "fixture://s2/grants/invalid-1", "attribution": "fixture attribution", "evidence": ["local://fault/active"]},
+    "revocations": [
+      {"source": "live_surface", "broker": "S2", "authority_ref": "fixture://s2/grants/invalid-1", "decision": "revoked", "evidence": ["local://fault/revoke-live"]},
+      {"source": "settings", "broker": "S2", "authority_ref": "fixture://s2/grants/invalid-1", "decision": "revoked", "evidence": ["local://fault/revoke-settings"]}
+    ],
+    "safe_boundary": {
+      "use_started": {"type": "use_started", "grantId": "fixture://s2/grants/invalid-1", "operationId": "fixture-invalid-operation-1", "occurredAt": "2026-08-31T08:01:00Z", "observed_order": 10},
+      "revocation": {"type": "revoked", "grantId": "fixture://s2/grants/invalid-1", "safeBoundary": "partial_effects", "rendererMessage": "Permission was revoked while the action was running.", "occurredAt": "2026-08-31T08:01:10Z", "observed_order": 11},
+      "use_finished": {"type": "use_finished", "grantId": "fixture://s2/grants/invalid-1", "operationId": "fixture-invalid-operation-1", "outcome": "revoked", "safeBoundary": "partial_effects", "completedOperation": true, "rendererMessage": "Permission was revoked while the action was running. The operation reported completion before it stopped.", "occurredAt": "2026-08-31T08:01:11Z", "observed_order": 12},
+      "problem_code": "CAPABILITY_REVOKED",
+      "technical_detail_available": true,
+      "technical_detail": "Permission was revoked while the action was running; the operation reported completion before it stopped.",
+      "detail_sanitized": true,
+      "evidence": ["local://fault/boundary"]
+    },
+    "subsequent_attempt": {"broker_decision": "denied", "problem_code": "CAPABILITY_REVOKED", "attempted_effects": 0, "authority_ref": null, "evidence": ["local://fault/subsequent"]}
+  },
+  "redaction_check": {"verifier": "atum-redaction-corpus/1", "corpus_result_ref": "local://fault/redaction", "result": "pass"},
+  "evidence_ref": "local://fault/auto-open"
+}

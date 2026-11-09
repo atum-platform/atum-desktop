@@ -1,0 +1,21 @@
+{
+  "caseId": "off_no_policy_noop",
+  "savedPolicy": false,
+  "cloudEnabled": false,
+  "liveCloudTerm": false,
+  "currentAnsweringMode": "local",
+  "cloudBusy": false,
+  "takenUnderLiveTerm": false,
+  "staleTaken": false,
+  "macTerm": true,
+  "expected": {
+    "outcome": "reset",
+    "policyPresent": false,
+    "answeringMode": "local",
+    "cloudAuthority": "absent",
+    "macAuthority": "preserved",
+    "source": "default",
+    "revision": 0,
+    "defaultCloudFirstIsRoutingAuthority": false
+  }
+}

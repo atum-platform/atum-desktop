@@ -1,0 +1,142 @@
+{
+  "profile": "atum.provider-connections/1",
+  "revision": 0,
+  "connections": [
+    {
+      "provider": "opencode_go",
+      "state": "disconnected",
+      "revision": 0,
+      "models": [
+        {
+          "id": "glm-5.2",
+          "displayName": "GLM-5.2",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "glm-5.1",
+          "displayName": "GLM-5.1",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "glm-5",
+          "displayName": "GLM-5",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "kimi-k3",
+          "displayName": "Kimi K3",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "kimi-k2.7-code",
+          "displayName": "Kimi K2.7 Code",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "kimi-k2.6",
+          "displayName": "Kimi K2.6",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "kimi-k2.5",
+          "displayName": "Kimi K2.5",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "mimo-v2.5-pro",
+          "displayName": "MiMo v2.5 Pro",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "mimo-v2.5",
+          "displayName": "MiMo v2.5",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "mimo-v2-pro",
+          "displayName": "MiMo v2 Pro",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "mimo-v2-omni",
+          "displayName": "MiMo v2 Omni",
+          "efforts": [],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "displayName": "DeepSeek V4 Pro",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "displayName": "DeepSeek V4 Flash",
+          "efforts": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "defaultEffort": "medium",
+          "contextBudget": 131072,
+          "outputBudget": 16384
+        }
+      ],
+      "modelPolicy": "none"
+    }
+  ]
+}

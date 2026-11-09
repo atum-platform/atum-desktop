@@ -1,0 +1,7 @@
+{
+  "profile": "atum.agent-routine-command/1",
+  "operation": "delete",
+  "requestId": "00000000-0000-4000-8000-609dfbf3fbcf",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "expectedRevision": 3
+}

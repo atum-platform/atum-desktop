@@ -1,0 +1,16 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "decision": "retired",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "occurrenceKind": "warmup_nudge",
+  "warmupNudgeIndex": 2,
+  "releaseCount": 2,
+  "outcome": "uncertain",
+  "disposition": "none",
+  "receiptId": "00000000-0000-4000-8000-e3d10819de8e",
+  "settingsRevision": 1,
+  "nextDueAt": 1793019600000,
+  "publication": {
+    "state": "none"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "v": 1,
+  "type": "MigrationReport",
+  "body": {
+    "migrationId": "00000000-0000-4000-8000-44875ad14494",
+    "agentPrincipal": "00000000-0000-4000-8000-159badba71cd",
+    "snapshots": [
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
+        "sha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "bytes": 4194465,
+        "files": 37
+      },
+      {
+        "deviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
+        "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "bytes": 4194482,
+        "files": 37
+      }
+    ],
+    "missing": [],
+    "report": {
+      "base": "00000000-0000-4000-8000-b86a6ca39e23",
+      "other": "00000000-0000-4000-8000-f4d4f0609b55",
+      "sessions": {
+        "merged": true,
+        "added": 14,
+        "skipped": 2
+      },
+      "memories": [
+        {
+          "path": "memories/MEMORY.md",
+          "addedFromOther": 3
+        },
+        {
+          "path": "memories/USER.md",
+          "addedFromOther": 1
+        }
+      ],
+      "skills": {
+        "bothKept": [
+          {
+            "name": "notes",
+            "otherName": "notes.mini"
+          }
+        ],
+        "onlyBase": [
+          "morning-brief"
+        ],
+        "onlyOther": [
+          "receipts"
+        ]
+      },
+      "oneSided": [
+        {
+          "path": "memories/projects/atum.md",
+          "side": "other",
+          "default": "keep"
+        },
+        {
+          "path": "kanban.db",
+          "side": "base",
+          "default": "keep"
+        }
+      ],
+      "replaced": [
+        {
+          "path": "SOUL.md",
+          "kept": "base"
+        },
+        {
+          "path": "projects.db",
+          "kept": "base"
+        }
+      ],
+      "omitted": 0
+    },
+    "reportSha256": "cc4abc25953d9f570eb3940c56b42b2842da920df1ed42546626a0a72b2ead1c",
+    "issuedAt": 1791101100000,
+    "expiresAt": 1791104700001,
+    "holdUntil": 1791106321000
+  },
+  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "sig": "SG5TKIGJLWB4KwtjIVLeBnLoLerFWD0emSEOBVUB7Lx4ioptYcFWMmwYkd58pJdRMApFgduuRPBVM11X7tmHCA"
+}

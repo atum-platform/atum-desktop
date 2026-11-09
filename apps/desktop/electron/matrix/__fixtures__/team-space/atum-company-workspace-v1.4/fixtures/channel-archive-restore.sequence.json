@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "provisioning",
+      "to": "active",
+      "event": "provision"
+    },
+    {
+      "from": "active",
+      "to": "archived",
+      "event": "archive"
+    },
+    {
+      "from": "archived",
+      "to": "provisioning",
+      "event": "restore"
+    },
+    {
+      "from": "provisioning",
+      "to": "active",
+      "event": "reconcile"
+    }
+  ]
+}

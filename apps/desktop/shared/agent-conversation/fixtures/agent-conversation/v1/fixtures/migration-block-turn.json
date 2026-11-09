@@ -1,0 +1,25 @@
+{
+  "input": {
+    "rooms": [
+      "!a:proof.test",
+      "!b:proof.test",
+      "!c:proof.test"
+    ],
+    "chosen": "!b:proof.test",
+    "ownerConfirmed": true,
+    "noLiveTurn": false,
+    "cloudMayAnswer": false,
+    "cloudReady": false,
+    "fleetReady": true,
+    "writable": [
+      "!a:proof.test",
+      "!b:proof.test",
+      "!c:proof.test"
+    ]
+  },
+  "expected": {
+    "status": "blocked",
+    "writes": [],
+    "reason": "turn_live"
+  }
+}

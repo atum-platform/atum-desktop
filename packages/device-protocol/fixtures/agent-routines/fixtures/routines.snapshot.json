@@ -1,0 +1,19 @@
+{
+  "profile": "atum.agent-routines/1",
+  "assistantId": "00000000-0000-4000-8000-32cfb078b995",
+  "assistantPrincipal": "00000000-0000-4000-8000-7d54ce62756b",
+  "serverTime": 1800000000000,
+  "legacyState": "clear",
+  "routines": [{
+    "id": "00000000-0000-4000-8000-736e81c7ee66",
+    "title": "Morning brief",
+    "instruction": "Summarize my priorities.",
+    "schedule": {"kind": "weekly", "hour": 8, "minute": 30, "weekdays": [1, 2, 3, 4, 5]},
+    "timezone": "Asia/Ho_Chi_Minh",
+    "enabled": true,
+    "notifications": true,
+    "revision": 3,
+    "nextRunAt": 1800003600000,
+    "lastRun": null
+  }]
+}

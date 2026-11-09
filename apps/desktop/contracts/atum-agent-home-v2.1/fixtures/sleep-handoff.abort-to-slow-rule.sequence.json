@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "requested",
+      "event": "sleep_request"
+    },
+    {
+      "from": "requested",
+      "to": "draining",
+      "event": "best_effort_drain"
+    },
+    {
+      "from": "draining",
+      "to": "aborted",
+      "event": "timed_out"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+[
+  {
+    "principal": "00000000-0000-4000-8000-08ec0dabd6b1",
+    "agentPrincipal": "00000000-0000-4000-8000-08ec0dabd6b1",
+    "display_name": "Moon",
+    "answering": "local",
+    "roomId": "!moonCanonicalRoom:atum.example"
+  },
+  {
+    "principal": "00000000-0000-4000-8000-5b9b74d4dc18",
+    "agentPrincipal": "00000000-0000-4000-8000-5b9b74d4dc18",
+    "display_name": "Sol",
+    "answering": "cloud",
+    "roomId": null
+  }
+]

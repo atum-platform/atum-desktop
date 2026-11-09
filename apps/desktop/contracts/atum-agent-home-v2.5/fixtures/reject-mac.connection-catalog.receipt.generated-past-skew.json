@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "requestId": "00000000-0000-4000-8000-f1d11edf5c5c",
+    "commandId": "00000000-0000-4000-8000-fbfe405ca65f",
+    "signer": "platform_controller",
+    "signerKeyId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "sequence": 12,
+    "issuedAt": 1800000000000,
+    "expiresAt": 1800000015000,
+    "nonce": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "signature": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  "publishId": "00000000-0000-4000-8000-a9703d75e616",
+  "deviceServiceId": "00000000-0000-4000-8000-b454f82c5857",
+  "previousCatalogRevision": 4,
+  "catalogRevision": 4,
+  "contentSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "contentChanged": false,
+  "receivedAtPlatform": 1800000000000,
+  "effectiveGeneratedAtPlatform": 1799999699999,
+  "effectiveFreshUntilPlatform": 1800000060000,
+  "outcome": "accepted",
+  "reason": null
+}

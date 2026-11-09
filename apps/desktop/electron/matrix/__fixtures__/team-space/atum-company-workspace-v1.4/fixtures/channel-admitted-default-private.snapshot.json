@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 5,
+  "channel": {
+    "id": "00000000-0000-4000-8000-f19cafd05964",
+    "companyId": "00000000-0000-4000-8000-3f27f2fc4915",
+    "displayName": "general",
+    "visibility": "private",
+    "topic": "Team updates",
+    "purpose": "Daily coordination",
+    "state": "active",
+    "ownerMemberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "authorityGeneration": 9,
+    "channelGeneration": 7,
+    "metadataRevision": 2,
+    "systemKey": "default"
+  },
+  "selfAdmission": {
+    "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "state": "active",
+    "admissionEpoch": 2,
+    "admissionGeneration": 4
+  },
+  "memberCount": 3,
+  "room": {
+    "state": "ready",
+    "roomId": "!team:example.invalid"
+  },
+  "actions": [
+    "leave",
+    "invite",
+    "remove",
+    "update_metadata",
+    "archive"
+  ]
+}

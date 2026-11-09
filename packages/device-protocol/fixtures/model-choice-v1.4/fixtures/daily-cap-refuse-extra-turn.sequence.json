@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "available",
+      "to": "exhausted",
+      "event": "call_finishes_past_100_percent"
+    },
+    {
+      "from": "exhausted",
+      "to": "exhausted",
+      "event": "start_new_turn"
+    }
+  ]
+}

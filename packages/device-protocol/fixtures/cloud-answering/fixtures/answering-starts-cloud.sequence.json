@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "cloud",
+      "to": "local",
+      "event": "switch_to_local"
+    }
+  ]
+}

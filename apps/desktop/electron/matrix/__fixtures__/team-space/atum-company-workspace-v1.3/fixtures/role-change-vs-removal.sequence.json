@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "current",
+      "to": "role_changed",
+      "event": "role_change_commit"
+    },
+    {
+      "from": "role_changed",
+      "to": "removed",
+      "event": "removal_commit"
+    }
+  ]
+}

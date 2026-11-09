@@ -1,0 +1,28 @@
+{
+  "caseId": "paused_holder",
+  "subject": "status.snapshot",
+  "accepted": false,
+  "violation": "status_coherence",
+  "value": {
+    "profile": "atum.execution-status/1",
+    "agentPrincipal": "00000000-0000-4000-8000-bd7662a5eeb4",
+    "policyRevision": 1,
+    "asOf": 100,
+    "state": "paused",
+    "current": "cloud",
+    "desired": null,
+    "order": [
+      "cloud"
+    ],
+    "disabled": [
+      "cloud"
+    ],
+    "destinations": {
+      "cloud": {
+        "state": "disabled",
+        "reason": "owner_disabled",
+        "observedAt": 99
+      }
+    }
+  }
+}

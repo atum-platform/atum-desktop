@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "active",
+      "to": "expired",
+      "event": "expires"
+    },
+    {
+      "from": "expired",
+      "to": "revoked",
+      "event": "revoke"
+    }
+  ]
+}

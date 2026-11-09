@@ -1,0 +1,1888 @@
+{
+  "contract_id": "atum.company-workspace",
+  "version": "1.2",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/error-invite-link-cause.response.json",
+    "fixtures/error-invite-link-denied.response.json",
+    "fixtures/error-invite-link-limit.response.json",
+    "fixtures/error-invite-link-rate.response.json",
+    "fixtures/error-invite-link-status.response.json",
+    "fixtures/error-invite-link-unavailable.response.json",
+    "fixtures/invite-link-admin-authority.trace.json",
+    "fixtures/invite-link-cap-authority.trace.json",
+    "fixtures/invite-link-capacity.trace.json",
+    "fixtures/invite-link-changed-input.trace.json",
+    "fixtures/invite-link-cross-actor.trace.json",
+    "fixtures/invite-link-exhaust-expire.sequence.json",
+    "fixtures/invite-link-exhaust.sequence.json",
+    "fixtures/invite-link-exhausted-active.sequence.json",
+    "fixtures/invite-link-exhaustion-race.trace.json",
+    "fixtures/invite-link-expire.sequence.json",
+    "fixtures/invite-link-expiry.trace.json",
+    "fixtures/invite-link-invite-existing.trace.json",
+    "fixtures/invite-link-pending-removal.trace.json",
+    "fixtures/invite-link-redeem.trace.json",
+    "fixtures/invite-link-removed-refused.trace.json",
+    "fixtures/invite-link-replay-after-removal.trace.json",
+    "fixtures/invite-link-replay-after-revoke.trace.json",
+    "fixtures/invite-link-replay.trace.json",
+    "fixtures/invite-link-revoke-race.trace.json",
+    "fixtures/invite-link-revoke.sequence.json",
+    "fixtures/invite-link-revoked-active.sequence.json",
+    "fixtures/invite-link-trace-token.trace.json",
+    "fixtures/invite-link.create-before.response.json",
+    "fixtures/invite-link.create-defaults.request.json",
+    "fixtures/invite-link.create-defaults.response.json",
+    "fixtures/invite-link.create-missing-request.request.json",
+    "fixtures/invite-link.create-missing-role.request.json",
+    "fixtures/invite-link.create-overused.response.json",
+    "fixtures/invite-link.create-replay.response.json",
+    "fixtures/invite-link.create-role.request.json",
+    "fixtures/invite-link.create-token.request.json",
+    "fixtures/invite-link.create-uses.request.json",
+    "fixtures/invite-link.create.request.json",
+    "fixtures/invite-link.create.response.json",
+    "fixtures/invite-link.list-1.1.response.json",
+    "fixtures/invite-link.list-empty.response.json",
+    "fixtures/invite-link.list-token.response.json",
+    "fixtures/invite-link.list-url.response.json",
+    "fixtures/invite-link.list.response.json",
+    "fixtures/invite-link.preview-inviter-gone.response.json",
+    "fixtures/invite-link.preview-missing.request.json",
+    "fixtures/invite-link.preview-overused.response.json",
+    "fixtures/invite-link.preview-principal.response.json",
+    "fixtures/invite-link.preview-scoped.request.json",
+    "fixtures/invite-link.preview-short.request.json",
+    "fixtures/invite-link.preview-url.response.json",
+    "fixtures/invite-link.preview.request.json",
+    "fixtures/invite-link.preview.response.json",
+    "fixtures/invite-link.redeem-1.1.response.json",
+    "fixtures/invite-link.redeem-member.response.json",
+    "fixtures/invite-link.redeem-missing.request.json",
+    "fixtures/invite-link.redeem-overused.response.json",
+    "fixtures/invite-link.redeem-replay.response.json",
+    "fixtures/invite-link.redeem-scoped.request.json",
+    "fixtures/invite-link.redeem.request.json",
+    "fixtures/invite-link.redeem.response.json",
+    "fixtures/invite-link.revoke-active.response.json",
+    "fixtures/invite-link.revoke-missing.request.json",
+    "fixtures/invite-link.revoke-replay.response.json",
+    "fixtures/invite-link.revoke-target.request.json",
+    "fixtures/invite-link.revoke.request.json",
+    "fixtures/invite-link.revoke.response.json"
+  ],
+  "row": "B19 S5: admin-created invite links for humans-only Team Space (create, list, preview, redeem, revoke)",
+  "providers": [
+    "Atum platform company authority and Shell native routes"
+  ],
+  "consumers": [
+    "Atum desktop Team Space",
+    "Atum phone (invite-link redemption)",
+    "Atum web handoff page"
+  ],
+  "base": {
+    "contract": "atum.company-workspace/1.1",
+    "path": "spec/company-workspace/v1.1",
+    "kind": "pack",
+    "sha256": "9e285a3a08337235f9f405e0a3a516fc1e7db45e3daa72614f9614f4de1ad9f6",
+    "rule": "additive minor version: every 1.1 wire byte is kept and answered unchanged; this pack adds the invite-link actions selected by Atum-Company-Wire: 1.2 with schemaVersion 3 for its own messages. The 1.1 pack is not edited"
+  },
+  "dependencies": [
+    {
+      "contract": "atum.company-workspace/1.1",
+      "path": "spec/company-workspace/v1.1",
+      "sha256": "9e285a3a08337235f9f405e0a3a516fc1e7db45e3daa72614f9614f4de1ad9f6"
+    },
+    {
+      "contract": "atum.company-channels/1",
+      "path": "spec/company-channels/v1",
+      "sha256": "eb3e55c7a6a90b15176b9d935fa40154e8cb5fcfaf53e28c80129b545d5a0ab5"
+    },
+    {
+      "contract": "atum.company-channel-rooms/1",
+      "path": "spec/company-channel-rooms/v1",
+      "sha256": "45f785f4db22f330f9d58c88e5af06a655581528f73fa947382e82b37e9fc60e"
+    }
+  ],
+  "selection": {
+    "header": "Atum-Company-Wire",
+    "value": "1.2",
+    "accepted_values": {
+      "1": "company-workspace/1, byte for byte",
+      "1.1": "company-workspace/1.1, byte for byte",
+      "1.2": "company-workspace/1.1 plus the invite-link messages"
+    },
+    "absent": "company-workspace/1, byte for byte",
+    "unknown_value": "400 matrix_400, no effect",
+    "additivity": "under 1.2 every 1.1 request and answer is byte-identical to its 1.1 answer, including schemaVersion 2; only the messages this pack adds carry schemaVersion 3",
+    "response_marker": {
+      "field": "schemaVersion",
+      "v1": 1,
+      "v1_1": 2,
+      "v1_2": 3,
+      "scope": "the invite-link messages of this pack"
+    },
+    "applies_to": [
+      "create-invite-link",
+      "list-invite-links",
+      "revoke-invite-link",
+      "preview-invite-link",
+      "redeem-invite-link",
+      "list",
+      "read",
+      "create",
+      "invite",
+      "accept",
+      "remove-member",
+      "leave",
+      "create-project",
+      "project-member",
+      "list-channels",
+      "read-channel",
+      "create-channel",
+      "archive-channel",
+      "restore-channel"
+    ],
+    "probe": "POST /api/matrix/v1/invite-links/preview or GET /api/matrix/v1/companies/{companyId}/invite-links: a 1.1 server answers 404 before authentication",
+    "vary": "Atum-Company-Wire",
+    "cache": "no-store on every answer to a 1.2 request"
+  },
+  "routes": {
+    "POST /api/matrix/v1/companies/{companyId}/invite-links": {
+      "action": "create-invite-link",
+      "request": {
+        "1.2": "invite-link.create.request"
+      },
+      "response": {
+        "1.2": "invite-link.create.response"
+      },
+      "v1": "404 before authentication",
+      "1.1": "404 before authentication"
+    },
+    "GET /api/matrix/v1/companies/{companyId}/invite-links": {
+      "action": "list-invite-links",
+      "response": {
+        "1.2": "invite-link.list.response"
+      },
+      "v1": "404 before authentication",
+      "1.1": "404 before authentication"
+    },
+    "POST /api/matrix/v1/companies/{companyId}/invite-links/{linkId}/revoke": {
+      "action": "revoke-invite-link",
+      "request": {
+        "1.2": "invite-link.revoke.request"
+      },
+      "response": {
+        "1.2": "invite-link.revoke.response"
+      },
+      "v1": "404 before authentication",
+      "1.1": "404 before authentication"
+    },
+    "POST /api/matrix/v1/invite-links/preview": {
+      "action": "preview-invite-link",
+      "request": {
+        "1.2": "invite-link.preview.request"
+      },
+      "response": {
+        "1.2": "invite-link.preview.response"
+      },
+      "v1": "404 before authentication",
+      "1.1": "404 before authentication"
+    },
+    "POST /api/matrix/v1/invite-links/redeem": {
+      "action": "redeem-invite-link",
+      "request": {
+        "1.2": "invite-link.redeem.request"
+      },
+      "response": {
+        "1.2": "invite-link.redeem.response"
+      },
+      "v1": "404 before authentication",
+      "1.1": "404 before authentication"
+    }
+  },
+  "token": {
+    "entropy": "at least 32 bytes from a CSPRNG",
+    "encoding": "base64url, 43 to 128 characters",
+    "generation": "server-side only; a client never sends or chooses one",
+    "projection": "only the first create answer (replayed false) carries it, inside link.url; a create replay, list, preview, redeem and revoke answer never does",
+    "at_rest": "only a keyed hash of the token is stored (SHA-256 with a server-side pepper held outside the database, or an equivalent salted hash), keyed by link id; lookup compares in constant time; the raw token is never stored, logged or recoverable, so a database read, backup or replica yields no usable link",
+    "replay": "because the raw token is not stored, a create replay cannot re-emit url: it answers the link metadata with replayed true and no url; an admin who lost the first answer creates a new link, and may revoke the old one from its list row",
+    "form": "https://atum.app/j/<token>"
+  },
+  "limits": {
+    "json_bytes": 4096,
+    "token_bytes_min": 32,
+    "token_chars": [
+      43,
+      128
+    ],
+    "default_expiry_seconds": 604800,
+    "expiry_seconds": [
+      3600,
+      2592000
+    ],
+    "default_max_uses": 10,
+    "max_uses": [
+      1,
+      100
+    ],
+    "links_per_list": 100,
+    "live_links_per_company": 20,
+    "creations_per_admin_per_hour": 10,
+    "members_per_company": 100,
+    "companies_per_person": 10,
+    "roles": [
+      "member"
+    ]
+  },
+  "creation": {
+    "authorization": "only a current active, non-revoking effective admin creates or replays a create; this includes the single owner introduced by 1.3, which older wires project as admin; adminship is re-checked on every call, so a demoted, removed or revoking caller is 403 matrix_403 with no url and no link metadata",
+    "replay": "replay scope is (actor, requestId): the same admin and requestId answers the same link metadata with replayed true and no url; a different actor under the same requestId is 409 matrix_409 and never returns the first actor result; the same actor reusing the requestId with a different expiry or maxUses is also 409 and changes nothing; a role other than member is refused by the request shape as 400 before a replay is reachable (only member exists), so a changed role is never a 409",
+    "resend": "a bearer-link resend or rotation is revoke plus create: revoke the old link, then create with a new requestId, link id, token, expiry and use counter; no operation recovers, extends or reuses the old secret",
+    "live_links": "a company holds at most 20 live links (state active); authorization is checked before this cap, so a caller who is not a currently active, non-revoking admin gets 403 matrix_403 even when the company is at the cap and never learns the live-link count; a create at the cap by an active admin is 409 matrix_409 with details.reason invite_link_limit_reached",
+    "rate": "an admin creates at most 10 links in any rolling hour; authorization is checked before the rate exactly as it is before the live-link cap, so a caller who is not a currently active, non-revoking admin gets 403 matrix_403 and never 429; beyond the rate an active admin gets 429 matrix_429 with details.reason invite_link_rate_limited"
+  },
+  "link_projection": {
+    "audiences": {
+      "admin": "the first create answer carries the url; list answers carry metadata for every link of the company and never the url",
+      "member": "list answers are empty; a member cannot create or revoke",
+      "holder": "preview shows the company, the role and the inviter after sign-in; redeem joins",
+      "other": "nothing"
+    },
+    "state": "displayed state precedence: revoked if the link was revoked or the company is retired, else expired if now >= expiresAt, else exhausted if uses >= maxUses, else active; a retired company therefore never displays active, even when the link itself is live",
+    "ownership": "the link belongs to the company; it survives its creator leaving and any current active non-revoking admin can revoke it",
+    "inviter": "the creating admin current handle and displayName, or both null once that person is not an active member"
+  },
+  "redemption": {
+    "order": [
+      "authenticate the actor and check person eligibility before replay lookup; removed, revoking and non-human principals receive the uniform 404 even for a stored requestId",
+      "look up the replay by (actor, requestId)",
+      "link is active, not revoked, not expired, not exhausted, company active for a first execution",
+      "quota locks in global order target-person quota, company, invite-link; then the person own-company cap and company member cap",
+      "create and accept, or accept an existing invited row",
+      "consume exactly one use only if the link created the membership row",
+      "store the replay"
+    ],
+    "replay": "replay scope is (actor, requestId), after current person eligibility: an eligible same actor, requestId and token is answered from the stored result with replayed true, consumedNow false and the current usesRemaining, even after the link was revoked or exhausted; a removed, revoking or otherwise ineligible person receives the uniform 404 before receipt lookup; a requestId already used by a different actor is 409 matrix_409 and never returns another actor stored result; the same actor reusing a requestId with a different token is 409",
+    "use": "a use is a successful joining that the link created; a preview, a replay, an already active member, an accept of an existing invitation and any refusal spend none",
+    "atomicity": "link state, use count and membership change in one transaction; quota locks are acquired in one global order: target-person quota, company, invite-link; a proven SERIALIZABLE equivalent must cover both membership predicates; the last use admits exactly one person and a revoke concurrent with a redeem yields either redeem-then-revoke or revoke-then-unavailable",
+    "caps": "the target-person quota lock serializes one human joining different companies, the company lock serializes different people joining one company, and the invite-link lock serializes use and revoke; every redemption that may create or accept membership uses the global target-person quota, company, invite-link order (or a proven SERIALIZABLE equivalent over both membership predicates), so concurrent redeems cannot overshoot companies_per_person or members_per_company",
+    "pending_removal": "a person in revoking is never previewed, redeemed or re-added by a link; preview and redeem both answer the uniform invite_link_unavailable",
+    "pending_attempt": "when a 1.3 direct invitation attempt is pending, link redeem atomically accepts that exact attempt, transitions it to terminal accepted, and consumes no link use; it never leaves an invited member_state because invited belongs to the invitation attempt, not the member row",
+    "removed": "removal and ban are sticky for links: a removed person is never previewed or redeemed through a link, and both preview and redeem answer the uniform invite_link_unavailable with no company name, inviter, expiry or liveness; only a direct handle invitation from an active admin readmits them and restores no project grant; removing a person does not revoke other people links",
+    "first_channel": "redeem answers with the membership; the client opens the company and default channel through the 1.1 snapshot and channel directory"
+  },
+  "revocation": {
+    "actor": "any current active, non-revoking effective admin, including the single owner introduced by 1.3; every revoke call, including a replay, re-checks that authority and answers 403 matrix_403 with no link metadata otherwise",
+    "idempotent": "a same-actor replay of the same requestId answers revoked with replayed true; a requestId already used by a different actor is 409 matrix_409; a different requestId after revocation answers revoked without changing the first revokedAt",
+    "effect": "immediate for new previews and redemptions; joins that already happened stand and people who joined are not removed",
+    "precedence": "revoked (including a retired company) wins over expired and exhausted in the displayed state"
+  },
+  "redaction": {
+    "server_logs": "record route templates, never the concrete path, query or body; error logs and traces redact token and every /j/<token> substring; no metric label, analytics event or support bundle carries one",
+    "response_headers": "Cache-Control: no-store, Pragma: no-cache and Referrer-Policy: no-referrer on every link answer",
+    "landing_page": "Referrer-Policy: no-referrer, no third-party script, no analytics, Cache-Control: no-store, token not rendered as text and removed from the address bar with history.replaceState after the handoff",
+    "api": "the token travels in the JSON body of preview and redeem, never in a path or query",
+    "clients": "the pending token lives in memory or the platform secure store, never in a journal, log, crash report, analytics property or chat message"
+  },
+  "errors": {
+    "statuses": {
+      "400": "invalid",
+      "401": "authentication",
+      "403": "denied",
+      "404": "not_found",
+      "409": "conflict",
+      "429": "limit",
+      "503": "unavailable"
+    },
+    "invite_link_unavailable": "one 404 body for every unusable link: unknown or malformed token, revoked, expired, exhausted, retired company, capacity, ineligible principal, and a removed person or a person in revoking on preview or redeem",
+    "invite_link_limit_reached": "create refuses with 409 matrix_409 and details.reason invite_link_limit_reached when the company already holds live_links_per_company live links",
+    "invite_link_rate_limited": "create refuses with 429 matrix_429 and details.reason invite_link_rate_limited after creations_per_admin_per_hour creations by the same admin in a rolling hour",
+    "changed_input": "a replay whose requestId is reused by a different actor, or by the same actor with a different expiry, maxUses or token, is plain matrix_409 and changes nothing; a changed role never reaches replay because the create shape admits only member and refuses anything else with 400"
+  },
+  "invariants": [
+    {
+      "id": "create.expires_after_creation",
+      "message": "invite-link.create.response",
+      "op": "le",
+      "left": "link.createdAt",
+      "right": [
+        "link.expiresAt"
+      ]
+    },
+    {
+      "id": "create.uses_within_cap",
+      "message": "invite-link.create.response",
+      "op": "le",
+      "left": "link.uses",
+      "right": [
+        "link.maxUses"
+      ]
+    },
+    {
+      "id": "preview.remaining_within_cap",
+      "message": "invite-link.preview.response",
+      "op": "le",
+      "left": "usesRemaining",
+      "right": [
+        "maxUses"
+      ]
+    },
+    {
+      "id": "redeem.remaining_within_cap",
+      "message": "invite-link.redeem.response",
+      "op": "le",
+      "left": "link.usesRemaining",
+      "right": [
+        "link.maxUses"
+      ]
+    }
+  ],
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "member_ref": {
+      "type": "string",
+      "min": 43,
+      "max": 43,
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "company_name": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "profile_name": {
+      "type": "string",
+      "min": 1,
+      "max": 120
+    },
+    "handle": {
+      "type": "string",
+      "min": 3,
+      "max": 32,
+      "pattern": "[a-z][a-z0-9_]{2,31}"
+    },
+    "token": {
+      "type": "string",
+      "min": 43,
+      "max": 128,
+      "pattern": "[A-Za-z0-9_-]{43,128}"
+    },
+    "link_url": {
+      "type": "string",
+      "min": 60,
+      "max": 512,
+      "pattern": "https://[a-z0-9][a-z0-9.-]{0,252}/j/[A-Za-z0-9_-]{43,128}"
+    },
+    "role_member": {
+      "const": "member"
+    },
+    "link_state": {
+      "enum": [
+        "active",
+        "exhausted",
+        "expired",
+        "revoked"
+      ]
+    },
+    "membership_state": {
+      "enum": [
+        "invited",
+        "active",
+        "revoking",
+        "removed"
+      ]
+    },
+    "max_uses": {
+      "type": "integer",
+      "min": 1,
+      "max": 100
+    },
+    "uses": {
+      "type": "integer",
+      "min": 0,
+      "max": 100
+    },
+    "remaining": {
+      "type": "integer",
+      "min": 0,
+      "max": 100
+    },
+    "link_detail": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "role": {
+          "ref": "role_member"
+        },
+        "state": {
+          "ref": "link_state"
+        },
+        "createdAt": {
+          "ref": "epoch"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        },
+        "uses": {
+          "ref": "uses"
+        },
+        "url": {
+          "ref": "link_url"
+        }
+      }
+    },
+    "link_summary": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "role": {
+          "ref": "role_member"
+        },
+        "state": {
+          "ref": "link_state"
+        },
+        "createdAt": {
+          "ref": "epoch"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        },
+        "uses": {
+          "ref": "uses"
+        }
+      }
+    },
+    "company_ref": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "ref": "company_name"
+        }
+      }
+    },
+    "inviter": {
+      "type": "object",
+      "required": {
+        "handle": {
+          "anyOf": [
+            {
+              "ref": "handle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "ref": "profile_name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "create_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "role": {
+          "ref": "role_member"
+        }
+      },
+      "optional": {
+        "expiresInSeconds": {
+          "type": "integer",
+          "min": 3600,
+          "max": 2592000
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        }
+      }
+    },
+    "revoke_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "preview_request": {
+      "type": "object",
+      "required": {
+        "token": {
+          "ref": "token"
+        }
+      }
+    },
+    "redeem_request": {
+      "type": "object",
+      "required": {
+        "requestId": {
+          "ref": "uuid"
+        },
+        "token": {
+          "ref": "token"
+        }
+      }
+    },
+    "create_first_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "replayed": {
+          "const": false
+        },
+        "link": {
+          "ref": "link_detail"
+        }
+      }
+    },
+    "create_replay_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "replayed": {
+          "const": true
+        },
+        "link": {
+          "ref": "link_summary"
+        }
+      }
+    },
+    "create_response": {
+      "anyOf": [
+        {
+          "ref": "create_first_response"
+        },
+        {
+          "ref": "create_replay_response"
+        }
+      ]
+    },
+    "list_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "ref": "link_summary"
+          },
+          "max": 100,
+          "unique": true
+        }
+      }
+    },
+    "revoke_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "linkId": {
+          "ref": "uuid"
+        },
+        "state": {
+          "const": "revoked"
+        },
+        "revokedAt": {
+          "ref": "epoch"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "preview_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "company": {
+          "ref": "company_ref"
+        },
+        "role": {
+          "ref": "role_member"
+        },
+        "inviter": {
+          "ref": "inviter"
+        },
+        "expiresAt": {
+          "ref": "epoch"
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        }
+      }
+    },
+    "redeem_link": {
+      "type": "object",
+      "required": {
+        "id": {
+          "ref": "uuid"
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        },
+        "consumedNow": {
+          "type": "boolean"
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "redeem_response": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 3
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "memberRef": {
+          "ref": "member_ref"
+        },
+        "role": {
+          "ref": "role_member"
+        },
+        "state": {
+          "const": "active"
+        },
+        "link": {
+          "ref": "redeem_link"
+        }
+      }
+    },
+    "error_plain": {
+      "type": "object",
+      "required": {
+        "error": {
+          "enum": [
+            "matrix_400",
+            "matrix_401",
+            "matrix_403",
+            "matrix_404",
+            "matrix_409",
+            "matrix_429",
+            "matrix_503"
+          ]
+        }
+      }
+    },
+    "error_unavailable": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_404"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "invite_link_unavailable"
+            }
+          }
+        }
+      }
+    },
+    "error_limit": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_409"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "invite_link_limit_reached"
+            }
+          }
+        }
+      }
+    },
+    "error_rate": {
+      "type": "object",
+      "required": {
+        "error": {
+          "const": "matrix_429"
+        },
+        "details": {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "invite_link_rate_limited"
+            }
+          }
+        }
+      }
+    },
+    "error_response": {
+      "anyOf": [
+        {
+          "ref": "error_plain"
+        },
+        {
+          "ref": "error_unavailable"
+        },
+        {
+          "ref": "error_limit"
+        },
+        {
+          "ref": "error_rate"
+        }
+      ]
+    },
+    "link_machine": {
+      "type": "object",
+      "required": {
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "link_step"
+          },
+          "min": 1,
+          "max": 8
+        }
+      }
+    },
+    "link_step": {
+      "type": "object",
+      "required": {
+        "from": {
+          "ref": "link_state"
+        },
+        "to": {
+          "ref": "link_state"
+        },
+        "event": {
+          "enum": [
+            "uses_exhausted",
+            "expires",
+            "revoke"
+          ]
+        }
+      }
+    },
+    "trace_link": {
+      "type": "object",
+      "required": {
+        "maxUses": {
+          "ref": "max_uses"
+        },
+        "expiresInSeconds": {
+          "type": "integer",
+          "min": 3600,
+          "max": 2592000
+        }
+      }
+    },
+    "trace_person": {
+      "type": "string",
+      "min": 1,
+      "max": 16,
+      "pattern": "[a-z][a-z0-9_]{0,15}"
+    },
+    "trace_request": {
+      "type": "string",
+      "min": 1,
+      "max": 16,
+      "pattern": "[a-z][a-z0-9_]{0,15}"
+    },
+    "trace_preview_expect": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "preview"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "unavailable"
+            }
+          }
+        }
+      ]
+    },
+    "trace_redeem_joined": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "joined"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        },
+        "consumedNow": {
+          "const": true
+        }
+      }
+    },
+    "trace_redeem_accepted": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "joined"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        },
+        "consumedNow": {
+          "const": false
+        }
+      }
+    },
+    "trace_redeem_replayed": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "replayed"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        },
+        "consumedNow": {
+          "const": false
+        }
+      }
+    },
+    "trace_redeem_member": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "already_member"
+        },
+        "usesRemaining": {
+          "ref": "remaining"
+        },
+        "consumedNow": {
+          "const": false
+        }
+      }
+    },
+    "trace_redeem_unavailable": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "unavailable"
+        }
+      }
+    },
+    "trace_redeem_conflict": {
+      "type": "object",
+      "required": {
+        "result": {
+          "const": "conflict"
+        }
+      }
+    },
+    "trace_redeem_expect": {
+      "anyOf": [
+        {
+          "ref": "trace_redeem_joined"
+        },
+        {
+          "ref": "trace_redeem_accepted"
+        },
+        {
+          "ref": "trace_redeem_replayed"
+        },
+        {
+          "ref": "trace_redeem_member"
+        },
+        {
+          "ref": "trace_redeem_unavailable"
+        },
+        {
+          "ref": "trace_redeem_conflict"
+        }
+      ]
+    },
+    "trace_create_expect": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "created"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "replayed"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "denied"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "conflict"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "limited"
+            }
+          }
+        }
+      ]
+    },
+    "trace_revoke_expect": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "revoked"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "denied"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "result": {
+              "const": "conflict"
+            }
+          }
+        }
+      ]
+    },
+    "trace_result": {
+      "anyOf": [
+        {
+          "ref": "trace_redeem_expect"
+        },
+        {
+          "ref": "trace_revoke_expect"
+        }
+      ]
+    },
+    "trace_link_label": {
+      "type": "string",
+      "min": 1,
+      "max": 16,
+      "pattern": "[a-z][a-z0-9_]{0,15}"
+    },
+    "trace_step_preview": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "preview"
+        },
+        "person": {
+          "ref": "trace_person"
+        },
+        "expect": {
+          "ref": "trace_preview_expect"
+        }
+      }
+    },
+    "trace_step_redeem": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "redeem"
+        },
+        "request": {
+          "ref": "trace_request"
+        },
+        "person": {
+          "ref": "trace_person"
+        },
+        "expect": {
+          "ref": "trace_redeem_expect"
+        }
+      },
+      "optional": {
+        "linkLabel": {
+          "ref": "trace_link_label"
+        }
+      }
+    },
+    "trace_step_revoke": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "revoke"
+        },
+        "request": {
+          "ref": "trace_request"
+        },
+        "admin": {
+          "ref": "trace_person"
+        },
+        "expect": {
+          "ref": "trace_revoke_expect"
+        }
+      }
+    },
+    "trace_step_create": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "create"
+        },
+        "request": {
+          "ref": "trace_request"
+        },
+        "admin": {
+          "ref": "trace_person"
+        },
+        "expect": {
+          "ref": "trace_create_expect"
+        }
+      },
+      "optional": {
+        "expiresInSeconds": {
+          "type": "integer",
+          "min": 3600,
+          "max": 2592000
+        },
+        "maxUses": {
+          "ref": "max_uses"
+        }
+      }
+    },
+    "trace_step_demote": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "demote"
+        },
+        "person": {
+          "ref": "trace_person"
+        }
+      }
+    },
+    "trace_step_role": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "role"
+        },
+        "person": {
+          "ref": "trace_person"
+        },
+        "role": {
+          "enum": [
+            "admin",
+            "member"
+          ]
+        }
+      }
+    },
+    "trace_step_live_links": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "live_links"
+        },
+        "count": {
+          "type": "integer",
+          "min": 0,
+          "max": 20
+        }
+      }
+    },
+    "trace_step_advance": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "advance"
+        },
+        "seconds": {
+          "type": "integer",
+          "min": 1,
+          "max": 2592000
+        }
+      }
+    },
+    "trace_step_membership": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "membership"
+        },
+        "person": {
+          "ref": "trace_person"
+        },
+        "state": {
+          "ref": "membership_state"
+        }
+      }
+    },
+    "trace_operation_redeem": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "redeem"
+        },
+        "request": {
+          "ref": "trace_request"
+        },
+        "person": {
+          "ref": "trace_person"
+        }
+      }
+    },
+    "trace_operation_revoke": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "revoke"
+        },
+        "request": {
+          "ref": "trace_request"
+        },
+        "admin": {
+          "ref": "trace_person"
+        }
+      }
+    },
+    "trace_operation": {
+      "anyOf": [
+        {
+          "ref": "trace_operation_redeem"
+        },
+        {
+          "ref": "trace_operation_revoke"
+        }
+      ]
+    },
+    "trace_serialization": {
+      "type": "object",
+      "required": {
+        "order": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "min": 0,
+            "max": 1
+          },
+          "min": 2,
+          "max": 2,
+          "unique": true
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "ref": "trace_result"
+          },
+          "min": 2,
+          "max": 2
+        }
+      }
+    },
+    "trace_step_race": {
+      "type": "object",
+      "required": {
+        "do": {
+          "const": "race"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "ref": "trace_operation"
+          },
+          "min": 2,
+          "max": 2
+        },
+        "serializations": {
+          "type": "array",
+          "items": {
+            "ref": "trace_serialization"
+          },
+          "min": 2,
+          "max": 2
+        }
+      }
+    },
+    "trace_step": {
+      "anyOf": [
+        {
+          "ref": "trace_step_preview"
+        },
+        {
+          "ref": "trace_step_redeem"
+        },
+        {
+          "ref": "trace_step_revoke"
+        },
+        {
+          "ref": "trace_step_create"
+        },
+        {
+          "ref": "trace_step_demote"
+        },
+        {
+          "ref": "trace_step_role"
+        },
+        {
+          "ref": "trace_step_live_links"
+        },
+        {
+          "ref": "trace_step_advance"
+        },
+        {
+          "ref": "trace_step_membership"
+        },
+        {
+          "ref": "trace_step_race"
+        }
+      ]
+    },
+    "link_trace": {
+      "type": "object",
+      "required": {
+        "link": {
+          "ref": "trace_link"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "ref": "trace_step"
+          },
+          "min": 1,
+          "max": 32
+        }
+      },
+      "optional": {
+        "note": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        }
+      }
+    }
+  },
+  "directions": {
+    "native_to_platform_v1_2": {
+      "from": "authenticated native client",
+      "to": "Atum platform (Atum-Company-Wire: 1.2)",
+      "forbidden_fields": [
+        "actor*",
+        "owner*",
+        "payer*",
+        "*principal*",
+        "*Generation",
+        "roomId",
+        "manager*",
+        "agent*",
+        "controller",
+        "userId",
+        "mxid"
+      ]
+    },
+    "platform_to_native_v1_2": {
+      "from": "Atum platform",
+      "to": "authenticated native client (Atum-Company-Wire: 1.2)",
+      "forbidden_fields": [
+        "*principal*",
+        "*token*",
+        "credential",
+        "url",
+        "*email*",
+        "userId",
+        "mxid",
+        "matrixId",
+        "controller",
+        "manager*",
+        "managerMasUser",
+        "payer"
+      ]
+    },
+    "platform_to_native_v1_2_create": {
+      "from": "Atum platform",
+      "to": "authenticated native client (Atum-Company-Wire: 1.2), the one answer that projects a link",
+      "forbidden_fields": [
+        "*principal*",
+        "*token*",
+        "credential",
+        "*email*",
+        "userId",
+        "mxid",
+        "matrixId",
+        "controller",
+        "manager*",
+        "managerMasUser",
+        "payer"
+      ]
+    },
+    "test_trace": {
+      "from": "conformance trace",
+      "to": "reference interpreter and provider tests",
+      "forbidden_fields": [
+        "*principal*",
+        "*token*"
+      ]
+    }
+  },
+  "messages": {
+    "invite-link.create.request": {
+      "direction": "native_to_platform_v1_2",
+      "schema": {
+        "ref": "create_request"
+      }
+    },
+    "invite-link.create.response": {
+      "direction": "platform_to_native_v1_2_create",
+      "schema": {
+        "ref": "create_response"
+      }
+    },
+    "invite-link.list.response": {
+      "direction": "platform_to_native_v1_2",
+      "schema": {
+        "ref": "list_response"
+      }
+    },
+    "invite-link.revoke.request": {
+      "direction": "native_to_platform_v1_2",
+      "schema": {
+        "ref": "revoke_request"
+      }
+    },
+    "invite-link.revoke.response": {
+      "direction": "platform_to_native_v1_2",
+      "schema": {
+        "ref": "revoke_response"
+      }
+    },
+    "invite-link.preview.request": {
+      "direction": "native_to_platform_v1_2",
+      "schema": {
+        "ref": "preview_request"
+      }
+    },
+    "invite-link.preview.response": {
+      "direction": "platform_to_native_v1_2",
+      "schema": {
+        "ref": "preview_response"
+      }
+    },
+    "invite-link.redeem.request": {
+      "direction": "native_to_platform_v1_2",
+      "schema": {
+        "ref": "redeem_request"
+      }
+    },
+    "invite-link.redeem.response": {
+      "direction": "platform_to_native_v1_2",
+      "schema": {
+        "ref": "redeem_response"
+      }
+    },
+    "invite-link.error.response": {
+      "direction": "platform_to_native_v1_2",
+      "schema": {
+        "ref": "error_response"
+      }
+    },
+    "invite-link.trace": {
+      "direction": "test_trace",
+      "schema": {
+        "ref": "link_trace"
+      }
+    }
+  },
+  "state_machines": {
+    "invite_link": {
+      "states": [
+        "active",
+        "exhausted",
+        "expired",
+        "revoked"
+      ],
+      "initial": [
+        "active"
+      ],
+      "terminal": [
+        "revoked"
+      ],
+      "transitions": [
+        [
+          "active",
+          "exhausted",
+          "uses_exhausted"
+        ],
+        [
+          "active",
+          "expired",
+          "expires"
+        ],
+        [
+          "active",
+          "revoked",
+          "revoke"
+        ],
+        [
+          "exhausted",
+          "expired",
+          "expires"
+        ],
+        [
+          "exhausted",
+          "revoked",
+          "revoke"
+        ],
+        [
+          "expired",
+          "revoked",
+          "revoke"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/error-invite-link-cause.response.json",
+      "message": "invite-link.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/error-invite-link-denied.response.json",
+      "message": "invite-link.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-invite-link-limit.response.json",
+      "message": "invite-link.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-invite-link-rate.response.json",
+      "message": "invite-link.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/error-invite-link-status.response.json",
+      "message": "invite-link.error.response",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/error-invite-link-unavailable.response.json",
+      "message": "invite-link.error.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-admin-authority.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-cap-authority.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-capacity.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-changed-input.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-cross-actor.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-exhaust-expire.sequence.json",
+      "machine": "invite_link",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-exhaust.sequence.json",
+      "machine": "invite_link",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-exhausted-active.sequence.json",
+      "machine": "invite_link",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/invite-link-exhaustion-race.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-expire.sequence.json",
+      "machine": "invite_link",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-expiry.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-invite-existing.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-pending-removal.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-redeem.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-removed-refused.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-replay-after-removal.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-replay-after-revoke.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-replay.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-revoke-race.trace.json",
+      "message": "invite-link.trace",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-revoke.sequence.json",
+      "machine": "invite_link",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link-revoked-active.sequence.json",
+      "machine": "invite_link",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/invite-link-trace-token.trace.json",
+      "message": "invite-link.trace",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invite-link.create-before.response.json",
+      "message": "invite-link.create.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invite-link.create-defaults.request.json",
+      "message": "invite-link.create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.create-defaults.response.json",
+      "message": "invite-link.create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.create-missing-request.request.json",
+      "message": "invite-link.create.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invite-link.create-missing-role.request.json",
+      "message": "invite-link.create.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invite-link.create-overused.response.json",
+      "message": "invite-link.create.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invite-link.create-replay.response.json",
+      "message": "invite-link.create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.create-role.request.json",
+      "message": "invite-link.create.request",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/invite-link.create-token.request.json",
+      "message": "invite-link.create.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invite-link.create-uses.request.json",
+      "message": "invite-link.create.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/invite-link.create.request.json",
+      "message": "invite-link.create.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.create.response.json",
+      "message": "invite-link.create.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.list-1.1.response.json",
+      "message": "invite-link.list.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/invite-link.list-empty.response.json",
+      "message": "invite-link.list.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.list-token.response.json",
+      "message": "invite-link.list.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invite-link.list-url.response.json",
+      "message": "invite-link.list.response",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invite-link.list.response.json",
+      "message": "invite-link.list.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.preview-inviter-gone.response.json",
+      "message": "invite-link.preview.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.preview-missing.request.json",
+      "message": "invite-link.preview.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invite-link.preview-overused.response.json",
+      "message": "invite-link.preview.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invite-link.preview-principal.response.json",
+      "message": "invite-link.preview.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invite-link.preview-scoped.request.json",
+      "message": "invite-link.preview.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invite-link.preview-short.request.json",
+      "message": "invite-link.preview.request",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/invite-link.preview-url.response.json",
+      "message": "invite-link.preview.response",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/invite-link.preview.request.json",
+      "message": "invite-link.preview.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.preview.response.json",
+      "message": "invite-link.preview.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-1.1.response.json",
+      "message": "invite-link.redeem.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-member.response.json",
+      "message": "invite-link.redeem.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-missing.request.json",
+      "message": "invite-link.redeem.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-overused.response.json",
+      "message": "invite-link.redeem.response",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-replay.response.json",
+      "message": "invite-link.redeem.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.redeem-scoped.request.json",
+      "message": "invite-link.redeem.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invite-link.redeem.request.json",
+      "message": "invite-link.redeem.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.redeem.response.json",
+      "message": "invite-link.redeem.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.revoke-active.response.json",
+      "message": "invite-link.revoke.response",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/invite-link.revoke-missing.request.json",
+      "message": "invite-link.revoke.request",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/invite-link.revoke-replay.response.json",
+      "message": "invite-link.revoke.response",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.revoke-target.request.json",
+      "message": "invite-link.revoke.request",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/invite-link.revoke.request.json",
+      "message": "invite-link.revoke.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invite-link.revoke.response.json",
+      "message": "invite-link.revoke.response",
+      "expect": "accept"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "link": {
+    "maxUses": 5,
+    "expiresInSeconds": 604800
+  },
+  "note": "The company member cap (100) and the person ten-company cap are checked under a company-scoped lock, not only the link-row lock. Two concurrent redeems of distinct links at members_per_company - 1 admit at most one; this trace records one admitted join and the same cap rule applies across links.",
+  "steps": [
+    {
+      "do": "redeem",
+      "request": "r1",
+      "person": "lan",
+      "expect": {
+        "result": "joined",
+        "usesRemaining": 4,
+        "consumedNow": true
+      }
+    }
+  ]
+}

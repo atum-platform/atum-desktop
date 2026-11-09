@@ -1,0 +1,11 @@
+{
+  "profile": "atum.agent-routine-runs/1",
+  "routineId": "00000000-0000-4000-8000-736e81c7ee66",
+  "runs": [{
+    "occurrenceId": "00000000-0000-4000-8000-c2100016f8f4",
+    "scheduledAt": 1799996400000,
+    "state": "completed",
+    "outcome": "answered",
+    "publishedEvent": "$routine-result"
+  }]
+}

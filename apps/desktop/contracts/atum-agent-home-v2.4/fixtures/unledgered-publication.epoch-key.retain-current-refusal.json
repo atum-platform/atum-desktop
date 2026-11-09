@@ -1,0 +1,11 @@
+{
+  "prior": {
+    "homeEpoch": 5,
+    "state": "refused",
+    "eventId": null
+  },
+  "currentHomeEpoch": 5,
+  "expect": {
+    "outcome": "retain_key"
+  }
+}

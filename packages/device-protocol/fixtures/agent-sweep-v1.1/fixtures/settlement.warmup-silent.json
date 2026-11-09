@@ -1,0 +1,15 @@
+{
+  "profile": "atum.agent-sweep/1.1",
+  "state": "settled",
+  "occurrenceId": "00000000-0000-4000-8000-7e5f546eb64a",
+  "occurrenceKind": "warmup_nudge",
+  "outcome": "answered",
+  "disposition": "silent",
+  "receiptId": "00000000-0000-4000-8000-2ce377e6b60d",
+  "settingsRevision": 1,
+  "nextDueAt": 1793017800000,
+  "publication": {
+    "state": "none"
+  },
+  "warmupNudgeIndex": 2
+}

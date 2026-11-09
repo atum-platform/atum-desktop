@@ -1,0 +1,74 @@
+{
+  "contract_id": "atum.company-project-brain",
+  "version": 1,
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/include-channel-client-authority.request.json",
+    "fixtures/include-channel.request.json",
+    "fixtures/include-file.request.json",
+    "fixtures/source-document-empty.response.json",
+    "fixtures/source-document-kind-mismatch.response.json",
+    "fixtures/source-document-pending.response.json",
+    "fixtures/source-lifecycle.sequence.json",
+    "fixtures/withdraw.request.json"
+  ],
+  "row": "Team Space T3b1 project source enrollment and lineage",
+  "providers": ["Atum platform company/project authority"],
+  "consumers": ["Atum desktop Team Space", "future Atum company project reader"],
+  "routes": [
+    "GET /api/matrix/v1/companies/{companyId}/projects/{projectId}/sources",
+    "POST /api/matrix/v1/companies/{companyId}/projects/{projectId}/sources"
+  ],
+  "limits": {"eligible_channels":100,"eligible_files":100,"retained_sources":100,"active_channel_sources":1,"active_file_sources":1},
+  "error_statuses": {"400":"invalid","403":"denied","404":"not_found","409":"request_or_generation_conflict","429":"limit","503":"unavailable"},
+  "types": {
+    "uuid":{"type":"string","min":36,"max":36,"pattern":"[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"},
+    "generation":{"type":"integer","min":0,"max":9007199254740991},
+    "positive_generation":{"type":"integer","min":1,"max":9007199254740991},
+    "timestamp":{"type":"string","min":20,"max":64,"pattern":"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:.+-]+"},
+    "display_name":{"type":"string","min":1,"max":80},
+    "file_name":{"type":"string","min":1,"max":255},
+    "content_type":{"type":"string","min":3,"max":128,"pattern":"[A-Za-z0-9!#$&^_.+-]{1,64}/[A-Za-z0-9!#$&^_.+-]{1,63}"},
+    "byte_size":{"type":"integer","min":0,"max":20971520},
+    "sha256":{"type":"string","min":64,"max":64,"pattern":"[0-9a-f]{64}"},
+    "event_id":{"type":"string","min":2,"max":512,"pattern":"\\$[!-~]{1,511}"},
+    "file_ref":{"type":"object","required":{"v":{"const":1},"company_id":{"ref":"uuid"},"channel_id":{"ref":"uuid"},"file_id":{"ref":"uuid"},"revision":{"const":1},"name":{"ref":"file_name"},"content_type":{"ref":"content_type"},"size":{"ref":"byte_size"},"sha256":{"ref":"sha256"}},"optional":{},"additional":false},
+    "eligible_channel":{"type":"object","required":{"channelId":{"ref":"uuid"},"displayName":{"ref":"display_name"},"state":{"const":"ready"}},"optional":{},"additional":false},
+    "eligible_file":{"type":"object","required":{"file":{"ref":"file_ref"},"channelId":{"ref":"uuid"},"eventId":{"ref":"event_id"},"publishedAt":{"ref":"timestamp"}},"optional":{},"additional":false},
+    "source_channel":{"type":"object","required":{"id":{"ref":"uuid"},"kind":{"const":"channel"},"state":{"enum":["active","withdrawn"]},"channelId":{"ref":"uuid"},"enrolledAt":{"ref":"timestamp"},"withdrawnAt":{"anyOf":[{"ref":"timestamp"},{"const":null}]}},"optional":{},"additional":false},
+    "source_file":{"type":"object","required":{"id":{"ref":"uuid"},"kind":{"const":"company_file"},"state":{"enum":["active","withdrawn"]},"channelId":{"ref":"uuid"},"file":{"ref":"file_ref"},"enrolledAt":{"ref":"timestamp"},"withdrawnAt":{"anyOf":[{"ref":"timestamp"},{"const":null}]}},"optional":{},"additional":false},
+    "source":{"anyOf":[{"ref":"source_channel"},{"ref":"source_file"}]},
+    "coverage_empty":{"type":"object","required":{"state":{"const":"empty"}},"optional":{},"additional":false},
+    "coverage_pending":{"type":"object","required":{"state":{"const":"pending"}},"optional":{},"additional":false},
+    "coverage":{"anyOf":[{"ref":"coverage_empty"},{"ref":"coverage_pending"}]},
+    "source_document":{"type":"object","required":{"schemaVersion":{"const":1},"companyId":{"ref":"uuid"},"projectId":{"ref":"uuid"},"authorityGeneration":{"ref":"positive_generation"},"sourceGeneration":{"ref":"generation"},"eligibleChannels":{"type":"array","items":{"ref":"eligible_channel"},"min":0,"max":100,"unique":true},"eligibleFiles":{"type":"array","items":{"ref":"eligible_file"},"min":0,"max":100,"unique":true},"sources":{"type":"array","items":{"ref":"source"},"min":0,"max":100,"unique":true},"coverage":{"ref":"coverage"}},"optional":{},"additional":false},
+    "include_channel_request":{"type":"object","required":{"requestId":{"ref":"uuid"},"operation":{"const":"include_channel"},"channelId":{"ref":"uuid"},"expectedSourceGeneration":{"ref":"generation"}},"optional":{},"additional":false},
+    "include_file_request":{"type":"object","required":{"requestId":{"ref":"uuid"},"operation":{"const":"include_file"},"fileId":{"ref":"uuid"},"revision":{"const":1},"expectedSourceGeneration":{"ref":"generation"}},"optional":{},"additional":false},
+    "withdraw_request":{"type":"object","required":{"requestId":{"ref":"uuid"},"operation":{"const":"withdraw"},"sourceId":{"ref":"uuid"},"expectedSourceGeneration":{"ref":"generation"}},"optional":{},"additional":false},
+    "mutation_request":{"anyOf":[{"ref":"include_channel_request"},{"ref":"include_file_request"},{"ref":"withdraw_request"}]}
+  },
+  "directions": {
+    "native_to_platform":{"from":"authenticated native client","to":"Atum platform","forbidden_fields":["actor","actorId","principal","authorityGeneration","sourceGeneration","coverage","roomId","eventId","file","fileRef","payer","model","reader","credential","accessToken"]},
+    "platform_to_native":{"from":"Atum platform","to":"authenticated native client","forbidden_fields":["actor","principal","managerMasUser","leaseToken","credential","accessToken","resource","etag","providerRequest"]}
+  },
+  "messages": {
+    "source-document.response":{"direction":"platform_to_native","schema":{"ref":"source_document"}},
+    "mutation.request":{"direction":"native_to_platform","schema":{"ref":"mutation_request"}}
+  },
+  "invariants": [],
+  "state_machines": {
+    "source_lifecycle":{"states":["active","withdrawn"],"initial":["active"],"terminal":["withdrawn"],"transitions":[["active","withdrawn","withdraw"]]}
+  },
+  "fixtures": [
+    {"file":"fixtures/include-channel-client-authority.request.json","message":"mutation.request","expect":"reject","violation":"forbidden_field"},
+    {"file":"fixtures/include-channel.request.json","message":"mutation.request","expect":"accept"},
+    {"file":"fixtures/include-file.request.json","message":"mutation.request","expect":"accept"},
+    {"file":"fixtures/source-document-empty.response.json","message":"source-document.response","expect":"accept"},
+    {"file":"fixtures/source-document-kind-mismatch.response.json","message":"source-document.response","expect":"reject","violation":"variant"},
+    {"file":"fixtures/source-document-pending.response.json","message":"source-document.response","expect":"accept"},
+    {"file":"fixtures/source-lifecycle.sequence.json","machine":"source_lifecycle","expect":"accept"},
+    {"file":"fixtures/withdraw.request.json","message":"mutation.request","expect":"accept"}
+  ]
+}

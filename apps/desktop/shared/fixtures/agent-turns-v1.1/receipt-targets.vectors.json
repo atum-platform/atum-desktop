@@ -1,0 +1,159 @@
+{
+  "vectors": [
+    {
+      "name": "an admitted message is seen",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventA"
+    },
+    {
+      "name": "a phone message refused without a status line holds the receipt before it, even when a later message is admitted",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "refused_silently"
+        },
+        {
+          "eventId": "$turnEventC",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventA"
+    },
+    {
+      "name": "a refusal that posted its status line lets the receipt pass",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "status_shown"
+        },
+        {
+          "eventId": "$turnEventC",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventC"
+    },
+    {
+      "name": "edits, reactions and messages addressed to someone else are passed over, never targeted",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "admitted"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "not_a_turn"
+        },
+        {
+          "eventId": "$turnEventC",
+          "disposition": "not_a_turn"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventA"
+    },
+    {
+      "name": "a message not yet through trust, fence and lease holds the receipt",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "unchecked"
+        },
+        {
+          "eventId": "$turnEventC",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventA"
+    },
+    {
+      "name": "nothing is owed a receipt yet",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "refused_silently"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": null
+    },
+    {
+      "name": "a silent refusal the agent has since spoken after no longer holds the receipt",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "refused_silently"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventC",
+          "disposition": "agent_message"
+        },
+        {
+          "eventId": "$turnEventD",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": null,
+      "target": "$turnEventD"
+    },
+    {
+      "name": "the receipt never moves back or repeats",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": "$turnEventB",
+      "target": null
+    },
+    {
+      "name": "the receipt moves on from where it is",
+      "events": [
+        {
+          "eventId": "$turnEventA",
+          "disposition": "answered"
+        },
+        {
+          "eventId": "$turnEventB",
+          "disposition": "admitted"
+        }
+      ],
+      "previous": "$turnEventA",
+      "target": "$turnEventB"
+    }
+  ]
+}

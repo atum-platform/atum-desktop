@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 11,
+  "company": {
+    "id": "00000000-0000-4000-8000-0db372f1c6f8",
+    "displayName": "Demoza",
+    "role": "owner",
+    "ownerMemberRef": "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "authorityGeneration": 3,
+    "policy": {
+      "channelCreation": "members"
+    }
+  },
+  "members": [
+    {
+      "memberRef": "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+      "role": "owner",
+      "state": "active",
+      "admissionEpoch": 1
+    },
+    {
+      "memberRef": "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM",
+      "role": "member",
+      "state": "active",
+      "admissionEpoch": 1
+    }
+  ],
+  "invitations": [
+    {
+      "id": "00000000-0000-4000-8000-aaa402adeff6",
+      "companyId": "00000000-0000-4000-8000-0db372f1c6f8",
+      "targetHandle": null,
+      "role": "member",
+      "state": "pending",
+      "createdAt": 1800000000,
+      "expiresAt": 1800604800,
+      "inviter": {
+        "handle": "owner_person",
+        "displayName": null
+      }
+    },
+    {
+      "id": "00000000-0000-4000-8000-a959fecf0cd8",
+      "companyId": "00000000-0000-4000-8000-0db372f1c6f8",
+      "targetHandle": "lan_nguyen",
+      "role": "member",
+      "state": "pending",
+      "createdAt": 1800000000,
+      "expiresAt": 1800604800,
+      "inviter": {
+        "handle": "owner_person",
+        "displayName": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,749 @@
+{
+  "schemaVersion": 2,
+  "companyId": "00000000-0000-4000-8000-a3df449d52c7",
+  "channelId": "00000000-0000-4000-8000-5d55479c156b",
+  "companyGeneration": 9,
+  "channelGeneration": 7,
+  "planGeneration": 11,
+  "desiredRecipients": [
+    {
+      "memberRef": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 1,
+      "principal": "00000000-0000-4000-8000-c34debcb6808",
+      "userId": "@u0:example.invalid"
+    },
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 2,
+      "principal": "00000000-0000-4000-8000-7b0c0821f58f",
+      "userId": "@u1:example.invalid"
+    },
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1,
+      "admissionGeneration": 3,
+      "principal": "00000000-0000-4000-8000-c775145fd30b",
+      "userId": "@u2:example.invalid"
+    },
+    {
+      "memberRef": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 4,
+      "principal": "00000000-0000-4000-8000-7736224f104d",
+      "userId": "@u3:example.invalid"
+    },
+    {
+      "memberRef": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 5,
+      "principal": "00000000-0000-4000-8000-777a38ceebf3",
+      "userId": "@u4:example.invalid"
+    },
+    {
+      "memberRef": "BgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 6,
+      "principal": "00000000-0000-4000-8000-b27dcac7b1e6",
+      "userId": "@u5:example.invalid"
+    },
+    {
+      "memberRef": "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+      "admissionEpoch": 1,
+      "admissionGeneration": 7,
+      "principal": "00000000-0000-4000-8000-b74e9d195239",
+      "userId": "@u6:example.invalid"
+    },
+    {
+      "memberRef": "CAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 8,
+      "principal": "00000000-0000-4000-8000-bd02d613b650",
+      "userId": "@u7:example.invalid"
+    },
+    {
+      "memberRef": "CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 9,
+      "principal": "00000000-0000-4000-8000-d9996367fcb1",
+      "userId": "@u8:example.invalid"
+    },
+    {
+      "memberRef": "CgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgo",
+      "admissionEpoch": 1,
+      "admissionGeneration": 10,
+      "principal": "00000000-0000-4000-8000-9cb1cea670a2",
+      "userId": "@u9:example.invalid"
+    },
+    {
+      "memberRef": "CwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCws",
+      "admissionEpoch": 1,
+      "admissionGeneration": 11,
+      "principal": "00000000-0000-4000-8000-3a5b3f05b70c",
+      "userId": "@u10:example.invalid"
+    },
+    {
+      "memberRef": "DAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 12,
+      "principal": "00000000-0000-4000-8000-82941cbf8aeb",
+      "userId": "@u11:example.invalid"
+    },
+    {
+      "memberRef": "DQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 13,
+      "principal": "00000000-0000-4000-8000-4701a2187ca5",
+      "userId": "@u12:example.invalid"
+    },
+    {
+      "memberRef": "Dg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 14,
+      "principal": "00000000-0000-4000-8000-12f4af448390",
+      "userId": "@u13:example.invalid"
+    },
+    {
+      "memberRef": "Dw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8",
+      "admissionEpoch": 1,
+      "admissionGeneration": 15,
+      "principal": "00000000-0000-4000-8000-6728179ee5a7",
+      "userId": "@u14:example.invalid"
+    },
+    {
+      "memberRef": "EBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 16,
+      "principal": "00000000-0000-4000-8000-b7c307f95168",
+      "userId": "@u15:example.invalid"
+    },
+    {
+      "memberRef": "ERERERERERERERERERERERERERERERERERERERERERE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 17,
+      "principal": "00000000-0000-4000-8000-5107385de1e2",
+      "userId": "@u16:example.invalid"
+    },
+    {
+      "memberRef": "EhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 18,
+      "principal": "00000000-0000-4000-8000-3095cee32bec",
+      "userId": "@u17:example.invalid"
+    },
+    {
+      "memberRef": "ExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExM",
+      "admissionEpoch": 1,
+      "admissionGeneration": 19,
+      "principal": "00000000-0000-4000-8000-ae929c08cc76",
+      "userId": "@u18:example.invalid"
+    },
+    {
+      "memberRef": "FBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 20,
+      "principal": "00000000-0000-4000-8000-cf32601b7dc0",
+      "userId": "@u19:example.invalid"
+    },
+    {
+      "memberRef": "FRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 21,
+      "principal": "00000000-0000-4000-8000-be4f3b12a628",
+      "userId": "@u20:example.invalid"
+    },
+    {
+      "memberRef": "FhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 22,
+      "principal": "00000000-0000-4000-8000-952f92212359",
+      "userId": "@u21:example.invalid"
+    },
+    {
+      "memberRef": "FxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxc",
+      "admissionEpoch": 1,
+      "admissionGeneration": 23,
+      "principal": "00000000-0000-4000-8000-9f2680612b2e",
+      "userId": "@u22:example.invalid"
+    },
+    {
+      "memberRef": "GBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 24,
+      "principal": "00000000-0000-4000-8000-d9f5f5205344",
+      "userId": "@u23:example.invalid"
+    },
+    {
+      "memberRef": "GRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 25,
+      "principal": "00000000-0000-4000-8000-78bf9782ade0",
+      "userId": "@u24:example.invalid"
+    },
+    {
+      "memberRef": "GhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGhoaGho",
+      "admissionEpoch": 1,
+      "admissionGeneration": 26,
+      "principal": "00000000-0000-4000-8000-d33b04775020",
+      "userId": "@u25:example.invalid"
+    },
+    {
+      "memberRef": "GxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxsbGxs",
+      "admissionEpoch": 1,
+      "admissionGeneration": 27,
+      "principal": "00000000-0000-4000-8000-01ce06436977",
+      "userId": "@u26:example.invalid"
+    },
+    {
+      "memberRef": "HBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 28,
+      "principal": "00000000-0000-4000-8000-b77ba0adc986",
+      "userId": "@u27:example.invalid"
+    },
+    {
+      "memberRef": "HR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 29,
+      "principal": "00000000-0000-4000-8000-db19fac39907",
+      "userId": "@u28:example.invalid"
+    },
+    {
+      "memberRef": "Hh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 30,
+      "principal": "00000000-0000-4000-8000-b7af05fa876a",
+      "userId": "@u29:example.invalid"
+    },
+    {
+      "memberRef": "Hx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8fHx8",
+      "admissionEpoch": 1,
+      "admissionGeneration": 31,
+      "principal": "00000000-0000-4000-8000-e20369c7cecd",
+      "userId": "@u30:example.invalid"
+    },
+    {
+      "memberRef": "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 32,
+      "principal": "00000000-0000-4000-8000-b33530ba2473",
+      "userId": "@u31:example.invalid"
+    },
+    {
+      "memberRef": "ISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 33,
+      "principal": "00000000-0000-4000-8000-0a500268f201",
+      "userId": "@u32:example.invalid"
+    },
+    {
+      "memberRef": "IiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 34,
+      "principal": "00000000-0000-4000-8000-e9cb834e8b35",
+      "userId": "@u33:example.invalid"
+    },
+    {
+      "memberRef": "IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyM",
+      "admissionEpoch": 1,
+      "admissionGeneration": 35,
+      "principal": "00000000-0000-4000-8000-960bdc13b3e0",
+      "userId": "@u34:example.invalid"
+    },
+    {
+      "memberRef": "JCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 36,
+      "principal": "00000000-0000-4000-8000-8e1013d418a4",
+      "userId": "@u35:example.invalid"
+    },
+    {
+      "memberRef": "JSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 37,
+      "principal": "00000000-0000-4000-8000-b59b05f40b5b",
+      "userId": "@u36:example.invalid"
+    },
+    {
+      "memberRef": "JiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 38,
+      "principal": "00000000-0000-4000-8000-5f2a701fb6b6",
+      "userId": "@u37:example.invalid"
+    },
+    {
+      "memberRef": "JycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJyc",
+      "admissionEpoch": 1,
+      "admissionGeneration": 39,
+      "principal": "00000000-0000-4000-8000-11c3e4f96f9f",
+      "userId": "@u38:example.invalid"
+    },
+    {
+      "memberRef": "KCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 40,
+      "principal": "00000000-0000-4000-8000-9209cfb24ab8",
+      "userId": "@u39:example.invalid"
+    },
+    {
+      "memberRef": "KSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 41,
+      "principal": "00000000-0000-4000-8000-12d39010a432",
+      "userId": "@u40:example.invalid"
+    },
+    {
+      "memberRef": "KioqKioqKioqKioqKioqKioqKioqKioqKioqKioqKio",
+      "admissionEpoch": 1,
+      "admissionGeneration": 42,
+      "principal": "00000000-0000-4000-8000-ce7e22f9aae0",
+      "userId": "@u41:example.invalid"
+    },
+    {
+      "memberRef": "KysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKys",
+      "admissionEpoch": 1,
+      "admissionGeneration": 43,
+      "principal": "00000000-0000-4000-8000-7216c21d9bbc",
+      "userId": "@u42:example.invalid"
+    },
+    {
+      "memberRef": "LCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCwsLCw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 44,
+      "principal": "00000000-0000-4000-8000-526f967a78f3",
+      "userId": "@u43:example.invalid"
+    },
+    {
+      "memberRef": "LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 45,
+      "principal": "00000000-0000-4000-8000-7cfe6bf47e02",
+      "userId": "@u44:example.invalid"
+    },
+    {
+      "memberRef": "Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 46,
+      "principal": "00000000-0000-4000-8000-af0ef46a79e3",
+      "userId": "@u45:example.invalid"
+    },
+    {
+      "memberRef": "Ly8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8vLy8",
+      "admissionEpoch": 1,
+      "admissionGeneration": 47,
+      "principal": "00000000-0000-4000-8000-65bede2adb70",
+      "userId": "@u46:example.invalid"
+    },
+    {
+      "memberRef": "MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 48,
+      "principal": "00000000-0000-4000-8000-612248477450",
+      "userId": "@u47:example.invalid"
+    },
+    {
+      "memberRef": "MTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 49,
+      "principal": "00000000-0000-4000-8000-631c097b9506",
+      "userId": "@u48:example.invalid"
+    },
+    {
+      "memberRef": "MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 50,
+      "principal": "00000000-0000-4000-8000-9f1bc41cbdb0",
+      "userId": "@u49:example.invalid"
+    },
+    {
+      "memberRef": "MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM",
+      "admissionEpoch": 1,
+      "admissionGeneration": 51,
+      "principal": "00000000-0000-4000-8000-232bc9fdf456",
+      "userId": "@u50:example.invalid"
+    },
+    {
+      "memberRef": "NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 52,
+      "principal": "00000000-0000-4000-8000-1e1322f1409a",
+      "userId": "@u51:example.invalid"
+    },
+    {
+      "memberRef": "NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 53,
+      "principal": "00000000-0000-4000-8000-10e50dc3314f",
+      "userId": "@u52:example.invalid"
+    },
+    {
+      "memberRef": "NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 54,
+      "principal": "00000000-0000-4000-8000-633886218342",
+      "userId": "@u53:example.invalid"
+    },
+    {
+      "memberRef": "Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc",
+      "admissionEpoch": 1,
+      "admissionGeneration": 55,
+      "principal": "00000000-0000-4000-8000-18c776c12f2d",
+      "userId": "@u54:example.invalid"
+    },
+    {
+      "memberRef": "ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 56,
+      "principal": "00000000-0000-4000-8000-fd82495fa274",
+      "userId": "@u55:example.invalid"
+    },
+    {
+      "memberRef": "OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 57,
+      "principal": "00000000-0000-4000-8000-7aaa780b087c",
+      "userId": "@u56:example.invalid"
+    },
+    {
+      "memberRef": "Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo6Ojo",
+      "admissionEpoch": 1,
+      "admissionGeneration": 58,
+      "principal": "00000000-0000-4000-8000-4885016446e0",
+      "userId": "@u57:example.invalid"
+    },
+    {
+      "memberRef": "Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs",
+      "admissionEpoch": 1,
+      "admissionGeneration": 59,
+      "principal": "00000000-0000-4000-8000-9c4ad8a91496",
+      "userId": "@u58:example.invalid"
+    },
+    {
+      "memberRef": "PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw8PDw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 60,
+      "principal": "00000000-0000-4000-8000-60c63d854c6c",
+      "userId": "@u59:example.invalid"
+    },
+    {
+      "memberRef": "PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 61,
+      "principal": "00000000-0000-4000-8000-b74c80b6eaa9",
+      "userId": "@u60:example.invalid"
+    },
+    {
+      "memberRef": "Pj4-Pj4-Pj4-Pj4-Pj4-Pj4-Pj4-Pj4-Pj4-Pj4-Pj4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 62,
+      "principal": "00000000-0000-4000-8000-a649c1544670",
+      "userId": "@u61:example.invalid"
+    },
+    {
+      "memberRef": "Pz8_Pz8_Pz8_Pz8_Pz8_Pz8_Pz8_Pz8_Pz8_Pz8_Pz8",
+      "admissionEpoch": 1,
+      "admissionGeneration": 63,
+      "principal": "00000000-0000-4000-8000-0e70a1711552",
+      "userId": "@u62:example.invalid"
+    },
+    {
+      "memberRef": "QEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 64,
+      "principal": "00000000-0000-4000-8000-01b5cfcf969e",
+      "userId": "@u63:example.invalid"
+    },
+    {
+      "memberRef": "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 65,
+      "principal": "00000000-0000-4000-8000-16ffc4913385",
+      "userId": "@u64:example.invalid"
+    },
+    {
+      "memberRef": "QkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 66,
+      "principal": "00000000-0000-4000-8000-4fef6eaeeec1",
+      "userId": "@u65:example.invalid"
+    },
+    {
+      "memberRef": "Q0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0M",
+      "admissionEpoch": 1,
+      "admissionGeneration": 67,
+      "principal": "00000000-0000-4000-8000-ccb022e7a11c",
+      "userId": "@u66:example.invalid"
+    },
+    {
+      "memberRef": "REREREREREREREREREREREREREREREREREREREREREQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 68,
+      "principal": "00000000-0000-4000-8000-6e4f9cfce15d",
+      "userId": "@u67:example.invalid"
+    },
+    {
+      "memberRef": "RUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 69,
+      "principal": "00000000-0000-4000-8000-21be0d2f33cd",
+      "userId": "@u68:example.invalid"
+    },
+    {
+      "memberRef": "RkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 70,
+      "principal": "00000000-0000-4000-8000-8337fe428f64",
+      "userId": "@u69:example.invalid"
+    },
+    {
+      "memberRef": "R0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0c",
+      "admissionEpoch": 1,
+      "admissionGeneration": 71,
+      "principal": "00000000-0000-4000-8000-fcd2dfd26df6",
+      "userId": "@u70:example.invalid"
+    },
+    {
+      "memberRef": "SEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 72,
+      "principal": "00000000-0000-4000-8000-2ce414fc4fe9",
+      "userId": "@u71:example.invalid"
+    },
+    {
+      "memberRef": "SUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 73,
+      "principal": "00000000-0000-4000-8000-f5bf18c94eba",
+      "userId": "@u72:example.invalid"
+    },
+    {
+      "memberRef": "SkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSkpKSko",
+      "admissionEpoch": 1,
+      "admissionGeneration": 74,
+      "principal": "00000000-0000-4000-8000-05372968138b",
+      "userId": "@u73:example.invalid"
+    },
+    {
+      "memberRef": "S0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s",
+      "admissionEpoch": 1,
+      "admissionGeneration": 75,
+      "principal": "00000000-0000-4000-8000-d172a0aa2443",
+      "userId": "@u74:example.invalid"
+    },
+    {
+      "memberRef": "TExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 76,
+      "principal": "00000000-0000-4000-8000-9b52fa41ea46",
+      "userId": "@u75:example.invalid"
+    },
+    {
+      "memberRef": "TU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 77,
+      "principal": "00000000-0000-4000-8000-230336148682",
+      "userId": "@u76:example.invalid"
+    },
+    {
+      "memberRef": "Tk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk5OTk4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 78,
+      "principal": "00000000-0000-4000-8000-fb33bf274575",
+      "userId": "@u77:example.invalid"
+    },
+    {
+      "memberRef": "T09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT08",
+      "admissionEpoch": 1,
+      "admissionGeneration": 79,
+      "principal": "00000000-0000-4000-8000-f64ccc8835f9",
+      "userId": "@u78:example.invalid"
+    },
+    {
+      "memberRef": "UFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 80,
+      "principal": "00000000-0000-4000-8000-b3c18a50282c",
+      "userId": "@u79:example.invalid"
+    },
+    {
+      "memberRef": "UVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 81,
+      "principal": "00000000-0000-4000-8000-f086551e8482",
+      "userId": "@u80:example.invalid"
+    },
+    {
+      "memberRef": "UlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlJSUlI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 82,
+      "principal": "00000000-0000-4000-8000-9095c3f0ef9e",
+      "userId": "@u81:example.invalid"
+    },
+    {
+      "memberRef": "U1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1M",
+      "admissionEpoch": 1,
+      "admissionGeneration": 83,
+      "principal": "00000000-0000-4000-8000-d112f488a36f",
+      "userId": "@u82:example.invalid"
+    },
+    {
+      "memberRef": "VFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 84,
+      "principal": "00000000-0000-4000-8000-8c252c34958d",
+      "userId": "@u83:example.invalid"
+    },
+    {
+      "memberRef": "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 85,
+      "principal": "00000000-0000-4000-8000-91d4bce57f73",
+      "userId": "@u84:example.invalid"
+    },
+    {
+      "memberRef": "VlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlY",
+      "admissionEpoch": 1,
+      "admissionGeneration": 86,
+      "principal": "00000000-0000-4000-8000-babb9cc51e17",
+      "userId": "@u85:example.invalid"
+    },
+    {
+      "memberRef": "V1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1c",
+      "admissionEpoch": 1,
+      "admissionGeneration": 87,
+      "principal": "00000000-0000-4000-8000-dfcefbdda6e2",
+      "userId": "@u86:example.invalid"
+    },
+    {
+      "memberRef": "WFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFg",
+      "admissionEpoch": 1,
+      "admissionGeneration": 88,
+      "principal": "00000000-0000-4000-8000-35873e996bfa",
+      "userId": "@u87:example.invalid"
+    },
+    {
+      "memberRef": "WVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVk",
+      "admissionEpoch": 1,
+      "admissionGeneration": 89,
+      "principal": "00000000-0000-4000-8000-29a9e8f87634",
+      "userId": "@u88:example.invalid"
+    },
+    {
+      "memberRef": "WlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlpaWlo",
+      "admissionEpoch": 1,
+      "admissionGeneration": 90,
+      "principal": "00000000-0000-4000-8000-668623a8b25f",
+      "userId": "@u89:example.invalid"
+    },
+    {
+      "memberRef": "W1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1tbW1s",
+      "admissionEpoch": 1,
+      "admissionGeneration": 91,
+      "principal": "00000000-0000-4000-8000-83006fa41bbf",
+      "userId": "@u90:example.invalid"
+    },
+    {
+      "memberRef": "XFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFw",
+      "admissionEpoch": 1,
+      "admissionGeneration": 92,
+      "principal": "00000000-0000-4000-8000-9763efb3b743",
+      "userId": "@u91:example.invalid"
+    },
+    {
+      "memberRef": "XV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV1dXV0",
+      "admissionEpoch": 1,
+      "admissionGeneration": 93,
+      "principal": "00000000-0000-4000-8000-bfdf870e4f76",
+      "userId": "@u92:example.invalid"
+    },
+    {
+      "memberRef": "Xl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl5eXl4",
+      "admissionEpoch": 1,
+      "admissionGeneration": 94,
+      "principal": "00000000-0000-4000-8000-ada788a58e87",
+      "userId": "@u93:example.invalid"
+    },
+    {
+      "memberRef": "X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18",
+      "admissionEpoch": 1,
+      "admissionGeneration": 95,
+      "principal": "00000000-0000-4000-8000-0ab2de8d99ba",
+      "userId": "@u94:example.invalid"
+    },
+    {
+      "memberRef": "YGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGA",
+      "admissionEpoch": 1,
+      "admissionGeneration": 96,
+      "principal": "00000000-0000-4000-8000-7505ee3fa11e",
+      "userId": "@u95:example.invalid"
+    },
+    {
+      "memberRef": "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE",
+      "admissionEpoch": 1,
+      "admissionGeneration": 97,
+      "principal": "00000000-0000-4000-8000-ff8900b18d1c",
+      "userId": "@u96:example.invalid"
+    },
+    {
+      "memberRef": "YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmI",
+      "admissionEpoch": 1,
+      "admissionGeneration": 98,
+      "principal": "00000000-0000-4000-8000-5bb71dedd4ce",
+      "userId": "@u97:example.invalid"
+    },
+    {
+      "memberRef": "Y2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2M",
+      "admissionEpoch": 1,
+      "admissionGeneration": 99,
+      "principal": "00000000-0000-4000-8000-5b54a33f50fe",
+      "userId": "@u98:example.invalid"
+    },
+    {
+      "memberRef": "ZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQ",
+      "admissionEpoch": 1,
+      "admissionGeneration": 100,
+      "principal": "00000000-0000-4000-8000-78654161d289",
+      "userId": "@u99:example.invalid"
+    },
+    {
+      "memberRef": "ZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWVlZWU",
+      "admissionEpoch": 1,
+      "admissionGeneration": 101,
+      "principal": "00000000-0000-4000-8000-43b60b4b42b9",
+      "userId": "@u100:example.invalid"
+    }
+  ],
+  "exclusions": [
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "reason": "removed",
+      "principal": "00000000-0000-4000-8000-83fd7aa7e42e",
+      "userId": "@user2:example.invalid"
+    }
+  ],
+  "unresolvedAdmissions": [
+    {
+      "memberRef": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+      "admissionEpoch": 1,
+      "reason": "missing_matrix_mapping"
+    }
+  ],
+  "possibleGrants": [
+    {
+      "memberRef": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+      "admissionEpoch": 1,
+      "principal": "00000000-0000-4000-8000-83fd7aa7e42e",
+      "userId": "@user2:example.invalid",
+      "source": "uncertain"
+    }
+  ],
+  "action": "reconcile",
+  "metadata": {
+    "displayName": "general",
+    "topic": "Updates",
+    "posting": "enabled",
+    "metadataRevision": 3
+  }
+}

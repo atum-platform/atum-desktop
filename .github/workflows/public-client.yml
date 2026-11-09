@@ -1,0 +1,47 @@
+name: Public client checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-client-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  client:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - run: node apps/desktop/scripts/check-client-boundary.mjs --typecheck-without-controller
+      - run: npm run typecheck --workspace apps/desktop
+      - run: npm exec --workspace apps/desktop -- vitest run --maxWorkers 4
+
+# Artifact allowlist is empty: no logs, captures, packages or release artifacts uploaded.
+# No shared caches or release/signing authority in public CI.
+
+  hermes:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - run: python -m pip install uv==0.13.5
+      - run: bash scripts/run_tests.sh tests/agent tests/hermes_cli tests/acp_adapter -j 4 --file-timeout 120

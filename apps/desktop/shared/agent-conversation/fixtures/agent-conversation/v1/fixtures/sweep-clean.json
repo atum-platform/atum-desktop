@@ -1,0 +1,13 @@
+{
+  "input": {
+    "resolution": {
+      "earlier": [],
+      "stray": [],
+      "unreachable": [],
+      "source": "marked",
+      "main": "!a:proof.test"
+    },
+    "at": 200
+  },
+  "expected": []
+}

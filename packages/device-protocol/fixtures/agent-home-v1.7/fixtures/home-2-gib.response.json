@@ -1,0 +1,11 @@
+{
+  "generation": 17,
+  "manifestKey": "v1/00000000-0000-4000-8000-0a17b0bd53cc/00000000-0000-4000-8000-159badba71cd/generations/17.manifest",
+  "manifestSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "sizeBytes": 2147483648,
+  "imageDigest": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "configDigest": "sha256:c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1",
+  "quiesced": true,
+  "parentGeneration": 16,
+  "committedAt": 1791100839000
+}

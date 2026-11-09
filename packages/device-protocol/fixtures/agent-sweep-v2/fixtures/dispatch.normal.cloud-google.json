@@ -1,0 +1,35 @@
+{
+  "profile": "atum.agent-sweep/2",
+  "decision": "dispatched",
+  "occurrenceId": "00000000-0000-4000-8000-1e63fa2c7b34",
+  "occurrenceKind": "followup_sweep",
+  "warmupNudgeIndex": null,
+  "expiresAt": 1793017320000,
+  "settingsRevision": 1,
+  "authorization": {
+    "kind": "cloud",
+    "budget": {
+      "reservationId": "00000000-0000-4000-8000-44328c724bf2",
+      "funding": "wallet",
+      "ceilingMicroProtons": 300000000,
+      "computeSeconds": 120,
+      "firstAdmission": true
+    },
+    "grant": {
+      "kind": "google_protected",
+      "token": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      "expiresAt": 1793017320000,
+      "contextBudget": 8000,
+      "outputBudget": 1000,
+      "maxTurnMicroProtons": 300000000,
+      "ceilingMicroProtons": 300000000,
+      "funding": "wallet",
+      "alias": "google-protected",
+      "model": "google-protected",
+      "googlePolicy": "limited_use_v1",
+      "latchState": "latched"
+    }
+  },
+  "sourceSnapshotRevision": 31,
+  "sourceSnapshotDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

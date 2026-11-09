@@ -1,0 +1,32 @@
+{
+  "contract_id": "atum.agent-conversation",
+  "version": "1.1",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json"
+  ],
+  "base": {
+    "contract": "atum.agent-conversation/1",
+    "path": "spec/agent-conversation/v1",
+    "sha256": "7480613655e28360b6fba428e8306084d9b627bd27c5e0feebf65560d4a1455e",
+    "rule": "text amendment: the base's types, messages, invariants, state machines and fixtures are this version's wire, unchanged"
+  },
+  "row": "0.20 shave-down §2d and §3 step 3-4 (owner decision D1, 2026-10-09; owner, 2026-10-10)",
+  "amendments": [
+    {
+      "id": "A1",
+      "sections": [
+        "Migration, replacement and proposal ranking",
+        "Per-Mac app version fallback"
+      ],
+      "change": "replacing an encrypted main with a plain (unencrypted) assistant room needs every active macOS device, online or not, to report 0.20.0 or later; the 0.19.0 floor still gates marker writes"
+    }
+  ],
+  "types": {},
+  "directions": {},
+  "messages": {},
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": []
+}

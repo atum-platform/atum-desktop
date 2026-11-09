@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "upstreamHermesCommit": "a61183b56fdb45b9d2a0f2f6b8482e665ccf702f",
+  "atumOverlayCommit": "c10a05a03b88eba78f252fe72b430351d2e6d37e",
+  "atumOverlayTree": "4a9400d81768d4e9458c82b34be75bf3c2173b30",
+  "historyRef": "atum-main",
+  "acceptedArtifact": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "format": "dmg"
+  }
+}

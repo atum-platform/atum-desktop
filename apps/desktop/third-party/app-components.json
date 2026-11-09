@@ -1,0 +1,319 @@
+{
+  "schema": "atum.app-components/1",
+  "npmLicenseChoices": { "node-forge": "BSD-3-Clause" },
+  "base": {
+    "name": "Hermes Agent",
+    "license": "MIT",
+    "copyright": ["Copyright (c) 2025 Nous Research"],
+    "source": "https://github.com/NousResearch/hermes-agent",
+    "text": "The Atum app (Resources/app.asar) and the Atum agent (Resources/runtime/hermes-agent) are built from Hermes Agent, with Atum's changes.",
+    "licenseFiles": ["app/hermes-agent-LICENSE.txt"],
+    "includes": [
+      {
+        "id": "block-buzz-app-team-space-sidebar",
+        "name": "Block Buzz channel sidebar UI adapted for Atum Team Space",
+        "version": "commit c2210b45bb6f539f1d236d18b284c16566e70602",
+        "license": "Apache-2.0",
+        "source": "https://github.com/block/buzz-app/tree/c2210b45bb6f539f1d236d18b284c16566e70602",
+        "notes": [
+          "Atum adapts ResizableSidebar, ResizeHandle, SidebarFrame, SidebarList, SidebarSection, ChannelSidebarRow, FadingLabel, AppShell page placement, PageNavigation and Tabs focus behavior to Atum primitives, tokens and Matrix/company authority. The preserved upstream NOTICE records the earlier Astra channel-layout lineage."
+        ],
+        "licenseFiles": ["texts/Apache-2.0.txt", "app/block-buzz-app-NOTICE.md"]
+      },
+      {
+        "id": "gstack-browser-cookie-import",
+        "name": "gstack browser cookie importer adapted for Atum browser import",
+        "version": "gstack 1.75.0.0, commit 07b59e396c6be5a86619a43151cb9ed62a15ae69",
+        "license": "MIT",
+        "source": "https://github.com/garrytan/gstack",
+        "notes": [
+          "Atum adapts browse/src/cookie-import-browser.ts (Chrome profile discovery, the Keychain Safe Storage key, PBKDF2 and AES-128-CBC cookie decryption, the Chromium epoch and SameSite mapping) and the cookie rows and key of browse/test/cookie-import-browser.test.ts into apps/desktop/electron/matrix/browser-import, replacing Bun SQLite and process calls with Electron Node (node:sqlite and execFile). Copyright (c) 2026 Garry Tan."
+        ],
+        "licenseFiles": ["texts/MIT.txt", "app/gstack-LICENSE.txt"]
+      },
+      {
+        "id": "simple-icons-model-picker-provider-marks",
+        "name": "Simple Icons provider marks bundled in the Atum model picker",
+        "version": "commit 90646e4bf7f3b89df6c37e65baf3e7bc759a517c",
+        "license": "CC0-1.0",
+        "source": "https://github.com/simple-icons/simple-icons/tree/90646e4bf7f3b89df6c37e65baf3e7bc759a517c",
+        "notes": [
+          "Atum bundles the Claude, DeepSeek, OpenCode, Google Gemini, MiniMax, Qwen and GitHub Copilot vector paths. Individual brand and trademark rights are not waived by the Simple Icons CC0 distribution; the marks appear only beside their named providers. MiniMax carries the custom permission recorded by Simple Icons, and GitHub Copilot is individually recorded as MIT in the pinned catalog."
+        ],
+        "licenseFiles": ["texts/CC0-1.0.txt"]
+      },
+      {
+        "id": "lobe-icons-model-picker-provider-marks",
+        "name": "Lobe Icons OpenAI and Grok provider marks bundled in the Atum model picker",
+        "version": "commit 8b7bbc433d38437fa2b0cca58ae896917162b812",
+        "license": "MIT",
+        "copyright": ["Copyright (c) 2023 LobeHub"],
+        "source": "https://github.com/lobehub/lobe-icons/tree/8b7bbc433d38437fa2b0cca58ae896917162b812",
+        "notes": [
+          "Atum bundles the OpenAI and Grok vector paths as small provider identifiers. OpenAI's mark remains subject to https://openai.com/brand and is used only for directly related ChatGPT/OpenAI routes; no endorsement is implied."
+        ],
+        "licenseFiles": ["texts/MIT.txt"]
+      },
+      {
+        "id": "be-vietnam-pro-look-pack-font",
+        "name": "Be Vietnam Pro font bundled for reviewed Atum look packs",
+        "version": "commit 804e62d81abbbcdcce5686069c69b41b8c245192",
+        "license": "OFL-1.1",
+        "copyright": ["Copyright 2021 The Be Vietnam Pro Project Authors"],
+        "source": "https://github.com/bettergui/BeVietnamPro/tree/804e62d81abbbcdcce5686069c69b41b8c245192",
+        "notes": [
+          "Atum bundles upstream Regular, Medium and SemiBold WOFF2 files. Exact source URLs, byte counts and SHA-256 values are recorded in apps/desktop/src/fonts/look-pack-fonts.json."
+        ],
+        "licenseFiles": ["app/be-vietnam-pro-OFL.txt"]
+      },
+      {
+        "id": "literata-look-pack-font",
+        "name": "Literata font bundled for reviewed Atum look packs",
+        "version": "3.103, commit 0c2761b727a1b3a7cffd313c37f0f5163dfc7a63",
+        "license": "OFL-1.1",
+        "copyright": ["Copyright 2017 The Literata Project Authors"],
+        "source": "https://github.com/googlefonts/literata/tree/0c2761b727a1b3a7cffd313c37f0f5163dfc7a63",
+        "notes": [
+          "Atum bundles upstream Regular and SemiBold WOFF2 files. Exact source URLs, byte counts and SHA-256 values are recorded in apps/desktop/src/fonts/look-pack-fonts.json."
+        ],
+        "licenseFiles": ["app/literata-OFL.txt"]
+      }
+    ]
+  },
+  "electron": {
+    "version": "44.10.1",
+    "source": "https://github.com/electron/electron/tree/v44.10.1",
+    "chromiumVersion": "152.0.7977.169",
+    "chromiumSource": "https://chromium.googlesource.com/chromium/src/+/refs/tags/152.0.7977.169",
+    "ffmpegSource": "https://chromium.googlesource.com/chromium/third_party/ffmpeg/+/2b68d2babae73714846961fb0ee47e3b3d2e39a9"
+  },
+  "frameworks": [
+    {
+      "id": "electron",
+      "name": "Electron Framework and Atum's helper apps",
+      "coveredBy": "electron",
+      "files": [
+        "Electron Framework.framework",
+        "* Helper.app",
+        "* Helper (GPU).app",
+        "* Helper (Plugin).app",
+        "* Helper (Renderer).app"
+      ]
+    },
+    {
+      "id": "squirrel-mac",
+      "name": "Squirrel.Mac (Electron's updater)",
+      "version": "commit fffea30e4a339a7f7d69a3391314b72548d209bd",
+      "license": "MIT",
+      "copyright": ["Copyright (c) 2013 GitHub"],
+      "source": "https://github.com/Squirrel/Squirrel.Mac/tree/fffea30e4a339a7f7d69a3391314b72548d209bd",
+      "licenseFiles": ["app/squirrel-mac-LICENSE.txt"],
+      "files": ["Squirrel.framework"]
+    },
+    {
+      "id": "mantle",
+      "name": "Mantle (used by Squirrel.Mac)",
+      "version": "commit 2a8e2123a3931038179ee06105c9e6ec336b12ea",
+      "license": "MIT",
+      "copyright": ["Copyright (c) 2012 - 2014, GitHub, Inc."],
+      "source": "https://github.com/Mantle/Mantle/tree/2a8e2123a3931038179ee06105c9e6ec336b12ea",
+      "licenseFiles": ["app/mantle-LICENSE.md"],
+      "files": ["Mantle.framework"]
+    },
+    {
+      "id": "reactiveobjc",
+      "name": "ReactiveObjC (used by Squirrel.Mac)",
+      "version": "commit 74ab5baccc6f7202c8ac69a8d1e152c29dc1ea76",
+      "license": "MIT",
+      "copyright": ["Copyright (c) 2012 - 2016, GitHub, Inc."],
+      "source": "https://github.com/ReactiveCocoa/ReactiveObjC/tree/74ab5baccc6f7202c8ac69a8d1e152c29dc1ea76",
+      "licenseFiles": ["app/reactiveobjc-LICENSE.md"],
+      "files": ["ReactiveObjC.framework"]
+    }
+  ],
+  "rust": [
+    {
+      "package": "@matrix-org/matrix-sdk-crypto-wasm",
+      "version": "18.8.0",
+      "what": "pkg/matrix_sdk_crypto_wasm_bg.wasm, compiled from Rust",
+      "file": "rust/matrix-sdk-crypto-wasm-18.8.0.txt"
+    }
+  ],
+  "bundles": [
+    {
+      "id": "runtime",
+      "folder": "runtime",
+      "title": "The Atum agent's runtime (Resources/runtime)",
+      "pins": [
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "python.version",
+          "value": "3.14.7"
+        },
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "python.build",
+          "value": "20260901"
+        },
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "browser.node.version",
+          "value": "22.22.0"
+        },
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "browser.agentBrowser.version",
+          "value": "0.26.0"
+        },
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "browser.chromium.browserVersion",
+          "value": "145.0.7632.6"
+        },
+        {
+          "file": "runtime/runtime-manifest.json",
+          "key": "tools.uv.version",
+          "value": "0.12.18"
+        }
+      ],
+      "components": [
+        {
+          "name": "Hermes Agent (runtime/hermes-agent), with Atum's changes",
+          "license": "MIT",
+          "source": "https://github.com/NousResearch/hermes-agent",
+          "shippedFiles": ["runtime/hermes-agent/LICENSE"]
+        },
+        {
+          "name": "CPython (runtime/python)",
+          "version": "3.14.7",
+          "license": "Python-2.0",
+          "source": "https://www.python.org/downloads/release/python-3147/",
+          "notes": [
+            "Built by python-build-standalone release 20260901 (https://github.com/astral-sh/python-build-standalone/releases/tag/20260901). The Python packages under runtime/python/lib/python3.14/site-packages keep their licence files in each package's folder."
+          ],
+          "shippedFiles": ["runtime/python/lib/python3.14/LICENSE.txt"]
+        },
+        {
+          "name": "Libraries built into runtime/python by python-build-standalone",
+          "version": "release 20260901",
+          "license": "see each licence text",
+          "source": "https://github.com/astral-sh/python-build-standalone/blob/20260901/pythonbuild/downloads.py",
+          "notes": [
+            "libpython3.14.dylib contains OpenSSL 3.5.8 (Apache-2.0), SQLite 3.53.1.0 (public domain), libffi 3.4.8 (MIT), mpdecimal 4.0.0 (BSD-2-Clause), Expat 2.8.4 (MIT), bzip2 1.0.8 (bzip2-1.0.6), XZ Utils liblzma 5.8.3 (0BSD) and libuuid 1.0.3 (BSD-3-Clause). libtcl9.0.dylib and libtcl9tk9.0.dylib are Tcl/Tk 9.0.4; the bundled packages are Itcl 4.3.8 and Thread 3.0.6 (Tcl/Tk licence)."
+          ],
+          "licenseFiles": [
+            "runtime/python/LICENSE.openssl-3.txt",
+            "runtime/python/LICENSE.sqlite.txt",
+            "runtime/python/LICENSE.libffi.txt",
+            "runtime/python/LICENSE.mpdecimal.txt",
+            "runtime/python/LICENSE.expat.txt",
+            "runtime/python/LICENSE.bzip2.txt",
+            "runtime/python/LICENSE.liblzma.txt",
+            "runtime/python/LICENSE.libuuid.txt",
+            "runtime/python/LICENSE.tcl.txt"
+          ],
+          "files": [
+            "runtime/python/lib/libpython3.14.dylib",
+            "runtime/python/lib/libtcl9.0.dylib",
+            "runtime/python/lib/libtcl9tk9.0.dylib",
+            "runtime/python/lib/itcl4.3.8/libitcl4.3.8.dylib",
+            "runtime/python/lib/thread3.0.6/libthread3.0.6.dylib"
+          ]
+        },
+        {
+          "name": "Node.js (runtime/browser/node)",
+          "version": "22.22.0",
+          "license": "MIT, with the licences of its bundled components",
+          "source": "https://github.com/nodejs/node/tree/v22.22.0",
+          "shippedFiles": ["runtime/browser/node/LICENSE"]
+        },
+        {
+          "name": "agent-browser (runtime/browser/bin/agent-browser)",
+          "version": "0.26.0",
+          "license": "Apache-2.0",
+          "source": "https://github.com/vercel-labs/agent-browser/tree/v0.26.0",
+          "notes": [
+            "agent-browser is compiled from Rust. The licences of the Rust crates in its build are in rust/agent-browser-0.26.0.txt in this folder."
+          ],
+          "attachedFiles": ["rust/agent-browser-0.26.0.txt"],
+          "shippedFiles": ["runtime/browser/licenses/agent-browser-LICENSE"]
+        },
+        {
+          "name": "Chromium headless shell (runtime/browser/chromium)",
+          "version": "145.0.7632.6, Playwright build 1208",
+          "license": "BSD-3-Clause, with the licences of its third-party components",
+          "source": "https://chromium.googlesource.com/chromium/src/+/refs/tags/145.0.7632.6",
+          "shippedFiles": ["runtime/browser/chromium/chrome-headless-shell-mac-arm64/LICENSE.headless_shell"]
+        },
+        {
+          "name": "uv and uvx (runtime/tools/uv)",
+          "version": "0.12.18",
+          "license": "MIT OR Apache-2.0",
+          "source": "https://github.com/astral-sh/uv/tree/0.12.18",
+          "shippedFiles": ["runtime/tools/uv/LICENSE-MIT", "runtime/tools/uv/LICENSE-APACHE"],
+          "files": ["runtime/tools/uv/bin/uv", "runtime/tools/uv/bin/uvx"]
+        }
+      ]
+    },
+    {
+      "id": "local-brain",
+      "folder": "local-brain",
+      "title": "The local brain (Resources/local-brain)",
+      "pins": [
+        {
+          "file": "local-brain/pin.json",
+          "key": "gbrain.tag",
+          "value": "v0.59.20.0"
+        },
+        {
+          "file": "local-brain/pin.json",
+          "key": "gbrain.commit",
+          "value": "a9c46ffbf68447cf0b157cac6843e994e61fc4b8"
+        },
+        {
+          "file": "local-brain/pin.json",
+          "key": "pglite.version",
+          "value": "0.4.3"
+        }
+      ],
+      "components": [
+        {
+          "name": "GBrain (local-brain/bin/gbrain and local-brain/src)",
+          "version": "v0.59.20.0",
+          "license": "MIT",
+          "source": "https://github.com/garrytan/gbrain/tree/a9c46ffbf68447cf0b157cac6843e994e61fc4b8",
+          "notes": [
+            "local-brain/bin/gbrain is GBrain's own release binary, compiled by its authors with Bun 1.4.2 (bun build --compile). It therefore contains the Bun runtime and the libraries Bun links statically, listed below."
+          ],
+          "shippedFiles": ["local-brain/licenses/GBRAIN-LICENSE"]
+        },
+        {
+          "name": "Bun",
+          "version": "1.4.2",
+          "license": "MIT, with the licences of the libraries it links statically (listed in its licence file)",
+          "source": "https://github.com/oven-sh/bun/tree/bun-v1.4.2",
+          "licenseFiles": ["local-brain/bun-LICENSE.md"]
+        },
+        {
+          "name": "JavaScriptCore and WebKit, in Bun's fork",
+          "version": "commit 2e2aa2290fac856d6f451ceacb58f7f5b44dd057",
+          "license": "LGPL-2.0-or-later and LGPL-2.1-or-later (per file), and BSD-style licences",
+          "source": "https://github.com/oven-sh/WebKit/tree/2e2aa2290fac856d6f451ceacb58f7f5b44dd057",
+          "notes": [
+            "Bun links JavaScriptCore statically, so the gbrain binary contains it. To use a modified JavaScriptCore: build Bun 1.4.2 from its source with your WebKit (Bun's licence file above gives the steps), build GBrain from its source at the commit above with that Bun (bun build --compile), sign the result ad hoc (codesign --force --sign - <file>) and put it at local-brain/bin/gbrain. Atum runs that binary only if its size and SHA-256 match the \"signed\" entry of local-brain/SIGNED-BINARY.json, so record the new size and SHA-256 there, then re-sign Atum ad hoc (codesign --force --deep --sign - <path of the Atum app>)."
+          ],
+          "licenseFiles": ["texts/LGPL-2.0.txt", "texts/LGPL-2.1.txt"]
+        },
+        {
+          "name": "PGlite, embedded in the gbrain binary",
+          "version": "0.4.3",
+          "license": "Apache-2.0 OR PostgreSQL",
+          "source": "https://github.com/electric-sql/pglite/tree/%40electric-sql/pglite%400.4.3",
+          "licenseFiles": ["local-brain/pglite-POSTGRES-LICENSE.txt"],
+          "shippedFiles": ["local-brain/licenses/PGLITE-LICENSE"],
+          "notes": ["PGlite includes PostgreSQL, under the PostgreSQL licence."]
+        }
+      ]
+    }
+  ]
+}

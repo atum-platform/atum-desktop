@@ -1,0 +1,22 @@
+{
+  "input": {
+    "rooms": [
+      {
+        "roomId": "!a:proof.test",
+        "read": "readable",
+        "marker": null
+      },
+      {
+        "roomId": "!b:proof.test",
+        "read": "readable",
+        "marker": null
+      }
+    ]
+  },
+  "expected": {
+    "earlier": [],
+    "stray": [],
+    "unreachable": [],
+    "source": "legacy"
+  }
+}

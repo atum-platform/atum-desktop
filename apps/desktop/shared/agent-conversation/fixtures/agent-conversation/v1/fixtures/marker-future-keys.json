@@ -1,0 +1,10 @@
+{
+  "roomId": "!a:proof.test",
+  "content": {
+    "v": 1,
+    "role": "main",
+    "main": "!a:proof.test",
+    "at": 100,
+    "threadMode": "reserved"
+  }
+}

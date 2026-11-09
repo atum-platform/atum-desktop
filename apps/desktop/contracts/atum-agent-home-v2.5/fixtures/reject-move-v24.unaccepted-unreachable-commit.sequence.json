@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "requested",
+      "event": "request"
+    },
+    {
+      "from": "requested",
+      "to": "draining",
+      "event": "drain"
+    },
+    {
+      "from": "draining",
+      "to": "committed",
+      "event": "source_unreachable_unaccepted"
+    }
+  ]
+}
