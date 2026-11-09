@@ -4,7 +4,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SessionActionsMenu } from './session-actions-menu'
 
-afterEach(cleanup)
+afterEach(async () => {
+  cleanup()
+  // Radix FocusScope dispatches its deferred unmount event before jsdom teardown.
+  await new Promise<void>(resolve => setTimeout(resolve, 0))
+})
 
 // This file exists specifically to catch the regression flagged in #67500:
 // SessionActionsMenu used to be composed as

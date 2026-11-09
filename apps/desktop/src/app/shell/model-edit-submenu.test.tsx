@@ -42,8 +42,10 @@ beforeEach(() => {
   setCurrentReasoningEffort('')
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  // Radix FocusScope dispatches its deferred unmount event before jsdom teardown.
+  await new Promise<void>(resolve => setTimeout(resolve, 0))
   vi.clearAllMocks()
 })
 

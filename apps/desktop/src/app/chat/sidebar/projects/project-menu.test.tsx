@@ -4,7 +4,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ProjectMenu } from './project-menu'
 import type { SidebarProjectTree } from './workspace-groups'
 
-afterEach(cleanup)
+afterEach(async () => {
+  cleanup()
+  // Radix FocusScope dispatches its deferred unmount event before jsdom teardown.
+  await new Promise<void>(resolve => setTimeout(resolve, 0))
+})
 
 // jsdom doesn't implement ResizeObserver; Radix's PopoverContent/Arrow use it
 // (via @radix-ui/react-use-size) to measure the arrow once the popover is

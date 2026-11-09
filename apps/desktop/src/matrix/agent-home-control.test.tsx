@@ -48,7 +48,11 @@ vi.stubGlobal(
 )
 Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
 
-afterEach(cleanup)
+afterEach(async () => {
+  cleanup()
+  // Radix FocusScope dispatches its deferred unmount event before jsdom teardown.
+  await new Promise<void>(resolve => setTimeout(resolve, 0))
+})
 
 const settled = (): MatrixAgentHomeView => ({
   lives: { kind: 'cloud' },
