@@ -1,0 +1,11 @@
+{
+  "kind": "eclipse",
+  "schemaVersion": 1,
+  "svg": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 64 64\" width=\"64\" height=\"64\">\n  <defs>\n    <radialGradient id=\"atum-halo\">\n      <stop offset=\"58%\" stop-color=\"#EFEEEA\" stop-opacity=\"0\" />\n      <stop offset=\"78%\" stop-color=\"#EFEEEA\" stop-opacity=\".28\" />\n      <stop offset=\"100%\" stop-color=\"#EFEEEA\" stop-opacity=\"0\" />\n    </radialGradient>\n  </defs>\n  <circle cx=\"32\" cy=\"32\" r=\"32\" fill=\"url(#atum-halo)\" />\n  <circle cx=\"32\" cy=\"32\" r=\"28.5\" fill=\"#EFEEEA\" />\n  <circle cx=\"29.5\" cy=\"34.5\" r=\"25.5\" fill=\"#141311\" />\n  <circle cx=\"49.5\" cy=\"14.5\" r=\"4.8\" fill=\"#EFEEEA\" />\n</svg>\n",
+  "viewBox": [
+    0,
+    0,
+    64,
+    64
+  ]
+}

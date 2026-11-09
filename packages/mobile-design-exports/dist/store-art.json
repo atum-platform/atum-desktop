@@ -1,0 +1,29 @@
+{
+  "items": {
+    "pet/bailey": {
+      "resource": "store/pets/bailey.png",
+      "sha256": "f7c2eb8345add958f023bebe8722281c35576204acb0442e114d0cd04356f5d6",
+      "source": "apps/desktop/src/assets/pets/bailey-preview.webp",
+      "sourceSha256": "5418be0ea3c625167e2289cf74b69dc7cf31eeec9458fb73be6165b47e8607db"
+    },
+    "pet/cookie": {
+      "resource": "store/pets/cookie.png",
+      "sha256": "a8d76c3021e8c8b5dd60e523dd66bad5c4d04963ef2063358eb35c166eea6166",
+      "source": "apps/desktop/src/assets/pets/cookie-preview.webp",
+      "sourceSha256": "c090e0fe942cfe418e509638423bcabf2cbceb97c5bd096f5215c98ef09facab"
+    },
+    "pet/gigi": {
+      "resource": "store/pets/gigi.png",
+      "sha256": "64b8dc8e56d833256aad12bee161d95aa684c00bf9e16792e5caf3381207a130",
+      "source": "apps/desktop/src/assets/pets/gigi-preview.webp",
+      "sourceSha256": "2b151d9dba883c406368f5def15e0e38e759a98e5cc58daf580b70951fe44bd0"
+    },
+    "pet/mochi": {
+      "resource": "store/pets/mochi.png",
+      "sha256": "0c736fd54ad8a22a17a34d79b162d58b7badc1f3ef366aa7bb20e5251aaacb24",
+      "source": "apps/desktop/src/assets/pets/mochi-preview.webp",
+      "sourceSha256": "5317a95cbda15851dd9c36c845893d691daf6fd1527ccb92c816a2087d1e09f5"
+    }
+  },
+  "schemaVersion": 1
+}

@@ -1,0 +1,549 @@
+{
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "scopes": [
+        "atum",
+        "common",
+        "timeline",
+        "dm"
+      ],
+      "source": "apps/desktop/src/i18n/en.ts",
+      "tables": [
+        "en"
+      ]
+    },
+    {
+      "scopes": [
+        "atum",
+        "common",
+        "timeline",
+        "dm"
+      ],
+      "source": "apps/desktop/src/i18n/vi.ts",
+      "tables": [
+        "vi"
+      ]
+    },
+    {
+      "scopes": [
+        "atum",
+        "common",
+        "timeline",
+        "dm"
+      ],
+      "source": "apps/desktop/src/i18n/ja.ts",
+      "tables": [
+        "ja"
+      ]
+    },
+    {
+      "scopes": [
+        "atum",
+        "common",
+        "timeline",
+        "dm"
+      ],
+      "source": "apps/desktop/src/i18n/zh.ts",
+      "tables": [
+        "zh"
+      ]
+    },
+    {
+      "scopes": [
+        "atum",
+        "common",
+        "timeline",
+        "dm"
+      ],
+      "source": "apps/desktop/src/i18n/zh-hant.ts",
+      "tables": [
+        "zhHant"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/account-step-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/agent-content-copy.ts",
+      "tables": [
+        "agentContentCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/agent-home-copy.ts",
+      "tables": [
+        "words"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/app-bots/bot-api-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/app-copy.ts",
+      "tables": [
+        "matrixAppCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/assistant-card/copy.ts",
+      "tables": [
+        "assistantCardCopies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/assistant-card/photo-crop-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/attention-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/chat-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/chat-search-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/check-ins-copy.ts",
+      "tables": [
+        "matrixCheckInsCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/conversation-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/decryption-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/drive-copy.ts",
+      "tables": [
+        "matrixDriveCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/drive-import-copy.ts",
+      "tables": [
+        "matrixDriveImportCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/execution-machines-copy.ts",
+      "tables": [
+        "words"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/execution-policy-editor-copy.ts",
+      "tables": [
+        "words"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/founder/founder-copy.ts",
+      "tables": [
+        "FOUNDER_COPY"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/group-picker-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/hermes-setup-copy.ts",
+      "tables": [
+        "hermesSetupCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/launch-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/legal-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/mobile-copy.ts",
+      "tables": [
+        "copy",
+        "mobilePhoneCopy",
+        "mobileChatCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/mobile-device-copy.ts",
+      "tables": [
+        "mobileDeviceCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/model-picker-copy.ts",
+      "tables": [
+        "COPY"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/moderation-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/pet/overlay-copy.ts",
+      "tables": [
+        "petOverlayCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/pet-copy.ts",
+      "tables": [
+        "petCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/profile-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/read-state-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/readiness-copy.ts",
+      "tables": []
+    },
+    {
+      "source": "apps/desktop/src/matrix/roster-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/roster-create-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/security-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/settings-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/sign-in-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/starter-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/store/store-copy.ts",
+      "tables": []
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/copy.ts",
+      "tables": []
+    },
+    {
+      "source": "apps/desktop/src/matrix/team-space/layout-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/pinned-copy.ts",
+      "tables": []
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/saved-messages-copy.ts",
+      "tables": []
+    },
+    {
+      "source": "apps/desktop/src/matrix/thread-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/updates/copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/wallet-copy.ts",
+      "tables": []
+    },
+    {
+      "source": "apps/desktop/src/matrix/workbench-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/working-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/workplace-copy.ts",
+      "tables": [
+        "workplaceCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/agent-conversation/copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-action-copy.ts",
+      "tables": [
+        "matrixActionCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-agent-access-band-copy.ts",
+      "tables": [
+        "matrixAgentAccessBandCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-agent-status-copy.ts",
+      "tables": [
+        "matrixAgentStatusCopy",
+        "checkingLine"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-alias-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-app-chat-copy.ts",
+      "tables": [
+        "matrixAppChatCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-app-onboarding-copy.ts",
+      "tables": [
+        "matrixAppOnboardingCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-approval-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-auxiliary-copy.ts",
+      "tables": [
+        "matrixAuxiliaryCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-browser-import-copy.ts",
+      "tables": [
+        "matrixBrowserImportCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-command-center-copy.ts",
+      "tables": [
+        "matrixCommandCenterCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-command-center-ops-copy.ts",
+      "tables": [
+        "matrixMaintenanceCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-company-board-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-company-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-company-funding-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-computer-use-grant-copy.ts",
+      "tables": [
+        "words"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-curator-copy.ts",
+      "tables": [
+        "matrixCuratorCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-debug-share-copy.ts",
+      "tables": [
+        "matrixDebugShareCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-device-isolation-copy.ts",
+      "tables": [
+        "matrixDeviceIsolationCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-drive-import-copy.ts",
+      "tables": [
+        "MATRIX_DRIVE_IMPORT_LABELS"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-first-run-copy.ts",
+      "tables": [
+        "copies"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-knowledge-sources-copy.ts",
+      "tables": [
+        "matrixKnowledgeSourcesCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-management-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-pages-copy.ts",
+      "tables": [
+        "copy",
+        "scanCopy",
+        "archiveCopy",
+        "updateCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-runtime-copy.ts",
+      "tables": [
+        "words"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-settings-revamp-copy.ts",
+      "tables": [
+        "copies",
+        "phoneSettingsCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-starmap-copy.ts",
+      "tables": [
+        "matrixStarmapCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-status-line-copy.ts",
+      "tables": [
+        "matrixStatusLineCopy",
+        "matrixProgressCopy",
+        "matrixToolActivityCopy",
+        "matrixAcknowledgementCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-team-space-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-tool-settings-copy.ts",
+      "tables": [
+        "matrixToolSettingsCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-voice-settings-copy.ts",
+      "tables": [
+        "matrixVoiceSettingsCopy"
+      ]
+    }
+  ]
+}

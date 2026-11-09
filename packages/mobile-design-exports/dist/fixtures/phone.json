@@ -1,0 +1,138 @@
+{
+  "clock": "2026-10-05T00:00:00.000Z",
+  "scenarios": [
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersCloud",
+      "id": "who-answers-cloud",
+      "state": "cloud",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersMac",
+      "id": "who-answers-mac",
+      "state": "mac",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.offline",
+      "id": "who-answers-offline",
+      "state": "offline",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.notReady",
+      "id": "who-answers-not-ready",
+      "state": "not_ready",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.unverified",
+      "id": "who-answers-unverified",
+      "state": "unverified",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.undecryptable",
+      "id": "decryption-failed",
+      "state": "undecryptable",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.genericNotification",
+      "id": "extension-timeout",
+      "state": "timeout",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.outOfProtons",
+      "id": "out-of-protons",
+      "state": "out_of_protons",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.saveRecoveryBeforeSignOut",
+      "id": "sole-key-sign-out",
+      "state": "sole_key",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.revocationUnconfirmed",
+      "id": "revocation-unconfirmed",
+      "state": "revocation_pending",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.aiConsentHelp",
+      "id": "ai-consent",
+      "state": "consent_required",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.deletionHelp",
+      "id": "account-deletion",
+      "state": "deletion_requested",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.noPurchasesHelp",
+      "id": "purchase-off",
+      "state": "unavailable",
+      "validatedPurchasePath": false
+    },
+    {
+      "arguments": [
+        "100",
+        "fixture-price"
+      ],
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.productPrice",
+      "id": "purchase-sheet",
+      "milestone": "public-v1",
+      "previewOnly": true,
+      "state": "preview",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.purchasePending",
+      "id": "purchase-pending",
+      "state": "pending",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.purchaseCancelled",
+      "id": "purchase-cancelled",
+      "state": "cancelled",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.purchaseCreditPending",
+      "id": "purchase-credit-pending",
+      "state": "credit_pending",
+      "validatedPurchasePath": false
+    },
+    {
+      "canShowPurchaseCTA": false,
+      "copyKey": "src.matrix.mobile-copy.mobilePhoneCopy.purchaseComplete",
+      "id": "purchase-reconciled",
+      "state": "reconciled",
+      "validatedPurchasePath": false
+    }
+  ],
+  "schemaVersion": 1
+}
