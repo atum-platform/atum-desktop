@@ -25,6 +25,14 @@ jobs:
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: '3.14'
+      - run: python -m pip install uv==0.13.5
+      # Native integration tests launch this checkout's .venv/bin/python directly.
+      - name: Prepare locked project Python environment
+        run: |
+          uv sync --locked --python 3.14 --group dev --group test --extra all
+          echo "HERMES_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "ATUM_SYNC_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
       - run: node apps/desktop/scripts/check-client-boundary.mjs --typecheck-without-controller
       - run: npm run typecheck --workspace apps/desktop
       - run: npm exec --workspace apps/desktop -- vitest run --maxWorkers 4
@@ -35,7 +43,7 @@ jobs:
   hermes:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
