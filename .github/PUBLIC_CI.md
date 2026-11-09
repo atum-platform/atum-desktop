@@ -50,3 +50,48 @@ The full desktop and Hermes suites were not rerun locally. Hosted Linux executio
 and the longer Hermes job budget remain for coordinator verification. No push,
 PR, hosted workflow run, repository setting change, deployment, or artifact upload
 was performed during this local preparation.
+
+## Round 2: Radix unmount timers, 2026-11-10
+
+The coordinator reported Hermes passing on `7e9f8923d9`, confirming the expanded
+job budget. Client assertions passed (1,599 files / 23,875 tests), but Vitest
+exited 1 for an unhandled FocusScope timer attributed to
+`src/app/shell/model-menu-panel.test.tsx`.
+
+Radix FocusScope schedules a zero-delay callback during unmount that creates a
+`CustomEvent` and dispatches it on its detached container. Synchronous Testing
+Library cleanup leaves this callback pending. If it runs after jsdom teardown,
+Node's event constructor is incompatible with the retained jsdom container.
+
+Use the existing `quiet-launch.test.tsx` approach: explicitly clean up, then
+await a real zero-delay timer before resetting mocks/globals or allowing jsdom
+to close. This executes the focus restoration rather than suppressing errors.
+The model-menu panel and eight other suites that mount real Radix menu/popover
+content now follow this order: model-edit submenu, model-picker popover,
+agent-home control, usage meter, project menu, session-actions menu, approval,
+and app-view overlay holds.
+
+The source audit also checked the remaining `Popover`/`DropdownMenu`/`FocusScope`
+test matches. Quiet launch already drains unmounts; composer trigger-popover
+renders plain markup; session-row mocks session-actions and does not open a
+menu; overlay-inventory and design-contract tests read source without mounting
+content. These need no timer change. Production components and CI configuration
+are unchanged in this round.
+
+Round 2 local evidence (Node 24.21.0, macOS arm64):
+
+- Ran `model-menu-panel.test.tsx` in 20 separate Vitest processes with
+  `--project ui --maxWorkers 4`: 20/20 successful exits, 27 tests each
+  (540 total passes), no unhandled errors.
+- Ran all nine touched files together with the desktop Vitest configuration:
+  9 files / 119 tests passed, no unhandled errors.
+- Desktop typecheck and client boundary passed. Focused ESLint exited 0 with
+  0 errors / 54 warnings; linting the same files from unmodified `HEAD` also
+  reported 54 warnings. `git diff --check` passed.
+- Evidence remains in `/private/tmp/public-ci-round2-repeat/` and
+  `/private/tmp/public-ci-round2-{touched,typecheck,lint}.log` on the preparation
+  machine. This round did not rerun the full desktop or Hermes suites.
+
+Prepared locally only on `fix/public-ci-venv-timeout` for coordinator assembly;
+no push or repository setting change. Hosted verification of this new test
+cleanup commit remains outstanding.
