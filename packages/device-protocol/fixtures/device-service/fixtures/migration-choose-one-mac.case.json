@@ -4,8 +4,8 @@
     "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
     "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
     "identityKey": {
-      "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA"
+      "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA"
     },
     "enrollmentEpoch": 3,
     "accountEpoch": 7,
@@ -35,7 +35,7 @@
       "takeOther": [],
       "decidedAt": 1791101160000
     },
-    "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+    "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
     "sig": "K1E7-OIkCz8h7SICi9EkkZFFTOQiZ_JxxL9656SHBaHh2bItYN1VS4B_JwuaZ1coUuLG5nsr7aV0w_9XBfsnHw"
   },
   "receivedAt": 1791101161000,

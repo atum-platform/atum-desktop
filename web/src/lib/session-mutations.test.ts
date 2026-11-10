@@ -58,5 +58,5 @@ it('sends mutations when crypto.randomUUID is unavailable on an insecure origin'
   await api.deleteSession('insecure-origin');
 
   const request = new URL(fetcher.mock.calls[1][0] as string, 'http://localhost');
-  expect(request.searchParams.get('request_id')).toBe('00000000-0000-4000-8000-e282a85631b8');
+  expect(request.searchParams.get('request_id')).toBe('abababab-abab-4bab-abab-abababababab');
 });

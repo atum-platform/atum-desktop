@@ -2,7 +2,7 @@
   "name": "enroll-wrong-owner",
   "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
   "activeControllerKeys": [
-    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
   ],
   "stored": null,
   "otherActive": [],
@@ -12,8 +12,8 @@
       "displayName": "MacBook Pro",
       "platform": "macos",
       "osVersion": "26.6.2",
-      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
-      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q",
       "matrix": {
         "userId": "@owner-9b2d4e6f8a1c:example.invalid",
         "deviceId": "MACBOOKQ7ZK",
@@ -27,13 +27,13 @@
         "send_file"
       ],
       "controllerKeys": [
-        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+        "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
       ],
       "issuedAt": 1791014400000
     },
     "sigs": {
-      "identity": "gNI3okVUC8IcN4U4YpJVrmJVEMjtML9TGfqU79ybEpbrF94wTBQ99eDKJwDbsBeLxOKJ20lAfKZALzm4zylsiA",
-      "approval": "fj_r3N1L1X2yvh4NHRR5sG8R7dIHX_nB1_fecaVMtAoAXcEdTia_J3soPPT1mPPqK9Fk_jUC02scuPCGGhifyA"
+      "identity": "jGfJF0Nvq6SIuMoJ2SV8yJqX2zCdf66bNsob1KXgQ5W0qN68cJbui-crM_TDya5QPwSTDMsQnCPj3J2twacQww",
+      "approval": "uxKGx74ZivZfwKmVo8MQdYJyz_hoyrgPegRr92qI3qBfHzY5U_vNCIoTniVhfJHj4tzuPQfMuDXIKca5Ty2gww"
     }
   },
   "facts": {

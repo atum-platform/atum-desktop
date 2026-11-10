@@ -61,7 +61,7 @@ def main():
     p.add_argument('--head', default='HEAD')
     p.add_argument('--policy', type=Path, default=Path(__file__).with_name('public-boundary.json'))
     a = p.parse_args()
-    policy = json.loads(a.policy.read_text(encoding='utf-8'))
+    policy = json.loads(a.policy.read_text(encoding='utf-8-sig'))
     base = git('rev-parse', '--verify', a.base + '^{commit}').decode().strip()
     head = git('rev-parse', '--verify', a.head + '^{commit}').decode().strip()
     anchor = policy['anchor']

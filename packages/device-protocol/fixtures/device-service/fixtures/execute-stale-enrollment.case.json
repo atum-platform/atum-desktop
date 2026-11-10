@@ -19,12 +19,12 @@
       "@synthetic-user-0011:example.invalid"
     ],
     "pinnedControllerKeys": [
-      "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
     ],
     "controllerKeys": [
       {
-        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
-        "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA"
+        "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
+        "publicKey": "MCowBQYDK2VwAyEAEU40uPLbPGXr2W4l_Ezj-92cAJv-5-XaT86LsffSLMQ"
       }
     ],
     "receivedAt": 1791100802000
@@ -42,7 +42,7 @@
       "originAssertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
       "writerEpoch": {
         "leaseGeneration": 41,
-        "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+        "leaseTokenHash": "CLWQhqWsLOrA7qt2_HgySVo0vfkQUcU8Zcb735YgEBw"
       },
       "targetDeviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
       "enrollmentEpoch": 3,
@@ -100,14 +100,14 @@
       "timeoutMs": 120000,
       "issuedAt": 1791100801000
     },
-    "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
-    "sig": "9zDIRJZb1Y-1NbYCCxxjtBhyFfJtv_AuGipDlGc1qTRYoz6jXNl7pcLNiVeBrXxLJjhZoEDB9TbXFeJHw2gHCQ"
+    "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
+    "sig": "aW6L7dGv_6HNqGODBKyhFqRvQt_Mtjgmh4TNw3wwn_1pp4j4gKc_PnCzr3XYEWG7gCuRDibLuwk0mmCD_fzbAg"
   },
   "facts": {
     "signatureValid": true,
     "kidPinned": true,
     "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
-    "commandHash": "MkRnXLFlND4IG6EdMGbsxwH6CMM0oK2qUG-JwuhVCsU",
+    "commandHash": "46swY0PiHynZDjkS29HknqX3R2Z-9WMkSn-fibSZmCk",
     "commandIdSeen": false,
     "originMatches": true,
     "liveValue": "live",

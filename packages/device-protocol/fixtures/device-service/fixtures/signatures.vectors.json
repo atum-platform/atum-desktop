@@ -3,7 +3,7 @@
     {
       "name": "controller Ed25519 over Execute",
       "signer": "controller",
-      "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA",
+      "publicKey": "MCowBQYDK2VwAyEAEU40uPLbPGXr2W4l_Ezj-92cAJv-5-XaT86LsffSLMQ",
       "frame": {
         "v": 1,
         "type": "Execute",
@@ -30,15 +30,15 @@
           "timeoutMs": 120000,
           "issuedAt": 1791100801000
         },
-        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
-        "sig": "q3aHIj9xBfYmIi6Y0LD65EboMMQTkUJJyIkHKxJWYA4AZHnEnXkidHYT_MlTgAqrE3B1ou__TDoyp83RG2l_DQ"
+        "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
+        "sig": "6N2nmK7hr488W_Tv8HVdaxcUWANH72WgqQrTOQ2NDIEOHtU8dDKkWwCN6oYOg8kS9K7Ae31PoH9TSvMEfjqGCA"
       },
       "valid": true
     },
     {
       "name": "controller signature, damaged",
       "signer": "controller",
-      "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA",
+      "publicKey": "MCowBQYDK2VwAyEAEU40uPLbPGXr2W4l_Ezj-92cAJv-5-XaT86LsffSLMQ",
       "frame": {
         "v": 1,
         "type": "Execute",
@@ -65,7 +65,7 @@
           "timeoutMs": 120000,
           "issuedAt": 1791100801000
         },
-        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
         "sig": "e3m_HXtFkgVbCHUNaONkT1z4_-deJf51u50cV2QtdVY7iFNgCv8eb2XGUUY5uTH6DRSlHantg_9HI4qOHJzPCg"
       },
       "valid": false
@@ -73,7 +73,7 @@
     {
       "name": "controller signature, other key",
       "signer": "controller",
-      "publicKey": "MCowBQYDK2VwAyEAem2S4cUgGsfYZz2VbICRg11cf8nJ2RJqrL31COGEXno",
+      "publicKey": "MCowBQYDK2VwAyEArgrNAnT0EbdEVOf0uZ4x24RO0jerZNaZon3TlhumFyQ",
       "frame": {
         "v": 1,
         "type": "Execute",
@@ -100,7 +100,7 @@
           "timeoutMs": 120000,
           "issuedAt": 1791100801000
         },
-        "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+        "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
         "sig": "q3aHIj9xBfYmIi6Y0LD65EboMMQTkUJJyIkHKxJWYA4AZHnEnXkidHYT_MlTgAqrE3B1ou__TDoyp83RG2l_DQ"
       },
       "valid": false
@@ -108,7 +108,7 @@
     {
       "name": "device ES256 over Hello",
       "signer": "identity",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA",
       "frame": {
         "v": 1,
         "type": "Hello",
@@ -130,15 +130,15 @@
           },
           "sentAt": 1791100795000
         },
-        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
-        "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
+        "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
+        "sig": "Zwv97jsAlYtmTJnsHSNP62KKNynxI_BC2rL2DQXZoxQ3jx_WluL5oUr2VlC6szocOPsYzYCtLguk7uiqdu-6Vg"
       },
       "valid": true
     },
     {
       "name": "device ES256, altered body",
       "signer": "identity",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA",
       "frame": {
         "v": 1,
         "type": "Hello",
@@ -160,7 +160,7 @@
           },
           "sentAt": 1791100795000
         },
-        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
         "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
       },
       "valid": false
@@ -168,7 +168,7 @@
     {
       "name": "device ES256 under the approval key is not the identity",
       "signer": "identity",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q",
       "frame": {
         "v": 1,
         "type": "Hello",
@@ -190,7 +190,7 @@
           },
           "sentAt": 1791100795000
         },
-        "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+        "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
         "sig": "VuEda1jRqav81v3Mrkou2Mlk95vcKacSitaMgyUn9dGqwWjpjCUDi4TybdtVMfr1q56YmSZcb1o7Wd4EuGtiyw"
       },
       "valid": false

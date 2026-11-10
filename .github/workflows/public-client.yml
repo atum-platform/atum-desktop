@@ -130,7 +130,7 @@ jobs:
       OPENAI_API_KEY: ''
       NOUS_API_KEY: ''
     steps:
-      - run: apt-get update && apt-get install -y --no-install-recommends build-essential libnotify4 libxss1 libxtst6 python3 xdg-utils
+      - run: apt-get update && apt-get install -y --no-install-recommends build-essential libnotify4 libxss1 libxtst6 libssl3t64 python3 xdg-utils
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}

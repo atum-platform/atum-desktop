@@ -109,3 +109,58 @@ policy, retained all CI parity lanes, added base-trusted local preflight and
 report-only CI installation bootstrap. Full new-commit outbound preflight and
 focused guard tests pass on both amended heads. Built locally; no push, PR,
 settings changes, CI execution or spending. Coordinator owns publication/review.
+
+## Public lane repair (2026-11-10)
+
+Local implementation only; publication and exact-head hosted validation remain with
+coordination. This checkpoint repairs public-only inputs for the public CI
+cutover; all four lanes stay public. No push, PR, settings, dispatch, deployment, upload or spending occurred.
+
+- `python-lint`: the 12 footguns were in the new public guard and its tests,
+  not exported private fixtures. Ten missing encodings and two BOM-intolerant
+  reads are fixed with `utf-8-sig` reads and `utf-8` writes. Added a real git/scanner
+  contract test for a BOM-prefixed policy; no checker suppression.
+- `device-protocol`: no files were missing. Export sanitization changed UUIDs,
+  Matrix identities, public keys and a lease token while leaving signatures and
+  hashes from their previous bytes. Rebuild the public vectors with
+  `npx tsx test/rebuild-public-vectors.mts` from the package directory. The script
+  uses only public inputs and fresh Ed25519/P-256 keys held in memory; it exports
+  no private keys. Original declared decisions and negative signature verdicts
+  remain in force. Dependent command/approval/lease hashes and the existing pack
+  digest are rebound. `vendored.json` explicitly marks this pack as a public
+  derivative, not an identical upstream crypto corpus.
+- `web`: the only failing test was the insecure-origin UUID fallback assertion.
+  Export rewrote its deterministic expected UUID. Restored the UUID produced by
+  the stub's `0xab` bytes, including version/variant bits. The “disk full” message
+  is an intentional failed-upload test, and ChatSidebar socket tests passed.
+- `desktop-e2e`: failure occurred in pip before npm, Python sync, Xvfb or tests.
+  The setup-python interpreter could not import SSL inside the pinned Noble
+  image. Install Noble's `libssl3t64` before setup-python/pip. The image and
+  Playwright both use 1.58.2; no evidence supported changing either or dropping
+  the public lane.
+
+Local evidence: Node 22 and 24 each pass the complete device-protocol check
+(764 tests) and web check (449 tests, typecheck and lint; 28 existing lint warnings).
+Python 3.14 via uv passes pinned ruff 0.15.10, the complete Windows-footguns scan
+and 21 real git/gitleaks guard tests. Desktop `build:e2e` passes on macOS/Node 24;
+Playwright collection is checked separately. Linux container/Xvfb execution is
+not reproduced locally: Docker reports it cannot connect to its daemon. The
+host Python 3.14 imports SSL successfully; that is not proof of the container fix.
+The coordinator must validate the repaired Linux lane on the exact public head.
+
+Temporary npm/build outputs are removed before handoff. No private fixture,
+private key or excluded source was restored. Changed public bytes receive the
+stage-1 identifier/fingerprint rules and pinned secret scan, followed by the
+full outbound preflight against the fetched public main revision.
+
+Outbound scan result: the stage-1 rules find no new private identifier or restricted
+fingerprint. The sole new UUID is the deterministic `0xab` fallback expectation.
+Pinned gitleaks reports 106 generic-api-key candidates: 45 fresh public P-256 SPKI
+literals (`identityKey`/`approvalKey`) and 61 occurrences of the recomputed
+`leaseTokenHash`. These are public verification material and a digest, not private
+keys or access tokens. The outbound guard does not permit secret-scan adjudication;
+no exclusion or policy weakening was added. Publication remains blocked if the
+required full-history preflight reports these candidates. Coordinator must resolve
+that guard limitation before publication, independently of the green local lanes.
+Desktop collection: 62 tests in 32 files. Temporary dependency/build footprint
+stayed below 2.5 GiB; Linux GUI execution remains unverified locally.

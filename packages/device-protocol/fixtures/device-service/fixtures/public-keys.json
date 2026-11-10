@@ -4,68 +4,68 @@
     {
       "name": "macbook.identity",
       "alg": "ES256",
-      "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA"
+      "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA"
     },
     {
       "name": "macbook.approval",
       "alg": "ES256",
-      "kid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ"
+      "kid": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q"
     },
     {
       "name": "macbook.approval.rotated",
       "alg": "ES256",
-      "kid": "7dsNFVvRIszKHZhe5sePnnKD9Ksfj9oAkQX-4jjxXDI",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECEpLucCNdBxAoHpTss_gF7Bh-YjRjX4lV4h-eu4u6J7kAGJSCyqPfcUwm41sZRWHhkJjSb9H5xZbcwZAHI1nKQ"
+      "kid": "ZWBI8kqycsdGUImVxwmKXp0j_FCMrQKQr7QLPnrSiQg",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMmqLbx1jCZWKHscuukv2NuAhSm4LbD6uZN8TE7vmaIPJh2iEm-C87iT_RmQYDeLEb_XEKjgnEOwNBz91bfw1HQ"
     },
     {
       "name": "mini.identity",
       "alg": "ES256",
-      "kid": "PIL-JVpVkgdjfjqD0AiDtRqUu2c2Jy-omxRCo4Hsie4",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE6mp-ho08TZKqtmUzB9YrIHgAL9cLfnlCQFGSqoQTA6o-vSirFDW4LlO209QfRmmVojTPK07dhy9lMzO7J8Dttg"
+      "kid": "2_mG1A7wjuWIwkjQ7FDi_1b7zUY_jDlWGobXQzgzH-w",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENVow6sP0Qxhg-aFXtzPNxkmQ38H5XzeObt4Yv8l05RRRgHtO1pY6PAznHSt6HgYMuoin5UICH97VTj0OnGPqhw"
     },
     {
       "name": "mini.approval",
       "alg": "ES256",
-      "kid": "s-swAWXVNcE-zbcQGZYZk4X7dQPE8UmIAU6z2bEUe7o",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbaa99HzEc9OFftk_n_EDsMWc4azQkIiHdo71EJXkkk86TeWx9ToRKCHkygdPa19v7xaXxByyAW4EPrM31U4iDg"
+      "kid": "YV6jmQRZxIst3Us3mPDXYM8zT_RinowRLJLLoJW_MRs",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEg9tNWqp6AlzJscr56Xxxf5mrRbi7BKN0z171qsImPLdh_CQW8hJcV10rhL2Ugis3JV3CMd4MwKEfpuZ2KEYUVA"
     },
     {
       "name": "foreign.p256",
       "alg": "ES256",
-      "kid": "fhqYJKuDt0WhFuLCrAD9u5BLGSyEqVMrNhWiDqJ8xIg",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEqa09HRlrrFNigVsifbPaeMIi76u_suMMYs0i5IiPmH0kXUZiz9hI8XxSDN29J_gv7CEiEIieSKkBED6Kz0zS0g"
+      "kid": "R7v7k0HgmyLlwU1F8thXOWmZsXFi2-NFXCMyAdBjAfA",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE-CnsE0kPH3N2AkVdYE9mOgwGbgYoo33xG0jLZoIsA7qKdvwSDy07D5HJ1h74Js_3ZKwx9TTT51hsQZ4nZ2niyQ"
     },
     {
       "name": "controller.active",
       "alg": "Ed25519",
-      "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
-      "publicKey": "MCowBQYDK2VwAyEAKx6f5e8swGifEobCF3CjVrheaehRMucqWNkXf8VGtFA"
+      "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
+      "publicKey": "MCowBQYDK2VwAyEAEU40uPLbPGXr2W4l_Ezj-92cAJv-5-XaT86LsffSLMQ"
     },
     {
       "name": "controller.retired",
       "alg": "Ed25519",
-      "kid": "kWgQEbdNFFsIvX3qGWm6rb4vMIIX2Q-glNT6hdiPNnY",
-      "publicKey": "MCowBQYDK2VwAyEAem2S4cUgGsfYZz2VbICRg11cf8nJ2RJqrL31COGEXno"
+      "kid": "BDDkfXYEKmlxvpDZylrJwHKERkLuirfoxDBRLRv053o",
+      "publicKey": "MCowBQYDK2VwAyEArgrNAnT0EbdEVOf0uZ4x24RO0jerZNaZon3TlhumFyQ"
     },
     {
       "name": "foreign.ed25519",
       "alg": "Ed25519",
-      "kid": "ifSbMezAVY4Ct6OU95GYUDXpPdQN2GV2jjl9HreG9MU",
-      "publicKey": "MCowBQYDK2VwAyEAYH-pk9iKyzvrdAxtNpds8BKqY7co0RO06WHk6YZ8WTo"
+      "kid": "MlpsAnV02nOBAvjCXyIRv77TcVRlamhAupw2WG9tODc",
+      "publicKey": "MCowBQYDK2VwAyEAQqnfe2Ware5Nk5L8Lz3nA3WxX_M9BzwX4LPa5S5xnDQ"
     },
     {
       "name": "controller.revoke-public-trusted",
       "alg": "Ed25519",
-      "kid": "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40",
-      "publicKey": "MCowBQYDK2VwAyEAQuXHPLmfAsGGn2l02PmCQKVsnMINNq76kM2PKH57LO0"
+      "kid": "a5VlGDzAZEoOLQG6stEyJxK7OmGuvmOovhLN6gYwZbY",
+      "publicKey": "MCowBQYDK2VwAyEAwILpQ53Vyl1hsPv8biee0rESSxuxujeN3f_oArYG5wU"
     },
     {
       "name": "controller.revoke-public-untrusted",
       "alg": "Ed25519",
-      "kid": "eVRzqGk1VVr9Xr7i3EpNQTzp9WiLnqD3hJkp6pgKU1I",
-      "publicKey": "MCowBQYDK2VwAyEAZ_a9BbxRAu9mDVWAa3E_SPM6dYHuNOJCWvfWzf9Rfyo"
+      "kid": "h4aGCgBmb94pbm0uv4pZ6_gGZXLFld_zKrZrk7lTVx0",
+      "publicKey": "MCowBQYDK2VwAyEA7e63fZHth47Bw_1m6R_b7Ifg0cR5keRFPZcVGz_8C3Q"
     }
   ]
 }

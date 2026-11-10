@@ -21,7 +21,7 @@ class GuardTests(unittest.TestCase):
         self.commit()
         self.root = self.git('rev-parse', 'HEAD').strip()
         self.policy = self.repo / '.git/policy.json'
-        policy = json.loads(SCRIPT.with_name('public-boundary.json').read_text())
+        policy = json.loads(SCRIPT.with_name('public-boundary.json').read_text(encoding='utf-8-sig'))
         policy.update(anchor=self.root, root=self.root, reviewed_blobs={})
         self.policy.write_text(json.dumps(policy), encoding='utf-8')
 
@@ -40,6 +40,12 @@ class GuardTests(unittest.TestCase):
     def test_allowed(self):
         (self.repo/'README.md').write_text('public update\n', encoding='utf-8')
         self.commit()
+        self.check(True)
+
+    def test_bom_prefixed_policy(self):
+        policy = self.policy.read_text(encoding='utf-8-sig')
+        self.policy.write_text('\ufeff' + policy, encoding='utf-8')
+        self.add_file('component.ts', 'export const label = "public";')
         self.check(True)
 
     def test_denied_private_then_deleted(self):
@@ -99,9 +105,9 @@ class GuardTests(unittest.TestCase):
         self.check(False)
 
     def test_denied_size(self):
-        policy = json.loads(self.policy.read_text())
+        policy = json.loads(self.policy.read_text(encoding='utf-8-sig'))
         policy['max_blob_bytes'] = 32
-        self.policy.write_text(json.dumps(policy))
+        self.policy.write_text(json.dumps(policy), encoding='utf-8')
         self.add_file('asset.bin', 'x' * 33)
         self.check(False)
 
@@ -111,15 +117,15 @@ class GuardTests(unittest.TestCase):
         self.check(False)
 
     def test_candidate_cannot_loosen_trusted_policy(self):
-        policy = json.loads(self.policy.read_text())
+        policy = json.loads(self.policy.read_text(encoding='utf-8-sig'))
         policy['denied_prefixes'] = []
         self.add_file('scripts/public-boundary.json', json.dumps(policy))
         self.add_file('packages/cloud-controller/x.ts')
         self.check(False)
 
     def test_preflight_uses_base_checker_and_policy(self):
-        self.add_file('scripts/public_guard.py', SCRIPT.read_text())
-        self.add_file('scripts/public-boundary.json', self.policy.read_text())
+        self.add_file('scripts/public_guard.py', SCRIPT.read_text(encoding='utf-8-sig'))
+        self.add_file('scripts/public-boundary.json', self.policy.read_text(encoding='utf-8-sig'))
         self.root = self.git('rev-parse', 'HEAD').strip()
         self.add_file('scripts/public_guard.py', 'raise SystemExit(0)')
         self.add_file('scripts/public-boundary.json', '{}')
@@ -131,20 +137,20 @@ class GuardTests(unittest.TestCase):
 
     def test_bootstrap_reports_but_installed_guard_blocks(self):
         workflow = SCRIPT.parent.parent/'.github/workflows/public-guard.yml'
-        command = textwrap.dedent(workflow.read_text().rsplit('        run: |', 1)[1])
+        command = textwrap.dedent(workflow.read_text(encoding='utf-8-sig').rsplit('        run: |', 1)[1])
         candidate = self.repo/'candidate'
         (candidate/'scripts').mkdir(parents=True)
-        (candidate/'scripts/public_guard.py').write_text('raise SystemExit(1)')
+        (candidate/'scripts/public_guard.py').write_text('raise SystemExit(1)', encoding='utf-8')
         summary = self.repo/'summary'
         env = dict(os.environ, BASE_SHA=self.root, HEAD_SHA=self.root,
                    GITHUB_STEP_SUMMARY=str(summary))
         bootstrap = subprocess.run(['bash', '-e', '-c', command], cwd=candidate,
                                    env=env, capture_output=True, check=False)
         self.assertEqual(bootstrap.returncode, 0, bootstrap.stderr.decode())
-        self.assertIn('report-only', summary.read_text())
+        self.assertIn('report-only', summary.read_text(encoding='utf-8-sig'))
         trusted = self.repo/'trusted/scripts'
         trusted.mkdir(parents=True)
-        (trusted/'public_guard.py').write_text('raise SystemExit(1)')
+        (trusted/'public_guard.py').write_text('raise SystemExit(1)', encoding='utf-8')
         installed = subprocess.run(['bash', '-e', '-c', command], cwd=candidate,
                                    env=env, capture_output=True, check=False)
         self.assertNotEqual(installed.returncode, 0)
@@ -164,7 +170,7 @@ class GuardTests(unittest.TestCase):
         import hashlib
         data = ('credential = "gh'+'p_'+'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8'+'"\n').encode()
         (self.repo/'README.md').write_bytes(data)
-        policy=json.loads(self.policy.read_text(encoding='utf-8'))
+        policy=json.loads(self.policy.read_text(encoding='utf-8-sig'))
         policy['reviewed_blobs']={'README.md':hashlib.sha256(data).hexdigest()}
         self.policy.write_text(json.dumps(policy), encoding='utf-8')
         self.commit()
