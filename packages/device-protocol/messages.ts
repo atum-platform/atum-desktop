@@ -1,13 +1,13 @@
 /**
- * Device-service 1.1 wire types consumed from the approved, pinned contract pack.
+ * Device-service 1.1 wire types plus the additive 1.2 Mac-source extension.
  * Runtime validation uses the complete vendored schema and invariants; the
- * TypeScript shapes describe the same messages without modifying that contract.
+ * The original 1.1 pack stays pinned for legacy compatibility and rollback.
  */
 
-import { CHATGPT_RELAY_PACK, DEVICE_SERVICE_PACK, DEVICE_WORKSPACE_PACK } from "./contract-packs";
+import { CHATGPT_RELAY_PACK, DEVICE_SERVICE_1_2_PACK, DEVICE_SERVICE_PACK, DEVICE_WORKSPACE_PACK } from "./contract-packs";
 import type { WorkspaceMessageBodies } from "./workspace-messages";
 import type { MigrationMessageBodies } from "./migration-messages";
-import { messageViolations, type Violation } from "./schema";
+import { check, messageViolations, type Violation } from "./schema";
 import { parseStrictJson, StrictJsonError } from "./strict-json";
 
 export type B64u = string;
@@ -45,7 +45,7 @@ export const DEVICE_MESSAGE_TYPES = [
 ] as const;
 export type DeviceMessageType = (typeof DEVICE_MESSAGE_TYPES)[number];
 
-export const DEVICE_TOOLS = ["terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "send_file"] as const;
+export const DEVICE_TOOLS = ["terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "send_file", "mac_source"] as const;
 export type DeviceTool = (typeof DEVICE_TOOLS)[number];
 
 /** Frozen timings (S1 build plan §3.3). */
@@ -65,7 +65,20 @@ export interface Envelope<T extends DeviceMessageType = DeviceMessageType, B = u
   sig: B64u;
 }
 
+export type MacSourceState = "ready" | "needs_permission" | "off";
+export interface MacSourceStatus { messages: MacSourceState; browser: MacSourceState; location: MacSourceState; folders: MacSourceState }
+
+/** Advisory only; never grants authority. Invalid fields are ignored as one unit. */
+export function helloSourceStatus(hello: unknown): MacSourceStatus | undefined {
+  if (!isObject(hello) || hello.sourceProtocol !== 1) { return undefined; }
+  const errors: Violation[] = [];
+  check({ ref: "mac_source_status" }, hello.sources, "$.sources", DEVICE_SERVICE_1_2_PACK.types, errors);
+  return errors.length ? undefined : { ...(hello.sources as unknown as MacSourceStatus) };
+}
+
 export interface Hello {
+  sourceProtocol?: 1;
+  sources?: MacSourceStatus;
   workspaceProtocol?: 1;
   deviceServiceId: Uuid;
   enrollmentEpoch: number;
@@ -80,7 +93,7 @@ export interface Hello {
 }
 export interface Challenge { connectionId: Uuid; challenge: B64u; helloHash: B64u; issuedAt: Ms }
 export interface Proof { connectionId: Uuid; challenge: B64u; helloHash: B64u }
-export interface Ready { workspaceProtocol?: 1; connectionId: Uuid; connectionEpoch: number; heartbeatMs: 5000; serverTime: Ms }
+export interface Ready { sourceProtocol?: 1; workspaceProtocol?: 1; connectionId: Uuid; connectionEpoch: number; heartbeatMs: 5000; serverTime: Ms }
 
 export interface TurnGrant {
   grantId: Uuid;
@@ -222,8 +235,22 @@ export function frameViolations(value: unknown): Violation[] {
   const relay = value.type.startsWith("ChatGptRelay");
   const extension = value.type.startsWith("Workspace") || ((value.type === "Hello" || value.type === "Ready")
     && isObject(value.body) && value.body.workspaceProtocol !== undefined);
-  return messageViolations(relay ? CHATGPT_RELAY_PACK : extension ? DEVICE_WORKSPACE_PACK : DEVICE_SERVICE_PACK,
-    `frame.${value.type}`, value);
+  const source = (value.type === "Hello" || value.type === "Ready") && isObject(value.body)
+    && ("sourceProtocol" in value.body || "sources" in value.body)
+    || value.type === "Execute" && isObject(value.body) && value.body.tool === "mac_source";
+  // Validate the core independently of advisory Hello data. Never mutate the signed frame:
+  // the receiver must authenticate/hash the original bytes before interpreting the extension.
+  let validationValue = value;
+  if (value.type === "Hello" && source && isObject(value.body)) {
+    const { sourceProtocol: _protocol, sources: _sources, ...core } = value.body;
+    validationValue = { ...value, body: core };
+  }
+  const violations = messageViolations(source ? DEVICE_SERVICE_1_2_PACK : relay ? CHATGPT_RELAY_PACK : extension ? DEVICE_WORKSPACE_PACK : DEVICE_SERVICE_PACK,
+    `frame.${value.type}`, validationValue);
+  if (value.type === "Execute" && source && isObject(value.body)) {
+    check({ ref: "mac_source_args" }, value.body.args, "$.body.args", DEVICE_SERVICE_1_2_PACK.types, violations);
+  }
+  return violations;
 }
 
 /** Every violation of `value` as the device-service pack's message `name` (routes, cases, vectors). */

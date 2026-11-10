@@ -1,0 +1,59 @@
+{
+  "name": "enroll-matrix-device-taken",
+  "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+  "activeControllerKeys": [
+    "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+  ],
+  "stored": null,
+  "otherActive": [
+    {
+      "deviceServiceId": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+      "matrixDeviceId": "MACBOOKQ7ZK",
+      "identityKeyId": "-2ZF-9xNLGL0VzAKcVbtRISCi2pzV65u-Ul6qt4NJ_o",
+      "approvalKeyId": "kifZjBUptbPr6-ppkM8oKA34jU8jCgaAs1iBpzlHI-o"
+    }
+  ],
+  "request": {
+    "body": {
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "osVersion": "26.6.2",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzQA1jzcQW-YCPTcj-Z8_Jl0nUInMgICzWUqAudHJQ70kwSRyJu8CrB760jBeO10g_h2M4NNBV3kr-Km2RkhBtQ",
+      "matrix": {
+        "userId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+        "deviceId": "MACBOOKQ7ZK",
+        "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+      },
+      "enrollmentEpoch": 1,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "controllerKeys": [
+        "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+      ],
+      "issuedAt": 1791014400000
+    },
+    "sigs": {
+      "identity": "UTqrEF0UJ79WZ6Ae2UDSkEKIdn70vRwpzIa8YADtobm9rM0daKKp_w9-oHgyK86B_U0L8dT3iyAbWPZoh26aLg",
+      "approval": "WHd3m6Ng9WPBMUQkJ1dHwCqW2Jeyij4epaJey3EE_s_9lNE-BRQY0556h9XMSC0dsvPV5z-pAKExAQbFNHgeDQ"
+    }
+  },
+  "facts": {
+    "identityValid": true,
+    "approvalValid": true,
+    "previousApprovalValid": false,
+    "one": 1,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "status": "409",
+    "reason": "enrollment_conflict"
+  }
+}

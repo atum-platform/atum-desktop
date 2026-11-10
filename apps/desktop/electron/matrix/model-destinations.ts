@@ -49,6 +49,8 @@ export const MATRIX_MODEL_DESTINATIONS_REFRESH_MS = 60_000
 /** A destination choice is not on a person's critical path: a failure leaves the row where it was. */
 const MATRIX_MODEL_DESTINATIONS_TIMEOUT_MS = 15_000
 const MAX_RESPONSE_BYTES = 256 * 1024
+/** Keep the managed Mac gate closed independently of the expanding cloud shelf. */
+const MAC_MANAGED_MODELS: readonly MatrixModelId[] = ['nguyet-thuc', 'nhat-thuc']
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u
 const SHA256 = /^[a-f0-9]{64}$/u
@@ -487,7 +489,7 @@ export function matrixModelDestinationWrite(
   if (
     !destinationId(destination) ||
     (!MATRIX_MODELS.some(each => each === model) && !shelf) ||
-    (shelf && destination !== 'cloud')
+    (destination !== 'cloud' && !MAC_MANAGED_MODELS.some(each => each === model))
   ) {
     return undefined
   }
@@ -571,13 +573,16 @@ export function matrixModelDestinationsView(
   ): { model: MatrixModelId; shelf?: MatrixShelfModelId; external?: MatrixModelDestinationView['external'] } => {
     const choice = snapshot.choices.find(each => each.destination === destination)
     const chosen = choice ? matrixCloudModelAlias(choice.model) : undefined
+    const mac = destination !== 'cloud'
+    const allowed = chosen && (!mac || MAC_MANAGED_MODELS.includes(chosen)) ? chosen : undefined
+    const fallback = !mac || MAC_MANAGED_MODELS.includes(recommended) ? recommended : MATRIX_DEFAULT_MODEL
 
     // The cloud's saved OpenRouter shelf model is named as itself, never as the Atum fallback.
     const shelf =
       destination === 'cloud' && choice?.source === 'atum' ? parseMatrixShelfModel(choice.model) : undefined
 
     return {
-      model: chosen ?? recommended,
+      model: allowed ?? fallback,
       ...(shelf ? { shelf } : {}),
       ...(choice && choice.source !== 'atum'
         ? {
@@ -624,7 +629,7 @@ export function matrixModelDestinationsView(
       current: reference.model,
       ...(reference.external ? { external: reference.external } : {}),
       recommended: reference.model === recommended,
-      models: [...MATRIX_MODELS],
+      models: [...MAC_MANAGED_MODELS],
       unavailable: []
     }
   })

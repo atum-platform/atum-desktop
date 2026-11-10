@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "type": "Approve",
+  "body": {
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "accountEpoch": 7,
+    "commandHash": "aTlv3EnjlImgqsmcyqMljZOo3GiGDU0-JMeJTW3sJT8",
+    "capability": "ssh_agent",
+    "target": "ssh -T git@github.com",
+    "createdAt": 1791100800000,
+    "expiresAt": 1791100860001,
+    "nonce": "VC-SiIB6lIk-koNxySmJQA"
+  },
+  "kid": "T9UfgAYiILq7nfB8dC1810vqnCVv2rzsr5U5G40TeiQ",
+  "sig": "9s345I2NHfh1gkKwDq6mNYv0lXzE7TBseky1xTJH1TsefxuWM5B5y-b__rux0AQK74wQJoDuKao6uzy679pEHw"
+}

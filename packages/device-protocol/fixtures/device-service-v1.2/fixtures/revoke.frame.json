@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "type": "Revoke",
+  "body": {
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "revokeSeq": 5
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "21kVVVFhCeSEQmhhalVxZE16xJstaSJFqNQe9ylpEWJT12XNrqlIX-Yexql6Rf6mQNnZQLzXd2UWLkklin6FAQ"
+}

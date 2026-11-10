@@ -1037,6 +1037,7 @@ function fixture(
   })
 
   let firstRunSources = {
+    macs: [],
     gates: { google: false, folders: false, messages: false, browser: false, location: false, team_spaces: false },
     sources: [
       { kind: 'google.mail', optOutGate: 'google', availability: 'unavailable' as const, status: 'ready' as const, grantable: true },
@@ -3195,7 +3196,11 @@ describe('isolated Matrix composition', () => {
       return found!
     })
 
-    expect(card.textContent).not.toMatch(LOCATION)
+    // U1: the one read-only "Lives on" row every card shows says it; nothing else on the card does.
+    const outsidePlace = card.cloneNode(true) as HTMLElement
+    outsidePlace.querySelectorAll('[data-assistant-card-place], [data-assistant-card-home]').forEach(row => row.remove())
+    expect(outsidePlace.textContent).not.toMatch(LOCATION)
+    expect(card.querySelector('[data-assistant-card-answer-where], [data-agent-move]')).toBeNull()
     // Canonical assistant photos are owner-authenticated platform state, so editing one does
     // not require the cloud agent to expose a live Matrix profile host on this Mac.
     expect(card.querySelector('[data-assistant-card-avatar]')).not.toBeNull()
@@ -5856,6 +5861,7 @@ describe('isolated Matrix composition', () => {
     }
     const agentSources = {
       read: vi.fn(async () => ({
+        macs: [],
         gates: sourceGates,
         sources: [
           ['google.mail', 'google'],
@@ -5933,7 +5939,9 @@ describe('isolated Matrix composition', () => {
       ]
     })
     await waitFor(() => expect(within(sourceControls).getAllByRole('switch')).toHaveLength(6))
-    expect(agentSources.read).toHaveBeenCalledTimes(reads)
+    // At most the composer's one-time Mac sources check (once per account in this window); the
+    // switches themselves are not re-read.
+    expect(agentSources.read.mock.calls.length - reads).toBeLessThanOrEqual(1)
     expect(within(knowledge).queryByText(/this assistant/i)).toBeNull()
 
     // Each setting is a row in the section it belongs to, never a loose paragraph.

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "collecting",
+      "to": "committing",
+      "event": "chosen"
+    }
+  ]
+}

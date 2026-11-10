@@ -1,0 +1,54 @@
+{
+  "name": "revoke-other-epoch-ignored",
+  "device": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+    "connectionEpoch": 12,
+    "signedIn": true,
+    "paused": false,
+    "localScopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "cloudAgents": [
+      "@agent-5e6f7a8b9c0d1e2f3a4b:atumplatform.com"
+    ],
+    "pinnedControllerKeys": [
+      "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+        "publicKey": "MCowBQYDK2VwAyEAnrQg2n17oVay5fm66qtS9evHUu664MYQ6tZNNndIgIY"
+      }
+    ],
+    "receivedAt": 1791100802000
+  },
+  "lastRevokeSeq": 4,
+  "revoke": {
+    "v": 1,
+    "type": "Revoke",
+    "body": {
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "enrollmentEpoch": 2,
+      "revokeSeq": 9
+    },
+    "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+    "sig": "83Kt7xJdxVtsrGsNY_k4G2KV4d_2wX6UcM8qOarcHutndNDTUwLSRW1U725DLKJGivir8EX8cwZ47tYnygl7Ag"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "ignored",
+    "reason": "other_epoch"
+  }
+}

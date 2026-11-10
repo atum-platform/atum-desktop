@@ -1,0 +1,31 @@
+{
+  "v": 1,
+  "type": "Hello",
+  "body": {
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "bootId": "4E1B6C2D-8A9F-4E3B-B7C5-1D2E3F4A5B6C",
+    "connectionNonce": "jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM",
+    "policyVersion": 1,
+    "appVersion": "0.18.0",
+    "matrixDeviceId": "MACBOOKQ7ZK",
+    "capabilities": {
+      "terminal": true,
+      "files": true,
+      "computer": {
+        "available": true
+      }
+    },
+    "sentAt": 1791100795000,
+    "sourceProtocol": 1,
+    "sources": {
+      "messages": "ready",
+      "browser": "ready",
+      "location": "ready",
+      "folders": "ready"
+    }
+  },
+  "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+  "sig": "97OEEEyh4w2QCftNueoF1XcwPHC5U8Wd7ydG8ZCqoN_ueqR2jLcukYNifQuRFNIowDiknXYyTTEjiGIu-idksg"
+}

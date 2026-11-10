@@ -703,8 +703,16 @@ it('never says Matrix, Hermes or bot', async () => {
   expect(text).not.toMatch(/Matrix|Hermes|\bbot\b|MB/i)
 })
 
-describe('where an assistant answers is never said (0.19.4 Q4)', () => {
+describe('where an assistant answers is said once, in its read-only place row (U1 supersedes 0.19.4 Q4)', () => {
   const LOCATION = /đám mây|Mac này|Trả lời trên/i
+
+  /** Everything on the card except the one "Nơi ở" row every card shows (U1 parity). */
+  function outsidePlaceRow(card: Element): string {
+    const copy = card.cloneNode(true) as Element
+    copy.querySelectorAll('[data-assistant-card-place], [data-assistant-card-home]').forEach(row => row.remove())
+
+    return copy.textContent ?? ''
+  }
 
   function openWith(agents: MatrixAgentView[], principal: string) {
     const base = { ...snapshot(), agents }
@@ -720,7 +728,10 @@ describe('where an assistant answers is never said (0.19.4 Q4)', () => {
     await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
     const card = window.document.querySelector<HTMLElement>('[data-assistant-card]')!
 
-    expect(card.textContent).not.toMatch(LOCATION)
+    // The read-only row says where it lives and nothing on the card offers to move it.
+    expect(card.querySelector('[data-assistant-card-place]')?.textContent).toContain('Đám mây')
+    expect(card.querySelector('[data-agent-move], [data-assistant-card-answer-where]')).toBeNull()
+    expect(outsidePlaceRow(card)).not.toMatch(LOCATION)
     // Canonical photos do not need the cloud agent's host; setup, move and Advanced stay absent.
     expect(card.querySelector('[data-assistant-card-avatar]')).toBeTruthy()
     expect(card.querySelector('[data-assistant-card-setup]')).toBeNull()
@@ -738,7 +749,7 @@ describe('where an assistant answers is never said (0.19.4 Q4)', () => {
     fireEvent.keyDown(field, { key: 'Enter' })
     await waitFor(() => expect(assistants.save).toHaveBeenCalledOnce())
     expect(await screen.findByText('Đã đổi tên')).toBeTruthy()
-    const text = window.document.querySelector('[data-assistant-card]')!.textContent
+    const text = outsidePlaceRow(window.document.querySelector('[data-assistant-card]')!)
 
     expect(text).not.toMatch(/trực tuyến/)
     expect(text).not.toMatch(LOCATION)
@@ -1074,27 +1085,49 @@ describe('the failover policy on the card', () => {
     expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
   })
 
-  it('keeps the legacy priority control when no authoritative home exists', async () => {
+  it('shows the read-only place row, never the legacy execution-order editor, without an authoritative home', async () => {
     const base = snapshot()
     const policy = policyView()
     const read = vi.fn(async () => policy)
-    base.agents = base.agents?.map(each => (each.principal === LAN ? { ...each, executionPolicy: policy } : each))
+    base.agents = base.agents?.map(each =>
+      each.principal === LAN ? { ...each, answering: 'cloud' as const, executionPolicy: policy } : each
+    )
+    const sourcesRead = vi.fn(async () => ({
+      gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
+      sources: [],
+      macs: [
+        { id: 'air', name: 'MacBook Air', thisMac: true, state: 'needs_permission' as const },
+        { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' as const }
+      ]
+    }))
     window.atumMatrix = {
       assistants,
       command: vi.fn().mockResolvedValue(null),
-      executionPolicy: { read, save: vi.fn() } as unknown as MatrixExecutionPolicyBridge
+      executionPolicy: { read, save: vi.fn() } as unknown as MatrixExecutionPolicyBridge,
+      agentSources: { read: sourcesRead, set: vi.fn() }
     } as unknown as MatrixUiBridge
 
     render(<Window base={base} />)
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 
-    const row = window.document.querySelector<HTMLElement>('[data-assistant-card-answer-where]')
-    expect(row).toBeTruthy()
-    expect(screen.getByText('Nơi trả lời')).toBeTruthy()
-    fireEvent.click(row!)
-    expect(await screen.findByRole('heading', { name: 'Nơi trợ lý này trả lời' })).toBeTruthy()
-    expect(read).toHaveBeenCalledWith(LAN)
+    expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
+    const row = window.document.querySelector<HTMLElement>('[data-assistant-card-place]')!
+    expect(row.textContent).toContain('Đám mây')
+    fireEvent.click(row)
+
+    // The popover: where it lives, then the Macs it can use; the one needing a fix opens Connections.
+    const popover = await waitFor(() => {
+      const found = window.document.querySelector<HTMLElement>('[data-agent-home-popover] [data-agent-home-can-use]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+    expect(popover.textContent).toContain('Dùng được')
+    expect(popover.querySelector('button[data-agent-home-can-use-mac="needs_permission"]')?.textContent).toContain('Cần cấp quyền')
+    expect(popover.querySelector('button[data-agent-home-can-use-mac="ready"]')).toBeNull()
+    expect(popover.querySelector('[data-agent-home-can-use-mac="ready"]')?.textContent).toContain('Sẵn sàng')
+    expect(read).not.toHaveBeenCalled()
   })
 
   it('shows only D1 home when an authoritative home and a legacy policy coexist', async () => {

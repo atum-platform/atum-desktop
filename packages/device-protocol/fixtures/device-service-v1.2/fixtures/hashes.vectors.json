@@ -1,0 +1,103 @@
+{
+  "vectors": [
+    {
+      "name": "helloHash",
+      "kind": "message",
+      "type": "Hello",
+      "body": {
+        "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+        "enrollmentEpoch": 3,
+        "accountEpoch": 7,
+        "bootId": "4E1B6C2D-8A9F-4E3B-B7C5-1D2E3F4A5B6C",
+        "connectionNonce": "jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM",
+        "policyVersion": 1,
+        "appVersion": "0.18.0",
+        "matrixDeviceId": "MACBOOKQ7ZK",
+        "capabilities": {
+          "terminal": true,
+          "files": true,
+          "computer": {
+            "available": true
+          }
+        },
+        "sentAt": 1791100795000
+      },
+      "signedBytesUtf8": "atum.device-service.v1\u0000Hello\u0000{\"accountEpoch\":7,\"appVersion\":\"0.18.0\",\"bootId\":\"4E1B6C2D-8A9F-4E3B-B7C5-1D2E3F4A5B6C\",\"capabilities\":{\"computer\":{\"available\":true},\"files\":true,\"terminal\":true},\"connectionNonce\":\"jfzLt33daex81wzQBXpqc6bu_zQKde5mAcrIu6xTefM\",\"deviceServiceId\":\"b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c\",\"enrollmentEpoch\":3,\"matrixDeviceId\":\"MACBOOKQ7ZK\",\"policyVersion\":1,\"sentAt\":1791100795000}",
+      "hash": "jVWdC87dNGo7gI_g2DkwLp5gp8LTurXvYIPe7So89Lk"
+    },
+    {
+      "name": "commandHash",
+      "kind": "message",
+      "type": "Execute",
+      "body": {
+        "commandId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+        "seq": 5,
+        "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+        "connectionEpoch": 12,
+        "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+        "enrollmentEpoch": 3,
+        "accountEpoch": 7,
+        "tool": "terminal",
+        "toolVersion": 1,
+        "args": {
+          "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+          "timeout": 60
+        },
+        "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+        "inputManifestHash": null,
+        "needs": [],
+        "proposedEffect": "ordinary",
+        "admitBy": 1791100816000,
+        "timeoutMs": 120000,
+        "issuedAt": 1791100801000
+      },
+      "signedBytesUtf8": "atum.device-service.v1\u0000Execute\u0000{\"accountEpoch\":7,\"admitBy\":1791100816000,\"args\":{\"command\":\"mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt\",\"timeout\":60},\"argsHash\":\"DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA\",\"commandId\":\"0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d\",\"connectionEpoch\":12,\"connectionId\":\"d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e\",\"deviceServiceId\":\"b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c\",\"enrollmentEpoch\":3,\"grantId\":\"e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f\",\"inputManifestHash\":null,\"issuedAt\":1791100801000,\"needs\":[],\"proposedEffect\":\"ordinary\",\"seq\":5,\"timeoutMs\":120000,\"tool\":\"terminal\",\"toolVersion\":1}",
+      "hash": "aTlv3EnjlImgqsmcyqMljZOo3GiGDU0-JMeJTW3sJT8"
+    },
+    {
+      "name": "approvalHash",
+      "kind": "message",
+      "type": "Approve",
+      "body": {
+        "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+        "accountEpoch": 7,
+        "commandHash": "aTlv3EnjlImgqsmcyqMljZOo3GiGDU0-JMeJTW3sJT8",
+        "capability": "ssh_agent",
+        "target": "ssh -T git@github.com",
+        "createdAt": 1791100803000,
+        "expiresAt": 1791100863000,
+        "nonce": "LBV18d6_cVDb4Dy0RuIh4A"
+      },
+      "signedBytesUtf8": "atum.device-service.v1\u0000Approve\u0000{\"accountEpoch\":7,\"capability\":\"ssh_agent\",\"commandHash\":\"aTlv3EnjlImgqsmcyqMljZOo3GiGDU0-JMeJTW3sJT8\",\"createdAt\":1791100803000,\"deviceServiceId\":\"b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c\",\"expiresAt\":1791100863000,\"nonce\":\"LBV18d6_cVDb4Dy0RuIh4A\",\"target\":\"ssh -T git@github.com\"}",
+      "hash": "d8YQSZ515hGnDPykCZw0XUnWS2qfRtUo7VAZuSXLJLM"
+    },
+    {
+      "name": "identity key id",
+      "kind": "kid",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg",
+      "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y"
+    },
+    {
+      "name": "controller key id",
+      "kind": "kid",
+      "publicKey": "MCowBQYDK2VwAyEAnrQg2n17oVay5fm66qtS9evHUu664MYQ6tZNNndIgIY",
+      "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+    },
+    {
+      "name": "lease token hash",
+      "kind": "lease_token",
+      "leaseToken": "6d5c4b3a-2f1e-4d0c-9b8a-7f6e5d4c3b2a",
+      "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+    },
+    {
+      "name": "argsHash",
+      "kind": "args",
+      "args": {
+        "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+        "timeout": 60
+      },
+      "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA"
+    }
+  ]
+}

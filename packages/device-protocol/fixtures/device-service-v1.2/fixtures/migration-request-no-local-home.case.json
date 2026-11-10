@@ -1,0 +1,52 @@
+{
+  "name": "migration-request-no-local-home",
+  "device": {
+    "deviceServiceId": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 7,
+    "connectionId": "f1e2d3c4-b5a6-4978-8a6b-5c4d3e2f1a0b",
+    "pinnedControllerKeys": [
+      "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+        "publicKey": "MCowBQYDK2VwAyEAnrQg2n17oVay5fm66qtS9evHUu664MYQ6tZNNndIgIY"
+      }
+    ],
+    "localAgents": [
+      "@agent-0a1b2c3d4e5f6a7b8c9d:atumplatform.com"
+    ],
+    "receivedAt": 1791100926000
+  },
+  "request": {
+    "v": 1,
+    "type": "MigrationRequest",
+    "body": {
+      "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+      "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+      "agentUserId": "@agent-5e6f7a8b9c0d1e2f3a4b:atumplatform.com",
+      "initiatorDeviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "targetDeviceServiceId": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+      "enrollmentEpoch": 2,
+      "accountEpoch": 7,
+      "connectionId": "f1e2d3c4-b5a6-4978-8a6b-5c4d3e2f1a0b",
+      "issuedAt": 1791100925000,
+      "expiresAt": 1791101525000,
+      "holdUntil": 1791106321000
+    },
+    "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+    "sig": "A_ZIZVeTG1M3ink-sN1xVkZJawgf5VJ_b8c3tn9_wj5hsidnRrgm60nQU-HChGFz4ZFCdzc7aXtAcqVQgAoSDA"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "hasLocalHome": false,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "decline",
+    "reason": "no_local_home"
+  }
+}

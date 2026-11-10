@@ -256,6 +256,7 @@ import {
   composerPlusKinds,
   ComposerPlusMenu
 } from './composer-plus'
+import { $matrixConnectionsRequests } from './connections-request'
 import { ConversationMembership, MatrixMembers, MatrixMembersButton } from './conversation-controls'
 import { useConversationCopy } from './conversation-copy'
 import { conversationMainInstead, resolveProjectedConversation } from './conversation-marker'
@@ -330,6 +331,7 @@ import { matrixMessagePreviewLink } from './link-previews'
 import { matrixAgentTyping, type MatrixTranscriptEntry, matrixTurnStatus, mergeLocalTurns } from './local-turns'
 import { ChatLookPicker } from './look/look-picker'
 import { resolveConversationLook } from './look/resolve-look'
+import { MatrixMacSourcesNotice } from './mac-sources-notice'
 import { MainAgentBadge } from './main-agent-badge'
 import { MATRIX_MARKDOWN_HOST } from './markdown-host'
 import {
@@ -5745,6 +5747,11 @@ function Conversation({
               {defaultAssistantChat && snapshot.firstRunWelcome === 'dismissed' && !firstRunSkippedHere && (
                 <MatrixGoogleConnectNudge access={snapshot.googleAssistant} scope={snapshot.identity?.userId} />
               )}
+              {/* Cloud assistants read this Mac's sources: said once, above the box, never in the way.
+                The first-run card says it for a new account. */}
+              {room.assistant && !firstRunHere && snapshot.identity && (
+                <MatrixMacSourcesNotice scope={`${snapshot.identity.userId}:${snapshot.identity.deviceId}`} />
+              )}
               <MatrixComposer
                 assistantName={assistantName}
                 bind={setComposer}
@@ -7499,6 +7506,16 @@ function MatrixAccountView({
   // side trip) on the next sync after either was opened over the Store or an app.
   const destinationRequests = useStore($matrixDestinationRequests)
   const seenDestinationRequests = useRef(destinationRequests)
+  // "Settings" on the Mac sources band, or a "Can use" row with something to fix.
+  const connectionsRequests = useStore($matrixConnectionsRequests)
+  const seenConnectionsRequests = useRef(connectionsRequests)
+  useEffect(() => {
+    if (connectionsRequests !== seenConnectionsRequests.current) {
+      seenConnectionsRequests.current = connectionsRequests
+      setSettingsPane('connections')
+      setSettingsOpen(true)
+    }
+  }, [connectionsRequests])
   useEffect(() => {
     if (destinationRequests !== seenDestinationRequests.current) {
       seenDestinationRequests.current = destinationRequests

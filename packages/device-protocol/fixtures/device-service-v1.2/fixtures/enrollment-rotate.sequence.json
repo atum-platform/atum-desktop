@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "absent",
+      "to": "active",
+      "event": "enroll"
+    },
+    {
+      "from": "active",
+      "to": "active",
+      "event": "rotate"
+    },
+    {
+      "from": "active",
+      "to": "revoked",
+      "event": "revoke"
+    }
+  ]
+}

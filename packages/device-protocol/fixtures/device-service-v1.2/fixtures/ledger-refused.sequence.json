@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "not_started",
+      "to": "refused",
+      "event": "admission_refused"
+    }
+  ]
+}

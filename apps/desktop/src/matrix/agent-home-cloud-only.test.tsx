@@ -12,6 +12,7 @@ import {
 import { parseExecutionPolicySnapshot } from '../../shared/execution-policy'
 import savedPolicyFixture from '../../shared/execution-policy/fixtures/execution-policy/v1/fixtures/policy-saved.response.json'
 import type { MatrixAgentHomeBridge, MatrixAgentHomeView } from '../../shared/matrix'
+import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 
 import { MatrixAgentHomeRow } from './agent-home-control'
 import { MatrixExecutionPolicyEditor } from './execution-policy-editor'
@@ -197,5 +198,68 @@ describe('cloud-only S0, the legacy priority list (F1)', () => {
     expect(cloudOnlyLocksSwitch('cloud', true)).toBe(true)
     expect(cloudOnlyLocksSwitch('cloud', false)).toBe(false)
     expect(cloudOnlyLocksSwitch('mac', false, false)).toBe(false)
+  })
+})
+
+describe('cloud-only U1: the home popover lists the Macs it can use, read-only', () => {
+  function openWithMacs(macs: MatrixReachMac[]) {
+    const sources = {
+      read: vi.fn(async () => ({
+        gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
+        sources: [],
+        macs
+      })),
+      set: vi.fn()
+    }
+    const bridge = { read: vi.fn(async () => view('cloud')) } as unknown as MatrixAgentHomeBridge
+
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixAgentHomeRow agentPrincipal={AGENT} bridge={bridge} sources={sources} view={view('cloud')} />
+      </I18nProvider>
+    )
+    fireEvent.click(document.querySelector('[data-assistant-card-home]')!)
+
+    return { sources }
+  }
+
+  it('reads the Macs only when opened; a Mac with something to fix is a link, a ready one plain text', async () => {
+    const { sources } = openWithMacs([
+      { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' },
+      { id: 'air', name: 'MacBook Air', thisMac: true, state: 'needs_permission' },
+      { id: 'imac', name: 'iMac', thisMac: false, state: 'older' }
+    ])
+    const shown = await popover()
+    const list = await waitFor(() => {
+      const found = shown.querySelector<HTMLElement>('[data-agent-home-can-use]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(sources.read).toHaveBeenCalledOnce()
+    expect(list.textContent).toContain('Can use')
+    const rows = [...list.querySelectorAll<HTMLElement>('[data-agent-home-can-use-mac]')]
+    // This Mac first, then the others by name.
+    expect(rows.map(row => row.textContent)).toEqual([
+      expect.stringContaining('MacBook AirThis Mac'),
+      expect.stringContaining('iMac'),
+      expect.stringContaining('Mac mini')
+    ])
+    expect(rows[0]!.tagName).toBe('BUTTON')
+    expect(rows[0]!.textContent).toContain('Needs permission')
+    expect(rows[1]!.textContent).toContain('Older version')
+    expect(rows[2]!.tagName).toBe('DIV')
+    expect(rows[2]!.textContent).toContain('Ready')
+    // Read-only: nothing here moves the assistant or changes a switch.
+    expect(within(shown).queryByRole('switch')).toBeNull()
+    expect(sources.set).not.toHaveBeenCalled()
+  })
+
+  it('says No Mac yet when the account has no Mac', async () => {
+    openWithMacs([])
+    const shown = await popover()
+
+    await waitFor(() => expect(shown.querySelector('[data-agent-home-no-mac]')?.textContent).toBe('No Mac yet'))
   })
 })

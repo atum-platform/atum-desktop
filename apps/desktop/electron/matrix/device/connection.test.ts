@@ -135,9 +135,11 @@ describe('migration on the authenticated device connection', () => {
     await h.handshake(socket)
     const session = h.connection.session()!
     const migrationId = randomUUID()
+
     const body = { migrationId, agentPrincipal: randomUUID(), deviceServiceId: session.deviceServiceId,
       enrollmentEpoch: session.enrollmentEpoch, accountEpoch: session.accountEpoch,
       connectionId: session.connectionId, reason: 'owner_cancelled' }
+
     expect(await h.connection.send('MigrationCancel', body)).toBe(true)
     const sent = socket.last('MigrationCancel')!
     expect(verifyDeviceSignature(h.signer.identity.public.spki, deviceSignedBytes(sent.type, sent.body), sent.sig)).toBe(true)
@@ -1279,4 +1281,76 @@ describe('a Secure Enclave failure keeps its cause (device_key_failed, 10-12→1
     await h.handshake(h.sockets[1]!)
     expect(h.connection.state()).toBe('status_exchanged')
   })
+})
+
+it('refreshes source status after permission/gate changes, without a capability change', async () => {
+  const sources: NonNullable<DeviceHelloFacts['sources']> = { messages: 'off', browser: 'off', location: 'off', folders: 'off' }
+
+  const h = harness({ hello: () => ({ sourceProtocol: 1, sources: { ...sources }, policyVersion: 1,
+    appVersion: '0.20.44', capabilities: { terminal: true, files: true, computer: { available: true } } }) })
+
+  h.connection.start()
+  await h.handshake(h.sockets[0]!)
+
+  for (const state of ['needs_permission', 'ready', 'off'] as const) {
+    sources.messages = state
+    h.connection.start()
+    await settle()
+    const socket = h.sockets.at(-1)!
+    const { hello } = await h.handshake(socket)
+    expect(hello.body.sources).toMatchObject({ messages: state })
+  }
+
+  const count = h.sockets.length
+  h.connection.start()
+  await settle()
+  expect(h.sockets).toHaveLength(count)
+  h.connection.stop('stop')
+})
+
+it.each([1006, 1011, 4401, 4403, undefined])('keeps Hello extensions after a non-schema close %s', async code => {
+  const sources = { messages: 'off', browser: 'off', location: 'off', folders: 'off' } as const
+
+  const h = harness({ hello: () => ({ sourceProtocol: 1, sources, workspaceProtocol: 1, policyVersion: 1,
+    appVersion: '0.20.44', capabilities: { terminal: true, files: true, computer: { available: true } } }) })
+
+  h.connection.start(); h.sockets[0]!.open(); await settle()
+  h.sockets[0]!.onclose?.({ code }); h.advance(1000); await settle()
+  const socket = h.sockets.at(-1)!; socket.open(); await settle()
+  expect(socket.last('Hello')!.body).toMatchObject({ sourceProtocol: 1, workspaceProtocol: 1, sources })
+  h.connection.stop()
+})
+
+it('drops sources first on 4400, then workspace, and reprobes when facts change or the fallback expires', async () => {
+  let appVersion = '0.20.44'
+  const sources = { messages: 'off', browser: 'off', location: 'off', folders: 'off' } as const
+
+  const h = harness({ hello: () => ({ sourceProtocol: 1, sources, workspaceProtocol: 1, policyVersion: 1,
+    appVersion, capabilities: { terminal: true, files: true, computer: { available: true } } }) })
+
+  h.connection.start(); h.sockets[0]!.open(); await settle()
+
+  async function reject() {
+    h.sockets.at(-1)!.onclose?.({ code: 4400 })
+    const retry = h.due().find(t => t.ms >= 1000 && t.ms <= 30_000)!
+    h.advance(retry.ms); await settle()
+    const socket = h.sockets.at(-1)!; socket.open(); await settle()
+
+    return socket.last('Hello')!.body
+  }
+
+  const first = await reject()
+  expect(first.sourceProtocol).toBeUndefined(); expect(first.sources).toBeUndefined()
+  expect(first.workspaceProtocol).toBe(1)
+  const second = await reject()
+  expect(second.sourceProtocol).toBeUndefined(); expect(second.workspaceProtocol).toBeUndefined()
+  appVersion = '0.20.45'
+  h.connection.suspend(); h.connection.resume(); await settle()
+  h.sockets.at(-1)!.open(); await settle()
+  expect(h.sockets.at(-1)!.last('Hello')!.body).toMatchObject({ sourceProtocol: 1, workspaceProtocol: 1 })
+  await reject()
+  h.connection.suspend(); h.advance(300_001); h.connection.resume(); await settle()
+  h.sockets.at(-1)!.open(); await settle()
+  expect(h.sockets.at(-1)!.last('Hello')!.body).toMatchObject({ sourceProtocol: 1, workspaceProtocol: 1 })
+  h.connection.stop()
 })

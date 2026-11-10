@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "collecting",
+      "to": "reconciling",
+      "event": "initiator_and_other_staged"
+    },
+    {
+      "from": "reconciling",
+      "to": "abandoned",
+      "event": "expired"
+    }
+  ]
+}

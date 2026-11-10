@@ -30,6 +30,7 @@ import {
   projectMatrixKnowledgeSourceRows
 } from './knowledge-source-projection'
 import { MatrixKnowledgeSourceIcon } from './knowledge-sources-settings'
+import { useNoticePresented } from './notice-presented'
 import { SettingsTip } from './settings-row'
 
 type FirstRunAskBridge = Pick<
@@ -80,6 +81,15 @@ export function MatrixFirstRunConnectCard({
   const [folderView, setFolderView] = useState<MatrixFolderAccessView | null>(null)
   const [folderSelected, setFolderSelected] = useState<Set<string>>(new Set())
   const [foldersAsked, setFoldersAsked] = useState(false)
+  const card = useRef<HTMLElement | null>(null)
+
+  // For a new account this card is the disclosure (its line says the assistant reads from the
+  // cloud): a second on screen in a focused window counts as presented, never as accepted.
+  useNoticePresented(
+    view !== null && !dismissed && Boolean(bridge?.agentSources?.presented),
+    () => void bridge?.agentSources?.presented?.().catch(() => undefined),
+    card
+  )
 
   const rows = useMemo(() => (view ? projectMatrixKnowledgeSourceRows(view) : []), [view])
   const selectableRows = useMemo(() => rows.filter(row => row.switchable && !row.disabled && !row.checked), [rows])
@@ -502,6 +512,7 @@ export function MatrixFirstRunConnectCard({
     <section
       className="ak-ask w-full text-start"
       data-matrix-first-run-connect-card
+      ref={card}
       style={{ background: 'var(--ak-ground)', boxShadow: 'none', marginTop: 'var(--ak-s4)' }}
     >
         <div className="ak-ask-head">

@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "offered",
+      "to": "receiving",
+      "event": "send"
+    },
+    {
+      "from": "receiving",
+      "to": "staged",
+      "event": "verified"
+    },
+    {
+      "from": "staged",
+      "to": "receiving",
+      "event": "send"
+    }
+  ]
+}

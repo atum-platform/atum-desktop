@@ -30,3 +30,4 @@ export { validStopEvent } from './stop-target';
 export { parseStrictJson, StrictJsonError } from "./strict-json";
 export * from './workspace';
 export * from "./workspace-messages";
+export * from "./mac-sources";

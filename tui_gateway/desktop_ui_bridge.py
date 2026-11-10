@@ -31,7 +31,7 @@ _MAX_ANSWER_CHARS = 1_048_576
 _ADVISORY_MAX_ANSWER_CHARS = 6000
 _ADVISORY_TURN_REQUESTS = 4
 _ATUM_DEVICE_TOOLS = frozenset(
-    {"terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "device_send_file"}
+    {"terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "device_send_file", "atum_mac"}
 )
 
 

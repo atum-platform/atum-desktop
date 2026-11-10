@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "not_started",
+      "to": "failed_no_effect",
+      "event": "restart_before_spawn"
+    }
+  ]
+}

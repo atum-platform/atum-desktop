@@ -1,0 +1,11 @@
+{
+  "v": 1,
+  "type": "Cancel",
+  "body": {
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "commandId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    "reason": "turn_stopped"
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "JLvV-gSIcKxxw-2y8M5gHBqdX9A30mgvQOQzJqXPnCoU3UwRIaYiBFTJv3eA9hMMxcCKWHxSpJ1htY6j2A3qCA"
+}

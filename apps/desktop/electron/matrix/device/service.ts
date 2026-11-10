@@ -663,6 +663,7 @@ export interface DeviceIdentityFacts {
 }
 
 export interface DeviceServiceDeps {
+  macSource?(args: Record<string, unknown>, grant: DeviceGrant, signal: AbortSignal): Promise<string>
   connected?(): void
   relay?: Pick<ChatGptRelayHandler, 'handle' | 'disable'>
   workspace?: {
@@ -718,7 +719,7 @@ interface InflightCommand {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const B64U_SHA256 = /^[A-Za-z0-9_-]{43}$/
-const TOOLS: ReadonlySet<string> = new Set(['terminal', 'read_file', 'write_file', 'patch', 'search_files', 'computer_use', 'send_file'])
+const TOOLS: ReadonlySet<string> = new Set(['terminal', 'read_file', 'write_file', 'patch', 'search_files', 'computer_use', 'send_file', 'mac_source'])
 const CAPABILITIES: ReadonlySet<string> = new Set(['terminal', 'files', 'computer', 'send_file'])
 
 const PROTECTED: ReadonlySet<string> = new Set([
@@ -1737,7 +1738,17 @@ export class DeviceService {
     let artifacts: DeviceArtifact[] = []
 
     try {
-      for await (const step of this.deps.executor.run(
+      if (body.tool === 'mac_source') {
+        // Main-owned reader: still inside the existing admission/ledger/cancel envelope.
+        const output = this.deps.macSource
+          ? await this.deps.macSource(body.args, grant, controller.signal)
+          : JSON.stringify({ error: 'disabled' })
+
+        controller.signal.throwIfAborted()
+        state = 'completed'
+        result = { output }
+      } else {
+        for await (const step of this.deps.executor.run(
         {
           commandId: body.commandId,
           grantId: body.grantId,
@@ -1757,6 +1768,7 @@ export class DeviceService {
           result = step.result ?? {}
           artifacts = step.artifacts
         }
+        }
       }
     } catch {
       state = 'unknown'
@@ -1775,11 +1787,19 @@ export class DeviceService {
     }
 
     const terminal = state as 'completed' | 'failed_no_effect' | 'unknown'
+
+    if (body.tool === 'mac_source' && (controller.signal.aborted || terminal !== 'completed')) {
+      result = {}
+    }
+
     const ledgerArtifacts = artifacts.map(each => ({ name: each.name, size: each.size, sha256: each.sha256 }))
     let record: LedgerRecord | undefined
 
     try {
-      record = this.deps.ledger.finish(body.commandId, { state: terminal, result, artifacts: ledgerArtifacts, endedAt: this.now() })
+      // Persist completion for dedupe, but never retain source bytes for later Status/replay.
+      const persistedResult = body.tool === 'mac_source' ? {} : result
+
+      record = this.deps.ledger.finish(body.commandId, { state: terminal, result: persistedResult, artifacts: ledgerArtifacts, endedAt: this.now() })
     } catch {
       // The Receipt still tells the truth; after a crash the record reconciles to `unknown`.
       record = undefined
@@ -1807,6 +1827,10 @@ export class DeviceService {
             startedAt,
             endedAt: this.now()
           }
+
+      if (body.tool === 'mac_source' && terminal === 'completed' && !controller.signal.aborted) {
+        receipt.result = result
+      }
 
       await this.deps.send('Receipt', receipt).catch(() => false)
     } finally {

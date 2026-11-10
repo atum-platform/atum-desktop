@@ -3618,7 +3618,19 @@ export class MatrixAccount {
    * `send` gets the native bearer and the domain resource; one refresh after a 401
    * (`matrix_s1_authentication`), as for the store. A lost answer is never repeated here.
    */
-  async s1Request<T>(send: (accessToken: string, resource: string) => Promise<T>, signal: AbortSignal): Promise<T> {
+  async s1Request<T>(send: (accessToken: string, resource: string, requestSignal: AbortSignal) => Promise<T>, signal: AbortSignal): Promise<T> {
+    const deadline = AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+    deadline.throwIfAborted()
+    let aborted: (() => void) | undefined
+    try {
+      return await Promise.race([this.s1RequestWithin(send, deadline), new Promise<never>((_resolve, reject) => {
+        aborted = () => reject(deadline.reason)
+        deadline.addEventListener('abort', aborted, { once: true })
+      })])
+    } finally { if (aborted) {deadline.removeEventListener('abort', aborted)} }
+  }
+
+  private async s1RequestWithin<T>(send: (accessToken: string, resource: string, requestSignal: AbortSignal) => Promise<T>, signal: AbortSignal): Promise<T> {
     const owner = this.appScope()
 
     if (!owner || !this.config.domain) {
@@ -3639,7 +3651,9 @@ export class MatrixAccount {
     live()
 
     try {
-      return await send(grant.accessToken, this.config.domain.resource)
+      const result = await send(grant.accessToken, this.config.domain.resource, signal)
+      live()
+      return result
     } catch (error) {
       if (!(error instanceof Error) || error.message !== 'matrix_s1_authentication') {
         throw error
@@ -3650,7 +3664,9 @@ export class MatrixAccount {
       grant = current.accessToken === grant.accessToken ? await this.refreshDomain() : current
       live()
 
-      return send(grant.accessToken, this.config.domain.resource)
+      const result = await send(grant.accessToken, this.config.domain.resource, signal)
+      live()
+      return result
     }
   }
 

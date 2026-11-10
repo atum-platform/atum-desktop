@@ -1,0 +1,120 @@
+{
+  "name": "admitted for another device",
+  "device": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+    "connectionEpoch": 12,
+    "signedIn": true,
+    "paused": false,
+    "localScopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "cloudAgents": [
+      "@agent-5e6f7a8b9c0d1e2f3a4b:atumplatform.com"
+    ],
+    "pinnedControllerKeys": [
+      "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+    ],
+    "controllerKeys": [
+      {
+        "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+        "publicKey": "MCowBQYDK2VwAyEAnrQg2n17oVay5fm66qtS9evHUu664MYQ6tZNNndIgIY"
+      }
+    ],
+    "receivedAt": 1791100802000
+  },
+  "grant": {
+    "body": {
+      "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+      "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+      "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+      "agentUserId": "@agent-5e6f7a8b9c0d1e2f3a4b:atumplatform.com",
+      "invocationId": "f9e4a7b6-1ca5-4d4e-9a7f-6b8c0d2e4f5a",
+      "roomId": "!t4Hq9xZ2pL7mK1vN:atumplatform.com",
+      "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU",
+      "originKind": "device",
+      "originAssertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
+      "writerEpoch": {
+        "leaseGeneration": 41,
+        "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+      },
+      "targetDeviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer"
+      ],
+      "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+      "issuedAt": 1791100800000,
+      "expiresAt": 1791102600000
+    },
+    "status": "live",
+    "lastSeq": 4,
+    "effectiveScopes": [
+      "terminal",
+      "files",
+      "computer"
+    ],
+    "authorityUntil": 1791100815000
+  },
+  "seen": [],
+  "originLog": [
+    {
+      "assertionHash": "o4n7hY3cB0kT2xW9vR5mL8qJ1fD6sA3zE0pU7iK4gN2",
+      "roomId": "!t4Hq9xZ2pL7mK1vN:atumplatform.com",
+      "eventId": "$h7Kd2nQ9vL3pX8wR1tY6uZ0aB5cE4fG2iJ9kM3oP7sU"
+    }
+  ],
+  "standingGrants": [],
+  "execute": {
+    "v": 1,
+    "type": "Execute",
+    "body": {
+      "commandId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+      "seq": 5,
+      "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+      "connectionEpoch": 12,
+      "deviceServiceId": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "tool": "terminal",
+      "toolVersion": 1,
+      "args": {
+        "command": "mkdir -p ~/Desktop/s1-demo && date +%F > ~/Desktop/s1-demo/hello.txt",
+        "timeout": 60
+      },
+      "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+      "inputManifestHash": null,
+      "needs": [],
+      "proposedEffect": "ordinary",
+      "admitBy": 1791100816000,
+      "timeoutMs": 120000,
+      "issuedAt": 1791100801000
+    },
+    "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+    "sig": "sbrhnqnBAoaRP6yKNFEtCTJ53zqgrrfmSB-1_ZixtqNqC61KbFeZf48qElPDd7CloM1WxwphqynaqUWLNBrQDw"
+  },
+  "facts": {
+    "signatureValid": true,
+    "kidPinned": true,
+    "argsHash": "DDfgcwGnr7s6vWDrHVZdEaAYcbxuWOT3-H10zJbr0hA",
+    "commandHash": "mFYubdZOam6TdlGXxZdzkhg4Fl_F7F-fqaVG_tItSK0",
+    "commandIdSeen": false,
+    "originMatches": true,
+    "liveValue": "live",
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "admitted"
+  }
+}

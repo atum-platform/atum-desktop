@@ -18,6 +18,8 @@
  */
 import { randomUUID } from 'node:crypto'
 
+import type { FleetStatus } from '../../../../../packages/device-protocol/fleet-status'
+
 import type { DeviceCapability } from './contracts'
 import { DeviceKeyError, type DevicePublicKeys, deviceSignedBytes, type DeviceSigner } from './device-key'
 import type { DeviceStateStore } from './epochs'
@@ -34,7 +36,7 @@ export interface ControllerKeyRecord {
 }
 
 /** A registration as DA returns it (`device_service_record`). */
-export interface DeviceServiceRecord {
+export interface DeviceServiceRecord extends FleetStatus {
   deviceServiceId: string
   displayName: string
   platform: 'macos'

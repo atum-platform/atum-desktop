@@ -219,6 +219,7 @@ const bridge: MatrixUiBridge = {
   },
   agentSources: {
     read: () => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.read),
+    presented: () => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.presented),
     set: (gate, enabled) => ipcRenderer.invoke(MATRIX_AGENT_SOURCES_IPC.set, gate, enabled),
     subscribe: listener => {
       const receive = () => listener()

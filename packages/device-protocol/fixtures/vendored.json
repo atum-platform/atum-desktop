@@ -178,6 +178,20 @@
       "pinned_sha256": "80523208216dad1b9ea8878ab4aa8223aea4db2a4dbf8aa6f890c5ed57506a3f",
       "migration": "0336",
       "vendored": "full"
+    },
+    "device-service-v1.2": {
+      "version": "v1.2",
+      "pinned_sha256": "7425562c71f714853410e541ecb0fd84605e5b0b2c7b36e51556465428d5fc2e",
+      "vendored": "full",
+      "source": "atum-platform/spec/device-service/v1.2 (frozen; feat/device-service-1-2-contract)",
+      "source_commit": "c2823272990da577d6ce7d3b2c206fcdd9252021",
+      "source_path": "spec/device-service/v1.2"
+    },
+    "device-fleet": {
+      "version": "v1",
+      "pinned_sha256": "ef6736289406488978bc94c3b8e0031b11b284f4e0c87d769b1bf910524a949d",
+      "source_commit": "c2823272990da577d6ce7d3b2c206fcdd9252021",
+      "vendored": "full"
     }
   },
   "runtime_schema_modules": {

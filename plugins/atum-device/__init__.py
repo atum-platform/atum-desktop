@@ -37,7 +37,7 @@ from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-DEVICE_TOOLS = ("terminal", "read_file", "write_file", "patch", "search_files", "computer_use")
+DEVICE_TOOLS = ("terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "atum_mac")
 PROTECTED_CAPABILITIES = [
     "ssh_agent", "keychain", "browser_store", "cloud_cli", "persistence", "network_new_host", "sudo",
     "other_agent_write", "exec_downloaded", "bulk_destructive", "gui_upload",
@@ -126,6 +126,8 @@ def _request(tool: str, device: Optional[str], args: dict[str, Any], needs: Opti
         return {"status": "cloud", "message": "No device bridge here."}
     if raw == "":
         return {"status": "stopped", "message": "The device call ended without an answer."}
+    if tool == "atum_mac" and (not isinstance(raw, str) or len(raw.encode("utf-8")) > 100 * 1024):
+        return {"status": "unknown", "message": "The Mac source answer exceeded its bound."}
     try:
         answer = json.loads(raw)
     except (TypeError, ValueError):
@@ -189,6 +191,24 @@ def wrap(name: str, original: Callable[..., Any]) -> Callable[..., Any]:
     """The routed handler for one built-in tool."""
 
     def handler(args: dict[str, Any], **kwargs: Any) -> Any:
+        if name == "atum_mac":
+            from tools.atum_mac_tool import _handle_atum_mac
+
+            if not isinstance(args, dict):
+                return json.dumps({"error": "invalid"})
+            payload = dict(args)
+            device = payload.pop("device", None)
+            if device is not None and (not isinstance(device, str) or len(device) > 64):
+                return json.dumps({"error": "invalid"})
+            if _is_list(device):
+                return _list(name)
+
+            def transport(_event, request, timeout):
+                answer = _request(name, device, request, None, timeout)
+                # No cloud fallback: even errors pass through the native validator.
+                return _as_result(answer) if answer.get("status") == "ok" or isinstance(answer.get("result"), dict) else json.dumps({"error": "unavailable"})
+
+            return _handle_atum_mac(payload, transport=transport)
         args = dict(args or {})
         device = args.pop("device", None)
         if _is_list(device):
