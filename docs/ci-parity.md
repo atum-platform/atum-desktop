@@ -164,3 +164,8 @@ required full-history preflight reports these candidates. Coordinator must resol
 that guard limitation before publication, independently of the green local lanes.
 Desktop collection: 62 tests in 32 files. Temporary dependency/build footprint
 stayed below 2.5 GiB; Linux GUI execution remains unverified locally.
+
+Preflight correction: preserve the original exact reviewed checker/test blob pins.
+The range includes their installation commit, so replacing those pins would reject
+that historical commit before secret scanning. Encoding/BOM edits introduce no new
+identifier literals; their incremental identifier comparison needs no new exemption.
