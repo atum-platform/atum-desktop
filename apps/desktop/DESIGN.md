@@ -12,6 +12,8 @@ The renderer consumes the typed client contracts under `shared/`. Native service
 
 Keep the active conversation and composer stable across connection changes. Preserve unsent input and show a useful recovery action when a request cannot finish. Use the existing localization keys for all supported locales. Maintain keyboard focus, accessible names and predictable navigation.
 
+Every surface that chooses a model uses the one two-column picker: a rail of providers and a list of the selected provider's models only. Connections are made from the rail's connect item, never from rows in the list. Atum-funded models from other makers (the OpenRouter shelf, `shared/matrix-shelf-models.ts`) get their own rail entry and appear only while the platform's offer lists them as eligible for a cloud assistant. Each row shows its price in Protons, and one that costs more than Atum's own top model carries a label rather than a confirmation step.
+
 Agent presentation and local/cloud placement are distinct. Read execution policy and current lease state for placement; avoid inferring ownership or availability from a display label. Display names and avatar changes must not change the underlying participant identity.
 
 ## Verification

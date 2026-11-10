@@ -201,6 +201,7 @@
     "shared/matrix-answer-parts.ts",
     "shared/matrix-turn-intake.ts",
     "shared/matrix-models.ts",
+    "shared/matrix-shelf-models.ts",
     "shared/matrix-model-display-name.ts",
     "shared/matrix-subscriptions.ts",
     "shared/matrix-assistant-room.ts",

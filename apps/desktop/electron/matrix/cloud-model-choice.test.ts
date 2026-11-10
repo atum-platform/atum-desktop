@@ -93,6 +93,82 @@ describe('the cloud model-choice offer', () => {
     expect(
       matrixCloudModelWrite({ ...offer, models: offer.models.map(row => ({ ...row, eligible: false })) }, 'nhat-thuc')
     ).toBeNull()
+  })})
+
+/** An OpenRouter shelf row exactly as the platform's 1.1 snapshot carries it (0431 catalog values). */
+function shelfRow(alias: string, displayName: string, providerModel: string, cost: [string, string], ready: boolean) {
+  return {
+    alias,
+    displayName,
+    providerModel,
+    contextBudget: 128000,
+    outputBudget: 16384,
+    efforts: alias === 'glm' ? ['low', 'high'] : ['low', 'medium', 'high'],
+    defaultEffort: 'high',
+    cost: { currency: 'USD', inputPerMtok: cost[0], outputPerMtok: cost[1], maxTurnMicroProtons: 1 },
+    eligibility: ready ? { state: 'ready' } : { state: 'unavailable', reason: 'model_not_allowed' },
+    inputModalities: ['text'],
+    supportsTools: true
+  }
+}
+
+function shelfSnapshot(ready: boolean, current?: string) {
+  const base = snapshot(current ? { current } : {})
+
+  return {
+    ...base,
+    models: [
+      ...base.models,
+      shelfRow('opus', 'Anthropic: Claude Opus 5.5', 'anthropic/claude-opus-5.5', ['4', '20'], ready),
+      shelfRow('glm', 'Z.ai: GLM 5.3 Flash', 'z-ai/glm-5.3-flash', ['0.0335', '0.083'], ready)
+    ]
+  }
+}
+
+describe('the OpenRouter shelf in the offer', () => {
+  it('lists no shelf model while the platform keeps the rows inactive (prod after 0431)', () => {
+    const view = matrixCloudModelView(parseMatrixCloudModelOffer(shelfSnapshot(false), PRINCIPAL)!)
+
+    expect(view).toEqual({ offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' })
+    expect(view.shelf).toBeUndefined()
+  })
+
+  it('lists the active shelf models in the server’s order with their Proton prices, and never Atum’s own', () => {
+    const view = matrixCloudModelView(parseMatrixCloudModelOffer(shelfSnapshot(true), PRINCIPAL)!)
+
+    expect(view.offered).toEqual(['nguyet-thuc', 'nhat-thuc', 'opus', 'glm'])
+    expect(view.shelf?.map(each => [each.alias, each.name, each.inputProtonsPerMtok, each.outputProtonsPerMtok, each.costly])).toEqual([
+      ['opus', 'Claude Opus 5.5', 162_000, 810_000, true],
+      ['glm', 'GLM 5.3 Flash', 1356.75, 3361.5, false]
+    ])
+  })
+
+  it('keeps an active shelf row it cannot price out of the shelf, so no paid model is drawn without a price', () => {
+    const raw = shelfSnapshot(true)
+    const models = raw.models.map(each =>
+      each.alias === 'opus' ? { ...each, cost: { currency: 'USD', maxTurnMicroProtons: 1 } } : each
+    )
+    const view = matrixCloudModelView(parseMatrixCloudModelOffer({ ...raw, models }, PRINCIPAL)!)
+
+    expect(view.shelf?.map(each => each.alias)).toEqual(['glm'])
+  })
+
+  it('writes a shelf pick through the same fenced 1.1 body, with the model’s own level', () => {
+    const offer = parseMatrixCloudModelOffer(shelfSnapshot(true), PRINCIPAL)!
+
+    expect(matrixCloudModelWrite({ ...offer, effort: undefined }, 'glm', '00000000-0000-4000-8000-303617b97302')).toEqual({
+      profile: 'atum.model-choice/1.1',
+      requestId: '00000000-0000-4000-8000-303617b97302',
+      expectedRevision: 3,
+      policyDigest: DIGEST,
+      choice: { v: 2, source: 'atum', model: 'glm', effort: 'high' }
+    })
+    // An inactive shelf row is never written from a stale card.
+    expect(matrixCloudModelWrite(parseMatrixCloudModelOffer(shelfSnapshot(false), PRINCIPAL)!, 'opus')).toBeNull()
+  })
+
+  it('reads a saved shelf model as the cloud’s current choice', () => {
+    expect(matrixCloudModelView(parseMatrixCloudModelOffer(shelfSnapshot(true, 'opus'), PRINCIPAL)!).current).toBe('opus')
   })
 })
 

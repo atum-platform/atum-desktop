@@ -6,7 +6,8 @@ import {
   type MatrixModelCatalog,
   type MatrixModelRoute,
   matrixModelRouteId,
-  matrixRouteIdOfChoice
+  matrixRouteIdOfChoice,
+  parseMatrixModel
 } from '../../../shared/matrix-models'
 import type { GroupPolicyRead } from '../../../shared/room-participation/runtime'
 
@@ -762,12 +763,14 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
 
       if (command.kind === 'setModel') {
         const room = store.current.rooms.find(each => each.id === command.roomId)
+        // Like main: an OpenRouter shelf model is the cloud's choice only, never the room's record.
+        const roomModel = parseMatrixModel(command.model)
 
         store.emit({
           ...store.current,
           rooms: store.current.rooms.map(each =>
             each.id === command.roomId
-              ? { ...each, ...(command.model ? { model: command.model } : {}), ...(command.effort ? { effort: command.effort } : {}) }
+              ? { ...each, ...(roomModel ? { model: roomModel } : {}), ...(command.effort ? { effort: command.effort } : {}) }
               : each
           ),
           agents: store.current.agents?.map(agent =>
@@ -775,6 +778,7 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
               ? {
                   ...agent,
                   cloudModel: {
+                    ...agent.cloudModel,
                     offered: agent.cloudModel?.offered ?? ['default'],
                     current: command.model === 'nguyet-thuc' ? 'default' : command.model
                   }

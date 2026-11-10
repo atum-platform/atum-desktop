@@ -69,7 +69,7 @@ import { MATRIX_COMPANY_FILE } from '../../shared/matrix-company-files'
 import type { MatrixGoogleFenceObservation } from '../../shared/matrix-google-fence'
 import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_GROUP_AGENT_LIMIT } from '../../shared/matrix-group-room'
-import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent } from '../../shared/matrix-models'
+import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import { createMatrixSyncHealth, matrixSyncTokenRefused } from '../../shared/matrix-sync-health'
 import { MATRIX_TASK_FILES_KEY, parseMatrixTaskFilesPromise } from '../../shared/matrix-task-files'
@@ -3271,7 +3271,11 @@ export async function startMatrixSdk(
       case 'setModel': {
         const room = client.getRoom(command.roomId)
 
-        if (state !== 'ready' || !room || room.getMyMembership() !== 'join') {
+        // A conversation's own record holds Atum's line-up only: an OpenRouter shelf model is a
+        // cloud agent's choice, written by native main, never this Mac's room data.
+        const model = command.model === undefined ? undefined : parseMatrixModel(command.model)
+
+        if (state !== 'ready' || !room || room.getMyMembership() !== 'join' || (command.model && !model)) {
           throw new Error('matrix_model_unavailable')
         }
 
@@ -3282,7 +3286,7 @@ export async function startMatrixSdk(
           command.roomId,
           MATRIX_MODEL_ACCOUNT_DATA,
           matrixModelChoiceContent(room.getAccountData(MATRIX_MODEL_ACCOUNT_DATA)?.getContent(), {
-            ...(command.model ? { model: command.model } : {}),
+            ...(model ? { model } : {}),
             ...(command.effort ? { effort: command.effort } : {})
           })
         )

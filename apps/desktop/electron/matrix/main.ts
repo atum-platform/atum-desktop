@@ -240,6 +240,7 @@ import type {
   MatrixRecoveryCheck,
   MatrixSecurity
 } from '../../shared/matrix-security'
+import { parseMatrixShelfModel } from '../../shared/matrix-shelf-models'
 import { matrixStatusAsk } from '../../shared/matrix-status-ask'
 import { MatrixStatusLine } from '../../shared/matrix-status-line'
 import { matrixProgressCopy, matrixStatusLineCopy } from '../../shared/matrix-status-line-copy'
@@ -2943,7 +2944,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
           effort: cloudDestinationChoice.external.effort
         }
       : undefined
-    : cloudDestinationChoice?.current
+    : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
 
   return base && owner
     ? ownerHomeViewFor(
@@ -24483,15 +24484,29 @@ async function start() {
           if (isCloudAgent(agent) && view.atumModel) {
             // The destination record first: it replaces a saved plan choice (ChatGPT), where the
             // 1.1 offer path would refuse or leave the plan in place (writeMatrixCloudAtumChoice).
+            // An OpenRouter shelf model keeps its own default level from the offer.
+            const shelfEffort =
+              input.model && parseMatrixShelfModel(input.model) && cloudPrincipalId
+                ? cloudModelChoices?.offer(cloudPrincipalId)?.models.find(row => row.alias === input.model)?.defaultEffort
+                : undefined
+
             const applied =
               input.model && !input.effort && cloudPrincipalId
                 ? await writeMatrixCloudAtumChoice(cloudPrincipalId, input.model, {
                     ...(modelDestinations ? { destinations: modelDestinations } : {}),
-                    ...(cloudModelChoices ? { legacy: cloudModelChoices } : {})
+                    ...(cloudModelChoices ? { legacy: cloudModelChoices } : {}),
+                    ...(shelfEffort === 'low' || shelfEffort === 'medium' || shelfEffort === 'high'
+                      ? { effort: shelfEffort }
+                      : {})
                   })
                 : false
 
             return { status: applied ? ('applied' as const) : ('refused' as const) }
+          }
+
+          // OpenRouter shelf models run in the cloud only; the gateway refuses them from a Mac.
+          if (input.model && parseMatrixShelfModel(input.model)) {
+            throw new Error('matrix_model_choice_unavailable')
           }
 
           requireMatrixSessionChoice(

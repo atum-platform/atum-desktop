@@ -328,6 +328,35 @@ describe('the destination write', () => {
   })
 })
 
+describe('an OpenRouter shelf model as a destination', () => {
+  const withCloud = (model: string, effort = 'high') => {
+    const value = fixture('destination.snapshot.json') as Record<string, unknown>
+    value.choices = [{ destination: 'cloud', source: 'atum', model, effort }]
+
+    return parseMatrixModelDestinationSnapshot(value, PRINCIPAL)!
+  }
+
+  it('writes a shelf model for the cloud with its own level, and never for a Mac', () => {
+    expect(matrixModelDestinationWrite(snapshot(), 'cloud', 'glm', REQUEST, 'high')?.choice).toEqual({
+      destination: 'cloud',
+      source: 'atum',
+      model: 'glm',
+      effort: 'high'
+    })
+    // The gateway refuses shelf aliases from a Mac, so no Mac body is ever built.
+    expect(matrixModelDestinationWrite(snapshot(), 'mac:mini-b', 'glm', REQUEST, 'high')).toBeUndefined()
+    // An alias outside the curated shelf is still refused.
+    expect(matrixModelDestinationWrite(snapshot(), 'cloud', 'gpt-5' as never, REQUEST)).toBeUndefined()
+  })
+
+  it('names the cloud’s saved shelf model on its row, and never calls it the recommendation', () => {
+    const cloud = matrixModelDestinationsView(withCloud('opus')).choices.find(choice => choice.id === 'cloud')
+
+    expect(cloud).toMatchObject({ shelf: 'opus', current: 'nguyet-thuc', recommended: false })
+    expect(matrixModelDestinationsView(snapshot()).choices.find(choice => choice.id === 'cloud')?.shelf).toBeUndefined()
+  })
+})
+
 describe('the card’s rows', () => {
   it('lists the cloud and each Mac by name, with the reference model and the recommendation', () => {
     const view = matrixModelDestinationsView(snapshot(), { deviceNames: NAMES, thisDevice: 'book-a' })
