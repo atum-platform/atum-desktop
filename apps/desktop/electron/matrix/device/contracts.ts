@@ -18,7 +18,7 @@ export type DeviceProtectedCapability =
   | 'sudo' | 'other_agent_write' | 'exec_downloaded' | 'bulk_destructive' | 'gui_upload'
 
 export type DeviceTool =
-  | 'terminal' | 'read_file' | 'write_file' | 'patch' | 'search_files' | 'computer_use' | 'send_file'
+  | 'terminal' | 'read_file' | 'write_file' | 'patch' | 'search_files' | 'computer_use' | 'send_file' | 'mac_source'
 
 export type DeviceLedgerState =
   | 'not_started' | 'started' | 'completed' | 'failed_no_effect' | 'unknown' | 'refused'

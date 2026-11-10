@@ -319,6 +319,16 @@ def _location_ok(result: object, precision: str) -> bool:
 
 
 def _result_ok(op: str, result: object, precision: str) -> bool:
+    if (
+        _strict_keys(result, {"ok", "reason", "source", "mac"})
+        and result["ok"] is False
+        and isinstance(result["reason"], str)
+        and result["reason"] in {"source_off", "mac_offline", "needs_permission", "update_atum", "not_shared_yet", "no_mac", "stopped", "unavailable"}
+        and (result["source"] is None or isinstance(result["source"], str))
+        and result["source"] in {None, "messages", "browser", "location", "folders"}
+        and (result["mac"] is None or _bounded_string(result["mac"], 64, minimum=1))
+    ):
+        return True
     if _error_ok(result):
         return True
     if op == "messages.conversations":
@@ -339,6 +349,7 @@ def atum_mac(
     browser: str | None = None,
     mode: str | None = None,
     precision: str | None = None,
+    transport=None,
 ) -> str:
     """Read one approved Mac source. Consent and OS permission are checked by the host."""
     if not isinstance(op, str) or op not in _OPS:
@@ -401,7 +412,7 @@ def atum_mac(
         ):
             return _closed_error("invalid")
 
-    receipt = desktop_ui.request(
+    receipt = (transport or desktop_ui.request)(
         "atum.mac.request", payload, timeout=_HOST_TIMEOUT_SECONDS
     )
     if not isinstance(receipt, str) or not receipt:
@@ -430,7 +441,8 @@ ATUM_MAC_SCHEMA = {
         "URLs must never be stored. location.current is city-level by default; request precise "
         "only when the owner's current request needs coordinates, such as directions or near me. "
         "A disabled source or missing macOS permission returns a closed error. Background runs "
-        "may use Messages metadata but not messages.read, and never cause a permission prompt."
+        "may use Messages metadata but not messages.read, and never cause a permission prompt. "
+        "If unavailable, say one short sentence with the fix; do not retry."
     ),
     "parameters": {
         "type": "object",
@@ -463,7 +475,7 @@ ATUM_MAC_SCHEMA = {
 }
 
 
-def _handle_atum_mac(args: object) -> str:
+def _handle_atum_mac(args: object, transport=None) -> str:
     allowed = {"op", "days", "limit", "id", "browser", "mode", "precision"}
     if not isinstance(args, dict) or "op" not in args or not set(args) <= allowed:
         return _closed_error("invalid")
@@ -477,7 +489,7 @@ def _handle_atum_mac(args: object) -> str:
         if op == "location.current"
         else None
     )
-    if source is not None and not source_enabled(source):
+    if transport is None and source is not None and not source_enabled(source):
         return _closed_error("disabled")
     if any(value is None for value in args.values()):
         return _closed_error("invalid")
@@ -489,6 +501,7 @@ def _handle_atum_mac(args: object) -> str:
         browser=args.get("browser"),
         mode=args.get("mode"),
         precision=args.get("precision"),
+        transport=transport,
     )
 
 

@@ -1,0 +1,49 @@
+{
+  "name": "migration-cancel-committing",
+  "connection": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "identityKey": {
+      "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg"
+    },
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e"
+  },
+  "migration": {
+    "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+    "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+    "initiator": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "requested": [
+      "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d"
+    ],
+    "state": "committing"
+  },
+  "cancel": {
+    "v": 1,
+    "type": "MigrationCancel",
+    "body": {
+      "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+      "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+      "reason": "owner_cancelled"
+    },
+    "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+    "sig": "X8XVOJh_J-X_vPs-Y9VIQjX9Uv7gNt_NkuO9tQSif5rHtfsJggX83cxT4V-TZSrhZfqNgtvR0BTYi2a1XqggJA"
+  },
+  "facts": {
+    "signatureValid": true,
+    "participant": true,
+    "cancellable": false,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "reason": "wrong_state"
+  }
+}

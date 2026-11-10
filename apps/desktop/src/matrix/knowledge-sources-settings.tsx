@@ -9,26 +9,89 @@ import { Briefcase, Compass, Database, Folder, Globe, Messages } from '@/lib/ico
 import type {
   MatrixAgentSourceGate,
   MatrixAgentSourcesBridge,
-  MatrixAgentSourceStatus,
-  MatrixAgentSourcesView
+  MatrixAgentSourcesView,
+  MatrixReachMac
 } from '../../shared/matrix-agent-sources'
-import { safeMatrixAgentSourceIconDataUrl } from '../../shared/matrix-agent-sources'
+import { MATRIX_SOURCE_SERVICE_UPDATE_REQUIRED, safeMatrixAgentSourceIconDataUrl } from '../../shared/matrix-agent-sources'
 import type { MatrixFolderAccessBridge, MatrixFolderAccessView } from '../../shared/matrix-folder-access'
 import { matrixKnowledgeSourcesCopy, type MatrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-sources-copy'
-import type { MatrixPermissionsBridge } from '../../shared/matrix-permissions'
+import type { MatrixPermission, MatrixPermissionsBridge } from '../../shared/matrix-permissions'
 
 import { MatrixSettingsFolderRows } from './folder-access-rows'
-import { type MatrixKnowledgeSourceKind, projectMatrixKnowledgeSourceRows } from './knowledge-source-projection'
+import {
+  type MatrixKnowledgeSourceKind,
+  type MatrixKnowledgeSourceRow,
+  projectMatrixKnowledgeSourceRows
+} from './knowledge-source-projection'
+import { MatrixYourMacsSection } from './mac-reach-rows'
+import { useNoticePresented } from './notice-presented'
 import { SettingsRow, SettingsSection } from './settings-row'
 
-/** Which status gets a line of its own; `ready` keeps the ordinary description. */
-const STATUS_COPY: Record<MatrixAgentSourceStatus, keyof MatrixKnowledgeSourcesCopy['status'] | null> = {
-  ready: null,
-  mac_only: 'macOnly',
-  needs_permission: 'needsPermission',
-  not_connected: 'notConnected',
-  needs_mac: 'needsMac',
-  unavailable: 'unavailable'
+export interface MatrixSourceLine {
+  /** Replaces the ordinary description; absent keeps it. */
+  text?: string
+  /** Warning ink: only for a switch an older Mac turned back off. */
+  warn?: boolean
+  /** Replaces the row's (?) when the line needs its own explanation. */
+  tip?: string
+  /** The one fix this Mac can make. */
+  action?: { kind: 'settings'; pane: MatrixPermission } | { kind: 'retry' }
+}
+
+/**
+ * U1 §4.2: the one quiet line under a source. The switch is the account's choice; the line says
+ * where it works today, and speaks only when it can't work anywhere, or when an older Mac switched
+ * it back off (server evidence only). Main's `macSourceStatus()` owns precedence; this only words it.
+ */
+export function matrixSourceLine(
+  row: Pick<MatrixKnowledgeSourceRow, 'checked' | 'heldOffBy' | 'permission' | 'status' | 'statusMac'>,
+  macs: readonly MatrixReachMac[],
+  copy: MatrixKnowledgeSourcesCopy
+): MatrixSourceLine {
+  if (!row.checked) {
+    const heldOffBy = row.heldOffBy?.filter(Boolean) ?? []
+
+    return row.status === 'held_off_by_older_mac' && row.heldOffBy?.length
+      ? { text: copy.status.heldOff, warn: true, ...(heldOffBy.length ? { tip: copy.status.heldOffTip(heldOffBy.join(', ')) } : {}) }
+      : {}
+  }
+
+  const thisMac = macs.find(mac => mac.thisMac)
+  const here = !row.statusMac || (thisMac !== undefined && row.statusMac === thisMac.name)
+
+  switch (row.status) {
+    case 'ready':
+
+    case 'held_off_by_older_mac':
+      return {}
+
+    case 'needs_permission':
+      if (row.permission !== 'fullDisk') {
+        return { text: copy.status.needsPermission }
+      }
+
+      return here
+        ? { text: copy.status.needsFullDiskHere, action: { kind: 'settings', pane: 'fullDisk' } }
+        : { text: copy.status.needsFullDiskOn(row.statusMac!) }
+
+    case 'update_mac':
+      return row.statusMac ? { text: copy.status.updateMac(row.statusMac) } : { text: copy.status.unavailable }
+
+    case 'mac_offline':
+      return { text: row.statusMac ? copy.status.macOffline(row.statusMac) : copy.status.macsOffline }
+
+    case 'this_mac_disconnected':
+      return { text: copy.status.thisMacDisconnected, action: { kind: 'retry' } }
+
+    case 'not_connected':
+      return { text: copy.status.notConnected }
+
+    case 'needs_mac':
+      return { text: copy.status.needsMac }
+
+    case 'unavailable':
+      return { text: copy.status.unavailable }
+  }
 }
 
 const ICONS: Record<Exclude<MatrixKnowledgeSourceKind, 'google'>, ReactNode> = {
@@ -63,11 +126,14 @@ export function MatrixKnowledgeSourceIcon({ kind, iconDataUrl }: { kind: MatrixK
 export function MatrixKnowledgeSourcesSettings({
   bridge = window.atumMatrix?.agentSources,
   folderAccess = window.atumMatrix?.folderAccess,
-  permissions = window.atumMatrix?.permissions
+  permissions = window.atumMatrix?.permissions,
+  onRetry = () => void window.atumMatrix?.retry?.().catch(() => undefined)
 }: {
   bridge?: MatrixAgentSourcesBridge
   folderAccess?: MatrixFolderAccessBridge
   permissions?: MatrixPermissionsBridge
+  /** Reconnects this Mac (the "Try again" beside a source or this Mac's row). */
+  onRetry?: () => void
 }) {
   const { locale } = useI18n()
   const copy = matrixKnowledgeSourcesCopy[locale]
@@ -78,8 +144,13 @@ export function MatrixKnowledgeSourcesSettings({
   const busyRef = useRef<MatrixAgentSourceGate | null>(null)
   const [readAttempt, setReadAttempt] = useState(0)
   const [failed, setFailed] = useState(false)
+  const [serviceUpdate, setServiceUpdate] = useState(false)
   const [folders, setFolders] = useState<MatrixFolderAccessView | null>(null)
   const [foldersBusy, setFoldersBusy] = useState(false)
+  const section = useRef<HTMLElement | null>(null)
+
+  // The section's help line is one of the three places the disclosure lives: seen here, it counts.
+  useNoticePresented(Boolean(view?.notice && bridge?.presented), () => void bridge?.presented?.().catch(() => undefined), section)
 
   useEffect(() => {
     let current = true
@@ -207,6 +278,7 @@ export function MatrixKnowledgeSourcesSettings({
     busyRef.current = gate
     setBusy(gate)
     setFailed(false)
+    setServiceUpdate(false)
     setView({ ...view, gates: { ...view.gates, [gate]: enabled } })
 
     try {
@@ -216,7 +288,8 @@ export function MatrixKnowledgeSourcesSettings({
       if (mounted.current && request.current === token) {
         setView(saved)
       }
-    } catch {
+    } catch (error) {
+      setServiceUpdate(error instanceof Error && error.message.includes(MATRIX_SOURCE_SERVICE_UPDATE_REQUIRED))
       // Show what is actually saved, not a guess: re-read the account record.
       const truth = await bridge.read().catch(() => previous)
 
@@ -245,9 +318,18 @@ export function MatrixKnowledgeSourcesSettings({
   }
 
   const rows = view ? projectMatrixKnowledgeSourceRows(view) : []
+  const macs = view?.macs ?? []
 
   return (
-    <SettingsSection data-matrix-knowledge-sources foot={failed && view ? copy.failed : undefined} title={copy.title}>
+    <>
+    <SettingsSection
+      data-matrix-knowledge-sources
+      foot={failed && view ? serviceUpdate ? copy.serviceUpdateRequired : copy.failed : undefined}
+      help={copy.sectionHelp}
+      ref={section}
+      tip={copy.sectionTip}
+      title={copy.title}
+    >
       {!bridge ? (
         <SettingsRow className="atum-settings-row-quiet" role="status" title={copy.unavailable} />
       ) : failed && !view ? (
@@ -268,14 +350,21 @@ export function MatrixKnowledgeSourcesSettings({
           const name = row.presentation?.label ?? copy.names[row.kind]
           const ordinaryHelp = row.presentation?.description ?? copy.descriptions[row.kind]
           // The switch is the saved choice; this one quiet line says where it works today.
-          const status = row.checked ? STATUS_COPY[row.status] : null
-          const help = status ? copy.status[status] : ordinaryHelp
+          const line = matrixSourceLine(row, macs, copy)
+
+          const help = line.text ? (
+            <span className={line.warn ? 'text-(--ak-warn)' : undefined} data-matrix-knowledge-source-line={line.warn ? 'warn' : 'status'}>
+              {line.text}
+            </span>
+          ) : (
+            ordinaryHelp
+          )
 
           const details =
             row.kind === 'messages' ? `${copy.details.messages} ${copy.folderAccess.fullDisk}` : copy.details[row.kind]
 
-          const tip = row.status === 'mac_only' ? `${details} ${copy.macOnlyDetail}` : details
-          const pane = row.checked && permissions ? row.permission : undefined
+          const tip = line.tip ?? details
+          const pane = line.action?.kind === 'settings' && permissions ? line.action.pane : undefined
 
           return (
             <Fragment key={row.key}>
@@ -290,6 +379,11 @@ export function MatrixKnowledgeSourcesSettings({
                         variant="secondary"
                       >
                         {copy.folderAccess.openSettings}
+                      </Button>
+                    )}
+                    {line.action?.kind === 'retry' && (
+                      <Button data-matrix-knowledge-source-retry onClick={onRetry} size="sm" variant="secondary">
+                        {copy.macs.tryAgain}
                       </Button>
                     )}
                     <Switch
@@ -328,5 +422,7 @@ export function MatrixKnowledgeSourcesSettings({
         })
       )}
     </SettingsSection>
+    {view && <MatrixYourMacsSection macs={macs} onRetry={onRetry} permissions={permissions} />}
+    </>
   )
 }

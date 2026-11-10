@@ -30,6 +30,7 @@ function source(
 
 it('keeps an unknown descriptor kind visible with the generic presentation', () => {
   const rows = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
     sources: [source('future.private-journal', 'messages')]
   })
@@ -52,6 +53,7 @@ it('prefers trusted connection presentation without depending on a source id', (
     iconDataUrl: 'data:image/png;base64,cHJlc2VudGF0aW9u'
   }
   const rows = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
     sources: [source('future.travel', 'team_spaces', { presentation })]
   })
@@ -61,6 +63,7 @@ it('prefers trusted connection presentation without depending on a source id', (
 
 it('combines descriptors sharing a gate into one switch reporting the most useful status', () => {
   const rows = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
     sources: [
       source('google.mail', 'google', { status: 'not_connected', availability: 'not_configured' }),
@@ -82,7 +85,10 @@ it('combines descriptors sharing a gate into one switch reporting the most usefu
 
 it.each([
   ['ready', true],
-  ['mac_only', true],
+  ['held_off_by_older_mac', true],
+  ['mac_offline', true],
+  ['update_mac', true],
+  ['this_mac_disconnected', true],
   ['needs_permission', true],
   ['not_connected', true],
   ['needs_mac', false],
@@ -90,6 +96,7 @@ it.each([
 ] as const)('keeps the saved switch while the source is %s', (status, grantable) => {
   for (const saved of [true, false]) {
     const row = projectMatrixKnowledgeSourceRows({
+      macs: [],
       gates: { ...gates, messages: saved },
       sources: [source('mac.message-metadata', 'messages', { status, grantable })]
     })[0]!
@@ -101,12 +108,14 @@ it.each([
 
 it('carries the macOS pane only for a source that needs permission', () => {
   const needs = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
     sources: [source('mac.browser-history', 'browser', { status: 'needs_permission', permission: 'fullDisk' })]
   })[0]!
   const ready = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
-    sources: [source('mac.browser-history', 'browser', { status: 'mac_only', permission: 'fullDisk' })]
+    sources: [source('mac.browser-history', 'browser', { status: 'ready', permission: 'fullDisk' })]
   })[0]!
 
   expect(needs.permission).toBe('fullDisk')
@@ -115,6 +124,7 @@ it('carries the macOS pane only for a source that needs permission', () => {
 
 it('treats a source with no status fact as unavailable without touching the switch', () => {
   const row = projectMatrixKnowledgeSourceRows({
+    macs: [],
     gates,
     sources: [{ kind: 'future.thing', optOutGate: 'folders', availability: 'available', grantable: true } as never]
   })[0]!

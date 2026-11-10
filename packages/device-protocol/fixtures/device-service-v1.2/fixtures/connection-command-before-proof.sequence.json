@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "closed",
+      "to": "hello_sent",
+      "event": "connect"
+    },
+    {
+      "from": "hello_sent",
+      "to": "status_exchanged",
+      "event": "status"
+    }
+  ]
+}

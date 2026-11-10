@@ -62,6 +62,22 @@ function snapshot(): MatrixModelDestinationSnapshot {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('the destination snapshot', () => {
+  it('adopts cloud shelf snapshots while keeping Mac managed offers on the two live models', () => {
+    const policyDigest = 'f7872ab3a3593cf1dd0d964586dc0a58a0bd12fcb3c40d614c847c51cac7dc35'
+
+    for (const model of ['gemini', 'glm', 'sonnet', 'opus', 'gemini-pro', 'grok', 'deepseek', 'kimi', 'qwen', 'glm-plus']) {
+      const choices = ['cloud', 'mac:book-a'].map(destination => ({ destination, source: 'atum', model, effort: 'low' }))
+      const parsed = parseMatrixModelDestinationSnapshot({ ...snapshot(), policyDigest, choices }, PRINCIPAL)
+      expect(parsed).toMatchObject({ policyDigest, choices })
+      const view = matrixModelDestinationsView(parsed!, { offer: { offered: [model] } })
+
+      for (const mac of view.choices.filter(choice => choice.kind === 'mac')) {
+        expect(mac.models).toEqual(['nguyet-thuc', 'nhat-thuc'])
+        expect(matrixModelDestinationWrite(parsed!, mac.id as `mac:${string}`, model as Parameters<typeof matrixModelDestinationWrite>[2])).toBeUndefined()
+      }
+    }
+  })
+
   it('reads the frozen v1.3 fixture: the recommendation, every choice and today’s spend', () => {
     const parsed = parseMatrixModelDestinationSnapshot(fixture('destination.snapshot.json'), PRINCIPAL)
 

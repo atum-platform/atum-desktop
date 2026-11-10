@@ -35,6 +35,7 @@
 import { randomBytes } from 'node:crypto'
 
 import { parseFrame } from '../../../../../packages/device-protocol'
+import { helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
 import { encodeMigrationChunk, type MigrationChunkHeader } from '../../../../../packages/device-protocol/migration-chunk'
 
 import {
@@ -239,6 +240,7 @@ export type FrameVerdict = 'ok' | 'bad_signature' | 'unpinned_controller_key'
 
 /** The status-exchanged connection a frame arrived on. */
 export interface DeviceSession {
+  sourceProtocol?: 1
   workspaceProtocol?: 1
   connectionId: string
   connectionEpoch: number
@@ -383,6 +385,8 @@ function helloFactsKey(facts: DeviceHelloFacts): string {
 
   return JSON.stringify([
     facts.workspaceProtocol === 1 ? 1 : 0,
+    facts.sourceProtocol ?? null,
+    facts.sources ? [facts.sources.messages, facts.sources.browser, facts.sources.location, facts.sources.folders] : null,
     facts.policyVersion,
     facts.appVersion,
     Boolean(terminal),
@@ -411,6 +415,8 @@ const CONTROLLER_TYPES = new Set([
 ])
 
 export interface DeviceHelloFacts {
+  sourceProtocol?: 1
+  sources?: MacSourceStatus
   workspaceProtocol?: 1
   policyVersion: number
   appVersion: string
@@ -439,6 +445,7 @@ export interface DeviceConnectionDeps {
 }
 
 interface Attempt {
+  sourceOffered?: boolean
   workspaceOffered?: boolean
   /** What this Mac said it can do in this attempt's Hello (`helloFactsKey`). */
   factsKey?: string
@@ -451,7 +458,7 @@ interface Attempt {
 }
 
 export class DeviceConnection {
-  private workspaceLegacy = false
+  private helloFallback?: { factsKey: string; until: number; source: boolean; workspace: boolean }
   private current?: Attempt
   private connectionState: DeviceConnectionState = 'closed'
   private wanted = false
@@ -463,7 +470,7 @@ export class DeviceConnection {
   private sink: DeviceFrameSink
   private migration?: DeviceMigrationSink
   private processing: Promise<void> = Promise.resolve()
-  private readonly timers = new Map<'retry' | 'preauth' | 'silence', unknown>()
+  private readonly timers = new Map<'retry' | 'preauth' | 'silence' | 'helloFallback', unknown>()
   private readonly listeners = new Set<(state: DeviceConnectionState, reason?: DeviceCloseReason) => void>()
   private lastClose?: DeviceCloseReason
 
@@ -487,7 +494,7 @@ export class DeviceConnection {
     this.deps.log?.(`[Device] ${line}`)
   }
 
-  private timer(name: 'retry' | 'preauth' | 'silence', ms: number | null, callback?: () => void): void {
+  private timer(name: 'retry' | 'preauth' | 'silence' | 'helloFallback', ms: number | null, callback?: () => void): void {
     const existing = this.timers.get(name)
 
     if (existing !== undefined) {
@@ -814,8 +821,14 @@ export class DeviceConnection {
 
     socket.onclose = event => {
       if (this.current === attempt) {
-        // A legacy hub refuses the extended Hello; retry the frozen vocabulary only.
-        if (attempt.workspaceOffered && this.connectionState === 'hello_sent') {this.workspaceLegacy = true}
+        // Only an explicit schema rejection can identify an incompatible Hello.
+        if (socketCloseCode(event) === 'close_4400' && this.connectionState === 'hello_sent' &&
+          (attempt.sourceOffered || attempt.workspaceOffered) && attempt.factsKey) {
+          this.helloFallback = { factsKey: attempt.factsKey, until: this.monotonic() + 300_000,
+            source: true, workspace: !attempt.sourceOffered }
+          this.timer('helloFallback', 300_000, () => { this.helloFallback = undefined })
+        }
+
         this.logClose('drop', socketCloseCode(event))
         this.teardown('drop')
         this.scheduleRetry()
@@ -878,10 +891,19 @@ export class DeviceConnection {
 
     // The facts as given, not as offered: a legacy hub's narrower Hello is not a change to redial for.
     attempt.factsKey = helloFactsKey(facts)
-    attempt.workspaceOffered = facts.workspaceProtocol === 1 && !this.workspaceLegacy
+
+    if (this.helloFallback && (this.helloFallback.factsKey !== attempt.factsKey ||
+      this.monotonic() >= this.helloFallback.until)) {
+      this.helloFallback = undefined
+      this.timer('helloFallback', null)
+    }
+
+    attempt.workspaceOffered = facts.workspaceProtocol === 1 && !this.helloFallback?.workspace
+    attempt.sourceOffered = facts.sourceProtocol === 1 && Boolean(helloSourceStatus(facts)) && !this.helloFallback?.source
 
     const body = {
-      ...(attempt.workspaceOffered ? { workspaceProtocol: 1 as const } : {}),
+      ...(attempt.workspaceOffered && facts.workspaceProtocol === 1 ? { workspaceProtocol: 1 as const } : {}),
+      ...(attempt.sourceOffered ? { sourceProtocol: 1 as const, sources: facts.sources } : {}),
       deviceServiceId: attempt.record.deviceServiceId,
       enrollmentEpoch: attempt.record.enrollmentEpoch,
       accountEpoch: this.deps.epochs.accountEpoch(),
@@ -950,7 +972,7 @@ export class DeviceConnection {
     }
 
     if (type.startsWith('Workspace') || type.startsWith('Migration') || type.startsWith('ChatGptRelay') ||
-      (type === 'Ready' && (body as Record<string, unknown>).workspaceProtocol !== undefined)) {
+      (type === 'Ready' && ((body as Record<string, unknown>).workspaceProtocol !== undefined || (body as Record<string, unknown>).sourceProtocol !== undefined))) {
       try {parseFrame(raw, 'controller_to_device')} catch {return this.fail(attempt, 'protocol', 'invalid extension frame')}
     }
 
@@ -1084,12 +1106,17 @@ export class DeviceConnection {
       return this.fail(attempt, 'protocol', 'Ready does not match this connection')
     }
 
+    if (body.sourceProtocol !== undefined && (!attempt.sourceOffered || body.sourceProtocol !== 1)) {
+      return this.fail(attempt, 'protocol', 'sources were not negotiated')
+    }
+
     if (body.workspaceProtocol !== undefined && (!attempt.workspaceOffered || body.workspaceProtocol !== 1)) {
       return this.fail(attempt, 'protocol', 'Ready did not negotiate this workspace version')
     }
 
     attempt.session = {
       ...(body.workspaceProtocol === 1 ? { workspaceProtocol: 1 as const } : {}),
+      ...(body.sourceProtocol === 1 ? { sourceProtocol: 1 as const } : {}),
       connectionId: attempt.connectionId!,
       connectionEpoch: body.connectionEpoch as number,
       localGeneration: this.deps.epochs.localGeneration(),

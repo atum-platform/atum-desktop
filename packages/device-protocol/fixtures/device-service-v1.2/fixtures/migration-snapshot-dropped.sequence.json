@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "offered",
+      "to": "receiving",
+      "event": "send"
+    },
+    {
+      "from": "receiving",
+      "to": "discarded",
+      "event": "connection_lost"
+    }
+  ]
+}

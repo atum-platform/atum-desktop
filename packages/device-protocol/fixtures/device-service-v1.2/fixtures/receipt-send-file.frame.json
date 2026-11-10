@@ -1,0 +1,26 @@
+{
+  "v": 1,
+  "type": "Receipt",
+  "body": {
+    "commandId": "3d4e5f6a-7b8c-4d9e-9f0a-2b3c4d5e6f7a",
+    "commandHash": "25b7dx7hRKPm4bcWAas-ZqGekSEbkB4eflhmYvqKjWo",
+    "seq": 6,
+    "state": "completed",
+    "result": {
+      "data": {
+        "name": "hello.txt"
+      }
+    },
+    "artifacts": [
+      {
+        "name": "hello.txt",
+        "size": 11,
+        "sha256": "nrPRMijUev42kUqJxJmnZpXHd0rN_l0rdL5lzBElf1M"
+      }
+    ],
+    "startedAt": 1791100805000,
+    "endedAt": 1791100805050
+  },
+  "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+  "sig": "aPERqzrbqL2zOXyHocJwnADoLO3m09ksEyph-IqFnvL2QQJl2sYWeHQ2_07Ai_eV6OWHHnX4iXoQQxz-0vxeSw"
+}

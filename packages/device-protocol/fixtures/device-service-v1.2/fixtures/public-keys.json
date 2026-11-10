@@ -1,0 +1,59 @@
+{
+  "note": "Public halves of the throwaway test keys that sign these vectors. Their private halves are not published; production code must never trust these keys.",
+  "keys": [
+    {
+      "name": "macbook.identity",
+      "alg": "ES256",
+      "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg"
+    },
+    {
+      "name": "macbook.approval",
+      "alg": "ES256",
+      "kid": "T9UfgAYiILq7nfB8dC1810vqnCVv2rzsr5U5G40TeiQ",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzQA1jzcQW-YCPTcj-Z8_Jl0nUInMgICzWUqAudHJQ70kwSRyJu8CrB760jBeO10g_h2M4NNBV3kr-Km2RkhBtQ"
+    },
+    {
+      "name": "macbook.approval.rotated",
+      "alg": "ES256",
+      "kid": "9usolRkXVYrzVdqTLssadVRdZj4dr1dpJUgOE02GkYU",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECczTtNUE5QbVLy65I60lyJ_cjDLL4nFQN8I2TH3AI7AiP9IPQTGRRFj3RF77CfWHYrJTX8lXovFbK80Ur6tMHA"
+    },
+    {
+      "name": "mini.identity",
+      "alg": "ES256",
+      "kid": "-2ZF-9xNLGL0VzAKcVbtRISCi2pzV65u-Ul6qt4NJ_o",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQjVU63wiflmWvfQGcrpZ_2nNjK_mwvrtTqbUQ8fVSkTz1_RCyb2FY3zROKJsO5T9yl3liwfz7e1gS9RBa1P7jQ"
+    },
+    {
+      "name": "mini.approval",
+      "alg": "ES256",
+      "kid": "kifZjBUptbPr6-ppkM8oKA34jU8jCgaAs1iBpzlHI-o",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEmRpzTFmWVhaYPuSty6mKPRcwbM_urMiepxgWvwaDamsDupvmPmJDdrTWQwiQvRq9SIZjZgPCMQzGT2SqrYXECw"
+    },
+    {
+      "name": "foreign.p256",
+      "alg": "ES256",
+      "kid": "0q88utu5csSffQhNth2QEjSwueJxYaTA_B1G8t3y0JI",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEM8TBLB2YrxR-dSQsA0sIHM0MwFznMdU9kIwn_sWWC9062EB3FNLaAXFhJ0OOQ8Qr8_2MpLVA8b5XG-SZGLKtwg"
+    },
+    {
+      "name": "controller.active",
+      "alg": "Ed25519",
+      "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+      "publicKey": "MCowBQYDK2VwAyEAnrQg2n17oVay5fm66qtS9evHUu664MYQ6tZNNndIgIY"
+    },
+    {
+      "name": "controller.retired",
+      "alg": "Ed25519",
+      "kid": "RGdOSj7BNDtcgXzRmuIZWYpe9Sp0X5k2O_t2pVwrWKc",
+      "publicKey": "MCowBQYDK2VwAyEAxcpncNPE5GlOJRKpkufgEM-frUUqMADicVfnBVb2Ycg"
+    },
+    {
+      "name": "foreign.ed25519",
+      "alg": "Ed25519",
+      "kid": "6tzWyCyEmoGrxObjzjhSdt6rqKTbG6_HftExStUX4QY",
+      "publicKey": "MCowBQYDK2VwAyEAhZObdarEYevZn24wxJmKKwkXpc47aLKYPrLLRSJ2NmU"
+    }
+  ]
+}

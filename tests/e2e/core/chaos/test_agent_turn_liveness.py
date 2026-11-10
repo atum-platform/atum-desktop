@@ -42,6 +42,7 @@ import pytest
 
 from tests.e2e.core.chaos._helpers import (
     API_MAX_RETRIES,
+    chaos_base_env,
     INTERRUPT_DEADLINE_S,
     LONG_TIMEOUT_S,
     MAX_PROVIDER_CALLS_PER_FAILED_TURN,
@@ -242,7 +243,8 @@ BY_ID = {s.id: s for s in SCENARIOS}
 
 
 class Run:
-    def __init__(self, sc: Scenario, root: Path) -> None:
+    def __init__(self, sc: Scenario, root: Path, base_env: dict[str, str]) -> None:
+        self.base_env = base_env
         self.sc = sc
         self.root = root
         self.tag = new_tag()
@@ -339,7 +341,7 @@ class Run:
         spec = self.root / "spec.json"
         spec.write_text(json.dumps({
             "session_id": self.session_id, "turns": [self.fault_msg, self.probe_msg]}), encoding="utf-8")
-        env = hermetic_env(home, hermes_home, self.tag)
+        env = hermetic_env(home, hermes_home, self.tag, base_env=self.base_env)
         env["TERMINAL_CWD"] = str(work)
         stderr = open(self.root / "driver.stderr", "wb")
         self.proc = subprocess.Popen(
@@ -417,9 +419,10 @@ def runs(request, tmp_path_factory) -> dict[str, Future]:
         if item.module is request.module and hasattr(item, "callspec")
         and "scenario_id" in item.callspec.params
     ]
+    base_env = chaos_base_env()
     pool = ThreadPoolExecutor(max_workers=SCENARIO_WORKERS, thread_name_prefix="chaos")
     futures = {
-        sid: pool.submit(Run(BY_ID[sid], tmp_path_factory.mktemp(sid)).execute)
+        sid: pool.submit(Run(BY_ID[sid], tmp_path_factory.mktemp(sid), base_env).execute)
         for sid in dict.fromkeys(selected)
     }
     yield futures

@@ -1,0 +1,32 @@
+{
+  "body": {
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "displayName": "MacBook Pro",
+    "platform": "macos",
+    "osVersion": "26.6.2",
+    "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg",
+    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECczTtNUE5QbVLy65I60lyJ_cjDLL4nFQN8I2TH3AI7AiP9IPQTGRRFj3RF77CfWHYrJTX8lXovFbK80Ur6tMHA",
+    "matrix": {
+      "userId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+      "deviceId": "MACBOOKQ7ZK",
+      "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+    },
+    "enrollmentEpoch": 4,
+    "scopes": [
+      "terminal",
+      "files",
+      "computer",
+      "send_file"
+    ],
+    "controllerKeys": [
+      "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+    ],
+    "issuedAt": 1791097200000,
+    "previousApprovalKid": "T9UfgAYiILq7nfB8dC1810vqnCVv2rzsr5U5G40TeiQ"
+  },
+  "sigs": {
+    "identity": "pDuvC0nqEHz65bEuu25dcjnWaUhZiuZcfP9Q1KeQGX4NmwER62JzPN_dXOuSRzPT3IJjmOyupGc2C2WXK420EQ",
+    "approval": "gHapfqtgT5lu3q8tYCNn6toKlIw2I54WP4iLtLncWkcWr1n7SnEZbnhC40V3xgBk4hk1MGRYcwPsUGoyCYDpWw",
+    "previousApproval": "WBvSJEjBnG6ktn1ZoNBo86EyspVPhE729127-nQPmr97ck1yu5kxn_pyCt8HcmWGuOB0bn0uJOiyKu4oS0XWIw"
+  }
+}

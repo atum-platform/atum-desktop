@@ -1,0 +1,52 @@
+{
+  "name": "enroll-unknown-controller-key",
+  "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+  "activeControllerKeys": [
+    "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+  ],
+  "stored": null,
+  "otherActive": [],
+  "request": {
+    "body": {
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "displayName": "MacBook Pro",
+      "platform": "macos",
+      "osVersion": "26.6.2",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzQA1jzcQW-YCPTcj-Z8_Jl0nUInMgICzWUqAudHJQ70kwSRyJu8CrB760jBeO10g_h2M4NNBV3kr-Km2RkhBtQ",
+      "matrix": {
+        "userId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+        "deviceId": "MACBOOKQ7ZK",
+        "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
+      },
+      "enrollmentEpoch": 1,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "controllerKeys": [
+        "6tzWyCyEmoGrxObjzjhSdt6rqKTbG6_HftExStUX4QY"
+      ],
+      "issuedAt": 1791014400000
+    },
+    "sigs": {
+      "identity": "PGbOd-yo1G-TKLJkDg5-mmohNhOaU1_qmzfikRHSMkH8aCELA1_vL-Rx6B5nb7pqqiMMlRhdOxY7HixRiDHmRw",
+      "approval": "QDBy75r6LOyZWPwSZBdWZrKGq022WfQvRbOOSCWXuSqkm7ZT0PuDaZPCEYM6yCnVzIgiOASA-buub4Ci9kjxCw"
+    }
+  },
+  "facts": {
+    "identityValid": true,
+    "approvalValid": true,
+    "previousApprovalValid": false,
+    "one": 1,
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "refused",
+    "status": "400",
+    "reason": "unknown_controller_key"
+  }
+}

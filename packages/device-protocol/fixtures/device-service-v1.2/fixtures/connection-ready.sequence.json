@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "from": "closed",
+      "to": "hello_sent",
+      "event": "connect"
+    },
+    {
+      "from": "hello_sent",
+      "to": "challenged",
+      "event": "challenge"
+    },
+    {
+      "from": "challenged",
+      "to": "ready",
+      "event": "proof_accepted"
+    },
+    {
+      "from": "ready",
+      "to": "status_exchanged",
+      "event": "status"
+    },
+    {
+      "from": "status_exchanged",
+      "to": "closed",
+      "event": "sleep"
+    }
+  ]
+}

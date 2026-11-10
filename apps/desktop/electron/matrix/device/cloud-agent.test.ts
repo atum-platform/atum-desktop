@@ -1474,3 +1474,28 @@ describe('the cloud trial', () => {
     await expect(acceptCloudTrial(call, input, signal())).rejects.toThrow()
   })
 })
+
+it('preserves optional fleet status and ignores malformed additive advertisements', () => {
+  const old = fixture('device-service', 'device-service.response.json')
+  const sources = { messages: 'ready', browser: 'needs_permission', location: 'off', folders: 'ready' }
+  expect(parseDeviceService(old).presence).toBeUndefined()
+  expect(parseDeviceService({ ...old, presence: { connected: true, lastSeenAt: 123 }, sourceProtocol: 1, sources }))
+    .toMatchObject({ presence: { connected: true, lastSeenAt: 123 }, sourceProtocol: 1, sources })
+  const malformed = parseDeviceService({ ...old, presence: { connected: 'yes', lastSeenAt: -1 }, sourceProtocol: 1, sources: {} })
+  expect(malformed.presence).toBeUndefined()
+  expect(malformed.sources).toBeUndefined()
+})
+
+it('requires both native bearer and this Matrix device proof for Mac source authority', async () => {
+  const fetchImpl = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => Response.json({ allowed: false }))
+  const resource = { kind: 'source-authority' as const, agentPrincipal: AGENT, gate: 'messages', expectedRevision: null }
+  await expect(requestS1('https://api.test/api/matrix/v1', resource, 'account-token', signal(), fetchImpl)).rejects.toMatchObject({ status: 401 })
+  expect(fetchImpl).not.toHaveBeenCalled()
+  await requestS1('https://api.test/api/matrix/v1', resource, 'account-token', signal(), fetchImpl, 'matrix-device-token')
+  expect(fetchImpl).toHaveBeenCalledWith(`https://api.test/api/matrix/v1/agents/${AGENT}/source-authority`, expect.objectContaining({
+    method: 'POST', headers: { Authorization: 'Bearer account-token', 'X-Atum-Matrix-Authorization': 'Bearer matrix-device-token', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ gate: 'messages', expectedRevision: null })
+  }))
+  await requestS1('https://api.test/api/matrix/v1', { kind: 'device-services' }, 'account-token', signal(), fetchImpl, 'matrix-device-token')
+  expect(fetchImpl.mock.calls.at(-1)?.[1]?.headers).toEqual({ Authorization: 'Bearer account-token' })
+})

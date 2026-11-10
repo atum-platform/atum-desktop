@@ -1,3 +1,5 @@
+import { type MacSourcesRequest, parseMacSourcesRequest } from '../../../../../packages/device-protocol/mac-sources'
+
 import {
   type BrowserHistoryReaderOptions,
   MacBrowserHistoryError,
@@ -21,7 +23,6 @@ import {
 } from './messages'
 import type { FullDiskAccessStatus } from './permissions'
 
-const REQUEST_BYTES = 4_096
 const RESPONSE_BYTES = 96 * 1_024
 
 export interface MacSourcesServiceDependencies {
@@ -35,91 +36,11 @@ export interface MacSourcesServiceDependencies {
 export interface MacSourcesExecutionContext {
   /** Background sweeps get metadata only and may never cause a native prompt. */
   background: boolean
+  /** Independently granted prompt authority; background always overrides it. */
+  mayPrompt?: boolean
 }
 
-type ParsedRequest =
-  | { op: 'messages.conversations'; days: number; limit: number }
-  | { op: 'messages.read'; id: string; days: number; limit: number }
-  | {
-      op: 'browser.history'
-      browser: 'safari' | 'chrome' | 'all'
-      days: number
-      limit: number
-      mode: 'recent' | 'top'
-    }
-  | { op: 'location.current'; precision: 'city' | 'precise' }
-
-function strictObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
-}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  return Object.keys(value).sort().join(',') === [...expected].sort().join(',')
-}
-
-function boundedInt(value: unknown, low: number, high: number): value is number {
-  return Number.isSafeInteger(value) && Number(value) >= low && Number(value) <= high
-}
-
-export function parseMacSourcesRequest(value: unknown): ParsedRequest | null {
-  if (!strictObject(value)) {
-    return null
-  }
-
-  try {
-    if (Buffer.byteLength(JSON.stringify(value), 'utf8') > REQUEST_BYTES) {
-      return null
-    }
-  } catch {
-    return null
-  }
-
-  if (
-    value.op === 'messages.conversations' &&
-    exactKeys(value, ['op', 'days', 'limit']) &&
-    boundedInt(value.days, 1, 365) &&
-    boundedInt(value.limit, 1, 40)
-  ) {
-    return value as ParsedRequest
-  }
-
-  if (
-    value.op === 'messages.read' &&
-    exactKeys(value, ['op', 'id', 'days', 'limit']) &&
-    typeof value.id === 'string' &&
-    /^\d{1,18}$/u.test(value.id) &&
-    boundedInt(value.days, 1, 90) &&
-    boundedInt(value.limit, 1, 60)
-  ) {
-    return value as ParsedRequest
-  }
-
-  if (
-    value.op === 'browser.history' &&
-    exactKeys(value, ['op', 'browser', 'days', 'limit', 'mode']) &&
-    typeof value.browser === 'string' &&
-    ['safari', 'chrome', 'all'].includes(value.browser) &&
-    boundedInt(value.days, 1, 90) &&
-    boundedInt(value.limit, 1, 100) &&
-    typeof value.mode === 'string' &&
-    ['recent', 'top'].includes(value.mode)
-  ) {
-    return value as ParsedRequest
-  }
-
-  if (
-    value.op === 'location.current' &&
-    exactKeys(value, ['op', 'precision']) &&
-    typeof value.precision === 'string' &&
-    ['city', 'precise'].includes(value.precision)
-  ) {
-    return value as ParsedRequest
-  }
-
-  return null
-}
-
-function sourceFor(request: ParsedRequest): keyof MacSourceConsentSnapshot {
+function sourceFor(request: MacSourcesRequest): keyof MacSourceConsentSnapshot {
   return request.op.startsWith('messages.')
     ? 'messages'
     : request.op === 'browser.history'
@@ -198,7 +119,7 @@ export class MacSourcesService {
         await this.dependencies.location.current(
           request.precision,
           signal,
-          !context.background
+          !context.background && context.mayPrompt !== false
         )
       )
     } catch (error) {

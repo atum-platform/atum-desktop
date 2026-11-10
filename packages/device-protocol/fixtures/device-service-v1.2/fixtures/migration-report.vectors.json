@@ -1,0 +1,65 @@
+{
+  "vectors": [
+    {
+      "name": "the two-Mac report of migration-report.frame.json",
+      "report": {
+        "base": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+        "other": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+        "sessions": {
+          "merged": true,
+          "added": 14,
+          "skipped": 2
+        },
+        "memories": [
+          {
+            "path": "memories/MEMORY.md",
+            "addedFromOther": 3
+          },
+          {
+            "path": "memories/USER.md",
+            "addedFromOther": 1
+          }
+        ],
+        "skills": {
+          "bothKept": [
+            {
+              "name": "notes",
+              "otherName": "notes.mini"
+            }
+          ],
+          "onlyBase": [
+            "morning-brief"
+          ],
+          "onlyOther": [
+            "receipts"
+          ]
+        },
+        "oneSided": [
+          {
+            "path": "memories/projects/atum.md",
+            "side": "other",
+            "default": "keep"
+          },
+          {
+            "path": "kanban.db",
+            "side": "base",
+            "default": "keep"
+          }
+        ],
+        "replaced": [
+          {
+            "path": "SOUL.md",
+            "kept": "base"
+          },
+          {
+            "path": "projects.db",
+            "kept": "base"
+          }
+        ],
+        "omitted": 0
+      },
+      "canonical": "{\"base\":\"b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c\",\"memories\":[{\"addedFromOther\":3,\"path\":\"memories/MEMORY.md\"},{\"addedFromOther\":1,\"path\":\"memories/USER.md\"}],\"omitted\":0,\"oneSided\":[{\"default\":\"keep\",\"path\":\"memories/projects/atum.md\",\"side\":\"other\"},{\"default\":\"keep\",\"path\":\"kanban.db\",\"side\":\"base\"}],\"other\":\"c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d\",\"replaced\":[{\"kept\":\"base\",\"path\":\"SOUL.md\"},{\"kept\":\"base\",\"path\":\"projects.db\"}],\"sessions\":{\"added\":14,\"merged\":true,\"skipped\":2},\"skills\":{\"bothKept\":[{\"name\":\"notes\",\"otherName\":\"notes.mini\"}],\"onlyBase\":[\"morning-brief\"],\"onlyOther\":[\"receipts\"]}}",
+      "reportSha256": "dcec4741f7e055281c1f57594a985ce0385dfe96979e49f1d4f5e379191aa0d0"
+    }
+  ]
+}

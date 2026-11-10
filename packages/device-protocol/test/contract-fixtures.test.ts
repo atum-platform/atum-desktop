@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CLOUD_ANSWERING_PACK, DEVICE_SERVICE_PACK } from "../contract-packs";
+import { CLOUD_ANSWERING_PACK, DEVICE_FLEET_PACK, DEVICE_SERVICE_1_2_PACK, DEVICE_SERVICE_PACK } from "../contract-packs";
 import { DeviceProtocolError, parseFrame } from "../messages";
 import { machineViolations, messageViolations, type ContractPack } from "../schema";
 import { fixtureEntries, readFixture, readFixtureText } from "./fixtures";
@@ -9,7 +9,7 @@ import { fixtureEntries, readFixture, readFixtureText } from "./fixtures";
 // runtime validators exactly as the contract declares, refusals with the declared violation
 // category — the same verdicts as the platform's reference checker.
 
-const packs: [string, ContractPack][] = [["device-service", DEVICE_SERVICE_PACK], ["cloud-answering", CLOUD_ANSWERING_PACK]];
+const packs: [string, ContractPack][] = [["device-fleet", DEVICE_FLEET_PACK], ["device-service", DEVICE_SERVICE_PACK], ["device-service-v1.2", DEVICE_SERVICE_1_2_PACK], ["cloud-answering", CLOUD_ANSWERING_PACK]];
 
 for (const [name, pack] of packs) {
   describe(`${name} fixtures`, () => {
