@@ -547,9 +547,15 @@ def test_desktop_handoff_update_pauses_and_restarts_through_the_same_path(w):
 
 def test_failed_move_restarts_exactly_the_paused_set_on_the_old_code(w):
     w.reset_clean()
-    blocked = w.checkout / "website"
-    assert blocked.is_dir(), "premise: website/ is tracked"
-    target = w.publish("release: e2e hostile pause i", {"website/e2e-hostile-pause-i.txt": "release i\n"})
+    # Track a fixture-owned directory first, so the hostile release must write into an existing
+    # read-only directory regardless of which optional directories the source tree ships.
+    directory = "e2e_hostile_pause_locked"
+    seed = w.publish("release: e2e hostile pause i seed", {f"{directory}/seed.txt": "seed\n"})
+    seeded = w.update("--no-gateway-restart", timeout=UPDATE_TIMEOUT)
+    assert seeded.returncode == 0 and w.head() == seed, f"premise: seed update failed:\n{w.diag(seeded)}"
+    blocked = w.checkout / directory
+    assert blocked.is_dir(), "premise: seed update did not create the locked directory"
+    target = w.publish("release: e2e hostile pause i", {f"{directory}/release.txt": "release i\n"})
 
     def failing_update(host):
         blocked.chmod(0o555)

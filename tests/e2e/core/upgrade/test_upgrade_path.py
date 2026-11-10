@@ -648,9 +648,10 @@ def test_clean_update_keeps_long_scalar_lines_verbatim(clean_leg):
 
 def test_update_with_local_edits_and_orphan_autostash(leg, provider):
     # A file that does not change N-1 -> HEAD, so restoring the user's edit is conflict-free.
-    unchanged = next(p for p in ("README.md", "LICENSE", "AGENTS.md")
-                     if (leg.install / p).exists()
-                     and not _git("diff", "--name-only", _refs().base, _refs().head, "--", p, cwd=H.WORKTREE))
+    changed = set(_git("diff", "--name-only", "-z", _refs().base, _refs().head, cwd=H.WORKTREE).split("\0"))
+    tracked_text = _git("ls-files", "-z", "--", "*.md", "*.txt", "LICENSE*", cwd=leg.install).split("\0")
+    unchanged = next((p for p in tracked_text if p and p not in changed and (leg.install / p).is_file()), None)
+    assert unchanged is not None, "premise: no unchanged tracked text file available for the local edit"
     # An orphan autostash from an earlier update that never restored it (#63717).
     (leg.install / unchanged).write_text((leg.install / unchanged).read_text() + "\norphan edit\n")
     _git("stash", "push", "-m", "hermes-update-autostash-20260101-000000", cwd=leg.install)
