@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import type { MatrixAgentHomeModelOption } from '../../shared/matrix'
 import { matrixModelDisplayName } from '../../shared/matrix-model-display-name'
 import type { MatrixModelRoute } from '../../shared/matrix-models'
+import { MATRIX_SHELF_PROVIDER } from '../../shared/matrix-shelf-models'
 
 import { useModelPickerCopy } from './model-picker-copy'
 import type { PickerFilterSource } from './model-picker-filter'
@@ -38,6 +39,11 @@ export function pickerProvidersOf(routes: readonly PickerRoute[]): PickerProvide
 
 /** The provider family a placement model option belongs to, as the card's rail names it. */
 export function matrixHomeModelProvider(option: MatrixAgentHomeModelOption): PickerProvider {
+  // Atum-funded OpenRouter models have their own rail entry, apart from Atum's line-up.
+  if (option.source === 'atum' && option.shelf) {
+    return { ...MATRIX_SHELF_PROVIDER }
+  }
+
   const id =
     option.source === 'atum'
       ? 'atum'

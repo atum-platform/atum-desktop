@@ -1,4 +1,5 @@
 import type { MatrixModelRoute } from '../../shared/matrix-models'
+import type { MatrixShelfModelView } from '../../shared/matrix-shelf-models'
 
 import { matrixModelRouteMatches, matrixModelRoutesForFacet } from './model-picker-preferences'
 
@@ -28,6 +29,8 @@ export interface PickerRoute {
   defaultEffort?: MatrixModelRoute['efforts'][number]
   /** Why a listed model cannot be chosen here yet, drawn on its second line. */
   reason?: string
+  /** An Atum-funded OpenRouter shelf model: its second line names the maker and the Proton price. */
+  shelf?: MatrixShelfModelView
 }
 
 /** A provider family: the id every route carries, and its safe display name. */

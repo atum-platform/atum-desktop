@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
+import { matrixShelfModelView } from '../../../shared/matrix-shelf-models'
+
 import type { AgentHomeView } from './controller'
 import type { AgentHomeOwnerState } from './owner-controller'
 import { readPackV25Json } from './pack-v25.fixture'
@@ -134,6 +136,44 @@ describe('the cloud models the sheet offers', () => {
       ['nguyet-thuc', true],
       ['nhat-thuc', true]
     ])
+  })
+  const opus = matrixShelfModelView({
+    alias: 'opus',
+    displayName: 'Anthropic: Claude Opus 5.5',
+    providerModel: 'anthropic/claude-opus-5.5',
+    inputUsdPerMtok: '4',
+    outputUsdPerMtok: '20',
+    efforts: ['low', 'medium', 'high'],
+    defaultEffort: 'high'
+  })!
+
+  it('lists an active OpenRouter shelf model under OpenRouter with its own name and price, and no inactive one', () => {
+    const models = cloudModels([
+      { alias: 'nguyet-thuc', efforts: ['medium'], defaultEffort: 'medium', eligible: true },
+      { alias: 'opus', efforts: ['low', 'medium', 'high'], defaultEffort: 'high', eligible: true, shelf: opus },
+      { alias: 'sonnet', efforts: ['low', 'medium', 'high'], defaultEffort: 'high', eligible: false },
+      // Eligible but unpriced: never drawn.
+      { alias: 'glm', efforts: ['low', 'high'], defaultEffort: 'high', eligible: true }
+    ])
+
+    expect(models.map(model => [model.model, model.providerLabel, model.modelLabel, model.effort])).toEqual([
+      ['nguyet-thuc', 'Atum', 'Nguyệt Thực 1.3', 'medium'],
+      ['opus', 'OpenRouter', 'Claude Opus 5.5', 'high']
+    ])
+    expect(models[1]?.shelf).toEqual(opus)
+  })
+
+  it('names a saved shelf model as the cloud’s current model', () => {
+    const offers = [
+      { alias: 'nguyet-thuc', efforts: ['medium'], defaultEffort: 'medium', eligible: true },
+      { alias: 'opus', efforts: ['low', 'medium', 'high'], defaultEffort: 'high', eligible: true, shelf: opus }
+    ]
+
+    expect(ownerHomeViewFor(base, state(), names, ME, 'opus', offers).placement!.currentModel).toMatchObject({
+      source: 'atum',
+      model: 'opus',
+      modelLabel: 'Claude Opus 5.5'
+    })
   })
 })
 

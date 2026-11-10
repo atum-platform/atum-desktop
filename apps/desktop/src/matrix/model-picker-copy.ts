@@ -1,12 +1,14 @@
 import { type Locale, useI18n } from '@/i18n'
 
 import type { MatrixConnectedModelProblem, MatrixEffort } from '../../shared/matrix-models'
+import type { MatrixShelfRetention } from '../../shared/matrix-shelf-models'
 
 /**
  * The model picker's words. Vietnamese first: short, warm, no "reasoning", "provider" or
  * "token". The picker names whose model changes: a connected route is this assistant on this
  * Mac, Atum's own model is this conversation, and a cloud model belongs to the assistant in the
- * cloud. A connection the person made never mentions Protons.
+ * cloud. A connection the person made never mentions Protons. An OpenRouter shelf model is paid
+ * in Protons, so its row shows its price, and only its tooltip names the unit (a million tokens).
  */
 interface ModelPickerCopy {
   /** The three Atum lineup descriptors shown beneath their model names. */
@@ -100,6 +102,15 @@ interface ModelPickerCopy {
   effortReconciled(level: string): string
   effortReconcileFailed: string
   switchRefused: string
+  /** An OpenRouter shelf row's price line: Protons per million tokens read / written. */
+  shelfPrice(input: string, output: string): string
+  /** The same price in full, in the row's tooltip. */
+  shelfPriceDetail(input: string, output: string): string
+  /** Beside a shelf model that costs more than Nhật Thực: a label, never a confirmation. */
+  shelfCostly: string
+  shelfCostlyDetail: string
+  /** What the provider keeps, in the tooltip. Training is never allowed. */
+  shelfRetention: Record<MatrixShelfRetention, string>
 }
 
 const en: ModelPickerCopy = {
@@ -183,7 +194,17 @@ const en: ModelPickerCopy = {
   useEffort: level => `Use ${level}`,
   effortReconciled: level => `Thinking is now ${level} for this model.`,
   effortReconcileFailed: 'The model changed, but its thinking level could not be updated.',
-  switchRefused: 'Couldn’t change the model.'
+  switchRefused: 'Couldn’t change the model.',
+  shelfPrice: (input, output) => `${input} / ${output} Protons`,
+  shelfPriceDetail: (input, output) =>
+    `Per million tokens: ${input} Protons to read, ${output} Protons to write.`,
+  shelfCostly: 'Costs more',
+  shelfCostlyDetail: 'Uses more Protons than Nhật Thực.',
+  shelfRetention: {
+    zero_data_retention: 'Not stored and never used for training.',
+    safety_retention: 'Never used for training; kept briefly for safety checks.',
+    provider_policy: 'Never used for training.'
+  }
 }
 
 const vi: ModelPickerCopy = {
@@ -267,7 +288,16 @@ const vi: ModelPickerCopy = {
   useEffort: level => `Dùng ${level}`,
   effortReconciled: level => `Mức suy nghĩ đã đổi sang ${level} cho mô hình này.`,
   effortReconcileFailed: 'Đã đổi mô hình nhưng chưa đổi được mức suy nghĩ.',
-  switchRefused: 'Chưa đổi được mô hình.'
+  switchRefused: 'Chưa đổi được mô hình.',
+  shelfPrice: (input, output) => `${input} / ${output} Proton`,
+  shelfPriceDetail: (input, output) => `Mỗi triệu token: đọc ${input} Proton, viết ${output} Proton.`,
+  shelfCostly: 'Giá cao',
+  shelfCostlyDetail: 'Tốn nhiều Proton hơn Nhật Thực.',
+  shelfRetention: {
+    zero_data_retention: 'Không lưu lại và không dùng để huấn luyện.',
+    safety_retention: 'Không dùng để huấn luyện; lưu ngắn hạn để kiểm tra an toàn.',
+    provider_policy: 'Không dùng để huấn luyện.'
+  }
 }
 
 const ja: ModelPickerCopy = {
@@ -351,7 +381,17 @@ const ja: ModelPickerCopy = {
   useEffort: level => `「${level}」を使う`,
   effortReconciled: level => `このモデルの思考レベルを「${level}」に変更しました。`,
   effortReconcileFailed: 'モデルは変更されましたが、思考レベルを変更できませんでした。',
-  switchRefused: 'モデルを変更できませんでした。'
+  switchRefused: 'モデルを変更できませんでした。',
+  shelfPrice: (input, output) => `${input} / ${output} Proton`,
+  shelfPriceDetail: (input, output) =>
+    `100万トークンあたり：読み取り ${input} Proton、書き出し ${output} Proton。`,
+  shelfCostly: '高価格',
+  shelfCostlyDetail: 'Nhật Thực より多くの Proton を使います。',
+  shelfRetention: {
+    zero_data_retention: '保存されず、学習にも使われません。',
+    safety_retention: '学習には使われません。安全確認のため短期間だけ保存されます。',
+    provider_policy: '学習には使われません。'
+  }
 }
 
 const zh: ModelPickerCopy = {
@@ -435,7 +475,16 @@ const zh: ModelPickerCopy = {
   useEffort: level => `使用“${level}”`,
   effortReconciled: level => `此模型的思考级别已改为“${level}”。`,
   effortReconcileFailed: '模型已更改，但无法更新思考级别。',
-  switchRefused: '无法更改模型。'
+  switchRefused: '无法更改模型。',
+  shelfPrice: (input, output) => `${input} / ${output} Proton`,
+  shelfPriceDetail: (input, output) => `每百万 token：读取 ${input} Proton，写出 ${output} Proton。`,
+  shelfCostly: '价格较高',
+  shelfCostlyDetail: '比 Nhật Thực 用更多 Proton。',
+  shelfRetention: {
+    zero_data_retention: '不保存，也绝不用于训练。',
+    safety_retention: '绝不用于训练；为安全检查短期保存。',
+    provider_policy: '绝不用于训练。'
+  }
 }
 
 const zhHant: ModelPickerCopy = {
@@ -519,7 +568,16 @@ const zhHant: ModelPickerCopy = {
   useEffort: level => `使用「${level}」`,
   effortReconciled: level => `此模型的思考等級已改為「${level}」。`,
   effortReconcileFailed: '模型已變更，但無法更新思考等級。',
-  switchRefused: '無法變更模型。'
+  switchRefused: '無法變更模型。',
+  shelfPrice: (input, output) => `${input} / ${output} Proton`,
+  shelfPriceDetail: (input, output) => `每百萬 token：讀取 ${input} Proton，寫出 ${output} Proton。`,
+  shelfCostly: '價格較高',
+  shelfCostlyDetail: '比 Nhật Thực 用更多 Proton。',
+  shelfRetention: {
+    zero_data_retention: '不保存，也絕不用於訓練。',
+    safety_retention: '絕不用於訓練；為安全檢查短期保存。',
+    provider_policy: '絕不用於訓練。'
+  }
 }
 
 const COPY: Record<Locale, ModelPickerCopy> = { en, vi, ja, zh, 'zh-hant': zhHant }

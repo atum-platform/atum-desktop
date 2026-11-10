@@ -11,6 +11,7 @@ import type {
   MatrixModelId
 } from '../../../shared/matrix-models'
 import { matrixModelRouteId } from '../../../shared/matrix-models'
+import { matrixShelfModelView } from '../../../shared/matrix-shelf-models'
 import type { MatrixSubscriptionsStatus } from '../../../shared/matrix-subscriptions'
 import { writeMatrixModelPickerPreferences } from '../model-picker-preferences'
 
@@ -249,6 +250,55 @@ describe('the assistant card’s model rows', () => {
 
     expect(screen.getByText('ChatGPT · GPT-5.6 Luna')).toBeTruthy()
     expect(screen.queryByText('Nguyệt Thực 1.3')).toBeNull()
+  })
+
+  it('names a saved OpenRouter shelf model on the cloud row, never Atum’s fallback or “Đề xuất”', async () => {
+    const opus = {
+      connectionRef: 'conn_atummanaged000001',
+      source: 'atum' as const,
+      providerLabel: 'OpenRouter',
+      model: 'opus',
+      modelLabel: 'Claude Opus 5.5',
+      effort: 'high' as const,
+      efforts: ['low', 'medium', 'high'] as const,
+      available: true,
+      shelf: matrixShelfModelView({
+        alias: 'opus',
+        displayName: 'Anthropic: Claude Opus 5.5',
+        providerModel: 'anthropic/claude-opus-5.5',
+        inputUsdPerMtok: '4',
+        outputUsdPerMtok: '20',
+        efforts: ['low', 'medium', 'high'],
+        defaultEffort: 'high'
+      })!
+    }
+
+    const home: MatrixAgentHomeView = {
+      lives: { kind: 'cloud' },
+      move: null,
+      targets: [],
+      issue: null,
+      placement: {
+        profile: 'atum.agent-home/2.5',
+        moveAvailable: true,
+        current: 'cloud',
+        reachability: 'reachable',
+        currentModel: opus,
+        destinations: [
+          { id: 'cloud', kind: 'cloud', name: '', thisMac: false, eligibility: 'ready', catalogRevision: 0, models: [opus] }
+        ]
+      }
+    }
+
+    renderRow(view([choice({ shelf: 'opus', recommended: false })]), { home })
+
+    const cloud = screen.getByRole('button', { name: /^Đám mây/ })
+    expect(within(cloud).getByText('OpenRouter · Claude Opus 5.5')).toBeTruthy()
+    expect(within(cloud).queryByText('Đề xuất')).toBeNull()
+
+    fireEvent.click(cloud)
+    const card = await dialog()
+    expect(modelRow(card, matrixModelRouteId('atum-openrouter', 'opus')).getAttribute('aria-current')).toBe('true')
   })
 
   it('lists the cloud and each Mac by display name, with the default and “Đề xuất”', async () => {

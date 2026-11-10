@@ -9,6 +9,7 @@ import {
   type MatrixModelDestinationView,
   type MatrixModelId
 } from '../../shared/matrix-models'
+import { type MatrixShelfModelId, parseMatrixShelfModel } from '../../shared/matrix-shelf-models'
 
 import { readDomainJson } from './domain'
 
@@ -475,17 +476,30 @@ export function parseMatrixModelDestinationsWrite(
 export function matrixModelDestinationWrite(
   snapshot: MatrixModelDestinationSnapshot,
   destination: 'cloud' | `mac:${string}`,
-  model: MatrixModelId,
-  requestId = randomUUID()
+  model: MatrixModelId | MatrixShelfModelId,
+  requestId = randomUUID(),
+  /** A shelf model's own default level; Atum's line-up keeps the standard effort. */
+  modelEffort?: MatrixManagedEffort
 ): MatrixModelDestinationsWriteRequest | undefined {
-  if (!destinationId(destination) || !MATRIX_MODELS.includes(model)) {
+  // An OpenRouter shelf alias is a cloud choice only: the gateway refuses it from a Mac.
+  const shelf = parseMatrixShelfModel(model) !== undefined
+
+  if (
+    !destinationId(destination) ||
+    (!MATRIX_MODELS.some(each => each === model) && !shelf) ||
+    (shelf && destination !== 'cloud')
+  ) {
     return undefined
   }
 
   const current = snapshot.choices.find(choice => choice.destination === destination)
 
   const effort =
-    current?.source === 'atum' && current.model === model ? current.effort : snapshot.recommended.effort
+    current?.source === 'atum' && current.model === model
+      ? current.effort
+      : shelf && modelEffort
+        ? modelEffort
+        : snapshot.recommended.effort
 
   return parseMatrixModelDestinationsWrite({
     profile: MATRIX_MODEL_DESTINATIONS_PROFILE,
@@ -552,12 +566,19 @@ export function matrixModelDestinationsView(
 
   const cloudModels = MATRIX_MODELS.filter(model => model === MATRIX_DEFAULT_MODEL || offered.has(model))
 
-  const current = (destination: string): { model: MatrixModelId; external?: MatrixModelDestinationView['external'] } => {
+  const current = (
+    destination: string
+  ): { model: MatrixModelId; shelf?: MatrixShelfModelId; external?: MatrixModelDestinationView['external'] } => {
     const choice = snapshot.choices.find(each => each.destination === destination)
     const chosen = choice ? matrixCloudModelAlias(choice.model) : undefined
 
+    // The cloud's saved OpenRouter shelf model is named as itself, never as the Atum fallback.
+    const shelf =
+      destination === 'cloud' && choice?.source === 'atum' ? parseMatrixShelfModel(choice.model) : undefined
+
     return {
       model: chosen ?? recommended,
+      ...(shelf ? { shelf } : {}),
       ...(choice && choice.source !== 'atum'
         ? {
             external: {
@@ -613,8 +634,9 @@ export function matrixModelDestinationsView(
       id: 'cloud',
       kind: 'cloud',
       current: cloud.model,
+      ...(cloud.shelf ? { shelf: cloud.shelf } : {}),
       ...(cloud.external ? { external: cloud.external } : {}),
-      recommended: cloud.model === recommended,
+      recommended: !cloud.shelf && cloud.model === recommended,
       models: cloudModels,
       unavailable: MATRIX_MODELS.filter(model => !cloudModels.includes(model))
     },
@@ -757,13 +779,18 @@ function sameScope(left: MatrixModelDestinationsScope | null, right: MatrixModel
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
 export async function writeMatrixCloudAtumChoice(
   agentPrincipal: string,
-  model: MatrixModelId,
+  model: MatrixModelId | MatrixShelfModelId,
   options: {
     destinations?: Pick<MatrixModelDestinations, 'view' | 'read' | 'write'>
-    legacy?: { write(agentPrincipal: string, model: MatrixModelId): Promise<boolean>; reload(agentPrincipal: string): Promise<void> }
+    legacy?: {
+      write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean>
+      reload(agentPrincipal: string): Promise<void>
+    }
+    /** A shelf model's default level from the offer. */
+    effort?: MatrixManagedEffort
   }
 ): Promise<boolean> {
-  const { destinations, legacy } = options
+  const { destinations, legacy, effort } = options
 
   if (!destinations) {
     return legacy ? legacy.write(agentPrincipal, model) : false
@@ -773,7 +800,10 @@ export async function writeMatrixCloudAtumChoice(
     await destinations.read(agentPrincipal).catch(() => undefined)
   }
 
-  const applied = await destinations.write(agentPrincipal, 'cloud', model).catch(() => false)
+  const applied = await (effort
+    ? destinations.write(agentPrincipal, 'cloud', model, effort)
+    : destinations.write(agentPrincipal, 'cloud', model)
+  ).catch(() => false)
 
   if (applied) {
     await legacy?.reload(agentPrincipal).catch(() => undefined)
@@ -938,10 +968,15 @@ export class MatrixModelDestinations {
    * Write one destination's model. False for any refusal (ineligible alias, revision or
    * policy change, an unreachable server): the caller keeps the row it had.
    */
-  async write(agentPrincipal: string, destination: string, model: MatrixModelId): Promise<boolean> {
+  async write(
+    agentPrincipal: string,
+    destination: string,
+    model: MatrixModelId | MatrixShelfModelId,
+    effort?: MatrixManagedEffort
+  ): Promise<boolean> {
     const snapshot = this.entries.get(agentPrincipal)?.snapshot
     const id = destinationId(destination)
-    const body = snapshot && id ? matrixModelDestinationWrite(snapshot, id, model) : undefined
+    const body = snapshot && id ? matrixModelDestinationWrite(snapshot, id, model, randomUUID(), effort) : undefined
 
     if (!body) {
       return false

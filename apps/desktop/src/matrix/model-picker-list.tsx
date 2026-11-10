@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 
 import { matrixModelDisplayName } from '../../shared/matrix-model-display-name'
 import type { MatrixModelRoute } from '../../shared/matrix-models'
+import { type MatrixShelfModelView, matrixShelfProtonsLabel } from '../../shared/matrix-shelf-models'
 
 import { useModelPickerCopy } from './model-picker-copy'
 import { ProviderMark } from './model-picker-provider-mark'
@@ -51,7 +52,7 @@ function PickerRowView({
   onChoose,
   onStar
 }: PickerRowProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const words = useModelPickerCopy()
   const route = picked.route
   const atum = route.provider === 'atum'
@@ -69,10 +70,14 @@ function PickerRowView({
 
   const unavailable = Boolean(picked.disabled || !route.ready)
   const starrable = !unavailable
+  const shelf = picked.shelf
+  const price = shelf ? shelfPrice(shelf, locale, words.shelfPrice) : undefined
 
   const label = [
     name,
-    atum ? undefined : route.providerLabel,
+    atum ? undefined : shelf ? `${route.providerLabel} · ${shelf.maker.label}` : route.providerLabel,
+    price,
+    shelf?.costly ? words.shelfCostly : undefined,
     ...facts,
     picked.reason,
     current ? words.current : undefined
@@ -108,6 +113,23 @@ function PickerRowView({
                   <BrandMark className="size-4 rounded-[0.25rem]" inset />
                   <span className="min-w-0 truncate">{facts.join(' · ')}</span>
                 </span>
+              ) : shelf ? (
+                // The list is already OpenRouter's: the line names the maker and the price, and a
+                // model that costs more than Nhật Thực says so (a label, never a confirmation).
+                <>
+                  <ProviderMark provider={shelfMakerMark(shelf)} size="xs" />
+                  <span className="min-w-0 truncate" data-matrix-model-shelf-price>
+                    {`${shelf.maker.label} · ${price}`}
+                  </span>
+                  {shelf.costly && (
+                    <span
+                      className="shrink-0 rounded-[0.25rem] bg-(--atum-warn)/12 px-1 font-medium text-(--atum-warn)"
+                      data-matrix-model-shelf-costly
+                    >
+                      {words.shelfCostly}
+                    </span>
+                  )}
+                </>
               ) : (
                 <>
                   <ProviderMark provider={{ id: route.provider, label: route.providerLabel }} size="xs" />
@@ -159,6 +181,25 @@ function PickerRowView({
       </li>
     </Tip>
   )
+}
+
+/** "81,000 / 405,000 Protons", grouped the reader's way. */
+export function shelfPrice(
+  shelf: MatrixShelfModelView,
+  locale: string,
+  phrase: (input: string, output: string) => string
+): string {
+  return phrase(
+    matrixShelfProtonsLabel(shelf.inputProtonsPerMtok, locale),
+    matrixShelfProtonsLabel(shelf.outputProtonsPerMtok, locale)
+  )
+}
+
+/** The maker's own mark (Claude, Gemini, Grok…); a maker without one gets its initial. */
+function shelfMakerMark(shelf: MatrixShelfModelView) {
+  const id = shelf.maker.id === 'google' ? 'gemini' : shelf.maker.id === 'x-ai' ? 'xai' : shelf.maker.id
+
+  return { id, label: shelf.maker.label }
 }
 
 /** One flat list. The left rail owns grouping; there are no collapsible headers in this column. */

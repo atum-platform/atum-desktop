@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
 import type { MatrixCloudModelChoiceView, MatrixModelId } from '../../shared/matrix-models'
+import {
+  type MatrixShelfModelId,
+  type MatrixShelfModelView,
+  matrixShelfModelView
+} from '../../shared/matrix-shelf-models'
 
 import { readDomainJson } from './domain'
 
@@ -53,6 +58,11 @@ export interface MatrixCloudModelRow {
   defaultEffort?: string
   /** `ready` in the offer's closed eligibility vocabulary; every other state is unavailable. */
   eligible: boolean
+  /**
+   * An OpenRouter shelf row with its name and Proton price, read from the same row. Absent for
+   * Atum's own models, and for a shelf row missing any fact the picker needs to draw it.
+   */
+  shelf?: MatrixShelfModelView
 }
 
 export interface MatrixCloudModelOffer {
@@ -83,6 +93,28 @@ function effort(value: unknown): string | undefined {
 
 function isEligible(value: unknown): boolean {
   return record(value) && value.state === 'ready'
+}
+
+function displayText(value: unknown, max: number): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= max ? value : undefined
+}
+
+/** The shelf facts on one offered row: its name, maker and USD price (the server's own figures). */
+function shelfRow(row: Record<string, unknown>, alias: string, efforts: readonly string[], defaultEffort?: string) {
+  const cost = record(row.cost) && row.cost.currency === 'USD' ? row.cost : undefined
+  const displayName = displayText(row.displayName, 120)
+  const providerModel = displayText(row.providerModel, 200)
+
+  return matrixShelfModelView({
+    alias,
+    ...(displayName ? { displayName } : {}),
+    ...(providerModel ? { providerModel } : {}),
+    ...(typeof cost?.inputPerMtok === 'string' ? { inputUsdPerMtok: cost.inputPerMtok } : {}),
+    ...(typeof cost?.outputPerMtok === 'string' ? { outputUsdPerMtok: cost.outputPerMtok } : {}),
+    efforts,
+    ...(defaultEffort ? { defaultEffort } : {}),
+    retention: row.retention
+  })
 }
 
 /**
@@ -132,11 +164,14 @@ export function parseMatrixCloudModelOffer(value: unknown, agentPrincipal: strin
       return null
     }
 
+    const shelf = shelfRow(row, rowAlias, efforts, defaultEffort)
+
     models.push({
       alias: rowAlias,
       efforts,
       ...(defaultEffort ? { defaultEffort } : {}),
-      eligible: isEligible(row.eligibility)
+      eligible: isEligible(row.eligibility),
+      ...(shelf ? { shelf } : {})
     })
   }
 
@@ -157,11 +192,18 @@ export function parseMatrixCloudModelOffer(value: unknown, agentPrincipal: strin
   }
 }
 
-/** What the window needs: the aliases the server will take right now, and the one it runs. */
+/**
+ * What the window needs: the aliases the server will take right now, the one it runs, and the
+ * shelf models among them with their prices. An inactive shelf row is never eligible, so before
+ * the platform activates the shelf the list is empty and the picker has no OpenRouter rail.
+ */
 export function matrixCloudModelView(offer: MatrixCloudModelOffer): MatrixCloudModelChoiceView {
+  const shelf = offer.models.flatMap(row => (row.eligible && row.shelf ? [row.shelf] : []))
+
   return {
     offered: offer.models.filter(row => row.eligible).map(row => row.alias),
-    ...(offer.current ? { current: offer.current } : {})
+    ...(offer.current ? { current: offer.current } : {}),
+    ...(shelf.length ? { shelf } : {})
   }
 }
 
@@ -169,7 +211,7 @@ export function matrixCloudModelView(offer: MatrixCloudModelOffer): MatrixCloudM
  * else its own default. The server still refuses an effort the alias does not serve. */
 export function matrixCloudModelWrite(
   offer: MatrixCloudModelOffer,
-  model: MatrixModelId,
+  model: MatrixModelId | MatrixShelfModelId,
   requestId = randomUUID()
 ): MatrixCloudModelWriteRequest | null {
   const destination = offer.models.find(row => row.alias === model)
@@ -337,7 +379,7 @@ export class MatrixCloudModelChoices {
    * policy change, an unreachable server): the caller keeps the row it had. A successful
    * write adopts the server's own snapshot, so the checked row is what the server stores.
    */
-  async write(agentPrincipal: string, model: MatrixModelId): Promise<boolean> {
+  async write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean> {
     const offer = this.offer(agentPrincipal)
     const body = offer ? matrixCloudModelWrite(offer, model) : null
 

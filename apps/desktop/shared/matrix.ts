@@ -102,6 +102,7 @@ import type { MatrixProgressMarker } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
+import type { MatrixShelfModelId, MatrixShelfModelView } from './matrix-shelf-models'
 import type { MatrixStoreBridge, MatrixStoreSnapshot } from './matrix-store'
 import type { MatrixStoreRunLedger } from './matrix-store-runs'
 import type {
@@ -808,6 +809,8 @@ export interface MatrixAgentHomeModelOption {
   effort: 'low' | 'medium' | 'high' | 'max'
   efforts: readonly ('low' | 'medium' | 'high' | 'max')[]
   available: boolean
+  /** An Atum-funded OpenRouter shelf model (cloud only): its rail, name and Proton price. */
+  shelf?: MatrixShelfModelView
 }
 
 export interface MatrixAgentHomeDestinationView {
@@ -1522,7 +1525,8 @@ export type MatrixCommand =
   | { kind: 'favourite'; roomId: string; favourite: boolean }
   /** Standard m.lowpriority tag. Setting it removes m.favourite (a chat is one or the other). */
   | { kind: 'lowPriority'; roomId: string; lowPriority: boolean }
-  | { kind: 'setModel'; roomId: string; model?: MatrixModelId; effort?: MatrixEffort }
+  /** `model` is a shelf alias only for a cloud agent; main refuses one anywhere else. */
+  | { kind: 'setModel'; roomId: string; model?: MatrixModelId | MatrixShelfModelId; effort?: MatrixEffort }
   | { kind: 'openWebPreview' | 'dismissWebPreview'; roomId: string; id: string }
   /** `appPair`: main's pair with an app that has no bot (`createAppConversation`), made with
    * end-to-end encryption as before 0.20; the renderer's parser never sets it. */
