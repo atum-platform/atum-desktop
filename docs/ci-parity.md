@@ -277,3 +277,38 @@ paths after the dependency security refresh; hosted validation remains pending.
 - Trusted `origin/main` detached-checkout guard passes against the repair range:
   raw paths/modes, ancestry, identifiers, pinned gitleaks secrets and commit
   metadata; no leaks found. The scratch checkout is removed after verification.
+
+## Kanban dispatcher restart repair (2026-11-11)
+
+Built locally, not published. The SIGKILL E2E failure exposes a real duplicate
+execution window, not an invalid exactly-once assertion. The dispatcher spawns
+the submitter before recording its PID (`kanban_db_dispatch.py`,
+`_dispatch_candidate`). Killing it in between leaves a live submitter with no
+PID on the board. The owner-managed path bypassed the one-shot CLI's
+`register_current_worker_from_env` call. An expired claim could therefore be
+reclaimed while its owner-bound interpreter continued working. The failed job
+recorded two `worker_bound` events under different claims and two provider
+completion requests for the same card.
+
+The submitter now calls the existing `adopt_worker_pid` against its explicit
+board database before contacting the owner. Adoption serializes with reclaim:
+either the live PID is recorded on both task and run, or the stale submitter
+exits before admission. The dispatcher's existing PID compare-and-swap rejects
+a stale reclaim snapshot if registration won. No schema, TTL, reclaim policy,
+or E2E assertion changes are needed.
+
+Adopt-first inspection: upstream still has the identical restart E2E test and
+no submitter-side adoption at inspection time. Reuse its existing atomic
+adoption primitive rather than importing unrelated owner-reconnect changes.
+References:
+<https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/kanban_worker_client.py>
+and <https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/kanban_db_dispatch.py>.
+
+Verification uses an existing Python environment without installing anything.
+Three deterministic regression cases cover the missing dispatcher PID, an
+already-recorded PID, and a reclaimed/replaced run. Before the repair, the
+missing-PID and stale-submitter cases fail; afterwards all three pass. Together
+with owner-startup and admission-wait checks: seven passed. Ruff and
+`git diff --check` pass. The unchanged two restart E2E scenarios skip on macOS
+because they require Linux `/proc`; exact-head Linux CI remains coordinator
+work. No push, PR edit, CI rerun, deployment, or nested review was performed.

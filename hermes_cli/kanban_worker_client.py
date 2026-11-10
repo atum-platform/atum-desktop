@@ -102,6 +102,17 @@ def _submit():
         params = {'board': os.environ['HERMES_KANBAN_BOARD'], 'task_id': os.environ['HERMES_KANBAN_TASK'],
             'run_id': int(os.environ['HERMES_KANBAN_RUN_ID']), 'claim_lock': os.environ['HERMES_KANBAN_CLAIM_LOCK']}
         board_db = os.environ['HERMES_KANBAN_DB']
+        # SIGKILL can take the dispatcher between Popen and _set_worker_pid. Register
+        # the submitter before contacting the owner, as the one-shot CLI worker does:
+        # stale-claim recovery must see our live PID even while the owner starts up.
+        # Adoption and reclaim serialize on the board write lock; a reclaimed run
+        # must exit here without admitting any work under its obsolete claim.
+        from hermes_cli.kanban_db_connect import connect_closing
+        from hermes_cli.kanban_db_dispatch import adopt_worker_pid
+        with connect_closing(Path(board_db)) as conn:
+            if not adopt_worker_pid(conn, params['task_id'], params['run_id'], os.getpid()):
+                print('Kanban owner refused: stale claim before submission', file=sys.stderr)
+                return 1
         # Owner startup must never inherit this worker's task/tool/goal identity.
         for key in list(os.environ):
             # The busy timeout is a host tuning knob, not task identity: the answer budget reads it.
