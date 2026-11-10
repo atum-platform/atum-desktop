@@ -89,6 +89,10 @@ function gitFor(cwd, gitBin, env = null) {
     binary: gitBin || 'git',
     maxConcurrentProcesses: 4,
     trimmed: false,
+    // v4 requires both the unsafe opt-ins and an explicit environment allow-list.
+    // Only pass the keys supplied by our trusted env builders; repo config is
+    // still neutralised by hardenedGitEnv before automatic reads.
+    ...(env ? { allowEnvironment: Object.keys(env) } : {}),
     ...(Object.keys(unsafe).length ? { unsafe } : {})
   })
 
