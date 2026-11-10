@@ -120,7 +120,7 @@ function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-class BrokerError extends Error {
+export class BrokerError extends Error {
   constructor(
     readonly status: number,
     readonly code: string
@@ -219,7 +219,11 @@ export function projectRequest(value: unknown, grant: ModelGrant): { body: JsonR
     throw new BrokerError(400, 'request_invalid')
   }
 
-  const alias = value.model ?? grant.aliases[0]
+  // Resumed Hermes conversations can retain the stable broker name `default`.
+  // Subscription grants authorize one provider model, not a managed alias. Resolve this
+  // transport name to that singleton without changing the grant or its funding source.
+  const alias = grant.source !== 'atum' && value.model === 'default' && grant.aliases.length === 1
+    ? grant.aliases[0] : value.model ?? grant.aliases[0]
 
   if (typeof alias !== 'string' || !grant.aliases.includes(alias)) {
     throw new BrokerError(403, 'model_alias_not_granted')
@@ -548,7 +552,22 @@ export class ModelBroker {
       const { value, bytes } = await readBounded(request, this.maxRequestBytes)
       record.requestBytes = bytes
 
-      const projected = projectRequest(value, admission.grant)
+      const subscription = admission.grant.source !== 'atum'
+      const upstream = admission.grant.source === 'opencode_go'
+        ? this.options.subscription
+        : admission.grant.source === 'chatgpt_plan' ? this.options.chatgptRelay : this.options.upstream
+      let localRefusal: string | undefined
+      let projected: ReturnType<typeof projectRequest>
+      try {
+        projected = projectRequest(value, admission.grant)
+      } catch (error) {
+        if (!subscription || !admission.grant.subscriptionFallback || !upstream?.fallback ||
+            !(error instanceof BrokerError) || error.code !== 'model_alias_not_granted') throw error
+        // Validate the rest of the envelope with the granted model. Never pass an
+        // ungranted alias to the subscription, nor relabel its token as managed funding.
+        projected = projectRequest({ ...(value as JsonRecord), model: admission.grant.aliases[0] }, admission.grant)
+        localRefusal = error.code
+      }
       record.alias = projected.body.model as string
       record.stream = projected.stream
       Object.assign(record, promptDigests(projected.body))
@@ -575,18 +594,8 @@ export class ModelBroker {
       }
 
       const signal = AbortSignal.any([admission.signal, hungUp.signal])
-      const subscription = admission.grant.source !== 'atum'
-      if (admission.grant.source === 'opencode_go' && !this.options.subscription) {
-        throw new BrokerError(502, 'subscription_unavailable')
-      }
-      if (admission.grant.source === 'chatgpt_plan' && !this.options.chatgptRelay) {
-        throw new BrokerError(403, 'subscription_relay_offline')
-      }
-      const upstream = admission.grant.source === 'opencode_go'
-        ? this.options.subscription!
-        : admission.grant.source === 'chatgpt_plan'
-          ? this.options.chatgptRelay!
-          : this.options.upstream
+      if (!upstream) throw new BrokerError(admission.grant.source === 'chatgpt_plan' ? 403 : 502, admission.grant.source === 'chatgpt_plan'
+        ? 'subscription_relay_offline' : 'subscription_unavailable')
       let result: UpstreamStreamResponse
       if (projected.stream && !subscription && upstream.stream) {
         result = await upstream.stream({ body: projected.body, grant: admission.grant, token: token!, signal })
@@ -632,10 +641,10 @@ export class ModelBroker {
       } else {
         const { stream_options: _streamOptions, ...completionBody } = projected.body
         // The subscription edge is non-streaming: ask it for one completion and let the broker
-        // synthesize the sandbox's SSE from it. Never fall through to the managed gateway.
-        result = await upstream.complete({
-          body: { ...completionBody, stream: false }, grant: admission.grant, token: token!, signal
-        })
+        // synthesize the sandbox's SSE from it. Managed recovery requires the controller's
+        // explicit authority exchange, including local alias refusals.
+        const call = { body: { ...completionBody, stream: false }, grant: admission.grant, token: token!, signal }
+        result = localRefusal ? await upstream.fallback!(call, localRefusal) : await upstream.complete(call)
       }
 
       upstreamAccepted = true
