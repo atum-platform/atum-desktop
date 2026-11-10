@@ -1,6 +1,8 @@
 /** Owner-facing `atum.agent-home/2.5` requests. Main keeps every key and bearer. */
 import { randomUUID } from 'node:crypto'
 
+import type { MatrixShelfModelView } from '../../../shared/matrix-shelf-models'
+
 import { CallPacer } from './call-pacer'
 import type { PlacementConnectionAuth } from './connection-auth'
 import type { PlacementConnectionFailure, PlacementConnectionPlatform } from './connection-platform'
@@ -60,6 +62,8 @@ export interface CloudHomeOffer {
   efforts: readonly string[]
   defaultEffort?: string
   eligible: boolean
+  /** An OpenRouter shelf row's name and Proton price, when the offer carries them. */
+  shelf?: MatrixShelfModelView
 }
 
 export interface CloudHomeOption {

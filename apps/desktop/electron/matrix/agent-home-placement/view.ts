@@ -11,6 +11,7 @@ import type {
   MatrixAgentHomeView
 } from '../../../shared/matrix'
 import { type MatrixModelId, matrixModelName, parseMatrixModel } from '../../../shared/matrix-models'
+import { MATRIX_SHELF_PROVIDER, type MatrixShelfModelId, parseMatrixShelfModel } from '../../../shared/matrix-shelf-models'
 
 import { externalModelLabel } from './connection-participant'
 import type { PlacementConnectionFailure } from './connection-platform'
@@ -133,16 +134,27 @@ function cloudDestination(offers?: readonly CloudHomeOffer[]): MatrixAgentHomeDe
     eligibility: 'ready',
     catalogRevision: 0,
     // What the platform serves this agent now (an alias it does not serve is shown unavailable, not hidden); the two
-    // line-up aliases only until an offer has been read.
-    models: cloudHomeOptions(offers).map(({ choice, available }) =>
-      option(
+    // line-up aliases only until an offer has been read. An OpenRouter shelf row is listed under its own rail with its
+    // name and price, and only while the platform offers it: one missing its price is not drawn at all.
+    models: cloudHomeOptions(offers).flatMap(({ choice, available }) => {
+      const shelf = parseMatrixShelfModel(choice.model)
+        ? offers?.find(each => each.alias === choice.model)?.shelf
+        : undefined
+
+      if (parseMatrixShelfModel(choice.model) && (!shelf || !available)) {
+        return []
+      }
+
+      const row = option(
         choice,
-        'Atum',
-        matrixModelName(choice.model as MatrixModelId),
+        shelf ? MATRIX_SHELF_PROVIDER.label : 'Atum',
+        shelf ? shelf.name : matrixModelName(choice.model as MatrixModelId),
         offerEfforts(offers, choice),
         available
       )
-    )
+
+      return [shelf ? { ...row, shelf } : row]
+    })
   }
 }
 
@@ -175,7 +187,7 @@ export function ownerHomeViewFor(
   me: string | null,
   /** The cloud destination's SAVED choice: an Atum alias, or a plan model. Never a recommendation
    * standing in for a plan choice, or an Atum row reads as already chosen and a click does nothing. */
-  cloudModel?: MatrixModelId | CloudHomeSavedPlanChoice,
+  cloudModel?: MatrixModelId | MatrixShelfModelId | CloudHomeSavedPlanChoice,
   cloudOffers?: readonly CloudHomeOffer[],
   supersededDeviceIds: readonly string[] = []
 ): MatrixAgentHomeView {

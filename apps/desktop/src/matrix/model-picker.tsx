@@ -38,6 +38,12 @@ import {
   parseMatrixEffort
 } from '../../shared/matrix-models'
 import {
+  MATRIX_SHELF_PROVIDER,
+  type MatrixShelfModelId,
+  type MatrixShelfModelView,
+  parseMatrixShelfModel
+} from '../../shared/matrix-shelf-models'
+import {
   type MatrixSubscriptionCatalog,
   matrixSubscriptionProviderLabel,
   type MatrixSubscriptionProviderStatus,
@@ -48,7 +54,7 @@ import {
 import { MatrixModelEffortSlider } from './model-effort-slider'
 import { useModelPickerCopy } from './model-picker-copy'
 import { type PickerFilterSource } from './model-picker-filter'
-import { ModelPickerList } from './model-picker-list'
+import { ModelPickerList, shelfPrice } from './model-picker-list'
 import { MODEL_PICKER_CARD, ModelPickerPanel, useModelPickerKeys } from './model-picker-panel'
 import { matrixHomeModelProvider as homeProvider } from './model-picker-popover'
 import {
@@ -77,6 +83,9 @@ type SubscriptionCatalog =
   | { status: 'ready'; value: MatrixSubscriptionCatalog }
 
 type EffortNotice = { kind: 'reconciled' | 'failed'; level?: MatrixEffort }
+
+/** What a managed pick can name: Atum's line-up anywhere, an OpenRouter shelf model in the cloud. */
+type ManagedPick = MatrixModelId | MatrixShelfModelId
 
 /** A pick saved but not yet back from sync: held so the menu doesn't flick back. */
 function usePendingPick<T>(saved: T | undefined) {
@@ -125,6 +134,25 @@ function routeName(route: MatrixModelRoute): string {
   return route.providerLabel && route.providerLabel !== name ? `${route.providerLabel} · ${name}` : name
 }
 
+/**
+ * A shelf row's tooltip: the price in full, a "costs more" note, what the provider keeps (when the
+ * offer says), and what the pick changes.
+ */
+export function shelfTooltip(
+  shelf: MatrixShelfModelView,
+  words: ReturnType<typeof useModelPickerCopy>,
+  locale: string,
+  changes: string
+): string {
+  return [
+    shelfPrice(shelf, locale, words.shelfPriceDetail),
+    shelf.costly ? words.shelfCostlyDetail : undefined,
+    shelf.retention ? words.shelfRetention[shelf.retention] : undefined,
+    changes
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
 
 function cloudSubscriptionOption(input: {
   model: { id: string; displayName: string; efforts: readonly MatrixEffort[]; defaultEffort: MatrixEffort }
@@ -165,6 +193,8 @@ function defaultPickerSource(input: {
   connected?: MatrixConnectedModel
   home?: MatrixAgentHomeView
   subscription?: 'opencode_go' | 'chatgpt_plan'
+  /** The cloud's saved choice is an OpenRouter shelf model. */
+  shelf?: boolean
 }): string | undefined {
   const current = input.home?.placement?.currentModel
 
@@ -174,6 +204,10 @@ function defaultPickerSource(input: {
 
   if (input.subscription) {
     return input.subscription === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go'
+  }
+
+  if (input.shelf && input.managed && input.cloud && input.here !== 'this_mac') {
+    return MATRIX_SHELF_PROVIDER.id
   }
 
   if (input.managed && (!input.cloud || input.here === 'cloud')) {
@@ -274,7 +308,7 @@ export function MatrixModelPicker({
   /** The assistant's display name, for the plain menu's heading. */
   assistantName?: string
 }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const copy = t.matrixShell
   const words = useModelPickerCopy()
   const scope = preferenceScope ?? room.id
@@ -297,8 +331,12 @@ export function MatrixModelPicker({
   currentRoom.current = room.id
   currentScope.current = scope
   currentEffort.current = room.effort
+
   // The server's current choice for a cloud agent; the room's own record never decides it.
-  const cloudCurrent = cloud ? (matrixCloudModelAlias(cloudChoice?.current) ?? destinationDefault) : undefined
+  // A saved OpenRouter shelf model is the cloud's current model as itself.
+  const cloudCurrent: ManagedPick | undefined = cloud
+    ? (parseMatrixShelfModel(cloudChoice?.current) ?? matrixCloudModelAlias(cloudChoice?.current) ?? destinationDefault)
+    : undefined
   // The account-wide OpenCode Go source: the model the cloud runs, its connection state, and
   // the models the connected account serves. A revoked choice never reads as Atum.
   const cloudSubscription = cloud ? cloudChoice?.subscription : undefined
@@ -329,7 +367,7 @@ export function MatrixModelPicker({
 
   // A cloud Atum pick is held until the snapshot shows it SAVED: the alias the 1.1 row carries
   // under a plan choice is not a saved Atum choice, so it never settles the pick early.
-  const [pendingModel, setPendingModel] = usePendingPick<MatrixModelId>(
+  const [pendingModel, setPendingModel] = usePendingPick<ManagedPick>(
     cloud ? (cloudSubscription ? undefined : cloudCurrent) : (room.model ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
   )
 
@@ -359,7 +397,8 @@ export function MatrixModelPicker({
     here,
     connected,
     home,
-    subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined
+    subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined,
+    shelf: Boolean(cloud && parseMatrixShelfModel(cloudChoice?.current))
   })
 
   const initialSourceRef = useRef(initialSource)
@@ -370,7 +409,7 @@ export function MatrixModelPicker({
   const [preferences, setPreferences] = useState<MatrixModelPickerPreferences>(() => readPreferences(scope))
 
   // Cloud runs the server's choice, whatever this Mac stored; a pick in flight shows first.
-  const managedCurrent = cloud
+  const managedCurrent: ManagedPick = cloud
     ? (pendingModel?.value ?? cloudCurrent ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
     : (pendingModel?.value ?? room.model ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
 
@@ -543,6 +582,49 @@ export function MatrixModelPicker({
         }
       })
     : []
+
+  // Atum-funded OpenRouter models (owner 2026-11-09): the cloud's own offer, under their own rail.
+  // Only rows the platform lists as eligible arrive here, so with no active shelf row there is no
+  // OpenRouter rail at all. A pick takes the same path as Atum's line-up for this home.
+  const shelfRoutes: PickerRoute[] = homeMode
+    ? currentDestination?.kind === 'cloud'
+      ? homeOptions.flatMap(option => {
+          if (option.source !== 'atum' || !option.shelf) {
+            return []
+          }
+
+          const route = homeRouteFor(option)
+
+          return [{ route, shelf: option.shelf, ...(route.ready ? {} : { disabled: true }) }]
+        })
+      : []
+    : managed && cloud && !macAnswers
+      ? (cloudChoice?.shelf ?? []).map(shelf => ({
+          route: {
+            id: matrixModelRouteId(MATRIX_SHELF_PROVIDER.id, shelf.alias),
+            provider: MATRIX_SHELF_PROVIDER.id,
+            model: shelf.alias,
+            name: shelf.name,
+            providerLabel: MATRIX_SHELF_PROVIDER.label,
+            accountLabel: MATRIX_SHELF_PROVIDER.label,
+            connection: 'local' as const,
+            target: 'agent_default' as const,
+            destination: 'cloud' as const,
+            efforts: [...shelf.efforts],
+            current: shelf.alias === managedCurrent,
+            ready: true
+          },
+          shelf
+        }))
+      : []
+
+  const shelfById = new Map(shelfRoutes.flatMap(({ route, shelf }) => (shelf ? [[route.id, shelf] as const] : [])))
+
+  // The chip's name for a shelf model the offer no longer lists is its alias, never Atum's.
+  const managedName = (model: ManagedPick) =>
+    parseMatrixShelfModel(model)
+      ? (shelfRoutes.find(({ route }) => route.model === model)?.route.name ?? model)
+      : matrixModelName(model as MatrixModelId)
 
   const localRows = legacyListable
   // The connected model is still this destination's model when this build cannot read the
@@ -792,6 +874,9 @@ export function MatrixModelPicker({
 
   const filterSources: PickerFilterSource[] = [
     ...(atumRoutes.length ? [{ id: 'atum', label: atumProvider, ready: true, atum: true }] : []),
+    ...(shelfRoutes.length
+      ? [{ ...MATRIX_SHELF_PROVIDER, ready: shelfRoutes.some(({ route }) => route.ready) }]
+      : []),
     ...sectionProviders.map(provider => ({ ...provider, ready: true })),
     ...subscriptionProviders.map(provider => ({
       ...provider,
@@ -821,7 +906,7 @@ export function MatrixModelPicker({
   const isCurrent = (route: MatrixModelRoute) =>
     homeMode
       ? route.id === homeCurrentRouteId
-      : route.provider === 'atum'
+      : route.provider === 'atum' || route.provider === MATRIX_SHELF_PROVIDER.id
         ? route.current && !savedCloudPlan && !pendingCloudSubscription && !answersWithConnection
         : pendingCloudSubscription
           ? route.id === pendingCloudSubscription.route.id
@@ -841,10 +926,10 @@ export function MatrixModelPicker({
 
   const sections = pickerSections({
     atum: atumRoutes,
-    connected: connectedRoutes,
+    connected: [...shelfRoutes, ...connectedRoutes],
     subscriptions: shownSubscriptionRoutes,
     ...(subscriptionNote ? { subscriptionNote: subscriptionNote.text, subscriptionNoteFor: subscriptionNote.provider } : {}),
-    providers: sectionProviders,
+    providers: [...(shelfRoutes.length ? [{ ...MATRIX_SHELF_PROVIDER }] : []), ...sectionProviders],
     favorites: preferences.favorites,
     query,
     filter: shownFilter,
@@ -853,7 +938,7 @@ export function MatrixModelPicker({
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // answers now (Atum's by default) and lists only that provider's models until the rail changes.
-  const currentProvider = [...atumRoutes, ...connectedRoutes, ...shownSubscriptionRoutes].find(({ route }) =>
+  const currentProvider = [...atumRoutes, ...shelfRoutes, ...connectedRoutes, ...shownSubscriptionRoutes].find(({ route }) =>
     isCurrent(route)
   )?.route.provider
 
@@ -902,7 +987,7 @@ export function MatrixModelPicker({
   const displayRoute = localRows ? (pendingConnected?.route ?? exactRoute) : undefined
 
   const homeDisplayRoute = homeMode
-    ? (pendingHome?.route ?? [...atumRoutes, ...connectedRoutes].find(({ route }) => isCurrent(route))?.route)
+    ? (pendingHome?.route ?? [...atumRoutes, ...shelfRoutes, ...connectedRoutes].find(({ route }) => isCurrent(route))?.route)
     : undefined
 
   const connectedName = displayRoute
@@ -932,7 +1017,7 @@ export function MatrixModelPicker({
           ? routeName(pendingConnected.route)
           : (connectedLabel ?? copy.modelPicker)
         : managed || pendingModel
-          ? matrixModelName(managedCurrent)
+          ? managedName(managedCurrent)
           : (connectedName ?? copy.modelPicker)
 
   // Never name a saved level the model on the chip does not advertise.
@@ -946,7 +1031,7 @@ export function MatrixModelPicker({
   const displayName =
     homeDisplayRoute?.name ??
     shownPlanName ??
-    (localMode && !pendingModel ? (displayRoute?.name ?? connectedName) : matrixModelName(managedCurrent))
+    (localMode && !pendingModel ? (displayRoute?.name ?? connectedName) : managedName(managedCurrent))
 
   const displaySubtitle = localMode
     ? displayRoute
@@ -997,7 +1082,8 @@ export function MatrixModelPicker({
           here,
           connected,
           home,
-          subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined
+          subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined,
+          shelf: Boolean(cloud && parseMatrixShelfModel(cloudChoice?.current))
         })
       })
     }
@@ -1131,7 +1217,7 @@ export function MatrixModelPicker({
   }
 
   const save = (
-    change: { model?: MatrixModelId; effort?: MatrixEffort },
+    change: { model?: ManagedPick; effort?: MatrixEffort },
     undo: () => void,
     done: () => void,
     current: () => boolean,
@@ -1166,7 +1252,7 @@ export function MatrixModelPicker({
       })
   }
 
-  const chooseModel = (model: MatrixModelId, routeId = matrixModelRouteId('atum', model), refused?: () => void) => {
+  const chooseModel = (model: ManagedPick, routeId = matrixModelRouteId('atum', model), refused?: () => void) => {
     // A no-op only when this Atum model is the SAVED choice: under a plan choice the 1.1 alias is
     // not saved, so the click writes (and the write replaces the plan choice).
     if (
@@ -1400,6 +1486,18 @@ export function MatrixModelPicker({
     if (picked.route.provider === 'atum') {
       const model = picked.route.model as MatrixModelId
       chooseModel(model, picked.route.id, () => setRetryPick(picked))
+
+      return
+    }
+
+    // A cloud agent's OpenRouter shelf pick is the same cloud write as Atum's line-up; main
+    // refuses one for an agent that does not answer in the cloud.
+    if (picked.route.provider === MATRIX_SHELF_PROVIDER.id) {
+      const model = parseMatrixShelfModel(picked.route.model)
+
+      if (model && cloud && !macAnswers) {
+        chooseModel(model, picked.route.id, () => setRetryPick(picked))
+      }
 
       return
     }
@@ -1684,6 +1782,12 @@ export function MatrixModelPicker({
       : label
 
   const rowTooltip = (route: MatrixModelRoute) => {
+    const shelf = shelfById.get(route.id)
+
+    if (shelf) {
+      return shelfTooltip(shelf, words, locale, words.changesCloudAssistant)
+    }
+
     if (route.destination === 'cloud' && (route.provider === 'opencode-go' || route.provider === 'openai-codex')) {
       return words.changesCloudAssistant
     }

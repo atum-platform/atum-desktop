@@ -13,6 +13,7 @@ import {
   writeMatrixModelChoice
 } from './matrix-model-choice'
 import { matrixModelDisplayName } from './matrix-model-display-name'
+import type { MatrixShelfModelId, MatrixShelfModelView } from './matrix-shelf-models'
 
 export const MATRIX_MODELS = ['nguyet-thuc', 'nhat-thuc'] as const
 
@@ -68,6 +69,8 @@ export interface MatrixCloudModelChoiceView {
   offered: readonly string[]
   /** The alias the server says this agent runs now. */
   current?: string
+  /** The eligible OpenRouter shelf models, in the server's order, with their Proton prices. */
+  shelf?: readonly MatrixShelfModelView[]
   /** The OpenCode Go model this cloud agent runs (the account subscription), when one is chosen. */
   subscription?: { source: 'opencode_go' | 'chatgpt_plan'; model: string; effort: MatrixEffort; displayName: string }
   /** The OpenCode Go models the connected account serves (`provider-connections` status). */
@@ -112,6 +115,11 @@ export interface MatrixModelDestinationView {
   macOrdinal?: number
   /** The destination's reference model: its saved choice, else the server's recommendation. */
   current: MatrixModelId
+  /**
+   * The cloud's saved OpenRouter shelf model, when that is what it runs. `current` is then only the
+   * Atum fallback a Mac would use; the row names the shelf model.
+   */
+  shelf?: MatrixShelfModelId
   /** Exact saved non-Atum default. `current` remains the selectable Atum fallback only. */
   external?: {
     source: 'chatgpt_plan' | 'opencode_go' | `own_key:${string}`

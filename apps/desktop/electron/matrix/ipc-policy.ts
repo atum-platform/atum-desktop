@@ -36,6 +36,7 @@ import {
   type MatrixRoomSharedSection,
   validMatrixRoomSharedToken
 } from '../../shared/matrix-room-shared'
+import { parseMatrixShelfModel } from '../../shared/matrix-shelf-models'
 
 interface SenderEvent {
   sender: unknown
@@ -637,7 +638,9 @@ export function parseMatrixCommand(value: unknown): MatrixCommand {
       }
     }
     case 'setModel': {
-      const model = row.model === undefined ? undefined : parseMatrixModel(row.model)
+      // A shelf alias passes this shape check; main accepts it for a cloud agent only.
+      const model =
+        row.model === undefined ? undefined : (parseMatrixModel(row.model) ?? parseMatrixShelfModel(row.model))
       const effort = row.effort === undefined ? undefined : parseMatrixEffort(row.effort)
 
       // At least one known change, and nothing unknown passed through as one.

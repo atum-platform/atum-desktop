@@ -17,6 +17,7 @@ import {
   matrixModelName,
   parseMatrixModel
 } from '../../../shared/matrix-models'
+import { MATRIX_SHELF_PROVIDER } from '../../../shared/matrix-shelf-models'
 import {
   MATRIX_SUBSCRIPTION_PROVIDERS,
   type MatrixSubscriptionCatalog,
@@ -272,7 +273,8 @@ export function ModelDestinationsRow({
               model.effort === choice.external.effort
           )
         : undefined) ??
-      models.find(model => model.source === 'atum' && model.model === choice.current)
+      // A saved OpenRouter shelf model is the cloud's current model; `current` is then the Atum fallback.
+      models.find(model => model.source === 'atum' && model.model === (choice.shelf ?? choice.current))
 
     const lives =
       homeView?.lives ??
@@ -330,9 +332,17 @@ export function ModelDestinationsRow({
         <span className="atum-settings-row-text atum-settings-row-title">{copy.modelPicker}</span>
       </div>
       {view.choices.map(choice => {
+        const shelfModel = choice.shelf
+          ? homeView?.placement?.destinations
+              .find(destination => destination.id === choice.id)
+              ?.models.find(model => model.source === 'atum' && model.model === choice.shelf)
+          : undefined
+
         const label = choice.external
           ? `${choice.external.providerLabel} · ${choice.external.modelLabel}`
-          : matrixModelName(choice.current)
+          : choice.shelf
+            ? `${shelfModel?.providerLabel ?? MATRIX_SHELF_PROVIDER.label} · ${shelfModel?.modelLabel ?? choice.shelf}`
+            : matrixModelName(choice.current)
 
         const local = choice.kind === 'mac' && choice.thisMac === true && currentHome === choice.id
 
@@ -389,7 +399,7 @@ export function ModelDestinationsRow({
                 <span className="atum-card-row-value ms-auto" title={label}>
                   {label}
                 </span>
-                {!choice.external && choice.current === view.recommended && (
+                {!choice.external && !choice.shelf && choice.current === view.recommended && (
                   <span className={BADGE} data-assistant-card-model-recommended>
                     {copy.modelRecommended}
                   </span>
