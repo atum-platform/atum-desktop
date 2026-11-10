@@ -411,19 +411,18 @@ const TODO_STATE: Record<string, MatrixProgressTodoItem['state'] | undefined> = 
 }
 
 /**
- * What a Hermes gateway event adds to the progress line, or nothing. `message.interim` is read
- * only from `redacted_text` and the todo list only from `redacted_todos`: both are Hermes's own
- * redaction (tui_gateway/server.py), so an older Hermes that lacks them shows no progress rather
- * than unredacted words. A cancelled step is left out; tool arguments and results are never read
- * (`tool.start` is read for its name only).
+ * What a Hermes gateway event adds to the progress line, or nothing. Native interim `text`
+ * is think-stripped and secret-redacted at Hermes's JSON-RPC framing boundary. Accept the
+ * legacy `redacted_text` projection too; an explicitly blank projection stays suppressed.
+ * Todos still require `redacted_todos`. Tool arguments, results and reasoning are never read.
  */
 export function matrixHermesProgressEvent(type: string, payload: unknown): MatrixHermesProgressEvent | undefined {
   const body = payload as Record<string, unknown> | null | undefined
 
   if (type === 'message.interim') {
-    return typeof body?.redacted_text === 'string' && body.redacted_text.trim()
-      ? { kind: 'narration', text: body.redacted_text }
-      : undefined
+    const text = typeof body?.redacted_text === 'string' ? body.redacted_text : body?.text
+
+    return typeof text === 'string' && text.trim() ? { kind: 'narration', text } : undefined
   }
 
   if (

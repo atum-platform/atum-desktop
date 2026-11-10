@@ -716,6 +716,16 @@ def write_json(obj: dict) -> bool:
 
 
 def _event_frame(event: str, sid: str, payload: dict | None = None) -> dict:
+    if event == "message.interim" and isinstance(payload, dict):
+        from agent.history_commentary import visible_commentary
+
+        # Both native interim callback paths meet here. Project only display text;
+        # provider history/reasoning and final-answer delivery remain untouched.
+        payload = dict(payload)
+        with _session_profile_runtime_scope(_sessions.get(sid) or {}):
+            for field in ("text", "redacted_text"):
+                if isinstance(payload.get(field), str):
+                    payload[field] = visible_commentary(payload[field])
     _contracts.check_payload(event, payload)
     params: dict = {"type": event, "session_id": sid, **({"payload": payload} if payload is not None else {})}
     return {"jsonrpc": "2.0", "method": "event", "params": params}
