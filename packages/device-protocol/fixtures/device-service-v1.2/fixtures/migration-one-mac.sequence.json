@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "collecting",
+      "to": "reported",
+      "event": "initiator_staged_alone"
+    },
+    {
+      "from": "reported",
+      "to": "reported",
+      "event": "choice_refused"
+    },
+    {
+      "from": "reported",
+      "to": "committing",
+      "event": "chosen"
+    },
+    {
+      "from": "committing",
+      "to": "committed",
+      "event": "learned"
+    }
+  ]
+}

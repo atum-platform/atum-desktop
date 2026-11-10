@@ -108,25 +108,29 @@ def write_chaos_home(root: Path, base_url: str, **cfg: Any) -> tuple[Path, Path]
     return home, hermes_home
 
 
-def hermetic_env(home: Path, hermes_home: Path, tag: str) -> dict[str, str]:
-    """Child env: fake HOME/HERMES_HOME, no real credentials, repo importable, and a
-    tag every descendant inherits so the orphan scan can find it after reparenting."""
-    env = {
-        k: v for k, v in os.environ.items()
+def chaos_base_env() -> dict[str, str]:
+    """Called by the module fixture BEFORE workers or per-test env mutations start.
+
+    Compose PM activation once here too: composing it inside a worker would still
+    iterate the live environment while pytest restores its per-test monkeypatches.
+    """
+    from pm.environments import activation_environment
+
+    inherited = os.environ.copy()
+    return {
+        k: v for k, v in activation_environment(REPO_ROOT, base_env=inherited).items()
         if not (
             k.endswith(("_API_KEY", "_TOKEN", "_SECRET"))
             or k.startswith(("HERMES_", "OPENROUTER", "ANTHROPIC", "OPENAI", "NOUS_"))
-            or k in {"PYTEST_CURRENT_TEST"}
+            or k == "PYTEST_CURRENT_TEST"
         )
     }
-    from pm.environments import activation_environment
-    env.update({
-        key: value for key, value in activation_environment(REPO_ROOT).items()
-        if not (
-            key.endswith(("_API_KEY", "_TOKEN", "_SECRET"))
-            or key.startswith(("HERMES_", "OPENROUTER", "ANTHROPIC", "OPENAI", "NOUS_"))
-        )
-    })
+
+
+def hermetic_env(home: Path, hermes_home: Path, tag: str, *, base_env: dict[str, str]) -> dict[str, str]:
+    """Child env: fake HOME/HERMES_HOME, no real credentials, repo importable, and a
+    tag every descendant inherits so the orphan scan can find it after reparenting."""
+    env = base_env.copy()
     env.update({
         "HOME": str(home),
         "HERMES_HOME": str(hermes_home),

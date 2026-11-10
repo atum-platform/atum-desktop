@@ -742,6 +742,7 @@ import { MatrixLocalBrain } from './local-brain'
 import { type MatrixLocalTurn, MatrixLocalTurns, matrixTurnPrompt, matrixTurnQuestion } from './local-turn'
 import { fileLoginStartupMemory, MatrixLoginStartup, registerMatrixLoginStartupIpc } from './login-startup'
 import { LookAssetDiskCache, MatrixLookAssets } from './look-asset'
+import { projectMacFleet } from './mac-fleet'
 import { assertMacJobDeliveryHome, completeMacJobDelivery, drainMacJobs, settleMacJobDelivery } from './mac-job-delivery'
 import { macJobAuthority, MacJobLifecycle } from './mac-job-lifecycle'
 import { runMacJobs } from './mac-job-runner'
@@ -749,6 +750,7 @@ import { macJobsTickerPlan } from './mac-job-startup'
 import { MacJobsClient, MacJobTransportError } from './mac-jobs'
 import {
   MacLocationProvider,
+  macSourceConsentScope,
   macSourceGateEnabled,
   macSourceGates,
   MacSourcesConsentStore,
@@ -757,6 +759,8 @@ import {
   registerMatrixMacSourcesIpc,
   writeMacSourcesPolicy
 } from './mac-sources'
+import { MacSourceReadiness, nativeMacSourceStatus } from './mac-sources/readiness'
+import { RemoteMacSourcesService } from './mac-sources/remote'
 import { matrixMainAgentContentTarget } from './main-agent-content'
 import { handleMatrixAliasPending, handleMatrixAliasRequest } from './main-aliases'
 import {
@@ -917,10 +921,10 @@ import {
 } from './session-route'
 import { matrixEmailSignInState } from './sign-in-entry'
 import {
-  MatrixSourceGateSync,
-  readMatrixSourceGates,
+  readMatrixSourceGatesV2,
   writeMatrixSourceGates
 } from './source-gates'
+import { MatrixAccountSourceGates } from './source-gates-v2'
 import { matrixStarterNotice, requireMatrixStarterAcknowledgement } from './starter-notice'
 import { endMatrixStartup, trackMatrixQuit } from './startup-end'
 import { FileStoreJournal, matrixScopedHireTargetLive, MatrixStoreController } from './store'
@@ -2075,7 +2079,10 @@ let wallet: MatrixWalletController | undefined
 let checkIns: MatrixCheckIns | undefined
 let checkInGateway: MatrixHermesConnection['gateway'] | undefined
 let backgroundSweeps: MatrixBackgroundSweeps | undefined
-let sourceGateSync: MatrixSourceGateSync | undefined
+let sourceGateSync: MatrixAccountSourceGates | undefined
+// Coordinator-only activation after CX + U1 + X1; presentation alone never enables reads.
+const REMOTE_MAC_SOURCE_READS_ENABLED = false
+const sourceReadiness = new MacSourceReadiness()
 const backgroundSweepModelCalls = new MatrixBackgroundSweepModelCalls()
 let backgroundSweepPublications: MatrixBackgroundSweepPublication | undefined
 let backgroundSweepSuggestionStore: MatrixBackgroundSweepSuggestions | undefined
@@ -2480,7 +2487,8 @@ function s1Call(resource: S1Resource, signal: AbortSignal): Promise<unknown> {
   }
 
   return s1Route(resource).bearer
-    ? account.s1Request((token, base) => requestS1(base, resource, token, signal), signal)
+    ? account.s1Request((token, base, requestSignal) => requestS1(base, resource, token, requestSignal, fetch,
+      resource.kind === 'source-authority' ? account.sdkConfiguration().accessToken : undefined), signal)
     : requestS1(config.domain.resource, resource, null, signal)
 }
 
@@ -2649,6 +2657,22 @@ function buildDeviceRuntime(): DeviceRuntime {
   ]
 
   const device = createDeviceRuntime({
+    // Native + Matrix proof transport is wired; coordinator enables only after U1 disclosure and installed proof.
+    macSource: (args, grant, signal) => new RemoteMacSourcesService({
+      enabled: remoteMacSourceReadsEnabled,
+      scope: () => {
+        const scope = account.appScope()
+        return scope ? `${scope.accountKey}:${scope.generation}` : null
+      },
+      allowed: source => macSourcesConsentStore().read()[source],
+      ownerPrincipal: grant => {
+        const identity = account?.enrollment().identity
+        return identity?.userId === grant.ownerUserId ? identity.principal : null
+      },
+      authority: (query, signal) => s1Call({ kind: 'source-authority', agentPrincipal: query.agentPrincipal,
+        gate: query.gate, expectedRevision: query.expectedRevision }, signal),
+      request: (payload, context, readSignal) => macSourcesService().request(payload, context, readSignal)
+    }).request(args, grant, signal),
     platform: process.platform,
     userData: app.getPath('userData'),
     home,
@@ -2769,6 +2793,8 @@ function buildDeviceRuntime(): DeviceRuntime {
     policyVersion: 1,
     appVersion: app.getVersion(),
     capabilities: device.hello(),
+    sourceProtocol: 1 as const,
+    sources: currentMacSourceReadiness(),
     ...(device.workspaceProtocol?.() === 1 ? { workspaceProtocol: 1 as const } : {})
   }))
 
@@ -11586,7 +11612,7 @@ function syncAgents(): Promise<MatrixReadinessCheck> {
       const { roster } = result
       // The switches are owner-wide. Reconcile every active assistant from the same authoritative
       // roster without delaying roster setup or renderer readiness.
-      sourceGateSync?.reconcile(roster.filter(agent => agent.status === 'active').map(agent => agent.id))
+      sourceGateSync?.reconcile()
       await executionPolicies?.retain(roster.filter(agent => agent.status === 'active').map(agent => agent.principal))
 
       // Policy reads are bounded but asynchronous. Re-check the roster/account generation before
@@ -13223,8 +13249,17 @@ function requestAgentChats(
   })
 }
 
+function localMacSourcesConsentScope() {
+  const installation = new MacSourcesConsentStore(outcomeStore, () => null).installationId()
+  return macSourceConsentScope(null, false, installation)!
+}
+
+function macSourcesConsentScope() {
+  return account?.appScope() ?? (config.domain ? null : localMacSourcesConsentScope())
+}
+
 function macSourcesConsentStore(): MacSourcesConsentStore {
-  return new MacSourcesConsentStore(outcomeStore, () => account?.appScope() ?? null)
+  return new MacSourcesConsentStore(outcomeStore, macSourcesConsentScope)
 }
 
 let folderAccessInstance: MatrixFolderAccess | undefined
@@ -13252,7 +13287,7 @@ function matrixFolderAccess(): MatrixFolderAccess {
 }
 
 function macSourcesPolicyFile(): string {
-  const scope = account?.appScope()
+  const scope = macSourcesConsentScope()
 
   if (!scope) {
     throw new Error('matrix_mac_sources_consent_unavailable')
@@ -13315,15 +13350,39 @@ function commitMacSourceConsent(source: Parameters<MacSourcesConsentStore['set']
   return saved
 }
 
-function setMacSourceConsent(source: Parameters<MacSourcesConsentStore['set']>[0], enabled: boolean) {
-  const saved = commitMacSourceConsent(source, enabled)
-
-  // The local switch has committed. Cloud projection follows in the background and keeps retrying;
-  // the Settings response never waits on the network.
-  sourceGateSync?.reconcile()
-
-  return saved
+function commitPendingMacSourceOff(gate: Parameters<MatrixAccountSourceGates['set']>[0]): void {
+  const source = gate === 'team_spaces' ? 'teamSpaces' : gate
+  commitMacSourceConsent(source, false)
+  macSourcesConsentStore().queueNarrow(source)
 }
+
+async function setMacSourceConsent(source: Parameters<MacSourcesConsentStore['set']>[0], enabled: boolean) {
+  const gate = source === 'teamSpaces' ? 'team_spaces' : source
+  if (sourceGateSync) {await sourceGateSync.set(gate, enabled)}
+  else if (!enabled) {commitPendingMacSourceOff(gate)}
+  else {
+    commitMacSourceConsent(source, true)
+    macSourcesConsentStore().clearPendingNarrow([source])
+  }
+  return macSourcesConsentStore().read()
+}
+
+function shownOnThisMac(): boolean {
+  const store = macSourcesConsentStore()
+  return Boolean(store.presentedAt(store.installationId()))
+}
+
+function remoteMacSourceReadsEnabled(): boolean {
+  return REMOTE_MAC_SOURCE_READS_ENABLED && shownOnThisMac()
+}
+
+function currentMacSourceReadiness() {
+  return sourceReadiness.snapshot(macSourcesConsentStore().read(), accountSourceFacts().fullDisk,
+    remoteMacSourceReadsEnabled(), Date.now(), macLocationAccessStatus())
+}
+
+/** The signed CoreLocation helper is not installed; unknown authorization stays closed. */
+function macLocationAccessStatus() { return 'not-determined' as const }
 
 /** Account-level source facts for Settings. No assistant or open chat is consulted. */
 function accountSourceFacts() {
@@ -13338,7 +13397,8 @@ function accountSourceFacts() {
   return {
     mac: process.platform === 'darwin',
     fullDisk: fullDisk === 'granted' || fullDisk === 'not-granted' ? fullDisk : 'unknown' as const,
-    googleConnected: Object.values(googleConnections?.services() ?? {}).some(Boolean)
+    googleConnected: Object.values(googleConnections?.services() ?? {}).some(Boolean),
+    location: macLocationAccessStatus()
   }
 }
 
@@ -13413,7 +13473,7 @@ async function requestAgentMacSources(
   }
 
   current()
-  const answer = await macSourcesService().request(payload, { background: false }, signal)
+  const answer = await macSourcesService().request(payload, { background: false, mayPrompt: true }, signal)
   current()
 
   return answer
@@ -17103,7 +17163,7 @@ async function startSdk() {
   await startHost('human')
 
   if (account.identity()) {
-    // Saved-account app start and account activation both begin this independent retrying sync.
+    // Reconcile account gates; only pending OFF choices keep retrying with bounded backoff.
     sourceGateSync?.reconcile()
     // A prior DELETE may have durably entered `revoking` before its MAS session existed. The
     // authoritative list survives a desktop restart, so this sweep finishes that old intent.
@@ -18216,21 +18276,45 @@ async function start() {
   )
 
   sourceGateSync = config.domain
-    ? new MatrixSourceGateSync({
+    ? new MatrixAccountSourceGates({
         scope: () => account.appScope(),
         gates: () => macSourceGates(macSourcesConsentStore().read()),
         assistants: async signal => (await account.agents(AbortSignal.any([signal, AbortSignal.timeout(15_000)])))
           .filter(agent => agent.status === 'active')
           .map(agent => agent.id),
         read: (assistantId, signal) => account.s1Request(
-          (accessToken, resource) => readMatrixSourceGates(resource, accessToken, assistantId, signal),
+          (accessToken, resource) => readMatrixSourceGatesV2(resource, accessToken, assistantId, signal),
           signal
         ),
         write: (assistantId, input, signal) => account.s1Request(
           (accessToken, resource) => writeMatrixSourceGates(resource, accessToken, assistantId, input, signal),
           signal
         ),
-        log: line => console.warn(line)
+        seed: () => {
+          const seed = macSourcesConsentStore().accountGatesImport()
+          const gates = macSourceGates(seed.consent)
+          // Domain-less explicit OFF choices join the first import; defaults never do.
+          const localOnly = new MacSourcesConsentStore(outcomeStore, localMacSourcesConsentScope)
+          for (const source of localOnly.pendingNarrow()) {gates[source === 'teamSpaces' ? 'team_spaces' : source] = false}
+          return { mergeId: seed.mergeId, gates }
+        },
+        recordOverridden: gates => {
+          const store = macSourcesConsentStore()
+          store.recordOverriddenOptOuts(gates.map(gate => gate === 'team_spaces' ? 'teamSpaces' : gate), store.installationId())
+        },
+        off: commitPendingMacSourceOff,
+        pending: () => macSourcesConsentStore().pendingNarrow().map(source => source === 'teamSpaces' ? 'team_spaces' : source),
+        clearPending: gates => macSourcesConsentStore().clearPendingNarrow(gates.map(gate => gate === 'team_spaces' ? 'teamSpaces' : gate)),
+        merged: () => macSourcesConsentStore().accountGatesMerged(),
+        markMerged: () => macSourcesConsentStore().markAccountGatesMerged(),
+        apply: gates => {
+          const current = macSourceGates(macSourcesConsentStore().read())
+          for (const [gate, enabled] of Object.entries(gates)) {
+            const source = gate as keyof typeof gates
+            if (current[source] !== enabled) {commitMacSourceConsent(source === 'team_spaces' ? 'teamSpaces' : source, enabled)}
+          }
+        },
+        changed: announceSourceChoicesChanged
       })
     : undefined
 
@@ -19140,13 +19224,47 @@ async function start() {
   registerMatrixAgentSourcesIpc(ipcMain, {
     assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
     settings: new MatrixAgentSourceSettings({
-      scope: () => account?.appScope() ?? null,
+      scope: macSourcesConsentScope,
       gates: () => macSourceGates(macSourcesConsentStore().read()),
       facts: accountSourceFacts,
+      macs: async () => {
+        const rows = await deviceRegistryTransport(s1Call).list(AbortSignal.timeout(3_000)).catch(() => null)
+        const enrollment = deviceIdentity?.enrollment()
+        if (process.platform !== 'darwin') {return rows ? projectMacFleet(rows, undefined) : []}
+        const presence = deviceIdentity?.presence()
+        const connected = presence?.state === 'enrolled' && presence.connection === 'status_exchanged'
+        const sources = nativeMacSourceStatus(macSourcesConsentStore().read(), accountSourceFacts().fullDisk, macLocationAccessStatus())
+        const here = { id: enrollment?.deviceServiceId ?? macSourcesConsentStore().installationId(), name: macComputerName(), thisMac: true,
+          state: !connected ? 'not_connected' as const : Object.values(sources).includes('needs_permission') ? 'needs_permission' as const : 'ready' as const, sources }
+        return rows ? projectMacFleet(rows, here) : [here]
+      },
+      // R1 supplies verified legacy-writer evidence. Never infer it from a gate change.
+      heldOff: gate => sourceGateSync?.heldOff(gate) ?? [],
+      refresh: () => sourceGateSync?.refreshRead() ?? Promise.resolve(),
+      notice: () => {
+        if (shownOnThisMac()) {return undefined}
+        const store = macSourcesConsentStore()
+        const consent = store.read()
+        const overridden = store.overriddenOptOuts()
+        const sources = (['messages', 'browser', 'location', 'folders'] as const)
+          .filter(source => consent[source] || overridden.includes(source))
+        const noticed = [...new Set([...sources, ...overridden])].map(source => source === 'teamSpaces' ? 'team_spaces' as const : source)
+        return noticed.length ? { sources: noticed } : undefined
+      },
+      presented: () => {
+        if (!ui?.isFocused()) {return}
+        const store = macSourcesConsentStore()
+        store.presented(store.installationId())
+        announceSourceChoicesChanged()
+        void reconcileDeviceControl(true)
+      },
       commit: (gate, enabled) => macSourceGates(commitMacSourceConsent(
         gate === 'team_spaces' ? 'teamSpaces' : gate,
         enabled
       )),
+      save: async (gate, enabled) => {
+        await setMacSourceConsent(gate === 'team_spaces' ? 'teamSpaces' : gate, enabled)
+      },
       sync: () => sourceGateSync?.reconcile()
     })
   })
@@ -19164,7 +19282,7 @@ async function start() {
       })
     },
     // CoreLocation is not wired into this release yet. Never claim a grant or trigger a prompt.
-    getLocationAccessStatus: () => 'not-determined',
+    getLocationAccessStatus: macLocationAccessStatus,
     openExternal: url => shell.openExternal(url),
     relaunch: () => {
       app.relaunch()

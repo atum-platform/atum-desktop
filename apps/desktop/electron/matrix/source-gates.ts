@@ -5,19 +5,19 @@ import {
   type AgentSourceGates,
   type AgentSourceGateSnapshot,
   type AgentSourceGateWrite,
-  parseAgentSourceGateSnapshot,
   parseAgentSourceGateWrite,
   parseAgentSourceGateWriteConflict,
   sameAgentSourceGates
 } from '../../../../packages/device-protocol/agent-source-gates'
 
 import { readDomainJson } from './domain'
+import { parseSourceGateSnapshotV2, type SourceGateSnapshotV2, type SourceGateWriteV2 } from './source-gates-v2'
 
 const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/u
-const RESPONSE_BYTES = 4_096
+const RESPONSE_BYTES = 96 * 1_024
 // Source gates are an eventually consistent privacy projection, never launch/readiness state.
 // A person's explicit switch preempts this timer; an unavailable platform otherwise stays quiet.
-const RETRY_MS = [5_000, 30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000] as const
+export const RETRY_MS = [5_000, 30_000, 2 * 60_000, 10 * 60_000, 30 * 60_000] as const
 
 export class MatrixSourceGateError extends Error {
   constructor(
@@ -35,21 +35,25 @@ async function sourceGateRequest(
   accessToken: string,
   assistantId: string,
   signal: AbortSignal,
-  write?: AgentSourceGateWrite,
-  fetchImpl: typeof fetch = fetch
-): Promise<AgentSourceGateSnapshot> {
+  write?: AgentSourceGateWrite | SourceGateWriteV2,
+  fetchImpl: typeof fetch = fetch,
+  readV2 = false
+): Promise<SourceGateSnapshotV2> {
+  signal = AbortSignal.any([signal, AbortSignal.timeout(15_000)])
   if (!UUID.test(assistantId)) {
     throw new MatrixSourceGateError('unavailable', undefined, 'invalid_assistant')
   }
+
   const response = await fetchImpl(`${resource}/agents/${encodeURIComponent(assistantId)}/source-gates`, {
     method: write ? 'PUT' : 'GET',
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
       ...(write ? { 'Content-Type': 'application/json' } : {}),
-      'Atum-Agent-Home-Wire': '2.1'
+      'Atum-Agent-Home-Wire': '2.1',
+      ...(readV2 && !write ? { 'Atum-Source-Gates-Profile': '2' } : {})
     },
-    ...(write ? { body: JSON.stringify(parseAgentSourceGateWrite(write)) } : {}),
+    ...(write ? { body: JSON.stringify(write.profile === 'atum.agent-source-gates/2' ? write : parseAgentSourceGateWrite(write)) } : {}),
     cache: 'no-store',
     credentials: 'omit',
     redirect: 'error',
@@ -63,21 +67,30 @@ async function sourceGateRequest(
     await response.body?.cancel().catch(() => {})
     throw new Error('matrix_s1_authentication')
   }
+
   if (response.status === 409) {
     if (!response.headers.get('content-type')?.startsWith('application/json')) {
       await response.body?.cancel().catch(() => {})
       throw new MatrixSourceGateError('unavailable', undefined, 'invalid_response')
     }
+
     try {
-      const conflict = parseAgentSourceGateWriteConflict(await readDomainJson(response, RESPONSE_BYTES))
+      const body = await readDomainJson(response, RESPONSE_BYTES) as Record<string, unknown>
+
+      const conflict = body.profile === 'atum.agent-source-gates/2'
+        ? { current: parseSourceGateSnapshotV2(body.current) }
+        : parseAgentSourceGateWriteConflict(body)
+
       throw new MatrixSourceGateError('conflict', conflict.current)
     } catch (error) {
       if (error instanceof MatrixSourceGateError) {
         throw error
       }
+
       throw new MatrixSourceGateError('unavailable', undefined, 'invalid_response')
     }
   }
+
   if (!response.ok || !response.headers.get('content-type')?.startsWith('application/json')) {
     await response.body?.cancel().catch(() => {})
     throw new MatrixSourceGateError(
@@ -88,7 +101,7 @@ async function sourceGateRequest(
   }
 
   try {
-    return parseAgentSourceGateSnapshot(await readDomainJson(response, RESPONSE_BYTES))
+    return parseSourceGateSnapshotV2(await readDomainJson(response, RESPONSE_BYTES))
   } catch {
     throw new MatrixSourceGateError('unavailable', undefined, 'invalid_response')
   }
@@ -104,11 +117,17 @@ export function readMatrixSourceGates(
   return sourceGateRequest(resource, accessToken, assistantId, signal, undefined, fetchImpl)
 }
 
+export function readMatrixSourceGatesV2(
+  resource: string, accessToken: string, assistantId: string, signal: AbortSignal, fetchImpl?: typeof fetch
+): Promise<SourceGateSnapshotV2> {
+  return sourceGateRequest(resource, accessToken, assistantId, signal, undefined, fetchImpl, true)
+}
+
 export function writeMatrixSourceGates(
   resource: string,
   accessToken: string,
   assistantId: string,
-  write: AgentSourceGateWrite,
+  write: AgentSourceGateWrite | SourceGateWriteV2,
   signal: AbortSignal,
   fetchImpl?: typeof fetch
 ): Promise<AgentSourceGateSnapshot> {
@@ -136,6 +155,7 @@ function sameScope(left: MatrixSourceGateScope, right: MatrixSourceGateScope | n
 }
 
 /**
+ * TEST-ONLY legacy compatibility fixture. Production uses MatrixAccountSourceGates.
  * One account-scoped, non-blocking reconciler. Explicit changes preempt older intent; offline work
  * retries with bounded backoff, and every CAS conflict is re-read before local intent is re-applied.
  */
@@ -175,9 +195,11 @@ export class MatrixSourceGateSync {
     this.generation += 1
     this.roster = roster
     this.retryIndex = 0
+
     if (this.retry) {
       clearTimeout(this.retry)
     }
+
     this.retry = undefined
     this.active?.abort({ reason: 'superseded' })
     this.kick()
@@ -189,9 +211,11 @@ export class MatrixSourceGateSync {
     this.roster = undefined
     this.pendingWrites.clear()
     this.unavailableLogged = false
+
     if (this.retry) {
       clearTimeout(this.retry)
     }
+
     this.retry = undefined
     this.active?.abort({ reason: 'stopped' })
   }
@@ -200,6 +224,7 @@ export class MatrixSourceGateSync {
     if (this.stopped || this.running) {
       return
     }
+
     const generation = this.generation
     const roster = this.roster
     const abort = new AbortController()
@@ -220,7 +245,9 @@ export class MatrixSourceGateSync {
         if (this.active === abort) {
           this.active = undefined
         }
+
         this.running = undefined
+
         if (!this.stopped && generation !== this.generation && !this.retry) {
           this.kick()
         }
@@ -231,14 +258,17 @@ export class MatrixSourceGateSync {
     if (this.stopped || this.retry) {
       return
     }
+
     const delays = this.dependencies.retryMs?.length ? this.dependencies.retryMs : RETRY_MS
     const delay = delays[Math.min(this.retryIndex, delays.length - 1)]!
     this.retryIndex += 1
+
     if (!this.unavailableLogged) {
       const reason = error instanceof MatrixSourceGateError && error.reason ? ` reason=${error.reason}` : ''
       this.dependencies.log?.(`[Matrix] source gates unavailable${reason}; retrying quietly`)
       this.unavailableLogged = true
     }
+
     this.retry = setTimeout(() => {
       this.retry = undefined
       this.generation += 1
@@ -254,12 +284,15 @@ export class MatrixSourceGateSync {
 
   private async run(generation: number, roster: string[] | undefined, signal: AbortSignal): Promise<void> {
     const scope = this.dependencies.scope()
+
     if (!scope) {
       return
     }
+
     const gates = this.dependencies.gates()
     const assistants = roster ?? await this.dependencies.assistants(signal)
     signal.throwIfAborted()
+
     if (!this.current(generation, scope, gates)) {
       return
     }
@@ -280,32 +313,42 @@ export class MatrixSourceGateSync {
 
     for (let conflict = 0; conflict < 2; conflict += 1) {
       signal.throwIfAborted()
+
       if (!this.current(generation, scope, gates)) {
         return
       }
+
       if (sameAgentSourceGates(snapshot.gates, gates)) {
         this.pendingWrites.delete(assistantId)
+
         return
       }
+
       const pending = this.pendingWrites.get(assistantId)
+
       const input = pending && sameScope(scope, pending.scope) && sameAgentSourceGates(gates, pending.gates) &&
         pending.input.expectedRevision === snapshot.revision
         ? pending.input
         : parseAgentSourceGateWrite({ profile: AGENT_SOURCE_GATES_PROFILE,
             requestId: (this.dependencies.uuid ?? randomUUID)(), expectedRevision: snapshot.revision, gates })
+
       this.pendingWrites.set(assistantId, { scope: { ...scope }, gates: { ...gates }, input })
 
       try {
         snapshot = await this.dependencies.write(assistantId, input, signal)
+
         if (!sameAgentSourceGates(snapshot.gates, gates)) {
           throw new MatrixSourceGateError('unavailable')
         }
+
         this.pendingWrites.delete(assistantId)
+
         return
       } catch (error) {
         if (!(error instanceof MatrixSourceGateError) || error.code !== 'conflict') {
           throw error
         }
+
         this.pendingWrites.delete(assistantId)
         snapshot = error.current ?? await this.dependencies.read(assistantId, signal)
       }

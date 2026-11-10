@@ -30,6 +30,8 @@ export type UpstreamStreamResponse = UpstreamResponse | UpstreamEventStream
 
 export interface ModelUpstream {
   complete(request: UpstreamRequest): Promise<UpstreamResponse>
+  /** Controller-owned authority exchange for a local subscription-path refusal. */
+  fallback?(request: UpstreamRequest, code: string): Promise<UpstreamResponse>
   /** Optional only for the retired spool spike; production provides a real event stream. */
   stream?(request: UpstreamRequest): Promise<UpstreamStreamResponse>
 }

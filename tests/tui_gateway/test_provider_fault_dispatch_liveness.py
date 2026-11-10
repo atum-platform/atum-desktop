@@ -3,7 +3,7 @@ import uuid
 
 import pytest
 
-from tests.e2e.core.chaos._helpers import hermetic_env, write_chaos_home
+from tests.e2e.core.chaos._helpers import chaos_base_env, hermetic_env, write_chaos_home
 from tests.e2e.core.chaos._tui_rpc import Heartbeat, TuiGatewayProcess, env_for_gateway, gateway_cwd
 from tests.e2e.core.chaos.test_tui_gateway_turn_liveness import _answered_turn, responder
 from tests.fakes.fake_llm_provider import FakeLLMServer
@@ -12,10 +12,12 @@ from tests.fakes.fake_llm_provider import FakeLLMServer
 @pytest.mark.platforms("posix")
 @pytest.mark.parametrize("fault", ["err500", "drop"])
 def test_provider_fault_does_not_block_dispatcher(tmp_path, fault):
+    # Compose the base env on the test thread before any worker starts (see chaos_base_env).
+    base_env = chaos_base_env()
     with FakeLLMServer(responder) as provider:
         home, hermes_home = write_chaos_home(tmp_path, provider.base_url)
         work = gateway_cwd(tmp_path)
-        env = env_for_gateway(hermetic_env(home, hermes_home, uuid.uuid4().hex), work)
+        env = env_for_gateway(hermetic_env(home, hermes_home, uuid.uuid4().hex, base_env=base_env), work)
         assert env["HERMES_DISABLE_LAZY_INSTALLS"] == "1"
         gateway = TuiGatewayProcess(env, work, tmp_path / "gateway.log")
         try:

@@ -1,0 +1,15 @@
+{
+  "v": 1,
+  "type": "GrantAck",
+  "body": {
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "accepted": true,
+    "effectiveScopes": [
+      "terminal",
+      "files",
+      "computer"
+    ]
+  },
+  "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+  "sig": "rfScKlS2agVfxLRLf_iuoRE8_j4BW7aVevH-Un6NykZZdGv3aWKdYIGXGNuX824GrEYcXZl-RFJgZg84r91Y1A"
+}

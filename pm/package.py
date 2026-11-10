@@ -28,6 +28,10 @@ def compose_env(diffs: list[dict], base: Optional[dict] = None) -> dict[str, str
     the npm bundled inside node, and a package's exports beat inherited env.
     'PATH' values are lists of dirs, prepended.
 
+    Concurrent callers whose owner mutates the process environment must pass
+    a base captured by that owner before launching workers. Even environ.copy()
+    can race with deletion: os._Environ copies via keys then value lookups.
+
     Diff values are paths under a store root, which PM spells extended-length
     on Windows; a child environment gets their ordinary spelling."""
     env = dict(os.environ if base is None else base)

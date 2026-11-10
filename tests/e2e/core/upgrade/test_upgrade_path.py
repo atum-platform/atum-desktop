@@ -65,6 +65,7 @@ import hermes_yaml as yaml
 from tests.e2e.core._pending_fixes import known_failure
 from tests.e2e.core.upgrade import _helpers as H
 from tests.e2e.core.upgrade import _install_helpers as I
+from tests.e2e.core.upgrade._provider_requests import requests_for_marker
 from tests.fakes.fake_llm_provider import FakeLLMServer
 
 pytestmark = [
@@ -522,13 +523,12 @@ def assert_healthy_at_head(leg: Leg, provider: FakeLLMServer, final: subprocess.
     assert ver.returncode == 0 and TRACEBACK not in ver.stdout + ver.stderr, H.describe(ver)
     doc = leg.run("doctor")
     assert doc.returncode in (0, 1) and TRACEBACK not in doc.stdout + doc.stderr, H.describe(doc)
-    n_before = len(provider.main_requests())
-    marker = f"post-update turn {leg.root.name}"
+    marker = f"post-update turn {leg.root}"
     turn = leg.run("-z", marker)
     assert turn.returncode == 0 and TRACEBACK not in turn.stderr, H.describe(turn)
     assert provider.default_text in turn.stdout, H.describe(turn)
-    new = provider.main_requests()[n_before:]
-    assert len(new) == 1 and marker in json.dumps(new[0]["messages"]), "one-shot turn did not reach the provider once"
+    new = requests_for_marker(provider, marker)
+    assert len(new) == 1, "one-shot turn did not reach the provider once"
     fp = db_fingerprint(leg.hermes_home / "state.db")
     assert fp["integrity"] == [("ok",)]
     assert len(fp["sessions"]) == len(before["default"]["db"]["sessions"]) + 1, "post-update turn not persisted"
@@ -731,7 +731,7 @@ def test_offline_update_fails_loudly_and_changes_nothing(leg, provider):
         assert after[name]["db"] == leg.snapshot[name]["db"], f"{name} state.db touched by a failed update"
     ver = leg.run("--version")
     assert ver.returncode == 0, H.describe(ver)
-    n = len(provider.main_requests())
-    turn = leg.run("-z", "turn after a failed update")
+    marker = f"turn after a failed update {leg.root}"
+    turn = leg.run("-z", marker)
     assert turn.returncode == 0 and provider.default_text in turn.stdout, H.describe(turn)
-    assert len(provider.main_requests()) == n + 1
+    assert len(requests_for_marker(provider, marker)) == 1

@@ -25,6 +25,7 @@ const macFacts = (overrides: Partial<MatrixAccountSourceFacts> = {}): MatrixAcco
   mac: true,
   fullDisk: 'granted',
   googleConnected: true,
+  location: 'granted',
   ...overrides
 })
 
@@ -76,7 +77,7 @@ it('shows the account choice exactly, whatever the source can do on this Mac', a
   ])
 })
 
-it('says what works where today: Mac-only reads, a missing permission, a missing connection', async () => {
+it('says what works where today: reachable sources, a missing permission, a missing connection', async () => {
   const h = harness()
   h.setFacts(macFacts({ fullDisk: 'not-granted', googleConnected: false }))
 
@@ -86,12 +87,12 @@ it('says what works where today: Mac-only reads, a missing permission, a missing
   expect(byGate.folders).toMatchObject({ status: 'ready', grantable: true })
   expect(byGate.messages).toMatchObject({ status: 'needs_permission', permission: 'fullDisk', grantable: true })
   expect(byGate.browser).toMatchObject({ status: 'needs_permission', permission: 'fullDisk', grantable: true })
-  expect(byGate.location).toMatchObject({ status: 'mac_only', grantable: true })
+  expect(byGate.location).toMatchObject({ status: 'ready', grantable: true })
   expect(byGate.team_spaces).toMatchObject({ status: 'ready', grantable: true })
 
   h.setFacts(macFacts())
   const granted = Object.fromEntries((await h.settings.read()).sources.map(source => [source.optOutGate, source]))
-  expect(granted.messages).toMatchObject({ status: 'mac_only' })
+  expect(granted.messages).toMatchObject({ status: 'ready' })
   expect(granted.messages).not.toHaveProperty('permission')
   expect(granted.google).toMatchObject({ status: 'ready' })
 })
@@ -181,4 +182,59 @@ it('exposes a fixed trusted bridge with no account or assistant selector', async
     'matrix_agent_sources_invalid_request'
   )
   expect(assertTrusted).toHaveBeenCalledTimes(5)
+})
+
+it('exposes the frozen macs/notice shape and acknowledges presentation through the trusted bridge', async () => {
+  const presented = vi.fn()
+
+  const h = harness({
+    macs: () => [{ id: 'mac-a', name: 'Mac A', thisMac: true, state: 'ready',
+      sources: { messages: 'ready', browser: 'ready', folders: 'ready', location: 'off' } }],
+    notice: () => ({ sources: ['messages'] }), presented,
+    heldOff: () => []
+  })
+
+  const view = await h.settings.read()
+  expect(view.macs[0]).toMatchObject({ id: 'mac-a', name: 'Mac A', thisMac: true })
+  expect(view.notice).toEqual({ sources: ['messages'] })
+  expect(view).not.toHaveProperty('macDevices')
+  await h.settings.presented()
+  expect(presented).toHaveBeenCalledOnce()
+  const handlers = new Map<string, (...args: any[]) => any>()
+  const assertTrusted = vi.fn()
+  registerMatrixAgentSourcesIpc({ handle: (channel, handler) => { handlers.set(channel, handler) } }, { assertTrusted, settings: h.settings })
+  await handlers.get(MATRIX_AGENT_SOURCES_IPC.presented)!({})
+  expect(assertTrusted).toHaveBeenCalledOnce()
+  expect(() => handlers.get(MATRIX_AGENT_SOURCES_IPC.presented)!({}, 'other-account')).toThrow('invalid_request')
+})
+
+it('drops asynchronous fleet results when the signed-in account changes', async () => {
+  let resolve!: (value: []) => void
+  const h = harness({ macs: () => new Promise<[]>(done => { resolve = done }) })
+  const reading = h.settings.read()
+  h.setScope({ accountKey: 'b'.repeat(64), generation: 2 })
+  resolve([])
+  await expect(reading).rejects.toThrow('matrix_agent_sources_stale')
+})
+
+it('refreshes server provenance even when gate revision is unchanged and renders the latest gate', async () => {
+  const h = harness({ macs: async () => [{ id: 'other', name: 'Other Mac', thisMac: false, state: 'offline', lastSeenAt: 123 }],
+    refresh: async () => { h.setGates({ ...allOn(), messages: false }) }, heldOff: gate => gate === 'messages' ? ['Other Mac'] : [] })
+
+  const view = await h.settings.read()
+  expect(view.macs[0]).toMatchObject({ id: 'other', lastSeenAt: 123 })
+  expect(view.sources.find(s => s.optOutGate === 'messages')).toMatchObject({ status: 'held_off_by_older_mac', heldOffBy: ['Other Mac'] })
+})
+
+it('returns Connections after three seconds even if provenance refresh never settles', async () => {
+  vi.useFakeTimers()
+  try {
+    const h = harness({ refresh: () => new Promise<void>(() => {}), macs: async () => [] })
+    let returned = false
+    const reading = h.settings.read().then(view => { returned = true; return view })
+    await vi.advanceTimersByTimeAsync(2_999)
+    expect(returned).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect((await reading).gates).toEqual(allOn())
+  } finally { vi.useRealTimers() }
 })

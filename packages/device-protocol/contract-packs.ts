@@ -13,6 +13,8 @@ import cloudExecution1_11Pack from "./fixtures/cloud-execution-v1.11/contract.js
 import cloudExecution1_13Pack from "./fixtures/cloud-execution-v1.13/contract.json";
 import cloudExecution1_14Pack from "./fixtures/cloud-execution-v1.14/contract.json";
 import cloudExecutionPack from "./fixtures/cloud-execution/contract.json";
+import deviceFleetPack from "./fixtures/device-fleet/contract.json";
+import deviceService12Pack from "./fixtures/device-service-v1.2/contract.json";
 import deviceServicePack from "./fixtures/device-service/contract.json";
 import deviceWorkspacePack from "./fixtures/device-workspace/contract.json";
 import modelChoice14Pack from "./fixtures/model-choice-v1.4/contract.json";
@@ -20,7 +22,9 @@ import modelChoice15Pack from "./fixtures/model-choice-v1.5/contract.json";
 import providerConnectionsPack from "./fixtures/provider-connections/contract.json";
 import type { ContractPack } from "./schema";
 
+export const DEVICE_FLEET_PACK = deviceFleetPack as unknown as ContractPack;
 export const DEVICE_WORKSPACE_PACK = deviceWorkspacePack as unknown as ContractPack;
+export const DEVICE_SERVICE_1_2_PACK = deviceService12Pack as unknown as ContractPack;
 export const DEVICE_SERVICE_PACK = deviceServicePack as unknown as ContractPack;
 export const CLOUD_ANSWERING_PACK = cloudAnsweringPack as unknown as ContractPack;
 /** `atum.cloud-execution/1.10`: the managed dispatch grants (1.7 and the line-up grant) the cloud controller consumes. */
@@ -63,6 +67,8 @@ export const AGENT_SWEEP_V2_PACK = agentSweepV2Pack as unknown as ContractPack;
  * not here until its bytes are vendored; the controller continues to carry agent.requeue itself.
  */
 export const CONTRACT_PACKS_BY_PROFILE: Readonly<Record<string, ContractPack>> = Object.freeze({
+  "atum.device-fleet/1": DEVICE_FLEET_PACK,
+  "atum.device-service/1.2": DEVICE_SERVICE_1_2_PACK,
   "atum.cloud-execution/1.10": CLOUD_EXECUTION_PACK,
   "atum.cloud-execution/1.11": CLOUD_EXECUTION_1_11_PACK,
   "atum.cloud-execution/1.13": CLOUD_EXECUTION_1_13_PACK,

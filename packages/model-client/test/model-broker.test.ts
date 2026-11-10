@@ -661,6 +661,19 @@ describe('a subscription grant reaches only the subscription edge', () => {
     return { grants, managed, edge, records, logs, base, token, post }
   }
 
+  it('resolves the stable sandbox name without widening subscription authority', async () => {
+    const { post, managed, edge } = await subscriptionSetup()
+    const response = await post({ messages: [{ role: 'user', content: 'hello' }], model: 'default' })
+    expect(response.status).toBe(200)
+    expect(edge.calls[0]!.body.model).toBe('glm-5.2')
+    expect(edge.calls[0]!.grant.aliases).toEqual(['glm-5.2'])
+    const refused = await post({ messages: [{ role: 'user', content: 'hello' }], model: 'other-model' })
+    expect(refused.status).toBe(403)
+    expect((await refused.json()).error.code).toBe('model_alias_not_granted')
+    expect(edge.completeCalls).toBe(1)
+    expect(managed.calls).toHaveLength(0)
+  })
+
   it('admits a dotted provider model, sends it to the edge, and never touches the managed gateway', async () => {
     const { post, managed, edge, records } = await subscriptionSetup()
     const response = await post({ messages: [{ role: 'user', content: 'hello' }], model: 'glm-5.2' })

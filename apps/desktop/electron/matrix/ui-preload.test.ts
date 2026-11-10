@@ -235,10 +235,12 @@ describe('Matrix UI preload consumer browser bridge', () => {
     electron.on.mockClear()
     electron.removeListener.mockClear()
     const sources = bridge().agentSources!
-    expect(Object.keys(sources).sort()).toEqual(['read', 'set', 'subscribe'])
+    expect(Object.keys(sources).sort()).toEqual(['presented', 'read', 'set', 'subscribe'])
+    await sources.presented?.()
     await sources.read()
     await sources.set('team_spaces', false)
     expect(electron.invoke.mock.calls).toEqual([
+      [MATRIX_AGENT_SOURCES_IPC.presented],
       [MATRIX_AGENT_SOURCES_IPC.read],
       [MATRIX_AGENT_SOURCES_IPC.set, 'team_spaces', false]
     ])

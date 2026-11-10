@@ -41,7 +41,7 @@ const copies: Record<DesktopLocale, MatrixFirstRunCopy> = {
     intro: 'To be useful from the start, I’d like to get to know your work.',
     connectCard: {
       title: 'Let me get to know your world',
-      line: 'Uncheck anything you don’t want to share now.',
+      line: 'I work from the cloud and read these from your Mac. Uncheck any to keep them private.',
       google: 'Google',
       googleRead: 'Gmail, Calendar and Drive you share.',
       googleDetail: 'Atum reads shared mail, events and Drive files. Sending or changing anything still asks you first.',
@@ -74,7 +74,7 @@ const copies: Record<DesktopLocale, MatrixFirstRunCopy> = {
     intro: 'Để hữu ích ngay từ đầu, mình muốn tìm hiểu công việc của bạn.',
     connectCard: {
       title: 'Để mình hiểu thế giới của bạn',
-      line: 'Bỏ chọn những gì bạn chưa muốn chia sẻ lúc này.',
+      line: 'Mình làm việc trên đám mây và đọc các mục này từ máy Mac. Bỏ chọn mục bạn muốn giữ riêng.',
       google: 'Google',
       googleRead: 'Gmail, Lịch và Drive bạn chia sẻ.',
       googleDetail: 'Atum đọc thư, sự kiện và tệp Drive được chia sẻ. Mọi thao tác gửi hay thay đổi vẫn hỏi bạn trước.',
@@ -107,7 +107,7 @@ const copies: Record<DesktopLocale, MatrixFirstRunCopy> = {
     intro: '最初から役に立てるように、あなたの仕事について知りたいです。',
     connectCard: {
       title: 'あなたの世界を教えてください',
-      line: '今は共有しないもののチェックを外せます。',
+      line: 'クラウドから作業し、これらをあなたの Mac から読み取ります。共有したくない項目はチェックを外してください。',
       google: 'Google',
       googleRead: '共有した Gmail、カレンダー、Drive。',
       googleDetail: 'Atum は共有されたメール、予定、Drive ファイルを読みます。送信や変更の前には必ず確認します。',
@@ -140,7 +140,7 @@ const copies: Record<DesktopLocale, MatrixFirstRunCopy> = {
     intro: '为了从一开始就帮上忙，我想先了解你的工作。',
     connectCard: {
       title: '让我了解你的世界',
-      line: '取消勾选你暂时不想共享的内容。',
+      line: '我在云端工作，会从你的 Mac 读取这些内容。取消勾选即可保持私密。',
       google: 'Google',
       googleRead: '你共享的 Gmail、日历和云端硬盘。',
       googleDetail: 'Atum 会读取共享的邮件、日程和云端硬盘文件。发送或更改内容前仍会先征求你的确认。',
@@ -173,7 +173,7 @@ const copies: Record<DesktopLocale, MatrixFirstRunCopy> = {
     intro: '為了從一開始就幫上忙，我想先了解你的工作。',
     connectCard: {
       title: '讓我了解你的世界',
-      line: '取消勾選你暫時不想分享的內容。',
+      line: '我在雲端工作，會從你的 Mac 讀取這些內容。取消勾選即可保持私密。',
       google: 'Google',
       googleRead: '你分享的 Gmail、行事曆和雲端硬碟。',
       googleDetail: 'Atum 會讀取分享的郵件、行程和雲端硬碟檔案。傳送或更改內容前仍會先徵求你的確認。',

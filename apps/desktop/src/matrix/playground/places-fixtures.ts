@@ -1,5 +1,11 @@
 import type { MatrixRoom, MatrixSnapshot, MatrixUiBridge } from '../../../shared/matrix'
-import type { MatrixAgentSourceGate, MatrixAgentSourcesBridge, MatrixAgentSourcesView } from '../../../shared/matrix-agent-sources'
+import {
+  macSourceStatus,
+  type MatrixAgentSourceGate,
+  type MatrixAgentSourcesBridge,
+  type MatrixAgentSourcesView,
+  type MatrixReachMac
+} from '../../../shared/matrix-agent-sources'
 import type { MatrixCompanyBridge, MatrixCompanyMember11, MatrixCompanyRequest, MatrixCompanyResult } from '../../../shared/matrix-company'
 import { MATRIX_COMPANY_CHANNEL_TYPE } from '../../../shared/matrix-company-channel-room'
 import type { MatrixDriveBridge, MatrixDriveProblem, MatrixDriveState, MatrixDriveView } from '../../../shared/matrix-drive'
@@ -38,6 +44,9 @@ import { TEAM_PRESENCE, teamActivity, teamCompanyBridge, teamRooms } from './tea
  *   River also takes part in chats, so its card's "…" shows every action.
  * - `?firstRunSources=fresh|google-granted` — the first-run ask with every grantable
  *   source off, or with only Google already granted (default: Settings' all-on state).
+ * - `?macs=three|none` — cloud-only U1: Your Macs with this Mac needing Full Disk Access, a ready
+ *   Mac mini and an older iMac that switched Location back off, plus the one-time composer band;
+ *   `none` is an account with no Mac (default: no Mac list, as before).
  */
 export interface PlaygroundPlaces {
   drive?: MatrixDriveState | 'waiting' | 'signIn'
@@ -50,6 +59,7 @@ export interface PlaygroundPlaces {
   offers: boolean
   appMenus: boolean
   firstRunSources: 'granted' | 'fresh' | 'google-granted'
+  macs?: 'three' | 'none'
 }
 
 export function playgroundPlaces(params: URLSearchParams): PlaygroundPlaces {
@@ -72,7 +82,8 @@ export function playgroundPlaces(params: URLSearchParams): PlaygroundPlaces {
     firstRunSources:
       params.get('firstRunSources') === 'fresh' || params.get('firstRunSources') === 'google-granted'
         ? (params.get('firstRunSources') as 'fresh' | 'google-granted')
-        : 'granted'
+        : 'granted',
+    macs: params.get('macs') === 'three' || params.get('macs') === 'none' ? (params.get('macs') as 'three' | 'none') : undefined
   }
 }
 
@@ -492,10 +503,47 @@ function appsBridge(snapshot: () => MatrixSnapshot): NonNullable<MatrixUiBridge[
 }
 
 /** Settings › What Atum knows: every source Atum reads, all on, kept in the page. */
-function agentSourcesBridge(mode: PlaygroundPlaces['firstRunSources']): MatrixAgentSourcesBridge {
+const PLAYGROUND_MACS: MatrixReachMac[] = [
+  {
+    id: 'air',
+    name: 'MacBook Air',
+    thisMac: true,
+    state: 'needs_permission',
+    sources: { messages: 'needs_permission', browser: 'needs_permission', location: 'off', folders: 'ready' }
+  },
+  { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready', sources: { messages: 'ready', browser: 'ready', location: 'off', folders: 'ready' } },
+  { id: 'imac', name: 'iMac', thisMac: false, state: 'older' }
+]
+
+/** Main's projection (`macSourceStatus`) over the fixture Macs, with iMac's legacy narrow on Location. */
+function withPlaygroundMacs(view: MatrixAgentSourcesView, mode: NonNullable<PlaygroundPlaces['macs']>): MatrixAgentSourcesView {
+  const macs = mode === 'three' ? PLAYGROUND_MACS : []
+  const gates = mode === 'three' ? { ...view.gates, location: false } : view.gates
+
+  return {
+    ...view,
+    gates,
+    macs,
+    sources: view.sources.map(source => {
+      const gate = source.optOutGate as 'messages' | 'browser' | 'location' | 'folders'
+
+      if (!['messages', 'browser', 'location', 'folders'].includes(gate)) {
+        return source
+      }
+
+      const heldOff = mode === 'three' && gate === 'location' ? ['iMac'] : []
+
+      return { ...source, ...macSourceStatus(gates[gate], heldOff, macs, gate) }
+    }),
+    ...(mode === 'three' ? { notice: { sources: ['messages', 'browser', 'folders'] } } : {})
+  }
+}
+
+function agentSourcesBridge(mode: PlaygroundPlaces['firstRunSources'], macs?: PlaygroundPlaces['macs']): MatrixAgentSourcesBridge {
   const enabled = mode === 'granted'
 
   let current: MatrixAgentSourcesView = {
+    macs: [],
     gates: {
       google: enabled || mode === 'google-granted',
       folders: enabled,
@@ -524,13 +572,19 @@ function agentSourcesBridge(mode: PlaygroundPlaces['firstRunSources']): MatrixAg
     }))
   }
 
+  if (macs) {
+    current = withPlaygroundMacs(current, macs)
+  }
+
   return {
     read: async () => current,
     set: async (gate: MatrixAgentSourceGate, enabled: boolean) => {
       current = { ...current, gates: { ...current.gates, [gate]: enabled } }
 
       return current
-    }
+    },
+    // Shown, never accepted: the band keeps its words; nothing else changes in the page.
+    presented: async () => undefined
   } as MatrixAgentSourcesBridge
 }
 
@@ -586,7 +640,7 @@ export function playgroundPlaceBridges(places: PlaygroundPlaces, snapshot: () =>
     // harmless fake available lets canonical app-chat scenarios exercise the native surface
     // without a second URL capability switch.
     apps: appsBridge(snapshot),
-    agentSources: agentSourcesBridge(places.firstRunSources),
+    agentSources: agentSourcesBridge(places.firstRunSources, places.macs),
     folderAccess: folderAccessBridge(),
     ...(places.drive ? { drive: driveBridge(places.drive, places.driveProblem, places.driveEmpty, places.driveFacts) } : {}),
     // The product still gates Company UI on `companyWorkspaceEnabled`; this bridge only supplies

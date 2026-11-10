@@ -25,6 +25,7 @@ import { open } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import path from 'node:path'
 
+import { fleetStatus } from '../../../../../packages/device-protocol/fleet-status'
 import type {
   MatrixAgentServiceStatus,
   MatrixCloudAccess,
@@ -71,6 +72,7 @@ export const MATRIX_CLOUD_AGENT_UNSUPPORTED = 'matrix_cloud_agent_unsupported'
 export type S1Resource =
   | { kind: 'controller-keys' }
   | { kind: 'device-services' }
+  | { kind: 'source-authority'; agentPrincipal: string; gate: string; expectedRevision: number | null }
   | { kind: 'device-enroll'; request: EnrollDeviceRequest }
   | { kind: 'device-revoke'; deviceServiceId: string }
   | { kind: 'answering'; agentPrincipal: string; mode: MatrixAnswering; expectedMode: MatrixAnswering }
@@ -108,6 +110,15 @@ export function s1Route(resource: S1Resource): {
   switch (resource.kind) {
     case 'controller-keys':
       return { method: 'GET', path: '/cloud/controller-keys', bearer: false }
+
+    case 'source-authority':
+      if (!UUID.test(resource.agentPrincipal) || !['messages', 'browser', 'location', 'folders'].includes(resource.gate) ||
+        !(resource.expectedRevision === null || Number.isSafeInteger(resource.expectedRevision) && resource.expectedRevision >= 0)) {
+        throw new DeviceRegistryError(400, 'invalid')
+      }
+
+      return { method: 'POST', path: `/agents/${resource.agentPrincipal}/source-authority`, bearer: true,
+        body: { gate: resource.gate, expectedRevision: resource.expectedRevision } }
 
     case 'device-services':
       return { method: 'GET', path: '/device-services', bearer: true }
@@ -280,12 +291,17 @@ export async function requestS1(
   resource: S1Resource,
   accessToken: string | null,
   signal: AbortSignal,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  matrixProof?: string
 ): Promise<unknown> {
   const route = s1Route(resource)
 
   if (route.bearer && !accessToken) {
     throw new Error('matrix_s1_authentication')
+  }
+
+  if (resource.kind === 'source-authority' && (!matrixProof || /[\r\n]/.test(matrixProof))) {
+    throw new DeviceRegistryError(401, 'matrix_proof_required')
   }
 
   let response: Response
@@ -295,6 +311,7 @@ export async function requestS1(
       method: route.method,
       headers: {
         ...(route.bearer ? { Authorization: `Bearer ${accessToken}` } : {}),
+        ...(resource.kind === 'source-authority' ? { 'X-Atum-Matrix-Authorization': `Bearer ${matrixProof}` } : {}),
         ...(route.body === undefined ? {} : { 'Content-Type': 'application/json' })
       },
       ...(route.body === undefined ? {} : { body: JSON.stringify(route.body) }),
@@ -419,7 +436,8 @@ export function parseDeviceService(value: unknown): DeviceServiceRecord {
     revokeSeq: row.revokeSeq as number,
     createdAt: row.createdAt as number,
     rotatedAt: row.rotatedAt as number | null,
-    revokedAt: row.revokedAt as number | null
+    revokedAt: row.revokedAt as number | null,
+    ...fleetStatus(row)
   }
 }
 
@@ -463,12 +481,15 @@ const STATUS_REASON = /^[a-z][a-z0-9_]{0,63}$/
 /** The Shell result is closed before it crosses main's renderer boundary. */
 export function parseAgentServiceStatus(value: unknown, agentPrincipal: string): MatrixAgentServiceStatus {
   const row = isObject(value) ? value : invalid()
+
   const common =
     row.profile === 'atum.agent-service-status/1' &&
     row.agentPrincipal === agentPrincipal &&
     timestamp(row.asOf) &&
     (row.presentSince === undefined || timestamp(row.presentSince))
+
   const keys = Object.keys(row).sort().join(',')
+
   const exact = (required: string[]) =>
     keys === [...required, ...(row.presentSince === undefined ? [] : ['presentSince'])].sort().join(',')
 
@@ -1116,6 +1137,7 @@ export class MacDeviceIdentity {
         await this.enrollNow(options.signal ?? new AbortController().signal, {})
       } catch (error) {
         const code = deviceEnrollmentCode(error)
+
         return without(code)
       }
     }

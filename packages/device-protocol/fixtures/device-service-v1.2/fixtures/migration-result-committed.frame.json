@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "type": "MigrationResult",
+  "body": {
+    "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+    "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+    "outcome": "committed",
+    "homeGeneration": 1,
+    "manifestSha256": "2121212121212121212121212121212121212121212121212121212121212121"
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "IyCAnGWknSfg09bkJyP3cfjZEC7qnL163HUaD1uRHMWlwVM9KyT4t5rRY5YJpVynCyh1ord4nOf2yIsDvnvJCA"
+}

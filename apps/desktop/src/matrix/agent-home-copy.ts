@@ -11,6 +11,9 @@ interface AgentHomeWords {
   rowTitle: string
   /** The popover's heading over the current place. */
   livesWhere: string
+  /** The popover's read-only list of the owner's Macs this assistant can use (U1), and its empty state. */
+  canUse: string
+  noMac: string
   title: string
   /** While the platform has not answered yet, and when it could not be read after asking. */
   finding: string
@@ -87,6 +90,8 @@ const words: Record<AgentHomeLocale, AgentHomeWords> = {
   en: {
     rowTitle: 'Lives on',
     livesWhere: 'Lives on',
+    canUse: 'Can use',
+    noMac: 'No Mac yet',
     title: 'Where it lives',
     finding: 'Finding where it lives…',
     unknownPlace: 'Couldn’t tell where it lives yet.',
@@ -221,6 +226,8 @@ const words: Record<AgentHomeLocale, AgentHomeWords> = {
   vi: {
     rowTitle: 'Đang ở trên',
     livesWhere: 'Đang ở trên',
+    canUse: 'Dùng được',
+    noMac: 'Chưa có máy Mac',
     title: 'Trợ lý đang ở đâu',
     finding: 'Đang xác định vị trí…',
     unknownPlace: 'Chưa xác định được vị trí.',
@@ -355,6 +362,8 @@ const words: Record<AgentHomeLocale, AgentHomeWords> = {
   ja: {
     rowTitle: 'いる場所',
     livesWhere: '現在の場所',
+    canUse: '使える Mac',
+    noMac: 'まだ Mac がありません',
     title: 'アシスタントがいる場所',
     finding: '場所を確認しています…',
     unknownPlace: '場所を確認できませんでした。',
@@ -489,6 +498,8 @@ const words: Record<AgentHomeLocale, AgentHomeWords> = {
   zh: {
     rowTitle: '所在位置',
     livesWhere: '目前位置',
+    canUse: '可使用',
+    noMac: '还没有 Mac',
     title: '助手所在的位置',
     finding: '正在确认所在位置…',
     unknownPlace: '暂时无法确认所在位置。',
@@ -623,6 +634,8 @@ const words: Record<AgentHomeLocale, AgentHomeWords> = {
   'zh-hant': {
     rowTitle: '所在位置',
     livesWhere: '目前位置',
+    canUse: '可使用',
+    noMac: '還沒有 Mac',
     title: '助理所在的位置',
     finding: '正在確認所在位置…',
     unknownPlace: '暫時無法確認所在位置。',

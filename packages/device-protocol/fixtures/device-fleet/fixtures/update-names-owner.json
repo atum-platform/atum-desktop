@@ -1,0 +1,18 @@
+{
+  "operation": "connect",
+  "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+  "connectionId": "04270000-0000-4000-8000-000000000001",
+  "connectionStartedAt": 1800000000000,
+  "presence": {
+    "connected": true,
+    "lastSeenAt": 1800000000000
+  },
+  "sourceProtocol": 1,
+  "sources": {
+    "messages": "ready",
+    "browser": "needs_permission",
+    "location": "off",
+    "folders": "ready"
+  },
+  "ownerPrincipal": "04270000-0000-4000-8000-000000000001"
+}

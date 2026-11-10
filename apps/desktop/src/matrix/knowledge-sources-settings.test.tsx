@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { I18nProvider, type Locale } from '@/i18n'
@@ -10,9 +10,10 @@ import type {
   MatrixAgentSourcesView
 } from '../../shared/matrix-agent-sources'
 import type { MatrixFolderAccessBridge, MatrixFolderAccessView } from '../../shared/matrix-folder-access'
+import { matrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-sources-copy'
 import type { MatrixPermissionsBridge } from '../../shared/matrix-permissions'
 
-import { MatrixKnowledgeSourcesSettings } from './knowledge-sources-settings'
+import { MatrixKnowledgeSourcesSettings, matrixSourceLine } from './knowledge-sources-settings'
 
 const gates: MatrixAgentSourcesView['gates'] = {
   google: true,
@@ -24,6 +25,7 @@ const gates: MatrixAgentSourcesView['gates'] = {
 }
 
 const view: MatrixAgentSourcesView = {
+  macs: [],
   gates,
   sources: [
     ['google.mail', 'google'],
@@ -100,7 +102,10 @@ function show(
   )
 }
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 it('shows one on switch per descriptor gate and no fake Forget action', async () => {
   const f = bridge()
@@ -137,6 +142,7 @@ it('rolls back a refused switch and shows one short failure line', async () => {
 
 it('keeps an unavailable source on its saved switch, still switchable, with one quiet line', async () => {
   const f = bridge({
+    macs: [],
     gates,
     sources: [
       {
@@ -170,7 +176,6 @@ it('never flips a saved switch when the status changes underneath it', async () 
 })
 
 it.each([
-  ['mac_only', 'On this Mac only for now.'],
   ['needs_permission', 'Needs permission in System Settings.'],
   ['not_connected', 'Not connected yet.']
 ] as const)('says %s in one short line beside a switched-on source', async (status, line) => {
@@ -182,7 +187,7 @@ it.each([
 })
 
 it('keeps the ordinary description while a source is off', async () => {
-  show(bridge({ ...withStatus('browser', 'mac_only'), gates: { ...gates, browser: false } }).value)
+  show(bridge({ ...withStatus('browser', 'ready'), gates: { ...gates, browser: false } }).value)
 
   expect(await screen.findByText('Safari and Chrome titles, domains and visit counts.')).toBeTruthy()
   expect(screen.queryByText('On this Mac only for now.')).toBeNull()
@@ -276,6 +281,7 @@ it.each([
   ['javascript:alert(1)', false]
 ] as const)('renders only allowlisted presentation icons: %s', async (iconDataUrl, rendered) => {
   const f = bridge({
+    macs: [],
     gates,
     sources: [{
       kind: 'future.travel', optOutGate: 'team_spaces', availability: 'available', status: 'ready', grantable: true,
@@ -428,4 +434,155 @@ it('hides the folder list while Mac folders is off', async () => {
 
   await screen.findByRole('switch', { name: 'Mac folders' })
   expect(screen.queryByRole('switch', { name: 'Desktop' })).toBeNull()
+})
+
+// ---- Cloud-only U1: section help, per-source line, Your Macs, presented ----
+
+const AIR = { id: 'air', name: 'MacBook Air', thisMac: true, state: 'ready' as const }
+const MINI = { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' as const }
+
+it.each([
+  // [label, row, macs, expected text, action]
+  ['1 any Mac ready', { checked: true, status: 'ready' }, [], undefined, undefined],
+  ['2 this Mac needs FDA', { checked: true, status: 'needs_permission', permission: 'fullDisk', statusMac: 'MacBook Air' }, [AIR], 'Needs Full Disk Access on this Mac.', 'settings'],
+  ['3 another Mac needs FDA', { checked: true, status: 'needs_permission', permission: 'fullDisk', statusMac: 'Mac mini' }, [AIR, MINI], 'Needs Full Disk Access on Mac mini.', undefined],
+  ['4 only older Macs', { checked: true, status: 'update_mac', statusMac: 'iMac' }, [], 'Update Atum on iMac to use this.', undefined],
+  ['5a one Mac offline', { checked: true, status: 'mac_offline', statusMac: 'Mac mini' }, [], 'Mac mini is offline.', undefined],
+  ['5b all Macs offline', { checked: true, status: 'mac_offline' }, [], 'Your Macs are offline.', undefined],
+  ['6 this Mac disconnected', { checked: true, status: 'this_mac_disconnected' }, [], 'This Mac isn’t connected right now.', 'retry'],
+  ['7 no Mac', { checked: true, status: 'needs_mac' }, [], 'Needs a Mac.', undefined],
+  ['8 off, older Mac switched it back off', { checked: false, status: 'held_off_by_older_mac', heldOffBy: ['iMac'] }, [], 'An older Mac keeps this off — update it.', undefined],
+  ['8 anonymous server evidence', { checked: false, status: 'held_off_by_older_mac', heldOffBy: [''] }, [], 'An older Mac keeps this off — update it.', undefined],
+  ['8 without server evidence stays quiet', { checked: false, status: 'held_off_by_older_mac', heldOffBy: [] }, [], undefined, undefined],
+  ['9 off, owner’s choice', { checked: false, status: 'ready' }, [], undefined, undefined]
+] as const)('source line %s', (_label, row, macs, text, action) => {
+  const line = matrixSourceLine(row as Parameters<typeof matrixSourceLine>[0], macs, matrixKnowledgeSourcesCopy.en)
+
+  expect(line.text).toBe(text)
+  expect(line.action?.kind).toBe(action)
+})
+
+it('says where cloud assistants read from, with the detail behind (?), and no “this Mac only” line', async () => {
+  show(bridge().value)
+
+  expect(await screen.findByText('Assistants in the cloud read these from your Macs.')).toBeTruthy()
+  expect(window.document.body.textContent).not.toMatch(/On this Mac only|this assistant/i)
+})
+
+it('shows the held-off line in warning ink with a tip naming the Mac, only on server evidence', async () => {
+  show(bridge({
+    ...withStatus('location', 'held_off_by_older_mac', { heldOffBy: ['iMac'] }),
+    gates: { ...gates, location: false }
+  }).value)
+
+  const line = await screen.findByText('An older Mac keeps this off — update it.')
+  expect(line.getAttribute('data-matrix-knowledge-source-line')).toBe('warn')
+  expect(line.className).toContain('--ak-warn')
+})
+
+it('lists Your Macs, this Mac first, each with its state and only the action this Mac can take', async () => {
+  const openSettings = vi.fn(async () => {})
+  const permissions = { status: vi.fn(), openSettings } as MatrixPermissionsBridge
+  show(
+    bridge({
+      ...view,
+      macs: [
+        { ...MINI, state: 'ready' },
+        { id: 'imac', name: 'iMac', thisMac: false, state: 'older' },
+        { ...AIR, state: 'needs_permission', sources: { messages: 'needs_permission', browser: 'needs_permission', location: 'ready', folders: 'ready' } },
+        { id: 'studio', name: 'Studio', thisMac: false, state: 'needs_permission', sources: { messages: 'needs_permission', browser: 'off', location: 'off', folders: 'off' } }
+      ]
+    }).value,
+    'en',
+    permissions
+  )
+
+  const rows = await waitFor(() => {
+    const found = [...window.document.querySelectorAll<HTMLElement>('[data-matrix-your-macs] [data-matrix-mac-row]')]
+    expect(found).toHaveLength(4)
+
+    return found
+  })
+
+  expect(rows[0]!.textContent).toContain('MacBook Air')
+  expect(rows[0]!.textContent).toContain('This Mac')
+  expect(rows[0]!.textContent).toContain('need Full Disk Access.')
+  fireEvent.click(within(rows[0]!).getByRole('button', { name: 'Open System Settings' }))
+  await waitFor(() => expect(openSettings).toHaveBeenCalledExactlyOnceWith('fullDisk'))
+
+  const byName = (name: string) => rows.find(row => row.textContent?.includes(name))!
+  expect(byName('Mac mini').textContent).toContain('Ready')
+  expect(byName('iMac').textContent).toContain('Update Atum there to share its sources.')
+  expect(byName('iMac').textContent).toContain('Older version')
+  // Another Mac's permission is fixed on that Mac: a word, never a button here.
+  expect(byName('Studio').textContent).toContain('Allow Full Disk Access on that Mac.')
+  expect(within(byName('Studio')).queryByRole('button')).toBeNull()
+})
+
+it('this Mac not connected offers Try again on its row', async () => {
+  const onRetry = vi.fn()
+  render(
+    <I18nProvider configClient={null} initialLocale="vi">
+      <MatrixKnowledgeSourcesSettings
+        bridge={bridge({ ...view, macs: [{ ...AIR, state: 'not_connected' }] }).value}
+        onRetry={onRetry}
+      />
+    </I18nProvider>
+  )
+
+  const row = await waitFor(() => {
+    const found = window.document.querySelector<HTMLElement>('[data-matrix-mac-row="not_connected"]')
+    expect(found).toBeTruthy()
+
+    return found!
+  })
+
+  expect(row.textContent).toContain('Hiện chưa kết nối được Atum.')
+  fireEvent.click(within(row).getByRole('button', { name: 'Thử lại' }))
+  expect(onRetry).toHaveBeenCalledOnce()
+})
+
+it('has no Your Macs section when the account has no Mac', async () => {
+  show(bridge().value)
+  await screen.findByText('Assistants in the cloud read these from your Macs.')
+
+  expect(window.document.querySelector('[data-matrix-your-macs]')).toBeNull()
+})
+
+it('counts the section as presented after a second on screen in a focused window, only while a notice waits', async () => {
+  vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+  const presented = vi.fn(async () => {})
+  const f = bridge({ ...view, notice: { sources: ['messages'] } })
+  show({ ...f.value, presented })
+
+  await screen.findByText('Assistants in the cloud read these from your Macs.')
+  expect(presented).not.toHaveBeenCalled()
+  await waitFor(() => expect(presented).toHaveBeenCalledOnce(), { timeout: 2_500 })
+})
+
+it('never counts as presented in an unfocused window or without a notice', async () => {
+  const focus = vi.spyOn(window.document, 'hasFocus').mockReturnValue(false)
+  const presented = vi.fn(async () => {})
+  show({ ...bridge({ ...view, notice: { sources: ['messages'] } }).value, presented })
+  await screen.findByText('Assistants in the cloud read these from your Macs.')
+  await new Promise(resolve => setTimeout(resolve, 1_300))
+  expect(presented).not.toHaveBeenCalled()
+  cleanup()
+
+  focus.mockReturnValue(true)
+  show({ ...bridge().value, presented })
+  await screen.findByText('Assistants in the cloud read these from your Macs.')
+  await new Promise(resolve => setTimeout(resolve, 1_300))
+  expect(presented).not.toHaveBeenCalled()
+})
+
+it('explains a pre-0427 service update instead of asking the owner to keep retrying ON', async () => {
+  const initial = { ...view, gates: { ...gates, messages: false } }
+  const b = bridge(initial)
+  b.value.set = vi.fn(async () => { throw new Error('matrix_source_service_update_required: service update') })
+  show(b.value)
+  const control = await screen.findByRole('switch', { name: 'Messages' })
+  fireEvent.click(control)
+  expect(await screen.findByText(matrixKnowledgeSourcesCopy.en.serviceUpdateRequired)).toBeTruthy()
+  expect(b.value.set).toHaveBeenCalledOnce()
 })

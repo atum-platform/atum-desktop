@@ -68,6 +68,7 @@ class GatewayProc:
     root: Path
     base_url: str
     tag: str
+    base_env: dict[str, str]
     cfg: dict[str, Any] = field(default_factory=dict)
     extra_config: str = ""
 
@@ -97,7 +98,7 @@ class GatewayProc:
         listener.listen(1)
         listener.settimeout(1.0)
         self._listener = listener
-        env = hermetic_env(self.home, self.hermes_home, self.tag)
+        env = hermetic_env(self.home, self.hermes_home, self.tag, base_env=self.base_env)
         for key in ("NOTIFY_SOCKET", "INVOCATION_ID", "WATCHDOG_USEC", "WATCHDOG_PID", "XDG_STATE_HOME",
                     "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME"):
             env.pop(key, None)

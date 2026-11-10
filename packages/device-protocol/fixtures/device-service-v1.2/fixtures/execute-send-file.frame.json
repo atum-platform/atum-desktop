@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "type": "Execute",
+  "body": {
+    "commandId": "3d4e5f6a-7b8c-4d9e-9f0a-2b3c4d5e6f7a",
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "seq": 6,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+    "connectionEpoch": 12,
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "tool": "send_file",
+    "toolVersion": 1,
+    "args": {
+      "path": "~/Desktop/s1-demo/hello.txt"
+    },
+    "argsHash": "q3dzr3mjg2MSHIBEUeXOQewfRutMYbhPGUAgycbBFB8",
+    "inputManifestHash": null,
+    "needs": [],
+    "proposedEffect": "ordinary",
+    "admitBy": 1791100816000,
+    "timeoutMs": 120000,
+    "issuedAt": 1791100801000
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "m8uVRi8_9vE7hXwIU-edQ01U1zWCkuhpREGP4sLFoe9VX5A_v0MzOeN8x_H3lXhYLtpRU8fuc2yMuU3nlQK6Aw"
+}

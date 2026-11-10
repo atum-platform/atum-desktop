@@ -28,6 +28,8 @@ export interface MatrixKnowledgeSourceRow {
   status: MatrixAgentSourceStatus
   /** The macOS pane that unblocks a `needs_permission` source. */
   permission?: 'fullDisk'
+  statusMac?: string
+  heldOffBy?: string[]
   /** The account's saved choice, exactly. */
   checked: boolean
   /** The source can't work anywhere on this account yet (the first-run ask skips it). */
@@ -38,7 +40,10 @@ export interface MatrixKnowledgeSourceRow {
 /** Best first: a gate with several sources reports the most useful one. */
 const STATUS_ORDER: readonly MatrixAgentSourceStatus[] = [
   'ready',
-  'mac_only',
+  'held_off_by_older_mac',
+  'mac_offline',
+  'update_mac',
+  'this_mac_disconnected',
   'needs_permission',
   'not_connected',
   'needs_mac',
@@ -126,6 +131,8 @@ export function projectMatrixKnowledgeSourceRows(view: MatrixAgentSourcesView): 
         sourceCount: sources.length,
         status,
         ...(status === 'needs_permission' && best?.permission ? { permission: best.permission } : {}),
+        ...(best?.statusMac ? { statusMac: best.statusMac } : {}),
+        ...(best?.heldOffBy ? { heldOffBy: [...best.heldOffBy] } : {}),
         checked: enabled,
         disabled: !switchable || !grantable,
         switchable

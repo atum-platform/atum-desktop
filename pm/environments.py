@@ -516,12 +516,12 @@ def activate_dependencies(project_root: Path) -> None:
         os.environ["PATH"] = os.pathsep.join([*prefix, os.environ.get("PATH", "")])
 
 
-def activation_environment(project_root: Path) -> dict[str, str]:
+def activation_environment(project_root: Path, *, base_env: dict[str, str] | None = None) -> dict[str, str]:
     """Read the installed PM environment; do not provision or switch imports."""
     from pm.install import env_for
     from pm.registry import all_packages
 
-    env = env_for(*all_packages())
+    env = env_for(*all_packages(), base_env=base_env)
     environment = committed_venv(project_root)
     env.pop("PYTHONHOME", None)
     env.pop("VIRTUAL_ENV", None)

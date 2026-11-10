@@ -15,10 +15,45 @@ export interface MatrixKnowledgeSourcesCopy {
   retry: string
   readFailed: string
   failed: string
-  /** One quiet line beside a source whose switch is on; never changes the switch. */
-  status: Record<'macOnly' | 'needsPermission' | 'notConnected' | 'needsMac' | 'unavailable', string>
-  /** Tooltip addition for a source only assistants on this Mac can read today. */
-  macOnlyDetail: string
+  serviceUpdateRequired: string
+  /** The section's one line of help, and the (?) behind it: what cloud assistants read, and how. */
+  sectionHelp: string
+  sectionTip: string
+  /** One quiet line beside a source whose switch is on; never changes the switch (U1 §4.2, first match wins). */
+  status: Record<'needsPermission' | 'notConnected' | 'needsMac' | 'unavailable', string> & {
+    needsFullDiskHere: string
+    needsFullDiskOn: (mac: string) => string
+    updateMac: (mac: string) => string
+    macOffline: (mac: string) => string
+    macsOffline: string
+    thisMacDisconnected: string
+    /** A switch an older Mac turned back off (server evidence only), in warning ink. */
+    heldOff: string
+    heldOffTip: (mac: string) => string
+  }
+  /** "Your Macs": one row per Mac on the account, with the one action this Mac can take. */
+  macs: {
+    title: string
+    tip: string
+    thisMac: string
+    ready: string
+    needsPermission: string
+    needsFullDisk: (sources: string) => string
+    allowThere: string
+    offline: string
+    lastSeen: (relative: string) => string
+    older: string
+    updateThere: string
+    notConnected: string
+    notConnectedWord: string
+    tryAgain: string
+  }
+  /** The one-time band above an assistant's composer (existing accounts). Shown, never accepted. */
+  notice: {
+    line: (sources: string) => string
+    settings: string
+    dismiss: string
+  }
   names: Record<MatrixKnowledgeSourceCopyKind, string>
   descriptions: Record<MatrixKnowledgeSourceCopyKind, string>
   details: Record<MatrixKnowledgeSourceCopyKind, string>
@@ -41,15 +76,45 @@ export const matrixKnowledgeSourcesCopy: Record<DesktopLocale, MatrixKnowledgeSo
     retry: 'Retry',
     readFailed: 'Couldn’t load these controls.',
     failed: 'Couldn’t save that switch. Try again.',
+    serviceUpdateRequired: 'Atum’s service needs an update before these settings can sync. Your off choices stay private.',
+    sectionHelp: 'Assistants in the cloud read these from your Macs.',
+    sectionTip:
+      'They read what you switched on, when you ask or during their daily catch-up. What they read leaves this Mac as a short result for the assistant. Scheduled work never reads message text. Switch anything off in Settings › Connections and reads stop at once.',
     status: {
-      macOnly: 'On this Mac only for now.',
       needsPermission: 'Needs permission in System Settings.',
       notConnected: 'Not connected yet.',
       needsMac: 'Needs a Mac.',
-      unavailable: 'Not available yet.'
+      unavailable: 'Not available yet.',
+      needsFullDiskHere: 'Needs Full Disk Access on this Mac.',
+      needsFullDiskOn: mac => `Needs Full Disk Access on ${mac}.`,
+      updateMac: mac => `Update Atum on ${mac} to use this.`,
+      macOffline: mac => `${mac} is offline.`,
+      macsOffline: 'Your Macs are offline.',
+      thisMacDisconnected: 'This Mac isn’t connected right now.',
+      heldOff: 'An older Mac keeps this off — update it.',
+      heldOffTip: mac => `${mac} runs an older Atum that switches this back off. Update Atum on ${mac}, then switch this on again.`
     },
-    macOnlyDetail:
-      'Assistants running on this Mac read it. Cloud assistants can’t yet, though they can use this Mac’s files and terminal.',
+    macs: {
+      title: 'Your Macs',
+      tip: 'Assistants use these Macs for files, terminal and the sources above. A Mac that is asleep or offline can’t be reached.',
+      thisMac: 'This Mac',
+      ready: 'Ready',
+      needsPermission: 'Needs permission',
+      needsFullDisk: sources => `${sources} need Full Disk Access.`,
+      allowThere: 'Allow Full Disk Access on that Mac.',
+      offline: 'Offline',
+      lastSeen: relative => `Last seen ${relative}.`,
+      older: 'Older version',
+      updateThere: 'Update Atum there to share its sources.',
+      notConnected: 'Can’t reach Atum right now.',
+      notConnectedWord: 'Not connected',
+      tryAgain: 'Try again'
+    },
+    notice: {
+      line: sources => `Your cloud assistants can now read ${sources} from this Mac.`,
+      settings: 'Settings',
+      dismiss: 'Hide'
+    },
     names: {
       google: 'Google',
       folders: 'Mac folders',
@@ -96,15 +161,45 @@ export const matrixKnowledgeSourcesCopy: Record<DesktopLocale, MatrixKnowledgeSo
     retry: 'Thử lại',
     readFailed: 'Chưa tải được các công tắc.',
     failed: 'Chưa lưu được công tắc. Hãy thử lại.',
+    serviceUpdateRequired: 'Dịch vụ Atum cần cập nhật để đồng bộ các cài đặt này. Các mục bạn tắt vẫn được giữ riêng tư.',
+    sectionHelp: 'Trợ lý trên đám mây đọc các nguồn này từ máy Mac của bạn.',
+    sectionTip:
+      'Trợ lý đọc những mục bạn đã bật, khi bạn hỏi hoặc lúc cập nhật hằng ngày. Phần đọc được rời máy Mac này dưới dạng kết quả ngắn gửi cho trợ lý. Việc theo lịch không bao giờ đọc nội dung tin nhắn. Tắt mục nào trong Cài đặt › Kết nối là trợ lý ngừng đọc ngay.',
     status: {
-      macOnly: 'Hiện chỉ dùng trên máy Mac này.',
       needsPermission: 'Cần cấp quyền trong Cài đặt hệ thống.',
       notConnected: 'Chưa kết nối.',
       needsMac: 'Cần máy Mac.',
-      unavailable: 'Chưa khả dụng.'
+      unavailable: 'Chưa khả dụng.',
+      needsFullDiskHere: 'Cần Quyền truy cập toàn bộ ổ đĩa trên máy Mac này.',
+      needsFullDiskOn: mac => `Cần Quyền truy cập toàn bộ ổ đĩa trên ${mac}.`,
+      updateMac: mac => `Cập nhật Atum trên ${mac} để dùng mục này.`,
+      macOffline: mac => `${mac} đang ngoại tuyến.`,
+      macsOffline: 'Các máy Mac của bạn đang ngoại tuyến.',
+      thisMacDisconnected: 'Máy Mac này hiện chưa kết nối.',
+      heldOff: 'Một máy Mac cũ đang giữ mục này tắt — hãy cập nhật.',
+      heldOffTip: mac => `${mac} đang chạy bản Atum cũ nên tắt lại mục này. Cập nhật Atum trên ${mac} rồi bật lại nhé.`
     },
-    macOnlyDetail:
-      'Trợ lý chạy trên máy Mac này đọc được nguồn này. Trợ lý trên đám mây chưa đọc được, nhưng vẫn dùng được tệp và Terminal của máy Mac này.',
+    macs: {
+      title: 'Máy Mac của bạn',
+      tip: 'Trợ lý dùng các máy Mac này cho tệp, Terminal và các nguồn ở trên. Máy đang ngủ hoặc ngoại tuyến thì không dùng được.',
+      thisMac: 'Máy này',
+      ready: 'Sẵn sàng',
+      needsPermission: 'Cần cấp quyền',
+      needsFullDisk: sources => `${sources} cần Quyền truy cập toàn bộ ổ đĩa.`,
+      allowThere: 'Cho phép Quyền truy cập toàn bộ ổ đĩa trên máy đó.',
+      offline: 'Ngoại tuyến',
+      lastSeen: relative => `Hoạt động ${relative}.`,
+      older: 'Phiên bản cũ',
+      updateThere: 'Cập nhật Atum trên máy đó để chia sẻ nguồn.',
+      notConnected: 'Hiện chưa kết nối được Atum.',
+      notConnectedWord: 'Chưa kết nối',
+      tryAgain: 'Thử lại'
+    },
+    notice: {
+      line: sources => `Trợ lý trên đám mây giờ đọc được ${sources} từ máy Mac này.`,
+      settings: 'Cài đặt',
+      dismiss: 'Ẩn'
+    },
     names: {
       google: 'Google',
       folders: 'Thư mục trên Mac',
@@ -151,15 +246,45 @@ export const matrixKnowledgeSourcesCopy: Record<DesktopLocale, MatrixKnowledgeSo
     retry: '再試行',
     readFailed: 'ソース設定を読み込めませんでした。',
     failed: '切り替えを保存できませんでした。もう一度お試しください。',
+    serviceUpdateRequired: '同期するにはAtumサービスの更新が必要です。オフにした項目は非公開のままです。',
+    sectionHelp: 'クラウドのアシスタントがあなたの Mac からこれらを読み取ります。',
+    sectionTip:
+      'オンにした項目だけを、頼まれたときや毎日の確認のときに読み取ります。読み取った内容は短い結果としてこの Mac からアシスタントに送られます。スケジュールされた作業がメッセージ本文を読むことはありません。設定 › 接続でオフにすると、すぐに読み取りを停止します。',
     status: {
-      macOnly: '現在はこの Mac でのみ利用できます。',
       needsPermission: 'システム設定で許可が必要です。',
       notConnected: 'まだ接続されていません。',
       needsMac: 'Mac が必要です。',
-      unavailable: 'まだ利用できません。'
+      unavailable: 'まだ利用できません。',
+      needsFullDiskHere: 'この Mac でフルディスクアクセスが必要です。',
+      needsFullDiskOn: mac => `${mac} でフルディスクアクセスが必要です。`,
+      updateMac: mac => `使うには ${mac} の Atum をアップデートしてください。`,
+      macOffline: mac => `${mac} はオフラインです。`,
+      macsOffline: 'お使いの Mac はすべてオフラインです。',
+      thisMacDisconnected: 'この Mac は現在接続されていません。',
+      heldOff: '古い Mac がこれをオフにしています — アップデートしてください。',
+      heldOffTip: mac => `${mac} の古い Atum がこれをオフに戻しています。${mac} の Atum をアップデートしてから、もう一度オンにしてください。`
     },
-    macOnlyDetail:
-      'この Mac で動くアシスタントが読み取ります。クラウドのアシスタントはまだ読み取れませんが、この Mac のファイルとターミナルは使えます。',
+    macs: {
+      title: 'お使いの Mac',
+      tip: 'アシスタントはこれらの Mac でファイル、ターミナル、上のソースを使います。スリープ中やオフラインの Mac には届きません。',
+      thisMac: 'この Mac',
+      ready: '準備完了',
+      needsPermission: '許可が必要',
+      needsFullDisk: sources => `${sources}にはフルディスクアクセスが必要です。`,
+      allowThere: 'その Mac でフルディスクアクセスを許可してください。',
+      offline: 'オフライン',
+      lastSeen: relative => `最終接続: ${relative}。`,
+      older: '古いバージョン',
+      updateThere: 'ソースを共有するには、その Mac の Atum をアップデートしてください。',
+      notConnected: '現在 Atum に接続できません。',
+      notConnectedWord: '未接続',
+      tryAgain: '再試行'
+    },
+    notice: {
+      line: sources => `クラウドのアシスタントが、この Mac の${sources}を読み取れるようになりました。`,
+      settings: '設定',
+      dismiss: '閉じる'
+    },
     names: {
       google: 'Google',
       folders: 'Mac のフォルダ',
@@ -204,15 +329,45 @@ export const matrixKnowledgeSourcesCopy: Record<DesktopLocale, MatrixKnowledgeSo
     retry: '重试',
     readFailed: '无法载入这些开关。',
     failed: '无法保存此开关，请重试。',
+    serviceUpdateRequired: 'Atum 服务需要更新才能同步这些设置。已关闭的项目仍保持私密。',
+    sectionHelp: '云端助理会从你的 Mac 读取这些内容。',
+    sectionTip:
+      '助理只读取你开启的项目，在你提问时或每日例行整理时读取。读取的内容会以简短结果的形式从此 Mac 发给助理。定时任务从不读取信息正文。在“设置 › 连接”中关闭任一项，读取会立即停止。',
     status: {
-      macOnly: '目前仅限此 Mac。',
       needsPermission: '需要在系统设置中授权。',
       notConnected: '尚未连接。',
       needsMac: '需要 Mac。',
-      unavailable: '暂不可用。'
+      unavailable: '暂不可用。',
+      needsFullDiskHere: '需要在此 Mac 上开启完全磁盘访问权限。',
+      needsFullDiskOn: mac => `需要在 ${mac} 上开启完全磁盘访问权限。`,
+      updateMac: mac => `更新 ${mac} 上的 Atum 后即可使用。`,
+      macOffline: mac => `${mac} 已离线。`,
+      macsOffline: '你的 Mac 都已离线。',
+      thisMacDisconnected: '此 Mac 目前未连接。',
+      heldOff: '一台旧版 Mac 让此项保持关闭——请更新它。',
+      heldOffTip: mac => `${mac} 运行的是旧版 Atum，会把此项重新关闭。请更新 ${mac} 上的 Atum，然后再次开启此项。`
     },
-    macOnlyDetail:
-      '在此 Mac 上运行的助理可以读取。云端助理暂时无法读取，但仍可使用此 Mac 的文件和终端。',
+    macs: {
+      title: '你的 Mac',
+      tip: '助理通过这些 Mac 使用文件、终端和上面的来源。处于睡眠或离线状态的 Mac 无法访问。',
+      thisMac: '此 Mac',
+      ready: '就绪',
+      needsPermission: '需要授权',
+      needsFullDisk: sources => `${sources}需要完全磁盘访问权限。`,
+      allowThere: '请在那台 Mac 上允许完全磁盘访问权限。',
+      offline: '离线',
+      lastSeen: relative => `上次在线：${relative}。`,
+      older: '旧版本',
+      updateThere: '更新那台 Mac 上的 Atum 即可共享其来源。',
+      notConnected: '目前无法连接 Atum。',
+      notConnectedWord: '未连接',
+      tryAgain: '重试'
+    },
+    notice: {
+      line: sources => `云端助理现在可以从此 Mac 读取${sources}。`,
+      settings: '设置',
+      dismiss: '隐藏'
+    },
     names: {
       google: 'Google',
       folders: 'Mac 文件夹',
@@ -256,15 +411,45 @@ export const matrixKnowledgeSourcesCopy: Record<DesktopLocale, MatrixKnowledgeSo
     retry: '重試',
     readFailed: '無法載入這些開關。',
     failed: '無法儲存此開關，請再試一次。',
+    serviceUpdateRequired: 'Atum 服務需要更新才能同步這些設定。已關閉的項目仍保持私密。',
+    sectionHelp: '雲端助理會從你的 Mac 讀取這些內容。',
+    sectionTip:
+      '助理只讀取你開啟的項目，在你提問時或每日例行整理時讀取。讀取的內容會以簡短結果的形式從此 Mac 傳給助理。排程工作從不讀取訊息內文。在「設定 › 連接」中關閉任一項，讀取會立即停止。',
     status: {
-      macOnly: '目前僅限此 Mac。',
       needsPermission: '需要在系統設定中授權。',
       notConnected: '尚未連接。',
       needsMac: '需要 Mac。',
-      unavailable: '暫時無法使用。'
+      unavailable: '暫時無法使用。',
+      needsFullDiskHere: '需要在此 Mac 上開啟全磁碟取用權限。',
+      needsFullDiskOn: mac => `需要在 ${mac} 上開啟全磁碟取用權限。`,
+      updateMac: mac => `更新 ${mac} 上的 Atum 後即可使用。`,
+      macOffline: mac => `${mac} 已離線。`,
+      macsOffline: '你的 Mac 都已離線。',
+      thisMacDisconnected: '此 Mac 目前未連接。',
+      heldOff: '一台舊版 Mac 讓此項保持關閉——請更新它。',
+      heldOffTip: mac => `${mac} 執行的是舊版 Atum，會把此項重新關閉。請更新 ${mac} 上的 Atum，然後再次開啟此項。`
     },
-    macOnlyDetail:
-      '在此 Mac 上執行的助理可以讀取。雲端助理暫時無法讀取，但仍可使用此 Mac 的檔案和終端機。',
+    macs: {
+      title: '你的 Mac',
+      tip: '助理透過這些 Mac 使用檔案、終端機和上方的來源。處於睡眠或離線狀態的 Mac 無法存取。',
+      thisMac: '此 Mac',
+      ready: '就緒',
+      needsPermission: '需要授權',
+      needsFullDisk: sources => `${sources}需要全磁碟取用權限。`,
+      allowThere: '請在那台 Mac 上允許全磁碟取用權限。',
+      offline: '離線',
+      lastSeen: relative => `上次上線：${relative}。`,
+      older: '舊版本',
+      updateThere: '更新那台 Mac 上的 Atum 即可分享其來源。',
+      notConnected: '目前無法連接 Atum。',
+      notConnectedWord: '未連接',
+      tryAgain: '重試'
+    },
+    notice: {
+      line: sources => `雲端助理現在可以從此 Mac 讀取${sources}。`,
+      settings: '設定',
+      dismiss: '隱藏'
+    },
     names: {
       google: 'Google',
       folders: 'Mac 資料夾',

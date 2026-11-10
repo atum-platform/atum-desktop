@@ -42,6 +42,7 @@ from typing import Any, Callable
 import pytest
 
 from tests.e2e.core.chaos._helpers import (
+    chaos_base_env,
     INTERRUPT_DEADLINE_S,
     LONG_TIMEOUT_S,
     MAX_PROVIDER_CALLS_PER_FAILED_TURN,
@@ -338,7 +339,7 @@ def _reap(gw: TuiGatewayProcess, tag: str) -> None:
         kill_tagged(tag)
 
 
-def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path) -> dict[str, Any]:
+def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path, base_env: dict[str, str]) -> dict[str, Any]:
     nonce = uuid.uuid4().hex[:10]
     marker = f"[[chaos:{scn.fault}:{nonce}]]"
     probe_marker = f"[[probe:{nonce}]]"
@@ -350,7 +351,7 @@ def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path) -> dict[str, Any
     home, hermes_home = write_chaos_home(root, srv.base_url, **cfg)
     tag = new_tag()
     work = gateway_cwd(root)
-    env = env_for_gateway(hermetic_env(home, hermes_home, tag), work)
+    env = env_for_gateway(hermetic_env(home, hermes_home, tag, base_env=base_env), work)
     gw = TuiGatewayProcess(env, work, root / "gateway-stderr.log")
     stats: dict[str, Any] = {"scenario": scn.id}
     try:
@@ -448,13 +449,14 @@ def scenario_futures(request: pytest.FixtureRequest, tmp_path_factory: pytest.Te
         item.callspec.params["scn"].id for item in request.session.items
         if isinstance(getattr(getattr(item, "callspec", None), "params", {}).get("scn"), Scenario)
     }
+    base_env = chaos_base_env()
     with FakeLLMServer(responder) as srv, ThreadPoolExecutor(
             # Every row owns a full interpreter + agent. Thirteen cold gateways on
             # a small runner starve the RPC client/reader we are measuring.
             max_workers=max(1, min(2, (os.cpu_count() or 2) // 2, len(selected))),
             thread_name_prefix="chaos-tui") as pool:
         futures: dict[str, Future] = {
-            scn.id: pool.submit(run_scenario, scn, srv, tmp_path_factory.mktemp(scn.id))
+            scn.id: pool.submit(run_scenario, scn, srv, tmp_path_factory.mktemp(scn.id), base_env)
             for scn in SCENARIOS if scn.id in selected
         }
         try:

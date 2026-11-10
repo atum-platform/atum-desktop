@@ -21,11 +21,10 @@ import {
   isAssistantNameLocked
 } from '../../../shared/matrix-assistant-name'
 import { parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
-import { MatrixAgentHomeRow } from '../agent-home-control'
+import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
-import { MatrixExecutionPolicyControl } from '../execution-policy-control'
 import { MatrixHandleEditor } from '../handle-editor'
 import { suggestMatrixAgentHandle } from '../handle-rules'
 import { MainAgentBadge } from '../main-agent-badge'
@@ -692,12 +691,9 @@ function CardRows({
     void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
   }
 
-  // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface. Migrated
-  // assistants use D1 home; legacy assistants keep the execution-policy editor.
+  // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface (D1 home).
   const openAnswerWhere = () => {
-    const trigger = window.document.querySelector<HTMLElement>(
-      '[data-assistant-card-home], [data-assistant-card-answer-where]'
-    )
+    const trigger = window.document.querySelector<HTMLElement>('[data-assistant-card-home]')
 
     if (trigger) {
       trigger.scrollIntoView({ block: 'nearest' })
@@ -722,22 +718,10 @@ function CardRows({
     )
   }
 
-  // A non-migrated assistant has no `agent.home`; keep its existing F1 priority control. Never show
-  // both surfaces: their toggles write different authorities.
-  const policy = agent.executionPolicy
-  const policyBridge = window.atumMatrix.executionPolicy
-
-  if (!agent.home && policy && policyBridge) {
-    rows.push(
-      <MatrixExecutionPolicyControl
-        agentPrincipal={agent.principal}
-        bridge={policyBridge}
-        display="row"
-        key="answer-where"
-        memoryNote={agent.memoryNote}
-        view={policy}
-      />
-    )
+  // Cloud-only U1: an assistant without `agent.home` gets the same row, read-only (where it answers
+  // and the Macs it can use). The legacy execution-order editor is gone from the card.
+  if (!(agent.home && homeBridge)) {
+    rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
   }
 
   if (agent.modelDestinations) {
@@ -793,7 +777,7 @@ function CardRows({
         initiallyOpen={focusRoutines}
         key="routines"
         locale={locale}
-        onMoveToCloud={(agent.home && homeBridge) || (!agent.home && policy && policyBridge) ? openAnswerWhere : undefined}
+        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
       />
     )
   } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {

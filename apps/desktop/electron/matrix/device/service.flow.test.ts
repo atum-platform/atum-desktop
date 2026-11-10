@@ -822,3 +822,23 @@ describe('workspace collection fence', () => {
     await h.service.stop('local_stop')
   })
 })
+
+describe('Mac sources use the existing device admission and ledger', () => {
+  it('dispatches admitted source reads in main, never to the sandbox host', async () => {
+    const macSource = vi.fn<NonNullable<DeviceServiceDeps['macSource']>>(async () => '{"timeZone":"UTC"}')
+    const h = harness({ macSource })
+    const grantId = await h.grant()
+    const body = h.executeBody(grantId, 1, 'mac_source', { mode: 'read', request: { op: 'location.current', precision: 'city' } })
+    await h.service.frame(h.frame('Execute', body), h.session)
+    await until(() => h.receipts().some(receipt => receipt.state === 'completed'))
+    expect(macSource).toHaveBeenCalledTimes(1)
+    expect(macSource.mock.calls[0]?.[1]).toMatchObject({ grantId, originKind: 'other' })
+    expect(h.executor.runs).toHaveLength(0)
+    expect(h.ledger.get(body.commandId)?.state).toBe('completed')
+    expect(h.ledger.get(body.commandId)?.result?.output).toBeUndefined()
+    expect(h.receipts().find(receipt => receipt.state === 'completed')?.result).toEqual({ output: '{"timeZone":"UTC"}' })
+    expect(h.service.status({ commandIds: [body.commandId] }).receipts[0]?.result).toBeUndefined()
+    await h.service.frame(h.frame('Execute', body), h.session)
+    expect(macSource).toHaveBeenCalledTimes(1)
+  })
+})

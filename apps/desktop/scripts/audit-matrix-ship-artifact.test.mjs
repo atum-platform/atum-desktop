@@ -274,3 +274,23 @@ it.each([
   const receipt = await auditMatrixShipArtifact({ appRoot: app, expected, observedPublicConfig: expected.publicConfig })
   expect(receipt.issues).toContainEqual({ code, path: file })
 })
+
+// Keep the allow-list synchronized with what contract-packs.ts actually bundles. Model the build
+// and require every imported fixture to be an explicitly allowed shipped pack.
+it('allows every contract pack the contract-packs module bundles', async () => {
+  const { build } = await import('esbuild')
+  const desktop = path.resolve(import.meta.dirname, '..')
+  const result = await build({
+    absWorkingDir: desktop,
+    bundle: true,
+    entryPoints: ['../../packages/device-protocol/contract-packs.ts'],
+    metafile: true,
+    platform: 'node',
+    write: false,
+    logLevel: 'silent'
+  })
+  const packs = Object.keys(result.metafile.inputs).filter(input => /\/fixtures\/[^/]+\/contract\.json$/u.test(input))
+
+  expect(packs.length).toBeGreaterThan(0)
+  for (const pack of packs) expect(SHIPPED_CONTRACT_MODULES).toContain(pack)
+})
