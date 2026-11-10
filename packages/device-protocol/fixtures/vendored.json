@@ -181,7 +181,7 @@
     },
     "device-service-v1.2": {
       "version": "v1.2",
-      "pinned_sha256": "7425562c71f714853410e541ecb0fd84605e5b0b2c7b36e51556465428d5fc2e",
+      "pinned_sha256": "dcd795c94ccbc66854111a2541625aa730e4530c6d16d5bcf716a7aa4523b875",
       "vendored": "full",
       "source": "atum-platform/spec/device-service/v1.2 (frozen; feat/device-service-1-2-contract)",
       "source_commit": "c2823272990da577d6ce7d3b2c206fcdd9252021",

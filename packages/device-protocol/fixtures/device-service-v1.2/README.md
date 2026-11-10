@@ -1,7 +1,6 @@
 # device-service/1.2 — frozen C1/CX contract
 
-Canonical home: `atum-platform/spec/device-service/v1.2`. Promoted from
-atum-app `feat/cloud-only-c1-cx@5eaf0c0356a86568df8cd2239383b63ceae8c75a`.
+Canonical home: `atum-platform/spec/device-service/v1.2`.
 The draft digest was dd510a9fd24bea14db1cb884afe10060484901b5d05d847806fb981f345c82d4.
 Freeze changes status and declares the real advisory source shapes (L6).
 All fixture bytes are retained. Envelope v and signing domain remain 1.
