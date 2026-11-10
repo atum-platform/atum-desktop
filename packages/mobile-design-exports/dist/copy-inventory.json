@@ -232,6 +232,12 @@
       ]
     },
     {
+      "source": "apps/desktop/src/matrix/person-info-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
       "source": "apps/desktop/src/matrix/pet-copy.ts",
       "tables": [
         "petCopy"
