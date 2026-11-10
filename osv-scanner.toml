@@ -37,3 +37,7 @@ reason = "Public snapshot 912b0299: tools/memory_tool_store.py rejects writes th
 [[IgnoredVulns]]
 id = "PYSEC-2026-3576"
 reason = "Public snapshot 912b0299: plugins/platforms/feishu/adapter.py bounds webhook bodies to 1 MiB with a limited reader, timeout, and aiohttp client_max_size."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3577"
+reason = "Fixed in this tree by upstream NousResearch/hermes-agent PR #69860 (2ca38e5df434): agent/conversation_compression.py _fold_todo_snapshot folds the todo snapshot into the trailing real user turn (_is_real_user_message) instead of appending a synthetic user message; covered by tests/agent/test_compression_rotation_state.py."
