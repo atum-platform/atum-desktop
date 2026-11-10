@@ -1057,6 +1057,32 @@ const phoneScreensEn = {
     popularSkills: 'Popular skills',
     // An item's button: the amount comes formatted ("4,000").
     getFor: (amount: string) => `Get for ${amount} Protons`,
+    // The current Store's words, copied exactly from store/store-copy.ts (the export cannot read
+    // its per-locale constants). Section names: store-copy `title`, `discover`, `featured`,
+    // `agents` (here `assistants`), `skills`, `pets`, `apps`, `purchased`.
+    title: 'Store',
+    discover: 'Discover',
+    featured: 'Featured',
+    assistants: 'Assistants',
+    skills: 'Skills',
+    pets: 'Pets',
+    apps: 'Apps',
+    purchased: 'Purchased',
+    // An offer's price parts (store-card.tsx `storePriceParts`): `free`; a one-off price is the
+    // formatted amount, a space and `protons`; a flat monthly hire adds a space and `monthly`; a
+    // monthly hire that renews at another price is `monthlyFirst` (or `monthlyFreeFirst`), then
+    // `monthlyThen` with the renewal amount. Amounts come formatted ("19,000").
+    free: 'Free',
+    protons: 'Protons',
+    monthly: '/ month',
+    monthlyFirst: (first: string) => `${first} Protons first month`,
+    monthlyFreeFirst: 'Free first month',
+    monthlyThen: (renewal: string) => `then ${renewal}/mo`,
+    // The item's action: `get` when free, else `getWithPrice` with the price text (store-copy `getFor`).
+    get: 'Get',
+    getWithPrice: (price: string) => `Get · ${price}`,
+    // The Store header's balance button label (store-copy `balanceLabel`); the value is whole Protons.
+    balanceLabel: 'Your Protons',
     // Over an item's example requests (store/store-copy.ts `trySaying`).
     trySaying: 'Try saying'
   },
@@ -1081,6 +1107,15 @@ const phoneScreensEn = {
   },
   // First run in the chat: the card where the assistant asks for the phone's permissions once.
   helpOnTheGo: 'Let me help on the go',
+  // An assistant's empty chat (greeting.tsx): the time of day's line, morning from 5, afternoon
+  // from noon, evening from 6 pm, then the invitation. Copied exactly from i18n
+  // `matrixShell.greetMorning`, `greetAfternoon`, `greetEvening` and `greetPrompt`.
+  greeting: {
+    morning: 'Good morning.',
+    afternoon: 'Good afternoon.',
+    evening: 'Good evening.',
+    prompt: 'What can I do for you today?'
+  },
   // The message menu's item that asks the assistant about a message.
   askAboutMessage: 'Ask Atum about this'
 }
@@ -1093,6 +1128,23 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       pickedForYou: 'Chọn cho bạn',
       popularSkills: 'Kỹ năng phổ biến',
       getFor: (amount: string) => `Nhận với ${amount} Proton`,
+      title: 'Cửa hàng',
+      discover: 'Cửa hàng',
+      featured: 'Nổi bật',
+      assistants: 'Trợ lý',
+      skills: 'Kỹ năng',
+      pets: 'Thú cưng',
+      apps: 'Ứng dụng',
+      purchased: 'Đã mua',
+      free: 'Miễn phí',
+      protons: 'Proton',
+      monthly: '/ tháng',
+      monthlyFirst: (first: string) => `${first} Proton tháng đầu`,
+      monthlyFreeFirst: 'Tháng đầu miễn phí',
+      monthlyThen: (renewal: string) => `sau đó ${renewal}/tháng`,
+      get: 'Nhận',
+      getWithPrice: (price: string) => `Nhận · ${price}`,
+      balanceLabel: 'Proton của bạn',
       trySaying: 'Thử nói'
     },
     drive: {
@@ -1109,6 +1161,12 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       modelDefault: 'Mặc định'
     },
     helpOnTheGo: 'Để mình giúp bạn cả khi ra ngoài',
+    greeting: {
+      morning: 'Chào buổi sáng.',
+      afternoon: 'Chào buổi chiều.',
+      evening: 'Chào buổi tối.',
+      prompt: 'Hôm nay mình giúp gì cho bạn?'
+    },
     askAboutMessage: 'Hỏi Atum về tin này'
   },
   ja: {
@@ -1117,6 +1175,23 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       pickedForYou: 'あなたへのおすすめ',
       popularSkills: '人気のスキル',
       getFor: (amount: string) => `${amount} Proton で入手`,
+      title: 'ストア',
+      discover: '見つける',
+      featured: 'おすすめ',
+      assistants: 'アシスタント',
+      skills: 'スキル',
+      pets: 'ペット',
+      apps: 'アプリ',
+      purchased: '購入済み',
+      free: '無料',
+      protons: 'Proton',
+      monthly: '/ 月',
+      monthlyFirst: (first: string) => `初月 ${first} Proton`,
+      monthlyFreeFirst: '初月無料',
+      monthlyThen: (renewal: string) => `以降 ${renewal}/月`,
+      get: '入手',
+      getWithPrice: (price: string) => `入手 · ${price}`,
+      balanceLabel: 'Proton 残高',
       trySaying: 'こんなふうに頼めます'
     },
     drive: {
@@ -1133,6 +1208,12 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       modelDefault: '既定'
     },
     helpOnTheGo: '外出先でもお手伝いします',
+    greeting: {
+      morning: 'おはようございます。',
+      afternoon: 'こんにちは。',
+      evening: 'こんばんは。',
+      prompt: '今日は何をお手伝いしましょうか？'
+    },
     askAboutMessage: 'このメッセージについて Atum に聞く'
   },
   zh: {
@@ -1141,6 +1222,23 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       pickedForYou: '为你精选',
       popularSkills: '热门技能',
       getFor: (amount: string) => `用 ${amount} Proton 获取`,
+      title: '商店',
+      discover: '发现',
+      featured: '精选',
+      assistants: '助手',
+      skills: '技能',
+      pets: '宠物',
+      apps: '应用',
+      purchased: '已购买',
+      free: '免费',
+      protons: 'Proton',
+      monthly: '/ 月',
+      monthlyFirst: (first: string) => `首月 ${first} Proton`,
+      monthlyFreeFirst: '首月免费',
+      monthlyThen: (renewal: string) => `之后 ${renewal}/月`,
+      get: '获取',
+      getWithPrice: (price: string) => `获取 · ${price}`,
+      balanceLabel: '你的 Proton',
       trySaying: '试着这样说'
     },
     drive: {
@@ -1157,6 +1255,12 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       modelDefault: '默认'
     },
     helpOnTheGo: '出门在外，我也能帮你',
+    greeting: {
+      morning: '早上好。',
+      afternoon: '下午好。',
+      evening: '晚上好。',
+      prompt: '今天我能为你做什么？'
+    },
     askAboutMessage: '向 Atum 询问此消息'
   },
   'zh-hant': {
@@ -1165,6 +1269,23 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       pickedForYou: '為你精選',
       popularSkills: '熱門技能',
       getFor: (amount: string) => `用 ${amount} Proton 取得`,
+      title: '商店',
+      discover: '探索',
+      featured: '精選',
+      assistants: '助理',
+      skills: '技能',
+      pets: '寵物',
+      apps: '應用程式',
+      purchased: '已購買',
+      free: '免費',
+      protons: 'Proton',
+      monthly: '/ 月',
+      monthlyFirst: (first: string) => `首月 ${first} Proton`,
+      monthlyFreeFirst: '首月免費',
+      monthlyThen: (renewal: string) => `之後 ${renewal}/月`,
+      get: '取得',
+      getWithPrice: (price: string) => `取得 · ${price}`,
+      balanceLabel: '你的 Proton',
       trySaying: '試著這樣說'
     },
     drive: {
@@ -1181,6 +1302,12 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       modelDefault: '預設'
     },
     helpOnTheGo: '出門在外，我也能幫你',
+    greeting: {
+      morning: '早安。',
+      afternoon: '午安。',
+      evening: '晚上好。',
+      prompt: '今天我能為你做什麼？'
+    },
     askAboutMessage: '詢問 Atum 關於此訊息'
   }
 }

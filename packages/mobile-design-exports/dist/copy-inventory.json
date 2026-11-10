@@ -204,7 +204,8 @@
       "tables": [
         "copy",
         "mobilePhoneCopy",
-        "mobileChatCopy"
+        "mobileChatCopy",
+        "mobileScreensCopy"
       ]
     },
     {
@@ -446,6 +447,13 @@
       "source": "apps/desktop/shared/matrix-company-funding-copy.ts",
       "tables": [
         "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-company-private-cos-copy.ts",
+      "tables": [
+        "matrixCompanyPrivateCosCopy",
+        "matrixCompanyPrivateCosRowCopy"
       ]
     },
     {
