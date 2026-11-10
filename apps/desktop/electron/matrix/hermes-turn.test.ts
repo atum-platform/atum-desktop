@@ -1033,7 +1033,7 @@ it('reports a protected-folder denial as one native signal without exposing the 
   expect(onProtectedFolderDenied).toHaveBeenCalledWith()
 })
 
-it('hands the progress line only redacted narration and todos of its own session, while the turn works', async () => {
+it('hands the progress line framed narration and redacted todos of its own session, while the turn works', async () => {
   const f = fixture()
 
   const onProgress = vi.fn((event: unknown) => {
@@ -1045,7 +1045,8 @@ it('hands the progress line only redacted narration and todos of its own session
   await vi.waitFor(() => expect(f.events.size).toBe(1))
 
   f.emit('message.interim', { text: 'sk-secret', redacted_text: 'Mình sẽ đọc lịch.' })
-  f.emit('message.interim', { text: 'unredacted only' })
+  // Native Hermes sends `text`, already think-stripped and redacted at its JSON-RPC framing.
+  f.emit('message.interim', { text: 'Mình đang mở tệp.' })
   f.emit('message.interim', { redacted_text: 'foreign' }, 'foreign')
   f.emit('tool.start', { name: 'read_file', context: 'SECRET PATH' })
   f.emit('tool.complete', {
@@ -1061,6 +1062,7 @@ it('hands the progress line only redacted narration and todos of its own session
 
   expect(onProgress.mock.calls.map(([event]) => event)).toEqual([
     { kind: 'narration', text: 'Mình sẽ đọc lịch.' },
+    { kind: 'narration', text: 'Mình đang mở tệp.' },
     { kind: 'tool', name: 'read_file' },
     { kind: 'plan', todos: [{ text: 'Đọc lịch', state: 'active' }] },
     { kind: 'learning', source: 'messages', state: 'reading' }

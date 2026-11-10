@@ -6,8 +6,8 @@ import type { MatrixProgressTarget } from './matrix-progress-line'
  * The agent's interim remarks as REAL messages (`atum.agent-turns/1.4` §1, Hermes
  * `display.interim_assistant_messages`): the first remark of a turn is the acknowledgement ("Để mình
  * xem video này rồi tóm tắt nhé."), later ones say something to the person at most once per
- * `MATRIX_INTERIM_MIN_GAP_MS`. Redacted text only (the caller reads Hermes's `redacted_text` and
- * fails closed without it), private chat only, never a repeat of the answer, never the answer. A turn
+ * `MATRIX_INTERIM_MIN_GAP_MS`. Redacted text only (Hermes projects native `text` at the JSON-RPC boundary;
+ * the caller also accepts legacy `redacted_text`), private chat only, never a repeat of the answer, never the answer. A turn
  * that starts work without a remark is acknowledged with one fixed line instead (`acknowledge`).
  *
  * Presentation only. A failed publication is logged and the turn goes on.

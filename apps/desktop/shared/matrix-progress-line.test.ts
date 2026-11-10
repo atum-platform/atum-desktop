@@ -308,13 +308,17 @@ describe('the working line (agent-turns/1.4)', () => {
 })
 
 describe('reading Hermes events', () => {
-  it('reads narration only from the redacted copy', () => {
+  it('reads native interim text and accepts the legacy redacted projection', () => {
     expect(matrixHermesProgressEvent('message.interim', { text: 'raw', redacted_text: 'safe' })).toEqual({
       kind: 'narration',
       text: 'safe'
     })
-    // An older Hermes without the redacted copy shows nothing rather than unredacted words.
-    expect(matrixHermesProgressEvent('message.interim', { text: 'raw' })).toBeUndefined()
+    expect(matrixHermesProgressEvent('message.interim', { text: 'Safe native commentary', already_streamed: false })).toEqual({
+      kind: 'narration', text: 'Safe native commentary'
+    })
+    expect(matrixHermesProgressEvent('message.interim', { text: '  ', already_streamed: false })).toBeUndefined()
+    expect(matrixHermesProgressEvent('message.interim', { reasoning: 'hidden' })).toBeUndefined()
+    expect(matrixHermesProgressEvent('reasoning.delta', { text: 'hidden' })).toBeUndefined()
     expect(matrixHermesProgressEvent('message.interim', { text: 'raw', redacted_text: '  ' })).toBeUndefined()
   })
 
