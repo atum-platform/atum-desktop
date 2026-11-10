@@ -54,6 +54,7 @@ with tempfile.TemporaryDirectory() as home:
             assert len(frames) == 2, 'empty and duplicate rounds must not emit'
             assert secret not in json.dumps(frames), 'native boundary must redact credentials'
             assert 'PRIVATE' not in json.dumps(frames), 'reasoning must stay hidden'
-        print(json.dumps(frames))
+        # tui_gateway.server points sys.stdout at stderr on import (its JSON-RPC channel); report on the real stdout.
+        print(json.dumps(frames), file=sys.__stdout__, flush=True)
     finally:
         reset_hermes_home_override(token)
