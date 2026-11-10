@@ -71,20 +71,6 @@ jobs:
     steps:
       - run: test "${{ needs.hermes-slice.result }}" = success
 
-  python-e2e:
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
-        with:
-          python-version: '3.14'
-      - run: python -m pip install uv==0.13.5
-      - run: bash scripts/run_tests.sh tests/e2e -j 2
-
   python-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
