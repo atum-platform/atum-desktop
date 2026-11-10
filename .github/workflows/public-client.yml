@@ -11,13 +11,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   client:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
@@ -31,25 +31,110 @@ jobs:
         run: |
           uv sync --locked --python 3.14 --group dev --group test --extra all
           echo "HERMES_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "ATUM_REQUIRE_PY_SEAM=1" >> "$GITHUB_ENV"
           echo "ATUM_SYNC_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
           echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
       - run: node apps/desktop/scripts/check-client-boundary.mjs --typecheck-without-controller
       - run: npm run typecheck --workspace apps/desktop
+      - run: npm run lint --workspace apps/desktop
+      - run: npm run verify:cloud-data-v1 --workspace apps/desktop
+      - run: npm run check:test:upstream-watch --workspace apps/desktop
       - run: npm exec --workspace apps/desktop -- vitest run --maxWorkers 4
 
 # Artifact allowlist is empty: no logs, captures, packages or release artifacts uploaded.
 # No shared caches or release/signing authority in public CI.
 
   hermes:
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        slice: [1, 2, 3, 4, 5, 6, 7, 8]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: '3.14'
       - run: python -m pip install uv==0.13.5
-      - run: bash scripts/run_tests.sh tests/agent tests/hermes_cli tests/acp_adapter -j 4 --file-timeout 120
+      - run: bash scripts/run_tests.sh --slice ${{ matrix.slice }}/8 -j 2
+
+  python-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.14'
+      - run: python -m pip install uv==0.13.5
+      - run: bash scripts/run_tests.sh tests/e2e -j 2
+
+  python-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.14'
+      - run: python -m pip install ruff==0.15.10
+      - run: ruff check .
+      - run: python scripts/check-windows-footguns.py --all
+
+  workspaces:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [apps/shared, packages/atum-kit, packages/browser-client, packages/device-protocol, packages/model-client, ui-tui, ui-tui/packages/hermes-ink, web]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm run check --workspace ${{ matrix.package }}
+
+  desktop-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.2-noble@sha256:65cefd09a5e943921ecd3a6e5414c603db2eb161e9eb48f2e2ccc63486dc7dc0
+      options: --ipc=host
+    env:
+      CI: 'true'
+      OPENROUTER_API_KEY: ''
+      OPENAI_API_KEY: ''
+      NOUS_API_KEY: ''
+    steps:
+      - run: apt-get update && apt-get install -y --no-install-recommends build-essential libnotify4 libxss1 libxtst6 python3 xdg-utils
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        with:
+          python-version: '3.14'
+      - run: python -m pip install uv==0.13.5
+      - run: npm ci
+      - run: uv sync --locked --python 3.14 --group dev --group test --extra all
+      - name: Client E2E (bootstrap screenshots, no uploads)
+        working-directory: apps/desktop
+        run: npm run build:e2e && xvfb-run -a --server-args="-screen 0 1280x1024x24" npx playwright test --workers=1 --reporter=list --update-snapshots

@@ -1,0 +1,50 @@
+name: Public outbound guard
+on:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: public-guard-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  outbound:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: candidate
+      # Execute the trusted base's checker and policy, never a PR's replacement.
+      # Installation PR is explicitly report-only; coordinator reviews it by hand.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          path: trusted
+      - name: Install pinned scanner
+        shell: bash
+        run: |
+          curl -fsSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/scanner"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/scanner" gitleaks
+          echo "$RUNNER_TEMP/scanner" >> "$GITHUB_PATH"
+      - name: Verify exact public PR head
+        working-directory: candidate
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          if [ -f ../trusted/scripts/public_guard.py ]; then
+            python3 ../trusted/scripts/public_guard.py --base "$BASE_SHA" --head "$HEAD_SHA"
+          else
+            echo '::warning::Bootstrap: base has no checker. Candidate checker is REPORT ONLY; manual coordinator review required.'
+            echo 'Bootstrap guard is report-only; manual coordinator review required.' >> "$GITHUB_STEP_SUMMARY"
+            if ! python3 scripts/public_guard.py --base "$BASE_SHA" --head "$HEAD_SHA"; then
+              echo '::warning::Candidate bootstrap preflight reported findings; coordinator must review before publication.'
+            fi
+          fi
