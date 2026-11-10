@@ -481,6 +481,18 @@
       "key": "src.matrix.mobile-copy.mobileChatCopy.newMessages.count=1",
       "value": 1
     },
+    "src.matrix.person-info-copy.copy.members": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.person-info-copy.copy.members.count=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.person-info-copy.copy.members.count=1",
+      "value": 1
+    },
     "src.matrix.pet-copy.petCopy.roundsLeft": {
       "alternatives": [
         {
@@ -4003,6 +4015,9 @@
     ],
     "src.matrix.chat-copy.copies.agentTryAgain": [],
     "src.matrix.chat-copy.copies.aiUnavailable": [],
+    "src.matrix.chat-copy.copies.blockPerson": [],
+    "src.matrix.chat-copy.copies.blockPersonBody": [],
+    "src.matrix.chat-copy.copies.blockPersonTitle": [],
     "src.matrix.chat-copy.copies.cancel": [],
     "src.matrix.chat-copy.copies.cancelEdit": [],
     "src.matrix.chat-copy.copies.cancelReply": [],
@@ -4232,6 +4247,7 @@
         "nullable": false
       }
     ],
+    "src.matrix.chat-copy.copies.unblockPerson": [],
     "src.matrix.chat-copy.copies.undecryptable": [],
     "src.matrix.chat-copy.copies.unmute": [],
     "src.matrix.chat-copy.copies.unpin": [],
@@ -5647,6 +5663,44 @@
     "src.matrix.moderation-copy.copies.reportSent": [],
     "src.matrix.moderation-copy.copies.unban": [],
     "src.matrix.moderation-copy.copies.unignore": [],
+    "src.matrix.person-info-copy.copy.back": [],
+    "src.matrix.person-info-copy.copy.closeInfo": [],
+    "src.matrix.person-info-copy.copy.conversation": [],
+    "src.matrix.person-info-copy.copy.conversationInfo": [],
+    "src.matrix.person-info-copy.copy.encrypted": [],
+    "src.matrix.person-info-copy.copy.failed": [],
+    "src.matrix.person-info-copy.copy.groupInfo": [],
+    "src.matrix.person-info-copy.copy.loading": [],
+    "src.matrix.person-info-copy.copy.lowPriority": [],
+    "src.matrix.person-info-copy.copy.members": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.person-info-copy.copy.members.count=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.person-info-copy.copy.members.count=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.person-info-copy.copy.muteNotifications": [],
+    "src.matrix.person-info-copy.copy.notEncrypted": [],
+    "src.matrix.person-info-copy.copy.showInfo": [],
+    "src.matrix.person-info-copy.copy.started": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.person-info-copy.copy.teamSpaces": [],
+    "src.matrix.person-info-copy.copy.tryAgain": [],
     "src.matrix.pet-copy.petCopy.acquire": [],
     "src.matrix.pet-copy.petCopy.actions": [],
     "src.matrix.pet-copy.petCopy.asleep": [],
