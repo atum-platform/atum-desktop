@@ -39,7 +39,7 @@ import { useLaunchCopy } from './launch-copy'
 import { MatrixMemberAvatar } from './member-avatar'
 import { directPartner } from './people'
 import { useMatrixHandleContacts } from './person-handle-contacts'
-import { PersonHandleInline, personHandleText } from './person-handle-line'
+import { chatRowHandle, personHandleText } from './person-handle-line'
 import { useMatrixHandles } from './person-handles'
 import { MatrixProfileAvatar } from './profile-avatar'
 import { type MatrixReadinessAction, matrixReadinessCopy, type MatrixReadinessShellCopy } from './readiness-copy'
@@ -150,10 +150,10 @@ function RosterLines({
   adornment,
   badge,
   badgeId,
-  handle,
   invited,
   muted,
   preview,
+  previewHandle,
   previewId,
   title,
   titleClassName,
@@ -165,11 +165,11 @@ function RosterLines({
   adornment?: ReactNode
   badge: MatrixRosterBadge
   badgeId?: string
-  /** A person's @handle beside the name (a direct chat), quieter than it and cut first. */
-  handle?: ReactNode
   invited?: boolean
   muted?: boolean
   preview?: string
+  /** The second line is a person's @handle (a chat nobody has written in yet), not a message. */
+  previewHandle?: boolean
   previewId?: string
   title: ReactNode
   titleClassName?: string
@@ -208,7 +208,7 @@ function RosterLines({
     <span
       className={cn(
         'min-w-0 truncate text-(--atum-ink)',
-        !adornment && !handle && 'flex-1',
+        !adornment && 'flex-1',
         'text-(length:--atum-t-ui) leading-(--atum-lh-ui)',
         unread ? 'font-semibold' : 'font-medium',
         titleClassName
@@ -221,11 +221,10 @@ function RosterLines({
   return (
     <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
       <span className="flex min-w-0 items-baseline gap-2">
-        {adornment || handle ? (
+        {adornment ? (
           <span className="flex min-w-0 flex-1 items-baseline gap-1" data-roster-name>
             {name}
-            {adornment && <span className="flex shrink-0 items-center self-center">{adornment}</span>}
-            {handle}
+            <span className="flex shrink-0 items-center self-center">{adornment}</span>
           </span>
         ) : (
           name
@@ -236,6 +235,7 @@ function RosterLines({
         <span className="flex min-h-(--atum-unread-pill) min-w-0 items-center gap-1.5">
           <span
             className="min-w-0 flex-1 truncate text-(length:--atum-t-body) leading-(--atum-lh-body) text-(--atum-ink-muted)"
+            data-person-handle={previewHandle && !workingPreview ? '' : undefined}
             data-roster-preview
             id={previewId}
           >
@@ -312,6 +312,7 @@ function MatrixRoomRow({
   onOpen,
   profile,
   room,
+  searching = false,
   selected,
   snapshot,
   subtitle,
@@ -327,7 +328,10 @@ function MatrixRoomRow({
   /** The second line while nobody has written yet. */
   emptyPreview?: string
   fail(cause?: unknown): void
-  /** The @handle of the person a direct chat is with, beside the name, when the directory vouched for it. */
+  /**
+   * The @handle of the person a direct chat is with, when the directory vouched for it: the second
+   * line until anyone has written (and while searching), never beside the name.
+   */
   handle?: string
   /** The name, when the app knows it better than the room does (the Founder). */
   name?: string
@@ -336,6 +340,8 @@ function MatrixRoomRow({
   /** View profile, first in the row's menu. */
   profile?: { label: string; open(): void }
   room: MatrixRoom
+  /** Finding someone: the handle shows even once the chat has messages. */
+  searching?: boolean
   selected: boolean
   snapshot: MatrixSnapshot
   /** A stand-in second line in place of the latest message (a company channel's company). */
@@ -356,7 +362,8 @@ function MatrixRoomRow({
 
   const badge = room.membership === 'invite' ? null : matrixRosterBadge(matrixRoomCounts(room))
   const latest = matrixRosterPreview(room, roster, chat.messageDeleted)
-  const preview = subtitle ?? latest ?? emptyPreview
+  const handleLine = subtitle ? undefined : chatRowHandle({ handle, hasMessages: Boolean(room.preview), name: title, searching })
+  const preview = subtitle ?? handleLine ?? latest ?? emptyPreview
   // Someone Atum marks (an official or verified account), by their exact id: never a name.
   const partner = snapshot.identity ? directPartner(room, snapshot.identity.userId) : undefined
   const tier = partner ? accountVerificationTier(snapshot.officialAccounts, partner) : null
@@ -401,10 +408,10 @@ function MatrixRoomRow({
             adornment={mark}
             badge={badge}
             badgeId={badgeId}
-            handle={handle ? <PersonHandleInline handle={handle} name={title} /> : undefined}
             invited={room.membership === 'invite'}
             muted={room.muted}
             preview={preview}
+            previewHandle={Boolean(handleLine)}
             previewId={previewId}
             // A stand-in line (the Founder's "Atum founder") is no one's message: no time beside it.
             title={
@@ -1244,22 +1251,19 @@ export function MatrixRosterConversations({
         {projectionAll.founder && <FounderProfileSheet fail={fail} onOpenChat={onOpen} snapshot={snapshot} />}
         {chatEntries.map(entry => {
           if (entry.kind === 'room') {
-            // A person's @handle: under the name while searching (finding someone), beside it
-            // otherwise, where the second line is the conversation's own.
-            const handle = roomHandle(entry.room)
-            const handleBelow = searching ? personHandleText(handle) : undefined
-
+            // A person's @handle is the second line while the chat is empty (who is this?) and
+            // while searching (finding someone); once anyone has written, the latest message is.
             return <MatrixRoomRow
               disabled={!ready}
               fail={fail}
-              handle={searching ? undefined : handle}
+              handle={roomHandle(entry.room)}
               key={entry.room.id}
               now={now}
               onOpen={() => selectRoom(entry.room.id)}
               room={entry.room}
+              searching={searching}
               selected={entry.room.id === snapshot.roomId}
               snapshot={snapshot}
-              subtitle={handleBelow}
               working={workingRooms.has(entry.room.id) ? workingCopy.assistantWorking : undefined}
               workingPreview={workingRooms.has(entry.room.id) ? matrixWorkingStep(snapshot, entry.room.id) : undefined}
             />

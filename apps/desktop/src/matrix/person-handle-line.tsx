@@ -43,18 +43,21 @@ export function PersonHandleLine({
 }
 
 /**
- * The handle beside a name, for a chat row whose second line is its latest message (X's message
- * list: "Name @handle"). It gives way first when the row is narrow, so the name keeps its room.
+ * A one-to-one chat row's handle, shown as its second line (where the latest message goes):
+ * while nobody has written yet, the handle says who this is; once the chat has any message you
+ * know them, so the line is the conversation's own and no handle shows. Finding someone (a
+ * search) always shows it. Never beside the name.
  */
-export function PersonHandleInline({ handle, name }: { handle: string | null | undefined; name?: string }) {
-  const text = shownHandle(handle, name)
-
-  return text ? (
-    <span
-      className="ms-1.5 min-w-0 shrink-[10] truncate [font:var(--ak-t-callout)] text-(--ak-ink-3)"
-      data-person-handle
-    >
-      {text}
-    </span>
-  ) : null
+export function chatRowHandle({
+  handle,
+  hasMessages,
+  name,
+  searching = false
+}: {
+  handle: string | null | undefined
+  hasMessages: boolean
+  name?: string
+  searching?: boolean
+}): string | undefined {
+  return searching || !hasMessages ? shownHandle(handle, name) : undefined
 }

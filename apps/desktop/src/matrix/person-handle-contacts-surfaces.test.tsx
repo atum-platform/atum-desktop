@@ -98,15 +98,16 @@ afterEach(() => {
 })
 
 describe('handles of people nobody looked up', () => {
-  it('fills the roster from one read for every direct chat, beside the name, never an ID', async () => {
+  it('fills the roster from one read for every direct chat, under an empty chat\'s name, never an ID', async () => {
     const request = contactsDirectory()
-    roster(snapshot())
+    // Chats nobody has written in yet: their second line is who they are, by handle.
+    roster(snapshot({ rooms: snapshot().rooms.map(room => ({ ...room, preview: undefined })) }))
 
     await act(() => vi.advanceTimersByTimeAsync(300))
 
     expect(contactReads(request)).toEqual([[LAN, POON].sort()])
     const poon = screen.getByRole('button', { name: 'Poon Nguyen' })
-    expect(poon.querySelector('[data-roster-name] [data-person-handle]')?.textContent).toBe('@poon')
+    expect(poon.querySelector('[data-roster-preview][data-person-handle]')?.textContent).toBe('@poon')
     // Lan had no handle to give: no second name, and never the Matrix ID.
     const lan = screen.getByRole('button', { name: 'Lan' })
     expect(lan.querySelector('[data-person-handle]')).toBeNull()

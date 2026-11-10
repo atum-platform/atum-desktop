@@ -320,6 +320,7 @@ import {
   companyHistoryRevealProjected,
   revealMatrixHistoryMessage
 } from './history-search'
+import { invocationCopy, invocationNoticeVisible } from './invocation-notice'
 import { MatrixLanguageProvider } from './language'
 import { runMatrixReadinessAction } from './launch-actions'
 import { useLaunchCopy } from './launch-copy'
@@ -582,20 +583,6 @@ interface MatrixThreadView {
   filter: MatrixThreadFilter
   rootId?: string
   fromList?: boolean
-}
-
-function invocationCopy(result: MatrixInvocationResult, locale: keyof typeof matrixActionCopy) {
-  const copy = matrixActionCopy[locale]
-
-  return {
-    cancelled: copy.actionCancelled,
-    ignored: copy.actionIgnored,
-    expired: copy.actionExpired,
-    unknown: copy.actionUnknown,
-    publication_pending: copy.actionPending,
-    published: copy.actionPublished,
-    setup_required: copy.actionSetupRequired
-  }[result.state]
 }
 
 /** Scrolls the transcript to one of its messages and marks it for a moment (a reply's quote). */
@@ -1690,7 +1677,11 @@ function MatrixEventMessageBubble() {
         </span>
       )}
       {result && (
-        <p className="text-xs text-(--atum-ink-muted)" role="status">
+        <p
+          className={invocationNoticeVisible(result.state) ? 'text-xs text-(--atum-ink-muted)' : 'sr-only'}
+          data-matrix-invocation-notice={result.state}
+          role="status"
+        >
           {invocationCopy(result, locale)}
         </p>
       )}
@@ -4363,7 +4354,11 @@ function MatrixComposer({
         </p>
       )}
       {result && (
-        <p className="px-4 text-xs text-(--atum-ink-muted)" role="status">
+        <p
+          className={invocationNoticeVisible(result.state) ? 'px-4 text-xs text-(--atum-ink-muted)' : 'sr-only'}
+          data-matrix-invocation-notice={result.state}
+          role="status"
+        >
           {invocationCopy(result, locale)}
         </p>
       )}
@@ -4407,7 +4402,11 @@ function MatrixComposer({
         </p>
       )}
       {appResult && (
-        <div className="px-4 text-xs text-(--atum-ink-muted)" role="status">
+        <div
+          className={invocationNoticeVisible(appResult.result.state) ? 'px-4 text-xs text-(--atum-ink-muted)' : 'sr-only'}
+          data-matrix-app-notice={appResult.result.state}
+          role="status"
+        >
           {appResult.result.state === 'published'
             ? appCopy.published
             : appResult.result.state === 'publication_pending'

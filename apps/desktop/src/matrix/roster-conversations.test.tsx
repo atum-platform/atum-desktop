@@ -227,7 +227,7 @@ describe('MatrixRosterConversations', () => {
     expect(within(row).getByText('@poon')).toBeTruthy()
   })
 
-  it('keeps a direct chat\'s latest message as its line and puts the verified handle beside the name', () => {
+  it('shows a direct chat\'s latest message and no handle once anyone has written', () => {
     const snapshot = readySnapshot()
     const personId = '@user-4c65aa0b1c2d3e4f5a6b7c8d9e0f1a2b:test'
     const nobodyId = '@user-9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f:test'
@@ -249,12 +249,46 @@ describe('MatrixRosterConversations', () => {
 
     setup(snapshot)
 
+    // You have talked: you know them. The line is the conversation's, like any other chat.
     const poon = screen.getByRole('button', { name: 'Poon Nguyen' })
-    expect(poon.querySelector('[data-roster-name] [data-person-handle]')?.textContent).toBe('@poon')
     expect(poon.querySelector('[data-roster-preview]')?.textContent).toBe('See you tomorrow')
-    // Someone whose handle nobody vouched for shows no second name, and never their Matrix ID.
+    expect(poon.querySelector('[data-person-handle]')).toBeNull()
+    expect(poon.textContent).not.toContain('@poon')
     const lan = screen.getByRole('button', { name: 'Lan' })
     expect(lan.querySelector('[data-person-handle]')).toBeNull()
+    expect(lan.textContent).not.toMatch(/user-[0-9a-f]{8}/)
+  })
+
+  it('puts the verified handle under the name, never beside it, while a direct chat is empty', () => {
+    const snapshot = readySnapshot()
+    const personId = '@user-4c65aa0b1c2d3e4f5a6b7c8d9e0f1a2b:test'
+    const nobodyId = '@user-9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f9f:test'
+    const empty = (id: string, name: string, userId: string): MatrixRoom => ({
+      id,
+      name,
+      membership: 'join',
+      encrypted: false,
+      direct: true,
+      participants: [
+        { userId: owner, membership: 'join' },
+        { userId, membership: 'join' }
+      ]
+    })
+    snapshot.rooms = [empty('!poon:test', 'Poon Nguyen', personId), empty('!nobody:test', 'Lan', nobodyId)]
+    bindMatrixHandleOwner(owner)
+    rememberMatrixHandle(personId, 'poon')
+
+    setup(snapshot)
+
+    const poon = screen.getByRole('button', { name: 'Poon Nguyen' })
+    const line = poon.querySelector('[data-roster-preview]')
+    expect(line?.textContent).toBe('@poon')
+    expect(line?.hasAttribute('data-person-handle')).toBe(true)
+    expect(poon.querySelector('[data-roster-name] [data-person-handle]')).toBeNull()
+    // No handle to give: no second line at all, and never the Matrix ID.
+    const lan = screen.getByRole('button', { name: 'Lan' })
+    expect(lan.querySelector('[data-person-handle]')).toBeNull()
+    expect(lan.querySelector('[data-roster-preview]')).toBeNull()
     expect(lan.textContent).not.toMatch(/user-[0-9a-f]{8}/)
   })
 

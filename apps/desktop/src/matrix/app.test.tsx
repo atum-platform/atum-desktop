@@ -6603,6 +6603,10 @@ describe('isolated Matrix composition', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Retry reply delivery' }))
       await waitFor(() => expect(invoke).toHaveBeenCalledWith(app.app_id, '!app:test', '$app-request'))
       expect(send).toHaveBeenCalledOnce()
+      // Delivered: the app's reply shows it; the notice is for a screen reader only.
+      await waitFor(() =>
+        expect(window.document.querySelector('[data-matrix-app-notice="published"]')?.className).toBe('sr-only')
+      )
       expect(bridge.sendAssistant).not.toHaveBeenCalled()
 
       if (mode === 'group') {
@@ -6810,6 +6814,15 @@ describe('isolated Matrix composition', () => {
     expect(bridge.command).not.toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'send', roomId: '!assistant:test' })
     )
+    // The reply posting is announced to a screen reader, never left as stray text under the box.
+    const notice = await waitFor(() => {
+      const element = window.document.querySelector('[data-matrix-invocation-notice="published"]')
+      expect(element).not.toBeNull()
+      return element as HTMLElement
+    })
+    expect(notice.textContent).toBe('Reply posted.')
+    expect(notice.getAttribute('role')).toBe('status')
+    expect(notice.className).toBe('sr-only')
   })
 
   it("puts the words back and says why when a message to the founder can't go yet", async () => {
