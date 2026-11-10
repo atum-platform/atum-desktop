@@ -10,7 +10,7 @@
     "originAssertionHash": null,
     "writerEpoch": {
       "leaseGeneration": 41,
-      "leaseTokenHash": "gDY09Edy88FdgWR6miyz0BiM2JsbZurUySyPwVe3Mt4"
+      "leaseTokenHash": "CLWQhqWsLOrA7qt2_HgySVo0vfkQUcU8Zcb735YgEBw"
     },
     "targetDeviceServiceId": "00000000-0000-4000-8000-f4d4f0609b55",
     "enrollmentEpoch": 3,
@@ -25,6 +25,6 @@
     "expiresAt": 1791102600000,
     "occurrenceId": "00000000-0000-4000-8000-cd2855c9e608"
   },
-  "kid": "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ",
+  "kid": "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0",
   "sig": "mDz6YtJ5C-soSzm8A5woGqIru3vqntiKidliico5pT0RrRzTnE0NHyxH7vHm8l9o8OhNcg_n4XO0EzHWVRkxDQ"
 }

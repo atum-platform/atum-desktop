@@ -2,14 +2,14 @@
   "name": "enroll-rebind-after-sign-in",
   "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
   "activeControllerKeys": [
-    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
   ],
   "stored": {
     "ownerUserId": "@owner-3f9a1c7e5b2d:example.invalid",
     "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
     "enrollmentEpoch": 3,
-    "approvalKeyId": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
-    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+    "approvalKeyId": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA",
+    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q",
     "state": "active"
   },
   "otherActive": [],
@@ -19,8 +19,8 @@
       "displayName": "MacBook Pro",
       "platform": "macos",
       "osVersion": "26.6.2",
-      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
-      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA",
+      "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q",
       "matrix": {
         "userId": "@owner-3f9a1c7e5b2d:example.invalid",
         "deviceId": "MACBOOKNEW2",
@@ -34,15 +34,15 @@
         "send_file"
       ],
       "controllerKeys": [
-        "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+        "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
       ],
       "issuedAt": 1791014400000,
-      "previousApprovalKid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo"
+      "previousApprovalKid": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA"
     },
     "sigs": {
-      "identity": "QRytDH-LjcLJo3aodVH3AcGrK6sju7_Mk0ZHpk5a_HOpYB7CE0hQEn05ceL3ZJfEXrHnR8f14uCiHrGkc-OJxw",
-      "approval": "cI1zB9EtfstCihaL1N-sO6diZz91ZqsqRQ9H0JQ1C6X2v4pb4C2rqfxHFGemHwidg8v-H6qdOeVUB1pkgrGjiw",
-      "previousApproval": "cI1zB9EtfstCihaL1N-sO6diZz91ZqsqRQ9H0JQ1C6X2v4pb4C2rqfxHFGemHwidg8v-H6qdOeVUB1pkgrGjiw"
+      "identity": "X7oT8H5e3J7kvWzrbm3GWG00_tWgq335y4Ftz5Qib8wo2lwozFB3NdkWWFWNwZdRuQq6QW55MkbJlU7jfPj98g",
+      "approval": "6Na3eO-gsOiK2IO5ZY-72OUANaTDvZod5mJlk5_G_l1meOhecMut-2k68MQPm0aIU1adUCmo0iqZ3H6u6PZunQ",
+      "previousApproval": "S0NAOVosS_LeSFsMWVT-y398WVbRVLnY-Ob2siTI6mjuuu4wv0Ki2l5m_EgNU0-mt2oHcXngXO4qdoqiFQAEMA"
     }
   },
   "facts": {

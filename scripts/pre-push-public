@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Explicit preflight, not an installed hook. Runs no push and modifies no refs.
+set -euo pipefail
+if [ "$#" -ne 2 ]; then
+  echo 'usage: bash scripts/pre-push-public <reviewed-public-base-sha> <candidate-head-sha>' >&2
+  exit 2
+fi
+# Once installed, use only the base branch's checker and policy.
+if git cat-file -e "$1:scripts/public_guard.py" 2>/dev/null; then
+  trusted=$(mktemp -d)
+  trap 'rm -rf "$trusted"' EXIT
+  git show "$1:scripts/public_guard.py" > "$trusted/public_guard.py"
+  git show "$1:scripts/public-boundary.json" > "$trusted/public-boundary.json"
+  python3 "$trusted/public_guard.py" --base "$1" --head "$2"
+else
+  echo 'Bootstrap local preflight: candidate checker; coordinator manual review required.' >&2
+  python3 "$(dirname "$0")/public_guard.py" --base "$1" --head "$2"
+fi

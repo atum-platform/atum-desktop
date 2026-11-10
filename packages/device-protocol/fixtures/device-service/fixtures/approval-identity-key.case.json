@@ -4,13 +4,13 @@
     "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
     "accountEpoch": 7,
     "approvalKey": {
-      "kid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
-      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEVIcF6uGaRwyHG28idJETWqoR7SSuffiZlbB67TGQqe8EJ04hAhXvwg_5JzHNQ0inpHi1xmBzQWM7WLg7fz3FdQ"
+      "kid": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0r1ki8yA_utzzUc8JSA66qZAB2DZC4MuhDSGduI17NhpXVgL7zu2pRPjqihlcIeWIHjK4Lymu4kSPeDFFCVR3Q"
     },
     "usedNonces": [],
     "now": 1791100804000
   },
-  "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+  "commandHash": "-mEsK0rwpwZaUbQ1nY5Z51a7dz8PJa9O_r7HhrSO47o",
   "capability": "ssh_agent",
   "approve": {
     "v": 1,
@@ -18,7 +18,7 @@
     "body": {
       "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
       "accountEpoch": 7,
-      "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+      "commandHash": "-mEsK0rwpwZaUbQ1nY5Z51a7dz8PJa9O_r7HhrSO47o",
       "capability": "ssh_agent",
       "target": "ssh -T git@github.com",
       "destination": "github.com:22",
@@ -26,12 +26,12 @@
       "expiresAt": 1791100863000,
       "nonce": "5Uk03m7CbblsdDLo5nU4Mg"
     },
-    "kid": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
+    "kid": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
     "sig": "YW0557DF83CcZszodtxURAmVB3Qs7Cr4MhL6tfSLG9IgKF9acoFFIEeFjBeTvUfvgOZd4mjGp9PzWwFbrOo-IQ"
   },
   "facts": {
     "signatureValid": false,
-    "approvalHash": "WZOjxDJQF1NTRJJtFpv9q3eMhc-LtH8579Cz_ZKREDI",
+    "approvalHash": "4D4xDmMS9WwFQvO9YEIIMnvFBj_JLegudnDK4oe7atc",
     "trueValue": true,
     "falseValue": false
   },

@@ -4,8 +4,9 @@
   "packs": {
     "device-service": {
       "version": "v1.1",
-      "pinned_sha256": "6455023c5b91d375a5b219aed5cb284533ac1be440eb3c59a9e83a2d4e654dcd",
-      "vendored": "full"
+      "pinned_sha256": "f0e3eea8f0e4185ad5ed64ef231f1e286afb0a65c67dd62133ac3511fec31ad5",
+      "vendored": "full",
+      "public_derivative": "Sanitized identities; fresh in-memory signing keys; original verdicts retained."
     },
     "cloud-answering": {
       "version": "v1",

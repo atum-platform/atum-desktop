@@ -16,8 +16,11 @@ features and test tooling. Export its interpreter as `HERMES_PYTHON` and
 `ATUM_SYNC_PYTHON`, and put `.venv/bin` on PATH for fallback subprocesses.
 Do not substitute a link to another checkout's environment.
 
-The Hermes per-file suite retains four workers and a 120-second per-file timeout.
-Its job budget is 120 minutes: bootstrap run 42648965269 reached 79.9% with zero
+The parity workflow runs eight Hermes slices with two workers each and an explicit
+300-second per-file timeout (the canonical runner default). The real hatch bench
+executes the image pipeline repeatedly; the former main-only 120-second cap can
+kill it before its assertions finish. No tests are excluded. Each slice has a
+180-minute job budget. Historical bootstrap run 42648965269 reached 79.9% with zero
 failures before the former 45-minute job limit cancelled it. The longer budget
 requires hosted CI confirmation; it does not change test selection or isolation.
 

@@ -2,8 +2,8 @@
   "deviceServiceId": "00000000-0000-4000-8000-b86a6ca39e23",
   "displayName": "MacBook Pro",
   "platform": "macos",
-  "identityKeyId": "upESNpLksccWeOFX6Msi9AwBfhV6nGzpKg0r8qiflk8",
-  "approvalKeyId": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo",
+  "identityKeyId": "_WEuJDmMmeIgswt-rfw5v9r7T51dGiRGPm3-xvdvmog",
+  "approvalKeyId": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA",
   "matrix": {
     "deviceId": "MACBOOKQ7ZK",
     "fingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho"
@@ -16,12 +16,12 @@
     "send_file"
   ],
   "pinnedControllerKeys": [
-    "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+    "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
   ],
   "state": "active",
   "revokeSeq": 4,
   "createdAt": 1790236800000,
   "rotatedAt": 1791014400000,
   "revokedAt": null,
-  "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA"
+  "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA"
 }

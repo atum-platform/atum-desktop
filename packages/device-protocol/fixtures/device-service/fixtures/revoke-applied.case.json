@@ -19,12 +19,12 @@
       "@synthetic-user-0011:example.invalid"
     ],
     "pinnedControllerKeys": [
-      "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40"
+      "a5VlGDzAZEoOLQG6stEyJxK7OmGuvmOovhLN6gYwZbY"
     ],
     "controllerKeys": [
       {
-        "kid": "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40",
-        "publicKey": "MCowBQYDK2VwAyEAQuXHPLmfAsGGn2l02PmCQKVsnMINNq76kM2PKH57LO0"
+        "kid": "a5VlGDzAZEoOLQG6stEyJxK7OmGuvmOovhLN6gYwZbY",
+        "publicKey": "MCowBQYDK2VwAyEAwILpQ53Vyl1hsPv8biee0rESSxuxujeN3f_oArYG5wU"
       }
     ],
     "receivedAt": 1791100802000
@@ -38,8 +38,8 @@
       "enrollmentEpoch": 3,
       "revokeSeq": 5
     },
-    "kid": "gIb2ctNz75sm7ZdyUT54u31U7d5-JP6UO9h6P0wIq40",
-    "sig": "uZm6AV5ByOljXAD_yJm4XlgBSYdQwkC7F7vLBulqP4lfgRPqxdk9ALy_UYuNRxT5902xAml6rWHe3tss_kxRAw"
+    "kid": "a5VlGDzAZEoOLQG6stEyJxK7OmGuvmOovhLN6gYwZbY",
+    "sig": "1spRFN8KUwRey1bxcw6lM9Nrg9_0-ttfTrpRgC07a3tJiuPxv6AixhtZTyPVDvEyDZhoasHeatMqF1IiiNmWBA"
   },
   "facts": {
     "signatureValid": true,

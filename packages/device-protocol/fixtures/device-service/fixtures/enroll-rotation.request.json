@@ -4,8 +4,8 @@
     "displayName": "MacBook Pro",
     "platform": "macos",
     "osVersion": "26.6.2",
-    "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAElsn-44FwgD9w-tJ-Dl9j7xZAK7o1m9-D3pnmADqNGGLs78_BLgBgSl3bVJ6uI6pCgF7drHuvVE1MU_8t-v0sVA",
-    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAECEpLucCNdBxAoHpTss_gF7Bh-YjRjX4lV4h-eu4u6J7kAGJSCyqPfcUwm41sZRWHhkJjSb9H5xZbcwZAHI1nKQ",
+    "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnZJmcipJpk3fQ0BCAexgA-MNyglrzyl6HoO3BUIC2zGrSTcODavzuRT4EcW6tj0aLGMDBcLB437_adwvUz4WwA",
+    "approvalKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEMmqLbx1jCZWKHscuukv2NuAhSm4LbD6uZN8TE7vmaIPJh2iEm-C87iT_RmQYDeLEb_XEKjgnEOwNBz91bfw1HQ",
     "matrix": {
       "userId": "@owner-3f9a1c7e5b2d:example.invalid",
       "deviceId": "MACBOOKQ7ZK",
@@ -19,10 +19,10 @@
       "send_file"
     ],
     "controllerKeys": [
-      "dyvN_jGvw3afvRp74utR9AHq9x10qT9ekhV1167SrDQ"
+      "5zYjLaEHVGm9x0fnbBkB87gVrKNpDTz9b4MY4alt3x0"
     ],
     "issuedAt": 1791097200000,
-    "previousApprovalKid": "oXc8RSSVChnOV0IyqHfGGh4bCo3JP4ElJk5_hGyVEmo"
+    "previousApprovalKid": "KTnv8L9EFeAIBJmGieGMEGhUSIt1MYmqOtHZoj2HldA"
   },
   "sigs": {
     "identity": "pDuvC0nqEHz65bEuu25dcjnWaUhZiuZcfP9Q1KeQGX4NmwER62JzPN_dXOuSRzPT3IJjmOyupGc2C2WXK420EQ",
