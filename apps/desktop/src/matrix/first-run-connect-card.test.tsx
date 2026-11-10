@@ -226,7 +226,9 @@ describe('registry-fed first-run consent', () => {
     await waitFor(() => expect(f.decline).toHaveBeenCalledOnce())
     expect(f.set).not.toHaveBeenCalled()
     expect(f.start).not.toHaveBeenCalled()
-    expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
+    })
   })
 
   it('keeps unavailable descriptor rows honest and not grantable', async () => {
