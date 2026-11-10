@@ -159,8 +159,8 @@ Pinned gitleaks reports 106 generic-api-key candidates: 45 fresh public P-256 SP
 literals (`identityKey`/`approvalKey`) and 61 occurrences of the recomputed
 `leaseTokenHash`. These are public verification material and a digest, not private
 keys or access tokens. The outbound guard does not permit secret-scan adjudication;
-no exclusion or policy weakening was added. Publication remains blocked if the
-required full-history preflight reports these candidates. Coordinator must resolve
+no exclusion or policy weakening was added. The required full-history preflight reports all 106 candidates after its
+path/ancestry/identifier checks pass; publication remains blocked. Coordinator must resolve
 that guard limitation before publication, independently of the green local lanes.
 Desktop collection: 62 tests in 32 files. Temporary dependency/build footprint
 stayed below 2.5 GiB; Linux GUI execution remains unverified locally.
