@@ -16,10 +16,12 @@ secret rules. No private source files, fixtures or manifests were copied.
 | Previous job/lane | Public job / disposition | Coverage and limits |
 | --- | --- | --- |
 | tests.yml generate + test (8 slices) | hermes (8 slices) | All retained tests, canonical runner, deterministic I/8 slicing, two workers. Public lock/interpreter 3.14 vs previous explicit 3.11: interpreter parity remains to verify. |
-| tests.yml e2e | stays private for now | Public run (11-10) exceeded a hosted runner (runner shutdown) and needs repo history (tests/e2e/core/upgrade/git) and optional platform SDKs (tests/e2e/core/platforms/*_contract). Revisit as a split, history-free lane. |
+| tests.yml e2e | Python E2E | The non-upgrade inventory runs from a full-history checkout with the same per-file isolation, explicit messaging/provider extras, tmux assertion and empty API credentials. |
+| tests.yml e2e-upgrade | Python upgrade E2E (core/git/handoff/hosts/network/pm) | Full-history checkout and one standard hosted runner per inventory-derived shard, each with a 180-minute limit. The public repository has a deliberate sanitized root, so the workflow fetches upstream stable tags and supplies the newest stable tag as the explicit upgrade base instead of pretending it is merged into public history. |
 | lint.yml ruff-blocking | python-lint | Same pinned ruff check. |
 | lint.yml windows-footguns | python-lint | Same static checker over all public files. |
 | lint.yml lint-diff | stays private initially | Advisory ty/ruff diff report not reproduced. Blocking lint remains public. |
+| OSV lock scan | Public dependency OSV scan | The checksum-pinned scanner checks the public Python and npm locks. The private repository keeps a path-filtered scan for its distinct private lock graph. |
 | js-tests desktop check:lint | client | Typecheck, lint, private-absent import closure compilation. |
 | js-tests desktop platforms / UI | client | All vitest projects, required Python seam and locked real Python environment. |
 | js-tests desktop upstream-watch | client | Same retained Node test command. |

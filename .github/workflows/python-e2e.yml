@@ -1,0 +1,194 @@
+name: Python E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  OPENROUTER_API_KEY: ''
+  OPENAI_API_KEY: ''
+  NOUS_API_KEY: ''
+
+jobs:
+  e2e:
+    name: Python E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Install checksum-pinned ripgrep
+        run: |
+          set -euo pipefail
+          archive=ripgrep-15.1.0-x86_64-unknown-linux-musl.tar.gz
+          curl -sSfL --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/$archive"
+          echo "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/bin"
+          mv "$RUNNER_TEMP/ripgrep-15.1.0-x86_64-unknown-linux-musl/rg" "$RUNNER_TEMP/bin/rg"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Prepare locked test environment
+        run: |
+          python -m pip install uv==0.13.5
+          uv sync --locked --python 3.14 --group dev --group test \
+            --extra all --extra anthropic --extra bedrock --extra mistral \
+            --extra fal --extra modal --extra daytona --extra parallel-web \
+            --extra messaging
+          echo "HERMES_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Verify terminal dependencies
+        run: |
+          command -v tmux
+          tmux -V
+      - name: Run non-upgrade E2E files in isolated processes
+        env:
+          HERMES_TEST_FILE_TIMEOUT: '900'
+          HERMES_TEST_FILE_RETRIES: '0'
+        run: |
+          find tests/e2e -name 'test_*.py' \
+            -not -path 'tests/e2e/core/upgrade/*' \
+            -print | sort > "$RUNNER_TEMP/e2e-files.txt"
+          scripts/run_tests.sh -j 2 --include-integration \
+            --files-from="$RUNNER_TEMP/e2e-files.txt" -v --tb=short
+
+  upgrade-plan:
+    name: Plan upgrade shards
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      shards: ${{ steps.plan.outputs.shards }}
+    steps:
+      - name: Checkout upgrade inventory
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          sparse-checkout: tests/e2e/core/upgrade
+      - name: List upgrade suite directories
+        id: plan
+        run: |
+          shards=$(python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('tests/e2e/core/upgrade')
+          shards = ['core'] if any(root.glob('test_*.py')) else []
+          shards += sorted(
+              child.name
+              for child in root.iterdir()
+              if child.is_dir()
+              and not child.name.startswith(('_', '.'))
+              and any(child.rglob('test_*.py'))
+          )
+          print(json.dumps(shards))
+          PY
+          )
+          echo "shards=$shards" | tee -a "$GITHUB_OUTPUT"
+
+  upgrade:
+    name: Python upgrade E2E (${{ matrix.shard }})
+    needs: upgrade-plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.upgrade-plan.outputs.shards) }}
+    steps:
+      - name: Free hosted-runner disk for isolated upgrade worlds
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - name: Checkout exact source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Fetch upstream stable release base
+        run: |
+          set -euo pipefail
+          git fetch --force --no-tags https://github.com/NousResearch/hermes-agent.git \
+            '+refs/tags/v0.*:refs/tags/v0.*'
+          base_tag=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname | head -n 1)
+          test -n "$base_tag"
+          git cat-file -e "$base_tag^{commit}"
+          echo "HERMES_E2E_UPGRADE_BASE=$base_tag" >> "$GITHUB_ENV"
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: '3.14'
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Install checksum-pinned ripgrep
+        run: |
+          set -euo pipefail
+          archive=ripgrep-15.1.0-x86_64-unknown-linux-musl.tar.gz
+          curl -sSfL --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/BurntSushi/ripgrep/releases/download/15.1.0/$archive"
+          echo "1c9297be4a084eea7ecaedf93eb03d058d6faae29bbc57ecdaf5063921491599  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/bin"
+          mv "$RUNNER_TEMP/ripgrep-15.1.0-x86_64-unknown-linux-musl/rg" "$RUNNER_TEMP/bin/rg"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Prepare locked test environment
+        run: |
+          python -m pip install uv==0.13.5
+          uv sync --locked --python 3.14 --group dev --group test \
+            --extra all --extra anthropic --extra bedrock --extra mistral \
+            --extra fal --extra modal --extra daytona --extra parallel-web
+          echo "HERMES_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+      - name: Install and verify bubblewrap
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          "$HERMES_PYTHON" -c "from tests.e2e.core.upgrade._helpers import BWRAP_OK; assert BWRAP_OK, 'bwrap unusable'"
+      - name: Require WAL-capable SQLite
+        run: |
+          "$HERMES_PYTHON" -c "import sqlite3, hermes_state_wal as w; print('sqlite', sqlite3.sqlite_version); assert not w.is_sqlite_wal_reset_vulnerable()"
+      - name: Run upgrade shard
+        env:
+          SHARD: ${{ matrix.shard }}
+          HERMES_E2E_RELEASE_SOURCE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          HERMES_TEST_WORKERS: '1'
+          HERMES_TEST_FILE_TIMEOUT: '3000'
+          HERMES_TEST_FILE_RETRIES: '0'
+        run: |
+          set -euo pipefail
+          if [ "$SHARD" = core ]; then
+            find tests/e2e/core/upgrade -maxdepth 1 -name 'test_*.py' -print | sort \
+              > "$RUNNER_TEMP/upgrade-files.txt"
+          else
+            find "tests/e2e/core/upgrade/$SHARD" -name 'test_*.py' -print | sort \
+              > "$RUNNER_TEMP/upgrade-files.txt"
+          fi
+          test -s "$RUNNER_TEMP/upgrade-files.txt"
+          scripts/run_tests.sh --include-integration \
+            --files-from="$RUNNER_TEMP/upgrade-files.txt" -v --tb=short
