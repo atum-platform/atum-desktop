@@ -219,3 +219,18 @@ contracts: 21 tests plus 13 subtests pass. All ten timestamp environment cases
 pass against the real marker.sh; the complete Linux process suite skips on
 macOS. Workflow YAML parses. Full client, all Hermes slices, and Linux GUI were
 not run locally. No private fixture bytes or policy adjudications were changed.
+
+Final follow-up evidence: the real hatch benchmark (all four tests) plus the
+three timeout-scaling tests pass: 7 passed in 104.83 seconds. The small local
+Python tool environment initially lacked cryptography; installing the dependency
+resolved those import failures without source changes. This was a local focused
+run, not a complete locked CI environment or a hosted run.
+
+Outbound guard against fetched origin/main
+0a9b1b140569584b8d912e48c04ee2c5a40b0a8a passes for the repair commit range:
+raw objects, paths, ancestry, identifiers, pinned gitleaks and commit metadata.
+Gitleaks emits 116 existing/reviewed candidates; the guard accepts them under the
+existing exact-byte policy. No new unreviewed fixture finding and no policy
+change. Temporary npm dependencies and task-generated test files are removed
+before handoff. Publication and exact-head hosted validation remain coordinator
+work; this checkpoint makes no claim that release 0.20.46 is live.
