@@ -113,7 +113,7 @@ def main():
         # in the base branch's policy (public keys, digests in test vectors); anything else fails.
         reviewed_secret = policy.get('reviewed_secret_blobs', {})
         unreviewed = []
-        for f in json.loads(report.read_text(encoding='utf-8') or '[]'):
+        for f in json.loads(report.read_text(encoding='utf-8-sig') or '[]'):
             blob = git('show', f['Commit'] + ':' + f['File'])
             if f['File'] == 'scripts/public-boundary.json':
                 # The policy records reviewed digests; only `"path": "<sha256>"` lines may match.

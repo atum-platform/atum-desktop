@@ -63,7 +63,7 @@ esac
 
 describe('update launcher script', () => {
   it('waits for the old process, opens the target, and leaves a window that appeared alone', async () => {
-    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED"; touch "$SHOWN"; sleep 20' })
+    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; touch "$SHOWN"; sleep 20' })
 
     expect(run.calls).toEqual([`-n -W ${run.target}`])
     expect(run.elapsed).toBeGreaterThanOrEqual(350)
@@ -92,24 +92,27 @@ describe('update launcher script', () => {
 
   it('does not roll back a slow launch whose process is alive and has started', async () => {
     // Started right away, shows a window only after longer than the no-start limit.
-    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED"; sleep 5; touch "$SHOWN"; sleep 20', noStartSeconds: 3, liveSeconds: 15 })
+    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; sleep 5; touch "$SHOWN"; sleep 20', noStartSeconds: 3, liveSeconds: 15 })
 
     expect(run.calls).toEqual([`-n -W ${run.target}`])
     expect(run.elapsed).toBeGreaterThan(5000)
   })
 
   it('opens the backup when the process that started has died before its window', async () => {
-    const gone = spawn('/usr/bin/true', [], { stdio: 'ignore' })
-
-    await new Promise(resolve => gone.once('exit', resolve))
-    const run = await launcher({ onLaunch: `echo ${gone.pid} > "$STARTED"; sleep 20`, noStartSeconds: 30, liveSeconds: 30 })
+    // Publish a real, live fake app, then reap it while the opener remains alive.
+    // This exercises the started-to-dead transition without carrying an already
+    // reaped PID through asynchronous launcher setup. Publish atomically, as store.ts does.
+    const run = await launcher({
+      onLaunch: 'sleep 1 & app=$!; echo "$app" > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; wait "$app"; sleep 20',
+      noStartSeconds: 30, liveSeconds: 30
+    })
 
     expect(run.calls).toEqual([`-n -W ${run.target}`, `-n ${run.backup}`])
     expect(run.elapsed).toBeLessThan(6000)
   })
 
   it('gives a started but windowless launch up after the long limit', async () => {
-    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED"; sleep 30', noStartSeconds: 1, liveSeconds: 2 })
+    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; sleep 30', noStartSeconds: 1, liveSeconds: 2 })
 
     expect(run.calls).toEqual([`-n -W ${run.target}`, `-n ${run.backup}`])
   })

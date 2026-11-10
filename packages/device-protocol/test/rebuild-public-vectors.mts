@@ -79,6 +79,14 @@ for (const [n,v] of data) {
 for (const v of data.get('signatures.vectors.json').vectors) {
   if (v.valid) v.frame.sig=signature(v.publicKey,deviceSignedBytes(v.frame.type,v.frame.body));
 }
+// Standalone frames are also consumed directly by desktop crypto contracts.
+for (const name of ['hello.frame.json', 'execute.frame.json']) {
+  const frame = data.get(name);
+  const pair = byKid.get(frame.kid);
+  if (!pair) throw new Error(`missing standalone signing key: ${name}`);
+  const pub = (pair.publicKey.export({type:'spki',format:'der'}) as Buffer).toString('base64url');
+  frame.sig = signature(pub,deviceSignedBytes(frame.type,frame.body));
+}
 for (const v of data.get('hashes.vectors.json').vectors) {
   if (v.kind==='lease_token') v.leaseTokenHash=leaseTokenHash(v.leaseToken);
 }

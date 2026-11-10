@@ -171,3 +171,51 @@ that historical commit before secret scanning. Encoding/BOM edits introduce no n
 identifier literals; their incremental identifier comparison needs no new exemption.
 
 Secret-scan findings are accepted only inside files whose exact bytes the coordinator reviewed and recorded in `reviewed_secret_blobs` of the base-branch policy (2026-11-10: 81 device-protocol fixture files; 106 findings = 61 one-way `leaseTokenHash` digests + 45 public P-256 SPKI keys; no private keys). Any finding elsewhere, or in changed bytes, fails.
+
+## Follow-up lane repairs (2026-11-10)
+
+Local commits on the existing parity branch only; no publication or hosted runs.
+
+- Client crypto: the public-vector rebuilder repaired the vector table but omitted
+  standalone Hello/Execute signatures. Copy their already valid, identical-body,
+  identical-key vector signatures into the standalone frames and rehash the pack.
+  The rebuilder now signs those standalone frames too. No keys are regenerated in
+  this checkpoint; cross-algorithm rejection assertions remain unchanged.
+- Client launcher: the failing case previously carried a reaped PID through async
+  launcher setup. The fixture now publishes a live fake app and reaps it while
+  its opener stays alive, exercising the actual started-to-dead transition. Fake
+  started markers use atomic rename, matching production store.ts. The rollback
+  call and less-than-six-second assertion remain. The original hosted timeout's
+  exact cause is not established locally; PID reuse/setup delay is a suspected
+  fixture risk. Matrix network logs belong to unrelated tests and explain neither
+  the waiter's assertion nor its timeout. Exact-head Linux confirmation is required.
+- Hermes slice 3: the sole failing file was
+  tests/scripts/desktop_update/test_desktop_update_posix_handoff_protocol.py.
+  Sanitized leading-zero cases compared different decimal timestamps; repaired
+  only the inconsistent inputs. The real shell implementation is unchanged.
+  Make the canonical 300-second per-file budget explicit in the sliced workflow;
+  main's former 120-second cap is too short for the real hatch pipeline benchmark.
+  All benchmark assertions and all eight slices remain enabled.
+- Python lint: the coordinator's scanner-report JSON read needed utf-8-sig, like
+  the guard's other BOM-tolerant reads. No suppression or policy edit.
+- Desktop E2E: the log still fails at pip with Python SSL unavailable, despite
+  successfully installing libssl3t64. Tests, Xvfb and Playwright never start.
+  Bootstrap pinned uv in a venv from Noble's own Python and let uv select managed
+  portable Python 3.14; avoid the host toolcache Python/OpenSSL ABI dependency.
+  Docker's daemon is unavailable locally, so the Linux GUI lane is not certified.
+  This is a bootstrap repair, with no evidence that hosted GUI coverage must be
+  moved private. All four lanes remain public.
+
+Local verification results are recorded below before handoff. The coordinator
+owns exact-head Linux proof and any new secret finding in changed fixture bytes;
+reviewed_secret_blobs is unchanged.
+
+Follow-up local evidence (Node 24, macOS arm64): device-protocol complete check
+passes (13 files, 764 tests); desktop crypto/launcher focused check passes (25
+tests), and the final launcher fixture passes all nine tests under both /bin/sh
+and /bin/dash. Desktop complete typecheck and lint exit zero (4,690 existing
+lint warnings). Pinned ruff and the full Windows-footguns check pass. Guard
+contracts: 21 tests plus 13 subtests pass. All ten timestamp environment cases
+pass against the real marker.sh; the complete Linux process suite skips on
+macOS. Workflow YAML parses. Full client, all Hermes slices, and Linux GUI were
+not run locally. No private fixture bytes or policy adjudications were changed.

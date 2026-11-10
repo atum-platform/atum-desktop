@@ -60,7 +60,7 @@ jobs:
         with:
           python-version: '3.14'
       - run: python -m pip install uv==0.13.5
-      - run: bash scripts/run_tests.sh --slice ${{ matrix.slice }}/8 -j 2
+      - run: bash scripts/run_tests.sh --slice ${{ matrix.slice }}/8 -j 2 --file-timeout 300
 
   # Branch protection requires the single context `hermes`; it passes only when every slice passed.
   hermes:
@@ -130,7 +130,7 @@ jobs:
       OPENAI_API_KEY: ''
       NOUS_API_KEY: ''
     steps:
-      - run: apt-get update && apt-get install -y --no-install-recommends build-essential libnotify4 libxss1 libxtst6 libssl3t64 python3 xdg-utils
+      - run: apt-get update && apt-get install -y --no-install-recommends build-essential libnotify4 libxss1 libxtst6 libssl3t64 python3 python3-venv xdg-utils
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -138,12 +138,15 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '24'
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
-        with:
-          python-version: '3.14'
-      - run: python -m pip install uv==0.13.5
+      # Host toolcache Python may link a newer OpenSSL than Noble provides.
+      # Bootstrap uv with Noble's interpreter, then use its portable managed Python.
+      - name: Bootstrap uv with container Python
+        run: |
+          python3 -m venv "$RUNNER_TEMP/uv-bootstrap"
+          "$RUNNER_TEMP/uv-bootstrap/bin/python" -m pip install uv==0.13.5
+          echo "$RUNNER_TEMP/uv-bootstrap/bin" >> "$GITHUB_PATH"
       - run: npm ci
-      - run: uv sync --locked --python 3.14 --group dev --group test --extra all
+      - run: uv sync --locked --managed-python --python 3.14 --group dev --group test --extra all
       - name: Client E2E (bootstrap screenshots, no uploads)
         working-directory: apps/desktop
         run: npm run build:e2e && xvfb-run -a --server-args="-screen 0 1280x1024x24" npx playwright test --workers=1 --reporter=list --update-snapshots

@@ -53,8 +53,8 @@ RULE_CASES = [
 # (PowerShell used to Trim() and Int64.TryParse the env value: spaces and a sign matched.)
 ENV_CASES = [
     {"id": "equal", "env": "9809201559", "line2": "9809201559", "expect": True},
-    {"id": "leading_zeros_env", "env": "01791079348", "line2": "9809201559", "expect": True},
-    {"id": "leading_zeros_line2", "env": "9809201559", "line2": "0001791079348", "expect": True},
+    {"id": "leading_zeros_env", "env": "09809201559", "line2": "9809201559", "expect": True},
+    {"id": "leading_zeros_line2", "env": "9809201559", "line2": "0009809201559", "expect": True},
     {"id": "zero", "env": "00", "line2": "0", "expect": True},
     {"id": "different", "env": "1791079349", "line2": "9809201559", "expect": False},
     {"id": "padded_env", "env": " 9809201559", "line2": "9809201559", "expect": False},
