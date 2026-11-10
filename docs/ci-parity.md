@@ -169,3 +169,5 @@ Preflight correction: preserve the original exact reviewed checker/test blob pin
 The range includes their installation commit, so replacing those pins would reject
 that historical commit before secret scanning. Encoding/BOM edits introduce no new
 identifier literals; their incremental identifier comparison needs no new exemption.
+
+Secret-scan findings are accepted only inside files whose exact bytes the coordinator reviewed and recorded in `reviewed_secret_blobs` of the base-branch policy (2026-11-10: 81 device-protocol fixture files; 106 findings = 61 one-way `leaseTokenHash` digests + 45 public P-256 SPKI keys; no private keys). Any finding elsewhere, or in changed bytes, fails.

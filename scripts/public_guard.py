@@ -106,7 +106,24 @@ def main():
         env = {k: v for k, v in os.environ.items() if not k.startswith('GITLEAKS_')}
         common = ['--config', str(config), '--gitleaks-ignore-path', str(ignore),
                   '--ignore-gitleaks-allow', '--redact=100', '--no-banner']
-        subprocess.run(['gitleaks', 'git', '.', '--log-opts=' + base + '..' + head + ' --full-history', *common], check=True, env=env)
+        report = Path(tmp) / 'findings.json'
+        subprocess.run(['gitleaks', 'git', '.', '--log-opts=' + base + '..' + head + ' --full-history', *common,
+                        '--report-format', 'json', '--report-path', str(report), '--exit-code', '0'], check=True, env=env)
+        # A finding is accepted only when the exact file bytes it sits in were reviewed and recorded
+        # in the base branch's policy (public keys, digests in test vectors); anything else fails.
+        reviewed_secret = policy.get('reviewed_secret_blobs', {})
+        unreviewed = []
+        for f in json.loads(report.read_text(encoding='utf-8') or '[]'):
+            blob = git('show', f['Commit'] + ':' + f['File'])
+            if f['File'] == 'scripts/public-boundary.json':
+                # The policy records reviewed digests; only `"path": "<sha256>"` lines may match.
+                line = blob.decode('utf-8', 'replace').splitlines()[f['StartLine'] - 1]
+                if re.fullmatch(r'\s*"[^"]+": "[0-9a-f]{64}",?\s*', line):
+                    continue
+            if reviewed_secret.get(f['File']) != hashlib.sha256(blob).hexdigest():
+                unreviewed.append(f['File'] + ':' + str(f['StartLine']) + ' ' + f['RuleID'])
+        if unreviewed:
+            raise ValueError('unreviewed secret-scan findings (values redacted): ' + ', '.join(sorted(set(unreviewed))[:20]))
         for commit in commits:
             metadata = git('show', '-s', '--format=%an%n%ae%n%cn%n%ce%n%B', commit)
             # Author emails are intentionally subject to coordinator identity review;
