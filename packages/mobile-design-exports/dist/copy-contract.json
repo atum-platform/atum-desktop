@@ -3024,6 +3024,7 @@
     "shared.matrix-command-center-ops-copy.matrixMaintenanceCopy.timeout": [],
     "shared.matrix-command-center-ops-copy.matrixMaintenanceCopy.title": [],
     "shared.matrix-command-center-ops-copy.matrixMaintenanceCopy.truncated": [],
+    "shared.matrix-company-board-copy.copy.chiefOfStaff": [],
     "shared.matrix-company-copy.copy.accept": [],
     "shared.matrix-company-copy.copy.addSource": [],
     "shared.matrix-company-copy.copy.admin": [],
@@ -3264,6 +3265,14 @@
     "shared.matrix-company-funding-copy.copy.taskLimit": [],
     "shared.matrix-company-funding-copy.copy.title": [],
     "shared.matrix-company-funding-copy.copy.unavailable": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosCopy.paused": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosCopy.preparing": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosCopy.ready": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosCopy.unavailable": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosRowCopy.notAvailable": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosRowCopy.open": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosRowCopy.retry": [],
+    "shared.matrix-company-private-cos-copy.matrixCompanyPrivateCosRowCopy.settingUp": [],
     "shared.matrix-computer-use-grant-copy.words.cancel": [],
     "shared.matrix-computer-use-grant-copy.words.detail": [],
     "shared.matrix-computer-use-grant-copy.words.local": [],
@@ -3475,6 +3484,20 @@
     "shared.matrix-starmap-copy.matrixStarmapCopy.title": [],
     "shared.matrix-status-line-copy.matrixStatusLineCopy.waited": [],
     "shared.matrix-status-line-copy.matrixStatusLineCopy.waiting": [],
+    "shared.matrix-team-space-copy.copy.directMessages": [],
+    "shared.matrix-team-space-copy.copy.newMessage": [],
+    "shared.matrix-team-space-copy.copy.newMessageHint": [],
+    "shared.matrix-team-space-copy.copy.newMessageLimit": [],
+    "shared.matrix-team-space-copy.copy.newMessageNobody": [],
+    "shared.matrix-team-space-copy.copy.newMessageStart": [],
+    "shared.matrix-team-space-copy.copy.openConversation": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-team-space-copy.copy.personalNotes": [],
+    "shared.matrix-team-space-copy.copy.you": [],
     "shared.matrix-tool-settings-copy.matrixToolSettingsCopy.allow": [],
     "shared.matrix-tool-settings-copy.matrixToolSettingsCopy.apply": [],
     "shared.matrix-tool-settings-copy.matrixToolSettingsCopy.backend": [],
@@ -3596,6 +3619,7 @@
     "src.matrix.agent-home-copy.words.cloud": [],
     "src.matrix.agent-home-copy.words.cloudPlace": [],
     "src.matrix.agent-home-copy.words.livesOn": [],
+    "src.matrix.agent-home-copy.words.livesWhere": [],
     "src.matrix.agent-home-copy.words.losses.changes_since_last_checkpoint_lost": [],
     "src.matrix.agent-home-copy.words.losses.cloud_browser_session": [],
     "src.matrix.agent-home-copy.words.losses.cloud_computer": [],
@@ -3611,6 +3635,8 @@
     "src.matrix.agent-home-copy.words.losses.routine_execution": [],
     "src.matrix.agent-home-copy.words.model": [],
     "src.matrix.agent-home-copy.words.move": [],
+    "src.matrix.agent-home-copy.words.moveSection": [],
+    "src.matrix.agent-home-copy.words.moveToCloud": [],
     "src.matrix.agent-home-copy.words.moving": [],
     "src.matrix.agent-home-copy.words.noLosses": [],
     "src.matrix.agent-home-copy.words.noModels": [
@@ -4191,6 +4217,10 @@
     ],
     "src.matrix.chat-copy.copies.report": [],
     "src.matrix.chat-copy.copies.reportBody": [],
+    "src.matrix.chat-copy.copies.reportPerson": [],
+    "src.matrix.chat-copy.copies.reportPersonBody": [],
+    "src.matrix.chat-copy.copies.reportPersonTitle": [],
+    "src.matrix.chat-copy.copies.reportReason": [],
     "src.matrix.chat-copy.copies.reportSent": [],
     "src.matrix.chat-copy.copies.reportTitle": [],
     "src.matrix.chat-copy.copies.restoreMessages": [],
@@ -4861,6 +4891,9 @@
     "src.matrix.legal-copy.copy.deleteAccount": [],
     "src.matrix.legal-copy.copy.deleteAccountAction": [],
     "src.matrix.legal-copy.copy.deleteAccountBody": [],
+    "src.matrix.legal-copy.copy.deleteAccountConfirm": [],
+    "src.matrix.legal-copy.copy.deleteAccountDialogBody": [],
+    "src.matrix.legal-copy.copy.deleteAccountDialogTitle": [],
     "src.matrix.legal-copy.copy.deleteAccountFailed": [],
     "src.matrix.legal-copy.copy.deleteAccountHelp": [],
     "src.matrix.legal-copy.copy.deleteAccountSubject": [],
@@ -5301,6 +5334,42 @@
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswers": [],
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersCloud": [],
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersMac": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.greeting.afternoon": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.greeting.evening": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.greeting.morning": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.greeting.prompt": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.apps": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.assistants": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.balanceLabel": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.discover": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.featured": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.free": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.get": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.getWithPrice": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.monthly": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.monthlyFirst": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.monthlyFreeFirst": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.monthlyThen": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.pets": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.protons": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.purchased": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.skills": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.store.title": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows0Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows1Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows2Label": [],
