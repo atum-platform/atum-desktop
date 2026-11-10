@@ -44,7 +44,7 @@ jobs:
 # Artifact allowlist is empty: no logs, captures, packages or release artifacts uploaded.
 # No shared caches or release/signing authority in public CI.
 
-  hermes:
+  hermes-slice:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     strategy:
@@ -61,6 +61,15 @@ jobs:
           python-version: '3.14'
       - run: python -m pip install uv==0.13.5
       - run: bash scripts/run_tests.sh --slice ${{ matrix.slice }}/8 -j 2
+
+  # Branch protection requires the single context `hermes`; it passes only when every slice passed.
+  hermes:
+    if: always()
+    needs: [hermes-slice]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: test "${{ needs.hermes-slice.result }}" = success
 
   python-e2e:
     runs-on: ubuntu-latest
