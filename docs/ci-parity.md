@@ -236,3 +236,44 @@ existing exact-byte policy. No new unreviewed fixture finding and no policy
 change. Temporary npm dependencies and task-generated test files are removed
 before handoff. Publication and exact-head hosted validation remain coordinator
 work; this checkpoint makes no claim that release 0.20.46 is live.
+
+## Dependency API repair checkpoint (2026-11-10)
+
+Built locally, not published. Restore the desktop compilation and Electron bundle
+paths after the dependency security refresh; hosted validation remains pending.
+
+- The client compiler and desktop E2E bundle both rejected the default import of
+  simple-git 4.0.2. Use its exported `simpleGit` function directly. Keep 4.0.2:
+  older 3.36.0 is affected by GHSA-858h-whjf-mvg5, GHSA-g4wm-2vf7-vfgr and
+  GHSA-x6jw-m9v5-85vh. No new wrapper or unsafe-operation opt-in was added.
+- electron-updater 6.8.11 changed both `doDownloadUpdate` and `executeDownload`
+  from `Promise<Array<string>>` to `Promise<DownloadExecutorResult>`, whose
+  required field is `updateFile`. Restore the prior exact 6.6.2 pin instead of
+  changing staged-swap download/fallback behavior. The published 6.6.2
+  `out/AppUpdater.d.ts` declares both methods as `Promise<Array<string>>`:
+  <https://unpkg.com/electron-updater@6.6.2/out/AppUpdater.d.ts>.
+  OSV reports no advisory against electron-updater 6.6.2 itself. Its old nested
+  builder-util-runtime 9.3.1 is affected by GHSA-p2f4-r6v6-j797 (cross-origin
+  redirect credential leakage), so a scoped override retains 9.7.0. The lock
+  contains no older runtime copy. Advisory:
+  <https://osv.dev/vulnerability/GHSA-p2f4-r6v6-j797>.
+- Source import inspection found no other simple-git default imports or direct
+  minimatch imports. Zod imports use named exports; KaTeX 0.18.2 still publishes
+  its default export. The original client run passed renderer compilation, and
+  all workspace checks passed. No speculative source changes were made there.
+- Regenerated only the lock, with `npm install --package-lock-only --ignore-scripts`
+  using Node 24 after the default Node 23 failed the repository engine constraint.
+  No node_modules directory or shared dependency symlink exists in this checkout.
+  npm reports zero vulnerabilities. OSV package queries return no advisories for
+  electron-updater 6.6.2, builder-util-runtime 9.7.0 or simple-git 4.0.2. Comparing
+  unique resolved package/version pairs shows only the updater version changed;
+  npm also deduplicated unchanged fs-extra/jsonfile/universalify lock entries.
+- `git diff --check` passes. The client boundary command cannot start locally:
+  `ERR_MODULE_NOT_FOUND` for TypeScript. No full install or suites were run.
+  Free CI must verify compilation and Electron E2E on the assembled head.
+- Inspection of all checks on the prior head found only client and desktop-e2e
+  failures. At the latest inspection, Python upgrade E2E (git) and Hermes slices
+  3, 6 and 8 were still running; all other checks passed, including OSV.
+- Trusted `origin/main` detached-checkout guard passes against the repair range:
+  raw paths/modes, ancestry, identifiers, pinned gitleaks secrets and commit
+  metadata; no leaks found. The scratch checkout is removed after verification.

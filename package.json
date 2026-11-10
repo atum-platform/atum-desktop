@@ -59,6 +59,9 @@
     "typescript-eslint": "8.62.0"
   },
   "overrides": {
+    "electron-updater": {
+      "builder-util-runtime": "9.7.0"
+    },
     "@electron/osx-sign": {
       "isbinaryfile": "5.0.7"
     },
