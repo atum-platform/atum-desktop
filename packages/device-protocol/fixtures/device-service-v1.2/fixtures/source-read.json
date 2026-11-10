@@ -1,0 +1,31 @@
+{
+  "v": 1,
+  "type": "Execute",
+  "body": {
+    "commandId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "seq": 5,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+    "connectionEpoch": 12,
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "tool": "mac_source",
+    "toolVersion": 1,
+    "args": {
+      "mode": "read",
+      "request": {
+        "source": "messages"
+      }
+    },
+    "argsHash": "bpbe1dxA1vmLmyNdvojCgOD5PE9XczMvgSmVuZcLRe8",
+    "inputManifestHash": null,
+    "needs": [],
+    "proposedEffect": "ordinary",
+    "admitBy": 1791100816000,
+    "timeoutMs": 120000,
+    "issuedAt": 1791100801000
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "e3m_HXtFkgVbCHUNaONkT1z4_-deJf51u50cV2QtdVY7iFNgCv8eb2XGUUY5uTH6DRSlHantg_9HI4qOHJzPCw"
+}

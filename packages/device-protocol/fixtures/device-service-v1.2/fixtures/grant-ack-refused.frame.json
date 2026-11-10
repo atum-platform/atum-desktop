@@ -1,0 +1,12 @@
+{
+  "v": 1,
+  "type": "GrantAck",
+  "body": {
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "accepted": false,
+    "refusal": "origin_not_mine",
+    "effectiveScopes": []
+  },
+  "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+  "sig": "YIr1BTzsU4QufiAHIa0_9qlgQW3gnPVrcPJ1RZWA-lb7ZaGp0gN200mrYMyqRnv37NdDGIpxs8_-FzE7eNzV5Q"
+}

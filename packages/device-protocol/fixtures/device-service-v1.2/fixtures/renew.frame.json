@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "type": "Renew",
+  "body": {
+    "grantId": "e8d3f6a5-0b94-4c3d-8f6e-5a7b9c1d3e4f",
+    "until": 1791100815000
+  },
+  "kid": "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg",
+  "sig": "4uPH52LtB55LDiDaDTXuNqL2nwXPXWzF96Ka7q3iqJF4ibDuIHEYSdmgmmZLcZK5RsFllyeuUt-Nvzkhv0lyDQ"
+}

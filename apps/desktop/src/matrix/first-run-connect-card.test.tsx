@@ -97,6 +97,7 @@ function fixture(options: {
   gates?: Partial<MatrixAgentSourcesView['gates']>
 } = {}) {
   let view: MatrixAgentSourcesView = {
+    macs: [],
     gates: { ...allOff, ...options.gates },
     sources: [
       source('google.mail', 'google'),
@@ -225,7 +226,9 @@ describe('registry-fed first-run consent', () => {
     await waitFor(() => expect(f.decline).toHaveBeenCalledOnce())
     expect(f.set).not.toHaveBeenCalled()
     expect(f.start).not.toHaveBeenCalled()
-    expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Let me get to know your world' })).toBeNull()
+    })
   })
 
   it('keeps unavailable descriptor rows honest and not grantable', async () => {
@@ -392,5 +395,35 @@ describe('first-run folder checklist', () => {
     expect(screen.queryByText('Files in folders available to Atum.')).toBeNull()
     expect(screen.queryByText(/Full Disk Access/u)).toBeNull()
     expect(screen.getAllByRole('button', { name: 'More info' }).length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('the first-run card is the cloud-only disclosure for a new account (U1 §3)', () => {
+  it('says the assistant works from the cloud, and counts as presented after a second in a focused window', async () => {
+    const focus = vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+    const f = fixture()
+    const presented = vi.fn(async () => {})
+    Object.assign(f.bridge.agentSources!, { presented })
+    show(f)
+
+    expect(await screen.findByText('I work from the cloud and read these from your Mac. Uncheck any to keep them private.')).toBeTruthy()
+    expect(presented).not.toHaveBeenCalled()
+    await waitFor(() => expect(presented).toHaveBeenCalledOnce(), { timeout: 2_500 })
+    // Shown is not accepted: no gate is written by being seen.
+    expect(f.set).not.toHaveBeenCalled()
+    focus.mockRestore()
+  })
+
+  it('is not presented while the window is unfocused', async () => {
+    const focus = vi.spyOn(window.document, 'hasFocus').mockReturnValue(false)
+    const f = fixture()
+    const presented = vi.fn(async () => {})
+    Object.assign(f.bridge.agentSources!, { presented })
+    show(f)
+
+    await screen.findByRole('heading', { name: 'Let me get to know your world' })
+    await new Promise(resolve => setTimeout(resolve, 1_300))
+    expect(presented).not.toHaveBeenCalled()
+    focus.mockRestore()
   })
 })

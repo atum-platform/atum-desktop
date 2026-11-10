@@ -42,6 +42,7 @@ import pytest
 
 from tests.e2e.core.chaos._gateway_harness import SHUTDOWN_DEADLINE_S, Event, GatewayProc
 from tests.e2e.core.chaos._helpers import (
+    chaos_base_env,
     INTERRUPT_DEADLINE_S,
     LONG_TIMEOUT_S,
     MAX_PROVIDER_CALLS_PER_FAILED_TURN,
@@ -334,7 +335,7 @@ def _follow_up_through_breaker(gw: GatewayProc, srv: FakeLLMServer, scn: Scenari
     return 3, False
 
 
-def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path) -> dict[str, Any]:
+def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path, base_env: dict[str, str]) -> dict[str, Any]:
     nonce = uuid.uuid4().hex[:10]
     marker = f"[[chaos:{scn.fault}:{nonce}]]"
     cfg: dict[str, Any] = {"model": scn.model}
@@ -342,7 +343,7 @@ def run_scenario(scn: Scenario, srv: FakeLLMServer, root: Path) -> dict[str, Any
         cfg.update(request_timeout=LONG_TIMEOUT_S, stale_timeout=LONG_TIMEOUT_S)
     extra = f"display:\n  busy_input_mode: {scn.busy_mode}\n" if scn.busy_mode else ""
     tag = new_tag()
-    gw = GatewayProc(root, srv.base_url, tag, cfg=cfg, extra_config=extra)
+    gw = GatewayProc(root, srv.base_url, tag, cfg=cfg, extra_config=extra, base_env=base_env)
     stats: dict[str, Any] = {"scenario": scn.id}
     try:
         t_boot = time.monotonic()
@@ -483,10 +484,11 @@ def scenario_futures(request: pytest.FixtureRequest, tmp_path_factory: pytest.Te
         item.callspec.params["scn"].id for item in request.session.items
         if getattr(item, "callspec", None) is not None and "scn" in item.callspec.params
     }
+    base_env = chaos_base_env()
     with FakeLLMServer(responder) as srv, ThreadPoolExecutor(
             max_workers=SCENARIO_WORKERS, thread_name_prefix="chaos-gw") as pool:
         futures: dict[str, Future] = {
-            scn.id: pool.submit(run_scenario, scn, srv, tmp_path_factory.mktemp(scn.id))
+            scn.id: pool.submit(run_scenario, scn, srv, tmp_path_factory.mktemp(scn.id), base_env)
             for scn in SCENARIOS if scn.id in selected
         }
         yield futures

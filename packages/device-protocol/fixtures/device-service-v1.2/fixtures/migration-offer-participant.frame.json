@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "type": "MigrationOffer",
+  "body": {
+    "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+    "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+    "agentUserId": "@agent-5e6f7a8b9c0d1e2f3a4b:atumplatform.com",
+    "deviceServiceId": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+    "enrollmentEpoch": 2,
+    "accountEpoch": 7,
+    "connectionId": "f1e2d3c4-b5a6-4978-8a6b-5c4d3e2f1a0b",
+    "role": "participant",
+    "archive": {
+      "v": 1,
+      "sha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+      "bytes": 4194482,
+      "files": 37
+    },
+    "createdAt": 1791100950000
+  },
+  "kid": "-2ZF-9xNLGL0VzAKcVbtRISCi2pzV65u-Ul6qt4NJ_o",
+  "sig": "8bp438jyGnoM9RVOYTEPnPP10Ngax7cDg2Ft3zXazB8-8VjJZvJx1njt3slVX8BHRC9arZnz7J0dRldHbkbdPA"
+}

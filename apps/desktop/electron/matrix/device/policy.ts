@@ -28,6 +28,8 @@ export function toolScope(tool: DeviceTool): DeviceCapability {
     case 'terminal':
       return 'terminal'
 
+    case 'mac_source':
+
     case 'read_file':
 
     case 'write_file':

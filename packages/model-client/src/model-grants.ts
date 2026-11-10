@@ -15,6 +15,8 @@ import { newOpaqueToken, OPAQUE_TOKEN, tokenDigest, tokenHandle } from './opaque
  */
 
 export interface ModelGrant {
+  /** Controller-only authority to exchange a failed subscription for managed funding. */
+  readonly subscriptionFallback?: { readonly executorId: string; readonly leaseToken: string }
   /** Non-secret handle for logs and measurements. */
   readonly handle: string
   readonly taskId: string
@@ -86,6 +88,7 @@ export interface RunTokenBudget {
   persist(used: { inputTokens: number; outputTokens: number }): void
 }
 export interface GrantInput {
+  subscriptionFallback?: ModelGrant['subscriptionFallback']
   runBudget?: RunTokenBudget
   taskId: string
   aliases: string[]
@@ -189,6 +192,7 @@ export class ModelGrantRegistry {
     if (source !== 'atum' && (input.protection !== undefined || protectedAlias)) {
       throw new Error('model_grant_invalid:protection')
     }
+    if (input.subscriptionFallback && (source === 'atum' || ![input.subscriptionFallback.executorId, input.subscriptionFallback.leaseToken].every(v => /^[0-9a-f-]{36}$/.test(v)))) throw new Error('model_grant_invalid:fallback')
     const relay = input.relay
     const relayRequired = source === 'chatgpt_plan'
     if (relayRequired !== Boolean(relay) || relay && (
@@ -227,6 +231,7 @@ export class ModelGrantRegistry {
       ...(input.contextLength === undefined ? {} : { contextLength: positive(input.contextLength, 1, 'context_length') }),
       ...(input.effort === undefined ? {} : { effort: input.effort }),
       ...(input.protection === undefined ? {} : { protection: Object.freeze({ ...input.protection }) }),
+      ...(input.subscriptionFallback ? { subscriptionFallback: Object.freeze({ ...input.subscriptionFallback }) } : {}),
       ...(relay === undefined ? {} : { relay: Object.freeze({ ...relay }) }),
       ...(company ? { funding: COMPANY_WALLET_FUNDING, profile: input.profile! } : {}),
       maxRequests: positive(input.maxRequests, DEFAULT_MAX_REQUESTS, 'max_requests'),

@@ -1,0 +1,42 @@
+{
+  "name": "approval-identity-key",
+  "device": {
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "accountEpoch": 7,
+    "approvalKey": {
+      "kid": "T9UfgAYiILq7nfB8dC1810vqnCVv2rzsr5U5G40TeiQ",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzQA1jzcQW-YCPTcj-Z8_Jl0nUInMgICzWUqAudHJQ70kwSRyJu8CrB760jBeO10g_h2M4NNBV3kr-Km2RkhBtQ"
+    },
+    "usedNonces": [],
+    "now": 1791100804000
+  },
+  "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+  "capability": "ssh_agent",
+  "approve": {
+    "v": 1,
+    "type": "Approve",
+    "body": {
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "accountEpoch": 7,
+      "commandHash": "rOP5etk_cItt6bI238oip0LZd_yfdUAarZoYRuABPBg",
+      "capability": "ssh_agent",
+      "target": "ssh -T git@github.com",
+      "destination": "github.com:22",
+      "createdAt": 1791100803000,
+      "expiresAt": 1791100863000,
+      "nonce": "5Uk03m7CbblsdDLo5nU4Mg"
+    },
+    "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+    "sig": "YW0557DF83CcZszodtxURAmVB3Qs7Cr4MhL6tfSLG9IgKF9acoFFIEeFjBeTvUfvgOZd4mjGp9PzWwFbrOo-IQ"
+  },
+  "facts": {
+    "signatureValid": false,
+    "approvalHash": "WZOjxDJQF1NTRJJtFpv9q3eMhc-LtH8579Cz_ZKREDI",
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "invalid",
+    "reason": "wrong_key"
+  }
+}

@@ -44,7 +44,7 @@ import { DeviceHostSupervisor, HostDeviceExecutor } from './host'
 import { DeviceIndicator, indicatorWords, type TrayLike } from './indicator'
 import { DeviceLedger } from './ledger'
 import { appBundleOf } from './protected-paths'
-import { type DeviceIdentityFacts, type DeviceOutboundType, DeviceService, type OriginLogEntry } from './service'
+import { type DeviceIdentityFacts, type DeviceOutboundType, DeviceService, type DeviceServiceDeps, type OriginLogEntry } from './service'
 import type { StopReason } from './stop'
 import { runDeviceSudo, SudoPasswordWindow } from './sudo'
 import { type ConflictCopyRelay, pruneWorkspaceCopies, workspaceCopyDigest } from './workspace'
@@ -94,6 +94,7 @@ export interface DeviceRuntimeEnvironment {
   /** The enrolled approval key, for self-checking signatures and verifying standing grants. */
   approvalKey(): ApprovalKeyRef | null
   deviceServiceId(): string | null
+  macSource?: DeviceServiceDeps['macSource']
   chatGptRelay?: {
     authority(): { ownerPrincipal: string; agentPrincipals: readonly string[]; deviceServiceId: string } | null
     call(input: { model: string; effort: 'low' | 'medium' | 'high'; request: Record<string, unknown> },
@@ -340,6 +341,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   const service: DeviceService = new DeviceService({
     connected: scanConflicts,
     relay,
+    macSource: env.macSource,
     ledger,
     executor,
     drive: () => {

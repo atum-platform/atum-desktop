@@ -1,0 +1,25 @@
+{
+  "deviceServices": [
+    {
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "displayName": "MacBook Pro",
+      "identityKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg",
+      "identityKeyId": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+      "approvalKeyId": "T9UfgAYiILq7nfB8dC1810vqnCVv2rzsr5U5G40TeiQ",
+      "matrixDeviceId": "MACBOOKQ7ZK",
+      "matrixFingerprint": "aI0n6ZGXFokRaoRUNI2blPYRIkCBcXfENFad4dxrhho",
+      "enrollmentEpoch": 3,
+      "scopes": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ],
+      "pinnedControllerKeys": [
+        "plJGzaJ5hHeUynWfTlm_C9mDvu1-KPgOm21oBLYWsxg"
+      ],
+      "state": "active",
+      "revokeSeq": 4
+    }
+  ]
+}

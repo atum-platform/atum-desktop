@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "not_started",
+      "to": "started",
+      "event": "admitted_before_spawn"
+    },
+    {
+      "from": "started",
+      "to": "completed",
+      "event": "exited"
+    },
+    {
+      "from": "completed",
+      "to": "started",
+      "event": "admitted_before_spawn"
+    }
+  ]
+}

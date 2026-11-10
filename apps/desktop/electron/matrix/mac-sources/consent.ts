@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from 'node:crypto'
+
 import type { MacKnowledgeSource, MacSourceConsentSnapshot } from './contract'
 
 const ACCOUNT_KEY = /^[0-9a-f]{64}$/u
@@ -12,6 +14,15 @@ export interface MacSourcesConsentStorage {
 export interface MacSourcesConsentScope {
   accountKey: string
   generation: number
+}
+
+/** A domain-less install can keep local choices; signed-out configured accounts fail closed. */
+export function macSourceConsentScope(
+  account: MacSourcesConsentScope | null, domainConfigured: boolean, installationId: string
+): MacSourcesConsentScope | null {
+  return account ?? (domainConfigured ? null : {
+    accountKey: createHash('sha256').update(`mac-sources-local:${installationId}`).digest('hex'), generation: 0
+  })
 }
 
 const on = (): MacSourceConsentSnapshot => ({
@@ -105,6 +116,105 @@ export class MacSourcesConsentStore {
     private readonly storage: MacSourcesConsentStorage,
     private readonly scope: () => MacSourcesConsentScope | null
   ) {}
+
+  installationId(): string {
+    const key = 'matrix-mac-sources-installation'
+    const saved = this.storage.getItem(key)
+
+    if (saved) {return saved}
+    const id = randomUUID()
+    this.storage.setItem(key, id)
+
+    return id
+  }
+
+  pendingNarrow(): MacKnowledgeSource[] { return this.sourceList('pending-narrow') }
+  queueNarrow(source: MacKnowledgeSource): void {
+    this.saveSourceList('pending-narrow', [...new Set([...this.pendingNarrow(), source])])
+  }
+  clearPendingNarrow(sources: MacKnowledgeSource[]): void {
+    this.saveSourceList('pending-narrow', this.pendingNarrow().filter(source => !sources.includes(source)))
+  }
+  overriddenOptOuts(): MacKnowledgeSource[] { return this.sourceList('overridden-opt-outs') }
+  recordOverriddenOptOuts(sources: MacKnowledgeSource[], macId: string): void {
+    const previous = this.overriddenOptOuts()
+
+    if (sources.some(source => !previous.includes(source))) {
+      // Invalidate presentation BEFORE saving notice evidence: a crash between writes
+      // must never preserve an old shown marker for a newly widened source.
+      this.writeScoped(`presented.${macId}`, '0')
+      this.saveSourceList('overridden-opt-outs', [...new Set([...previous, ...sources])])
+    }
+  }
+  presentedAt(macId: string): number | null {
+    const value = Number(this.readScoped(`presented.${macId}`))
+
+    return Number.isSafeInteger(value) && value > 0 ? value : null
+  }
+  presented(macId: string, at = Date.now()): void {
+    if (!Number.isSafeInteger(at) || at <= 0) {throw new Error('matrix_mac_sources_invalid_presentation')}
+
+    if (!this.presentedAt(macId)) {this.writeScoped(`presented.${macId}`, String(at))}
+  }
+  private sourceList(suffix: string): MacKnowledgeSource[] {
+    const value = this.readScoped(suffix)
+
+    if (!value) {return []}
+    const list: unknown = JSON.parse(value)
+
+    if (!Array.isArray(list) || !list.every(source => Object.hasOwn(off(), source))) {
+      throw new Error('matrix_mac_sources_consent_unavailable')
+    }
+
+    return [...new Set(list)] as MacKnowledgeSource[]
+  }
+  private saveSourceList(suffix: string, sources: MacKnowledgeSource[]): void {
+    this.writeScoped(suffix, JSON.stringify(sources))
+  }
+  private readScoped(suffix: string): string | null {
+    const scope = this.validScope()
+
+    return scope ? this.storage.getItem(`${this.key(scope.accountKey)}.${suffix}`) : null
+  }
+  private writeScoped(suffix: string, value: string): void {
+    const scope = this.validScope()
+
+    if (!scope) {throw new Error('matrix_mac_sources_consent_unavailable')}
+    this.storage.setItem(`${this.key(scope.accountKey)}.${suffix}`, value)
+  }
+
+  accountGatesImport(): { mergeId: string; consent: MacSourceConsentSnapshot } {
+    const scope = this.validScope()
+
+    if (!scope) {throw new Error('matrix_mac_sources_consent_unavailable')}
+    const key = `${this.key(scope.accountKey)}.account-gates-import`
+    const saved = this.storage.getItem(key)
+
+    if (saved) {
+      const row = JSON.parse(saved) as { mergeId: string; consent: MacSourceConsentSnapshot }
+
+      if (/^[0-9a-f-]{36}$/u.test(row.mergeId) && parse(JSON.stringify({ version: STORE_VERSION, ...row.consent }))) {return row}
+      throw new Error('matrix_mac_sources_consent_unavailable')
+    }
+
+    const value = { mergeId: randomUUID(), consent: this.read() }
+    this.storage.setItem(key, JSON.stringify(value))
+
+    return value
+  }
+
+  accountGatesMerged(): boolean {
+    const scope = this.validScope()
+
+    return Boolean(scope && this.storage.getItem(`${this.key(scope.accountKey)}.account-gates-imported`) === '1')
+  }
+
+  markAccountGatesMerged(): void {
+    const scope = this.validScope()
+
+    if (!scope) {throw new Error('matrix_mac_sources_consent_unavailable')}
+    this.storage.setItem(`${this.key(scope.accountKey)}.account-gates-imported`, '1')
+  }
 
   read(): MacSourceConsentSnapshot {
     const scope = this.validScope()

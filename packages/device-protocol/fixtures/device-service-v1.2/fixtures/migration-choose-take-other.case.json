@@ -1,0 +1,112 @@
+{
+  "name": "migration-choose-take-other",
+  "connection": {
+    "ownerUserId": "@owner-3f9a1c7e5b2d:atumplatform.com",
+    "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "identityKey": {
+      "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+      "publicKey": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn7MS_Ta1NcBesRiLAERvMa8mF_C4HIXDTWMQNKoAG53QotMH0l6fM9PMoM3sLL9Fss8ZWenswDiW5Fod98NpNg"
+    },
+    "enrollmentEpoch": 3,
+    "accountEpoch": 7,
+    "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e"
+  },
+  "migration": {
+    "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+    "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+    "initiator": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+    "state": "reported",
+    "reportSha256": "dcec4741f7e055281c1f57594a985ce0385dfe96979e49f1d4f5e379191aa0d0",
+    "report": {
+      "base": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "other": "c6b1d4e3-8f72-4a1b-8d4c-3e5f7a9b1c2d",
+      "sessions": {
+        "merged": true,
+        "added": 14,
+        "skipped": 2
+      },
+      "memories": [
+        {
+          "path": "memories/MEMORY.md",
+          "addedFromOther": 3
+        },
+        {
+          "path": "memories/USER.md",
+          "addedFromOther": 1
+        }
+      ],
+      "skills": {
+        "bothKept": [
+          {
+            "name": "notes",
+            "otherName": "notes.mini"
+          }
+        ],
+        "onlyBase": [
+          "morning-brief"
+        ],
+        "onlyOther": [
+          "receipts"
+        ]
+      },
+      "oneSided": [
+        {
+          "path": "memories/projects/atum.md",
+          "side": "other",
+          "default": "keep"
+        },
+        {
+          "path": "kanban.db",
+          "side": "base",
+          "default": "keep"
+        }
+      ],
+      "replaced": [
+        {
+          "path": "SOUL.md",
+          "kept": "base"
+        },
+        {
+          "path": "projects.db",
+          "kept": "base"
+        }
+      ],
+      "omitted": 0
+    },
+    "reportExpiresAt": 1791104700000
+  },
+  "choose": {
+    "v": 1,
+    "type": "MigrationChoose",
+    "body": {
+      "migrationId": "0e1f2a3b-4c5d-4e6f-8a7b-9c0d1e2f3a4b",
+      "agentPrincipal": "7c1e2d3f-4a5b-4c6d-8e7f-9a0b1c2d3e42",
+      "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+      "enrollmentEpoch": 3,
+      "accountEpoch": 7,
+      "connectionId": "d7c2e5f4-9a83-4b2c-9e5d-4f6a8b0c2d3e",
+      "reportSha256": "dcec4741f7e055281c1f57594a985ce0385dfe96979e49f1d4f5e379191aa0d0",
+      "drop": [
+        "skills/receipts"
+      ],
+      "takeOther": [
+        "SOUL.md"
+      ],
+      "decidedAt": 1791101160000
+    },
+    "kid": "rffnGV1sIeV_YF241ah2Rtdt62T-8NUOYu99JYRAF1Y",
+    "sig": "H5Z3Paj75AHpn4FfX5w_26mTG6O0MSW4I7ljYLNAEB430_9ZVUrrhSD-qzbcjpKUxT10374Bg3wnGHiSqrS5qg"
+  },
+  "receivedAt": 1791101161000,
+  "facts": {
+    "signatureValid": true,
+    "dropAllowed": true,
+    "takeOtherAllowed": true,
+    "reportedValue": "reported",
+    "trueValue": true,
+    "falseValue": false
+  },
+  "expect": {
+    "outcome": "accepted"
+  }
+}

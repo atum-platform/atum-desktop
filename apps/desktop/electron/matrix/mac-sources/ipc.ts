@@ -12,7 +12,7 @@ const SOURCES = new Set<string>(MATRIX_MAC_KNOWLEDGE_SOURCES)
 export interface MatrixMacSourcesIpcDependencies {
   assertTrusted(event: IpcMainInvokeEvent): void
   read(): MatrixMacSourcesConsent
-  set(source: MatrixMacKnowledgeSource, enabled: boolean): MatrixMacSourcesConsent
+  set(source: MatrixMacKnowledgeSource, enabled: boolean): MatrixMacSourcesConsent | Promise<MatrixMacSourcesConsent>
 }
 
 /** Trusted UI only; SDK hosts and apps never receive account source controls. */

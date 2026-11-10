@@ -1495,3 +1495,25 @@ describe('relay publication bearer repair', () => {
     expect(store.getItem('matrix-account')).toBeTruthy()
   })
 })
+
+it('bounds S1 credential/send waits and passes cancellation to the transport', async () => {
+  vi.useFakeTimers()
+  const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementation(ms => {
+    const abort = new AbortController()
+    setTimeout(() => abort.abort(new Error('fixture deadline')), ms)
+    return abort.signal
+  })
+  try {
+    const { account } = ownerReaderFixture()
+    let requestSignal: AbortSignal | undefined
+    const result = account.s1Request(async (_token, _resource, signal) => {
+      requestSignal = signal
+      return new Promise(() => {})
+    }, new AbortController().signal)
+    const rejected = expect(result).rejects.toThrow('fixture deadline')
+    await vi.advanceTimersByTimeAsync(15_000)
+    await rejected
+    expect(timeout).toHaveBeenCalledWith(15_000)
+    expect(requestSignal?.aborted).toBe(true)
+  } finally { timeout.mockRestore(); vi.useRealTimers() }
+})

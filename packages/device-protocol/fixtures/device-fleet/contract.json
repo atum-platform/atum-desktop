@@ -1,0 +1,341 @@
+{
+  "contract_id": "atum.device-fleet",
+  "version": 1,
+  "status": "frozen",
+  "types": {
+    "device_service_record": {
+      "type": "object",
+      "required": {
+        "deviceServiceId": {
+          "ref": "uuid"
+        },
+        "displayName": {
+          "type": "string",
+          "min": 1,
+          "max": 64
+        },
+        "platform": {
+          "const": "macos"
+        },
+        "identityKeyId": {
+          "ref": "key_id"
+        },
+        "approvalKeyId": {
+          "ref": "key_id"
+        },
+        "matrix": {
+          "type": "object",
+          "required": {
+            "deviceId": {
+              "ref": "device_id"
+            },
+            "fingerprint": {
+              "ref": "fingerprint"
+            }
+          }
+        },
+        "enrollmentEpoch": {
+          "ref": "epoch"
+        },
+        "scopes": {
+          "ref": "capabilities"
+        },
+        "pinnedControllerKeys": {
+          "type": "array",
+          "items": {
+            "ref": "key_id"
+          },
+          "min": 1,
+          "max": 8,
+          "unique": true
+        },
+        "state": {
+          "enum": [
+            "active",
+            "revoked"
+          ]
+        },
+        "revokeSeq": {
+          "type": "integer",
+          "min": 0,
+          "max": 9007199254740991
+        },
+        "createdAt": {
+          "ref": "timestamp_ms"
+        },
+        "rotatedAt": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revokedAt": {
+          "anyOf": [
+            {
+              "ref": "timestamp_ms"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "optional": {
+        "presence": {
+          "ref": "presence"
+        },
+        "sourceProtocol": {
+          "const": 1
+        },
+        "sources": {
+          "ref": "sources"
+        }
+      }
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "key_id": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9_-]{43}"
+    },
+    "device_id": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "[A-Za-z0-9+/]{43}"
+    },
+    "epoch": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "ref": "capability"
+      },
+      "min": 1,
+      "max": 4,
+      "unique": true
+    },
+    "capability": {
+      "enum": [
+        "terminal",
+        "files",
+        "computer",
+        "send_file"
+      ]
+    },
+    "timestamp_ms": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "presence": {
+      "type": "object",
+      "required": {
+        "connected": {
+          "type": "boolean"
+        },
+        "lastSeenAt": {
+          "ref": "timestamp_ms"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "sources": {
+      "type": "object",
+      "required": {
+        "messages": {
+          "enum": [
+            "ready",
+            "needs_permission",
+            "off"
+          ]
+        },
+        "browser": {
+          "enum": [
+            "ready",
+            "needs_permission",
+            "off"
+          ]
+        },
+        "location": {
+          "enum": [
+            "ready",
+            "needs_permission",
+            "off"
+          ]
+        },
+        "folders": {
+          "enum": [
+            "ready",
+            "needs_permission",
+            "off"
+          ]
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "fleet_update": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "operation": {
+              "enum": [
+                "connect",
+                "refresh",
+                "close"
+              ]
+            },
+            "deviceServiceId": {
+              "ref": "uuid"
+            },
+            "connectionId": {
+              "ref": "uuid"
+            },
+            "connectionStartedAt": {
+              "ref": "timestamp_ms"
+            },
+            "presence": {
+              "ref": "presence"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "operation": {
+              "enum": [
+                "connect",
+                "refresh",
+                "close"
+              ]
+            },
+            "deviceServiceId": {
+              "ref": "uuid"
+            },
+            "connectionId": {
+              "ref": "uuid"
+            },
+            "connectionStartedAt": {
+              "ref": "timestamp_ms"
+            },
+            "presence": {
+              "ref": "presence"
+            },
+            "sourceProtocol": {
+              "const": 1
+            },
+            "sources": {
+              "ref": "sources"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "reply": {
+      "type": "object",
+      "required": {
+        "accepted": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "owner_read": {
+      "forbidden_fields": []
+    },
+    "controller_write": {
+      "forbidden_fields": []
+    },
+    "platform_reply": {
+      "forbidden_fields": []
+    }
+  },
+  "messages": {
+    "record": {
+      "direction": "owner_read",
+      "schema": {
+        "ref": "device_service_record"
+      }
+    },
+    "update": {
+      "direction": "controller_write",
+      "schema": {
+        "ref": "fleet_update"
+      }
+    },
+    "reply": {
+      "direction": "platform_reply",
+      "schema": {
+        "ref": "reply"
+      }
+    }
+  },
+  "invariants": [],
+  "state_machines": {},
+  "fixtures": [
+    {
+      "file": "fixtures/record-legacy.json",
+      "message": "record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/record-fleet.json",
+      "message": "record",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/update.json",
+      "message": "update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/update-names-owner.json",
+      "message": "update",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/reply.json",
+      "message": "reply",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/update-legacy.json",
+      "message": "update",
+      "expect": "accept"
+    }
+  ],
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/record-fleet.json",
+    "fixtures/record-legacy.json",
+    "fixtures/reply.json",
+    "fixtures/update-legacy.json",
+    "fixtures/update-names-owner.json",
+    "fixtures/update.json"
+  ]
+}

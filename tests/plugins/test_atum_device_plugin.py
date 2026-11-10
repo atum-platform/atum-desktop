@@ -261,3 +261,34 @@ def test_device_request_uses_native_approval_correlation(monkeypatch):
     finally:
         reset_current_observability_context(tokens)
     assert observed[0]["tool_call_id"] == "native-call"
+
+@pytest.mark.parametrize("result", [
+    '{',
+    json.dumps({"history": [{"browser": "chrome", "title": "Password reset", "domain": "example.com", "path": "/reset/token", "lastVisit": "2026-11-09T00:00:00.000Z", "visits": 1}]}),
+    json.dumps({"history": [], "secret": "private"}),
+    'x' * (101 * 1024),
+])
+def test_mac_wrapper_reuses_native_result_validation(monkeypatch, result):
+    monkeypatch.setattr(MODULE, "_request", lambda *a, **kw: {"status": "ok", "result": result})
+    answer = json.loads(MODULE.wrap("atum_mac", lambda *_a, **_kw: pytest.fail("local fallback"))({"op": "browser.history"}))
+    assert "error" in answer
+    assert "private" not in json.dumps(answer)
+
+
+def test_mac_wrapper_checks_request_before_transport_and_keeps_native_success(monkeypatch):
+    calls = []
+    monkeypatch.setattr(MODULE, "_request", lambda *a, **kw: calls.append(a) or {"status": "ok", "result": {"history": []}})
+    handler = MODULE.wrap("atum_mac", lambda *_a: pytest.fail("local fallback"))
+    assert "error" in json.loads(handler({"op": "browser.history", "extra": True}))
+    assert not calls
+    assert json.loads(handler({"op": "browser.history", "device": "Mac mini"})) == {"history": []}
+    assert calls[0][0:2] == ("atum_mac", "Mac mini")
+
+
+def test_mac_failure_copy_metadata_is_also_closed_and_validated(monkeypatch):
+    failure = {"ok": False, "reason": "needs_permission", "source": "messages", "mac": "Mac mini"}
+    monkeypatch.setattr(MODULE, "_request", lambda *a, **kw: {"status": "refused", "result": failure})
+    handler = MODULE.wrap("atum_mac", lambda *_a: pytest.fail("local fallback"))
+    assert json.loads(handler({"op": "messages.conversations"})) == failure
+    failure["private"] = "must not escape"
+    assert "error" in json.loads(handler({"op": "messages.conversations"}))
