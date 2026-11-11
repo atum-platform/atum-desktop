@@ -130,6 +130,7 @@
     "shared/matrix-profile.ts",
     "shared/matrix-assistant-card.ts",
     "shared/agent-routines.ts",
+    "shared/agent-memory.ts",
     "shared/background-sweep.ts",
     "shared/matrix-assistant-name.ts",
     "shared/matrix-assistant-persona.ts",
