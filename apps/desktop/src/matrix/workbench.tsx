@@ -18,6 +18,8 @@ import { isBotApiRoomForApp } from '../../shared/bot-api-room'
 import type { MatrixDocumentPreview, MatrixSnapshot } from '../../shared/matrix'
 import type { MatrixDrivePreview, MatrixDriveRow } from '../../shared/matrix-drive'
 
+import { MatrixAgentDesk, MatrixAgentDeskFace } from './agent-desk'
+import { matrixAgentDeskAgent } from './agent-desk-model'
 import { directAppBot } from './app-bots/direct-app'
 import { AppBotPanel } from './app-bots/panel'
 import type { AppBotRouteRequest } from './app-bots/route-request'
@@ -25,10 +27,13 @@ import { useMatrixCopy } from './copy'
 import { MatrixDocumentStatus, useDocumentCopy } from './document-link'
 import { formatDriveSize } from './drive'
 import { matrixDriveCopy } from './drive-copy'
+import { matrixAgentTyping } from './local-turns'
+import { matrixRosterAgentName } from './roster-model'
 import { MatrixTerminalPane, useMatrixTerminalRead } from './terminal'
 import { registerMatrixDocumentDetach, runMatrixDocumentAction } from './text-document-actions'
 import { matrixTextDocumentLease } from './text-document-lease'
 import { MatrixTextDocumentPane } from './text-document-pane'
+import { useMatrixCloudStop } from './use-cloud-stop'
 import { MatrixWordPane } from './word-pane'
 import { useMatrixWorkbenchCopy } from './workbench-copy'
 import { MatrixWorkbenchLauncher } from './workbench-launcher'
@@ -42,7 +47,7 @@ import {
   recordMatrixWorkbenchRecent
 } from './workbench-recents'
 
-type MatrixWorkbenchSelection = 'document' | 'drive' | 'launcher' | `browser:${string}` | `terminal:${string}`
+type MatrixWorkbenchSelection = 'agent' | 'document' | 'drive' | 'launcher' | `browser:${string}` | `terminal:${string}`
 
 export interface MatrixDrivePreviewRequest extends MatrixDriveRow {
   scope: string
@@ -203,6 +208,30 @@ export function MatrixWorkbench({
       })
   )
 
+  // An agent's own 1:1 chat opens the panel on that agent's desk (plan P1); every other chat
+  // keeps the new tab as its home.
+  const deskAgent = botApp ? undefined : matrixAgentDeskAgent(snapshot, room)
+  const home: MatrixWorkbenchSelection = deskAgent ? 'agent' : 'launcher'
+  const deskName = deskAgent ? matrixRosterAgentName(deskAgent, t.matrixShell.assistantName) : ''
+
+  // The desk's Stop is the composer's: one hook over the same chat signals.
+  const cloudStop = useMatrixCloudStop({
+    messages: snapshot.messages,
+    room: deskAgent ? room : undefined,
+    snapshot,
+    working: Boolean(
+      deskAgent &&
+        room &&
+        matrixAgentTyping({
+          roomId: room.id,
+          agentId: deskAgent.userId,
+          typing: snapshot.typing,
+          turns: snapshot.localTurns,
+          running: snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running'
+        })
+    )
+  })
+
   const link = snapshot.linkedDocument
 
   const hasLink = Boolean(link)
@@ -213,9 +242,9 @@ export function MatrixWorkbench({
       scope,
       browsers: [],
       documentOpen: hasLink,
-      selected: hasDrivePreview ? 'drive' : hasLink ? 'document' : 'launcher'
+      selected: hasDrivePreview ? 'drive' : hasLink ? 'document' : home
     }),
-    [scope, hasLink, hasDrivePreview]
+    [scope, hasLink, hasDrivePreview, home]
   )
 
   const [tabState, setTabState] = useState<MatrixWorkbenchTabState>(initialTabState)
@@ -294,14 +323,16 @@ export function MatrixWorkbench({
     ? scopedTabState.selected.slice('terminal:'.length) : null
 
   const selected =
-    activeTerminalId && !terminalTabs.some(tab => tab.id === activeTerminalId) ? 'launcher' :
+    activeTerminalId && !terminalTabs.some(tab => tab.id === activeTerminalId) ? home :
     scopedTabState.selected === 'drive' && !hasDrivePreview
-      ? 'launcher'
+      ? home
       : scopedTabState.selected === 'document' && !tabOpen
-      ? 'launcher'
+      ? home
       : activeBrowserId && !browserTabs.some(tab => tab.id === activeBrowserId)
-        ? 'launcher'
-        : scopedTabState.selected
+        ? home
+        : scopedTabState.selected === 'agent' && !deskAgent
+          ? 'launcher'
+          : scopedTabState.selected
 
   const tabCount = (tabOpen ? 1 : 0) + (hasDrivePreview ? 1 : 0) + browserTabs.length + terminalTabs.length
   useMatrixTerminalRead(snapshot, scope, selected.startsWith('terminal:') ? activeTerminalId : null, !hidden && !obstructed)
@@ -538,7 +569,9 @@ export function MatrixWorkbench({
   return (
     <AtumWorkspaceSurface
       activeId={
-        selected === 'drive' && hasDrivePreview
+        selected === 'agent' && deskAgent
+          ? 'agent'
+          : selected === 'drive' && hasDrivePreview
           ? 'drive'
           : selected === 'document' && tabOpen
           ? 'document'
@@ -557,7 +590,7 @@ export function MatrixWorkbench({
       onActivate={id =>
         updateScopedTabState(current => ({
           ...current,
-          selected: id === 'launcher' ? 'launcher' : (id as MatrixWorkbenchSelection)
+          selected: id === 'launcher' || id === 'agent' ? id : (id as MatrixWorkbenchSelection)
         }))
       }
       onAdd={() => updateScopedTabState(current => ({ ...current, selected: 'launcher' }))}
@@ -570,12 +603,12 @@ export function MatrixWorkbench({
         }
 
         if (id === 'launcher') {
-          if (tabCount === 0) {
+          if (tabCount === 0 && !deskAgent) {
             closeWorkbench()
           } else {
             updateScopedTabState(current => ({
               ...current,
-              selected: current.documentOpen && link ? 'document' : current.browsers.length ? `browser:${current.browsers.at(-1)!.id}` : terminalTabs.at(-1) ? `terminal:${terminalTabs.at(-1)!.id}` : 'launcher'
+              selected: current.documentOpen && link ? 'document' : current.browsers.length ? `browser:${current.browsers.at(-1)!.id}` : terminalTabs.at(-1) ? `terminal:${terminalTabs.at(-1)!.id}` : home
             }))
           }
 
@@ -586,7 +619,7 @@ export function MatrixWorkbench({
           void runMatrixDocumentAction(async () => {
             updateScopedTabState(current => ({
               ...current, documentOpen: false,
-              selected: current.selected === 'document' ? 'launcher' : current.selected
+              selected: current.selected === 'document' ? home : current.selected
             }))
           }).catch(() => {})
 
@@ -597,7 +630,7 @@ export function MatrixWorkbench({
           onDriveRequestClose?.()
           updateScopedTabState(current => ({
             ...current,
-            selected: current.selected === 'drive' ? 'launcher' : current.selected
+            selected: current.selected === 'drive' ? home : current.selected
           }))
 
           return
@@ -610,7 +643,7 @@ export function MatrixWorkbench({
             ...current,
             browsers,
             selected:
-              current.selected === id ? (current.documentOpen && link ? 'document' : 'launcher') : current.selected
+              current.selected === id ? (current.documentOpen && link ? 'document' : home) : current.selected
           }
         })
       }}
@@ -620,6 +653,17 @@ export function MatrixWorkbench({
       panelId={panelId}
       percent={percent}
       tabs={[
+        // The agent's own tab, pinned first: its face and name, no ×.
+        ...(deskAgent
+          ? [
+              {
+                id: 'agent',
+                title: deskName,
+                icon: <MatrixAgentDeskFace agent={deskAgent} className="ak-avatar ak-avatar--sm atum-desk-tab-face" name={deskName} />,
+                pinned: true
+              }
+            ]
+          : []),
         ...(hasDrivePreview && driveRequest
           ? [{ id: 'drive', title: driveRequest.name, icon: <FileText aria-hidden className="size-3.5" /> }]
           : []),
@@ -664,6 +708,29 @@ export function MatrixWorkbench({
       }
     >
       <div className="flex h-full min-h-0 flex-col" data-matrix-workbench>
+        {deskAgent && room && (
+          <div className={selected === 'agent' ? 'flex h-full min-h-0 flex-col' : 'hidden'}>
+            <MatrixAgentDesk
+              active={selected === 'agent' && !hidden}
+              agent={deskAgent}
+              cloudStop={cloudStop}
+              key={`${scope}:${deskAgent.principal}`}
+              onOpenDrive={
+                onOpenDrive
+                  ? () => {
+                      onOpenDrive()
+
+                      if (compact) {
+                        closeWorkbench()
+                      }
+                    }
+                  : undefined
+              }
+              room={room}
+              snapshot={snapshot}
+            />
+          </div>
+        )}
         {terminalTabs.map(tab => <div className={selected === `terminal:${tab.id}` ? 'flex h-full min-h-0 flex-col' : 'hidden'} key={tab.id}>
           <MatrixTerminalPane active={!hidden && !obstructed && selected === `terminal:${tab.id}`} roomId={roomId} scope={scope} tab={tab} />
         </div>)}
