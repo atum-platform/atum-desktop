@@ -17,6 +17,7 @@ import { playgroundBridge, playgroundDesktopServices, PlaygroundStore } from './
 import { PlaygroundCheckIns, playgroundCheckInsMode } from './check-ins-fixtures'
 import { playgroundCompanyDesktopAdapter, withPlaygroundPrivateCos } from './company-ai-fixtures'
 import { playgroundCompanyStore, type PlaygroundCompanyStoreMode } from './company-store-fixtures'
+import { playgroundDeskMode, withPlaygroundDesk } from './desk-fixtures'
 import {
   playgroundPolicyBridge,
   playgroundPolicyMode,
@@ -91,6 +92,8 @@ const bridge = playgroundBridge(store)
 const linkPreviews = playgroundLinkPreviewMode(params)
 // The account's ChatGPT states in Settings › Connections and the model picker (?subscriptions=).
 const subscriptionsMode = playgroundSubscriptionsMode(params)
+// The agent's desk in the side panel (?desk=free|working|waiting|device), on the open assistant chat.
+const deskMode = playgroundDeskMode(params)
 // `?home=off` draws an assistant without the agent-home projection (the plain model menu).
 const homeDecorated = params.get('home') === 'off' ? (snapshot: typeof store.current) => snapshot : withPlaygroundHome
 
@@ -99,7 +102,15 @@ store.emit = snapshot =>
     withPlaygroundPolicy(
       withPlaygroundSettings(
         commerce.decorate(
-          checkIns.decorate(homeDecorated(withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews)))
+          checkIns.decorate(
+            homeDecorated(
+              withPlaygroundDesk(
+                withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews),
+                deskMode,
+                store.locale ?? 'en'
+              )
+            )
+          )
         ),
         settings
       ),
@@ -120,6 +131,19 @@ window.atumMatrix = {
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
   executionPolicy: playgroundPolicyBridge(policyMode),
+  // The desk's Stop asks the fixture, never a controller: it answers as a stopped turn.
+  ...(deskMode
+    ? {
+        // Only Stop is answered (`stopTurn`); any other cloud request fails as offline would.
+        cloudAgent: (async (request: { action: string }) => {
+          if (request.action !== 'stopTurn') {
+            throw new Error('playground_cloud_unavailable')
+          }
+
+          return { state: 'stopped' as const }
+        }) as unknown as NonNullable<typeof window.atumMatrix.cloudAgent>
+      }
+    : {}),
   store: commerce.storeBridge(),
   checkout: commerce.checkoutBridge(),
   wallet: commerce.walletBridge(),

@@ -109,6 +109,7 @@ import {
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { matrixAgentNeedsLocalSetup, matrixAssistantReplySettingsShown } from '../../shared/matrix-agent-actions'
+import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import {
@@ -215,7 +216,6 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -496,6 +496,7 @@ import { followTranscriptEnd } from './transcript-follow'
 import { MatrixTurnHandoffActions } from './turn-handoff'
 import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
+import { useMatrixCloudStop } from './use-cloud-stop'
 import { useShellShortcuts } from './use-shell-shortcuts'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
 import { matrixWalletCopy } from './wallet-copy'
@@ -2413,8 +2414,6 @@ function MatrixComposer({
       : undefined
 
   const [sending, setSending] = useState(false)
-  const [cloudStopRefused, setCloudStopRefused] = useState(false)
-  const [cloudStopping, setCloudStopping] = useState(false)
   // A chosen file waits in the box as a chip until Send; it goes first, as its own message.
   const [staged, setStaged] = useState<File | null>(null)
   const [fileTooLarge, setFileTooLarge] = useState(false)
@@ -3695,11 +3694,6 @@ function MatrixComposer({
     }
   }, [focusInput, threadRootId])
 
-  useEffect(() => {
-    setCloudStopRefused(false)
-    setCloudStopping(false)
-  }, [room.id])
-
   const running =
     (snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running') ||
     (room.assistant && snapshot.hermes === 'running')
@@ -3714,93 +3708,14 @@ function MatrixComposer({
       running: snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running'
     })
 
-  const cloudUnanswered = cloudAssistant
-    ? matrixUnansweredOwnerMessage(
-        contextMessages ?? snapshot.messages,
-        new Set(
-          [snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)].filter(
-            (userId): userId is string => Boolean(userId)
-          )
-        )
-      )
-    : null
-
-  const cloudStopAvailable = Boolean(cloudAssistant && room.membership === 'join' && window.atumMatrix.cloudAgent)
-
-  const liveCloudStopTarget = cloudStopAvailable
-    ? matrixCloudStopTarget({
-        messages: contextMessages ?? snapshot.messages,
-        turns: snapshot.localTurns,
-        roomId: room.id,
-        unanswered: cloudUnanswered,
-        working: Boolean(agentTyping)
-      })
-    : undefined
-
-  // The typing signal a question from another device shows through expires in moments, long
-  // before a cloud turn does. Once Stop has named that question, keep naming it until the
-  // question clears or the room changes, so the button does not vanish mid-turn.
-  const cloudStopLatch = useRef<{ roomId: string; unansweredId: string | null; eventId: string } | null>(null)
-
-  if (liveCloudStopTarget) {
-    cloudStopLatch.current = {
-      roomId: room.id,
-      unansweredId: cloudUnanswered?.id ?? null,
-      eventId: liveCloudStopTarget
-    }
-  } else if (
-    cloudStopLatch.current &&
-    (!cloudStopAvailable ||
-      cloudStopLatch.current.roomId !== room.id ||
-      cloudStopLatch.current.unansweredId !== (cloudUnanswered?.id ?? null))
-  ) {
-    cloudStopLatch.current = null
-  }
-
-  const cloudStopTarget = liveCloudStopTarget ?? cloudStopLatch.current?.eventId
-  // A stop that was already asked for stays disabled until its target clears or moves on: the
-  // snapshot clears it, not the request resolving.
-  const cloudStopRequested = useRef<string | null>(null)
-
-  const scheduledStop = roomAgent?.runtime === 'hermes' &&
-    matrixCloudStopScheduled(contextMessages ?? snapshot.messages, roomAgent.userId)
-  const stopRoute = matrixStopRoute({
-    runtime: roomAgent?.runtime,
-    eventId: cloudStopTarget,
-    working: Boolean(agentTyping || scheduledStop),
-    scheduled: scheduledStop
+  const cloudStop = useMatrixCloudStop({
+    messages: contextMessages ?? snapshot.messages,
+    room,
+    snapshot,
+    working: Boolean(agentTyping)
   })
-  const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
-  const showCloudStop = matrixShowCloudStop({ eventId: cloudStopTarget, cloud: Boolean(cloudAssistant),
-    runtime: roomAgent?.runtime, working: Boolean(agentTyping || scheduledStop) })
 
-  const stopCloud = () => {
-    const stopTurn = window.atumMatrix.cloudAgent
-
-    if (
-      !stopKey || !cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable' ||
-      cloudStopRequested.current === stopKey
-    ) {
-      return
-    }
-
-    cloudStopRequested.current = stopKey
-    setCloudStopRefused(false)
-    setCloudStopping(true)
-    void executeMatrixStop(
-      stopRoute,
-      eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
-      body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
-    )
-      .catch(() => {
-        cloudStopRequested.current = null
-        setCloudStopRefused(true)
-      })
-      .finally(() => {
-        if (stopRoute.kind === 'native') { cloudStopRequested.current = null }
-        setCloudStopping(false)
-      })
-  }
+  const cloudStopTarget = cloudStop.target
 
   // An archived channel has no box: the banner stands in its place, says why, and offers the way back to those
   // who may restore it. (The thread panel's box is this same component, so it closes with the channel.)
@@ -3943,7 +3858,7 @@ function MatrixComposer({
         enabled={!room.assistant && room.membership === 'join' && snapshot.state === 'ready'}
         roomId={room.id}
       />
-      {cloudStopRefused && (
+      {cloudStop.refused && (
         <NoticeBand
           className="mx-auto mb-2 w-[min(42rem,calc(100%-2rem))]"
           data-matrix-cloud-stop-refused
@@ -4060,23 +3975,23 @@ function MatrixComposer({
                   roomId={room.id}
                 />
               )}
-              {showCloudStop ? (
+              {cloudStop.shown ? (
                 <button
-                  aria-busy={cloudStopping || undefined}
-                  aria-label={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : matrixActionCopy[locale].cancelHermes}
-                  className={cloudStopping
+                  aria-busy={cloudStop.stopping || undefined}
+                  aria-label={cloudStop.stopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : matrixActionCopy[locale].cancelHermes}
+                  className={cloudStop.stopping
                     ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
                     : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
-                  disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStopping || cloudStopRequested.current === stopKey}
-                  onClick={stopCloud}
-                  title={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : stopRoute.kind === 'unavailable'
+                  disabled={!cloudStop.ready}
+                  onClick={cloudStop.stop}
+                  title={cloudStop.stopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : cloudStop.route.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
-                    : stopRoute.kind === 'native'
+                    : cloudStop.route.kind === 'native'
                       ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
                       : undefined}
                   type="button"
                 >
-                  {cloudStopping ? <span role="status">{locale === 'vi' ? 'Đang dừng…' : 'Stopping…'}</span>
+                  {cloudStop.stopping ? <span role="status">{locale === 'vi' ? 'Đang dừng…' : 'Stopping…'}</span>
                     : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
                 </button>
               ) : running ? (
@@ -4200,7 +4115,15 @@ function MatrixComposer({
                 }
               }}
               onSelect={event => setMentionCursor(event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
-              placeholder={pausedHint || (running && room.assistant && !threadRootId ? copy.addToRequest : composerPrompt)}
+              placeholder={
+                pausedHint ||
+                // A message sent while this agent's own run goes changes it: the box says so. A cloud
+                // turn queues the next message instead (the platform has no live steer yet), so its box
+                // keeps the plain prompt and the desk's Now says the message waits.
+                (running && room.assistant && !threadRootId
+                  ? matrixAgentDeskText(locale).composerSteer(assistantName)
+                  : composerPrompt)
+              }
               ref={input}
               submitMode={paused ? 'none' : 'enter'}
             />
