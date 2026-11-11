@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "upstreamHermesCommit": "a61183b56fdb45b9d2a0f2f6b8482e665ccf702f",
-  "atumOverlayCommit": "c10a05a03b88eba78f252fe72b430351d2e6d37e",
-  "atumOverlayTree": "4a9400d81768d4e9458c82b34be75bf3c2173b30",
-  "historyRef": "atum-main",
+  "upstreamHermesCommit": "912b0299f461e353455d1b7bd1d75bb0c21d57d4",
+  "atumOverlayCommit": "912b0299f461e353455d1b7bd1d75bb0c21d57d4",
+  "atumOverlayTree": "81e1d218e95161d01ecc1fb4e4fa69b2a5f5b9fc",
+  "historyRef": "main",
   "acceptedArtifact": {
     "platform": "darwin",
     "arch": "arm64",
