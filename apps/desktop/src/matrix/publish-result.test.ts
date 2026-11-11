@@ -933,6 +933,8 @@ it('publishes one descriptor-only fallback line with stable retry identity and r
   await publishMatrixNotice(client, command)
   expect(send.mock.calls[0][2]).toMatchObject({ body: '', msgtype: 'm.notice', 'io.atum.presentation': command.presentation })
   expect(send.mock.calls[0][3]).toBe(send.mock.calls[1][3])
+  await publishMatrixNotice(client, { ...command, eventId: '' })
+  expect(send.mock.calls.at(-1)![2]).not.toHaveProperty('m.relates_to')
   await expect(publishMatrixNotice(client, { ...command, presentation: undefined })).rejects.toThrow()
   await expect(publishMatrixNotice(client, { ...command, presentation: { ...command.presentation,
     args: { ...command.presentation.args, protons: 1 } } } as never)).rejects.toThrow()
