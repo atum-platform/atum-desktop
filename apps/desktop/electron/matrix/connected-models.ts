@@ -23,6 +23,7 @@ import type {
 
 import type { MatrixPagesForwardRequest } from './pages-bridge'
 import { MatrixPagesProvidersScope } from './pages-providers'
+import { atumChatGptModelVisible } from './subscriptions'
 
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
 export interface MatrixConnectedModelsAgent {
@@ -157,7 +158,8 @@ export function matrixModelCatalogFromSnapshot(
   const uniqueModels = new Map<string, string[]>()
 
   for (const row of rows) {
-    const models = [...new Set(row.models)]
+    const models = [...new Set(row.models)].filter(model =>
+      row.id !== 'openai-codex' || atumChatGptModelVisible(model))
     uniqueModels.set(row.id, models)
 
     if (!row.ready) {
@@ -349,6 +351,10 @@ export async function selectMatrixModelRoute(
   const route = parseMatrixModelRouteId(routeId)
 
   if (!route || route.provider === 'nous' || route.provider === MATRIX_ATUM_PROVIDER) {
+    throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)
+  }
+
+  if (route.provider === 'openai-codex' && !atumChatGptModelVisible(route.model)) {
     throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)
   }
 
