@@ -311,6 +311,7 @@ interface PickerOptions {
   onBackToAtum?: () => void
   agentPrincipal?: string
   home?: MatrixAgentHomeView
+  cloudOnly?: boolean
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -327,6 +328,7 @@ function picker(room: MatrixRoom, options: PickerOptions = {}) {
         capability={current.capability}
         cloud={current.cloud ?? false}
         cloudChoice={current.cloudChoice}
+        cloudOnly={current.cloudOnly}
         connected={current.connected}
         destinationDefault={current.destinationDefault}
         disabled={false}
@@ -1306,13 +1308,42 @@ describe('account subscriptions in the model picker', () => {
 
     for (const id of [CHATGPT_ROUTE, SOL_ROUTE]) {
       expect(row(card, id).disabled).toBe(true)
-      expect(row(card, id).textContent).toContain('Not ready for cloud assistants yet')
+      expect(row(card, id).textContent).toContain('Not ready for your assistants yet')
       expect(row(card, id).parentElement!.querySelector('[data-matrix-model-favorite]')).toBeNull()
     }
 
     expect(card.querySelector('[data-matrix-model-list] [data-matrix-model-connect]')).toBeNull()
     expect(within(card).queryByText(/Open ChatGPT in Settings|Use your ChatGPT/)).toBeNull()
     expect(subscriptions.startChatGpt).not.toHaveBeenCalled()
+  })
+
+  it('hides API-key rows for a cloud assistant while the dormant picker still lists them with the switch off', async () => {
+    const options: PickerOptions = {
+      agentPrincipal: '00000000-0000-4000-8000-bd7662a5eeb4',
+      bridge: { agentHome: homeBridge() },
+      cloud: true,
+      home: cloudHome(HOME_OPENROUTER),
+      managed: true
+    }
+
+    picker(ROOM, options)
+    let card = await open(/Model:/)
+    expect(card.querySelector(`[data-matrix-model-route="${OPENROUTER_ROUTE}"]`)).toBeNull()
+    expect(card.querySelector('[data-matrix-model-rail-item="openrouter"]')).toBeNull()
+
+    cleanup()
+    picker(ROOM, { ...options, cloudOnly: false })
+    card = await open(/Model:/)
+    expect(row(card, OPENROUTER_ROUTE)).toBeTruthy()
+  })
+
+  it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
+    picker(ROOM, { cloud: true, connected: CHATGPT, managed: false, onSubscriptions: null })
+    const card = await open(/Model:/)
+    const current = card.querySelector<HTMLElement>('[data-matrix-model-current]')!
+
+    expect(current.textContent).toContain('Cloud')
+    expect(current.textContent).not.toContain('This Mac')
   })
 
   it('says ChatGPT is not ready for a cloud agent when no model names are known yet, never a fake model', async () => {
@@ -1345,7 +1376,7 @@ describe('account subscriptions in the model picker', () => {
     const card = await open('Model: Nguyệt Thực 1.3')
     await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
     // The stale home model is ChatGPT's, so the card opens on ChatGPT: one note, no fake model.
-    await waitFor(() => expect(within(card).getByText('Not ready for cloud assistants yet')).toBeTruthy())
+    await waitFor(() => expect(within(card).getByText('Not ready for your assistants yet')).toBeTruthy())
     expect(rowIds(card)).toEqual([])
     fireEvent.click(rail(card, 'atum'))
     expect(card.querySelector('[data-matrix-model-route*="gpt-5.6-luna"]')).toBeNull()

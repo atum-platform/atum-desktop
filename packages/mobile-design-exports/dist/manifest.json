@@ -2,7 +2,7 @@
   "developmentLanguage": "vi",
   "files": {
     "ATTRIBUTION.md": "fa940e03e48ce133ed9482e95cf315054b0e2b42df82de0aa8edfac663ed8120",
-    "Localizable.xcstrings": "3423813b0d889629fca202be450cb1e56878e1b88e4d306354cff596d68c1379",
+    "Localizable.xcstrings": "02c39cefd10a1450b9ce7e3833e4af2c59989b29cb92e6d0f6605c260533f357",
     "app-icon/atum-app-icon-1024.json": "72267326c005907b9d30438db9a76d3f1dc3a455a32fec4d035822e4803710ca",
     "app-icon/atum-app-icon-1024.png": "8b5b59a60ca7f1cfd8065fb059d8df1a60064723532766e9ddbf4d24d8cc23f4",
     "atum-kit-tokens.json": "7070a85a93cef3c066f35241d5218aede6f4bead024e159f611052abb59dc94e",
@@ -10,7 +10,7 @@
     "copy-contract.json": "28a4eb9b1fc36fa18a4c1dd3e32236a7054778fd8adf370944195bc11775d3bd",
     "copy-inventory.json": "98f705a356896b749dae5a20bfa988940991b808b4378ddef5134e15e8892400",
     "fixtures/phone.json": "ca4975448efb807d0df55fa2bd5dc8bd5b05df5eeea2979e3f2d250b6154d243",
-    "fixtures/playground.json": "824223ac5d1b53841bcba4f85919a7cee69b3e58e266927fbf212af2eaa605a3",
+    "fixtures/playground.json": "ad9f1bd90e23fa4a3cc7fa9c09b421e18ded157406428de05a00a98456e8daad",
     "fonts/CormorantGaramond-latin-ext.woff2": "9dc38267bdee93a653200ef3c1e8060e3f1399073432c415c683b419d3b50464",
     "fonts/CormorantGaramond-latin.woff2": "5d618c462b7a5b74f442e1548880086af71764d9cc7d35c16ab45353da934621",
     "fonts/CormorantGaramond-native-OFL.txt": "60700d351cac4650c51f3f9db318d2a420f8b45052dba2715eb5fec41f0f6956",

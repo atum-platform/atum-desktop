@@ -228,8 +228,9 @@ describe('the card row and the roster read the same policy', () => {
     })
 
     // The roster has little room: only the place, never the full sentence the tooltip speaks.
-    expect(executionPolicyRosterLine('vi', answered)).toBe('Trên Máy Mac 1')
-    expect(executionPolicyRosterLine('en', view({ status: status({ desired: MAC_B }) }))).toBe('On Mac 2')
+    expect(executionPolicyRosterLine('vi', answered, false)).toBe('Trên Máy Mac 1')
+    expect(executionPolicyRosterLine('en', view({ status: status({ desired: MAC_B }) }), false)).toBe('On Mac 2')
+    expect(executionPolicyRosterLine('en', answered)).toBeUndefined()
 
     const disabled = ['cloud', MAC_A, MAC_B]
     const paused = view({ policy: policy(disabled), status: status({ state: 'paused', desired: null }, disabled) })
@@ -260,25 +261,26 @@ describe('the card row and the roster read the same policy', () => {
 })
 
 describe('when the title bar offers the placement control', () => {
-  it('offers it once the person has more than one Mac to choose between, and not before', () => {
+  it('hides it under cloud-only and preserves the multi-Mac choice with the switch off', () => {
     // Cloud and Macs A and B: a real choice of who answers first.
-    expect(executionPolicyOffersChoice(view())).toBe(true)
+    expect(executionPolicyOffersChoice(view())).toBe(false)
+    expect(executionPolicyOffersChoice(view(), false)).toBe(true)
 
     // Cloud and one Mac (a new account on its first Mac): nothing to reorder, nothing in the first chat.
     const one = { ...policy(), order: ['cloud', MAC_A] } as ExecutionPolicySnapshot
-    expect(executionPolicyOffersChoice({ policy: one })).toBe(false)
+    expect(executionPolicyOffersChoice({ policy: one }, false)).toBe(false)
 
     // The cloud alone, and one Mac alone, are not choices either.
-    expect(executionPolicyOffersChoice({ policy: { ...policy(), order: ['cloud'] } as ExecutionPolicySnapshot })).toBe(
+    expect(executionPolicyOffersChoice({ policy: { ...policy(), order: ['cloud'] } as ExecutionPolicySnapshot }, false)).toBe(
       false
     )
-    expect(executionPolicyOffersChoice({ policy: { ...policy(), order: [MAC_A] } as ExecutionPolicySnapshot })).toBe(
+    expect(executionPolicyOffersChoice({ policy: { ...policy(), order: [MAC_A] } as ExecutionPolicySnapshot }, false)).toBe(
       false
     )
   })
 
   it('does not depend on what is switched off or on how fresh the status is', () => {
-    expect(executionPolicyOffersChoice(view({ policy: policy([MAC_B]) }))).toBe(true)
-    expect(executionPolicyOffersChoice(view({ stale: true, status: undefined }))).toBe(true)
+    expect(executionPolicyOffersChoice(view({ policy: policy([MAC_B]) }), false)).toBe(true)
+    expect(executionPolicyOffersChoice(view({ stale: true, status: undefined }), false)).toBe(true)
   })
 })

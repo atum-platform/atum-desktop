@@ -1,3 +1,4 @@
+import { AGENT_HOMES_CLOUD_ONLY } from './agent-home-cloud-only'
 import type { MatrixAgentView } from './matrix'
 
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
@@ -22,6 +23,19 @@ function servedHere(agent: ActionAgent): boolean {
  */
 export function matrixAgentRunsHere(agent: Pick<MatrixAgentView, 'answering' | 'macRole'>): boolean {
   return agent.answering !== 'cloud' || agent.macRole !== undefined
+}
+
+/** Whether a not-ready assistant still needs this Mac's local runtime setup. */
+export function matrixAgentNeedsLocalSetup(
+  agent: Pick<MatrixAgentView, 'answering' | 'macRole'>,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): boolean {
+  return cloudOnly ? !matrixAgentAnswersInCloud(agent) : matrixAgentRunsHere(agent)
+}
+
+/** The reply-settings dialog only controls the retired local-listening path. */
+export function matrixAssistantReplySettingsShown(cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY): boolean {
+  return !cloudOnly
 }
 
 /**

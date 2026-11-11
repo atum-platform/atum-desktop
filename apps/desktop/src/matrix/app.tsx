@@ -88,6 +88,7 @@ import { cn } from '@/lib/utils'
 import { attentionConversationRoom, rosterConversationRoom } from '../../shared/agent-conversation'
 import { agentConversationCopy } from '../../shared/agent-conversation/copy'
 import { AGENT_ONE_CONVERSATION } from '../../shared/agent-conversation/enabled'
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { type AppDescriptor, appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAppHistoryEntry } from '../../shared/app-history'
 import type { LookRoomAccountData } from '../../shared/look-pack'
@@ -107,7 +108,7 @@ import {
   type MatrixUiBridge
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
-import { matrixAgentRunsHere } from '../../shared/matrix-agent-actions'
+import { matrixAgentNeedsLocalSetup, matrixAssistantReplySettingsShown } from '../../shared/matrix-agent-actions'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import {
   assistantOpeningBlocksRoom,
@@ -151,7 +152,7 @@ import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/roo
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
-import { MatrixAgentHomeRow } from './agent-home-control'
+import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -2246,6 +2247,7 @@ function MatrixComposer({
   assistantName,
   bind,
   blocked,
+  cloudOnly,
   contextMessages,
   draftTarget,
   fail,
@@ -2266,6 +2268,7 @@ function MatrixComposer({
   assistantName: string
   bind?: (actions: MatrixComposerActions | null) => void
   blocked: boolean
+  cloudOnly: boolean
   contextMessages?: readonly MatrixMessage[]
   draftTarget?: MatrixDraftTarget
   fail: (cause?: unknown, source?: MatrixWindowFailureSource) => void
@@ -2363,10 +2366,10 @@ function MatrixComposer({
     ? (pickerAgent.connectedModel ?? pickerAgent.localModel)
     : (snapshot.connectedModel ?? snapshot.localModel)
 
-  // A cloud agent may choose this Mac's local connections only when the saved policy keeps
-  // this Mac a destination (R5 `macRole`); a cloud-only agent stays on the server's Atum routes.
-  const pickerLocal = !cloudAnswering || Boolean(roomAgent?.macRole)
-  const pickerHere = cloudAnswering && roomAgent?.macRole !== 'answering' ? 'cloud' : 'this_mac'
+  // One definition decides whether this Mac answers: a standby role is inert under cloud-only,
+  // while a Mac that still holds the answering term remains a local straggler until moved.
+  const pickerLocal = roomAgent ? matrixAgentNeedsLocalSetup(roomAgent, cloudOnly) : true
+  const pickerHere = pickerLocal ? 'this_mac' : 'cloud'
   const pickerManaged = pickerAtumModel || cloudAnswering
   const pickerHasModel = pickerManaged || Boolean(pickerConnectedModel)
   // The default assistant keeps its Connections entry even when this build knows no model name.
@@ -3994,6 +3997,7 @@ function MatrixComposer({
                     capability={pickerConnectedModel?.capability}
                     cloud={cloudAnswering}
                     cloudChoice={cloudAnswering ? roomAgent?.cloudModel : undefined}
+                    cloudOnly={cloudOnly}
                     connected={pickerConnectedModel}
                     destinationDefault={roomAgent?.modelDestinations?.here}
                     disabled={room.membership !== 'join' || snapshot.state !== 'ready'}
@@ -4480,6 +4484,7 @@ function threadTranscriptMessages(root: MatrixMessage, replies: readonly MatrixM
 function MatrixThreadDetail({
   assistantName,
   blocked,
+  cloudOnly,
   fail,
   onBack,
   onSubscriptions,
@@ -4489,6 +4494,7 @@ function MatrixThreadDetail({
 }: {
   assistantName: string
   blocked: boolean
+  cloudOnly: boolean
   fail(cause?: unknown): void
   onBack?: () => void
   onSubscriptions?: () => void
@@ -4695,6 +4701,7 @@ function MatrixThreadDetail({
             assistantName={assistantName}
             bind={setComposer}
             blocked={blocked}
+            cloudOnly={cloudOnly}
             contextMessages={[root, ...replies]}
             draftTarget={{ roomId: room.id, threadRootId: rootId }}
             fail={fail}
@@ -4713,6 +4720,7 @@ function MatrixThreadDetail({
 function MatrixThreadPanel({
   assistantName,
   blocked,
+  cloudOnly,
   compact,
   fail,
   onChange,
@@ -4724,6 +4732,7 @@ function MatrixThreadPanel({
 }: {
   assistantName: string
   blocked: boolean
+  cloudOnly: boolean
   compact: boolean
   fail(cause?: unknown): void
   onChange(view: MatrixThreadView): void
@@ -4802,6 +4811,7 @@ function MatrixThreadPanel({
           <MatrixThreadDetail
             assistantName={assistantName}
             blocked={blocked}
+            cloudOnly={cloudOnly}
             fail={fail}
             onBack={view.fromList ? back : undefined}
             onSubscriptions={onSubscriptions}
@@ -5019,6 +5029,7 @@ function useMatrixForwarding(snapshot: MatrixSnapshot) {
 
 function Conversation({
   blocked,
+  cloudOnly,
   compact,
   fail,
   onClosePins,
@@ -5041,6 +5052,7 @@ function Conversation({
   onSent
 }: {
   blocked: boolean
+  cloudOnly: boolean
   compact: boolean
   fail: (cause?: unknown) => void
   onClosePins(): void
@@ -5543,6 +5555,7 @@ function Conversation({
             or paused: said here, in its own chat, with the one action that helps. */}
           {localAssistant && (
             <MatrixLaunchNotice
+              cloudOnly={cloudOnly}
               fail={fail}
               name={assistantName}
               onBackToAtum={onBackToAtum}
@@ -5756,6 +5769,7 @@ function Conversation({
                 assistantName={assistantName}
                 bind={setComposer}
                 blocked={blocked}
+                cloudOnly={cloudOnly}
                 draftTarget={teamSpaceRoom || notesSelfRoom ? { roomId: room.id } : undefined}
                 fail={fail}
                 key={`${snapshot.identity?.userId ?? ''}:${room.id}`}
@@ -5780,6 +5794,7 @@ function Conversation({
         <MatrixThreadPanel
           assistantName={assistantName}
           blocked={blocked}
+          cloudOnly={cloudOnly}
           compact={compact}
           fail={fail}
           onChange={onThreadViewChange}
@@ -5967,6 +5982,7 @@ function AssistantReplySettings({
  */
 function ConversationHeaderActions({
   appearance,
+  cloudOnly,
   currentLook,
   fail,
   onLookPreview,
@@ -5979,6 +5995,7 @@ function ConversationHeaderActions({
   snapshot
 }: {
   appearance: 'light' | 'dark'
+  cloudOnly: boolean
   currentLook: LookRoomAccountData
   fail(cause?: unknown): void
   onLookPreview(look: LookRoomAccountData): void
@@ -6083,13 +6100,15 @@ function ConversationHeaderActions({
           fail={fail}
           onBackground={() => setLookPicker(true)}
           onMembers={group ? () => setMembers(true) : undefined}
-          onReplySettings={eligible ? () => setReplySettings(true) : undefined}
+          onReplySettings={
+            eligible && matrixAssistantReplySettingsShown(cloudOnly) ? () => setReplySettings(true) : undefined
+          }
           room={room}
           snapshot={snapshot}
           title={matrixChatTitle(room, { locale, untitled: t.atum.roster.untitledChat, chatOn: chat.chatOn })}
         />
       )}
-      {eligible && (
+      {eligible && matrixAssistantReplySettingsShown(cloudOnly) && (
         <AssistantReplySettings
           fail={fail}
           onOpenChange={setReplySettings}
@@ -6240,6 +6259,7 @@ interface CreatedAssistantRoom {
 
 function MatrixRoster({
   assistantOpening,
+  cloudOnly,
   compact,
   createdAssistantRoomId,
   facts,
@@ -6257,6 +6277,7 @@ function MatrixRoster({
   snapshot
 }: {
   assistantOpening: string | null
+  cloudOnly: boolean
   compact: boolean
   createdAssistantRoomId: CreatedAssistantRoom | null
   facts: MatrixWindowFacts
@@ -6293,7 +6314,7 @@ function MatrixRoster({
   // A cloud-only default (the first sign-up assistant) never runs local setup: no local
   // identity or setup state is expected, so it is never asked to set up on this Mac.
   const primaryAgent = snapshot.agents?.find(agent => agent.isDefault)
-  const localSetupRequired = !primaryAgent || matrixAgentRunsHere(primaryAgent)
+  const localSetupRequired = !primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly)
 
   const globalCompanyIds = useMemo(() => [...new Set(snapshot.rooms.flatMap(value => {
     const companyId = value.companyChannel?.companyId ?? value.companyConversation?.companyId
@@ -6638,6 +6659,7 @@ function MatrixRoster({
         <MatrixRosterConversations
           // New assistant lives in the New chat sheet's footer, not as a row here (Atum Kit mockups).
           assistantOpening={Boolean(assistantOpening)}
+          cloudOnly={cloudOnly}
           externalResultCount={externalSearchResultCount}
           externalSearching={globalSearching}
           fail={fail}
@@ -6699,7 +6721,13 @@ function usePendingCompanyInvites(snapshot: MatrixSnapshot) {
   return accountKey ? pendingCompanyInvitations(inbox, accountKey) : []
 }
 
-export function MatrixApp({ children }: { children?: ReactNode } = {}) {
+export function MatrixApp({
+  children,
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+}: {
+  children?: ReactNode
+  cloudOnly?: boolean
+} = {}) {
   useMatrixMessageLinkBridge()
   useMatrixInviteLinkBridge()
   const [received, setSnapshot] = useState(initial)
@@ -6800,6 +6828,7 @@ export function MatrixApp({ children }: { children?: ReactNode } = {}) {
       {children}
       <MatrixAppearance preference={snapshot.identity ? snapshot.displayPreferences?.appearance.value : 'system'} />
       <MatrixAccountView
+        cloudOnly={cloudOnly}
         facts={facts}
         key={JSON.stringify(snapshot.identity)}
         settled={receivedSnapshot}
@@ -6822,11 +6851,13 @@ interface MatrixPageTrip {
 }
 
 function MatrixAccountView({
+  cloudOnly,
   facts,
   settled,
   snapshot: projectedSnapshot,
   startupActive = false
 }: {
+  cloudOnly: boolean
   facts: MatrixWindowFacts
   settled: boolean
   snapshot: MatrixSnapshot
@@ -7202,10 +7233,10 @@ function MatrixAccountView({
     }
   }
 
-  // Out of Protons, "Use your own model" is Settings › Advanced: the one form that takes a
-  // provider and its key (the model page only switches models within the current provider).
+  // Under cloud-only, recovery is the account-wide ChatGPT/OpenCode Connections page. The
+  // dormant local path still opens its assistant-scoped model setup.
   const openOwnModel = () => {
-    setSettingsPane('assistant')
+    setSettingsPane(cloudOnly ? 'subscriptions' : 'assistant')
     setSettingsOpen(true)
   }
 
@@ -7990,6 +8021,7 @@ function MatrixAccountView({
   const conversationRoster = (
     <MatrixRoster
       assistantOpening={assistantOpening}
+      cloudOnly={cloudOnly}
       compact={compact}
       createdAssistantRoomId={createdAssistantRoomId}
       facts={facts}
@@ -8073,6 +8105,7 @@ function MatrixAccountView({
     ) : room ? (
       <Conversation
         blocked={assistantOpeningBlocksRoom(assistantOpening, room, snapshot.identity?.userId)}
+        cloudOnly={cloudOnly}
         compact={compact}
         fail={fail}
         key={room.id}
@@ -8107,7 +8140,7 @@ function MatrixAccountView({
           (() => {
             const agent = snapshot.agents?.find(each => each.principal === room.agentPrincipal)
 
-            return !agent || matrixAgentRunsHere(agent)
+            return !agent || matrixAgentNeedsLocalSetup(agent, cloudOnly)
           })()
             ? () => openAgentConnections(room.agentPrincipal!)
             : undefined
@@ -8152,6 +8185,7 @@ function MatrixAccountView({
     ) : matrixLaunchNoticeKind(snapshot.readiness) === 'starting' ||
       matrixLaunchNoticeKind(snapshot.readiness) === 'blocked' ? (
       <MatrixLaunchNotice
+        cloudOnly={cloudOnly}
         fail={fail}
         name={matrixPrimaryAgentName(snapshot, shell.assistantName)}
         onBackToAtum={switchDefaultToAtum}
@@ -8220,11 +8254,13 @@ function MatrixAccountView({
                       !driveActive &&
                       !appDestination &&
                       profileAgent?.home &&
-                      window.atumMatrix.agentHome && (
+                      window.atumMatrix.agentHome &&
+                      agentHomeTitleIconShown(profileAgent.home, cloudOnly) && (
                         <MatrixAgentHomeRow
                           agentName={profileAgent.name}
                           agentPrincipal={profileAgent.principal}
                           bridge={window.atumMatrix.agentHome}
+                          cloudOnly={cloudOnly}
                           display="icon"
                           view={profileAgent.home}
                         />
@@ -8236,10 +8272,11 @@ function MatrixAccountView({
                       profileAgent?.executionPolicy &&
                       window.atumMatrix.executionPolicy &&
                       // Only with a real choice (more than one Mac); the assistant's card has it for everyone.
-                      executionPolicyOffersChoice(profileAgent.executionPolicy) && (
+                      executionPolicyOffersChoice(profileAgent.executionPolicy, cloudOnly) && (
                         <MatrixExecutionPolicyControl
                           agentPrincipal={profileAgent.principal}
                           bridge={window.atumMatrix.executionPolicy}
+                          cloudOnly={cloudOnly}
                           memoryNote={profileAgent.memoryNote}
                           view={profileAgent.executionPolicy}
                         />
@@ -8260,6 +8297,7 @@ function MatrixAccountView({
                     {conversationShellVisible && !founderDraftShown && !driveActive && !appDestination && room && (
                       <ConversationHeaderActions
                         appearance={lookAppearance}
+                        cloudOnly={cloudOnly}
                         currentLook={conversationLook?.selection ?? { v: 1, background: { kind: 'default' } }}
                         fail={fail}
                         key={`conversation:${room.id}`}
@@ -8717,6 +8755,7 @@ function MatrixAccountView({
               ) : workplaceActive ? (
                 <MatrixWorkspace
                   channelContent={companyChannelContentAuthorized || notesSelfBound ? conversationContent : undefined}
+                  cloudOnly={cloudOnly}
                   exitTo={
                     settingsTrip?.from === 'store'
                       ? 'store'
@@ -9008,6 +9047,7 @@ function MatrixAccountView({
         open={paletteVisible}
       />
       <MatrixSettingsSheet
+        cloudOnly={cloudOnly}
         fail={fail}
         onClose={() => setSettingsOpen(false)}
         onEditProfile={
