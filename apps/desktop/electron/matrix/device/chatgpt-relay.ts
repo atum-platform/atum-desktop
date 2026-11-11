@@ -5,6 +5,7 @@ export const CHATGPT_RELAY_RESPONSE_MAX_BYTES = 800_000
 export const CHATGPT_RELAY_CAPABILITY_MAX_MS = 60_000
 export const CHATGPT_RELAY_CLOCK_SKEW_MS = 30_000
 
+const NIL_ID = '00000000-0000-4000-8000-000000000000'
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
 const MODEL = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u
 
@@ -35,6 +36,18 @@ export type ChatGptRelayRefusal =
   | 'relay_disabled' | 'model_unavailable' | 'request_too_large' | 'response_too_large'
   | 'chatgpt_unavailable' | 'stopped' | 'invalid_request'
 
+export type ChatGptRelayStage = 'provider_call' | 'response_encode'
+export type ChatGptRelayProcessCode =
+  | 'ok' | 'provider_call_failed' | 'response_not_serializable' | 'response_too_large'
+  | 'response_invalid' | 'process_unavailable' | 'stopped'
+
+export interface ChatGptRelayDiagnostic {
+  stage: ChatGptRelayStage
+  code: ChatGptRelayProcessCode
+  /** Child exit status; -1 means the child never produced one. */
+  exit: number
+}
+
 export interface ChatGptRelayAuthority {
   ownerPrincipal: string
   agentPrincipals: readonly string[]
@@ -46,6 +59,7 @@ export interface ChatGptRelayAuthority {
 export interface ChatGptRelayCall {
   status: 200
   response: Record<string, unknown>
+  diagnostic: ChatGptRelayDiagnostic
 }
 
 export interface ChatGptRelayHandlerDeps {
@@ -58,6 +72,24 @@ export interface ChatGptRelayHandlerDeps {
 
 function object(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const RELAY_STAGES = new Set<ChatGptRelayStage>(['provider_call', 'response_encode'])
+const RELAY_PROCESS_CODES = new Set<ChatGptRelayProcessCode>([
+  'ok', 'provider_call_failed', 'response_not_serializable', 'response_too_large',
+  'response_invalid', 'process_unavailable', 'stopped'
+])
+
+export function chatGptRelayDiagnostic(value: unknown): ChatGptRelayDiagnostic | null {
+  const candidate = object(value) && object(value.diagnostic) ? value.diagnostic : null
+
+  if (!candidate || !RELAY_STAGES.has(candidate.stage as ChatGptRelayStage) ||
+      !RELAY_PROCESS_CODES.has(candidate.code as ChatGptRelayProcessCode) ||
+      !Number.isInteger(candidate.exit) || Number(candidate.exit) < -1 || Number(candidate.exit) > 255) {
+    return null
+  }
+
+  return candidate as unknown as ChatGptRelayDiagnostic
 }
 
 function parse(value: Record<string, unknown>): ChatGptRelayRequestBody | null {
@@ -102,9 +134,15 @@ export class ChatGptRelayHandler {
   async handle(body: Record<string, unknown>, session: DeviceSessionFacts, verdict: DeviceFrameVerdict): Promise<ChatGptRelayResponseBody> {
     const started = this.deps.now?.() ?? Date.now()
     const id = typeof body.capabilityId === 'string' && UUID.test(body.capabilityId)
-      ? body.capabilityId : '00000000-0000-4000-8000-000000000000'
-    const refuse = (code: ChatGptRelayRefusal, status = code === 'request_too_large' ? 413 : 403): ChatGptRelayResponseBody => {
-      this.deps.log?.(`[ChatGPT relay] state=refused code=${code} ms=${Math.max(0, (this.deps.now?.() ?? Date.now()) - started)}`)
+      ? body.capabilityId : NIL_ID
+    const invocation = typeof body.invocationId === 'string' && UUID.test(body.invocationId)
+      ? body.invocationId : NIL_ID
+    const line = (state: 'completed' | 'refused', stage: ChatGptRelayStage | 'admission', code: string, exit: number) => {
+      this.deps.log?.(`[ChatGPT relay] invocation=${invocation} state=${state} stage=${stage} code=${code} exit=${exit} ms=${Math.max(0, (this.deps.now?.() ?? Date.now()) - started)}`)
+    }
+    const refuse = (code: ChatGptRelayRefusal, status = code === 'request_too_large' ? 413 : 403,
+      diagnostic?: ChatGptRelayDiagnostic): ChatGptRelayResponseBody => {
+      line('refused', diagnostic?.stage ?? 'admission', diagnostic?.code ?? code, diagnostic?.exit ?? -1)
       return { capabilityId: id, state: 'refused', status, code }
     }
     if (verdict !== 'ok') {
@@ -215,13 +253,19 @@ export class ChatGptRelayHandler {
 
       const bytes = Buffer.byteLength(JSON.stringify(answer.response), 'utf8')
       if (bytes > request.maxResponseBytes || bytes > CHATGPT_RELAY_RESPONSE_MAX_BYTES) {
-        return refuse('response_too_large', 502)
+        return refuse('response_too_large', 502, {
+          stage: 'response_encode', code: 'response_too_large', exit: answer.diagnostic.exit
+        })
       }
-      this.deps.log?.(`[ChatGPT relay] state=completed model=${request.model} response_bytes=${bytes} ms=${Math.max(0, (this.deps.now?.() ?? Date.now()) - started)}`)
+      line('completed', answer.diagnostic.stage, answer.diagnostic.code, answer.diagnostic.exit)
       return { capabilityId: request.capabilityId, state: 'completed', status: 200,
         responseJson: JSON.stringify(answer.response) }
-    } catch {
-      return refuse(controller.signal.aborted ? 'stopped' : 'chatgpt_unavailable', controller.signal.aborted ? 409 : 502)
+    } catch (error) {
+      const diagnostic = chatGptRelayDiagnostic(error) ?? {
+        stage: 'provider_call', code: controller.signal.aborted ? 'stopped' : 'process_unavailable', exit: -1
+      }
+      return refuse(controller.signal.aborted ? 'stopped' : 'chatgpt_unavailable',
+        controller.signal.aborted ? 409 : 502, diagnostic)
     } finally {
       if (authorityCheck) {
         clearInterval(authorityCheck)

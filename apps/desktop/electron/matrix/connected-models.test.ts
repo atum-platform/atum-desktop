@@ -361,6 +361,44 @@ describe('the room agent’s unified model catalog', () => {
     ).toThrow('matrix_command_invalid')
   })
 
+  it('does not show or select Hermes context aliases in the Atum ChatGPT picker', async () => {
+    const { target, writes } = agent({ models: ['gpt-6-sol', 'gpt-6-sol-900k'] })
+    const catalog = await listMatrixModelCatalog(target)
+
+    expect(catalog.routes.filter(route => route.provider === 'openai-codex').map(route => route.model))
+      .toEqual(['gpt-6-sol'])
+    expect(catalog.accounts.find(account => account.id === 'openai-codex')?.models).toBe(1)
+    await expect(selectMatrixModelRoute(target, matrixModelRouteId('openai-codex', 'gpt-6-sol-900k')))
+      .rejects.toThrow(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)
+    expect(writes).toEqual([])
+  })
+
+  it('keeps a saved ChatGPT context alias as the disabled current row until the person changes it', async () => {
+    const legacy = 'gpt-6-sol-900k'
+    const { target, writes, selected } = agent({ models: ['gpt-6-sol', legacy], current: legacy })
+    const catalog = await listMatrixModelCatalog(target)
+    const current = catalog.routes.filter(route => route.current)
+
+    expect(current).toEqual([
+      expect.objectContaining({
+        id: matrixModelRouteId('openai-codex', legacy),
+        model: legacy,
+        current: true,
+        ready: false
+      })
+    ])
+    expect(catalog.current).toBe(matrixModelRouteId('openai-codex', legacy))
+    expect(catalog.routes.find(route => route.model === 'gpt-6-sol')).toMatchObject({ current: false, ready: true })
+    // The alias remains excluded from offered-model counts and cannot be selected or written back.
+    expect(catalog.accounts.find(account => account.id === 'openai-codex')?.models).toBe(1)
+    expect(writes).toEqual([])
+    await expect(selectMatrixModelRoute(target, current[0]!.id)).rejects.toThrow(
+      MATRIX_CONNECTED_MODEL_ERRORS.unavailable
+    )
+    expect(writes).toEqual([])
+    expect(selected).not.toHaveBeenCalled()
+  })
+
   it('keeps an unsupported current model visible as current but not selectable, never marking another current', async () => {
     const { target, writes } = agent({ models: ['gpt-5.6-luna', 'two words'], current: 'two words' })
     const catalog = await listMatrixModelCatalog(target)

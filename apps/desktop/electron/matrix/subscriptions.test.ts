@@ -64,6 +64,17 @@ describe('subscription catalog', () => {
       connected: false
     })
   })
+
+  it('keeps Hermes context aliases out of Atum publication without hiding their base models', () => {
+    const withContextAliases = {
+      ...snapshot,
+      providers: snapshot.providers.map(row => row.id === 'openai-codex'
+        ? { ...row, models: ['gpt-6-sol', 'gpt-6-sol-900k', 'gpt-5.6-luna-900K'] }
+        : row)
+    }
+
+    expect(matrixSubscriptionCatalogFromSnapshot(withContextAliases).providers[0]?.models).toEqual(['gpt-6-sol'])
+  })
 })
 
 describe('the account grant beside an assistant’s live view', () => {
