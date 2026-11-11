@@ -937,7 +937,11 @@ import {
   prepareMatrixStoreHire
 } from './store-schedules'
 import { MatrixSubscriptionAuthLifecycle } from './subscription-auth-lifecycle'
-import { listMatrixSubscriptionCatalog, matrixSubscriptionCatalogWithGrant } from './subscriptions'
+import {
+  atumChatGptModelVisible,
+  listMatrixSubscriptionCatalog,
+  matrixSubscriptionCatalogWithGrant
+} from './subscriptions'
 import { MatrixTerminals } from './terminals'
 import { MatrixTextDocument } from './text-document'
 import { currentIanaTimeZone } from './time-zone'
@@ -4919,7 +4923,7 @@ async function retireSubscriptionProviders(): Promise<void> {
 let chatGptLocalModels: { accountKey: string; models: ReturnType<typeof chatGptRelayModelRows> } | undefined
 
 function chatGptRelayModelRows(models: readonly string[]) {
-  return models.map(model => ({
+  return models.filter(atumChatGptModelVisible).map(model => ({
     id: model,
     displayName: matrixModelDisplayName(model),
     efforts: ['low', 'medium', 'high'] as const,

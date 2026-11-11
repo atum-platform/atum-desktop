@@ -53,6 +53,11 @@ function modelSupported(model: string): boolean {
   )
 }
 
+/** Hermes's local context aliases are an execution detail, never an Atum model choice. */
+export function atumChatGptModelVisible(model: string): boolean {
+  return !/-900k$/iu.test(model)
+}
+
 function providerStatus(row: MatrixProviderRow | undefined, provider: MatrixSubscriptionProvider): MatrixSubscriptionProviderStatus {
   if (!row) {
     return { id: provider, connected: false }
@@ -68,7 +73,8 @@ function providerStatus(row: MatrixProviderRow | undefined, provider: MatrixSubs
     connected,
     // A signed-out connection contributes no models, exactly as the picker's accounts do.
     ...(connected
-      ? { models: [...new Set(row.models)].filter(modelSupported) }
+      ? { models: [...new Set(row.models)].filter(model =>
+          modelSupported(model) && (provider !== 'openai-codex' || atumChatGptModelVisible(model))) }
       : {})
   }
 }

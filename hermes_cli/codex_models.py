@@ -12,6 +12,9 @@ from hermes_cli.route_identity import normalize_route_base_url
 
 logger = logging.getLogger(__name__)
 
+_catalog_failure_reason = "parse"
+_fallback_log_emitted = False
+
 
 # Curated offline fallback (first-run, transient API failure). Only slugs the ChatGPT Codex
 # OAuth backend actually accepts: the public API's "-pro" variants and the retired
@@ -163,11 +166,14 @@ def _fetch_models_from_api(access_token: str, base_url: Optional[str] = None) ->
     ``base_url`` is the host the credential is routed to (resolved together with it); the
     catalog is fetched there, never from a host the credential does not belong to (#121486).
     """
+    global _catalog_failure_reason
+    _catalog_failure_reason = "parse"
     try:
         from agent.model_metadata import _codex_catalog_probe_allowed
         from hermes_cli.auth_codex import _codex_base_url
         catalog_base = (base_url or "").strip().rstrip("/") or _codex_base_url()
         if not _codex_catalog_probe_allowed(access_token, catalog_base):
+            _catalog_failure_reason = "credential_route"
             return []
         import httpx
         # The per-account catalog needs ChatGPT-Account-ID (else ``{"models":[]}`` with HTTP 200
@@ -177,11 +183,31 @@ def _fetch_models_from_api(access_token: str, base_url: Optional[str] = None) ->
         from agent.model_metadata import fetch_codex_catalog_entries
         entries, _status = fetch_codex_catalog_entries(
             lambda url: httpx.get(url, headers=headers, timeout=10), base_url=catalog_base)
+        if not entries:
+            if isinstance(_status, int) and 400 <= _status < 500:
+                _catalog_failure_reason = "http_4xx"
+            elif isinstance(_status, int) and 500 <= _status < 600:
+                _catalog_failure_reason = "http_5xx"
+            else:
+                _catalog_failure_reason = "parse"
+            return []
     except Exception as exc:
+        _catalog_failure_reason = "parse" if isinstance(exc, ValueError) else "transport"
         logger.debug("Failed to fetch Codex models from API: %s", exc)
         return []
+    ranked = _ranked_slugs(entries)
+    if not ranked:
+        _catalog_failure_reason = "parse"
+        return []
+    return _finalize_codex_models(ranked)
 
-    return _finalize_codex_models(_ranked_slugs(entries))
+
+def _log_offline_fallback_once(reason: str) -> None:
+    global _fallback_log_emitted
+    if _fallback_log_emitted:
+        return
+    _fallback_log_emitted = True
+    logger.warning("Codex model catalog source=offline_fallback reason=%s", reason)
 
 
 def _read_default_model(codex_home: Path) -> Optional[str]:
@@ -219,13 +245,18 @@ def get_codex_model_ids(access_token: Optional[str] = None, base_url: Optional[s
     ``CuratedFallbackModels``: a cache placeholder that never replaces a verified catalog, since
     account-gated rows such as Astra are absent from the offline hints."""
     codex_home = Path(os.getenv("CODEX_HOME", "").strip() or str(Path.home() / ".codex")).expanduser()
+    fallback_reason = "no_token"
     if access_token:
+        global _catalog_failure_reason
+        _catalog_failure_reason = "parse"
         api_models = _fetch_models_from_api(access_token, base_url=base_url)
         if api_models:
             return _finalize_codex_models(api_models)
+        fallback_reason = _catalog_failure_reason
     # Late: models_catalog_static builds its codex table from this module at import time.
     from hermes_cli.models_catalog_static import CuratedFallbackModels
 
+    _log_offline_fallback_once(fallback_reason)
     default_model = _read_default_model(codex_home)
     return CuratedFallbackModels(_finalize_codex_models(_drop_undiscovered_astra(_dedupe([
         *([default_model] if default_model else []), *_read_cache_models(codex_home),

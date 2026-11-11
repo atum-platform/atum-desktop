@@ -30,7 +30,8 @@ const body = (overrides: Record<string, unknown> = {}) => {
 function fixture() {
   const log: string[] = []
   const call = vi.fn(async () => ({ status: 200 as const, response: { id: 'answer', object: 'chat.completion',
-    model: 'gpt-5.6-luna', choices: [{ index: 0, message: { role: 'assistant', content: 'private answer' }, finish_reason: 'stop' }] } }))
+    model: 'gpt-5.6-luna', choices: [{ index: 0, message: { role: 'assistant', content: 'private answer' }, finish_reason: 'stop' }] },
+    diagnostic: { stage: 'response_encode' as const, code: 'ok' as const, exit: 0 } }))
   const subject = new ChatGptRelayHandler({
     authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
       enabled: true, models: ['gpt-5.6-luna'] }),
@@ -46,6 +47,9 @@ describe('ChatGptRelayHandler', () => {
     const f = fixture()
     await expect(f.subject.handle(body(), session, 'ok')).resolves.toMatchObject({ state: 'completed', status: 200 })
     expect(f.call).toHaveBeenCalledOnce()
+    expect(f.log).toEqual([
+      `[ChatGPT relay] invocation=${INVOCATION} state=completed stage=response_encode code=ok exit=0 ms=0`
+    ])
     const replay = await f.subject.handle(body(), session, 'ok')
     expect(replay).toMatchObject({ state: 'refused', code: 'replayed' })
     expect(f.call).toHaveBeenCalledOnce()
@@ -127,6 +131,31 @@ describe('ChatGptRelayHandler', () => {
     await began
     subject.disable()
     await expect(pending).resolves.toMatchObject({ state: 'refused', code: 'stopped' })
+    expect(log).toEqual([
+      `[ChatGPT relay] invocation=${INVOCATION} state=refused stage=provider_call code=stopped exit=-1 ms=0`
+    ])
     expect(log.join('\n')).not.toMatch(/private prompt|private answer|refresh|access[_-]?token|authorization/i)
+  })
+
+  it('carries a closed child stage and code into the one refusal log line', async () => {
+    const log: string[] = []
+    const failure = Object.assign(new Error('raw child words must not be logged'), {
+      diagnostic: { stage: 'response_encode', code: 'response_not_serializable', exit: 4 }
+    })
+    const subject = new ChatGptRelayHandler({
+      authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
+        enabled: true, models: ['gpt-5.6-luna'] }),
+      call: async () => { throw failure },
+      now: () => now,
+      log: line => log.push(line)
+    })
+
+    await expect(subject.handle(body(), session, 'ok')).resolves.toMatchObject({
+      state: 'refused', status: 502, code: 'chatgpt_unavailable'
+    })
+    expect(log).toEqual([
+      `[ChatGPT relay] invocation=${INVOCATION} state=refused stage=response_encode code=response_not_serializable exit=4 ms=0`
+    ])
+    expect(log[0]).not.toContain('raw child words')
   })
 })

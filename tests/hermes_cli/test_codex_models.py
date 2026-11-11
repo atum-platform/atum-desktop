@@ -46,6 +46,20 @@ def test_codex_catalog_never_offers_chatgpt_rejected_pro_slugs(monkeypatch, tmp_
     assert _pro_slugs(live) == []
 
 
+def test_offline_catalog_logs_one_closed_fallback_reason(monkeypatch, tmp_path, caplog):
+    from hermes_cli import codex_models
+
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path))
+    monkeypatch.setattr(codex_models, "_fallback_log_emitted", False)
+    caplog.set_level("WARNING", logger="hermes_cli.codex_models")
+
+    get_codex_model_ids()
+    get_codex_model_ids()
+
+    lines = [record.message for record in caplog.records if "source=offline_fallback" in record.message]
+    assert lines == ["Codex model catalog source=offline_fallback reason=no_token"]
+
+
 
 def test_picker_synthesizes_900k_variants_for_verified_slugs():
     """Every live-verified large-context slug gets an explicit ``-900k``
