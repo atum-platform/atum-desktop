@@ -24,6 +24,7 @@ import { matrixAgentAnswersInCloud } from '../../shared/matrix-agent-actions'
 import { matrixAliasCopy } from '../../shared/matrix-alias-copy'
 import type { MatrixAliasBridge, MatrixAliasResult } from '../../shared/matrix-aliases'
 import { checkAssistantName } from '../../shared/matrix-assistant-name'
+import { matrixFundsCopy } from '../../shared/matrix-funds-copy'
 import type { MatrixHandleSheetDiagnostic } from '../../shared/matrix-handle-diagnostic'
 
 import { noteMatrixAgentHandleSheetClaim } from './agent-handle-backfill'
@@ -31,6 +32,8 @@ import { claimMatrixAgentHandle, matrixAgentHandleRetryable } from './agent-hand
 import { useAssistantCardCopy } from './assistant-card/copy'
 import { photoPreviewUrl, type PreparedPhoto } from './assistant-card/photo'
 import { PhotoCropDialog } from './assistant-card/photo-crop'
+import { FundsLine } from './funds/funds-line'
+import { openFundsTopUp } from './funds/top-up-request'
 import { MATRIX_HANDLE_CHECK_PAUSE_MS } from './handle-editor'
 import {
   localMatrixHandleProblem,
@@ -306,6 +309,8 @@ export function NewAssistantDialog({
     }
   }, [aliases, checker, fullHandle, handleLocked, localHandleProblem, open])
 
+  const funds = matrixFundsCopy(locale)
+
   const refusal = {
     account: shell.agentAccountRefused,
     limit: shell.agentLimitRefused,
@@ -500,11 +505,8 @@ export function NewAssistantDialog({
             return
           }
 
+          // Short of the hire's price: the sheet says so in one line whose button tops up in place.
           setRefused(reason)
-
-          if (reason === 'short') {
-            void window.atumMatrix.openTopUp()
-          }
 
           return
         }
@@ -789,21 +791,40 @@ export function NewAssistantDialog({
               {pending === 'photo' ? copy.photoSaving : shell.agentCreating}
             </p>
           )}
-          {(refused || nameProblem) && (
-            <NoticeBand role="alert" tone="failure">
-              {nameProblem ?? (refused ? refusal[refused] : undefined)}
+          {refused === 'short' && !nameProblem ? (
+            <NoticeBand data-agent-hire-short role="status" tone="notice">
+              <FundsLine
+                action={funds.addProtons}
+                onAction={() => openFundsTopUp(hireRequired)}
+                text={funds.hireShort}
+              />
             </NoticeBand>
+          ) : (
+            (refused || nameProblem) && (
+              <NoticeBand role="alert" tone="failure">
+                {nameProblem ?? (refused ? refusal[refused] : undefined)}
+              </NoticeBand>
+            )
           )}
-          {hireRequired !== undefined && !pending && (
-            <NoticeBand role="alert" tone="notice">
-              <strong>{shell.agentHireTitle}</strong> · {new Intl.NumberFormat(locale).format(hireRequired)} Protons / 30 days
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => create(hireImporting, true)} type="button">{shell.agentHireConfirm}</button>
-                <button onClick={() => {
-                  setHireRequired(undefined)
-                  setHireImporting(false)
-                }} type="button">{shell.agentHireLater}</button>
-              </div>
+          {hireRequired !== undefined && !pending && refused !== 'short' && (
+            <NoticeBand data-agent-hire role="alert" tone="notice">
+              <strong>{shell.agentHireTitle}</strong> · {funds.hirePrice(new Intl.NumberFormat(locale).format(hireRequired))}
+              <span className="mt-2 flex gap-2">
+                <Button className="rounded-full" onClick={() => create(hireImporting, true)} size="sm" type="button">
+                  {shell.agentHireConfirm}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setHireRequired(undefined)
+                    setHireImporting(false)
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="text"
+                >
+                  {shell.agentHireLater}
+                </Button>
+              </span>
             </NoticeBand>
           )}
           {failed && (

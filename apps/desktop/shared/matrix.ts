@@ -450,6 +450,8 @@ export interface MatrixMessage {
    * its card's line, source and one offer. Display only; the window shows it as a card only
    * from the room's own assistant. */
   checkIn?: MatrixCheckInNudge
+  /** A scheduled post (`io.atum.cron` marker) from someone else; display only. */
+  scheduled?: true
   /** Closed outcome notice code (`io.atum.result.status`), its bounded details and its synthetic
    * Stop target; display only. The renderer words it in the viewer's language for the room's agent. */
   cloudStatus?: MatrixAgentStatusNotice & { stopEvent?: string }

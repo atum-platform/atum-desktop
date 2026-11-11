@@ -14,6 +14,7 @@ import {
   type AtumPetChatTurn
 } from '../../../shared/pet-chat/atum-pet-chat'
 import { focusMatrixComposer } from '../composer-focus'
+import { openFundsTopUp } from '../funds/top-up-request'
 
 import { PetChatBox, type PetChatPending } from './chat-box'
 import { petStageRoot } from './dom-world'
@@ -187,7 +188,6 @@ export function PetGlassChat({
     Math.min((position?.y ?? box.height - 32) - HEIGHT - 10, Math.max(8, box.height - HEIGHT - 8))
   )
 
-  const topUp = window.atumMatrix?.openTopUp
 
   return createPortal(
     <PetChatBox
@@ -215,7 +215,8 @@ export function PetGlassChat({
         setDraft('')
         void send({ id: crypto.randomUUID(), text, at: new Date().toISOString(), state: 'sending' })
       }}
-      onTopUp={topUp ? () => void topUp().catch(() => undefined) : undefined}
+      // Out of Protons mid-chat: the top-up opens in place, over the pet, never in the browser.
+      onTopUp={() => openFundsTopUp()}
       pending={outgoing}
       ref={panel}
       sprite={sprite}

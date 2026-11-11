@@ -387,6 +387,8 @@ export function matrixMessage(
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),
     ...(reactions ? { reactions } : {}),
     ...(checkIn ? { checkIn } : {}),
+    // A scheduled post of the agent (its cron marker): display only, never authority.
+    ...(!failed && !own && original[MATRIX_CRON_KEY] ? { scheduled: true as const } : {}),
     ...(cloudStatus ? { cloudStatus } : {}),
     ...(statusLine ? { statusLine } : {}),
     ...(answerWarning ? { answerWarning } : {}),

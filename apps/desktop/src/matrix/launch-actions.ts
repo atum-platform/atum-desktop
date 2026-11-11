@@ -1,6 +1,7 @@
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
 
 import { ATUM_LINKS } from './atum-links'
+import { openFundsTopUp } from './funds/top-up-request'
 import type { MatrixReadinessAction } from './readiness-copy'
 import { primaryAgent } from './room-agent'
 import { openMatrixTopUp } from './store/top-up'
@@ -23,8 +24,9 @@ export function runMatrixReadinessAction(
       return bridge.setupAssistant()
 
     case 'top_up':
-      // The same top-up as the Store and Settings: the Store's checkout, or Atum's payments page.
-      return openMatrixTopUp(snapshot)
+      // In place over the chat when the window's top-up is there; before it (the launch screen),
+      // the same top-up as the Store and Settings.
+      return openFundsTopUp() ? Promise.resolve() : openMatrixTopUp(snapshot)
 
     case 'download':
       return bridge.openLink(ATUM_LINKS.download)

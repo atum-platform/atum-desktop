@@ -60,12 +60,15 @@ function PackCard({
   copy,
   disabled,
   pack,
-  start
+  start,
+  suggested
 }: {
   copy: MatrixStoreCopy
   disabled: boolean
   pack: MatrixTopUpPack
   start(packId: string): void
+  /** Set only when one pack is offered first: that one is the primary action, the rest secondary. */
+  suggested?: boolean
 }) {
   const { locale, t } = useI18n()
   const amount = formatWhole(pack.totalMicroProtons, locale)
@@ -83,7 +86,14 @@ function PackCard({
             pack.amountVnd
           )}
         </span>
-        <Button className="atum-store-action" disabled={disabled} onClick={() => start(pack.id)} size="sm">
+        <Button
+          className="atum-store-action"
+          data-matrix-topup-suggested={suggested || undefined}
+          disabled={disabled}
+          onClick={() => start(pack.id)}
+          size="sm"
+          variant={suggested === false ? 'secondary' : 'default'}
+        >
           {copy.checkoutBuy}
         </Button>
       </div>
@@ -103,6 +113,7 @@ export function MatrixCheckoutPane({
   copy,
   doneLabel,
   onDone,
+  suggestedPackId,
   wallet
 }: {
   checkout: DiscoverCheckout
@@ -110,6 +121,8 @@ export function MatrixCheckoutPane({
   /** After a paid order: where the person goes next (the store, or back to the item they wanted). */
   doneLabel?: string
   onDone?: () => void
+  /** The pack to offer first (a funds line that knows the need); the server's packs are unchanged. */
+  suggestedPackId?: string
   wallet?: MatrixWalletState
 }) {
   const { locale } = useI18n()
@@ -191,6 +204,7 @@ export function MatrixCheckoutPane({
             key={pack.id}
             pack={pack}
             start={packId => act(() => checkout.onStart(packId))}
+            suggested={suggestedPackId === undefined ? undefined : pack.id === suggestedPackId}
           />
         ))}
       {snapshot.intent && !order && (

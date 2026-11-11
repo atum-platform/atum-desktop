@@ -6,8 +6,11 @@ import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 
 import { matrixCompanyBoardCopy } from '../../shared/matrix-company-board-copy'
+import { matrixFundsCopy } from '../../shared/matrix-funds-copy'
 
 import { companyDesktopAdapter, type CompanyWalletV2 } from './company-desktop-adapter'
+import { FundsLine } from './funds/funds-line'
+import { openFundsTopUp } from './funds/top-up-request'
 
 /** Mirrors `atum.company-funding/2.1`: whole Protons, 1 to 1,000,000 per transfer. */
 export const COMPANY_FUND_MAX_PROTONS = 1_000_000
@@ -73,6 +76,7 @@ export function CompanyWalletFund({
 }) {
   const { locale } = useI18n()
   const copy = matrixCompanyBoardCopy(locale)
+  const funds = matrixFundsCopy(locale)
   const prefill = prefillProtons && prefillProtons > 0 ? Math.min(Math.ceil(prefillProtons), COMPANY_FUND_MAX_PROTONS) : 0
   const [text, setText] = useState(prefill ? String(prefill) : '')
   const [pending, setPending] = useState<Pending>()
@@ -238,10 +242,23 @@ export function CompanyWalletFund({
           </Button>
         </form>
       )}
-      {problemText && !pending?.submitted && (
-        <p className="text-sm text-(--atum-danger)" data-company-wallet-fund-problem={problem} role="alert">
-          {problemText}
+      {problem === 'insufficient' && !pending?.submitted ? (
+        // The person's own wallet is short: one line whose button tops it up in place, the pack
+        // that covers this amount offered first, then they move the Protons as before.
+        <p className="text-sm text-(--atum-ink)" data-company-wallet-fund-problem={problem} role="status">
+          <FundsLine
+            action={funds.addProtons}
+            onAction={() => openFundsTopUp(companyFundProtons(text) ?? undefined)}
+            text={funds.fundShort}
+          />
         </p>
+      ) : (
+        problemText &&
+        !pending?.submitted && (
+          <p className="text-sm text-(--atum-danger)" data-company-wallet-fund-problem={problem} role="alert">
+            {problemText}
+          </p>
+        )
       )}
       {done !== undefined && !problemText && (
         <p className="text-sm text-(--atum-ink-muted)" data-company-wallet-fund-done role="status">

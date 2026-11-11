@@ -2,9 +2,11 @@ import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 
 import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
-import { matrixAgentAccessBandText } from '../../shared/matrix-agent-access-band-copy'
+import { matrixFundsCopy } from '../../shared/matrix-funds-copy'
 
 import { useMatrixCloudAccess } from './cloud-access'
+import { FundsLine } from './funds/funds-line'
+import { openFundsTopUp } from './funds/top-up-request'
 
 /**
  * Only the roster's answering fact labels a chat as cloud; local readiness is separate. A Mac that
@@ -21,13 +23,14 @@ export function cloudRoomAgent(snapshot: MatrixSnapshot, room: MatrixRoom): Matr
 }
 
 /**
- * Why a cloud assistant cannot answer while the account's access has ended, in the app's own
- * words: the same reason sentence and the one remedy its in-chat notice uses. One read serves
- * every cloud surface (`cloud-access.ts`); a Mac-run assistant never asks for it and never shows
- * this band.
+ * Why a cloud assistant cannot answer while the account has no Protons to spend: one quiet line and
+ * the one thing to do, Add Protons, which opens the top-up in place. Every reason the access read
+ * gives here is an empty wallet now (the cloud trial is gone). One read serves every cloud surface
+ * (`cloud-access.ts`); a Mac-run assistant never asks for it and never shows this band.
  */
 export function MatrixCloudAccessBand({ agent }: { agent: MatrixAgentView }) {
   const { locale } = useI18n()
+  const copy = matrixFundsCopy(locale)
   const enabled = agent.answering === 'cloud' && agent.macRole !== 'answering'
   const access = useMatrixCloudAccess(enabled)
 
@@ -37,7 +40,7 @@ export function MatrixCloudAccessBand({ agent }: { agent: MatrixAgentView }) {
 
   return (
     <NoticeBand data-matrix-cloud-access tone="notice">
-      {matrixAgentAccessBandText(access.reason, locale)}
+      <FundsLine action={copy.addProtons} onAction={() => openFundsTopUp()} text={copy.outOfProtonsPaused} />
     </NoticeBand>
   )
 }

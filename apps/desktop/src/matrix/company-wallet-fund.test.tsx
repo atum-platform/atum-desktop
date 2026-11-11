@@ -6,6 +6,7 @@ import { I18nProvider } from '@/i18n'
 import type { CompanyDesktopAdapter } from './company-desktop-adapter'
 import { CompanyWalletDrawer } from './company-wallet'
 import { companyFundProtons } from './company-wallet-fund'
+import { $fundsTopUp, closeFundsTopUp, registerFundsTopUpHost } from './funds/top-up-request'
 import { playgroundCompanyDesktopAdapter } from './playground/company-ai-fixtures'
 import { TEAM_COMPANY_ID } from './playground/team-space-fixtures'
 
@@ -79,7 +80,13 @@ describe('Nạp từ ví của bạn', () => {
 
     await enter('500')
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }))
-    expect((await screen.findByRole('alert')).textContent).toBe('Your wallet doesn’t have enough Protons.')
+    // One line, and the one thing to do: top up the person's own wallet in place, for this amount.
+    expect((await screen.findByText('Not enough Protons in your wallet.')).closest('[data-company-wallet-fund-problem="insufficient"]')).toBeTruthy()
+    const unregister = registerFundsTopUpHost()
+    fireEvent.click(screen.getByRole('button', { name: 'Add Protons' }))
+    expect($fundsTopUp.get()).toMatchObject({ needProtons: 500 })
+    unregister()
+    closeFundsTopUp()
     expect(screen.getByRole('textbox', { name: 'Protons to move' })).toBeTruthy()
     expect(screen.getByText('Available').parentElement?.textContent).toContain('485,000')
   })

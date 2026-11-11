@@ -37,6 +37,7 @@ import { FounderAvatar } from './founder/founder-avatar'
 import { useFounderCopy } from './founder/founder-copy'
 import { $founderDraftOpen, closeFounderDraft, openFounderDraft, openFounderProfile } from './founder/founder-store'
 import { FounderProfileSheet } from './founder/profile-sheet'
+import { openFundsTopUp } from './funds/top-up-request'
 import { useLaunchCopy } from './launch-copy'
 import { MatrixMemberAvatar } from './member-avatar'
 import { directPartner } from './people'
@@ -67,7 +68,6 @@ import {
   matrixRosterPreview
 } from './roster-preview'
 import { matrixAgentWorkingRow, matrixWorkingRooms, matrixWorkingStep } from './roster-working'
-import { openMatrixTopUp } from './store/top-up'
 import { runMatrixCommand } from './text-document-actions'
 import { useWorkingCopy } from './working-copy'
 
@@ -1205,7 +1205,8 @@ export function MatrixRosterConversations({
                         void window.atumMatrix.renewAgent!(agent.assistantId!)
                           .then(result => {
                             if ('refused' in result) {
-                              void openMatrixTopUp(snapshot)
+                              // Short of the renewal: top up in place, the pack that covers it offered first.
+                              openFundsTopUp(agent.hire?.price_protons)
                             }
                           })
                           .catch(fail)

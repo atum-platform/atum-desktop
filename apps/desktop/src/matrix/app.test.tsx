@@ -5059,6 +5059,28 @@ describe('isolated Matrix composition', () => {
     expect(bridge.command).not.toHaveBeenCalled()
   })
 
+  it('says out of Protons in the reader’s language with one button that tops up, never the sender’s Vietnamese', async () => {
+    const { bridge, emit } = fixture()
+    // The cloud controller's words today: Vietnamese whatever the reader's language, and a remedy
+    // that sends the person elsewhere. One coded reply notice, one uncoded scheduled post.
+    const vi = 'Mình chưa trả lời được vì ví Proton đã hết. Các việc định kỳ cũng tạm dừng. Mở Protons để nạp thêm nhé.'
+    const base = { ...controlsState.messages[0]!, own: false, sender: '@atum:test', body: vi }
+    const coded = { ...base, id: '$unfunded', replyTo: '$request', timestamp: 2, notice: true, cloudStatus: { code: 'unfunded' as const } }
+    const scheduled = { ...base, id: '$routine', timestamp: 3, scheduled: true as const }
+    const person = { ...base, id: '$person', sender: '@bob:test', timestamp: 4, notice: true }
+
+    emit({ ...controlsState, messages: [...controlsState.messages, coded, scheduled, person] })
+    const lines = await screen.findAllByText('You’re out of Protons, so this wasn’t answered.')
+    expect(lines).toHaveLength(2)
+    // A person who types the same words is a person: shown as written, with no button.
+    expect(screen.getAllByText(vi)).toHaveLength(1)
+    const buttons = screen.getAllByRole('button', { name: 'Add Protons' })
+    expect(buttons).toHaveLength(2)
+    // No in-app checkout in this build: the same top-up as before, without a sentence to follow.
+    fireEvent.click(buttons[0]!)
+    await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
+  })
+
   it('words the agent’s outcome and appended warning in the reader’s language, never a person’s look-alike', async () => {
     const { emit } = fixture()
 

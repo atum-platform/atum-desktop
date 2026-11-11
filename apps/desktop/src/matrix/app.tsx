@@ -130,6 +130,7 @@ import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-compa
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixDisplayMode } from '../../shared/matrix-display-preferences'
 import { type MatrixDraftTarget, matrixDraftText } from '../../shared/matrix-drafts'
+import { matrixFundsKind } from '../../shared/matrix-funds'
 import { matrixMessageLink, validMatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import {
   MATRIX_NOTES_SELF_ROOM_TYPE,
@@ -305,6 +306,9 @@ import { $founderDraftOpen, closeFounderDraft, useFounderChatRequests } from './
 import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
+import { FundsNoticeLine } from './funds/funds-line'
+import { openFundsTopUp } from './funds/top-up-request'
+import { FundsTopUpHost } from './funds/top-up-sheet'
 import { MatrixGoogleConnectNudge } from './google-connection-settings'
 import { AssistantGreeting } from './greeting'
 import {
@@ -806,7 +810,11 @@ function MatrixEventMessageBubble() {
   const authenticatedBotNotice = message.appBot?.authenticated === true && message.appBot.kind === 'notice'
   // An assistant's notice (it held a reply it couldn't quote) is a quiet status line, not an
   // answer: no answer row, so nothing offers to ask its message again without the quote.
-  const status = (agent && Boolean(message.notice)) || authenticatedBotNotice || Boolean(companyStatus)
+  // Out of Protons or the assistant's daily limit: one quiet line with one button, in the reader's
+  // language, by its code or, for an event without one, by its exact known sentence (matrix-funds.ts).
+  const fundsKind = agent && !companyStatus && !authenticatedBotNotice ? matrixFundsKind(message) : undefined
+  const status =
+    (agent && Boolean(message.notice)) || authenticatedBotNotice || Boolean(companyStatus) || Boolean(fundsKind)
   // agent-turns/1.5: the room's agent's working line, outcome, scheduled line or appended warning in
   // the reader's current language, from its code alone; `message.body` stays the canonical text that
   // copy, export and every other client use.
@@ -1371,6 +1379,8 @@ function MatrixEventMessageBubble() {
                       companyId={action?.room.companyChannel?.companyId ?? privateCosCompanyId ?? ''}
                       status={companyStatus}
                     />
+                  ) : fundsKind ? (
+                    <FundsNoticeLine agentPrincipal={senderAgent?.principal} kind={fundsKind} />
                   ) : authenticatedBotNotice
                     ? appBotOutcomeText(
                         locale,
@@ -4669,7 +4679,7 @@ function MatrixThreadDetail({
               listening: false,
               recover: false,
               assistantEligible: false,
-              topUp: () => openMatrixTopUp(snapshot),
+              topUp: () => (openFundsTopUp() ? Promise.resolve() : openMatrixTopUp(snapshot)),
               agentUserIds: [snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)].filter(
                 (value): value is string => Boolean(value)
               ),
@@ -5231,8 +5241,8 @@ function Conversation({
       cancelAnimationFrame(jumpFrame)
     }
   }, [accountKey, historyReveal, selectedRoomId])
-  // Every "out of / low on Protons" here opens the same top-up as the Store and Settings.
-  const topUp = () => openMatrixTopUp(snapshot)
+  // Every "out of / low on Protons" in a chat opens the top-up in place, over the chat.
+  const topUp = () => (openFundsTopUp() ? Promise.resolve() : openMatrixTopUp(snapshot))
   const [composer, setComposerState] = useState<MatrixComposerActions | null>(null)
   const composerRef = useRef<MatrixComposerActions | null>(null)
 
@@ -9120,6 +9130,7 @@ function MatrixAccountView({
         />
       )}
       <AssistantCardHost compact={compact} openChat={rosterOpen.current} snapshot={snapshot} />
+      <FundsTopUpHost snapshot={snapshot} />
       <MatrixMobileSetup onOpenChange={setMobileOpen} open={mobileOpen} snapshot={snapshot} />
     </>
   )
