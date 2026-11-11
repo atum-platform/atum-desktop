@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "terminal",
+      "to": "cleaned",
+      "event": "redact"
+    }
+  ]
+}

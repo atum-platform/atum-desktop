@@ -1,5 +1,5 @@
 {
-  "note": "Full byte-identical frozen platform packs; canonical.test.ts verifies every declared pin. Device-service uses v1.1; app-catalog transport uses v1.1; agent-home uses v1.5, v1.7 and v1.8; agent-sweep uses frozen v1 and v1.1 plus negotiated v2; agent-sources and agent-source-gates use v1; agent-turns uses v1.4; agent-routines uses v1.3 and agent-presentation uses v1.1; canonical-room, execution-policy, and cloud-home-read use v1; model-choice carries the LU-R1 v1.2 policy and v1.3 destination/cap amendment. cloud-execution carries the 1.10 line-up managed dispatch grant (1.7 managed grant and 1.8 shapes carried unchanged) for the cloud controller, and 1.11 adds the per-agent daily-cap admission refusal additively over 1.10. provider-connections v1, model-choice v1.4 and cloud-execution v1.13 are R1; chatgpt-relay v1, model-choice v1.5 and cloud-execution v1.14 are the R2 Mac relay (migration 0336).",
+  "note": "Full byte-identical frozen platform packs; canonical.test.ts verifies every declared pin. Device-service uses v1.1; app-catalog transport uses v1.1; agent-home uses v1.5, v1.7 and v1.8; agent-sweep uses frozen v1 and v1.1 plus negotiated v2; agent-sources and agent-source-gates use v1; agent-turns uses v1.4, plus v1.6 for company progress and interim messages; agent-routines uses v1.3 and agent-presentation uses v1.1; canonical-room, execution-policy, and cloud-home-read use v1; model-choice carries the LU-R1 v1.2 policy and v1.3 destination/cap amendment. cloud-execution carries the 1.10 line-up managed dispatch grant (1.7 managed grant and 1.8 shapes carried unchanged) for the cloud controller, and 1.11 adds the per-agent daily-cap admission refusal additively over 1.10. provider-connections v1, model-choice v1.4 and cloud-execution v1.13 are R1; chatgpt-relay v1, model-choice v1.5 and cloud-execution v1.14 are the R2 Mac relay (migration 0336).",
   "source": "atum-platform feat/agent-sources-platform 6373fbf0 for agent-source-gates v1; feat/agent-sources-contract 39c9ac5102c55774e057728e2bf4e22f3161d259 for agent-sources v1 and agent-sweep v2; feat/app-catalog-transport-mode-0340 e32def7a for app-catalog v1.1; feat/sweep-warmup 253859de for agent-sweep v1.1; feat/silent-occurrence-delivery c6d8bd7f4ac35de37837e47901622e20f13b9e2e for agent-home v1.8; retained pack provenance stays on each entry",
   "packs": {
     "device-service": {
@@ -191,6 +191,11 @@
       "version": "v1",
       "pinned_sha256": "ef6736289406488978bc94c3b8e0031b11b284f4e0c87d769b1bf910524a949d",
       "source_commit": "c2823272990da577d6ce7d3b2c206fcdd9252021",
+      "vendored": "full"
+    },
+    "agent-turns-v1.6": {
+      "version": "v1.6",
+      "pinned_sha256": "7d9e14554526903536948d923e679033d9a6669879956d49170d494604058b54",
       "vendored": "full"
     }
   },
