@@ -104,7 +104,11 @@ history; only an owned duplicate or explicit correction is edited/redacted, also
 under a fresh check. Stop does not erase all interim messages.
 
 Clients hide progress after settled/redacted/terminal and never resurrect it on a
-late revision. Terminal matching uses the exact company/agent/audience/room/root/
+late revision. A client that has seen an exact tuple settled or redacted keeps that terminal fact for
+the tuple even if the settling edit is later redacted. Presentation expiry: a client
+hides a company progress line whose newest accepted revision is older than three quiet
+heartbeats (540000 ms). Expiry is presentation only: it never means completed, never
+changes execution state and never substitutes for the publisher's authorized cleanup. Terminal matching uses the exact company/agent/audience/room/root/
 task/invocation tuple, never merely a later message by the agent in the room.
 A final in thread A cannot hide thread B's progress. Progress/interim never counts
 as a final answer, changes execution state or authorizes side effects.
