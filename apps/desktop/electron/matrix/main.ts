@@ -7361,7 +7361,8 @@ function cloudModelView(principal: string) {
           }))
         }
       : {}),
-    subscriptionState
+    subscriptionState,
+    ...(relay?.presence ? { relayPresence: relay.presence } : {})
   }
 }
 

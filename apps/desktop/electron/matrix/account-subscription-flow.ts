@@ -278,7 +278,9 @@ export function matrixSubscriptionsWithChatGptRelay(
                   relay: {
                     state: relay.state,
                     thisMac: relay.state === 'enabled' && relay.deviceServiceId === thisDeviceServiceId,
-                    revision: relay.revision
+                    revision: relay.revision,
+                    ...(relay.presence ? { presence: relay.presence } : {}),
+                    ...(relay.displayName ? { displayName: relay.displayName } : {})
                   }
                 }
               : {}),

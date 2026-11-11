@@ -10,6 +10,9 @@ export interface MatrixChatGptRelaySnapshot {
   state: 'disabled' | 'enabled'
   deviceServiceId?: string
   selectedAt?: number
+  presence?: 'online' | 'offline' | 'none'
+  displayName?: string
+  lastSeenAt?: number
   models: readonly MatrixProviderConnectionModel[]
 }
 
@@ -24,12 +27,26 @@ function record(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
+/** Presence is additive. Malformed optional metadata remains unknown, preserving status. */
+function parsePresence(value: unknown): Pick<MatrixChatGptRelaySnapshot, 'presence' | 'displayName' | 'lastSeenAt'> {
+  if (!record(value)) return {}
+  if (value.state === 'unregistered' && Object.keys(value).length === 1) return { presence: 'none' }
+  if (!['online', 'offline'].includes(String(value.state)) ||
+    typeof value.deviceServiceId !== 'string' || !UUID.test(value.deviceServiceId) ||
+    typeof value.displayName !== 'string' || value.displayName.length < 1 || value.displayName.length > 64 ||
+    Object.keys(value).some(key => !['state', 'deviceServiceId', 'displayName', 'lastSeenAt'].includes(key)) ||
+    value.lastSeenAt !== undefined && (!Number.isSafeInteger(value.lastSeenAt) || Number(value.lastSeenAt) < 0)) return {}
+  return { presence: value.state as 'online' | 'offline', displayName: value.displayName,
+    ...(value.lastSeenAt === undefined ? {} : { lastSeenAt: Number(value.lastSeenAt) }) }
+}
+
 function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
   if (!record(value) || value.profile !== MATRIX_CHATGPT_RELAY_PROFILE ||
       !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
       !['disabled', 'enabled'].includes(String(value.state)) || !Array.isArray(value.models) || value.models.length > 64) {
     return
   }
+  const presence = parsePresence(value.relayPresence)
   const models: MatrixProviderConnectionModel[] = []
   for (const item of value.models) {
     if (!record(item) || typeof item.id !== 'string' || !MODEL.test(item.id) ||
@@ -51,12 +68,12 @@ function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
       return
     }
     return { revision: Number(value.revision), state: 'enabled', deviceServiceId: value.deviceServiceId,
-      selectedAt: Number(value.selectedAt), models }
+      selectedAt: Number(value.selectedAt), ...presence, models }
   }
-  if (Object.keys(value).some(key => !['profile', 'revision', 'state', 'models'].includes(key)) || models.length) {
+  if (Object.keys(value).some(key => !['profile', 'revision', 'state', 'models', 'relayPresence'].includes(key)) || models.length) {
     return
   }
-  return { revision: Number(value.revision), state: 'disabled', models: [] }
+  return { revision: Number(value.revision), state: 'disabled', ...presence, models: [] }
 }
 
 export async function requestMatrixChatGptRelay(resource: string, accessToken: string, action: Action,
@@ -92,7 +109,11 @@ export class MatrixChatGptRelay {
     this.owner = owner; this.snapshot = undefined
   }
 
-  view() { return this.snapshot }
+  view() {
+    const snapshot = this.snapshot
+    return snapshot?.presence === 'online' && snapshot.lastSeenAt !== undefined &&
+      snapshot.lastSeenAt <= Date.now() - 90_000 ? { ...snapshot, presence: 'offline' as const } : snapshot
+  }
 
   async refresh(): Promise<MatrixChatGptRelaySnapshot | undefined> {
     const scope = this.options.scope()

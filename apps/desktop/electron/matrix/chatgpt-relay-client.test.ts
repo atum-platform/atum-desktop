@@ -36,3 +36,30 @@ it('lets the account refresh an expired domain bearer', async () => {
     requestMatrixChatGptRelay(resource, 'synthetic', 'enable', AbortSignal.timeout(1000), {})
   ).rejects.toThrow('matrix_s1_authentication')
 })
+
+it.each(['online', 'offline', 'unregistered'] as const)('reads additive %s presence without dropping the relay catalogue', async state => {
+  const { MatrixChatGptRelay } = await import('./chatgpt-relay-client')
+  const scope = { accountKey: 'owner', generation: 1 }
+  const deviceServiceId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const registered = state !== 'unregistered'
+  const relay = new MatrixChatGptRelay({ scope: () => scope, changed: () => {}, call: async () => ({ status: 200, value: {
+    profile: 'atum.chatgpt-relay/1', revision: registered ? 1 : 0, state: registered ? 'enabled' : 'disabled',
+    ...(registered ? { deviceServiceId, selectedAt: 1 } : {}),
+    models: registered ? [{ id: 'gpt-model', displayName: 'GPT', efforts: ['medium'], defaultEffort: 'medium', contextBudget: 100, outputBudget: 10 }] : [],
+    relayPresence: registered ? { state, deviceServiceId, displayName: 'Relay Mac', lastSeenAt: 1000 } : { state }
+  } }) })
+  relay.activate(scope)
+  expect((await relay.refresh())?.presence).toBe(state === 'unregistered' ? 'none' : state)
+  expect(relay.view()?.models).toHaveLength(registered ? 1 : 0)
+})
+
+it('keeps malformed additive presence unknown while preserving the disabled status', async () => {
+  const { MatrixChatGptRelay } = await import('./chatgpt-relay-client')
+  const scope = { accountKey: 'owner', generation: 1 }
+  const relay = new MatrixChatGptRelay({ scope: () => scope, changed: () => {}, call: async () => ({ status: 200, value: {
+    profile: 'atum.chatgpt-relay/1', revision: 0, state: 'disabled', models: [], relayPresence: { state: 'invented' }
+  } }) })
+  relay.activate(scope)
+  expect(await relay.refresh()).toMatchObject({ state: 'disabled', models: [] })
+  expect(relay.view()?.presence).toBeUndefined()
+})

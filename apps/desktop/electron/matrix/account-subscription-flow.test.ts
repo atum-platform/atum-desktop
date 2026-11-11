@@ -237,3 +237,9 @@ describe('the account ChatGPT connection state machine', () => {
     expect(matrixSubscriptionPlanSignInGate({ ...host, planSignIn: false })).toBeUndefined()
   })
 })
+
+it('passes relay presence to the picker without discarding offline ChatGPT models', () => {
+  const status = matrixSubscriptionsWithChatGptRelay(localConnected, { ...enabledRelay, presence: 'offline', displayName: 'Relay Mac' }, undefined)
+  expect(status.providers[0].relay).toMatchObject({ presence: 'offline', displayName: 'Relay Mac' })
+  expect(status.providers[0].models).toEqual(enabledRelay.models.map(model => model.id))
+})
