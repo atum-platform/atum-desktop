@@ -80,6 +80,9 @@ export interface MatrixCloudModelChoiceView {
    * but its key is gone: the picker must offer Reconnect, never silently use Atum.
    */
   subscriptionState?: 'connected' | 'revoked' | 'disconnected' | 'unavailable'
+  /** The ChatGPT relay Mac's presence (`atum.chatgpt-relay` `relayPresence`), when the platform
+   * sends it. Read only through `shared/matrix-subscription-availability.ts`. */
+  relayPresence?: 'online' | 'offline' | 'none'
 }
 
 /** One OpenCode Go model offered to a cloud agent by the account connection. */

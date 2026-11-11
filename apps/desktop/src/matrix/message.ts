@@ -31,6 +31,7 @@ import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
+import { matrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 
@@ -546,6 +547,9 @@ export function matrixMessage(
   // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
   const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
 
+  // The agent's fallback notice (agent-turns/1.7): it marks the answer it replies to, never shown itself.
+  const subscriptionFallback = !failed && !own ? matrixSubscriptionFallback(original) : undefined
+
   return {
     id,
     sender: event.getSender() ?? '',
@@ -576,6 +580,7 @@ export function matrixMessage(
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
     ...(company ? { company: { ...company.identity, revisedAt: editedAt ?? event.getTs() } } : {}),
+    ...(subscriptionFallback ? { subscriptionFallback } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

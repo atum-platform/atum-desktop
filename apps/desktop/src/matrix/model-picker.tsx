@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { ChevronDown, Refresh, Spinner } from '@/lib/icons'
+import { AlertCircle, ChevronDown, Refresh, Spinner } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
@@ -44,6 +44,12 @@ import {
   type MatrixShelfModelView,
   parseMatrixShelfModel
 } from '../../shared/matrix-shelf-models'
+import {
+  matrixAccountPlanAvailability,
+  matrixCloudPlanAvailability,
+  matrixCurrentPlanAvailability,
+  type MatrixPlanAvailability
+} from '../../shared/matrix-subscription-availability'
 import {
   type MatrixSubscriptionCatalog,
   matrixSubscriptionProviderLabel,
@@ -395,7 +401,11 @@ export function MatrixModelPicker({
   const [problem, setProblem] = useState<MatrixConnectedModelProblem>()
   const [effortNotice, setEffortNotice] = useState<EffortNotice>()
 
-  const initialSource = defaultPickerSource({
+  // A saved plan that cannot answer now (its Mac is offline, its key lapsed): the card opens on
+  // what can answer, and the chip says why. The pick itself is never changed here.
+  const savedPlanDown = cloud && matrixCloudPlanAvailability(cloudChoice)?.available === false
+
+  const pickerSourceInput = {
     managed,
     cloud,
     here,
@@ -403,7 +413,9 @@ export function MatrixModelPicker({
     home,
     subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined,
     shelf: Boolean(cloud && parseMatrixShelfModel(cloudChoice?.current))
-  })
+  }
+
+  const initialSource = savedPlanDown ? 'atum' : defaultPickerSource(pickerSourceInput)
 
   const initialSourceRef = useRef(initialSource)
   initialSourceRef.current = initialSource
@@ -760,13 +772,18 @@ export function MatrixModelPicker({
     cloudSubscriptions ? accountSubscriptions?.providers.find(provider => provider.id === id) : undefined
 
   const chatgptProvider = cloudProvider('openai-codex')
-  const cloudChatGptConnected = chatgptProvider?.connected === true && chatgptProvider.relay?.state === 'enabled'
-  // A plan signed in on this Mac that cloud assistants cannot reach yet: its models stay listed,
-  // Preserve user-visible identity, state and recovery behavior across connection changes.
+  // Whether the relay Mac can serve the plan now: the availability adapter alone decides.
+  const chatgptAvailability = matrixAccountPlanAvailability(chatgptProvider)
+  const cloudChatGptConnected = chatgptProvider?.connected === true && chatgptAvailability?.available === true
+  // A linked plan cloud assistants cannot reach now (no relay Mac, or its Mac is offline): its
+  // models stay listed, greyed, with one line saying why and the one fix in the tooltip.
   const cloudChatGptPending =
     cloudSubscriptions &&
     (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true) &&
-    chatgptProvider?.relay?.state !== 'enabled'
+    chatgptAvailability?.available !== true
+  const chatgptDown = (chatgptAvailability?.available === false ? chatgptAvailability.reason : undefined) ?? 'no_mac'
+  const chatgptReason = chatgptDown === 'mac_offline' ? words.chatgptMacOffline : words.chatgptCloudNotReady
+  const chatgptHint = chatgptDown === 'mac_offline' ? words.chatgptMacOfflineHint : words.chatgptNoMacHint
   const opencodeProvider = cloudProvider('opencode-go')
   const opencodeConnected = opencodeProvider?.connected === true
 
@@ -813,7 +830,7 @@ export function MatrixModelPicker({
               },
               subscription: true,
               defaultEffort: model.defaultEffort,
-              ...(cloudChatGptConnected ? {} : { disabled: true, reason: words.chatgptCloudNotReady })
+              ...(cloudChatGptConnected ? {} : { disabled: true, reason: chatgptReason, hint: chatgptHint })
             }))
           : []),
         // OpenCode Go is account-wide in R1: every served model is a real cloud choice, and the
@@ -862,7 +879,7 @@ export function MatrixModelPicker({
       : chatgptSignedOut
         ? { provider: 'openai-codex', text: words.chatgptSignedOut }
         : cloudChatGptPending && chatgptModels.length === 0
-          ? { provider: 'openai-codex', text: words.chatgptCloudNotReady }
+          ? { provider: 'openai-codex', text: chatgptReason }
           : cloudSubscriptions && cloudSubscriptionRevoked && cloudSubscription?.source === 'opencode_go'
             ? { provider: 'opencode-go', text: words.modelsSignedOut }
             : undefined
@@ -953,7 +970,7 @@ export function MatrixModelPicker({
   )?.route.provider
 
   useEffect(() => {
-    if (filterTouched || !currentProvider) {
+    if (filterTouched || !currentProvider || savedPlanDown) {
       return
     }
 
@@ -962,7 +979,7 @@ export function MatrixModelPicker({
         ? previous
         : { favoritesOnly: false, source: currentProvider }
     )
-  }, [currentProvider, filterTouched])
+  }, [currentProvider, filterTouched, savedPlanDown])
 
   // The catalog is read (or failed), so what opens by itself can be chosen from what answers.
   const settled = homeMode || !legacyListable || (catalog.status !== 'idle' && catalog.status !== 'loading')
@@ -1084,18 +1101,7 @@ export function MatrixModelPicker({
       setPendingEffort(null)
       setRetryPick(null)
       setQuery('')
-      setFilter({
-        favoritesOnly: false,
-        source: defaultPickerSource({
-          managed,
-          cloud,
-          here,
-          connected,
-          home,
-          subscription: cloudSubscriptionState === 'connected' ? cloudSubscription?.source : undefined,
-          shelf: Boolean(cloud && parseMatrixShelfModel(cloudChoice?.current))
-        })
-      })
+      setFilter({ favoritesOnly: false, source: initialSource })
     }
   }
 
@@ -1785,6 +1791,27 @@ export function MatrixModelPicker({
   }
 
 
+  // The saved plan cannot answer now: the chip carries one danger glyph and says why. The account
+  // read (while the card is open) is fresher than the snapshot; both go through the adapter.
+  // Only while the chip names that plan: a home whose current model is another one answers.
+  const chipPlan: MatrixPlanAvailability | undefined =
+    cloud && savedCloudPlan && !pendingCloudSubscription && !homeDisplayRoute
+      ? matrixCurrentPlanAvailability({
+          choice: cloudChoice,
+          account: cloudSubscriptions ? accountSubscriptions?.providers : null
+        })
+      : undefined
+
+  // A lapsed key's chip already reads "Reconnect …", so its name does not say it twice.
+  const chipDown = chipPlan?.available === false ? chipPlan.reason : undefined
+
+  const chipWarning =
+    chipDown && savedCloudPlan
+      ? words.planUnavailable[chipDown](
+          matrixSubscriptionProviderLabel(savedCloudPlan.source === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go')
+        )
+      : undefined
+
   const atumChipName = MATRIX_MODEL_LINEUP.find(row => row.id === (cloud ? cloudCurrent : managedCurrent))?.name
   const chipLabel =
     !connectedHere && !shownPlanName && (!homeDisplayRoute || homeDisplayRoute.provider === 'atum')
@@ -1818,16 +1845,29 @@ export function MatrixModelPicker({
       {trigger ? (
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       ) : (
-        <Tip label={copy.modelPicker}>
+        <Tip label={chipWarning ?? copy.modelPicker}>
           <PopoverTrigger asChild>
             <button
-              aria-label={named ? `${copy.modelPicker}: ${label}` : copy.modelPicker}
+              aria-label={
+                named
+                  ? `${copy.modelPicker}: ${label}${chipWarning && chipDown !== 'reconnect' ? ` · ${chipWarning}` : ''}`
+                  : copy.modelPicker
+              }
               className="ak-btn ak-btn--plain ak-btn--sm max-w-52 shrink-0"
               data-matrix-model-picker
+              data-matrix-model-unavailable={chipWarning ? chipDown : undefined}
               disabled={disabled}
               style={{ color: 'var(--ak-ink-2)' }}
               type="button"
             >
+              {chipWarning && (
+                <AlertCircle
+                  aria-hidden
+                  className="-ms-0.5 size-3.5 shrink-0"
+                  data-matrix-model-warning
+                  style={{ color: 'var(--ak-danger)' }}
+                />
+              )}
               <span className="truncate">{chipLabel}</span>
               <ChevronDown aria-hidden className="-me-1 size-3.5 shrink-0" />
             </button>
