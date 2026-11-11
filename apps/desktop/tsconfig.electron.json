@@ -96,6 +96,7 @@
     "shared/matrix-company-team-space.ts",
     "shared/matrix-company-ai.ts",
     "shared/matrix-company-ai-sdk.ts",
+    "shared/matrix-company-presentation.ts",
     "shared/matrix-company-desktop.ts",
     "shared/matrix-company-funding.ts",
     "shared/matrix-company-store.ts",
