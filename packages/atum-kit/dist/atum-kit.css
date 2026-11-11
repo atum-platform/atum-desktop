@@ -374,3 +374,33 @@
 .ak-frame { background: var(--ak-frame); }
 .ak-panel { background: var(--ak-panel); border-radius: var(--ak-r-lg); box-shadow: inset 0 0 0 .5px var(--ak-glass-edge), inset 0 1px 0 var(--ak-panel-rim); }
 .ak-content { background: var(--ak-surface); border-radius: var(--ak-r-lg); box-shadow: var(--ak-shadow-1); }
+
+/* ---------- Files in a chat (2026-11-11) ----------
+ * A plain card: hairline, radius xl, a sunk tile concentric with the 6 px padding (xl - 6 = lg).
+ * The card opens the file; .ak-file-end holds its state (spinner, info) or the "…" button.
+ * --muted: not confirmed. --inert: nothing to open (expired, no access). Ink only, never danger.
+ */
+.ak-file { appearance: none; border: 0; margin: 0; cursor: default; text-align: start; display: flex; align-items: center; gap: 10px; min-width: 224px; max-width: min(320px, 100%); padding: 6px 12px 6px 6px; border-radius: var(--ak-r-xl); background: var(--ak-surface); box-shadow: inset 0 0 0 1px var(--ak-line); color: var(--ak-ink); font: var(--ak-t-body); transition: background-color var(--ak-dur-1) var(--ak-ease); }
+.ak-file:hover, .ak-file.is-hover { background: var(--ak-fill-hover); }
+.ak-file:active, .ak-file.is-press { background: var(--ak-fill-press); }
+.ak-file:focus-visible, .ak-file.is-focus { outline: 3px solid var(--ak-focus); outline-offset: 1px; }
+.ak-file-tile { width: var(--ak-h-lg); height: var(--ak-h-lg); flex: none; display: flex; align-items: center; justify-content: center; border-radius: var(--ak-r-lg); background: var(--ak-sunk); color: var(--ak-ink-2); }
+.ak-file-tile .ak-icon { width: var(--ak-i-lg); height: var(--ak-i-lg); }
+.ak-file-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ak-file-name { font: var(--ak-t-body-strong); color: var(--ak-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ak-file-meta { font: var(--ak-t-callout); color: var(--ak-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ak-file-end { flex: none; display: flex; align-items: center; justify-content: center; min-width: var(--ak-h-sm); height: var(--ak-h-sm); margin-inline-end: -6px; color: var(--ak-ink-3); }
+.ak-file-more { opacity: 0; transition: opacity var(--ak-dur-1) var(--ak-ease); }
+.ak-file:hover .ak-file-more, .ak-file:focus-within .ak-file-more, .ak-file.is-hover .ak-file-more, .ak-file-more:focus-visible { opacity: 1; }
+.ak-file--muted .ak-file-name { font: var(--ak-t-body); color: var(--ak-ink-2); }
+.ak-file--muted .ak-file-tile { color: var(--ak-ink-4); }
+.ak-file--inert { background: transparent; box-shadow: none; pointer-events: none; }
+.ak-file--inert .ak-file-name { font: var(--ak-t-body); color: var(--ak-ink-3); }
+.ak-file--inert .ak-file-tile { background: transparent; box-shadow: inset 0 0 0 1px var(--ak-line); color: var(--ak-ink-4); }
+
+/* ---------- Atum's own line in a chat (2026-11-11) ----------
+ * One centred callout line in ink-3 under the message it is about, at most one .ak-btn--sm.
+ * Never a band, a bubble or the danger colour.
+ */
+.ak-chat-note { align-self: center; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; max-width: 100%; min-height: var(--ak-h-sm); padding: 0 8px; font: var(--ak-t-callout); color: var(--ak-ink-3); text-align: center; }
+.ak-chat-note > .ak-btn { flex: none; }
