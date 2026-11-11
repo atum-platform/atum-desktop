@@ -1,10 +1,11 @@
 import { EventType, type MatrixEvent, MsgType, RelationType, type Room } from 'matrix-js-sdk'
 
 import { MATRIX_ROOM_PREVIEW_MAX, type MatrixRoomPreview } from '../../shared/matrix'
-import { matrixCompanyPresentationContent } from '../../shared/matrix-company-presentation'
+import { matrixCompanyPresentationClaimed } from '../../shared/matrix-company-presentation'
+import { MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE } from '../../shared/matrix-company-private-cos'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
 
-import { shownContent } from './message'
+import { companyPresentationOf, shownContent } from './message'
 import { isOpaqueMatrixId, matrixPersonName } from './person-name'
 import { matrixRoomTimelineEvents } from './threads'
 
@@ -95,6 +96,22 @@ function messageLike(event: MatrixEvent): boolean {
   return type === EventType.RoomMessage || type === EventType.Sticker || type === EventType.RoomMessageEncrypted
 }
 
+/**
+ * The agent a private Chief of Staff room is bound to, by the room's own facts: the room's creator (the
+ * platform manager, which leaves) aside, it holds exactly you and the agent. Company channels have no
+ * room-local agent fact, and their working lines are thread events a channel row never previews.
+ */
+function previewBoundAgent(room: Room, ownUserId: string): string | undefined {
+  if (room.getType() !== MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE) {
+    return undefined
+  }
+
+  const creator = room.currentState.getStateEvents(EventType.RoomCreate, '')?.getSender()
+  const others = room.getJoinedMembers().filter(member => member.userId !== creator && member.userId !== ownUserId)
+
+  return others.length === 1 && room.getMember(ownUserId)?.membership === 'join' ? others[0]!.userId : undefined
+}
+
 function previewOf(
   event: MatrixEvent,
   room: Room,
@@ -126,11 +143,21 @@ function previewOf(
     return { ...base, kind: 'sticker' }
   }
 
-  const { content } = shownContent(event)
+  const original = event.getOriginalContent()
+  const { content, edited } = shownContent(event, room)
+  // A company-claimed content is read only as company presentation (never as a personal marker), and
+  // skips the preview only when the room-local projection admits it and the room's bound agent sent it.
+  const claimed = matrixCompanyPresentationClaimed(original)
 
-  // The agent's one progress line (agent-turns/1.3, or a company agent's 1.6 line) is never a chat's preview: the row keeps the
-  // last message until the answer arrives.
-  if (!own && (matrixProgressMarker(content) || matrixCompanyPresentationContent(content)?.stream === 'progress')) {
+  const companyLine =
+    claimed &&
+    !own &&
+    sender === previewBoundAgent(room, ownUserId) &&
+    companyPresentationOf(event, original, content, edited, room)?.stream === 'progress'
+
+  // The agent's one progress line (agent-turns/1.3, or a company agent's 1.6 line) is never a chat's
+  // preview: the row keeps the last message until the answer arrives.
+  if (!own && (claimed ? companyLine : matrixProgressMarker(content))) {
     return null
   }
 

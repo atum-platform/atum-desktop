@@ -14,6 +14,9 @@
  * 2. `matrixAdmitCompanyPresentation` keeps it only when the room's bound company agent sent it and the
  *    marker names that agent, that company, that audience and that room. Anything else falls back to
  *    the standard Matrix message.
+ *
+ * An edit is read whole (`matrixCompanyPresentationEdit`): its outer marker, its replace relation to
+ * the original and its full `m.new_content`, exactly as the pack's edit invariants say.
  */
 import type { MatrixProgressKind, MatrixProgressPhase } from './matrix-progress-kernel'
 
@@ -264,6 +267,71 @@ export function matrixCompanyPresentationContent(content: unknown): MatrixCompan
   return undefined
 }
 
+/** One JSON text per value whatever its key order: the pack compares markers by value ("same"). */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonical).join(',')}]`
+  }
+
+  const object = record(value)
+
+  return object
+    ? `{${Object.keys(object)
+        .sort()
+        .map(key => `${JSON.stringify(key)}:${canonical(object[key])}`)
+        .join(',')}}`
+    : JSON.stringify(value === undefined ? null : value)
+}
+
+const EDIT_BODY_MAX = BODY_MAX + 2
+
+/**
+ * One company edit (`company.progress_edit` / `company.interim_edit`), whole: the outer content with
+ * exactly its keys and a `* ` fallback body, a standard `m.replace` relation to `targetEventId` (the
+ * original, never a previous edit), a strict full `m.new_content` (with its own exact thread
+ * relation), and an outer marker identical to the inner one. Returns the new content, or nothing.
+ */
+export function matrixCompanyPresentationEdit(
+  envelope: unknown,
+  targetEventId: string
+): MatrixCompanyPresentationContent | undefined {
+  const body = record(envelope)
+  const relation = record(body?.['m.relates_to'])
+  const inner = record(body?.['m.new_content'])
+  const next = matrixCompanyPresentationContent(inner)
+
+  if (
+    !body ||
+    !relation ||
+    !inner ||
+    !next ||
+    !exactKeys(relation, ['rel_type', 'event_id']) ||
+    relation.rel_type !== 'm.replace' ||
+    !eventId(relation.event_id) ||
+    relation.event_id !== targetEventId ||
+    body.msgtype !== inner.msgtype ||
+    !text(body.body, EDIT_BODY_MAX)
+  ) {
+    return undefined
+  }
+
+  if (next.stream === 'progress') {
+    const presentation = body['io.atum.presentation']
+
+    return exactKeys(body, ['msgtype', 'body', 'io.atum.progress', 'm.new_content', 'm.relates_to'], ['io.atum.presentation']) &&
+      (presentation === undefined || record(presentation) !== undefined) &&
+      canonical(body['io.atum.progress']) === canonical(inner['io.atum.progress'])
+      ? next
+      : undefined
+  }
+
+  return exactKeys(body, ['msgtype', 'body', 'io.atum.interim', MATRIX_COMPANY_MARKER_KEY, 'm.new_content', 'm.relates_to']) &&
+    body['io.atum.interim'] === true &&
+    canonical(body[MATRIX_COMPANY_MARKER_KEY]) === canonical(inner[MATRIX_COMPANY_MARKER_KEY])
+    ? next
+    : undefined
+}
+
 /** True when a content claims the company profile at all (it is then never read as personal). */
 export function matrixCompanyPresentationClaimed(content: unknown): boolean {
   const body = record(content)
@@ -281,6 +349,25 @@ export function sameMatrixCompanyAudience(left: MatrixCompanyAudience, right: Ma
     : right.kind === 'private' &&
         left.memberPrincipal === right.memberPrincipal &&
         left.membershipIncarnation === right.membershipIncarnation
+}
+
+/**
+ * The exact public identity of one company turn as one key (company, agent, audience, room, thread
+ * root, task, invocation): what a terminal fence and a clearing match on, never a sender or a thread.
+ */
+export function matrixCompanyTurnKey(identity: MatrixCompanyTurnIdentity): string {
+  const audience = identity.audience
+
+  return [
+    identity.companyId,
+    identity.agentPrincipal,
+    audience.kind,
+    audience.kind === 'channel' ? audience.channelId : `${audience.memberPrincipal}/${audience.membershipIncarnation}`,
+    identity.roomId,
+    identity.threadRootEventId,
+    identity.taskId,
+    identity.invocationId
+  ].join('\n')
 }
 
 /** Identity never changes across revisions (company, agent, audience, room, root, task, invocation, trigger). */
@@ -305,11 +392,29 @@ interface Presented {
   sender: string
 }
 
+/** A message without any agent-turns meaning: the standard Matrix message it is. */
+function plainMessage<T extends Presented>(message: T): T {
+  if (!message.company && !message.progress && !message.interim) {
+    return message
+  }
+
+  const plain = { ...message }
+
+  delete plain.company
+  delete plain.interim
+  delete plain.progress
+
+  return plain
+}
+
 /**
- * The renderer's half: a company line or remark stays only when the room's bound agent sent it and it
- * names that agent, company, audience and room (and, in a thread view, that thread). Otherwise its
- * company meaning is dropped and the standard Matrix message remains. Other messages pass as they are,
- * except that a company view never reads a personal progress marker as a working line.
+ * The renderer's half, for a company room (a company channel thread or a private Chief of Staff room):
+ * a company line or remark stays only when the room's bound agent sent it and it names that agent,
+ * company, audience and room (and, in a thread view, that thread). Otherwise its company meaning is
+ * dropped and the standard Matrix message remains. In a company room nothing else carries agent-turns
+ * meaning: a personal 1.3 working line or a 1.4 interim flag without the full 1.6 identity is a plain
+ * message, whoever sent it. While the binding is unknown or changing (`binding` undefined) every
+ * message is plain. Call it only for company rooms; personal chats keep their own rules.
  */
 export function matrixAdmitCompanyPresentation<T extends Presented>(
   messages: readonly T[],
@@ -319,21 +424,8 @@ export function matrixAdmitCompanyPresentation<T extends Presented>(
   return messages.map(message => {
     const company = message.company
 
-    if (!company) {
-      // A company view reads company scope only: a personal 1.3 marker is never relabeled as company
-      // progress (its message stays an ordinary notice). Without a binding nothing changes.
-      if (binding && message.progress && message.progress.scope !== 'company') {
-        const plain = { ...message }
-
-        delete plain.progress
-
-        return plain
-      }
-
-      return message
-    }
-
     const admitted =
+      company !== undefined &&
       binding !== undefined &&
       !message.own &&
       message.sender === binding.agentUserId &&
@@ -343,18 +435,6 @@ export function matrixAdmitCompanyPresentation<T extends Presented>(
       sameMatrixCompanyAudience(company.audience, binding.audience) &&
       (threadRootId === undefined || company.threadRootEventId === threadRootId)
 
-    if (admitted) {
-      return message
-    }
-
-    // A company-claimed content never carries a personal marker (the projection reads it as company
-    // only), so its progress line and interim flag are company meaning: both go with it.
-    const plain = { ...message }
-
-    delete plain.company
-    delete plain.interim
-    delete plain.progress
-
-    return plain
+    return admitted ? message : plainMessage(message)
   })
 }

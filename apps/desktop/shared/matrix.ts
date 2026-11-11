@@ -434,10 +434,6 @@ export interface MatrixMessage {
    * (with `progress`/`interim`) only for the room's bound agent (`matrixAdmitCompanyPresentation`).
    * Display correlation only; never authority. */
   company?: MatrixCompanyPresentation
-  /** The standard `m.thread` relation of the event in any room (root, and the event it rich-replies
-   * to inside the thread). Display correlation only: a company working line ends on a later message
-   * of its agent in the same thread, never merely in the same room. */
-  threadRelation?: { rootId: string; replyTo?: string }
   /** Native-validated bot device/marker evidence, never inferred from m.notice. */
   appBot?: {
     appId: string

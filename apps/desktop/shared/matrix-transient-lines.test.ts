@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { MatrixMessage } from './matrix'
 import { matrixStatusLineCopy } from './matrix-status-line-copy'
-import { matrixHideEndedTransientLines, matrixWorkingLine } from './matrix-transient-lines'
+import { matrixHideEndedTransientLines, matrixLiveWorkingLine, matrixWorkingLine } from './matrix-transient-lines'
 
 const AGENT = '@agent:test'
 const agents = new Set([AGENT])
@@ -152,69 +152,83 @@ describe('the working line shown under the typing bubble', () => {
   })
 })
 
-describe('a company agent working line (agent-turns/1.6) ends only in its own thread', () => {
-  const identity = (rootId: string, triggerEventId = rootId) => ({
+describe('a company agent working line (agent-turns/1.6) ends only by its exact identity', () => {
+  const TASK_A = 'c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f'
+  const TASK_B = 'c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e80'
+
+  const identity = (rootId: string, taskId = TASK_A, triggerEventId = rootId) => ({
     companyId: '3c1a9e2b-7d4f-4a10-8b2e-5f6a7b8c9d0e',
     agentPrincipal: 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d',
     audience: { kind: 'channel', channelId: 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e' } as const,
     roomId: '!company:test',
     threadRootEventId: rootId,
-    taskId: 'c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f',
+    taskId,
     invocationId: 'd4e5f6a7-b8c9-4d0e-9f2a-3b4c5d6e7f8a',
     revision: 0,
     triggerEventId
   })
 
-  const companyLine = (body: string, rootId: string, phase: 'working' | 'settled' = 'working', trigger?: string) =>
+  const companyLine = (body: string, rootId: string, phase: 'working' | 'settled' = 'working', taskId = TASK_A) =>
     message({
       body,
       notice: true,
       progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase, kind: phase === 'settled' ? 'settled' : 'todo', revision: 0 },
-      company: identity(rootId, trigger),
-      threadRelation: { rootId, replyTo: trigger ?? rootId }
+      company: identity(rootId, taskId)
     })
-
-  const reply = (body: string, rootId: string, replyTo?: string, patch: Partial<MatrixMessage> = {}) =>
-    message({ body, threadRelation: { rootId, ...(replyTo ? { replyTo } : {}) }, ...patch })
 
   it('keeps thread B\'s line when thread A gets its answer', () => {
     const b = companyLine('Reading the board…', '$b')
-    const shown = matrixHideEndedTransientLines([owner('A?'), owner('B?'), b, reply('Answer A', '$a', '$a')], agents)
+    const shown = matrixHideEndedTransientLines([owner('A?'), owner('B?'), b, message({ body: 'Answer A' })], agents)
 
     expect(shown).toContain(b)
     expect(matrixWorkingLine(shown, agents, AGENT)).toBe(b)
   })
 
-  it('ends on the agent\'s later answer to the same trigger, or a status in that thread naming none', () => {
+  it('is never ended by a later message of its agent: another task\'s answer, a status, a reply naming no trigger', () => {
     const line = companyLine('Reading the board…', '$a')
 
-    expect(bodies(matrixHideEndedTransientLines([line, reply('Answer', '$a', '$a')], agents))).toEqual(['Answer'])
-    expect(bodies(matrixHideEndedTransientLines([line, reply('Stopped.', '$a', undefined, { notice: true })], agents))).toEqual([
-      'Stopped.'
-    ])
-  })
-
-  it('is not ended by an answer to another trigger in the same thread, an interim remark, or an unthreaded message', () => {
-    const line = companyLine('Reading the board…', '$a', 'working', '$second')
-
     for (const later of [
-      reply('Answer to the first question', '$a', '$first'),
-      reply('Let me check one more thing.', '$a', '$second', { interim: true }),
-      message({ body: 'Something outside the thread' })
+      message({ body: 'Answer to another task in this thread' }),
+      message({ body: 'Stopped.', notice: true }),
+      message({ body: 'Let me check one more thing.', interim: true }),
+      companyLine('Another task is done', '$a', 'settled', TASK_B)
     ]) {
       expect(matrixWorkingLine([line, later], agents, AGENT)).toBe(line)
     }
   })
 
-  it('is hidden once settled or redacted, and never ends a personal line by itself', () => {
+  it('is hidden once settled or redacted, and a settled line fences every line of the same identity', () => {
     expect(matrixWorkingLine([companyLine('Done', '$a', 'settled')], agents, AGENT)).toBeUndefined()
     expect(matrixWorkingLine([{ ...companyLine('x', '$a'), redacted: true }], agents, AGENT)).toBeUndefined()
 
+    // Two events of one identity (never published, but a forged or replayed one): settled anywhere wins.
+    const replayed = companyLine('Reading the board…', '$a')
+
+    expect(matrixWorkingLine([companyLine('Done', '$a', 'settled'), replayed], agents, AGENT)).toBeUndefined()
+    expect(matrixWorkingLine([replayed, companyLine('Done', '$a', 'settled')], agents, AGENT)).toBeUndefined()
+
+    // A settled line of another task fences nothing here.
+    const other = companyLine('Reading the board…', '$a', 'working', TASK_B)
+
+    expect(matrixWorkingLine([other, companyLine('Done', '$a', 'settled')], agents, AGENT)).toBe(other)
+  })
+
+  it('never ends a personal line by itself, and a personal line still ends on the answer', () => {
     const personal = line('Đang đọc…')
 
     expect(matrixWorkingLine([personal, companyLine('Reading the board…', '$a')], agents, AGENT)).toEqual(
       expect.objectContaining({ body: 'Reading the board…' })
     )
     expect(matrixHideEndedTransientLines([personal, message({ body: 'Answer' })], agents)).not.toContain(personal)
+  })
+
+  it('reads a long history in one pass, and the live line of the kept list without filtering again', () => {
+    const lines = Array.from({ length: 2_000 }, (_, index) =>
+      companyLine(`Step ${index}`, `$t${index}`, index % 2 ? 'settled' : 'working'))
+
+    const kept = matrixHideEndedTransientLines(lines, agents)
+
+    expect(kept).toHaveLength(1_000)
+    expect(matrixLiveWorkingLine(kept, agents, AGENT)?.body).toBe('Step 1998')
   })
 })

@@ -13619,7 +13619,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       companyWorkspaceWithChannel('!launch:test', undefined, COMPANY, role), undefined, { companyDesktop })
 
     await screen.findByRole('button', { name: 'Continue with Google' })
-    emit({
+    const snapshot: MatrixSnapshot = {
       ...signedOut, state: 'ready', identity: { userId: '@owner:test', deviceId: 'OWNER' },
       companyWorkspaceEnabled: true, roomId: '!launch:test',
       rooms: [{
@@ -13639,12 +13639,14 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       ],
       messages: [message('$quote', 'Send the quote before Friday')],
       ...extra
-    })
+    }
+
+    emit(snapshot)
 
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     await waitFor(() => expect(companyDesktop.readAI).toHaveBeenCalledWith(COMPANY))
 
-    return { command, companyDesktop, composer, view: rendered }
+    return { command, companyDesktop, composer, emit, snapshot, view: rendered }
   }
 
   it('inserts and sends a ready Chief of Staff as a real Matrix mention pill', async () => {
@@ -13874,22 +13876,20 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       sender: COS, notice: true, timestamp: 20,
       progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'working', kind: 'todo', revision: 0 },
       company: turn,
-      threadRelation: { rootId: turn.threadRootEventId, replyTo: turn.triggerEventId },
       ...over
     })
 
   const companyRemark = (id: string, body: string, turn: ReturnType<typeof companyTurn>, over = {}) =>
     message(id, body, {
       sender: COS, interim: true, timestamp: 15, company: turn,
-      threadRelation: { rootId: turn.threadRootEventId, replyTo: turn.triggerEventId },
       ...over
     })
 
-  async function companyProgressThread(replies: MatrixSnapshot['messages']) {
+  async function companyProgressThread(replies: MatrixSnapshot['messages'], view = aiView()) {
     const root = message('$ask', '@Chief of Staff summarise this', { sender: '@owner:test', own: true })
     const threaded = replies.map(reply => ({ ...reply, thread: true as const, threadRootId: '$ask', replyTo: '$ask' }))
 
-    const { view } = await openChannel(aiView(), {
+    const opened = await openChannel(view, {
       messages: [root],
       threads: [{
         root, replies: threaded, participantIds: ['@owner:test', COS], replyCount: threaded.length, lastActivityAt: 20,
@@ -13897,14 +13897,16 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       }]
     })
 
+    const rendered = opened.view
+
     const conversationOptions = await screen.findByRole('button', { name: 'Conversation options' })
     fireEvent.keyDown(conversationOptions, { key: 'Enter' })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Open threads' }))
-    const panel = view.container.querySelector<HTMLElement>('[data-matrix-thread-panel]')!
+    const panel = rendered.container.querySelector<HTMLElement>('[data-matrix-thread-panel]')!
     fireEvent.click(within(panel).getByRole('button', { name: /summarise this/ }))
     await waitFor(() => expect(panel.querySelector('[data-matrix-message-id="$ask"]')).toBeTruthy())
 
-    return panel
+    return Object.assign(panel, { opened })
   }
 
   it('shows the Chief of Staff working in a channel thread with its interim remark, as a personal chat does', async () => {
@@ -13929,19 +13931,33 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     expect(panel.querySelector('[data-matrix-message-id="$remark"]')?.textContent).toContain('Let me check the board first.')
   })
 
-  it('clears the channel line on the answer, and never draws one that is not the bound agent', async () => {
+  it('clears the channel line only when its own turn settles, and never draws one that is not the bound agent', async () => {
     const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
 
-    const answered = await companyProgressThread([
+    // An answer of the agent to another task in this thread (it names no trigger) leaves this line.
+    const unrelated = await companyProgressThread([
       companyRemark('$remark', 'Let me check the board first.', turn),
       companyLine('$line', 'Reading the board.', turn, { timestamp: 18 }),
-      message('$answer', 'Here is the summary.', { sender: COS, timestamp: 30, threadRelation: { rootId: '$ask', replyTo: '$ask' } })
+      message('$answer', 'Here is the other summary.', { sender: COS, timestamp: 30 })
     ])
 
-    await waitFor(() => expect(answered.querySelector('[data-matrix-message-id="$answer"]')).toBeTruthy())
-    expect(answered.querySelector('[data-matrix-agent-working]')).toBeNull()
-    expect(answered.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
-    expect(answered.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
+    await waitFor(() => expect(unrelated.querySelector('[data-matrix-message-id="$answer"]')).toBeTruthy())
+    expect(unrelated.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.')
+    cleanup()
+
+    const settled = await companyProgressThread([
+      companyRemark('$remark', 'Let me check the board first.', turn),
+      companyLine('$line', 'Done.', turn, {
+        timestamp: 18,
+        progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'settled', kind: 'settled', revision: 3 }
+      }),
+      message('$answer', 'Here is the summary.', { sender: COS, timestamp: 30 })
+    ])
+
+    await waitFor(() => expect(settled.querySelector('[data-matrix-message-id="$answer"]')).toBeTruthy())
+    expect(settled.querySelector('[data-matrix-agent-working]')).toBeNull()
+    expect(settled.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
+    expect(settled.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
     cleanup()
 
     // Another principal in the marker, or another sender: the standard notice, never a working line.
@@ -13953,6 +13969,39 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     await waitFor(() => expect(stranger.querySelector('[data-matrix-message-id="$forged"]')).toBeTruthy())
     expect(stranger.querySelector('[data-matrix-message-id="$member"]')).toBeTruthy()
     expect(stranger.querySelector('[data-matrix-agent-working]')).toBeNull()
+  })
+
+  it('stops drawing the old agent’s line once the channel is reassigned, and draws none while the binding is changing', async () => {
+    const NEXT = '@cos-next:test'
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+    const reassigned = aiView({ revision: 2, agent: { principal: MEMBER_PRINCIPAL, userId: NEXT, displayName: 'Chief of Staff' } })
+    let answer: (view: CompanyAIView) => void = () => undefined
+
+    const panel = await companyProgressThread([companyLine('$line', 'Reading the board.', turn)])
+
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+
+    // The platform now names another agent; the old one stays a member. The new one joining is the change.
+    const { companyDesktop, emit, snapshot } = panel.opened
+
+    companyDesktop.readAI.mockImplementation(() => new Promise<CompanyAIView>(resolve => {
+      answer = resolve
+    }))
+    emit({
+      ...snapshot,
+      rooms: snapshot.rooms.map(room => ({
+        ...room,
+        participants: [...(room.participants ?? []), { userId: NEXT, membership: 'join' }]
+      }))
+    })
+
+    // Until the fresh read answers, the old agent's line is the standard message, not a working line.
+    await waitFor(() => expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull())
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')?.textContent).toContain('Reading the board.')
+
+    await act(async () => answer(reassigned))
+    expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull()
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')).toBeTruthy()
   })
 
   it('shows the private Chief of Staff working in its room, bound to the platform pair', async () => {
@@ -14012,14 +14061,23 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     expect(working.getAttribute('aria-label')).toBe('Chief of Staff đang soạn tin…')
     expect(view.container.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
 
-    // A final in another thread of the room leaves this thread's line; the Stop line in this thread clears it.
+    // A later message of the agent (another task's final, a Stop line) never clears this turn's line.
     emit({ ...snapshot, messages: [...snapshot.messages,
-      message('$other-answer', 'Done with the other question.', { sender: COS, timestamp: 30, threadRelation: { rootId: '$other' } })] })
+      message('$other-answer', 'Done with the other question.', { sender: COS, timestamp: 30 }),
+      message('$stopped', 'Stopped.', { sender: COS, notice: true, timestamp: 40 })] })
     await waitFor(() => expect(view.container.querySelector('[data-matrix-message-id="$other-answer"]')).toBeTruthy())
     expect(view.container.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Đang đọc bảng công việc.')
 
+    // A personal interim flag from the bound agent, without the 1.6 identity, is a plain message.
     emit({ ...snapshot, messages: [...snapshot.messages,
-      message('$stopped', 'Stopped.', { sender: COS, notice: true, timestamp: 40, threadRelation: { rootId: '$question' } })] })
+      message('$personal', 'Một phút nhé.', { sender: COS, interim: true, timestamp: 35 })] })
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-message-id="$personal"]')).toBeTruthy())
+
+    // Its publisher's cleanup (the line redacted) ends it; the remark stays history.
+    emit({ ...snapshot, messages: [
+      ...snapshot.messages.filter(entry => entry.id !== '$line'),
+      message('$line', '', { sender: COS, notice: true, redacted: true, timestamp: 20 })
+    ] })
     await waitFor(() => expect(view.container.querySelector('[data-matrix-agent-working]')).toBeNull())
     expect(view.container.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
   })

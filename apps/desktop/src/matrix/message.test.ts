@@ -1,7 +1,14 @@
+import { readFileSync } from 'node:fs'
+
 import { createClient, EventStatus, EventType, MatrixEvent, Room } from 'matrix-js-sdk'
 import { describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_COMPANY_CHANNEL_BINDING, MATRIX_COMPANY_CHANNEL_ROOM_VERSION, MATRIX_COMPANY_CHANNEL_TYPE } from '../../shared/matrix-company-channel-room'
+import {
+  matrixAdmitCompanyPresentation,
+  matrixCompanyPresentationContent,
+  matrixCompanyPresentationEdit
+} from '../../shared/matrix-company-presentation'
 import {
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
@@ -771,7 +778,7 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
   const progress = (companyId = companyFile.company_id, audience: object = channelAudience, patch: Record<string, unknown> = {}) => ({
     msgtype: 'm.notice',
     body: 'Reading the board.',
-    'io.atum.progress': { ...marker(companyId, audience, patch), phase: 'working', kind: 'todo' },
+    'io.atum.progress': { phase: 'working', kind: 'todo', ...marker(companyId, audience, patch) },
     'm.relates_to': thread
   })
 
@@ -798,7 +805,6 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
       thread: true,
       threadRootId: '$root',
       replyTo: '$trigger',
-      threadRelation: { rootId: '$root', replyTo: '$trigger' },
       progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'working', kind: 'todo', revision: 0 },
       company: { companyId: companyFile.company_id, agentPrincipal: AGENT, audience: channelAudience, taskId: TASK, triggerEventId: '$trigger' }
     })
@@ -856,7 +862,7 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
     }
   })
 
-  it('reads the latest revision of a line, but never an edit that changes the turn or goes back', () => {
+  it('reads the latest revision of a line, and ignores an edit that changes the turn or goes back', () => {
     const settle = (patch: Record<string, unknown>) => {
       const root = event(progress(), '@cos:test')
 
@@ -870,12 +876,151 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
     expect(settled).toMatchObject({ progress: { revision: 2 }, company: { revision: 2 } })
     expect(settled?.edited).toBeUndefined()
 
-    expect(settle({ taskId: MEMBER })?.company).toBeUndefined()
-    expect(settle({ taskId: MEMBER })?.progress).toBeUndefined()
+    // An edit naming another turn is not applied: the original line stays as it was.
+    expect(settle({ taskId: MEMBER })).toMatchObject({ body: 'Reading the board.', company: { taskId: TASK, revision: 0 } })
 
     const late = event(progress(companyFile.company_id, channelAudience, { revision: 5 }), '@cos:test')
 
     late.makeReplaced(edit(progress(companyFile.company_id, channelAudience, { revision: 1 })))
-    expect(matrixMessage(late, '@owner:test', new Set(), companyRoom())?.progress).toBeUndefined()
+    expect(matrixMessage(late, '@owner:test', new Set(), companyRoom())).toMatchObject({ company: { revision: 5 } })
+  })
+
+  describe('edits in revision order with a terminal fence (late edits never resurrect a line)', () => {
+    const revision = (value: number, phase: 'working' | 'settled', ts: number, sender = '@cos:test') => {
+      const replacement = edit(progress(companyFile.company_id, channelAudience, {
+        revision: value, phase, kind: phase === 'settled' ? 'settled' : 'todo'
+      }))
+
+      return new MatrixEvent({ ...replacement.event, event_id: `$edit-${value}-${ts}`, origin_server_ts: ts, sender })
+    }
+
+    const project = (edits: MatrixEvent[], latest = edits.at(-1)) => {
+      const room = companyRoom()
+      const root = event(progress(), '@cos:test')
+
+      vi.spyOn(room.relations, 'getChildEventsForEvent').mockImplementation((id, relType) =>
+        id === '$event' && relType === 'm.replace' ? ({ getRelations: () => edits } as never) : undefined)
+
+      if (latest) {
+        root.makeReplaced(latest)
+      }
+
+      return matrixMessage(root, '@owner:test', new Set(), room)
+    }
+
+    it('keeps a settled revision when a lower revision arrives later, whatever its timestamp', () => {
+      expect(project([revision(5, 'settled', 5), revision(1, 'working', 9)])?.progress).toMatchObject({ phase: 'settled', revision: 5 })
+    })
+
+    it('never reads past settled, even a higher revision', () => {
+      expect(project([revision(2, 'settled', 2), revision(6, 'working', 9)])?.progress).toMatchObject({ phase: 'settled', revision: 2 })
+      expect(project([revision(6, 'working', 1), revision(2, 'settled', 9)])?.progress).toMatchObject({ phase: 'settled', revision: 2 })
+    })
+
+    it('applies the highest revision while working, and ignores another sender\'s edit', () => {
+      expect(project([revision(3, 'working', 3), revision(2, 'working', 9)])?.progress).toMatchObject({ phase: 'working', revision: 3 })
+      expect(project([revision(4, 'settled', 9, '@linh:test')])?.progress).toMatchObject({ phase: 'working', revision: 0 })
+    })
+
+    it('reads a settled original as settled whatever edits follow', () => {
+      const room = companyRoom()
+      const root = event(progress(companyFile.company_id, channelAudience, { phase: 'settled', kind: 'settled' }), '@cos:test')
+
+      root.makeReplaced(revision(1, 'working', 9))
+      expect(matrixMessage(root, '@owner:test', new Set(), room)?.progress).toMatchObject({ phase: 'settled', revision: 0 })
+    })
+  })
+
+  describe('every frozen 1.6 pack fixture through the real projection', () => {
+    const pack = '../../../../packages/device-protocol/fixtures/agent-turns-v1.6/'
+    const read = (file: string) => JSON.parse(readFileSync(new URL(pack + file, import.meta.url), 'utf8')) as Record<string, unknown>
+    const contract = read('contract.json') as unknown as { fixtures: Array<{ file: string; message?: string; expect: string }> }
+    const rows = contract.fixtures.filter(row => row.message?.startsWith('company.'))
+    const PACK_ROOM = '!company:example.test'
+    const PACK_COMPANY = '00000000-0000-4000-8000-a00000000001'
+    const PACK_AGENT = '00000000-0000-4000-8000-a00000000002'
+
+    const packRoom = (audience: 'channel' | 'private') => {
+      const client = createClient({ baseUrl: 'https://matrix.test', userId: '@owner:test' })
+      const room = new Room(PACK_ROOM, client, '@owner:test')
+
+      const state = (type: string, content: object) =>
+        new MatrixEvent({ type, state_key: '', room_id: PACK_ROOM, sender: '@manager:test', content })
+
+      room.currentState.setStateEvents(audience === 'channel'
+        ? [state(EventType.RoomCreate, {
+            type: MATRIX_COMPANY_CHANNEL_TYPE,
+            room_version: MATRIX_COMPANY_CHANNEL_ROOM_VERSION,
+            [MATRIX_COMPANY_CHANNEL_BINDING]: { companyId: PACK_COMPANY, channelId: '00000000-0000-4000-8000-a00000000003' }
+          })]
+        : [
+            state(EventType.RoomCreate, { type: MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE, room_version: '11' }),
+            state(MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT, {
+              v: 1,
+              classification: 'company_private_cos',
+              companyId: PACK_COMPANY,
+              membershipIncarnation: '00000000-0000-4000-8000-a00000000007',
+              executorId: '00000000-0000-4000-8000-a0000000000e'
+            })
+          ])
+
+      return room
+    }
+
+    const packEvent = (content: Record<string, unknown>, id: string, ts = 1) =>
+      new MatrixEvent({ type: EventType.RoomMessage, room_id: PACK_ROOM, event_id: id, sender: '@cos:test', origin_server_ts: ts, content })
+
+    const binding = (audience: 'channel' | 'private') => ({
+      companyId: PACK_COMPANY,
+      agentPrincipal: PACK_AGENT,
+      agentUserId: '@cos:test',
+      roomId: PACK_ROOM,
+      audience: audience === 'channel'
+        ? { kind: 'channel' as const, channelId: '00000000-0000-4000-8000-a00000000003' }
+        : {
+            kind: 'private' as const,
+            memberPrincipal: '00000000-0000-4000-8000-a00000000006',
+            membershipIncarnation: '00000000-0000-4000-8000-a00000000007'
+          }
+    })
+
+    it('covers every company message fixture of the pack', () => {
+      expect(rows.length).toBeGreaterThanOrEqual(8)
+      expect(rows.some(row => row.message?.endsWith('_edit') && row.expect === 'reject')).toBe(true)
+    })
+
+    it.each(rows.map(row => [row.file, row.message!, row.expect] as const))('%s (%s) is %s', (file, kind, expected) => {
+      const audience = file.includes('-private-') ? 'private' : 'channel'
+      const stream = kind.includes('progress') ? 'progress' : 'interim'
+      const room = packRoom(audience)
+      const content = read(file)
+      const edit = kind.endsWith('_edit')
+
+      // An edit applies to the pack's accepted original of the same audience and stream.
+      const original = edit ? packEvent(read(`fixtures/company-${audience}-${stream}.json`), '$original') : packEvent(content, '$original')
+
+      if (edit) {
+        expect(Boolean(matrixCompanyPresentationEdit(content, '$original'))).toBe(expected === 'accept')
+        original.makeReplaced(packEvent(content, '$edit', 2))
+      } else {
+        expect(Boolean(matrixCompanyPresentationContent(content))).toBe(expected === 'accept')
+      }
+
+      const projected = matrixMessage(original, '@owner:test', new Set(), room)!
+      const [shown] = matrixAdmitCompanyPresentation([projected], binding(audience), '$root')
+
+      if (expected === 'accept') {
+        expect(shown?.company).toMatchObject({ companyId: PACK_COMPANY, revision: edit ? 1 : 0 })
+        expect(stream === 'progress' ? shown?.progress?.scope : shown?.interim).toBe(stream === 'progress' ? 'company' : true)
+      } else if (edit) {
+        // A rejected edit is never applied: the original stays exactly what it was.
+        expect(shown?.company?.revision).toBe(0)
+        expect(shown?.edited).toBeUndefined()
+      } else {
+        expect(shown?.company).toBeUndefined()
+        expect(shown?.progress).toBeUndefined()
+        expect(shown?.interim).toBeUndefined()
+      }
+    })
   })
 })

@@ -20,6 +20,7 @@ import {
   matrixCompanyPresentationClaimed,
   matrixCompanyPresentationContent,
   type MatrixCompanyPresentationContent,
+  matrixCompanyPresentationEdit,
   sameMatrixCompanyTurn
 } from '../../shared/matrix-company-presentation'
 import {
@@ -68,8 +69,8 @@ export function companyChannelBinding(room: Room | undefined) {
 
 /**
  * A company agent's working line or interim remark (agent-turns/1.6) as far as this room can check
- * it: a strict content (the edit's full new content, when edited) whose identity is the original's and
- * whose revision never goes back; the event's own `m.thread` relation to the marker's root; the marker
+ * it: a strict content (the accepted edit's full new content, when edited: `shownContent`) whose
+ * identity is the original's and whose revision is above it; the event's own `m.thread` relation to the marker's root; the marker
  * naming this room; and its company and audience matching the room's immutable binding (a channel's
  * create binding, or a private Chief of Staff room's exact state marker). The renderer then requires
  * the sender to be the room's bound agent. Anything else is not company presentation.
@@ -90,7 +91,7 @@ export function companyPresentationOf(
     !first ||
     first.stream !== shown.stream ||
     !sameMatrixCompanyTurn(first.identity, shown.identity) ||
-    shown.identity.revision < first.identity.revision
+    (edited ? shown.identity.revision <= first.identity.revision : shown.identity.revision !== first.identity.revision)
   ) {
     return undefined
   }
@@ -129,17 +130,6 @@ export function companyPresentationOf(
     binding.membershipIncarnation === audience.membershipIncarnation
     ? shown
     : undefined
-}
-
-/** The standard `m.thread` relation of an event in any room: its root and its in-thread reply. */
-function threadRelationOf(relation: Record<string, unknown> | undefined): MatrixMessage['threadRelation'] {
-  if (relation?.rel_type !== 'm.thread' || typeof relation.event_id !== 'string') {
-    return undefined
-  }
-
-  const reply = record(relation['m.in_reply_to'])
-
-  return { rootId: relation.event_id, ...(typeof reply?.event_id === 'string' ? { replyTo: reply.event_id } : {}) }
 }
 
 function privateCosGreetingLinks(
@@ -186,23 +176,102 @@ function privateCosGreetingLinks(
     : undefined
 }
 
+type Shown = { content: Record<string, unknown>; edited: boolean; editedAt?: number }
+
+/** A replacement that may count at all: the original sender's, readable, not taken back. */
+function usableReplacement(replacement: MatrixEvent | undefined, sender: string | undefined): replacement is MatrixEvent {
+  return (
+    replacement !== undefined &&
+    replacement.getSender() === sender &&
+    !replacement.isDecryptionFailure() &&
+    !replacement.isRedacted() &&
+    replacement.status !== EventStatus.CANCELLED
+  )
+}
+
+const settledCompanyContent = (content: MatrixCompanyPresentationContent) =>
+  content.stream === 'progress' && content.progress.phase === 'settled'
+
+/**
+ * A company line's or remark's current content (agent-turns/1.6): every edit of its sender is read
+ * whole (`matrixCompanyPresentationEdit`) and must keep the original's identity. Revisions only go up:
+ * edits apply in revision order (a retry of a revision already shown is ignored), however late one
+ * arrives, so a later-sent lower revision never replaces a higher one. Settled is a terminal fence:
+ * once the original or an accepted edit says settled, nothing after it is read, so a late edit never
+ * resurrects the line. Without a valid edit the original shows unedited.
+ */
+function companyShownContent(event: MatrixEvent, original: Record<string, unknown>, room: Room | undefined): Shown {
+  const first = matrixCompanyPresentationContent(original)
+  const id = event.getId()
+
+  if (!first || !id || settledCompanyContent(first)) {
+    return { content: original, edited: false }
+  }
+
+  const sender = event.getSender()
+
+  const candidates = new Set(
+    room?.relations.getChildEventsForEvent(id, RelationType.Replace, EventType.RoomMessage)?.getRelations() ?? []
+  )
+
+  const latest = event.replacingEvent()
+
+  if (latest) {
+    candidates.add(latest)
+  }
+
+  const accepted = [...candidates]
+    .flatMap(replacement => {
+      if (!usableReplacement(replacement, sender)) {
+        return []
+      }
+
+      const content = replacement.getContent()
+      const next = matrixCompanyPresentationEdit({ ...content, 'm.relates_to': relationOf(replacement) }, id)
+
+      return next &&
+        next.stream === first.stream &&
+        sameMatrixCompanyTurn(first.identity, next.identity) &&
+        next.identity.revision > first.identity.revision
+        ? [{ next, content: content['m.new_content'] as Record<string, unknown>, at: replacement.getTs() }]
+        : []
+    })
+    .sort((left, right) => left.next.identity.revision - right.next.identity.revision || left.at - right.at)
+
+  let shown: (typeof accepted)[number] | undefined
+
+  for (const edit of accepted) {
+    if (shown?.next.identity.revision === edit.next.identity.revision) {
+      continue
+    }
+
+    shown = edit
+
+    if (settledCompanyContent(edit.next)) {
+      break
+    }
+  }
+
+  return shown ? { content: shown.content, edited: true, editedAt: shown.at } : { content: original, edited: false }
+}
+
 /**
  * What a message shows now: its sender's latest standard edit (`m.replace`), or what it said
  * first. The SDK applies a replacement only from the same sender, but a server's bundled
  * edit skips that check, so it is made here again; a replacement still being decrypted, or
- * without a text body, leaves the message as it was.
+ * without a text body, leaves the message as it was. A company line or remark (agent-turns/1.6)
+ * follows its own edit rules (`companyShownContent`), which need the room's relations.
  */
-export function shownContent(event: MatrixEvent): { content: Record<string, unknown>; edited: boolean; editedAt?: number } {
+export function shownContent(event: MatrixEvent, room?: Room): Shown {
   const original = event.getOriginalContent()
-  const replacement = event.replacingEvent()
 
-  if (
-    !replacement ||
-    replacement.getSender() !== event.getSender() ||
-    replacement.isDecryptionFailure() ||
-    replacement.isRedacted() ||
-    replacement.status === EventStatus.CANCELLED
-  ) {
+  if (matrixCompanyPresentationClaimed(original)) {
+    return companyShownContent(event, original, room)
+  }
+
+  const replacement = event.replacingEvent() ?? undefined
+
+  if (!usableReplacement(replacement, event.getSender())) {
     return { content: original, edited: false }
   }
 
@@ -330,7 +399,7 @@ export function matrixMessage(
   // Markers and relations come from the message as first sent; only what it shows follows
   // its sender's latest edit.
   const original = event.getOriginalContent()
-  const { content, edited, editedAt } = failed ? { content: original, edited: false } : shownContent(event)
+  const { content, edited, editedAt } = failed ? { content: original, edited: false } : shownContent(event, room)
   const mentions = failed ? undefined : matrixMentionProjection(content['m.mentions'])
   const privateCosGreeting = failed ? undefined : privateCosGreetingLinks(event, content, room)
   // Versioned bot-api presentation metadata is read from a bot's own event only. The renderer
@@ -435,7 +504,6 @@ export function matrixMessage(
 
   // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
   const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
-  const threadRelation = threadRelationOf(relation)
 
   return {
     id,
@@ -467,7 +535,6 @@ export function matrixMessage(
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
     ...(company ? { company: company.identity } : {}),
-    ...(threadRelation ? { threadRelation } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

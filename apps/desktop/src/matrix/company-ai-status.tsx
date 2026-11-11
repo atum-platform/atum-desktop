@@ -108,13 +108,21 @@ export function useCompanyAIRecheck(waiting: boolean, reload: () => void): void 
   }, [reload, waiting])
 }
 
+/**
+ * The company's Chief of Staff view. `refreshKey` is a caller's change signal (for a channel's
+ * presentation binding, its joined members): each new value reads the view again, and `fresh` says
+ * a read started after the latest change (and the latest account, company or reload) has answered.
+ * Until then a caller that must fail closed treats the cached view as unknown.
+ */
 export function useCompanyAIStatus(
   accountKey: string,
-  companyId: string | undefined
+  companyId: string | undefined,
+  refreshKey = ''
 ): {
   view?: CompanyAIView
   loading: boolean
   failed: boolean
+  fresh: boolean
   reload(): void
 } {
   const statuses = useStore($companyAIStatuses)
@@ -122,11 +130,14 @@ export function useCompanyAIStatus(
   const [loading, setLoading] = useState(Boolean(key && !statuses[key]))
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
+  const [freshFor, setFreshFor] = useState<string>()
   const generation = useRef(0)
+  const requestKey = [accountKey, companyId ?? '', attempt, refreshKey].join('\u0000')
 
   useEffect(() => {
     const adapter = companyDesktopAdapter()
     const request = ++generation.current
+    const asked = [accountKey, companyId ?? '', attempt, refreshKey].join('\u0000')
 
     if (!adapter || !companyId) {
       setLoading(false)
@@ -142,6 +153,7 @@ export function useCompanyAIStatus(
       .then(view => {
         if (generation.current === request && view.companyId === companyId) {
           publishCompanyAIStatus(accountKey, view)
+          setFreshFor(asked)
         }
       })
       .catch(() => {
@@ -159,12 +171,13 @@ export function useCompanyAIStatus(
     return () => {
       generation.current += 1
     }
-  }, [accountKey, attempt, companyId])
+  }, [accountKey, attempt, companyId, refreshKey])
 
   return {
     view: key ? statuses[key] : undefined,
     loading,
     failed,
+    fresh: freshFor === requestKey,
     reload: useCallback(() => setAttempt(value => value + 1), [])
   }
 }

@@ -232,13 +232,27 @@ describe('admitting company presentation for the room bound agent', () => {
     expect(remark).not.toHaveProperty('interim')
   })
 
-  it('never reads a personal marker as a working line in a company view, and changes nothing elsewhere', () => {
+  it('never reads a personal marker as a working line in a company room, nor anything while the binding is unknown', () => {
     const personal = message({
       company: undefined,
       progress: { profile: 'atum.agent-turns/1.3', scope: 'owner_private', phase: 'working', kind: 'todo', revision: 0 }
     })
 
     expect(matrixAdmitCompanyPresentation([personal], binding)[0]).not.toHaveProperty('progress')
-    expect(matrixAdmitCompanyPresentation([personal], undefined)[0]).toBe(personal)
+    expect(matrixAdmitCompanyPresentation([personal], undefined)[0]).not.toHaveProperty('progress')
+    expect(matrixAdmitCompanyPresentation([message({})], undefined)[0]).not.toHaveProperty('company')
+  })
+
+  it('reads a personal interim flag without the full 1.6 identity as a plain message, even from the bound agent', () => {
+    const personalInterim = message({ notice: false, progress: undefined, company: undefined, interim: true })
+    const [shown] = matrixAdmitCompanyPresentation([personalInterim], binding, '$root')
+
+    expect(shown).not.toHaveProperty('interim')
+    expect(shown?.body).toBe('Checking the next step.')
+
+    // The full company identity keeps the remark.
+    const remark = message({ notice: false, progress: undefined, interim: true })
+
+    expect(matrixAdmitCompanyPresentation([remark], binding, '$root')[0]).toBe(remark)
   })
 })

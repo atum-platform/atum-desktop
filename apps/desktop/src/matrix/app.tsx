@@ -147,7 +147,7 @@ import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 import {
   isMatrixTransientLine,
   matrixHideEndedTransientLines,
-  matrixWorkingLine
+  matrixLiveWorkingLine
 } from '../../shared/matrix-transient-lines'
 import { matrixTurnQuote } from '../../shared/matrix-turn-intake'
 import type { MatrixWindowFacts } from '../../shared/matrix-window'
@@ -4543,14 +4543,24 @@ function MatrixThreadDetail({
   const place = room.companyConversation ? conversationTitle : `#${placeTitle.replace(/^#/, '')}`
 
   // The channel's own Chief of Staff: its agent-turns/1.6 working line and interim remarks in this
-  // thread are drawn as a personal agent's are in its chat (one live line under the transcript).
-  const companyStatuses = useStore($companyAIStatuses)
+  // thread are drawn as a personal agent's are in its chat (one live line under the transcript). The
+  // view is read again whenever the channel's joined members change (a reassigned agent joins, the old
+  // one leaves), and until that read answers no company line or remark is drawn as one.
+  const channelMembers = (room.participants ?? [])
+    .filter(member => member.membership === 'join')
+    .map(member => member.userId)
+    .sort()
+    .join('\n')
 
-  const companyAI = room.companyChannel
-    ? companyStatuses[companySpaceScope(teamSpaceAccountKey(snapshot.identity), room.companyChannel.companyId)]
-    : undefined
+  const { fresh: companyAIFresh, view: companyAI } = useCompanyAIStatus(
+    teamSpaceAccountKey(snapshot.identity),
+    room.companyChannel?.companyId,
+    channelMembers
+  )
 
-  const companyPresentation = useStableCompanyBinding(companyChannelPresentationBinding(room, companyAI))
+  const companyPresentation = useStableCompanyBinding(
+    companyChannelPresentationBinding(room, companyAI, companyAIFresh)
+  )
   const companyName = companyAI?.agent.displayName ?? matrixCompanyBoardCopy(locale).chiefOfStaff
 
   const { messages, workingLine } = useMemo(() => {
@@ -4571,7 +4581,7 @@ function MatrixThreadDetail({
         visible.filter(message => !isMatrixTransientLine(message, lineAgents))
       ),
       workingLine: companyPresentation
-        ? matrixWorkingLine(visible, lineAgents, companyPresentation.agentUserId)
+        ? matrixLiveWorkingLine(visible, lineAgents, companyPresentation.agentUserId)
         : undefined
     }
   }, [companyPresentation, replies, root, rootId])
@@ -5351,6 +5361,7 @@ function Conversation({
   )
 
   const privateCosName = usePrivateCosName()
+  const companyRoomView = Boolean(room?.companyChannel) || isCompanyPrivateCosClaim(room)
 
   const outgoing = useStore($outgoingEchoes)
 
@@ -5376,12 +5387,14 @@ function Conversation({
 
     // A working line whose turn has ended shows nothing (agent-turns/1.4). The one still live
     // is drawn under the typing bubble, not as a transcript row of its own.
+    // In a company room (a channel, a private Chief of Staff room) only the bound agent's 1.6 lines
+    // and remarks carry agent-turns meaning; personal chats keep their own rules.
     const visible = matrixHideEndedTransientLines(
-      matrixAdmitCompanyPresentation(snapshot.messages, companyPresentation),
+      companyRoomView ? matrixAdmitCompanyPresentation(snapshot.messages, companyPresentation) : snapshot.messages,
       lineAgents
     )
 
-    const line = lineAgent ? matrixWorkingLine(visible, lineAgents, lineAgent) : undefined
+    const line = lineAgent ? matrixLiveWorkingLine(visible, lineAgents, lineAgent) : undefined
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
     const transcriptMessages = visible.filter(message => !isMatrixTransientLine(message, lineAgents))
@@ -5506,7 +5519,8 @@ function Conversation({
     appBotOutcomes,
     appHistory.entries,
     firstUnreadId,
-    companyPresentation
+    companyPresentation,
+    companyRoomView
   ])
 
   useEffect(() => dropOutgoingEchoes(matchedEchoes), [matchedEchoes])

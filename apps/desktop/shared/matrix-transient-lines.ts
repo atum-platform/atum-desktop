@@ -1,4 +1,5 @@
 import type { MatrixMessage } from './matrix'
+import { matrixCompanyTurnKey } from './matrix-company-presentation'
 import { matrixStatusLineCopy } from './matrix-status-line-copy'
 
 /**
@@ -24,7 +25,7 @@ type Line = Pick<
   MatrixMessage,
   'body' | 'decryptionFailed' | 'failed' | 'interim' | 'notice' | 'own' | 'pending' | 'progress' | 'redacted' | 'sender'
 > &
-  Partial<Pick<MatrixMessage, 'company' | 'threadRelation'>>
+  Partial<Pick<MatrixMessage, 'company'>>
 
 /** A progress line, or one of the retired fixed wait lines, sent by an agent. */
 export function isMatrixTransientLine(message: Line, agents: ReadonlySet<string>): boolean {
@@ -36,28 +37,16 @@ export function isMatrixTransientLine(message: Line, agents: ReadonlySet<string>
 }
 
 /**
- * What a chat shows of `messages` (in timeline order):
- * - an agent's redacted message shows nothing, not a "deleted" tombstone (the agent removes only its
- *   own working lines and a duplicated interim remark);
- * - an agent's working line is hidden once the turn has ended: its marker says `settled`, or the same
- *   agent posted a later message that is neither a working line nor an interim remark (the answer,
- *   an outcome notice). A line that is still the newest thing the agent said stays.
- * - a company agent's working line (agent-turns/1.6) ends the same way, but only on a later message of
- *   that agent in the SAME thread that answers the same trigger (or names none): an answer in thread A
- *   never hides thread B's line, and nothing outside the thread ends it.
+ * The one working line a chat shows under the typing bubble right now, from what
+ * `matrixHideEndedTransientLines` kept: the newest agent line that still lives (of `sender`, when
+ * given). A line whose turn ended is already gone, so this is only what the turn is doing at this
+ * moment (or the fixed "waiting" line a legacy build posted). One pass; nothing is filtered again.
  */
-/**
- * The one working line a chat shows under the typing bubble right now: the newest agent line
- * that still lives. A line whose turn ended is already gone, so this is only what the turn is
- * doing at this moment (or the fixed "waiting" line a legacy build posted).
- */
-export function matrixWorkingLine<T extends Line>(
-  messages: readonly T[],
+export function matrixLiveWorkingLine<T extends Line>(
+  kept: readonly T[],
   agents: ReadonlySet<string>,
   sender?: string
 ): T | undefined {
-  const kept = matrixHideEndedTransientLines(messages, agents)
-
   for (let index = kept.length - 1; index >= 0; index--) {
     const message = kept[index]!
 
@@ -69,22 +58,46 @@ export function matrixWorkingLine<T extends Line>(
   return undefined
 }
 
+/** `matrixLiveWorkingLine` of the raw timeline (it hides ended lines first). */
+export function matrixWorkingLine<T extends Line>(
+  messages: readonly T[],
+  agents: ReadonlySet<string>,
+  sender?: string
+): T | undefined {
+  return matrixLiveWorkingLine(matrixHideEndedTransientLines(messages, agents), agents, sender)
+}
+
+/**
+ * What a chat shows of `messages` (in timeline order), in one pass from the newest:
+ * - an agent's redacted message shows nothing, not a "deleted" tombstone (the agent removes only its
+ *   own working lines and a duplicated interim remark);
+ * - an agent's working line is hidden once the turn has ended: its marker says `settled`, or the same
+ *   agent posted a later message that is neither a working line nor an interim remark (the answer,
+ *   an outcome notice). A line that is still the newest thing the agent said stays.
+ * - a company agent's working line (agent-turns/1.6) ends only by its exact turn identity (company,
+ *   agent, audience, room, thread root, task, invocation): settled (a fence the projection already
+ *   keeps irreversible), or redacted by its publisher. A later message of the agent never ends it,
+ *   so an answer to another task or thread never hides active work. Any settled line of an identity
+ *   fences every line of that identity.
+ */
 export function matrixHideEndedTransientLines<T extends Line>(messages: readonly T[], agents: ReadonlySet<string>): T[] {
   const ended = new Set<string>()
-  // Later agent messages inside a thread, newest first: what ends a company line.
-  const endings: Array<{ sender: string; rootId: string; replyTo?: string }> = []
-  const kept: T[] = []
+  const fenced = new Set<string>()
+  const keyed = new Map<T, string>()
 
-  const companyEnded = (message: T): boolean => {
-    const company = message.company!
+  for (const message of messages) {
+    if (message.company && message.progress && !message.redacted) {
+      const key = matrixCompanyTurnKey(message.company)
 
-    return endings.some(
-      ending =>
-        ending.sender === message.sender &&
-        ending.rootId === company.threadRootEventId &&
-        (ending.replyTo === undefined || ending.replyTo === company.triggerEventId)
-    )
+      keyed.set(message, key)
+
+      if (message.progress.phase === 'settled') {
+        fenced.add(key)
+      }
+    }
   }
+
+  const kept: T[] = []
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!
@@ -100,15 +113,13 @@ export function matrixHideEndedTransientLines<T extends Line>(messages: readonly
     }
 
     if (isMatrixTransientLine(message, agents)) {
-      if (message.progress?.phase === 'settled' || (message.company ? companyEnded(message) : ended.has(message.sender))) {
+      const key = keyed.get(message)
+
+      if (message.progress?.phase === 'settled' || (key !== undefined ? fenced.has(key) : ended.has(message.sender))) {
         continue
       }
     } else if (!message.interim && !message.pending && !message.failed && !message.decryptionFailed) {
       ended.add(message.sender)
-
-      if (message.threadRelation) {
-        endings.push({ sender: message.sender, ...message.threadRelation })
-      }
     }
 
     kept.push(message)
