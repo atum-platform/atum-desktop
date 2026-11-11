@@ -97,6 +97,7 @@
   ],
   "max_blob_bytes": 10485760,
   "reviewed_blobs": {
+    "packages/mobile-design-exports/dist/Localizable.xcstrings": "58c6280d1febabdc201a099916a4671114113c74b54a7b427b46bd442bc66022",
     "apps/desktop/electron/matrix/source-gates-v2.test.ts": "847523a5eea79662834da4c5768fbb6f61180e2b5afb85b9942228c7af2adf2e",
     "packages/device-protocol/fixtures/device-fleet/fixtures/update-legacy.json": "cdaefb5b1c2229ed792b4edbd5c635a2f0833483647fca53c666d077396949b6",
     "packages/device-protocol/fixtures/device-fleet/fixtures/update-names-owner.json": "f7afb65c859fba25330348b15463889873083ed08fe99ab6c31705bf2136025c",
