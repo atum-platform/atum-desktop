@@ -146,7 +146,10 @@ async function buildMatrixResult(
         ...(command.google === true ? { [MATRIX_GOOGLE_PROVENANCE_KEY]: { ...MATRIX_GOOGLE_PROVENANCE } } : {})
       }
     : {
-        msgtype: MsgType.Text as const,
+        // A plain failure is platform state, not words authored by the assistant. Keep the typed
+        // result marker for continuity, but publish it as a notice so Atum renders localized
+        // system status instead of an assistant answer. Real answers remain ordinary text.
+        msgtype: command.status === 'failed' ? MsgType.Notice as const : MsgType.Text as const,
         ...matrixPetReplyMixin(command.pet, command.group !== true && !binding &&
           room.getType() === MATRIX_ASSISTANT_ROOM_TYPE && room.getMembers().length === 2 &&
           room.getMembers().every(member => member.membership === 'join')),

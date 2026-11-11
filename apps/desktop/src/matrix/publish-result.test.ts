@@ -517,6 +517,27 @@ it('carries a cloud status notice’s closed code under io.atum.result, and refu
   expect(send).toHaveBeenCalledTimes(1)
 })
 
+it('publishes a failed turn as system notice metadata, never as canned assistant text', async () => {
+  const fixture = agentRoom({ type: 'io.atum.assistant' })
+  const command = {
+    ...answer(),
+    body: 'Atum couldn’t complete this request. Please try again.',
+    status: 'failed' as const
+  }
+
+  await publishMatrixResult(fixture.client, command)
+
+  expect(fixture.send).toHaveBeenCalledWith(
+    fixture.room.roomId,
+    EventType.RoomMessage,
+    expect.objectContaining({
+      msgtype: 'm.notice',
+      'io.atum.result': expect.objectContaining({ status: 'failed' })
+    }),
+    command.transactionId
+  )
+})
+
 it('publishes a resumed turn’s synthetic Stop event and rejects an ended or owner-message target', async () => {
   const fixture = agentRoom({ type: 'io.atum.assistant' })
   const stopEvent = '$atum-followup-00000000-0000-4000-8000-342ace7df588.00000000-0000-4000-8000-f6c057d86785'
