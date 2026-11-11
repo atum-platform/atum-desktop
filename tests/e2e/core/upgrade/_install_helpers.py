@@ -67,7 +67,14 @@ def release_n1_tag() -> str:
     ).splitlines()
     stable = [tag for tag in tags if re.fullmatch(r"v\d+\.\d+\.\d+", tag)]
     if not stable:
-        raise AssertionError("no stable v0.x release tag reachable before HEAD")
+        if os.environ.get("HERMES_E2E_REQUIRE_RELEASE_TAG"):
+            raise AssertionError("no stable v0.x release tag reachable before HEAD")
+        # A history with a fresh root (e.g. a sanitised public export) has no upstream release
+        # as an ancestor, so there is no N-1 install to upgrade from. Skip loudly instead of
+        # inventing a tag; set HERMES_E2E_REQUIRE_RELEASE_TAG=1 where the fork history exists.
+        import pytest
+
+        pytest.skip("no stable v0.x release tag is an ancestor of this history; N-1 upgrade needs upstream ancestry")
     return stable[0]
 
 

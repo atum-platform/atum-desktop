@@ -16,10 +16,12 @@ secret rules. No private source files, fixtures or manifests were copied.
 | Previous job/lane | Public job / disposition | Coverage and limits |
 | --- | --- | --- |
 | tests.yml generate + test (8 slices) | hermes (8 slices) | All retained tests, canonical runner, deterministic I/8 slicing, two workers. Public lock/interpreter 3.14 vs previous explicit 3.11: interpreter parity remains to verify. |
-| tests.yml e2e | stays private for now | Public run (11-10) exceeded a hosted runner (runner shutdown) and needs repo history (tests/e2e/core/upgrade/git) and optional platform SDKs (tests/e2e/core/platforms/*_contract). Revisit as a split, history-free lane. |
+| tests.yml e2e | Python E2E | The non-upgrade inventory runs from a full-history checkout with the same per-file isolation, explicit messaging/provider extras, tmux assertion and empty API credentials. |
+| tests.yml e2e-upgrade | Python upgrade E2E (core/git/handoff/hosts/network/pm) | Full-history checkout and one standard hosted runner per inventory-derived shard, each with a 180-minute limit. The public repository has a deliberate sanitized root, so the workflow fetches upstream stable tags and supplies the newest stable tag as the explicit upgrade base instead of pretending it is merged into public history. |
 | lint.yml ruff-blocking | python-lint | Same pinned ruff check. |
 | lint.yml windows-footguns | python-lint | Same static checker over all public files. |
 | lint.yml lint-diff | stays private initially | Advisory ty/ruff diff report not reproduced. Blocking lint remains public. |
+| OSV lock scan | Public dependency OSV scan | The checksum-pinned scanner checks the public Python and npm locks. The private repository keeps a path-filtered scan for its distinct private lock graph. |
 | js-tests desktop check:lint | client | Typecheck, lint, private-absent import closure compilation. |
 | js-tests desktop platforms / UI | client | All vitest projects, required Python seam and locked real Python environment. |
 | js-tests desktop upstream-watch | client | Same retained Node test command. |
@@ -234,3 +236,79 @@ existing exact-byte policy. No new unreviewed fixture finding and no policy
 change. Temporary npm dependencies and task-generated test files are removed
 before handoff. Publication and exact-head hosted validation remain coordinator
 work; this checkpoint makes no claim that release 0.20.46 is live.
+
+## Dependency API repair checkpoint (2026-11-10)
+
+Built locally, not published. Restore the desktop compilation and Electron bundle
+paths after the dependency security refresh; hosted validation remains pending.
+
+- The client compiler and desktop E2E bundle both rejected the default import of
+  simple-git 4.0.2. Use its exported `simpleGit` function directly. Keep 4.0.2:
+  older 3.36.0 is affected by GHSA-858h-whjf-mvg5, GHSA-g4wm-2vf7-vfgr and
+  GHSA-x6jw-m9v5-85vh. No new wrapper or unsafe-operation opt-in was added.
+- electron-updater 6.8.11 changed both `doDownloadUpdate` and `executeDownload`
+  from `Promise<Array<string>>` to `Promise<DownloadExecutorResult>`, whose
+  required field is `updateFile`. Restore the prior exact 6.6.2 pin instead of
+  changing staged-swap download/fallback behavior. The published 6.6.2
+  `out/AppUpdater.d.ts` declares both methods as `Promise<Array<string>>`:
+  <https://unpkg.com/electron-updater@6.6.2/out/AppUpdater.d.ts>.
+  OSV reports no advisory against electron-updater 6.6.2 itself. Its old nested
+  builder-util-runtime 9.3.1 is affected by GHSA-p2f4-r6v6-j797 (cross-origin
+  redirect credential leakage), so a scoped override retains 9.7.0. The lock
+  contains no older runtime copy. Advisory:
+  <https://osv.dev/vulnerability/GHSA-p2f4-r6v6-j797>.
+- Source import inspection found no other simple-git default imports or direct
+  minimatch imports. Zod imports use named exports; KaTeX 0.18.2 still publishes
+  its default export. The original client run passed renderer compilation, and
+  all workspace checks passed. No speculative source changes were made there.
+- Regenerated only the lock, with `npm install --package-lock-only --ignore-scripts`
+  using Node 24 after the default Node 23 failed the repository engine constraint.
+  No node_modules directory or shared dependency symlink exists in this checkout.
+  npm reports zero vulnerabilities. OSV package queries return no advisories for
+  electron-updater 6.6.2, builder-util-runtime 9.7.0 or simple-git 4.0.2. Comparing
+  unique resolved package/version pairs shows only the updater version changed;
+  npm also deduplicated unchanged fs-extra/jsonfile/universalify lock entries.
+- `git diff --check` passes. The client boundary command cannot start locally:
+  `ERR_MODULE_NOT_FOUND` for TypeScript. No full install or suites were run.
+  Free CI must verify compilation and Electron E2E on the assembled head.
+- Inspection of all checks on the prior head found only client and desktop-e2e
+  failures. At the latest inspection, Python upgrade E2E (git) and Hermes slices
+  3, 6 and 8 were still running; all other checks passed, including OSV.
+- Trusted `origin/main` detached-checkout guard passes against the repair range:
+  raw paths/modes, ancestry, identifiers, pinned gitleaks secrets and commit
+  metadata; no leaks found. The scratch checkout is removed after verification.
+
+## Kanban dispatcher restart repair (2026-11-11)
+
+Built locally, not published. The SIGKILL E2E failure exposes a real duplicate
+execution window, not an invalid exactly-once assertion. The dispatcher spawns
+the submitter before recording its PID (`kanban_db_dispatch.py`,
+`_dispatch_candidate`). Killing it in between leaves a live submitter with no
+PID on the board. The owner-managed path bypassed the one-shot CLI's
+`register_current_worker_from_env` call. An expired claim could therefore be
+reclaimed while its owner-bound interpreter continued working. The failed job
+recorded two `worker_bound` events under different claims and two provider
+completion requests for the same card.
+
+The submitter now calls the existing `adopt_worker_pid` against its explicit
+board database before contacting the owner. Adoption serializes with reclaim:
+either the live PID is recorded on both task and run, or the stale submitter
+exits before admission. The dispatcher's existing PID compare-and-swap rejects
+a stale reclaim snapshot if registration won. No schema, TTL, reclaim policy,
+or E2E assertion changes are needed.
+
+Adopt-first inspection: upstream still has the identical restart E2E test and
+no submitter-side adoption at inspection time. Reuse its existing atomic
+adoption primitive rather than importing unrelated owner-reconnect changes.
+References:
+<https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/kanban_worker_client.py>
+and <https://github.com/NousResearch/hermes-agent/blob/main/hermes_cli/kanban_db_dispatch.py>.
+
+Verification uses an existing Python environment without installing anything.
+Three deterministic regression cases cover the missing dispatcher PID, an
+already-recorded PID, and a reclaimed/replaced run. Before the repair, the
+missing-PID and stale-submitter cases fail; afterwards all three pass. Together
+with owner-startup and admission-wait checks: seven passed. Ruff and
+`git diff --check` pass. The unchanged two restart E2E scenarios skip on macOS
+because they require Linux `/proc`; exact-head Linux CI remains coordinator
+work. No push, PR edit, CI rerun, deployment, or nested review was performed.

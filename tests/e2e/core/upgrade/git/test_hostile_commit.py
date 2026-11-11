@@ -244,16 +244,24 @@ def _zip_killed_at(world, kill_at: str, files: dict[str, str] | None = None):
 
 def test_kill_mid_zip_swap_is_settled_by_the_next_launch(world):
     sb = world["sb"]
-    pre = _head(sb)
+    # Seed our own tracked entry before the hostile release: recovery must restore an existing
+    # file, not merely remove a newly added one. No particular source-tree document is required.
+    rel = "e2e_zip_tracked.txt"
+    pre = _release(world, {rel: "old tracked bytes\n"})
+    P.ok(_update(sb), "harness: plain update to the ZIP seed failed")
+    assert _head(sb) == pre and not _tracked_dirty(sb), "harness: ZIP seed not settled"
     # Killed right after a TRACKED file's new bytes landed: the swap order follows the archive's
     # directory listing, so a "kill at the N-th swap" can land on N unchanged entries only.
-    agents = I.git("show", "HEAD:AGENTS.md", cwd=world["origin"]) + "\n<!-- e2e zip swap -->\n"
-    killed = _zip_killed_at(world, "after:AGENTS.md", {"AGENTS.md": agents})
+    killed = _zip_killed_at(world, f"after:{rel}", {rel: "new tracked bytes\n"})
     at_kill = {"artifacts": _artifacts(sb), "dirty": _tracked_dirty(sb),
                "new_entry": (sb.checkout / "e2e_zip_release.py").exists()}
     assert at_kill["artifacts"] and at_kill["dirty"], (
         f"harness: the ZIP swap was not killed mid-rename ({at_kill['dirty']!r})\n" + I.describe(killed))
+    assert (sb.checkout / rel).read_text(encoding="utf-8") == "new tracked bytes\n", (
+        "harness: the kill did not land after the tracked replacement\n" + I.describe(killed))
     launch = _launch(sb, "first launch after a kill mid ZIP swap")
+    assert (sb.checkout / rel).read_text(encoding="utf-8") == "old tracked bytes\n", (
+        "the next launch did not restore the tracked entry\n" + I.describe(launch))
     leftovers = _artifacts(sb)
     assert not leftovers, (f"{len(leftovers)} staging/backup siblings leaked and wedge the next update: "
                            f"{leftovers[:5]} (at kill: {len(at_kill['artifacts'])} siblings, "

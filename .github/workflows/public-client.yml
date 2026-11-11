@@ -86,6 +86,29 @@ jobs:
       - run: ruff check .
       - run: python scripts/check-windows-footguns.py --all
 
+  dependency-audit:
+    name: Public dependency OSV scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install checksum-pinned OSV scanner
+        run: |
+          set -euo pipefail
+          curl -sSfL --retry 3 --retry-delay 5 \
+            -o "$RUNNER_TEMP/osv-scanner" \
+            https://github.com/google/osv-scanner/releases/download/v2.3.8/osv-scanner_linux_amd64
+          echo "bc98e15319ed0d515e3f9235287ba53cdc5535d576d24fd573978ecfe9ab92dc  $RUNNER_TEMP/osv-scanner" | sha256sum -c -
+          chmod 0755 "$RUNNER_TEMP/osv-scanner"
+      - name: Scan public dependency locks
+        run: |
+          "$RUNNER_TEMP/osv-scanner" scan source \
+            --lockfile=uv.lock \
+            --lockfile=package-lock.json
+
   workspaces:
     runs-on: ubuntu-latest
     timeout-minutes: 45

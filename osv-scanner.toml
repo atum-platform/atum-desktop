@@ -1,0 +1,43 @@
+# Local editable version 0.0.0 is not an upstream release version.
+# Reviewed source protections are present in public snapshot 912b0299.
+# ID exceptions also cover aliases; see https://google.github.io/osv-scanner/configuration/.
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2509"
+reason = "Public snapshot 912b0299: tools/skills_guard.py THREAT_PATTERNS already allows intervening words in system-prompt-override and fake-policy patterns."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2510"
+reason = "Public snapshot 912b0299: hermes_cli/web_server_boundary.py ws_host_origin_reason validates WebSocket Host and Origin before acceptance via web_server_chat.py."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2511"
+reason = "Public snapshot 912b0299: gateway/platforms/api_server_response_store.py forces DB and sidecars to 0600; hermes_cli/webhook.py atomically writes subscriptions with mode 0600."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2512"
+reason = "Public snapshot 912b0299: hermes_cli/web_server_dashboard.py gates project plugins with env_var_enabled, so false/0/no do not enable discovery."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2513"
+reason = "Public snapshot 912b0299: hermes_cli/config.py _sanitize_env_lines keeps assignment values opaque and never splits embedded variable names into new assignments."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2514"
+reason = "Public snapshot 912b0299: agent/prompt_builder.py uses tools/threat_patterns.py bounded multiword filler patterns instead of the vulnerable single-word context patterns."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-2515"
+reason = "Public snapshot 912b0299: tools/code_execution_env.py _scrub_child_env filters secrets and permits only scoped explicit passthrough or allowlisted child variables."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3575"
+reason = "Public snapshot 912b0299: tools/memory_tool_store.py rejects writes through tools/threat_patterns.py multiword injection patterns, including the reported ignore-my-previous variant."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3576"
+reason = "Public snapshot 912b0299: plugins/platforms/feishu/adapter.py bounds webhook bodies to 1 MiB with a limited reader, timeout, and aiohttp client_max_size."
+
+[[IgnoredVulns]]
+id = "PYSEC-2026-3577"
+reason = "Fixed in this tree by upstream NousResearch/hermes-agent PR #69860 (2ca38e5df434): agent/conversation_compression.py _fold_todo_snapshot folds the todo snapshot into the trailing real user turn (_is_real_user_message) instead of appending a synthetic user message; covered by tests/agent/test_compression_rotation_state.py."
