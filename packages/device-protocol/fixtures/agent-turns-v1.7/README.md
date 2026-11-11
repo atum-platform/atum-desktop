@@ -7,8 +7,14 @@ All earlier messages, warning offsets, amendments and fixtures remain readable u
 ## Wire and fallback
 
 The final `m.room.message` answer is `files.answer`: ordinary `m.text`, a nonempty
-`body` containing the final publishable agent words, `io.atum.files` and an exact
+`body` containing the final publishable agent words, `io.atum.files`, the required
+`io.atum.result: {invocation, transaction}` (the earlier answer shape), and an exact
 non-fallback `m.thread` relation. No result_warning offset or appended system text.
+The result invocation must equal `io.atum.files.identity.invocationId`; it is the
+answer identity used by history continuity, never inferred from chip metadata.
+For personal chat the producer MUST set both the thread root (`event_id`) and
+`m.in_reply_to.event_id` to the triggering question, as earlier answers do.
+Company answers retain their bound thread root and reply to the triggering question.
 The ordinary body is the fallback for old clients; new readers must preserve it too.
 Only the final answer part carries files for multipart answers. It owns every key;
 updates target that part's original Matrix event ID, never another part or an edit.

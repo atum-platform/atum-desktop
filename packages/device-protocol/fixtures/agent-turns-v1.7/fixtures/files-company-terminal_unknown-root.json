@@ -29,6 +29,10 @@
       }
     ]
   },
+  "io.atum.result": {
+    "invocation": "abcdabcd-abcd-4abc-8abc-abcabcabcab2",
+    "transaction": "atum-answer-files"
+  },
   "m.relates_to": {
     "rel_type": "m.thread",
     "event_id": "$other",

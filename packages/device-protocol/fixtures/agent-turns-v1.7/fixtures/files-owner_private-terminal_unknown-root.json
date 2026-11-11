@@ -9,7 +9,7 @@
       "invocationId": "abcdabcd-abcd-4abc-8abc-abcabcabcab2",
       "scope": "owner_private",
       "roomId": "!files:example.test",
-      "threadRootEventId": "$root",
+      "threadRootEventId": "$trigger",
       "ownerPrincipal": "abcdabcd-abcd-4abc-8abc-abcabcabcab7"
     },
     "files": [
@@ -23,6 +23,10 @@
         "draftAvailable": false
       }
     ]
+  },
+  "io.atum.result": {
+    "invocation": "abcdabcd-abcd-4abc-8abc-abcabcabcab2",
+    "transaction": "atum-answer-files"
   },
   "m.relates_to": {
     "rel_type": "m.thread",

@@ -7,7 +7,7 @@
       "invocationId": "abcdabcd-abcd-4abc-8abc-abcabcabcab2",
       "scope": "owner_private",
       "roomId": "!files:example.test",
-      "threadRootEventId": "$root",
+      "threadRootEventId": "$trigger",
       "ownerPrincipal": "abcdabcd-abcd-4abc-8abc-abcabcabcab7"
     },
     "answerEventId": "$answer",

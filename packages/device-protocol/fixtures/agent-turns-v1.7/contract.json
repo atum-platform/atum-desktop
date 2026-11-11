@@ -117,89 +117,137 @@
     "fixtures/device-unreachable-resume.sequence.json",
     "fixtures/device-wait-before-route.sequence.json",
     "fixtures/files-company-committed-answer.json",
+    "fixtures/files-company-committed-invalid-invocation.json",
+    "fixtures/files-company-committed-missing-result.json",
+    "fixtures/files-company-committed-missing-transaction.json",
     "fixtures/files-company-committed-path.json",
     "fixtures/files-company-committed-profile.json",
     "fixtures/files-company-committed-root.json",
     "fixtures/files-company-committed-state.json",
     "fixtures/files-company-committed-update.json",
     "fixtures/files-company-committed-warning.json",
+    "fixtures/files-company-committed-wrong-invocation.json",
     "fixtures/files-company-committed_with_siblings-answer.json",
+    "fixtures/files-company-committed_with_siblings-invalid-invocation.json",
+    "fixtures/files-company-committed_with_siblings-missing-result.json",
+    "fixtures/files-company-committed_with_siblings-missing-transaction.json",
     "fixtures/files-company-committed_with_siblings-path.json",
     "fixtures/files-company-committed_with_siblings-profile.json",
     "fixtures/files-company-committed_with_siblings-root.json",
     "fixtures/files-company-committed_with_siblings-state.json",
     "fixtures/files-company-committed_with_siblings-update.json",
     "fixtures/files-company-committed_with_siblings-warning.json",
+    "fixtures/files-company-committed_with_siblings-wrong-invocation.json",
     "fixtures/files-company-draft_evicted-answer.json",
+    "fixtures/files-company-draft_evicted-invalid-invocation.json",
+    "fixtures/files-company-draft_evicted-missing-result.json",
+    "fixtures/files-company-draft_evicted-missing-transaction.json",
     "fixtures/files-company-draft_evicted-path.json",
     "fixtures/files-company-draft_evicted-profile.json",
     "fixtures/files-company-draft_evicted-root.json",
     "fixtures/files-company-draft_evicted-state.json",
     "fixtures/files-company-draft_evicted-update.json",
     "fixtures/files-company-draft_evicted-warning.json",
+    "fixtures/files-company-draft_evicted-wrong-invocation.json",
     "fixtures/files-company-recovering-answer.json",
+    "fixtures/files-company-recovering-invalid-invocation.json",
+    "fixtures/files-company-recovering-missing-result.json",
+    "fixtures/files-company-recovering-missing-transaction.json",
     "fixtures/files-company-recovering-path.json",
     "fixtures/files-company-recovering-profile.json",
     "fixtures/files-company-recovering-root.json",
     "fixtures/files-company-recovering-state.json",
     "fixtures/files-company-recovering-update.json",
     "fixtures/files-company-recovering-warning.json",
+    "fixtures/files-company-recovering-wrong-invocation.json",
     "fixtures/files-company-refused-answer.json",
+    "fixtures/files-company-refused-invalid-invocation.json",
+    "fixtures/files-company-refused-missing-result.json",
+    "fixtures/files-company-refused-missing-transaction.json",
     "fixtures/files-company-refused-path.json",
     "fixtures/files-company-refused-profile.json",
     "fixtures/files-company-refused-root.json",
     "fixtures/files-company-refused-state.json",
     "fixtures/files-company-refused-update.json",
     "fixtures/files-company-refused-warning.json",
+    "fixtures/files-company-refused-wrong-invocation.json",
     "fixtures/files-company-terminal_unknown-answer.json",
+    "fixtures/files-company-terminal_unknown-invalid-invocation.json",
+    "fixtures/files-company-terminal_unknown-missing-result.json",
+    "fixtures/files-company-terminal_unknown-missing-transaction.json",
     "fixtures/files-company-terminal_unknown-path.json",
     "fixtures/files-company-terminal_unknown-profile.json",
     "fixtures/files-company-terminal_unknown-root.json",
     "fixtures/files-company-terminal_unknown-state.json",
     "fixtures/files-company-terminal_unknown-update.json",
     "fixtures/files-company-terminal_unknown-warning.json",
+    "fixtures/files-company-terminal_unknown-wrong-invocation.json",
     "fixtures/files-owner_private-committed-answer.json",
+    "fixtures/files-owner_private-committed-invalid-invocation.json",
+    "fixtures/files-owner_private-committed-missing-result.json",
+    "fixtures/files-owner_private-committed-missing-transaction.json",
     "fixtures/files-owner_private-committed-path.json",
     "fixtures/files-owner_private-committed-profile.json",
     "fixtures/files-owner_private-committed-root.json",
     "fixtures/files-owner_private-committed-state.json",
     "fixtures/files-owner_private-committed-update.json",
     "fixtures/files-owner_private-committed-warning.json",
+    "fixtures/files-owner_private-committed-wrong-invocation.json",
     "fixtures/files-owner_private-committed_with_siblings-answer.json",
+    "fixtures/files-owner_private-committed_with_siblings-invalid-invocation.json",
+    "fixtures/files-owner_private-committed_with_siblings-missing-result.json",
+    "fixtures/files-owner_private-committed_with_siblings-missing-transaction.json",
     "fixtures/files-owner_private-committed_with_siblings-path.json",
     "fixtures/files-owner_private-committed_with_siblings-profile.json",
     "fixtures/files-owner_private-committed_with_siblings-root.json",
     "fixtures/files-owner_private-committed_with_siblings-state.json",
     "fixtures/files-owner_private-committed_with_siblings-update.json",
     "fixtures/files-owner_private-committed_with_siblings-warning.json",
+    "fixtures/files-owner_private-committed_with_siblings-wrong-invocation.json",
     "fixtures/files-owner_private-draft_evicted-answer.json",
+    "fixtures/files-owner_private-draft_evicted-invalid-invocation.json",
+    "fixtures/files-owner_private-draft_evicted-missing-result.json",
+    "fixtures/files-owner_private-draft_evicted-missing-transaction.json",
     "fixtures/files-owner_private-draft_evicted-path.json",
     "fixtures/files-owner_private-draft_evicted-profile.json",
     "fixtures/files-owner_private-draft_evicted-root.json",
     "fixtures/files-owner_private-draft_evicted-state.json",
     "fixtures/files-owner_private-draft_evicted-update.json",
     "fixtures/files-owner_private-draft_evicted-warning.json",
+    "fixtures/files-owner_private-draft_evicted-wrong-invocation.json",
     "fixtures/files-owner_private-recovering-answer.json",
+    "fixtures/files-owner_private-recovering-invalid-invocation.json",
+    "fixtures/files-owner_private-recovering-missing-result.json",
+    "fixtures/files-owner_private-recovering-missing-transaction.json",
     "fixtures/files-owner_private-recovering-path.json",
     "fixtures/files-owner_private-recovering-profile.json",
     "fixtures/files-owner_private-recovering-root.json",
     "fixtures/files-owner_private-recovering-state.json",
     "fixtures/files-owner_private-recovering-update.json",
     "fixtures/files-owner_private-recovering-warning.json",
+    "fixtures/files-owner_private-recovering-wrong-invocation.json",
     "fixtures/files-owner_private-refused-answer.json",
+    "fixtures/files-owner_private-refused-invalid-invocation.json",
+    "fixtures/files-owner_private-refused-missing-result.json",
+    "fixtures/files-owner_private-refused-missing-transaction.json",
     "fixtures/files-owner_private-refused-path.json",
     "fixtures/files-owner_private-refused-profile.json",
     "fixtures/files-owner_private-refused-root.json",
     "fixtures/files-owner_private-refused-state.json",
     "fixtures/files-owner_private-refused-update.json",
     "fixtures/files-owner_private-refused-warning.json",
+    "fixtures/files-owner_private-refused-wrong-invocation.json",
     "fixtures/files-owner_private-terminal_unknown-answer.json",
+    "fixtures/files-owner_private-terminal_unknown-invalid-invocation.json",
+    "fixtures/files-owner_private-terminal_unknown-missing-result.json",
+    "fixtures/files-owner_private-terminal_unknown-missing-transaction.json",
     "fixtures/files-owner_private-terminal_unknown-path.json",
     "fixtures/files-owner_private-terminal_unknown-profile.json",
     "fixtures/files-owner_private-terminal_unknown-root.json",
     "fixtures/files-owner_private-terminal_unknown-state.json",
     "fixtures/files-owner_private-terminal_unknown-update.json",
     "fixtures/files-owner_private-terminal_unknown-warning.json",
+    "fixtures/files-owner_private-terminal_unknown-wrong-invocation.json",
     "fixtures/interim-later.content.json",
     "fixtures/interim-message.content.json",
     "fixtures/interim-policy.vectors.json",
@@ -1431,6 +1479,17 @@
         "io.atum.files": {
           "ref": "files_marker"
         },
+        "io.atum.result": {
+          "type": "object",
+          "required": {
+            "invocation": {
+              "ref": "uuid"
+            },
+            "transaction": {
+              "ref": "transaction"
+            }
+          }
+        },
         "m.relates_to": {
           "ref": "company_thread"
         }
@@ -2180,6 +2239,21 @@
       "right": [
         "m.relates_to",
         "event_id"
+      ]
+    },
+    {
+      "id": "files_answer_invocation",
+      "message": "files.answer",
+      "op": "same",
+      "required": true,
+      "left": [
+        "io.atum.result",
+        "invocation"
+      ],
+      "right": [
+        "io.atum.files",
+        "identity",
+        "invocationId"
       ]
     }
   ],
@@ -3452,6 +3526,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-owner_private-recovering-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-owner_private-recovering-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3490,6 +3588,30 @@
       "file": "fixtures/files-owner_private-committed-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-owner_private-committed-root.json",
@@ -3532,6 +3654,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-owner_private-committed_with_siblings-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-owner_private-committed_with_siblings-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3570,6 +3716,30 @@
       "file": "fixtures/files-owner_private-terminal_unknown-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-owner_private-terminal_unknown-root.json",
@@ -3612,6 +3782,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-owner_private-refused-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-owner_private-refused-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3650,6 +3844,30 @@
       "file": "fixtures/files-owner_private-draft_evicted-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-owner_private-draft_evicted-root.json",
@@ -3692,6 +3910,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-company-recovering-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-recovering-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-recovering-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-recovering-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-company-recovering-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3730,6 +3972,30 @@
       "file": "fixtures/files-company-committed-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-committed-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-committed-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-company-committed-root.json",
@@ -3772,6 +4038,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-company-committed_with_siblings-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-company-committed_with_siblings-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3810,6 +4100,30 @@
       "file": "fixtures/files-company-terminal_unknown-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-company-terminal_unknown-root.json",
@@ -3852,6 +4166,30 @@
       "expect": "accept"
     },
     {
+      "file": "fixtures/files-company-refused-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-refused-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-refused-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-refused-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
       "file": "fixtures/files-company-refused-root.json",
       "message": "files.answer",
       "expect": "reject",
@@ -3890,6 +4228,30 @@
       "file": "fixtures/files-company-draft_evicted-update.json",
       "message": "files.update",
       "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
     },
     {
       "file": "fixtures/files-company-draft_evicted-root.json",

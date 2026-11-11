@@ -15,6 +15,7 @@ export interface FileChip {
 }
 export interface FileAnswer {
   msgtype: 'm.text'; body: string;
+  'io.atum.result': { invocation: string; transaction: string };
   'io.atum.files': { profile: 'atum.agent-turns/1.7'; identity: FileIdentity; files: FileChip[] };
   'm.relates_to': { rel_type: 'm.thread'; event_id: string; is_falling_back: false; 'm.in_reply_to': { event_id: string } };
 }

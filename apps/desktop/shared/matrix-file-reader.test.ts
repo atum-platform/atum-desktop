@@ -41,6 +41,15 @@ describe('passive file reader', () => {
     )
   }
 
+  it('preserves the legacy invocation when parsing a 1.7 answer', () => {
+    const parsed = parseFileAnswer(answer())!
+    expect(parsed['io.atum.result'].invocation).toBe(parsed['io.atum.files'].identity.invocationId)
+    expect(parsed['m.relates_to'].event_id).toBe(parsed['m.relates_to']['m.in_reply_to'].event_id)
+    const missing = answer()
+    delete missing['io.atum.result']
+    expect(parseFileAnswer(missing)).toBeUndefined()
+  })
+
   it('preserves fallback body through settlement, retry and history replay', () => {
     const state = readFileAnswer(event(), authority())!
     const saved = reduceFileUpdate(state, update(), authority())

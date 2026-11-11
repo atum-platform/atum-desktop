@@ -195,11 +195,11 @@
     },
     "agent-turns-v1.7": {
       "version": "v1.7",
-      "pinned_sha256": "469dfdf866799b9167ca8dd058ffe75cf48b7de4ebb3182e39b8f4a7b734575e",
+      "pinned_sha256": "4257b3cf4b391c0b874533384554891bad4aa479d00e8295c589a72c5aa9c4fd",
       "vendored": "full",
-      "source": "atum-platform/spec/agent-turns/v1.7 (frozen; feat/talk-slice1-contract-1111)",
+      "source": "atum-platform/spec/agent-turns/v1.7 (invocation continuity amendment; feat/talk-17-invocation-1111)",
       "source_path": "spec/agent-turns/v1.7",
-      "source_commit": "049c8b812704d2a9293b0a20ad492bbb3e385fde"
+      "source_commit": "d2a9fe5763bd96c28c5ce7dc94d0c6e132f22382"
     }
   },
   "runtime_schema_modules": {
