@@ -3894,7 +3894,7 @@ export async function startMatrixSdk(
       }
 
       case 'edit':
-        return editMatrixMessage(client, joinedRoom(command.roomId), command.eventId, command.body)
+        return editMatrixMessage(client, joinedRoom(command.roomId), command.eventId, command.body, command)
 
       case 'redact':
         await redactMatrixMessage(client, joinedRoom(command.roomId), command.eventId)
