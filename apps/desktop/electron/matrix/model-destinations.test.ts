@@ -780,3 +780,172 @@ describe('a cloud agent’s Atum pick (owner 2026-11-08: “can’t even go back
     await expect(writeMatrixCloudAtumChoice('agent', 'nhat-thuc', {})).resolves.toBe(false)
   })
 })
+
+describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switching back to the previous model”)', () => {
+  const scope = { accountKey: 'account', generation: 1 }
+  const OLD_DIGEST = '08310d288546bac9e6ef43fcce0481a17ef3cd762791c71e7dfe6a1c3bcc615c'
+  const NEW_DIGEST = 'ac97cd7649cf0c30c8ed053043048c6c9c067c1ff1af5adb8be5afa7aba12087'
+
+  // The agent's snapshot at one revision and digest, with its cloud row on Atum or a ChatGPT plan.
+  function state(revision: number, digest: string, cloud: { source: 'atum' | 'chatgpt_plan'; model: string }) {
+    const base = fixture('destination.snapshot.json') as Record<string, unknown>
+
+    return {
+      ...base,
+      profile: cloud.source === 'chatgpt_plan' ? 'atum.model-choice/1.5' : MATRIX_MODEL_DESTINATIONS_PROFILE,
+      revision,
+      policyDigest: digest,
+      choices: (base.choices as Array<Record<string, unknown>>).map(choice =>
+        choice.destination === 'cloud' ? { ...choice, ...cloud } : choice
+      )
+    }
+  }
+
+  function conflict(reason: string) {
+    return { status: 409, value: { error: 'matrix_409', details: { reason } } }
+  }
+
+  function controller(answers: Array<MatrixModelDestinationsResponse | Promise<MatrixModelDestinationsResponse>>) {
+    const call = vi.fn(
+      async (_principal: string, _action: MatrixModelDestinationsAction, _signal: AbortSignal, _body?: unknown) => {
+        const next = answers.shift()
+
+        if (!next) {
+          throw new Error('unexpected call')
+        }
+
+        return next
+      }
+    )
+
+    const subject = new MatrixModelDestinations({
+      scope: () => scope,
+      call,
+      deviceNames: async () => NAMES,
+      offer: () => ({ offered: ['nguyet-thuc', 'nhat-thuc'] }),
+      here: () => 'cloud',
+      thisDevice: () => 'book-a',
+      changed: () => {}
+    })
+
+    subject.activate(scope)
+
+    return { subject, call }
+  }
+
+  function deferred() {
+    let resolve!: (value: MatrixModelDestinationsResponse) => void
+    const promise = new Promise<MatrixModelDestinationsResponse>(done => {
+      resolve = done
+    })
+
+    return { promise, resolve }
+  }
+
+  it('keeps the saved pick when a read that started before it lands after it', async () => {
+    const before = state(7, NEW_DIGEST, { source: 'chatgpt_plan', model: 'gpt-6-luna' })
+    const late = deferred()
+
+    const { subject } = controller([
+      { status: 200, value: before },
+      late.promise,
+      { status: 200, value: state(8, NEW_DIGEST, { source: 'atum', model: 'nhat-thuc' }) }
+    ])
+
+    await subject.read(PRINCIPAL)
+    expect(subject.cloudChoice(PRINCIPAL)).toMatchObject({ source: 'chatgpt_plan' })
+
+    // The minute's refresh is on the wire when the owner clicks Nhật Thực.
+    const refresh = subject.read(PRINCIPAL)
+    expect(await subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(true)
+    late.resolve({ status: 200, value: before })
+    await refresh
+
+    expect(subject.cloudChoice(PRINCIPAL)).toEqual({
+      destination: 'cloud',
+      source: 'atum',
+      model: 'nhat-thuc',
+      effort: 'medium'
+    })
+    expect(subject.snapshot(PRINCIPAL)?.revision).toBe(8)
+    expect(subject.view(PRINCIPAL)?.choices[0]).toMatchObject({ current: 'nhat-thuc' })
+  })
+
+  it('keeps the newer revision when two reads land out of order', async () => {
+    const early = deferred()
+
+    const { subject } = controller([
+      early.promise,
+      { status: 200, value: state(8, NEW_DIGEST, { source: 'atum', model: 'nhat-thuc' }) }
+    ])
+
+    const first = subject.read(PRINCIPAL)
+    await subject.read(PRINCIPAL)
+    early.resolve({ status: 200, value: state(7, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) })
+    await first
+
+    expect(subject.snapshot(PRINCIPAL)?.revision).toBe(8)
+    expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nhat-thuc')
+  })
+
+  it('re-reads an old-policy fence and sends the same pick once under the new digest', async () => {
+    const { subject, call } = controller([
+      { status: 200, value: state(7, OLD_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) },
+      conflict('policy_changed'),
+      { status: 200, value: state(7, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) },
+      { status: 200, value: state(8, NEW_DIGEST, { source: 'atum', model: 'nhat-thuc' }) }
+    ])
+
+    await subject.read(PRINCIPAL)
+    expect(await subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(true)
+
+    const writes = call.mock.calls.filter(([, action]) => action === 'write').map(([, , , body]) => body)
+    expect(writes).toMatchObject([
+      { expectedRevision: 7, policyDigest: OLD_DIGEST, choice: { model: 'nhat-thuc' } },
+      { expectedRevision: 7, policyDigest: NEW_DIGEST, choice: { model: 'nhat-thuc' } }
+    ])
+    expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nhat-thuc')
+  })
+
+  it('re-reads a revision another write moved, from a ChatGPT plan back to Atum', async () => {
+    const { subject, call } = controller([
+      { status: 200, value: state(6, NEW_DIGEST, { source: 'chatgpt_plan', model: 'gpt-6-luna' }) },
+      conflict('revision_conflict'),
+      { status: 200, value: state(7, NEW_DIGEST, { source: 'chatgpt_plan', model: 'gpt-6-luna' }) },
+      { status: 200, value: state(8, NEW_DIGEST, { source: 'atum', model: 'nhat-thuc' }) }
+    ])
+
+    await subject.read(PRINCIPAL)
+    expect(await subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(true)
+    expect(call.mock.calls.at(-1)?.[3]).toMatchObject({ expectedRevision: 7, choice: { source: 'atum' } })
+    expect(subject.cloudChoice(PRINCIPAL)).toMatchObject({ source: 'atum', model: 'nhat-thuc' })
+  })
+
+  it('does not retry any other refusal, and gives up after one re-read', async () => {
+    const other = controller([
+      { status: 200, value: state(7, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) },
+      conflict('model_unavailable')
+    ])
+
+    await other.subject.read(PRINCIPAL)
+    expect(await other.subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(false)
+    expect(other.call).toHaveBeenCalledTimes(2)
+    expect(other.subject.snapshot(PRINCIPAL)?.revision).toBe(7)
+
+    const fresh = state(9, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' })
+
+    const stuck = controller([
+      { status: 200, value: state(7, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) },
+      conflict('revision_conflict'),
+      { status: 200, value: state(8, NEW_DIGEST, { source: 'atum', model: 'nguyet-thuc' }) },
+      conflict('revision_conflict'),
+      { status: 200, value: fresh }
+    ])
+
+    await stuck.subject.read(PRINCIPAL)
+    expect(await stuck.subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(false)
+    // Two writes, each after its own read: the next click starts from the server's newest fence.
+    expect(stuck.call.mock.calls.map(([, action]) => action)).toEqual(['read', 'write', 'read', 'write', 'read'])
+    expect(stuck.subject.snapshot(PRINCIPAL)?.revision).toBe(9)
+  })
+})

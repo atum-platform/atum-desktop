@@ -271,3 +271,85 @@ describe('the cached offer', () => {
     expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(false)
   })
 })
+
+describe('a pick racing the periodic offer read (owner 2026-11-11: “it keeps switching back”)', () => {
+  const NEW_DIGEST = 'ac97cd7649cf0c30c8ed053043048c6c9c067c1ff1af5adb8be5afa7aba12087'
+
+  function choices(answers: Array<MatrixCloudModelResponse | Promise<MatrixCloudModelResponse>>) {
+    const call = vi.fn(async (_principal: string, _action: string, _signal: AbortSignal, _body?: unknown) => {
+      const next = answers.shift()
+
+      if (!next) {
+        throw new Error('unexpected call')
+      }
+
+      return next
+    })
+
+    const model = new MatrixCloudModelChoices({
+      scope: () => ({ accountKey: 'account', generation: 1 }),
+      call,
+      changed: () => {}
+    })
+
+    model.activate({ accountKey: 'account', generation: 1 })
+
+    return { model, call }
+  }
+
+  it('keeps the saved pick when a refresh that started before it lands after it', async () => {
+    let land!: (value: MatrixCloudModelResponse) => void
+    const late = new Promise<MatrixCloudModelResponse>(resolve => {
+      land = resolve
+    })
+
+    const { model } = choices([
+      { status: 200, value: snapshot({ revision: 7 }) },
+      late,
+      { status: 200, value: snapshot({ revision: 8, current: 'nhat-thuc' }) }
+    ])
+
+    await model.reload(PRINCIPAL)
+    const refresh = model.reload(PRINCIPAL)
+    expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(true)
+    land({ status: 200, value: snapshot({ revision: 7 }) })
+    await refresh
+
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
+    expect(model.offer(PRINCIPAL)?.revision).toBe(8)
+  })
+
+  it('keeps the newer revision when two reads land out of order', async () => {
+    let land!: (value: MatrixCloudModelResponse) => void
+    const early = new Promise<MatrixCloudModelResponse>(resolve => {
+      land = resolve
+    })
+
+    const { model } = choices([early, { status: 200, value: snapshot({ revision: 8, current: 'nhat-thuc' }) }])
+
+    const first = model.reload(PRINCIPAL)
+    await model.reload(PRINCIPAL)
+    land({ status: 200, value: snapshot({ revision: 7 }) })
+    await first
+
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
+  })
+
+  it('re-reads an old-policy fence and sends the same pick once under the new digest', async () => {
+    const renewed = { ...snapshot({ revision: 7 }), policyDigest: NEW_DIGEST }
+
+    const { model, call } = choices([
+      { status: 200, value: snapshot({ revision: 7 }) },
+      { status: 409, value: { error: 'matrix_409', details: { reason: 'policy_changed' }, policyDigest: NEW_DIGEST } },
+      { status: 200, value: renewed },
+      { status: 200, value: { ...snapshot({ revision: 8, current: 'nhat-thuc' }), policyDigest: NEW_DIGEST } }
+    ])
+
+    await model.reload(PRINCIPAL)
+    expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(true)
+
+    const writes = call.mock.calls.filter(([, action]) => action === 'write').map(([, , , body]) => body)
+    expect(writes).toMatchObject([{ policyDigest: DIGEST }, { policyDigest: NEW_DIGEST, expectedRevision: 7 }])
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
+  })
+})

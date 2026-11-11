@@ -311,6 +311,21 @@ function sameScope(left: MatrixCloudModelChoiceScope | null, right: MatrixCloudM
 }
 
 /**
+ * A write the server refused only because its fence was old: another write moved the revision,
+ * or the managed-model policy changed (a new digest). The owner's pick is still the newest
+ * intent, so the caller reads the fences again and sends the same pick once more.
+ */
+export function matrixModelChoiceFenceConflict(response: { status: number; value: unknown }): boolean {
+  if (response.status !== 409 || !record(response.value) || !record(response.value.details)) {
+    return false
+  }
+
+  const reason = response.value.details.reason
+
+  return reason === 'revision_conflict' || reason === 'policy_changed'
+}
+
+/**
  * Account-generation-fenced cache of each cloud agent's model-choice offer. A missing or
  * failed read leaves no view, which the picker treats as "Nguyệt Thực only": the old
  * behaviour, never an error band. A successful write replaces the cached offer with the
@@ -319,6 +334,8 @@ function sameScope(left: MatrixCloudModelChoiceScope | null, right: MatrixCloudM
 export class MatrixCloudModelChoices {
   private owner: MatrixCloudModelChoiceScope | null = null
   private readonly entries = new Map<string, Entry>()
+  /** Counts the writes this Mac adopted per agent; a read that started before one is stale. */
+  private readonly writes = new Map<string, number>()
 
   constructor(private readonly options: MatrixCloudModelChoiceOptions) {}
 
@@ -329,6 +346,7 @@ export class MatrixCloudModelChoices {
 
     this.owner = owner
     this.entries.clear()
+    this.writes.clear()
   }
 
   /** What the window shows for this agent; absent when no offer was reachable. */
@@ -375,11 +393,25 @@ export class MatrixCloudModelChoices {
   }
 
   /**
-   * Write one cloud choice. False for any refusal (flag off, ineligible alias, revision or
-   * policy change, an unreachable server): the caller keeps the row it had. A successful
+   * Write one cloud choice. False for any refusal (flag off, ineligible alias, an unreachable
+   * server, or a fence still old after one re-read): the caller keeps the row it had. A successful
    * write adopts the server's own snapshot, so the checked row is what the server stores.
    */
   async write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean> {
+    const first = await this.send(agentPrincipal, model)
+
+    if (first !== 'stale') {
+      return first
+    }
+
+    // The fence was old (the revision moved, or the policy changed): read it again and send the
+    // same pick once. A second refusal is final; the row shows the offer just read.
+    await this.read(agentPrincipal)
+
+    return (await this.send(agentPrincipal, model)) === true
+  }
+
+  private async send(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean | 'stale'> {
     const offer = this.offer(agentPrincipal)
     const body = offer ? matrixCloudModelWrite(offer, model) : null
 
@@ -403,6 +435,10 @@ export class MatrixCloudModelChoices {
       return false
     }
 
+    if (matrixModelChoiceFenceConflict(response)) {
+      return 'stale'
+    }
+
     const next = response.status === 200 ? parseMatrixCloudModelOffer(response.value, agentPrincipal) : null
 
     if (!next) {
@@ -411,6 +447,7 @@ export class MatrixCloudModelChoices {
       return false
     }
 
+    this.writes.set(agentPrincipal, (this.writes.get(agentPrincipal) ?? 0) + 1)
     this.entries.set(agentPrincipal, { offer: next, view: matrixCloudModelView(next), refreshedAt: Date.now(), refreshing: false })
     this.options.changed()
 
@@ -423,17 +460,23 @@ export class MatrixCloudModelChoices {
   }
 
   private async read(agentPrincipal: string): Promise<void> {
+    // A periodic read can be in flight while the owner picks. If a write is adopted before that
+    // read lands, its answer predates the pick: it must not put the previous model back.
+    const writesAtStart = this.writes.get(agentPrincipal) ?? 0
+    const superseded = () => (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
     let response: MatrixCloudModelResponse
 
     try {
       response = await this.options.call(agentPrincipal, 'read', AbortSignal.timeout(MATRIX_CLOUD_MODEL_TIMEOUT_MS))
     } catch {
-      this.fallback(agentPrincipal)
+      if (!superseded()) {
+        this.fallback(agentPrincipal)
+      }
 
       return
     }
 
-    if (!sameScope(this.owner, this.options.scope())) {
+    if (!sameScope(this.owner, this.options.scope()) || superseded()) {
       return
     }
 
@@ -442,6 +485,13 @@ export class MatrixCloudModelChoices {
     if (!offer) {
       this.fallback(agentPrincipal)
 
+      return
+    }
+
+    // Two reads can land out of order; the revision only moves forward on the server.
+    const held = this.entries.get(agentPrincipal)?.offer
+
+    if (held && offer.revision < held.revision) {
       return
     }
 

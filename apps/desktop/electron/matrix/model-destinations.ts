@@ -11,6 +11,7 @@ import {
 } from '../../shared/matrix-models'
 import { type MatrixShelfModelId, parseMatrixShelfModel } from '../../shared/matrix-shelf-models'
 
+import { matrixModelChoiceFenceConflict } from './cloud-model-choice'
 import { readDomainJson } from './domain'
 
 /**
@@ -820,6 +821,8 @@ export async function writeMatrixCloudAtumChoice(
 export class MatrixModelDestinations {
   private owner: MatrixModelDestinationsScope | null = null
   private readonly entries = new Map<string, Entry>()
+  /** Counts the writes this Mac adopted per agent; a read that started before one is stale. */
+  private readonly writes = new Map<string, number>()
 
   constructor(private readonly options: MatrixModelDestinationsOptions) {}
 
@@ -830,6 +833,7 @@ export class MatrixModelDestinations {
 
     this.owner = owner
     this.entries.clear()
+    this.writes.clear()
   }
 
   /** The server's cloud choice, including its source; absent until a snapshot was read. */
@@ -930,6 +934,10 @@ export class MatrixModelDestinations {
 
   /** A forced read (the card opening, or after the composer wrote the cloud choice). */
   async read(agentPrincipal: string): Promise<MatrixModelDestinationsView | undefined> {
+    // A periodic read can be in flight while the owner picks. If a write is adopted before that
+    // read lands, its answer predates the pick: it must not put the previous model back.
+    const writesAtStart = this.writes.get(agentPrincipal) ?? 0
+    const superseded = () => (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
     let response: MatrixModelDestinationsResponse
 
     try {
@@ -939,12 +947,14 @@ export class MatrixModelDestinations {
         AbortSignal.timeout(MATRIX_MODEL_DESTINATIONS_TIMEOUT_MS)
       )
     } catch {
-      this.fallback(agentPrincipal)
+      if (!superseded()) {
+        this.fallback(agentPrincipal)
+      }
 
       return this.view(agentPrincipal)
     }
 
-    if (!sameScope(this.owner, this.options.scope())) {
+    if (!sameScope(this.owner, this.options.scope()) || superseded()) {
       return this.view(agentPrincipal)
     }
 
@@ -958,8 +968,10 @@ export class MatrixModelDestinations {
     }
 
     const view = await this.display(snapshot, agentPrincipal)
+    const held = this.entries.get(agentPrincipal)?.snapshot
 
-    if (!view) {
+    // Two reads can land out of order; the revision only moves forward on the server.
+    if (!view || superseded() || (held && snapshot.revision < held.revision)) {
       return this.view(agentPrincipal)
     }
 
@@ -979,31 +991,11 @@ export class MatrixModelDestinations {
     model: MatrixModelId | MatrixShelfModelId,
     effort?: MatrixManagedEffort
   ): Promise<boolean> {
-    const snapshot = this.entries.get(agentPrincipal)?.snapshot
     const id = destinationId(destination)
-    const body = snapshot && id ? matrixModelDestinationWrite(snapshot, id, model, randomUUID(), effort) : undefined
 
-    if (!body) {
-      return false
-    }
-
-    let response: MatrixModelDestinationsResponse
-
-    try {
-      response = await this.options.call(
-        agentPrincipal,
-        'write',
-        AbortSignal.timeout(MATRIX_MODEL_DESTINATIONS_TIMEOUT_MS),
-        body
-      )
-    } catch {
-      // A transport failure changed nothing; the next read settles what the server holds.
-      this.fallback(agentPrincipal)
-
-      return false
-    }
-
-    return this.adopt(response, agentPrincipal)
+    return this.choose(agentPrincipal, snapshot =>
+      id ? matrixModelDestinationWrite(snapshot, id, model, randomUUID(), effort) : undefined
+    )
   }
 
   /**
@@ -1013,29 +1005,51 @@ export class MatrixModelDestinations {
    */
   async writeSubscription(agentPrincipal: string, source: 'opencode_go' | 'chatgpt_plan', model: string,
     effort: MatrixManagedEffort): Promise<boolean> {
-    const snapshot = this.entries.get(agentPrincipal)?.snapshot
-    const body = snapshot ? matrixSubscriptionDestinationWrite(snapshot, source, model, effort) : undefined
+    return this.choose(agentPrincipal, snapshot => matrixSubscriptionDestinationWrite(snapshot, source, model, effort))
+  }
 
-    if (!body) {
-      return false
+  /**
+   * One owner pick. A refusal only because the fence was old (another write moved the
+   * revision, or the managed-model policy changed its digest) reads the snapshot again and
+   * sends the same pick once more: the click is the newest intent, and without the re-read
+   * every later click would carry the same old fence and be refused the same way.
+   */
+  private async choose(
+    agentPrincipal: string,
+    build: (snapshot: MatrixModelDestinationSnapshot) => MatrixModelDestinationsWriteRequest | undefined
+  ): Promise<boolean> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const snapshot = this.entries.get(agentPrincipal)?.snapshot
+      const body = snapshot ? build(snapshot) : undefined
+
+      if (!body) {
+        return false
+      }
+
+      let response: MatrixModelDestinationsResponse
+
+      try {
+        response = await this.options.call(
+          agentPrincipal,
+          'write',
+          AbortSignal.timeout(MATRIX_MODEL_DESTINATIONS_TIMEOUT_MS),
+          body
+        )
+      } catch {
+        // A transport failure changed nothing; the next read settles what the server holds.
+        this.fallback(agentPrincipal)
+
+        return false
+      }
+
+      if (!matrixModelChoiceFenceConflict(response)) {
+        return this.adopt(response, agentPrincipal)
+      }
+
+      await this.read(agentPrincipal)
     }
 
-    let response: MatrixModelDestinationsResponse
-
-    try {
-      response = await this.options.call(
-        agentPrincipal,
-        'write',
-        AbortSignal.timeout(MATRIX_MODEL_DESTINATIONS_TIMEOUT_MS),
-        body
-      )
-    } catch {
-      this.fallback(agentPrincipal)
-
-      return false
-    }
-
-    return this.adopt(response, agentPrincipal)
+    return false
   }
 
   /**
@@ -1087,6 +1101,7 @@ export class MatrixModelDestinations {
       return false
     }
 
+    this.writes.set(agentPrincipal, (this.writes.get(agentPrincipal) ?? 0) + 1)
     this.entries.set(agentPrincipal, { snapshot: next, view, refreshedAt: Date.now(), refreshing: false })
     this.options.changed()
 
