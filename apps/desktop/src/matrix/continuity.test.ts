@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from 'node:fs'
+
 import { Direction, EventType, type IContent, type MatrixClient, type MatrixEvent } from 'matrix-js-sdk'
 import { EventShieldColour } from 'matrix-js-sdk/lib/crypto-api'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -576,4 +578,46 @@ describe('read by the agent’s own client (the cloud controller, 2026-11-07)', 
     await expect(readMatrixContinuity(asUser(f, '@third:test'), target)).rejects.toThrow('matrix_continuity_unavailable')
     expect(f.pages).not.toHaveBeenCalled()
   })
+})
+
+function fileAnswer17() {
+  return JSON.parse(
+    readFileSync(
+      new URL(
+        '../../../../packages/device-protocol/fixtures/agent-turns-v1.7/fixtures/files-owner_private-committed-answer.json',
+        import.meta.url
+      ),
+      'utf8'
+    )
+  )
+}
+
+for (const plain of [false, true]) {
+  it(`a 1.7 answer with invocation is not an uncertain gap (${plain ? 'plain' : 'encrypted'})`, async () => {
+    const f = plain ? plainFixture() : fixture()
+    const content = fileAnswer17()
+    const event = plain ? plainWire : wire
+    f.pages.mockResolvedValue({ chunk: [event('$answer', target.agentId, content), event('$trigger')] })
+    const result = await readMatrixContinuity(f.client, target)
+    expect(result.gaps).toBe(0)
+    expect(result.uncertainAgent).toBe(false)
+    expect(result.entries[0]).toEqual({
+      eventId: '$answer',
+      role: 'assistant',
+      text: content.body,
+      invocationId: content['io.atum.result'].invocation
+    })
+    expect(result.reachedStop).toBe(true)
+  })
+}
+
+it('does not infer a missing 1.7 result invocation from file presentation identity', async () => {
+  const f = fixture()
+  const content = fileAnswer17()
+  delete content['io.atum.result']
+  f.pages.mockResolvedValue({ chunk: [wire('$answer', target.agentId, content)] })
+  const result = await readMatrixContinuity(f.client, target)
+  expect(result.entries).toEqual([])
+  expect(result.gaps).toBe(1)
+  expect(result.uncertainAgent).toBe(true)
 })

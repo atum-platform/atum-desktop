@@ -1,0 +1,8 @@
+{
+  "msgtype": "m.text",
+  "body": "Để mình xem video này rồi tóm tắt nhé.",
+  "io.atum.interim": true,
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.3"
+  }
+}

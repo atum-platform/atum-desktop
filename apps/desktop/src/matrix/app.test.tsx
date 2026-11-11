@@ -2778,6 +2778,65 @@ describe('isolated Matrix composition', () => {
     expect(settingsSheet().querySelector('[data-matrix-cloud-device-settings]')).toBeNull()
   })
 
+  it('shows an agent answer as its words plus file chips, and ignores a chip from anyone else', async () => {
+    const { emit } = fixture()
+    const files = {
+      identity: {
+        agentPrincipal: 'cloud-t',
+        taskId: '00000000-0000-4000-8000-00000000f001',
+        invocationId: '00000000-0000-4000-8000-00000000f002',
+        scope: 'owner_private' as const,
+        roomId: '!assistant:test',
+        threadRootEventId: '$request',
+        ownerPrincipal: '00000000-0000-4000-8000-00000000f003'
+      },
+      triggerEventId: '$request',
+      triggerSender: '@owner:test',
+      files: [
+        {
+          fileKey: 'opaque_file_key_alpha',
+          name: 'Q4 plan.docx',
+          place: 'Documents › Q4',
+          revision: 1,
+          state: 'saving' as const,
+          outcome: 'recovering' as const,
+          draftAvailable: false
+        }
+      ]
+    }
+    const answer = (id: string, sender: string, withFiles: boolean) => ({
+      ...controlsState.messages[0]!,
+      id,
+      own: false,
+      sender,
+      timestamp: 2,
+      replyTo: '$request',
+      body: `Here is the Q4 plan (${id}).\n\nSaved to Atum Drive.`,
+      edited: true as const,
+      ...(withFiles ? { files } : {})
+    })
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'cloud-t' })),
+      agents: [
+        { principal: 'cloud-t', userId: '@atum:test', name: 'Atum', ready: true, isDefault: true, atumModel: true, hermes: 'ready' }
+      ],
+      messages: [...controlsState.messages, answer('$chips', '@atum:test', true), answer('$spoof', '@mallory:test', true)]
+    })
+
+    const words = await screen.findByText('Here is the Q4 plan ($chips).')
+    const bubble = words.closest('[data-matrix-message-id]') as HTMLElement
+    expect(bubble.querySelector('[data-matrix-file-chip="saving"]')?.textContent).toContain('Q4 plan.docx')
+    expect(within(bubble).queryByText(/Saved to Atum Drive/u)).toBeNull()
+    expect(bubble.querySelector('[data-matrix-edited]')).toBeNull()
+
+    // A member who sends the marker is not the bound agent: today's message, and no chip.
+    const spoof = (await screen.findByText(/\(\$spoof\)/u)).closest('[data-matrix-message-id]') as HTMLElement
+    expect(spoof.textContent).toContain('Saved to Atum Drive.')
+    expect(spoof.querySelector('[data-matrix-file-chip]')).toBeNull()
+  })
+
   it('offers no Stop for a cloud chat that is not answering, or for its notices', async () => {
     const { emit, bridge } = fixture()
     const cloudAgent = vi.fn(async () => ({ state: 'stop_requested' as const }))

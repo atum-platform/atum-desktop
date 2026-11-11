@@ -1,0 +1,15 @@
+{
+  "privateOnly": true,
+  "redactAtSettle": true,
+  "clientHidesEnded": true,
+  "notifies": false,
+  "rosterPreview": false,
+  "editedMarker": false,
+  "persistentNotices": [
+    "device_unreachable",
+    "out_of_protons",
+    "trial_ended",
+    "routine_not_run",
+    "interrupted_work"
+  ]
+}

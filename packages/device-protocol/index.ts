@@ -31,3 +31,4 @@ export { parseStrictJson, StrictJsonError } from "./strict-json";
 export * from './workspace';
 export * from "./workspace-messages";
 export * from "./mac-sources";
+export * from './agent-files';

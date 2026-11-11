@@ -246,6 +246,8 @@ export async function readMatrixContinuity(
             continue
           }
 
+          // 1.7 file answers keep the legacy result invocation; chip identity alone is
+          // presentation metadata and must never manufacture a continuity turn.
           const invocationId = matrixReplyRoot(content) && matrixTurnId(content['io.atum.result']?.invocation)
 
           if (sender === target.agentId && !invocationId && !matrixCronMarker(content)) {
