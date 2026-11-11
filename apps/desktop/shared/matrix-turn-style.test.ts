@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { DESKTOP_LOCALES } from './desktop-locale'
-import { matrixAcknowledgementCopy, matrixProgressCopy, matrixToolActivityCopy } from './matrix-status-line-copy'
 import {
   macOwnerFacts,
   MATRIX_NARRATION_DISPLAY,
@@ -67,31 +65,5 @@ describe('the settings that carry the agent’s words to the owner', () => {
     expect(MATRIX_NARRATION_DISPLAY.tool_progress).not.toBe('off')
     expect(MATRIX_NARRATION_DISPLAY.interim_assistant_messages).toBe(true)
     expect(MATRIX_NARRATION_DISPLAY.show_commentary).toBe(true)
-  })
-})
-
-describe('the acknowledgement copy', () => {
-  const emoji = /\p{Extended_Pictographic}/u
-
-  it('exists for exactly the locales the rest of the progress copy speaks', () => {
-    expect(Object.keys(matrixAcknowledgementCopy).sort()).toEqual([...DESKTOP_LOCALES].sort())
-    expect(Object.keys(matrixAcknowledgementCopy).sort()).toEqual(Object.keys(matrixProgressCopy).sort())
-    expect(Object.keys(matrixAcknowledgementCopy).sort()).toEqual(Object.keys(matrixToolActivityCopy).sort())
-  })
-
-  it('is a few short, distinct, plain lines per locale: no emoji, no placeholders, nothing from the turn', () => {
-    for (const [locale, lines] of Object.entries(matrixAcknowledgementCopy)) {
-      expect(lines.length, locale).toBeGreaterThanOrEqual(1)
-      expect(new Set(lines).size, locale).toBe(lines.length)
-
-      for (const line of lines) {
-        expect(line.trim(), locale).toBe(line)
-        expect(line, locale).not.toBe('')
-        expect([...line].length, locale).toBeLessThanOrEqual(60)
-        expect(line, locale).not.toMatch(/[\r\n]/)
-        expect(line, locale).not.toMatch(emoji)
-        expect(line, locale).not.toMatch(/[${}<>[\]\\/@]|\d/)
-      }
-    }
   })
 })

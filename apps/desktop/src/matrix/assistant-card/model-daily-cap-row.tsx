@@ -209,9 +209,10 @@ export function ModelDailyCapRow({
           </form>
         </PopoverContent>
       </Popover>
-      {cap.spend.state !== 'normal' && (
+      {/* Only the reached limit is worth a line; no "nearly reached" warning (no meters on user surfaces). */}
+      {cap.spend.state === 'exhausted' && (
         <p className="atum-settings-row-help px-2 pb-1" data-assistant-card-daily-cap-state={cap.spend.state}>
-          {cap.spend.state === 'warning' ? copy.dailyCapWarning : copy.dailyCapExhausted}
+          {copy.dailyCapExhausted}
         </p>
       )}
     </>

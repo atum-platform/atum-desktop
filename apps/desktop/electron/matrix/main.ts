@@ -550,7 +550,6 @@ import {
 } from './credential-renewal'
 import { MatrixCronDelivery, type MatrixCronPost } from './cron-delivery'
 import { applyMatrixJobsHold, MatrixCronHolds, matrixJobsTickerMissing, reconcileMatrixJobsHold } from './cron-hold'
-import { MatrixDailyCapNotices, requestMatrixDailyCapNotice } from './daily-cap-notice'
 import { installMatrixDesktopServicesIpc, matrixAfterClose, MatrixDesktopServices } from './desktop-services'
 import { MatrixDeviceApproval } from './device-approval'
 import { MatrixDeviceIsolationPolicy } from './device-isolation'
@@ -2115,7 +2114,6 @@ let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
 let chatGptRelay: MatrixChatGptRelay | undefined
 let modelDestinations: MatrixModelDestinations | undefined
-let dailyCapNotices: MatrixDailyCapNotices | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
 const cloudAgents = new Set<string>()
@@ -6924,12 +6922,6 @@ function publish(next: MatrixSnapshot) {
     if (!each.closed && principal) {
       modelDestinations?.refresh(principal)
     }
-
-    // A warning claimed before a restart (or by a runtime that stopped) is delivered once the
-    // agent's own session is ready. The check is throttled and the platform still owns the claim.
-    if (!each.closed && !isCloudAgent(each)) {
-      void dailyCapNotices?.check(each, 'account')
-    }
   }
 
   if (!matrixNewSignInSameScope(newSignInFor, next.identity)) {
@@ -10674,7 +10666,7 @@ async function runHermesLocked(
                     agentHost.identity.userId, input.invocationId, target.roomId, target.eventId, generation
                   )
               }),
-              // The agent's own remarks are real messages (agent-turns/1.4): the first is the acknowledgement.
+              // The agent's own remarks are real messages (agent-turns/1.4); Atum adds no opener of its own.
               new MatrixInterimMessages(target, { current, publish: publishVia, ...timers }, {
                 privateChat: !group,
                 transactionFor: sequence =>
@@ -16635,10 +16627,6 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
         throw new Error('matrix_send_failed')
       }
 
-      // The run's spend is settled (or held) by now: a crossing into the 80% band can be claimed
-      // and delivered after the answer, once, in this agent's main chat.
-      if (!isCloudAgent(agentRuntime)) {void dailyCapNotices?.check(agentRuntime, 'turn')}
-
       return eventId
     },
     checking: async turn => {
@@ -16751,8 +16739,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
           transactionFor: sequence =>
             matrixInterimTransaction(agentId, input.invocationId, turn.roomId, turn.turnId, sequence)
         }),
-        locale,
-        { acknowledge: !turn.context }
+        locale
       )
     },
     diagnose: async (): Promise<MatrixLocalTurnNotice | undefined> => {
@@ -18399,57 +18386,6 @@ async function start() {
       })
     : undefined
 
-  // The quiet 80% daily-cap line in the agent's own chat. The platform owns the claim; main owns
-  // the agent session and the Matrix event, and the deterministic run id lets a retry read back
-  // the event instead of posting it twice. Renderer and model never take part.
-  dailyCapNotices = config.domain
-    ? new MatrixDailyCapNotices({
-        claim: (agentPrincipal, input, signal) =>
-          account.s1Request(
-            (accessToken, resource) =>
-              requestMatrixDailyCapNotice(resource, accessToken, agentPrincipal, input, signal),
-            signal
-          ),
-        mainRoom: agent => {
-          const owner = account.identity()
-          const runtime = agent as MatrixAgentRuntime
-
-          const main =
-            owner && runtime.userId
-              ? resolveProjectedConversation(state.rooms, owner.userId, runtime.userId).main
-              : undefined
-
-          return main ?? runtime.homeRoom
-        },
-        agentUserId: agent => {
-          const runtime = agent as MatrixAgentRuntime
-
-          return enrollmentOf(runtime).identity?.userId ?? runtime.userId
-        },
-        command: (agent, value) => {
-          const host = hosts.get((agent as MatrixAgentRuntime).role)
-
-          if (!host?.ready) {throw new Error('matrix_agent_unavailable')}
-
-          return host.queue.command(value, 30_000)
-        },
-        requireRoom: async (agent, roomId) => {
-          const human = hosts.get('human')
-          const host = hosts.get((agent as MatrixAgentRuntime).role)
-
-          if (!human || !host) {throw new Error('matrix_not_ready')}
-          await requireAssistantRoom(roomId, human, host, { forTurn: true })
-        },
-        locale: () =>
-          matrixHeldReplyLocale(
-            undefined,
-            state.displayPreferences?.language?.value,
-            app.getPreferredSystemLanguages()
-          ),
-        log: line => console.warn(line)
-      })
-    : undefined
-
   cloudHomeReader = config.domain
     ? new MatrixCloudHomeReader({
         // Beside the device state, outside every agent's home: a local file the cloud's copy is about to
@@ -19338,10 +19274,6 @@ async function start() {
     void documents.refreshWord()
     void wallet?.refresh('focus')
     if (!closing && account.identity()) {void store?.refresh()}
-
-    for (const each of allAgents()) {
-      if (!each.closed && !isCloudAgent(each)) {void dailyCapNotices?.check(each, 'focus')}
-    }
   })
   ui.on('blur', () => void ownPresence.away())
   ui.on('close', () => {

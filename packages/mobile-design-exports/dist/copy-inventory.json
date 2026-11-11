@@ -537,8 +537,7 @@
       "tables": [
         "matrixStatusLineCopy",
         "matrixProgressCopy",
-        "matrixToolActivityCopy",
-        "matrixAcknowledgementCopy"
+        "matrixToolActivityCopy"
       ]
     },
     {

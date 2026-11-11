@@ -24,6 +24,38 @@ it('projects only a valid synthetic Stop target on a closed, non-owner cloud not
   expect(matrixMessage(event({ msgtype: 'm.text', body: 'fallback', 'io.atum.result': { status: 'failed' } }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus).toBeUndefined()
 })
 
+it('still reads an 80% heads-up already in a chat exactly as it was sent, from the cloud or from a Mac', () => {
+  // The cloud's form: a status notice with the closed code beside its body.
+  const cloudBody = 'Hôm nay mình đã dùng gần hết hạn mức. Mình vẫn chạy bình thường, chỉ báo bạn biết thôi.'
+
+  const cloud = matrixMessage(
+    event({ msgtype: 'm.notice', body: cloudBody, 'io.atum.result': { status: 'daily_cap_warning' } }, '@assistant:test'),
+    '@owner:test',
+    new Set()
+  )
+
+  expect(cloud).toMatchObject({ notice: true, body: cloudBody, cloudStatus: { code: 'daily_cap_warning' } })
+
+  // A Mac's form: the agent's scheduled quiet post under the old job id.
+  const macBody = 'I’m close to today’s usage limit. I’ll keep going as usual; this is just a heads-up.'
+
+  const mac = matrixMessage(
+    event(
+      {
+        msgtype: 'm.notice',
+        body: macBody,
+        'io.atum.cron': { run: '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b', job: 'daily-cap-warning' }
+      },
+      '@assistant:test'
+    ),
+    '@owner:test',
+    new Set()
+  )
+
+  expect(mac).toMatchObject({ notice: true, body: macBody })
+  expect(mac?.cloudStatus).toBeUndefined()
+})
+
 function event(content: Record<string, unknown>, sender = '@owner:test') {
   return new MatrixEvent({
     type: EventType.RoomMessage,

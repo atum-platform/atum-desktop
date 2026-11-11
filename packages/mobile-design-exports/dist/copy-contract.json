@@ -3,35 +3,30 @@
     "en": {
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.andy.terms": 7,
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.moon.terms": 7,
-      "shared.matrix-status-line-copy.matrixAcknowledgementCopy": 3,
       "src.matrix.chat-copy.copies.starters": 3,
       "src.matrix.settings-copy.copy.chatgptSteps": 4
     },
     "ja": {
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.andy.terms": 7,
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.moon.terms": 7,
-      "shared.matrix-status-line-copy.matrixAcknowledgementCopy": 3,
       "src.matrix.chat-copy.copies.starters": 3,
       "src.matrix.settings-copy.copy.chatgptSteps": 4
     },
     "vi": {
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.andy.terms": 7,
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.moon.terms": 7,
-      "shared.matrix-status-line-copy.matrixAcknowledgementCopy": 3,
       "src.matrix.chat-copy.copies.starters": 3,
       "src.matrix.settings-copy.copy.chatgptSteps": 4
     },
     "zh": {
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.andy.terms": 7,
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.moon.terms": 7,
-      "shared.matrix-status-line-copy.matrixAcknowledgementCopy": 3,
       "src.matrix.chat-copy.copies.starters": 3,
       "src.matrix.settings-copy.copy.chatgptSteps": 4
     },
     "zh-Hant": {
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.andy.terms": 7,
       "shared.matrix-app-onboarding-copy.matrixAppOnboardingCopy.moon.terms": 7,
-      "shared.matrix-status-line-copy.matrixAcknowledgementCopy": 3,
       "src.matrix.chat-copy.copies.starters": 3,
       "src.matrix.settings-copy.copy.chatgptSteps": 4
     }
