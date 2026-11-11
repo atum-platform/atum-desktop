@@ -53,7 +53,7 @@ test('shallow staging hydrates the canonical history ref before verifying ancest
   const missingShallow = path.join(scratch, 'missing-shallow')
   fs.mkdirSync(source)
   fs.writeFileSync(path.join(source, 'README.md'), 'baseline\n')
-  runGit(source, ['init', '--initial-branch', 'atum-main'])
+  runGit(source, ['init', '--initial-branch', RUNTIME_BASELINE.historyRef])
   runGit(source, ['config', 'user.name', 'Atum Test'])
   runGit(source, ['config', 'user.email', 'atum-test@example.invalid'])
   runGit(source, ['add', 'README.md'])
@@ -63,8 +63,8 @@ test('shallow staging hydrates the canonical history ref before verifying ancest
   runGit(source, ['commit', '-am', 'runtime'])
   const overlayCommit = runGit(source, ['rev-parse', 'HEAD'])
   const overlayTree = runGit(source, ['rev-parse', 'HEAD^{tree}'])
-  runGit(scratch, ['clone', '--quiet', '--depth', '1', '--branch', 'atum-main', `file://${source}`, shallow])
-  runGit(scratch, ['clone', '--quiet', '--depth', '1', '--branch', 'atum-main', `file://${source}`, missingShallow])
+  runGit(scratch, ['clone', '--quiet', '--depth', '1', '--branch', RUNTIME_BASELINE.historyRef, `file://${source}`, shallow])
+  runGit(scratch, ['clone', '--quiet', '--depth', '1', '--branch', RUNTIME_BASELINE.historyRef, `file://${source}`, missingShallow])
 
   const baseline = {
     ...RUNTIME_BASELINE,
@@ -83,7 +83,7 @@ test('shallow staging hydrates the canonical history ref before verifying ancest
         upstreamHermesCommit: 'f'.repeat(40),
         atumOverlayCommit: 'e'.repeat(40)
       }),
-    /absent after hydrating atum-main from origin/
+    new RegExp(`absent after hydrating ${RUNTIME_BASELINE.historyRef} from origin`)
   )
   assert.throws(
     () =>

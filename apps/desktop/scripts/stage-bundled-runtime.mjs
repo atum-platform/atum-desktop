@@ -131,7 +131,7 @@ function validateRuntimeBaseline(baseline = RUNTIME_BASELINE) {
     !isCommit(baseline.upstreamHermesCommit) ||
     !isCommit(baseline.atumOverlayCommit) ||
     !isCommit(baseline.atumOverlayTree) ||
-    baseline.historyRef !== 'atum-main' ||
+    baseline.historyRef !== 'main' ||
     baseline.acceptedArtifact?.platform !== 'darwin' ||
     baseline.acceptedArtifact?.arch !== 'arm64' ||
     baseline.acceptedArtifact?.format !== 'dmg'
