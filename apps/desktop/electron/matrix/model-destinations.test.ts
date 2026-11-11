@@ -444,7 +444,10 @@ describe('the destination controller', () => {
     response: (action: MatrixModelDestinationsAction) => MatrixModelDestinationsResponse,
     options: { offer?: { offered: readonly string[] } } = {}
   ) {
-    const call = vi.fn(async (_principal: string, action: MatrixModelDestinationsAction) => response(action))
+    const call = vi.fn(
+      async (_principal: string, action: MatrixModelDestinationsAction, _signal: AbortSignal, _body?: unknown) =>
+        response(action)
+    )
     const changed = vi.fn()
 
     const subject = new MatrixModelDestinations({
@@ -501,6 +504,38 @@ describe('the destination controller', () => {
     expect(await subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).toBe(true)
     expect(subject.view(PRINCIPAL)?.choices[0]).toMatchObject({ current: 'nhat-thuc', recommended: false })
     expect(subject.snapshot(PRINCIPAL)?.revision).toBe(4)
+  })
+
+  it('saves card and composer Atum picks to the same cloud destination record', async () => {
+    const before = fixture('destination.snapshot.json') as Record<string, unknown>
+    const after = {
+      ...before,
+      revision: 4,
+      choices: (before.choices as Array<Record<string, unknown>>).map(choice =>
+        choice.destination === 'cloud' ? { ...choice, model: 'nhat-thuc' } : choice
+      )
+    }
+    const card = controller(action => ({ status: 200, value: action === 'write' ? after : before }))
+    const composer = controller(action => ({ status: 200, value: action === 'write' ? after : before }))
+
+    await Promise.all([card.subject.read(PRINCIPAL), composer.subject.read(PRINCIPAL)])
+    await expect(card.subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')).resolves.toBe(true)
+    await expect(
+      writeMatrixCloudAtumChoice(PRINCIPAL, 'nhat-thuc', { destinations: composer.subject })
+    ).resolves.toBe(true)
+
+    const cardWrite = card.call.mock.calls.find(([, action]) => action === 'write')?.[3]
+    const composerWrite = composer.call.mock.calls.find(([, action]) => action === 'write')?.[3]
+
+    const cloudAtumChoice = {
+      profile: MATRIX_MODEL_DESTINATIONS_PROFILE,
+      choice: { destination: 'cloud', source: 'atum', model: 'nhat-thuc' }
+    }
+
+    expect(cardWrite).toMatchObject(cloudAtumChoice)
+    expect(composerWrite).toMatchObject(cloudAtumChoice)
+    expect(card.subject.view(PRINCIPAL)?.choices[0]?.current).toBe('nhat-thuc')
+    expect(composer.subject.view(PRINCIPAL)?.choices[0]?.current).toBe('nhat-thuc')
   })
 
   it('reverts quietly: a refusal leaves the last server snapshot untouched', async () => {

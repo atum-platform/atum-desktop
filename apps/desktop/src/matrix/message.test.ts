@@ -19,6 +19,9 @@ it('projects only a valid synthetic Stop target on a closed, non-owner cloud not
   expect(matrixMessage(event({ ...content, msgtype: 'm.text' }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus).toBeUndefined()
   expect(matrixMessage(event({ ...content, 'io.atum.result': { status: 'stopped', stopEvent } }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus).toEqual({ code: 'stopped' })
   expect(matrixMessage(event({ ...content, 'io.atum.result': { status: 'resuming_on_device', stopEvent: '$other' } }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus).toEqual({ code: 'resuming_on_device' })
+  const failure = matrixMessage(event({ msgtype: 'm.notice', body: 'fallback', 'io.atum.result': { status: 'failed' } }, '@assistant:test'), '@owner:test', new Set())
+  expect(failure).toMatchObject({ notice: true, cloudStatus: { code: 'failed' } })
+  expect(matrixMessage(event({ msgtype: 'm.text', body: 'fallback', 'io.atum.result': { status: 'failed' } }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus).toBeUndefined()
 })
 
 function event(content: Record<string, unknown>, sender = '@owner:test') {

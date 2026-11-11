@@ -27,6 +27,7 @@ export type { MatrixSettingsPane, MatrixSettingsProtons } from './settings-revam
  * lifecycle. The revamp changes only the information architecture inside that boundary.
  */
 export function MatrixSettingsSheet({
+  cloudOnly,
   fail,
   onClose,
   onEditProfile,
@@ -37,6 +38,7 @@ export function MatrixSettingsSheet({
   protons,
   snapshot
 }: {
+  cloudOnly?: boolean
   fail: () => void
   onClose(): void
   onEditProfile?(): void
@@ -156,6 +158,7 @@ export function MatrixSettingsSheet({
           </header>
           <div className="atum-settings-panes min-h-0 flex-1 overflow-y-auto px-6 pb-6">
             <SettingsRevampPane
+              cloudOnly={cloudOnly}
               current={current}
               fail={fail}
               onClose={onClose}

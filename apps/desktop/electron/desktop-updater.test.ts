@@ -676,9 +676,10 @@ describe('restart continuity', () => {
 
 
 it('accepts staged readiness without inventing a native Squirrel event and starts the snapshot at Restart', async () => {
-  const test = harness()
+  const restartFeedback = { begin: vi.fn(), cancel: vi.fn(), fail: vi.fn() }
+  const test = harness({ restartFeedback })
   const beginRestart = vi.fn()
-  Object.assign(test.updater, { stageReady: true, beginRestart })
+  Object.assign(test.updater, { stageReady: true, beginRestart, showRestartFeedback: false })
   await test.controller.start()
   test.updater.emit('update-available', { version: '1.1.0' })
   expect(test.controller.status().state).toBe('downloading')
@@ -686,6 +687,7 @@ it('accepts staged readiness without inventing a native Squirrel event and start
   expect(test.controller.status().state).toBe('downloaded')
   expect(test.controller.restart()).toBe(true)
   expect(beginRestart).toHaveBeenCalledOnce()
+  expect(restartFeedback.begin).not.toHaveBeenCalled()
   expect(test.quit).toHaveBeenCalledOnce()
 })
 

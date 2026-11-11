@@ -38,6 +38,16 @@ describe('matrix agent access-status copy', () => {
     expect(matrixAgentAccessRemedy('stale' as DesktopLocale)).toBe(matrixAgentStatusCopy.vi.accessRemedy)
   })
 
+  it.each([
+    ['vi', 'Atum chưa hoàn tất yêu cầu này. Hãy thử lại.'],
+    ['en', 'Atum couldn’t complete this request. Please try again.'],
+    ['ja', 'Atum はこのリクエストを完了できませんでした。もう一度お試しください。'],
+    ['zh', 'Atum 未能完成此请求。请再试一次。'],
+    ['zh-hant', 'Atum 未能完成此要求。請再試一次。']
+  ] as const)('uses neutral localized system status for a failed turn in %s', (locale, expected) => {
+    expect(matrixAgentStatusText('failed', locale)).toBe(expected)
+  })
+
   it.each(DESKTOP_LOCALES)('says the daily-cap refusal in %s as plain state, never a number or a meter', locale => {
     const text = matrixAgentStatusText('daily_cap', locale)
 

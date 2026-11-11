@@ -58,11 +58,12 @@ export function appendProgress(root: string, line: string): void {
   try {appendFileSync(path.join(root, 'progress.log'), `${line}\n`, { mode: 0o600 })} catch { /* Reassurance only. */ }
 }
 
-/** The kill switch. Staging is opt-in: only an explicit `updates.stagedSwap: true` turns it on. */
+/** The kill switch. Staging is the normal updater; only an explicit boolean opt-out turns it off.
+ * Missing, legacy, or malformed settings therefore receive the safe prepared-swap path. */
 export function stagedSwapEnabled(updatesFile: string): boolean {
   const value = readJson(updatesFile) as { updates?: { stagedSwap?: unknown } } | null
 
-  return value?.updates?.stagedSwap === true
+  return value?.updates?.stagedSwap !== false
 }
 
 /** A version that must go through stock Squirrel: staging failed for it, so do not try it again. */

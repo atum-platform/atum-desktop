@@ -33,8 +33,8 @@ import { matrixRosterAgentName } from './roster-model'
 import { type WorkplaceCopy, workplaceCopy } from './workplace-copy'
 import {
   isDeveloperWorkplacePage,
-  WORKPLACE_DEVELOPER_PAGES,
   WORKPLACE_SURFACES,
+  workplaceDeveloperPages,
   type WorkplaceSurfaceId
 } from './workplace-nav'
 
@@ -349,6 +349,7 @@ function AgentChip({
 }
 
 export function MatrixWorkplace({
+  cloudOnly,
   exitTo = 'chat',
   header,
   initialHub,
@@ -361,6 +362,7 @@ export function MatrixWorkplace({
   preferredAgentPrincipal,
   snapshot
 }: {
+  cloudOnly?: boolean
   /** Drawn above the list (the Personal | Company switch); a page shows its breadcrumb instead. */
   header?: ReactNode
   /** Open straight on one page (the model picker's Advanced options), not on the list. */
@@ -401,6 +403,7 @@ export function MatrixWorkplace({
   }, [preferred?.principal])
 
   const selected = useMemo(() => (principal ? workplaceAgent(snapshot, principal) : undefined), [principal, snapshot])
+  const developerPages = workplaceDeveloperPages(selected, cloudOnly)
   const accountKey = snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'
   const scopeKey = `${snapshot.identity?.userId}/${snapshot.identity?.deviceId}`
   const agentName = (agent: MatrixAgentView) => matrixRosterAgentName(agent, t.matrixShell.assistantName)
@@ -569,23 +572,24 @@ export function MatrixWorkplace({
             })}
           </div>
         )}
-        <section className={everyday.length > 0 ? 'mt-8' : 'mt-6'} data-matrix-workplace-developers>
-          <button
-            aria-controls={developersId}
-            aria-expanded={developersOpen}
-            className="flex items-center gap-1.5 text-(length:--atum-t-control) font-medium text-(--atum-ink-soft) transition-colors hover:text-(--atum-ink)"
-            onClick={() => setDevelopersOpen(open => !open)}
-            type="button"
-          >
-            <DisclosureCaret open={developersOpen} />
-            {c.forDevelopers}
-          </button>
-          {developersOpen && (
-            <ul
-              className="mt-3 overflow-hidden rounded-(--atum-r-card) bg-(--atum-card) shadow-(--atum-glass-edge)"
-              id={developersId}
+        {developerPages.length > 0 && (
+          <section className={everyday.length > 0 ? 'mt-8' : 'mt-6'} data-matrix-workplace-developers>
+            <button
+              aria-controls={developersId}
+              aria-expanded={developersOpen}
+              className="flex items-center gap-1.5 text-(length:--atum-t-control) font-medium text-(--atum-ink-soft) transition-colors hover:text-(--atum-ink)"
+              onClick={() => setDevelopersOpen(open => !open)}
+              type="button"
             >
-              {WORKPLACE_DEVELOPER_PAGES.map((id, index) => {
+              <DisclosureCaret open={developersOpen} />
+              {c.forDevelopers}
+            </button>
+            {developersOpen && (
+              <ul
+                className="mt-3 overflow-hidden rounded-(--atum-r-card) bg-(--atum-card) shadow-(--atum-glass-edge)"
+                id={developersId}
+              >
+              {developerPages.map((id, index) => {
                 const { title, help } = pageText(id, c, locale)
                 const Icon = PAGE_ICONS[id]
 
@@ -619,9 +623,10 @@ export function MatrixWorkplace({
                   </li>
                 )
               })}
-            </ul>
-          )}
-        </section>
+              </ul>
+            )}
+          </section>
+        )}
       </div>
     </section>
   )

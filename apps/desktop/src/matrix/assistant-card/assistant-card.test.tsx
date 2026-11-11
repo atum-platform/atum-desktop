@@ -790,7 +790,6 @@ describe('where an assistant answers is said once, in its read-only place row (U
 })
 
 describe('a cloud-route assistant this Mac runs', () => {
-  const LOCATION = /đám mây|Mac này|Trả lời trên/i
   const blocked = { phase: 'blocked' as const, code: 'x', since: 1 }
 
   function openWith(agents: MatrixAgentView[], principal: string) {
@@ -798,23 +797,20 @@ describe('a cloud-route assistant this Mac runs', () => {
     act(() => openAssistantCard({ kind: 'agent', principal }))
   }
 
-  it.each(['answering', 'standby'] as const)(
-    'offers its setup when it is not ready, whether this Mac answers or stands by (%s), without saying where it answers',
-    async macRole => {
+  it.each([
+    ['answering', true],
+    ['standby', false]
+  ] as const)(
+    'offers local setup only when a legacy Mac still answers (%s)',
+    async (macRole, setup) => {
       openWith(
         [agent(ATUM, 'Atum'), agent(LAN, 'Lan', { ready: false, answering: 'cloud', macRole, readiness: blocked })],
         LAN
       )
 
-      const row = await waitFor(() => {
-        const found = window.document.querySelector<HTMLElement>('[data-assistant-card-setup]')
-        expect(found).toBeTruthy()
-
-        return found!
-      })
-
-      expect(row.textContent).not.toMatch(LOCATION)
-      expect(within(row).getByRole('button', { name: 'Thiết lập' })).toBeTruthy()
+      await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
+      await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+      expect(Boolean(window.document.querySelector('[data-assistant-card-setup]'))).toBe(setup)
     }
   )
 
@@ -1272,7 +1268,7 @@ describe('one assistant card, the primary included', () => {
         'data-assistant-card-background-sweep',
         'data-assistant-card-routines',
         'data-assistant-card-check-ins',
-        'data-assistant-card-model-heading',
+        'data-assistant-card-model-destination',
         'data-assistant-card-persona',
         'data-assistant-card-personality',
         'data-atum-routines-row'
@@ -1293,7 +1289,20 @@ describe('one assistant card, the primary included', () => {
     window.atumMatrix = {
       assistants,
       command: vi.fn().mockResolvedValue(null),
-      agentHome: { move: vi.fn(), cancel: vi.fn() } as unknown as MatrixUiBridge['agentHome'],
+      modelDestinations: {
+        read: vi.fn(async principal => base.agents?.find(agent => agent.principal === principal)?.modelDestinations),
+        write: vi.fn(async () => ({ status: 'saved' as const })),
+        writeSubscription: vi.fn(async () => ({ status: 'saved' as const })),
+        cap: vi.fn(async () => ({ status: 'saved' as const }))
+      },
+      agentHome: {
+        read: vi.fn(async principal => base.agents?.find(agent => agent.principal === principal)?.home),
+        preflight: vi.fn(async () => ({ ok: false as const, reason: 'unused' })),
+        move: vi.fn(async () => ({ ok: false as const, reason: 'unused' })),
+        cancel: vi.fn(async () => ({ ok: false })),
+        model: vi.fn(async () => ({ status: 'refused' as const })),
+        prepare: vi.fn(async () => ({ ok: false as const, reason: 'unused' }))
+      } as unknown as MatrixUiBridge['agentHome'],
       backgroundSweep: {
         read: vi.fn(async () => ({
           profile: MATRIX_BACKGROUND_SWEEP_SETTING_PROFILE,
@@ -1338,17 +1347,30 @@ describe('one assistant card, the primary included', () => {
       })
     }))
 
-    await openCard(ATUM, each => ({ ...each, home }))
+    const withModel = (each: MatrixAgentView) => ({
+      ...each,
+      home,
+      modelDestinations: {
+        recommended: 'nguyet-thuc' as const,
+        here: 'nguyet-thuc' as const,
+        choices: [{
+          id: 'cloud', kind: 'cloud' as const, current: 'nguyet-thuc' as const, recommended: true,
+          models: ['nguyet-thuc' as const], unavailable: []
+        }]
+      }
+    })
+
+    await openCard(ATUM, withModel)
     const primary = rowsOf()
     const primaryPersona = personaRows()
     cleanup()
 
-    await openCard(LAN, each => ({ ...each, home }))
+    await openCard(LAN, withModel)
     const template = rowsOf()
     const templatePersona = personaRows()
     cleanup()
 
-    await openCard('agent-mai', each => ({ ...each, home }))
+    await openCard('agent-mai', withModel)
     const custom = rowsOf()
     const customPersona = personaRows()
     const customField = screen.getByRole('textbox', { name: 'Mai giúp bạn việc gì?' }) as HTMLTextAreaElement
@@ -1361,13 +1383,14 @@ describe('one assistant card, the primary included', () => {
     expect(customPersona).toBe(1)
     expect(customField.value).toBe('You are Mai, a hand-written research partner.\n\n## Rules\n\nKeep citations exact.')
     expect(primary.some(row => row.includes('data-assistant-card-home'))).toBe(true)
+    expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(true)
     cleanup()
 
-    await openCard(ATUM, each => ({ ...each, home }))
+    await openCard(ATUM, withModel)
     expect(window.document.querySelector('[data-assistant-card-delete]')).toBeNull()
     cleanup()
 
-    await openCard(LAN, each => ({ ...each, home }))
+    await openCard(LAN, withModel)
     expect(window.document.querySelector('[data-assistant-card-delete]')).not.toBeNull()
   })
 

@@ -15,6 +15,8 @@ for its own session. A request whose turn ended while it waited never receives t
 from __future__ import annotations
 
 import json
+import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -33,6 +35,11 @@ _ADVISORY_TURN_REQUESTS = 4
 _ATUM_DEVICE_TOOLS = frozenset(
     {"terminal", "read_file", "write_file", "patch", "search_files", "computer_use", "device_send_file", "atum_mac"}
 )
+_NATIVE_CLOUD_CHANNELS = frozenset({
+    "atum.apps.list", "atum.apps.open", "atum.store", "atum.agents", "atum.agent_tasks",
+    "atum.routines", "atum.chats", "atum.device",
+})
+_UUID = re.compile(r"^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$")
 
 
 @dataclass(frozen=True)
@@ -158,6 +165,27 @@ def _send(event: str, sid: str, params: dict, timeout: float) -> str:
     return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
 
+def _native_cloud_execution_id(sid: str) -> str | None:
+    """The platform-claimed native job currently running without a UI session.
+
+    Native cron deliberately clears ``HERMES_UI_SESSION_ID``.  Its tools still need the same
+    controller-owned Atum bridges as an ordinary cloud turn, so bind those requests to Hermes's
+    already-won cron execution identity and broadcast them to the connected controller.  A local
+    or standalone cron job never satisfies this guard and keeps the ordinary desktop-only result.
+    """
+    if sid or os.environ.get("ATUM_TASK_WORKSPACE") != "/task/workspace":
+        return None
+    try:
+        from cron.execution_identity import current_cron_execution
+
+        execution = current_cron_execution()
+    except Exception:
+        return None
+    if execution is None or execution.source != "atum" or not _UUID.fullmatch(execution.execution_id):
+        return None
+    return execution.execution_id
+
+
 def _bounded(payload: dict, channel: _Channel) -> tuple[dict, str | None]:
     """Only the channel's own keys; an oversized request is refused, never truncated."""
     bound = {key: payload[key] for key in channel.allowed if key in payload}
@@ -223,10 +251,12 @@ def _desktop_ui_request(sid: str, event: str, payload: dict, timeout: float) -> 
     channel = _CHANNELS.get(event)
     if channel is None:
         return json.dumps({"error": "unsupported desktop request"}, ensure_ascii=False)
-    session = _live_session(sid, channel.sources)
-    if session is None:
+    native_execution_id = _native_cloud_execution_id(sid)
+    native = native_execution_id is not None and event in _NATIVE_CLOUD_CHANNELS
+    session = None if native else _live_session(sid, channel.sources)
+    if session is None and not native:
         return json.dumps({"error": channel.unavailable}, ensure_ascii=False)
-    turn = session["active_turn_id"]
+    turn = native_execution_id if native else session["active_turn_id"]
     bound, problem = _bounded(payload, channel)
     if problem is not None:
         return json.dumps({"error": problem}, ensure_ascii=False)
@@ -245,8 +275,9 @@ def _desktop_ui_request(sid: str, event: str, payload: dict, timeout: float) -> 
         bound["expires_at"] = int((time.time() + wait) * 1000)
     elif event == "word.document":
         bound["expires_at"] = time.time() + wait
-    result = _send(event, sid, bound, wait)
-    if session.get("active_turn_id") != turn or not session.get("running"):
+    result = (server_requests.request_host(event, bound, timeout=wait) if native
+              else _send(event, sid, bound, wait))
+    if not native and (session.get("active_turn_id") != turn or not session.get("running")):
         return json.dumps({"error": channel.ended}, ensure_ascii=False)
     if len(result) > _MAX_ANSWER_CHARS:
         return json.dumps({"error": "The host response was too large."}, ensure_ascii=False)

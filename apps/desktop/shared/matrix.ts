@@ -1563,7 +1563,7 @@ export type MatrixCommand =
   /** Re-send the source event's visible content into one target room, with no source relation. */
   | { kind: 'forward'; roomId: string; eventId: string; toRoomId: string; dialogNonce: string }
   /** Your own text message, changed for everyone (a standard `m.replace` edit). */
-  | { kind: 'edit'; roomId: string; eventId: string; body: string }
+  | { kind: 'edit'; roomId: string; eventId: string; body: string; savedStatus?: 'saved_to_drive' | 'saved_as_copy'; transactionId?: string }
   /** Your own message, deleted for everyone (a standard redaction). */
   | { kind: 'redact'; roomId: string; eventId: string }
   /** Add or remove one server message from the room's standard shared pinned-events state. */

@@ -10133,6 +10133,19 @@
                 "recommended": true,
                 "thisMac": true,
                 "unavailable": []
+              },
+              {
+                "current": "nhat-thuc",
+                "deviceName": "MacBook Air",
+                "id": "mac:playground-away",
+                "kind": "mac",
+                "models": [
+                  "nguyet-thuc",
+                  "nhat-thuc"
+                ],
+                "recommended": false,
+                "thisMac": false,
+                "unavailable": []
               }
             ],
             "here": "nguyet-thuc",

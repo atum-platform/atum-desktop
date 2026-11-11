@@ -1,12 +1,12 @@
 /**
- * The status notices a cloud assistant posts in its chat (atum.agent-home/1 status outbox: every
- * outcome publishes something, so a turn never ends in silence). The cloud controller writes the
- * sentence into the message body in the owner's language and puts the code under
- * `io.atum.result.status`, so an app can show its own words for it.
+ * The status notices carried by a cloud assistant's chat (atum.agent-home/1 status outbox: every
+ * outcome publishes something, so a turn never ends in silence). The cloud controller writes a
+ * safe fallback into the message body and puts the code under `io.atum.result.status`, so an app
+ * can present localized system status instead of treating the fallback as the assistant's words.
  *
- * Product copy: the assistant speaks in the first person, one plain notice where one will do;
- * the app is Atum, files are in Atum Drive; no raw IDs, no runtime names. Vietnamese is the
- * default; every locale changes together.
+ * Product copy: system failures are neutral; other assistant-authored outcomes use one plain
+ * notice where one will do. The app is Atum, files are in Atum Drive; no raw IDs, no runtime
+ * names. Vietnamese is the default; every locale changes together.
  */
 import type { DesktopLocale } from './desktop-locale'
 import { matrixDeviceWaitCopy } from './matrix-status-line-copy'
@@ -103,7 +103,7 @@ interface StatusCopy {
 export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
   vi: {
     stopped: 'Đã dừng.',
-    failed: 'Có lỗi nên mình chưa làm xong việc này. Bạn thử lại nhé.',
+    failed: 'Atum chưa hoàn tất yêu cầu này. Hãy thử lại.',
     deadline: 'Việc này mất quá lâu nên mình đã dừng. Bạn thử chia nhỏ yêu cầu nhé.',
     couldntConfirm: 'Việc này bị ngắt giữa chừng nên có thể mới làm được một phần. Mình không tự làm lại để khỏi làm hai lần. Bạn nhắn “kiểm tra lại” để mình xem đã xong đến đâu nhé.',
     mayHaveRun: devices => ` Phần đã làm có thể nằm trên ${devices}.`,
@@ -133,7 +133,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
   },
   en: {
     stopped: 'Stopped.',
-    failed: 'Something went wrong, so I couldn’t finish this. Please try again.',
+    failed: 'Atum couldn’t complete this request. Please try again.',
     deadline: 'This took too long, so I stopped. Try asking for a smaller piece.',
     couldntConfirm: 'This was cut off partway, so only part of it may be done. I won’t redo it on my own, so it doesn’t happen twice. Say “check again” and I’ll look at how far it got.',
     mayHaveRun: devices => ` What was done may be on ${devices}.`,
@@ -163,7 +163,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
   },
   ja: {
     stopped: '停止しました。',
-    failed: 'エラーが発生したため完了できませんでした。もう一度お試しください。',
+    failed: 'Atum はこのリクエストを完了できませんでした。もう一度お試しください。',
     deadline: '時間がかかりすぎたため停止しました。依頼を小さく分けてお試しください。',
     couldntConfirm: '途中で中断されたため、一部しか終わっていない可能性があります。二重に実行しないよう、自動ではやり直しません。「もう一度確認して」と送っていただければ、どこまで進んだか確認します。',
     mayHaveRun: devices => `実行済みの分は ${devices} にある可能性があります。`,
@@ -193,7 +193,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
   },
   zh: {
     stopped: '已停止。',
-    failed: '出了点问题，没能完成。请再试一次。',
+    failed: 'Atum 未能完成此请求。请再试一次。',
     deadline: '这件事用时太长，我已停止。可以把请求拆小一些再试。',
     couldntConfirm: '这件事中途被打断，可能只完成了一部分。为避免重复执行，我不会自动重做。发送“再检查一下”，我会看看做到哪一步了。',
     mayHaveRun: devices => `已完成的部分可能在 ${devices} 上。`,
@@ -223,7 +223,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
   },
   'zh-hant': {
     stopped: '已停止。',
-    failed: '出了點問題，沒能完成。請再試一次。',
+    failed: 'Atum 未能完成此要求。請再試一次。',
     deadline: '這件事花太久了，我已停止。可以把請求拆小一些再試。',
     couldntConfirm: '這件事中途被打斷，可能只完成了一部分。為避免重複執行，我不會自動重做。傳送「再檢查一下」，我會看看做到哪一步了。',
     mayHaveRun: devices => `已完成的部分可能在 ${devices} 上。`,

@@ -2,6 +2,7 @@ import json
 import pytest
 
 from gateway.session_context import clear_session_vars, set_session_vars
+from cron.execution_identity import enter_cron_execution, exit_cron_execution
 from tools import desktop_ui
 from tools.atum_store_tool import atum_store
 from tui_gateway import desktop_ui_bridge, server
@@ -50,6 +51,35 @@ def test_runtime_strips_forged_catalog_authority_and_rejects_expired_turn(monkey
         "operation": "search", "query": "focus", "turn_id": "real",
     }, 30)]
     assert "turn ended" in json.loads(result)["error"]
+
+
+def test_platform_claimed_native_job_uses_the_sessionless_host_bridge(monkeypatch):
+    execution_id = "22800000-0000-4000-8000-00000000a228"
+    calls = []
+    monkeypatch.setenv("ATUM_TASK_WORKSPACE", "/task/workspace")
+    monkeypatch.setattr(
+        desktop_ui_bridge.server_requests,
+        "request_host",
+        lambda method, body, timeout: calls.append((method, body, timeout)) or '{"rooms":[]}',
+    )
+    token = enter_cron_execution(
+        {"id": "brief", "name": "Morning brief"},
+        execution_id,
+        {"source": "atum"},
+    )
+    try:
+        result = desktop_ui_bridge._desktop_ui_request(
+            "",
+            "atum.chats.request",
+            {"op": "list", "limit": 5, "turn_id": "forged", "owner": "forged"},
+            60,
+        )
+    finally:
+        exit_cron_execution(token)
+    assert json.loads(result) == {"rooms": []}
+    assert calls == [("atum.chats", {
+        "op": "list", "limit": 5, "turn_id": execution_id,
+    }, 60)]
 
 
 @pytest.mark.parametrize(
@@ -119,3 +149,20 @@ def test_routines_request_needs_a_live_matrix_turn(monkeypatch, source, running)
     result = desktop_ui_bridge._desktop_ui_request(
         "session", "atum.routines.request", {"operation": "list"}, 60)
     assert "live Matrix agent turn" in json.loads(result)["error"]
+
+
+@pytest.mark.parametrize("source,workspace,sid", [
+    ("direct", "/task/workspace", ""), ("builtin", "/task/workspace", ""),
+    ("atum", "", ""), ("atum", "/task/workspace", "foreign"),
+])
+def test_native_bridge_requires_cloud_claim_without_a_ui_session(monkeypatch, source, workspace, sid):
+    monkeypatch.setenv("ATUM_TASK_WORKSPACE", workspace)
+    monkeypatch.setattr(server, "_sessions", {})
+    def unexpected(*args, **kwargs):
+        pytest.fail("unclaimed request reached host")
+    monkeypatch.setattr(desktop_ui_bridge.server_requests, "request_host", unexpected)
+    token = enter_cron_execution({"id": "brief"}, "22800000-0000-4000-8000-00000000a228", {"source": source})
+    try:
+        assert "error" in json.loads(desktop_ui_bridge._desktop_ui_request(sid, "atum.chats", {"op": "list"}, 60))
+    finally:
+        exit_cron_execution(token)

@@ -8,7 +8,7 @@ import type { MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
 import { type MatrixPagesBridge, type MatrixPagesState } from '../../shared/matrix-pages'
 
 import { MatrixWorkplace, workplaceAgent } from './workplace'
-import { WORKPLACE_DEVELOPER_PAGES } from './workplace-nav'
+import { WORKPLACE_DEVELOPER_PAGES, workplaceDeveloperPages } from './workplace-nav'
 
 afterEach(() => {
   cleanup()
@@ -108,17 +108,12 @@ describe('Matrix Workplace native host', () => {
     await waitFor(() => expect(screen.queryByText('This page couldn’t open.')).toBeNull())
   })
 
-  // A page reached some other way (Workplace, Settings) for an agent that answers in the
-  // cloud says why there is nothing here, instead of "couldn't open" with a futile retry.
-  it('says an agent answering in the cloud has nothing on this Mac to manage, without a retry', async () => {
+  // An old direct link can still reach a hidden page; it gives the one current route instead of retrying.
+  it('sends a cloud assistant back to its card for model choice, without a retry', async () => {
     const open = vi.fn<MatrixPagesBridge['open']>().mockResolvedValue({ error: 'pages_agent_cloud' })
     window.atumMatrix = { pages: pagesBridge({ open }) } as MatrixUiBridge
     renderWorkplace({ initialPage: 'connections' })
-    expect(
-      await screen.findByText(
-        'This assistant answers with Atum’s AI on every computer. Using your own account (such as ChatGPT) with it isn’t available yet.'
-      )
-    ).toBeTruthy()
+    expect(await screen.findByText('This assistant lives in the cloud. Choose its model from its card.')).toBeTruthy()
     expect(screen.queryByText('This page couldn’t open.')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
@@ -413,6 +408,36 @@ describe('Matrix Workplace for a person, not an operator', () => {
     openDevelopers()
     fireEvent.click(window.document.querySelector(`[data-matrix-workplace-page-row="${page}"]`) as HTMLElement)
     await waitFor(() => expect(pages.open).toHaveBeenCalledWith(expect.objectContaining({ page })))
+  })
+
+  it('shows only Atum places for a cloud assistant, while the dormant and Mac-home paths keep native pages', () => {
+    const cloud = snapshot()
+    cloud.agents = cloud.agents!.map(agent =>
+      agent.principal === 'agent-1' ? { ...agent, answering: 'cloud' as const } : agent
+    )
+    const props = { onOpenDrive: vi.fn(), onOpenRoutines: vi.fn(), onOpenStore: vi.fn(), snapshot: cloud }
+
+    expect(workplaceDeveloperPages(cloud.agents[0])).toEqual([])
+    const first = renderWorkplace(props)
+    expect(screen.getByRole('button', { name: 'Routines' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Atum Drive' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Store' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'For developers' })).toBeNull()
+    for (const name of ['Model & Memory', 'Providers', 'Connections', 'MCP servers']) {
+      expect(screen.queryByRole('button', { name })).toBeNull()
+    }
+
+    first.unmount()
+    renderWorkplace({ ...props, cloudOnly: false })
+    openDevelopers()
+    expect(screen.getByRole('button', { name: 'Model & Memory' })).toBeTruthy()
+    cleanup()
+
+    const mac = {
+      ...cloud.agents[0]!,
+      home: { lives: { kind: 'mac' as const, name: 'Mac mini', thisMac: false }, move: null, targets: [], issue: null }
+    }
+    expect(workplaceDeveloperPages(mac)).toEqual(WORKPLACE_DEVELOPER_PAGES)
   })
 
   it('opens Atum’s own places instead of the Hermes pages, Routines for the assistant that is chosen', () => {

@@ -14,10 +14,12 @@ import { BellOff } from '@/lib/icons'
 import { MINUTE } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { type AppDescriptor, appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { matrixAgentAccessPausedLabel } from '../../shared/matrix-agent-access-band-copy'
+import { matrixAgentNeedsLocalSetup } from '../../shared/matrix-agent-actions'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import { accountVerificationTier, appVerificationTier } from '../../shared/verification'
 
@@ -71,6 +73,8 @@ import { useWorkingCopy } from './working-copy'
 
 interface MatrixRosterConversationsProps {
   snapshot: MatrixSnapshot
+  /** The window's cloud-only switch; defaults to the build's. */
+  cloudOnly?: boolean
   /** Names only; the account-scoped shell owns this window's query. */
   query?: string
   /** Results rendered by the account shell above this local roster (people, company rooms/messages). */
@@ -827,13 +831,14 @@ export function matrixAgentStatusLine(
   words: { waitingUnlock: string; reconnectingTitle: string; reconnectShort: string; signInAgainShort: string },
   locale = 'en',
   /** Try again / Reconnect is on the row: the error is the line, never "On Mac mini" beside it. */
-  offersRetry = false
+  offersRetry = false,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
 ): string | undefined {
   if (!status) {
     return undefined
   }
 
-  if (agent.readiness?.phase === 'blocked') {
+  if (agent.readiness?.phase === 'blocked' && matrixAgentNeedsLocalSetup(agent, cloudOnly)) {
     switch (agent.readiness.code) {
       case 'recovery_required':
         return words.waitingUnlock
@@ -855,7 +860,7 @@ export function matrixAgentStatusLine(
   // readiness reason above still wins: it says what this Mac needs, which stays true. So does an
   // error with a retry button: the button and a line saying it answers fine would disagree.
   if (status === 'agentUnavailable' && agent.executionPolicy && !offersRetry) {
-    const answersElsewhere = executionPolicyRosterLine(locale, agent.executionPolicy)
+    const answersElsewhere = executionPolicyRosterLine(locale, agent.executionPolicy, cloudOnly)
 
     if (answersElsewhere) {
       return answersElsewhere
@@ -877,6 +882,7 @@ export function MatrixRosterConversations({
   agentActions,
   assistantOpening,
   children,
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
   externalResultCount = 0,
   externalSearching = false,
   fail,
@@ -1047,22 +1053,24 @@ export function MatrixRosterConversations({
 
           const accessEnded = matrixAgentAccessEnded(agent, cloudAccess)
 
-          const retryKind = agentRetryKind(
-            agent,
-            agent.readiness
-              ? matrixReadinessCopy(
-                  agent.readiness,
-                  undefined,
-                  { ...t.matrixShell, ...launchWords },
-                  t.atum.startup.opening,
-                  locale
-                ).action
-              : undefined
-          )
+          const retryKind = matrixAgentNeedsLocalSetup(agent, cloudOnly)
+            ? agentRetryKind(
+                agent,
+                agent.readiness
+                  ? matrixReadinessCopy(
+                      agent.readiness,
+                      undefined,
+                      { ...t.matrixShell, ...launchWords },
+                      t.atum.startup.opening,
+                      locale
+                    ).action
+                  : undefined
+              )
+            : undefined
 
           const statusLine = accessEnded
             ? matrixAgentAccessPausedLabel(locale)
-            : matrixAgentStatusLine(agent, status, t.matrixShell, launchWords, locale, Boolean(retryKind))
+            : matrixAgentStatusLine(agent, status, t.matrixShell, launchWords, locale, Boolean(retryKind), cloudOnly)
 
           const pausedHire =
             agent.hire?.state === 'paused' && agent.assistantId
@@ -1186,7 +1194,9 @@ export function MatrixRosterConversations({
                       workingPreview={!searching && workingRow === 'agent' ? workingPreview : undefined}
                     />
                   </button>
-                  {status === 'agentUnavailable' && <AgentTryAgain agent={agent} fail={fail} />}
+                  {status === 'agentUnavailable' && matrixAgentNeedsLocalSetup(agent, cloudOnly) && (
+                    <AgentTryAgain agent={agent} fail={fail} />
+                  )}
                   {pausedHire && (
                     <Button
                       data-agent-hire-renew
