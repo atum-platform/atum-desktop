@@ -3,6 +3,8 @@ import { Check } from '@/lib/icons'
 
 import type { MatrixAgentView, MatrixMessage } from '../../shared/matrix'
 
+import { matrixProgressLineParts } from './agent-desk-model'
+
 /**
  * Atum working in place: the animated atom owns the identity slot. A progress event's first line
  * is the current step; any remaining lines become the quiet step card. The line is the turn's
@@ -22,13 +24,7 @@ export function MatrixAgentWorking({
   label: string
   typing: boolean
 }) {
-  const lines = line?.body.split('\n').map(value => value.trim()).filter(Boolean) ?? []
-  const current = lines[0]
-
-  const steps = lines.slice(1).map(value => ({
-    done: /^[✓✔]/u.test(value),
-    text: value.replace(/^[✓✔•◦]\s*/u, '')
-  }))
+  const { current, steps } = matrixProgressLineParts(line?.body)
 
   return (
     <div

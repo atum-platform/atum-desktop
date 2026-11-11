@@ -4440,7 +4440,7 @@ describe('isolated Matrix composition', () => {
     expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' })).toBeTruthy()
     expect(screen.getByRole('textbox', { name: COMPOSER })).toBeTruthy()
     emit({ ...withChoice(), hermes: 'running' })
-    expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe('Add to your request…')
+    expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe('Tell Atum what to change…')
     await act(async () => {})
   })
 

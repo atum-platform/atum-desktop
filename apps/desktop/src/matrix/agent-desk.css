@@ -1,0 +1,152 @@
+/* The agent's desk (side panel's agent tab). Kit tokens and components only (STYLE.md §13, §14). */
+
+.atum-desk {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  overflow-y: auto;
+  padding: var(--ak-s1) var(--ak-s3) var(--ak-s4);
+}
+
+.atum-desk-now {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-s2);
+  padding: var(--ak-s3) 10px var(--ak-s1);
+}
+
+.atum-desk-now-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  min-width: 0;
+}
+
+.atum-desk-now-state {
+  font: var(--ak-t-headline);
+  color: var(--ak-ink);
+}
+
+.atum-desk-caption {
+  font: var(--ak-t-caption);
+  font-weight: 600;
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-dot {
+  background: var(--ak-ink-2);
+}
+
+.atum-desk-now-line {
+  font: var(--ak-t-body);
+  color: var(--ak-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.atum-desk-hint {
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-now-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  margin-top: 2px;
+}
+
+.atum-desk-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.atum-desk-step {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  font: var(--ak-t-body);
+  color: var(--ak-ink);
+  min-width: 0;
+}
+
+.atum-desk-step[data-done] {
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-step .ak-icon {
+  color: var(--ak-ink-3);
+  flex: none;
+}
+
+.atum-desk-step-spinner {
+  width: var(--ak-i-sm);
+  height: var(--ak-i-sm);
+  flex: none;
+}
+
+.atum-desk-ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-s2);
+}
+
+.atum-desk-ask-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+}
+
+.atum-desk-ask-title {
+  font: var(--ak-t-headline);
+  color: var(--ak-ink);
+}
+
+.atum-desk-ask-prompts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ak-s2);
+}
+
+.atum-desk .ak-row .ak-icon {
+  width: var(--ak-i-md);
+  height: var(--ak-i-md);
+  flex: none;
+}
+
+.atum-desk .ak-row-main > span:first-child {
+  font: var(--ak-t-body);
+  color: var(--ak-ink);
+}
+
+.atum-desk-row-end {
+  flex: none;
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+  white-space: nowrap;
+}
+
+.atum-desk-files {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ak-s2);
+  padding: var(--ak-s1) 6px;
+}
+
+.atum-desk-files > .ak-file {
+  max-width: none;
+}
+
+.atum-desk-open-drive {
+  align-self: flex-start;
+  margin: var(--ak-s1) 6px 0;
+}
+
+/* Memory sits at the foot under one hairline: the same row and view the assistant card opens. */
+.atum-desk-memory {
+  margin-top: var(--ak-s3);
+  border-top: 1px solid var(--ak-line);
+  padding-top: 6px;
+}
