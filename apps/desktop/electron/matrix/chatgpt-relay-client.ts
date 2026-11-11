@@ -99,6 +99,8 @@ export async function requestMatrixChatGptRelay(resource: string, accessToken: s
 export class MatrixChatGptRelay {
   private owner: Scope | null = null
   private snapshot?: MatrixChatGptRelaySnapshot
+  private refreshTimer?: ReturnType<typeof setTimeout>
+  private pending?: { scope: Scope; work: Promise<MatrixChatGptRelaySnapshot | undefined> }
 
   constructor(private readonly options: { scope(): Scope | null; call(action: Action, signal: AbortSignal, body?: unknown): Promise<Answer>; changed(): void }) {}
 
@@ -106,7 +108,10 @@ export class MatrixChatGptRelay {
     if (owner?.accountKey === this.owner?.accountKey && owner?.generation === this.owner?.generation) {
       return
     }
+    clearTimeout(this.refreshTimer)
+    this.refreshTimer = undefined
     this.owner = owner; this.snapshot = undefined
+    if (owner) { void this.refresh() }
   }
 
   view() {
@@ -115,14 +120,32 @@ export class MatrixChatGptRelay {
       snapshot.lastSeenAt <= Date.now() - 90_000 ? { ...snapshot, presence: 'offline' as const } : snapshot
   }
 
-  async refresh(): Promise<MatrixChatGptRelaySnapshot | undefined> {
+  refresh(): Promise<MatrixChatGptRelaySnapshot | undefined> {
     const scope = this.options.scope()
-    if (!scope) {
+    if (!scope) { return Promise.resolve(undefined) }
+    if (this.pending?.scope.accountKey === scope.accountKey && this.pending.scope.generation === scope.generation) {
+      return this.pending.work
+    }
+    const work = this.readStatus(scope).finally(() => {
+      if (this.pending?.work === work) { this.pending = undefined }
+      if (scope.accountKey !== this.owner?.accountKey || scope.generation !== this.owner?.generation) { return }
+      clearTimeout(this.refreshTimer)
+      this.refreshTimer = setTimeout(() => { void this.refresh() }, 30_000)
+      this.refreshTimer.unref?.()
+    })
+    this.pending = { scope, work }
+    return work
+  }
+
+  private async readStatus(scope: Scope): Promise<MatrixChatGptRelaySnapshot | undefined> {
+    const answer = await this.options.call('status', AbortSignal.timeout(20_000)).catch(() => undefined)
+    if (scope.accountKey !== this.options.scope()?.accountKey || scope.generation !== this.options.scope()?.generation) {
       return
     }
-    const answer = await this.options.call('status', AbortSignal.timeout(20_000)).catch(() => undefined)
     const next = answer?.status === 200 ? parse(answer.value) : undefined
-    if (!next || scope.accountKey !== this.options.scope()?.accountKey || scope.generation !== this.options.scope()?.generation) {
+    if (!next) {
+      // An expired online observation becomes offline even during a read outage.
+      if (this.snapshot?.presence === 'online' && this.view()?.presence === 'offline') { this.options.changed() }
       return
     }
     this.snapshot = next; this.options.changed(); return next

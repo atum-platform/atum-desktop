@@ -63,3 +63,23 @@ it('keeps malformed additive presence unknown while preserving the disabled stat
   expect(await relay.refresh()).toMatchObject({ state: 'disabled', models: [] })
   expect(relay.view()?.presence).toBeUndefined()
 })
+
+it('refreshes owner presence on activation, deduplicates reads and stops polling after sign-out', async () => {
+  const { MatrixChatGptRelay } = await import('./chatgpt-relay-client')
+  vi.useFakeTimers()
+  let scope: { accountKey: string; generation: number } | null = { accountKey: 'owner', generation: 1 }
+  const call = vi.fn(async () => ({ status: 200, value: { profile: 'atum.chatgpt-relay/1', revision: 0,
+    state: 'disabled', models: [], relayPresence: { state: 'unregistered' } } }))
+  const relay = new MatrixChatGptRelay({ scope: () => scope, call, changed: () => {} })
+  try {
+    relay.activate(scope)
+    await Promise.all([relay.refresh(), relay.refresh()])
+    expect(call).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(call).toHaveBeenCalledTimes(2)
+    scope = null
+    relay.activate(null)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(call).toHaveBeenCalledTimes(2)
+  } finally { relay.activate(null); vi.useRealTimers() }
+})
