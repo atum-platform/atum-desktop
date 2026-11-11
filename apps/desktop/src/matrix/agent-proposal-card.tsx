@@ -11,6 +11,7 @@ import type {
 
 import { matrixAgentProposalCopy } from './agent-proposal-copy'
 import { takeAgentProposal, useAgentProposals } from './agent-proposals-store'
+import { matrixWalletCopy } from './wallet-copy'
 
 const MARKS: Record<MatrixAgentProposalOperation, IconComponent> = { create: Sparkles, hire: Robot, retire: Trash2 }
 
@@ -22,8 +23,10 @@ const MARKS: Record<MatrixAgentProposalOperation, IconComponent> = { create: Spa
  */
 export function MatrixAgentProposalAsk({
   bridge,
+  onTopUp,
   card
 }: {
+  onTopUp?: () => Promise<void>
   bridge: Pick<MatrixAgentProposalsBridge, 'confirm' | 'decline'>
   card: MatrixAgentProposalCard
 }) {
@@ -32,6 +35,13 @@ export function MatrixAgentProposalAsk({
   const [busy, setBusy] = useState<'confirm' | 'decline' | null>(null)
   const [lost, setLost] = useState(false)
   const failed = card.state === 'failed' || lost
+  const funds = card.state === 'failed' && card.failure === 'funds'
+  const topUp = () => {
+    setBusy('confirm')
+    void (onTopUp ?? (() => window.atumMatrix.openTopUp()))()
+      .catch(() => setLost(true))
+      .finally(() => setBusy(null))
+  }
 
   const answer = (action: 'confirm' | 'decline') => {
     setBusy(action)
@@ -97,10 +107,10 @@ export function MatrixAgentProposalAsk({
           aria-busy={busy === 'confirm' || undefined}
           className={`ak-btn ak-btn--sm ${card.operation === 'retire' ? 'ak-btn--danger' : 'ak-btn--primary'}`}
           disabled={busy !== null}
-          onClick={() => answer('confirm')}
+          onClick={() => funds ? topUp() : answer('confirm')}
           type="button"
         >
-          {failed ? copy.tryAgain : copy.confirm}
+          {funds ? matrixWalletCopy(locale).topUpMore : failed ? copy.tryAgain : copy.confirm}
         </button>
         <button
           className="ak-btn ak-btn--plain ak-btn--sm"
@@ -119,8 +129,10 @@ export function MatrixAgentProposalAsk({
 export function MatrixAgentProposalCards({
   bridge = window.atumMatrix?.agentProposals,
   eventId,
+  onTopUp,
   roomId
 }: {
+  onTopUp?: () => Promise<void>
   bridge?: MatrixAgentProposalsBridge
   eventId: string
   roomId: string
@@ -134,7 +146,7 @@ export function MatrixAgentProposalCards({
   return (
     <div className="mt-(--ak-s2) flex flex-col items-start gap-(--ak-s2)" data-matrix-agent-proposals>
       {cards.map(card => (
-        <MatrixAgentProposalAsk bridge={bridge} card={card} key={card.id} />
+        <MatrixAgentProposalAsk bridge={bridge} card={card} key={card.id} onTopUp={onTopUp} />
       ))}
     </div>
   )

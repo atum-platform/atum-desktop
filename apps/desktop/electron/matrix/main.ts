@@ -2031,6 +2031,7 @@ let updateHandoff: UpdateHandoff | null = null
 let previousRestart: UpdateHandoffResult | null = null
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
 let appLoadHost: Host | undefined
+let agentProposals: MatrixAgentProposals | undefined
 let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
 let documents: MatrixRoomDocuments
@@ -6888,6 +6889,8 @@ const presentationCommand = createPresentationDispatch({
 })
 
 function publish(next: MatrixSnapshot) {
+  next = { ...next, accountPrincipal: next.identity ? account?.enrollment().identity?.principal : undefined }
+  agentProposals?.refreshScope()
   if (webPreviewScope(next) !== webPreviewScope(state)) {
     webPreviews.clear()
   }
@@ -19233,7 +19236,8 @@ async function start() {
   // nothing is admitted, so no card ever renders. Hire names wait on the same routes.
   registerMatrixAgentProposalsIpc(ipcMain, {
     assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
-    proposals: new MatrixAgentProposals({
+    proposals: agentProposals = new MatrixAgentProposals({
+      storage: outcomeStore,
       scope: () => account?.appScope() ?? null,
       agentName: principal => allAgents().find(agent => !agent.closed && cloudPrincipal(agent) === principal)?.name,
       offerName: () => undefined,

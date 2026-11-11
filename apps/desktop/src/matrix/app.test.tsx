@@ -2816,14 +2816,16 @@ describe('isolated Matrix composition', () => {
       ...(withFiles ? { files } : {})
     })
 
-    emit({
+    const boundSnapshot: MatrixSnapshot = {
       ...controlsState,
+      accountPrincipal: files.identity.ownerPrincipal,
       rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'cloud-t' })),
       agents: [
         { principal: 'cloud-t', userId: '@atum:test', name: 'Atum', ready: true, isDefault: true, atumModel: true, hermes: 'ready' }
       ],
       messages: [...controlsState.messages, answer('$chips', '@atum:test', true), answer('$spoof', '@mallory:test', true)]
-    })
+    }
+    emit(boundSnapshot)
 
     const words = await screen.findByText('Here is the Q4 plan ($chips).')
     const bubble = words.closest('[data-matrix-message-id]') as HTMLElement
@@ -2835,6 +2837,10 @@ describe('isolated Matrix composition', () => {
     const spoof = (await screen.findByText(/\(\$spoof\)/u)).closest('[data-matrix-message-id]') as HTMLElement
     expect(spoof.textContent).toContain('Saved to Atum Drive.')
     expect(spoof.querySelector('[data-matrix-file-chip]')).toBeNull()
+
+    emit({ ...boundSnapshot, accountPrincipal: 'another-owner' })
+    await waitFor(() => expect(bubble.querySelector('[data-matrix-file-chip]')).toBeNull())
+    expect(bubble.textContent).toContain('Saved to Atum Drive.')
   })
 
   it('offers no Stop for a cloud chat that is not answering, or for its notices', async () => {

@@ -43,6 +43,7 @@ function personalBinding(overrides: Partial<MatrixFileBinding> = {}): MatrixFile
 
   return {
     roomId,
+    ownerPrincipal: identity.ownerPrincipal,
     ownerUserId: owner,
     agents: [{ principal: identity.agentPrincipal, userId: agentUser }],
     roomAgentPrincipal: identity.agentPrincipal,
@@ -219,4 +220,17 @@ it('picks the kit glyph from the file’s real name', () => {
     'file',
     'image'
   ])
+})
+
+
+it('requires exact signed-in principal ownership even when roster and sender match', () => {
+  expect(matrixAdmittedFiles(message(), personalBinding())).toHaveLength(1)
+  const principal = personalBinding().ownerPrincipal!
+  for (const ownerPrincipal of [undefined, '', principal.toUpperCase(), `${principal} `, 'another-owner']) {
+    expect(matrixAdmittedFiles(message(), personalBinding({ ownerPrincipal }))).toBeUndefined()
+  }
+  const binding = matrixFileBindingForRoom(
+    { id: roomId, assistant: true, agentPrincipal: personalBinding().roomAgentPrincipal }, personalBinding()
+  )!
+  expect(matrixAdmittedFiles(message(), binding)).toHaveLength(1)
 })

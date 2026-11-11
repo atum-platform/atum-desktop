@@ -1,6 +1,11 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_AGENT_PROPOSALS_IPC } from '../../shared/matrix-agent-proposals'
+import { EncryptedStore } from '../encrypted-store'
 
 import {
   type MatrixAgentProposalPlatform,
@@ -358,5 +363,36 @@ describe('the IPC boundary', () => {
     expect(() => call(MATRIX_AGENT_PROPOSALS_IPC.read, 'ui', 'room')).toThrow('matrix_agent_proposal_invalid_request')
     expect(proposals.confirm).not.toHaveBeenCalled()
     expect(proposals.read).not.toHaveBeenCalled()
+  })
+})
+
+
+describe('durable Not now', () => {
+  it.each(['switch', 'sign-out'] as const)('survives restart and clears on %s', async transition => {
+    const directory = mkdtempSync(join(tmpdir(), 'proposal-declines-'))
+    const safeStorage = {
+      isEncryptionAvailable: () => true,
+      encryptString: (value: string) => Buffer.from(value),
+      decryptString: (value: Buffer) => value.toString()
+    }
+    const storage = () => new EncryptedStore(join(directory, 'outcomes.json'), safeStorage)
+    try {
+      const first = harness(record(), { storage: storage() })
+      await first.proposals.offer(placement)
+      expect(first.proposals.decline(PROPOSAL).state).toBe('declined')
+      const restarted = harness(record(), { storage: storage() })
+      await restarted.proposals.offer(placement)
+      expect(restarted.proposals.read(ROOM)[0]?.state).toBe('declined')
+      await restarted.proposals.confirm(PROPOSAL)
+      expect(restarted.platform.confirm).not.toHaveBeenCalled()
+      restarted.setScope(transition === 'sign-out' ? null : { accountKey: 'b'.repeat(64), generation: 2 })
+      restarted.proposals.refreshScope()
+      expect(restarted.proposals.read(ROOM)).toEqual([])
+      const returned = harness(record(), { storage: storage() })
+      await returned.proposals.offer(placement)
+      expect(returned.proposals.read(ROOM)[0]?.state).toBe('pending')
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 })

@@ -38,6 +38,8 @@ export interface MatrixAgentProposalsDependencies {
   offerName(offerId: string, offerVersion: number): string | undefined
   /** A room's cards changed. */
   changed(roomId: string): void
+  /** Main-process encrypted account storage; never supplied by the window. */
+  storage?: { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void }
   now?(): number
 }
 
@@ -67,6 +69,7 @@ function sameScope(left: MatrixAgentProposalScope | null, right: MatrixAgentProp
  */
 export class MatrixAgentProposals {
   private readonly entries = new Map<string, Entry>()
+  private declines: Record<string, number> = {}
   private scoped: MatrixAgentProposalScope | null = null
 
   constructor(private readonly dependencies: MatrixAgentProposalsDependencies) {}
@@ -81,12 +84,34 @@ export class MatrixAgentProposals {
 
     if (!sameScope(scope, this.scoped)) {
       const rooms = new Set([...this.entries.values()].map(entry => entry.card.roomId))
+      if (this.scoped) {
+        this.dependencies.storage?.removeItem(this.declineKey(this.scoped.accountKey))
+      }
+      this.declines = {}
+      if (scope) {
+        try {
+          const saved: unknown = JSON.parse(this.dependencies.storage?.getItem(this.declineKey(scope.accountKey)) ?? '{}')
+          if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
+            this.declines = Object.fromEntries(Object.entries(saved).filter(([id, expiry]) =>
+              matrixAgentProposalId(id) && typeof expiry === 'number' && expiry > this.now()))
+          }
+        } catch { /* Ignore unreadable decline history; platform admission remains authoritative. */ }
+      }
       this.entries.clear()
       this.scoped = scope ? { ...scope } : null
       rooms.forEach(room => this.dependencies.changed(room))
     }
 
     return this.scoped
+  }
+
+  private declineKey(accountKey: string): string {
+    return `matrix.agent-proposal-declines.${accountKey}`
+  }
+
+  /** Called on account publication, even if no proposal room is open. */
+  refreshScope(): void {
+    this.current()
   }
 
   private view(entry: Entry): MatrixAgentProposalCard {
@@ -184,7 +209,7 @@ export class MatrixAgentProposals {
       return false
     }
 
-    this.entries.set(record.id, { card, record })
+    this.entries.set(record.id, { card: this.declines[record.id] ? { ...card, state: 'declined' } : card, record })
     this.dependencies.changed(card.roomId)
 
     return true
@@ -292,9 +317,14 @@ export class MatrixAgentProposals {
 
     const view = this.view(entry)
 
-    return entry.confirming || (view.state !== 'pending' && view.state !== 'failed')
-      ? view
-      : this.settle(entry, { state: 'declined' })
+    if (entry.confirming || (view.state !== 'pending' && view.state !== 'failed')) {
+      return view
+    }
+
+    const declines = { ...this.declines, [proposalId]: entry.card.expiresAt }
+    this.dependencies.storage?.setItem(this.declineKey(this.scoped!.accountKey), JSON.stringify(declines))
+    this.declines = declines
+    return this.settle(entry, { state: 'declined' })
   }
 }
 

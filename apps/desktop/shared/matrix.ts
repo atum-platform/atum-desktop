@@ -565,6 +565,8 @@ export interface MatrixNewSignIn {
 }
 
 export interface MatrixSnapshot {
+  /** Signed-in platform principal, projected from main's own account session only. */
+  accountPrincipal?: string
   /** SDK-confirmed account marker; unknown/offline never means a new account. */
   starterMarker?: 'unknown' | 'unseen' | 'seen'
   /** Native ledger allowance, in integer micro-Protons, while its marker is unseen. */

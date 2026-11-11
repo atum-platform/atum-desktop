@@ -539,6 +539,7 @@ const ConversationActions = createContext<{
   /** The assistant's Matrix user: its answers render as markdown, as in the old app. */
   assistantUserId?: string
   assistantName?: string
+  ownerPrincipal?: string
   ownerUserId?: string
   ownerDeviceId?: string
   /** The open room's members, for the names people go by and their photos (display only). */
@@ -748,6 +749,7 @@ function MatrixEventMessageBubble() {
 
   const fileBinding = projected.files
     ? matrixFileBindingForRoom(action?.room, {
+        ownerPrincipal: action?.ownerPrincipal,
         ownerUserId: action?.ownerUserId,
         agents: action?.agents,
         ...(fileCompanyAI ? { companyAgent: { companyId: fileCompanyAI.companyId, ...fileCompanyAI.agent } } : {})
@@ -1511,7 +1513,7 @@ function MatrixEventMessageBubble() {
             {/* What the main agent proposed about the person's other agents: a confirm card built
                 from the platform's record (agent-proposal-card.tsx), never from this message. */}
             {action && (agent || ownAssistant) && !message.own && (
-              <MatrixAgentProposalCards eventId={message.id} roomId={action.room.id} />
+              <MatrixAgentProposalCards eventId={message.id} onTopUp={action.topUp} roomId={action.room.id} />
             )}
             </>
           )}
@@ -4692,6 +4694,7 @@ function MatrixThreadDetail({
               captureCard,
               cloud: false,
               assistantUserId: snapshot.assistant?.userId,
+              ownerPrincipal: snapshot.accountPrincipal,
               ownerUserId: snapshot.identity?.userId,
               ownerDeviceId: snapshot.identity?.deviceId,
               members: snapshot.members,
@@ -5342,7 +5345,11 @@ function Conversation({
     // A working line whose turn has ended shows nothing (agent-turns/1.4). The one still live
     // is drawn under the typing bubble, not as a transcript row of its own.
     // A file notice about a question whose answer already shows its files says nothing more.
-    const fileBinding = matrixFileBindingForRoom(room, { ownerUserId: snapshot.identity?.userId, agents: snapshot.agents })
+    const fileBinding = matrixFileBindingForRoom(room, {
+      ownerPrincipal: snapshot.accountPrincipal,
+      ownerUserId: snapshot.identity?.userId,
+      agents: snapshot.agents
+    })
     const shown = fileBinding ? matrixHideFileStatusNotices(snapshot.messages, fileBinding) : snapshot.messages
     const visible = matrixHideEndedTransientLines(shown, agents)
     const line = room?.assistant ? matrixWorkingLine(visible, agents, snapshot.assistant?.userId) : undefined
@@ -5463,6 +5470,7 @@ function Conversation({
     snapshot.roomId,
     room,
     snapshot.agents,
+    snapshot.accountPrincipal,
     outgoing,
     snapshot.identity?.userId,
     snapshot.assistant?.userId,
@@ -5634,6 +5642,7 @@ function Conversation({
               captureCard,
               cloud: Boolean(cloudAgent),
               assistantUserId: snapshot.assistant?.userId,
+              ownerPrincipal: snapshot.accountPrincipal,
               ownerUserId: snapshot.identity?.userId,
               ownerDeviceId: snapshot.identity?.deviceId,
               members: snapshot.members,

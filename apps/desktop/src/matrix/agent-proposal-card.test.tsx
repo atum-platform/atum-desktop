@@ -8,6 +8,8 @@ import type { MatrixAgentProposalCard, MatrixAgentProposalsBridge } from '../../
 import { MatrixAgentProposalCards } from './agent-proposal-card'
 import { matrixAgentProposalCopy } from './agent-proposal-copy'
 import { $agentProposals } from './agent-proposals-store'
+import { $matrixStoreShelfRequest, openMatrixTopUp } from './store/top-up'
+import { matrixWalletCopy } from './wallet-copy'
 
 const copy = matrixAgentProposalCopy.en
 const ROOM = '!assistant:atum.test'
@@ -51,10 +53,10 @@ function fakeBridge(cards: MatrixAgentProposalCard[]) {
   }
 }
 
-function show(bridge: MatrixAgentProposalsBridge, eventId = EVENT) {
+function show(bridge: MatrixAgentProposalsBridge, eventId = EVENT, onTopUp?: () => Promise<void>) {
   return render(
     <I18nProvider configClient={null} initialLocale="en">
-      <MatrixAgentProposalCards bridge={bridge} eventId={eventId} roomId={ROOM} />
+      <MatrixAgentProposalCards bridge={bridge} eventId={eventId} onTopUp={onTopUp} roomId={ROOM} />
     </I18nProvider>
   )
 }
@@ -62,6 +64,8 @@ function show(bridge: MatrixAgentProposalsBridge, eventId = EVENT) {
 afterEach(() => {
   cleanup()
   $agentProposals.set({})
+  $matrixStoreShelfRequest.set(null)
+  Reflect.deleteProperty(window, 'atumMatrix')
 })
 
 describe('the agent proposal card', () => {
@@ -101,6 +105,7 @@ describe('the agent proposal card', () => {
     show(bridge)
 
     expect(await screen.findByText('Delete Lan?')).toBeTruthy()
+    expect(screen.getByRole('button', { name: copy.confirm }).classList.contains('ak-btn--danger')).toBe(true)
     expect(screen.queryByText(/Protons/)).toBeNull()
   })
 
@@ -139,17 +144,30 @@ describe('the agent proposal card', () => {
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('failed: says why and offers Try again', async () => {
+  it.each([false, true])('funds failure opens the existing top-up entry point with one action (in-app: %s)', async inApp => {
     const { bridge } = fakeBridge([card({ state: 'failed', failure: 'funds' })])
-    show(bridge)
+    const openTopUp = vi.fn(async () => {})
+    const command = vi.fn(async () => null)
+    window.atumMatrix = { openTopUp, command } as unknown as typeof window.atumMatrix
+    const snapshot = inApp ? {
+      apps: { state: 'ready' as const, apps: [], connections: {} },
+      checkout: { state: 'ready' as const, packs: [], checkoutOpen: true, order: null, reconciliationPending: false, intent: null }
+    } : {}
+    show(bridge, EVENT, () => openMatrixTopUp(snapshot))
 
     const group = await screen.findByRole('group', { name: copy.label })
     expect(group.getAttribute('data-matrix-agent-proposal')).toBe('failed')
     expect(screen.getByRole('status').textContent).toBe(copy.short)
 
-    fireEvent.click(screen.getByRole('button', { name: copy.tryAgain }))
-    expect(await screen.findByText('Researcher is on its way')).toBeTruthy()
-    expect(bridge.confirm).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: matrixWalletCopy('en').topUpMore }))
+    if (inApp) {
+      await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'discoverApps' }))
+      expect($matrixStoreShelfRequest.get()).toBe('topups')
+      expect(openTopUp).not.toHaveBeenCalled()
+    } else {
+      await waitFor(() => expect(openTopUp).toHaveBeenCalledTimes(1))
+    }
+    expect(bridge.confirm).not.toHaveBeenCalled()
   })
 
   it('a confirmation that does not go through keeps the card and offers Try again', async () => {

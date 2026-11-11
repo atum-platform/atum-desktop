@@ -107,6 +107,7 @@ export function matrixFileAnswerProjection(
 /** The current platform binding of the room a message is shown in. */
 export interface MatrixFileBinding {
   roomId: string
+  ownerPrincipal?: string
   ownerUserId?: string
   /** The owner's agents from the owner-scoped platform roster. */
   agents?: readonly { principal: string; userId: string }[]
@@ -128,8 +129,7 @@ interface MatrixFileMessage {
  * The chips to show for a message, or nothing (it then renders exactly as before). Every
  * platform-knowable identity field is compared with the binding; the per-turn fields (root,
  * task, invocation) are correlation the reader already holds consistent, and grant nothing.
- * The owner's own principal is implied by the owner-scoped roster: the renderer has no
- * separate platform copy of it.
+ * The owner principal comes from main's signed-in account session.
  */
 export function matrixAdmittedFiles(message: MatrixFileMessage, binding: MatrixFileBinding): FileChip[] | undefined {
   const files = message.files
@@ -143,7 +143,9 @@ export function matrixAdmittedFiles(message: MatrixFileMessage, binding: MatrixF
   if (identity.scope === 'owner_private') {
     const agent = binding.agents?.find(each => each.principal === identity.agentPrincipal)
 
-    return agent &&
+    return Boolean(binding.ownerPrincipal) &&
+      identity.ownerPrincipal === binding.ownerPrincipal &&
+      agent &&
       agent.userId === message.sender &&
       !binding.companyChannel &&
       binding.roomAgentPrincipal === identity.agentPrincipal &&
@@ -287,6 +289,7 @@ export function matrixFileBindingForRoom(
       }
     | undefined,
   context: {
+    ownerPrincipal?: string
     ownerUserId?: string
     agents?: readonly { principal: string; userId: string }[]
     companyAgent?: { companyId: string; principal: string; userId: string }
@@ -302,6 +305,7 @@ export function matrixFileBindingForRoom(
 
   return {
     roomId: room.id,
+    ...(context.ownerPrincipal ? { ownerPrincipal: context.ownerPrincipal } : {}),
     ...(context.ownerUserId ? { ownerUserId: context.ownerUserId } : {}),
     ...(context.agents ? { agents: context.agents } : {}),
     ...(agentRoom ? { roomAgentPrincipal: room.agentPrincipal } : {}),
