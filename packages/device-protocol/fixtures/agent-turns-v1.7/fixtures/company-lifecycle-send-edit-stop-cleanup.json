@@ -1,0 +1,54 @@
+{
+  "steps": [
+    {
+      "from": "recheck",
+      "to": "send_allowed",
+      "event": "send_authority_current"
+    },
+    {
+      "from": "send_allowed",
+      "to": "recheck",
+      "event": "send"
+    },
+    {
+      "from": "recheck",
+      "to": "edit_allowed",
+      "event": "edit_authority_current"
+    },
+    {
+      "from": "edit_allowed",
+      "to": "recheck",
+      "event": "edit"
+    },
+    {
+      "from": "recheck",
+      "to": "terminal",
+      "event": "terminal"
+    },
+    {
+      "from": "terminal",
+      "to": "terminal",
+      "event": "authority_denied"
+    },
+    {
+      "from": "terminal",
+      "to": "redact_allowed",
+      "event": "cleanup_authority_current"
+    },
+    {
+      "from": "redact_allowed",
+      "to": "terminal",
+      "event": "redact_failed"
+    },
+    {
+      "from": "terminal",
+      "to": "redact_allowed",
+      "event": "cleanup_authority_current"
+    },
+    {
+      "from": "redact_allowed",
+      "to": "cleaned",
+      "event": "redact"
+    }
+  ]
+}

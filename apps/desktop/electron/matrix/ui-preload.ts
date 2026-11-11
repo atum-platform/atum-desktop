@@ -23,6 +23,7 @@ import {
   type MatrixSnapshot,
   type MatrixUiBridge
 } from '../../shared/matrix'
+import { MATRIX_AGENT_PROPOSALS_IPC } from '../../shared/matrix-agent-proposals'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { MATRIX_CLIPBOARD_IPC } from '../../shared/matrix-clipboard'
 import type { MatrixCompanyDesktopRequest } from '../../shared/matrix-company-desktop'
@@ -226,6 +227,17 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.on(MATRIX_AGENT_SOURCES_IPC.changed, receive)
 
       return () => ipcRenderer.removeListener(MATRIX_AGENT_SOURCES_IPC.changed, receive)
+    }
+  },
+  agentProposals: {
+    read: roomId => ipcRenderer.invoke(MATRIX_AGENT_PROPOSALS_IPC.read, roomId),
+    confirm: proposalId => ipcRenderer.invoke(MATRIX_AGENT_PROPOSALS_IPC.confirm, proposalId),
+    decline: proposalId => ipcRenderer.invoke(MATRIX_AGENT_PROPOSALS_IPC.decline, proposalId),
+    subscribe: listener => {
+      const receive = (_event: unknown, roomId: unknown) => typeof roomId === 'string' && listener(roomId)
+      ipcRenderer.on(MATRIX_AGENT_PROPOSALS_IPC.changed, receive)
+
+      return () => ipcRenderer.removeListener(MATRIX_AGENT_PROPOSALS_IPC.changed, receive)
     }
   },
   folderAccess: {

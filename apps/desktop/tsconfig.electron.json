@@ -25,6 +25,11 @@
   // The Matrix SDK seam's contract and command queue are DOM-free too: the main process
   // keeps one queue per SDK window, and browser and headless hosts share it (G8-36).
   "include": [
+    "shared/matrix-file-reader.ts",
+    "shared/matrix-file-reader.test.ts",
+    "shared/matrix-file-chips.ts",
+    "shared/matrix-file-chips.test.ts",
+    "shared/matrix-file-chip-copy.ts",
     "shared/app-panel.ts",
     "shared/gmail-compose.ts",
     "shared/gmail-mail.ts",
@@ -130,6 +135,7 @@
     "shared/matrix-assistant-persona.ts",
     "shared/matrix-native-apps.ts",
     "shared/matrix-permissions.ts",
+    "shared/matrix-agent-proposals.ts",
     "shared/matrix-agent-sources.ts",
     "shared/matrix-folder-access.ts",
     "shared/matrix-mac-sources.ts",

@@ -1,0 +1,29 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "routed",
+      "event": "mac_selected"
+    },
+    {
+      "from": "routed",
+      "to": "working",
+      "event": "work_started"
+    },
+    {
+      "from": "working",
+      "to": "waiting_touch_id",
+      "event": "touch_id_required"
+    },
+    {
+      "from": "waiting_touch_id",
+      "to": "resumed",
+      "event": "touch_id_approved"
+    },
+    {
+      "from": "resumed",
+      "to": "ended",
+      "event": "turn_ended"
+    }
+  ]
+}

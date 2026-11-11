@@ -197,6 +197,14 @@
       "version": "v1.6",
       "pinned_sha256": "9fc19bfc6a4cd8d1f22e383360287160300c004859e98d8a48a4168083f5a7d9",
       "vendored": "full"
+    },
+    "agent-turns-v1.7": {
+      "version": "v1.7",
+      "pinned_sha256": "4257b3cf4b391c0b874533384554891bad4aa479d00e8295c589a72c5aa9c4fd",
+      "vendored": "full",
+      "source": "atum-platform/spec/agent-turns/v1.7 (invocation continuity amendment; feat/talk-17-invocation-1111)",
+      "source_path": "spec/agent-turns/v1.7",
+      "source_commit": "d2a9fe5763bd96c28c5ce7dc94d0c6e132f22382"
     }
   },
   "runtime_schema_modules": {

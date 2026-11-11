@@ -1,0 +1,4287 @@
+{
+  "contract_id": "atum.agent-turns",
+  "version": "1.7",
+  "status": "frozen",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/client-progress-answer.sequence.json",
+    "fixtures/client-progress-not-answer.sequence.json",
+    "fixtures/company-channel-interim-edit-identity.json",
+    "fixtures/company-channel-interim-edit-root.json",
+    "fixtures/company-channel-interim-edit.json",
+    "fixtures/company-channel-interim-leak-grant.json",
+    "fixtures/company-channel-interim-leak-homeId.json",
+    "fixtures/company-channel-interim-leak-leaseToken.json",
+    "fixtures/company-channel-interim-leak-modelToken.json",
+    "fixtures/company-channel-interim-leak-reasoning.json",
+    "fixtures/company-channel-interim-leak-toolArguments.json",
+    "fixtures/company-channel-interim-leak-toolResult.json",
+    "fixtures/company-channel-interim-marker-leak-grant.json",
+    "fixtures/company-channel-interim-marker-leak-homeId.json",
+    "fixtures/company-channel-interim-marker-leak-leaseToken.json",
+    "fixtures/company-channel-interim-marker-leak-modelToken.json",
+    "fixtures/company-channel-interim-marker-leak-reasoning.json",
+    "fixtures/company-channel-interim-marker-leak-toolArguments.json",
+    "fixtures/company-channel-interim-marker-leak-toolResult.json",
+    "fixtures/company-channel-interim-missing-task.json",
+    "fixtures/company-channel-interim-missing-thread.json",
+    "fixtures/company-channel-interim-mixed-audience.json",
+    "fixtures/company-channel-interim-personal.json",
+    "fixtures/company-channel-interim-timeline-fallback.json",
+    "fixtures/company-channel-interim-wrong-root.json",
+    "fixtures/company-channel-interim.json",
+    "fixtures/company-channel-progress-edit-identity.json",
+    "fixtures/company-channel-progress-edit-root.json",
+    "fixtures/company-channel-progress-edit.json",
+    "fixtures/company-channel-progress-leak-grant.json",
+    "fixtures/company-channel-progress-leak-homeId.json",
+    "fixtures/company-channel-progress-leak-leaseToken.json",
+    "fixtures/company-channel-progress-leak-modelToken.json",
+    "fixtures/company-channel-progress-leak-reasoning.json",
+    "fixtures/company-channel-progress-leak-toolArguments.json",
+    "fixtures/company-channel-progress-leak-toolResult.json",
+    "fixtures/company-channel-progress-marker-leak-grant.json",
+    "fixtures/company-channel-progress-marker-leak-homeId.json",
+    "fixtures/company-channel-progress-marker-leak-leaseToken.json",
+    "fixtures/company-channel-progress-marker-leak-modelToken.json",
+    "fixtures/company-channel-progress-marker-leak-reasoning.json",
+    "fixtures/company-channel-progress-marker-leak-toolArguments.json",
+    "fixtures/company-channel-progress-marker-leak-toolResult.json",
+    "fixtures/company-channel-progress-missing-task.json",
+    "fixtures/company-channel-progress-missing-thread.json",
+    "fixtures/company-channel-progress-mixed-audience.json",
+    "fixtures/company-channel-progress-personal.json",
+    "fixtures/company-channel-progress-timeline-fallback.json",
+    "fixtures/company-channel-progress-wrong-root.json",
+    "fixtures/company-channel-progress.json",
+    "fixtures/company-lifecycle-cleanup-without-recheck.json",
+    "fixtures/company-lifecycle-edit-without-recheck.json",
+    "fixtures/company-lifecycle-late-edit.json",
+    "fixtures/company-lifecycle-send-edit-stop-cleanup.json",
+    "fixtures/company-lifecycle-send-without-recheck.json",
+    "fixtures/company-lifecycle-stale-authority.json",
+    "fixtures/company-private-interim-edit-identity.json",
+    "fixtures/company-private-interim-edit-root.json",
+    "fixtures/company-private-interim-edit.json",
+    "fixtures/company-private-interim-leak-grant.json",
+    "fixtures/company-private-interim-leak-homeId.json",
+    "fixtures/company-private-interim-leak-leaseToken.json",
+    "fixtures/company-private-interim-leak-modelToken.json",
+    "fixtures/company-private-interim-leak-reasoning.json",
+    "fixtures/company-private-interim-leak-toolArguments.json",
+    "fixtures/company-private-interim-leak-toolResult.json",
+    "fixtures/company-private-interim-marker-leak-grant.json",
+    "fixtures/company-private-interim-marker-leak-homeId.json",
+    "fixtures/company-private-interim-marker-leak-leaseToken.json",
+    "fixtures/company-private-interim-marker-leak-modelToken.json",
+    "fixtures/company-private-interim-marker-leak-reasoning.json",
+    "fixtures/company-private-interim-marker-leak-toolArguments.json",
+    "fixtures/company-private-interim-marker-leak-toolResult.json",
+    "fixtures/company-private-interim-missing-task.json",
+    "fixtures/company-private-interim-missing-thread.json",
+    "fixtures/company-private-interim-mixed-audience.json",
+    "fixtures/company-private-interim-personal.json",
+    "fixtures/company-private-interim-timeline-fallback.json",
+    "fixtures/company-private-interim-wrong-root.json",
+    "fixtures/company-private-interim.json",
+    "fixtures/company-private-progress-edit-identity.json",
+    "fixtures/company-private-progress-edit-root.json",
+    "fixtures/company-private-progress-edit.json",
+    "fixtures/company-private-progress-leak-grant.json",
+    "fixtures/company-private-progress-leak-homeId.json",
+    "fixtures/company-private-progress-leak-leaseToken.json",
+    "fixtures/company-private-progress-leak-modelToken.json",
+    "fixtures/company-private-progress-leak-reasoning.json",
+    "fixtures/company-private-progress-leak-toolArguments.json",
+    "fixtures/company-private-progress-leak-toolResult.json",
+    "fixtures/company-private-progress-marker-leak-grant.json",
+    "fixtures/company-private-progress-marker-leak-homeId.json",
+    "fixtures/company-private-progress-marker-leak-leaseToken.json",
+    "fixtures/company-private-progress-marker-leak-modelToken.json",
+    "fixtures/company-private-progress-marker-leak-reasoning.json",
+    "fixtures/company-private-progress-marker-leak-toolArguments.json",
+    "fixtures/company-private-progress-marker-leak-toolResult.json",
+    "fixtures/company-private-progress-missing-task.json",
+    "fixtures/company-private-progress-missing-thread.json",
+    "fixtures/company-private-progress-mixed-audience.json",
+    "fixtures/company-private-progress-personal.json",
+    "fixtures/company-private-progress-timeline-fallback.json",
+    "fixtures/company-private-progress-wrong-root.json",
+    "fixtures/company-private-progress.json",
+    "fixtures/device-end-before-work.sequence.json",
+    "fixtures/device-step.sequence.json",
+    "fixtures/device-touch-id-expire.sequence.json",
+    "fixtures/device-touch-id.sequence.json",
+    "fixtures/device-unreachable-expire.sequence.json",
+    "fixtures/device-unreachable-resume.sequence.json",
+    "fixtures/device-wait-before-route.sequence.json",
+    "fixtures/files-company-committed-answer.json",
+    "fixtures/files-company-committed-invalid-invocation.json",
+    "fixtures/files-company-committed-missing-result.json",
+    "fixtures/files-company-committed-missing-transaction.json",
+    "fixtures/files-company-committed-path.json",
+    "fixtures/files-company-committed-profile.json",
+    "fixtures/files-company-committed-root.json",
+    "fixtures/files-company-committed-state.json",
+    "fixtures/files-company-committed-update.json",
+    "fixtures/files-company-committed-warning.json",
+    "fixtures/files-company-committed-wrong-invocation.json",
+    "fixtures/files-company-committed_with_siblings-answer.json",
+    "fixtures/files-company-committed_with_siblings-invalid-invocation.json",
+    "fixtures/files-company-committed_with_siblings-missing-result.json",
+    "fixtures/files-company-committed_with_siblings-missing-transaction.json",
+    "fixtures/files-company-committed_with_siblings-path.json",
+    "fixtures/files-company-committed_with_siblings-profile.json",
+    "fixtures/files-company-committed_with_siblings-root.json",
+    "fixtures/files-company-committed_with_siblings-state.json",
+    "fixtures/files-company-committed_with_siblings-update.json",
+    "fixtures/files-company-committed_with_siblings-warning.json",
+    "fixtures/files-company-committed_with_siblings-wrong-invocation.json",
+    "fixtures/files-company-draft_evicted-answer.json",
+    "fixtures/files-company-draft_evicted-invalid-invocation.json",
+    "fixtures/files-company-draft_evicted-missing-result.json",
+    "fixtures/files-company-draft_evicted-missing-transaction.json",
+    "fixtures/files-company-draft_evicted-path.json",
+    "fixtures/files-company-draft_evicted-profile.json",
+    "fixtures/files-company-draft_evicted-root.json",
+    "fixtures/files-company-draft_evicted-state.json",
+    "fixtures/files-company-draft_evicted-update.json",
+    "fixtures/files-company-draft_evicted-warning.json",
+    "fixtures/files-company-draft_evicted-wrong-invocation.json",
+    "fixtures/files-company-recovering-answer.json",
+    "fixtures/files-company-recovering-invalid-invocation.json",
+    "fixtures/files-company-recovering-missing-result.json",
+    "fixtures/files-company-recovering-missing-transaction.json",
+    "fixtures/files-company-recovering-path.json",
+    "fixtures/files-company-recovering-profile.json",
+    "fixtures/files-company-recovering-root.json",
+    "fixtures/files-company-recovering-state.json",
+    "fixtures/files-company-recovering-update.json",
+    "fixtures/files-company-recovering-warning.json",
+    "fixtures/files-company-recovering-wrong-invocation.json",
+    "fixtures/files-company-refused-answer.json",
+    "fixtures/files-company-refused-invalid-invocation.json",
+    "fixtures/files-company-refused-missing-result.json",
+    "fixtures/files-company-refused-missing-transaction.json",
+    "fixtures/files-company-refused-path.json",
+    "fixtures/files-company-refused-profile.json",
+    "fixtures/files-company-refused-root.json",
+    "fixtures/files-company-refused-state.json",
+    "fixtures/files-company-refused-update.json",
+    "fixtures/files-company-refused-warning.json",
+    "fixtures/files-company-refused-wrong-invocation.json",
+    "fixtures/files-company-terminal_unknown-answer.json",
+    "fixtures/files-company-terminal_unknown-invalid-invocation.json",
+    "fixtures/files-company-terminal_unknown-missing-result.json",
+    "fixtures/files-company-terminal_unknown-missing-transaction.json",
+    "fixtures/files-company-terminal_unknown-path.json",
+    "fixtures/files-company-terminal_unknown-profile.json",
+    "fixtures/files-company-terminal_unknown-root.json",
+    "fixtures/files-company-terminal_unknown-state.json",
+    "fixtures/files-company-terminal_unknown-update.json",
+    "fixtures/files-company-terminal_unknown-warning.json",
+    "fixtures/files-company-terminal_unknown-wrong-invocation.json",
+    "fixtures/files-owner_private-committed-answer.json",
+    "fixtures/files-owner_private-committed-invalid-invocation.json",
+    "fixtures/files-owner_private-committed-missing-result.json",
+    "fixtures/files-owner_private-committed-missing-transaction.json",
+    "fixtures/files-owner_private-committed-path.json",
+    "fixtures/files-owner_private-committed-profile.json",
+    "fixtures/files-owner_private-committed-root.json",
+    "fixtures/files-owner_private-committed-state.json",
+    "fixtures/files-owner_private-committed-update.json",
+    "fixtures/files-owner_private-committed-warning.json",
+    "fixtures/files-owner_private-committed-wrong-invocation.json",
+    "fixtures/files-owner_private-committed_with_siblings-answer.json",
+    "fixtures/files-owner_private-committed_with_siblings-invalid-invocation.json",
+    "fixtures/files-owner_private-committed_with_siblings-missing-result.json",
+    "fixtures/files-owner_private-committed_with_siblings-missing-transaction.json",
+    "fixtures/files-owner_private-committed_with_siblings-path.json",
+    "fixtures/files-owner_private-committed_with_siblings-profile.json",
+    "fixtures/files-owner_private-committed_with_siblings-root.json",
+    "fixtures/files-owner_private-committed_with_siblings-state.json",
+    "fixtures/files-owner_private-committed_with_siblings-update.json",
+    "fixtures/files-owner_private-committed_with_siblings-warning.json",
+    "fixtures/files-owner_private-committed_with_siblings-wrong-invocation.json",
+    "fixtures/files-owner_private-draft_evicted-answer.json",
+    "fixtures/files-owner_private-draft_evicted-invalid-invocation.json",
+    "fixtures/files-owner_private-draft_evicted-missing-result.json",
+    "fixtures/files-owner_private-draft_evicted-missing-transaction.json",
+    "fixtures/files-owner_private-draft_evicted-path.json",
+    "fixtures/files-owner_private-draft_evicted-profile.json",
+    "fixtures/files-owner_private-draft_evicted-root.json",
+    "fixtures/files-owner_private-draft_evicted-state.json",
+    "fixtures/files-owner_private-draft_evicted-update.json",
+    "fixtures/files-owner_private-draft_evicted-warning.json",
+    "fixtures/files-owner_private-draft_evicted-wrong-invocation.json",
+    "fixtures/files-owner_private-recovering-answer.json",
+    "fixtures/files-owner_private-recovering-invalid-invocation.json",
+    "fixtures/files-owner_private-recovering-missing-result.json",
+    "fixtures/files-owner_private-recovering-missing-transaction.json",
+    "fixtures/files-owner_private-recovering-path.json",
+    "fixtures/files-owner_private-recovering-profile.json",
+    "fixtures/files-owner_private-recovering-root.json",
+    "fixtures/files-owner_private-recovering-state.json",
+    "fixtures/files-owner_private-recovering-update.json",
+    "fixtures/files-owner_private-recovering-warning.json",
+    "fixtures/files-owner_private-recovering-wrong-invocation.json",
+    "fixtures/files-owner_private-refused-answer.json",
+    "fixtures/files-owner_private-refused-invalid-invocation.json",
+    "fixtures/files-owner_private-refused-missing-result.json",
+    "fixtures/files-owner_private-refused-missing-transaction.json",
+    "fixtures/files-owner_private-refused-path.json",
+    "fixtures/files-owner_private-refused-profile.json",
+    "fixtures/files-owner_private-refused-root.json",
+    "fixtures/files-owner_private-refused-state.json",
+    "fixtures/files-owner_private-refused-update.json",
+    "fixtures/files-owner_private-refused-warning.json",
+    "fixtures/files-owner_private-refused-wrong-invocation.json",
+    "fixtures/files-owner_private-terminal_unknown-answer.json",
+    "fixtures/files-owner_private-terminal_unknown-invalid-invocation.json",
+    "fixtures/files-owner_private-terminal_unknown-missing-result.json",
+    "fixtures/files-owner_private-terminal_unknown-missing-transaction.json",
+    "fixtures/files-owner_private-terminal_unknown-path.json",
+    "fixtures/files-owner_private-terminal_unknown-profile.json",
+    "fixtures/files-owner_private-terminal_unknown-root.json",
+    "fixtures/files-owner_private-terminal_unknown-state.json",
+    "fixtures/files-owner_private-terminal_unknown-update.json",
+    "fixtures/files-owner_private-terminal_unknown-warning.json",
+    "fixtures/files-owner_private-terminal_unknown-wrong-invocation.json",
+    "fixtures/interim-later.content.json",
+    "fixtures/interim-message.content.json",
+    "fixtures/interim-policy.vectors.json",
+    "fixtures/interim-progress-rejected.content.json",
+    "fixtures/interim-result-rejected.content.json",
+    "fixtures/interim-unmarked-rejected.content.json",
+    "fixtures/presentation-descriptor.vectors.json",
+    "fixtures/progress-edit.content.json",
+    "fixtures/progress-group-rejected.content.json",
+    "fixtures/progress-heartbeat.content.json",
+    "fixtures/progress-original.content.json",
+    "fixtures/progress-policy.vectors.json",
+    "fixtures/progress-presentation-device-wait.content.json",
+    "fixtures/progress-presentation-first-learning.content.json",
+    "fixtures/progress-presentation-future-version-rejected.content.json",
+    "fixtures/progress-presentation-heartbeat.content.json",
+    "fixtures/progress-presentation-oversize-heartbeat-rejected.content.json",
+    "fixtures/progress-presentation-raw-tool-name-rejected.content.json",
+    "fixtures/progress-presentation-todo.content.json",
+    "fixtures/progress-presentation-tool-activity-edit.content.json",
+    "fixtures/progress-presentation-tool-activity.content.json",
+    "fixtures/progress-presentation-touch-id.content.json",
+    "fixtures/progress-presentation-unknown-activity-rejected.content.json",
+    "fixtures/progress-result-rejected.content.json",
+    "fixtures/progress-settled.content.json",
+    "fixtures/receipt-policy.vector.json",
+    "fixtures/result-answer-warning-progress-rejected.content.json",
+    "fixtures/result-answer-warning-status-rejected.content.json",
+    "fixtures/result-answer-warning-zero-offset-rejected.content.json",
+    "fixtures/result-answer-warning.content.json",
+    "fixtures/result-status-attachment-unreadable.content.json",
+    "fixtures/result-status-couldnt-confirm.content.json",
+    "fixtures/result-status-device-unreachable.content.json",
+    "fixtures/result-status-failed-routine.content.json",
+    "fixtures/result-status-long-routine-title-rejected.content.json",
+    "fixtures/result-status-progress-rejected.content.json",
+    "fixtures/result-status-raw-identifier-rejected.content.json",
+    "fixtures/result-status-resuming-on-device.content.json",
+    "fixtures/result-status-scalar-name-bound.content.json",
+    "fixtures/result-status-scalar-name-oversize-rejected.content.json",
+    "fixtures/result-status-unfunded.content.json",
+    "fixtures/result-status-unknown-code-rejected.content.json",
+    "fixtures/result-warning-split.vectors.json",
+    "fixtures/status-line-daily-cap-warning.content.json",
+    "fixtures/status-line-future-version-rejected.content.json",
+    "fixtures/status-line-reminder-missed.content.json",
+    "fixtures/status-line-result-rejected.content.json",
+    "fixtures/status-line-routine-failed.content.json",
+    "fixtures/transient-line-history.sequence.json",
+    "fixtures/transient-line-late-edit.sequence.json",
+    "fixtures/transient-line-live.sequence.json",
+    "fixtures/transient-line-reappears.sequence.json",
+    "fixtures/transient-policy.vector.json",
+    "fixtures/typing-policy.vector.json"
+  ],
+  "base": {
+    "contract": "atum.agent-turns/1.6",
+    "path": "spec/agent-turns/v1.6",
+    "sha256": "9fc19bfc6a4cd8d1f22e383360287160300c004859e98d8a48a4168083f5a7d9",
+    "rule": "Add file presentation only; all prior messages and fixtures remain unchanged."
+  },
+  "row": "Owner 2026-11-11: file chips and passive readers; no producer activation",
+  "providers": [
+    "the Mac executor",
+    "the cloud controller"
+  ],
+  "consumers": [
+    "atum-app desktop",
+    "atum-mobile",
+    "web and other Matrix clients"
+  ],
+  "parameters": {
+    "progress_min_edit_ms": 3000,
+    "progress_heartbeat_ms": 180000,
+    "progress_max_edits_per_turn": 48,
+    "progress_body_max_chars": 1000,
+    "progress_private_chat_only": true,
+    "device_step_progress_ms": 5000,
+    "waiting_device_timeout_ms": 7200000,
+    "touch_id_timeout_ms": 60000,
+    "interim_min_gap_ms": 20000,
+    "interim_body_max_chars": 1000,
+    "typing_timeout_ms": 30000,
+    "typing_renew_ms": 20000,
+    "presentation_version": 1,
+    "presentation_elapsed_minutes_max": 1440,
+    "presentation_todo_count_max": 100,
+    "result_routine_title_max_chars": 60,
+    "result_device_name_max_chars": 80,
+    "result_devices_max": 8,
+    "result_warning_from_max": 65536
+  },
+  "amendments": [
+    {
+      "id": "A1",
+      "sections": [
+        "receipts",
+        "typing"
+      ],
+      "change": "the owner uses public m.read and public typing by default, controlled by one account privacy setting; off uses m.read.private and no public typing; an agent receipt in a group targets only a message addressed to or admitted by that agent, and cumulative receipts never reveal unrelated group reading"
+    },
+    {
+      "id": "A2",
+      "sections": [
+        "progress"
+      ],
+      "change": "one redacted m.notice rich reply in the owner private chat carries io.atum.progress and is edited in place; groups never receive it; edits are at least 3000 ms apart, at most 48 per turn, at most 1000 characters, and never duplicate the final answer"
+    },
+    {
+      "id": "A3",
+      "sections": [
+        "client_turn"
+      ],
+      "change": "progress_shown, progress_edited and progress_settled keep client_turn working; only the final m.text answer or a terminal status ends what the owner is owed; progress never suppresses the no-reply banner and never becomes the roster preview"
+    },
+    {
+      "id": "A4",
+      "sections": [
+        "progress"
+      ],
+      "change": "message.interim and todo tool completion update the same line; after 180000 ms without new interim text a heartbeat may say only that work continues and elapsed minutes, with no tool names"
+    },
+    {
+      "id": "A5",
+      "sections": [
+        "device_wait"
+      ],
+      "change": "ordinary Mac-routed steps post no separate wait notice; after 5000 ms they may update the progress line with the selected Mac; unreachable and Touch ID waits are published only after a real Mac is selected, name that Mac, resume on reconnect or approval, and an unreachable follow-up expires after 7200000 ms"
+    },
+    {
+      "id": "A6",
+      "sections": [
+        "settlement"
+      ],
+      "change": "the progress root remains after the answer collapsed to its final line, edits are drained before the final answer, and queued or late edits are dropped after settlement"
+    },
+    {
+      "id": "A7",
+      "sections": [
+        "progress"
+      ],
+      "change": "supersedes A6: the progress line is transient. It is redacted by its publisher once the turn has settled and drained, and a client hides any progress line (and any retired fixed \"waiting/waited for your Mac\" status line) whose turn has ended before the redaction lands, and renders no tombstone for a redacted agent message; it never notifies, never reads edited and never becomes the roster preview"
+    },
+    {
+      "id": "A8",
+      "sections": [
+        "progress",
+        "device_wait"
+      ],
+      "change": "tool activity, the todo list and every wait (a slow Mac step, an unreachable Mac before it is an outcome, Touch ID) share the one progress line; an answered wait returns the line to its previous text rather than saying it waited"
+    },
+    {
+      "id": "A9",
+      "sections": [
+        "interim"
+      ],
+      "change": "the agent first interim remark of a turn is a real m.text message marked io.atum.interim:true (the acknowledgement); later remarks are also real messages, at most one per 20000 ms, redacted text only, dropped when they duplicate the answer; interim messages are never the answer and never suppress the no-reply banner"
+    },
+    {
+      "id": "A10",
+      "sections": [
+        "typing"
+      ],
+      "change": "typing is on from the moment the agent takes a message until its answer or a terminal status, renewed every 20000 ms inside the 30000 ms Matrix timeout, and stays on while a Mac does a step; it pauses only while the agent waits for the person"
+    },
+    {
+      "id": "A11",
+      "sections": [
+        "notices"
+      ],
+      "change": "only a real outcome persists as a notice: an unreachable Mac with the way out, out of Protons, trial ended, a routine that could not run, and the interrupted-work verification; text that only says the agent is working, waiting or waited is transient"
+    },
+    {
+      "id": "A12",
+      "sections": [
+        "progress",
+        "presentation"
+      ],
+      "change": "content may carry an optional closed io.atum.presentation descriptor {version:1, code, args}; the wire profile stays atum.agent-turns/1.3 with the strict marker unchanged so 1.3 and 1.4 content readers ignore the top-level extension and keep rendering body; an absent descriptor, an unknown version or code, malformed or oversized args, or a code that does not pair with the marker kind and phase means: render body"
+    },
+    {
+      "id": "A13",
+      "sections": [
+        "presentation"
+      ],
+      "change": "the descriptor codes are tool_activity {activity: web|read|write|run|delegate|look|draw}, todo_progress {done,total}, first_learning {}, heartbeat {elapsed_minutes}, device_wait {} and touch_id {} (the Mac is the marker device); the descriptor never carries a raw tool name, argument, result, identifier or text the agent or a person wrote, and the agent narration and todo item text have no key and stay authored text"
+    },
+    {
+      "id": "A14",
+      "sections": [
+        "result"
+      ],
+      "change": "io.atum.result.status covers every status code of atum.agent-home/1.9 on a notice, plus device_unreachable, with top-level io.atum.result_details (devices, routine_title, attachment, resume); an answer that ends with an appended warning carries io.atum.result_warning {version:1, from}, the scalar offset of the \"\\n\\n\" that starts the warning, so a client keeps the answer byte for byte and may replace only the warning"
+    },
+    {
+      "id": "A15",
+      "sections": [
+        "scheduled"
+      ],
+      "change": "a scheduled or standing line that is not a turn outcome carries io.atum.status {version:1, code, details?} and never io.atum.result, which old clients read as an answer marker"
+    }
+  ],
+  "types": {
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 1024,
+      "pattern": "[$][!-~]+"
+    },
+    "progress_phase": {
+      "enum": [
+        "working",
+        "waiting",
+        "settled"
+      ]
+    },
+    "progress_kind": {
+      "enum": [
+        "interim",
+        "todo",
+        "heartbeat",
+        "device",
+        "touch_id",
+        "settled"
+      ]
+    },
+    "progress_marker": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-turns/1.3"
+        },
+        "scope": {
+          "const": "owner_private"
+        },
+        "phase": {
+          "ref": "progress_phase"
+        },
+        "kind": {
+          "ref": "progress_kind"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 48
+        }
+      },
+      "optional": {
+        "device": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "heartbeat": {
+          "type": "boolean"
+        }
+      }
+    },
+    "progress_content": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.notice"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.progress": {
+          "ref": "progress_marker"
+        }
+      },
+      "additional": true,
+      "optional": {
+        "io.atum.presentation": {
+          "ref": "presentation_descriptor"
+        }
+      }
+    },
+    "reply_relation": {
+      "type": "object",
+      "required": {
+        "m.in_reply_to": {
+          "type": "object",
+          "required": {
+            "event_id": {
+              "ref": "event_id"
+            }
+          }
+        }
+      }
+    },
+    "replace_relation": {
+      "type": "object",
+      "required": {
+        "rel_type": {
+          "const": "m.replace"
+        },
+        "event_id": {
+          "ref": "event_id"
+        }
+      }
+    },
+    "interim_content": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.text"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.interim": {
+          "const": true
+        }
+      },
+      "additional": true
+    },
+    "tool_activity": {
+      "enum": [
+        "web",
+        "read",
+        "write",
+        "run",
+        "delegate",
+        "look",
+        "draw"
+      ]
+    },
+    "presentation_descriptor": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "tool_activity"
+            },
+            "args": {
+              "type": "object",
+              "required": {
+                "activity": {
+                  "ref": "tool_activity"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "todo_progress"
+            },
+            "args": {
+              "type": "object",
+              "required": {
+                "done": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 100
+                },
+                "total": {
+                  "type": "integer",
+                  "min": 1,
+                  "max": 100
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "first_learning"
+            },
+            "args": {
+              "type": "object",
+              "required": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "heartbeat"
+            },
+            "args": {
+              "type": "object",
+              "required": {
+                "elapsed_minutes": {
+                  "type": "integer",
+                  "min": 1,
+                  "max": 1440
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "device_wait"
+            },
+            "args": {
+              "type": "object",
+              "required": {}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "version": {
+              "const": 1
+            },
+            "code": {
+              "const": "touch_id"
+            },
+            "args": {
+              "type": "object",
+              "required": {}
+            }
+          }
+        }
+      ]
+    },
+    "uuid": {
+      "type": "string",
+      "pattern": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    },
+    "transaction": {
+      "type": "string",
+      "min": 1,
+      "max": 255,
+      "pattern": "[!-~]+"
+    },
+    "result_status_code": {
+      "enum": [
+        "stopped",
+        "failed",
+        "deadline",
+        "couldnt_confirm",
+        "unfunded",
+        "trial_expired",
+        "queue_full",
+        "memory_not_saved",
+        "couldnt_verify_mac",
+        "resuming_on_device",
+        "attachment_unsupported",
+        "thread_unsupported",
+        "saved_to_drive",
+        "saved_as_copy",
+        "save_unconfirmed",
+        "reply_unreadable",
+        "turn_limit",
+        "reminder_missed",
+        "stuck",
+        "access_final",
+        "daily_cap",
+        "daily_cap_warning"
+      ]
+    },
+    "answer_status_code": {
+      "enum": [
+        "memory_not_saved",
+        "saved_to_drive",
+        "saved_as_copy",
+        "save_unconfirmed"
+      ]
+    },
+    "notice_status_code": {
+      "enum": [
+        "stopped",
+        "failed",
+        "deadline",
+        "couldnt_confirm",
+        "unfunded",
+        "trial_expired",
+        "queue_full",
+        "memory_not_saved",
+        "couldnt_verify_mac",
+        "resuming_on_device",
+        "attachment_unsupported",
+        "thread_unsupported",
+        "saved_to_drive",
+        "saved_as_copy",
+        "save_unconfirmed",
+        "reply_unreadable",
+        "turn_limit",
+        "reminder_missed",
+        "stuck",
+        "access_final",
+        "daily_cap",
+        "daily_cap_warning",
+        "device_unreachable"
+      ]
+    },
+    "result_details": {
+      "type": "object",
+      "required": {},
+      "optional": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "min": 1,
+            "max": 80
+          },
+          "min": 1,
+          "max": 8
+        },
+        "routine_title": {
+          "type": "string",
+          "min": 1,
+          "max": 60
+        },
+        "attachment": {
+          "enum": [
+            "unsupported",
+            "unreadable"
+          ]
+        },
+        "resume": {
+          "type": "boolean"
+        }
+      }
+    },
+    "result_status_marker": {
+      "type": "object",
+      "required": {
+        "status": {
+          "ref": "notice_status_code"
+        }
+      },
+      "optional": {
+        "invocation": {
+          "ref": "uuid"
+        },
+        "transaction": {
+          "ref": "transaction"
+        },
+        "stopEvent": {
+          "type": "string",
+          "min": 2,
+          "max": 1024,
+          "pattern": "[$][!-~]+"
+        }
+      }
+    },
+    "answer_result_marker": {
+      "type": "object",
+      "required": {
+        "invocation": {
+          "ref": "uuid"
+        },
+        "transaction": {
+          "ref": "transaction"
+        },
+        "status": {
+          "ref": "answer_status_code"
+        }
+      }
+    },
+    "result_warning": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 1
+        },
+        "from": {
+          "type": "integer",
+          "min": 1,
+          "max": 65536
+        }
+      }
+    },
+    "status_line_marker": {
+      "type": "object",
+      "required": {
+        "version": {
+          "const": 1
+        },
+        "code": {
+          "ref": "notice_status_code"
+        }
+      },
+      "optional": {
+        "details": {
+          "ref": "result_details"
+        }
+      }
+    },
+    "company_identity": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "channel"
+                },
+                "channelId": {
+                  "ref": "uuid"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "private"
+                },
+                "memberPrincipal": {
+                  "ref": "uuid"
+                },
+                "membershipIncarnation": {
+                  "ref": "uuid"
+                }
+              }
+            }
+          ]
+        },
+        "roomId": {
+          "type": "string",
+          "min": 2,
+          "max": 1024,
+          "pattern": "![!-~]+"
+        },
+        "threadRootEventId": {
+          "ref": "event_id"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        }
+      }
+    },
+    "company_message_marker": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-turns/1.6"
+        },
+        "scope": {
+          "const": "company"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "channel"
+                },
+                "channelId": {
+                  "ref": "uuid"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "private"
+                },
+                "memberPrincipal": {
+                  "ref": "uuid"
+                },
+                "membershipIncarnation": {
+                  "ref": "uuid"
+                }
+              }
+            }
+          ]
+        },
+        "roomId": {
+          "type": "string",
+          "min": 2,
+          "max": 1024,
+          "pattern": "![!-~]+"
+        },
+        "threadRootEventId": {
+          "ref": "event_id"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 48
+        }
+      }
+    },
+    "company_progress_marker": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-turns/1.6"
+        },
+        "scope": {
+          "const": "company"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "anyOf": [
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "channel"
+                },
+                "channelId": {
+                  "ref": "uuid"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "private"
+                },
+                "memberPrincipal": {
+                  "ref": "uuid"
+                },
+                "membershipIncarnation": {
+                  "ref": "uuid"
+                }
+              }
+            }
+          ]
+        },
+        "roomId": {
+          "type": "string",
+          "min": 2,
+          "max": 1024,
+          "pattern": "![!-~]+"
+        },
+        "threadRootEventId": {
+          "ref": "event_id"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "min": 0,
+          "max": 48
+        },
+        "phase": {
+          "ref": "progress_phase"
+        },
+        "kind": {
+          "enum": [
+            "todo",
+            "heartbeat",
+            "device",
+            "touch_id",
+            "settled"
+          ]
+        }
+      },
+      "optional": {
+        "device": {
+          "type": "string",
+          "min": 1,
+          "max": 80
+        },
+        "heartbeat": {
+          "type": "boolean"
+        }
+      }
+    },
+    "company_thread": {
+      "type": "object",
+      "required": {
+        "rel_type": {
+          "const": "m.thread"
+        },
+        "event_id": {
+          "ref": "event_id"
+        },
+        "is_falling_back": {
+          "const": false
+        },
+        "m.in_reply_to": {
+          "type": "object",
+          "required": {
+            "event_id": {
+              "ref": "event_id"
+            }
+          }
+        }
+      }
+    },
+    "company_progress": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.notice"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.progress": {
+          "ref": "company_progress_marker"
+        },
+        "m.relates_to": {
+          "ref": "company_thread"
+        }
+      },
+      "optional": {
+        "io.atum.presentation": {
+          "ref": "presentation_descriptor"
+        }
+      }
+    },
+    "company_interim": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.text"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 1000
+        },
+        "io.atum.interim": {
+          "const": true
+        },
+        "io.atum.company": {
+          "ref": "company_message_marker"
+        },
+        "m.relates_to": {
+          "ref": "company_thread"
+        }
+      }
+    },
+    "file_identity": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "scope": {
+              "const": "owner_private"
+            },
+            "ownerPrincipal": {
+              "ref": "uuid"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "roomId": {
+              "type": "string",
+              "min": 2,
+              "max": 1024,
+              "pattern": "![!-~]+"
+            },
+            "threadRootEventId": {
+              "ref": "event_id"
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "scope": {
+              "const": "company"
+            },
+            "companyId": {
+              "ref": "uuid"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "audience": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": {
+                    "kind": {
+                      "const": "channel"
+                    },
+                    "channelId": {
+                      "ref": "uuid"
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": {
+                    "kind": {
+                      "const": "private"
+                    },
+                    "memberPrincipal": {
+                      "ref": "uuid"
+                    },
+                    "membershipIncarnation": {
+                      "ref": "uuid"
+                    }
+                  }
+                }
+              ]
+            },
+            "roomId": {
+              "type": "string",
+              "min": 2,
+              "max": 1024,
+              "pattern": "![!-~]+"
+            },
+            "threadRootEventId": {
+              "ref": "event_id"
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            }
+          }
+        }
+      ]
+    },
+    "file_chip": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "saving"
+            },
+            "outcome": {
+              "const": "recovering"
+            },
+            "draftAvailable": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "saved"
+            },
+            "outcome": {
+              "const": "committed"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "saved_as_copy"
+            },
+            "outcome": {
+              "const": "committed_with_siblings"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "not_confirmed"
+            },
+            "outcome": {
+              "const": "terminal_unknown"
+            },
+            "draftAvailable": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "not_confirmed"
+            },
+            "outcome": {
+              "const": "refused"
+            },
+            "draftAvailable": {
+              "type": "boolean"
+            },
+            "reason": {
+              "enum": [
+                "authorization",
+                "size",
+                "quota",
+                "excluded_name",
+                "other"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": {
+            "fileKey": {
+              "type": "string",
+              "min": 16,
+              "max": 128,
+              "pattern": "[A-Za-z0-9_-]+"
+            },
+            "name": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "place": {
+              "type": "string",
+              "min": 1,
+              "max": 255
+            },
+            "revision": {
+              "type": "integer",
+              "min": 0,
+              "max": 9007199254740991
+            },
+            "state": {
+              "const": "expired"
+            },
+            "outcome": {
+              "const": "draft_evicted"
+            },
+            "draftAvailable": {
+              "const": false
+            }
+          }
+        }
+      ]
+    },
+    "files_marker": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.agent-turns/1.7"
+        },
+        "identity": {
+          "ref": "file_identity"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "ref": "file_chip"
+          },
+          "min": 1,
+          "max": 32
+        }
+      }
+    },
+    "files_answer": {
+      "type": "object",
+      "required": {
+        "msgtype": {
+          "const": "m.text"
+        },
+        "body": {
+          "type": "string",
+          "min": 1,
+          "max": 262144
+        },
+        "io.atum.files": {
+          "ref": "files_marker"
+        },
+        "io.atum.result": {
+          "type": "object",
+          "required": {
+            "invocation": {
+              "ref": "uuid"
+            },
+            "transaction": {
+              "ref": "transaction"
+            }
+          }
+        },
+        "m.relates_to": {
+          "ref": "company_thread"
+        }
+      }
+    },
+    "file_update": {
+      "type": "object",
+      "required": {
+        "io.atum.files": {
+          "type": "object",
+          "required": {
+            "profile": {
+              "const": "atum.agent-turns/1.7"
+            },
+            "identity": {
+              "ref": "file_identity"
+            },
+            "answerEventId": {
+              "ref": "event_id"
+            },
+            "file": {
+              "ref": "file_chip"
+            }
+          }
+        },
+        "m.relates_to": {
+          "type": "object",
+          "required": {
+            "rel_type": {
+              "const": "m.reference"
+            },
+            "event_id": {
+              "ref": "event_id"
+            }
+          }
+        }
+      }
+    }
+  },
+  "directions": {
+    "progress_to_owner_room": {
+      "description": "One redacted progress notice in the agent owner private chat. It is presentation, never an outcome or execution authority.",
+      "forbidden_fields": [
+        "io.atum.result",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "conformance": {
+      "description": "Worked policy and state-machine examples; not a wire payload.",
+      "forbidden_fields": [
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "credential",
+        "password"
+      ]
+    },
+    "interim_to_owner_room": {
+      "description": "An interim remark from the agent in its private chat with the owner: an ordinary agent message that is not the answer.",
+      "forbidden_fields": [
+        "io.atum.result",
+        "io.atum.progress",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "result_status_to_room": {
+      "description": "A terminal or standing outcome notice from the agent in a room: a status code and bounded details beside a readable body. The body stays the sender-language fallback; a client words the code in its own language.",
+      "forbidden_fields": [
+        "io.atum.progress",
+        "io.atum.interim",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "answer_to_room": {
+      "description": "An answer from the agent whose text ends with an appended localized warning (saved to Drive, saved as a copy, not confirmed, memory not saved). `io.atum.result_warning.from` separates the answer from the warning.",
+      "forbidden_fields": [
+        "io.atum.progress",
+        "io.atum.interim",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "scheduled_status_to_room": {
+      "description": "A scheduled or standing line from the agent that is not the outcome of a turn (the daily-allowance heads-up, a missed reminder, a routine that did not finish). It never carries io.atum.result, so no client reads it as an answer.",
+      "forbidden_fields": [
+        "io.atum.result",
+        "io.atum.progress",
+        "io.atum.interim",
+        "leaseToken",
+        "accessToken",
+        "refreshToken",
+        "token",
+        "credential",
+        "password",
+        "toolArguments",
+        "toolResult"
+      ]
+    },
+    "company_presentation_to_room": {
+      "description": "Admitted public identity only. Recheck authority on every send/edit/redact; exact m.thread root, never room timeline fallback."
+    },
+    "file_presentation_to_room": {
+      "description": "Encrypted room content only. Current bound sender and exact owner/company/audience/room/root/task/invocation; file keys are never capabilities."
+    }
+  },
+  "messages": {
+    "presentation.progress_notice": {
+      "direction": "progress_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "m.relates_to": {
+            "ref": "reply_relation"
+          },
+          "io.atum.progress": {
+            "ref": "progress_marker"
+          }
+        },
+        "additional": true,
+        "optional": {
+          "io.atum.presentation": {
+            "ref": "presentation_descriptor"
+          }
+        }
+      }
+    },
+    "presentation.progress_notice_edit": {
+      "direction": "progress_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1002
+          },
+          "m.new_content": {
+            "ref": "progress_content"
+          },
+          "m.relates_to": {
+            "ref": "replace_relation"
+          },
+          "io.atum.progress": {
+            "ref": "progress_marker"
+          }
+        },
+        "additional": true,
+        "optional": {
+          "io.atum.presentation": {
+            "ref": "presentation_descriptor"
+          }
+        }
+      }
+    },
+    "presentation.receipt_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "ownerDefaultReceipt": {
+            "const": "m.read"
+          },
+          "ownerOffReceipt": {
+            "const": "m.read.private"
+          },
+          "ownerTypingDefault": {
+            "const": true
+          },
+          "agentGroupTarget": {
+            "const": "addressed_or_admitted"
+          },
+          "cumulative": {
+            "const": true
+          }
+        }
+      }
+    },
+    "presentation.progress_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 120
+                },
+                "private": {
+                  "type": "boolean"
+                },
+                "elapsedMs": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 86400000
+                },
+                "edits": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 10000
+                },
+                "decision": {
+                  "enum": [
+                    "publish",
+                    "hold",
+                    "settle",
+                    "drop"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "presentation.interim_message": {
+      "direction": "interim_to_owner_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.text"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "io.atum.interim": {
+            "const": true
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.transient_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "privateOnly": {
+            "const": true
+          },
+          "redactAtSettle": {
+            "const": true
+          },
+          "clientHidesEnded": {
+            "const": true
+          },
+          "notifies": {
+            "const": false
+          },
+          "rosterPreview": {
+            "const": false
+          },
+          "editedMarker": {
+            "const": false
+          },
+          "persistentNotices": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "device_unreachable",
+                "out_of_protons",
+                "trial_ended",
+                "routine_not_run",
+                "interrupted_work"
+              ]
+            },
+            "min": 5,
+            "max": 5,
+            "unique": true
+          }
+        }
+      }
+    },
+    "presentation.interim_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 120
+                },
+                "private": {
+                  "type": "boolean"
+                },
+                "redacted": {
+                  "type": "boolean"
+                },
+                "first": {
+                  "type": "boolean"
+                },
+                "sinceLastMs": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 86400000
+                },
+                "duplicatesAnswer": {
+                  "type": "boolean"
+                },
+                "decision": {
+                  "enum": [
+                    "publish",
+                    "hold",
+                    "drop"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "presentation.typing_policy": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "startsAt": {
+            "const": "take"
+          },
+          "stopsAt": {
+            "const": "answer_or_terminal"
+          },
+          "renewMs": {
+            "type": "integer",
+            "min": 1000,
+            "max": 60000
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "min": 1000,
+            "max": 120000
+          },
+          "deviceStepKeepsTyping": {
+            "const": true
+          },
+          "personWaitPausesTyping": {
+            "const": true
+          }
+        }
+      }
+    },
+    "presentation.result_status_notice": {
+      "direction": "result_status_to_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "io.atum.result": {
+            "ref": "result_status_marker"
+          }
+        },
+        "optional": {
+          "m.relates_to": {
+            "ref": "reply_relation"
+          },
+          "io.atum.result_details": {
+            "ref": "result_details"
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.answer_with_warning": {
+      "direction": "answer_to_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.text"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 65536
+          },
+          "m.relates_to": {
+            "ref": "reply_relation"
+          },
+          "io.atum.result": {
+            "ref": "answer_result_marker"
+          },
+          "io.atum.result_warning": {
+            "ref": "result_warning"
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.scheduled_status_line": {
+      "direction": "scheduled_status_to_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "enum": [
+              "m.text",
+              "m.notice"
+            ]
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1000
+          },
+          "io.atum.status": {
+            "ref": "status_line_marker"
+          }
+        },
+        "additional": true
+      }
+    },
+    "presentation.descriptor_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 160
+                },
+                "kind": {
+                  "ref": "progress_kind"
+                },
+                "phase": {
+                  "ref": "progress_phase"
+                },
+                "descriptor": {
+                  "type": "object",
+                  "additional": true
+                },
+                "decision": {
+                  "enum": [
+                    "render",
+                    "fallback"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 64
+          }
+        }
+      }
+    },
+    "presentation.warning_split_vectors": {
+      "direction": "conformance",
+      "schema": {
+        "type": "object",
+        "required": {
+          "vectors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": {
+                "name": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 160
+                },
+                "body": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 65536
+                },
+                "warning_from": {
+                  "type": "integer",
+                  "min": 0,
+                  "max": 1000000
+                },
+                "decision": {
+                  "enum": [
+                    "split",
+                    "whole"
+                  ]
+                }
+              }
+            },
+            "min": 1,
+            "max": 32
+          }
+        }
+      }
+    },
+    "company.progress": {
+      "direction": "company_presentation_to_room",
+      "schema": {
+        "ref": "company_progress"
+      }
+    },
+    "company.progress_edit": {
+      "direction": "company_presentation_to_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.notice"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1002
+          },
+          "io.atum.progress": {
+            "ref": "company_progress_marker"
+          },
+          "m.new_content": {
+            "ref": "company_progress"
+          },
+          "m.relates_to": {
+            "ref": "replace_relation"
+          }
+        },
+        "optional": {
+          "io.atum.presentation": {
+            "ref": "presentation_descriptor"
+          }
+        }
+      }
+    },
+    "company.interim": {
+      "direction": "company_presentation_to_room",
+      "schema": {
+        "ref": "company_interim"
+      }
+    },
+    "company.interim_edit": {
+      "direction": "company_presentation_to_room",
+      "schema": {
+        "type": "object",
+        "required": {
+          "msgtype": {
+            "const": "m.text"
+          },
+          "body": {
+            "type": "string",
+            "min": 1,
+            "max": 1002
+          },
+          "io.atum.interim": {
+            "const": true
+          },
+          "io.atum.company": {
+            "ref": "company_message_marker"
+          },
+          "m.new_content": {
+            "ref": "company_interim"
+          },
+          "m.relates_to": {
+            "ref": "replace_relation"
+          }
+        }
+      }
+    },
+    "files.answer": {
+      "direction": "file_presentation_to_room",
+      "schema": {
+        "ref": "files_answer"
+      }
+    },
+    "files.update": {
+      "direction": "file_presentation_to_room",
+      "schema": {
+        "ref": "file_update"
+      }
+    }
+  },
+  "invariants": [
+    {
+      "id": "company_progress_root",
+      "message": "company.progress",
+      "op": "same",
+      "left": [
+        "io.atum.progress",
+        "threadRootEventId"
+      ],
+      "right": [
+        "m.relates_to",
+        "event_id"
+      ],
+      "required": true
+    },
+    {
+      "id": "company_progress_edit_root",
+      "message": "company.progress_edit",
+      "op": "same",
+      "left": [
+        "m.new_content",
+        "io.atum.progress",
+        "threadRootEventId"
+      ],
+      "right": [
+        "m.new_content",
+        "m.relates_to",
+        "event_id"
+      ],
+      "required": true
+    },
+    {
+      "id": "company_progress_edit_marker",
+      "message": "company.progress_edit",
+      "op": "same",
+      "left": [
+        "io.atum.progress"
+      ],
+      "right": [
+        "m.new_content",
+        "io.atum.progress"
+      ],
+      "required": true
+    },
+    {
+      "id": "company_interim_root",
+      "message": "company.interim",
+      "op": "same",
+      "left": [
+        "io.atum.company",
+        "threadRootEventId"
+      ],
+      "right": [
+        "m.relates_to",
+        "event_id"
+      ],
+      "required": true
+    },
+    {
+      "id": "company_interim_edit_root",
+      "message": "company.interim_edit",
+      "op": "same",
+      "left": [
+        "m.new_content",
+        "io.atum.company",
+        "threadRootEventId"
+      ],
+      "right": [
+        "m.new_content",
+        "m.relates_to",
+        "event_id"
+      ],
+      "required": true
+    },
+    {
+      "id": "company_interim_edit_marker",
+      "message": "company.interim_edit",
+      "op": "same",
+      "left": [
+        "io.atum.company"
+      ],
+      "right": [
+        "m.new_content",
+        "io.atum.company"
+      ],
+      "required": true
+    },
+    {
+      "id": "files_answer_target",
+      "message": "files.answer",
+      "op": "same",
+      "required": true,
+      "left": [
+        "io.atum.files",
+        "identity",
+        "threadRootEventId"
+      ],
+      "right": [
+        "m.relates_to",
+        "event_id"
+      ]
+    },
+    {
+      "id": "file_update_target",
+      "message": "files.update",
+      "op": "same",
+      "required": true,
+      "left": [
+        "io.atum.files",
+        "answerEventId"
+      ],
+      "right": [
+        "m.relates_to",
+        "event_id"
+      ]
+    },
+    {
+      "id": "files_answer_invocation",
+      "message": "files.answer",
+      "op": "same",
+      "required": true,
+      "left": [
+        "io.atum.result",
+        "invocation"
+      ],
+      "right": [
+        "io.atum.files",
+        "identity",
+        "invocationId"
+      ]
+    }
+  ],
+  "state_machines": {
+    "client_progress": {
+      "states": [
+        "sent",
+        "working",
+        "answered",
+        "terminal_unanswered"
+      ],
+      "initial": [
+        "sent"
+      ],
+      "terminal": [
+        "answered",
+        "terminal_unanswered"
+      ],
+      "transitions": [
+        [
+          "sent",
+          "working",
+          "progress_shown"
+        ],
+        [
+          "working",
+          "working",
+          "progress_edited"
+        ],
+        [
+          "working",
+          "working",
+          "progress_settled"
+        ],
+        [
+          "sent",
+          "answered",
+          "final_answer"
+        ],
+        [
+          "working",
+          "answered",
+          "final_answer"
+        ],
+        [
+          "sent",
+          "terminal_unanswered",
+          "terminal_status"
+        ],
+        [
+          "working",
+          "terminal_unanswered",
+          "terminal_status"
+        ]
+      ]
+    },
+    "device_wait": {
+      "states": [
+        "idle",
+        "routed",
+        "working",
+        "waiting_unreachable",
+        "waiting_touch_id",
+        "resumed",
+        "expired",
+        "ended"
+      ],
+      "initial": [
+        "idle"
+      ],
+      "terminal": [
+        "expired",
+        "ended"
+      ],
+      "transitions": [
+        [
+          "idle",
+          "routed",
+          "mac_selected"
+        ],
+        [
+          "idle",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "routed",
+          "working",
+          "work_started"
+        ],
+        [
+          "routed",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "working",
+          "waiting_unreachable",
+          "device_unreachable"
+        ],
+        [
+          "working",
+          "waiting_touch_id",
+          "touch_id_required"
+        ],
+        [
+          "waiting_unreachable",
+          "resumed",
+          "device_reconnected"
+        ],
+        [
+          "waiting_touch_id",
+          "resumed",
+          "touch_id_approved"
+        ],
+        [
+          "waiting_touch_id",
+          "expired",
+          "wait_timeout"
+        ],
+        [
+          "resumed",
+          "working",
+          "work_started"
+        ],
+        [
+          "waiting_unreachable",
+          "expired",
+          "wait_timeout"
+        ],
+        [
+          "working",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "waiting_unreachable",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "waiting_touch_id",
+          "ended",
+          "turn_ended"
+        ],
+        [
+          "resumed",
+          "ended",
+          "turn_ended"
+        ]
+      ]
+    },
+    "transient_line": {
+      "states": [
+        "none",
+        "visible",
+        "hidden",
+        "redacted"
+      ],
+      "initial": [
+        "none"
+      ],
+      "terminal": [
+        "redacted"
+      ],
+      "transitions": [
+        [
+          "none",
+          "visible",
+          "progress_shown"
+        ],
+        [
+          "none",
+          "hidden",
+          "loaded_ended"
+        ],
+        [
+          "visible",
+          "visible",
+          "progress_edited"
+        ],
+        [
+          "visible",
+          "hidden",
+          "turn_ended"
+        ],
+        [
+          "hidden",
+          "hidden",
+          "progress_edited"
+        ],
+        [
+          "visible",
+          "redacted",
+          "redaction_landed"
+        ],
+        [
+          "hidden",
+          "redacted",
+          "redaction_landed"
+        ]
+      ]
+    },
+    "company_publication": {
+      "states": [
+        "recheck",
+        "send_allowed",
+        "edit_allowed",
+        "terminal",
+        "redact_allowed",
+        "cleaned"
+      ],
+      "initial": [
+        "recheck",
+        "terminal"
+      ],
+      "terminal": [
+        "cleaned"
+      ],
+      "events": [
+        "send_authority_current",
+        "edit_authority_current",
+        "send",
+        "edit",
+        "cleanup_authority_current",
+        "redact",
+        "authority_denied",
+        "redact_failed",
+        "terminal",
+        "authority_invalidated"
+      ],
+      "transitions": [
+        [
+          "recheck",
+          "send_allowed",
+          "send_authority_current"
+        ],
+        [
+          "recheck",
+          "edit_allowed",
+          "edit_authority_current"
+        ],
+        [
+          "send_allowed",
+          "recheck",
+          "send"
+        ],
+        [
+          "edit_allowed",
+          "recheck",
+          "edit"
+        ],
+        [
+          "terminal",
+          "redact_allowed",
+          "cleanup_authority_current"
+        ],
+        [
+          "redact_allowed",
+          "cleaned",
+          "redact"
+        ],
+        [
+          "recheck",
+          "recheck",
+          "authority_denied"
+        ],
+        [
+          "terminal",
+          "terminal",
+          "authority_denied"
+        ],
+        [
+          "redact_allowed",
+          "terminal",
+          "redact_failed"
+        ],
+        [
+          "recheck",
+          "terminal",
+          "terminal"
+        ],
+        [
+          "send_allowed",
+          "terminal",
+          "terminal"
+        ],
+        [
+          "edit_allowed",
+          "terminal",
+          "terminal"
+        ],
+        [
+          "terminal",
+          "terminal",
+          "terminal"
+        ],
+        [
+          "redact_allowed",
+          "terminal",
+          "terminal"
+        ],
+        [
+          "send_allowed",
+          "recheck",
+          "authority_invalidated"
+        ],
+        [
+          "edit_allowed",
+          "recheck",
+          "authority_invalidated"
+        ],
+        [
+          "redact_allowed",
+          "terminal",
+          "authority_invalidated"
+        ]
+      ]
+    }
+  },
+  "fixtures": [
+    {
+      "file": "fixtures/progress-original.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-edit.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-heartbeat.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-settled.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-result-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/progress-group-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/receipt-policy.vector.json",
+      "message": "presentation.receipt_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-policy.vectors.json",
+      "message": "presentation.progress_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/client-progress-answer.sequence.json",
+      "machine": "client_progress",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/client-progress-not-answer.sequence.json",
+      "machine": "client_progress",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/device-step.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-end-before-work.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-unreachable-resume.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-unreachable-expire.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-touch-id.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-touch-id-expire.sequence.json",
+      "machine": "device_wait",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/device-wait-before-route.sequence.json",
+      "machine": "device_wait",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/interim-message.content.json",
+      "message": "presentation.interim_message",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-later.content.json",
+      "message": "presentation.interim_message",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-result-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/interim-progress-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/interim-unmarked-rejected.content.json",
+      "message": "presentation.interim_message",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/transient-policy.vector.json",
+      "message": "presentation.transient_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/interim-policy.vectors.json",
+      "message": "presentation.interim_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/typing-policy.vector.json",
+      "message": "presentation.typing_policy",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-live.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-history.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-late-edit.sequence.json",
+      "machine": "transient_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/transient-line-reappears.sequence.json",
+      "machine": "transient_line",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/progress-presentation-tool-activity.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-tool-activity-edit.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-todo.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-first-learning.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-heartbeat.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-device-wait.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-touch-id.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/progress-presentation-unknown-activity-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/progress-presentation-raw-tool-name-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/progress-presentation-oversize-heartbeat-rejected.content.json",
+      "message": "presentation.progress_notice_edit",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/progress-presentation-future-version-rejected.content.json",
+      "message": "presentation.progress_notice",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/presentation-descriptor.vectors.json",
+      "message": "presentation.descriptor_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-answer-warning.content.json",
+      "message": "presentation.answer_with_warning",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-answer-warning-status-rejected.content.json",
+      "message": "presentation.answer_with_warning",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/result-answer-warning-zero-offset-rejected.content.json",
+      "message": "presentation.answer_with_warning",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/result-answer-warning-progress-rejected.content.json",
+      "message": "presentation.answer_with_warning",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/result-status-failed-routine.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-couldnt-confirm.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-resuming-on-device.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-attachment-unreadable.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-device-unreachable.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-unfunded.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-unknown-code-rejected.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "reject",
+      "violation": "enum"
+    },
+    {
+      "file": "fixtures/result-status-raw-identifier-rejected.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/result-status-long-routine-title-rejected.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/result-status-scalar-name-bound.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/result-status-scalar-name-oversize-rejected.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "reject",
+      "violation": "bound"
+    },
+    {
+      "file": "fixtures/result-status-progress-rejected.content.json",
+      "message": "presentation.result_status_notice",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/status-line-daily-cap-warning.content.json",
+      "message": "presentation.scheduled_status_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-line-routine-failed.content.json",
+      "message": "presentation.scheduled_status_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-line-reminder-missed.content.json",
+      "message": "presentation.scheduled_status_line",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/status-line-result-rejected.content.json",
+      "message": "presentation.scheduled_status_line",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/status-line-future-version-rejected.content.json",
+      "message": "presentation.scheduled_status_line",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/result-warning-split.vectors.json",
+      "message": "presentation.warning_split_vectors",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-lifecycle-send-edit-stop-cleanup.json",
+      "machine": "company_publication",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-lifecycle-send-without-recheck.json",
+      "machine": "company_publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/company-lifecycle-edit-without-recheck.json",
+      "machine": "company_publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/company-lifecycle-cleanup-without-recheck.json",
+      "machine": "company_publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/company-lifecycle-late-edit.json",
+      "machine": "company_publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/company-lifecycle-stale-authority.json",
+      "machine": "company_publication",
+      "expect": "reject",
+      "violation": "transition"
+    },
+    {
+      "file": "fixtures/company-channel-progress.json",
+      "message": "company.progress",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-channel-progress-edit.json",
+      "message": "company.progress_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-channel-progress-wrong-root.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-channel-progress-missing-thread.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-channel-progress-timeline-fallback.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-channel-progress-personal.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-channel-progress-mixed-audience.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/company-channel-progress-missing-task.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-leaseToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-leaseToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-modelToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-modelToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-homeId.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-homeId.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-grant.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-grant.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-toolArguments.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-toolArguments.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-toolResult.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-toolResult.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-leak-reasoning.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-marker-leak-reasoning.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-progress-edit-identity.json",
+      "message": "company.progress_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-channel-progress-edit-root.json",
+      "message": "company.progress_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-channel-interim.json",
+      "message": "company.interim",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-channel-interim-edit.json",
+      "message": "company.interim_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-channel-interim-wrong-root.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-channel-interim-missing-thread.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-channel-interim-timeline-fallback.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-channel-interim-personal.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-channel-interim-mixed-audience.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/company-channel-interim-missing-task.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-leaseToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-leaseToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-modelToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-modelToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-homeId.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-homeId.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-grant.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-grant.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-toolArguments.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-toolArguments.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-toolResult.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-toolResult.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-leak-reasoning.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-marker-leak-reasoning.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-channel-interim-edit-identity.json",
+      "message": "company.interim_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-channel-interim-edit-root.json",
+      "message": "company.interim_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-progress.json",
+      "message": "company.progress",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-private-progress-edit.json",
+      "message": "company.progress_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-private-progress-wrong-root.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-progress-missing-thread.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-private-progress-timeline-fallback.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-private-progress-personal.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-private-progress-mixed-audience.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/company-private-progress-missing-task.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-leaseToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-leaseToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-modelToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-modelToken.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-homeId.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-homeId.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-grant.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-grant.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-toolArguments.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-toolArguments.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-toolResult.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-toolResult.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-leak-reasoning.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-marker-leak-reasoning.json",
+      "message": "company.progress",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-progress-edit-identity.json",
+      "message": "company.progress_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-progress-edit-root.json",
+      "message": "company.progress_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-interim.json",
+      "message": "company.interim",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-private-interim-edit.json",
+      "message": "company.interim_edit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/company-private-interim-wrong-root.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-interim-missing-thread.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-private-interim-timeline-fallback.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-private-interim-personal.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/company-private-interim-mixed-audience.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/company-private-interim-missing-task.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-leaseToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-leaseToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-modelToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-modelToken.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-homeId.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-homeId.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-grant.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-grant.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-toolArguments.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-toolArguments.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-toolResult.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-toolResult.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-leak-reasoning.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-marker-leak-reasoning.json",
+      "message": "company.interim",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/company-private-interim-edit-identity.json",
+      "message": "company.interim_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/company-private-interim-edit-root.json",
+      "message": "company.interim_edit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-recovering-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-committed_with_siblings-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-terminal_unknown-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-refused-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-owner_private-draft_evicted-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-recovering-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-recovering-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-recovering-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-recovering-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-recovering-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-recovering-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-recovering-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-recovering-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-recovering-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-recovering-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-recovering-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-committed-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-committed-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-committed-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-committed-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-committed-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-committed-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-committed-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-committed_with_siblings-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-terminal_unknown-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-refused-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-refused-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-refused-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-refused-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-refused-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-refused-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-refused-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-refused-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-refused-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-refused-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-refused-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-answer.json",
+      "message": "files.answer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-update.json",
+      "message": "files.update",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-missing-result.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-invalid-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "pattern"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-wrong-invocation.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-missing-transaction.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "missing"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-root.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-path.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-state.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-profile.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "const"
+    },
+    {
+      "file": "fixtures/files-company-draft_evicted-warning.json",
+      "message": "files.answer",
+      "expect": "reject",
+      "violation": "unknown_field"
+    }
+  ]
+}

@@ -28,6 +28,13 @@ import {
   matrixCompanyPrivateCosRoomBinding
 } from '../../shared/matrix-company-private-cos-claim'
 import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
+import {
+  MATRIX_FILES_KEY,
+  MATRIX_FILES_UPDATE_TYPE,
+  type MatrixFileAnswerProjection,
+  matrixFileAnswerProjection
+} from '../../shared/matrix-file-chips'
+import type { FileReaderEvent } from '../../shared/matrix-file-reader'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
@@ -271,6 +278,46 @@ function companyShownContent(event: MatrixEvent, original: Record<string, unknow
   return shown ? { content: shown.content, edited: true, editedAt: shown.at } : { content: original, edited: false }
 }
 
+/** One event as slice 1's file reader takes it: decrypted content with its relation (outside the
+ * ciphertext when encrypted), and the SDK's own redaction state. */
+function fileReaderEvent(event: MatrixEvent, content: Record<string, unknown>): FileReaderEvent {
+  const relation = relationOf(event)
+
+  return {
+    eventId: event.getId() ?? '',
+    roomId: event.getRoomId() ?? '',
+    sender: event.getSender() ?? '',
+    type: event.getType(),
+    content: relation && !content['m.relates_to'] ? { ...content, 'm.relates_to': relation } : content,
+    ...(event.isRedacted() ? { redacted: true } : {})
+  }
+}
+
+/**
+ * An agent answer's file chips (agent-turns/1.7): the answer as first sent, then every
+ * `io.atum.files.update` that references it, from Matrix's own relation aggregation (history and
+ * live sync alike). Only a message carrying the marker is read; every other message is untouched.
+ */
+function fileAnswer(event: MatrixEvent, original: Record<string, unknown>, room: Room | undefined): MatrixFileAnswerProjection | undefined {
+  if (!room || !Object.hasOwn(original, MATRIX_FILES_KEY) || !event.getId()?.startsWith('$')) {
+    return undefined
+  }
+
+  const answer = fileReaderEvent(event, original)
+
+  const updates = (
+    room.relations.getChildEventsForEvent(answer.eventId, RelationType.Reference, MATRIX_FILES_UPDATE_TYPE)?.getRelations() ?? []
+  ).map(update => fileReaderEvent(update, update.getContent()))
+
+  const trigger = (answer.content as { 'm.relates_to'?: { 'm.in_reply_to'?: { event_id?: unknown } } })['m.relates_to']?.[
+    'm.in_reply_to'
+  ]?.event_id
+
+  const triggerSender = typeof trigger === 'string' ? room.findEventById(trigger)?.getSender() : undefined
+
+  return matrixFileAnswerProjection(answer, updates, triggerSender)
+}
+
 /**
  * What a message shows now: its sender's latest standard edit (`m.replace`), or what it said
  * first. The SDK applies a replacement only from the same sender, but a server's bundled
@@ -412,6 +459,12 @@ export function matrixMessage(
     return null
   }
 
+  // A reference (a file chip's update, agent-turns/1.7) is never a message of its own, readable
+  // or not: an undecryptable one waits for its keys instead of showing as a message.
+  if (failed && relationOf(event)?.rel_type === RelationType.Reference) {
+    return null
+  }
+
   // Markers and relations come from the message as first sent; only what it shows follows
   // its sender's latest edit.
   const original = event.getOriginalContent()
@@ -521,6 +574,9 @@ export function matrixMessage(
   // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
   const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
 
+  // The answer's file chips (agent-turns/1.7), from its marker as first sent and its updates.
+  const files = !failed && !own && original.msgtype === 'm.text' ? fileAnswer(event, original, room) : undefined
+
   return {
     id,
     sender: event.getSender() ?? '',
@@ -557,6 +613,7 @@ export function matrixMessage(
     ...(reactions ? { reactions } : {}),
     ...(checkIn ? { checkIn } : {}),
     ...(cloudStatus ? { cloudStatus } : {}),
+    ...(files ? { files } : {}),
     ...(petCommands ? { petIntents: { commands: petCommands, live: petLive } } : {}),
     ...(botApi ? { botApi } : {})
   }

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "sent",
+      "to": "answered",
+      "event": "progress_shown"
+    }
+  ]
+}

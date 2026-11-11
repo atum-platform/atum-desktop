@@ -1,4 +1,5 @@
 /** Sanitised public client contract projection. Pins bind the published fixture bytes; source references are provenance and do not attest a deployment or historical provider acceptance. */
+import agentTurns17Pack from "./fixtures/agent-turns-v1.7/contract.json";
 import agentHome1_7Pack from "./fixtures/agent-home-v1.7/contract.json";
 import agentHome1_8Pack from "./fixtures/agent-home-v1.8/contract.json";
 import agentHomePack from "./fixtures/agent-home/contract.json";
@@ -21,6 +22,8 @@ import modelChoice14Pack from "./fixtures/model-choice-v1.4/contract.json";
 import modelChoice15Pack from "./fixtures/model-choice-v1.5/contract.json";
 import providerConnectionsPack from "./fixtures/provider-connections/contract.json";
 import type { ContractPack } from "./schema";
+
+export const AGENT_TURNS_1_7_PACK = agentTurns17Pack as unknown as ContractPack;
 
 export const DEVICE_FLEET_PACK = deviceFleetPack as unknown as ContractPack;
 export const DEVICE_WORKSPACE_PACK = deviceWorkspacePack as unknown as ContractPack;
@@ -67,6 +70,7 @@ export const AGENT_SWEEP_V2_PACK = agentSweepV2Pack as unknown as ContractPack;
  * not here until its bytes are vendored; the controller continues to carry agent.requeue itself.
  */
 export const CONTRACT_PACKS_BY_PROFILE: Readonly<Record<string, ContractPack>> = Object.freeze({
+  "atum.agent-turns/1.7": AGENT_TURNS_1_7_PACK,
   "atum.device-fleet/1": DEVICE_FLEET_PACK,
   "atum.device-service/1.2": DEVICE_SERVICE_1_2_PACK,
   "atum.cloud-execution/1.10": CLOUD_EXECUTION_PACK,
