@@ -221,21 +221,26 @@ describe.skipIf(process.platform !== 'darwin')('cleanup', () => {
 })
 
 describe('kill switch', () => {
-  it('is off unless updates.stagedSwap is exactly true', async () => {
+  it('is on for missing, malformed and old settings, while an explicit false still opts out', async () => {
     const dir = await roots.make()
     const file = path.join(dir, 'updates.json')
 
-    expect(stagedSwapEnabled(file)).toBe(false)
+    expect(stagedSwapEnabled(file)).toBe(true)
     await fs.writeFile(file, '{ not json')
-    expect(stagedSwapEnabled(file)).toBe(false)
+    expect(stagedSwapEnabled(file)).toBe(true)
 
-    for (const value of [{}, { updates: {} }, { updates: { stagedSwap: 'true' } }, { updates: { stagedSwap: false } }, { stagedSwap: true }]) {
+    for (const value of [
+      {},
+      { branch: 'main', updates: { channel: 'latest', lastVersion: '0.20.45', stockMigration: 1 } },
+      { updates: { stagedSwap: 'true' } },
+      { stagedSwap: false }
+    ]) {
       await fs.writeFile(file, JSON.stringify(value))
-      expect(stagedSwapEnabled(file)).toBe(false)
+      expect(stagedSwapEnabled(file)).toBe(true)
     }
 
-    await fs.writeFile(file, JSON.stringify({ channel: 'latest', updates: { stagedSwap: true } }))
-    expect(stagedSwapEnabled(file)).toBe(true)
+    await fs.writeFile(file, JSON.stringify({ channel: 'latest', updates: { stagedSwap: false } }))
+    expect(stagedSwapEnabled(file)).toBe(false)
   })
 })
 

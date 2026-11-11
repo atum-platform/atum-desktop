@@ -17476,7 +17476,8 @@ async function start() {
       const staged = app.isPackaged && process.platform === 'darwin' && process.arch === 'arm64'
       const stagedEnabled = () => stagedSwapEnabled(path.join(app.getPath('userData'), 'updates.json'))
 
-      // Dark by default: only an explicit `updates.stagedSwap: true` selects the staged updater.
+      // Prepared swap is the normal path. A literal `updates.stagedSwap: false` is the rollback
+      // switch for this Mac; legacy settings without the field stay on the default.
       if (!staged || !stagedEnabled()) {
         // Switched off (or never on): drop any staged copy left behind. Best effort, off the launch path.
         if (staged) {void cleanStaleStages({ home: app.getPath('home'), id: STAGED_APP_ID }).catch(() => undefined)}

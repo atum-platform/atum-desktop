@@ -28,6 +28,8 @@ export interface DesktopUpdaterLogger {
 export interface ElectronUpdaterPort {
   /** Staged lane publishes only after verification/pre-warm. Stock waits for native-ready. */
   readonly stageReady?: boolean
+  /** False when the prepared updater needs no blocking handoff window after Restart. */
+  readonly showRestartFeedback?: boolean
   beginRestart?(): void
   logger: DesktopUpdaterLogger | null
   autoDownload: boolean
@@ -197,6 +199,7 @@ export function createDesktopUpdater(options: {
   let terminalRecovery = false
   let timerStarted = false
   let restartRequested = false
+  let restartFeedbackActive = false
   let installStarted = false
   let quitting = false
   let installTimer: unknown | null = null
@@ -274,8 +277,17 @@ export function createDesktopUpdater(options: {
     }
   }
   const feedback = (action: 'begin' | 'cancel' | 'fail', toVersion = '') => {
+    if (action === 'begin' && (updater?.showRestartFeedback === false || !options.restartFeedback)) {return}
+    if (action !== 'begin' && !restartFeedbackActive) {return}
+
     try {
-      if (action === 'begin') {options.restartFeedback?.begin(toVersion)} else {options.restartFeedback?.[action]()}
+      if (action === 'begin') {
+        options.restartFeedback!.begin(toVersion)
+        restartFeedbackActive = true
+      } else {
+        options.restartFeedback?.[action]()
+        restartFeedbackActive = false
+      }
     } catch (error) {
       // Reassurance only: it never decides whether the update installs.
       options.logger.warn(error)
