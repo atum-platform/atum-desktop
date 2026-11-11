@@ -38,6 +38,22 @@ export interface MatrixCompanyTurnIdentity {
   invocationId: string
 }
 
+/** Shared publisher identity; identical to the renderer's admitted turn tuple. */
+export type CompanyPresentationIdentity = MatrixCompanyTurnIdentity
+
+/** A deterministic native Matrix operation authorized by the company turn publisher. */
+export interface CompanyPresentationOperation {
+  operation: 'send' | 'edit' | 'redact'
+  stream: 'progress' | 'interim'
+  sequence: number
+  revision: number
+  targetEventId: string | null
+  transactionId: string
+  content: Record<string, unknown>
+  attempted?: true
+  eventId?: string
+}
+
 /** What a projected message keeps of it: the identity, its revision and the thread reply it answers. */
 export interface MatrixCompanyPresentation extends MatrixCompanyTurnIdentity {
   revision: number

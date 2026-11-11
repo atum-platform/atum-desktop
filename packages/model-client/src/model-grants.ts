@@ -54,7 +54,7 @@ export interface ModelGrant {
   readonly maxConcurrent: number
   /** Present only on a Company AI grant: organization funding, never a Personal fallback. */
   readonly funding?: 'company_wallet'
-  readonly profile?: 'atum.company-ai/1' | 'atum.company-private-cos/1'
+  readonly profile?: 'atum.company-ai/1' | 'atum.company-private-cos/1' | 'atum.company-ai/2' | 'atum.company-private-cos/2'
 }
 
 export type GrantDenial = 'unknown_grant' | 'expired' | 'revoked' | 'exhausted' | 'busy' | 'wrong_source'
@@ -102,7 +102,7 @@ export interface GrantInput {
   maxRequests?: number
   maxConcurrent?: number
   funding?: 'company_wallet'
-  profile?: 'atum.company-ai/1' | 'atum.company-private-cos/1'
+  profile?: 'atum.company-ai/1' | 'atum.company-private-cos/1' | 'atum.company-ai/2' | 'atum.company-private-cos/2'
 }
 
 /** What a P4 `dispatch` response gives this controller's one bounded Company AI answer. */
@@ -132,6 +132,7 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 65_536
 export function normalizeAddress(address: string): string {
   return address.startsWith('::ffff:') ? address.slice(7) : address
 }
+
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
 export const DEFAULT_MAX_REQUESTS = 1_000
 export const DEFAULT_MAX_CONCURRENT = 8
@@ -183,31 +184,40 @@ export class ModelGrantRegistry {
     if (input.effort !== undefined && !['low', 'medium', 'high'].includes(input.effort)) {
       throw new Error('model_grant_invalid:effort')
     }
+
     const protectedAlias = input.aliases.length === 1 && input.aliases[0] === 'google-protected'
+
     if (protectedAlias !== (input.protection !== undefined) || input.protection &&
         (input.protection.googlePolicy !== 'limited_use_v1' || !['eligible', 'latched'].includes(input.protection.latchState))) {
       throw new Error('model_grant_invalid:protection')
     }
+
     // A subscription token is served by its own edge and has no Atum Proton route.
     if (source !== 'atum' && (input.protection !== undefined || protectedAlias)) {
       throw new Error('model_grant_invalid:protection')
     }
-    if (input.subscriptionFallback && (source === 'atum' || ![input.subscriptionFallback.executorId, input.subscriptionFallback.leaseToken].every(v => /^[0-9a-f-]{36}$/.test(v)))) throw new Error('model_grant_invalid:fallback')
+
+    if (input.subscriptionFallback && (source === 'atum' || ![input.subscriptionFallback.executorId, input.subscriptionFallback.leaseToken].every(v => /^[0-9a-f-]{36}$/.test(v)))) {throw new Error('model_grant_invalid:fallback')}
     const relay = input.relay
     const relayRequired = source === 'chatgpt_plan'
+
     if (relayRequired !== Boolean(relay) || relay && (
       !/^[0-9a-f-]{36}$/u.test(relay.ownerPrincipal) || !/^[0-9a-f-]{36}$/u.test(relay.agentPrincipal) ||
       !/^[0-9a-f-]{36}$/u.test(relay.invocationId) || !/^[0-9a-f-]{36}$/u.test(relay.deviceServiceId) ||
       relay.invocationId !== input.taskId || !Number.isSafeInteger(relay.revision) || relay.revision < 1
-    )) throw new Error('model_grant_invalid:relay')
+    )) {throw new Error('model_grant_invalid:relay')}
+
     const company = input.funding !== undefined || input.profile !== undefined
+
     if (company) {
       const shared = input.profile === COMPANY_AI_GRANT_PROFILE
+      const native = input.profile === 'atum.company-ai/2' || input.profile === 'atum.company-private-cos/2'
       const privateCos = input.profile === COMPANY_PRIVATE_COS_GRANT_PROFILE
-      if (input.funding !== COMPANY_WALLET_FUNDING || (!shared && !privateCos) ||
+
+      if (input.funding !== COMPANY_WALLET_FUNDING || (!shared && !privateCos && !native) ||
           input.aliases.length !== 1 || input.aliases[0] !== 'default' ||
           (shared ? input.maxRequests !== 1 : input.maxRequests === undefined || input.maxRequests < 1) ||
-          input.maxConcurrent !== 1 || input.protection !== undefined ||
+          (native ? input.maxConcurrent !== 8 || input.maxRequests !== 1000 : input.maxConcurrent !== 1) || input.protection !== undefined ||
           input.maxOutputTokens === undefined || input.contextLength === undefined || input.effort === undefined) {
         throw new Error('model_grant_invalid:company')
       }
@@ -248,21 +258,26 @@ export class ModelGrantRegistry {
     { output: number; settle(input: number | null, output: number | null): void } | null {
     const entry = this.entries.get(tokenDigest(token))!
     const budget = entry.budget
-    if (!budget) return { output: requestedOutput, settle() {} }
+
+    if (!budget) {return { output: requestedOutput, settle() {} }}
     const output = Math.min(requestedOutput, budget.outputTokens-entry.used.outputTokens)
-    if (inputBound > budget.inputTokens-entry.used.inputTokens || output < 1) return null
+
+    if (inputBound > budget.inputTokens-entry.used.inputTokens || output < 1) {return null}
     const reserved = { inputTokens: entry.used.inputTokens+inputBound, outputTokens: entry.used.outputTokens+output }
     budget.persist(reserved) // fail closed before an upstream call if sealing fails
     entry.used = reserved
     let settled = false
+
     return { output, settle: (input, actualOutput) => {
-      if (settled) return
+      if (settled) {return}
       settled = true
       const valid = (n: number | null) => n !== null && Number.isSafeInteger(n) && n >= 0
+
       const used = {
         inputTokens: entry.used.inputTokens-inputBound+(valid(input) ? input! : inputBound),
         outputTokens: entry.used.outputTokens-output+(valid(actualOutput) ? actualOutput! : output)
       }
+
       budget.persist(used)
       entry.used = used
     } }
@@ -270,7 +285,7 @@ export class ModelGrantRegistry {
 
   /** The spike's own grant (S1 has no DA): a fresh token, admitted at once. */
   mint(input: GrantInput): { token: string; grant: ModelGrant } {
-    if (input.funding !== undefined || input.profile !== undefined) throw new Error('model_grant_invalid:company')
+    if (input.funding !== undefined || input.profile !== undefined) {throw new Error('model_grant_invalid:company')}
     const token = newOpaqueToken()
 
     return { token, grant: this.admit(token, input) }
@@ -282,7 +297,8 @@ export class ModelGrantRegistry {
    * as `wrong_source`; one request, one in-flight call, company funding only.
    */
   admitCompany(input: CompanyGrantInput): ModelGrant {
-    if (typeof input.source !== 'string' || !input.source) throw new Error('model_grant_invalid:company_source')
+    if (typeof input.source !== 'string' || !input.source) {throw new Error('model_grant_invalid:company_source')}
+
     const grant = this.admit(input.token, {
       taskId: input.taskId,
       aliases: ['default'],
@@ -295,6 +311,7 @@ export class ModelGrantRegistry {
       funding: COMPANY_WALLET_FUNDING,
       profile: COMPANY_AI_GRANT_PROFILE
     })
+
     this.entries.get(tokenDigest(input.token))!.source = normalizeAddress(input.source)
 
     return grant

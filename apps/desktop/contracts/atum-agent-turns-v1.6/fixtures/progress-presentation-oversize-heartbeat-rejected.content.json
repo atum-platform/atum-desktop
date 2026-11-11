@@ -1,0 +1,42 @@
+{
+  "msgtype": "m.notice",
+  "body": "* Vẫn đang làm",
+  "m.new_content": {
+    "msgtype": "m.notice",
+    "body": "Vẫn đang làm",
+    "io.atum.progress": {
+      "profile": "atum.agent-turns/1.3",
+      "scope": "owner_private",
+      "phase": "working",
+      "kind": "heartbeat",
+      "revision": 3,
+      "heartbeat": true
+    },
+    "io.atum.presentation": {
+      "version": 1,
+      "code": "heartbeat",
+      "args": {
+        "elapsed_minutes": 1441
+      }
+    }
+  },
+  "m.relates_to": {
+    "rel_type": "m.replace",
+    "event_id": "$progress-root"
+  },
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.3",
+    "scope": "owner_private",
+    "phase": "working",
+    "kind": "heartbeat",
+    "revision": 3,
+    "heartbeat": true
+  },
+  "io.atum.presentation": {
+    "version": 1,
+    "code": "heartbeat",
+    "args": {
+      "elapsed_minutes": 1441
+    }
+  }
+}

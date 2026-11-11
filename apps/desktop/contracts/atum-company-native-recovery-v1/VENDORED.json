@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "84970ee05443175c2a0b3a5753aed77a28f491b4",
+  "files": {
+    "spec/company-agent/native-recovery-v1/README.md": "488e0b512671206fd48a465322ddf1f3de7551ff7f7b798ed0a5219bfcbd0880",
+    "packages/protocol/src/company-ai.ts": "8aab24b13de135e48402523210e5b8ae1612bdba6dae5563b47f25b6cac8cb7b",
+    "packages/protocol/src/company-private-cos.ts": "86187eda6cc82b9981c9c36ff26f4b2f9f77fa85843db1d2b004c66ba01957ed",
+    "apps/shell/src/lib/company-agent-native.ts": "a09b23d65b01203b613e1b0ba8f245f6d6670863b0980bf6853e9c0bad3749ee",
+    "supabase/migrations/0444_company_agent_native_requeue.sql": "4273f9f74f3163409f40970d51753e1f804253d648637ba73d701dd13333fc99"
+  },
+  "adaptations": [
+    "TypeScript formatting follows the consuming workspace lint rules."
+  ]
+}
