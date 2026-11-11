@@ -3,14 +3,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { MatrixInterimMessages } from '../../shared/matrix-interim-messages'
 import type { MatrixNoticeEdit } from '../../shared/matrix-notice-edit'
 import { MatrixProgressLine } from '../../shared/matrix-progress-line'
-import { matrixAcknowledgementCopy } from '../../shared/matrix-status-line-copy'
 import { macOwnerFacts, MATRIX_TURN_CONTEXT_HEADER, MATRIX_TURN_STYLE } from '../../shared/matrix-turn-style'
 import { MatrixTurnVoice } from '../../shared/matrix-turn-voice'
 
 import { runMatrixHermesTurn } from './hermes-turn'
 
 /**
- * The Mac side of "acknowledge, then keep the owner posted", end to end: Hermes's own event
+ * The Mac side of "keep the owner posted, in the agent's own words", end to end: Hermes's own event
  * vocabulary (`message.interim` with `redacted_text`, `tool.start`, `tool.complete` of `todo`,
  * `message.complete`) through the real `runMatrixHermesTurn`, the shared `MatrixTurnVoice` wired
  * as main.ts and the Mac-typed engine wire it (`onProgress: event => voice.event(event)`), and
@@ -153,7 +152,7 @@ function mac(locale: 'vi' | 'en' = 'vi') {
 }
 
 describe('a Mac turn the owner hears narrated (local path)', () => {
-  it('text, then a tool: the agent’s own sentence is the acknowledgement, with no second one of ours', async () => {
+  it('text, then a tool: the agent’s own sentence goes out, with nothing of ours beside it', async () => {
     const m = mac()
 
     const result = await m.run(async ({ emit }) => {
@@ -173,7 +172,7 @@ describe('a Mac turn the owner hears narrated (local path)', () => {
     expect(m.order.indexOf('redact:$line-2')).toBeLessThan(m.order.indexOf('answer:Hôm nay bạn có hai cuộc họp.'))
   })
 
-  it('a tool and no words: one short localized acknowledgement, once, ahead of the working line', async () => {
+  it('a tool and no words: no canned opener, the working line is the first thing the owner sees', async () => {
     const m = mac()
 
     await m.run(async ({ emit }) => {
@@ -184,18 +183,16 @@ describe('a Mac turn the owner hears narrated (local path)', () => {
       m.finish('Đã tìm xong.')
     })
 
-    expect(m.messages()).toHaveLength(1)
-    expect(matrixAcknowledgementCopy.vi).toContain(m.messages()[0])
-    expect(m.order[0]).toBe(`message:${m.messages()[0]}`)
-    expect(m.lines()[0]).toMatchObject({ body: 'Đang tra cứu trên web…', statusLine: true })
-    // An ordinary assistant message of the private chat: never a notice, never part of the model's context.
-    expect(m.published[0]).toMatchObject({ roomId: ROOM, eventId: QUESTION, interim: true })
-    expect(m.published[0]).not.toHaveProperty('statusLine')
-    // The acknowledgement stays (it is not the answer); only the working line is taken back.
-    expect(m.removed().map(command => command.replaces)).toEqual(['$line-2'])
+    expect(m.messages()).toEqual([])
+    expect(m.published.some(command => command.interim)).toBe(false)
+    expect(m.order[0]).toBe('line:Đang tra cứu trên web…')
+    expect(m.lines()[0]).toMatchObject({ roomId: ROOM, eventId: QUESTION, body: 'Đang tra cứu trên web…', statusLine: true })
+    // Only the working line is taken back, before the answer; the answer is the turn's only message.
+    expect(m.removed().map(command => command.replaces)).toEqual(['$line-1'])
+    expect(m.order.at(-1)).toBe('answer:Đã tìm xong.')
   })
 
-  it('says it in the owner’s language', async () => {
+  it('the working line speaks the owner’s language, and still no opener of ours', async () => {
     const m = mac('en')
 
     await m.run(async ({ emit }) => {
@@ -203,11 +200,26 @@ describe('a Mac turn the owner hears narrated (local path)', () => {
       m.finish('Done.')
     }, 'Run it')
 
-    expect(matrixAcknowledgementCopy.en).toContain(m.messages()[0])
+    expect(m.messages()).toEqual([])
     expect(m.lines().map(command => command.body)).toEqual(['Running a task…'])
   })
 
-  it('tools over time: the working line keeps editing in place, later remarks keep their 20 s gap, nothing is acknowledged twice', async () => {
+  it('a long silent tool run keeps its heartbeat on the working line and never adds an opener', async () => {
+    const m = mac('en')
+
+    await m.run(async ({ emit, advance }) => {
+      emit('tool.start', { name: 'terminal' })
+      await m.drain()
+      await advance(10 * 60_000)
+      m.finish('Done.')
+    }, 'Run it')
+
+    expect(m.messages()).toEqual([])
+    expect(m.lines().some(command => command.body === 'Still working')).toBe(true)
+    expect(m.lines().slice(1).every(command => command.replaces === '$line-1')).toBe(true)
+  })
+
+  it('tools over time: the working line keeps editing in place, later remarks keep their 20 s gap, nothing of ours is added', async () => {
     const m = mac()
 
     await m.run(async ({ emit, advance }) => {
@@ -227,20 +239,17 @@ describe('a Mac turn the owner hears narrated (local path)', () => {
       m.finish('Đây là kết quả.')
     })
 
-    const [ack, remark] = m.messages()
-    expect(m.messages()).toHaveLength(2)
-    expect(matrixAcknowledgementCopy.vi).toContain(ack)
-    expect(remark).toBe('Đã tìm xong, đang đọc kết quả.')
+    expect(m.messages()).toEqual(['Đã tìm xong, đang đọc kết quả.'])
     // One working line: the original and its edits, then its removal.
     const [original, ...edits] = m.lines()
     expect(original).toMatchObject({ body: 'Đang tra cứu trên web…', statusLine: true })
     expect(original).not.toHaveProperty('replaces')
     expect(edits.length).toBeGreaterThanOrEqual(1)
-    expect(edits.every(command => command.replaces === '$line-2')).toBe(true)
-    expect(m.removed().map(command => command.replaces)).toEqual(['$line-2'])
+    expect(edits.every(command => command.replaces === '$line-1')).toBe(true)
+    expect(m.removed().map(command => command.replaces)).toEqual(['$line-1'])
   })
 
-  it('an answer without a tool: nothing is acknowledged, nothing is shown', async () => {
+  it('an answer without a tool: nothing is shown before the answer', async () => {
     const m = mac()
 
     const result = await m.run(async () => {

@@ -2852,6 +2852,33 @@ describe('isolated Matrix composition', () => {
     expect(screen.getByText('Resuming on Studio')).toBeTruthy()
   })
 
+  it('renders an 80% heads-up already in a chat with its own words, as before', async () => {
+    const { emit } = fixture()
+    const sentAt = Date.now()
+    const heads = 'I’m close to today’s usage limit. I’ll keep going as usual; this is just a heads-up.'
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'cloud-t' })),
+      messages: [
+        ...controlsState.messages.map(message => ({ ...message, timestamp: sentAt })),
+        {
+          ...controlsState.messages[0]!,
+          id: '$heads-up',
+          own: false,
+          notice: true,
+          sender: '@atum:test',
+          body: heads,
+          timestamp: sentAt + 1,
+          cloudStatus: { code: 'daily_cap_warning' as const }
+        }
+      ],
+      agents: [{ principal: 'cloud-t', userId: '@atum:test', ready: true, isDefault: false, atumModel: true, hermes: 'unavailable', answering: 'cloud' }]
+    })
+
+    expect(await screen.findByText(heads)).toBeTruthy()
+  })
+
   it.each([false, true])('uses the cloud Atum destination when a standby Mac has stale local ChatGPT auth (moved: %s)', async moved => {
     const planSignIn = {
       phase: 'blocked' as const,
