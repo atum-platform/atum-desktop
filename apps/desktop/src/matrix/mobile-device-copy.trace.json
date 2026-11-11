@@ -3044,44 +3044,6 @@
         "vi": "Lịch sử giao dịch"
       }
     },
-    "walletHistoryRows0Label": {
-      "proposals": [
-        "proposal.160"
-      ],
-      "usagePath": [
-        "wallet-history",
-        "rows",
-        "0",
-        "label"
-      ],
-      "approvedSource": {
-        "en": "Demo task",
-        "vi": "Tác vụ mẫu"
-      },
-      "effectiveSource": {
-        "en": "Demo task",
-        "vi": "Tác vụ mẫu"
-      }
-    },
-    "walletHistoryRows1Label": {
-      "proposals": [
-        "proposal.161"
-      ],
-      "usagePath": [
-        "wallet-history",
-        "rows",
-        "1",
-        "label"
-      ],
-      "approvedSource": {
-        "en": "Demo credit",
-        "vi": "Khoản cộng mẫu"
-      },
-      "effectiveSource": {
-        "en": "Demo credit",
-        "vi": "Khoản cộng mẫu"
-      }
-    },
     "packLayoutRows0Label": {
       "proposals": [
         "proposal.162"
@@ -3099,25 +3061,6 @@
       "effectiveSource": {
         "en": "Proton pack",
         "vi": "Gói Proton"
-      }
-    },
-    "packLayoutRows0Detail": {
-      "proposals": [
-        "proposal.163"
-      ],
-      "usagePath": [
-        "pack-layout",
-        "rows",
-        "0",
-        "detail"
-      ],
-      "approvedSource": {
-        "en": "Amount and StoreKit price await owner product decisions.",
-        "vi": "Số lượng và giá StoreKit đang chờ quyết định sản phẩm."
-      },
-      "effectiveSource": {
-        "en": "Amount and StoreKit price await owner product decisions.",
-        "vi": "Số lượng và giá StoreKit đang chờ quyết định sản phẩm."
       }
     },
     "recoverBalanceBody": {
