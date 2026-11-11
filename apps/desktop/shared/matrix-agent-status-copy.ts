@@ -78,6 +78,7 @@ interface StatusCopy {
   queueFull: string
   memoryNotSaved: string
   couldntVerifyMac: string
+  /** The turn moved from the cloud to a Mac: the cloud work stopped and it carries on there. */
   resumingOnDevice: (device: string) => string
   attachmentUnsupported: string
   /** The attachment was refused on a controller that does read attachments (too large, too many, upload failed). */
@@ -116,7 +117,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: 'Đang có quá nhiều yêu cầu chờ nên mình chưa nhận thêm. Bạn thử lại sau ít phút nhé.',
     memoryNotSaved: '(Mình chưa lưu được điều vừa học từ lần này.)',
     couldntVerifyMac: 'Mình không xác minh được máy Mac đã gửi tin này nên chưa làm gì cả.',
-    resumingOnDevice: device => `${device} đã trực tuyến trở lại. Mình làm ngay đây.`,
+    resumingOnDevice: device => `Mình đã dừng việc trên đám mây và đang làm tiếp trên ${device}.`,
     attachmentUnsupported: 'Mình chưa mở được tệp đính kèm trong chat. Bạn dán nội dung hoặc lưu vào Atum Drive nhé.',
     attachmentUnreadable: 'Mình chưa mở được tệp đính kèm này. Có thể tệp quá lớn, lần tải lên chưa xong, hoặc có quá nhiều tệp trong một lượt. Bạn thử lại với tối đa hai tệp, mỗi tệp không quá 20 MB nhé.',
     replyUnreadable: 'Mình không đọc được tin nhắn bạn đang trả lời. Bạn gửi lại nội dung đó nhé.',
@@ -146,7 +147,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: 'Too many requests are waiting, so I didn’t take this one. Try again in a few minutes.',
     memoryNotSaved: '(I couldn’t save what I learned this time.)',
     couldntVerifyMac: 'I couldn’t verify which Mac sent this, so I didn’t do anything.',
-    resumingOnDevice: device => `${device} is back online. Doing it now.`,
+    resumingOnDevice: device => `I’ve stopped working in the cloud and I’m continuing on ${device}.`,
     attachmentUnsupported: 'I can’t open attachments in chat yet. Paste the text, or save the file to Atum Drive.',
     attachmentUnreadable: 'I couldn’t open that attachment. It may be too large, the upload didn’t finish, or there were too many files at once. Try again with up to two files of 20 MB each.',
     replyUnreadable: 'I can’t read the message you replied to. Please send its text again.',
@@ -176,7 +177,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '待機中の依頼が多すぎるため、受け付けませんでした。数分後にもう一度お試しください。',
     memoryNotSaved: '（今回覚えたことは保存できませんでした。）',
     couldntVerifyMac: 'この依頼を送った Mac を確認できなかったため、何も実行していません。',
-    resumingOnDevice: device => `${device} がオンラインに戻りました。今から実行します。`,
+    resumingOnDevice: device => `クラウドでの作業を止めて、${device} で続けています。`,
     attachmentUnsupported: 'チャットの添付ファイルはまだ開けません。内容を貼り付けるか、Atum Drive に保存してください。',
     attachmentUnreadable: 'この添付ファイルを開けませんでした。ファイルが大きすぎるか、アップロードが完了していないか、一度に多すぎる可能性があります。20 MB 以下のファイルを 2 件まででもう一度お試しください。',
     replyUnreadable: '返信先のメッセージを読めません。内容をもう一度送ってください。',
@@ -206,7 +207,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '等待中的请求太多，这次没有接收。请几分钟后再试。',
     memoryNotSaved: '（这次学到的内容没能保存。）',
     couldntVerifyMac: '无法确认是哪台 Mac 发送了这条消息，所以没有执行任何操作。',
-    resumingOnDevice: device => `${device} 已重新上线，现在就开始。`,
+    resumingOnDevice: device => `我已停止云端的工作，正在 ${device} 上继续。`,
     attachmentUnsupported: '暂时还不能打开聊天里的附件。请粘贴文字内容，或把文件存到 Atum Drive。',
     attachmentUnreadable: '没能打开这个附件。文件可能太大、上传没有完成，或者一次放了太多文件。请用不超过 20 MB 的文件、最多两个再试一次。',
     replyUnreadable: '回复的消息无法读取。请重新发送消息内容。',
@@ -236,7 +237,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '等待中的請求太多，這次沒有接收。請幾分鐘後再試。',
     memoryNotSaved: '（這次學到的內容沒能儲存。）',
     couldntVerifyMac: '無法確認是哪台 Mac 傳送了這則訊息，所以沒有執行任何操作。',
-    resumingOnDevice: device => `${device} 已重新上線，現在就開始。`,
+    resumingOnDevice: device => `我已停止雲端的工作，正在 ${device} 上繼續。`,
     attachmentUnsupported: '暫時還不能開啟聊天裡的附件。請貼上文字內容，或把檔案存到 Atum Drive。',
     attachmentUnreadable: '沒能開啟這個附件。檔案可能太大、上傳沒有完成，或者一次放了太多檔案。請用不超過 20 MB 的檔案、最多兩個再試一次。',
     replyUnreadable: '回覆的訊息無法讀取。請重新傳送訊息內容。',
@@ -335,7 +336,7 @@ export function matrixAgentStatusText(
       return copy.couldntVerifyMac
 
     case 'resuming_on_device':
-      return copy.resumingOnDevice(devices[0] ?? 'Mac')
+      return copy.resumingOnDevice(mac)
 
     case 'attachment_unsupported':
       return details.attachment === 'unsupported' ? copy.attachmentUnsupported : copy.attachmentUnreadable

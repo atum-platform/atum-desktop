@@ -156,6 +156,107 @@ describe('outcome notices, scheduled lines and answer warnings (A14, A15)', () =
     expect(matrixAgentLocalizedText({ body: 'Đã dừng.', cloudStatus: { code: 'stopped' } }, 'ja')).toBe('停止しました。')
   })
 
+  it('keeps the body when the details are empty, unrelated or partial for the code (review finding 2)', () => {
+    const routineBody = 'Việc “Báo cáo tuần” lần này chưa làm xong vì Atum gặp trục trặc ở phía máy chủ.'
+    const macs = { devices: ['MacBook Air', 'Mac mini'] }
+
+    const keeps: [string, Parameters<typeof matrixAgentLocalizedText>[0]['cloudStatus']][] = [
+      [routineBody, { code: 'failed', details: {} }],
+      [routineBody, { code: 'failed', details: { devices: ['MacBook Air'] } }],
+      [matrixAgentStatusText('couldnt_confirm', 'vi', macs), { code: 'couldnt_confirm', details: { resume: true } }],
+      [matrixAgentStatusText('couldnt_confirm', 'vi', macs), { code: 'couldnt_confirm', details: {} }],
+      ['Mình đã dừng việc trên đám mây và đang làm tiếp trên MacBook Air.', { code: 'resuming_on_device', details: {} }],
+      ['Mình đã dừng việc trên đám mây và đang làm tiếp trên MacBook Air.', { code: 'resuming_on_device', details: { resume: true } }],
+      [
+        matrixAgentStatusText('device_unreachable', 'vi', { devices: ['MacBook Air'], resume: true }),
+        { code: 'device_unreachable', details: { devices: ['MacBook Air'] } }
+      ],
+      [matrixAgentStatusText('device_unreachable', 'vi', { devices: ['MacBook Air'], resume: true }), { code: 'device_unreachable', details: { resume: true } }],
+      [
+        matrixAgentStatusText('attachment_unsupported', 'vi', { attachment: 'unsupported' }),
+        { code: 'attachment_unsupported', details: {} }
+      ],
+      [
+        matrixAgentStatusText('attachment_unsupported', 'vi', { attachment: 'unsupported' }),
+        { code: 'attachment_unsupported', details: { devices: ['MacBook Air'] } }
+      ]
+    ]
+
+    for (const [body, cloudStatus] of keeps) {
+      expect(matrixAgentLocalizedText({ body, cloudStatus }, 'en'), `${cloudStatus!.code} ${JSON.stringify(cloudStatus!.details)}`).toBeUndefined()
+    }
+
+    // The same reached through the parser: `{}` is a legal details object, not proof of completeness.
+    const routine = fixture('result-status-failed-routine.content.json')
+    const empty = { ...routine, 'io.atum.result_details': {} }
+
+    expect(matrixResultStatusNotice(empty)).toEqual({ code: 'failed', details: {} })
+    expect(matrixAgentLocalizedText({ body: empty.body as string, cloudStatus: matrixResultStatusNotice(empty) }, 'en')).toBeUndefined()
+
+    // A body that is exactly the sentence those details give in one of Atum's languages loses nothing.
+    expect(matrixAgentLocalizedText({ body: matrixAgentStatusText('failed', 'ja'), cloudStatus: { code: 'failed', details: {} } }, 'en'))
+      .toBe(matrixAgentStatusText('failed', 'en'))
+    expect(
+      matrixAgentLocalizedText(
+        { body: matrixAgentStatusText('device_unreachable', 'vi', { devices: ['MacBook Air'] }), cloudStatus: { code: 'device_unreachable', details: { devices: ['MacBook Air'] } } },
+        'en'
+      )
+    ).toBe(matrixAgentStatusText('device_unreachable', 'en', { devices: ['MacBook Air'] }))
+  })
+
+  it('keeps the body of a result marker outside its closed shape (review finding 3)', () => {
+    const notice = fixture('result-status-unfunded.content.json')
+    const result = notice['io.atum.result'] as Record<string, unknown>
+
+    const malformedNotices: Record<string, unknown>[] = [
+      { ...notice, 'io.atum.result': { status: 'stopped', invocation: 42 } },
+      { ...notice, 'io.atum.result': { ...result, invocation: 'not-a-uuid' } },
+      { ...notice, 'io.atum.result': { ...result, transaction: '' } },
+      { ...notice, 'io.atum.result': { ...result, transaction: 'has space' } },
+      { ...notice, 'io.atum.result': { status: 'resuming_on_device', stopEvent: 'no-sigil' } },
+      { ...notice, 'io.atum.result': { status: 'resuming_on_device', stopEvent: 7 } },
+      { ...notice, 'io.atum.interim': true }
+    ]
+
+    expect(matrixResultStatusNotice(notice)).toBeDefined()
+
+    for (const content of malformedNotices) {
+      expect(matrixResultStatusNotice(content), JSON.stringify(content['io.atum.result'])).toBeUndefined()
+    }
+
+    const answer = fixture('result-answer-warning.content.json')
+    const marker = answer['io.atum.result'] as Record<string, unknown>
+
+    const malformedAnswers: Record<string, unknown>[] = [
+      { ...answer, 'io.atum.result': { status: 'saved_to_drive', extra: true } },
+      { ...answer, 'io.atum.result': { status: 'saved_to_drive' } },
+      { ...answer, 'io.atum.result': { ...marker, invocation: undefined } },
+      { ...answer, 'io.atum.result': { ...marker, transaction: undefined } },
+      { ...answer, 'io.atum.result': { ...marker, invocation: 'ABCDEF01-7B4A-4A3C-9F0E-2D4C5A6B7C8D' } },
+      { ...answer, 'io.atum.result': { ...marker, extra: true } },
+      { ...answer, 'io.atum.interim': true }
+    ]
+
+    expect(matrixAnswerWarning(answer)).toBeDefined()
+
+    for (const content of malformedAnswers) {
+      expect(matrixAnswerWarning(content), JSON.stringify(content['io.atum.result'])).toBeUndefined()
+    }
+  })
+
+  it('keeps the cloud-to-Mac handoff of a resumption in every language (review finding 4)', () => {
+    const content = fixture('result-status-resuming-on-device.content.json')
+    const cloudStatus = matrixResultStatusNotice(content)
+    const say = (locale: (typeof DESKTOP_LOCALES)[number]) => matrixAgentLocalizedText({ body: content.body as string, cloudStatus }, locale)
+
+    // The sender's own language reads exactly as it was sent: nothing is added or lost.
+    expect(say('vi')).toBe(content.body)
+    expect(say('en')).toBe('I’ve stopped working in the cloud and I’m continuing on MacBook Air.')
+    expect(say('ja')).toBe('クラウドでの作業を止めて、MacBook Air で続けています。')
+    expect(say('zh')).toBe('我已停止云端的工作，正在 MacBook Air 上继续。')
+    expect(say('zh-hant')).toBe('我已停止雲端的工作，正在 MacBook Air 上繼續。')
+  })
+
   it('has a sentence for every code in every language', () => {
     for (const name of [...named('result-status-'), ...named('status-line-')].filter(file => !file.includes('rejected'))) {
       const content = fixture(name)

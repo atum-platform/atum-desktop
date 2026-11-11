@@ -17,10 +17,15 @@ Every reader is closed: an unknown version, code or key, or a value out of bound
 body". A descriptor must pair with the progress marker's `kind`/`phase`. Only the room's agent is
 reworded (`agent` in `src/matrix/app.tsx`); a person carrying a marker is shown as written.
 
-Compatibility guard: codes whose sentence names something (`failed`, `couldnt_confirm`,
-`resuming_on_device`, `attachment_unsupported`, `device_unreachable`) are reworded without details
-only when the body is exactly that code's plain sentence in some locale, so an older event never
-loses a Mac or routine name.
+Result notices and answer warnings check the whole closed `io.atum.result` (the answer's required
+`invocation`/`transaction`, the notice's optional identifiers and stop target) and refuse an
+`io.atum.interim` sibling; anything malformed keeps the body.
+
+Information guard: codes whose sentence names something are reworded only when their details carry
+that fact (`failed` the routine title, `couldnt_confirm` and `resuming_on_device` the Macs,
+`device_unreachable` the Mac and `resume`, `attachment_unsupported` the kind). An empty, unrelated or
+partial details object keeps the body, unless the body is exactly the sentence those details give in
+one of Atum's languages, so an event never loses a Mac, a routine name or a promise to resume.
 
 ## Rendering
 
@@ -37,6 +42,13 @@ account-data choice; `reported` = the supported system language, only when sync 
 is saved (`displayPreferences.language.chosen === false`). A value is recorded only when
 `Atum-Language-Ack` echoes it for the same account and sign-in generation; a reported value that
 loses is not repeated in that sign-in; sign-out clears the record.
+
+Each published snapshot calls `MatrixAccount.ownerLanguageChanged()`: when the synced language just
+became known or changed and is not yet acknowledged, one roster read is requested through the same
+request-and-sync path a wake uses (`refreshMatrixRosterOnLanguageChange`), not the quarter-hour
+refresh. The renderer's optimistic pick is never reported; only the sync echo is. An observed change
+from one known language to another drops the stored ack, and an ack for a report begun before that
+change records nothing, so returning to a language acknowledged earlier still reports.
 
 ## Tests
 

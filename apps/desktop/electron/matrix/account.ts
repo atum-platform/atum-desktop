@@ -4200,6 +4200,12 @@ export class MatrixAccount {
     })
   }
 
+  /** True when the owner's language just became known or changed and is not yet acknowledged:
+   * the caller asks for a roster read so it is reported now (atum.owner-language/1). */
+  ownerLanguageChanged(): boolean {
+    return this.languageReports.observe()
+  }
+
   /** Creates another agent; the request ID makes a retry return the same agent. */
   async createAgent(
     input: { requestId: string; displayName: string; hireConfirmed?: boolean },

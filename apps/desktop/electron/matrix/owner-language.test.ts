@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { type OwnerLanguage, OwnerLanguageReports, ownerLanguageToReport } from './owner-language'
+import {
+  type OwnerLanguage,
+  OwnerLanguageReports,
+  ownerLanguageToReport,
+  refreshMatrixRosterOnLanguageChange
+} from './owner-language'
+import { MatrixRosterRecovery } from './roster-recovery'
 
 class MemoryStore {
   readonly entries = new Map<string, string>()
@@ -110,5 +116,117 @@ describe('the owner language report', () => {
 
   it('sends nothing while the language is unknown', () => {
     expect(fixture(undefined).reports.begin()).toBeUndefined()
+  })
+})
+
+describe('a choice made after an earlier ack (review finding 5)', () => {
+  it('reports a return to a language acknowledged before, after another device chose another one', () => {
+    const { live, reports } = fixture({ value: 'en', source: 'explicit' })
+
+    reports.observe()
+    reports.begin()?.settle('en')
+    expect(reports.begin()).toBeUndefined()
+
+    // Another device saves Vietnamese; this Mac sees it by sync before any roster read of its own.
+    live.language = { value: 'vi', source: 'explicit' }
+    reports.observe()
+    // The owner chooses English again here: the old `explicit:en` ack must not hide it.
+    live.language = { value: 'en', source: 'explicit' }
+    expect(reports.observe()).toBe(true)
+    expect(reports.begin()?.headers).toEqual({ 'Atum-Language': 'en', 'Atum-Language-Source': 'explicit' })
+  })
+
+  it('records nothing from an ack for a report begun before the choice changed', () => {
+    const { live, reports, store } = fixture({ value: 'en', source: 'explicit' })
+
+    reports.observe()
+    const old = reports.begin()
+
+    live.language = { value: 'vi', source: 'explicit' }
+    reports.observe()
+    // The English report's ack arrives late, after Vietnamese was chosen.
+    old?.settle('en')
+    expect(store.entries.size).toBe(0)
+
+    // Back to English before anything settled: English is still reported, its old ack counts for nothing.
+    live.language = { value: 'en', source: 'explicit' }
+    reports.observe()
+    old?.settle('en')
+    expect(store.entries.size).toBe(0)
+    expect(reports.begin()?.headers).toEqual({ 'Atum-Language': 'en', 'Atum-Language-Source': 'explicit' })
+  })
+
+  it('keeps the ack across a launch that only learns the same language again', () => {
+    const { live, reports, store } = fixture(undefined)
+
+    live.language = { value: 'ja', source: 'explicit' }
+    reports.begin()?.settle('ja')
+
+    // A fresh process: unknown, then the same saved choice. Nothing to report, no read asked for.
+    const relaunched = new OwnerLanguageReports({ store, scope: () => live.scope, language: () => live.language })
+
+    live.language = undefined
+    expect(relaunched.observe()).toBe(false)
+    live.language = { value: 'ja', source: 'explicit' }
+    expect(relaunched.observe()).toBe(false)
+    expect(relaunched.begin()).toBeUndefined()
+  })
+})
+
+describe('a language change reaches the roster read at once (review finding 1)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reads an already-synced roster again on the preference echo, without the quarter-hour timer', async () => {
+    vi.useFakeTimers()
+
+    const { live, reports } = fixture(undefined)
+    const roster = new MatrixRosterRecovery<string[]>()
+    const sent: Record<string, string>[] = []
+
+    const read = () =>
+      roster.sync({
+        scope: () => live.scope,
+        fetch: async () => {
+          const report = reports.begin()
+
+          sent.push(report?.headers ?? {})
+          report?.settle(report.headers['Atum-Language'])
+
+          return []
+        }
+      })
+
+    const publish = async () => {
+      let started: Promise<unknown> | undefined
+
+      refreshMatrixRosterOnLanguageChange(() => reports.observe(), roster, () => {
+        started = read()
+      })
+      await started
+    }
+
+    // The first roster read runs before sync knows whether a language was saved: no header.
+    expect((await read()).state).toBe('synced')
+    expect(sent).toEqual([{}])
+    // Once read, ordinary watch ticks are no-ops.
+    expect((await read()).state).toBe('idle')
+
+    // Initial sync confirms a saved Vietnamese choice: reported now.
+    live.language = { value: 'vi', source: 'explicit' }
+    await publish()
+    expect(sent.at(-1)).toEqual({ 'Atum-Language': 'vi', 'Atum-Language-Source': 'explicit' })
+
+    // The owner saves English; the sync echo publishes it: read again and reported, timer untouched.
+    live.language = { value: 'en', source: 'explicit' }
+    await publish()
+    expect(sent.at(-1)).toEqual({ 'Atum-Language': 'en', 'Atum-Language-Source': 'explicit' })
+    expect(sent).toHaveLength(3)
+
+    // An unrelated publish with the same language asks for nothing.
+    await publish()
+    expect(sent).toHaveLength(3)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

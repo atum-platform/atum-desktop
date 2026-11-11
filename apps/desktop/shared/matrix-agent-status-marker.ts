@@ -35,6 +35,13 @@ function plainObject(value: unknown): Record<string, unknown> | undefined {
 
 const scalars = (value: string) => [...value].length
 
+// The contract's identifier types (agent-turns/1.5 `uuid`, `transaction`, and the synthetic stop target).
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+const validTransaction = (value: unknown) => typeof value === 'string' && value.length <= 255 && /^[!-~]+$/.test(value)
+
+const validStopTarget = (value: unknown) =>
+  typeof value === 'string' && value.length >= 2 && value.length <= 1024 && /^[$][!-~]+$/.test(value)
+
 function boundedLine(value: unknown, max: number): value is string {
   // One line: no control, separator or C1 characters (the publisher strips them).
   // eslint-disable-next-line no-control-regex
@@ -91,8 +98,12 @@ export function matrixResultStatusNotice(content: Record<string, unknown>): Matr
     content.msgtype !== 'm.notice' ||
     !raw ||
     content['io.atum.progress'] !== undefined ||
+    content['io.atum.interim'] !== undefined ||
     !isMatrixAgentStatusCode(raw.status) ||
-    Object.keys(raw).some(key => !['status', 'invocation', 'transaction', 'stopEvent'].includes(key))
+    Object.keys(raw).some(key => !['status', 'invocation', 'transaction', 'stopEvent'].includes(key)) ||
+    (raw.invocation !== undefined && (typeof raw.invocation !== 'string' || !UUID.test(raw.invocation))) ||
+    (raw.transaction !== undefined && !validTransaction(raw.transaction)) ||
+    (raw.stopEvent !== undefined && !validStopTarget(raw.stopEvent))
   ) {
     return undefined
   }
@@ -156,8 +167,9 @@ export interface MatrixAnswerWarning {
 
 /**
  * An answer (`m.text`) that ends with an appended warning: its warning code and its answer text, or
- * nothing unless `io.atum.result_warning` is exactly `{version:1, from}` and `from` sits on the
- * separator.
+ * nothing unless `io.atum.result` is exactly `{invocation, transaction, status}`,
+ * `io.atum.result_warning` is exactly `{version:1, from}`, `from` sits on the separator, and the event
+ * is neither progress nor an interim remark.
  */
 export function matrixAnswerWarning(content: Record<string, unknown>): MatrixAnswerWarning | undefined {
   const raw = plainObject(content[MATRIX_RESULT_KEY])
@@ -171,6 +183,11 @@ export function matrixAnswerWarning(content: Record<string, unknown>): MatrixAns
     warning.version !== 1 ||
     Object.keys(warning).some(key => key !== 'version' && key !== 'from') ||
     content['io.atum.progress'] !== undefined ||
+    content['io.atum.interim'] !== undefined ||
+    Object.keys(raw).some(key => !['status', 'invocation', 'transaction'].includes(key)) ||
+    typeof raw.invocation !== 'string' ||
+    !UUID.test(raw.invocation) ||
+    !validTransaction(raw.transaction) ||
     !(MATRIX_AGENT_ANSWER_WARNING_CODES as readonly unknown[]).includes(raw.status)
   ) {
     return undefined
@@ -181,10 +198,31 @@ export function matrixAnswerWarning(content: Record<string, unknown>): MatrixAns
   return split ? { code: raw.status as MatrixAgentAnswerWarningCode, answer: split.answer } : undefined
 }
 
-/** Codes whose sentence interpolates `details`. */
-const DETAIL_CODES: ReadonlySet<MatrixAgentStatusCode> = new Set([
-  'failed', 'couldnt_confirm', 'resuming_on_device', 'attachment_unsupported', 'device_unreachable'
-])
+/**
+ * Whether `details` carries every fact the sentence for `code` states about this event: the routine
+ * of a failed routine, the Macs of an interrupted turn, the Mac a turn resumes on, the Mac that is away
+ * and whether the agent carries on, the attachment's kind. An empty or unrelated object is not.
+ */
+function detailsComplete(code: MatrixAgentStatusCode, details: MatrixAgentStatusDetails | undefined): boolean {
+  switch (code) {
+    case 'failed':
+      return details?.routine_title !== undefined
+
+    case 'couldnt_confirm':
+
+    case 'resuming_on_device':
+      return details?.devices !== undefined
+
+    case 'device_unreachable':
+      return details?.devices !== undefined && details.resume !== undefined
+
+    case 'attachment_unsupported':
+      return details?.attachment !== undefined
+
+    default:
+      return true
+  }
+}
 
 /**
  * What an agent's message says to this reader, in its current language, when its code allows it: the
@@ -210,13 +248,13 @@ export function matrixAgentLocalizedText(
   const status = message.cloudStatus ?? message.statusLine
 
   if (status) {
-    // A sentence that names a Mac, a routine or an attachment kind is reworded only from its details.
-    // An event without them (every sender before 1.5) keeps its body unless that body is exactly the
-    // plain sentence, so a name it carries is never dropped.
+    // A sentence that names a Mac, a routine or an attachment kind is reworded only when its details
+    // carry that fact. Otherwise (every sender before 1.5, or details that are empty or partial) the
+    // body stands unless it is exactly the sentence these details give in one of Atum's languages, so
+    // a name or a promise it carries is never dropped.
     if (
-      !status.details &&
-      DETAIL_CODES.has(status.code) &&
-      !DESKTOP_LOCALES.some(other => matrixAgentStatusText(status.code, other) === message.body.trim())
+      !detailsComplete(status.code, status.details) &&
+      !DESKTOP_LOCALES.some(other => matrixAgentStatusText(status.code, other, status.details) === message.body.trim())
     ) {
       return undefined
     }

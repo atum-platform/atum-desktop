@@ -38,9 +38,17 @@ const recorded = (language: OwnerLanguage) => `${language.source}:${language.val
  * another language (an earlier report or a choice made elsewhere won) is not recorded, but it is not
  * sent again in this sign-in either: the server keeps the first report, so repeating it changes
  * nothing. Sign-out clears the record, so the next sign-in reports once more.
+ *
+ * An ack is evidence of what the server stored then, not now: when the observed choice changes (here,
+ * or on another device and arriving by sync) the record is dropped, so returning to a language
+ * acknowledged earlier still reports the new choice, and an ack for a report begun before that change
+ * records nothing.
  */
 export class OwnerLanguageReports {
   private readonly answered = new Set<string>()
+  private observed?: { accountKey: string; generation: number; value?: string }
+  /** Bumped whenever the observed choice moves from one known value to another. */
+  private changes = 0
 
   constructor(
     private readonly options: {
@@ -55,23 +63,27 @@ export class OwnerLanguageReports {
     const scope = this.options.scope()
     const language = this.options.language()
 
-    if (
-      !scope ||
-      !language ||
-      !isDesktopLocale(language.value) ||
-      (language.source !== 'explicit' && language.source !== 'reported') ||
-      this.lastAcked(scope.accountKey) === recorded(language) ||
-      this.answered.has(`${scope.accountKey}:${scope.generation}:${recorded(language)}`)
-    ) {
+    if (!scope || !language || !this.due(scope, language)) {
       return undefined
     }
+
+    const changes = this.changes
 
     return {
       headers: { [LANGUAGE_REQUEST_HEADER]: language.value, [LANGUAGE_SOURCE_HEADER]: language.source },
       settle: ack => {
         const live = this.options.scope()
+        const now = this.options.language()
 
-        if (live?.accountKey !== scope.accountKey || live.generation !== scope.generation || !isDesktopLocale(ack)) {
+        if (
+          live?.accountKey !== scope.accountKey ||
+          live.generation !== scope.generation ||
+          !isDesktopLocale(ack) ||
+          // The choice changed while this read was out: its ack says nothing about the new one.
+          changes !== this.changes ||
+          !now ||
+          recorded(now) !== recorded(language)
+        ) {
           return
         }
 
@@ -92,6 +104,40 @@ export class OwnerLanguageReports {
     }
   }
 
+  /**
+   * Called after each published snapshot: true when the account's language just became known or
+   * changed and a roster read should carry it now (the caller requests that read; there is no timer
+   * here). A move from one known value to another drops the account's ack record (see the class note).
+   */
+  observe(): boolean {
+    const scope = this.options.scope()
+    const language = this.options.language()
+
+    const current = scope
+      ? { accountKey: scope.accountKey, generation: scope.generation, ...(language ? { value: recorded(language) } : {}) }
+      : undefined
+
+    const previous = this.observed
+
+    this.observed = current
+
+    if (
+      !current ||
+      (previous?.accountKey === current.accountKey &&
+        previous.generation === current.generation &&
+        previous.value === current.value)
+    ) {
+      return false
+    }
+
+    if (previous?.accountKey === current.accountKey && previous.value && current.value && previous.value !== current.value) {
+      this.changes += 1
+      this.clear(current.accountKey)
+    }
+
+    return Boolean(scope && language && this.due(scope, language))
+  }
+
   /** Sign-out or account removal: this account reports afresh when it signs in again. */
   clear(accountKey: string): void {
     try {
@@ -99,6 +145,15 @@ export class OwnerLanguageReports {
     } catch {
       // Nothing else depends on it; a later read reports again.
     }
+  }
+
+  private due(scope: OwnerTimeZoneScope, language: OwnerLanguage): boolean {
+    return (
+      isDesktopLocale(language.value) &&
+      (language.source === 'explicit' || language.source === 'reported') &&
+      this.lastAcked(scope.accountKey) !== recorded(language) &&
+      !this.answered.has(`${scope.accountKey}:${scope.generation}:${recorded(language)}`)
+    )
   }
 
   private lastAcked(accountKey: string): string | undefined {
@@ -124,4 +179,19 @@ export function ownerLanguageToReport(
   }
 
   return row?.chosen === false && systemLanguage ? { value: systemLanguage, source: 'reported' } : undefined
+}
+
+/**
+ * A language that became known or changed is reported by one roster read now, through the same
+ * request-and-sync path a wake uses (no timer, no second read: one already running coalesces).
+ */
+export function refreshMatrixRosterOnLanguageChange(
+  changed: () => boolean,
+  roster: { request(): void },
+  sync: () => void
+): void {
+  if (changed()) {
+    roster.request()
+    sync()
+  }
 }
