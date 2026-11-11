@@ -92,7 +92,8 @@ function setup(
   snapshot = readySnapshot(),
   query = '',
   locale: 'en' | 'vi' = 'en',
-  external: { count: number; searching: boolean } = { count: 0, searching: false }
+  external: { count: number; searching: boolean } = { count: 0, searching: false },
+  cloudOnly?: boolean
 ) {
   const command = vi.fn<MatrixUiBridge['command']>().mockResolvedValue(null)
   const openAssistant = vi.fn()
@@ -107,6 +108,7 @@ function setup(
       <MatrixRosterConversations
         agentActions={<button type="button">New agent</button>}
         assistantOpening={false}
+        cloudOnly={cloudOnly}
         externalResultCount={external.count}
         externalSearching={external.searching}
         fail={fail}
@@ -1554,6 +1556,23 @@ describe('MatrixRosterConversations', () => {
     expect(retryReadiness).not.toHaveBeenCalled()
   })
 
+  it('hides Mac reconnect copy and action for a cloud assistant with a stale standby role', () => {
+    const snapshot = readySnapshot()
+    snapshot.agents![1] = {
+      ...snapshot.agents![1]!,
+      ready: false,
+      answering: 'cloud',
+      macRole: 'standby',
+      readiness: { phase: 'blocked', step: 'assistant', code: 'agent_reconnect_required', since: 1 }
+    }
+    const { view } = setup(snapshot, '', 'vi')
+    const moon = view.container.querySelector<HTMLElement>('[data-matrix-agent="moon"]')!
+
+    expect(within(moon).queryByText('Cần kết nối lại')).toBeNull()
+    expect(within(moon).queryByRole('button', { name: 'Kết nối lại' })).toBeNull()
+    expect(moon.querySelector('[data-roster-preview]')).toBeNull()
+  })
+
   it("shows Atum's atom on an assistant's row while it is at work", () => {
     const snapshot = readySnapshot()
     snapshot.agents = snapshot.agents!.map(agent =>
@@ -2160,7 +2179,7 @@ describe('a Mac that is not ready while the policy answers elsewhere', () => {
     deviceNames: { '00000000-0000-4000-8000-b454f82c5857': { displayName: 'Mac mini', thisMac: false } }
   })
 
-  it('says where it answers, briefly, instead of “Chưa sẵn sàng” (§9.6)', () => {
+  it('uses the normal status line under cloud-only instead of naming a Mac', () => {
     const snapshot = readySnapshot()
     // A runtime that needs downloading offers no Try again: nothing contradicts the line.
     snapshot.agents![1] = {
@@ -2170,6 +2189,21 @@ describe('a Mac that is not ready while the policy answers elsewhere', () => {
       executionPolicy: policyView()
     }
     const { view } = setup(snapshot, '', 'vi')
+
+    const moon = view.container.querySelector<HTMLElement>('[data-matrix-agent="moon"]')!
+    expect(within(moon).queryByText('Trên Mac mini')).toBeNull()
+    expect(within(moon).getByText('Chưa sẵn sàng')).toBeTruthy()
+  })
+
+  it('says where it answers, briefly, with cloud-only switched off (§9.6)', () => {
+    const snapshot = readySnapshot()
+    snapshot.agents![1] = {
+      ...snapshot.agents![1]!,
+      ready: false,
+      readiness: { phase: 'blocked', step: 'ai', code: 'runtime_unavailable', since: 1 },
+      executionPolicy: policyView()
+    }
+    const { view } = setup(snapshot, '', 'vi', undefined, false)
 
     const moon = view.container.querySelector<HTMLElement>('[data-matrix-agent="moon"]')!
     expect(within(moon).getByText('Trên Mac mini')).toBeTruthy()

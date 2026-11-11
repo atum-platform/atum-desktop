@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useI18n } from '@/i18n'
 import { ChevronRight } from '@/lib/icons'
 
+import { AGENT_HOMES_CLOUD_ONLY } from '../../../shared/agent-home-cloud-only'
 import type {
   MatrixAgentHomeBridge,
   MatrixAgentHomeModelOption,
@@ -10,6 +11,7 @@ import type {
   MatrixAgentView,
   MatrixSubscriptionsBridge
 } from '../../../shared/matrix'
+import { matrixAgentAnswersInCloud } from '../../../shared/matrix-agent-actions'
 import {
   type MatrixModelDestinationsView,
   type MatrixModelDestinationView,
@@ -36,21 +38,19 @@ const BADGE = 'shrink-0 rounded-full bg-(--atum-hover) px-1.5 py-0.5 text-[10px]
 const SHOW_DAILY_CAP = false
 
 /**
- * The assistant card's "Mô hình" rows (`atum.model-choice/1.3`): one row per destination the
- * agent can answer from — the cloud, then each of the owner's Macs by display name — with that
- * destination's default model. Each row opens the same picker the composer uses, scoped to that
- * host: a cloud host offers the eligible Atum models and shows the account subscriptions
- * disabled ("Use on your Mac"); the Mac this assistant lives on offers its own connections too.
- * A pick writes the owner's choice for that destination; a refusal puts the row back with no
- * error band. With no route (flag off, read failed) the whole group is absent.
+ * The card shows the model that answers for this assistant now. Cloud-only assistants get the
+ * cloud choice; a not-yet-moved Mac assistant keeps its current Mac choice. The dormant legacy
+ * projection remains available while older placements are retired.
  */
 export function ModelDestinationsRow({
   agent,
-  preferenceScope
+  preferenceScope,
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY
 }: {
   agent: MatrixAgentView
   /** The same account scope the composer uses, so one set of favorites follows the person. */
   preferenceScope?: string
+  cloudOnly?: boolean
 }) {
   const { locale, t } = useI18n()
   const copy = t.matrixShell
@@ -135,6 +135,7 @@ export function ModelDestinationsRow({
   }
 
   const currentHome = homeView?.placement?.current
+  const choices = cardModelChoice(view, agent, currentHome, cloudOnly)
 
   const choose = async (choice: MatrixModelDestinationView, option: MatrixAgentHomeModelOption) => {
     if (option.source === 'atum') {
@@ -251,7 +252,9 @@ export function ModelDestinationsRow({
     // Another Mac's connections are not writable from this window: keep them visible only as
     // the row's current, disabled value so the picker never offers a choice that cannot save.
     const models =
-      choice.kind === 'mac' && choice.id !== currentHome
+      cloudOnly && choice.kind === 'cloud'
+        ? allModels.filter(model => !model.source.startsWith('own_key:'))
+        : choice.kind === 'mac' && choice.id !== currentHome
         ? allModels.flatMap(model => {
             if (model.source === 'atum') {
               return [model]
@@ -328,10 +331,12 @@ export function ModelDestinationsRow({
 
   return (
     <>
-      <div className="atum-settings-row atum-settings-row-quiet" data-assistant-card-model-heading>
-        <span className="atum-settings-row-text atum-settings-row-title">{copy.modelPicker}</span>
-      </div>
-      {view.choices.map(choice => {
+      {!cloudOnly && (
+        <div className="atum-settings-row atum-settings-row-quiet" data-assistant-card-model-heading>
+          <span className="atum-settings-row-text atum-settings-row-title">{copy.modelPicker}</span>
+        </div>
+      )}
+      {choices.map(choice => {
         const shelfModel = choice.shelf
           ? homeView?.placement?.destinations
               .find(destination => destination.id === choice.id)
@@ -395,11 +400,13 @@ export function ModelDestinationsRow({
                 data-assistant-card-model-destination={choice.kind}
                 type="button"
               >
-                <span className="atum-settings-row-title shrink-0">{destinationName(locale, choice)}</span>
+                <span className="atum-settings-row-title shrink-0">
+                  {cloudOnly ? copy.modelPicker : destinationName(locale, choice)}
+                </span>
                 <span className="atum-card-row-value ms-auto" title={label}>
                   {label}
                 </span>
-                {!choice.external && !choice.shelf && choice.current === view.recommended && (
+                {!cloudOnly && !choice.external && !choice.shelf && choice.current === view.recommended && (
                   <span className={BADGE} data-assistant-card-model-recommended>
                     {copy.modelRecommended}
                   </span>
@@ -415,6 +422,27 @@ export function ModelDestinationsRow({
       )}
     </>
   )
+}
+
+export function cardModelChoice(
+  view: Pick<MatrixModelDestinationsView, 'choices'>,
+  agent: Pick<MatrixAgentView, 'answering' | 'macRole'>,
+  currentHomeId: string | undefined,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): readonly MatrixModelDestinationView[] {
+  if (!cloudOnly) {
+    return view.choices
+  }
+
+  const currentMac = view.choices.find(choice => choice.kind === 'mac' && choice.id === currentHomeId)
+  const localWithoutPlacement =
+    currentHomeId === undefined && !matrixAgentAnswersInCloud(agent)
+      ? view.choices.find(choice => choice.kind === 'mac' && choice.thisMac === true)
+      : undefined
+
+  const choice = currentMac ?? localWithoutPlacement ?? view.choices.find(each => each.kind === 'cloud')
+
+  return choice ? [choice] : []
 }
 
 function destinationModels(

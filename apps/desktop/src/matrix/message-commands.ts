@@ -106,7 +106,17 @@ export async function sendMatrixText(
  * Your own text message, changed for everyone (`m.replace`). The replacement carries only
  * what the message shows: its markers and its reply stay on the message as first sent.
  */
-export async function editMatrixMessage(client: MatrixClient, room: Room, target: string, body: string) {
+export async function editMatrixMessage(client: MatrixClient, room: Room, target: string, body: string, options: { savedStatus?: 'saved_to_drive' | 'saved_as_copy'; transactionId?: string } = {}) {
+  if (options.savedStatus && !room.findEventById(target)) {
+    await client.getEventTimeline(room.getUnfilteredTimelineSet(), target)
+  }
+
+  const candidate = room.findEventById(target)
+
+  if (options.savedStatus && candidate) {
+    await client.decryptEventIfNeeded(candidate)
+  }
+
   const event = serverMessage(room, target)
   const text = body.trim()
 
@@ -114,14 +124,27 @@ export async function editMatrixMessage(client: MatrixClient, room: Room, target
     throw new Error('matrix_message_changed')
   }
 
+  const original = event.getOriginalContent()
+  const result = original['io.atum.result']
+
+  if (options.savedStatus && (!['saved_to_drive', 'saved_as_copy'].includes(options.savedStatus) || result?.status !== 'save_unconfirmed')) {
+    throw new Error('matrix_message_changed')
+  }
+
+  // m.new_content replaces the visible content only; relations stay on the original event.
+  const { 'm.relates_to': _relation, ...visible } = original
+  const content = options.savedStatus
+    ? { ...visible, msgtype: MsgType.Text as const, body: text, 'io.atum.result': { ...result, status: options.savedStatus } }
+    : { msgtype: MsgType.Text as const, body: text }
+
   return eventId(
     await client.sendEvent(room.roomId, EventType.RoomMessage, {
       msgtype: MsgType.Text,
       // What an app without edits shows: the standard fallback.
       body: `* ${text}`,
-      'm.new_content': { msgtype: MsgType.Text, body: text },
+      'm.new_content': content,
       'm.relates_to': { rel_type: RelationType.Replace, event_id: target }
-    })
+    }, ...(options.transactionId ? [options.transactionId] as const : [] as const))
   )
 }
 

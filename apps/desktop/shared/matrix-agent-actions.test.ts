@@ -8,7 +8,9 @@ import {
   matrixAgentActions,
   matrixAgentAnswersInCloud,
   matrixAgentGroupOffer,
-  matrixAgentRunsHere
+  matrixAgentNeedsLocalSetup,
+  matrixAgentRunsHere,
+  matrixAssistantReplySettingsShown
 } from './matrix-agent-actions'
 
 const pack = new URL('./execution-policy/fixtures/execution-policy/v1/fixtures/', import.meta.url)
@@ -69,6 +71,15 @@ describe('which actions an assistant offers (0.19.4 Q4, reliability plan R5)', (
     expect(matrixAgentRunsHere({ answering: 'cloud' })).toBe(false)
     expect(matrixAgentRunsHere({ answering: 'cloud', macRole: 'standby' })).toBe(true)
     expect(matrixAgentRunsHere({ answering: 'cloud', macRole: 'answering' })).toBe(true)
+  })
+
+  it('needs local setup and reply controls only on the dormant path under cloud-only', () => {
+    expect(matrixAgentNeedsLocalSetup({ answering: 'cloud', macRole: 'standby' })).toBe(false)
+    expect(matrixAgentNeedsLocalSetup({ answering: 'cloud', macRole: 'answering' })).toBe(true)
+    expect(matrixAgentNeedsLocalSetup({ answering: 'cloud', macRole: 'standby' }, false)).toBe(true)
+    expect(matrixAgentNeedsLocalSetup({})).toBe(true)
+    expect(matrixAssistantReplySettingsShown()).toBe(false)
+    expect(matrixAssistantReplySettingsShown(false)).toBe(true)
   })
 
   it('uses the cloud route unless this Mac holds the answering term', () => {

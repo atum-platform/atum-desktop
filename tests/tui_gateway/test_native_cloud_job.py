@@ -100,9 +100,19 @@ def test_claimed_cloud_run_uses_native_run_one_job_and_host_delivery(monkeypatch
     if surface == "desktop":
         monkeypatch.delenv("ATUM_TASK_WORKSPACE")
     monkeypatch.setattr(scheduler, "_hermes_home", tmp_path)
-    monkeypatch.setattr(scheduler, "run_job", lambda _job, *, defer_agent_teardown=None, **kwargs:
-                        (succeeded, "# native output", "Native routine answer" if succeeded else "",
-                         None if succeeded else "fixture_provider_failed"))
+    bridge_calls = []
+    from tui_gateway import server_requests
+    monkeypatch.setattr(server_requests, "request_host", lambda method, payload, **kw:
+                        bridge_calls.append((method, payload)) or '{"rooms":[]}')
+    def model_body(_job, **kwargs):
+        # Cron has no interactive callback installer. Exercise the actual wired tool seam
+        # while run_one_job owns the execution ContextVar, with no model/network calls.
+        if surface == "cloud" and not sweep:
+            from tools import desktop_ui
+            assert json.loads(desktop_ui.request("atum.chats", {"op": "list"}, 60)) == {"rooms": []}
+        return (succeeded, "# native output", "Native routine answer" if succeeded else "",
+                None if succeeded else "fixture_provider_failed")
+    monkeypatch.setattr(scheduler, "run_job", model_body)
     native = scheduler.run_one_job
 
     def observed(*args, **kwargs):
@@ -120,6 +130,10 @@ def test_claimed_cloud_run_uses_native_run_one_job_and_host_delivery(monkeypatch
                                          **({'sweep_gate': gate} if sweep else {})})
         saved = jobs.get_job(job_id)
 
+    if surface == "cloud" and not sweep:
+        assert bridge_calls == [("atum.chats", {"op": "list", "turn_id": occurrence_id})]
+    else:
+        assert bridge_calls == []
     if succeeded and delivery_failed:
         assert result.pop("reason") == "durable_delivery_unavailable"
         assert result["status"] == "error"

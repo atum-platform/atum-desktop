@@ -84,6 +84,22 @@ function PlaceIcon({ className, kind }: { className?: string; kind?: PlaceKind }
 
 type Readiness = 'ready' | 'checking' | 'asleep' | 'unavailable' | 'moving'
 
+/** The title bar keeps a home icon only when it helps finish a Mac-to-cloud move. */
+export function agentHomeTitleIconShown(
+  view: MatrixAgentHomeView,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): boolean {
+  if (!cloudOnly) {
+    return true
+  }
+
+  const moving = Boolean(
+    view.move || (view.placement?.progress && !['ready', 'failed'].includes(view.placement.progress.state))
+  )
+
+  return view.lives.kind === 'mac' || moving
+}
+
 /** The state dot: green only when it is ready, the warning glyph colour when it can't be reached. */
 const READINESS_DOT: Record<Readiness, string> = {
   ready: 'bg-(--ak-ok)',
