@@ -19,6 +19,7 @@ import {
   type MatrixUiBridge
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import type { MatrixAgentStatusCode } from '../../shared/matrix-agent-status-copy'
 import type { MatrixAssistantCardsBridge } from '../../shared/matrix-assistant-card'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { defaultMatrixCheckInSettings, emptyMatrixCheckInLedger } from '../../shared/matrix-check-ins'
@@ -2825,7 +2826,7 @@ describe('isolated Matrix composition', () => {
   it('shows a failed cloud turn as Atum system status, and keeps other notices’ own words', async () => {
     const { emit } = fixture()
     const sentAt = Date.now()
-    const notice = (id: string, body: string, code: string, offset: number) => ({
+    const notice = (id: string, body: string, code: MatrixAgentStatusCode, offset: number) => ({
       ...controlsState.messages[0]!,
       id,
       own: false,

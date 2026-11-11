@@ -291,13 +291,17 @@ it('projects portable language through the actual session, with sync authority a
   vi.spyOn(f.client.http, 'authedRequest').mockResolvedValue({ version: 1, value: 'vi' } as never)
   await f.sdk.command({ kind: 'displayPreference', identity, field: 'language', value: 'en' })
   expect(f.client.setAccountDataRaw).toHaveBeenCalledWith(MATRIX_DISPLAY_EVENTS.language, { version: 1, value: 'en' })
-  expect(f.latest().displayPreferences?.language?.value).toBe(unchosen)
+  // `chosen` rides only on the in-process snapshot (the owner-language report reads it); the
+  // account data written above stays `{version, value}`, which phones and older desktops read.
+  expect(f.latest().displayPreferences?.language).toEqual({ value: unchosen, writable: true, chosen: false })
   const event = new MatrixEvent({ type: MATRIX_DISPLAY_EVENTS.language, content: { version: 1, value: 'en' } })
   f.client.store.storeAccountDataEvents([event])
   f.client.emit(ClientEvent.AccountData, event, undefined)
-  await vi.waitFor(() => expect(f.latest().displayPreferences?.language).toEqual({ value: 'en', writable: true }))
+  await vi.waitFor(() =>
+    expect(f.latest().displayPreferences?.language).toEqual({ value: 'en', writable: true, chosen: true })
+  )
   f.client.emit(ClientEvent.Sync, SyncState.Stopped, SyncState.Prepared)
-  expect(f.latest().displayPreferences?.language).toEqual({ value: 'en', writable: false })
+  expect(f.latest().displayPreferences?.language).toEqual({ value: 'en', writable: false, chosen: true })
   await expect(f.sdk.command({ kind: 'displayPreference', identity, field: 'language', value: 'ja' })).rejects.toThrow(
     'unavailable'
   )

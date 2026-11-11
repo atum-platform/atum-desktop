@@ -302,7 +302,8 @@ export function DmMessageBubble({
             )}
           </time>
           {pending && <Clock aria-label={t.uiLabels.messageSending} className="size-3" />}
-          {failed && <AlertCircle aria-label={t.dm.sendFailed} className="size-3" />}
+          {/* The words beside the icon name the failure in the reader's language; the icon only marks it. */}
+          {failed && <AlertCircle aria-hidden="true" className="size-3" data-delivery-failed="" />}
           {failed && <span>{t.dm.sendFailed}</span>}
           {conflicted && <AlertTriangle aria-label={t.uiLabels.messageConflicted} className="size-3" />}
           {message.editedAt && !recalled && <span>{t.dm.edited}</span>}
