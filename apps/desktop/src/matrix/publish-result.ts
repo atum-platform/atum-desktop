@@ -234,15 +234,31 @@ export async function publishMatrixNotice(
   const groupRoutingFailure = typeof command.transactionId === 'string' &&
     /^atum-grf-[a-f0-9]{64}$/.test(command.transactionId)
 
-  const fixedTransaction = dailyEarlier || groupRoutingFailure
+  const descriptor = command.presentation
+  const descriptorValid = descriptor !== undefined && descriptor !== null &&
+    Object.keys(descriptor).sort().join(',') === 'args,code,version' &&
+    descriptor.version === 1 && descriptor.code === 'subscription_fallback' &&
+    descriptor.args !== null && typeof descriptor.args === 'object' &&
+    Object.keys(descriptor.args).sort().join(',') === 'plan,reason,servedBy' &&
+    ['chatgpt', 'opencode_go'].includes(descriptor.args.plan) &&
+    ['offline', 'refused', 'rate_limited', 'timeout', 'grant_invalid', 'unattended'].includes(descriptor.args.reason) &&
+    typeof descriptor.args.servedBy === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(descriptor.args.servedBy)
+  if (descriptor !== undefined && (!descriptorValid || command.body !== '' ||
+    command.progress !== undefined || command.interim !== undefined || command.redact !== undefined ||
+    command.replaces !== undefined || command.statusLine !== undefined || command.group !== undefined ||
+    command.revision !== undefined || !/^atum-sf-[a-f0-9]{64}$/.test(command.transactionId ?? ''))) {
+    throw new Error('matrix_command_invalid')
+  }
+
+  const fixedTransaction = dailyEarlier || groupRoutingFailure || descriptorValid
 
   if (
     typeof command.eventId !== 'string' ||
-    !command.eventId.startsWith('$') ||
+    (!command.eventId.startsWith('$') && !(descriptorValid && command.eventId === '')) ||
     command.eventId.length > 255 ||
     typeof command.body !== 'string' ||
     // A removal carries no words; every other notice and an interim remark must.
-    (command.redact === true ? command.body !== '' : !command.body.trim()) ||
+    (command.redact === true ? command.body !== '' : !command.body.trim() && !descriptorValid) ||
     command.body.length > 1000 ||
     // The progress line and the interim remark are the owner's private chat only (agent-turns/1.3,
     // 1.4): never a group notice.
@@ -298,8 +314,10 @@ export async function publishMatrixNotice(
     'm.relates_to': { 'm.in_reply_to': { event_id: command.eventId } }
   }
 
+  const payload = descriptorValid ? { msgtype: MsgType.Notice as const, body: '', 'io.atum.presentation': descriptor,
+    ...(command.eventId ? { 'm.relates_to': { 'm.in_reply_to': { event_id: command.eventId } } } : {}) } : content
   return sendWithTransaction(client, command.roomId, transactionId, () =>
-    client.sendEvent(command.roomId, EventType.RoomMessage, content, transactionId)
+    client.sendEvent(command.roomId, EventType.RoomMessage, payload, transactionId)
   )
 }
 

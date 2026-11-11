@@ -921,3 +921,21 @@ it('publishes a sweep offer standalone under the system sweep job marker', async
   ).rejects.toThrow('matrix_command_invalid')
   expect(send).toHaveBeenCalledOnce()
 })
+
+
+it('publishes one descriptor-only fallback line with stable retry identity and rejects prices', async () => {
+  const { client, room } = plainRoomClient('io.atum.assistant')
+  const send = vi.spyOn(client, 'sendEvent').mockResolvedValue({ event_id: '$fallback' })
+  const command = { kind: 'publishNotice' as const, roomId: room.roomId, eventId: '$owner', body: '',
+    transactionId: `atum-sf-${'a'.repeat(64)}`, presentation: { version: 1 as const,
+      code: 'subscription_fallback' as const, args: { plan: 'chatgpt' as const, reason: 'offline' as const, servedBy: 'nguyet-thuc' } } }
+  await publishMatrixNotice(client, command)
+  await publishMatrixNotice(client, command)
+  expect(send.mock.calls[0][2]).toMatchObject({ body: '', msgtype: 'm.notice', 'io.atum.presentation': command.presentation })
+  expect(send.mock.calls[0][3]).toBe(send.mock.calls[1][3])
+  await expect(publishMatrixNotice(client, { ...command, presentation: undefined })).rejects.toThrow()
+  await expect(publishMatrixNotice(client, { ...command, presentation: { ...command.presentation,
+    args: { ...command.presentation.args, protons: 1 } } } as never)).rejects.toThrow()
+  await expect(publishMatrixNotice(client, { ...command, body: 'authored text' })).rejects.toThrow()
+  await expect(publishMatrixNotice(client, { ...command, interim: true })).rejects.toThrow()
+})

@@ -1984,6 +1984,17 @@ export type MatrixSdkCommand =
       roomId: string
       eventId: string
       body: string
+      /** atum.agent-turns/1.7. Persistent semantic line rendered in each reader's language. */
+      presentation?: {
+        version: 1
+        code: 'subscription_fallback'
+        args: {
+          plan: 'chatgpt' | 'opencode_go'
+          reason: 'offline' | 'refused' | 'rate_limited' | 'timeout' | 'grant_invalid' | 'unattended'
+          servedBy: string
+        }
+      }
+
       group?: true
       statusLine?: true
       transactionId?: string
