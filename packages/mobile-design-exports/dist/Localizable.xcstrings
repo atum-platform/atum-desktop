@@ -40566,31 +40566,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Something went wrong, so I couldn’t finish this. Please try again."
+            "value": "Atum couldn’t complete this request. Please try again."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "エラーが発生したため完了できませんでした。もう一度お試しください。"
+            "value": "Atum はこのリクエストを完了できませんでした。もう一度お試しください。"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Có lỗi nên mình chưa làm xong việc này. Bạn thử lại nhé."
+            "value": "Atum chưa hoàn tất yêu cầu này. Hãy thử lại."
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "出了点问题，没能完成。请再试一次。"
+            "value": "Atum 未能完成此请求。请再试一次。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "出了點問題，沒能完成。請再試一次。"
+            "value": "Atum 未能完成此要求。請再試一次。"
           }
         }
       }

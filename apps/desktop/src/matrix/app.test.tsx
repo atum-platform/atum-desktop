@@ -2805,6 +2805,36 @@ describe('isolated Matrix composition', () => {
     expect(cloudAgent).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'stopTurn' }))
   })
 
+  it('shows a failed cloud turn as Atum system status, and keeps other notices’ own words', async () => {
+    const { emit } = fixture()
+    const sentAt = Date.now()
+    const notice = (id: string, body: string, code: string, offset: number) => ({
+      ...controlsState.messages[0]!,
+      id,
+      own: false,
+      notice: true,
+      sender: '@atum:test',
+      body,
+      timestamp: sentAt + offset,
+      cloudStatus: { code }
+    })
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'cloud-t' })),
+      messages: [
+        ...controlsState.messages.map(message => ({ ...message, timestamp: sentAt })),
+        notice('$resume', 'Resuming on Studio', 'resuming_on_device', 1),
+        notice('$failed', 'controller fallback', 'failed', 2)
+      ],
+      agents: [{ principal: 'cloud-t', userId: '@atum:test', ready: true, isDefault: false, atumModel: true, hermes: 'unavailable', answering: 'cloud' }]
+    })
+
+    expect(await screen.findByText('Atum couldn’t complete this request. Please try again.')).toBeTruthy()
+    expect(screen.queryByText('controller fallback')).toBeNull()
+    expect(screen.getByText('Resuming on Studio')).toBeTruthy()
+  })
+
   it.each([false, true])('uses the cloud Atum destination when a standby Mac has stale local ChatGPT auth (moved: %s)', async moved => {
     const planSignIn = {
       phase: 'blocked' as const,

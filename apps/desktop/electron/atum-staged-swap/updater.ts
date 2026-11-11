@@ -47,6 +47,8 @@ export function pickZipFiles<T extends { url: URL; info: { url: string } }>(file
 export class StagedMacUpdater extends AppUpdater {
   // Present at runtime in pinned 6.6.2, omitted from its published declaration.
   declare protected httpExecutor: ElectronHttpExecutor | null
+  /** Preparation already finished in-app; Restart needs no long-lived updater helper. */
+  readonly showRestartFeedback = false
   stageReady = false
   private stock = false
   private installing = false

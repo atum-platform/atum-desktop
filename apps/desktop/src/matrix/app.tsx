@@ -108,6 +108,7 @@ import {
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { matrixAgentRunsHere } from '../../shared/matrix-agent-actions'
+import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import {
   assistantOpeningBlocksRoom,
@@ -1372,7 +1373,12 @@ function MatrixEventMessageBubble() {
                           ? message.appBot.action.app
                           : (name ?? 'Atum')
                       )
-                    : message.body}
+                    : message.cloudStatus?.code === 'failed'
+                      ? // A failed turn is platform state: show Atum's neutral words, not the
+                        // body's fallback. Other codes keep their body, which carries details
+                        // (device names, attachment kind) the bare code does not.
+                        matrixAgentStatusText('failed', locale)
+                      : message.body}
                   {authenticatedBotNotice && message.appBot?.action?.kind === 'open_setup' && (
                     <Button
                       className="ms-2"
