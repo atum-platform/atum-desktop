@@ -37,6 +37,7 @@ import { runMatrixCommand } from '../text-document-actions'
 
 import { BackgroundSweepRow } from './background-sweep-row'
 import { type AssistantCardCopy, useAssistantCardCopy } from './copy'
+import { AgentMemoryRow } from './memory-row'
 import { ModelDestinationsRow } from './model-destinations-row'
 import { InlineNameField } from './name-field'
 import { type PersonaChange, PersonaFields } from './persona-fields'
@@ -684,6 +685,8 @@ function CardRows({
 }) {
   const store = Boolean(snapshot.apps)
   const pet = useAgentPetName(agent, snapshot)
+  const { t } = useI18n()
+  const memoryName = matrixRosterAgentName(agent, t.matrixShell.assistantName)
 
   const openShelf = (shelf: 'pets' | 'skills') => {
     $matrixStoreShelfRequest.set(shelf)
@@ -765,6 +768,19 @@ function CardRows({
         copy={copy}
         key="background-sweep"
         ownerKey={`${snapshot.identity.userId}\n${snapshot.identity.deviceId}`}
+      />
+    )
+  }
+
+  // What it remembers (cloud memory). Keyed by account so a switch starts from a fresh read; the
+  // row hides itself while memory is not available for this assistant.
+  if (snapshot.identity && window.atumMatrix?.agentMemory) {
+    rows.push(
+      <AgentMemoryRow
+        agentName={memoryName}
+        agentPrincipal={agent.principal}
+        bridge={window.atumMatrix.agentMemory}
+        key={`memory:${snapshot.identity.userId}:${snapshot.identity.deviceId}`}
       />
     )
   }

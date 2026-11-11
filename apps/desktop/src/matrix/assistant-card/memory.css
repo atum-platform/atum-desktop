@@ -1,0 +1,128 @@
+/* The assistant card's Memory panel (Atum Kit: quiet rows, ink only, no colour). */
+
+.atum-memory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-s3);
+  /* Text lines up with the card rows above and below (`.atum-settings-row`'s inline inset). */
+  padding: 0 0.875rem var(--ak-s3);
+}
+
+.atum-memory-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s3);
+}
+
+.atum-memory-quiet,
+.atum-memory-meta {
+  margin: 0;
+  color: var(--ak-ink-3);
+  font: var(--ak-t-callout);
+}
+
+.atum-memory-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-s1);
+}
+
+.atum-memory-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ak-s2);
+}
+
+/* The kit's section label (`.ak-section`, STYLE.md §4): caption 600 ink-3, never uppercase. */
+.atum-memory-group-title {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ak-ink-3);
+  font: var(--ak-t-caption);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.atum-memory-coverage {
+  font-weight: 400;
+}
+
+.atum-memory-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The hairline starts at the words (kit `.ak-row` rule). */
+.atum-memory-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ak-s2);
+  padding-block: var(--ak-s2);
+}
+
+.atum-memory-fact + .atum-memory-fact {
+  border-top: 0.5px solid var(--ak-line);
+}
+
+.atum-memory-fact-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ak-s1);
+  min-width: 0;
+}
+
+/* A remembered fact is untrusted quoted text: it wraps, never truncates or renders Markdown. */
+.atum-memory-text {
+  margin: 0;
+  color: var(--ak-ink);
+  font: var(--ak-t-body);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.atum-memory-gone,
+.atum-memory-fact[aria-busy='true'] .atum-memory-text {
+  color: var(--ak-ink-2);
+}
+
+.atum-memory-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ak-s2);
+  padding: var(--ak-s2) var(--ak-s3);
+  border-radius: var(--ak-r-md);
+  background: var(--ak-fill-quiet);
+}
+
+.atum-memory-confirm > p {
+  margin: 0;
+  color: var(--ak-ink);
+  font: var(--ak-t-body);
+}
+
+.atum-memory-edit {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ak-s2);
+  min-width: 0;
+}
+
+.atum-memory-edit textarea {
+  resize: vertical;
+}
+
+.atum-memory-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ak-s2);
+}

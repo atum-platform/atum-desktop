@@ -295,6 +295,21 @@ const bridge: MatrixUiBridge = {
     save: (agentPrincipal, write) =>
       ipcRenderer.invoke(channel.ui, { kind: 'backgroundSweep', action: 'save', agentPrincipal, write })
   },
+  // Main parses every field and holds all memory authority; the window only names its request.
+  agentMemory: {
+    status: agentPrincipal =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'status' } }),
+    setEnabled: (agentPrincipal, input) =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'setEnabled', ...input } }),
+    browse: (agentPrincipal, input) =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'browse', ...input } }),
+    forget: (agentPrincipal, input) =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'forget', ...input } }),
+    correct: (agentPrincipal, input) =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'correct', ...input } }),
+    openSource: (agentPrincipal, input) =>
+      ipcRenderer.invoke(channel.ui, { kind: 'agentMemory', agentPrincipal, memory: { action: 'openSource', ...input } })
+  },
   nativeApps: {
     list: refresh => ipcRenderer.invoke(MATRIX_NATIVE_APPS.list, refresh),
     launch: request => ipcRenderer.invoke(MATRIX_NATIVE_APPS.launch, request),

@@ -26,6 +26,7 @@ import {
 import { PLAYGROUND_SCENARIO_LABELS, PLAYGROUND_SCENARIOS, playgroundAlias, type PlaygroundScenario } from './fixtures'
 import { isPlaygroundView, PlaygroundGallery } from './gallery'
 import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPreviews } from './link-preview-fixtures'
+import { playgroundAgentMemory, playgroundMemoryMode } from './memory-fixtures'
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
 import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
 import {
@@ -132,6 +133,8 @@ window.atumMatrix = {
   }),
   // Every card's scheduled tasks (?routines=empty|conflict|legacy|unknown).
   routines: playgroundRoutines(playgroundRoutinesMode(params)),
+  // Every card's Memory row (?memory=off|offline|empty|none), on fixture data.
+  agentMemory: playgroundAgentMemory(playgroundMemoryMode(params)),
   ...(googleConnections ? { googleConnections } : {}),
   ...(subscriptionsMode ? { subscriptions: playgroundSubscriptions(subscriptionsMode) } : {}),
   // The assistant card's per-destination model rows read the fixture's offer; picks save locally.

@@ -770,6 +770,7 @@ import {
 } from './main-company'
 import { handleMatrixCompanyDesktop } from './main-company-desktop'
 import { handleMatrixCompanySearch, handleMatrixCompanySearchOpen } from './main-company-search'
+import { AgentMemoryServiceError, createAgentMemoryHost } from './agent-memory'
 import {
   admitMatrixEnrollmentSetup,
   matrixEnrollmentAuthority,
@@ -11567,6 +11568,34 @@ let agentsSync: Promise<MatrixReadinessCheck> | undefined
 /** The last roster came from a platform that can make more agents. */
 let agentCreation = false
 const agentRoster = new MatrixRosterRecovery<Awaited<ReturnType<MatrixAccount['agents']>>>()
+
+/**
+ * Each assistant's memory page (GBrain, cloud only). Activation is off: no transport is wired, so
+ * every read answers "not available" and the page offers nothing. When the cloud memory service
+ * ships, its authenticated client becomes `transport`; there is no local brain or fallback.
+ */
+const agentMemory = createAgentMemoryHost({
+  transport: undefined,
+  account: () => {
+    const scope = account?.appScope()
+    const identity = account?.identity()
+
+    return scope && identity ? `${scope.accountKey}\n${scope.generation}\n${identity.deviceId}` : undefined
+  },
+  assistant: principal => {
+    const agent = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
+
+    return agent?.assistantId ? { assistantId: agent.assistantId } : undefined
+  },
+  open: async citation => {
+    if (citation.kind !== 'matrix_event' || closing) {
+      // Drive citations open once Drive has an exact-version open; until then, refuse honestly.
+      throw new AgentMemoryServiceError('forbidden')
+    }
+
+    await command({ kind: 'select', roomId: citation.roomId }, 30_000)
+  }
+})
 /** The last authoritative roster and the account it was read for: what the Store checks a
  * reusable hire target against (store.ts matrixScopedHireTargetLive). */
 let hireRoster: { scope: MatrixRosterScope; roster: Awaited<ReturnType<MatrixAccount['agents']>> } | undefined
@@ -17212,6 +17241,7 @@ async function startSdk() {
  */
 function endChatSession(): Promise<void> {
   sessionEnding ??= (async () => {
+    agentMemory.invalidate()
     ownerDeviceRepair = undefined
     deviceControlOwner = undefined
     matrixDeviceStopFence?.('sign_out')
@@ -20820,6 +20850,8 @@ async function start() {
         companySearch?: unknown
         companySearchOpen?: unknown
         companyDesktop?: unknown
+        /** `agentMemory`: one parsed memory request (parseAgentMemoryRequest). */
+        memory?: unknown
         aliasRequest?: unknown
         result?: unknown
         show?: unknown
@@ -23766,6 +23798,15 @@ async function start() {
         throw new Error('matrix_command_invalid')
       }
 
+      if (request?.kind === 'agentMemory') {
+        if (closing) {
+          return { ok: false, reason: 'unavailable' }
+        }
+
+        // Memory never blocks chat: every failure is an answer, never a thrown IPC error.
+        return agentMemory.handle(request.agentPrincipal, request.memory)
+      }
+
       if (request?.kind === 'backgroundSweep') {
         const principal = request.agentPrincipal
         const agent = typeof principal === 'string'
@@ -25300,6 +25341,7 @@ async function start() {
           }
 
           case 'signOut': {
+            agentMemory.invalidate()
             ownerDeviceRepair = undefined
             deviceControlOwner = undefined
             // WS-4: a local Stop already ran above the operation lock; now that sign-out is really
