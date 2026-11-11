@@ -17138,31 +17138,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No chats found"
+            "value": "No results found"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "チャットが見つかりません"
+            "value": "結果が見つかりません"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Không tìm thấy cuộc trò chuyện nào"
+            "value": "Không tìm thấy kết quả nào"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "未找到对话"
+            "value": "未找到结果"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "找不到對話"
+            "value": "找不到結果"
           }
         }
       }
@@ -17704,31 +17704,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Search chats"
+            "value": "Search everything"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "チャットを検索"
+            "value": "すべてを検索"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tìm cuộc trò chuyện"
+            "value": "Tìm mọi thứ"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜索对话"
+            "value": "搜索全部内容"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "搜尋對話"
+            "value": "搜尋所有內容"
           }
         }
       }
@@ -34168,31 +34168,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "@username · fixture-8d12b7f58c@example.invalid · 0912…"
+            "value": "@username · you@example.com · 0912…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "@hanako · fixture-8d12b7f58c@example.invalid · 090…"
+            "value": "@hanako · you@example.com · 090…"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "@tenban · fixture-5475e50c25@example.invalid · 0912…"
+            "value": "@tenban · you@example.com · 0912…"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "@xiaoming · fixture-8d12b7f58c@example.invalid · 138…"
+            "value": "@xiaoming · you@example.com · 138…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "@xiaoming · fixture-8d12b7f58c@example.invalid · 0912…"
+            "value": "@xiaoming · you@example.com · 0912…"
           }
         }
       }
@@ -53338,31 +53338,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Workplace"
+            "value": "Team space"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークプレイス"
+            "value": "チームスペース"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nơi làm việc"
+            "value": "Không gian nhóm"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作区"
+            "value": "团队空间"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作區"
+            "value": "團隊空間"
           }
         }
       }
@@ -53576,31 +53576,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Workplace"
+            "value": "Team space"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ワークプレイス"
+            "value": "チームスペース"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nơi làm việc"
+            "value": "Không gian nhóm"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作区"
+            "value": "团队空间"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "工作區"
+            "value": "團隊空間"
           }
         }
       }
@@ -53610,31 +53610,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Companies can’t load right now. Check your connection and try again."
+            "value": "Atum is unreachable. Try again shortly."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "会社を読み込めません。接続を確認して再試行してください。"
+            "value": "Atum に接続できません。しばらくしてから再試行してください。"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chưa tải được công ty. Hãy kiểm tra kết nối rồi thử lại."
+            "value": "Chưa kết nối được Atum. Hãy thử lại sau một lát."
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "暂时无法加载公司。请检查连接后重试。"
+            "value": "暂时无法连接 Atum。请稍后重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "暫時無法載入公司。請檢查連線後再試。"
+            "value": "暫時無法連接 Atum。請稍後再試。"
           }
         }
       }
@@ -76734,31 +76734,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@: sign in to ChatGPT again"
+            "value": "%1$@: connect ChatGPT"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@: ChatGPT にもう一度サインイン"
+            "value": "%1$@: ChatGPT に接続"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@: đăng nhập lại ChatGPT"
+            "value": "%1$@: kết nối ChatGPT"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@：重新登录 ChatGPT"
+            "value": "%1$@：连接 ChatGPT"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "%1$@：重新登入 ChatGPT"
+            "value": "%1$@：連接 ChatGPT"
           }
         }
       }
@@ -77550,31 +77550,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atum Drive is unavailable for this company file right now. Try again; Atum will resume the same file instead of creating a duplicate."
+            "value": "Atum Drive can’t open this company file. Try again."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "現在、この会社ファイルでは Atum Drive を利用できません。もう一度試すと、重複を作らず同じファイルから再開します。"
+            "value": "Atum Drive でこの会社ファイルを開けません。もう一度お試しください。"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atum Drive hiện chưa dùng được cho tệp công ty này. Hãy thử lại; Atum sẽ tiếp tục đúng tệp đó thay vì tạo bản trùng."
+            "value": "Atum Drive chưa mở được tệp công ty này. Hãy thử lại."
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atum Drive 暂时无法处理此公司文件。请重试；Atum 会继续处理同一文件，不会创建重复文件。"
+            "value": "Atum Drive 无法打开此公司文件，请重试。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Atum Drive 暫時無法處理此公司檔案。請再試一次；Atum 會繼續處理同一檔案，不會建立重複檔案。"
+            "value": "Atum Drive 無法開啟此公司檔案，請再試一次。"
           }
         }
       }
@@ -79488,7 +79488,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Leave chat"
+            "value": "Leave group"
           }
         },
         "ja": {
@@ -79500,7 +79500,7 @@
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Rời cuộc trò chuyện"
+            "value": "Rời nhóm"
           }
         },
         "zh": {
@@ -87874,31 +87874,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drive skipped these files, so they may not be up to date on every Mac. Open the folder to review them."
+            "value": "Drive leaves private files, .env files, databases and code folders on this Mac."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drive がこれらのファイルをスキップしたため、すべての Mac で最新ではない可能性があります。フォルダーを開いて確認してください。"
+            "value": "プライベートなファイル、.env ファイル、データベース、コードのフォルダーはこの Mac にだけ残ります。"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drive đã bỏ qua các tệp này nên chúng có thể chưa được cập nhật trên mọi máy Mac. Mở thư mục để kiểm tra."
+            "value": "Drive để tệp riêng tư, tệp .env, cơ sở dữ liệu và thư mục mã lại trên máy Mac này."
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drive 跳过了这些文件，因此它们可能没有在每台 Mac 上保持最新。打开文件夹进行检查。"
+            "value": "私密文件、.env 文件、数据库和代码文件夹只保留在这台 Mac 上。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "Drive 略過了這些檔案，因此它們可能沒有在每台 Mac 上保持最新。開啟資料夾進行檢查。"
+            "value": "私密檔案、.env 檔案、資料庫和程式碼資料夾只保留在這台 Mac 上。"
           }
         }
       }
@@ -87908,31 +87908,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Some files were skipped"
+            "value": "Some files stay on this Mac"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "スキップされたファイルがあります"
+            "value": "この Mac にだけ残るファイルがあります"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Một số tệp đã bị bỏ qua"
+            "value": "Một số tệp chỉ ở trên máy Mac này"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "部分文件已被跳过"
+            "value": "部分文件只保留在这台 Mac 上"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "部分檔案已被略過"
+            "value": "部分檔案只保留在這台 Mac 上"
           }
         }
       }
@@ -96734,31 +96734,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Open ChatGPT sign-in"
+            "value": "Connect ChatGPT"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ChatGPT のサインインを開く"
+            "value": "ChatGPT に接続"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Mở đăng nhập ChatGPT"
+            "value": "Kết nối ChatGPT"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "打开 ChatGPT 登录"
+            "value": "连接 ChatGPT"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟 ChatGPT 登入"
+            "value": "連接 ChatGPT"
           }
         }
       }
@@ -96768,31 +96768,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This assistant answers with your ChatGPT plan, and its sign-in on this Mac has ended. Its chats and memory are kept."
+            "value": "This assistant is set to use your ChatGPT plan, but Atum cannot find a usable connection for this account on this Mac. Its chats and memory are kept."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "このアシスタントは ChatGPT プランで応答しますが、この Mac でのサインインが切れました。チャットと記憶はそのまま残ります。"
+            "value": "このアシスタントは ChatGPT プランを使う設定ですが、この Mac ではこのアカウントの利用可能な接続が見つかりません。チャットと記憶はそのまま残ります。"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Trợ lý này trả lời bằng gói ChatGPT của bạn, và phiên đăng nhập trên Mac này đã hết. Các cuộc trò chuyện và trí nhớ vẫn được giữ."
+            "value": "Trợ lý này được đặt để dùng gói ChatGPT của bạn, nhưng Atum chưa tìm thấy kết nối dùng được cho tài khoản này trên Mac này. Các cuộc trò chuyện và trí nhớ vẫn được giữ."
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "这个助理使用你的 ChatGPT 套餐回答，它在这台 Mac 上的登录已失效。聊天和记忆都会保留。"
+            "value": "这个助理已设为使用你的 ChatGPT 套餐，但 Atum 在这台 Mac 上找不到此账户可用的连接。聊天和记忆都会保留。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "這個助理使用你的 ChatGPT 方案回答，它在這台 Mac 上的登入已失效。聊天和記憶都會保留。"
+            "value": "這個助理已設為使用你的 ChatGPT 方案，但 Atum 在這台 Mac 上找不到此帳號可用的連接。聊天和記憶都會保留。"
           }
         }
       }
@@ -96802,31 +96802,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Sign in to ChatGPT again"
+            "value": "Connect ChatGPT on this Mac"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ChatGPT にもう一度サインイン"
+            "value": "この Mac で ChatGPT に接続"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đăng nhập lại ChatGPT"
+            "value": "Kết nối ChatGPT trên Mac này"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "重新登录 ChatGPT"
+            "value": "在这台 Mac 上连接 ChatGPT"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "重新登入 ChatGPT"
+            "value": "在這台 Mac 上連接 ChatGPT"
           }
         }
       }
@@ -132492,31 +132492,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Restarting…"
+            "value": "Restarting Atum…"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "再起動中…"
+            "value": "Atum を再起動中…"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Đang khởi động lại…"
+            "value": "Đang khởi động lại Atum…"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在重启…"
+            "value": "正在重启 Atum…"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "正在重新啟動…"
+            "value": "正在重新啟動 Atum…"
           }
         }
       }
@@ -132662,31 +132662,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Update problem. Open settings."
+            "value": "Update needs attention"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "アップデートに問題があります。設定を開きます。"
+            "value": "アップデートの対応が必要です"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Bản cập nhật gặp sự cố. Mở Cài đặt."
+            "value": "Bản cập nhật cần bạn xử lý"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新出现问题。打开设置。"
+            "value": "更新需要处理"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "更新發生問題。開啟設定。"
+            "value": "更新需要處理"
           }
         }
       }
@@ -133070,31 +133070,31 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Unsaved"
+            "value": "Unsaved changes in Word"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "未保存"
+            "value": "Word に未保存の変更があります"
           }
         },
         "vi": {
           "stringUnit": {
             "state": "translated",
-            "value": "Chưa lưu"
+            "value": "Có thay đổi chưa lưu trong Word"
           }
         },
         "zh": {
           "stringUnit": {
             "state": "translated",
-            "value": "未保存"
+            "value": "Word 中有未保存的更改"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "未儲存"
+            "value": "Word 中有未儲存的變更"
           }
         }
       }

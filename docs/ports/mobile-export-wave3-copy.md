@@ -21,8 +21,9 @@ only from this export. Wording is desktop's own, as in wave 1
 - **Added: 361 catalog entries** (296 keys plus their plural and exact-count branches), all
   new to the public snapshot. EX-HC 39, EX-TL 3, EX-SC 12, EX-TS 187, EX-AS 67, EX-ST 20,
   EX-AC 23, EX-AC-PH 7, EX-DT 1, EX-SUB 2.
-- **Refreshed: 1.** `shared.matrix-settings-revamp-copy.copies.destinations.connections`
-  now says "Connections" (was "What Atum knows"). Argument contract unchanged.
+- **Refreshed: 18.** `shared.matrix-settings-revamp-copy.copies.destinations.connections`
+  now says "Connections" (was "What Atum knows"), plus the 17 stale entries listed under
+  "Refreshed to current desktop wording" below. Argument contracts unchanged.
 - **Removed: 3** (EX-ST-RM, placeholders that could leak):
   `src.matrix.mobile-device-copy.mobileDeviceCopy.packLayoutRows0Detail` ("…await owner
   product decisions"), `walletHistoryRows0Label` ("Demo task") and `walletHistoryRows1Label`
@@ -125,19 +126,86 @@ inventory needs no change: every new key comes from a source it already lists.
   because desktop's vi `composer.listening` is. Fixing them belongs in the desktop tables
   first.
 
-## Stale in the snapshot, not refreshed here
+## Refreshed to current desktop wording
 
-These already-exported entries differ from current desktop wording. Refreshing them changes
-words the phone shows today, beyond the backlog's named refresh, so they are left for the
-coordinator: `desktop.atum.roster.search` ("Search chats" → "Search everything"),
-`desktop.atum.roster.emptySearch`, `shared.matrix-company-copy.copy.{title,sides}`
-("Workplace" → "Team space"), `shared.matrix-company-copy.copy.unavailable`,
-`src.matrix.chat-copy.copies.{leave,companyFileUnavailable}`,
-`src.matrix.drive-copy.matrixDriveCopy.facts.issues.excluded.{title,body}`,
-`src.matrix.updates.copy.copy.{restarting,updateProblem}`,
-`src.matrix.launch-copy.copies.planSignIn{,Help,Title}`,
-`src.matrix.attention-copy.copies.planSignIn`, `src.matrix.workbench-copy.copy.unsavedInWord`
-and `desktop.dm.identifierPlaceholder`.
+These 17 already-exported entries had drifted from current desktop wording. The phone must
+match desktop as it renders, so each is refreshed in all five locales (en, vi, ja, zh,
+zh-Hant) to the producer's output for this repo's current `apps/desktop/src` and
+`apps/desktop/shared`. Argument contracts, membership and every other entry are unchanged;
+only `Localizable.xcstrings` and its manifest hash change. Old → new, en then vi:
+
+- `desktop.atum.roster.search`
+  - en: "Search chats" → "Search everything"
+  - vi: "Tìm cuộc trò chuyện" → "Tìm mọi thứ"
+- `desktop.atum.roster.emptySearch`
+  - en: "No chats found" → "No results found"
+  - vi: "Không tìm thấy cuộc trò chuyện nào" → "Không tìm thấy kết quả nào"
+- `shared.matrix-company-copy.copy.title`
+  - en: "Workplace" → "Team space"
+  - vi: "Nơi làm việc" → "Không gian nhóm"
+- `shared.matrix-company-copy.copy.sides`
+  - en: "Workplace" → "Team space"
+  - vi: "Nơi làm việc" → "Không gian nhóm"
+- `shared.matrix-company-copy.copy.unavailable`
+  - en: "Companies can’t load right now. Check your connection and try again." → "Atum is unreachable. Try again shortly."
+  - vi: "Chưa tải được công ty. Hãy kiểm tra kết nối rồi thử lại." → "Chưa kết nối được Atum. Hãy thử lại sau một lát."
+- `src.matrix.chat-copy.copies.leave`
+  - en: "Leave chat" → "Leave group"
+  - vi: "Rời cuộc trò chuyện" → "Rời nhóm"
+- `src.matrix.chat-copy.copies.companyFileUnavailable`
+  - en: "Atum Drive is unavailable for this company file right now. Try again; Atum will resume the same file instead of creating a duplicate." → "Atum Drive can’t open this company file. Try again."
+  - vi: "Atum Drive hiện chưa dùng được cho tệp công ty này. Hãy thử lại; Atum sẽ tiếp tục đúng tệp đó thay vì tạo bản trùng." → "Atum Drive chưa mở được tệp công ty này. Hãy thử lại."
+- `src.matrix.drive-copy.matrixDriveCopy.facts.issues.excluded.title`
+  - en: "Some files were skipped" → "Some files stay on this Mac"
+  - vi: "Một số tệp đã bị bỏ qua" → "Một số tệp chỉ ở trên máy Mac này"
+- `src.matrix.drive-copy.matrixDriveCopy.facts.issues.excluded.body`
+  - en: "Drive skipped these files, so they may not be up to date on every Mac. Open the folder to review them." → "Drive leaves private files, .env files, databases and code folders on this Mac."
+  - vi: "Drive đã bỏ qua các tệp này nên chúng có thể chưa được cập nhật trên mọi máy Mac. Mở thư mục để kiểm tra." → "Drive để tệp riêng tư, tệp .env, cơ sở dữ liệu và thư mục mã lại trên máy Mac này."
+- `src.matrix.updates.copy.copy.restarting`
+  - en: "Restarting…" → "Restarting Atum…"
+  - vi: "Đang khởi động lại…" → "Đang khởi động lại Atum…"
+- `src.matrix.updates.copy.copy.updateProblem`
+  - en: "Update problem. Open settings." → "Update needs attention"
+  - vi: "Bản cập nhật gặp sự cố. Mở Cài đặt." → "Bản cập nhật cần bạn xử lý"
+- `src.matrix.launch-copy.copies.planSignIn`
+  - en: "Open ChatGPT sign-in" → "Connect ChatGPT"
+  - vi: "Mở đăng nhập ChatGPT" → "Kết nối ChatGPT"
+- `src.matrix.launch-copy.copies.planSignInHelp`
+  - en: "This assistant answers with your ChatGPT plan, and its sign-in on this Mac has ended. Its chats and memory are kept." → "This assistant is set to use your ChatGPT plan, but Atum cannot find a usable connection for this account on this Mac. Its chats and memory are kept."
+  - vi: "Trợ lý này trả lời bằng gói ChatGPT của bạn, và phiên đăng nhập trên Mac này đã hết. Các cuộc trò chuyện và trí nhớ vẫn được giữ." → "Trợ lý này được đặt để dùng gói ChatGPT của bạn, nhưng Atum chưa tìm thấy kết nối dùng được cho tài khoản này trên Mac này. Các cuộc trò chuyện và trí nhớ vẫn được giữ."
+- `src.matrix.launch-copy.copies.planSignInTitle`
+  - en: "Sign in to ChatGPT again" → "Connect ChatGPT on this Mac"
+  - vi: "Đăng nhập lại ChatGPT" → "Kết nối ChatGPT trên Mac này"
+- `src.matrix.attention-copy.copies.planSignIn`
+  - en: "%1$@: sign in to ChatGPT again" → "%1$@: connect ChatGPT"
+  - vi: "%1$@: đăng nhập lại ChatGPT" → "%1$@: kết nối ChatGPT"
+- `src.matrix.workbench-copy.copy.unsavedInWord`
+  - en: "Unsaved" → "Unsaved changes in Word"
+  - vi: "Chưa lưu" → "Có thay đổi chưa lưu trong Word"
+- `desktop.dm.identifierPlaceholder`
+  - en: "@username · f…@example.invalid · 0912…" → "@username · y…@example.com · 0912…"
+  - vi: "@tenban · f…@example.invalid · 0912…" → "@tenban · y…@example.com · 0912…"
+
+`desktop.dm.identifierPlaceholder` was a scrubbed fixture address (`fixture-…@example.invalid`)
+in the first reviewed snapshot; desktop shows `…@example.com`, which is what the phone now
+gets. None of the refreshed words shows a VND amount, a paid/bonus split or a rate.
+
+### Sweep of the rest of the export
+
+Every other catalog entry the producer emits is byte-identical to the snapshot. The snapshot
+also holds 20 entries outside the producer's key list (they came with the first snapshot
+and the person-info export, `4cde45d0`):
+
+- The 18 `src.matrix.person-info-copy.copy.*` entries (`back`, `closeInfo`, `conversation`,
+  `conversationInfo`, `encrypted`, `failed`, `groupInfo`, `loading`, `lowPriority`,
+  `members` with `.count=0`/`.count=1`, `muteNotifications`, `notEncrypted`, `showInfo`,
+  `started`, `teamSpaces`, `tryAgain`) match current desktop: a scratch producer run with
+  them added to the key list produced them byte-identically. The key list is unchanged.
+- `src.matrix.launch-copy.copies.openAnyway` ("Open Atum anyway") and
+  `src.matrix.workbench-copy.copy.openBesideWord` ("Open beside Word") are not refreshable:
+  current desktop has no such key, so the producer refuses them. They stay as they were;
+  removing them is a separate snapshot decision (the phone pins them only in its vendored
+  `copy-contract.json`, with no code use).
 
 ## Ruling 1
 
@@ -168,5 +236,28 @@ No added entry shows a VND amount, a Proton paid/bonus split or a rate. The Stor
   goes from 139 missing key literals to 43; all 43 are the rekey cases in the table above
   (team-space activity, saved, drafts and pinned, the `.one`/`.other` counted keys, and
   `desktop.matrixShell.mainAgent`). `tests/test_native_catalog.py` passes.
+- Stale-wording refresh (the 17 entries above): the same producer from atum-app
+  `chore/mobile-export-wave3-keys` (`c35a1bf6030`, key list unchanged) run on this repo's
+  current `apps/desktop/src` and `apps/desktop/shared`; `export.mjs --check` is clean and
+  its 44 tests pass. The wave 3 `splice3.mjs` with a refresh-only spec (no adds, no
+  removals) copied the 17 entries; each is byte-identical to the producer's, and a semantic
+  diff of the old and new `Localizable.xcstrings` shows exactly those 17 keys changed, with
+  the same 3884 members. `copy-contract.json`, `phone-copy-map.json` and every other file
+  are unchanged; the manifest changes only the catalog hash.
+- A dry phone import of the refresh commit in a throwaway worktree of atum-mobile-client
+  `origin/main` 4ccfbc7 passed `scripts/import-design-exports --verify`.
+  `tests/test_native_catalog.py` passes; `tests/test_copy_keys_in_pin.py` goes from 139
+  missing key literals to the same 43 rekey cases as above (the refresh adds and removes no
+  keys). No phone code or test pins the old wording.
 
 Publication (push, PR, merge) and the real phone repin are coordinator steps.
+
+### Outbound guard approval
+
+The refreshed `desktop.dm.identifierPlaceholder` brings desktop's own placeholder address
+(`y…@example.com`, an RFC 2606 reserved domain) into
+`packages/mobile-design-exports/dist/Localizable.xcstrings` five times, once per locale. The
+outbound guard treats any new address as review-required. The coordinator reviewed it on
+11 Nov 2026: it's a placeholder, not a real contact. The export's exact SHA-256 is approved in
+`scripts/public-boundary.json` by a policy-only PR that lands first, following #9. Any later
+change to the export needs a fresh digest approval.
