@@ -195,10 +195,13 @@ const settledCompanyContent = (content: MatrixCompanyPresentationContent) =>
 /**
  * A company line's or remark's current content (agent-turns/1.6): every edit of its sender is read
  * whole (`matrixCompanyPresentationEdit`) and must keep the original's identity. Revisions only go up:
- * edits apply in revision order (a retry of a revision already shown is ignored), however late one
+ * edits apply in revision order (of conflicting edits of one revision the lowest event ID counts, and a
+ * retry of a revision already shown is ignored), however late one
  * arrives, so a later-sent lower revision never replaces a higher one. Settled is a terminal fence:
  * once the original or an accepted edit says settled, nothing after it is read, so a late edit never
- * resurrects the line. Without a valid edit the original shows unedited.
+ * resurrects the line. Without a valid edit the original shows unedited. This reads only the edits that
+ * survive; a settled fact seen once outlives a later redaction of its edit in the renderer's turn memory
+ * (`matrixHideEndedTransientLines`).
  */
 function companyShownContent(event: MatrixEvent, original: Record<string, unknown>, room: Room | undefined): Shown {
   const first = matrixCompanyPresentationContent(original)
@@ -233,10 +236,23 @@ function companyShownContent(event: MatrixEvent, original: Record<string, unknow
         next.stream === first.stream &&
         sameMatrixCompanyTurn(first.identity, next.identity) &&
         next.identity.revision > first.identity.revision
-        ? [{ next, content: content['m.new_content'] as Record<string, unknown>, at: replacement.getTs() }]
+        ? [
+            {
+              next,
+              content: content['m.new_content'] as Record<string, unknown>,
+              at: replacement.getTs(),
+              id: replacement.getId() ?? ''
+            }
+          ]
         : []
     })
-    .sort((left, right) => left.next.identity.revision - right.next.identity.revision || left.at - right.at)
+    // Conflicting edits of one revision: the lowest event ID wins, whatever their timestamps or the
+    // order they arrived in, so every client shows the same one.
+    .sort(
+      (left, right) =>
+        left.next.identity.revision - right.next.identity.revision ||
+        (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+    )
 
   let shown: (typeof accepted)[number] | undefined
 
@@ -534,7 +550,7 @@ export function matrixMessage(
     ...(edited && !progress ? { edited: true, editedAt } : {}),
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
-    ...(company ? { company: company.identity } : {}),
+    ...(company ? { company: { ...company.identity, revisedAt: editedAt ?? event.getTs() } } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

@@ -43,6 +43,31 @@ export interface MatrixCompanyPresentation extends MatrixCompanyTurnIdentity {
   revision: number
   /** The admitted trigger the event rich-replies to inside the thread (the root itself is allowed). */
   triggerEventId: string
+  /** The `origin_server_ts` of the newest accepted revision (the original's while unedited), set by the
+   * projection: what presentation expiry counts from (`MATRIX_COMPANY_PROGRESS_EXPIRY_MS`). */
+  revisedAt?: number
+}
+
+/**
+ * Presentation expiry (agent-turns/1.6 client rules): a company progress line whose newest accepted
+ * revision is older than three quiet heartbeats is hidden. Presentation only: it never means
+ * completed, never changes execution state and never stands in for the publisher's cleanup.
+ */
+export const MATRIX_COMPANY_PROGRESS_EXPIRY_MS = 540_000
+
+/**
+ * What a client remembers of company turns for the rest of its session (agent-turns/1.6): every exact
+ * tuple (`matrixCompanyTurnKey`) it has seen settled or redacted stays ended even when the settling edit
+ * is later redacted, and the tuple of each admitted line it has drawn, so that line's later redaction
+ * ends its tuple. Expiry is never recorded here: an expired line is not an ended turn.
+ */
+export interface MatrixCompanyTurnMemory {
+  readonly ended: Set<string>
+  readonly lines: Map<string, string>
+}
+
+export function matrixCompanyTurnMemory(): MatrixCompanyTurnMemory {
+  return { ended: new Set(), lines: new Map() }
 }
 
 /** The company progress marker, as the transcript reads it (phase/kind/device; never tool details). */

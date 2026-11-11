@@ -7,8 +7,8 @@ import { companyPrivateCosRoom, type CompanyPrivateCosState } from './team-space
 /**
  * The bound company agent a room's agent-turns/1.6 working lines and interim remarks must come from.
  * A channel: the company's own Chief of Staff, from a platform view read after the channel's latest
- * membership change (`fresh`: the caller re-reads it on every change, `useCompanyAIStatus`), and
- * joined to the channel. A private Chief of Staff room: the platform's ready pair binding for exactly
+ * membership change or stranger marker and within its bounded age (`fresh`: the caller re-reads it,
+ * `useCompanyAIStatus`, `useCompanyStrangerSignal`), and joined to the channel. A private Chief of Staff room: the platform's ready pair binding for exactly
  * this joined room, rechecked against the room's live members on every render (`companyPrivateCosRoom`:
  * exactly you and the bound agent joined, the marker's executor), so a reassigned agent joining or the
  * bound one leaving closes it at once; the store re-reads the view on focus, online and its quiet

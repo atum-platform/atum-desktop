@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { MatrixMessage } from './matrix'
+import { MATRIX_COMPANY_PROGRESS_EXPIRY_MS, matrixCompanyTurnMemory } from './matrix-company-presentation'
 import { matrixStatusLineCopy } from './matrix-status-line-copy'
-import { matrixHideEndedTransientLines, matrixLiveWorkingLine, matrixWorkingLine } from './matrix-transient-lines'
+import {
+  matrixCompanyLineExpiresAt,
+  matrixHideEndedTransientLines,
+  matrixLiveWorkingLine,
+  matrixWorkingLine
+} from './matrix-transient-lines'
 
 const AGENT = '@agent:test'
 const agents = new Set([AGENT])
@@ -230,5 +236,79 @@ describe('a company agent working line (agent-turns/1.6) ends only by its exact 
 
     expect(kept).toHaveLength(1_000)
     expect(matrixLiveWorkingLine(kept, agents, AGENT)?.body).toBe('Step 1998')
+  })
+
+  it('keeps a tuple ended once seen settled, even after the settling edit is redacted (working again)', () => {
+    const memory = matrixCompanyTurnMemory()
+    const settled = { ...companyLine('Done', '$a', 'settled'), id: '$line' }
+
+    expect(matrixWorkingLine([settled], agents, AGENT)).toBeUndefined()
+    matrixHideEndedTransientLines([settled], agents, { memory })
+
+    // The settling edit is redacted: the projection now shows the surviving lower working revision.
+    const resurrected = { ...companyLine('Reading the board…', '$a'), id: '$line' }
+
+    expect(matrixWorkingLine([resurrected], agents, AGENT)).toBe(resurrected)
+    expect(matrixHideEndedTransientLines([resurrected], agents, { memory })).toEqual([])
+    // Another tuple is untouched by that memory.
+    const other = companyLine('Reading the board…', '$a', 'working', TASK_B)
+
+    expect(matrixHideEndedTransientLines([other], agents, { memory })).toEqual([other])
+  })
+
+  it('keeps a tuple ended once a drawn line of it is seen redacted, so a replay of the tuple stays hidden', () => {
+    const memory = matrixCompanyTurnMemory()
+    const live = { ...companyLine('Reading the board…', '$a'), id: '$line' }
+
+    expect(matrixHideEndedTransientLines([live], agents, { memory })).toEqual([live])
+    matrixHideEndedTransientLines([{ ...message({ body: '', redacted: true }), id: '$line' }], agents, { memory })
+
+    const replay = { ...companyLine('Reading the board…', '$a'), id: '$replay' }
+
+    expect(matrixHideEndedTransientLines([replay], agents, { memory })).toEqual([])
+  })
+
+  it('expires a line whose newest accepted revision is older than three quiet heartbeats, and expired is not done', () => {
+    const memory = matrixCompanyTurnMemory()
+    const at = 1_000_000
+
+    const revised = (revisedAt: number, id = '$line') => {
+      const each = companyLine('Reading the board…', '$a')
+
+      return { ...each, id, company: { ...each.company!, revisedAt } }
+    }
+
+    const live = revised(at)
+
+    // Live through the bound, hidden one millisecond after it.
+    expect(matrixHideEndedTransientLines([live], agents, { memory, now: at + MATRIX_COMPANY_PROGRESS_EXPIRY_MS })).toEqual([live])
+    expect(matrixHideEndedTransientLines([live], agents, { memory, now: at + MATRIX_COMPANY_PROGRESS_EXPIRY_MS + 1 })).toEqual([])
+    // The next expiry is exactly that instant; an expired line schedules nothing more.
+    expect(matrixCompanyLineExpiresAt([live], at, memory.ended)).toBe(at + MATRIX_COMPANY_PROGRESS_EXPIRY_MS + 1)
+    expect(matrixCompanyLineExpiresAt([live], at + MATRIX_COMPANY_PROGRESS_EXPIRY_MS + 1, memory.ended)).toBeUndefined()
+
+    // Expired is not ended: nothing is remembered, and a newer revision of the tuple shows it again.
+    expect(memory.ended.size).toBe(0)
+    const later = at + MATRIX_COMPANY_PROGRESS_EXPIRY_MS + 60_000
+    const heartbeat = revised(later)
+
+    expect(matrixHideEndedTransientLines([heartbeat], agents, { memory, now: later + 1 })).toEqual([heartbeat])
+    // Nor does it end the turn the way an answer does: a personal line is not involved, and the
+    // expired line's agent can still show its other live tuple.
+    const other = { ...companyLine('Another task', '$a', 'working', TASK_B), id: '$other' }
+    const otherLive = { ...other, company: { ...other.company!, revisedAt: later } }
+
+    expect(matrixWorkingLine([live, otherLive], agents, AGENT)).toBe(otherLive)
+    expect(
+      matrixLiveWorkingLine(
+        matrixHideEndedTransientLines([live, otherLive], agents, { memory, now: later + 1 }),
+        agents,
+        AGENT
+      )
+    ).toBe(otherLive)
+    // A settled tuple never schedules an expiry.
+    const done = { ...companyLine('Done', '$a', 'settled'), id: '$done' }
+
+    expect(matrixCompanyLineExpiresAt([{ ...done, company: { ...done.company!, revisedAt: at } }], at)).toBeUndefined()
   })
 })

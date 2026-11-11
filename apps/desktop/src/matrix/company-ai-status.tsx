@@ -108,16 +108,25 @@ export function useCompanyAIRecheck(waiting: boolean, reload: () => void): void 
   }, [reload, waiting])
 }
 
+/** How a caller that must fail closed wants the view kept current (`useCompanyAIStatus`). */
+export interface CompanyAIFreshness {
+  /** A change signal (a channel's joined members, a stranger's marker): each new value reads the view
+   * again, and the view is not `fresh` until a read started after it has answered. */
+  refreshKey?: string
+  /** A bounded age: while set, the view is read again every half of it (quietly: the last answer stays
+   * fresh meanwhile), and an answer older than this is no longer `fresh` (a read that never answers). */
+  maxAgeMs?: number
+}
+
 /**
- * The company's Chief of Staff view. `refreshKey` is a caller's change signal (for a channel's
- * presentation binding, its joined members): each new value reads the view again, and `fresh` says
- * a read started after the latest change (and the latest account, company or reload) has answered.
- * Until then a caller that must fail closed treats the cached view as unknown.
+ * The company's Chief of Staff view. `fresh` says a read started after the latest change (account,
+ * company, reload, `refreshKey`) has answered, within `maxAgeMs` when one is set. Until then a caller
+ * that must fail closed treats the cached view as unknown.
  */
 export function useCompanyAIStatus(
   accountKey: string,
   companyId: string | undefined,
-  refreshKey = ''
+  { maxAgeMs, refreshKey = '' }: CompanyAIFreshness = {}
 ): {
   view?: CompanyAIView
   loading: boolean
@@ -130,7 +139,10 @@ export function useCompanyAIStatus(
   const [loading, setLoading] = useState(Boolean(key && !statuses[key]))
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
-  const [freshFor, setFreshFor] = useState<string>()
+  const [poll, setPoll] = useState(0)
+  const [answer, setAnswer] = useState<{ for: string; at: number }>()
+  const [aged, setAged] = useState<number>()
+  const answeredAt = useRef(0)
   const generation = useRef(0)
   const requestKey = [accountKey, companyId ?? '', attempt, refreshKey].join('\u0000')
 
@@ -153,7 +165,8 @@ export function useCompanyAIStatus(
       .then(view => {
         if (generation.current === request && view.companyId === companyId) {
           publishCompanyAIStatus(accountKey, view)
-          setFreshFor(asked)
+          answeredAt.current = Date.now()
+          setAnswer({ for: asked, at: answeredAt.current })
         }
       })
       .catch(() => {
@@ -171,13 +184,41 @@ export function useCompanyAIStatus(
     return () => {
       generation.current += 1
     }
-  }, [accountKey, attempt, companyId, refreshKey])
+  }, [accountKey, attempt, companyId, poll, refreshKey])
+
+  // The quiet re-read of a bounded-age view: at once when the last answer is already half its age.
+  useEffect(() => {
+    if (!maxAgeMs || !companyId) {
+      return
+    }
+
+    const every = maxAgeMs / 2
+
+    if (Date.now() - answeredAt.current >= every) {
+      setPoll(value => value + 1)
+    }
+
+    const timer = setInterval(() => setPoll(value => value + 1), every)
+
+    return () => clearInterval(timer)
+  }, [companyId, maxAgeMs])
+
+  // An answer ages out at its bound, whether or not a later read ever answers.
+  useEffect(() => {
+    if (!maxAgeMs || !answer) {
+      return
+    }
+
+    const timer = setTimeout(() => setAged(answer.at), Math.max(0, answer.at + maxAgeMs - Date.now()))
+
+    return () => clearTimeout(timer)
+  }, [answer, maxAgeMs])
 
   return {
     view: key ? statuses[key] : undefined,
     loading,
     failed,
-    fresh: freshFor === requestKey,
+    fresh: answer?.for === requestKey && (!maxAgeMs || aged !== answer.at),
     reload: useCallback(() => setAttempt(value => value + 1), [])
   }
 }

@@ -7,12 +7,14 @@ import { MATRIX_COMPANY_CHANNEL_BINDING, MATRIX_COMPANY_CHANNEL_ROOM_VERSION, MA
 import {
   matrixAdmitCompanyPresentation,
   matrixCompanyPresentationContent,
-  matrixCompanyPresentationEdit
+  matrixCompanyPresentationEdit,
+  matrixCompanyTurnMemory
 } from '../../shared/matrix-company-presentation'
 import {
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos'
+import { matrixHideEndedTransientLines } from '../../shared/matrix-transient-lines'
 
 import { matrixMessage } from './message'
 
@@ -920,6 +922,57 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
     it('applies the highest revision while working, and ignores another sender\'s edit', () => {
       expect(project([revision(3, 'working', 3), revision(2, 'working', 9)])?.progress).toMatchObject({ phase: 'working', revision: 3 })
       expect(project([revision(4, 'settled', 9, '@linh:test')])?.progress).toMatchObject({ phase: 'working', revision: 0 })
+    })
+
+    it('breaks a tie between conflicting edits of one revision by the lowest event ID, whatever the order or timestamps', () => {
+      const conflicting = (id: string, phase: 'working' | 'settled', ts: number) =>
+        new MatrixEvent({ ...revision(3, phase, ts).event, event_id: id })
+
+      const low = conflicting('$edit-a', 'working', 90)
+      const high = conflicting('$edit-b', 'settled', 10)
+
+      for (const edits of [[low, high], [high, low]]) {
+        for (const latest of edits) {
+          expect(project(edits, latest)?.progress).toMatchObject({ phase: 'working', revision: 3 })
+        }
+      }
+
+      // Equal timestamps: still the lowest event ID, in either insertion order.
+      const tieLow = conflicting('$edit-a', 'settled', 50)
+      const tieHigh = conflicting('$edit-b', 'working', 50)
+
+      expect(project([tieHigh, tieLow])?.progress).toMatchObject({ phase: 'settled', revision: 3 })
+      expect(project([tieLow, tieHigh])?.progress).toMatchObject({ phase: 'settled', revision: 3 })
+    })
+
+    it('counts expiry from the newest accepted revision’s server time (the original’s while unedited)', () => {
+      expect(project([])?.company?.revisedAt).toBe(event(progress(), '@cos:test').getTs())
+      expect(project([revision(2, 'working', 7_000), revision(4, 'working', 6_000)])?.company?.revisedAt).toBe(6_000)
+    })
+
+    it('keeps a seen settled tuple ended after its settling edit is redacted (rev1 settled, rev2 working, redact rev1)', () => {
+      const memory = matrixCompanyTurnMemory()
+      const agents = new Set(['@cos:test'])
+      const rev1 = revision(1, 'settled', 10)
+      const rev2 = revision(2, 'working', 20)
+
+      const before = project([rev1, rev2], rev2)!
+
+      expect(before.progress).toMatchObject({ phase: 'settled', revision: 1 })
+      expect(matrixHideEndedTransientLines([before], agents, { memory })).toEqual([])
+
+      // rev1 is redacted: the surviving relations alone now say working again.
+      const redacted = new MatrixEvent({ ...rev1.event, unsigned: { redacted_because: { type: 'm.room.redaction' } as never } })
+
+      expect(redacted.isRedacted()).toBe(true)
+
+      const after = project([redacted, rev2], rev2)!
+
+      expect(after.progress).toMatchObject({ phase: 'working', revision: 2 })
+      // A client that saw the tuple settled keeps that fact: the working line does not come back.
+      expect(matrixHideEndedTransientLines([after], agents, { memory })).toEqual([])
+      // A client that never saw it settled reads only what survives.
+      expect(matrixHideEndedTransientLines([after], agents, { memory: matrixCompanyTurnMemory() })).toEqual([after])
     })
 
     it('reads a settled original as settled whatever edits follow', () => {

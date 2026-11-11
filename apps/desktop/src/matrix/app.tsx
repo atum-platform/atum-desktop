@@ -247,7 +247,13 @@ import {
   neighbouringCompanyChannel
 } from './company-chrome'
 import { companyChannelPresentationBinding, privateCosPresentationBinding } from './company-presentation-binding'
+import {
+  COMPANY_CHANNEL_BINDING_MAX_AGE_MS,
+  useCompanyLineClock,
+  useCompanyStrangerSignal
+} from './company-presentation-hooks'
 import { $companyAIStatuses, companySpaceScope } from './company-space-store'
+import { companyTurnMemory } from './company-turn-memory'
 import { ComposerDock } from './composer-dock'
 import {
   clearLocalMatrixDraftsForIdentity,
@@ -4545,23 +4551,37 @@ function MatrixThreadDetail({
   // The channel's own Chief of Staff: its agent-turns/1.6 working line and interim remarks in this
   // thread are drawn as a personal agent's are in its chat (one live line under the transcript). The
   // view is read again whenever the channel's joined members change (a reassigned agent joins, the old
-  // one leaves), and until that read answers no company line or remark is drawn as one.
+  // one leaves) or a company marker arrives from an agent no fresh view has bound, and at least every
+  // half minute while the thread shows company markers (an answer older than a minute no longer
+  // binds). Until a read answers, no company line or remark is drawn as one.
   const channelMembers = (room.participants ?? [])
     .filter(member => member.membership === 'join')
     .map(member => member.userId)
     .sort()
     .join('\n')
 
-  const { fresh: companyAIFresh, view: companyAI } = useCompanyAIStatus(
-    teamSpaceAccountKey(snapshot.identity),
-    room.companyChannel?.companyId,
-    channelMembers
-  )
+  const companyAIAccount = teamSpaceAccountKey(snapshot.identity)
+  const companyAIScope = room.companyChannel ? companySpaceScope(companyAIAccount, room.companyChannel.companyId) : ''
+  const cachedCompanyAI = useStore($companyAIStatuses)[companyAIScope]
+  const strangerSignal = useCompanyStrangerSignal(replies, cachedCompanyAI?.agent.userId)
+
+  const { fresh: companyAIFresh, view: companyAI } = useCompanyAIStatus(companyAIAccount, room.companyChannel?.companyId, {
+    refreshKey: `${channelMembers}\u0000${strangerSignal}`,
+    maxAgeMs: replies.some(message => message.company) ? COMPANY_CHANNEL_BINDING_MAX_AGE_MS : undefined
+  })
 
   const companyPresentation = useStableCompanyBinding(
     companyChannelPresentationBinding(room, companyAI, companyAIFresh)
   )
   const companyName = companyAI?.agent.displayName ?? matrixCompanyBoardCopy(locale).chiefOfStaff
+  const companyTurns = companyTurnMemory(companyAIAccount)
+
+  const admitted = useMemo(
+    () => matrixAdmitCompanyPresentation(replies, companyPresentation, rootId),
+    [companyPresentation, replies, rootId]
+  )
+
+  const companyNow = useCompanyLineClock(admitted, companyTurns)
 
   const { messages, workingLine } = useMemo(() => {
     if (!root) {
@@ -4570,10 +4590,7 @@ function MatrixThreadDetail({
 
     const lineAgents = new Set(companyPresentation ? [companyPresentation.agentUserId] : [])
 
-    const visible = matrixHideEndedTransientLines(
-      matrixAdmitCompanyPresentation(replies, companyPresentation, rootId),
-      lineAgents
-    )
+    const visible = matrixHideEndedTransientLines(admitted, lineAgents, { memory: companyTurns, now: companyNow })
 
     return {
       messages: threadTranscriptMessages(
@@ -4584,7 +4601,7 @@ function MatrixThreadDetail({
         ? matrixLiveWorkingLine(visible, lineAgents, companyPresentation.agentUserId)
         : undefined
     }
-  }, [companyPresentation, replies, root, rootId])
+  }, [admitted, companyNow, companyPresentation, companyTurns, root])
 
   const transcript = useExternalStoreRuntime({
     messages,
@@ -5362,6 +5379,14 @@ function Conversation({
 
   const privateCosName = usePrivateCosName()
   const companyRoomView = Boolean(room?.companyChannel) || isCompanyPrivateCosClaim(room)
+  const companyTurns = companyTurnMemory(teamSpaceAccountKey(snapshot.identity))
+
+  const admittedMessages = useMemo(
+    () => (companyRoomView ? matrixAdmitCompanyPresentation(snapshot.messages, companyPresentation) : snapshot.messages),
+    [companyPresentation, companyRoomView, snapshot.messages]
+  )
+
+  const companyNow = useCompanyLineClock(admittedMessages, companyTurns)
 
   const outgoing = useStore($outgoingEchoes)
 
@@ -5389,10 +5414,11 @@ function Conversation({
     // is drawn under the typing bubble, not as a transcript row of its own.
     // In a company room (a channel, a private Chief of Staff room) only the bound agent's 1.6 lines
     // and remarks carry agent-turns meaning; personal chats keep their own rules.
-    const visible = matrixHideEndedTransientLines(
-      companyRoomView ? matrixAdmitCompanyPresentation(snapshot.messages, companyPresentation) : snapshot.messages,
-      lineAgents
-    )
+    // A company turn seen ended stays ended (`companyTurns`), and a company line expires by `companyNow`.
+    const visible = matrixHideEndedTransientLines(admittedMessages, lineAgents, {
+      memory: companyTurns,
+      now: companyNow
+    })
 
     const line = lineAgent ? matrixLiveWorkingLine(visible, lineAgents, lineAgent) : undefined
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
@@ -5519,8 +5545,10 @@ function Conversation({
     appBotOutcomes,
     appHistory.entries,
     firstUnreadId,
+    admittedMessages,
+    companyNow,
     companyPresentation,
-    companyRoomView
+    companyTurns
   ])
 
   useEffect(() => dropOutgoingEchoes(matchedEchoes), [matchedEchoes])

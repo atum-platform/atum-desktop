@@ -3,12 +3,15 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import {
+  MATRIX_COMPANY_PRIVATE_COS_PROTECTED_STATE,
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos'
 
 import { conversationRoom } from './conversations'
 import { matrixPreviewLine, matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
+import { teamSpaceKey } from './team-space/keys'
+import { $companyPrivateCos, type CompanyPrivateCosState } from './team-space/private-cos-store'
 
 const me = '@minh:test'
 const lan = '@lan:test'
@@ -190,7 +193,7 @@ describe('a company agent’s working line in a chat row (agent-turns/1.6)', () 
 
   /** A private Chief of Staff room as the platform makes it: created by the manager (who left), you and its agent joined. */
   function privateCos(extra: string[] = []) {
-    const { room, event, add } = fixture()
+    const { client, room, event, add } = fixture()
 
     const state = (type: string, content: object, stateKey = '', sender = manager) =>
       new MatrixEvent({ type, state_key: stateKey, sender, room_id: room.roomId, content })
@@ -204,22 +207,100 @@ describe('a company agent’s working line in a chat row (agent-turns/1.6)', () 
         membershipIncarnation: INCARNATION,
         executorId: '00000000-0000-4000-8000-a0000000000e'
       }),
+      state(EventType.RoomHistoryVisibility, { history_visibility: 'joined' }),
+      state(EventType.RoomJoinRules, { join_rule: 'invite' }),
+      state(EventType.RoomPowerLevels, {
+        users: { [manager]: 100, [me]: 0, [cos]: 0 },
+        users_default: 0,
+        events_default: 0,
+        state_default: 100,
+        invite: 100,
+        kick: 100,
+        ban: 100,
+        redact: 100,
+        events: Object.fromEntries(MATRIX_COMPANY_PRIVATE_COS_PROTECTED_STATE.map(type => [type, 100]))
+      }),
       state(EventType.RoomMember, { membership: 'leave' }, lan, lan),
       state(EventType.RoomMember, { membership: 'leave' }, bao, bao),
       state(EventType.RoomMember, { membership: 'join' }, cos, cos),
       ...extra.map(userId => state(EventType.RoomMember, { membership: 'join' }, userId, userId))
     ])
 
-    return { room, event, add }
+    return { client, room, event, add }
   }
 
-  it('skips the bound agent’s line in its private room: the row keeps the last message', async () => {
+  it('skips the line of the agent the platform binds to the room: the row keeps the last message', async () => {
     const { room, event, add } = privateCos()
 
     await add(event(me, { msgtype: 'm.text', body: 'Plan the launch' }))
     await add(event(cos, line(room.roomId)))
 
-    expect(matrixRoomPreview(room, me)).toMatchObject({ own: true, text: 'Plan the launch' })
+    expect(matrixRoomPreview(room, me, new Set(), undefined, cos)).toMatchObject({ own: true, text: 'Plan the launch' })
+  })
+
+  it('never infers the agent from who is in the room: unknown or other binding keeps the ordinary preview', async () => {
+    const { client, room, event, add } = privateCos()
+
+    await add(event(me, { msgtype: 'm.text', body: 'Plan the launch' }))
+    await add(event(cos, line(room.roomId)))
+
+    // The room holds exactly you and the line's sender, yet no platform binding is known.
+    expect(matrixRoomPreview(room, me)).toMatchObject({ own: false, text: 'Checking the next step.' })
+    // The platform binds another agent.
+    expect(matrixRoomPreview(room, me, new Set(), undefined, '@other-cos:test')).toMatchObject({
+      text: 'Checking the next step.'
+    })
+    // The chat list's projection reads the platform's private Chief of Staff store; empty, the line shows.
+    expect(conversationRoom(client, room).preview).toMatchObject({ text: 'Checking the next step.' })
+  })
+
+  it('the chat list skips the line once the platform’s ready binding names its sender for this room', async () => {
+    const { client, room, event, add } = privateCos()
+
+    await add(event(me, { msgtype: 'm.text', body: 'Plan the launch' }))
+    await add(event(cos, line(room.roomId)))
+
+    const pair = {
+      companyPrincipal: COMPANY,
+      memberPrincipal: '00000000-0000-4000-8000-a00000000006',
+      membershipIncarnation: INCARNATION
+    }
+
+    const ready = (agentUserId: string) =>
+      ({
+        served: true,
+        availability: 'ready',
+        loading: false,
+        view: {
+          schemaVersion: 1,
+          state: 'ready',
+          pair,
+          greetingState: 'published',
+          binding: {
+            scope: { pair, authorityEpoch: 1, contextEpoch: 1, homeGeneration: 1 },
+            agentPrincipal: '00000000-0000-4000-8000-a00000000002',
+            agentUserId,
+            executorId: '00000000-0000-4000-8000-a0000000000e',
+            homeId: '00000000-0000-4000-8000-a0000000000f',
+            roomId: room.roomId,
+            storeGeneration: 1,
+            profileDigest: 'a'.repeat(64)
+          }
+        }
+      }) as unknown as CompanyPrivateCosState
+
+    const key = teamSpaceKey(`${me}:${client.getDeviceId() ?? ''}`, COMPANY)
+
+    try {
+      $companyPrivateCos.setKey(key, ready(cos))
+      expect(conversationRoom(client, room).preview).toMatchObject({ own: true, text: 'Plan the launch' })
+
+      // The platform binds another agent to this room: the member who posted the line is no longer it.
+      $companyPrivateCos.setKey(key, ready('@other-cos:test'))
+      expect(conversationRoom(client, room).preview).toMatchObject({ text: 'Checking the next step.' })
+    } finally {
+      $companyPrivateCos.set({})
+    }
   })
 
   it('never lets another member hide a message with a company marker, in a company or a personal room', async () => {
@@ -227,7 +308,7 @@ describe('a company agent’s working line in a chat row (agent-turns/1.6)', () 
 
     await shared.add(shared.event(me, { msgtype: 'm.text', body: 'Plan the launch' }))
     await shared.add(shared.event(lan, line(shared.room.roomId)))
-    expect(matrixRoomPreview(shared.room, me)).toMatchObject({ text: 'Checking the next step.' })
+    expect(matrixRoomPreview(shared.room, me, new Set(), undefined, cos)).toMatchObject({ text: 'Checking the next step.' })
 
     const personal = fixture()
 
