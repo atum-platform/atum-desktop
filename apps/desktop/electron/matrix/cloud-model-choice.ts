@@ -250,6 +250,7 @@ export async function requestMatrixCloudModelChoice(
   }
 
   const route = action === 'write' ? 'model-choice' : 'models'
+
   const response = await fetch(`${resource}/agents/${encodeURIComponent(agentPrincipal)}/${route}`, {
     method: action === 'write' ? 'PUT' : 'GET',
     headers: {
@@ -336,6 +337,9 @@ export class MatrixCloudModelChoices {
   private readonly entries = new Map<string, Entry>()
   /** Counts the writes this Mac adopted per agent; a read that started before one is stale. */
   private readonly writes = new Map<string, number>()
+  /** Only the latest pick for an agent may retry or publish its answer. */
+  private readonly intents = new Map<string, number>()
+  private generation = 0
 
   constructor(private readonly options: MatrixCloudModelChoiceOptions) {}
 
@@ -345,8 +349,18 @@ export class MatrixCloudModelChoices {
     }
 
     this.owner = owner
+    this.generation += 1
+    this.intents.clear()
     this.entries.clear()
     this.writes.clear()
+  }
+
+  /** Keep every continuation tied to the account/cache generation that started it. */
+  private scopeCurrent(): () => boolean {
+    const generation = this.generation
+    const owner = this.owner ? { ...this.owner } : null
+
+    return () => owner !== null && generation === this.generation && sameScope(owner, this.options.scope())
   }
 
   /** What the window shows for this agent; absent when no offer was reachable. */
@@ -383,7 +397,13 @@ export class MatrixCloudModelChoices {
       refreshing: true
     })
 
+    const currentScope = this.scopeCurrent()
+
     void this.read(agentPrincipal).finally(() => {
+      if (!currentScope()) {
+        return
+      }
+
       const current = this.entries.get(agentPrincipal)
 
       if (current) {
@@ -398,7 +418,11 @@ export class MatrixCloudModelChoices {
    * write adopts the server's own snapshot, so the checked row is what the server stores.
    */
   async write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean> {
-    const first = await this.send(agentPrincipal, model)
+    const scopeCurrent = this.scopeCurrent()
+    const intent = (this.intents.get(agentPrincipal) ?? 0) + 1
+    this.intents.set(agentPrincipal, intent)
+    const current = () => scopeCurrent() && this.intents.get(agentPrincipal) === intent
+    const first = await this.send(agentPrincipal, model, current)
 
     if (first !== 'stale') {
       return first
@@ -406,12 +430,20 @@ export class MatrixCloudModelChoices {
 
     // The fence was old (the revision moved, or the policy changed): read it again and send the
     // same pick once. A second refusal is final; the row shows the offer just read.
-    await this.read(agentPrincipal)
+    if (!current()) {
+      return false
+    }
 
-    return (await this.send(agentPrincipal, model)) === true
+    await this.read(agentPrincipal, current)
+
+    return current() && (await this.send(agentPrincipal, model, current)) === true
   }
 
-  private async send(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean | 'stale'> {
+  private async send(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId, current: () => boolean): Promise<boolean | 'stale'> {
+    if (!current()) {
+      return false
+    }
+
     const offer = this.offer(agentPrincipal)
     const body = offer ? matrixCloudModelWrite(offer, model) : null
 
@@ -430,9 +462,17 @@ export class MatrixCloudModelChoices {
       )
     } catch {
       // A transport failure changed nothing; the next read settles what the server holds.
-      this.invalidate(agentPrincipal)
+      if (current()) {
+        this.invalidate(agentPrincipal)
+      }
 
       return false
+    }
+
+    if (!current()) {
+
+      return false
+
     }
 
     if (matrixModelChoiceFenceConflict(response)) {
@@ -442,9 +482,18 @@ export class MatrixCloudModelChoices {
     const next = response.status === 200 ? parseMatrixCloudModelOffer(response.value, agentPrincipal) : null
 
     if (!next) {
-      this.invalidate(agentPrincipal)
+      if (current()) {
+        this.invalidate(agentPrincipal)
+      }
 
       return false
+    }
+
+    const held = this.offer(agentPrincipal)
+
+    // The server accepted this write, but a newer snapshot is already held. Keep its clock too.
+    if (held && next.revision < held.revision) {
+      return true
     }
 
     this.writes.set(agentPrincipal, (this.writes.get(agentPrincipal) ?? 0) + 1)
@@ -459,11 +508,11 @@ export class MatrixCloudModelChoices {
     this.options.changed()
   }
 
-  private async read(agentPrincipal: string): Promise<void> {
+  private async read(agentPrincipal: string, current = this.scopeCurrent()): Promise<void> {
     // A periodic read can be in flight while the owner picks. If a write is adopted before that
     // read lands, its answer predates the pick: it must not put the previous model back.
     const writesAtStart = this.writes.get(agentPrincipal) ?? 0
-    const superseded = () => (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
+    const superseded = () => !current() || (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
     let response: MatrixCloudModelResponse
 
     try {

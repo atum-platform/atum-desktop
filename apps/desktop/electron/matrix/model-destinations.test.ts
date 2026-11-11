@@ -448,6 +448,7 @@ describe('the destination controller', () => {
       async (_principal: string, action: MatrixModelDestinationsAction, _signal: AbortSignal, _body?: unknown) =>
         response(action)
     )
+
     const changed = vi.fn()
 
     const subject = new MatrixModelDestinations({
@@ -508,6 +509,7 @@ describe('the destination controller', () => {
 
   it('saves card and composer Atum picks to the same cloud destination record', async () => {
     const before = fixture('destination.snapshot.json') as Record<string, unknown>
+
     const after = {
       ...before,
       revision: 4,
@@ -515,6 +517,7 @@ describe('the destination controller', () => {
         choice.destination === 'cloud' ? { ...choice, model: 'nhat-thuc' } : choice
       )
     }
+
     const card = controller(action => ({ status: 200, value: action === 'write' ? after : before }))
     const composer = controller(action => ({ status: 200, value: action === 'write' ? after : before }))
 
@@ -743,6 +746,7 @@ describe('a cloud agent’s Atum pick (owner 2026-11-08: “can’t even go back
 
   it('writes the cloud destination record, reading it first when unread, and re-reads the 1.1 row', async () => {
     let read = false
+
     const destinations = {
       view: vi.fn(() => (read ? view : undefined)),
       read: vi.fn(async () => {
@@ -752,6 +756,7 @@ describe('a cloud agent’s Atum pick (owner 2026-11-08: “can’t even go back
       }),
       write: vi.fn(async () => true)
     }
+
     const legacy = { write: vi.fn(async () => false), reload: vi.fn(async () => undefined) }
 
     await expect(writeMatrixCloudAtumChoice('agent', 'nguyet-thuc', { destinations, legacy })).resolves.toBe(true)
@@ -805,7 +810,8 @@ describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switchi
     return { status: 409, value: { error: 'matrix_409', details: { reason } } }
   }
 
-  function controller(answers: Array<MatrixModelDestinationsResponse | Promise<MatrixModelDestinationsResponse>>) {
+  function controller(answers: Array<MatrixModelDestinationsResponse | Promise<MatrixModelDestinationsResponse>>,
+    options: { scope?: () => typeof scope; deviceNames?: () => Promise<typeof NAMES> } = {}) {
     const call = vi.fn(
       async (_principal: string, _action: MatrixModelDestinationsAction, _signal: AbortSignal, _body?: unknown) => {
         const next = answers.shift()
@@ -819,9 +825,9 @@ describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switchi
     )
 
     const subject = new MatrixModelDestinations({
-      scope: () => scope,
+      scope: options.scope ?? (() => scope),
       call,
-      deviceNames: async () => NAMES,
+      deviceNames: options.deviceNames ?? (async () => NAMES),
       offer: () => ({ offered: ['nguyet-thuc', 'nhat-thuc'] }),
       here: () => 'cloud',
       thisDevice: () => 'book-a',
@@ -835,12 +841,101 @@ describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switchi
 
   function deferred() {
     let resolve!: (value: MatrixModelDestinationsResponse) => void
+
     const promise = new Promise<MatrixModelDestinationsResponse>(done => {
       resolve = done
     })
 
     return { promise, resolve }
   }
+
+  it.each(['read', 'write'] as const)('drops a delayed %s display across sign-in generations', async action => {
+    let active = scope
+    let resolve!: (value: typeof NAMES) => void
+    const names = new Promise<typeof NAMES>(done => { resolve = done })
+    const deviceNames = vi.fn().mockResolvedValueOnce(NAMES).mockReturnValueOnce(names)
+
+    const { subject, call } = controller([
+      roundTwoState(7),
+      ...(action === 'read' ? [{ status: 409, value: { details: { reason: 'revision_conflict' } } }] : []),
+      roundTwoState(8, 'nhat-thuc')
+    ], { scope: () => active, deviceNames })
+
+    await subject.read(PRINCIPAL)
+    const pending = subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')
+    await vi.waitFor(() => expect(deviceNames).toHaveBeenCalledTimes(2))
+    active = { ...scope, generation: 2 }
+    subject.activate(active)
+    resolve(NAMES)
+    expect(await pending).toBe(false)
+    expect(subject.snapshot(PRINCIPAL)).toBeUndefined()
+    expect(call).toHaveBeenCalledTimes(action === 'read' ? 3 : 2)
+  })
+
+  it('drops a successful response for a superseded pick', async () => {
+    const late = roundTwoDeferred()
+    const { subject } = controller([roundTwoState(7), late.promise, roundTwoState(9)])
+    await subject.read(PRINCIPAL)
+    const obsolete = subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')
+    expect(await subject.write(PRINCIPAL, 'cloud', 'nguyet-thuc')).toBe(true)
+    late.resolve(roundTwoState(10, 'nhat-thuc'))
+    expect(await obsolete).toBe(false)
+    expect(subject.snapshot(PRINCIPAL)?.revision).toBe(9)
+  })
+
+  function roundTwoState(revision: number, model = 'nguyet-thuc') {
+    return { status: 200, value: state(revision, NEW_DIGEST, { source: 'atum', model }) }
+  }
+
+  function roundTwoDeferred() {
+    let resolve!: (value: { status: number; value: unknown }) => void
+    const promise = new Promise<{ status: number; value: unknown }>(done => { resolve = done })
+
+    return { promise, resolve }
+  }
+
+  it('drops an obsolete retry after a newer pick succeeds during its re-read', async () => {
+    const late = roundTwoDeferred()
+
+    const { subject, call } = controller([
+      roundTwoState(7),
+      { status: 409, value: { details: { reason: 'revision_conflict' } } },
+      late.promise, roundTwoState(8)
+    ])
+
+    const pick = (model: 'nguyet-thuc' | 'nhat-thuc') => subject.write(PRINCIPAL, 'cloud', model)
+    await subject.read(PRINCIPAL)
+    const obsolete = pick('nhat-thuc')
+    await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(3))
+    expect(await pick('nguyet-thuc')).toBe(true)
+    late.resolve(roundTwoState(7, 'nhat-thuc'))
+    expect(await obsolete).toBe(false)
+    expect(call).toHaveBeenCalledTimes(4)
+    expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nguyet-thuc')
+  })
+
+  it('keeps the newer read and its refresh clock after a delayed older successful write', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const late = roundTwoDeferred()
+      const { subject, call } = controller([roundTwoState(7), late.promise, roundTwoState(9), roundTwoState(9)])
+      await subject.read(PRINCIPAL)
+      const model = 'nhat-thuc'
+      const pending = subject.write(PRINCIPAL, 'cloud', model)
+      await subject.read(PRINCIPAL)
+      vi.advanceTimersByTime(30_000)
+      late.resolve(roundTwoState(8, 'nhat-thuc'))
+      expect(await pending).toBe(true)
+      expect(subject.snapshot(PRINCIPAL)?.revision).toBe(9)
+      expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nguyet-thuc')
+      vi.advanceTimersByTime(30_001)
+      subject.refresh(PRINCIPAL)
+      expect(call).toHaveBeenCalledTimes(4)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
   it('keeps the saved pick when a read that started before it lands after it', async () => {
     const before = state(7, NEW_DIGEST, { source: 'chatgpt_plan', model: 'gpt-6-luna' })

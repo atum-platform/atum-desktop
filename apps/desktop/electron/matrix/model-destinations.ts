@@ -604,6 +604,7 @@ export function matrixModelDestinationsView(
   }
 
   const superseded = new Set(options.supersededDeviceIds ?? [])
+
   const macIds = [
     ...snapshot.choices.flatMap(choice => (choice.destination === 'cloud' ? [] : [choice.destination as string])),
     ...Object.keys(options.deviceNames ?? {}).map(deviceId => `mac:${deviceId}`)
@@ -823,6 +824,9 @@ export class MatrixModelDestinations {
   private readonly entries = new Map<string, Entry>()
   /** Counts the writes this Mac adopted per agent; a read that started before one is stale. */
   private readonly writes = new Map<string, number>()
+  /** Only the latest pick for an agent may retry or publish its answer. */
+  private readonly intents = new Map<string, number>()
+  private generation = 0
 
   constructor(private readonly options: MatrixModelDestinationsOptions) {}
 
@@ -832,6 +836,8 @@ export class MatrixModelDestinations {
     }
 
     this.owner = owner
+    this.generation += 1
+    this.intents.clear()
     this.entries.clear()
     this.writes.clear()
   }
@@ -841,6 +847,14 @@ export class MatrixModelDestinations {
     const choice = this.entries.get(agentPrincipal)?.snapshot?.choices.find(each => each.destination === 'cloud')
 
     return choice as Extract<MatrixDestinationChoice, { destination: 'cloud' }> | undefined
+  }
+
+  /** Keep every continuation tied to the account/cache generation that started it. */
+  private scopeCurrent(): () => boolean {
+    const generation = this.generation
+    const owner = this.owner ? { ...this.owner } : null
+
+    return () => owner !== null && generation === this.generation && sameScope(owner, this.options.scope())
   }
 
   /** What the window shows for this agent; absent when no snapshot was reachable. */
@@ -923,7 +937,13 @@ export class MatrixModelDestinations {
       refreshing: true
     })
 
+    const currentScope = this.scopeCurrent()
+
     void this.read(agentPrincipal).finally(() => {
+      if (!currentScope()) {
+        return
+      }
+
       const current = this.entries.get(agentPrincipal)
 
       if (current) {
@@ -933,11 +953,11 @@ export class MatrixModelDestinations {
   }
 
   /** A forced read (the card opening, or after the composer wrote the cloud choice). */
-  async read(agentPrincipal: string): Promise<MatrixModelDestinationsView | undefined> {
+  async read(agentPrincipal: string, current = this.scopeCurrent()): Promise<MatrixModelDestinationsView | undefined> {
     // A periodic read can be in flight while the owner picks. If a write is adopted before that
     // read lands, its answer predates the pick: it must not put the previous model back.
     const writesAtStart = this.writes.get(agentPrincipal) ?? 0
-    const superseded = () => (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
+    const superseded = () => !current() || (this.writes.get(agentPrincipal) ?? 0) !== writesAtStart
     let response: MatrixModelDestinationsResponse
 
     try {
@@ -967,7 +987,7 @@ export class MatrixModelDestinations {
       return this.view(agentPrincipal)
     }
 
-    const view = await this.display(snapshot, agentPrincipal)
+    const view = await this.display(snapshot, agentPrincipal, current)
     const held = this.entries.get(agentPrincipal)?.snapshot
 
     // Two reads can land out of order; the revision only moves forward on the server.
@@ -1018,7 +1038,16 @@ export class MatrixModelDestinations {
     agentPrincipal: string,
     build: (snapshot: MatrixModelDestinationSnapshot) => MatrixModelDestinationsWriteRequest | undefined
   ): Promise<boolean> {
+    const scopeCurrent = this.scopeCurrent()
+    const intent = (this.intents.get(agentPrincipal) ?? 0) + 1
+    this.intents.set(agentPrincipal, intent)
+    const current = () => scopeCurrent() && this.intents.get(agentPrincipal) === intent
+
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      if (!current()) {
+        return false
+      }
+
       const snapshot = this.entries.get(agentPrincipal)?.snapshot
       const body = snapshot ? build(snapshot) : undefined
 
@@ -1037,16 +1066,24 @@ export class MatrixModelDestinations {
         )
       } catch {
         // A transport failure changed nothing; the next read settles what the server holds.
-        this.fallback(agentPrincipal)
+        if (current()) {
+          this.fallback(agentPrincipal)
+        }
 
         return false
       }
 
-      if (!matrixModelChoiceFenceConflict(response)) {
-        return this.adopt(response, agentPrincipal)
+      if (!current()) {
+
+        return false
+
       }
 
-      await this.read(agentPrincipal)
+      if (!matrixModelChoiceFenceConflict(response)) {
+        return this.adopt(response, agentPrincipal, current)
+      }
+
+      await this.read(agentPrincipal, current)
     }
 
     return false
@@ -1058,6 +1095,7 @@ export class MatrixModelDestinations {
    * and the person can retry after the next read.
    */
   async cap(agentPrincipal: string, dailyProtons: number): Promise<boolean> {
+    const current = this.scopeCurrent()
     const snapshot = this.entries.get(agentPrincipal)?.snapshot
     const body = snapshot ? matrixModelDailyCapWrite(snapshot, dailyProtons) : undefined
 
@@ -1080,14 +1118,19 @@ export class MatrixModelDestinations {
       return false
     }
 
-    return this.adopt(response, agentPrincipal)
+    return this.adopt(response, agentPrincipal, current)
   }
 
   /** The server's own answer replaces the snapshot; a refusal changes nothing. */
   private async adopt(
     response: MatrixModelDestinationsResponse,
-    agentPrincipal: string
+    agentPrincipal: string,
+    current: () => boolean
   ): Promise<boolean> {
+    if (!current()) {
+      return false
+    }
+
     const next =
       response.status === 200 ? parseMatrixModelDestinationSnapshot(response.value, agentPrincipal) : undefined
 
@@ -1095,10 +1138,17 @@ export class MatrixModelDestinations {
       return false
     }
 
-    const view = await this.display(next, agentPrincipal)
+    const view = await this.display(next, agentPrincipal, current)
 
-    if (!view) {
+    if (!view || !current()) {
       return false
+    }
+
+    const held = this.snapshot(agentPrincipal)
+
+    // The server accepted this write, but a newer snapshot is already held. Keep its clock too.
+    if (held && next.revision < held.revision) {
+      return true
     }
 
     this.writes.set(agentPrincipal, (this.writes.get(agentPrincipal) ?? 0) + 1)
@@ -1110,11 +1160,12 @@ export class MatrixModelDestinations {
 
   private async display(
     snapshot: MatrixModelDestinationSnapshot,
-    agentPrincipal: string
+    agentPrincipal: string,
+    current: () => boolean
   ): Promise<MatrixModelDestinationsView | undefined> {
     const deviceNames = await this.options.deviceNames().catch(() => undefined)
 
-    if (!sameScope(this.owner, this.options.scope())) {
+    if (!current()) {
       return undefined
     }
 
