@@ -1,8 +1,9 @@
 import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { temporaryRoots } from './test-fixtures'
 import { waiterArguments } from './waiter'
@@ -15,6 +16,7 @@ afterEach(roots.cleanup)
 async function launcher(options: {
   /** What the fake `open -n -W <target>` does; runs under /bin/sh with STARTED and SHOWN set. */
   onLaunch: string
+  afterStart?: (started: string) => Promise<void>
   relaunch?: boolean
   withTarget?: boolean
   noStartSeconds?: number
@@ -49,12 +51,16 @@ esac
 
   const args = waiterArguments({
     parentPid: parent.pid!, target, backup, startedMarker: started, shownMarker: shown, relaunch: options.relaunch ?? true,
-    opener, noStartSeconds: options.noStartSeconds ?? 1, liveSeconds: options.liveSeconds ?? 10
+    // Startup is not timed unless a test explicitly exercises the no-start deadline.
+    opener, noStartSeconds: options.noStartSeconds ?? 30, liveSeconds: options.liveSeconds ?? 10
   })
 
   const began = Date.now()
   const child = spawn('/bin/sh', args, { stdio: 'ignore' })
-  await new Promise(resolve => child.once('exit', resolve))
+  const exited = once(child, 'exit')
+
+  await options.afterStart?.(started)
+  await exited
 
   const calls = (await fs.readFile(log, 'utf8')).split('\n').filter(Boolean)
 
@@ -99,20 +105,33 @@ describe('update launcher script', () => {
   })
 
   it('opens the backup when the process that started has died before its window', async () => {
-    // Publish a real, live fake app, then reap it while the opener remains alive.
-    // This exercises the started-to-dead transition without carrying an already
-    // reaped PID through asynchronous launcher setup. Publish atomically, as store.ts does.
-    const run = await launcher({
-      onLaunch: 'sleep 1 & app=$!; echo "$app" > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; wait "$app"; sleep 20',
-      noStartSeconds: 30, liveSeconds: 30
-    })
+    // Hold a real app alive until its PID is published, then explicitly reap it.
+    // The opener and both launch limits outlive the test deadline, so only the
+    // recorded app's death can cause the expected rollback.
+    const app = spawn('/bin/cat', [], { stdio: ['pipe', 'ignore', 'ignore'] })
+    const exited = once(app, 'exit')
 
-    expect(run.calls).toEqual([`-n -W ${run.target}`, `-n ${run.backup}`])
-    expect(run.elapsed).toBeLessThan(6000)
-  })
+    try {
+      const run = await launcher({
+        onLaunch: `echo ${app.pid} > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; sleep 20`,
+        afterStart: async started => {
+          await vi.waitFor(async () => expect(await fs.readFile(started, 'utf8')).toBe(`${app.pid}\n`), { timeout: 10_000 })
+          app.stdin!.end()
+          await exited
+        },
+        noStartSeconds: 30, liveSeconds: 30
+      })
+
+      expect(run.calls).toEqual([`-n -W ${run.target}`, `-n ${run.backup}`])
+    } finally {
+      app.kill()
+      await exited
+    }
+  }, 15_000)
 
   it('gives a started but windowless launch up after the long limit', async () => {
-    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; sleep 30', noStartSeconds: 1, liveSeconds: 2 })
+    // Allow the opener to start on a busy runner; exercise the live limit, not the no-start limit.
+    const run = await launcher({ onLaunch: 'echo $$ > "$STARTED.tmp"; mv "$STARTED.tmp" "$STARTED"; sleep 30', noStartSeconds: 30, liveSeconds: 2 })
 
     expect(run.calls).toEqual([`-n -W ${run.target}`, `-n ${run.backup}`])
   })
