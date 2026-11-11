@@ -233,7 +233,8 @@ function detailsComplete(code: MatrixAgentStatusCode, details: MatrixAgentStatus
 export function matrixAgentLocalizedText(
   message: {
     body: string
-    progress?: MatrixProgressMarker
+    /** A personal (1.3) or company (1.6) working line: only its device is read. */
+    progress?: Pick<MatrixProgressMarker, 'device'>
     presentation?: MatrixProgressPresentation
     cloudStatus?: MatrixAgentStatusNotice
     statusLine?: MatrixAgentStatusNotice
