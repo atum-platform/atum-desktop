@@ -341,6 +341,11 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
     # (fail-closed, as the pre-merge constructor did). Absent keeps the upstream memory stack.
     if params.get("awareness_binding") is not None:
         return _err(rid, 4003, "atum_awareness_native_activation_unavailable")
+    from tui_gateway.managed_memory import admission, echo
+    try:
+        managed_binding = admission(params, current_transport() or _stdio_transport, _stdio_transport)
+    except ValueError:
+        return _err(rid, 4003, "memory_binding_invalid")
     # Reject an incoherent model×provider pair BEFORE any state exists: minting it only defers the
     # failure to the first turn's provider 404 (#96817). Custom/unknown providers stay permissive.
     from .methods_session_model_guard import model_override_conflict
@@ -364,6 +369,8 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
                 if session is not None:
                     # Refresh the TTL so back-to-back retries don't age out mid-flight.
                     _idempotency_keys[idem_key] = (existing_sid, now_for_gc)
+                    if session.get("_managed_memory_binding") != managed_binding:
+                        return _err(rid, 4003, "memory_binding_invalid")
                     history = session["history"]
                     override = session.get("model_override") or {}
                     # Same result shape as the fresh-create path below: branch_stored
@@ -373,6 +380,7 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
                     # renderer is exactly what the method exists to avoid.
                     return _ok(rid, {
                         "session_id": existing_sid, "stored_session_id": session["session_key"],
+                        **echo(session),
                         "message_count": len(history),
                         **({"messages_omitted": True} if copy_parent_history
                            else {"messages": _history_to_messages(history, profile_home=session.get("profile_home"))}),
@@ -384,6 +392,11 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
                 # fall through and create a fresh one under the same key.
                 _idempotency_keys.pop(idem_key, None)
     (sid, source), key = _new_runtime_ids(params), _new_session_key()
+    if managed_binding is not None:
+        key = managed_binding['sessionId']
+        with _profile_db(params) as db:
+            if db is None or db.get_session(key) is not None:
+                return _err(rid, 4003, "memory_fresh_session_required")
     history = _coerce_seed_history(params.get("messages"))
     # Branch: links back so list_sessions_rich keeps it visible and the sidebar nests it.
     parent_session_id = _str_param(params, "parent_session_id") or None
@@ -423,6 +436,8 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
     room_flags = {flag: _flag(params, flag) for flag in PROFILE_FLAGS} if not copy_parent_history else dict(zip(PROFILE_FLAGS, parent_room_profile))
     now = time.time()
     with _sessions_lock:
+        if managed_binding is not None and any(s.get("session_key") == key for s in _sessions.values()):
+            return _err(rid, 4003, "memory_fresh_session_required")
         _sessions[sid] = {
             **room_flags,
             "agent": None, "agent_error": None, "agent_ready": threading.Event(), "attached_images": [],
@@ -441,6 +456,7 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
             "pending_hidden": _flag(params, "hidden"), "room_plumbing": _flag(params, "room_plumbing"),
             "follow_profile_config": _flag(params, "follow_profile_config"),
             "profile_home": str(profile_home) if profile_home is not None else None,
+            "_managed_memory_binding": managed_binding,
             "_atum_awareness_binding": None,  # host-stamped only; see the refusal above
             "running": False, "session_key": key, "show_reasoning": _load_show_reasoning(), "source": source,
             "slash_worker": None, "tool_progress_mode": _load_tool_progress_mode(), "tool_started_at": {},
@@ -490,6 +506,7 @@ def _create_session(rid, params: dict, *, copy_parent_history: bool = False) -> 
     return _ok(rid, {
         "session_id": sid, "stored_session_id": key, "message_count": len(messages),
         "async_delivery": _sessions[sid]["async_delivery"],
+        **echo(_sessions[sid]),
         **({"messages_omitted": True} if copy_parent_history else {"messages": messages}),
         "info": {**_lazy_info_route(_sessions[sid], override), "tools": {}, "skills": {}, "cwd": cwd, "branch": git_probe.branch(cwd),
                  "project": _project_info_for_cwd(cwd), "lazy": True, "desktop_contract": DESKTOP_BACKEND_CONTRACT,
