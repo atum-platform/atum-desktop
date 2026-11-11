@@ -338,6 +338,7 @@ import {
   replaceMatrixAgentSoul,
   seedMatrixAgentSoul
 } from './agent-lifecycle'
+import { AgentMemoryServiceError, createAgentMemoryHost } from './agent-memory'
 import { matrixAgentModelView } from './agent-model-view'
 import { manageMatrixAgentProfile } from './agent-profile-management'
 import { MatrixAgentProposals, registerMatrixAgentProposalsIpc } from './agent-proposals'
@@ -771,7 +772,6 @@ import {
 } from './main-company'
 import { handleMatrixCompanyDesktop } from './main-company-desktop'
 import { handleMatrixCompanySearch, handleMatrixCompanySearchOpen } from './main-company-search'
-import { AgentMemoryServiceError, createAgentMemoryHost } from './agent-memory'
 import {
   admitMatrixEnrollmentSetup,
   matrixEnrollmentAuthority,
