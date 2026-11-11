@@ -245,9 +245,10 @@ export function forbidden(value: unknown, names: ReadonlySet<string>, path: stri
   }
 }
 
-function lookup(value: unknown, dotted: string): unknown {
+function lookup(value: unknown, dotted: string | readonly string[]): unknown {
   let current: unknown = value;
-  for (const key of dotted.split(".")) {
+  // Array paths preserve literal Matrix keys such as io.atum.files.
+  for (const key of typeof dotted === "string" ? dotted.split(".") : dotted) {
     if (!isObject(current) || !has(current, key)) return MISSING;
     current = current[key];
   }

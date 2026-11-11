@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "terminal",
+      "to": "edit_allowed",
+      "event": "edit_authority_current"
+    }
+  ]
+}

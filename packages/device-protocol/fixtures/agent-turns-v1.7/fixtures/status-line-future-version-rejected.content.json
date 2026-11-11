@@ -1,0 +1,8 @@
+{
+  "msgtype": "m.text",
+  "body": "Có lỗi.",
+  "io.atum.status": {
+    "version": 2,
+    "code": "failed"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "msgtype": "m.text",
+  "body": "Here is the plan.",
+  "io.atum.files": {
+    "profile": "atum.agent-turns/1.7",
+    "identity": {
+      "agentPrincipal": "abcdabcd-abcd-4abc-8abc-abcabcabcab0",
+      "taskId": "abcdabcd-abcd-4abc-8abc-abcabcabcab1",
+      "invocationId": "abcdabcd-abcd-4abc-8abc-abcabcabcab2",
+      "scope": "company",
+      "roomId": "!files:example.test",
+      "threadRootEventId": "$root",
+      "companyId": "abcdabcd-abcd-4abc-8abc-abcabcabcab4",
+      "audience": {
+        "kind": "private",
+        "memberPrincipal": "abcdabcd-abcd-4abc-8abc-abcabcabcab5",
+        "membershipIncarnation": "abcdabcd-abcd-4abc-8abc-abcabcabcab6"
+      }
+    },
+    "files": [
+      {
+        "fileKey": "opaque_file_key_alpha",
+        "name": "Plan.docx",
+        "place": "Documents",
+        "revision": 0,
+        "state": "not_confirmed",
+        "outcome": "terminal_unknown",
+        "draftAvailable": false
+      }
+    ]
+  },
+  "m.relates_to": {
+    "rel_type": "m.thread",
+    "event_id": "$other",
+    "is_falling_back": false,
+    "m.in_reply_to": {
+      "event_id": "$trigger"
+    }
+  }
+}
