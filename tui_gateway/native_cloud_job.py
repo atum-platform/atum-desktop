@@ -54,6 +54,9 @@ def run_claimed_native_job(params: dict[str, Any]) -> dict[str, Any]:
         r"[A-Za-z0-9_-]{40,64}", os.environ.get("ATUM_MODEL_KEY", "")
     ):
         raise RuntimeError("native_cloud_runtime_required")
+    from tui_gateway.desktop_ui_bridge import wire
+
+    wire()  # Cron constructs its agent without the interactive _agent_cbs hook.
     return _run_claimed_job(params)
 
 
