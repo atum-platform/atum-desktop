@@ -131,6 +131,7 @@ import {
   type MatrixTurnLookup
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import { MATRIX_AGENT_PROPOSALS_IPC } from '../../shared/matrix-agent-proposals'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { appBotTurnRefusal } from '../../shared/matrix-app-bot-failure'
@@ -339,6 +340,7 @@ import {
 } from './agent-lifecycle'
 import { matrixAgentModelView } from './agent-model-view'
 import { manageMatrixAgentProfile } from './agent-profile-management'
+import { MatrixAgentProposals, registerMatrixAgentProposalsIpc } from './agent-proposals'
 import {
   carryMatrixHermesHome,
   MatrixAgentReenrollments,
@@ -19225,6 +19227,22 @@ async function start() {
       add: () => matrixFolderAccess().add(),
       remove: id => matrixFolderAccess().remove(id)
     }
+  })
+  // The confirm card for what the main agent proposes about the person's other agents
+  // (agent-proposals.ts). Off until the owner-session proposal routes ship: with no `platform`
+  // nothing is admitted, so no card ever renders. Hire names wait on the same routes.
+  registerMatrixAgentProposalsIpc(ipcMain, {
+    assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
+    proposals: new MatrixAgentProposals({
+      scope: () => account?.appScope() ?? null,
+      agentName: principal => allAgents().find(agent => !agent.closed && cloudPrincipal(agent) === principal)?.name,
+      offerName: () => undefined,
+      changed: roomId => {
+        if (ui && !ui.isDestroyed()) {
+          ui.webContents.send(MATRIX_AGENT_PROPOSALS_IPC.changed, roomId)
+        }
+      }
+    })
   })
   registerMatrixAgentSourcesIpc(ipcMain, {
     assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),

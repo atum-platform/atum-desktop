@@ -154,6 +154,7 @@ import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUna
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { MatrixAgentProposalCards } from './agent-proposal-card'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -1472,6 +1473,11 @@ function MatrixEventMessageBubble() {
                 roomEncrypted={action.room.encrypted}
                 roomId={action.room.id}
               />
+            )}
+            {/* What the main agent proposed about the person's other agents: a confirm card built
+                from the platform's record (agent-proposal-card.tsx), never from this message. */}
+            {action && (agent || ownAssistant) && !message.own && (
+              <MatrixAgentProposalCards eventId={message.id} roomId={action.room.id} />
             )}
             </>
           )}

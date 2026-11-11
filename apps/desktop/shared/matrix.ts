@@ -29,6 +29,7 @@ import type {
 } from './browser/ipc'
 import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from './execution-policy'
 import type { LookPackPublished, LookRoomAccountData } from './look-pack'
+import type { MatrixAgentProposalsBridge } from './matrix-agent-proposals'
 import type { MatrixAgentSourcesBridge } from './matrix-agent-sources'
 import type { MatrixAliasBridge } from './matrix-aliases'
 import type { MatrixAppConnectionState } from './matrix-apps'
@@ -2103,6 +2104,8 @@ export interface MatrixUiBridge {
   /** Per-account live source switches; every read remains main/tool-handler enforced. */
   macSources?: MatrixMacSourcesBridge
   /** Current-assistant descriptor projection; main owns both account and assistant selection. */
+  /** Confirm cards for what the main agent proposes about the person's other agents. */
+  agentProposals?: MatrixAgentProposalsBridge
   agentSources?: MatrixAgentSourcesBridge
   /** Which Mac folders the owner shares; main alone asks macOS and enforces the choice. */
   folderAccess?: MatrixFolderAccessBridge
