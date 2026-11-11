@@ -744,3 +744,138 @@ it('drops metadata from a redacted bot message', () => {
   expect(matrixMessage(raw, '@owner:test', new Set())).toMatchObject({ redacted: true })
   expect(matrixMessage(raw, '@owner:test', new Set())?.botApi).toBeUndefined()
 })
+
+describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
+  const AGENT = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d'
+  const TASK = 'c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f'
+  const INVOCATION = 'd4e5f6a7-b8c9-4d0e-9f2a-3b4c5d6e7f8a'
+  const MEMBER = 'e5f6a7b8-c9d0-4e1f-8a3b-4c5d6e7f8a9b'
+  const channelAudience = { kind: 'channel', channelId: companyFile.channel_id }
+  const privateAudience = { kind: 'private', memberPrincipal: MEMBER, membershipIncarnation: '00000000-0000-4000-8000-7b0cac15d6b0' }
+  const thread = { rel_type: 'm.thread', event_id: '$root', is_falling_back: false, 'm.in_reply_to': { event_id: '$trigger' } }
+
+  const marker = (companyId: string, audience: object, patch: Record<string, unknown> = {}) => ({
+    profile: 'atum.agent-turns/1.6',
+    scope: 'company',
+    companyId,
+    agentPrincipal: AGENT,
+    audience,
+    roomId: '!room:test',
+    threadRootEventId: '$root',
+    taskId: TASK,
+    invocationId: INVOCATION,
+    revision: 0,
+    ...patch
+  })
+
+  const progress = (companyId = companyFile.company_id, audience: object = channelAudience, patch: Record<string, unknown> = {}) => ({
+    msgtype: 'm.notice',
+    body: 'Reading the board.',
+    'io.atum.progress': { ...marker(companyId, audience, patch), phase: 'working', kind: 'todo' },
+    'm.relates_to': thread
+  })
+
+  const interim = (companyId = companyFile.company_id, audience: object = channelAudience) => ({
+    msgtype: 'm.text',
+    body: 'Let me check the board first.',
+    'io.atum.interim': true,
+    'io.atum.company': marker(companyId, audience),
+    'm.relates_to': thread
+  })
+
+  const edit = (content: Record<string, unknown>) => event({
+    ...content,
+    body: `* ${content.body as string}`,
+    'm.new_content': content,
+    'm.relates_to': { rel_type: 'm.replace', event_id: '$event' }
+  }, '@cos:test')
+
+  it('projects a channel thread line with its identity, never as an edit', () => {
+    const shown = matrixMessage(event(progress(), '@cos:test'), '@owner:test', new Set(), companyRoom())!
+
+    expect(shown).toMatchObject({
+      notice: true,
+      thread: true,
+      threadRootId: '$root',
+      replyTo: '$trigger',
+      threadRelation: { rootId: '$root', replyTo: '$trigger' },
+      progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'working', kind: 'todo', revision: 0 },
+      company: { companyId: companyFile.company_id, agentPrincipal: AGENT, audience: channelAudience, taskId: TASK, triggerEventId: '$trigger' }
+    })
+    expect(shown.interim).toBeUndefined()
+  })
+
+  it('projects a channel interim remark as a real message carrying the identity', () => {
+    const shown = matrixMessage(event(interim(), '@cos:test'), '@owner:test', new Set(), companyRoom())!
+
+    expect(shown).toMatchObject({ interim: true, body: 'Let me check the board first.', company: { taskId: TASK } })
+    expect(shown.progress).toBeUndefined()
+  })
+
+  it('projects a private Chief of Staff room line only for that room marker', () => {
+    const shown = matrixMessage(
+      event(progress('00000000-0000-4000-8000-540eb3b6436f', privateAudience), '@cos:test'),
+      '@member:atum.example',
+      new Set(),
+      privateCosRoom()
+    )
+
+    expect(shown?.company?.audience).toEqual(privateAudience)
+    expect(shown?.progress?.scope).toBe('company')
+
+    const rejoined = matrixMessage(
+      event(progress('00000000-0000-4000-8000-540eb3b6436f', { ...privateAudience, membershipIncarnation: TASK }), '@cos:test'),
+      '@member:atum.example',
+      new Set(),
+      privateCosRoom()
+    )
+
+    expect(rejoined?.company).toBeUndefined()
+    expect(rejoined?.progress).toBeUndefined()
+  })
+
+  it('ignores a marker that does not match the room, its binding, or comes from you', () => {
+    const cases: Array<[Record<string, unknown>, Parameters<typeof matrixMessage>[3], string?]> = [
+      [progress(), undefined],
+      [progress(companyFile.file_id), companyRoom()],
+      [progress(companyFile.company_id, { kind: 'channel', channelId: companyFile.file_id }), companyRoom()],
+      [progress(companyFile.company_id, channelAudience, { roomId: '!other:test' }), companyRoom()],
+      [progress('00000000-0000-4000-8000-540eb3b6436f', privateAudience), companyRoom()],
+      [progress(companyFile.company_id, channelAudience), privateCosRoom()],
+      [progress(), companyRoom(), '@owner:test'],
+      [{ ...progress(), 'm.relates_to': { ...thread, event_id: '$elsewhere' } }, companyRoom()],
+      [{ ...interim(), 'io.atum.company': { garbage: true } }, companyRoom()]
+    ]
+
+    for (const [content, room, sender] of cases) {
+      const shown = matrixMessage(event(content, sender ?? '@cos:test'), '@owner:test', new Set(), room)
+
+      expect(shown?.company).toBeUndefined()
+      expect(shown?.progress).toBeUndefined()
+      expect(shown?.interim).toBeUndefined()
+    }
+  })
+
+  it('reads the latest revision of a line, but never an edit that changes the turn or goes back', () => {
+    const settle = (patch: Record<string, unknown>) => {
+      const root = event(progress(), '@cos:test')
+
+      root.makeReplaced(edit({ ...progress(companyFile.company_id, channelAudience, { revision: 2, ...patch }) }))
+
+      return matrixMessage(root, '@owner:test', new Set(), companyRoom())
+    }
+
+    const settled = settle({})
+
+    expect(settled).toMatchObject({ progress: { revision: 2 }, company: { revision: 2 } })
+    expect(settled?.edited).toBeUndefined()
+
+    expect(settle({ taskId: MEMBER })?.company).toBeUndefined()
+    expect(settle({ taskId: MEMBER })?.progress).toBeUndefined()
+
+    const late = event(progress(companyFile.company_id, channelAudience, { revision: 5 }), '@cos:test')
+
+    late.makeReplaced(edit(progress(companyFile.company_id, channelAudience, { revision: 1 })))
+    expect(matrixMessage(late, '@owner:test', new Set(), companyRoom())?.progress).toBeUndefined()
+  })
+})

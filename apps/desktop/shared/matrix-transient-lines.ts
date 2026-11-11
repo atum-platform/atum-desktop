@@ -23,7 +23,8 @@ const RETIRED = new Set<string>([
 type Line = Pick<
   MatrixMessage,
   'body' | 'decryptionFailed' | 'failed' | 'interim' | 'notice' | 'own' | 'pending' | 'progress' | 'redacted' | 'sender'
->
+> &
+  Partial<Pick<MatrixMessage, 'company' | 'threadRelation'>>
 
 /** A progress line, or one of the retired fixed wait lines, sent by an agent. */
 export function isMatrixTransientLine(message: Line, agents: ReadonlySet<string>): boolean {
@@ -41,6 +42,9 @@ export function isMatrixTransientLine(message: Line, agents: ReadonlySet<string>
  * - an agent's working line is hidden once the turn has ended: its marker says `settled`, or the same
  *   agent posted a later message that is neither a working line nor an interim remark (the answer,
  *   an outcome notice). A line that is still the newest thing the agent said stays.
+ * - a company agent's working line (agent-turns/1.6) ends the same way, but only on a later message of
+ *   that agent in the SAME thread that answers the same trigger (or names none): an answer in thread A
+ *   never hides thread B's line, and nothing outside the thread ends it.
  */
 /**
  * The one working line a chat shows under the typing bubble right now: the newest agent line
@@ -67,7 +71,20 @@ export function matrixWorkingLine<T extends Line>(
 
 export function matrixHideEndedTransientLines<T extends Line>(messages: readonly T[], agents: ReadonlySet<string>): T[] {
   const ended = new Set<string>()
+  // Later agent messages inside a thread, newest first: what ends a company line.
+  const endings: Array<{ sender: string; rootId: string; replyTo?: string }> = []
   const kept: T[] = []
+
+  const companyEnded = (message: T): boolean => {
+    const company = message.company!
+
+    return endings.some(
+      ending =>
+        ending.sender === message.sender &&
+        ending.rootId === company.threadRootEventId &&
+        (ending.replyTo === undefined || ending.replyTo === company.triggerEventId)
+    )
+  }
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!
@@ -83,11 +100,15 @@ export function matrixHideEndedTransientLines<T extends Line>(messages: readonly
     }
 
     if (isMatrixTransientLine(message, agents)) {
-      if (message.progress?.phase === 'settled' || ended.has(message.sender)) {
+      if (message.progress?.phase === 'settled' || (message.company ? companyEnded(message) : ended.has(message.sender))) {
         continue
       }
     } else if (!message.interim && !message.pending && !message.failed && !message.decryptionFailed) {
       ended.add(message.sender)
+
+      if (message.threadRelation) {
+        endings.push({ sender: message.sender, ...message.threadRelation })
+      }
     }
 
     kept.push(message)

@@ -1,6 +1,7 @@
 import { EventType, type MatrixEvent, MsgType, RelationType, type Room } from 'matrix-js-sdk'
 
 import { MATRIX_ROOM_PREVIEW_MAX, type MatrixRoomPreview } from '../../shared/matrix'
+import { matrixCompanyPresentationContent } from '../../shared/matrix-company-presentation'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
 
 import { shownContent } from './message'
@@ -127,9 +128,9 @@ function previewOf(
 
   const { content } = shownContent(event)
 
-  // The agent's one progress line (agent-turns/1.3) is never a chat's preview: the row keeps the
+  // The agent's one progress line (agent-turns/1.3, or a company agent's 1.6 line) is never a chat's preview: the row keeps the
   // last message until the answer arrives.
-  if (!own && matrixProgressMarker(content)) {
+  if (!own && (matrixProgressMarker(content) || matrixCompanyPresentationContent(content)?.stream === 'progress')) {
     return null
   }
 

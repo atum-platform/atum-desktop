@@ -124,6 +124,10 @@ import {
   MATRIX_COMPANY_CHANNEL_TYPE
 } from '../../shared/matrix-company-channel-room'
 import { matrixCompanyCopy } from '../../shared/matrix-company-copy'
+import {
+  matrixAdmitCompanyPresentation,
+  type MatrixCompanyPresentationBinding
+} from '../../shared/matrix-company-presentation'
 import { isCompanyPrivateCosClaim } from '../../shared/matrix-company-private-cos'
 import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-company-search'
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
@@ -242,6 +246,7 @@ import {
   isCompanyRoom,
   neighbouringCompanyChannel
 } from './company-chrome'
+import { companyChannelPresentationBinding, privateCosPresentationBinding } from './company-presentation-binding'
 import { $companyAIStatuses, companySpaceScope } from './company-space-store'
 import { ComposerDock } from './composer-dock'
 import {
@@ -4458,6 +4463,15 @@ function MatrixComposer({
   )
 }
 
+/** The same binding object while its facts stay the same, so transcripts recompute only on a real change. */
+function useStableCompanyBinding(
+  binding: MatrixCompanyPresentationBinding | undefined
+): MatrixCompanyPresentationBinding | undefined {
+  const key = binding ? JSON.stringify(binding) : ''
+
+  return useMemo(() => (key ? (JSON.parse(key) as MatrixCompanyPresentationBinding) : undefined), [key])
+}
+
 function threadTranscriptMessages(root: MatrixMessage, replies: readonly MatrixMessage[]) {
   const source = new Map([root, ...replies].map(message => [message.id, message]))
 
@@ -4509,6 +4523,7 @@ function MatrixThreadDetail({
   snapshot: MatrixSnapshot
 }) {
   const { locale } = useI18n()
+  const chat = useChatCopy()
   const forwarding = useMatrixForwarding(snapshot)
   const copy = matrixThreadCopy(locale)
   const summary = snapshot.threads?.find(thread => thread.root.id === rootId)
@@ -4527,7 +4542,39 @@ function MatrixThreadDetail({
   const conversationTitle = useConversationTitle(teamSpaceAccountKey(snapshot.identity), room, room.name?.trim() ?? '')
   const place = room.companyConversation ? conversationTitle : `#${placeTitle.replace(/^#/, '')}`
 
-  const messages = useMemo(() => (root ? threadTranscriptMessages(root, replies) : []), [replies, root])
+  // The channel's own Chief of Staff: its agent-turns/1.6 working line and interim remarks in this
+  // thread are drawn as a personal agent's are in its chat (one live line under the transcript).
+  const companyStatuses = useStore($companyAIStatuses)
+
+  const companyAI = room.companyChannel
+    ? companyStatuses[companySpaceScope(teamSpaceAccountKey(snapshot.identity), room.companyChannel.companyId)]
+    : undefined
+
+  const companyPresentation = useStableCompanyBinding(companyChannelPresentationBinding(room, companyAI))
+  const companyName = companyAI?.agent.displayName ?? matrixCompanyBoardCopy(locale).chiefOfStaff
+
+  const { messages, workingLine } = useMemo(() => {
+    if (!root) {
+      return { messages: [], workingLine: undefined }
+    }
+
+    const lineAgents = new Set(companyPresentation ? [companyPresentation.agentUserId] : [])
+
+    const visible = matrixHideEndedTransientLines(
+      matrixAdmitCompanyPresentation(replies, companyPresentation, rootId),
+      lineAgents
+    )
+
+    return {
+      messages: threadTranscriptMessages(
+        root,
+        visible.filter(message => !isMatrixTransientLine(message, lineAgents))
+      ),
+      workingLine: companyPresentation
+        ? matrixWorkingLine(visible, lineAgents, companyPresentation.agentUserId)
+        : undefined
+    }
+  }, [companyPresentation, replies, root, rootId])
 
   const transcript = useExternalStoreRuntime({
     messages,
@@ -4687,6 +4734,17 @@ function MatrixThreadDetail({
               <AtumChatTranscript
                 clampToComposer={false}
                 components={{ UserMessage: MatrixMessageBubble, AssistantMessage: MatrixMessageBubble }}
+                loadingIndicator={
+                  workingLine ? (
+                    <MatrixAgentWorking
+                      id={workingLine.sender}
+                      label={chat.typingOne(companyName)}
+                      line={workingLine}
+                      name={companyName}
+                      typing={false}
+                    />
+                  ) : undefined
+                }
                 revealMessageId={
                   historyReveal?.owner === 'company' &&
                   historyReveal.roomId === room.id &&
@@ -5280,6 +5338,20 @@ function Conversation({
 
   const agentKey = [snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)].join('\n')
 
+  // A private Chief of Staff room's bound agent: its agent-turns/1.6 working line and interim remarks
+  // are drawn exactly as a personal agent's (company channels draw theirs in the thread panel).
+  const privateCosRecordKey = room?.companyPrivateCos
+    ? teamSpaceKey(teamSpaceAccountKey(snapshot.identity), room.companyPrivateCos.companyId)
+    : ''
+
+  const privateCosRecords = useStore($companyPrivateCos, { keys: [privateCosRecordKey] })
+
+  const companyPresentation = useStableCompanyBinding(
+    privateCosPresentationBinding(privateCosRecords[privateCosRecordKey], room)
+  )
+
+  const privateCosName = usePrivateCosName()
+
   const outgoing = useStore($outgoingEchoes)
 
   // Where the "New messages" line goes: the read marker, or in Team Space the room's unread count.
@@ -5298,14 +5370,21 @@ function Conversation({
   const { messages, latestAnswerId, latestOwnId, matchedEchoes, unansweredMessage, workingLine } = useMemo(() => {
     const sources = new Map(snapshot.messages.map(message => [message.id, message]))
     const agents = new Set(agentKey.split('\n').filter(Boolean))
+    // The company agent's lines are read like a personal agent's; it never becomes an answerer here.
+    const lineAgents = companyPresentation ? new Set([...agents, companyPresentation.agentUserId]) : agents
+    const lineAgent = companyPresentation?.agentUserId ?? (room?.assistant ? snapshot.assistant?.userId : undefined)
 
     // A working line whose turn has ended shows nothing (agent-turns/1.4). The one still live
     // is drawn under the typing bubble, not as a transcript row of its own.
-    const visible = matrixHideEndedTransientLines(snapshot.messages, agents)
-    const line = room?.assistant ? matrixWorkingLine(visible, agents, snapshot.assistant?.userId) : undefined
+    const visible = matrixHideEndedTransientLines(
+      matrixAdmitCompanyPresentation(snapshot.messages, companyPresentation),
+      lineAgents
+    )
+
+    const line = lineAgent ? matrixWorkingLine(visible, lineAgents, lineAgent) : undefined
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
-    const transcriptMessages = visible.filter(message => !isMatrixTransientLine(message, agents))
+    const transcriptMessages = visible.filter(message => !isMatrixTransientLine(message, lineAgents))
 
     // Your message shows the moment you press Send, until its local turn or event takes over.
     const { entries, matched } = mergeOutgoingEchoes(
@@ -5426,7 +5505,8 @@ function Conversation({
     agentKey,
     appBotOutcomes,
     appHistory.entries,
-    firstUnreadId
+    firstUnreadId,
+    companyPresentation
   ])
 
   useEffect(() => dropOutgoingEchoes(matchedEchoes), [matchedEchoes])
@@ -5702,14 +5782,16 @@ function Conversation({
                     <MatrixFirstLearningTiles progress={firstLearningProgress} />
                   ) : agentTyping || workingLine ? (
                     <MatrixAgentWorking
-                      agent={conversationAgent}
+                      agent={companyPresentation ? undefined : conversationAgent}
                       avatarMxc={
-                        snapshot.members?.find(member => member.userId === snapshot.assistant?.userId)?.avatarMxc
+                        snapshot.members?.find(
+                          member => member.userId === (companyPresentation?.agentUserId ?? snapshot.assistant?.userId)
+                        )?.avatarMxc
                       }
-                      id={snapshot.assistant?.userId ?? room.id}
-                      label={chat.typingOne(assistantName)}
+                      id={companyPresentation?.agentUserId ?? snapshot.assistant?.userId ?? room.id}
+                      label={chat.typingOne(companyPresentation ? privateCosName : assistantName)}
                       line={workingLine}
-                      name={assistantName}
+                      name={companyPresentation ? privateCosName : assistantName}
                       typing={Boolean(agentTyping)}
                     />
                   ) : undefined

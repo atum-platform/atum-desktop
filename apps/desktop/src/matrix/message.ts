@@ -17,6 +17,12 @@ import {
 } from '../../shared/matrix-company-channel-room'
 import { MATRIX_COMPANY_FILE, matrixCompanyFileContent } from '../../shared/matrix-company-files'
 import {
+  matrixCompanyPresentationClaimed,
+  matrixCompanyPresentationContent,
+  type MatrixCompanyPresentationContent,
+  sameMatrixCompanyTurn
+} from '../../shared/matrix-company-presentation'
+import {
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT,
   matrixCompanyPrivateCosRoomBinding
 } from '../../shared/matrix-company-private-cos-claim'
@@ -58,6 +64,82 @@ export function companyChannelBinding(room: Room | undefined) {
   const creation = room?.currentState.getStateEvents(EventType.RoomCreate, '')
 
   return creation ? companyRoomTargetBinding(creation.getContent(), creation.getSender()) : undefined
+}
+
+/**
+ * A company agent's working line or interim remark (agent-turns/1.6) as far as this room can check
+ * it: a strict content (the edit's full new content, when edited) whose identity is the original's and
+ * whose revision never goes back; the event's own `m.thread` relation to the marker's root; the marker
+ * naming this room; and its company and audience matching the room's immutable binding (a channel's
+ * create binding, or a private Chief of Staff room's exact state marker). The renderer then requires
+ * the sender to be the room's bound agent. Anything else is not company presentation.
+ */
+export function companyPresentationOf(
+  event: MatrixEvent,
+  original: Record<string, unknown>,
+  content: Record<string, unknown>,
+  edited: boolean,
+  room: Room | undefined
+): MatrixCompanyPresentationContent | undefined {
+  const shown = matrixCompanyPresentationContent(content)
+  const first = edited ? matrixCompanyPresentationContent(original) : shown
+
+  if (
+    !room ||
+    !shown ||
+    !first ||
+    first.stream !== shown.stream ||
+    !sameMatrixCompanyTurn(first.identity, shown.identity) ||
+    shown.identity.revision < first.identity.revision
+  ) {
+    return undefined
+  }
+
+  const relation = relationOf(event)
+  const roomId = event.getRoomId() ?? room.roomId
+
+  if (
+    relation?.rel_type !== 'm.thread' ||
+    relation.event_id !== shown.identity.threadRootEventId ||
+    roomId !== room.roomId ||
+    shown.identity.roomId !== roomId
+  ) {
+    return undefined
+  }
+
+  const audience = shown.identity.audience
+
+  if (audience.kind === 'channel') {
+    const binding = companyChannelBinding(room)
+
+    return binding?.target.kind === 'channel' &&
+      binding.companyId === shown.identity.companyId &&
+      binding.target.channelId === audience.channelId
+      ? shown
+      : undefined
+  }
+
+  const marker = room.currentState.getStateEvents(MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT, '')
+
+  const binding = marker && !Array.isArray(marker)
+    ? matrixCompanyPrivateCosRoomBinding(room.getType(), marker.getType(), marker.getStateKey(), marker.getContent())
+    : undefined
+
+  return binding?.companyId === shown.identity.companyId &&
+    binding.membershipIncarnation === audience.membershipIncarnation
+    ? shown
+    : undefined
+}
+
+/** The standard `m.thread` relation of an event in any room: its root and its in-thread reply. */
+function threadRelationOf(relation: Record<string, unknown> | undefined): MatrixMessage['threadRelation'] {
+  if (relation?.rel_type !== 'm.thread' || typeof relation.event_id !== 'string') {
+    return undefined
+  }
+
+  const reply = record(relation['m.in_reply_to'])
+
+  return { rootId: relation.event_id, ...(typeof reply?.event_id === 'string' ? { replyTo: reply.event_id } : {}) }
 }
 
 function privateCosGreetingLinks(
@@ -337,12 +419,23 @@ export function matrixMessage(
 
   const petCommands = !failed && !edited ? parseMatrixPetReply(original) : undefined
 
-  // The agent's one progress line (agent-turns/1.3), from its latest content. Only the agent
-  // itself can edit it, so a stranger's copy of the marker is never read as one.
-  const progress = !failed && !own && content.msgtype === 'm.notice' ? matrixProgressMarker(content) : undefined
+  // A content claiming the company profile (agent-turns/1.6) is read only as company presentation,
+  // never as a personal marker: dispatch is by exact profile and scope.
+  const companyClaimed = !failed && matrixCompanyPresentationClaimed(content)
+  const company = companyClaimed && !own ? companyPresentationOf(event, original, content, edited, room) : undefined
 
-  // The agent's interim remark (agent-turns/1.4): a real message that is not the answer.
-  const interim = !failed && !own && matrixInterimMarker(content)
+  // The agent's one progress line (agent-turns/1.3, or 1.6 for a company agent), from its latest
+  // content. Only the agent itself can edit it, so a stranger's copy of the marker is never read as one.
+  const progress =
+    !failed && !own && content.msgtype === 'm.notice'
+      ? companyClaimed
+        ? company?.stream === 'progress' ? company.progress : undefined
+        : matrixProgressMarker(content)
+      : undefined
+
+  // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
+  const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
+  const threadRelation = threadRelationOf(relation)
 
   return {
     id,
@@ -373,6 +466,8 @@ export function matrixMessage(
     ...(edited && !progress ? { edited: true, editedAt } : {}),
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
+    ...(company ? { company: company.identity } : {}),
+    ...(threadRelation ? { threadRelation } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),
