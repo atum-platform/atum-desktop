@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 
 import { appCatalogNames } from '../../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../../shared/matrix'
-import { matrixAgentActions, matrixAgentRunsHere } from '../../../shared/matrix-agent-actions'
+import { matrixAgentActions, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
 import { matrixAliasCopy } from '../../../shared/matrix-alias-copy'
 import type { MatrixAssistantCard, MatrixAssistantCardError } from '../../../shared/matrix-assistant-card'
 import {
@@ -789,7 +789,7 @@ function CardRows({
   // A cloud assistant no Mac runs has nothing to set up here, and where it answers is not said
   // (0.19.4 Q4). One this Mac runs for it (answering or standing by, `macRole`) has a local runtime
   // that can be not ready, so it offers the same setup as any local assistant.
-  if (!agent.ready && matrixAgentRunsHere(agent)) {
+  if (!agent.ready && matrixAgentNeedsLocalSetup(agent)) {
     rows.push(<SetupRow agent={agent} copy={copy} key="setup" status={status} />)
   }
 

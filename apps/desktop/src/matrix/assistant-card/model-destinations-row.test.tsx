@@ -16,7 +16,7 @@ import type { MatrixSubscriptionsStatus } from '../../../shared/matrix-subscript
 import { writeMatrixModelPickerPreferences } from '../model-picker-preferences'
 
 import { AssistantCardSheet } from './assistant-card'
-import { ModelDestinationsRow } from './model-destinations-row'
+import { cardModelChoice, ModelDestinationsRow } from './model-destinations-row'
 
 const AGENT = '00000000-0000-4000-8000-bd7662a5eeb4'
 const MAC = 'mac:00000000-0000-4000-8000-b454f82c5857'
@@ -30,7 +30,8 @@ const agent = {
   isDefault: true,
   ready: true,
   hermes: 'ready',
-  atumModel: true
+  atumModel: true,
+  answering: 'cloud'
 } as MatrixAgentView
 
 function choice(overrides: Partial<MatrixModelDestinationView> = {}): MatrixModelDestinationView {
@@ -156,9 +157,10 @@ function renderRow(
     home?: MatrixAgentHomeView
     inSheet?: boolean
     subscriptions?: MatrixSubscriptionsStatus
+    cloudOnly?: boolean
   } = {}
 ) {
-  const { withBridge = true, fresh, freshHome, home: agentHome, inSheet = false, subscriptions } = options
+  const { withBridge = true, fresh, freshHome, home: agentHome, inSheet = false, subscriptions, cloudOnly } = options
 
   if (withBridge) {
     bridge(value, fresh, subscriptions, freshHome)
@@ -166,14 +168,15 @@ function renderRow(
     Reflect.deleteProperty(window, 'atumMatrix')
   }
 
-  return render(rowSurface(value, agentHome, inSheet, withBridge))
+  return render(rowSurface(value, agentHome, inSheet, withBridge, cloudOnly))
 }
 
 function rowSurface(
   value: MatrixModelDestinationsView,
   agentHome?: MatrixAgentHomeView,
   inSheet = false,
-  withBridge = true
+  withBridge = true,
+  cloudOnly?: boolean
 ) {
   const rows = (
     <div className="atum-settings-group">
@@ -183,6 +186,7 @@ function rowSurface(
           ...(withBridge ? { modelDestinations: value } : {}),
           ...(agentHome ? { home: agentHome } : {})
         }}
+        cloudOnly={cloudOnly}
         preferenceScope="account:@minh:atum.chat"
       />
     </div>
@@ -210,6 +214,9 @@ const dialog = () => screen.findByRole('dialog', { name: 'Mô hình' })
 const modelRow = (card: HTMLElement, id: string) =>
   card.querySelector<HTMLButtonElement>(`[data-matrix-model-route="${id}"]`)!
 
+const destinationButton = (kind: 'cloud' | 'mac') =>
+  window.document.querySelector<HTMLButtonElement>(`[data-assistant-card-model-destination="${kind}"]`)!
+
 afterEach(() => {
   cleanup()
   Reflect.deleteProperty(window, 'atumMatrix')
@@ -228,6 +235,21 @@ beforeEach(() => {
 })
 
 describe('the assistant card’s model rows', () => {
+  it('projects one cloud row, or the current Mac row for a not-yet-moved assistant', () => {
+    const all = view()
+
+    expect(cardModelChoice(all, { answering: 'cloud' }, 'cloud')).toEqual([all.choices[0]])
+    expect(cardModelChoice(all, agent, MAC)).toEqual([all.choices[1]])
+    expect(cardModelChoice(all, agent, 'cloud', false)).toEqual(all.choices)
+  })
+
+  it('uses this Mac for a local assistant whose old snapshot has no placement', () => {
+    const all = view()
+
+    expect(cardModelChoice(all, {}, undefined)).toEqual([all.choices[1]])
+    expect(cardModelChoice(all, { answering: 'cloud', macRole: 'standby' }, undefined)).toEqual([all.choices[0]])
+  })
+
   it('shows an external saved model itself, never the Atum recommendation standing in for it', () => {
     renderRow(
       view([
@@ -245,7 +267,8 @@ describe('the assistant card’s model rows', () => {
             effort: 'medium'
           }
         })
-      ])
+      ]),
+      { cloudOnly: false }
     )
 
     expect(screen.getByText('ChatGPT · GPT-5.6 Luna')).toBeTruthy()
@@ -292,7 +315,7 @@ describe('the assistant card’s model rows', () => {
 
     renderRow(view([choice({ shelf: 'opus', recommended: false })]), { home })
 
-    const cloud = screen.getByRole('button', { name: /^Đám mây/ })
+    const cloud = screen.getByRole('button', { name: /^Mô hình/ })
     expect(within(cloud).getByText('OpenRouter · Claude Opus 5.5')).toBeTruthy()
     expect(within(cloud).queryByText('Đề xuất')).toBeNull()
 
@@ -301,24 +324,41 @@ describe('the assistant card’s model rows', () => {
     expect(modelRow(card, matrixModelRouteId('atum-openrouter', 'opus')).getAttribute('aria-current')).toBe('true')
   })
 
-  it('lists the cloud and each Mac by display name, with the default and “Đề xuất”', async () => {
+  it('shows exactly one Model row for a cloud assistant, with no Mac names or recommendation badge', async () => {
     renderRow()
 
-    expect(screen.getByText('Mô hình')).toBeTruthy()
+    const rows = screen.getAllByRole('button', { name: /^Mô hình/ })
+    expect(rows).toHaveLength(1)
+    expect(within(rows[0]).getByText('Nguyệt Thực 1.3')).toBeTruthy()
+    expect(rows[0].textContent).not.toContain('Đề xuất')
+    expect(screen.queryByText(/MacBook Air/)).toBeNull()
+    await waitFor(() => expect(read).toHaveBeenCalledWith(AGENT))
+  })
+
+  it('restores the heading, destination names and Suggested badge when cloud-only is off', () => {
+    renderRow(view(), { cloudOnly: false })
+
+    expect(document.querySelector('[data-assistant-card-model-heading]')?.textContent).toBe('Mô hình')
     const cloud = screen.getByRole('button', { name: /^Đám mây/ })
     const mac = screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ })
 
-    expect(within(cloud).getByText('Nguyệt Thực 1.3')).toBeTruthy()
     expect(within(cloud).getByText('Đề xuất')).toBeTruthy()
-    expect(within(mac).getByText('Nhật Thực 1.1')).toBeTruthy()
     expect(within(mac).queryByText('Đề xuất')).toBeNull()
-    await waitFor(() => expect(read).toHaveBeenCalledWith(AGENT))
+  })
+
+  it('shows one Model row with the answering Mac model for a not-yet-moved assistant', () => {
+    renderRow(view(), { home: macHome([]) })
+
+    const rows = screen.getAllByRole('button', { name: /^Mô hình/ })
+    expect(rows).toHaveLength(1)
+    expect(within(rows[0]).getByText('Nhật Thực 1.1')).toBeTruthy()
+    expect(screen.queryByText('Nguyệt Thực 1.3')).toBeNull()
   })
 
   it('opens the composer’s same picker for the cloud host, with the line-up descriptors and no cost line', async () => {
     renderRow()
 
-    fireEvent.click(screen.getByRole('button', { name: /^Đám mây/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
     const card = await dialog()
 
     expect(card.querySelector('[data-matrix-model-rail]')).toBeTruthy()
@@ -332,11 +372,37 @@ describe('the assistant card’s model rows', () => {
     expect(modelRow(card, NHAT).textContent).toMatch(/Nhật Thực 1\.1.*Phù hợp với tác vụ khó khăn/)
     expect(modelRow(card, THAI).textContent).toMatch(/Thái Cực.*Mô hình quyền năng nhất.*Sắp có/)
     expect(card.textContent).not.toMatch(/20×/u)
+
+    fireEvent.click(modelRow(card, NHAT))
+    await waitFor(() => expect(write).toHaveBeenCalledWith(AGENT, 'cloud', 'nhat-thuc'))
+  })
+
+  it('does not expose a connected API-key provider in the cloud card picker', async () => {
+    const ownKey = {
+      connectionRef: 'conn-openrouter', source: 'own_key:openrouter' as const, providerLabel: 'OpenRouter',
+      model: 'private/model', modelLabel: 'Private Model', effort: 'high' as const, efforts: ['high'] as const,
+      available: true
+    }
+    const home: MatrixAgentHomeView = {
+      lives: { kind: 'cloud' }, move: null, targets: [], issue: null,
+      placement: {
+        profile: 'atum.agent-home/2.5', moveAvailable: false, current: 'cloud', reachability: 'reachable',
+        currentModel: ownKey,
+        destinations: [{ id: 'cloud', kind: 'cloud', name: '', thisMac: false, eligibility: 'ready', catalogRevision: 1, models: [ownKey] }]
+      }
+    }
+
+    renderRow(view([choice()]), { home })
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
+    const card = await dialog()
+
+    expect(card.querySelector('[data-matrix-model-rail-item="openrouter"]')).toBeNull()
+    expect(card.textContent).not.toContain('Private Model')
   })
 
   it('opens the same picker for a Mac host and writes the chosen Atum model for that destination', async () => {
-    renderRow()
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    renderRow(view(), { cloudOnly: false })
+    fireEvent.click(destinationButton('mac'))
     const card = await dialog()
 
     expect(card.querySelector('[data-matrix-model-rail]')).toBeTruthy()
@@ -347,14 +413,14 @@ describe('the assistant card’s model rows', () => {
     await waitFor(() => expect(write).toHaveBeenCalledWith(AGENT, MAC, 'nguyet-thuc'))
     await waitFor(() =>
       expect(
-        within(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ })).getByText('Nguyệt Thực 1.3')
+        within(destinationButton('mac')).getByText('Nguyệt Thực 1.3')
       ).toBeTruthy()
     )
   })
 
   it('keeps the shared picker open inside the assistant card while its search, star, and selection are used', async () => {
-    renderRow(view(), { inSheet: true })
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    renderRow(view(), { inSheet: true, cloudOnly: false })
+    fireEvent.click(destinationButton('mac'))
     const card = await dialog()
     expect(card.className).toMatch(/pointer-events-auto/u)
     const search = within(card).getByRole('textbox', { name: 'Tìm mô hình…' })
@@ -380,13 +446,13 @@ describe('the assistant card’s model rows', () => {
 
   it('keeps the shared picker open when the assistant card receives a refreshed model projection', async () => {
     const initial = view()
-    const rendered = renderRow(initial, { inSheet: true })
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    const rendered = renderRow(initial, { inSheet: true, cloudOnly: false })
+    fireEvent.click(destinationButton('mac'))
     const card = await dialog()
 
     // Snapshot/model refreshes produce new projection objects even when this destination is
     // unchanged. That background re-render must not tear down an interaction already in flight.
-    rendered.rerender(rowSurface(view(initial.choices.map(each => ({ ...each }))), undefined, true))
+    rendered.rerender(rowSurface(view(initial.choices.map(each => ({ ...each }))), undefined, true, true, false))
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Mô hình' })).toBe(card))
 
     fireEvent.click(modelRow(card, NGUYET))
@@ -396,7 +462,7 @@ describe('the assistant card’s model rows', () => {
 
   it('keeps the cloud to what the server offers: Nhật Thực is “Sắp có” until dispatch serves it', async () => {
     renderRow(view([choice({ models: ['nguyet-thuc'], unavailable: ['nhat-thuc'] })]))
-    fireEvent.click(screen.getByRole('button', { name: /^Đám mây/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
     const card = await dialog()
 
     expect(modelRow(card, NHAT).disabled).toBe(true)
@@ -450,7 +516,7 @@ describe('the assistant card’s model rows', () => {
       ])
     })
 
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
     let card = await dialog()
     const chatGptRail = await waitFor(() => {
       const button = card.querySelector<HTMLButtonElement>('[data-matrix-model-rail-item="openai-codex"]')
@@ -485,7 +551,7 @@ describe('the assistant card’s model rows', () => {
         ]
       }
     })
-    fireEvent.click(screen.getByRole('button', { name: /^Đám mây/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
     card = await dialog()
     // Providers are separated: the card opens on Atum; ChatGPT's models are under its own icon.
     const cloudChatGpt = await waitFor(() => {
@@ -508,8 +574,8 @@ describe('the assistant card’s model rows', () => {
       recent: []
     })
 
-    renderRow()
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    renderRow(view(), { cloudOnly: false })
+    fireEvent.click(destinationButton('mac'))
     const card = await dialog()
 
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail-item="favorites"]')!)
@@ -519,25 +585,25 @@ describe('the assistant card’s model rows', () => {
   })
 
   it('reverts quietly when the server refuses the choice', async () => {
-    renderRow()
+    renderRow(view(), { cloudOnly: false })
     write.mockResolvedValueOnce({ status: 'refused' })
-    fireEvent.click(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ }))
+    fireEvent.click(destinationButton('mac'))
     const card = await dialog()
 
     fireEvent.click(modelRow(card, NGUYET))
 
     await waitFor(() => expect(write).toHaveBeenCalled())
     expect(
-      within(screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ })).getByText('Nhật Thực 1.1')
+      within(destinationButton('mac')).getByText('Nhật Thực 1.1')
     ).toBeTruthy()
   })
 
   it('keeps every destination’s value readable while another row’s picker is open', async () => {
-    renderRow()
-    fireEvent.click(screen.getByRole('button', { name: /^Đám mây/ }))
+    renderRow(view(), { cloudOnly: false })
+    fireEvent.click(destinationButton('cloud'))
     await dialog()
 
-    const mac = screen.getByRole('button', { name: /^MacBook Air \(máy này\)/ })
+    const mac = destinationButton('mac')
     expect(within(mac).getByText('Nhật Thực 1.1')).toBeTruthy()
   })
 
@@ -600,9 +666,9 @@ describe('the assistant card’s model rows', () => {
       }
     )
 
-    expect(within(screen.getByRole('button', { name: /^Đám mây/ })).getByText('OpenCode Go · GLM-5.2')).toBeTruthy()
+    expect(within(screen.getByRole('button', { name: /^Mô hình/ })).getByText('OpenCode Go · GLM-5.2')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: /^Đám mây/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
     const card = await dialog()
 
     fireEvent.click(modelRow(card, matrixModelRouteId('opencode-go', 'kimi-k3')))
@@ -615,7 +681,7 @@ describe('the assistant card’s model rows', () => {
     renderRow(view(), { fresh: view([choice({ current: 'nhat-thuc', recommended: false })]) })
 
     await waitFor(() =>
-      expect(within(screen.getByRole('button', { name: /^Đám mây/ })).getByText('Nhật Thực 1.1')).toBeTruthy()
+      expect(within(screen.getByRole('button', { name: /^Mô hình/ })).getByText('Nhật Thực 1.1')).toBeTruthy()
     )
   })
 })

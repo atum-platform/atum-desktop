@@ -146,7 +146,7 @@ export interface StagedSwapOptions {
   target: string
   version: string
   handoffDirectory: string
-  /** The `updates.stagedSwap` switch, read when called (at download time and again at Restart). */
+  /** The default-on `updates.stagedSwap` switch, read at download time and again at Restart. */
   enabled: () => boolean
   log: (line: string) => void
   tools?: Partial<StageTools>

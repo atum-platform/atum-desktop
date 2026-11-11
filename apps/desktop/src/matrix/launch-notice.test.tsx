@@ -127,7 +127,7 @@ describe('the assistant’s launch, in its own chat', () => {
       expect(screen.queryByText(/paused/i)).toBeNull()
       fireEvent.click(screen.getByRole('button', { name: 'Top up Protons' }))
       expect(native.openTopUp).toHaveBeenCalledOnce()
-      fireEvent.click(screen.getByRole('button', { name: 'Use your own model' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Use your ChatGPT or OpenCode plan' }))
       expect(onOwnModel).toHaveBeenCalledOnce()
       expect(screen.queryByRole('button', { name: 'About Protons' })).toBeNull()
     }

@@ -91,6 +91,8 @@ describe('staged download and stock fallback seam', () => {
     const h = await harness()
     let complete!: () => void
 
+    expect(h.updater.showRestartFeedback).toBe(false)
+
     fake.prepare.mockImplementation(() => new Promise<void>(resolve => {complete = resolve}))
     const pending = h.download()
 
@@ -107,7 +109,7 @@ describe('staged download and stock fallback seam', () => {
     expect(h.fallback.checkForUpdates).not.toHaveBeenCalled()
   })
 
-  it.each(['disk', 'signature', 'notarization', 'unpack', 'prewarm'])('hands %s failure to stock automatically', async phase => {
+  it.each(['disk', 'signature', 'notarization', 'verification', 'unpack', 'prewarm'])('hands %s failure to stock automatically', async phase => {
     const h = await harness()
 
     fake.prepare.mockRejectedValue(new Error(phase))

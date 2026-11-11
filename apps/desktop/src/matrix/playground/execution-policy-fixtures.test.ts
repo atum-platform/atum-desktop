@@ -47,7 +47,7 @@ describe('playground failover fixture', () => {
     expect(single.policy.order).toHaveLength(2)
     expect(executionPolicyOffersChoice(single)).toBe(false)
     // The default fixture is the two-Mac owner, who does have one.
-    expect(executionPolicyOffersChoice(playgroundPolicyView(undefined))).toBe(true)
+    expect(executionPolicyOffersChoice(playgroundPolicyView(undefined), false)).toBe(true)
     // The card's "Where it answers" row still reads the same place for them.
     expect(executionPolicyRowSummary('en', single).text).toBe('Cloud')
   })
@@ -82,7 +82,7 @@ describe('playground failover fixture', () => {
     expect(profileAgent?.readiness).toMatchObject({ phase: 'blocked', code: 'runtime_unavailable' })
     expect(profileAgent?.ready).toBe(false)
     // The roster says the place in its short form; the card row says only the place.
-    expect(executionPolicyRosterLine('vi', view)).toBe('Trên Mac mini')
+    expect(executionPolicyRosterLine('vi', view, false)).toBe('Trên Mac mini')
     expect(executionPolicyRowSummary('vi', view).text).toBe('Mac mini')
   })
 
@@ -98,6 +98,6 @@ describe('playground failover fixture', () => {
     expect(long).toBe(LONG_MAC_NAME)
     // Long enough that a row without an ellipsis would overflow it, and not a stripped possessive.
     expect(long.length).toBeGreaterThan(40)
-    expect(executionPolicyRosterLine('en', view)).toBe(`On ${LONG_MAC_NAME}`)
+    expect(executionPolicyRosterLine('en', view, false)).toBe(`On ${LONG_MAC_NAME}`)
   })
 })

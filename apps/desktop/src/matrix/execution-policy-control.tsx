@@ -17,6 +17,7 @@ import { executionPolicyRowSummary, executionPolicyTrigger } from './execution-p
 export interface MatrixExecutionPolicyControlProps {
   agentPrincipal: string
   bridge: MatrixExecutionPolicyBridge
+  cloudOnly?: boolean
   view: MatrixExecutionPolicyView
   /** What happened to this Mac's memory when it took the assistant (MatrixAgentView.memoryNote). */
   memoryNote?: MatrixExecutionMemoryNote
@@ -32,6 +33,7 @@ export interface MatrixExecutionPolicyControlProps {
 export function MatrixExecutionPolicyControl({
   agentPrincipal,
   bridge,
+  cloudOnly,
   display = 'icon',
   memoryNote,
   view
@@ -170,6 +172,7 @@ export function MatrixExecutionPolicyControl({
           </div>
         ) : (
           <MatrixExecutionPolicyEditor
+            cloudOnly={cloudOnly}
             deviceNames={view.deviceNames}
             memoryNote={memoryNote}
             onRefresh={() => void refresh()}

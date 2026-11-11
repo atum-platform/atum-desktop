@@ -1604,6 +1604,16 @@ export function scenarioSnapshot(scenario: PlaygroundScenario): MatrixSnapshot {
                       recommended: true,
                       models: ['nguyet-thuc', 'nhat-thuc'] as const,
                       unavailable: []
+                    },
+                    {
+                      id: 'mac:playground-away',
+                      kind: 'mac' as const,
+                      deviceName: 'MacBook Air',
+                      thisMac: false,
+                      current: 'nhat-thuc' as const,
+                      recommended: false,
+                      models: ['nguyet-thuc', 'nhat-thuc'] as const,
+                      unavailable: []
                     }
                   ]
                 }

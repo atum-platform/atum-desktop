@@ -36,7 +36,7 @@ export interface WorkplaceCopy {
   opening: string
   unavailable: string
   failed: string
-  /** The agent answers with Atum's AI everywhere: there is nothing on this Mac to manage. */
+  /** A direct link reached a Mac-hosted page for an assistant that lives in the cloud. */
   everywhere: string
   /** This native page belongs to an assistant host, but this Mac is only its cloud standby. */
   hostUnavailable: string
@@ -84,7 +84,7 @@ export const workplaceCopy: Record<Locale, WorkplaceCopy> = {
     opening: 'Opening…',
     unavailable: 'Not available for this assistant yet.',
     failed: 'This page couldn’t open.',
-    everywhere: 'This assistant answers with Atum’s AI on every computer. Using your own account (such as ChatGPT) with it isn’t available yet.',
+    everywhere: 'This assistant lives in the cloud. Choose its model from its card.',
     hostUnavailable: 'This page needs this assistant running on this Mac.',
     retry: 'Try again',
     back: 'Back to Workplace',
@@ -124,7 +124,7 @@ export const workplaceCopy: Record<Locale, WorkplaceCopy> = {
     opening: 'Đang mở…',
     unavailable: 'Chưa dùng được với trợ lý này.',
     failed: 'Chưa mở được trang này.',
-    everywhere: 'Trợ lý này trả lời bằng AI của Atum trên mọi máy. Chưa dùng được tài khoản riêng (như ChatGPT) với trợ lý này.',
+    everywhere: 'Trợ lý này ở trên đám mây. Chọn mô hình trong thẻ của trợ lý.',
     hostUnavailable: 'Trang này cần trợ lý chạy trên máy Mac này.',
     retry: 'Thử lại',
     back: 'Quay lại Nơi làm việc',
@@ -164,7 +164,7 @@ export const workplaceCopy: Record<Locale, WorkplaceCopy> = {
     opening: '開いています…',
     unavailable: 'このアシスタントではまだ使えません。',
     failed: 'このページを開けませんでした。',
-    everywhere: 'このアシスタントはどのパソコンでもAtumのAIで返答します。ご自身のアカウント（ChatGPTなど）はまだ使えません。',
+    everywhere: 'このアシスタントはクラウドにいます。モデルはアシスタントカードから選んでください。',
     hostUnavailable: 'このページを使うには、このアシスタントがこのMacで動作している必要があります。',
     retry: '再試行',
     back: 'ワークプレイスに戻る',
@@ -204,7 +204,7 @@ export const workplaceCopy: Record<Locale, WorkplaceCopy> = {
     opening: '正在打开…',
     unavailable: '此助手暂时无法使用。',
     failed: '无法打开此页面。',
-    everywhere: '此助手在每台电脑上都使用 Atum 的 AI 回答。暂时还不能为它使用您自己的账户（例如 ChatGPT）。',
+    everywhere: '此助理在云端运行。请从助理卡片中选择模型。',
     hostUnavailable: '此页面需要这个助手在这台 Mac 上运行。',
     retry: '重试',
     back: '返回工作区',
@@ -244,7 +244,7 @@ export const workplaceCopy: Record<Locale, WorkplaceCopy> = {
     opening: '正在開啟…',
     unavailable: '此助理暫時無法使用。',
     failed: '無法開啟此頁面。',
-    everywhere: '此助理在每台電腦上都使用 Atum 的 AI 回答。暫時還不能為它使用您自己的帳戶（例如 ChatGPT）。',
+    everywhere: '此助理在雲端執行。請從助理卡片中選擇模型。',
     hostUnavailable: '此頁面需要這個助理在這部 Mac 上執行。',
     retry: '再試一次',
     back: '返回工作區',
