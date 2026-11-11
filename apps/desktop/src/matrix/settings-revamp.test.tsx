@@ -16,7 +16,12 @@ import {
 
 import { $assistantCard } from './assistant-card/store'
 import { scenarioSnapshot } from './playground/fixtures'
-import { normalizeMatrixSettingsPane, settingsPageOf } from './settings-revamp'
+import {
+  normalizeMatrixSettingsPane,
+  settingsLocalRuntimeControlsShown,
+  settingsPageOf,
+  SettingsRevampPane
+} from './settings-revamp'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 
 vi.mock('./alias-settings', () => ({ MatrixAliasSettings: () => <button>Public handle</button> }))
@@ -79,7 +84,10 @@ vi.mock('./store/protons-pane', () => ({ MatrixProtonsPane: () => <button>Wallet
 vi.mock('./workplace', () => ({
   workplacePageText: (page: string) => ({ title: page === 'mcp' ? 'MCP' : 'Scheduled tasks', help: 'Existing page' })
 }))
-vi.mock('./workplace-nav', () => ({ WORKPLACE_DEVELOPER_PAGES: ['scheduled', 'mcp'] }))
+vi.mock('./workplace-nav', () => ({
+  workplaceDeveloperPages: (agent: { answering?: string } | undefined, cloudOnly = true) =>
+    cloudOnly && agent?.answering === 'cloud' ? [] : ['scheduled', 'mcp']
+}))
 
 const fixtureSnapshot = scenarioSnapshot('chat')
 
@@ -91,6 +99,8 @@ const baseSnapshot: MatrixSnapshot = {
     shareActivity: { value: true, writable: true }
   }
 }
+
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView')
 
 function view(node: React.ReactNode) {
   return render(
@@ -130,6 +140,7 @@ function Harness({
 }
 
 beforeEach(() => {
+  Object.defineProperty(Element.prototype, 'scrollIntoView', { configurable: true, value: vi.fn() })
   $assistantCard.set(null)
   window.atumMatrix = {
     command: vi.fn(async () => []),
@@ -144,6 +155,11 @@ afterEach(() => {
   $assistantCard.set(null)
   cleanup()
   vi.restoreAllMocks()
+  if (originalScrollIntoView) {
+    Object.defineProperty(Element.prototype, 'scrollIntoView', originalScrollIntoView)
+  } else {
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+  }
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -291,12 +307,73 @@ describe('the fixed Settings information architecture', () => {
     expect(
       container.querySelector('[data-matrix-settings-destination="advanced"] [data-matrix-subscriptions]')
     ).toBeNull()
-    expect(screen.getByRole('button', { name: 'Providers and ChatGPT' })).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Repair assistant' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Providers and ChatGPT' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Repair assistant' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Technical identity' })).toBeTruthy()
     expect(screen.getByText('For developers')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Scheduled tasks/u })).toBeTruthy()
     expect(screen.getByRole('button', { name: /MCP/u })).toBeTruthy()
+  })
+
+  it('keeps local model and repair controls only when the cloud-only switch is off', () => {
+    expect(settingsLocalRuntimeControlsShown()).toBe(false)
+    expect(settingsLocalRuntimeControlsShown(false)).toBe(true)
+
+    view(
+      <SettingsRevampPane
+        cloudOnly={false}
+        current="advanced"
+        fail={() => {}}
+        onClose={() => {}}
+        onOpenAdvancedPage={() => {}}
+        open
+        snapshot={baseSnapshot}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: 'Providers and ChatGPT' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Repair assistant' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Technical identity' })).toBeTruthy()
+  })
+
+  it('hides Mac-hosted developer pages for the selected cloud assistant', () => {
+    const cloud = {
+      ...baseSnapshot,
+      agents: baseSnapshot.agents?.map(agent => ({ ...agent, answering: 'cloud' as const }))
+    }
+
+    view(<Harness initial="advanced" snapshot={cloud} />)
+
+    expect(screen.queryByRole('button', { name: /Scheduled tasks/u })).toBeNull()
+    expect(screen.queryByRole('button', { name: /MCP/u })).toBeNull()
+    expect(screen.queryByText('For developers')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Technical identity' })).toBeTruthy()
+  })
+
+  it('offers only a Mac-homed straggler in the assistant picker when the primary is cloud-only', async () => {
+    const primary = baseSnapshot.agents?.[0]!
+    const snapshot: MatrixSnapshot = {
+      ...baseSnapshot,
+      agents: [
+        { ...primary, name: 'Atum', isDefault: true, answering: 'cloud' },
+        {
+          ...primary,
+          principal: 'local-agent',
+          userId: '@local:atum.chat',
+          name: 'Research',
+          isDefault: false,
+          answering: undefined
+        }
+      ]
+    }
+
+    view(<Harness initial="advanced" snapshot={snapshot} />)
+
+    expect(screen.getByText('For developers')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Scheduled tasks/u })).toBeTruthy()
+    fireEvent.click(screen.getByRole('combobox', { name: 'Assistants' }))
+    expect(await screen.findByRole('option', { name: 'Research' })).toBeTruthy()
+    expect(screen.queryByRole('option', { name: 'Atum' })).toBeNull()
   })
 
   it('lands the recovery and device-review links on the pane that holds both', () => {
@@ -765,7 +842,8 @@ describe('Settings › Connections', () => {
 
     view(<Harness initial="subscriptions" />)
 
-    expect(await row().findByText('Works on this Mac. Setting up for cloud assistants…')).toBeTruthy()
+    expect(await row().findByText('Setting up for your assistants…')).toBeTruthy()
+    expect(row().queryByText(/this Mac/i)).toBeNull()
     // Cloud setup is automatic: the row offers no "use this Mac" decision, only the plan's page.
     expect(row().getByRole('button', { name: 'Change' })).toBeTruthy()
     await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce())
@@ -794,7 +872,8 @@ describe('Settings › Connections', () => {
 
     view(<Harness initial="subscriptions" />)
 
-    expect(await row().findByText('Works on this Mac. Not ready for cloud assistants yet.')).toBeTruthy()
+    expect(await row().findByText('Not ready for your assistants yet.')).toBeTruthy()
+    expect(row().queryByText(/this Mac/i)).toBeNull()
     await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce())
     await act(async () => new Promise(resolve => setTimeout(resolve, 20)))
     expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce()
@@ -802,7 +881,8 @@ describe('Settings › Connections', () => {
     // The plan's page holds the one act, Try again, and it makes exactly one more attempt.
     fireEvent.click(row().getByRole('button', { name: 'Change' }))
     const manage = within(await screen.findByRole('dialog', { name: 'ChatGPT' }))
-    expect(manage.getByText('Works on this Mac. Not ready for cloud assistants yet.')).toBeTruthy()
+    expect(manage.getByText('Not ready for your assistants yet.')).toBeTruthy()
+    expect(manage.queryByText(/this Mac/i)).toBeNull()
     // Never "Connected" beside "Couldn't connect", and no "Use this Mac" decision.
     expect(manage.queryByText('Connected')).toBeNull()
     expect(manage.queryByText(/Couldn’t/)).toBeNull()
@@ -810,7 +890,7 @@ describe('Settings › Connections', () => {
     expect(manage.getByRole('button', { name: 'Disconnect' })).toBeTruthy()
     fireEvent.click(manage.getByRole('button', { name: 'Try again' }))
     await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledTimes(2))
-    expect(await manage.findByText('Works on this Mac. Not ready for cloud assistants yet.')).toBeTruthy()
+    expect(await manage.findByText('Not ready for your assistants yet.')).toBeTruthy()
   })
 
   it('says it could not check, instead of offering Connect, when the status read fails', async () => {

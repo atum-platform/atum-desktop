@@ -52,7 +52,6 @@ export interface MatrixSettingsRevampCopy {
   assistantPreparing: string
   mainAssistant: string
   assistantNeedsYou: string
-  answersOnThisMac: string
   answersInCloud: string
   openAssistant: string
   notAvailableYet: string
@@ -118,7 +117,6 @@ const copies: Record<DesktopLocale, MatrixSettingsRevampCopy> = {
     assistantPreparing: 'Being prepared',
     mainAssistant: 'Your main assistant',
     assistantNeedsYou: 'Needs you',
-    answersOnThisMac: 'Answers on this Mac',
     answersInCloud: 'Answers in the cloud',
     openAssistant: 'Open assistant',
     notAvailableYet: 'Not available yet',
@@ -182,7 +180,6 @@ const copies: Record<DesktopLocale, MatrixSettingsRevampCopy> = {
     assistantPreparing: 'Đang được chuẩn bị',
     mainAssistant: 'Trợ lý chính của bạn',
     assistantNeedsYou: 'Cần bạn',
-    answersOnThisMac: 'Trả lời trên máy Mac này',
     answersInCloud: 'Trả lời trên đám mây',
     openAssistant: 'Mở trợ lý',
     notAvailableYet: 'Chưa khả dụng',
@@ -245,7 +242,6 @@ const copies: Record<DesktopLocale, MatrixSettingsRevampCopy> = {
     assistantPreparing: '準備中',
     mainAssistant: 'メインアシスタント',
     assistantNeedsYou: '対応が必要です',
-    answersOnThisMac: 'この Mac で応答',
     answersInCloud: 'クラウドで応答',
     openAssistant: 'アシスタントを開く',
     notAvailableYet: 'まだ利用できません',
@@ -309,7 +305,6 @@ const copies: Record<DesktopLocale, MatrixSettingsRevampCopy> = {
     assistantPreparing: '正在准备',
     mainAssistant: '你的主助手',
     assistantNeedsYou: '需要你处理',
-    answersOnThisMac: '在这台 Mac 上回答',
     answersInCloud: '在云端回答',
     openAssistant: '打开助手',
     notAvailableYet: '暂不可用',
@@ -370,7 +365,6 @@ const copies: Record<DesktopLocale, MatrixSettingsRevampCopy> = {
     assistantPreparing: '正在準備',
     mainAssistant: '你的主要助理',
     assistantNeedsYou: '需要你處理',
-    answersOnThisMac: '在這台 Mac 上回答',
     answersInCloud: '在雲端回答',
     openAssistant: '開啟助理',
     notAvailableYet: '暫時無法使用',
@@ -433,7 +427,7 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     thisIPhone: 'This iPhone',
     thisIPad: 'This iPad',
     onYourMac: 'On your Mac',
-    macAccessHelp: 'Your assistants work on your Mac. What they may do there is set on that Mac.',
+    macAccessHelp: 'Your assistants use your Mac only for what you allow on that Mac.',
     nameRequired: 'Enter a name.',
     profileSummary: 'Account, Protons, devices',
     appearanceDescription: 'Follow your iPhone automatically, or choose light or dark mode.',
@@ -443,8 +437,7 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     thisIPhone: 'iPhone này',
     thisIPad: 'iPad này',
     onYourMac: 'Trên máy Mac',
-    macAccessHelp:
-      'Trợ lý làm việc trên máy Mac của bạn. Những gì trợ lý được làm ở đó được đặt trên chính máy Mac ấy.',
+    macAccessHelp: 'Trợ lý chỉ dùng máy Mac của bạn cho những việc bạn cho phép trên máy đó.',
     nameRequired: 'Hãy nhập tên.',
     profileSummary: 'Tài khoản, Proton, thiết bị',
     appearanceDescription: 'Tự động theo iPhone hoặc chọn chế độ sáng hay tối.',
@@ -454,7 +447,7 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     thisIPhone: 'この iPhone',
     thisIPad: 'この iPad',
     onYourMac: 'お使いの Mac で',
-    macAccessHelp: 'アシスタントはお使いの Mac で作業します。そこで許可する内容は、その Mac 側で設定します。',
+    macAccessHelp: 'アシスタントがお使いの Mac を使うのは、その Mac で許可したことだけです。',
     nameRequired: '名前を入力してください。',
     profileSummary: 'アカウント、Proton、デバイス',
     appearanceDescription: 'iPhone に自動的に合わせるか、ライトまたはダークを選びます。',
@@ -464,7 +457,7 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     thisIPhone: '这台 iPhone',
     thisIPad: '这台 iPad',
     onYourMac: '在你的 Mac 上',
-    macAccessHelp: '你的助手在你的 Mac 上工作。它们在那里可以做什么，由那台 Mac 来设置。',
+    macAccessHelp: '助理只会按你在 Mac 上允许的范围使用它。',
     nameRequired: '请输入名字。',
     profileSummary: '账户、Proton、设备',
     appearanceDescription: '自动跟随 iPhone，或选择浅色或深色模式。',
@@ -474,7 +467,7 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     thisIPhone: '這台 iPhone',
     thisIPad: '這台 iPad',
     onYourMac: '在你的 Mac 上',
-    macAccessHelp: '你的助理在你的 Mac 上工作。它們在那裡可以做什麼，由那台 Mac 來設定。',
+    macAccessHelp: '助理只會按你在 Mac 上允許的範圍使用它。',
     nameRequired: '請輸入名字。',
     profileSummary: '帳戶、Proton、裝置',
     appearanceDescription: '自動跟隨 iPhone，或選擇淺色或深色模式。',

@@ -5,7 +5,7 @@ import { I18nProvider } from '@/i18n'
 
 import type { MatrixAgentHomeBridge, MatrixAgentHomeView } from '../../shared/matrix'
 
-import { MatrixAgentHomeRow } from './agent-home-control'
+import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { agentHomeCopy, agentHomePlace, agentHomeStatus } from './agent-home-copy'
 
 // These cases exercise the dormant Mac moves, which only tests can reach (cloud-only S0 keeps the
@@ -71,6 +71,17 @@ const settled = (): MatrixAgentHomeView => ({
       { id: MINI, kind: 'mac', name: 'Mac mini', thisMac: false, eligibility: 'ready', catalogRevision: 4, models: [CHATGPT] }
     ]
   }
+})
+
+it('shows the title icon only for a Mac home or a move in flight under cloud-only', () => {
+  const cloud = settled()
+  const mac = { ...cloud, lives: { kind: 'mac' as const, name: 'Mac mini', thisMac: false } }
+  const moving = { ...cloud, move: { step: 'saving' as const, to: { kind: 'cloud' as const }, role: 'source' as const } }
+
+  expect(agentHomeTitleIconShown(cloud, true)).toBe(false)
+  expect(agentHomeTitleIconShown(mac, true)).toBe(true)
+  expect(agentHomeTitleIconShown(moving, true)).toBe(true)
+  expect(agentHomeTitleIconShown(cloud, false)).toBe(true)
 })
 
 function row(

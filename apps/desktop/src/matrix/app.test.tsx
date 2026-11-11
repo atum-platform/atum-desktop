@@ -985,7 +985,8 @@ function fixture(
   drive?: MatrixDriveBridge,
   companies?: MatrixCompanyBridge,
   agentSources?: NonNullable<MatrixUiBridge['agentSources']>,
-  bridgeOverrides: Partial<MatrixUiBridge> = {}
+  bridgeOverrides: Partial<MatrixUiBridge> = {},
+  cloudOnly = true
 ) {
   // MatrixApp owns its language scope. Fixtures must supply the same authority
   // as production: machine-local presentation while signed out, account-data
@@ -1125,9 +1126,22 @@ function fixture(
 
   window.atumMatrix = bridge
 
-  const view = render(<MatrixApp />)
+  const view = render(<MatrixApp cloudOnly={cloudOnly} />)
 
   return { bridge, view, unsubscribe, emit: (state: MatrixSnapshot) => act(() => listener?.(projectLocale(state))) }
+}
+
+function legacyFixture(
+  snapshot: () => Promise<MatrixSnapshot> = async () => signedOut,
+  locale: 'en' | 'vi' | 'ja' | 'zh' | 'zh-hant' = 'en',
+  pages?: MatrixPagesBridge,
+  command: MatrixUiBridge['command'] = vi.fn(async () => null),
+  drive?: MatrixDriveBridge,
+  companies?: MatrixCompanyBridge,
+  agentSources?: NonNullable<MatrixUiBridge['agentSources']>,
+  bridgeOverrides: Partial<MatrixUiBridge> = {}
+) {
+  return fixture(snapshot, locale, pages, command, drive, companies, agentSources, bridgeOverrides, false)
 }
 
 describe('isolated Matrix composition', () => {
@@ -2707,6 +2721,9 @@ describe('isolated Matrix composition', () => {
     ]
   }
 
+  const localRuntimeSettingsFixture = () =>
+    fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, false)
+
   /** Settings is a sheet off the account at the rail's foot (or ⌘,); it stays mounted while closed. */
   function settingsSheet() {
     return window.document.querySelector<HTMLElement>('[data-matrix-settings]')!
@@ -3270,6 +3287,14 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: chat.replySettings }))
   }
 
+  it('hides Reply settings from an assistant conversation under cloud-only', async () => {
+    const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
+    emit(controlsState)
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Conversation options' }), { key: 'Enter' })
+    expect(screen.queryByRole('menuitem', { name: 'Reply settings…' })).toBeNull()
+  })
+
   /** Your own message's menu (Copy, Edit and resend, Retry, Find the answer). */
   function openMessageActions(index = 0) {
     const triggers = [...window.document.querySelectorAll<HTMLButtonElement>('[data-matrix-message-actions]')]
@@ -3380,8 +3405,8 @@ describe('isolated Matrix composition', () => {
     openAccountSettings()
     showSettingsPane('assistant')
     expect(within(settingsSheet()).getByRole('heading', { name: 'Advanced' })).toBeTruthy()
-    expect(settingsSheet().querySelector('[data-matrix-advanced-pages]')).toBeTruthy()
-    expect(within(settingsSheet()).getByText('Not available yet')).toBeTruthy()
+    expect(settingsSheet().querySelector('[data-matrix-advanced-pages]')).toBeNull()
+    expect(within(settingsSheet()).queryByText('Not available yet')).toBeNull()
     expect(screen.queryByRole('button', { name: /^Scheduled tasks/u })).toBeNull()
   })
 
@@ -4162,7 +4187,7 @@ describe('isolated Matrix composition', () => {
   ] as const)(
     'keeps secondary controls behind localized dialogs and menus in %s without dispatching anything',
     async (locale, setup, actions) => {
-      const { emit, bridge } = fixture(undefined, locale)
+      const { emit, bridge } = legacyFixture(undefined, locale)
       emit(controlsState)
 
       expect(settingsSheet().hidden).toBe(true)
@@ -4664,7 +4689,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('keeps warnings in the conversation while healthy listening is one switch in reply settings', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     emit({ ...controlsState, hermes: 'invalid' })
     expect(screen.getByText(/Your assistant couldn.t start on this Mac/).closest('details')).toBeNull()
     emit({
@@ -4685,7 +4710,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('says nothing in the conversation about paused listening; its switch in reply settings stays on', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     emit({
       ...controlsState,
       hermesListening: {
@@ -4747,7 +4772,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('says a Stop this Mac could not save in reply settings, where the switch presses Stop again', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     emit({
       ...controlsState,
       hermesListening: {
@@ -4772,7 +4797,7 @@ describe('isolated Matrix composition', () => {
   it.each(['vi', 'en', 'ja', 'zh', 'zh-hant'] as const)(
     'notes in %s reply settings, and only there, that this Mac keeps handing the assistant over',
     async locale => {
-      const { emit } = fixture(async () => signedOut, locale)
+      const { emit } = legacyFixture(async () => signedOut, locale)
 
       const agent = {
         principal: 'default',
@@ -4931,7 +4956,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('keeps document pending state and failure until room controls can safely close', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     let reject!: (error: Error) => void
 
     vi.mocked(bridge.document).mockImplementation(
@@ -4955,7 +4980,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('clears hidden setup secrets without discarding pending setup or triggering another save', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = localRuntimeSettingsFixture()
     let finish!: (value: { state: 'ready' }) => void
     vi.mocked(bridge.configureHermes).mockImplementation(
       () =>
@@ -5153,7 +5178,7 @@ describe('isolated Matrix composition', () => {
     'preserves pending setup through closing Settings and layout changes (compact=%s)',
     async compact => {
       vi.stubGlobal('innerWidth', compact ? 700 : 1220)
-      const { emit, bridge, view } = fixture()
+      const { emit, bridge, view } = localRuntimeSettingsFixture()
       let finish!: (value: { state: 'ready' }) => void
       vi.mocked(bridge.configureHermes).mockImplementation(
         () =>
@@ -6180,8 +6205,8 @@ describe('isolated Matrix composition', () => {
     expect(bridge.openTopUp).not.toHaveBeenCalled()
   })
 
-  it('offers assistant provider controls in Advanced only when this build has an assistant domain', async () => {
-    const { emit } = fixture()
+  it('keeps technical identity but no local provider controls when the assistant domain appears', async () => {
+    const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
     const ready: MatrixSnapshot = { ...signedOut, state: 'ready', identity: { userId: '@owner:test', deviceId: 'D' } }
     emit(ready)
     await screen.findByRole('button', { name: 'Account: owner' })
@@ -6191,9 +6216,11 @@ describe('isolated Matrix composition', () => {
     const advanced = () => settingsSheet().querySelector<HTMLElement>('[data-matrix-settings-destination="advanced"]')!
     expect(advanced().textContent).not.toContain('Use your own model')
     emit({ ...ready, domainEnabled: true })
-    await waitFor(() => expect(within(advanced()).getByText('Model')).toBeTruthy())
-    expect(within(advanced()).getByRole('heading', { name: 'Repair' })).toBeTruthy()
-    expect(within(advanced()).getByRole('heading', { name: 'For developers' })).toBeTruthy()
+    await waitFor(() => expect(within(advanced()).getByText('Technical details')).toBeTruthy())
+    expect(within(advanced()).queryByText('Model')).toBeNull()
+    expect(advanced().textContent).not.toContain('Use your own model')
+    // No assistant has pages to open here, so there is no dead "For developers" row.
+    expect(within(advanced()).queryByRole('heading', { name: 'For developers' })).toBeNull()
     expect(advanced().textContent).not.toMatch(/runs on this Mac|answers with Atum’s AI/iu)
     emit({ ...ready, domainEnabled: true, ownModel: true })
     await waitFor(() => expect(advanced().textContent).not.toMatch(/runs on this Mac|answers with your own model/iu))
@@ -7992,7 +8019,7 @@ describe('isolated Matrix composition', () => {
   )
 
   it('offers an explicit saved-document link, disables listening, and keeps late failures in their original room', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
 
     const state: MatrixSnapshot = {
@@ -8057,7 +8084,7 @@ describe('isolated Matrix composition', () => {
   })
 
   it('isolates a pending document failure across users in the same room and hides an unreadable name', async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
 
     const state: MatrixSnapshot = {
@@ -8341,7 +8368,7 @@ describe('isolated Matrix composition', () => {
   )
 
   it("explicitly listens in one room, stops it from that room's switch, and never says it in a chat", async () => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
 
     const room = {
@@ -8416,7 +8443,7 @@ describe('isolated Matrix composition', () => {
     ['the default agent', '!default:test', undefined],
     ['another agent', '!other-agent:test', 'other-agent']
   ] as const)('enables continuous listening only for %s selected room', async (_name, roomId, agentPrincipal) => {
-    const { emit, bridge } = fixture()
+    const { emit, bridge } = legacyFixture()
     const assistantUserId = agentPrincipal ? '@other-agent:test' : '@atum:test'
 
     const room = {
@@ -8633,7 +8660,7 @@ describe('isolated Matrix composition', () => {
   it.each([false, true])(
     'runs only an explicit own-message action (file=%s), reports cancellation, and exposes stop while running',
     async attachment => {
-      const { emit, bridge } = fixture()
+      const { emit, bridge } = legacyFixture()
 
       const state: MatrixSnapshot = {
         ...signedOut,
@@ -9630,6 +9657,22 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
   })
 
+  it('opens Connections from the cloud-only out-of-Protons model action', async () => {
+    fixture(async () => ({
+      ...gate({ phase: 'blocked', step: 'ai', code: 'out_of_protons', since: Date.now() }),
+      roomId: null,
+      rooms: []
+    }))
+
+    await waitForLaunchToOpen()
+    fireEvent.click(await screen.findByRole('button', { name: 'Use your ChatGPT or OpenCode plan' }))
+    const settings = window.document.querySelector<HTMLElement>('[data-matrix-settings]')!
+
+    await waitFor(() => expect(settings.hidden).toBe(false))
+    expect(settings.querySelector('[data-matrix-settings-pane="connections"]')?.getAttribute('aria-current')).toBe('page')
+    expect(settings.querySelector('[data-matrix-settings-section="subscriptions"]')).toBeTruthy()
+  })
+
   it('pauses sending when Protons run out mid-chat, with the top-up and a model of their own', async () => {
     const pages: MatrixPagesBridge = {
       open: vi.fn(async () => ({ viewId: 'runtime-page' })),
@@ -10147,21 +10190,32 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
       }
     })
 
-    it('composes the strict execution-policy machine control only for its matching assistant chat', async () => {
-      // More than one Mac: a real choice of who answers first, so the title bar offers it.
+    it('hides the legacy execution-policy control under cloud-only even with multiple Macs', async () => {
       const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
-      const { bridge, emit } = fixture()
+      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, true)
+      bridge.executionPolicy = executionPolicy
+      emit(snapshot)
+
+      await screen.findByRole('textbox', { name: COMPOSER })
+      expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
+      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
+      expect(screen.queryByRole('button', { name: /About to answer on|Answering on/ })).toBeNull()
+      expect(executionPolicy.read).not.toHaveBeenCalled()
+    })
+
+    it('composes the strict execution-policy machine control with cloud-only switched off', async () => {
+      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
+      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, false)
       bridge.executionPolicy = executionPolicy
       emit(snapshot)
 
       expect(document.querySelector('[data-matrix-chat-subtitle]')).toBeNull()
-      // The closed trigger names the destination about to answer (slice 1), not the control's headline.
       fireEvent.click(await screen.findByRole('button', { name: 'About to answer on Cloud' }))
       expect(await screen.findByRole('heading', { name: 'Where this assistant answers' })).toBeTruthy()
       expect(executionPolicy.read).toHaveBeenCalledExactlyOnceWith(principal)
     })
 
-    it('uses D1 home for a migrated agent, with honest copy and no refused-lease status or priority toggles', async () => {
+    it('hides the settled cloud home icon while keeping both native bridges idle', async () => {
       const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
       const home = migratedHome()
       const migrated: MatrixSnapshot = {
@@ -10197,7 +10251,36 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
         model: vi.fn(),
         prepare: vi.fn()
       }
-      const { bridge, emit } = fixture(undefined, 'vi')
+      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, true)
+      bridge.executionPolicy = executionPolicy
+      bridge.agentHome = agentHome
+      emit(migrated)
+
+      await waitFor(() => expect(document.querySelector('[data-atum-chat]')).toBeTruthy())
+      expect(document.querySelector('[data-matrix-agent-home]')).toBeNull()
+      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
+      expect(agentHome.read).not.toHaveBeenCalled()
+      expect(executionPolicy.read).not.toHaveBeenCalled()
+    })
+
+    it('uses D1 home with cloud-only switched off', async () => {
+      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
+      const home = migratedHome()
+      const migrated: MatrixSnapshot = {
+        ...snapshot,
+        agents: snapshot.agents?.map(agent =>
+          agent.principal === principal ? { ...agent, home } : agent
+        )
+      }
+      const agentHome: MatrixAgentHomeBridge = {
+        read: vi.fn(async () => home),
+        preflight: vi.fn(),
+        move: vi.fn(),
+        cancel: vi.fn(),
+        model: vi.fn(),
+        prepare: vi.fn()
+      }
+      const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, false)
       bridge.executionPolicy = executionPolicy
       bridge.agentHome = agentHome
       emit(migrated)
@@ -10217,19 +10300,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
       })
 
       expect(popover.querySelector('[data-agent-home-current]')?.textContent).toBe('Đám mây')
-      expect(popover.querySelector('[data-agent-home-readiness]')?.textContent).toBe('Sẵn sàng')
-      // Cloud-only S0: a cloud home needs no line and has nowhere to move.
-      expect(popover.querySelector('[data-agent-home-line]')).toBeNull()
-      // The title bar says where it answers from: the cloud, as a cloud, never a generic house.
-      expect(trigger.getAttribute('data-agent-home-place')).toBe('cloud')
-      expect(trigger.querySelector('.atum-icon-cloud')).toBeTruthy()
-      expect(within(popover).queryByRole('button', { name: 'Chuyển sang Mac mini' })).toBeNull()
-      expect(popover.querySelector('[data-agent-home-destination]')).toBeNull()
-      expect(within(popover).queryByRole('switch')).toBeNull()
-      expect(popover.textContent).not.toContain('Chưa trực tuyến')
-      expect(popover.textContent).not.toContain('Atum sẽ bỏ qua nơi ngoại tuyến')
+      expect(popover.querySelector('[data-agent-home-destination]')).toBeTruthy()
+      expect(agentHome.read).toHaveBeenCalledWith(principal)
       expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
-      expect(executionPolicy.read).not.toHaveBeenCalled()
     })
 
     it.each([

@@ -1,3 +1,4 @@
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { ExecutionDestinationView, MatrixExecutionPolicyView } from '../../shared/execution-policy'
 import { executionDestinationViews } from '../../shared/execution-policy'
 
@@ -41,8 +42,11 @@ export function executionPolicyAvailability(view: MatrixExecutionPolicyView | un
 }
 
 /** Local/cloud placement follows the saved execution policy and current lease. */
-export function executionPolicyOffersChoice(view: Pick<MatrixExecutionPolicyView, 'policy'>): boolean {
-  return view.policy.order.filter(id => id !== 'cloud').length > 1
+export function executionPolicyOffersChoice(
+  view: Pick<MatrixExecutionPolicyView, 'policy'>,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): boolean {
+  return !cloudOnly && view.policy.order.filter(id => id !== 'cloud').length > 1
 }
 
 /** Local/cloud placement follows the saved execution policy and current lease. */
@@ -112,7 +116,15 @@ export function executionPolicyRowSummary(locale: string, view: MatrixExecutionP
  * cache, or a policy whose destinations are all offline says nothing here — then no destination
  * can answer, and the roster keeps its own "Not ready yet".
  */
-export function executionPolicyRosterLine(locale: string, view: MatrixExecutionPolicyView): string | undefined {
+export function executionPolicyRosterLine(
+  locale: string,
+  view: MatrixExecutionPolicyView,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): string | undefined {
+  if (cloudOnly) {
+    return undefined
+  }
+
   const trigger = executionPolicyTrigger(locale, view)
 
   if (trigger.kind !== 'destination') {

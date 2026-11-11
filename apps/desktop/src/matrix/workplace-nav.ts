@@ -1,3 +1,5 @@
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
+import type { MatrixAgentView } from '../../shared/matrix'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 
 /** The Atum places that stand in for a Hermes page in every everyday list. */
@@ -33,6 +35,20 @@ const WORKPLACE_NAV = [
 
 /** Under For developers: the assistant-scoped pages, never account Connections. */
 export const WORKPLACE_DEVELOPER_PAGES: readonly MatrixPageId[] = WORKPLACE_NAV.map(entry => entry.page)
+
+/** Mac-hosted pages are absent for a cloud assistant; its Atum places remain outside this list. */
+export function workplaceDeveloperPages(
+  agent: Pick<MatrixAgentView, 'answering' | 'home'> | undefined,
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): readonly MatrixPageId[] {
+  if (!cloudOnly || !agent) {
+    return WORKPLACE_DEVELOPER_PAGES
+  }
+
+  const cloud = agent.home ? agent.home.lives.kind === 'cloud' : agent.answering === 'cloud'
+
+  return cloud ? [] : WORKPLACE_DEVELOPER_PAGES
+}
 
 export interface WorkplaceSurface {
   id: WorkplaceSurfaceId

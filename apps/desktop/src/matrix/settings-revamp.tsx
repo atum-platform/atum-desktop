@@ -20,6 +20,7 @@ import {
   UserCircle
 } from '@/lib/icons'
 
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { MatrixSnapshot } from '../../shared/matrix'
 import type { MatrixOwnerLocationView } from '../../shared/matrix-owner-location'
 import type { MatrixPageId } from '../../shared/matrix-pages'
@@ -68,7 +69,7 @@ import {
 } from './subscriptions'
 import { wholeProtons } from './wallet-ui'
 import { workplacePageText } from './workplace'
-import { WORKPLACE_DEVELOPER_PAGES } from './workplace-nav'
+import { workplaceDeveloperPages } from './workplace-nav'
 
 /** Legacy ids remain accepted so current callers keep their working deep links. `subscriptions`
  * is the account Connections deep link; it never selects an assistant or native Hermes page. */
@@ -90,6 +91,12 @@ export function normalizeMatrixSettingsPane(pane: MatrixSettingsPane): MatrixSet
   }
 
   return pane === 'cloud' ? 'devices' : pane
+}
+
+export function settingsLocalRuntimeControlsShown(
+  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+): boolean {
+  return !cloudOnly
 }
 
 /**
@@ -921,19 +928,23 @@ const ADVANCED_SELECT =
  */
 function AdvancedTools({
   children,
+  cloudOnly,
   onOpenPage,
   snapshot
 }: {
   children: ReactNode
+  cloudOnly?: boolean
   onOpenPage?(page: MatrixPageId, agentPrincipal: string): void
   snapshot: MatrixSnapshot
 }) {
   const copy = useMatrixSettingsCopy()
   const { locale, t } = useI18n()
   const agents = snapshot.agents ?? []
+  const pageAgents = agents.filter(agent => workplaceDeveloperPages(agent, cloudOnly).length > 0)
   const fallback = primaryAgent(snapshot)?.principal ?? agents[0]?.principal
   const [chosen, setChosen] = useState<string | undefined>(fallback)
-  const principal = agents.some(agent => agent.principal === chosen) ? chosen : fallback
+  const principal = pageAgents.some(agent => agent.principal === chosen) ? chosen : pageAgents[0]?.principal
+  const developerPages = workplaceDeveloperPages(agents.find(agent => agent.principal === principal), cloudOnly)
 
   useEffect(() => {
     if (chosen !== principal) {
@@ -941,7 +952,8 @@ function AdvancedTools({
     }
   }, [chosen, principal])
 
-  const pages = Boolean(principal && onOpenPage && window.atumMatrix?.pages)
+  const anyPages = pageAgents.length > 0 && Boolean(onOpenPage && window.atumMatrix?.pages)
+  const pages = Boolean(anyPages && principal && developerPages.length)
 
   const pageRow = (page: MatrixPageId) => {
     const words = workplacePageText(page, locale)
@@ -969,7 +981,7 @@ function AdvancedTools({
 
   return (
     <div data-matrix-advanced-settings>
-      {pages && agents.length > 1 && (
+      {anyPages && agents.length > 1 && (
         <SettingsSection>
           <SettingsRow
             control={
@@ -978,7 +990,7 @@ function AdvancedTools({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent align="end">
-                  {agents.map(agent => (
+                  {pageAgents.map(agent => (
                     <SelectItem key={agent.principal} value={agent.principal}>
                       {matrixRosterAgentName(agent, t.matrixShell.assistantName)}
                     </SelectItem>
@@ -991,58 +1003,61 @@ function AdvancedTools({
         </SettingsSection>
       )}
       {children}
-      <SettingsSection data-matrix-advanced-pages title={copy.expertTools}>
-        {pages ? (
-          WORKPLACE_DEVELOPER_PAGES.map(pageRow)
-        ) : (
-          <SettingsRow className="atum-settings-row-quiet" role="status" title={copy.notAvailableYet} />
-        )}
-      </SettingsSection>
+      {pages && (
+        <SettingsSection data-matrix-advanced-pages title={copy.expertTools}>
+          {developerPages.map(pageRow)}
+        </SettingsSection>
+      )}
     </div>
   )
 }
 
 /** The expert corner: which model answers, repair, technical checks, developer pages. */
 function AdvancedPane({
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
   onOpenAdvancedPage,
   snapshot,
   visible
 }: {
+  cloudOnly?: boolean
   onOpenAdvancedPage?(page: MatrixPageId, agentPrincipal: string): void
   snapshot: MatrixSnapshot
   visible: boolean
 }) {
   const copy = useMatrixSettingsCopy()
   const assistantAvailable = Boolean(snapshot.domainEnabled)
+  const localRuntime = settingsLocalRuntimeControlsShown(cloudOnly)
 
   return (
     <div data-matrix-settings-destination="advanced" hidden={!visible}>
-      <AdvancedTools onOpenPage={onOpenAdvancedPage} snapshot={snapshot}>
+      <AdvancedTools cloudOnly={cloudOnly} onOpenPage={onOpenAdvancedPage} snapshot={snapshot}>
           {assistantAvailable ? (
             <>
-              <SettingsSection title={copy.model}>
-                <HermesSetup
-                  atumModel={snapshot.atumModel}
-                  ownModel={snapshot.ownModel}
-                  paidItems={matrixStoreHoldsCloudItems(
-                    snapshot.store?.entitlements ?? [],
-                    snapshot.agents?.find(agent => agent.isDefault)?.assistantId
-                  )}
-                  showCurrentMode={false}
-                  status={snapshot.hermes}
-                  visible={visible}
-                />
-              </SettingsSection>
+              {localRuntime && (
+                <SettingsSection title={copy.model}>
+                  <HermesSetup
+                    atumModel={snapshot.atumModel}
+                    ownModel={snapshot.ownModel}
+                    paidItems={matrixStoreHoldsCloudItems(
+                      snapshot.store?.entitlements ?? [],
+                      snapshot.agents?.find(agent => agent.isDefault)?.assistantId
+                    )}
+                    showCurrentMode={false}
+                    status={snapshot.hermes}
+                    visible={visible}
+                  />
+                </SettingsSection>
+              )}
               <SettingsSection title={copy.repair}>
-                <AssistantRepair snapshot={snapshot} />
+                {localRuntime && <AssistantRepair snapshot={snapshot} />}
                 <DomainIdentity visible={visible} />
               </SettingsSection>
             </>
-          ) : (
+          ) : localRuntime ? (
             <SettingsSection title={copy.model}>
               <SettingsRow className="atum-settings-row-quiet" role="status" title={copy.notAvailableYet} />
             </SettingsSection>
-          )}
+          ) : null}
       </AdvancedTools>
     </div>
   )
@@ -1051,6 +1066,7 @@ function AdvancedPane({
 export type MatrixSettingsProtons = React.ComponentProps<typeof MatrixProtonsPane>
 
 export function SettingsRevampPane({
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
   current,
   fail,
   onClose,
@@ -1060,6 +1076,7 @@ export function SettingsRevampPane({
   protons,
   snapshot
 }: {
+  cloudOnly?: boolean
   current: MatrixSettingsDestination
   fail(): void
   onClose(): void
@@ -1130,6 +1147,7 @@ export function SettingsRevampPane({
       {/* Provider setup stays mounted while the sheet is closed, preserving the old pane's
           in-flight state. Its secret fields still clear because visible becomes false. */}
       <AdvancedPane
+        cloudOnly={cloudOnly}
         onOpenAdvancedPage={onOpenAdvancedPage}
         snapshot={snapshot}
         visible={open && page === 'advanced'}

@@ -7,6 +7,7 @@ import { useI18n } from '@/i18n'
 import { ChevronDown, Refresh, Spinner } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
+import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type {
   MatrixAgentHomeBridge,
   MatrixAgentHomeModelOption,
@@ -260,7 +261,8 @@ export function MatrixModelPicker({
   onOpenChange,
   contentClassName,
   side = 'top',
-  assistantName
+  assistantName,
+  cloudOnly = AGENT_HOMES_CLOUD_ONLY
 }: {
   room: MatrixRoom
   disabled: boolean
@@ -307,6 +309,8 @@ export function MatrixModelPicker({
   side?: 'top' | 'bottom' | 'left' | 'right'
   /** The assistant's display name, for the plain menu's heading. */
   assistantName?: string
+  /** Keeps the retired Mac-answer picker paths testable until their contracts can be removed. */
+  cloudOnly?: boolean
 }) {
   const { locale, t } = useI18n()
   const copy = t.matrixShell
@@ -446,9 +450,15 @@ export function MatrixModelPicker({
       return [] as MatrixAgentHomeModelOption[]
     }
 
-    const options = [...currentDestination.models]
+    const visible = (option: MatrixAgentHomeModelOption) =>
+      !(cloudOnly && currentDestination.kind === 'cloud' && option.source.startsWith('own_key:'))
+    const options = currentDestination.models.filter(visible)
 
-    if (placement?.currentModel && !options.some(option => sameHomeModel(option, placement.currentModel))) {
+    if (
+      placement?.currentModel &&
+      visible(placement.currentModel) &&
+      !options.some(option => sameHomeModel(option, placement.currentModel))
+    ) {
       options.push(placement.currentModel)
     }
 
@@ -1792,10 +1802,6 @@ export function MatrixModelPicker({
       return words.changesCloudAssistant
     }
 
-    if (route.destination === 'cloud' && parseMatrixSubscriptionProvider(route.provider)) {
-      return words.useOnYourMac
-    }
-
     if (homeMode) {
       return currentDestination?.kind === 'cloud' ? words.changesCloudAssistant : words.changesAssistant(targetName)
     }
@@ -1970,7 +1976,7 @@ export function MatrixModelPicker({
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-(--atum-ink)">{displayName}</span>
                 <span className="mt-0.5 block truncate text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-                  {displaySubtitle ?? words.thisMac}
+                  {displaySubtitle ?? (cloud ? words.cloud : words.thisMac)}
                 </span>
               </span>
             </div>
