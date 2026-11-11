@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -173,7 +174,7 @@ export function CompanyWalletFund({
             : null
 
   return (
-    <section aria-label={copy.fundFromMine} className="mt-7 grid gap-3" data-company-wallet-fund>
+    <ConsentBoundary><section aria-label={copy.fundFromMine} className="mt-7 grid gap-3" data-company-wallet-fund>
       <Tip label={copy.fundFromMineHint}>
         <h3 className="w-fit cursor-default text-xs font-semibold text-(--atum-ink-muted)" tabIndex={0}>
           {copy.fundFromMine}
@@ -248,6 +249,6 @@ export function CompanyWalletFund({
           {copy.fundDone(format(done))}
         </p>
       )}
-    </section>
+    </section></ConsentBoundary>
   )
 }

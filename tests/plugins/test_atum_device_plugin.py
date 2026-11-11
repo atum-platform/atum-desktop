@@ -57,6 +57,9 @@ def test_each_schema_is_the_original_plus_device_and_nothing_else():
         wrapped = copy.deepcopy(tools[name]["schema"])
         properties = wrapped["parameters"]["properties"]
         assert properties.pop("device") == MODULE.DEVICE_PROPERTY
+        if name == "computer_use":
+            assert properties.pop("url")["type"] == "string"
+            assert properties["action"]["enum"].pop() == "open_url"
         if name == "terminal":
             assert properties.pop("needs") == MODULE.NEEDS_PROPERTY
         assert wrapped == originals[name].schema

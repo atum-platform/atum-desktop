@@ -314,6 +314,28 @@
           "notes": ["PGlite includes PostgreSQL, under the PostgreSQL licence."]
         }
       ]
+    },
+    {
+      "id": "cua-driver",
+      "folder": "CuaDriver.app",
+      "title": "CuaDriver computer control and cursor helper",
+      "pins": [],
+      "components": [
+        {
+          "name": "CuaDriver and cua-cursor-theme",
+          "version": "0.21.0 (70db98d1bc)",
+          "license": "MIT, with cursor helper dependency licences in the attached notices",
+          "source": "https://github.com/trycua/cua/tree/70db98d1bc",
+          "licenseFiles": [
+            "app/cua-driver-LICENSE.txt",
+            "app/cua-cursor-theme-NOTICES.txt"
+          ],
+          "shippedFiles": [
+            "CuaDriver-LICENSE.txt",
+            "cua-cursor-theme-NOTICES.txt"
+          ]
+        }
+      ]
     }
   ]
 }

@@ -39,7 +39,7 @@ import type {
 } from './contracts'
 import { EgressProxy } from './egress-proxy'
 import { type ApprovalKeyRef, GrantsStore, type StandingGrant } from './grants-store'
-import { GuiBroker } from './gui-broker'
+import { GuiBroker, type GuiBrokerDeps } from './gui-broker'
 import { DeviceHostSupervisor, HostDeviceExecutor } from './host'
 import { DeviceIndicator, indicatorWords, type TrayLike } from './indicator'
 import { DeviceLedger } from './ledger'
@@ -70,6 +70,10 @@ export interface DeviceRuntimeEnvironment {
   readonly hermes: { python: string; source: string } | null
   /** CuaDriver's control socket, denied to device commands. */
   readonly cuaDriverSocket: string
+  readonly cuaDriverPath?: string
+  readonly openBrowser?: (url: string) => Promise<void>
+  readonly consentProtected?: GuiBrokerDeps['consentProtected']
+  readonly computerReady?: (force?: boolean) => Promise<string | null>
   /** Whether CuaDriver is installed here (the GUI broker needs it). */
   cuaDriverAvailable(): boolean
   readonly store: DeviceRuntimeStore
@@ -405,8 +409,9 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       return { live: Boolean(grantId && service.grantLive(grantId)), paused: service.paused() }
     },
     ownApp: () => env.ownApp(),
+    consentProtected: env.consentProtected,
     // Owner decision 2026-10-20: an upload through an app never asks. The broker still checks authority,
-    // security UI and Atum's own windows, and audits the upload as approved.
+    // security UI, and audits the upload as approved.
     requestUploadApproval: async () => 'approved',
     audit: (decision, summary) => audit.record({ decision, tool: 'computer_use', summary })
   })
@@ -492,6 +497,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
         appExecutable: app ? env.appExecutable : null
       }),
       cuaDriverSocket: env.cuaDriverSocket,
+      cuaDriverPath: env.cuaDriverPath,
       sshAuthSock: () => env.sshAuthSock(),
       authorizeGui: request => broker.authorize(request),
       realpath: file => realpathSync.native(file),
@@ -501,6 +507,8 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
     const host = supervisor
 
     hostExecutor = new HostDeviceExecutor(host, {
+      computerReady: env.computerReady,
+      openBrowser: env.openBrowser,
       artifactsDir,
       onProtectedFolderDenied: env.onProtectedFolderDenied,
       cwdFor: async (_command, grant) => {

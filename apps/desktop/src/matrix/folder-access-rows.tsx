@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Switch } from '@/components/ui/switch'
 import { Cloud, Download, FileText, Folder, FolderPlus, Monitor, X } from '@/lib/icons'
 
@@ -47,7 +48,7 @@ export function MatrixFirstRunFolderRows({
   status(row: MatrixFolderAccessRow): string | null
 }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)]" data-matrix-first-run-folders role="group">
+    <ConsentBoundary><div className="grid grid-cols-[minmax(0,1fr)]" data-matrix-first-run-folders role="group">
       {folders.map(row => {
         const name = matrixFolderAccessName(row, copy)
         const checked = selected.has(row.id)
@@ -99,7 +100,7 @@ export function MatrixFirstRunFolderRows({
           </Button>
         </div>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -122,7 +123,7 @@ export function MatrixSettingsFolderRows({
   onToggle(id: string, enabled: boolean): void
 }) {
   return (
-    <>
+    <ConsentBoundary><>
       {folders.map(row => {
         const name = matrixFolderAccessName(row, copy)
         const closed = row.kind !== 'added' && row.shared && row.mac === 'denied'
@@ -186,6 +187,6 @@ export function MatrixSettingsFolderRows({
           </Button>
         </div>
       )}
-    </>
+    </></ConsentBoundary>
   )
 }

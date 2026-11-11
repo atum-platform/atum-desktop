@@ -1,3 +1,4 @@
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -14,16 +15,16 @@ const FIELD_INPUT = `font-mono ${CONTROL_TEXT} placeholder:text-muted-foreground
 // Field label with an optional info tooltip, shared by the panel and modal rows.
 export function FieldTitle({ field }: { field: MemoryProviderField }) {
   if (!field.info) {
-    return <>{field.label}</>
+    return <ConsentBoundary><>{field.label}</></ConsentBoundary>
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5">
+    <ConsentBoundary><span className="inline-flex items-center gap-1.5">
       {field.label}
       <Tip className="max-w-60 font-normal leading-snug whitespace-normal" label={field.info}>
         <Info aria-label={`About ${field.label}`} className="size-3.5 text-muted-foreground/70" />
       </Tip>
-    </span>
+    </span></ConsentBoundary>
   )
 }
 
@@ -49,12 +50,12 @@ export function FieldControl({
   const commitDraft = onCommit ? () => onCommit(value) : undefined
 
   if (field.kind === 'bool') {
-    return <Switch checked={value === 'true'} onCheckedChange={checked => set(checked ? 'true' : 'false')} />
+    return <ConsentBoundary><Switch checked={value === 'true'} onCheckedChange={checked => set(checked ? 'true' : 'false')} /></ConsentBoundary>
   }
 
   if (field.kind === 'number') {
     return (
-      <Input
+      <ConsentBoundary><Input
         className={FIELD_INPUT}
         inputMode="numeric"
         onBlur={commitDraft}
@@ -62,26 +63,26 @@ export function FieldControl({
         placeholder={field.placeholder}
         type="number"
         value={value}
-      />
+      /></ConsentBoundary>
     )
   }
 
   if (field.kind === 'json') {
     return (
-      <Textarea
+      <ConsentBoundary><Textarea
         className={FIELD_INPUT}
         onBlur={commitDraft}
         onChange={event => onChange(event.target.value)}
         placeholder={field.placeholder}
         spellCheck={false}
         value={value}
-      />
+      /></ConsentBoundary>
     )
   }
 
   if (field.kind === 'select') {
     return (
-      <Select onValueChange={set} value={value}>
+      <ConsentBoundary><Select onValueChange={set} value={value}>
         <SelectTrigger className={CONTROL_TEXT}>
           <SelectValue />
         </SelectTrigger>
@@ -92,13 +93,13 @@ export function FieldControl({
             </SelectItem>
           ))}
         </SelectContent>
-      </Select>
+      </Select></ConsentBoundary>
     )
   }
 
   if (field.kind === 'secret') {
     return (
-      <div className="flex flex-col gap-1">
+      <ConsentBoundary><div className="flex flex-col gap-1">
         <Input
           className={`w-full ${FIELD_INPUT}`}
           onBlur={commitDraft}
@@ -113,17 +114,17 @@ export function FieldControl({
             set
           </span>
         )}
-      </div>
+      </div></ConsentBoundary>
     )
   }
 
   return (
-    <Input
+    <ConsentBoundary><Input
       className={FIELD_INPUT}
       onBlur={commitDraft}
       onChange={event => onChange(event.target.value)}
       placeholder={field.placeholder}
       value={value}
-    />
+    /></ConsentBoundary>
   )
 }

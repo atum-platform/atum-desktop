@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useI18n } from '@/i18n'
 import { Bell, FolderShare } from '@/lib/icons'
@@ -43,7 +44,7 @@ export function AtumPermissionPrePrompt() {
     : t.atum.permissions.files.body(prompt.folderName)
 
   return (
-    <Dialog onOpenChange={open => !open && resolveAtumPermissionPrompt(false)} open>
+    <ConsentBoundary><Dialog onOpenChange={open => !open && resolveAtumPermissionPrompt(false)} open>
       <DialogContent className="atum-shell max-w-[23.75rem]" data-atum-permission-prompt showCloseButton={false}>
         {/* Mock 2d: 44px r13 sunk tile with a 20px ink glyph, title 18/600,
             body 13.5/1.5 muted, footer secondary + primary. */}
@@ -63,6 +64,6 @@ export function AtumPermissionPrePrompt() {
           </Button>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

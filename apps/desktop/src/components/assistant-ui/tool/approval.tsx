@@ -1,3 +1,4 @@
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 'use client'
 
 import { useStore } from '@nanostores/react'
@@ -51,13 +52,13 @@ export const PendingToolApproval: FC<{ part: ToolPart }> = ({ part }) => {
     return null
   }
 
-  return <InlineApprovalBar request={request} />
+  return <ConsentBoundary><InlineApprovalBar request={request} /></ConsentBoundary>
 }
 
 const InlineApprovalBar: FC<{ request: ApprovalRequest }> = ({ request }) => {
   useEffect(() => registerApprovalInlineAnchor(request.sessionId), [request.sessionId])
 
-  return <ApprovalBar request={request} surface="inline" />
+  return <ConsentBoundary><ApprovalBar request={request} surface="inline" /></ConsentBoundary>
 }
 
 export const PendingApprovalFallback: FC = () => {
@@ -73,7 +74,7 @@ export const PendingApprovalFallback: FC = () => {
   }
 
   return (
-    <div
+    <ConsentBoundary><div
       className="pointer-events-none absolute left-1/2 z-30 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2"
       data-slot="tool-approval-fallback"
       style={{ bottom: 'calc(var(--composer-measured-height) + var(--status-stack-measured-height) + 0.875rem)' }}
@@ -88,7 +89,7 @@ export const PendingApprovalFallback: FC = () => {
         </div>
         <ApprovalBar request={request} surface="floating" />
       </div>
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -97,7 +98,7 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
   const gateway = useStore($gateway)
 
   return (
-    <ApprovalControls
+    <ConsentBoundary><ApprovalControls
       onError={error => notifyError(error, t.assistant.approval.sendFailed)}
       onRespond={async choice => {
         if (!sessionApprovalRequest(request.sessionId).get()) {
@@ -114,6 +115,6 @@ const ApprovalBar: FC<{ request: ApprovalRequest; surface: 'floating' | 'inline'
       }}
       request={request}
       surface={surface}
-    />
+    /></ConsentBoundary>
   )
 }

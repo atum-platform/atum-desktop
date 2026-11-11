@@ -7608,6 +7608,11 @@ function MatrixAccountView({
     }
   }
 
+  useEffect(() => window.atumMatrix.consumerBrowser?.onOpen?.(url => {
+    setBrowserRequest({ id: crypto.randomUUID(), url, scope: matrixWorkbenchScope(snapshot) })
+    openWorkspace()
+  }), [snapshot, openWorkspace])
+
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // or a document still opens the workbench, which stays mounted behind the info panel.
   const conversationInfo =

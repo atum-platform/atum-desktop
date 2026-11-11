@@ -196,3 +196,31 @@ test.each(['DIRECT', 'PROXY 127.0.0.1:1', 'PROXY 127.0.0.1:1; DIRECT'])(
     await expect(harness({}, value)).rejects.toThrow('app_egress_unavailable')
   }
 )
+
+test.each([false, true])('consumer proxy scopes tailnet DNS pinning to the selected origin (%s)', async selected => {
+  const { createConsumerBrowserEgress } = await import('./egress')
+  let rules = ''
+  const target = 'https://node.example.ts\u002enet'
+
+  const session: EgressSession = {
+    setProxy: async config => { rules = config.proxyRules },
+    closeAllConnections: async () => {},
+    resolveProxy: async () => `PROXY ${new URL(rules).host}`
+  }
+
+  const dial = vi.fn(() => { throw Error('fixture reached approved dial') })
+
+  const egress = createConsumerBrowserEgress(session, () => true, { resolve: async () => ['100.64.0\u002e8'], dial },
+    () => new Set(selected ? [target] : []))
+
+  cleanups.push(egress.close)
+  await egress.ready
+  const client = connect({ host: '127.0.0.1', port: Number(new URL(rules).port) })
+  cleanups.push(() => { client.destroy() })
+  client.on('error', () => undefined)
+  await once(client, 'connect')
+  const closed = once(client, 'close')
+  client.write('CONNECT node.example.ts\u002enet:443 HTTP/1.1\r\n\r\n')
+  await closed
+  expect(dial).toHaveBeenCalledTimes(selected ? 1 : 0)
+})

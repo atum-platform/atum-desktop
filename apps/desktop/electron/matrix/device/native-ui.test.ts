@@ -20,6 +20,9 @@ vi.mock('electron', () => ({
       super()
       windows.push(this)
     }
+    getMediaSourceId() {
+      return `window:${windows.indexOf(this) + 1}:0`
+    }
     isDestroyed() {
       return this.destroyed
     }

@@ -14,6 +14,7 @@ const bundled = [{ name: 'matrix-js-sdk', version: '42.4.0' }]
 const dependencies = () => ({
   readStamp: vi.fn(() => ({ commit, dirty: false })),
   stage: vi.fn(() => ({ identity: { runtimeCommit: commit }, hermes: { dirtyCheckoutIgnored: false } })),
+  stageComputer: vi.fn(),
   stageBrain: vi.fn(async () => ({})),
   stageDrive: vi.fn(() => ({})),
   auditRuntime: vi.fn(async () => ({ issues: [] })),

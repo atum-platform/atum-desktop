@@ -6,6 +6,7 @@ import type { DesktopLocale } from '../../shared/desktop-locale'
 import { appOnboardingCopy } from '../../shared/matrix-app-onboarding-copy'
 
 import { appAuthApprovedOrigins, appAuthNavigation, appAuthSheetHtml } from './app-auth-sheet-policy'
+import { registerNativeConsent } from './device/consent'
 
 const HEADER_HEIGHT = 72
 
@@ -55,6 +56,9 @@ export async function openAppAuthSheet(
       partition: `${partition}-chrome`
     }
   })
+
+  registerNativeConsent(window)
+
   const view = new WebContentsView({
     webPreferences: {
       sandbox: true,

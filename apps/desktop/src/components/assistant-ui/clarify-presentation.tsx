@@ -9,6 +9,7 @@ import {
 } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Kbd } from '@/components/ui/kbd'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
@@ -31,9 +32,9 @@ const CLARIFY_ICON_CLASS = 'mt-px size-4 shrink-0 text-(--ui-text-tertiary)'
 
 export function ClarifyShell({ children, className, ...props }: ComponentProps<'div'>) {
   return (
-    <div className={cn(CLARIFY_SHELL_CLASS, className)} data-slot="clarify-inline" {...props}>
+    <ConsentBoundary><div className={cn(CLARIFY_SHELL_CLASS, className)} data-slot="clarify-inline" {...props}>
       {children}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -44,16 +45,16 @@ export function ClarifyLine({
   ...props
 }: ComponentProps<'div'> & { icon: typeof MessageQuestion }) {
   return (
-    <div className={cn('flex items-start gap-2', className)} {...props}>
+    <ConsentBoundary><div className={cn('flex items-start gap-2', className)} {...props}>
       <div className="min-w-0 flex-1">{children}</div>
       <Icon aria-hidden className={CLARIFY_ICON_CLASS} />
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
 function KeyBadge({ char, preview, selected }: { char: string; preview?: boolean; selected: boolean }) {
   return (
-    <Kbd
+    <ConsentBoundary><Kbd
       className={cn(
         'mt-px',
         selected && 'border-primary bg-primary text-white shadow-none',
@@ -62,7 +63,7 @@ function KeyBadge({ char, preview, selected }: { char: string; preview?: boolean
       size="sm"
     >
       {char}
-    </Kbd>
+    </Kbd></ConsentBoundary>
   )
 }
 
@@ -97,7 +98,7 @@ export function ChoiceButton({
   // it highlights the row and previews its key badge. The settled skip card
   // never passes it, so its rows stay plain.
   return (
-    <Tip label={title}>
+    <ConsentBoundary><Tip label={title}>
       <button
         aria-current={active || undefined}
         aria-keyshortcuts={keyShortcuts}
@@ -116,7 +117,7 @@ export function ChoiceButton({
         <KeyBadge char={char} preview={active} selected={selected} />
         <span className="flex-1 wrap-anywhere">{choice}</span>
       </button>
-    </Tip>
+    </Tip></ConsentBoundary>
   )
 }
 
@@ -339,13 +340,13 @@ export function ClarifyPrompt({
 
   if (loading) {
     return (
-      <ClarifyShell
+      <ConsentBoundary><ClarifyShell
         aria-label={copy.loadingQuestion}
         className="grid min-h-12 place-items-center px-2.5 py-3"
         role="status"
       >
         <Loader2 aria-hidden className="size-4 animate-spin text-(--ui-text-tertiary)" />
-      </ClarifyShell>
+      </ClarifyShell></ConsentBoundary>
     )
   }
 
@@ -364,7 +365,7 @@ export function ClarifyPrompt({
     // while its A/B/C… shortcuts are live, so the global type-to-focus listener
     // (`composerFocusBlockedBySurface`) stands down and the letters reach this
     // card instead of being redirected into the composer.
-    <ClarifyShell className="grid gap-2 px-2.5 py-2" data-clarify-choices={hasChoices ? '' : undefined}>
+    <ConsentBoundary><ClarifyShell className="grid gap-2 px-2.5 py-2" data-clarify-choices={hasChoices ? '' : undefined}>
       <div className="flex items-start gap-2">
         <span className="flex-1 whitespace-pre-wrap font-medium leading-(--conversation-line-height)">{question}</span>
         <MessageQuestion aria-hidden className="mt-px size-4 shrink-0 text-(--ui-text-tertiary)" />
@@ -455,6 +456,6 @@ export function ClarifyPrompt({
           </Button>
         </div>
       </form>
-    </ClarifyShell>
+    </ClarifyShell></ConsentBoundary>
   )
 }

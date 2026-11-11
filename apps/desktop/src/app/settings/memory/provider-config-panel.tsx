@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { getMemoryProviderConfig, saveMemoryProviderConfig } from '@/hermes'
 import { SlidersHorizontal } from '@/lib/icons'
@@ -85,18 +86,18 @@ export function ProviderConfigPanel({ provider }: { provider: string }) {
   if (!config) {
     if (loadError) {
       return (
-        <div className="flex items-center justify-between gap-3 py-2">
+        <ConsentBoundary><div className="flex items-center justify-between gap-3 py-2">
           <span className="text-[length:var(--conversation-caption-font-size)] text-muted-foreground">
             Memory provider settings failed to load: {loadError}
           </span>
           <Button onClick={() => void refresh()} size="sm" type="button" variant="secondary">
             Retry
           </Button>
-        </div>
+        </div></ConsentBoundary>
       )
     }
 
-    return <PageLoader className="min-h-24" label="Loading memory provider settings..." />
+    return <ConsentBoundary><PageLoader className="min-h-24" label="Loading memory provider settings..." /></ConsentBoundary>
   }
 
   const inlineFields = config.fields.filter(field => field.inline)
@@ -104,7 +105,7 @@ export function ProviderConfigPanel({ provider }: { provider: string }) {
   const hasFullConfig = config.fields.some(field => !field.inline)
 
   return (
-    <section className="py-1">
+    <ConsentBoundary><section className="py-1">
       <div className="flex items-center gap-2 py-2">
         <button
           aria-expanded={expanded}
@@ -158,6 +159,6 @@ export function ProviderConfigPanel({ provider }: { provider: string }) {
           provider={provider}
         />
       )}
-    </section>
+    </section></ConsentBoundary>
   )
 }

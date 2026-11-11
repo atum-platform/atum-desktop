@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { openExternalLink } from '@/lib/external-link'
 import { ChevronLeft, ExternalLink } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -77,7 +78,7 @@ function DowngradeConfirm({ flow, tier }: { flow: DowngradeFlow; tier: BillingPl
     phase.kind === 'scheduleFailed'
 
   return (
-    <div
+    <ConsentBoundary><div
       aria-live="polite"
       className="flex min-w-0 flex-col gap-2 rounded-md bg-(--ui-bg-elevated) p-3 outline-none"
       ref={panelRef}
@@ -106,7 +107,7 @@ function DowngradeConfirm({ flow, tier }: { flow: DowngradeFlow; tier: BillingPl
           Cancel
         </Button>
       </div>
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -127,7 +128,7 @@ function PlanCard({ flow, tier }: { flow: DowngradeFlow; tier: BillingPlanTierVi
   }, [confirming])
 
   return (
-    <div
+    <ConsentBoundary><div
       className={cn(
         'flex min-w-0 flex-col gap-3 rounded-lg p-4 outline-none',
         isCurrent ? 'bg-(--ui-green)/10' : 'bg-(--ui-bg-quaternary)'
@@ -186,7 +187,7 @@ function PlanCard({ flow, tier }: { flow: DowngradeFlow; tier: BillingPlanTierVi
             </Button>
           ))}
       </div>
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -196,7 +197,7 @@ export function BillingPlansView({ onBack, tiers }: { onBack: () => void; tiers:
   const flow = useDowngradeFlow({ onScheduled: onBack })
 
   return (
-    <div className="@container">
+    <ConsentBoundary><div className="@container">
       <div className="mb-2.5 flex items-center gap-2 pt-2 text-[length:var(--conversation-text-font-size)] font-medium">
         <Button
           aria-label="Back to billing"
@@ -223,6 +224,6 @@ export function BillingPlansView({ onBack, tiers }: { onBack: () => void; tiers:
           No plans are available to change to right now.
         </div>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import {
   Dialog,
   DialogContent,
@@ -161,7 +162,7 @@ export function SubscriptionChooser({
   const copy = useMatrixSettingsCopy()
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="ak-sheet max-w-none gap-0 overflow-hidden border-0 p-0" data-matrix-subscription-chooser>
         <div className="ak-sheet-head">
           <DialogTitle className="ak-sheet-title">{copy.yourSubscription}</DialogTitle>
@@ -197,7 +198,7 @@ export function SubscriptionChooser({
           })}
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }
 
@@ -216,7 +217,7 @@ export function SubscriptionConnectFlow({
   const [chosen, setChosen] = useState<MatrixSubscriptionProvider | null>(null)
 
   return (
-    <>
+    <ConsentBoundary><>
       <SubscriptionChooser
         onChoose={setChosen}
         onOpenChange={next => {
@@ -236,7 +237,7 @@ export function SubscriptionConnectFlow({
           provider={chosen}
         />
       )}
-    </>
+    </></ConsentBoundary>
   )
 }
 
@@ -445,7 +446,7 @@ export function SubscriptionConnectDialog({
   const providerLabel = matrixSubscriptionProviderLabel(provider)
 
   return (
-    <Dialog onOpenChange={next => !next && onClose()} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={next => !next && onClose()} open={open}>
       <DialogContent className="max-w-sm" data-matrix-subscription-dialog={provider}>
         <DialogHeader>
           <DialogTitle>{providerLabel}</DialogTitle>
@@ -547,7 +548,7 @@ export function SubscriptionConnectDialog({
           </form>
         )}
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }
 
@@ -626,7 +627,7 @@ export function SubscriptionManageDialog({
   }
 
   return (
-    <Dialog onOpenChange={next => !next && onClose()} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={next => !next && onClose()} open={open}>
       <DialogContent className="max-w-sm" data-matrix-subscription-manage={provider}>
         <DialogHeader>
           <DialogTitle>{matrixSubscriptionProviderLabel(provider)}</DialogTitle>
@@ -682,6 +683,6 @@ export function SubscriptionManageDialog({
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

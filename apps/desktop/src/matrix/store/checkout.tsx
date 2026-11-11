@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { PurchaseQrPanel } from '@/app/atum/purchase-qr-panel'
 import { ProtonAmount } from '@/components/brand/proton-mark'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
 import { useI18n } from '@/i18n'
@@ -45,14 +46,14 @@ export function StoreQuietState({
   onAction?: () => void
 }) {
   return (
-    <div className="atum-store-quiet" data-store-quiet role="status">
+    <ConsentBoundary><div className="atum-store-quiet" data-store-quiet role="status">
       <p>{children}</p>
       {action && onAction && (
         <Button onClick={onAction} size="sm" variant="secondary">
           {action}
         </Button>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -71,7 +72,7 @@ function PackCard({
   const amount = formatWhole(pack.totalMicroProtons, locale)
 
   return (
-    <article className="atum-store-pack" data-matrix-topup-pack={pack.id}>
+    <ConsentBoundary><article className="atum-store-pack" data-matrix-topup-pack={pack.id}>
       <div className="min-w-0">
         <p className="text-[1.0625rem] leading-tight font-semibold text-(--atum-ink)">
           <ProtonAmount amount={amount} spoken={t.atum.protons.balance(amount)} />
@@ -87,7 +88,7 @@ function PackCard({
           {copy.checkoutBuy}
         </Button>
       </div>
-    </article>
+    </article></ConsentBoundary>
   )
 }
 
@@ -165,21 +166,21 @@ export function MatrixCheckoutPane({
   }
 
   if (snapshot.state === 'loading') {
-    return <Loader className="mx-auto my-6 size-8" label={copy.checkoutLoading} />
+    return <ConsentBoundary><Loader className="mx-auto my-6 size-8" label={copy.checkoutLoading} /></ConsentBoundary>
   }
 
   if (snapshot.state === 'unavailable') {
     return (
-      <StoreQuietState action={copy.retry} onAction={checkout.onRefresh}>
+      <ConsentBoundary><StoreQuietState action={copy.retry} onAction={checkout.onRefresh}>
         {copy.checkoutUnavailable}
-      </StoreQuietState>
+      </StoreQuietState></ConsentBoundary>
     )
   }
 
   const balance = wallet?.state === 'ready' ? wallet.wallet.balances.available : null
 
   return (
-    <section aria-label={copy.topUp} className="grid gap-3" data-matrix-checkout>
+    <ConsentBoundary><section aria-label={copy.topUp} className="grid gap-3" data-matrix-checkout>
       {!snapshot.checkoutOpen && !order && <StoreQuietState>{copy.checkoutUnavailable}</StoreQuietState>}
       {snapshot.checkoutOpen &&
         !order &&
@@ -280,6 +281,6 @@ export function MatrixCheckoutPane({
         </NoticeBand>
       )}
       <p className="text-(length:--atum-t-caption) text-(--atum-ink-faint)">{copy.checkoutCurrency}</p>
-    </section>
+    </section></ConsentBoundary>
   )
 }

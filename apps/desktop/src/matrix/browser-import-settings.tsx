@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 
@@ -136,7 +137,7 @@ export function MatrixBrowserImportSettings({
   const tone = outcome?.outcome === 'unavailable' && !CALM_REASONS.has(outcome.reason) ? 'failure' : 'notice'
 
   return (
-    <SettingsSection
+    <ConsentBoundary><SettingsSection
       data-matrix-browser-import
       tip={words.tip(agentName())}
       title={words.title}
@@ -164,6 +165,6 @@ export function MatrixBrowserImportSettings({
           {notice}
         </NoticeBand>
       )}
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }

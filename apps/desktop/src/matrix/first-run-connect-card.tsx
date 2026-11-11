@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 import { Sparkles } from '@/lib/icons'
@@ -509,7 +510,7 @@ export function MatrixFirstRunConnectCard({
   }
 
   return (
-    <section
+    <ConsentBoundary><section
       className="ak-ask w-full text-start"
       data-matrix-first-run-connect-card
       ref={card}
@@ -643,6 +644,6 @@ export function MatrixFirstRunConnectCard({
           </Button>
         </div>
         {failed && <NoticeBand className="mt-2" role="status" tone="failure">{copy.failed}</NoticeBand>}
-      </section>
+      </section></ConsentBoundary>
   )
 }

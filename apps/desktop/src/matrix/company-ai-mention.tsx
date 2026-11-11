@@ -1,4 +1,5 @@
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { useI18n } from '@/i18n'
 
 import { matrixCompanyBoardCopy } from '../../shared/matrix-company-board-copy'
@@ -43,7 +44,7 @@ export function CompanyAIMentionMenu({ onPick, view }: { onPick(): void; view: C
   const copy = matrixCompanyBoardCopy(locale)
 
   return (
-    <div aria-label={copy.mentionChief} className="px-1 pt-1" data-company-ai-mention role="listbox">
+    <ConsentBoundary><div aria-label={copy.mentionChief} className="px-1 pt-1" data-company-ai-mention role="listbox">
       <button
         aria-selected="true"
         className="flex w-full items-center gap-2 rounded-(--atum-r-row) px-2 py-1.5 text-start hover:bg-(--atum-row-hover) focus-visible:bg-(--atum-row-hover)"
@@ -62,6 +63,6 @@ export function CompanyAIMentionMenu({ onPick, view }: { onPick(): void; view: C
           <span className="block text-xs text-(--atum-ink-muted)">{copy.mentionHint}</span>
         </span>
       </button>
-    </div>
+    </div></ConsentBoundary>
   )
 }

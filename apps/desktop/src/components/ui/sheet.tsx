@@ -8,6 +8,8 @@ import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { AppViewOverlayHold, useAppViewOverlayHold } from '@/store/use-app-view-overlay'
 
+import { consentRegionProps } from './consent-boundary'
+
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
@@ -33,7 +35,7 @@ function SheetOverlay({ className, ...props }: React.ComponentProps<typeof Sheet
         'fixed inset-0 z-50 bg-black/22 backdrop-blur-[0.125rem] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0',
         className
       )}
-      data-slot="sheet-overlay"
+      {...consentRegionProps} data-slot="sheet-overlay"
       {...props}
     />
   )
@@ -68,7 +70,7 @@ function SheetContent({
             'inset-x-0 bottom-0 h-auto border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
           className
         )}
-        data-slot="sheet-content"
+        {...consentRegionProps} data-slot="sheet-content"
         {...props}
       >
         {children}

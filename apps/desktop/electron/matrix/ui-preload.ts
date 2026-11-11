@@ -402,6 +402,11 @@ const bridge: MatrixUiBridge = {
     }
   },
   consumerBrowser: {
+    onOpen: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, url: string) => listener(url)
+      ipcRenderer.on(CONSUMER_BROWSER_IPC.open, receive)
+      return () => ipcRenderer.removeListener(CONSUMER_BROWSER_IPC.open, receive)
+    },
     onPopup: listener => {
       const receive = (_event: Electron.IpcRendererEvent, payload: ConsumerBrowserPopup) => listener(payload)
       ipcRenderer.on(CONSUMER_BROWSER_IPC.popup, receive)

@@ -34,6 +34,21 @@ driver-side error mentioning `snapshot_id`, `element_token`, or "no reviewed
 risk classification", you (or a stale description) called the raw driver
 vocabulary — go back to the actions below.
 
+## Cloud agents using an owner Mac
+
+Use the existing `computer_use` device surface with `device` naming an online
+owner Mac. Ordinary capture, clicking and typing in Atum are allowed by default.
+To open a page in Atum's browser, use `computer_use(action="open_url",
+url="https://example.com", device="<Mac name>")`, then capture Atum and verify
+that the page loaded. An open receipt confirms delivery to Atum, not page load.
+If a cloud fetch fails for a private or Tailscale URL, use the owner's Mac
+through this path. MagicDNS `.ts.net` URLs resolve on the Mac and can reach its
+tailnet. Other private destinations may still be refused by browser policy.
+When macOS permission is missing, Atum requests it and opens System Settings.
+Continue after the grant. Do not ask the person to install packages or run commands.
+Authentication prompts remain protected, and risky terminal/file operations
+retain their existing Touch ID checks.
+
 ## The canonical workflow
 
 **Step 1 — Capture first.** Almost every task starts with:

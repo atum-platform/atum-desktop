@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { ProtonAmount } from '@/components/brand/proton-mark'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Loader } from '@/components/ui/loader'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -222,7 +223,7 @@ export function CompanyWalletPanel({ companyId, initialWallet, onClose, onWallet
     }[order.state]
 
   return (
-    <aside
+    <ConsentBoundary><aside
       aria-label={copy.wallet}
       className="absolute inset-y-0 end-0 z-20 flex w-[min(27rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
       data-company-wallet
@@ -306,7 +307,7 @@ export function CompanyWalletPanel({ companyId, initialWallet, onClose, onWallet
           </p>
         )}
       </div>
-    </aside>
+    </aside></ConsentBoundary>
   )
 }
 
@@ -331,18 +332,18 @@ export function CompanyWalletDrawer({
 
   if (wallet) {
     return (
-      <CompanyWalletPanel
+      <ConsentBoundary><CompanyWalletPanel
         companyId={companyId}
         initialWallet={wallet}
         onClose={onClose}
         onWalletChange={onWalletChange}
         prefillProtons={prefillProtons}
-      />
+      /></ConsentBoundary>
     )
   }
 
   return (
-    <aside
+    <ConsentBoundary><aside
       aria-label={copy.wallet}
       className="absolute inset-y-0 end-0 z-20 flex w-[min(27rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
       data-company-wallet
@@ -367,6 +368,6 @@ export function CompanyWalletDrawer({
           <Loader className="size-5" label={copy.walletLoading} size="sm" />
         )}
       </div>
-    </aside>
+    </aside></ConsentBoundary>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { type Locale, useI18n } from '@/i18n'
 
 import {
@@ -333,7 +334,7 @@ export function MatrixPermissionsSettings({
   const rows = state === 'ready' && snapshot !== null
 
   return (
-    <SettingsSection
+    <ConsentBoundary><SettingsSection
       data-matrix-permissions-settings
       foot={
         openFailed ? (
@@ -394,6 +395,6 @@ export function MatrixPermissionsSettings({
             />
           )
         })}
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }

@@ -25,6 +25,7 @@
   // The Matrix SDK seam's contract and command queue are DOM-free too: the main process
   // keeps one queue per SDK window, and browser and headless hosts share it (G8-36).
   "include": [
+    "shared/gui-consent.ts",
     "shared/app-panel.ts",
     "shared/gmail-compose.ts",
     "shared/gmail-mail.ts",

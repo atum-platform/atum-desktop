@@ -3,6 +3,7 @@ import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 import { ProtonMark } from '@/components/brand/proton-mark'
 import { StatusDot } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -553,7 +554,7 @@ function ActivitySetting({ snapshot }: { snapshot: MatrixSnapshot }) {
   const value = snapshot.displayPreferences?.shareActivity?.value
 
   return (
-    <SettingsSection title={copy.activity}>
+    <ConsentBoundary><SettingsSection title={copy.activity}>
       {snapshot.identity && snapshot.displayPreferences?.shareActivity ? (
         <div className="atum-settings-item">
           <SettingsRow
@@ -577,7 +578,7 @@ function ActivitySetting({ snapshot }: { snapshot: MatrixSnapshot }) {
       ) : (
         <SettingsRow className="atum-settings-row-quiet" role="status" title={copy.notAvailableYet} />
       )}
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }
 
@@ -699,7 +700,7 @@ function OwnerLocationSetting() {
   }
 
   return (
-    <SettingsSection title={copy.title}>
+    <ConsentBoundary><SettingsSection title={copy.title}>
       <SettingsRow
         control={
           <Switch
@@ -714,7 +715,7 @@ function OwnerLocationSetting() {
         help={help}
         title={copy.title}
       />
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }
 
@@ -784,14 +785,14 @@ function PeopleDiscoverySetting() {
   }
 
   return (
-    <SettingsSection>
+    <ConsentBoundary><SettingsSection>
       <SettingsRow
         control={<Switch aria-label={copy.title} checked={enabled ?? false} disabled={enabled === null || busy}
           onCheckedChange={change} />}
         help={failed ? copy.failed : copy.help}
         title={copy.title}
       />
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }
 
@@ -847,9 +848,9 @@ function PrivacyPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   ]
 
   return (
-    <div data-matrix-settings-destination="privacy">
+    <ConsentBoundary><div data-matrix-settings-destination="privacy">
       {unlock ? [recovery, devices, ...everyone] : [devices, ...everyone, recovery]}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 

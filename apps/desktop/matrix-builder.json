@@ -21,6 +21,7 @@
   "asarUnpack": ["atum-app-window", "atum-device-key"],
   "afterPack": "scripts/matrix-after-pack.mjs",
   "mac": {
+    "signIgnore": ["CuaDriver\\.app"],
     "identity": "-",
     "hardenedRuntime": false,
     "minimumSystemVersion": "13.0",

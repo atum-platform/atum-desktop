@@ -154,7 +154,7 @@ describe('GuiBroker.authorize', () => {
     })
   })
 
-  it('refuses any action at its own Touch ID sheet, a TCC prompt, System Settings or Atum', async () => {
+  it('refuses any action at its own Touch ID sheet, a TCC prompt, System Settings ', async () => {
     const { broker, deps } = makeBroker()
     const sheet = '/System/Library/Frameworks/LocalAuthentication.framework/Support/coreautha.bundle/Contents/MacOS/coreautha'
 
@@ -162,7 +162,7 @@ describe('GuiBroker.authorize', () => {
       expect(await broker.authorize(click({ processPath: sheet }, { action }))).toEqual({ allow: false, reason: 'security_ui' })
     }
 
-    expect(await broker.authorize(click({ processPath: '/Applications/Atum.app/Contents/MacOS/Atum' }))).toEqual({ allow: false, reason: 'own_app' })
+    expect(await broker.authorize(click({ processPath: '/Applications/Atum.app/Contents/MacOS/Atum' }))).toEqual({ allow: true })
     expect(deps.requestUploadApproval).not.toHaveBeenCalled()
   })
 
@@ -195,4 +195,27 @@ describe('GuiBroker.authorize', () => {
 
     expect(await stopped.broker.authorize(upload)).toEqual({ allow: false, reason: 'stopped' })
   })
+})
+
+ it.each(['click', 'type', 'key', 'set_value'])('allows %s in the owner Atum window without approval', async action => {
+  const { broker, deps } = makeBroker()
+  expect(await broker.authorize(click({ pid: 4242, bundleId: 'com.atum.matrix-candidate', title: 'Atum' }, { action }))).toEqual({ allow: true })
+  expect(deps.requestUploadApproval).not.toHaveBeenCalled()
+})
+
+it('enforces registered consent before accepting ordinary owner-authorized input', async () => {
+  const { hitsConsent } = await import('./consent')
+  const broker = new GuiBroker({
+    authority: () => ({ live: true, paused: false }),
+    ownApp: () => ({ pids: [7] }),
+    requestUploadApproval: async () => 'approved',
+    audit: () => {},
+    consentProtected: async request => hitsConsent(request, [{ x: 10, y: 10, width: 100, height: 100 }])
+  })
+  const request = { commandId: 'command', action: 'click', target: { pid: 7, windowId: 8 } }
+  expect(await broker.authorize({ ...request, destination: { x: 30, y: 30 } })).toEqual({ allow: false, reason: 'consent_ui' })
+  expect(await broker.authorize({ ...request, destination: { x: 300, y: 300 } })).toEqual({ allow: true })
+  for (const action of ['type', 'paste', 'key', 'set_value', 'ax_press']) {
+    expect(await broker.authorize({ ...request, action })).toEqual({ allow: false, reason: 'consent_ui' })
+  }
 })

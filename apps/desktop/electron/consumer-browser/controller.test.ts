@@ -29,6 +29,7 @@ function fakeSession() {
     on: vi.fn(),
     removeAllListeners: vi.fn(),
     clearStorageData: vi.fn().mockResolvedValue(undefined),
+    closeAllConnections: vi.fn().mockResolvedValue(undefined),
     webRequest: { onBeforeRequest: vi.fn() }
   }
 }
@@ -431,9 +432,11 @@ describe('consumer browser controller boundaries', () => {
     await handlers.get('atum:consumer-browser:prepare')!(event, { partition, url: 'https://example.com' })
     expect(egresses).toHaveLength(1)
     expect(egresses[0]!.active()).toBe(true)
-    // Preparing the same tab again (a navigation) reuses the proxy rather than stacking another.
+    // Selecting another destination revokes and replaces the previous proxy.
     await handlers.get('atum:consumer-browser:prepare')!(event, { partition, url: 'https://example.org' })
-    expect(egresses).toHaveLength(1)
+    expect(egresses).toHaveLength(2)
+    expect(egresses[0]!.close).toHaveBeenCalledOnce()
+    expect(egresses[0]!.active()).toBe(false)
   })
 
   it('does not prepare a partition whose proxy cannot be applied (no direct route)', async () => {
@@ -523,4 +526,28 @@ describe('consumer browser controller boundaries', () => {
     expect(() => nextPopupWindow([], Number.NaN)).toThrow('browser_popup_clock_invalid')
     vi.useRealTimers()
   })
+})
+
+it.each(['subFrame', 'script', 'xhr', 'other'])('limits private %s requests to the explicitly selected private origin', async resourceType => {
+  const { event, handlers, sessions } = harness()
+  const partition = `${CONSUMER_BROWSER_PARTITION_PREFIX}private-fixture`
+  const prepare = handlers.get('atum:consumer-browser:prepare')!
+  vi.mocked(lookup).mockImplementation(async hostname => [{ address: String(hostname).endsWith('.ts.net') ? '100.64.0\u002e8' : '93.184.216.34' }] as never)
+  await prepare(event, { partition, url: 'https://example.com' })
+
+  const request = async (url: string, referrer: string, kind = resourceType) => {
+    const filter = sessions.get(partition)!.webRequest.onBeforeRequest.mock.lastCall![1]
+
+    return new Promise(resolve => filter({ url, referrer, resourceType: kind }, resolve))
+  }
+
+  expect(await request('https://node.example.ts\u002enet/', 'https://example.com')).toEqual({ cancel: true })
+  await prepare(event, { partition, url: 'https://node.example.ts\u002enet/' })
+  expect(await request('https://node.example.ts\u002enet/', '', 'mainFrame')).toEqual({})
+  expect(await request('https://node.example.ts\u002enet/dependency', 'https://node.example.ts\u002enet/')).toEqual({})
+  expect(await request('https://other.example.ts\u002enet/', 'https://node.example.ts\u002enet/')).toEqual({ cancel: true })
+  expect(await request('https://node.example.ts\u002enet/', 'https://public.example/')).toEqual({ cancel: true })
+  // Public main-frame navigation revokes private reach before its redirects or workers run.
+  expect(await request('https://example.com/', '', 'mainFrame')).toEqual({})
+  expect(await request('https://node.example.ts\u002enet/', '', 'mainFrame')).toEqual({ cancel: true })
 })
