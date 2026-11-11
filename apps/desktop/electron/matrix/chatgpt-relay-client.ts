@@ -29,13 +29,13 @@ function record(value: unknown): value is Record<string, unknown> {
 
 /** Presence is additive. Malformed optional metadata remains unknown, preserving status. */
 function parsePresence(value: unknown): Pick<MatrixChatGptRelaySnapshot, 'presence' | 'displayName' | 'lastSeenAt'> {
-  if (!record(value)) return {}
-  if (value.state === 'unregistered' && Object.keys(value).length === 1) return { presence: 'none' }
+  if (!record(value)) { return {} }
+  if (value.state === 'unregistered' && Object.keys(value).length === 1) { return { presence: 'none' } }
   if (!['online', 'offline'].includes(String(value.state)) ||
     typeof value.deviceServiceId !== 'string' || !UUID.test(value.deviceServiceId) ||
     typeof value.displayName !== 'string' || value.displayName.length < 1 || value.displayName.length > 64 ||
     Object.keys(value).some(key => !['state', 'deviceServiceId', 'displayName', 'lastSeenAt'].includes(key)) ||
-    value.lastSeenAt !== undefined && (!Number.isSafeInteger(value.lastSeenAt) || Number(value.lastSeenAt) < 0)) return {}
+    value.lastSeenAt !== undefined && (!Number.isSafeInteger(value.lastSeenAt) || Number(value.lastSeenAt) < 0)) { return {} }
   return { presence: value.state as 'online' | 'offline', displayName: value.displayName,
     ...(value.lastSeenAt === undefined ? {} : { lastSeenAt: Number(value.lastSeenAt) }) }
 }
