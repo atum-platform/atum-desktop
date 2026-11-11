@@ -251,7 +251,7 @@ export function ModelPickerList({
                   picked={picked}
                   roving={picked.route.id === rovingId}
                   shortcut={shortcut}
-                  tooltip={picked.reason ?? tooltip(picked.route)}
+                  tooltip={picked.hint ?? picked.reason ?? tooltip(picked.route)}
                 />
               )
             })}

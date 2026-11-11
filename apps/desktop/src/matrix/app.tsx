@@ -139,6 +139,7 @@ import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
+import { matrixFoldSubscriptionFallbacks } from '../../shared/matrix-subscription-fallback'
 import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 import {
   isMatrixTransientLine,
@@ -419,6 +420,7 @@ import { matrixStartupBlocking, MatrixStartupScreen } from './startup-screen'
 import { MatrixStoreSidebar, useMatrixStoreNavigation } from './store/store-sidebar'
 import { $matrixStoreDraft, MatrixStoreDraftSeed } from './store/store-try'
 import { $matrixStoreHubRequest, $matrixStoreShelfRequest, matrixInAppTopUp, openMatrixTopUp } from './store/top-up'
+import { SubscriptionFallbackLine } from './subscription-fallback-line'
 import { useMatrixSurfaces } from './surface-sources'
 import {
   ArchivedChannelBanner,
@@ -1510,6 +1512,9 @@ function MatrixEventMessageBubble() {
             {flat ? chat.edited : mobileChatCopy[locale].edited}
           </span>
         </Tip>
+      )}
+      {message.answeredByFallback && !message.redacted && (
+        <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -5303,9 +5308,13 @@ function Conversation({
     // is drawn under the typing bubble, not as a transcript row of its own.
     const visible = matrixHideEndedTransientLines(snapshot.messages, agents)
     const line = room?.assistant ? matrixWorkingLine(visible, agents, snapshot.assistant?.userId) : undefined
+
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
-    const transcriptMessages = visible.filter(message => !isMatrixTransientLine(message, agents))
+    // A fallback notice (agent-turns/1.7) is never a row: it marks the answer it replies to.
+    const transcriptMessages = matrixFoldSubscriptionFallbacks(
+      visible.filter(message => !isMatrixTransientLine(message, agents))
+    )
 
     // Your message shows the moment you press Send, until its local turn or event takes over.
     const { entries, matched } = mergeOutgoingEchoes(

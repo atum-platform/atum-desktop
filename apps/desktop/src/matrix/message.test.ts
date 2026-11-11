@@ -744,3 +744,26 @@ it('drops metadata from a redacted bot message', () => {
   expect(matrixMessage(raw, '@owner:test', new Set())).toMatchObject({ redacted: true })
   expect(matrixMessage(raw, '@owner:test', new Set())?.botApi).toBeUndefined()
 })
+
+it('projects the agent’s fallback notice (agent-turns/1.7) and never a stranger’s copy', () => {
+  const content = {
+    msgtype: 'm.notice',
+    body: '',
+    'io.atum.presentation': {
+      version: 1,
+      code: 'subscription_fallback',
+      args: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' }
+    },
+    'm.relates_to': { 'm.in_reply_to': { event_id: '$answer' } }
+  }
+  const notice = matrixMessage(event(content, '@assistant:test'), '@owner:test', new Set())!
+  expect(notice).toMatchObject({
+    notice: true,
+    replyTo: '$answer',
+    subscriptionFallback: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' }
+  })
+  expect(matrixMessage(event(content, '@owner:test'), '@owner:test', new Set())?.subscriptionFallback).toBeUndefined()
+  // A descriptor with a price (or any other extra field) is not this notice.
+  const priced = { ...content, 'io.atum.presentation': { ...content['io.atum.presentation'], protons: 12 } }
+  expect(matrixMessage(event(priced, '@assistant:test'), '@owner:test', new Set())?.subscriptionFallback).toBeUndefined()
+})

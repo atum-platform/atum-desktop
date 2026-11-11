@@ -11363,6 +11363,34 @@ describe("Home's chat (launch night, second wave)", () => {
     window.getSelection()!.removeAllRanges()
   })
 
+  it('says under an answer that a fallback gave it, with no row of its own and never a cost (owner 11-11)', async () => {
+    const fallback = { plan: 'chatgpt' as const, reason: 'offline' as const, servedBy: 'nguyet-thuc' }
+
+    await openChat({
+      ...ready,
+      messages: [
+        ...ready.messages,
+        message('$fallback', {
+          own: false,
+          sender: '@atum:test',
+          body: '',
+          notice: true,
+          replyTo: '$a',
+          subscriptionFallback: fallback
+        })
+      ]
+    })
+
+    const root = (id: string) => window.document.querySelector<HTMLElement>(`[data-matrix-message-id="${id}"]`)
+    await waitFor(() => expect(root('$a')).toBeTruthy())
+    expect(root('$fallback')).toBeNull()
+    const line = root('$a')!.querySelector<HTMLElement>('[data-matrix-subscription-fallback]')
+    expect(line?.textContent).toBe('Answered with a fallback')
+    expect(root('$a')!.textContent).not.toMatch(/Proton/u)
+    // Your own question never carries it.
+    expect(root('$q')?.querySelector('[data-matrix-subscription-fallback]')).toBeNull()
+  })
+
   it('shows a working line only while its turn works: an ended one, a settled one and a removed one leave nothing', async () => {
     const line = (id: string, body: string, extra: Partial<MatrixSnapshot['messages'][number]> = {}) =>
       message(id, {

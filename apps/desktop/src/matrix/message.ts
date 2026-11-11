@@ -24,6 +24,7 @@ import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
+import { matrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 
 import { parseBotApiMessage } from './app-bots/bot-api'
@@ -344,6 +345,9 @@ export function matrixMessage(
   // The agent's interim remark (agent-turns/1.4): a real message that is not the answer.
   const interim = !failed && !own && matrixInterimMarker(content)
 
+  // The agent's fallback notice (agent-turns/1.7): it marks the answer it replies to, never shown itself.
+  const subscriptionFallback = !failed && !own ? matrixSubscriptionFallback(original) : undefined
+
   return {
     id,
     sender: event.getSender() ?? '',
@@ -373,6 +377,7 @@ export function matrixMessage(
     ...(edited && !progress ? { edited: true, editedAt } : {}),
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
+    ...(subscriptionFallback ? { subscriptionFallback } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

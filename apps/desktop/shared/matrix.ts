@@ -105,6 +105,7 @@ import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand
 import type { MatrixShelfModelId, MatrixShelfModelView } from './matrix-shelf-models'
 import type { MatrixStoreBridge, MatrixStoreSnapshot } from './matrix-store'
 import type { MatrixStoreRunLedger } from './matrix-store-runs'
+import type { MatrixSubscriptionFallback } from './matrix-subscription-fallback'
 import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
@@ -425,6 +426,11 @@ export interface MatrixMessage {
    * it is gone (`matrixHideEndedTransientLines`); never marked edited. It is not an answer: it
    * marks nothing answered and is never a roster preview. */
   progress?: MatrixProgressMarker
+  /** The agent's fallback notice (agent-turns/1.7 `subscription_fallback`): never a row of its own
+   * (`matrixFoldSubscriptionFallbacks` hides it and marks the answer it replies to). */
+  subscriptionFallback?: MatrixSubscriptionFallback
+  /** This answer came from a fallback, not the chosen plan: one faint line under it, no cost. */
+  answeredByFallback?: MatrixSubscriptionFallback
   /** An interim remark of the agent (agent-turns/1.4 `io.atum.interim`): a real message, never the
    * answer. It marks nothing answered and does not stop the no-reply banner. */
   interim?: true

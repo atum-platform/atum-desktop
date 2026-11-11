@@ -204,6 +204,7 @@
     "shared/matrix-shelf-models.ts",
     "shared/matrix-model-display-name.ts",
     "shared/matrix-subscriptions.ts",
+    "shared/matrix-subscription-fallback.ts",
     "shared/matrix-assistant-room.ts",
     "shared/matrix-group-room.ts",
     "shared/matrix-group-notice.ts",

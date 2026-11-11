@@ -35,6 +35,16 @@ interface ModelPickerCopy {
   chatgptCloudNotReady: string
   /** The row under those not-ready models: ChatGPT's state and its one fix, in Settings. */
   chatgptOpenSettings: string
+  /** A ChatGPT plan whose relay Mac is offline: the row's second line, then its one action (tooltip). */
+  chatgptMacOffline: string
+  chatgptMacOfflineHint: string
+  /** No Mac serves ChatGPT to cloud assistants yet: the tooltip's one action. */
+  chatgptNoMacHint: string
+  /** The composer chip's tooltip while the chosen plan cannot answer (the chip opens the picker). */
+  planUnavailable: Record<'mac_offline' | 'no_mac' | 'reconnect', (plan: string) => string>
+  /** The faint line under an answer a fallback model gave, and its tooltip. Never a cost. */
+  fallbackAnswer: string
+  fallbackWhy: Record<'offline' | 'limit' | 'slow' | 'other', (plan: string) => string>
   /** The model line under the thinking level, and the list it opens. */
   chooseModel: string
   modelsLoading: string
@@ -136,6 +146,21 @@ const en: ModelPickerCopy = {
   useChatGpt: 'Use your ChatGPT subscription',
   chatgptCloudNotReady: 'Not ready for your assistants yet',
   chatgptOpenSettings: 'Open ChatGPT in Settings',
+  chatgptMacOffline: 'Your Mac is offline',
+  chatgptMacOfflineHint: 'Open Atum on your Mac to use ChatGPT.',
+  chatgptNoMacHint: 'Open Atum on the Mac where you signed in to ChatGPT.',
+  planUnavailable: {
+    mac_offline: plan => `${plan} can’t answer: your Mac is offline`,
+    no_mac: plan => `${plan} isn’t ready for your assistants yet`,
+    reconnect: plan => `Reconnect ${plan} to use it`
+  },
+  fallbackAnswer: 'Answered with a fallback',
+  fallbackWhy: {
+    offline: plan => `${plan} was offline`,
+    limit: plan => `${plan} reached its limit`,
+    slow: plan => `${plan} didn’t answer in time`,
+    other: plan => `${plan} was unavailable`
+  },
   chooseModel: 'Choose a model',
   modelsLoading: 'Loading models…',
   modelsFailed: 'Couldn’t load this connection’s models.',
@@ -228,6 +253,21 @@ const vi: ModelPickerCopy = {
   useChatGpt: 'Dùng gói ChatGPT của bạn',
   chatgptCloudNotReady: 'Trợ lý của bạn chưa dùng được',
   chatgptOpenSettings: 'Mở ChatGPT trong Cài đặt',
+  chatgptMacOffline: 'Máy Mac của bạn đang tắt',
+  chatgptMacOfflineHint: 'Mở Atum trên máy Mac để dùng ChatGPT.',
+  chatgptNoMacHint: 'Mở Atum trên máy Mac bạn đã đăng nhập ChatGPT.',
+  planUnavailable: {
+    mac_offline: plan => `${plan} chưa trả lời được: máy Mac của bạn đang tắt`,
+    no_mac: plan => `${plan} chưa dùng được cho trợ lý của bạn`,
+    reconnect: plan => `Kết nối lại ${plan} để dùng`
+  },
+  fallbackAnswer: 'Đã trả lời bằng mô hình dự phòng',
+  fallbackWhy: {
+    offline: plan => `Lúc đó ${plan} không kết nối được`,
+    limit: plan => `${plan} đã chạm giới hạn`,
+    slow: plan => `${plan} không trả lời kịp`,
+    other: plan => `Lúc đó ${plan} không dùng được`
+  },
   chooseModel: 'Chọn mô hình',
   modelsLoading: 'Đang tải danh sách mô hình…',
   modelsFailed: 'Chưa tải được danh sách mô hình của kết nối này.',
@@ -319,6 +359,21 @@ const ja: ModelPickerCopy = {
   useChatGpt: 'ChatGPT のサブスクリプションを使う',
   chatgptCloudNotReady: 'アシスタントではまだ使えません',
   chatgptOpenSettings: '設定で ChatGPT を開く',
+  chatgptMacOffline: 'Mac がオフラインです',
+  chatgptMacOfflineHint: 'ChatGPT を使うには Mac で Atum を開いてください。',
+  chatgptNoMacHint: 'ChatGPT にサインインした Mac で Atum を開いてください。',
+  planUnavailable: {
+    mac_offline: plan => `${plan} は使えません：Mac がオフラインです`,
+    no_mac: plan => `${plan} はまだアシスタントで使えません`,
+    reconnect: plan => `${plan} を再接続してください`
+  },
+  fallbackAnswer: '代替モデルで回答しました',
+  fallbackWhy: {
+    offline: plan => `${plan} がオフラインでした`,
+    limit: plan => `${plan} が上限に達しました`,
+    slow: plan => `${plan} の応答が間に合いませんでした`,
+    other: plan => `${plan} が使えませんでした`
+  },
   chooseModel: 'モデルを選ぶ',
   modelsLoading: 'モデルを読み込んでいます…',
   modelsFailed: 'この接続のモデルを読み込めませんでした。',
@@ -411,6 +466,21 @@ const zh: ModelPickerCopy = {
   useChatGpt: '使用你的 ChatGPT 订阅',
   chatgptCloudNotReady: '你的助理暂时还不能使用',
   chatgptOpenSettings: '在设置中打开 ChatGPT',
+  chatgptMacOffline: '你的 Mac 已离线',
+  chatgptMacOfflineHint: '在 Mac 上打开 Atum 即可使用 ChatGPT。',
+  chatgptNoMacHint: '在你登录 ChatGPT 的 Mac 上打开 Atum。',
+  planUnavailable: {
+    mac_offline: plan => `${plan} 暂不可用：你的 Mac 已离线`,
+    no_mac: plan => `${plan} 暂时还不能给助理使用`,
+    reconnect: plan => `重新连接 ${plan} 后即可使用`
+  },
+  fallbackAnswer: '由备用模型回答',
+  fallbackWhy: {
+    offline: plan => `${plan} 当时离线`,
+    limit: plan => `${plan} 已达上限`,
+    slow: plan => `${plan} 未能及时回答`,
+    other: plan => `${plan} 当时不可用`
+  },
   chooseModel: '选择模型',
   modelsLoading: '正在加载模型…',
   modelsFailed: '无法加载这个连接的模型。',
@@ -502,6 +572,21 @@ const zhHant: ModelPickerCopy = {
   useChatGpt: '使用你的 ChatGPT 訂閱',
   chatgptCloudNotReady: '你的助理暫時還不能使用',
   chatgptOpenSettings: '在設定中開啟 ChatGPT',
+  chatgptMacOffline: '你的 Mac 已離線',
+  chatgptMacOfflineHint: '在 Mac 上開啟 Atum 即可使用 ChatGPT。',
+  chatgptNoMacHint: '在你登入 ChatGPT 的 Mac 上開啟 Atum。',
+  planUnavailable: {
+    mac_offline: plan => `${plan} 暫不可用：你的 Mac 已離線`,
+    no_mac: plan => `${plan} 暫時還不能給助理使用`,
+    reconnect: plan => `重新連接 ${plan} 後即可使用`
+  },
+  fallbackAnswer: '由備用模型回答',
+  fallbackWhy: {
+    offline: plan => `${plan} 當時離線`,
+    limit: plan => `${plan} 已達上限`,
+    slow: plan => `${plan} 未能及時回答`,
+    other: plan => `${plan} 當時無法使用`
+  },
   chooseModel: '選擇模型',
   modelsLoading: '正在載入模型…',
   modelsFailed: '無法載入這個連接的模型。',
