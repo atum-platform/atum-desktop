@@ -1,6 +1,6 @@
 ---
 name: atum-agent-profiles
-description: Manage Atum agent profiles and definitions, and propose creation, hire, or retirement.
+description: Manage Atum agent profiles, hiring, and retirement.
 version: 1.1.0
 author: Atum
 license: MIT

@@ -15,7 +15,10 @@ from hermes_state_runtime import begin_runtime_epoch, mutate_worker_execution, r
 
 ROOT = Path(__file__).resolve().parents[2]
 # The agent core: everything a worker's AIAgent runs (tools open their own handles, or refuse).
-CORE = [ROOT / 'run_agent.py', *sorted((ROOT / 'agent').glob('*.py'))]
+# MemoryRunLifecycle is a trusted owner/controller port, never constructed with a
+# worker store. Its SQLite callbacks must not become generic worker RPCs.
+OWNER_ONLY = {ROOT / 'agent' / 'memory_run_lifecycle.py'}
+CORE = [ROOT / 'run_agent.py', *(p for p in sorted((ROOT / 'agent').glob('*.py')) if p not in OWNER_ONLY)]
 
 
 def _core_session_db_calls():

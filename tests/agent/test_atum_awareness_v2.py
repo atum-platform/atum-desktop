@@ -168,6 +168,11 @@ def test_sticky_native_lineage_retirement_and_search(tmp_path, monkeypatch):
     assert all(r['session_id'] == 'sibling' for r in db.search_messages('launchcanary'))
     assert all('derived' not in r.get('snippet', '') for r in db.search_messages('launchcanary', fields=['snippet']))
     db.close()
+    # A late transcript reader must recover the closed writer and still enforce
+    # retirement; close-race recovery cannot turn a retired transcript readable.
+    with pytest.raises(AwarenessSessionError):
+        db.get_messages('child')
+    db.close()
     db = SessionDB(db_path=path)
     try:
         with pytest.raises(AwarenessSessionError): db.get_messages_as_conversation('child')
