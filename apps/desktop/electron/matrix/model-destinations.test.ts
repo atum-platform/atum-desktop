@@ -744,7 +744,7 @@ describe('the account-wide subscription destination (atum.model-choice/1.4)', ()
 describe('a cloud agent’s Atum pick (owner 2026-11-08: “can’t even go back to nguyet thuc”)', () => {
   const view = { recommended: 'nguyet-thuc', choices: [] } as never
 
-  it('writes the cloud destination record, reading it first when unread, and re-reads the 1.1 row', async () => {
+  it('writes the cloud destination record, leaving any first read to the fenced write, and re-reads the 1.1 row', async () => {
     let read = false
 
     const destinations = {
@@ -760,7 +760,8 @@ describe('a cloud agent’s Atum pick (owner 2026-11-08: “can’t even go back
     const legacy = { write: vi.fn(async () => false), reload: vi.fn(async () => undefined) }
 
     await expect(writeMatrixCloudAtumChoice('agent', 'nguyet-thuc', { destinations, legacy })).resolves.toBe(true)
-    expect(destinations.read).toHaveBeenCalledWith('agent')
+    // The class's write reads an unread cache itself, under the pick and sign-in fences.
+    expect(destinations.read).not.toHaveBeenCalled()
     expect(destinations.write).toHaveBeenCalledWith('agent', 'cloud', 'nguyet-thuc')
     // Never the 1.1 offer write, which refuses without an offer and cannot clear a plan choice.
     expect(legacy.write).not.toHaveBeenCalled()
@@ -893,6 +894,33 @@ describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switchi
 
     return { promise, resolve }
   }
+
+  it('drops a pick still waiting for the first read once a later pick saved', async () => {
+    const firstRead = roundTwoDeferred()
+    const { subject, call } = controller([firstRead.promise, roundTwoState(7), roundTwoState(8)])
+    const earlier = subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')
+    await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(1))
+    expect(await subject.write(PRINCIPAL, 'cloud', 'nguyet-thuc')).toBe(true)
+    firstRead.resolve(roundTwoState(7))
+    expect(await earlier).toBe(false)
+    expect(call).toHaveBeenCalledTimes(3)
+    expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nguyet-thuc')
+  })
+
+  it('drops a pick waiting for the first read across a sign-in change', async () => {
+    let active = scope
+    const firstRead = roundTwoDeferred()
+    const { subject, call } = controller([firstRead.promise, roundTwoState(7)], { scope: () => active })
+    const pending = subject.write(PRINCIPAL, 'cloud', 'nhat-thuc')
+    await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(1))
+    active = { ...scope, generation: 2 }
+    subject.activate(active)
+    await subject.read(PRINCIPAL)
+    firstRead.resolve(roundTwoState(7))
+    expect(await pending).toBe(false)
+    expect(call).toHaveBeenCalledTimes(2)
+    expect(subject.cloudChoice(PRINCIPAL)?.model).toBe('nguyet-thuc')
+  })
 
   it('drops an obsolete retry after a newer pick succeeds during its re-read', async () => {
     const late = roundTwoDeferred()

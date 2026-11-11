@@ -803,10 +803,8 @@ export async function writeMatrixCloudAtumChoice(
     return legacy ? legacy.write(agentPrincipal, model) : false
   }
 
-  if (!destinations.view(agentPrincipal)) {
-    await destinations.read(agentPrincipal).catch(() => undefined)
-  }
-
+  // The first read (when nothing is cached yet) happens inside write(), under the same
+  // pick-intent and account-generation fences as the save itself.
   const applied = await (effort
     ? destinations.write(agentPrincipal, 'cloud', model, effort)
     : destinations.write(agentPrincipal, 'cloud', model)
@@ -1042,6 +1040,12 @@ export class MatrixModelDestinations {
     const intent = (this.intents.get(agentPrincipal) ?? 0) + 1
     this.intents.set(agentPrincipal, intent)
     const current = () => scopeCurrent() && this.intents.get(agentPrincipal) === intent
+
+    // Fence before the first read too: a pick waiting for an unread cache must not save after
+    // a later pick or after a sign-in change.
+    if (!this.entries.get(agentPrincipal)?.snapshot) {
+      await this.read(agentPrincipal, scopeCurrent).catch(() => undefined)
+    }
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (!current()) {
