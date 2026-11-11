@@ -507,7 +507,7 @@ export function PetOverlayApp() {
                   stopPropagation keeps a click from starting a window drag. */}
               {unread && (
                 <button
-                  aria-label="Open in Atum"
+                  aria-label={t.uiLabels.openInAtum}
                   onClick={openApp}
                   onPointerDown={e => e.stopPropagation()}
                   onPointerUp={e => e.stopPropagation()}
@@ -528,7 +528,7 @@ export function PetOverlayApp() {
                     top: 0,
                     width: 24
                   }}
-                  title="Open in Atum"
+                  title={t.uiLabels.openInAtum}
                   type="button"
                 >
                   <Mail style={{ height: 13, width: 13 }} />

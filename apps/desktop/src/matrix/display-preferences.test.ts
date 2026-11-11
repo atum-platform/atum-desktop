@@ -56,10 +56,12 @@ it("shows an account that never chose a language in the system's, and a saved ch
   const s = server(),
     fresh = s.device('@alice:test', 'ONE', 'en')
 
-  expect(fresh.preferences.snapshot(true).language).toEqual({ value: 'en', writable: true })
+  // `chosen` is what the owner-language report reads: never a reported language while a choice is saved.
+  expect(fresh.preferences.snapshot(false).language).toEqual({ value: 'en', writable: false })
+  expect(fresh.preferences.snapshot(true).language).toEqual({ value: 'en', writable: true, chosen: false })
   await fresh.preferences.change({ identity: fresh.identity, field: 'language', value: 'vi' })
   fresh.echo('io.atum.desktop.language')
-  expect(fresh.preferences.snapshot(true).language?.value).toBe('vi')
+  expect(fresh.preferences.snapshot(true).language).toEqual({ value: 'vi', writable: true, chosen: true })
 })
 
 it('round-trips language through actual SDK HTTP and independent device echoes without publishing a local global choice', async () => {
@@ -75,7 +77,7 @@ it('round-trips language through actual SDK HTTP and independent device echoes w
 
   for (const d of [first, second]) {
     d.echo(type)
-    expect(d.preferences.snapshot(true)).toHaveProperty('language', { value: 'ja', writable: true })
+    expect(d.preferences.snapshot(true)).toHaveProperty('language', { value: 'ja', writable: true, chosen: true })
   }
 
   const restarted = s.device('@alice:test', 'THREE')
@@ -99,13 +101,13 @@ it('keeps language extensions and a future schema, isolated from concurrent appe
   ])
   expect(s.records.get(`@alice:test:${type}`)).toEqual({ version: 1, value: 'zh-hant', extension: { keep: true } })
   a.echo(type)
-  expect(a.preferences.snapshot(false).language).toEqual({ value: 'zh-hant', writable: false })
+  expect(a.preferences.snapshot(false).language).toEqual({ value: 'zh-hant', writable: false, chosen: true })
   s.records.set(`@alice:test:${type}`, { version: 2, value: 'future' })
   await expect(a.preferences.change({ identity: a.identity, field: 'language', value: 'vi' })).rejects.toThrow(
     'readonly'
   )
   a.echo(type)
-  expect(a.preferences.snapshot(true).language).toEqual({ value: 'zh-hant', writable: false })
+  expect(a.preferences.snapshot(true).language).toEqual({ value: 'zh-hant', writable: false, chosen: true })
   expect(s.records.get(`@alice:test:${MATRIX_DISPLAY_EVENTS.textSize}`)).toEqual({ version: 1, value: 110 })
 })
 
@@ -187,7 +189,7 @@ it('uses real SDK HTTP to save separate fields from two devices, without fabrica
     expect(d.preferences.snapshot(true)).toEqual({
       appearance: { value: 'dark', writable: true },
       textSize: { value: 110, writable: true },
-      language: { value: 'vi', writable: true },
+      language: { value: 'vi', writable: true, chosen: false },
       notifications: { value: true, writable: true },
       sound: { value: true, writable: true },
       shareActivity: { value: true, writable: true }
@@ -233,7 +235,7 @@ it('retains the last valid choice offline or under a future/malformed record, wi
     expect(d.preferences.snapshot(true)).toEqual({
       appearance: { value: 'dark', writable: false },
       textSize: { value: 100, writable: true },
-      language: { value: 'vi', writable: true },
+      language: { value: 'vi', writable: true, chosen: false },
       notifications: { value: true, writable: true },
       sound: { value: true, writable: true },
       shareActivity: { value: true, writable: true }

@@ -7,7 +7,7 @@ import {
   type MatrixMessage,
   type MatrixReaction
 } from '../../shared/matrix'
-import { isMatrixAgentStatusCode } from '../../shared/matrix-agent-status-copy'
+import { matrixAnswerWarning, matrixResultStatusNotice, matrixStatusLine } from '../../shared/matrix-agent-status-marker'
 import { plainRoom } from '../../shared/matrix-assistant-room'
 import { MATRIX_CHECK_IN_NUDGE_KEY, parseMatrixCheckInNudge } from '../../shared/matrix-check-ins'
 import {
@@ -30,7 +30,7 @@ import {
 import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
-import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
+import { matrixProgressMarker, matrixProgressPresentation } from '../../shared/matrix-progress-marker'
 import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 
 import { parseBotApiMessage } from './app-bots/bot-api'
@@ -485,16 +485,22 @@ export function matrixMessage(
   const reactions = id.startsWith('$') ? matrixReactions(room, id, ownUserId, ignored) : undefined
   const own = event.getSender() === ownUserId
   const cloud = record(content['io.atum.result'])
+  // An outcome's code and bounded details (agent-turns/1.5 A14): the viewer words it in its own
+  // language; a marker outside the contract's shape leaves the body as it is.
+  const notice = !failed && !own ? matrixResultStatusNotice(content) : undefined
 
-  const cloudStatus =
-    !failed && !own && content.msgtype === 'm.notice' && cloud && isMatrixAgentStatusCode(cloud.status)
-      ? {
-          code: cloud.status,
-          ...(cloud.status === 'resuming_on_device' && validStopEvent(cloud.stopEvent)
-            ? { stopEvent: cloud.stopEvent }
-            : {})
-        }
-      : undefined
+  const cloudStatus = notice
+    ? {
+        ...notice,
+        ...(notice.code === 'resuming_on_device' && validStopEvent(cloud?.stopEvent)
+          ? { stopEvent: cloud!.stopEvent as string }
+          : {})
+      }
+    : undefined
+
+  // A scheduled or standing line (A15) and an answer that ends with an appended warning (A14).
+  const statusLine = !failed && !own ? matrixStatusLine(content) : undefined
+  const answerWarning = !failed && !own ? matrixAnswerWarning(content) : undefined
 
   // A check-in's card: only a scheduled post (its cron marker) that carries a valid nudge.
   const checkIn =
@@ -517,6 +523,10 @@ export function matrixMessage(
         ? company?.stream === 'progress' ? company.progress : undefined
         : matrixProgressMarker(content)
       : undefined
+
+  // Its descriptor (agent-turns/1.5 A12, optional on a 1.6 company line too), a sibling of the
+  // marker in the same latest content.
+  const presentation = progress ? matrixProgressPresentation(content, progress) : undefined
 
   // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
   const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
@@ -549,6 +559,7 @@ export function matrixMessage(
     // A progress line is edited by design: it never reads "(đã sửa)".
     ...(edited && !progress ? { edited: true, editedAt } : {}),
     ...(progress ? { progress } : {}),
+    ...(presentation ? { presentation } : {}),
     ...(interim ? { interim: true as const } : {}),
     ...(company ? { company: { ...company.identity, revisedAt: editedAt ?? event.getTs() } } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
@@ -557,6 +568,8 @@ export function matrixMessage(
     ...(reactions ? { reactions } : {}),
     ...(checkIn ? { checkIn } : {}),
     ...(cloudStatus ? { cloudStatus } : {}),
+    ...(statusLine ? { statusLine } : {}),
+    ...(answerWarning ? { answerWarning } : {}),
     ...(petCommands ? { petIntents: { commands: petCommands, live: petLive } } : {}),
     ...(botApi ? { botApi } : {})
   }

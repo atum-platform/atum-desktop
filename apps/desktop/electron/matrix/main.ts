@@ -827,6 +827,7 @@ import {
   MatrixOwnerKeys,
   retainMatrixOwnerKey
 } from './owner-keys'
+import { ownerLanguageToReport, refreshMatrixRosterOnLanguageChange } from './owner-language'
 import { createOwnerReaderTrustPoller, prepareOwnerReaderControls } from './owner-reader-poll'
 import { compareCurrentOwnerReader, crossSignCurrentOwnerReader } from './owner-reader-trust'
 import { ensureMatrixOwnerRecovery } from './owner-recovery'
@@ -7254,6 +7255,15 @@ function publish(next: MatrixSnapshot) {
   // A retired agent's chats leave the chat list once the chats are synced (retired-agent-rooms.ts).
   if (!closing) {
     void retiredAgentRooms.sweep({ owner: state.identity?.userId, ready: state.state === 'ready', rooms: state.rooms })
+  }
+
+  // atum.owner-language/1: a language the sync echo just confirmed (or that just became known) is
+  // reported by the next roster read now, not at the quarter-hour refresh. `account` exists only once
+  // startup made it; the read starts after this publish returns.
+  if (!closing && account && config.domain) {
+    refreshMatrixRosterOnLanguageChange(() => account.ownerLanguageChanged(), agentRoster, () =>
+      queueMicrotask(() => void syncAgents())
+    )
   }
 }
 
@@ -18263,7 +18273,14 @@ async function start() {
             return named ? isCloudOnlyAgent(named) : undefined
           }
         }),
-      domainContinuation: matrixDriveChain(() => drive)
+      domainContinuation: matrixDriveChain(() => drive),
+      // atum.owner-language/1: the saved choice, else this Mac's supported system language once
+      // sync confirmed the account saved none, so a headless sender's fallback words follow the owner.
+      ownerLanguage: () =>
+        ownerLanguageToReport(
+          state.identity ? state.displayPreferences?.language : undefined,
+          desktopLocaleFor(app.getPreferredSystemLanguages())
+        )
     }
   )
 

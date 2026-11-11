@@ -1,6 +1,19 @@
 import { defineLocale } from './define-locale'
 
 export const vi = defineLocale({
+  uiLabels: {
+    conversationTimeline: 'Dòng thời gian cuộc trò chuyện',
+    messageSending: 'Đang gửi',
+    messageConflicted: 'Gửi bị xung đột',
+    reference: 'Ảnh tham khảo',
+    removeReference: 'Bỏ ảnh tham khảo',
+    openInAtum: 'Mở trong Atum',
+    hatchingProgress: 'Tiến độ nở trứng',
+    steered: 'đã đổi hướng',
+    toolSearch: 'Tìm',
+    toolPayload: 'Dữ liệu công cụ',
+    linkText: 'văn bản'
+  },
   cloud: {
     deviceStatusUnconfirmed: 'Trạng thái của máy Mac này tạm thời chưa đọc được. Atum sẽ tự kiểm tra lại.',
     wordRefusal:

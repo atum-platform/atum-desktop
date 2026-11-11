@@ -1,3 +1,6 @@
+import { matrixFirstLearningStarting } from './matrix-first-learning'
+import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
+
 interface MatrixStatusLineCopy {
   /** A turn's one status line, while it waits on the person at this Mac: typing and the read
    * receipt say it is working the rest of the time. */
@@ -80,4 +83,103 @@ export function matrixToolActivity(locale: keyof typeof matrixToolActivityCopy, 
   const kind = matrixToolActivityKind(name)
 
   return kind ? matrixToolActivityCopy[locale][kind] : undefined
+}
+
+type Locale = 'en' | 'vi' | 'ja' | 'zh' | 'zh-hant'
+
+/** A wait on a named Mac and a Touch ID wait (agent-turns/1.5 `device_wait`, `touch_id`): the Mac is
+ * the marker's `device`, by its owner-visible name; a line without one says "your Mac". */
+export const matrixDeviceWaitCopy: Record<Locale, {
+  yourMac: string
+  waiting(name: string): string
+  touchId(name: string): string
+}> = {
+  en: {
+    yourMac: 'your Mac',
+    waiting: name => `Waiting for ${name}…`,
+    touchId: name => `Waiting for you to confirm with Touch ID on ${name}.`
+  },
+  vi: {
+    yourMac: 'máy Mac của bạn',
+    waiting: name => `Đang chờ ${name}…`,
+    touchId: name => `Đang chờ bạn xác nhận Touch ID trên ${name}.`
+  },
+  ja: {
+    yourMac: 'お使いの Mac',
+    waiting: name => `${name} を待っています…`,
+    touchId: name => `${name} で Touch ID の確認を待っています。`
+  },
+  zh: {
+    yourMac: '你的 Mac',
+    waiting: name => `正在等待 ${name}…`,
+    touchId: name => `正在等待你在 ${name} 上用 Touch ID 确认。`
+  },
+  'zh-hant': {
+    yourMac: '你的 Mac',
+    waiting: name => `正在等待 ${name}…`,
+    touchId: name => `正在等待你在 ${name} 上用 Touch ID 確認。`
+  }
+}
+
+/** The generated line over the agent's checklist (`todo_progress`); the items stay as written. */
+export const matrixTodoProgressCopy: Record<Locale, (done: number, total: number) => string> = {
+  en: (done, total) => (done < total ? `${done} of ${total} done` : `All ${total} done, wrapping up…`),
+  vi: (done, total) => (done < total ? `Đã xong ${done}/${total} việc` : `Đã xong cả ${total} việc, mình đang hoàn tất…`),
+  ja: (done, total) => (done < total ? `${total}件中${done}件完了` : `${total}件すべて完了、仕上げています…`),
+  zh: (done, total) => (done < total ? `已完成 ${done}/${total} 项` : `${total} 项都已完成，正在收尾…`),
+  'zh-hant': (done, total) => (done < total ? `已完成 ${done}/${total} 項` : `${total} 項都已完成，正在收尾…`)
+}
+
+/** The line's first row in the viewer's language, from the descriptor alone. */
+function presentationHeader(
+  presentation: MatrixProgressPresentation,
+  marker: Pick<MatrixProgressMarker, 'device'>,
+  locale: Locale
+): string {
+  const device = marker.device ?? matrixDeviceWaitCopy[locale].yourMac
+
+  switch (presentation.code) {
+    case 'tool_activity':
+      return matrixToolActivityCopy[locale][presentation.args.activity]
+
+    case 'todo_progress':
+      return matrixTodoProgressCopy[locale](presentation.args.done, presentation.args.total)
+
+    case 'first_learning':
+      return matrixFirstLearningStarting(locale)
+
+    case 'heartbeat':
+      return matrixProgressCopy[locale].heartbeat(presentation.args.elapsed_minutes)
+
+    case 'device_wait':
+      return matrixDeviceWaitCopy[locale].waiting(device)
+
+    case 'touch_id':
+      return matrixDeviceWaitCopy[locale].touchId(device)
+  }
+}
+
+const STEP_ROW = /^[✓✔•◦]/u
+
+/**
+ * What one working line shows to this viewer (agent-turns/1.5): with a descriptor already checked against
+ * the line's marker (`matrixProgressPresentation`), its first row
+ * in the viewer's current language and the checklist rows of `body` exactly as the agent wrote them;
+ * without one, `body` itself. `body` stays the canonical text (copy, export, other clients).
+ */
+export function matrixProgressLineText(
+  body: string,
+  marker: Pick<MatrixProgressMarker, 'device'> | undefined,
+  presentation: MatrixProgressPresentation | undefined,
+  locale: Locale
+): string {
+  const header = marker && presentation ? presentationHeader(presentation, marker, locale) : undefined
+
+  if (!header) {
+    return body
+  }
+
+  const steps = body.split('\n').map(row => row.trim()).filter(row => STEP_ROW.test(row))
+
+  return [header, ...steps].join('\n')
 }

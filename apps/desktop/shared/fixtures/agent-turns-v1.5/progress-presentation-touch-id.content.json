@@ -1,0 +1,38 @@
+{
+  "msgtype": "m.notice",
+  "body": "* Đang chờ bạn xác nhận Touch ID trên Mac mini.",
+  "m.new_content": {
+    "msgtype": "m.notice",
+    "body": "Đang chờ bạn xác nhận Touch ID trên Mac mini.",
+    "io.atum.progress": {
+      "profile": "atum.agent-turns/1.3",
+      "scope": "owner_private",
+      "phase": "waiting",
+      "kind": "touch_id",
+      "revision": 5,
+      "device": "Mac mini"
+    },
+    "io.atum.presentation": {
+      "version": 1,
+      "code": "touch_id",
+      "args": {}
+    }
+  },
+  "m.relates_to": {
+    "rel_type": "m.replace",
+    "event_id": "$progress-root"
+  },
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.3",
+    "scope": "owner_private",
+    "phase": "waiting",
+    "kind": "touch_id",
+    "revision": 5,
+    "device": "Mac mini"
+  },
+  "io.atum.presentation": {
+    "version": 1,
+    "code": "touch_id",
+    "args": {}
+  }
+}

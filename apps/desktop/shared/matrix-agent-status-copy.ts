@@ -9,17 +9,37 @@
  * names. Vietnamese is the default; every locale changes together.
  */
 import type { DesktopLocale } from './desktop-locale'
+import { matrixDeviceWaitCopy } from './matrix-status-line-copy'
 
 export const MATRIX_AGENT_STATUS_CODES = [
   'stopped', 'failed', 'deadline', 'couldnt_confirm', 'unfunded', 'trial_expired', 'queue_full',
   'memory_not_saved', 'couldnt_verify_mac', 'resuming_on_device', 'attachment_unsupported', 'thread_unsupported',
   'saved_to_drive', 'saved_as_copy', 'save_unconfirmed', 'reply_unreadable',
-  'turn_limit', 'reminder_missed', 'stuck', 'access_final', 'daily_cap', 'daily_cap_warning'
+  'turn_limit', 'reminder_missed', 'stuck', 'access_final', 'daily_cap', 'daily_cap_warning',
+  // agent-turns/1.5 A14: the persistent notice that a chosen Mac is off or locked.
+  'device_unreachable'
 ] as const
 export type MatrixAgentStatusCode = (typeof MATRIX_AGENT_STATUS_CODES)[number]
 
 export function isMatrixAgentStatusCode(value: unknown): value is MatrixAgentStatusCode {
   return (MATRIX_AGENT_STATUS_CODES as readonly unknown[]).includes(value)
+}
+
+/** The codes that ride beside a real answer's text as an appended warning (agent-turns/1.5 A14). */
+export const MATRIX_AGENT_ANSWER_WARNING_CODES = [
+  'memory_not_saved', 'saved_to_drive', 'saved_as_copy', 'save_unconfirmed'
+] as const satisfies readonly MatrixAgentStatusCode[]
+export type MatrixAgentAnswerWarningCode = (typeof MATRIX_AGENT_ANSWER_WARNING_CODES)[number]
+
+/** What a status sentence interpolates (agent-turns/1.5 `result_details`): nothing else, ever. */
+export interface MatrixAgentStatusDetails {
+  /** Owner-visible Mac names: the Macs that may have run it, the one a turn resumes on or the one that is away. */
+  devices?: string[]
+  /** The owner's own name for a scheduled routine that did not finish. */
+  routine_title?: string
+  attachment?: 'unsupported' | 'unreadable'
+  /** The agent carries on when the Mac is back. */
+  resume?: boolean
 }
 
 /**
@@ -58,6 +78,7 @@ interface StatusCopy {
   queueFull: string
   memoryNotSaved: string
   couldntVerifyMac: string
+  /** The turn moved from the cloud to a Mac: the cloud work stopped and it carries on there. */
   resumingOnDevice: (device: string) => string
   attachmentUnsupported: string
   /** The attachment was refused on a controller that does read attachments (too large, too many, upload failed). */
@@ -74,6 +95,12 @@ interface StatusCopy {
    * already in a chat keeps being recognized and reads exactly as before.
    */
   dailyCapWarning: string
+  /** A scheduled routine that did not finish because the server had trouble; quotes the owner's own name for it. */
+  routineFailed: (title: string) => string
+  /** The chosen Mac is off or locked and the agent carries on when it is back. */
+  deviceAway: (name: string) => string
+  /** The chosen Mac is off or locked; the person opens it or asks for the cloud. */
+  deviceAwayNow: (name: string) => string
 }
 
 export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
@@ -93,7 +120,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: 'Đang có quá nhiều yêu cầu chờ nên mình chưa nhận thêm. Bạn thử lại sau ít phút nhé.',
     memoryNotSaved: '(Mình chưa lưu được điều vừa học từ lần này.)',
     couldntVerifyMac: 'Mình không xác minh được máy Mac đã gửi tin này nên chưa làm gì cả.',
-    resumingOnDevice: device => `${device} đã trực tuyến trở lại. Mình làm ngay đây.`,
+    resumingOnDevice: device => `Mình đã dừng việc trên đám mây và đang làm tiếp trên ${device}.`,
     attachmentUnsupported: 'Mình chưa mở được tệp đính kèm trong chat. Bạn dán nội dung hoặc lưu vào Atum Drive nhé.',
     attachmentUnreadable: 'Mình chưa mở được tệp đính kèm này. Có thể tệp quá lớn, lần tải lên chưa xong, hoặc có quá nhiều tệp trong một lượt. Bạn thử lại với tối đa hai tệp, mỗi tệp không quá 20 MB nhé.',
     replyUnreadable: 'Mình không đọc được tin nhắn bạn đang trả lời. Bạn gửi lại nội dung đó nhé.',
@@ -102,7 +129,10 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     savedAsCopy: 'Tệp đã thay đổi trong lúc mình làm, nên mình lưu thêm một bản bên cạnh.',
     saveUnconfirmed: 'Việc lưu tệp bị gián đoạn nên chưa rõ tệp đã vào Atum Drive chưa. Mình không lưu lại lần nữa để khỏi trùng; bạn mở Atum Drive xem giúp mình nhé.',
     dailyCap: 'Hôm nay mình đã chạm hạn mức sử dụng nên chưa trả lời tiếp được. Mai mình sẽ trả lời tiếp, hoặc bạn mở thẻ trợ lý để nâng hạn mức nhé.',
-    dailyCapWarning: 'Hôm nay mình đã dùng gần hết hạn mức. Mình vẫn chạy bình thường, chỉ báo bạn biết thôi.'
+    dailyCapWarning: 'Hôm nay mình đã dùng gần hết hạn mức. Mình vẫn chạy bình thường, chỉ báo bạn biết thôi.',
+    routineFailed: title => `Việc “${title}” lần này chưa làm xong vì Atum gặp trục trặc ở phía máy chủ, không phải do bạn. Nếu việc này lặp lại theo lịch, lần tới mình sẽ chạy lại như bình thường. Bạn muốn mình làm ngay thì cứ nhắn nhé.`,
+    deviceAway: name => `${name} đang tắt hoặc đã khoá. Mình sẽ làm tiếp khi máy mở lại, hoặc bạn nhắn “làm trên đám mây” để mình làm luôn.`,
+    deviceAwayNow: name => `${name} đang tắt hoặc đã khoá. Bạn mở máy lên, hoặc nhắn “làm trên đám mây” để mình làm luôn.`
   },
   en: {
     stopped: 'Stopped.',
@@ -120,7 +150,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: 'Too many requests are waiting, so I didn’t take this one. Try again in a few minutes.',
     memoryNotSaved: '(I couldn’t save what I learned this time.)',
     couldntVerifyMac: 'I couldn’t verify which Mac sent this, so I didn’t do anything.',
-    resumingOnDevice: device => `${device} is back online. Doing it now.`,
+    resumingOnDevice: device => `I’ve stopped working in the cloud and I’m continuing on ${device}.`,
     attachmentUnsupported: 'I can’t open attachments in chat yet. Paste the text, or save the file to Atum Drive.',
     attachmentUnreadable: 'I couldn’t open that attachment. It may be too large, the upload didn’t finish, or there were too many files at once. Try again with up to two files of 20 MB each.',
     replyUnreadable: 'I can’t read the message you replied to. Please send its text again.',
@@ -129,7 +159,10 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     savedAsCopy: 'The file changed while I worked, so I saved a copy next to it.',
     saveUnconfirmed: 'The save was interrupted, so it’s unclear whether the file reached Atum Drive. I won’t save it again so there’s no duplicate; please take a look in Atum Drive.',
     dailyCap: 'I’ve reached today’s usage limit, so I can’t answer this one right now. I’ll pick it up again tomorrow, or you can raise the limit from the assistant card.',
-    dailyCapWarning: 'I’m close to today’s usage limit. I’ll keep going as usual; this is just a heads-up.'
+    dailyCapWarning: 'I’m close to today’s usage limit. I’ll keep going as usual; this is just a heads-up.',
+    routineFailed: title => `Your routine “${title}” didn’t finish this time because Atum had a problem on its servers. It wasn’t anything you did. If it repeats on a schedule, I’ll run it as usual next time. Message me if you’d like me to do it now.`,
+    deviceAway: name => `${name} is off or locked. I’ll carry on when it’s back, or tell me “do it in the cloud” and I’ll do it right away.`,
+    deviceAwayNow: name => `${name} is off or locked. Open it, or tell me “do it in the cloud” and I’ll do it right away.`
   },
   ja: {
     stopped: '停止しました。',
@@ -147,7 +180,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '待機中の依頼が多すぎるため、受け付けませんでした。数分後にもう一度お試しください。',
     memoryNotSaved: '（今回覚えたことは保存できませんでした。）',
     couldntVerifyMac: 'この依頼を送った Mac を確認できなかったため、何も実行していません。',
-    resumingOnDevice: device => `${device} がオンラインに戻りました。今から実行します。`,
+    resumingOnDevice: device => `クラウドでの作業を止めて、${device} で続けています。`,
     attachmentUnsupported: 'チャットの添付ファイルはまだ開けません。内容を貼り付けるか、Atum Drive に保存してください。',
     attachmentUnreadable: 'この添付ファイルを開けませんでした。ファイルが大きすぎるか、アップロードが完了していないか、一度に多すぎる可能性があります。20 MB 以下のファイルを 2 件まででもう一度お試しください。',
     replyUnreadable: '返信先のメッセージを読めません。内容をもう一度送ってください。',
@@ -156,7 +189,10 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     savedAsCopy: '作業中にファイルが変更されたため、隣にコピーを保存しました。',
     saveUnconfirmed: '保存が中断されたため、ファイルが Atum Drive に入ったかどうか分かりません。重複しないよう再保存はしないので、Atum Drive をご確認ください。',
     dailyCap: '今日の利用上限に達したため、今回は返信できません。明日また続きを返信します。上限はアシスタントカードから引き上げられます。',
-    dailyCapWarning: '今日の利用上限に近づいています。いつもどおり続けます。これはお知らせだけです。'
+    dailyCapWarning: '今日の利用上限に近づいています。いつもどおり続けます。これはお知らせだけです。',
+    routineFailed: title => `「${title}」は、Atum のサーバー側で問題が起きたため、今回は完了できませんでした。あなたの操作が原因ではありません。繰り返し予定のタスクなら、次回は通常どおり実行します。今すぐ実行する場合はメッセージを送ってください。`,
+    deviceAway: name => `${name} は電源が切れているか、ロックされています。戻り次第続けます。すぐに進めたいときは「クラウドでやって」と送ってください。`,
+    deviceAwayNow: name => `${name} は電源が切れているか、ロックされています。開くか、「クラウドでやって」と送ってください。すぐに進めます。`
   },
   zh: {
     stopped: '已停止。',
@@ -174,7 +210,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '等待中的请求太多，这次没有接收。请几分钟后再试。',
     memoryNotSaved: '（这次学到的内容没能保存。）',
     couldntVerifyMac: '无法确认是哪台 Mac 发送了这条消息，所以没有执行任何操作。',
-    resumingOnDevice: device => `${device} 已重新上线，现在就开始。`,
+    resumingOnDevice: device => `我已停止云端的工作，正在 ${device} 上继续。`,
     attachmentUnsupported: '暂时还不能打开聊天里的附件。请粘贴文字内容，或把文件存到 Atum Drive。',
     attachmentUnreadable: '没能打开这个附件。文件可能太大、上传没有完成，或者一次放了太多文件。请用不超过 20 MB 的文件、最多两个再试一次。',
     replyUnreadable: '回复的消息无法读取。请重新发送消息内容。',
@@ -183,7 +219,10 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     savedAsCopy: '我处理期间文件有变动，所以在旁边另存了一份。',
     saveUnconfirmed: '保存被中断了，不清楚文件是否已进入 Atum Drive。为避免重复，我不会再保存一次，请到 Atum Drive 里看看。',
     dailyCap: '今天的用量已达上限，这次无法继续回复。明天我会接着回复，你也可以在助手卡片中提高上限。',
-    dailyCapWarning: '今天的用量已接近上限。我会照常继续，这只是提醒。'
+    dailyCapWarning: '今天的用量已接近上限。我会照常继续，这只是提醒。',
+    routineFailed: title => `“${title}”这次没有完成，是因为 Atum 的服务器出了问题，不是你的原因。如果它按计划重复，下次我会照常运行。想现在就做的话，直接告诉我。`,
+    deviceAway: name => `${name} 已关机或已锁定。它恢复后我会接着做；也可以发送“在云端做”，我马上处理。`,
+    deviceAwayNow: name => `${name} 已关机或已锁定。请打开它，或发送“在云端做”，我马上处理。`
   },
   'zh-hant': {
     stopped: '已停止。',
@@ -201,7 +240,7 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     queueFull: '等待中的請求太多，這次沒有接收。請幾分鐘後再試。',
     memoryNotSaved: '（這次學到的內容沒能儲存。）',
     couldntVerifyMac: '無法確認是哪台 Mac 傳送了這則訊息，所以沒有執行任何操作。',
-    resumingOnDevice: device => `${device} 已重新上線，現在就開始。`,
+    resumingOnDevice: device => `我已停止雲端的工作，正在 ${device} 上繼續。`,
     attachmentUnsupported: '暫時還不能開啟聊天裡的附件。請貼上文字內容，或把檔案存到 Atum Drive。',
     attachmentUnreadable: '沒能開啟這個附件。檔案可能太大、上傳沒有完成，或者一次放了太多檔案。請用不超過 20 MB 的檔案、最多兩個再試一次。',
     replyUnreadable: '回覆的訊息無法讀取。請重新傳送訊息內容。',
@@ -210,7 +249,10 @@ export const matrixAgentStatusCopy: Record<DesktopLocale, StatusCopy> = {
     savedAsCopy: '我處理期間檔案有變動，所以在旁邊另存了一份。',
     saveUnconfirmed: '儲存被中斷了，不清楚檔案是否已進入 Atum Drive。為避免重複，我不會再儲存一次，請到 Atum Drive 裡看看。',
     dailyCap: '今天的用量已達上限，這次無法繼續回覆。明天我會接著回覆，你也可以在助手卡片中提高上限。',
-    dailyCapWarning: '今天的用量已接近上限。我會照常繼續，這只是提醒。'
+    dailyCapWarning: '今天的用量已接近上限。我會照常繼續，這只是提醒。',
+    routineFailed: title => `「${title}」這次沒有完成，是因為 Atum 的伺服器發生問題，不是你的原因。如果它依排程重複，下次我會照常執行。想現在就做的話，直接告訴我。`,
+    deviceAway: name => `${name} 已關機或已鎖定。它恢復後我會接著做；也可以傳送「在雲端做」，我馬上處理。`,
+    deviceAwayNow: name => `${name} 已關機或已鎖定。請打開它，或傳送「在雲端做」，我馬上處理。`
   }
 }
 
@@ -249,17 +291,19 @@ export function matrixAgentAccessRemedy(locale: DesktopLocale): string {
 export function matrixAgentStatusText(
   code: MatrixAgentStatusCode,
   locale: DesktopLocale,
-  details: { devices?: string[]; attachment?: 'unsupported' | 'unreadable' } = {}
+  details: MatrixAgentStatusDetails = {}
 ): string {
   const copy = matrixAgentStatusCopy[locale] ?? matrixAgentStatusCopy.vi
   const devices = (details.devices ?? []).filter(name => name.trim()).slice(0, 8)
+  const routine = details.routine_title?.trim()
+  const mac = devices[0] ?? (matrixDeviceWaitCopy[locale] ?? matrixDeviceWaitCopy.vi).yourMac
 
   switch (code) {
     case 'stopped':
       return copy.stopped
 
     case 'failed':
-      return copy.failed
+      return routine ? copy.routineFailed(routine) : copy.failed
 
     case 'deadline':
       return copy.deadline
@@ -295,7 +339,7 @@ export function matrixAgentStatusText(
       return copy.couldntVerifyMac
 
     case 'resuming_on_device':
-      return copy.resumingOnDevice(devices[0] ?? 'Mac')
+      return copy.resumingOnDevice(mac)
 
     case 'attachment_unsupported':
       return details.attachment === 'unsupported' ? copy.attachmentUnsupported : copy.attachmentUnreadable
@@ -320,5 +364,8 @@ export function matrixAgentStatusText(
 
     case 'daily_cap_warning':
       return copy.dailyCapWarning
+
+    case 'device_unreachable':
+      return details.resume ? copy.deviceAway(mac) : copy.deviceAwayNow(mac)
   }
 }

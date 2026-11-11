@@ -242,8 +242,9 @@ function ModeSwitcher({
 
 export function WorkspaceTextFileDirtyDot({ url }: { url: string }) {
   const dirty = useStore($dirtyPreviewUrls)
+  const { t } = useI18n()
 
-  return dirty[url] ? <span aria-label="Unsaved changes" className="size-2 rounded-full bg-amber-500" /> : null
+  return dirty[url] ? <span aria-label={t.preview.unsavedChanges} className="size-2 rounded-full bg-amber-500" /> : null
 }
 
 interface WorkspaceTextFilePaneProps {

@@ -3,6 +3,19 @@ import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 import type { Translations } from './types'
 
 export const en: Translations = {
+  uiLabels: {
+    conversationTimeline: 'Conversation timeline',
+    messageSending: 'Sending',
+    messageConflicted: 'Delivery conflict',
+    reference: 'Reference',
+    removeReference: 'Remove reference',
+    openInAtum: 'Open in Atum',
+    hatchingProgress: 'Hatching progress',
+    steered: 'steered',
+    toolSearch: 'Search',
+    toolPayload: 'Tool payload',
+    linkText: 'text'
+  },
   cloud: {
     deviceStatusUnconfirmed: 'This Mac’s status is temporarily unavailable. Atum will check again automatically.',
     wordRefusal:

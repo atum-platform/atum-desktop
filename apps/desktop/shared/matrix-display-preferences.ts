@@ -19,7 +19,9 @@ export function matrixDisplayMode(preference: MatrixAppearanceMode = 'system', s
 export interface MatrixDisplayPreferences {
   appearance: { value: MatrixAppearanceMode; writable: boolean }
   textSize: { value: MatrixTextSize; writable: boolean }
-  language?: { value: DesktopLocale; writable: boolean }
+  /** `chosen`: the account saved this language (true), or sync confirmed it saved none and this is the
+   * system's (false); absent while that is unknown. The owner-language report reads it (atum.owner-language/1). */
+  language?: { value: DesktopLocale; writable: boolean; chosen?: boolean }
   notifications?: { value: boolean; writable: boolean }
   sound?: { value: boolean; writable: boolean }
   /** Preserve user-visible identity, state and recovery behavior across connection changes. */

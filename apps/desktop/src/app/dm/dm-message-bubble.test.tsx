@@ -2,6 +2,11 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
+import { en } from '@/i18n/en'
+import { ja } from '@/i18n/ja'
+import { vi as viCopy } from '@/i18n/vi'
+import { zh } from '@/i18n/zh'
+import { zhHant } from '@/i18n/zh-hant'
 import type { AtumMessagingMessage } from '@/lib/atum-messaging-client'
 
 vi.mock('@/store/atum-dm-workspace', () => ({
@@ -419,26 +424,45 @@ describe('delivery failure is visible', () => {
   // The engine's own state name is `failed_terminal` (MutationState). This
   // bubble previously tested for `failed_terminal`'s non-existent twin,
   // `failed_permanent`, so a message that could never be delivered rendered
-  // exactly like a delivered one.
-  it('marks a terminally failed message as failed and offers no retry', () => {
-    const { container } = renderBubble({ delivery: 'failed_terminal', clientMessageId: 'client-1' }, true)
+  // exactly like a delivered one. The failure is named in words, in the reader's
+  // language; the icon beside them is only a mark.
+  const locales = [
+    ['vi', viCopy],
+    ['en', en],
+    ['ja', ja],
+    ['zh', zh],
+    ['zh-hant', zhHant]
+  ] as const
 
-    expect(container.querySelector('[aria-label="failed"]')).toBeTruthy()
-    expect(screen.getByText('Gửi thất bại')).toBeTruthy()
-    expect(screen.queryByRole('button', { name: 'Thử lại' })).toBeNull()
+  function renderIn(locale: string, overrides: Partial<AtumMessagingMessage>) {
+    return render(
+      <I18nProvider configClient={null} initialLocale={locale}>
+        <DmMessageBubble message={message(overrides)} onRetry={vi.fn()} own retryLabel="Retry" />
+      </I18nProvider>
+    )
+  }
+
+  it.each(locales)('marks a terminally failed message as failed and offers no retry (%s)', (locale, copy) => {
+    const { container } = renderIn(locale, { delivery: 'failed_terminal', clientMessageId: 'client-1' })
+
+    expect(container.querySelector('[data-delivery-failed]')).toBeTruthy()
+    expect(screen.getByText(copy.dm.sendFailed)).toBeTruthy()
+    expect(container.querySelector('[aria-label="failed"]')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull()
   })
 
-  it('marks a retryable failure as failed and offers retry', () => {
-    const { container } = renderBubble({ delivery: 'failed_retryable', clientMessageId: 'client-1' }, true)
+  it.each(locales)('marks a retryable failure as failed and offers retry (%s)', (locale, copy) => {
+    const { container } = renderIn(locale, { delivery: 'failed_retryable', clientMessageId: 'client-1' })
 
-    expect(container.querySelector('[aria-label="failed"]')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Thử lại' })).toBeTruthy()
+    expect(container.querySelector('[data-delivery-failed]')).toBeTruthy()
+    expect(screen.getByText(copy.dm.sendFailed)).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
 
   it('leaves a delivered message unmarked', () => {
     const { container } = renderBubble({ delivery: 'sent' }, true)
 
-    expect(container.querySelector('[aria-label="failed"]')).toBeNull()
+    expect(container.querySelector('[data-delivery-failed]')).toBeNull()
     expect(screen.queryByText('Gửi thất bại')).toBeNull()
   })
 })

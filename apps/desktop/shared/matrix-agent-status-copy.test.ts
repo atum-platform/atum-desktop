@@ -11,12 +11,13 @@ import {
 } from './matrix-agent-status-copy'
 
 describe('matrix agent access-status copy', () => {
-  it('publishes exactly the frozen agent-home status vocabulary', () => {
+  it('publishes exactly the frozen notice vocabulary (agent-home status codes plus agent-turns/1.5 device_unreachable)', () => {
     expect(MATRIX_AGENT_STATUS_CODES).toEqual([
       'stopped', 'failed', 'deadline', 'couldnt_confirm', 'unfunded', 'trial_expired', 'queue_full',
       'memory_not_saved', 'couldnt_verify_mac', 'resuming_on_device', 'attachment_unsupported', 'thread_unsupported',
       'saved_to_drive', 'saved_as_copy', 'save_unconfirmed', 'reply_unreadable',
-      'turn_limit', 'reminder_missed', 'stuck', 'access_final', 'daily_cap', 'daily_cap_warning'
+      'turn_limit', 'reminder_missed', 'stuck', 'access_final', 'daily_cap', 'daily_cap_warning',
+      'device_unreachable'
     ])
   })
 
