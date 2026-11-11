@@ -3,6 +3,8 @@ import { EditorSelection, type EditorState, Transaction } from '@codemirror/stat
 import { type Command, type EditorView, type KeyBinding } from '@codemirror/view'
 import type { SyntaxNode } from '@lezer/common'
 
+import { translateNow } from '@/i18n/runtime'
+
 export interface ActiveFormats {
   code: boolean
   codeBlock: boolean
@@ -421,10 +423,13 @@ export const insertLink: Command = view => {
   const range = state.selection.main
 
   if (range.empty) {
+    // The placeholder is written into the person's document, in the app's current language.
+    const text = translateNow('uiLabels.linkText')
+
     return dispatchReplacement(view, {
       from: range.head,
-      insert: '[văn bản](url)',
-      selection: { anchor: range.head + 1, head: range.head + 8 },
+      insert: `[${text}](url)`,
+      selection: { anchor: range.head + 1, head: range.head + 1 + text.length },
       to: range.head
     })
   }

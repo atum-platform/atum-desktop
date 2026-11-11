@@ -150,6 +150,7 @@ import {
 import type { FirstRunGoogleAuthority } from './first-run-google'
 import type { MatrixAppTurn } from './invocation'
 import { MatrixOfficialAccountsError, requestMatrixOfficialAccounts } from './official-accounts'
+import { type OwnerLanguage, OwnerLanguageReports } from './owner-language'
 import type { OwnerReaderTrustEnrollment, OwnerReaderVerification } from './owner-reader-trust'
 import {
   MatrixPetChatAuthenticationError,
@@ -439,6 +440,9 @@ export interface MatrixAccountHooks {
   localExecutorRequired?: (agent: string | undefined) => boolean
   /** This app's version (`app.getVersion`), sent with every Store request (requestMatrixStore). */
   desktopVersion?: string
+  /** The owner's language for the roster read's report (atum.owner-language/1): the saved choice, else
+   * the supported system language once sync confirmed none is saved; undefined sends nothing. */
+  ownerLanguage?: () => OwnerLanguage | undefined
   /** Optional next authorization after the Atum-account grant commits. Its own cancellation is
    * joined to this browser trip, while a missing or failed continuation never fails the grant. */
   domainContinuation?: {
@@ -585,6 +589,8 @@ export class MatrixAccount {
   private orphanReconcile?: Promise<{ attempted: boolean; cleared: number; remaining: number }>
   /** A38: one acknowledged time zone per account, carried by the roster read. */
   private readonly timeZoneReports: OwnerTimeZoneReports
+  /** atum.owner-language/1: one acknowledged language per account, on the same roster read. */
+  private readonly languageReports: OwnerLanguageReports
 
   constructor(
     private readonly config: MatrixConfig,
@@ -606,6 +612,11 @@ export class MatrixAccount {
       store: this.store,
       scope: () => this.appScope(),
       zone: () => currentIanaTimeZone()
+    })
+    this.languageReports = new OwnerLanguageReports({
+      store: this.store,
+      scope: () => this.appScope(),
+      language: () => this.hooks.ownerLanguage?.()
     })
   }
 
@@ -2166,6 +2177,7 @@ export class MatrixAccount {
       if (remaining && this.config.domain) {
         // A38: the next sign-in of this person reports its Mac's zone afresh.
         this.timeZoneReports.clear(this.accountKey(remaining))
+        this.languageReports.clear(this.accountKey(remaining))
       }
 
       this.store.removeItem('matrix-account')
@@ -4174,13 +4186,17 @@ export class MatrixAccount {
   }
 
   /** The person's agents (roster, 0146): main-only, with the current domain grant. It is also
-   * the one carrier of the Mac's time zone when it changed since this account's last ack (A38). */
+   * the one carrier of the Mac's time zone when it changed since this account's last ack (A38), and of
+   * the owner's language until the platform acknowledged it (atum.owner-language/1). */
   async agents(signal: AbortSignal): Promise<MatrixAgentDefinitionRecord[]> {
     const grant = await this.agentGrant()
     const report = this.timeZoneReports.begin()
+    const language = this.languageReports.begin()
 
     return listMatrixAgentDefinitions(this.config.domain!.resource, grant, signal, {
-      ...(report ? { headers: report.headers, onTimeZoneAck: ack => report.settle(ack) } : {})
+      ...(report || language ? { headers: { ...report?.headers, ...language?.headers } } : {}),
+      ...(report ? { onTimeZoneAck: ack => report.settle(ack) } : {}),
+      ...(language ? { onLanguageAck: ack => language.settle(ack) } : {})
     })
   }
 

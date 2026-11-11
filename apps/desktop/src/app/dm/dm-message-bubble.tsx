@@ -301,10 +301,10 @@ export function DmMessageBubble({
               new Date(message.createdAt)
             )}
           </time>
-          {pending && <Clock aria-label="sending" className="size-3" />}
-          {failed && <AlertCircle aria-label="failed" className="size-3" />}
+          {pending && <Clock aria-label={t.uiLabels.messageSending} className="size-3" />}
+          {failed && <AlertCircle aria-label={t.dm.sendFailed} className="size-3" />}
           {failed && <span>{t.dm.sendFailed}</span>}
-          {conflicted && <AlertTriangle aria-label="conflicted" className="size-3" />}
+          {conflicted && <AlertTriangle aria-label={t.uiLabels.messageConflicted} className="size-3" />}
           {message.editedAt && !recalled && <span>{t.dm.edited}</span>}
           {own && read && <span>{t.dm.messageRead}</span>}
         </div>

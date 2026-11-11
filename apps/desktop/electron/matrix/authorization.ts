@@ -1,12 +1,13 @@
-import { createServer, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 
 import * as oidc from 'openid-client'
 
 import { MATRIX_CALLBACK_PAGE_HEADERS, type MatrixCallbackPage, matrixCallbackPage } from './callback-page'
 
-/** Ends a callback request on one of Atum's own pages (callback-page.ts). */
-function page(res: ServerResponse, status: number, kind: MatrixCallbackPage) {
-  res.writeHead(status, MATRIX_CALLBACK_PAGE_HEADERS).end(matrixCallbackPage(kind))
+/** Ends a callback request on one of Atum's own pages (callback-page.ts), in the browser's language
+ * where Atum speaks it. */
+function page(req: IncomingMessage, res: ServerResponse, status: number, kind: MatrixCallbackPage) {
+  res.writeHead(status, MATRIX_CALLBACK_PAGE_HEADERS).end(matrixCallbackPage(kind, req.headers['accept-language']))
 }
 
 export interface NativeGrant {
@@ -88,7 +89,7 @@ export async function authorizeNative<T>({
     try {
       url = new URL(req.url ?? '/', redirectUri)
     } catch {
-      page(res, 400, 'failed')
+      page(req, res, 400, 'failed')
 
       return
     }
@@ -99,13 +100,13 @@ export async function authorizeNative<T>({
       url.origin !== new URL(redirectUri).origin ||
       url.pathname !== '/callback'
     ) {
-      page(res, 404, 'missing')
+      page(req, res, 404, 'missing')
 
       return
     }
 
     if (!live || consumed || url.searchParams.getAll('state').length !== 1 || url.searchParams.get('state') !== state) {
-      page(res, 400, 'failed')
+      page(req, res, 400, 'failed')
 
       return
     }
@@ -162,11 +163,11 @@ export async function authorizeNative<T>({
         if (next && httpsUrl(next)) {
           res.writeHead(302, { Location: next }).end()
         } else {
-          page(res, 200, 'signed_in')
+          page(req, res, 200, 'signed_in')
         }
       } catch {
         if (!res.headersSent) {
-          page(res, 200, 'signed_in')
+          page(req, res, 200, 'signed_in')
         }
       }
 
@@ -176,7 +177,7 @@ export async function authorizeNative<T>({
         await discard(grant).catch(() => {})
       }
 
-      page(res, 400, 'failed')
+      page(req, res, 400, 'failed')
       const cancelled = error instanceof oidc.AuthorizationResponseError && error.error === 'access_denied'
       reject(new Error(cancelled ? 'matrix_login_cancelled' : 'matrix_login_failed'))
     } finally {

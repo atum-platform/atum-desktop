@@ -547,7 +547,7 @@ function ToolEntry({ part }: ToolEntryProps) {
             <div className="max-w-full text-xs leading-relaxed text-(--ui-text-secondary)">
               {view.searchQuery && (
                 <p className="mb-1 flex min-w-0 gap-1.5 wrap-anywhere">
-                  <span className="shrink-0 font-medium text-(--ui-text-tertiary)">Search</span>
+                  <span className="shrink-0 font-medium text-(--ui-text-tertiary)">{t.uiLabels.toolSearch}</span>
                   <span>{view.searchQuery}</span>
                 </p>
               )}
@@ -636,7 +636,7 @@ function ToolEntry({ part }: ToolEntryProps) {
           )}
           {toolViewMode === 'technical' && isFileEdit && view.inlineDiff && (
             <details className="max-w-full">
-              <summary className={cn(TOOL_SECTION_LABEL_CLASS, 'mb-0 cursor-pointer')}>Tool payload</summary>
+              <summary className={cn(TOOL_SECTION_LABEL_CLASS, 'mb-0 cursor-pointer')}>{t.uiLabels.toolPayload}</summary>
               <pre className={cn(TOOL_SECTION_PRE_CLASS, 'mt-1 whitespace-pre-wrap wrap-anywhere')}>
                 {technicalTrace(part.args, part.result)}
               </pre>

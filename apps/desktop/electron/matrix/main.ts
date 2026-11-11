@@ -828,6 +828,7 @@ import {
   MatrixOwnerKeys,
   retainMatrixOwnerKey
 } from './owner-keys'
+import { ownerLanguageToReport } from './owner-language'
 import { createOwnerReaderTrustPoller, prepareOwnerReaderControls } from './owner-reader-poll'
 import { compareCurrentOwnerReader, crossSignCurrentOwnerReader } from './owner-reader-trust'
 import { ensureMatrixOwnerRecovery } from './owner-recovery'
@@ -18271,7 +18272,14 @@ async function start() {
             return named ? isCloudOnlyAgent(named) : undefined
           }
         }),
-      domainContinuation: matrixDriveChain(() => drive)
+      domainContinuation: matrixDriveChain(() => drive),
+      // atum.owner-language/1: the saved choice, else this Mac's supported system language once
+      // sync confirmed the account saved none, so a headless sender's fallback words follow the owner.
+      ownerLanguage: () =>
+        ownerLanguageToReport(
+          state.identity ? state.displayPreferences?.language : undefined,
+          desktopLocaleFor(app.getPreferredSystemLanguages())
+        )
     }
   )
 

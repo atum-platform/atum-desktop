@@ -614,6 +614,69 @@ it('projects the agent’s progress line for a render hook, never marked edited,
   expect(matrixMessage(event(content, '@owner:test'), '@owner:test', new Set())?.progress).toBeUndefined()
 })
 
+it('projects the agent-turns/1.5 descriptor from the latest content, beside its marker, and never a stranger\u2019s', () => {
+  const marker = (revision: number) =>
+    ({ profile: 'atum.agent-turns/1.3', scope: 'owner_private', phase: 'working', kind: 'todo', revision }) as const
+
+  const run = { version: 1, code: 'tool_activity', args: { activity: 'run' } }
+  const web = { version: 1, code: 'tool_activity', args: { activity: 'web' } }
+  const root = event({ msgtype: 'm.notice', body: 'Đang chạy tác vụ…', 'io.atum.progress': marker(0), 'io.atum.presentation': run }, '@assistant:test')
+
+  expect(matrixMessage(root, '@owner:test', new Set())).toMatchObject({ body: 'Đang chạy tác vụ…', progress: marker(0), presentation: run })
+
+  // An edit carries its own descriptor inside m.new_content: the line follows the latest one.
+  root.makeReplaced(event({
+    msgtype: 'm.notice',
+    body: '* Đang tra cứu trên web…',
+    'm.new_content': { msgtype: 'm.notice', body: 'Đang tra cứu trên web…', 'io.atum.progress': marker(1), 'io.atum.presentation': web },
+    'm.relates_to': { rel_type: 'm.replace', event_id: '$event' },
+    'io.atum.progress': marker(1),
+    'io.atum.presentation': web
+  }, '@assistant:test'))
+  expect(matrixMessage(root, '@owner:test', new Set())).toMatchObject({ body: 'Đang tra cứu trên web…', presentation: web })
+
+  // A descriptor that does not pair with the line, a descriptor without a marker, or the owner's own copy: nothing.
+  const heartbeat = { version: 1, code: 'heartbeat', args: { elapsed_minutes: 3 } }
+  expect(matrixMessage(event({ msgtype: 'm.notice', body: 'x', 'io.atum.progress': marker(0), 'io.atum.presentation': heartbeat }, '@assistant:test'), '@owner:test', new Set())?.presentation).toBeUndefined()
+  expect(matrixMessage(event({ msgtype: 'm.notice', body: 'x', 'io.atum.presentation': run }, '@assistant:test'), '@owner:test', new Set())?.presentation).toBeUndefined()
+  expect(matrixMessage(event({ msgtype: 'm.notice', body: 'x', 'io.atum.progress': marker(0), 'io.atum.presentation': run }), '@owner:test', new Set())?.presentation).toBeUndefined()
+})
+
+it('projects outcome details, scheduled lines and answer warnings only from the agent\u2019s own events', () => {
+  const invocation = '6f1c9b1e-7b4a-4a3c-9f0e-2d4c5a6b7c8d'
+
+  const away = {
+    msgtype: 'm.notice',
+    body: 'MacBook Air đang tắt hoặc đã khoá.',
+    'io.atum.result': { invocation, transaction: 'turn-status-1', status: 'device_unreachable' },
+    'io.atum.result_details': { devices: ['MacBook Air'], resume: true }
+  }
+
+  expect(matrixMessage(event(away, '@assistant:test'), '@owner:test', new Set())?.cloudStatus)
+    .toEqual({ code: 'device_unreachable', details: { devices: ['MacBook Air'], resume: true } })
+  // Details with a key outside the contract leave the body as it is.
+  expect(matrixMessage(event({ ...away, 'io.atum.result_details': { devices: ['MacBook Air'], occurrence: invocation } }, '@assistant:test'), '@owner:test', new Set())?.cloudStatus)
+    .toBeUndefined()
+
+  const brief = { msgtype: 'm.text', body: 'Hôm nay mình đã dùng gần hết hạn mức.', 'io.atum.status': { version: 1, code: 'daily_cap_warning' } }
+  expect(matrixMessage(event(brief, '@assistant:test'), '@owner:test', new Set())?.statusLine).toEqual({ code: 'daily_cap_warning' })
+  expect(matrixMessage(event(brief), '@owner:test', new Set())?.statusLine).toBeUndefined()
+
+  const answer = {
+    msgtype: 'm.text',
+    body: 'Xong rồi.\n\nĐã lưu vào Atum Drive.',
+    'm.relates_to': { 'm.in_reply_to': { event_id: '$question' } },
+    'io.atum.result': { invocation, transaction: 'turn-answer-1', status: 'saved_to_drive' },
+    'io.atum.result_warning': { version: 1, from: 9 }
+  }
+
+  const projected = matrixMessage(event(answer, '@assistant:test'), '@owner:test', new Set())!
+  // The canonical body is unchanged for copy and export.
+  expect(projected).toMatchObject({ body: answer.body, answerWarning: { code: 'saved_to_drive', answer: 'Xong rồi.' } })
+  expect(matrixMessage(event({ ...answer, 'io.atum.result_warning': { version: 2, from: 9 } }, '@assistant:test'), '@owner:test', new Set())?.answerWarning).toBeUndefined()
+  expect(matrixMessage(event(answer), '@owner:test', new Set())?.answerWarning).toBeUndefined()
+})
+
 it('projects the agent\u2019s interim remark as a real message that is not the answer, and never a stranger\u2019s', () => {
   const content = { msgtype: 'm.text', body: 'Để mình xem video này rồi tóm tắt nhé.', 'io.atum.interim': true }
   const remark = matrixMessage(event(content, '@assistant:test'), '@owner:test', new Set())!

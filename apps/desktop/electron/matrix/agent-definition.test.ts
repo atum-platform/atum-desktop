@@ -1041,6 +1041,32 @@ describe('Matrix owner time-zone report on the roster read', () => {
     expect(request).toHaveBeenCalledTimes(2)
   })
 
+  it('carries the owner-language pair beside the zone and hands each ack to its own report', async () => {
+    const request = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const value = input instanceof Request ? input : new Request(input, init)
+
+      expect(value.headers.get('atum-language')).toBe('en')
+      expect(value.headers.get('atum-language-source')).toBe('reported')
+      expect(value.headers.get('atum-time-zone')).toBe('Asia/Tokyo')
+
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json; charset=utf-8', 'Atum-Language-Ack': 'vi' }
+      })
+    })
+    vi.stubGlobal('fetch', request)
+    const zone = vi.fn()
+    const language = vi.fn()
+
+    await listMatrixAgentDefinitions(resource, grant, new AbortController().signal, {
+      headers: { 'Atum-Time-Zone': 'Asia/Tokyo', 'Atum-Language': 'en', 'Atum-Language-Source': 'reported' },
+      onTimeZoneAck: zone,
+      onLanguageAck: language
+    })
+    expect(zone).toHaveBeenCalledWith(undefined)
+    expect(language).toHaveBeenCalledWith('vi')
+  })
+
   it('does not hand out an ack from a refused roster read', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(null, { status: 403 })))
     const ack = vi.fn()

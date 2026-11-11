@@ -1,13 +1,16 @@
 import { AtumAtom } from '@/components/brand/atum-atom'
+import { useI18n } from '@/i18n'
 import { Check } from '@/lib/icons'
 
 import type { MatrixAgentView, MatrixMessage } from '../../shared/matrix'
+import { matrixProgressLineText } from '../../shared/matrix-status-line-copy'
 
 /**
  * Atum working in place: the animated atom owns the identity slot. A progress event's first line
  * is the current step; any remaining lines become the quiet step card. The line is the turn's
  * transient `io.atum.progress` notice, never a separate status message; the transcript hides it
- * as soon as the turn ends.
+ * as soon as the turn ends. A line with a valid agent-turns/1.5 descriptor is worded in the reader's
+ * current language (a language switch rewords it, no new event); the checklist rows stay as written.
  */
 export function MatrixAgentWorking({
   line,
@@ -22,7 +25,9 @@ export function MatrixAgentWorking({
   label: string
   typing: boolean
 }) {
-  const lines = line?.body.split('\n').map(value => value.trim()).filter(Boolean) ?? []
+  const { locale } = useI18n()
+  const shown = line ? matrixProgressLineText(line.body, line.progress, line.presentation, locale) : ''
+  const lines = shown.split('\n').map(value => value.trim()).filter(Boolean)
   const current = lines[0]
 
   const steps = lines.slice(1).map(value => ({
