@@ -115,6 +115,60 @@
       }
     },
     {
+      "name": "atum.memory.current.respond",
+      "summary": "Answer a controller-bound managed memory event with a closed result.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/MemoryRespondParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/MemoryRespondResult"
+        }
+      }
+    },
+    {
+      "name": "atum.memory.invalidate.respond",
+      "summary": "Answer a controller-bound managed memory event with a closed result.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/MemoryRespondParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/MemoryRespondResult"
+        }
+      }
+    },
+    {
+      "name": "atum.memory.retrieve.respond",
+      "summary": "Answer a controller-bound managed memory event with a closed result.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/MemoryRespondParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/MemoryRespondResult"
+        }
+      }
+    },
+    {
       "name": "billing.auto_reload",
       "summary": "Enable/disable auto top-up with its threshold and reload amount (billing:manage).",
       "params": [
@@ -24116,6 +24170,24 @@
         "title": "ManagedCancelResult",
         "type": "object"
       },
+      "ManagedMemoryRequestPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "request": {
+            "default": null,
+            "title": "Request"
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "title": "ManagedMemoryRequestPayload",
+        "type": "object"
+      },
       "McpCatalogEntry": {
         "additionalProperties": false,
         "properties": {
@@ -25117,6 +25189,44 @@
           "oauth_needed"
         ],
         "title": "McpServersTestResult",
+        "type": "object"
+      },
+      "MemoryRespondParams": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "request_id",
+          "result"
+        ],
+        "title": "MemoryRespondParams",
+        "type": "object"
+      },
+      "MemoryRespondResult": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "MemoryRespondResult",
         "type": "object"
       },
       "MessageCompletePayload": {
@@ -39085,6 +39195,16 @@
             "default": null,
             "title": "Awareness Binding"
           },
+          "managed_memory": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Managed Memory"
+          },
           "async_delivery": {
             "anyOf": [
               {
@@ -39104,6 +39224,16 @@
       "SessionCreateResult": {
         "additionalProperties": false,
         "properties": {
+          "managed_memory": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Managed Memory"
+          },
           "session_id": {
             "title": "Session Id",
             "type": "string"
@@ -52210,6 +52340,42 @@
           "name": "payload",
           "schema": {
             "$ref": "#/components/schemas/ApprovalCancelledPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "atum.memory.current.request",
+      "summary": "Ask the trusted cloud controller for bound memory authority or retrieval.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/ManagedMemoryRequestPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "atum.memory.invalidate.request",
+      "summary": "Ask the trusted cloud controller for bound memory authority or retrieval.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/ManagedMemoryRequestPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "atum.memory.retrieve.request",
+      "summary": "Ask the trusted cloud controller for bound memory authority or retrieval.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/ManagedMemoryRequestPayload"
           }
         }
       ]

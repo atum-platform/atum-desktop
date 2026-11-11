@@ -181,3 +181,18 @@ class PetExportBundleResult(Result):
 
 method("pet.export_bundle", params=PetExportBundleParams, result=PetExportBundleResult,
        doc="Export a hatch operation's canonical pet files for the paid Store listing.")
+
+
+class MemoryRespondParams(Params):
+    session_id: str
+    request_id: str
+    result: str
+
+
+class MemoryRespondResult(Result):
+    accepted: bool
+
+
+for _kind in ("retrieve", "current", "invalidate"):
+    method(f"atum.memory.{_kind}.respond", params=MemoryRespondParams, result=MemoryRespondResult,
+           doc="Answer a controller-bound managed memory event with a closed result.")

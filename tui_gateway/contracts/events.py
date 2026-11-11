@@ -968,3 +968,13 @@ __all__ = [
     "TurnStatus", "VoicePartialPayload", "VoiceStatusPayload",
     "VoiceTranscriptPayload", "WakeDetectedPayload",
 ]
+
+
+class ManagedMemoryRequestPayload(Payload):
+    request_id: str
+    request: JsonValue = None
+
+
+for _memory_kind in ('retrieve', 'current', 'invalidate'):
+    event(f'atum.memory.{_memory_kind}.request', ManagedMemoryRequestPayload,
+          doc='Ask the trusted cloud controller for bound memory authority or retrieval.')

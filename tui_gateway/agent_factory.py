@@ -708,7 +708,15 @@ def _make_agent(
     with _sessions_lock:
         session = _sessions.get(sid)
     from tui_gateway.awareness_provider import build_memory_manager
-    awareness_manager = None if shared_room or reply_only else build_memory_manager(session, sid, session_id or key)
+    if session and session.get("_managed_memory_binding"):
+        if ignore_rules or shared_room or reply_only or learning_mode:
+            raise ValueError("memory_binding_invalid")
+        from tui_gateway.managed_memory import build_cloud_memory
+        managed_kwargs = build_cloud_memory(session, sid, session_id or key,
+                                            session_db if session_db is not None else _get_db())
+        awareness_manager = managed_kwargs.get("memory_manager")
+    else:
+        awareness_manager = None if shared_room or reply_only else build_memory_manager(session, sid, session_id or key)
     selected = [] if reply_only else (["atum_first_learning"] if learning_mode else _load_enabled_toolsets(platform))
     if (cfg.get("platform_toolsets") or {}).get("cli") == []:
         selected = []
