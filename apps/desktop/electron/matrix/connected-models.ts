@@ -158,7 +158,8 @@ export function matrixModelCatalogFromSnapshot(
   const uniqueModels = new Map<string, string[]>()
 
   for (const row of rows) {
-    const models = [...new Set(row.models)].filter(model =>
+    const advertisedModels = [...new Set(row.models)]
+    const models = advertisedModels.filter(model =>
       row.id !== 'openai-codex' || atumChatGptModelVisible(model))
     uniqueModels.set(row.id, models)
 
@@ -170,8 +171,9 @@ export function matrixModelCatalogFromSnapshot(
     const supported = models.filter(routeModelSupported)
     const currentModel = currentChoice?.provider === row.id ? currentChoice.model : undefined
 
-    const currentUnsupported =
-      currentModel !== undefined && models.includes(currentModel) && !routeModelSupported(currentModel)
+    const currentUnavailable =
+      currentModel !== undefined && advertisedModels.includes(currentModel) &&
+      (!models.includes(currentModel) || !routeModelSupported(currentModel))
         ? currentModel
         : undefined
 
@@ -198,21 +200,22 @@ export function matrixModelCatalogFromSnapshot(
       })
     }
 
-    // Keep the model actually in use visible even when its identifier is outside the route
-    // policy: it is current, but not selectable through this route. Never substitute another
-    // supported model as "current", and never send this id to the adapter.
-    if (currentUnsupported !== undefined) {
+    // Keep the model actually in use visible when its identifier is outside the route policy or
+    // a compatibility alias was filtered from new choices. It is current, but not selectable
+    // through this route. Never substitute another supported model as "current", and never send
+    // this id to the adapter or advertise it as a ready destination.
+    if (currentUnavailable !== undefined) {
       routes.push({
-        id: matrixModelRouteId(row.id, currentUnsupported),
+        id: matrixModelRouteId(row.id, currentUnavailable),
         provider: row.id,
-        model: currentUnsupported,
-        name: currentUnsupported,
+        model: currentUnavailable,
+        name: currentUnavailable,
         providerLabel,
         accountLabel,
         connection,
         target: 'agent_default',
         destination: 'this_mac',
-        efforts: levels(row, currentUnsupported),
+        efforts: levels(row, currentUnavailable),
         current: true,
         ready: false
       })
