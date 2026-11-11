@@ -1364,6 +1364,8 @@ class SessionMessagesMixin(SessionDetachedResultsMixin, SessionTodoResultMixin):
         ``include_ancestors``: also load the compression lineage (root → tip, branch sessions exempt),
         mirroring ``get_messages_as_conversation(include_ancestors=True)`` — after a compression rotation
         the full transcript spans parent sessions, not just the child continuation (#51058)."""
+        from agent.memory_run_lifecycle import assert_session_current
+        assert_session_current(self, session_id)
         if after_id is not None and (latest or offset):
             raise ValueError("after_id is incompatible with latest/offset paging")
         if after_id is not None and include_compacted:
@@ -1421,6 +1423,8 @@ class SessionMessagesMixin(SessionDetachedResultsMixin, SessionTodoResultMixin):
     def get_messages_around(self, session_id: str, around_message_id: int, window: int = 5) -> dict[str, Any]:
         """Up to *window* messages either side of an anchor id (ascending). ``messages_before``/``_after`` count
         strictly around the anchor (fewer than *window* = session boundary). Empty for a foreign anchor."""
+        from agent.memory_run_lifecycle import assert_session_current
+        assert_session_current(self, session_id)
         window = max(window, 0)
         with self._read_ctx() as conn:
             if not conn.execute("SELECT 1 FROM messages WHERE id = ? AND session_id = ? LIMIT 1",
@@ -1511,6 +1515,8 @@ class SessionMessagesMixin(SessionDetachedResultsMixin, SessionTodoResultMixin):
         repairs the loaded list for LIVE REPLAY callers (a durable ``user;user`` pair would re-trigger the
         per-request repair forever), preserving summary markers before repair so derivative context
         cannot merge with an original user turn; the stored transcript is never mutated."""
+        from agent.memory_run_lifecycle import assert_session_current
+        assert_session_current(self, session_id)
         display = include_compacted and not include_inactive  # removed rows too: see drop_removed
         rows = self._fetch_conversation_rows(
             self._resume_lineage_ids(session_id) if include_ancestors else [session_id],
@@ -1727,6 +1733,8 @@ class SessionMessagesMixin(SessionDetachedResultsMixin, SessionTodoResultMixin):
         """Resume row count, or raise ``SessionResumeTooLargeError``. ``max_messages=None`` reads config; 0
         disables the guard without counting. ``tip_only`` bounds only the tip's active rows for callers that
         never materialize the lineage: a heavily compressed conversation is a success, not a rejection."""
+        from agent.memory_run_lifecycle import assert_session_current
+        assert_session_current(self, session_id)
         from hermes_state import SessionResumeTooLargeError, resolved_max_resume_messages
         if max_messages is None:
             max_messages = resolved_max_resume_messages()
