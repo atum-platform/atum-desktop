@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Tuple
 
 
 def _parse_codex_final_response(
-    final: Any, *, issuer_kind: Optional[str] = None, issuer_model: Optional[str] = None,
+    final: Any, *, message_items: Optional[list] = None, issuer_kind: Optional[str] = None, issuer_model: Optional[str] = None,
 ) -> tuple[list[str], list[Any], Any, str]:
     """Normalize Responses output without losing phase or completion state for aux callers."""
     from agent.codex_responses_adapter import _lower_or_none, _normalize_codex_response
@@ -41,6 +41,8 @@ def _parse_codex_final_response(
         finish_reason == "incomplete" or _lower_or_none(normalized_final.status) == "incomplete"
     ):
         finish_reason = "length"
+    if message_items is not None:
+        message_items.extend(message.codex_message_items or [])
     text_parts = [message.content] if message.content else []
     tool_calls_raw = message.tool_calls
     usage = None

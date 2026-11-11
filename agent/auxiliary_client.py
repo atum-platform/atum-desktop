@@ -1598,8 +1598,9 @@ class _CodexCompletionsAdapter:
                 raise RuntimeError("Codex auxiliary Responses stream did not return a final response")
             from agent.auxiliary_codex_response import _parse_codex_final_response
 
+            message_items: list[dict[str, Any]] = []
             text_parts, tool_calls_raw, usage, finish_reason = _parse_codex_final_response(
-                final, issuer_kind=issuer_kind, issuer_model=issuer_model,
+                final, message_items=message_items, issuer_kind=issuer_kind, issuer_model=issuer_model,
             )
             # Undo only the aliases THIS request emitted, before the call reaches Hermes dispatch.
             for tc in tool_calls_raw or ():
@@ -1616,6 +1617,7 @@ class _CodexCompletionsAdapter:
         message = SimpleNamespace(
             role="assistant", content="".join(text_parts).strip() or None,
             tool_calls=tool_calls_raw or None,
+            codex_message_items=message_items or None,
         )
         choice = SimpleNamespace(index=0, message=message, finish_reason=finish_reason)
         return SimpleNamespace(choices=[choice], model=model, usage=usage)
