@@ -6,6 +6,7 @@ import type {
 
 import type { ConversationMarker, ConversationWrite } from './agent-conversation/types'
 import type { MatrixConversationView } from './agent-conversation/view'
+import type { AgentMemoryBridge } from './agent-memory'
 import type { MatrixRoutinesBridge } from './agent-routines'
 import type { AgentTaskBinding, AgentTaskMessage, AgentTaskOwnedAgent, AgentTaskWatch } from './agent-task'
 import type { AppDescriptor } from './app-catalog'
@@ -2104,6 +2105,7 @@ export interface MatrixUiBridge {
   routines?: MatrixRoutinesBridge
   /** The platform-owned per-agent background follow-up setting. */
   backgroundSweep?: MatrixBackgroundSweepBridge
+  agentMemory?: AgentMemoryBridge
   nativeApps?: MatrixNativeAppsBridge
   /** Passive permissions of this running app on this device; no agent authority. */
   permissions?: MatrixPermissionsBridge
