@@ -1,0 +1,8 @@
+{
+  "msgtype": "m.text",
+  "body": "Mình đã lỡ giờ nhắc việc này vì lúc đó không chạy được.",
+  "io.atum.status": {
+    "version": 1,
+    "code": "reminder_missed"
+  }
+}

@@ -1,0 +1,1870 @@
+{
+  "contract_id": "atum.company-agent",
+  "version": 1,
+  "status": "frozen",
+  "protocol_release": "0.8.2",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/age-exhausted.json",
+    "fixtures/authority_denied.json",
+    "fixtures/authority_refresh-wipe.json",
+    "fixtures/authority_refresh.json",
+    "fixtures/authority_stale.json",
+    "fixtures/binding-cross-company.json",
+    "fixtures/binding-cross-home.json",
+    "fixtures/binding-stale-disclosure.json",
+    "fixtures/binding-wrong-agent.json",
+    "fixtures/channel-binding.json",
+    "fixtures/check.json",
+    "fixtures/commit-result.json",
+    "fixtures/commit-skip-generation.json",
+    "fixtures/commit-stale-cas.json",
+    "fixtures/commit-wrong-lease.json",
+    "fixtures/commit-wrong-session.json",
+    "fixtures/commit.json",
+    "fixtures/conflict.json",
+    "fixtures/context.json",
+    "fixtures/double-check-forbidden.json",
+    "fixtures/effect-unknown.json",
+    "fixtures/effects.json",
+    "fixtures/home-committed.json",
+    "fixtures/home-empty-has-state.json",
+    "fixtures/home-empty.json",
+    "fixtures/home-read-wrong-lease.json",
+    "fixtures/home-read.json",
+    "fixtures/invalid.json",
+    "fixtures/join-wipe.json",
+    "fixtures/join.json",
+    "fixtures/lease-acquire.json",
+    "fixtures/lease-free.json",
+    "fixtures/lease-held.json",
+    "fixtures/lease-renew-wrong-home.json",
+    "fixtures/lease-renew.json",
+    "fixtures/leave-wipe.json",
+    "fixtures/leave.json",
+    "fixtures/mutation-rerun-forbidden.json",
+    "fixtures/not_found.json",
+    "fixtures/ok.json",
+    "fixtures/private-binding.json",
+    "fixtures/private-error-body.json",
+    "fixtures/rate_limited.json",
+    "fixtures/rejoin-wipe.json",
+    "fixtures/rejoin.json",
+    "fixtures/requeue-none.json",
+    "fixtures/requeue-read_only.json",
+    "fixtures/resource.json",
+    "fixtures/retired.json",
+    "fixtures/rotate-invalid-agentPrincipal.json",
+    "fixtures/rotate-invalid-audiencePartitionId.json",
+    "fixtures/rotate-invalid-companyId.json",
+    "fixtures/rotate-invalid-disclosureEpoch.json",
+    "fixtures/rotate-invalid-homeId.json",
+    "fixtures/rotate.json",
+    "fixtures/turn-complete.json",
+    "fixtures/turn-dispatch.json",
+    "fixtures/unavailable.json",
+    "fixtures/unknown-new-operation.json",
+    "fixtures/unknown-terminal.json",
+    "fixtures/unknown.json"
+  ],
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "cloud-controller",
+    "desktop",
+    "native Hermes bridge"
+  ],
+  "selection": {
+    "profile": "atum.company-agent/1",
+    "unsupported": "update_required; never silently downgrade"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "digest": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "counter": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "room_id": {
+      "type": "string",
+      "min": 4,
+      "max": 512,
+      "pattern": "![!-9;-~]{1,255}:[!-~]{1,255}"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 512,
+      "pattern": "[$][!-~]+"
+    },
+    "lease_token": {
+      "type": "string",
+      "min": 32,
+      "max": 512,
+      "pattern": "[A-Za-z0-9_-]{32,512}"
+    },
+    "audience": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "channel"
+            },
+            "companyId": {
+              "ref": "uuid"
+            },
+            "channelId": {
+              "ref": "uuid"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "audiencePartitionId": {
+              "ref": "uuid"
+            },
+            "disclosureEpoch": {
+              "ref": "generation"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "kind": {
+              "const": "private_pair"
+            },
+            "companyId": {
+              "ref": "uuid"
+            },
+            "memberPrincipal": {
+              "ref": "uuid"
+            },
+            "membershipIncarnation": {
+              "ref": "uuid"
+            },
+            "roomId": {
+              "ref": "room_id"
+            },
+            "audiencePartitionId": {
+              "ref": "uuid"
+            },
+            "disclosureEpoch": {
+              "ref": "generation"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "owner": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "company"
+        },
+        "companyId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "audiencePartitionId": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "disclosureEpoch": {
+          "ref": "generation"
+        },
+        "generation": {
+          "ref": "counter"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_lease": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "holderId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "lease_token"
+        },
+        "leaseGeneration": {
+          "ref": "generation"
+        },
+        "expiresAtMs": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "session_link": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "threadRootEventId": {
+          "ref": "event_id"
+        },
+        "nativeSessionId": {
+          "ref": "uuid"
+        },
+        "conversationEpoch": {
+          "ref": "generation"
+        },
+        "profileDigest": {
+          "ref": "digest"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "capability": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.company-agent/1"
+        },
+        "runtime": {
+          "const": "cloud_agent"
+        },
+        "toolProfile": {
+          "const": "peer"
+        },
+        "promptSchemaSnapshot": {
+          "const": "conversation_epoch"
+        },
+        "deltaStreaming": {
+          "const": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "binding": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "profile": {
+          "const": "atum.company-agent/1"
+        },
+        "owner": {
+          "ref": "owner"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "assignmentEpoch": {
+          "ref": "generation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "audience": {
+          "ref": "audience"
+        },
+        "home": {
+          "ref": "home"
+        },
+        "capability": {
+          "ref": "capability"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_commit": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operation": {
+          "const": "commit"
+        },
+        "operationId": {
+          "ref": "uuid"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "home": {
+          "ref": "home"
+        },
+        "lease": {
+          "ref": "home_lease"
+        },
+        "expectedGeneration": {
+          "ref": "counter"
+        },
+        "generation": {
+          "ref": "generation"
+        },
+        "manifestKey": {
+          "type": "string",
+          "min": 1,
+          "max": 512
+        },
+        "manifestSha256": {
+          "ref": "digest"
+        },
+        "session": {
+          "ref": "session_link"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_commit_result": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "code": {
+          "const": "ok"
+        },
+        "operationId": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "generation": {
+          "ref": "generation"
+        },
+        "committedAtMs": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_transition": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "reason": {
+              "enum": [
+                "join",
+                "leave",
+                "rejoin",
+                "authority_refresh"
+              ]
+            },
+            "before": {
+              "ref": "home"
+            },
+            "after": {
+              "ref": "home"
+            },
+            "migration": {
+              "const": "preserve_authorized_memory"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "disclosure_change"
+            },
+            "before": {
+              "ref": "home"
+            },
+            "after": {
+              "ref": "home"
+            },
+            "migration": {
+              "const": "fenced_authorized_content_only"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "reason": {
+              "const": "incarnation_retired"
+            },
+            "before": {
+              "ref": "home"
+            },
+            "after": {
+              "type": "null"
+            },
+            "migration": {
+              "const": "no_restore"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "effects": {
+      "type": "object",
+      "required": {
+        "effect": {
+          "enum": [
+            "none",
+            "read_only",
+            "side_effect_possible",
+            "unknown"
+          ]
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "min": 1,
+            "max": 64,
+            "pattern": "[A-Za-z0-9_.:/-]{1,64}"
+          },
+          "min": 0,
+          "max": 12
+        },
+        "blind": {
+          "type": "boolean"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "recovery": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "const": "none"
+            },
+            "decision": {
+              "const": "requeue"
+            },
+            "attempt": {
+              "type": "integer",
+              "min": 1,
+              "max": 100
+            },
+            "kind": {
+              "const": "chat"
+            },
+            "ageMs": {
+              "type": "integer",
+              "min": 0,
+              "max": 1799999
+            },
+            "stop": {
+              "const": false
+            },
+            "timedOut": {
+              "const": false
+            },
+            "exhausted": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "const": "none"
+            },
+            "decision": {
+              "const": "requeue"
+            },
+            "attempt": {
+              "type": "integer",
+              "min": 1,
+              "max": 100
+            },
+            "kind": {
+              "const": "occurrence"
+            },
+            "ageMs": {
+              "type": "integer",
+              "min": 0,
+              "max": 299999
+            },
+            "stop": {
+              "const": false
+            },
+            "timedOut": {
+              "const": false
+            },
+            "exhausted": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "const": "read_only"
+            },
+            "decision": {
+              "const": "requeue"
+            },
+            "attempt": {
+              "type": "integer",
+              "min": 1,
+              "max": 2
+            },
+            "kind": {
+              "const": "chat"
+            },
+            "ageMs": {
+              "ref": "counter"
+            },
+            "stop": {
+              "const": false
+            },
+            "timedOut": {
+              "const": false
+            },
+            "exhausted": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "const": "read_only"
+            },
+            "decision": {
+              "const": "requeue"
+            },
+            "attempt": {
+              "type": "integer",
+              "min": 1,
+              "max": 2
+            },
+            "kind": {
+              "const": "occurrence"
+            },
+            "ageMs": {
+              "ref": "counter"
+            },
+            "stop": {
+              "const": false
+            },
+            "timedOut": {
+              "const": false
+            },
+            "exhausted": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "const": "side_effect_possible"
+            },
+            "decision": {
+              "const": "check"
+            },
+            "attempt": {
+              "const": 1
+            },
+            "stop": {
+              "const": false
+            },
+            "timedOut": {
+              "const": false
+            },
+            "exhausted": {
+              "const": false
+            },
+            "replay": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "effect": {
+              "enum": [
+                "none",
+                "read_only",
+                "side_effect_possible",
+                "unknown"
+              ]
+            },
+            "decision": {
+              "const": "terminal"
+            },
+            "reason": {
+              "enum": [
+                "stopped",
+                "deadline",
+                "exhausted",
+                "unknown",
+                "check_interrupted",
+                "unfunded",
+                "authority_lost"
+              ]
+            },
+            "replay": {
+              "const": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "bridge_context": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "nativeSessionId": {
+          "ref": "uuid"
+        },
+        "requestId": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "audiencePartitionId": {
+          "ref": "uuid"
+        },
+        "disclosureEpoch": {
+          "ref": "generation"
+        },
+        "leaseGeneration": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "bridge_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "const": "ok"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "operationId": {
+              "ref": "uuid"
+            },
+            "receiptRef": {
+              "type": "string",
+              "min": 1,
+              "max": 512
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "const": "outcome_unknown"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "operationId": {
+              "ref": "uuid"
+            },
+            "readBack": {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "operation"
+                },
+                "operationId": {
+                  "ref": "uuid"
+                },
+                "receiptRef": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 512
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "retry": {
+              "const": "read_back_same_operation"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "enum": [
+                "authority_denied",
+                "authority_stale"
+              ]
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "retry": {
+              "const": "reauthorize"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "const": "conflict"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "currentRevision": {
+              "ref": "generation"
+            },
+            "retry": {
+              "const": "refetch"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "enum": [
+                "invalid",
+                "not_found",
+                "rate_limited",
+                "unavailable"
+              ]
+            },
+            "requestId": {
+              "ref": "uuid"
+            }
+          },
+          "optional": {
+            "retryAfterMs": {
+              "ref": "generation"
+            }
+          },
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "code": {
+              "const": "resource_unavailable"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "reason": {
+              "enum": [
+                "device_not_registered",
+                "placement_unsupported",
+                "store_not_available",
+                "app_not_connected",
+                "agent_not_available",
+                "connector_not_connected",
+                "not_applicable_run_kind"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "home_lease_request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "operation": {
+              "const": "acquire"
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "home": {
+              "ref": "home"
+            },
+            "holderId": {
+              "ref": "uuid"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "operation": {
+              "enum": [
+                "renew",
+                "release"
+              ]
+            },
+            "requestId": {
+              "ref": "uuid"
+            },
+            "home": {
+              "ref": "home"
+            },
+            "lease": {
+              "ref": "home_lease"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "home_lease_result": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "held"
+            },
+            "lease": {
+              "ref": "home_lease"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "free"
+            },
+            "homeId": {
+              "ref": "uuid"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "turn_request": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 2
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "lease": {
+              "ref": "home_lease"
+            },
+            "operation": {
+              "enum": [
+                "claim",
+                "dispatch",
+                "result"
+              ]
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 2
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "lease": {
+              "ref": "home_lease"
+            },
+            "operation": {
+              "const": "complete"
+            },
+            "outcome": {
+              "enum": [
+                "answered",
+                "stopped",
+                "failed",
+                "uncertain"
+              ]
+            },
+            "effects": {
+              "ref": "effects"
+            },
+            "modelChargedMicroProtons": {
+              "ref": "counter"
+            },
+            "computeMilliseconds": {
+              "ref": "counter"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 2
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "lease": {
+              "ref": "home_lease"
+            },
+            "operation": {
+              "enum": [
+                "requeue",
+                "check"
+              ]
+            },
+            "effects": {
+              "ref": "effects"
+            },
+            "recovery": {
+              "ref": "recovery"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    },
+    "home_read": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operation": {
+          "const": "home"
+        },
+        "home": {
+          "ref": "home"
+        },
+        "lease": {
+          "ref": "home_lease"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_pointer": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "empty"
+            },
+            "home": {
+              "type": "object",
+              "required": {
+                "companyId": {
+                  "ref": "uuid"
+                },
+                "agentPrincipal": {
+                  "ref": "uuid"
+                },
+                "audiencePartitionId": {
+                  "ref": "uuid"
+                },
+                "homeId": {
+                  "ref": "uuid"
+                },
+                "disclosureEpoch": {
+                  "ref": "generation"
+                },
+                "generation": {
+                  "const": 0
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "manifest": {
+              "type": "null"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 1
+            },
+            "state": {
+              "const": "committed"
+            },
+            "home": {
+              "type": "object",
+              "required": {
+                "companyId": {
+                  "ref": "uuid"
+                },
+                "agentPrincipal": {
+                  "ref": "uuid"
+                },
+                "audiencePartitionId": {
+                  "ref": "uuid"
+                },
+                "homeId": {
+                  "ref": "uuid"
+                },
+                "disclosureEpoch": {
+                  "ref": "generation"
+                },
+                "generation": {
+                  "ref": "generation"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "manifest": {
+              "type": "object",
+              "required": {
+                "key": {
+                  "type": "string",
+                  "min": 1,
+                  "max": 512
+                },
+                "sha256": {
+                  "ref": "digest"
+                },
+                "committedAtMs": {
+                  "ref": "generation"
+                }
+              },
+              "optional": {},
+              "additional": false
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    }
+  },
+  "directions": {
+    "authority": {
+      "from": "authenticated platform authority",
+      "to": "bound controller",
+      "forbidden_fields": [
+        "ownerUserId",
+        "personalWallet",
+        "renewableSegments"
+      ]
+    }
+  },
+  "messages": {
+    "binding": {
+      "direction": "authority",
+      "schema": {
+        "ref": "binding"
+      },
+      "runtime_schema": "CompanyAgentBindingSchema"
+    },
+    "home.commit": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_commit"
+      },
+      "runtime_schema": "CompanyAgentHomeCommitSchema"
+    },
+    "home.commit.result": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_commit_result"
+      },
+      "runtime_schema": "CompanyAgentHomeCommitResultSchema"
+    },
+    "home.transition": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_transition"
+      },
+      "runtime_schema": "CompanyAgentHomeTransitionSchema"
+    },
+    "effects": {
+      "direction": "authority",
+      "schema": {
+        "ref": "effects"
+      },
+      "runtime_schema": "CompanyAgentEffectsSchema"
+    },
+    "recovery": {
+      "direction": "authority",
+      "schema": {
+        "ref": "recovery"
+      },
+      "runtime_schema": "CompanyAgentRecoverySchema"
+    },
+    "bridge.context": {
+      "direction": "authority",
+      "schema": {
+        "ref": "bridge_context"
+      },
+      "runtime_schema": "CompanyAgentBridgeContextSchema"
+    },
+    "bridge.result": {
+      "direction": "authority",
+      "schema": {
+        "ref": "bridge_result"
+      },
+      "runtime_schema": "CompanyAgentBridgeResultSchema"
+    },
+    "home.lease.request": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_lease_request"
+      },
+      "runtime_schema": "CompanyAgentHomeLeaseRequestSchema"
+    },
+    "home.lease.result": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_lease_result"
+      },
+      "runtime_schema": "CompanyAgentHomeLeaseResultSchema"
+    },
+    "turn.request": {
+      "direction": "authority",
+      "schema": {
+        "ref": "turn_request"
+      },
+      "runtime_schema": "CompanyAgentTurnRequestSchema"
+    },
+    "home.read": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_read"
+      },
+      "runtime_schema": "CompanyAgentHomeReadSchema"
+    },
+    "home.pointer": {
+      "direction": "authority",
+      "schema": {
+        "ref": "home_pointer"
+      },
+      "runtime_schema": "CompanyAgentHomePointerSchema"
+    }
+  },
+  "invariants": [
+    {
+      "id": "binding-company-0",
+      "message": "binding",
+      "op": "same",
+      "left": "owner.companyId",
+      "right": "audience.companyId",
+      "required": true
+    },
+    {
+      "id": "binding-company-1",
+      "message": "binding",
+      "op": "same",
+      "left": "home.companyId",
+      "right": "audience.companyId",
+      "required": true
+    },
+    {
+      "id": "binding-home-agentPrincipal",
+      "message": "binding",
+      "op": "same",
+      "left": "home.agentPrincipal",
+      "right": "agentPrincipal",
+      "required": true
+    },
+    {
+      "id": "binding-home-audiencePartitionId",
+      "message": "binding",
+      "op": "same",
+      "left": "home.audiencePartitionId",
+      "right": "audience.audiencePartitionId",
+      "required": true
+    },
+    {
+      "id": "binding-home-disclosureEpoch",
+      "message": "binding",
+      "op": "same",
+      "left": "home.disclosureEpoch",
+      "right": "audience.disclosureEpoch",
+      "required": true
+    },
+    {
+      "id": "commit-home-lease",
+      "message": "home.commit",
+      "op": "same",
+      "left": "home.homeId",
+      "right": "lease.homeId",
+      "required": true
+    },
+    {
+      "id": "commit-home-session",
+      "message": "home.commit",
+      "op": "same",
+      "left": "home.homeId",
+      "right": "session.homeId",
+      "required": true
+    },
+    {
+      "id": "commit-cas",
+      "message": "home.commit",
+      "op": "same",
+      "left": "expectedGeneration",
+      "right": "home.generation",
+      "required": true
+    },
+    {
+      "id": "commit-successor",
+      "message": "home.commit",
+      "op": "eq",
+      "left": "generation",
+      "right": [
+        "expectedGeneration"
+      ],
+      "required": true,
+      "offset": 1
+    },
+    {
+      "id": "unknown-operation",
+      "message": "bridge.result",
+      "op": "same",
+      "left": "operationId",
+      "right": "readBack.operationId",
+      "required": true,
+      "when": {
+        "path": "code",
+        "equals": "outcome_unknown"
+      }
+    },
+    {
+      "id": "preserve-join",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before",
+      "right": "after",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "join"
+      }
+    },
+    {
+      "id": "preserve-leave",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before",
+      "right": "after",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "leave"
+      }
+    },
+    {
+      "id": "preserve-rejoin",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before",
+      "right": "after",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "rejoin"
+      }
+    },
+    {
+      "id": "preserve-authority_refresh",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before",
+      "right": "after",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "authority_refresh"
+      }
+    },
+    {
+      "id": "rotate-companyId",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before.companyId",
+      "right": "after.companyId",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "disclosure_change"
+      }
+    },
+    {
+      "id": "rotate-agentPrincipal",
+      "message": "home.transition",
+      "op": "same",
+      "left": "before.agentPrincipal",
+      "right": "after.agentPrincipal",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "disclosure_change"
+      }
+    },
+    {
+      "id": "rotate-new-homeId",
+      "message": "home.transition",
+      "op": "not_same",
+      "left": "before.homeId",
+      "right": "after.homeId",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "disclosure_change"
+      }
+    },
+    {
+      "id": "rotate-new-audiencePartitionId",
+      "message": "home.transition",
+      "op": "not_same",
+      "left": "before.audiencePartitionId",
+      "right": "after.audiencePartitionId",
+      "required": true,
+      "when": {
+        "path": "reason",
+        "equals": "disclosure_change"
+      }
+    },
+    {
+      "id": "rotate-epoch",
+      "message": "home.transition",
+      "op": "eq",
+      "left": "after.disclosureEpoch",
+      "right": [
+        "before.disclosureEpoch"
+      ],
+      "required": true,
+      "offset": 1,
+      "when": {
+        "path": "reason",
+        "equals": "disclosure_change"
+      }
+    },
+    {
+      "id": "read-home",
+      "message": "home.read",
+      "op": "same",
+      "left": "home.homeId",
+      "right": "lease.homeId",
+      "required": true
+    },
+    {
+      "id": "renew-home",
+      "message": "home.lease.request",
+      "op": "same",
+      "left": "home.homeId",
+      "right": "lease.homeId",
+      "required": true,
+      "when": {
+        "path": "operation",
+        "equals": "renew"
+      }
+    },
+    {
+      "id": "release-home",
+      "message": "home.lease.request",
+      "op": "same",
+      "left": "home.homeId",
+      "right": "lease.homeId",
+      "required": true,
+      "when": {
+        "path": "operation",
+        "equals": "release"
+      }
+    },
+    {
+      "id": "requeue-effects",
+      "message": "turn.request",
+      "op": "same",
+      "left": "effects.effect",
+      "right": "recovery.effect",
+      "required": true,
+      "when": {
+        "path": "operation",
+        "equals": "requeue"
+      }
+    },
+    {
+      "id": "check-effects",
+      "message": "turn.request",
+      "op": "same",
+      "left": "effects.effect",
+      "right": "recovery.effect",
+      "required": true,
+      "when": {
+        "path": "operation",
+        "equals": "check"
+      }
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/age-exhausted.json",
+      "message": "recovery",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/authority_denied.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority_refresh-wipe.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/authority_refresh.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/authority_stale.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/binding-cross-company.json",
+      "message": "binding",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/binding-cross-home.json",
+      "message": "binding",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/binding-stale-disclosure.json",
+      "message": "binding",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/binding-wrong-agent.json",
+      "message": "binding",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/channel-binding.json",
+      "message": "binding",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/check.json",
+      "message": "recovery",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-result.json",
+      "message": "home.commit.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/commit-skip-generation.json",
+      "message": "home.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/commit-stale-cas.json",
+      "message": "home.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/commit-wrong-lease.json",
+      "message": "home.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/commit-wrong-session.json",
+      "message": "home.commit",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/commit.json",
+      "message": "home.commit",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/conflict.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/context.json",
+      "message": "bridge.context",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/double-check-forbidden.json",
+      "message": "recovery",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/effect-unknown.json",
+      "message": "effects",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/effects.json",
+      "message": "effects",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-committed.json",
+      "message": "home.pointer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-empty-has-state.json",
+      "message": "home.pointer",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/home-empty.json",
+      "message": "home.pointer",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/home-read-wrong-lease.json",
+      "message": "home.read",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/home-read.json",
+      "message": "home.read",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invalid.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/join-wipe.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/join.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/lease-acquire.json",
+      "message": "home.lease.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/lease-free.json",
+      "message": "home.lease.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/lease-held.json",
+      "message": "home.lease.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/lease-renew-wrong-home.json",
+      "message": "home.lease.request",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/lease-renew.json",
+      "message": "home.lease.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/leave-wipe.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/leave.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/mutation-rerun-forbidden.json",
+      "message": "recovery",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/not_found.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/ok.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/private-binding.json",
+      "message": "binding",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/private-error-body.json",
+      "message": "bridge.result",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/rate_limited.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rejoin-wipe.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rejoin.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/requeue-none.json",
+      "message": "recovery",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/requeue-read_only.json",
+      "message": "recovery",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/resource.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/retired.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/rotate-invalid-agentPrincipal.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rotate-invalid-audiencePartitionId.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rotate-invalid-companyId.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rotate-invalid-disclosureEpoch.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rotate-invalid-homeId.json",
+      "message": "home.transition",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/rotate.json",
+      "message": "home.transition",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/turn-complete.json",
+      "message": "turn.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/turn-dispatch.json",
+      "message": "turn.request",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/unavailable.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/unknown-new-operation.json",
+      "message": "bridge.result",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/unknown-terminal.json",
+      "message": "recovery",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/unknown.json",
+      "message": "bridge.result",
+      "expect": "accept"
+    }
+  ]
+}

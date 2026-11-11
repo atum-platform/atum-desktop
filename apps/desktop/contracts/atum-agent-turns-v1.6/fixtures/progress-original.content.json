@@ -1,0 +1,16 @@
+{
+  "msgtype": "m.notice",
+  "body": "Mình sẽ kiểm tra lịch và tóm tắt các việc cần làm.",
+  "m.relates_to": {
+    "m.in_reply_to": {
+      "event_id": "$owner-question"
+    }
+  },
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.3",
+    "scope": "owner_private",
+    "phase": "working",
+    "kind": "interim",
+    "revision": 0
+  }
+}

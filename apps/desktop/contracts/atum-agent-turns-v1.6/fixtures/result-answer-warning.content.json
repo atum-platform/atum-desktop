@@ -1,0 +1,18 @@
+{
+  "msgtype": "m.text",
+  "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\nMình đã lưu bản ghi vào Atum Drive.",
+  "m.relates_to": {
+    "m.in_reply_to": {
+      "event_id": "$owner-question"
+    }
+  },
+  "io.atum.result": {
+    "invocation": "6f1c9b1e-7b4a-4a3c-9f0e-2d4c5a6b7c8d",
+    "transaction": "turn-6f1c9b1e-answer-1",
+    "status": "saved_to_drive"
+  },
+  "io.atum.result_warning": {
+    "version": 1,
+    "from": 42
+  }
+}

@@ -35,10 +35,13 @@ import {
 import { matrixProfileMxc } from '../../shared/matrix-profile'
 
 import { APP_BOT_DM_MARKER, appBotDmMarker, appBotDmUsable } from './app-bot-dm'
+import { privateCosPresentationBinding } from './company-presentation-binding'
 import { matrixMarkedUnread } from './message-commands'
 import { matrixReadableRoomName } from './person-name'
 import { plainRoomAnswer } from './plain-room'
 import { matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
+import { teamSpaceAccountKey, teamSpaceKey } from './team-space/keys'
+import { $companyPrivateCos } from './team-space/private-cos-store'
 import { matrixRoomTimelineEvents } from './threads'
 
 declare module 'matrix-js-sdk' {
@@ -326,12 +329,10 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
   // Preview, dialogue and unread are three views of one loaded room snapshot. Compute the
   // compatibility timeline once so thread enumeration is not repeated for every row field.
   const timelineEvents = matrixRoomTimelineEvents(room)
-  // The chat list's row (Element's room list): the latest message, and when it was sent.
-  const preview = own ? matrixRoomPreview(room, own, ignored, timelineEvents) : undefined
   // Whether anyone has spoken in an assistant's chat: the first run's one test of a new account.
   const dialogue = room.getType() === MATRIX_ASSISTANT_ROOM_TYPE ? matrixRoomDialogue(room, timelineEvents) : undefined
 
-  return {
+  const view: MatrixRoom = {
     id: room.roomId,
     // Never a member's ID standing in for a name (ledger AC8).
     name: matrixReadableRoomName(room.name),
@@ -359,13 +360,10 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
     highlights: room.getUnreadNotificationCount(NotificationCountType.Highlight),
     ...(companyChannel && own && canMentionMatrixRoom(room, own) ? { canMentionRoom: true } : {}),
     unread: own ? matrixRoomUnread(room, own, ignored, timelineEvents) : false,
-    ...(preview ? { preview } : {}),
     favourite: Object.hasOwn(room.tags, 'm.favourite'),
     favouriteOrder: typeof order === 'number' && Number.isFinite(order) && order >= 0 && order <= 1 ? order : undefined,
     ...(Object.hasOwn(room.tags, 'm.lowpriority') ? { lowPriority: true } : {}),
-    // A chat is as recent as its latest message, as Element orders it: a reaction, an edit or
-    // someone joining does not move it up the list.
-    lastActiveAt: preview?.at ?? room.getLastActiveTimestamp(),
+    lastActiveAt: room.getLastActiveTimestamp(),
     direct,
     ...(direct ? { peerAvatarMxc: directPeerAvatarMxc(room, own, direct, appGroup) } : {}),
     canInvite:
@@ -390,6 +388,24 @@ export function conversationRoom(client: MatrixClient, room: Room): MatrixRoom {
     muted: roomMuted(client, room.roomId),
     ...(matrixMarkedUnread(room) ? { markedUnread: true } : {})
   }
+
+  // The chat list's row (Element's room list): the latest message, and when it was sent. A private
+  // Chief of Staff room's company working line is skipped only for the agent the platform binds to it,
+  // exactly as its transcript reads it; while that binding is unknown the line previews as a message.
+  const companyAgent = companyPrivateCos && own
+    ? privateCosPresentationBinding(
+        $companyPrivateCos.get()[
+          teamSpaceKey(teamSpaceAccountKey({ userId: own, deviceId: client.getDeviceId() ?? '' }), companyPrivateCos.companyId)
+        ],
+        view
+      )?.agentUserId
+    : undefined
+
+  const preview = own ? matrixRoomPreview(room, own, ignored, timelineEvents, companyAgent) : undefined
+
+  // A chat is as recent as its latest message, as Element orders it: a reaction, an edit or
+  // someone joining does not move it up the list.
+  return { ...view, ...(preview ? { preview, lastActiveAt: preview.at } : {}) }
 }
 
 /**

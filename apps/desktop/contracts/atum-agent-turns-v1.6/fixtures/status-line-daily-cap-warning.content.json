@@ -1,0 +1,8 @@
+{
+  "msgtype": "m.text",
+  "body": "Hôm nay mình đã dùng gần hết hạn mức. Mình vẫn chạy bình thường, chỉ báo bạn biết thôi.",
+  "io.atum.status": {
+    "version": 1,
+    "code": "daily_cap_warning"
+  }
+}

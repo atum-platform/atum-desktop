@@ -1,0 +1,58 @@
+{
+  "vectors": [
+    {
+      "name": "the first remark is the acknowledgement",
+      "private": true,
+      "redacted": true,
+      "first": true,
+      "sinceLastMs": 0,
+      "duplicatesAnswer": false,
+      "decision": "publish"
+    },
+    {
+      "name": "a later remark waits for the rate limit",
+      "private": true,
+      "redacted": true,
+      "first": false,
+      "sinceLastMs": 19999,
+      "duplicatesAnswer": false,
+      "decision": "hold"
+    },
+    {
+      "name": "a later remark after twenty seconds publishes",
+      "private": true,
+      "redacted": true,
+      "first": false,
+      "sinceLastMs": 20000,
+      "duplicatesAnswer": false,
+      "decision": "publish"
+    },
+    {
+      "name": "a remark that repeats the answer is dropped",
+      "private": true,
+      "redacted": true,
+      "first": false,
+      "sinceLastMs": 60000,
+      "duplicatesAnswer": true,
+      "decision": "drop"
+    },
+    {
+      "name": "unredacted text fails closed",
+      "private": true,
+      "redacted": false,
+      "first": true,
+      "sinceLastMs": 0,
+      "duplicatesAnswer": false,
+      "decision": "drop"
+    },
+    {
+      "name": "groups get no interim remark",
+      "private": false,
+      "redacted": true,
+      "first": true,
+      "sinceLastMs": 0,
+      "duplicatesAnswer": false,
+      "decision": "drop"
+    }
+  ]
+}
