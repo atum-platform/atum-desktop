@@ -27,6 +27,9 @@
   "include": [
     "shared/matrix-file-reader.ts",
     "shared/matrix-file-reader.test.ts",
+    "shared/matrix-file-chips.ts",
+    "shared/matrix-file-chips.test.ts",
+    "shared/matrix-file-chip-copy.ts",
     "shared/app-panel.ts",
     "shared/gmail-compose.ts",
     "shared/gmail-mail.ts",

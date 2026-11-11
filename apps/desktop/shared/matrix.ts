@@ -59,6 +59,7 @@ import type { MatrixDeviceIsolation } from './matrix-device-isolation'
 import type { MatrixDisplayPreferenceChange, MatrixDisplayPreferences } from './matrix-display-preferences'
 import type { MatrixDraftsSnapshot } from './matrix-drafts'
 import type { MatrixDriveBridge } from './matrix-drive'
+import type { MatrixFileAnswerProjection } from './matrix-file-chips'
 import type { MatrixFirstLearningProgress } from './matrix-first-learning'
 import type { MatrixFolderAccessBridge } from './matrix-folder-access'
 import type {
@@ -447,6 +448,9 @@ export interface MatrixMessage {
   checkIn?: MatrixCheckInNudge
   /** Closed cloud notice code and its synthetic Stop target; display only. */
   cloudStatus?: { code: string; stopEvent?: string }
+  /** An agent answer's file chips (agent-turns/1.7) replayed from the room; display only. The
+   * window shows them only for the platform-bound sender (matrix-file-chips.ts). */
+  files?: MatrixFileAnswerProjection
   /** Versioned bot-api presentation metadata (`io.atum.bot_api/1`), present only on a message
    * from an official app bot. Display only. */
   botApi?: MatrixBotApiMessage
