@@ -58,7 +58,7 @@ def test_all_turn_sources(admission, monkeypatch, platform, outcome):
                 "plugin-missing": "plugin_unavailable",
             }[outcome]
             assert result["final_response"] and "private error" not in result["final_response"]
-            assert result["messages"] == []
+            assert result["messages"] == original
             if platform == "cron":
                 from cron.scheduler import _final_response_from_result
                 with pytest.raises(RuntimeError):
