@@ -178,3 +178,28 @@ async def test_broken_intake_journal_can_still_notice_owner_once(tmp_path, monke
     assert result['wedge']['kind'] == 'journal'
     assert result['alert']['code'] == 'intake_wedged'
     assert result['process_healthy'] is True
+
+@pytest.mark.asyncio
+async def test_reboot_does_not_resend_delivered_pause_notice(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from gateway.resume_policy import resume_boot_allowed
+    from gateway.config import Platform
+    a = SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(success=True)))
+    authority = SimpleNamespace(runner=SimpleNamespace(_delivery_adapter_for=lambda source:a))
+    monkeypatch.setattr('gateway.session_ingress.pause_notice', lambda *args:'Paused. Use /discard.')
+    live = SimpleNamespace(route='route', source=SimpleNamespace(platform=Platform.MATRIX, chat_id='!owner', thread_id=None))
+    for _ in range(6):
+        await resume_boot_allowed(authority, {'admission_id':'poison'}, ref=object(), live=live)
+    a.send.assert_awaited_once()
+
+@pytest.mark.asyncio
+async def test_wedge_without_owner_control_never_broadcasts(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from tests.gateway.test_matrix_durable_intake import adapter
+    from plugins.platforms.matrix.intake import IntakeGapError
+    a = adapter(tmp_path)
+    a._joined_rooms = {'!group'}
+    a.send = AsyncMock()
+    await a._intake_failure(IntakeGapError('gap'))
+    a.send.assert_not_called()
+    a._intake.close()
