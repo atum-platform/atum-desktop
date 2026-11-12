@@ -47,11 +47,11 @@ class IntakeHold:
             if hasattr(socket, 'SO_PEERCRED'):
                 _, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             else:
-                peer = socket.fromfd(sock.fileno(), socket.AF_UNIX, socket.SOCK_STREAM)
-                try:
-                    uid, _ = peer.getpeereid()
-                finally:
-                    peer.close()
+                # Darwin's xucred: version (uint32), uid (uint32), groups.
+                credentials = sock.getsockopt(0, socket.LOCAL_PEERCRED, 80)
+                version, uid = struct.unpack_from('=II', credentials)
+                if version != 0:
+                    raise PermissionError('Unsupported peer credentials')
             if uid != os.getuid():
                 raise PermissionError('snapshot control requires the gateway uid')
             async with asyncio.timeout(self.timeout):

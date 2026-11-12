@@ -38,13 +38,14 @@ def reconcile(db, store, context):
     result = dict(context, reread=reread, ask=ask)
     with store.db:
         store._put('restore', result)
+        store._put('restore_boot_pending', True)
     return result
 
 
 async def reconcile_before_intake(adapter, client):
     store = adapter._intake
     context = store.get('restore')
-    if not context:
+    if not context or not store.get('restore_boot_pending', True):
         return
     authority = adapter.gateway_runner.session_authority
     result = reconcile(authority.db, store, context)
@@ -63,6 +64,7 @@ async def reconcile_before_intake(adapter, client):
             raise RuntimeError('Restored source did not reach durable admission')
     with store.db:
         store._put('restore', dict(result, reread=[]))
+        store._put('restore_boot_pending', False)
 
 
 

@@ -101,7 +101,7 @@ async def test_hold_deadline_and_pending_refusal(tmp_path):
     await hold.close(); store.close()
 
 
-@pytest.mark.parametrize('manifest', [None, {'version': 1, 'generation': 7, 'archives': {'private': {'name': 'a.zip', 'sha256': 'bad'}}}])
+@pytest.mark.parametrize('manifest', [None, {'version': 1, 'generation': 7, 'timestamp': 'T', 'archives': {'private': {'name': 'a.zip', 'sha256': 'bad'}, 'persona': {'name': 'b.zip', 'sha256': 'bad'}}}])
 def test_restore_refuses_incomplete_generation(tmp_path, manifest):
     from gateway.backup_restore import restore_generation
     path = tmp_path / 'manifest.json'
