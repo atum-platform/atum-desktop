@@ -82,9 +82,9 @@ def _validate(db, export):
                            'display_metadata': {'imported': True, 'source_id': source,
                                                 'room_id': room, 'tool_summaries': summaries}})
         identities.append((identity, _digest(raw), source, room))
-    for room, event in frontier.items():
-        if not any(r == room and e == event for _, _, e, r in identities):
-            raise ValueError('frontier must name an imported event')
+    last_by_room = {room: source for _, _, source, room in identities}
+    if frontier != last_by_room:
+        raise ValueError('frontier must name the last imported event in every room')
     items, errors = db._validate_import_payload([{'id': sid, 'source': 'migration',
                                                   'messages': normalized}])
     if errors:

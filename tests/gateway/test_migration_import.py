@@ -62,7 +62,7 @@ def test_native_history_once_and_provenance(stores, export):
 
 def test_source_identity_dedupes_across_exports(stores, export):
     run(stores, export)
-    export['messages'].append(dict(export['messages'][0], source_id='$extra', content='more'))
+    export['messages'].insert(1, dict(export['messages'][0], source_id='$extra', content='more'))
     assert run(stores, export)['imported'] == 1
     assert run(stores, export)['imported'] == 0
 
@@ -90,7 +90,7 @@ def test_restart_between_databases_is_repairable(stores, export, monkeypatch):
     assert journal.state('$old-user') == 'done'
 
 
-@pytest.mark.parametrize('mutation', ['version', 'generation', 'role', 'timestamp', 'duplicate', 'frontier'])
+@pytest.mark.parametrize('mutation', ['version', 'generation', 'role', 'timestamp', 'duplicate', 'frontier', 'early_frontier', 'missing_room'])
 def test_invalid_export_no_writes(stores, export, mutation):
     if mutation == 'version': export['version'] = 'unknown'
     if mutation == 'generation': export['generation'] = True
@@ -98,6 +98,8 @@ def test_invalid_export_no_writes(stores, export, mutation):
     if mutation == 'timestamp': export['messages'][0]['timestamp'] = float('nan')
     if mutation == 'duplicate': export['messages'].append(copy.deepcopy(export['messages'][0]))
     if mutation == 'frontier': export['cutover']['frontier']['!room:example.org'] = '$missing'
+    if mutation == 'early_frontier': export['cutover']['frontier']['!room:example.org'] = '$old-user'
+    if mutation == 'missing_room': export['messages'][0]['room_id'] = '!other:example.org'
     with pytest.raises(ValueError): run(stores, export)
     assert stores[0].get_session('fixture-history') is None
     assert asyncio.run(stores[1].get_next_batch()) is None
