@@ -241,7 +241,7 @@ def matrix_transaction_id(suffix: Optional[str] = None, *, sender_id: Optional[s
     return f"hermes_{sender_id or _MATRIX_SEND_PROCESS_PREFIX or matrix_sender_id()}_{suffix or uuid.uuid4().hex}"
 
 
-def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list, *, sender_id: Optional[str] = None, source_event_id: Optional[str] = None) -> list:
+def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list, *, sender_id: Optional[str] = None) -> list:
     """Freeze exact Matrix wire content and per-chunk transaction IDs before any send.
 
     Reuse the existing final-delivery authority, not a second transport outbox.
@@ -257,7 +257,7 @@ def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list, *, sender_i
             raise RuntimeError('Matrix send requires its durable delivery obligation')
         if row[1]:
             return json.loads(row[1])
-        source_event_id = row[2] or source_event_id
+        source_event_id = row[2]
         plan = [{'txn_id': matrix_transaction_id(hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(), sender_id=sender_id),
                  'content': dict(chunk, **({'org.hermes.source_event_id': source_event_id,
                      'org.hermes.final_chunk': {'index': i + 1, 'total': len(chunks)}}

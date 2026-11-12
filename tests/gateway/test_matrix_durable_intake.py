@@ -390,7 +390,7 @@ async def test_reply_crash_reuses_real_txnid_and_frozen_chunks(tmp_path, monkeyp
     from gateway import delivery_ledger as ledger
     monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / 'state.db')
     ledger.record_obligation(obligation_id='owed', session_key='matrix:room', platform='matrix',
-                             chat_id='!room:example.org', thread_id=None, content='reply')
+                             chat_id='!room:example.org', thread_id=None, content='reply', source_event_id='$parent')
     a = adapter(tmp_path)
     a.max_message_length = 200
     accepted, calls = {}, []
@@ -848,7 +848,7 @@ def test_old_frozen_wire_plan_is_never_rewritten(tmp_path, monkeypatch):
     original = [{'txn_id':'hermes_oldboot_exact', 'content':{'body':'old content'}}]
     with d._transaction() as db:
         db.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?', (json.dumps(original), 'old'))
-    assert d.matrix_send_plan('old','r',[{'body':'changed'}],source_event_id='$new') == original
+    assert d.matrix_send_plan('old','r',[{'body':'changed'}]) == original
 
 
 def test_journal_room_migration_failure_rolls_back_schema_and_version(tmp_path):
@@ -890,3 +890,18 @@ async def test_native_final_source_is_independent_of_reply_relation(tmp_path, mo
     plan = d.matrix_send_plan(oid, '!room:example.org', [{'body':'answer'}])
     assert plan[0]['content']['org.hermes.source_event_id'] == '$source'
     assert plan[0]['content']['org.hermes.final_chunk'] == {'index':1, 'total':1}
+
+
+@pytest.mark.asyncio
+async def test_ledgered_notice_reply_relation_is_not_final_evidence(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as d
+    monkeypatch.setattr(d, '_db_path', lambda: tmp_path / 'state.db')
+    d.record_obligation(obligation_id='notice', session_key='matrix:r', platform='matrix',
+                        chat_id='!room:example.org', thread_id=None, content='notice')
+    a = adapter(tmp_path)
+    a._client = SimpleNamespace(send_message_event=AsyncMock(return_value='$notice'))
+    assert (await a.send('!room:example.org', 'notice', reply_to='$unanswered',
+                        metadata={'delivery_obligation_id':'notice'})).success
+    payload = a._client.send_message_event.await_args.args[2]
+    assert 'org.hermes.source_event_id' not in payload
+    assert 'org.hermes.final_chunk' not in payload

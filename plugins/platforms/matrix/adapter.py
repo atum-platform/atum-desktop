@@ -1460,7 +1460,7 @@ class MatrixAdapter(BasePlatformAdapter):
         if oid:
             from gateway.delivery_ledger import matrix_send_plan
             plan = await asyncio.to_thread(matrix_send_plan, oid, chat_id, chunks,
-                                           source_event_id=reply_to, sender_id=self._sender_identity())
+                                           sender_id=self._sender_identity())
         else:
             plan = [{"content": chunk, "txn_id": self._transaction_id()} for chunk in chunks]
         for item in plan:
