@@ -131,3 +131,48 @@ def test_disposed_policy_blocks(admission):
     handle = context.register_hook("pre_turn_admission", lambda: True, fail_closed=True)
     handle.dispose()
     assert check_turn_admission()["admission"]["code"] == "plugin_unavailable"
+
+
+@pytest.mark.parametrize("value", [None, "allow", {}, {"allow": 1}, False])
+def test_strict_requires_explicit_boolean_allow(admission, value):
+    from hermes_cli.turn_admission import check_turn_admission
+    _, context, _ = admission
+    context.register_hook("pre_turn_admission", lambda: value, fail_closed=True)
+    assert check_turn_admission()["admission"]["code"] == "denied"
+
+
+def test_async_allow_and_disabled_plugin(admission):
+    from hermes_cli.turn_admission import admission_readiness, check_turn_admission
+    manager, context, _ = admission
+
+    async def allow():
+        return True
+
+    context.register_hook("pre_turn_admission", allow, fail_closed=True)
+    assert check_turn_admission() is None
+    assert admission_readiness()["status"] == "ok"
+    manager._plugins["authority"].enabled = False
+    assert check_turn_admission()["admission"]["code"] == "plugin_unavailable"
+    assert admission_readiness()["status"] == "unavailable"
+
+
+@pytest.mark.parametrize("timeout", [0, -1, "bad", float("nan"), float("inf"), 601])
+def test_strict_timeout_cannot_be_disabled(admission, timeout):
+    from hermes_cli.turn_admission import check_turn_admission
+    _, _, config = admission
+    config["plugins"]["admission_timeout"] = timeout
+    assert check_turn_admission()["admission"]["code"] == "admission_unavailable"
+
+
+def test_refusal_supports_profile_locale_overlay(admission, monkeypatch, tmp_path):
+    from agent.i18n import reset_language_cache
+    from hermes_cli.turn_admission import check_turn_admission
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("HERMES_LANGUAGE", "de")
+    (tmp_path / "locales").mkdir()
+    (tmp_path / "locales" / "de.yaml").write_text('turn_admission:\n  refused: "Anfrage abgelehnt ({code})."\n')
+    reset_language_cache()
+    try:
+        assert check_turn_admission()["final_response"] == "Anfrage abgelehnt (plugin_unavailable)."
+    finally:
+        reset_language_cache()
