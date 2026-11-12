@@ -462,6 +462,23 @@ class SessionAuthority:
         from gateway.session_automation import admit_automation
         return await admit_automation(self, adapter, event, identity, replaces)
 
+    async def native_transport_receipt(self, event):
+        """Find a transport replay before busy controls can act on it again.
+
+        Used only after gateway authorization; the ordinary native ledger remains
+        the authority, including for started/unknown/terminal admissions.
+        """
+        import json
+        from hermes_state_runtime import find_session_admission
+        source = event.source
+        sid, _route = await asyncio.to_thread(self._reserve_route, source)
+        identity = json.dumps([source.profile, source.platform.value, source.chat_id,
+                               source.thread_id, source.user_id], separators=(',', ':'))
+        row = await asyncio.to_thread(find_session_admission, self.db,
+                                      principal_id='messaging:' + identity,
+                                      session_id=sid, request_id=event.message_id)
+        return self._receipt(row) if row else None
+
     async def admit_native(self, event):
         """Await current connector policy, then commit before ACK or scheduling execution."""
         from gateway.session_ingress_media import abandon_capture, capture_lease
@@ -582,6 +599,8 @@ class SessionAuthority:
 
     def _admitted(self, ref, event, row):
         if event is not None:
+            if (transport_commit := getattr(event, '_on_transport_commit', None)) is not None:
+                transport_commit(self._receipt(row))
             event._gateway_accepted = True
             if row['status'] == 'queued' and (committed := getattr(event, '_on_commit', None)) is not None:
                 committed()  # a queued slash command's ack follows its commit (``_queue_command_turn``)
@@ -626,7 +645,10 @@ class SessionAuthority:
                 self._require_admission_open()
                 self.sessions.setdefault(sid, LiveSession(source, route))
                 if any(row['status'] == 'unknown' for row in rows):
-                    raise RuntimeStoreError('unknown_execution')
+                    from gateway.resume_policy import recover_unknown_admission
+                    if not await recover_unknown_admission(
+                            self, SessionRef(self.profile_id, sid), self.sessions[sid], rows):
+                        raise RuntimeStoreError('unknown_execution')
                 self._schedule(SessionRef(self.profile_id, sid))
                 results[sid] = 'ready'
             except RuntimeStoreError as exc:
@@ -1008,6 +1030,9 @@ class SessionAuthority:
         async with live.claim_gate, live.mutation_lock:
             pending = list_session_admissions(self.db, session_id=ref.session_id)
             if any(row['status'] == 'unknown' for row in pending):
+                from gateway.resume_policy import recover_unknown_admission
+                if await recover_unknown_admission(self, ref, live, pending):
+                    return False, None
                 raise RuntimeStoreError('unknown_execution')
             first = next((row for row in pending if row['status'] == 'queued'), None)
             from gateway.config import Platform

@@ -1893,6 +1893,8 @@ class BasePlatformAdapter(ABC):
     # answer, and an acknowledgement would silently abandon the task (#57056). Read generically via
     # ``getattr(adapter, "interactive_resume", True)`` — no per-platform branching at the call site.
     interactive_resume: bool = True
+    # Opt into per-turn crash classification using the canonical tool/result rows.
+    tool_aware_resume: bool = False
     # Port-binding adapter that answers ``/p/<profile>/...`` for every served profile on the default
     # listener under ``gateway.multiplex_profiles``. Declared per adapter (not in a central list) so
     # ``hermes gateway migrate`` can tell "URL changes" from "this profile would be skipped" as new
@@ -4237,10 +4239,13 @@ class BasePlatformAdapter(ABC):
                 platform=str(getattr(source.platform, "value", source.platform)),
                 chat_id=source.chat_id, thread_id=getattr(source, "thread_id", None),
                 content=text_content,
-                adapter_profile=getattr(delivery_adapter, "_owner_profile", None))
+                adapter_profile=getattr(delivery_adapter, "_owner_profile", None),
+                **({"source_event_id": str(_ledger_id or "")} if str(getattr(source.platform, "value", source.platform)) == "matrix" else {}))
             await asyncio.to_thread(mark_attempting, obligation_id)
             return obligation_id
         except Exception:
+            if str(getattr(event.source.platform, "value", event.source.platform)) == "matrix":
+                raise  # never send an unledgered durable Matrix final response
             logger.debug("delivery ledger record failed", exc_info=True)
             return None
 
@@ -4361,6 +4366,8 @@ class BasePlatformAdapter(ABC):
             event, session_key, text_content, delivery_adapter, is_ephemeral_response)
         if obligation_id is not None:
             await self._release_turn_marker(event)  # the ledger now owns the crash recovery
+            if event.source.platform == Platform.MATRIX:
+                metadata = dict(metadata or {}, delivery_obligation_id=obligation_id)
         result = await delivery_adapter._send_with_retry(
             chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
         stop_reply_clock(delivery_adapter, event.source.chat_id, result)

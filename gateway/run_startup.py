@@ -465,9 +465,11 @@ class GatewayStartupMixin:
             if adapter is None:
                 continue
             content = row["content"]
-            if row.get("needs_marker"):
+            if row.get("needs_marker") and row["platform"] != "matrix":
                 content = row.get("marker", RECOVERED_MARKER) + content
             metadata = {"thread_id": row["thread_id"]} if row.get("thread_id") else None
+            if row["platform"] == "matrix":
+                metadata = dict(metadata or {}, delivery_obligation_id=row["obligation_id"])
             try:
                 result = await adapter.send(chat_id=row["chat_id"], content=content, metadata=metadata)
             except Exception as send_err:
@@ -752,7 +754,7 @@ class GatewayStartupMixin:
         with _log_suppressed(logging.WARNING, "Crash-left reply recovery on startup failed: %s"):
             ledgered = await self._ledger_crash_left_replies(max_age)
         with _log_suppressed(logging.WARNING, "Exact active-turn recovery on startup failed: %s"):
-            resumed = await self.async_session_store.recover_interrupted_turns(max_age_seconds=max_age)
+            resumed = await self.async_session_store.recover_interrupted_turns(max_age_seconds=max_age, stale_to_ask=True)
         return resumed, ledgered
 
     async def _ledger_crash_left_replies(self, max_age_seconds: int) -> int:

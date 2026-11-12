@@ -88,6 +88,11 @@ def carry_callback(event, rewritten):
         bound = bound_var.get()
         if bound is not None and bound[1] is event and rewritten.source is event.source:
             bound_var.set((bound[0], rewritten, *bound[2:]))
+            # A transport's durable acceptance callback follows an authenticated
+            # rewrite of this same source, never arbitrary metadata from ingress.
+            for name in ('_on_transport_commit', '_matrix_durable_intake', '_transport_control_state'):
+                if hasattr(event, name):
+                    setattr(rewritten, name, getattr(event, name))
 
 
 _PREFIX_PRODUCERS = ('webhook', 'api_server', 'msgraph_webhook')
@@ -243,3 +248,18 @@ async def reauthorize_roles(runner, source, provenance):
 def callback_runner():
     context = _callback.get()
     return context[0] if context else None
+
+
+async def transport_control(event, action, *, consumed=bool):
+    """Fence non-FIFO control effects for transports with durable intake.
+
+    A crash/exception leaves an ambiguous control, never a request to replay it.
+    The callback is process-local provenance, not deserialized ingress metadata.
+    """
+    state = getattr(event, '_transport_control_state', None)
+    if state is not None:
+        state('ambiguous')
+    result = await action()
+    if state is not None:
+        state('done' if consumed(result) else 'pending')
+    return result

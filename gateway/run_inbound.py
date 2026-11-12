@@ -1210,6 +1210,7 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # The message handler entered the routed profile's scope; its authority owns this turn.
         from gateway.session_authorities import active_authority
         authority = active_authority(self)
+        from gateway.session_ingress_context import transport_control
         if authority is not None and not event.get_command() and not is_internal:
             from gateway.session_ingress import admit_message, executing_admission
             if not executing_admission.get():
@@ -1221,10 +1222,12 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
                 # never an interrupt (read as deny) nor a queued turn (auto-deny deadlock).
                 # A turn a slash command produced (``/queue yes``) is never live typing.
                 if self._is_session_running(_quick_key) and not getattr(event, "_fifo_only", False) and (
-                        await self._route_plaintext_approval_while_busy(event, _quick_key)
-                        or await self._hm_busy_preempt(event, source, _quick_key)):
+                        await transport_control(event, lambda: self._route_plaintext_approval_while_busy(event, _quick_key))
+                        or await transport_control(event, lambda: self._hm_busy_preempt(event, source, _quick_key))):
                     return True, None
-                _consumed, _consumer_reply = await self._hm_post_admission_consume(event, source, _quick_key)
+                _consumed, _consumer_reply = await transport_control(
+                    event, lambda: self._hm_post_admission_consume(event, source, _quick_key),
+                    consumed=lambda result: result[0])
                 if _consumed:
                     return True, _consumer_reply
                 if getattr(event, "_fifo_only", False) and event._stop_epoch != self._route_stop_epoch(_quick_key):
@@ -1259,12 +1262,25 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # calls handle_message directly, so a teardown on the relay's inbound
         # handler left those turns muted.
 
+        if getattr(event, '_matrix_durable_intake', False) and not event.get_command():
+            from gateway.session_authorities import active_authority
+            authority = active_authority(self)
+            if authority is None:
+                raise RuntimeError('Matrix durable intake has no routed session authority')
+            receipt = await authority.native_transport_receipt(event)
+            if receipt is not None:
+                event._on_transport_commit(receipt)
+                return None  # native recovery/delivery already owns this request
+
         _paused_notice = self._hm_estop_gate(event, source, is_internal)
         if _paused_notice is not None:
             return _paused_notice
 
         _quick_key = self._session_key_for_source(source)
-        _reply = None if is_internal else await self._hm_pending_reply_intercepts(event, source, _quick_key)
+        from gateway.session_ingress_context import transport_control
+        _reply = None if is_internal else await transport_control(
+            event, lambda: self._hm_pending_reply_intercepts(event, source, _quick_key),
+            consumed=lambda result: result is not None)
         if _reply is not None:
             return _reply
 

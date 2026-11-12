@@ -5630,7 +5630,13 @@ def _cmd_migrate(args):
     cmd_migrate(args)
 
 
+def _cmd_matrix_intake(args):
+    from hermes_cli.matrix_intake import cmd_matrix_intake
+    cmd_matrix_intake(args)
+
+
 _GATEWAY_SUBCOMMANDS = {
+    "matrix-intake": _cmd_matrix_intake,
     None: _cmd_run, "run": _cmd_run, "setup": _cmd_setup, "install": _cmd_install,
     "uninstall": _cmd_uninstall, "start": _cmd_start, "stop": _cmd_stop, "restart": _cmd_restart,
     "status": _cmd_status, "list": _cmd_list, "migrate-legacy": _cmd_migrate_legacy, "migrate": _cmd_migrate,

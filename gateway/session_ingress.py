@@ -243,6 +243,17 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
+        if row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
+            # Keep the native source ID for the final obligation; never replay user input.
+            # Preserve an input that never reached its first durable user row (H7).
+            recorded = authority.db._read_one(
+                "SELECT 1 FROM messages WHERE session_id=? AND role='user' "
+                "AND platform_message_id=?", (authority.physical_target(ref), event.message_id))
+            if recorded is not None:
+                event.text = ''
+            authority.runner.session_store.mark_resume_pending(
+                live.route, reason=('stale_interruption' if row['outcome'] == 'crash_resume_stale'
+                                    else 'restart_interrupted'))
     else:
         from gateway.session_ingress_media import restore_attachments
         event = MessageEvent(text=row['payload']['text'], source=live.source,

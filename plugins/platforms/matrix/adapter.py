@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import array
 import inspect
+import hashlib
 import json
 from contextlib import suppress
 import logging
@@ -72,6 +73,7 @@ except ImportError:
     TrustState = type("_TrustStateStub", (), {"UNVERIFIED": 0, "VERIFIED": 1})  # type: ignore[misc,assignment]
 
 from gateway.config import Platform, PlatformConfig
+from gateway.delivery_ledger import matrix_transaction_id
 from gateway.platforms.base import (
     gateway_trust_env, BasePlatformAdapter, ExecApprovalPrompt,
     SendResult, resolve_proxy_url, proxy_kwargs_for_aiohttp, ssrf_redirect_guard,
@@ -411,7 +413,7 @@ def _resolve_max_message_length(config) -> int:
 # the multiplex gateway imports this once and a module constant would collide every profile's Olm
 # identity in one crypto.db.
 # Store directory for E2EE keys and sync state. Mirrors the pairing-store fix (a6397c379). See #89168.
-from hermes_constants import get_hermes_dir as _get_hermes_dir
+from hermes_constants import get_hermes_dir as _get_hermes_dir, get_hermes_home
 
 _STARTUP_GRACE_SECONDS = 5  # ignore messages older than this many seconds before startup
 
@@ -791,8 +793,22 @@ def ensure_matrix_deps() -> bool:
     return True
 
 
+def _matrix_identity_store_dir() -> Path:
+    """Profile-local mount target for the identity-owned store (plan §3.8).
+
+    A provisioned identity/ mount, including an empty first-install directory,
+    must win over legacy data elsewhere in this profile. Without a mount retain
+    native Hermes legacy-path compatibility; never reach into another home.
+    """
+    home = get_hermes_home()
+    mounted = home / "platforms" / "matrix" / "store"
+    return mounted if mounted.exists() else _get_hermes_dir(
+        "platforms/matrix/store", "matrix/store", home=home)
+
+
 class MatrixAdapter(BasePlatformAdapter):
     """Gateway adapter for Matrix (any homeserver)."""
+    tool_aware_resume = True
     serial_receive_loop = True  # _sync_loop reads the next sync only after this sync's handlers return
     supports_code_blocks = True  # Matrix renders fenced code blocks (HTML/markdown)
     splits_long_messages = True  # send() chunks via truncate_message(max_message_length)
@@ -809,12 +825,12 @@ class MatrixAdapter(BasePlatformAdapter):
     def _resolve_store_dir(self) -> Path:
         """Pin the crypto-store dir to the active profile (connect() runs inside the profile
         scope); cached so later out-of-scope reads report the store actually in use."""
-        self._store_dir = _get_hermes_dir("platforms/matrix/store", "matrix/store")
+        self._store_dir = _matrix_identity_store_dir()
         return self._store_dir
 
     @property
     def _crypto_db_path(self) -> Path:
-        return (self._store_dir or _get_hermes_dir("platforms/matrix/store", "matrix/store")) / "crypto.db"
+        return (self._store_dir or _matrix_identity_store_dir()) / "crypto.db"
 
     def __init__(self, config: PlatformConfig):
         super().__init__(config, Platform.MATRIX)
@@ -1296,15 +1312,31 @@ class MatrixAdapter(BasePlatformAdapter):
 
     async def _connect_initial_sync(self, client: Any) -> None:
         """Full initial sync: seed joined rooms, DM cache, and dispatch queued to-device events."""
+        store = self._intake
+        pending = store.get("pending")
+        if pending is not None:
+            self._joined_rooms.update(pending.get("rooms", {}).get("join", {}))
+            await self._refresh_dm_cache()
+            await self._dispatch_sync(pending)
+            store.finish(pending)
+        since = await store.get_next_batch()
         try:
-            sync_data = await client.sync(timeout=10000, full_state=True)
-            if isinstance(sync_data, dict):
-                self._joined_rooms.clear()
-                await self._absorb_sync(client, sync_data, initial=True)
-            else:
-                logger.warning("Matrix: initial sync returned unexpected type %s", type(sync_data).__name__)
+            sync_data = await client.sync(since=since, timeout=10000, full_state=True)
         except Exception as exc:
-            logger.warning("Matrix: initial sync error: %s", exc)
+            if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
+                raise
+            # Reconstruct from saved room event IDs, never from wall time.
+            sync_data = await client.sync(timeout=10000, full_state=True)
+            from plugins.platforms.matrix.intake import fill_gaps
+            await fill_gaps(client, sync_data, store.get("frontier", {}), reset=True)
+        if not since:
+            # First installation establishes a baseline. Existing room history is
+            # not a queue of new requests (including recent history).
+            store.baseline(sync_data)
+            for data in sync_data.get("rooms", {}).get("join", {}).values():
+                data.get("timeline", {})["events"] = []
+                data.get("timeline", {})["limited"] = False
+        await self._absorb_sync(client, sync_data, initial=True)
 
     async def connect(self, *, is_reconnect: bool = False) -> bool:
         self._device_id_unverified = False
@@ -1324,14 +1356,24 @@ class MatrixAdapter(BasePlatformAdapter):
         client_session = _create_matrix_session(self._proxy_url)
         api = HTTPAPI(base_url=self._homeserver, token=self._access_token or "", client_session=client_session)
         state_store = MemoryStateStore()
-        sync_store = MemorySyncStore()
+        sync_store = MemorySyncStore()  # authentication only; no sync runs before the lock
         client = Client(
             mxid=UserID(self._user_id) if self._user_id else UserID(""), device_id=self._device_id or None,
             api=api, state_store=state_store, sync_store=sync_store)
         self._client = client
         if not await self._connect_authenticate(client, api):
+            await self.disconnect()
             return False
+        identity = json.dumps([self._homeserver.rstrip("/").lower(), self._user_id.lower()])
+        if not self._acquire_platform_lock("matrix", identity, "Matrix account"):
+            await self.disconnect()
+            return False
+        from plugins.platforms.matrix.intake import MatrixIntakeStore
+        store_key = hashlib.sha256(identity.encode()).hexdigest()
+        self._intake = MatrixIntakeStore(self._store_dir / f"intake-{store_key}.sqlite3")
+        client.sync_store = self._intake
         if self._encryption and not await self._connect_setup_e2ee(client, api, state_store):
+            await self.disconnect()
             return False
         from mautrix.client import InternalEventType as IntEvt
         from mautrix.client.dispatcher import MembershipEventDispatcher
@@ -1342,7 +1384,17 @@ class MatrixAdapter(BasePlatformAdapter):
         self._startup_ts = time.time()
         self._reset_clock_skew_detector()  # a reconnect after an NTP fix starts clean
         self._closing = False
-        await self._connect_initial_sync(client)
+        try:
+            await self._connect_initial_sync(client)
+        except BaseException as exc:
+            if isinstance(exc, Exception) and self._intake.get("pending") is not None:
+                # Gateway bootstrap may park callbacks until all adapters connect.
+                # Keep the accepted batch and let the sync loop retry after startup;
+                # failing connect here would deadlock native session recovery.
+                logger.warning("Matrix: accepted intake awaits handoff after connect: %s", exc)
+            else:
+                await self.disconnect()
+                raise
         if self._encryption and getattr(client, "crypto", None):
             try:
                 await client.crypto.share_keys()
@@ -1379,7 +1431,19 @@ class MatrixAdapter(BasePlatformAdapter):
             with suppress(Exception):
                 await self._client.api.session.close()
             self._client = None
+        if getattr(self, "_intake", None) is not None:
+            self._intake.close()
+            self._intake = None
+        self._release_platform_lock()
         logger.info("Matrix: disconnected")
+
+    def _sender_identity(self):
+        from gateway.delivery_ledger import matrix_sender_id
+        configured = self.config.extra.get("sender_id") or _get_scoped_secret("MATRIX_SENDER_ID", "").strip() or None
+        return matrix_sender_id(configured)
+
+    def _transaction_id(self):
+        return matrix_transaction_id(sender_id=self._sender_identity())
 
     async def send(
         self, chat_id: str, content: str, reply_to: Optional[str] = None,
@@ -1387,12 +1451,23 @@ class MatrixAdapter(BasePlatformAdapter):
         if not content:
             return SendResult(success=True)
         last_event_id = None
+        chunks = []
         for chunk in self.truncate_message(
                 self.format_message(content), self.max_message_length, len_fn=self.message_len_fn):
             msg_content = self._build_text_message_content(chunk)
             self._apply_relation_metadata(msg_content, reply_to=reply_to, metadata=metadata)
+            chunks.append(msg_content)
+        oid = (metadata or {}).get("delivery_obligation_id")
+        if oid:
+            from gateway.delivery_ledger import matrix_send_plan
+            plan = await asyncio.to_thread(matrix_send_plan, oid, chat_id, chunks,
+                                           sender_id=self._sender_identity())
+        else:
+            plan = [{"content": chunk, "txn_id": self._transaction_id()} for chunk in chunks]
+        for item in plan:
+            msg_content, txn_id = item["content"], item["txn_id"]
             try:
-                last_event_id = await self._send_room_message(chat_id, msg_content)
+                last_event_id = await self._send_room_message(chat_id, msg_content, txn_id=txn_id)
                 logger.info("Matrix: sent event %s to %s", last_event_id, chat_id)
             except Exception as exc:
                 if not (self._encryption and getattr(self._client, "crypto", None)):
@@ -1400,17 +1475,18 @@ class MatrixAdapter(BasePlatformAdapter):
                     return SendResult(success=False, error=str(exc))
                 try:  # E2EE error: retry once after sharing keys
                     await self._client.crypto.share_keys()
-                    last_event_id = await self._send_room_message(chat_id, msg_content)
+                    last_event_id = await self._send_room_message(chat_id, msg_content, txn_id=txn_id)
                     logger.info("Matrix: sent event %s to %s (after key share)", last_event_id, chat_id)
                 except Exception as retry_exc:
                     logger.error("Matrix: failed to send to %s after retry: %s", chat_id, retry_exc)
                     return SendResult(success=False, error=str(retry_exc))
         return SendResult(success=True, message_id=last_event_id)
 
-    async def _send_room_message(self, chat_id: str, msg_content: dict[str, Any]) -> str:
+    async def _send_room_message(self, chat_id: str, msg_content: dict[str, Any], *, txn_id=None) -> str:
         """Send one m.room.message event (45s cap) and return its event ID as str."""
         event_id = await asyncio.wait_for(
-            self._client.send_message_event(RoomID(chat_id), EventType.ROOM_MESSAGE, msg_content), timeout=45)
+            self._client.send_message_event(RoomID(chat_id), EventType.ROOM_MESSAGE, msg_content,
+                                            txn_id=txn_id or self._transaction_id()), timeout=45)
         return str(event_id)
 
     async def create_handoff_thread(self, parent_chat_id: str, name: str) -> Optional[str]:
@@ -1445,6 +1521,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 "access_token_present": token_present, "password_present": bool(self._password),
                 "token_preview": "***" if token_present else "", "user_id": user_id,
                 "device_id_present": bool(device_id), "device_id_preview": "***" if str(device_id or "").strip() else ""},
+            "intake": self._intake.status() if getattr(self, "_intake", None) else None,
             "sync": {
                 "connected": self._client is not None, "joined_room_count": len(self._joined_rooms),
                 "last_sync_age_seconds": max(0.0, now - self._last_sync_ts) if self._last_sync_ts else None},
@@ -1828,7 +1905,7 @@ class MatrixAdapter(BasePlatformAdapter):
     async def _send_content_event(self, room_id: str, msg_content: dict[str, Any]) -> SendResult:
         """Send a prebuilt m.room.message payload, mapping exceptions to SendResult."""
         try:
-            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content)
+            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content, txn_id=self._transaction_id())
             return SendResult(success=True, message_id=str(event_id))
         except Exception as exc:
             return SendResult(success=False, error=str(exc))
@@ -1862,9 +1939,21 @@ class MatrixAdapter(BasePlatformAdapter):
         next_batch = await client.sync_store.get_next_batch()  # resume from the initial sync
         while not self._closing:
             try:
+                store = getattr(self, "_intake", None)
+                if store is not None and (pending := store.get("pending")) is not None:
+                    await self._dispatch_sync(pending)
+                    store.finish(pending)
+                    next_batch = await store.get_next_batch()
                 # 45s outer cap guards TCP-level hangs the 30s long-poll timeout cannot catch.
                 # mautrix raises on every non-2xx, so a non-dict here is never an error object.
-                sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
+                try:
+                    sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
+                except Exception as exc:
+                    if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
+                        raise
+                    sync_data = await asyncio.wait_for(client.sync(timeout=30000, full_state=True), timeout=45.0)
+                    from plugins.platforms.matrix.intake import fill_gaps
+                    await fill_gaps(client, sync_data, self._intake.get("frontier", {}), reset=True)
                 if isinstance(sync_data, dict):
                     next_batch = await self._absorb_sync(client, sync_data) or next_batch
                     await asyncio.sleep(0)  # let fresh invite joins start before the next sync
@@ -1877,6 +1966,12 @@ class MatrixAdapter(BasePlatformAdapter):
                 if _is_permanent_matrix_auth_error(exc):
                     logger.error("Matrix: permanent auth error, stopping sync: %s", exc)
                     return
+                if getattr(self, "_intake", None) is not None:
+                    try:
+                        with self._intake.db:
+                            self._intake._put("last_error", {"type": type(exc).__name__, "reason": str(exc)})
+                    except Exception:
+                        logger.error("Matrix journal unavailable (disk-full/corruption); preserve DB and restore backup", exc_info=True)
                 logger.warning("Matrix: sync error: %s — retrying in 5s", exc)
                 await asyncio.sleep(5)
 
@@ -1891,15 +1986,24 @@ class MatrixAdapter(BasePlatformAdapter):
             self._invalidate_room_identities()
         self._warn_encrypted_drops(rooms_join, client)
         nb = sync_data.get("next_batch")  # incremental syncs resume from here
-        if nb:
-            await client.sync_store.put_next_batch(nb)
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            pending = store.get("pending")
+            if pending is not None:
+                await self._dispatch_sync(pending)
+                store.finish(pending)
+            from plugins.platforms.matrix.intake import fill_gaps
+            await fill_gaps(client, sync_data, store.get("frontier", {}))
+            store.accept(sync_data)
         if initial:
             logger.info("Matrix: initial sync complete, joined %d rooms", len(self._joined_rooms))
             await self._refresh_dm_cache()
-        try:
-            await self._dispatch_sync(sync_data)
-        except Exception as exc:
-            logger.warning("Matrix: %s: %s", "initial sync event dispatch error" if initial else "sync event dispatch error", exc)
+        await self._dispatch_sync(sync_data)
+        if store is not None:
+            store.finish(sync_data)
+            await self._retry_parked()
+        elif nb:
+            await client.sync_store.put_next_batch(nb)
         self._schedule_pending_invite_joins(sync_data)
         return nb
 
@@ -1935,15 +2039,133 @@ class MatrixAdapter(BasePlatformAdapter):
         client = self._client
         if not client or not hasattr(client, "handle_sync"):
             return
-        tasks = client.handle_sync(sync_data)
+        store = getattr(self, "_intake", None)
+        dispatch_data = sync_data
+        if store is not None:
+            # mautrix DecryptionDispatcher dispatches nested handlers without
+            # awaiting them. Own this seam so a decrypted receipt is awaited.
+            import copy
+            dispatch_data = copy.deepcopy(sync_data)
+            for data in dispatch_data.get("rooms", {}).get("join", {}).values():
+                timeline = data.get("timeline", {})
+                timeline["events"] = [raw for raw in timeline.get("events", [])
+                                      if raw.get("type") != "m.room.encrypted"]
+        tasks = client.handle_sync(dispatch_data)
         if inspect.isawaitable(tasks):
             tasks = await tasks
         if tasks:
             # return_exceptions=True: one failing handler must not drop its SIBLING events.
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
-                if isinstance(result, Exception):
-                    logger.warning("Matrix: event handler failed during sync dispatch: %s", result)
+                if isinstance(result, BaseException):
+                    raise result
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            for data in sync_data.get("rooms", {}).get("join", {}).values():
+                for raw in data.get("timeline", {}).get("events", []):
+                    kind, eid = raw.get("type"), raw.get("event_id")
+                    state = store.state(eid)
+                    if kind == "m.room.encrypted" and state not in {"native", "done", "undecryptable"}:
+                        room = next(room for room, value in sync_data["rooms"]["join"].items() if value is data)
+                        store.park(raw, room)
+                        await self._decrypt_parked(raw, room)
+                    elif kind in {"m.room.message", "m.reaction"} and state not in {"native", "done"}:
+                        raise RuntimeError(f"Matrix event {eid} lacks durable acceptance ({state})")
+
+    async def _decrypt_parked(self, raw, room):
+        crypto = getattr(self._client, "crypto", None)
+        if crypto is None:
+            return
+        from mautrix.types import EncryptedEvent
+        from mautrix.types.util import SerializerError
+        from mautrix.errors import DecryptionError, SessionNotFound
+        # Parsing is cheap and local, even for an unauthorized sender. Never let
+        # malformed wire content retain the global batch or enter key retries.
+        try:
+            encrypted = EncryptedEvent.deserialize(dict(raw, room_id=room))
+        except (SerializerError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
+            return
+        if (not self._is_authorized_user(raw.get("sender", ""), room)
+                or not await self._is_allowed_matrix_room_event(room)):
+            self._intake.mark(raw["event_id"], "done", room_id=room)
+            return
+        try:
+            decoded = await crypto.decrypt_megolm_event(encrypted)
+        except SessionNotFound:
+            content = raw.get("content", {})
+            if content.get("session_id") and content.get("sender_key"):
+                try:
+                    await asyncio.wait_for(crypto.request_room_key(
+                        room, content["sender_key"], content["session_id"],
+                        {raw["sender"]: [content.get("device_id") or "*"]}, timeout=0), 10)
+                except Exception as exc:
+                    logger.warning("Matrix key request for %s failed: %s", raw["event_id"], exc)
+            return
+        except (SerializerError, DecryptionError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
+            return
+        # Ordinary owner/room/mention gates and native authority remain authoritative.
+        if str(decoded.type) == "m.room.message":
+            await self._on_room_message(decoded)
+        elif str(decoded.type) == "m.reaction":
+            await self._on_reaction(decoded)
+        else:
+            self._intake.mark(raw["event_id"], "done", room_id=room)
+
+    async def _retry_parked(self) -> None:
+        """Let mautrix decrypt again AFTER to-device sync handlers have stored late keys."""
+        store = self._intake
+        for eid, room, raw, attempts, created in store.parked():
+            if store.state(eid) in {"native", "done"}:
+                store.unpark(eid)
+                continue
+            if store.state(eid) == "undecryptable":
+                await self._notify_decryption_giveup(eid, room, raw)
+                continue
+            if attempts >= 100 or time.time() - created > 86400:
+                logger.error("Matrix message %s in %s still cannot decrypt after bounded retries; "
+                             "owner action required: hermes gateway matrix-intake status --store %s. "
+                             "Restore this device's keys then use retry; payload is retained.",
+                             eid, room, store.path)
+                await self._notify_decryption_giveup(eid, room, raw)
+                continue
+            store.retry_parked(eid)
+            await self._decrypt_parked(raw, room)
+            if store.state(eid) in {"native", "done"}:
+                store.unpark(eid)
+            elif store.state(eid) == "undecryptable":
+                await self._notify_decryption_giveup(eid, room, raw)
+
+    async def _notify_decryption_giveup(self, eid, room, raw):
+        store = self._intake
+        notified = store.db.execute('SELECT notified FROM encrypted_pending WHERE event_id=?', (eid,)).fetchone()
+        if not notified or notified[0] or not self._is_authorized_user(raw.get("sender", ""), room):
+            return
+        if not await self._is_allowed_matrix_room_event(room):
+            return
+        from gateway.delivery_ledger import record_obligation, mark_delivered
+        import hashlib
+        oid = "matrix-key-" + hashlib.sha256(eid.encode()).hexdigest()[:24]
+        if store.state(eid) == "undecryptable":
+            text = (f"I could not read your encrypted Matrix message {eid} because its content is malformed. "
+                    "It is saved, but I have stopped retrying it. Please send the message again. "
+                    "Other messages can still arrive.")
+        else:
+            text = (f"I could not decrypt your Matrix message {eid}. It is saved, but I have stopped "
+                    "retrying it. The owner needs to restore this device's encryption keys and use "
+                    "hermes gateway matrix-intake retry. Other messages can still arrive.")
+        try:
+            await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=f"matrix:{room}",
+                platform="matrix", chat_id=room, thread_id=None, content=text,
+                adapter_profile=getattr(self, "_owner_profile", None))
+            result = await self.send(room, text, metadata={"delivery_obligation_id": oid})
+            if result.success:
+                await asyncio.to_thread(mark_delivered, oid)
+                with store.db:
+                    store.db.execute('UPDATE encrypted_pending SET notified=1 WHERE event_id=?', (eid,))
+        except Exception:
+            logger.error("Matrix could not notify owner about retained encrypted message %s", eid, exc_info=True)
 
     def _is_self_sender(self, sender: str) -> bool:
         """True if *sender* is the bot itself (case-insensitive: homeservers vary localpart case). With
@@ -2017,6 +2239,13 @@ class MatrixAdapter(BasePlatformAdapter):
             self._clock_skew_warned = True
 
     async def _on_room_message(self, event: Any) -> None:
+        await self._process_room_message(event)
+        store = getattr(self, "_intake", None)
+        event_id = str(getattr(event, "event_id", ""))
+        if store is not None and event_id and store.state(event_id) is None:
+            store.mark(event_id, "done", room_id=str(event.room_id))  # authorized gating/filtering finished; no turn owed
+
+    async def _process_room_message(self, event: Any) -> None:
         room_id = str(getattr(event, "room_id", ""))
         sender = str(getattr(event, "sender", ""))
         # DEBUG-level proof the callback fires at all (silent-inbound troubleshooting).
@@ -2039,11 +2268,18 @@ class MatrixAdapter(BasePlatformAdapter):
             logger.info("Matrix: ignoring message from unauthorized room %s", room_id)
             return
         event_id = str(getattr(event, "event_id", ""))
-        if self._is_duplicate_event(event_id):
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            state = store.state(event_id)
+            if state in {"native", "done"}:
+                return
+            if state == "ambiguous":
+                raise RuntimeError("Matrix control execution is ambiguous; operator recovery required")
+        elif self._is_duplicate_event(event_id):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
         event_ts = _matrix_event_timestamp_seconds(event)
-        if event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
+        if store is None and event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
             self._note_late_grace_drop(event_ts)
             return
         content = getattr(event, "content", None)
@@ -2064,6 +2300,40 @@ class MatrixAdapter(BasePlatformAdapter):
             await self._handle_media_message(room_id, sender, event_id, event_ts, source_content, relates_to, msgtype)
         elif msgtype in ("m.text", "m.notice"):
             await self._handle_text_message(room_id, sender, event_id, event_ts, source_content, relates_to)
+
+    async def handle_message(self, event: MessageEvent) -> None:
+        store = getattr(self, "_intake", None)
+        if store is None:
+            return await super().handle_message(event)
+        if not self._is_authorized_user(event.source.user_id, event.source.chat_id):
+            return  # preserve owner-only intake, including during journal recovery
+        if not getattr(self.gateway_runner, "session_authority", None):
+            raise RuntimeError("Durable Matrix intake requires the native session authority")
+        committed = asyncio.get_running_loop().create_future()
+
+        def accepted(receipt):
+            store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
+            if not committed.done():
+                committed.set_result(None)
+
+        event._on_transport_commit = accepted
+        event._transport_control_state = lambda state: store.mark(event.message_id, state, room_id=event.source.chat_id)
+        event._matrix_durable_intake = True
+        # Commands and inline control replies can have non-idempotent effects outside
+        # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
+        store.mark(event.message_id, "ambiguous" if event.get_command() else "pending", room_id=event.source.chat_id)
+        await super().handle_message(event)
+        task = self._session_tasks.get(self._event_session_key(event))
+        if task is not None:
+            await asyncio.wait({committed, task}, return_when=asyncio.FIRST_COMPLETED)
+            if committed.done():
+                committed.result()
+                return
+            if task.cancelled() or task.exception() is not None:
+                raise RuntimeError("Matrix turn ended before durable admission")
+        if not event.get_command() and store.state(event.message_id) not in {"native", "done"}:
+            raise RuntimeError("Matrix input has not reached durable native admission; retaining batch")
+        store.mark(event.message_id, "done", room_id=event.source.chat_id)
 
     async def _resolve_message_context(
         self, room_id: str, sender: str, event_id: str, body: str, source_content: dict,
@@ -2202,7 +2472,8 @@ class MatrixAdapter(BasePlatformAdapter):
             room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to)
         if msg_event is None:
             return
-        if msg_event.message_type == MessageType.TEXT and self._text_batch_delay_seconds > 0:
+        if (getattr(self, "_intake", None) is None and msg_event.message_type == MessageType.TEXT
+                and self._text_batch_delay_seconds > 0):
             self._enqueue_text_event(msg_event)
         else:
             await self.handle_message(msg_event)
@@ -2446,7 +2717,7 @@ class MatrixAdapter(BasePlatformAdapter):
             return None
         content = {"m.relates_to": {"rel_type": "m.annotation", "event_id": event_id, "key": emoji}}
         try:
-            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content)
+            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content, txn_id=self._transaction_id())
             logger.debug("Matrix: sent reaction %s to %s", emoji, event_id)
             return str(resp_event_id)
         except Exception as exc:
@@ -2490,6 +2761,20 @@ class MatrixAdapter(BasePlatformAdapter):
         await self._send_reaction(room_id, msg_id, "\u2705" if outcome == ProcessingOutcome.SUCCESS else "\u274c")
 
     async def _on_reaction(self, event: Any) -> None:
+        store = getattr(self, "_intake", None)
+        event_id = str(getattr(event, "event_id", ""))
+        if store is not None and event_id:
+            state = store.state(event_id)
+            if state == "done":
+                return
+            if state == "ambiguous":
+                raise RuntimeError("Matrix reaction control is ambiguous; operator recovery required")
+            store.mark(event_id, "ambiguous", room_id=str(event.room_id))
+        await self._process_reaction(event)
+        if store is not None and event_id:
+            store.mark(event_id, "done", room_id=str(event.room_id))
+
+    async def _process_reaction(self, event: Any) -> None:
         sender = str(getattr(event, "sender", ""))
         if self._is_self_sender(sender):
             return
@@ -3131,7 +3416,9 @@ async def _standalone_send(pconfig, chat_id, message, *, thread_id=None, media_f
         # run_coroutine_threadsafe ("Timeout context manager should be used inside a task").
         async with aiohttp.ClientSession() as session:
             async def _do_send(payload):
-                txn_id = f"hermes_{int(time.time() * 1000)}_{os.urandom(4).hex()}"
+                from gateway.delivery_ledger import matrix_sender_id
+                sender = matrix_sender_id(extra.get("sender_id") or get_secret("MATRIX_SENDER_ID", "") or None)
+                txn_id = matrix_transaction_id(sender_id=sender)
                 url = f"{homeserver}/_matrix/client/v3/rooms/{quote(chat_id, safe='')}/send/m.room.message/{txn_id}"
                 async with session.put(url, headers=headers, json=payload) as resp:
                     if resp.status not in {200, 201}:
@@ -3264,9 +3551,14 @@ def register(ctx) -> None:
     from .send_targets import SEND_ENTRY_KWARGS
     from .dashboard_card import DASHBOARD_CARD
     from . import gateway_env  # env -> GatewayConfig bridge (gateway.config_env)
+    adapter_factory = MatrixAdapter
+    if ctx.get_config("atum_presentation", False) is True:
+        from .presentation import adapter_class, register_hooks
+        adapter_factory = adapter_class(MatrixAdapter)
+        register_hooks(ctx)
     ctx.register_platform(
         **SEND_ENTRY_KWARGS,  # send_message target syntax + routing
-        name="matrix", label="Matrix", adapter_factory=MatrixAdapter, check_fn=matrix_deps_present,
+        name="matrix", label="Matrix", adapter_factory=adapter_factory, check_fn=matrix_deps_present,
         **DASHBOARD_CARD,
         ensure_deps_fn=ensure_matrix_deps, is_connected=_is_connected,
         required_env=["MATRIX_HOMESERVER", "MATRIX_ACCESS_TOKEN"], install_hint="pip install 'mautrix[encryption]'",

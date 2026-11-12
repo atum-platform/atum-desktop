@@ -19,6 +19,7 @@ import re
 import sqlite3
 import threading
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from gateway.dead_targets import classify_dead_error
@@ -27,6 +28,10 @@ from hermes_constants import get_process_hermes_home
 
 logger = logging.getLogger(__name__)
 _DB_LOCK = threading.Lock()
+# Explicit process-prefix seam retained for callers/tests. Default identity is
+# durable per private process home (one home per agent/audience), never per boot.
+_MATRIX_SEND_PROCESS_PREFIX = None
+
 
 # Redelivery policy knobs (deliberately not config — the ledger is gated by
 # ``gateway.delivery_ledger`` and these only matter in the rare recovery path).
@@ -207,6 +212,60 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
     if "adapter_profile" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
         add_column_if_missing(conn, "delivery_obligations", "adapter_profile", "adapter_profile TEXT")
 
+    if "matrix_send_plan" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
+        add_column_if_missing(conn, "delivery_obligations", "matrix_send_plan", "matrix_send_plan TEXT")
+
+    if "source_event_id" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
+        add_column_if_missing(conn, "delivery_obligations", "source_event_id", "source_event_id TEXT")
+
+
+def matrix_sender_id(configured: Optional[str] = None) -> str:
+    """Persist one sender per agent/audience home, with a provisioning override.
+
+    Different processes sharing an account must have distinct private homes and
+    configured IDs. A restarted process keeps its home/ID; no PID or boot nonce.
+    """
+    if configured is not None and not re.fullmatch(r"[A-Za-z0-9-]{1,128}", configured):
+        raise ValueError("Matrix sender_id must be 1-128 letters, digits or hyphens")
+    with _DB_LOCK, _transaction() as conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS matrix_sender_identity (id INTEGER PRIMARY KEY CHECK(id=1), sender TEXT NOT NULL)')
+        conn.execute('INSERT OR IGNORE INTO matrix_sender_identity VALUES (1,?)', (configured or uuid.uuid4().hex,))
+        sender = conn.execute('SELECT sender FROM matrix_sender_identity WHERE id=1').fetchone()[0]
+        if configured is not None and sender != configured:
+            raise ValueError("Matrix sender_id differs from persisted process identity")
+        return sender
+
+
+def matrix_transaction_id(suffix: Optional[str] = None, *, sender_id: Optional[str] = None) -> str:
+    """Namespace every Matrix publication, including unledgered controls/media."""
+    return f"hermes_{sender_id or _MATRIX_SEND_PROCESS_PREFIX or matrix_sender_id()}_{suffix or uuid.uuid4().hex}"
+
+
+def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list, *, sender_id: Optional[str] = None) -> list:
+    """Freeze exact Matrix wire content and per-chunk transaction IDs before any send.
+
+    Reuse the existing final-delivery authority, not a second transport outbox.
+    The obligation ID is already durable; server deduplication is scoped to the
+    same Matrix account/access-token session across restarts.
+    """
+    import json
+    sender_id = sender_id or _MATRIX_SEND_PROCESS_PREFIX or matrix_sender_id()
+    with _DB_LOCK, _transaction() as conn:
+        row = conn.execute('SELECT chat_id,matrix_send_plan,source_event_id FROM delivery_obligations WHERE obligation_id=?',
+                           (obligation_id,)).fetchone()
+        if row is None or row[0] != str(chat_id):
+            raise RuntimeError('Matrix send requires its durable delivery obligation')
+        if row[1]:
+            return json.loads(row[1])
+        source_event_id = row[2]
+        plan = [{'txn_id': matrix_transaction_id(hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(), sender_id=sender_id),
+                 'content': dict(chunk, **({'org.hermes.source_event_id': source_event_id,
+                     'org.hermes.final_chunk': {'index': i + 1, 'total': len(chunks)}}
+                     if source_event_id else {}))} for i, chunk in enumerate(chunks)]
+        conn.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?',
+                     (json.dumps(plan), obligation_id))
+        return plan
+
 
 def _transaction():
     from hermes_cli.sqlite_util import transaction
@@ -268,18 +327,19 @@ def compute_obligation_id(session_key: str, message_ref: str, content: str) -> s
 
 
 def record_obligation(*, obligation_id: str, session_key: str, platform: str, chat_id: str,
-                      thread_id: Optional[str], content: str, adapter_profile: Optional[str] = None) -> None:
+                      thread_id: Optional[str], content: str, adapter_profile: Optional[str] = None,
+                      source_event_id: Optional[str] = None) -> None:
     """Record a final response as owed to the platform (state='pending')."""
     now, (pid, started) = time.time(), _owner_stamp()
     with _DB_LOCK, _transaction() as conn:
         conn.execute(
-            """INSERT OR REPLACE INTO delivery_obligations
+            ("INSERT OR IGNORE" if platform == "matrix" else "INSERT OR REPLACE") + """ INTO delivery_obligations
                (obligation_id, session_key, platform, chat_id, thread_id,
                 content, state, attempts, created_at, updated_at,
-                owner_pid, owner_started_at, adapter_profile)
-               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?)""",
+                owner_pid, owner_started_at, adapter_profile, source_event_id)
+               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?)""",
             (obligation_id, session_key, platform, str(chat_id), str(thread_id) if thread_id else None,
-             content, now, now, pid, started, str(adapter_profile).strip() if adapter_profile else "default"))
+             content, now, now, pid, started, str(adapter_profile).strip() if adapter_profile else "default", source_event_id))
         # Same transaction, same connection: the cron ledgers prune this way too
         # (cron/delivery_queue._prune_terminal_unlocked, cron/executions._prune_unlocked).
         _prune_unlocked(conn, now)

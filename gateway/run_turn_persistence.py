@@ -118,6 +118,11 @@ class GatewayTurnPersistenceMixin:
             except Exception as _e:
                 logger.debug("clear_resume_pending failed for %s: %s", session_key, _e, exc_info=True)
 
+        pending = getattr(session_entry, 'resume_ask', None)
+        if pending:
+            # Language follows the model's reply; literal decision tokens work in every language.
+            response += "\n\nyes " + pending['token'] + " / no " + pending['token'] + "\ncó " + pending['token'] + " / không " + pending['token']
+
         # Normalize empty responses: surface errors, partial failures, and work-without-text.
         # Fix for #18765.
         if not _intentional_silence:
