@@ -1084,7 +1084,35 @@ const phoneScreensEn = {
     // The Store header's balance button label (store-copy `balanceLabel`); the value is whole Protons.
     balanceLabel: 'Your Protons',
     // Over an item's example requests (store/store-copy.ts `trySaying`).
-    trySaying: 'Try saying'
+    trySaying: 'Try saying',
+    // More of the current Store's words, copied exactly from store/store-copy.ts: the Store's
+    // `subtitle`, `search` and `searchEmpty`; a gift's `gift`/`gifts` and a visiting pet's
+    // `visiting`; the Hatch card's `firstHatch` and `regularPrice`; an item's `kind` eyebrow and
+    // `itemByAtum` line, a Featured row's `discoverLine` (kind, summary), `whatItUses`,
+    // `needsAtumAi`; the empty Assistants shelf's `agentsSoonNote`; the short `topUp`; a monthly
+    // hire's `cancelMonthly` and `renews` (a formatted date); and `listingMissing`.
+    subtitle: 'Skills, assistants and apps that give Atum new abilities.',
+    search: 'Search the store',
+    searchEmpty: 'Nothing matches your search.',
+    gift: 'Gift',
+    gifts: 'Gifts',
+    visiting: 'Visiting',
+    firstHatch: 'First hatch',
+    regularPrice: 'Regular price',
+    kind: {
+      skill: 'Skill',
+      agent: 'Assistant',
+      pet: 'Pet'
+    },
+    itemByAtum: (kind: string) => `${kind} · by Atum`,
+    discoverLine: (kind: string, summary: string) => `${kind} · ${summary}`,
+    whatItUses: 'What it uses',
+    needsAtumAi: 'Only assistants on Atum’s AI can use this. One on its own model isn’t listed.',
+    agentsSoonNote: 'Assistants you can hire will appear here.',
+    topUp: 'Top up',
+    cancelMonthly: 'Cancel monthly hire',
+    renews: (date: string) => `Renews ${date}`,
+    listingMissing: 'The recommended listing is no longer in the current catalog.'
   },
   drive: {
     // Drive's first group: files the assistants made for you.
@@ -1117,7 +1145,101 @@ const phoneScreensEn = {
     prompt: 'What can I do for you today?'
   },
   // The message menu's item that asks the assistant about a message.
-  askAboutMessage: 'Ask Atum about this'
+  askAboutMessage: 'Ask Atum about this',
+  // Assistant words from i18n `matrixShell`, copied exactly (the export reads only the `atum`,
+  // `common`, `timeline` and `dm` scopes): the main assistant's badge (`mainAgent`,
+  // main-agent-badge.tsx), the roster's status dots (`agentDot*`), deleting an assistant
+  // (`agentRetireTitle`, `agentRetireBody`, `agentRetireConfirm`, `agentRetireFailed`,
+  // `agentCancel`) and a refused new name (`agentNameRefused`).
+  shell: {
+    mainAgent: 'Main agent',
+    agentDotReady: 'Ready',
+    agentDotNeedsYou: 'Needs your attention',
+    agentDotOffline: 'Offline',
+    agentDotUnreachable: "Can't connect",
+    agentRetireTitle: (name: string) => `Delete ${name} permanently?`,
+    agentRetireBody: (name: string) => `${name} stops answering for good and can't be brought back. Your private chats with ${name} disappear from your chat list on all your devices, and you can't open them again. Group chats stay.`,
+    agentRetireConfirm: 'Delete',
+    agentRetireFailed: "Couldn't delete the assistant. Try again.",
+    agentCancel: 'Cancel',
+    agentNameRefused: "That name can't be used. Try another one."
+  },
+  // An answer's read-aloud button (voice.tsx), copied exactly from i18n `assistant.thread`:
+  // `readAloud`, `stopReading`, `preparingAudio` (here `preparing`) and `readAloudFailed`
+  // (here `failed`).
+  readAloud: {
+    readAloud: 'Read aloud',
+    stopReading: 'Stop reading',
+    preparing: 'Preparing audio...',
+    failed: 'Read aloud failed'
+  },
+  // Under the composer when Stop was refused (app.tsx), copied exactly from i18n `cloud.stopRefused`.
+  cloud: {
+    stopRefused: "Couldn't stop this reply. It may have already finished."
+  },
+  // The microphone's state while recording, copied exactly from i18n `composer.listening`.
+  dictation: {
+    listening: 'Listening'
+  },
+  // Team space pages the export cannot read (per-locale constants), copied exactly:
+  // team-space/activity-copy.ts, saved-messages-copy.ts, drafts-copy.ts and pinned-copy.ts.
+  // Saved and pinned have English and Vietnamese only on desktop; the other locales repeat
+  // the English, as the desktop shows them.
+  teamSpace: {
+    activity: {
+      title: 'Activity',
+      all: 'All',
+      mentions: 'Mentions',
+      filterLabel: 'Filter activity',
+      mention: 'Mentioned you',
+      threadReply: 'Thread reply',
+      unread: 'Unread',
+      emptyAllTitle: 'No activity yet',
+      emptyAllBody: 'Mentions and replies in your threads will appear here.',
+      emptyMentionsTitle: 'No mentions yet',
+      emptyMentionsBody: 'Messages that mention you will appear here.',
+      loadMore: 'Load more',
+      open: (room: string) => `Open in ${room}`,
+      failed: 'Couldn’t open this message. Try again.',
+      someone: 'Someone'
+    },
+    saved: {
+      title: 'Saved',
+      save: 'Save message',
+      remove: 'Remove from Saved',
+      marker: 'Saved',
+      emptyTitle: 'No saved messages',
+      emptyBody: 'Save a message from its menu to find it here.',
+      loading: 'Loading saved messages',
+      unavailable: 'Message unavailable',
+      unavailableBody: 'It was deleted or you no longer have access.',
+      open: 'Jump to message',
+      retry: 'Try again',
+      failed: 'Saved messages aren’t available right now.',
+      you: 'You'
+    },
+    drafts: {
+      title: 'Drafts',
+      emptyTitle: 'No drafts',
+      emptyBody: 'Messages you start in Team space will appear here.',
+      roomDraft: 'Message draft',
+      threadDraft: 'Thread draft',
+      updated: (value: string) => `Updated ${value}`,
+      open: (room: string) => `Open draft in ${room}`,
+      failed: 'Couldn’t open this draft. Try again.'
+    },
+    pinned: {
+      pinMessage: 'Pin message',
+      unpinMessage: 'Unpin message',
+      pinnedMessage: 'Pinned',
+      pinnedMessages: 'Pinned messages',
+      pinnedMessageCount: (count: number) => (count === 1 ? '1 pinned message' : `${count} pinned messages`),
+      noPinnedMessages: 'No pinned messages yet.',
+      pinnedMessageUnavailable: 'This pinned message is unavailable.',
+      showPinnedMessage: 'Jump to message',
+      closePinnedMessages: 'Close pinned messages'
+    }
+  }
 }
 
 export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
@@ -1145,7 +1267,29 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       get: 'Nhận',
       getWithPrice: (price: string) => `Nhận · ${price}`,
       balanceLabel: 'Proton của bạn',
-      trySaying: 'Thử nói'
+      trySaying: 'Thử nói',
+      subtitle: 'Kỹ năng, trợ lý và ứng dụng giúp Atum có thêm khả năng.',
+      search: 'Tìm trong cửa hàng',
+      searchEmpty: 'Không tìm thấy mục nào.',
+      gift: 'Quà tặng',
+      gifts: 'Quà tặng',
+      visiting: 'Đang ghé chơi',
+      firstHatch: 'Lần ấp đầu',
+      regularPrice: 'Giá thường',
+      kind: {
+        skill: 'Kỹ năng',
+        agent: 'Trợ lý',
+        pet: 'Thú cưng'
+      },
+      itemByAtum: (kind: string) => `${kind} · của Atum`,
+      discoverLine: (kind: string, summary: string) => `${kind} · ${summary}`,
+      whatItUses: 'Thông tin được dùng',
+      needsAtumAi: 'Chỉ trợ lý dùng AI của Atum mới dùng được mục này. Trợ lý dùng mô hình riêng không có trong danh sách.',
+      agentsSoonNote: 'Các trợ lý bạn có thể thuê sẽ sớm xuất hiện ở đây.',
+      topUp: 'Nạp Proton',
+      cancelMonthly: 'Hủy thuê theo tháng',
+      renews: (date: string) => `Gia hạn ngày ${date}`,
+      listingMissing: 'Mục được đề xuất không còn trong danh mục hiện tại.'
     },
     drive: {
       madeForYou: 'Tạo cho bạn',
@@ -1167,7 +1311,87 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       evening: 'Chào buổi tối.',
       prompt: 'Hôm nay mình giúp gì cho bạn?'
     },
-    askAboutMessage: 'Hỏi Atum về tin này'
+    askAboutMessage: 'Hỏi Atum về tin này',
+    shell: {
+      mainAgent: 'Trợ lý chính',
+      agentDotReady: 'Sẵn sàng',
+      agentDotNeedsYou: 'Cần bạn xử lý',
+      agentDotOffline: 'Ngoại tuyến',
+      agentDotUnreachable: 'Chưa kết nối được',
+      agentRetireTitle: (name: string) => `Xóa ${name} vĩnh viễn?`,
+      agentRetireBody: (name: string) => `${name} sẽ ngừng trả lời và không thể khôi phục. Các cuộc trò chuyện riêng với ${name} sẽ bị xóa khỏi danh sách trò chuyện trên mọi thiết bị của bạn và bạn sẽ không xem lại được. Các cuộc trò chuyện nhóm vẫn được giữ lại.`,
+      agentRetireConfirm: 'Xóa',
+      agentRetireFailed: 'Chưa xóa được trợ lý. Hãy thử lại.',
+      agentCancel: 'Hủy',
+      agentNameRefused: 'Không dùng được tên này. Hãy thử tên khác.'
+    },
+    readAloud: {
+      readAloud: 'Đọc thành tiếng',
+      stopReading: 'Dừng đọc',
+      preparing: 'Đang chuẩn bị âm thanh…',
+      failed: 'Không đọc được thành tiếng'
+    },
+    cloud: {
+      stopRefused: 'Chưa dừng được câu trả lời này. Có thể trợ lý đã trả lời xong.'
+    },
+    dictation: {
+      listening: 'Listening'
+    },
+    teamSpace: {
+      activity: {
+        title: 'Hoạt động',
+        all: 'Tất cả',
+        mentions: 'Lượt nhắc',
+        filterLabel: 'Lọc hoạt động',
+        mention: 'Đã nhắc đến bạn',
+        threadReply: 'Trả lời trong luồng',
+        unread: 'Chưa đọc',
+        emptyAllTitle: 'Chưa có hoạt động',
+        emptyAllBody: 'Lượt nhắc và câu trả lời trong luồng của bạn sẽ xuất hiện ở đây.',
+        emptyMentionsTitle: 'Chưa có lượt nhắc',
+        emptyMentionsBody: 'Tin nhắn nhắc đến bạn sẽ xuất hiện ở đây.',
+        loadMore: 'Xem thêm',
+        open: (room: string) => `Mở trong ${room}`,
+        failed: 'Không mở được tin nhắn này. Hãy thử lại.',
+        someone: 'Ai đó'
+      },
+      saved: {
+        title: 'Đã lưu',
+        save: 'Lưu tin nhắn',
+        remove: 'Bỏ khỏi Đã lưu',
+        marker: 'Đã lưu',
+        emptyTitle: 'Chưa có tin nhắn đã lưu',
+        emptyBody: 'Lưu một tin nhắn từ menu để tìm lại tại đây.',
+        loading: 'Đang tải tin nhắn đã lưu',
+        unavailable: 'Không còn xem được tin nhắn',
+        unavailableBody: 'Tin nhắn đã bị xóa hoặc bạn không còn quyền truy cập.',
+        open: 'Đi đến tin nhắn',
+        retry: 'Thử lại',
+        failed: 'Hiện chưa tải được tin nhắn đã lưu.',
+        you: 'Bạn'
+      },
+      drafts: {
+        title: 'Bản nháp',
+        emptyTitle: 'Chưa có bản nháp',
+        emptyBody: 'Tin nhắn bạn bắt đầu trong Không gian nhóm sẽ xuất hiện ở đây.',
+        roomDraft: 'Bản nháp tin nhắn',
+        threadDraft: 'Bản nháp chuỗi thảo luận',
+        updated: (value: string) => `Cập nhật ${value}`,
+        open: (room: string) => `Mở bản nháp trong ${room}`,
+        failed: 'Không mở được bản nháp này. Hãy thử lại.'
+      },
+      pinned: {
+        pinMessage: 'Ghim tin nhắn',
+        unpinMessage: 'Bỏ ghim tin nhắn',
+        pinnedMessage: 'Đã ghim',
+        pinnedMessages: 'Tin nhắn đã ghim',
+        pinnedMessageCount: (count: number) => `${count} tin nhắn đã ghim`,
+        noPinnedMessages: 'Chưa có tin nhắn nào được ghim.',
+        pinnedMessageUnavailable: 'Tin nhắn đã ghim này hiện không xem được.',
+        showPinnedMessage: 'Đến tin nhắn',
+        closePinnedMessages: 'Đóng tin nhắn đã ghim'
+      }
+    }
   },
   ja: {
     teamTab: 'チーム',
@@ -1192,7 +1416,29 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       get: '入手',
       getWithPrice: (price: string) => `入手 · ${price}`,
       balanceLabel: 'Proton 残高',
-      trySaying: 'こんなふうに頼めます'
+      trySaying: 'こんなふうに頼めます',
+      subtitle: 'Atum に新しい機能を加えるスキル、アシスタント、アプリ。',
+      search: 'ストアを検索',
+      searchEmpty: '一致するものはありません。',
+      gift: 'ギフト',
+      gifts: 'ギフト',
+      visiting: '訪問中',
+      firstHatch: '初回の孵化',
+      regularPrice: '通常価格',
+      kind: {
+        skill: 'スキル',
+        agent: 'アシスタント',
+        pet: 'ペット'
+      },
+      itemByAtum: (kind: string) => `${kind} · Atum 提供`,
+      discoverLine: (kind: string, summary: string) => `${kind} · ${summary}`,
+      whatItUses: '使用する情報',
+      needsAtumAi: 'これは Atum の AI を使うアシスタントだけが使えます。自分のモデルを使うアシスタントは表示されません。',
+      agentsSoonNote: '雇えるアシスタントがまもなくここに表示されます。',
+      topUp: 'チャージ',
+      cancelMonthly: '月額雇用を解約',
+      renews: (date: string) => `${date} に更新`,
+      listingMissing: 'おすすめの項目は現在のカタログにありません。'
     },
     drive: {
       madeForYou: 'あなたのために作成',
@@ -1214,7 +1460,87 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       evening: 'こんばんは。',
       prompt: '今日は何をお手伝いしましょうか？'
     },
-    askAboutMessage: 'このメッセージについて Atum に聞く'
+    askAboutMessage: 'このメッセージについて Atum に聞く',
+    shell: {
+      mainAgent: 'メインエージェント',
+      agentDotReady: '準備完了',
+      agentDotNeedsYou: '対応が必要です',
+      agentDotOffline: 'オフライン',
+      agentDotUnreachable: '接続できません',
+      agentRetireTitle: (name: string) => `${name} を完全に削除しますか？`,
+      agentRetireBody: (name: string) => `${name} は今後応答せず、元に戻せません。${name} との個別チャットは、すべてのデバイスのチャット一覧から消え、再び開くことはできません。グループチャットはそのまま残ります。`,
+      agentRetireConfirm: '削除',
+      agentRetireFailed: 'アシスタントを削除できませんでした。もう一度お試しください。',
+      agentCancel: 'キャンセル',
+      agentNameRefused: 'この名前は使えません。別の名前をお試しください。'
+    },
+    readAloud: {
+      readAloud: '読み上げ',
+      stopReading: '読み上げを停止',
+      preparing: '音声を準備中...',
+      failed: '読み上げに失敗しました'
+    },
+    cloud: {
+      stopRefused: 'この返信を停止できませんでした。すでに完了している可能性があります。'
+    },
+    dictation: {
+      listening: '聴いています'
+    },
+    teamSpace: {
+      activity: {
+        title: 'アクティビティ',
+        all: 'すべて',
+        mentions: 'メンション',
+        filterLabel: 'アクティビティを絞り込む',
+        mention: 'あなたへのメンション',
+        threadReply: 'スレッドの返信',
+        unread: '未読',
+        emptyAllTitle: 'まだアクティビティはありません',
+        emptyAllBody: 'メンションや参加したスレッドへの返信がここに表示されます。',
+        emptyMentionsTitle: 'まだメンションはありません',
+        emptyMentionsBody: 'あなたをメンションしたメッセージがここに表示されます。',
+        loadMore: 'さらに読み込む',
+        open: (room: string) => `${room} で開く`,
+        failed: 'このメッセージを開けませんでした。もう一度お試しください。',
+        someone: '誰か'
+      },
+      saved: {
+        title: 'Saved',
+        save: 'Save message',
+        remove: 'Remove from Saved',
+        marker: 'Saved',
+        emptyTitle: 'No saved messages',
+        emptyBody: 'Save a message from its menu to find it here.',
+        loading: 'Loading saved messages',
+        unavailable: 'Message unavailable',
+        unavailableBody: 'It was deleted or you no longer have access.',
+        open: 'Jump to message',
+        retry: 'Try again',
+        failed: 'Saved messages aren’t available right now.',
+        you: 'You'
+      },
+      drafts: {
+        title: '下書き',
+        emptyTitle: '下書きはありません',
+        emptyBody: 'チームスペースで書き始めたメッセージがここに表示されます。',
+        roomDraft: 'メッセージの下書き',
+        threadDraft: 'スレッドの下書き',
+        updated: (value: string) => `${value}に更新`,
+        open: (room: string) => `${room} の下書きを開く`,
+        failed: 'この下書きを開けませんでした。もう一度お試しください。'
+      },
+      pinned: {
+        pinMessage: 'Pin message',
+        unpinMessage: 'Unpin message',
+        pinnedMessage: 'Pinned',
+        pinnedMessages: 'Pinned messages',
+        pinnedMessageCount: (count: number) => (count === 1 ? '1 pinned message' : `${count} pinned messages`),
+        noPinnedMessages: 'No pinned messages yet.',
+        pinnedMessageUnavailable: 'This pinned message is unavailable.',
+        showPinnedMessage: 'Jump to message',
+        closePinnedMessages: 'Close pinned messages'
+      }
+    }
   },
   zh: {
     teamTab: '团队',
@@ -1239,7 +1565,29 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       get: '获取',
       getWithPrice: (price: string) => `获取 · ${price}`,
       balanceLabel: '你的 Proton',
-      trySaying: '试着这样说'
+      trySaying: '试着这样说',
+      subtitle: '为 Atum 增添新能力的技能、助手和应用。',
+      search: '搜索商店',
+      searchEmpty: '没有匹配的内容。',
+      gift: '礼物',
+      gifts: '礼物',
+      visiting: '来访中',
+      firstHatch: '首次孵化',
+      regularPrice: '原价',
+      kind: {
+        skill: '技能',
+        agent: '助手',
+        pet: '宠物'
+      },
+      itemByAtum: (kind: string) => `${kind} · Atum 提供`,
+      discoverLine: (kind: string, summary: string) => `${kind} · ${summary}`,
+      whatItUses: '使用的信息',
+      needsAtumAi: '只有使用 Atum 的 AI 的助手才能使用此项。使用自己模型的助手不会列出。',
+      agentsSoonNote: '可雇用的助手很快会出现在这里。',
+      topUp: '充值',
+      cancelMonthly: '取消按月雇用',
+      renews: (date: string) => `${date} 续订`,
+      listingMissing: '推荐项目已不在当前目录中。'
     },
     drive: {
       madeForYou: '为你制作',
@@ -1261,7 +1609,87 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       evening: '晚上好。',
       prompt: '今天我能为你做什么？'
     },
-    askAboutMessage: '向 Atum 询问此消息'
+    askAboutMessage: '向 Atum 询问此消息',
+    shell: {
+      mainAgent: '主助手',
+      agentDotReady: '已就绪',
+      agentDotNeedsYou: '需要你处理',
+      agentDotOffline: '离线',
+      agentDotUnreachable: '无法连接',
+      agentRetireTitle: (name: string) => `永久删除 ${name}？`,
+      agentRetireBody: (name: string) => `${name} 将不再回复，且无法恢复。你与 ${name} 的单独对话会从你所有设备的对话列表中消失，之后无法再查看。群聊不受影响。`,
+      agentRetireConfirm: '删除',
+      agentRetireFailed: '未能删除助手，请重试。',
+      agentCancel: '取消',
+      agentNameRefused: '此名称无法使用，请换一个。'
+    },
+    readAloud: {
+      readAloud: '朗读',
+      stopReading: '停止朗读',
+      preparing: '正在准备音频...',
+      failed: '朗读失败'
+    },
+    cloud: {
+      stopRefused: '未能停止这条回复，它可能已经完成。'
+    },
+    dictation: {
+      listening: '聆听中'
+    },
+    teamSpace: {
+      activity: {
+        title: '活动',
+        all: '全部',
+        mentions: '提及',
+        filterLabel: '筛选活动',
+        mention: '提及了你',
+        threadReply: '讨论串回复',
+        unread: '未读',
+        emptyAllTitle: '暂无活动',
+        emptyAllBody: '提及和你参与的讨论串回复会显示在这里。',
+        emptyMentionsTitle: '暂无提及',
+        emptyMentionsBody: '提及你的消息会显示在这里。',
+        loadMore: '加载更多',
+        open: (room: string) => `在 ${room} 中打开`,
+        failed: '无法打开此消息，请重试。',
+        someone: '某人'
+      },
+      saved: {
+        title: 'Saved',
+        save: 'Save message',
+        remove: 'Remove from Saved',
+        marker: 'Saved',
+        emptyTitle: 'No saved messages',
+        emptyBody: 'Save a message from its menu to find it here.',
+        loading: 'Loading saved messages',
+        unavailable: 'Message unavailable',
+        unavailableBody: 'It was deleted or you no longer have access.',
+        open: 'Jump to message',
+        retry: 'Try again',
+        failed: 'Saved messages aren’t available right now.',
+        you: 'You'
+      },
+      drafts: {
+        title: '草稿',
+        emptyTitle: '暂无草稿',
+        emptyBody: '你在团队空间中开始撰写的消息会显示在这里。',
+        roomDraft: '消息草稿',
+        threadDraft: '讨论串草稿',
+        updated: (value: string) => `更新于 ${value}`,
+        open: (room: string) => `打开 ${room} 中的草稿`,
+        failed: '无法打开此草稿，请重试。'
+      },
+      pinned: {
+        pinMessage: 'Pin message',
+        unpinMessage: 'Unpin message',
+        pinnedMessage: 'Pinned',
+        pinnedMessages: 'Pinned messages',
+        pinnedMessageCount: (count: number) => (count === 1 ? '1 pinned message' : `${count} pinned messages`),
+        noPinnedMessages: 'No pinned messages yet.',
+        pinnedMessageUnavailable: 'This pinned message is unavailable.',
+        showPinnedMessage: 'Jump to message',
+        closePinnedMessages: 'Close pinned messages'
+      }
+    }
   },
   'zh-hant': {
     teamTab: '團隊',
@@ -1286,7 +1714,29 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       get: '取得',
       getWithPrice: (price: string) => `取得 · ${price}`,
       balanceLabel: '你的 Proton',
-      trySaying: '試著這樣說'
+      trySaying: '試著這樣說',
+      subtitle: '為 Atum 增添新能力的技能、助理和應用程式。',
+      search: '搜尋商店',
+      searchEmpty: '沒有符合的內容。',
+      gift: '禮物',
+      gifts: '禮物',
+      visiting: '來訪中',
+      firstHatch: '首次孵化',
+      regularPrice: '原價',
+      kind: {
+        skill: '技能',
+        agent: '助理',
+        pet: '寵物'
+      },
+      itemByAtum: (kind: string) => `${kind} · Atum 提供`,
+      discoverLine: (kind: string, summary: string) => `${kind} · ${summary}`,
+      whatItUses: '使用的資訊',
+      needsAtumAi: '只有使用 Atum 的 AI 的助理才能使用此項。使用自己模型的助理不會列出。',
+      agentsSoonNote: '可聘用的助理很快會出現在這裡。',
+      topUp: '儲值',
+      cancelMonthly: '取消月度聘用',
+      renews: (date: string) => `${date} 續訂`,
+      listingMissing: '推薦項目已不在目前的目錄中。'
     },
     drive: {
       madeForYou: '為你製作',
@@ -1308,6 +1758,86 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       evening: '晚上好。',
       prompt: '今天我能為你做什麼？'
     },
-    askAboutMessage: '詢問 Atum 關於此訊息'
+    askAboutMessage: '詢問 Atum 關於此訊息',
+    shell: {
+      mainAgent: '主助理',
+      agentDotReady: '已就緒',
+      agentDotNeedsYou: '需要你處理',
+      agentDotOffline: '離線',
+      agentDotUnreachable: '無法連線',
+      agentRetireTitle: (name: string) => `永久刪除 ${name}？`,
+      agentRetireBody: (name: string) => `${name} 將不再回覆，且無法復原。你與 ${name} 的單獨對話會從你所有裝置的對話清單中消失，之後無法再查看。群組對話不受影響。`,
+      agentRetireConfirm: '刪除',
+      agentRetireFailed: '無法刪除助理，請再試一次。',
+      agentCancel: '取消',
+      agentNameRefused: '此名稱無法使用，請換一個。'
+    },
+    readAloud: {
+      readAloud: '朗讀',
+      stopReading: '停止朗讀',
+      preparing: '正在準備音訊...',
+      failed: '朗讀失敗'
+    },
+    cloud: {
+      stopRefused: '未能停止這則回覆，它可能已經完成。'
+    },
+    dictation: {
+      listening: '聆聽中'
+    },
+    teamSpace: {
+      activity: {
+        title: '活動',
+        all: '全部',
+        mentions: '提及',
+        filterLabel: '篩選活動',
+        mention: '提及了你',
+        threadReply: '討論串回覆',
+        unread: '未讀',
+        emptyAllTitle: '暫無活動',
+        emptyAllBody: '提及和你參與的討論串回覆會顯示在這裡。',
+        emptyMentionsTitle: '暫無提及',
+        emptyMentionsBody: '提及你的訊息會顯示在這裡。',
+        loadMore: '載入更多',
+        open: (room: string) => `在 ${room} 中開啟`,
+        failed: '無法開啟此訊息，請再試一次。',
+        someone: '某人'
+      },
+      saved: {
+        title: 'Saved',
+        save: 'Save message',
+        remove: 'Remove from Saved',
+        marker: 'Saved',
+        emptyTitle: 'No saved messages',
+        emptyBody: 'Save a message from its menu to find it here.',
+        loading: 'Loading saved messages',
+        unavailable: 'Message unavailable',
+        unavailableBody: 'It was deleted or you no longer have access.',
+        open: 'Jump to message',
+        retry: 'Try again',
+        failed: 'Saved messages aren’t available right now.',
+        you: 'You'
+      },
+      drafts: {
+        title: '草稿',
+        emptyTitle: '暫無草稿',
+        emptyBody: '你在團隊空間中開始撰寫的訊息會顯示在這裡。',
+        roomDraft: '訊息草稿',
+        threadDraft: '討論串草稿',
+        updated: (value: string) => `更新於 ${value}`,
+        open: (room: string) => `開啟 ${room} 中的草稿`,
+        failed: '無法開啟此草稿，請再試一次。'
+      },
+      pinned: {
+        pinMessage: 'Pin message',
+        unpinMessage: 'Unpin message',
+        pinnedMessage: 'Pinned',
+        pinnedMessages: 'Pinned messages',
+        pinnedMessageCount: (count: number) => (count === 1 ? '1 pinned message' : `${count} pinned messages`),
+        noPinnedMessages: 'No pinned messages yet.',
+        pinnedMessageUnavailable: 'This pinned message is unavailable.',
+        showPinnedMessage: 'Jump to message',
+        closePinnedMessages: 'Close pinned messages'
+      }
+    }
   }
 }

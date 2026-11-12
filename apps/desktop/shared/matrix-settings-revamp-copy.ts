@@ -420,6 +420,16 @@ export interface PhoneSettingsCopy {
   /** Under Appearance: the phone's sibling of the desktop's "Follow your Mac" line. */
   appearanceDescription: string
   appearanceDescriptionIPad: string
+  /** The value of a row whose setting iOS owns (text size), and the footer under a row that
+   * opens the iOS Settings app (notifications). */
+  usesIOSSettings: string
+  opensIOSSettings: string
+  /** Help: the two reporting switches and the footer under them. */
+  shareCrashReports: string
+  shareCrashReportsHelp: string
+  shareUsageData: string
+  shareUsageDataHelp: string
+  reportingFooter: string
 }
 
 export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
@@ -431,7 +441,14 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     nameRequired: 'Enter a name.',
     profileSummary: 'Account, Protons, devices',
     appearanceDescription: 'Follow your iPhone automatically, or choose light or dark mode.',
-    appearanceDescriptionIPad: 'Follow your iPad automatically, or choose light or dark mode.'
+    appearanceDescriptionIPad: 'Follow your iPad automatically, or choose light or dark mode.',
+    usesIOSSettings: 'Uses iOS settings',
+    opensIOSSettings: 'Opens iOS Settings',
+    shareCrashReports: 'Share crash reports',
+    shareCrashReportsHelp: 'Send crash details to help fix problems. No message content or account details are sent.',
+    shareUsageData: 'Share usage data',
+    shareUsageDataHelp: 'Send anonymous app usage to help improve Atum. It is not linked to your account.',
+    reportingFooter: 'You can turn either report off at any time. Turning one off stops sending immediately.'
   },
   vi: {
     thisIPhone: 'iPhone này',
@@ -441,7 +458,14 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     nameRequired: 'Hãy nhập tên.',
     profileSummary: 'Tài khoản, Proton, thiết bị',
     appearanceDescription: 'Tự động theo iPhone hoặc chọn chế độ sáng hay tối.',
-    appearanceDescriptionIPad: 'Tự động theo iPad hoặc chọn chế độ sáng hay tối.'
+    appearanceDescriptionIPad: 'Tự động theo iPad hoặc chọn chế độ sáng hay tối.',
+    usesIOSSettings: 'Theo cài đặt iOS',
+    opensIOSSettings: 'Mở Cài đặt iOS',
+    shareCrashReports: 'Chia sẻ báo cáo sự cố',
+    shareCrashReportsHelp: 'Gửi chi tiết sự cố để giúp khắc phục. Không gửi nội dung tin nhắn hay thông tin tài khoản.',
+    shareUsageData: 'Chia sẻ dữ liệu sử dụng',
+    shareUsageDataHelp: 'Gửi dữ liệu sử dụng ẩn danh để giúp cải thiện Atum. Dữ liệu không gắn với tài khoản của bạn.',
+    reportingFooter: 'Bạn có thể tắt từng báo cáo bất cứ lúc nào. Tắt sẽ dừng gửi ngay.'
   },
   ja: {
     thisIPhone: 'この iPhone',
@@ -451,7 +475,15 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     nameRequired: '名前を入力してください。',
     profileSummary: 'アカウント、Proton、デバイス',
     appearanceDescription: 'iPhone に自動的に合わせるか、ライトまたはダークを選びます。',
-    appearanceDescriptionIPad: 'iPad に自動的に合わせるか、ライトまたはダークを選びます。'
+    appearanceDescriptionIPad: 'iPad に自動的に合わせるか、ライトまたはダークを選びます。',
+    usesIOSSettings: 'iOS の設定に従います',
+    opensIOSSettings: 'iOS の設定を開きます',
+    shareCrashReports: 'クラッシュレポートを共有',
+    shareCrashReportsHelp:
+      '問題の修正に役立てるため、クラッシュの詳細を送信します。メッセージの内容やアカウント情報は送信しません。',
+    shareUsageData: '使用データを共有',
+    shareUsageDataHelp: '匿名のアプリ利用データを送信し、Atum の改善に役立てます。アカウントには紐付けられません。',
+    reportingFooter: 'どちらのレポートもいつでもオフにできます。オフにするとすぐに送信が止まります。'
   },
   zh: {
     thisIPhone: '这台 iPhone',
@@ -461,7 +493,14 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     nameRequired: '请输入名字。',
     profileSummary: '账户、Proton、设备',
     appearanceDescription: '自动跟随 iPhone，或选择浅色或深色模式。',
-    appearanceDescriptionIPad: '自动跟随 iPad，或选择浅色或深色模式。'
+    appearanceDescriptionIPad: '自动跟随 iPad，或选择浅色或深色模式。',
+    usesIOSSettings: '跟随 iOS 设置',
+    opensIOSSettings: '打开 iOS 设置',
+    shareCrashReports: '共享崩溃报告',
+    shareCrashReportsHelp: '发送崩溃详情以帮助修复问题。不会发送消息内容或账户信息。',
+    shareUsageData: '共享使用数据',
+    shareUsageDataHelp: '发送匿名的应用使用数据，帮助改进 Atum。这些数据不会关联到你的账户。',
+    reportingFooter: '你可以随时关闭任一报告。关闭后立即停止发送。'
   },
   'zh-hant': {
     thisIPhone: '這台 iPhone',
@@ -471,6 +510,13 @@ export const phoneSettingsCopy: Record<DesktopLocale, PhoneSettingsCopy> = {
     nameRequired: '請輸入名字。',
     profileSummary: '帳戶、Proton、裝置',
     appearanceDescription: '自動跟隨 iPhone，或選擇淺色或深色模式。',
-    appearanceDescriptionIPad: '自動跟隨 iPad，或選擇淺色或深色模式。'
+    appearanceDescriptionIPad: '自動跟隨 iPad，或選擇淺色或深色模式。',
+    usesIOSSettings: '依照 iOS 設定',
+    opensIOSSettings: '開啟 iOS 設定',
+    shareCrashReports: '分享當機報告',
+    shareCrashReportsHelp: '傳送當機詳情以協助修正問題。不會傳送訊息內容或帳戶資訊。',
+    shareUsageData: '分享使用資料',
+    shareUsageDataHelp: '傳送匿名的應用程式使用資料，協助改進 Atum。這些資料不會連結到你的帳戶。',
+    reportingFooter: '你可以隨時關閉任一報告。關閉後立即停止傳送。'
   }
 }

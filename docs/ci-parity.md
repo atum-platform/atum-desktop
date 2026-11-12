@@ -312,3 +312,5 @@ with owner-startup and admission-wait checks: seven passed. Ruff and
 `git diff --check` pass. The unchanged two restart E2E scenarios skip on macOS
 because they require Linux `/proc`; exact-head Linux CI remains coordinator
 work. No push, PR edit, CI rerun, deployment, or nested review was performed.
+
+Identifier findings follow the same rule: a new identifier is accepted only in a file whose exact bytes the coordinator reviewed and recorded in `reviewed_blobs` of the base-branch policy, landed by a policy-only PR before the content PR. 2026-11-11: `packages/mobile-design-exports/dist/Localizable.xcstrings` for the wave 3 phone export (#26), whose only new identifier is desktop's DM placeholder address at the reserved `example.com` domain, five times. Any later change to that file needs a new approval.
