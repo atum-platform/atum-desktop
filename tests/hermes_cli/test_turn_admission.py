@@ -265,7 +265,7 @@ def test_system_exit_is_denial(admission):
     assert check_turn_admission()['admission']['code'] == 'hook_error'
 
 
-@pytest.mark.parametrize('contents', ['plugins:\n  required_admission: [managed-authority]\n', 'plugins: [broken'])
+@pytest.mark.parametrize('contents', ['plugins:\n  required_admission: [managed-authority]\n', 'plugins: [broken', 'plugins: [unterminated'])
 def test_managed_pin_cannot_be_removed_by_profile(admission, monkeypatch, tmp_path, contents):
     from hermes_cli.turn_admission import check_turn_admission
     managed = tmp_path / 'managed'
@@ -308,10 +308,33 @@ async def test_second_check_is_unexecuted_failure(admission, monkeypatch, flip):
     prepared = object.__new__(runner._PreparedTurn)
     # The real media entry checks before STT. The mocked enrichment below flips Stop during STT.
     policy_state = {'allow': True}
-    admission[1].register_hook('pre_turn_admission', lambda **_: policy_state['allow'], fail_closed=True)
+    decisions = []
+    def policy(**ctx):
+        decisions.append(ctx)
+        return policy_state['allow']
+    admission[1].register_hook('pre_turn_admission', policy, fail_closed=True)
+    from gateway.run_inbound import GatewayInboundMixin
+    seen = []
+    admission[1].register_hook('pre_turn_admission', lambda **ctx: seen.append(ctx) or True)
+    async def transcribe(*args):
+        policy_state['allow'] = False  # owner presses Stop while transcription is in flight
+        return 'transcribed voice'
+    runner._consume_pending_native_image_paths = lambda _: []
+    runner._prefix_inbound_sender_context = lambda event, source, text: text
+    runner._classify_inbound_media = lambda *args: ([], ['voice.ogg'] if flip == 'stop-during-transcription' else [], [], [])
+    runner._enrich_inbound_voice = AsyncMock(side_effect=transcribe)
+    runner._prepend_inbound_media_file_notes = lambda text, *args: text
+    runner._prepend_inbound_document_notes = lambda text, *args: text
+    runner._prepend_inbound_reply_context = lambda event, source, text: text
+    monkeypatch.setattr('gateway.run_inbound.rehome_inbound_media', lambda _: None)
+    async def references(runner, event, source, session_key, text):
+        return text
+    monkeypatch.setattr('gateway.session_context_refs.turn_references', references)
     async def prepare(*args):
-        assert check_turn_admission(stage='gateway_media') is None
-        policy_state['allow'] = False
+        assert await GatewayInboundMixin._prepare_inbound_message_text(
+            runner, event=event, source=source, history=[], session_key='test') is not None
+        if flip == 'policy-flip':
+            policy_state['allow'] = False
         return prepared, {}
     for key, value in dict(history=[], message_text='transcribed voice', context_prompt='', persist_user_message=None,
                            persist_user_timestamp=None, persist_user_display_kind=None, persist_user_display_metadata=None,
@@ -339,6 +362,12 @@ async def test_second_check_is_unexecuted_failure(admission, monkeypatch, flip):
         assert reply == captured['result']['final_response']
         assert 'Send it again' not in reply
         assert captured['result']['messages'] == []
+        assert [ctx['stage'] for ctx in seen] == ['gateway_media']
+        assert [ctx['stage'] for ctx in decisions] == ['gateway_media', 'turn']
+        assert decisions[0]['turn_id'] == decisions[1]['turn_id']
+        # The strict veto runs before the observer at the facade boundary.
+        if flip == 'stop-during-transcription':
+            runner._enrich_inbound_voice.assert_awaited_once()
         runner._hmwa_persist_turn_transcript.assert_not_called()
     finally:
         execution_result.reset(token)

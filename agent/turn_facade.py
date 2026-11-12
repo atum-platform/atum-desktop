@@ -36,7 +36,8 @@ class TurnFacadeMixin:
         from hermes_cli.turn_admission import admission_turn_id, check_turn_admission
         import uuid
 
-        self._admission_turn_id = admission_turn_id.get() or str(uuid.uuid4())
+        self._admission_turn_id = (getattr(self, "_relay_pending_turn_id", "")
+                                   or admission_turn_id.get() or str(uuid.uuid4()))
 
         refusal = check_turn_admission(
             platform=getattr(self, "platform", None) or "cli",

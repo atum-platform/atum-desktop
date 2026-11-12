@@ -98,7 +98,7 @@ def _load_managed_file(name: str, cache: dict[str, tuple], parse) -> dict:
 
 
 def load_managed_config(*, strict: bool = False) -> dict:
-    """Parsed managed config.yaml, or {} when absent/malformed (fail-open)."""
+    """Read managed config. Strict admission callers reject read/parse failures."""
     if strict:
         managed_dir = get_managed_dir()
         override = os.environ.get("HERMES_MANAGED_DIR", "").strip()
@@ -111,7 +111,9 @@ def load_managed_config(*, strict: bool = False) -> dict:
             contents = path.read_text(encoding="utf-8-sig")
         except FileNotFoundError:
             return {}
-        parsed = fast_safe_load(contents) or {}
+        parsed = fast_safe_load(contents)
+        if parsed is None:
+            parsed = {}
         if not isinstance(parsed, dict):
             raise ValueError("Managed config must be a mapping")
         return parsed
