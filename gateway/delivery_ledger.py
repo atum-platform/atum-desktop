@@ -298,7 +298,7 @@ def record_obligation(*, obligation_id: str, session_key: str, platform: str, ch
     now, (pid, started) = time.time(), _owner_stamp()
     with _DB_LOCK, _transaction() as conn:
         conn.execute(
-            """INSERT OR REPLACE INTO delivery_obligations
+            ("INSERT OR IGNORE" if platform == "matrix" else "INSERT OR REPLACE") + """ INTO delivery_obligations
                (obligation_id, session_key, platform, chat_id, thread_id,
                 content, state, attempts, created_at, updated_at,
                 owner_pid, owner_started_at, adapter_profile)

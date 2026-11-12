@@ -33,7 +33,7 @@ def cmd_matrix_intake(args):
     try:
         if args.action == 'retry':
             with store.db:
-                store.db.execute('UPDATE encrypted_pending SET attempts=0,created=? WHERE event_id=?',
+                store.db.execute('UPDATE encrypted_pending SET attempts=0,notified=0,created=? WHERE event_id=?',
                                  (time.time(), args.event))
         else:
             if store.state(args.event) != 'ambiguous':

@@ -2086,11 +2086,37 @@ class MatrixAdapter(BasePlatformAdapter):
                              "owner action required: hermes gateway matrix-intake status --store %s. "
                              "Restore this device's keys then use retry; payload is retained.",
                              eid, room, store.path)
+                await self._notify_decryption_giveup(eid, room, raw)
                 continue
             store.retry_parked(eid)
             await self._decrypt_parked(raw, room)
             if store.state(eid) in {"native", "done"}:
                 store.unpark(eid)
+
+    async def _notify_decryption_giveup(self, eid, room, raw):
+        store = self._intake
+        notified = store.db.execute('SELECT notified FROM encrypted_pending WHERE event_id=?', (eid,)).fetchone()
+        if not notified or notified[0] or not self._is_authorized_user(raw.get("sender", ""), room):
+            return
+        if not await self._is_allowed_matrix_room_event(room):
+            return
+        from gateway.delivery_ledger import record_obligation, mark_delivered
+        import hashlib
+        oid = "matrix-key-" + hashlib.sha256(eid.encode()).hexdigest()[:24]
+        text = (f"I could not decrypt your Matrix message {eid}. It is saved, but I have stopped "
+                "retrying it. The owner needs to restore this device's encryption keys and use "
+                "hermes gateway matrix-intake retry. Other messages can still arrive.")
+        try:
+            await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=f"matrix:{room}",
+                platform="matrix", chat_id=room, thread_id=None, content=text,
+                adapter_profile=getattr(self, "_owner_profile", None))
+            result = await self.send(room, text, metadata={"delivery_obligation_id": oid})
+            if result.success:
+                await asyncio.to_thread(mark_delivered, oid)
+                with store.db:
+                    store.db.execute('UPDATE encrypted_pending SET notified=1 WHERE event_id=?', (eid,))
+        except Exception:
+            logger.error("Matrix could not notify owner about retained encrypted message %s", eid, exc_info=True)
 
     def _is_self_sender(self, sender: str) -> bool:
         """True if *sender* is the bot itself (case-insensitive: homeservers vary localpart case). With

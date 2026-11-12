@@ -31,6 +31,8 @@ class MatrixIntakeStore:
         self.db.execute('''CREATE TABLE IF NOT EXISTS encrypted_pending (
             event_id TEXT PRIMARY KEY, room TEXT NOT NULL, payload TEXT NOT NULL,
             attempts INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL)''')
+        if 'notified' not in {r[1] for r in self.db.execute('PRAGMA table_info(encrypted_pending)')}:
+            self.db.execute('ALTER TABLE encrypted_pending ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
         self.db.commit()
 
     def get(self, key, default=None):
@@ -86,12 +88,12 @@ class MatrixIntakeStore:
 
     def park(self, raw, room):
         with self.db:
-            self.db.execute('INSERT OR IGNORE INTO encrypted_pending VALUES (?,?,?,0,?)',
+            self.db.execute('INSERT OR IGNORE INTO encrypted_pending (event_id,room,payload,attempts,created) VALUES (?,?,?,0,?)',
                             (raw['event_id'], room, json.dumps(raw), time.time()))
 
     def parked(self):
         return [(eid, room, json.loads(raw), tries, created) for eid, room, raw, tries, created
-                in self.db.execute('SELECT * FROM encrypted_pending')]
+                in self.db.execute('SELECT event_id,room,payload,attempts,created FROM encrypted_pending')]
 
     def unpark(self, eid):
         with self.db:

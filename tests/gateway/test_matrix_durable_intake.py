@@ -524,3 +524,33 @@ def test_disk_full_receipt_failure_retains_payload(tmp_path):
     store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
     assert store.get('pending') == b
     assert store.state('$lost') is None
+
+@pytest.mark.asyncio
+async def test_bounded_decryption_giveup_notifies_owner_once(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as ledger
+    monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / 'state.db')
+    a = adapter(tmp_path)
+    raw = event('$missing-key')
+    a._intake.park(raw, '!room:example.org')
+    with a._intake.db:
+        a._intake.db.execute('UPDATE encrypted_pending SET attempts=100')
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    a._client = SimpleNamespace(send_message_event=AsyncMock(return_value='$notice'))
+    a._decrypt_parked = AsyncMock()
+    await a._retry_parked()
+    await a._retry_parked()
+    a._decrypt_parked.assert_not_awaited()
+    a._client.send_message_event.assert_awaited_once()
+    assert 'stopped retrying' in a._client.send_message_event.await_args.args[2]['body']
+    assert a._intake.parked()[0][0] == '$missing-key'
+
+
+def test_matrix_obligation_rerecord_preserves_frozen_plan(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as ledger
+    monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / 'state.db')
+    args = dict(obligation_id='owed', session_key='matrix:r', platform='matrix', chat_id='r',
+                thread_id=None, content='reply')
+    ledger.record_obligation(**args)
+    original = ledger.matrix_send_plan('owed', 'r', [{'body': 'original'}])
+    ledger.record_obligation(**args)
+    assert ledger.matrix_send_plan('owed', 'r', [{'body': 'different'}]) == original
