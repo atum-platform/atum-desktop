@@ -1317,8 +1317,7 @@ class MatrixAdapter(BasePlatformAdapter):
         if not since:
             # First installation establishes a baseline. Existing room history is
             # not a queue of new requests (including recent history).
-            store.accept(sync_data)
-            store.finish(sync_data)
+            store.baseline(sync_data)
             for data in sync_data.get("rooms", {}).get("join", {}).values():
                 data.get("timeline", {})["events"] = []
                 data.get("timeline", {})["limited"] = False
@@ -2601,6 +2600,20 @@ class MatrixAdapter(BasePlatformAdapter):
         await self._send_reaction(room_id, msg_id, "\u2705" if outcome == ProcessingOutcome.SUCCESS else "\u274c")
 
     async def _on_reaction(self, event: Any) -> None:
+        store = getattr(self, "_intake", None)
+        event_id = str(getattr(event, "event_id", ""))
+        if store is not None and event_id:
+            state = store.state(event_id)
+            if state == "done":
+                return
+            if state == "ambiguous":
+                raise RuntimeError("Matrix reaction control is ambiguous; operator recovery required")
+            store.mark(event_id, "ambiguous")
+        await self._process_reaction(event)
+        if store is not None and event_id:
+            store.mark(event_id, "done")
+
+    async def _process_reaction(self, event: Any) -> None:
         sender = str(getattr(event, "sender", ""))
         if self._is_self_sender(sender):
             return

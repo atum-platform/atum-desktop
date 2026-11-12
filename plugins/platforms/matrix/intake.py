@@ -47,6 +47,15 @@ class MatrixIntakeStore:
             self._put('pending', batch)
             self._put('next_batch', batch['next_batch'])
 
+    def baseline(self, batch):
+        """First installation skips history atomically, including a crash mid-baseline."""
+        with self.db:
+            self._put('frontier', {room: data['timeline']['events'][-1]['event_id']
+                                  for room, data in batch.get('rooms', {}).get('join', {}).items()
+                                  if data.get('timeline', {}).get('events')})
+            self._put('next_batch', batch['next_batch'])
+            self._put('pending', None)
+
     def state(self, event_id):
         row = self.db.execute('SELECT state FROM intake_events WHERE event_id=?', (event_id,)).fetchone()
         return row[0] if row else None

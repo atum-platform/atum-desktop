@@ -280,3 +280,25 @@ async def test_connect_takes_account_lock_before_any_sync(tmp_path):
         'matrix', '["https://matrix.example.org", "@bot:example.org"]', 'Matrix account')
     client.sync.assert_not_awaited()
     a._release_platform_lock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_first_baseline_crash_cannot_replay_history(tmp_path):
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    original = store._put
+    def crash(key, value):
+        original(key, value)
+        if key == 'next_batch':
+            raise RuntimeError('crash during baseline transaction')
+    store._put = crash
+    with pytest.raises(RuntimeError):
+        store.baseline(batch('$old'))
+    assert await store.get_next_batch() is None
+    assert store.get('pending') is None
+    store._put = original
+    store.baseline(batch('$old'))
+    store.close()
+    reopened = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    assert reopened.get('pending') is None
+    assert reopened.get('frontier') == {'!room:example.org': '$old'}
+    reopened.close()
