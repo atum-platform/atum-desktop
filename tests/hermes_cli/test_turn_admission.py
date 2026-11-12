@@ -118,7 +118,7 @@ def test_manifest_declared_plugin_import_failure(admission, tmp_path):
     plugin.mkdir()
     (plugin / "plugin.yaml").write_text("name: policy\nfail_closed_admission: true\n")
     (plugin / "__init__.py").write_text("raise RuntimeError('unloadable')\n")
-    manifest = parse_manifest_file(plugin / "plugin.yaml", plugin, "user")
+    manifest = parse_manifest_file(plugin / "plugin.yaml", plugin, "user", "")
     assert manifest.fail_closed_admission is True
     manager._gate_manifest(manifest, set(), {"policy"})
     manager._load_plugin(manifest)
