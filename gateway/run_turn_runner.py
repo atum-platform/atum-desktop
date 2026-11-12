@@ -908,8 +908,6 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 raw_history = db.get_messages_as_conversation(ctx.session_id, include_ancestors=True)
             self._resume_policy = choose_resume_policy(
                 raw_history, force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
-            persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
-            ctx.message = self._resume_policy.note() + ('\n\n' + ctx.message if ctx.message else '')
         elif resume_pending and (interruption_is_fresh or mark_is_fresh):
             # Empty message = the startup auto-resume turn; there is no NEW user message.
             ctx.message, persist_override = _prepare_resume_pending_message(
@@ -924,6 +922,20 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 "below FIRST. Do NOT re-execute old tool calls from the history.]\n\n"
                 + ctx.message
             )
+        if entry is not None and (getattr(entry, 'resume_ask', None) or
+                                  (self._resume_policy is not None and self._resume_policy.ask)):
+            from gateway.resume_policy import pending_resume_policy, pending_ask_note
+            self._resume_policy = pending_resume_policy(
+                self._runner.session_store, entry, self._resume_policy, ctx.message,
+                can_resolve=bool(ctx.inbound_message_id)
+                and not getattr(ctx, 'scheduled_heartbeat', False)
+                and not getattr(ctx, 'persist_user_display_kind', None))
+            self._resume_ask_note = pending_ask_note(entry)
+        else:
+            self._resume_ask_note = ''
+        if self._resume_policy is not None:
+            persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
+            ctx.message = self._resume_policy.note() + self._resume_ask_note + ('\n\n' + ctx.message if ctx.message else '')
         self._prepend_pending_note("_pending_skills_reload_notes")
         if api_text is not None:
             persist_override = clean_text  # recovery wording is API-only too, never the stored row

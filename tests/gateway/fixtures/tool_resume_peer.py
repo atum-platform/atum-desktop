@@ -35,8 +35,8 @@ class Peer(BaseHTTPRequestHandler):
         if mode == 'crash' and index == 1 and hook == 'between':
             os.kill(os.getpid(), signal.SIGKILL)
         # Deliberately attempt the completed call again after restart. The executor must refuse.
-        if index < 2:
-            name = 'write_file' if index == 1 and unsafe else 'read_file'
+        if index < 2 or (mode == 'pending_again' and index % 3 < 2):
+            name = 'write_file' if unsafe and (index == 1 or mode == 'pending_again') else 'read_file'
             args = {'path': str(home / ('done' if index == 0 else 'pending'))}
             if name == 'write_file':
                 args['content'] = 'one line'
@@ -121,15 +121,43 @@ async def probe():
         await async_wait_until(lambda: False, timeout=40, what='fixture SIGKILL')
     else:
         entry = runner.session_store.get_or_create_session(source)
+        if mode == 'ask_crash':
+            from copy import deepcopy
+            from hermes_state_runtime import admit_session_input
+            original = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)[0]
+            payload = deepcopy(original['payload'])
+            payload['text'] = 'Finish the same work now.'
+            payload['native_text_v1']['event']['message_id'] = 'queued-before-ask'
+            admit_session_input(authority.db, epoch=authority.epoch, principal_id=original['principal_id'],
+                                session_id=entry.session_id, request_id='queued-before-ask', payload=payload)
+        if mode == 'pending_again':
+            assert entry.resume_ask
+            await adapter.handle_message(MessageEvent(text='Finish the work.', source=source, message_id='after-restart'))
+            await async_wait_until(lambda: authority.sessions[entry.session_id].task is None,
+                                   timeout=40, what='pending conversational reply')
+            assert entry.resume_ask
+            assert not (home / 'pending-count').exists()
+            token = entry.resume_ask['token']
+            await adapter.handle_message(MessageEvent(text='không ' + token, source=source, message_id='decline'))
+            await async_wait_until(lambda: authority.sessions[entry.session_id].task is None,
+                                   timeout=40, what='owner decline')
+            assert entry.resume_ask is None
+            assert not (home / 'pending-count').exists()
+            return
         verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
         assert verdict[entry.session_id] == 'ready', verdict
         task = authority.sessions[entry.session_id].task
         if task is not None:
             await asyncio.wait_for(task, 40)
         rows = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)
-        assert len(rows) == 1 and rows[0]['status'] == 'terminal', rows
+        assert all(row['status'] == 'terminal' for row in rows), rows
         assert rows[0]['outcome'] == 'completed', rows
         assert any(('tiếp tục' if unsafe else 'Đã đọc xong') in text for text in adapter.sent), adapter.sent
+        if mode == 'ask_crash':
+            assert len(rows) == 2, rows
+            assert entry.resume_ask
+            assert not (home / 'pending-count').exists()
+            os.kill(os.getpid(), signal.SIGKILL)
         (home / 'verdict.json').write_text(json.dumps({'rows': rows, 'sent': adapter.sent}))
 
 

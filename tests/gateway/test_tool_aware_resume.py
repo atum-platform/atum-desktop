@@ -22,9 +22,9 @@ def test_unfinished_only_and_unknown_conservative():
                {'role': 'tool', 'tool_call_id': 'a', 'content': 'written'}, call('b', 'read_file')]
     before = json.dumps(history)
     policy = choose_resume_policy(history)
-    assert not policy.ask
+    assert policy.ask  # a legacy write result has no positive read-only classification
     assert recovery_tool_block(policy, 'write_file', {})
-    assert recovery_tool_block(policy, 'read_file', {}) is None
+    assert recovery_tool_block(policy, 'read_file', {})
     assert json.dumps(history) == before  # cached prefix and role sequence untouched
     for name in ('terminal', 'append_test', 'connectors__execute', 'delegate_task'):
         policy = choose_resume_policy([call('x', name)])
@@ -216,7 +216,7 @@ def test_folded_occurrence_ids_and_legacy_variants():
     row['_tool_call_uids'] = {'same': ['u1', 'u2']}
     history = [row, {'role': 'tool', 'tool_call_id': 'same', '_tool_call_uid': 'u1', 'content': 'read'}]
     policy = choose_resume_policy(history)
-    assert policy.ask and 'write_file' in policy.actions
+    assert policy.ask and any(action.startswith('write_file') for action in policy.actions)
     assert recovery_tool_block(policy, 'read_file', {})
     assert choose_resume_policy(history + [{'role': 'user', 'content': policy.note()}]).ask
 
@@ -244,3 +244,16 @@ def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path):
     assert pending_resume_policy(store, entry, None, 'new work', can_resolve=True) is None
     pending_resume_policy(store, entry, policy, '', can_resolve=False)
     assert pending_resume_policy(store, entry, None, 'có ' + entry.resume_ask['token'], can_resolve=True) is None
+
+
+def test_queued_message_and_second_gateway_crash_keep_ask(tmp_path):
+    home = tmp_path / 'home'
+    home.mkdir()
+    env = {key: os.environ[key] for key in ('PATH', 'LANG', 'TZ') if key in os.environ}
+    env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(home), PYTHONPATH=str(Path.cwd()))
+    peer = Path(__file__).parent / 'fixtures' / 'tool_resume_peer.py'
+    for mode, expected in [('crash', -signal.SIGKILL), ('ask_crash', -signal.SIGKILL), ('pending_again', 0)]:
+        result = subprocess.run([sys.executable, str(peer), mode, 'before_effect'], env=env,
+                                capture_output=True, text=True, timeout=80)
+        assert result.returncode == expected, result.stdout + result.stderr
+    assert not (home / 'pending-count').exists()
