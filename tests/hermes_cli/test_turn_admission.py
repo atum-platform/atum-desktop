@@ -224,3 +224,12 @@ def test_cron_refuses_before_scripts(admission, monkeypatch, no_agent, outcome):
             scripts.assert_not_called()
     finally:
         release.set()
+
+
+def test_reload_requirement_added_before_callback_snapshot(admission, monkeypatch):
+    import hermes_cli.turn_admission as policy
+    manager, _, _ = admission
+    # Discovery can add a requirement after config was read, before registry snapshot.
+    manager._admission_required.add("new-policy")
+    monkeypatch.setattr(policy, "_policy", lambda: (manager, set(), 30))
+    assert policy.check_turn_admission()["admission"]["code"] == "plugin_unavailable"
