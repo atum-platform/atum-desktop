@@ -128,7 +128,8 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
         received = datetime.fromisoformat(message_timestamp).timestamp()
         from hermes_constants import get_hermes_home
         from utils import load_yaml_file_readonly
-        config = load_yaml_file_readonly(get_hermes_home() / 'config.yaml') or {}
+        config_path = get_hermes_home() / 'config.yaml'
+        config = (load_yaml_file_readonly(config_path) or {}) if config_path.exists() else {}
         tolerance = max(0, float(config.get('recovery', {}).get('clock_skew_tolerance_seconds', 300)))
         ordered = (message_admission_seq > pending['admission_seq']
                    if message_admission_seq is not None and 'admission_seq' in pending

@@ -76,7 +76,8 @@ def test_ask_skew_and_admission_fence(tmp_path, seconds, seq, expected):
         def _update_entry(self, key, update): update(entry)
         def clear_resume_pending(self, key): pass
     stamp = datetime.fromtimestamp(0, timezone.utc) if seconds == 0 else now + timedelta(seconds=seconds)
-    result = pending_resume_policy(Store(), entry, None, 'yes', can_resolve=True, message_timestamp=stamp.isoformat(), message_admission_seq=seq)
+    kwargs = {'message_admission_seq': seq} if seq is not None else {}
+    result = pending_resume_policy(Store(), entry, None, 'yes', can_resolve=True, message_timestamp=stamp.isoformat(), **kwargs)
     assert (result is None) is expected
 
 def test_restore_zero_and_missing_timestamp_not_now(tmp_path):
@@ -117,3 +118,42 @@ async def test_boot_scan_only_latest_old_epoch_failure(tmp_path, monkeypatch):
     await recover_profile_native_sessions(runner, authority)
     assert [b[0] for b in recover.call_args.args[0]] == ['eligible']
     db.close()
+
+@pytest.mark.asyncio
+async def test_long_outage_alert_is_quiet_and_healthy(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    (tmp_path/'config.yaml').write_text('agent:\n  reconnect_attention_after: 60\n')
+    from tests.gateway.test_matrix_durable_intake import adapter
+    from gateway.status import write_runtime_status, read_runtime_status
+    from gateway.readiness import collect_runtime_readiness
+    a = adapter(tmp_path)
+    a.send = AsyncMock()
+    write_runtime_status(gateway_state='running')
+    await a._intake_failure(TimeoutError())
+    a._sync_outage_started -= 61
+    await a._intake_failure(TimeoutError())
+    result = collect_runtime_readiness(configured_model='fixture', runtime_status=read_runtime_status())
+    assert result['process_healthy'] is True
+    assert result['alert']['code'] == 'sync_outage'
+    assert result['wedge'] is None
+    a.send.assert_not_called()
+    a._intake.close()
+
+
+def test_ask_captures_real_admission_fence(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import Platform, GatewayConfig
+    from gateway.resume_policy import ResumePolicy, pending_resume_policy
+    from hermes_state_runtime import begin_runtime_epoch, admit_session_input
+    store = SessionStore(sessions_dir=tmp_path/'sessions', config=GatewayConfig())
+    source = SessionSource(platform=Platform.MATRIX, chat_id='!owner')
+    entry = store.get_or_create_session(source)
+    epoch = begin_runtime_epoch(store._db, instance_id='first')
+    before = admit_session_input(store._db, epoch=epoch, principal_id='p', session_id=entry.session_id, request_id='before', payload={'text':'yes'})
+    pending_resume_policy(store, entry, ResumePolicy(True, ('write',), frozenset()), '', can_resolve=False)
+    after = admit_session_input(store._db, epoch=epoch, principal_id='p', session_id=entry.session_id, request_id='after', payload={'text':'yes'})
+    skewed = (datetime.now(timezone.utc)-timedelta(seconds=30)).isoformat()
+    assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=before['seq']).ask
+    assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=after['seq']) is None
+    store._db.close()

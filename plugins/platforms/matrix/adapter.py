@@ -1978,7 +1978,8 @@ class MatrixAdapter(BasePlatformAdapter):
             if not hasattr(self, '_sync_outage_started') or self._sync_outage_started is None:
                 self._sync_outage_started = time.monotonic()
                 self._sync_outage_since = now
-            config = load_yaml_file_readonly(get_hermes_home() / 'config.yaml') or {}
+            config_path = get_hermes_home() / 'config.yaml'
+            config = (load_yaml_file_readonly(config_path) or {}) if config_path.exists() else {}
             threshold = float(config.get('agent', {}).get('reconnect_attention_after', 7200))
             if threshold > 0 and time.monotonic() - self._sync_outage_started >= threshold:
                 await asyncio.to_thread(write_runtime_status, platform='matrix',
