@@ -90,3 +90,57 @@ async def test_stop_before_turn_survives_restart(tmp_path, phase):
     assert not adapter._presentation_box.cancelled('!room', '$b', '@owner')
     assert not adapter._presentation_box.cancelled('!room', '$a', '@other')
     adapter._presentation_box.db.close()
+
+
+def test_readiness_uses_live_control_and_unknown_fails_awake(tmp_path, monkeypatch):
+    from gateway.readiness import collect_runtime_readiness
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    sample = dict(idle=True, idle_since=1000, observed_at=1100,
+                  next_cron_due=None, probes_complete=True)
+    monkeypatch.setattr('gateway.control_socket.query_gateway_control', lambda *a, **k: sample.copy())
+    assert collect_runtime_readiness(configured_model='fixture', runtime_status={
+        'gateway_state': 'running'}, open_operations=0)['sleep'] == sample
+    monkeypatch.setattr('gateway.control_socket.query_gateway_control', lambda *a, **k: None)
+    result = collect_runtime_readiness(configured_model='fixture', runtime_status={
+        'gateway_state': 'running'}, open_operations=0)['sleep']
+    assert not result['idle'] and not result['probes_complete'] and result['idle_since'] is None
+
+
+def test_native_cron_unresolved_publishes_unknown(tmp_path):
+    from cron.jobs import use_cron_store, save_jobs
+    with use_cron_store(tmp_path):
+        save_jobs([{'id': 'unresolved', 'enabled': True, 'state': 'scheduled'}], replace=True)
+    data = json.loads((tmp_path / 'cron/jobs.json').read_text())
+    assert data['sleep_wake'] == {'known': False, 'next_cron_due': None}
+
+
+@pytest.mark.asyncio
+async def test_stop_during_wake_presentation_never_executes(tmp_path):
+    from contextlib import asynccontextmanager
+    from plugins.platforms.matrix import presentation as p
+    from gateway.platforms.event import MessageEvent
+    from gateway.session import SessionSource
+    from gateway.config import Platform
+    class Base:
+        pass
+    Adapter = p.adapter_class(Base)
+    adapter = Adapter()
+    adapter._presentation_turns = {}
+    adapter._presentation_box = p.Outbox(tmp_path / 'presentation.sqlite3')
+    entered, resume = asyncio.Event(), asyncio.Event()
+    @asynccontextmanager
+    async def scope(*args):
+        entered.set()
+        await resume.wait()
+        yield
+    adapter.admission_presentation_scope = scope
+    event = MessageEvent(text='hello', message_id='$wake', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', user_id='@owner', chat_type='dm'))
+    execute = AsyncMock()
+    task = asyncio.create_task(adapter.run_admission_presentation(event, 'session', 'admission', execute))
+    await entered.wait()
+    assert await adapter.stop_presentation_turn('!room', '$wake', '@owner', authenticated=True)
+    resume.set()
+    await task
+    execute.assert_not_awaited()
+    adapter._presentation_box.db.close()

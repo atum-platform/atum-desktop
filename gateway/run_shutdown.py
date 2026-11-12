@@ -335,7 +335,8 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
 
         def _processes_active() -> bool:
             from tools.process_registry import process_registry
-            return bool(process_registry.has_any_active() or process_registry.pending_watchers)
+            return bool(process_registry.has_any_active() or process_registry.pending_watchers
+                        or not process_registry.completion_queue.empty())
 
         for label, probe in (("async-delegation", _delegations_active), ("bg-work", _processes_active)):
             try:

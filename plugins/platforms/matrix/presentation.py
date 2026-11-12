@@ -306,17 +306,27 @@ def adapter_class(base):
             finally:
                 _current.reset(token)
 
+        def _cancelled_before_execution(self, event):
+            if not self._presentation_box.cancelled(event.source.chat_id, event.message_id, event.source.user_id):
+                return False
+            from gateway.session_results import execution_result
+            captured = execution_result.get()
+            if captured is not None:
+                captured['result'] = {'interrupted': True, 'final_response': '', 'messages': []}
+            return True
+
         async def run_admission_presentation(self, event, session_key, admission_id, execute):
-            await self._presentation_ready.wait()
-            if self._presentation_box.cancelled(event.source.chat_id, event.message_id, event.source.user_id):
-                from gateway.session_results import execution_result
-                captured = execution_result.get()
-                if captured is not None:
-                    captured['result'] = {'interrupted': True, 'final_response': '', 'messages': []}
+            ready = getattr(self, '_presentation_ready', None)
+            if ready is not None:
+                await ready.wait()
+            if self._cancelled_before_execution(event):
                 return None
             response = None
             async with self.admission_presentation_scope(event, session_key, admission_id):
                 try:
+                    # Root publication can yield while waking. Stop must win that gap too.
+                    if self._cancelled_before_execution(event):
+                        return None
                     response = await execute(event)
                     return response
                 finally:
