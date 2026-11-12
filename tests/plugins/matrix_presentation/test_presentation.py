@@ -125,6 +125,24 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         finally:
             await live.end()
 
+    async def test_legacy_outbox_migrates_without_losing_pending_intent(self):
+        import sqlite3
+        path = Path(self.tmp.name) / 'legacy.sqlite3'
+        db = sqlite3.connect(path)
+        db.execute('CREATE TABLE effects (txn TEXT PRIMARY KEY, room TEXT, content TEXT, target TEXT, event TEXT)')
+        db.execute("INSERT INTO effects VALUES ('legacy', '!room', '{}', NULL, NULL)")
+        db.commit()
+        db.close()
+        migrated = p.Outbox(path)
+        try:
+            migrated.collect()
+            await migrated.recover(self.server)
+            self.assertEqual(self.server.requests[-1][2], 'legacy')
+            self.assertIsNotNone(migrated.db.execute(
+                "SELECT event FROM effects WHERE txn='legacy'").fetchone()[0])
+        finally:
+            migrated.db.close()
+
     async def test_unredacted_interim_dropped(self):
         await self.turn.interim('private secret')
         self.assertEqual(self.server.requests, [])
@@ -368,6 +386,38 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
             turn.stopped = True
             turn.delivery_lock.release()
             await task
+            self.assertEqual(sent, [])
+        finally:
+            p._current.reset(token)
+            await turn.end()
+            box.db.close()
+
+    async def test_authenticated_stop_wins_queued_final_dispatch(self):
+        sent = []
+        class Base:
+            async def send(self, *args, **kwargs):
+                sent.append(args)
+        class Runner:
+            async def _interrupt_and_clear_session(self, *args, **kwargs):
+                pass
+        adapter = p.adapter_class(Base)()
+        adapter.gateway_runner = Runner()
+        box = p.Outbox(Path(self.native_home.name) / 'stop-queue.sqlite3')
+        turn = p.Turn(box, Server(), '!room', '$source', '@owner')
+        adapter._presentation_turns = {('!room', '$source'): (turn, 'session', 'origin')}
+        token = p._current.set(turn)
+        await turn.delivery_lock.acquire()
+        try:
+            stop = asyncio.create_task(adapter.stop_presentation_turn(
+                '!room', '$source', '@owner', authenticated=True))
+            final = asyncio.create_task(adapter.send(
+                '!room', 'Answer', metadata={'delivery_obligation_id': 'test'}))
+            await asyncio.sleep(0)
+            turn.delivery_lock.release()
+            self.assertTrue(await stop)
+            result = await final
+            self.assertTrue(result.success)  # cancellation must not queue redelivery
+            self.assertTrue(turn.stopped)
             self.assertEqual(sent, [])
         finally:
             p._current.reset(token)

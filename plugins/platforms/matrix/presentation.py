@@ -321,7 +321,9 @@ def adapter_class(base):
                     await turn.end(content)
                     async with turn.delivery_lock:
                         if turn.stopped:
-                            return SendResult(success=False, error='Turn stopped')
+                            # Intentional suppression completes the native obligation so
+                            # reconnect cannot redeliver an answer cancelled by Stop.
+                            return SendResult(success=True)
                         return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
             return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
 
