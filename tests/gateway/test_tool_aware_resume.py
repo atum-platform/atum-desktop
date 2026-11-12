@@ -414,7 +414,8 @@ def test_legacy_pending_ask_accepts_next_fresh_reply_after_load(tmp_path):
     ('session_persistence_failed:locked', True, False, True),
     ('provider_error', True, False, False),
     ('session_persistence_failed:unknown', False, False, False),
-    ('session_persistence_failed:unknown', True, True, False),
+    ('session_persistence_failed:unknown', True, 'queued', True),
+    ('session_persistence_failed:unknown', True, 'completed', False),
 ])
 def test_failed_reclaim_keeps_native_identity_and_fences(cause, native, later, eligible, tmp_path):
     from hermes_state import SessionDB
@@ -435,6 +436,10 @@ def test_failed_reclaim_keeps_native_identity_and_fences(cause, native, later, e
     if later:
         admit_session_input(db, epoch=old, principal_id='messaging:test', session_id='s',
                             request_id='later', payload=payload)
+        if later == 'completed':
+            follower = claim_session_input(db, epoch=old, session_id='s')
+            settle_session_input(db, epoch=old, admission_id=follower['admission_id'],
+                                 generation=follower['generation'], outcome='completed')
     new = begin_runtime_epoch(db, instance_id='new')
     assert requeue_interrupted_session_input(db, epoch=new, admission_id=row['admission_id']) == eligible
     recovered = list_session_admissions(db, session_id='s', pending_only=False)[0]
