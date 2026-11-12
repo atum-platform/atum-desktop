@@ -2,6 +2,7 @@
 import asyncio
 import importlib.util
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -168,3 +169,34 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+@unittest.skipUnless(os.environ.get('HERMES_NATIVE_TESTS'), 'run with Hermes dependency interpreter')
+class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
+    async def test_native_send_preserves_final_relation_and_turn_marker(self):
+        # Real Hermes Matrix constructor, formatter, chunker and relation builder,
+        # with an in-process SDK boundary; no homeserver or provider call.
+        from gateway.config import PlatformConfig
+        from plugins.platforms.matrix.adapter import MatrixAdapter
+        with tempfile.TemporaryDirectory() as home:
+            box = p.Outbox(Path(home) / 'presentation.sqlite3')
+            server = Server()
+            class Client:
+                async def send_message_event(self, room, kind, content, **kwargs):
+                    return await server(str(room), content, kwargs.get('txn_id', 'final'), None)
+            adapter = p.adapter_class(MatrixAdapter)(PlatformConfig(enabled=True, token='public-test', extra={'homeserver': 'https://matrix.example.org'}))
+            adapter._client = Client()
+            turn = p.Turn(box, server, '!room:example.org', '$source', '@owner:example.org')
+            token = p._current.set(turn)
+            try:
+                await turn.progress('Reading a file')
+                result = await adapter.send(turn.room, 'Here is the answer.', reply_to=turn.source)
+                self.assertTrue(result.success)
+                final = server.requests[-1][1]
+                self.assertEqual(final['io.atum.turn'], turn.marker)
+                self.assertEqual(final['m.relates_to']['m.in_reply_to']['event_id'], turn.source)
+                self.assertEqual(server.requests[-2][3], '$0')
+                self.assertNotIn('io.atum.interim', final)
+            finally:
+                p._current.reset(token)
+                await turn.end()
+                box.db.close()

@@ -29,9 +29,12 @@ def transaction(source, kind, sequence=0):
     return f"atum-{'ci' if kind == 'interim' else 'cp'}-{digest}"
 
 
+def event_suffix(event):
+    return ''.join(c if re.fullmatch(r'[A-Za-z0-9_-]', c) else f'.{ord(c):04x}' for c in event[1:])
+
+
 def redaction_transaction(event):
-    escaped = ''.join(c if re.fullmatch(r'[A-Za-z0-9_-]', c) else f'.{ord(c):04x}' for c in event[1:])
-    return 'atum-cr-' + escaped
+    return 'atum-cr-' + event_suffix(event)
 
 
 def turn_id(room, source):
@@ -131,7 +134,8 @@ class Turn:
                 body = {'msgtype': 'm.notice', 'body': '* ' + text[:1000],
                         'io.atum.progress': marker, 'm.new_content': body,
                         'm.relates_to': {'rel_type': 'm.replace', 'event_id': self.root}}
-            event = await self.box.effect(self.port, self.room, body, transaction(self.source, 'progress', self.revision))
+            txn = f'atum-ne-{self.revision}-{event_suffix(self.root)}' if self.root else transaction(self.source, 'progress')
+            event = await self.box.effect(self.port, self.room, body, txn)
             if not self.root:
                 self.root = event
                 self.box.db.execute('INSERT OR REPLACE INTO roots VALUES (?,?,?)', (self.room, self.source, event))
@@ -148,7 +152,7 @@ class Turn:
         async with self.lock:
             if self.ended or not redacted or not text.strip() or any(t == text for _, t in self.interims):
                 return
-            if self.clock() - self.last_interim < 20:
+            if interim_decision(True, redacted, not self.interims, (self.clock() - self.last_interim) * 1000, False) == 'hold':
                 if self.interim_timer:
                     self.interim_timer.cancel()
                 async def flush():
@@ -285,9 +289,9 @@ def register_hooks(ctx):
         if turn:
             turn.stopped = True
             asyncio.run_coroutine_threadsafe(turn.end(), turn.loop)
-    def todos(tool_name='', args=None, **_):
+    def todos(tool_name='', args=None, status=None, **_):
         turn = _current.get()
-        if turn and tool_name == 'todo' and isinstance(args, dict):
+        if turn and tool_name == 'todo' and status not in ('cancelled', 'error') and isinstance(args, dict):
             from agent.redact import redact_for_egress
             items = args.get('todos')
             if isinstance(items, list):
@@ -301,7 +305,7 @@ def register_hooks(ctx):
     def waiting(**_):
         turn = _current.get()
         if turn:
-            asyncio.run_coroutine_threadsafe(turn.progress('Waiting for your approval', kind='touch_id', phase='waiting'), turn.loop)
+            asyncio.run_coroutine_threadsafe(turn.progress('Waiting for your approval', kind='device', phase='waiting'), turn.loop)
     def resumed(**_):
         turn = _current.get()
         if turn:
