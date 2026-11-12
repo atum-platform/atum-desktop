@@ -95,6 +95,37 @@ def _probe_session_store(runtime_status: dict[str, Any], state_db_probe: dict[st
     return _check("ok" if state_db_probe.get("status") == "ok" else "unavailable")
 
 
+def _recovery_health(runtime, home):
+    """Attention never requests a process restart. Pauses follow canonical admission state."""
+    platforms = runtime.get('platforms') or {}
+    pauses, wedge, alert = [], None, None
+    healthy = runtime.get('gateway_state') in {'running', 'draining'}
+    for key, value in platforms.items():
+        if not isinstance(value, dict):
+            continue
+        metrics = value.get('metrics') or {}
+        if metrics.get('process_healthy') is False:
+            healthy = False
+        if str(key).startswith('recovery:') and value.get('state') == 'paused':
+            aid = metrics.get('admission_id')
+            # A /discard or successful resolution removes the pause even if no status
+            # writer has run since. Do not expose admission payloads in readiness.
+            if (home / 'state.db').exists():
+                try:
+                    with closing(sqlite3.connect(f"file:{(home / 'state.db').as_posix()}?mode=ro", uri=True, timeout=1)) as conn:
+                        row = conn.execute('SELECT status FROM session_admissions WHERE admission_id=?', (aid,)).fetchone()
+                    if row is None or row[0] != 'unknown':
+                        continue
+                except sqlite3.Error:
+                    pass
+            pauses.append({'code': 'restart_loop', 'since': value.get('retrying_since') or value.get('updated_at'),
+                           **({'conversation': metrics['conversation']} if metrics.get('conversation') else {})})
+        wedge = wedge or metrics.get('wedge')
+        alert = alert or metrics.get('alert')
+    return dict(process_healthy=healthy, paused_conversations=len(pauses), wedge=wedge,
+                alert=pauses[0] if pauses else alert)
+
+
 def collect_runtime_readiness(
     *, configured_model: str, runtime_status: dict[str, Any] | None, active_api_runs: int = 0,
     process_completion_queue_depth: int = 0, active_delegations: int = 0,
@@ -117,7 +148,8 @@ def collect_runtime_readiness(
             active_delegations=max(0, int(active_delegations)),
         ),
     }
-    return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks}
+    return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks,
+            **_recovery_health(runtime, home)}
 
 
 __all__ = ["collect_runtime_readiness"]

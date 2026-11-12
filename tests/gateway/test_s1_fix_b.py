@@ -23,6 +23,7 @@ async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monk
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     from tests.gateway.test_matrix_durable_intake import adapter
     a = adapter(tmp_path)
+    a.config.extra['control_room'] = '!owner:example.org'
     a._joined_rooms = {'!room:example.org'}
     if kind == 'gap':
         a._joined_rooms.clear()
@@ -31,9 +32,9 @@ async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monk
     a.send = AsyncMock(return_value=SimpleNamespace(success=True))
     from gateway.status import write_runtime_status
     write_runtime_status(gateway_state='running')
-    from plugins.platforms.matrix.intake import IntakeGapError
-    error = {'gap': IntakeGapError('frontier missing'), 'ambiguous': RuntimeError('ambiguous control'),
-             'journal': OSError('journal unavailable')}[kind]
+    from plugins.platforms.matrix.intake import IntakeGapError, IntakeAmbiguousError, IntakeJournalError
+    error = {'gap': IntakeGapError('frontier missing'), 'ambiguous': IntakeAmbiguousError('ambiguous control'),
+             'journal': IntakeJournalError('journal unavailable')}[kind]
     delays = [await a._intake_failure(error) for _ in range(8)]
     assert delays == [5, 10, 20, 40, 80, 160, 300, 300]
     assert a.send.await_count == 1

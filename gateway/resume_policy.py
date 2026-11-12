@@ -101,7 +101,7 @@ def choose_resume_policy(history, *, force_ask=False):
                         tuple(dict.fromkeys(unsafe or unfinished)), frozenset(completed))
 
 
-def pending_resume_policy(store, entry, policy, message, *, can_resolve, message_timestamp=None):
+def pending_resume_policy(store, entry, policy, message, *, can_resolve, message_timestamp=None, message_admission_seq=None):
     """Persist the native session's unresolved human decision before any model/tool runs.
 
     Native gateway approval waiters are process-local and timed; only their once/deny
@@ -112,6 +112,10 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
     if pending is None and policy is not None and policy.ask:
         pending = {'token': secrets.token_hex(4), 'actions': list(policy.actions),
                    'created_at': datetime.now(UTC).isoformat()}
+        db = getattr(store, '_db', None)
+        if db is not None:
+            fence = db._read_one('SELECT MAX(seq) AS seq FROM session_admissions')
+            pending['admission_seq'] = (fence['seq'] or 0) if fence else 0
         can_resolve = False
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     if pending is None:
@@ -122,8 +126,15 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     try:
         received = datetime.fromisoformat(message_timestamp).timestamp()
-        fresh = datetime.fromisoformat(pending['created_at']).timestamp() < received <= datetime.now(UTC).timestamp()
-    except (TypeError, ValueError):
+        from hermes_constants import get_hermes_home
+        from utils import load_yaml_file_readonly
+        config = load_yaml_file_readonly(get_hermes_home() / 'config.yaml') or {}
+        tolerance = max(0, float(config.get('recovery', {}).get('clock_skew_tolerance_seconds', 300)))
+        ordered = (message_admission_seq > pending['admission_seq']
+                   if message_admission_seq is not None and 'admission_seq' in pending
+                   else datetime.fromisoformat(pending['created_at']).timestamp() < received)
+        fresh = received > 0 and ordered and received <= datetime.now(UTC).timestamp() + tolerance
+    except (TypeError, ValueError, OSError):
         fresh = False
     token = pending['token']
     from tools.approval import exact_gateway_approval_choice
@@ -197,9 +208,13 @@ async def resume_boot_allowed(authority, row, *, ref=None, live=None):
         await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
             error_code='restart_loop', needs_attention=True,
             error_message='Automatic recovery paused after three attempts. Use /discard.')
+        await asyncio.to_thread(write_runtime_status, platform='recovery:' + row['admission_id'],
+            platform_state='paused', error_code='restart_loop', needs_attention=True,
+            retrying_since=datetime.now(UTC).isoformat(),
+            platform_metrics={'conversation': row.get('target_session_id'), 'admission_id': row['admission_id']})
         if ref is not None and live is not None:
             from gateway.session_ingress import pause_notice
-            from gateway.delivery_ledger import record_obligation, compute_obligation_id, mark_delivered
+            from gateway.delivery_ledger import record_obligation, compute_obligation_id, mark_delivered, get_delivery_state
             notice = pause_notice(authority, ref, 'unknown_execution')
             if notice:
                 try:
@@ -209,6 +224,8 @@ async def resume_boot_allowed(authority, row, *, ref=None, live=None):
                         platform=str(getattr(live.source.platform, 'value', live.source.platform)),
                         chat_id=live.source.chat_id, thread_id=live.source.thread_id, content=notice,
                         adapter_profile=getattr(adapter, '_owner_profile', None))
+                    if await asyncio.to_thread(get_delivery_state, oid) == 'delivered':
+                        return False
                     sent = await adapter.send(chat_id=live.source.chat_id, content=notice,
                         metadata={'delivery_obligation_id': oid, 'thread_id': live.source.thread_id})
                     if sent.success:

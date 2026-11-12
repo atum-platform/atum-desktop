@@ -374,6 +374,13 @@ def mark_attempting(obligation_id: str) -> None:
     _update_state(obligation_id, "attempting")
 
 
+def get_delivery_state(obligation_id: str) -> Optional[str]:
+    """Inspect an existing obligation without claiming or resending it."""
+    with _DB_LOCK, _transaction() as conn:
+        row = conn.execute('SELECT state FROM delivery_obligations WHERE obligation_id=?', (obligation_id,)).fetchone()
+        return row[0] if row else None
+
+
 def mark_delivered(obligation_id: str) -> None:
     _update_state(obligation_id, "delivered")
 

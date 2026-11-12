@@ -1960,32 +1960,60 @@ class MatrixAdapter(BasePlatformAdapter):
             caption, reply_to, metadata, is_voice, voice_metadata)
 
     async def _intake_failure(self, exc):
-        """Expose fail-closed intake through native status and the delivery ledger."""
+        """Transport outages retry quietly; only proven intake wedges need owner recovery."""
+        import sqlite3
+        from datetime import datetime, timezone
+        from hermes_constants import get_hermes_home
+        from utils import load_yaml_file_readonly
+        from plugins.platforms.matrix.intake import IntakeGapError, IntakeAmbiguousError, IntakeJournalError
         from gateway.status import write_runtime_status
-        from gateway.delivery_ledger import compute_obligation_id, record_obligation, mark_delivered
-        failure = {"type": type(exc).__name__, "reason": str(exc)}
-        self._intake_error = failure
+        from gateway.delivery_ledger import compute_obligation_id, record_obligation, mark_delivered, get_delivery_state
+        kind = ('gap' if isinstance(exc, IntakeGapError) else
+                'ambiguous' if isinstance(exc, IntakeAmbiguousError) else
+                'journal' if isinstance(exc, (sqlite3.Error, IntakeJournalError)) else None)
         count = getattr(self, '_intake_failures', 0) + 1
         self._intake_failures = count
+        now = datetime.now(timezone.utc).isoformat()
+        if kind is None:
+            if not hasattr(self, '_sync_outage_started') or self._sync_outage_started is None:
+                self._sync_outage_started = time.monotonic()
+                self._sync_outage_since = now
+            config = load_yaml_file_readonly(get_hermes_home() / 'config.yaml') or {}
+            threshold = float(config.get('agent', {}).get('reconnect_attention_after', 7200))
+            if threshold > 0 and time.monotonic() - self._sync_outage_started >= threshold:
+                await asyncio.to_thread(write_runtime_status, platform='matrix',
+                    needs_attention=True, error_code='sync_outage', retrying_since=self._sync_outage_since,
+                    platform_metrics={'alert': {'code': 'sync_outage', 'since': self._sync_outage_since}})
+            return min(5 * 2 ** min(count - 1, 6), 300)
+        previous = getattr(self, '_intake_wedge', None)
+        wedge = previous or {'kind': kind, 'since': now}
+        self._intake_wedge = wedge
+        self._intake_error = {'type': type(exc).__name__, 'reason': str(exc)}
         await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
-            error_code='intake_wedged', needs_attention=True, error_message='Matrix intake requires recovery')
+            error_code='intake_wedged', needs_attention=True, retrying_since=wedge['since'],
+            error_message='Matrix intake requires recovery',
+            platform_metrics={'wedge': wedge, 'alert': {'code': 'intake_wedged', 'since': wedge['since']}})
+        # Explicit owner control-room configuration only. Joined rooms and m.direct do not
+        # prove ownership. In its absence the alert remains available to the provisioner.
+        room = self.config.extra.get('control_room')
         try:
             with self._intake.db:
-                self._intake._put('last_error', failure)
-            for room in sorted(self._joined_rooms or self._intake.get('frontier', {})):
+                self._intake._put('last_error', self._intake_error)
+            if room:
                 key = 'wedge_notice:' + room
-                if self._intake.get(key):
-                    continue
-                text = 'Message intake is paused. History or storage recovery is required.'
-                oid = compute_obligation_id(room, 'intake-wedge:' + str(self._intake.get('frontier', {})), text)
-                await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room,
-                    platform='matrix', chat_id=room, thread_id=None, content=text,
-                    adapter_profile=getattr(self, '_owner_profile', None))
-                result = await self.send(chat_id=room, content=text, metadata={'delivery_obligation_id': oid})
-                if result.success:
-                    await asyncio.to_thread(mark_delivered, oid)
-                    with self._intake.db:
-                        self._intake._put(key, True)
+                if not self._intake.get(key):
+                    text = 'Message intake is paused. History or storage recovery is required.'
+                    oid = compute_obligation_id(room, 'intake-wedge:' + str(self._intake.get('frontier', {})), text)
+                    await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room,
+                        platform='matrix', chat_id=room, thread_id=None, content=text,
+                        adapter_profile=getattr(self, '_owner_profile', None))
+                    if await asyncio.to_thread(get_delivery_state, oid) != 'delivered':
+                        result = await self.send(chat_id=room, content=text, metadata={'delivery_obligation_id': oid})
+                        if result.success:
+                            await asyncio.to_thread(mark_delivered, oid)
+                    if await asyncio.to_thread(get_delivery_state, oid) == 'delivered':
+                        with self._intake.db:
+                            self._intake._put(key, True)
         except Exception:
             logger.error('Matrix intake notice could not be journaled; recovery alert remains active', exc_info=True)
         return min(5 * 2 ** min(count - 1, 6), 300)
@@ -2015,13 +2043,16 @@ class MatrixAdapter(BasePlatformAdapter):
                     if getattr(self, '_intake_failures', 0):
                         self._intake_failures = 0
                         self._intake_error = None
+                        self._intake_wedge = None
+                        self._sync_outage_started = None
                         with self._intake.db:
                             self._intake._put('last_error', None)
-                            for room in self._joined_rooms:
+                            room = self.config.extra.get('control_room')
+                            if room:
                                 self._intake._put('wedge_notice:' + room, False)
                         from gateway.status import write_runtime_status
                         await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='connected',
-                                                error_code=None, error_message=None)
+                                                error_code=None, error_message=None, platform_metrics={})
                     await asyncio.sleep(0)  # let fresh invite joins start before the next sync
             except asyncio.CancelledError:
                 return
@@ -2030,6 +2061,9 @@ class MatrixAdapter(BasePlatformAdapter):
                     return
                 # Detect permanent auth/permission failures. Transient 5xx outages must retry.
                 if _is_permanent_matrix_auth_error(exc):
+                    from gateway.status import write_runtime_status
+                    await asyncio.to_thread(write_runtime_status, platform='matrix',
+                        platform_metrics={'process_healthy': False})
                     logger.error("Matrix: permanent auth error, stopping sync: %s", exc)
                     return
                 delay = await self._intake_failure(exc) if getattr(self, '_intake', None) else 5
@@ -2363,7 +2397,8 @@ class MatrixAdapter(BasePlatformAdapter):
             if state in {"native", "done"}:
                 return
             if state == "ambiguous":
-                raise RuntimeError("Matrix control execution is ambiguous; operator recovery required")
+                from plugins.platforms.matrix.intake import IntakeAmbiguousError
+                raise IntakeAmbiguousError("Matrix control execution is ambiguous; operator recovery required")
         elif self._is_duplicate_event(event_id):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
@@ -2862,7 +2897,8 @@ class MatrixAdapter(BasePlatformAdapter):
             if state == "done":
                 return
             if state == "ambiguous":
-                raise RuntimeError("Matrix reaction control is ambiguous; operator recovery required")
+                from plugins.platforms.matrix.intake import IntakeAmbiguousError
+                raise IntakeAmbiguousError("Matrix reaction control is ambiguous; operator recovery required")
             store.mark(event_id, "ambiguous", room_id=str(event.room_id))
         await self._process_reaction(event)
         if store is not None and event_id:

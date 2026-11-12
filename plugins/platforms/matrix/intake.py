@@ -13,6 +13,25 @@ class IntakeGapError(RuntimeError):
     """The saved event frontier is unavailable; operator recovery is required."""
 
 
+class IntakeAmbiguousError(RuntimeError):
+    """An admitted control may already have executed; freeze rather than repeat it."""
+
+
+class IntakeJournalError(OSError):
+    """A failure at the local journal boundary, distinct from network OSError."""
+
+
+def _journal_boundary(method):
+    from functools import wraps
+    @wraps(method)
+    def guarded(*args, **kwargs):
+        try:
+            return method(*args, **kwargs)
+        except OSError as exc:
+            raise IntakeJournalError(str(exc)) from exc
+    return guarded
+
+
 class MatrixIntakeStore:
     # Implements mautrix's SyncStore get/put_next_batch interface. An ordinary
     # MemorySyncStore/FileStateStore cannot atomically retain a batch with its token.
@@ -60,10 +79,12 @@ class MatrixIntakeStore:
                 # NULL explicitly means unknown legacy room; never invent one.
                 self.db.execute('PRAGMA user_version=1')
 
+    @_journal_boundary
     def get(self, key, default=None):
         row = self.db.execute('SELECT value FROM sync_state WHERE key=?', (key,)).fetchone()
         return json.loads(row[0]) if row else default
 
+    @_journal_boundary
     def _put(self, key, value):
         self.db.execute('INSERT OR REPLACE INTO sync_state VALUES (?,?)', (key, json.dumps(value)))
 
@@ -75,6 +96,7 @@ class MatrixIntakeStore:
         if token != self.get('next_batch'):
             raise RuntimeError('Matrix cursor requires durable batch acceptance')
 
+    @_journal_boundary
     def accept(self, batch):
         from gateway.fault_injection import hit
         hit("H1")
@@ -85,6 +107,7 @@ class MatrixIntakeStore:
             self._put('next_batch', batch['next_batch'])
         hit("H2")
 
+    @_journal_boundary
     def baseline(self, batch):
         """First installation skips history atomically, including a crash mid-baseline."""
         with self.db:
@@ -98,6 +121,7 @@ class MatrixIntakeStore:
         row = self.db.execute('SELECT state FROM intake_events WHERE event_id=?', (event_id,)).fetchone()
         return row[0] if row else None
 
+    @_journal_boundary
     def mark(self, event_id, state, receipt=None, *, room_id=None):
         with self.db:
             self.db.execute('''INSERT INTO intake_events (event_id,state,receipt,updated_at,room_id)
@@ -106,6 +130,7 @@ class MatrixIntakeStore:
                 room_id=COALESCE(excluded.room_id,intake_events.room_id)''',
                 (event_id, state, receipt, time.time(), room_id))
 
+    @_journal_boundary
     def finish(self, batch):
         with self.db:
             frontier = self.get('frontier', {})
@@ -117,6 +142,7 @@ class MatrixIntakeStore:
             self._put('pending', None)
         self.compact()
 
+    @_journal_boundary
     def park(self, raw, room):
         with self.db:
             self.db.execute('INSERT OR IGNORE INTO encrypted_pending (event_id,room,payload,attempts,created) VALUES (?,?,?,0,?)',
@@ -126,14 +152,17 @@ class MatrixIntakeStore:
         return [(eid, room, json.loads(raw), tries, created) for eid, room, raw, tries, created
                 in self.db.execute('SELECT event_id,room,payload,attempts,created FROM encrypted_pending')]
 
+    @_journal_boundary
     def unpark(self, eid):
         with self.db:
             self.db.execute('DELETE FROM encrypted_pending WHERE event_id=?', (eid,))
 
+    @_journal_boundary
     def retry_parked(self, eid):
         with self.db:
             self.db.execute('UPDATE encrypted_pending SET attempts=attempts+1 WHERE event_id=?', (eid,))
 
+    @_journal_boundary
     def undecryptable(self, eid, reason):
         """Retain poison payload and diagnosis atomically, outside key retries."""
         with self.db:
@@ -145,6 +174,7 @@ class MatrixIntakeStore:
                 room_id=COALESCE(excluded.room_id,intake_events.room_id)''',
                 (eid, 'undecryptable', reason, time.time(), eid))
 
+    @_journal_boundary
     def compact(self, now=None):
         # Native execution/delivery ownership stays in the native ledgers. Keep
         # transport receipts seven days AND through every outstanding replay batch.

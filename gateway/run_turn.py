@@ -280,6 +280,7 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
                     **reply_expected_metadata(event.reply_expected), **diagnostic_metadata(event),
                     "crash_resume_owner_response": not getattr(event, "internal", False) and event.allow_gateway_control,
                     "crash_resume_decision_text": event.text,
+                    "crash_resume_admission_seq": event.metadata.get("crash_resume_admission_seq"),
                     "crash_resume_received_at": event.timestamp.isoformat()},
                 message_type=event.message_type,
                 scheduled_heartbeat=bool(getattr(event, "_heartbeat_session_id", None)),

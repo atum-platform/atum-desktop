@@ -279,11 +279,7 @@ def restore_native_source(payload, runner=None):
 def restore_native(payload, runner=None):
     envelope = payload['native_text_v1']
     source = restore_native_source(payload, runner)
-    timestamp = datetime.fromisoformat(envelope['timestamp'])
-    if timestamp.tzinfo is not None and timestamp.timestamp() == 0:
-        # Epoch 0 pins the retry fingerprint of producers with no provider time (relay, webhook,
-        # automation); the turn records local time, as main's arrival-stamped event did.
-        timestamp = datetime.now()
+    timestamp = datetime.fromisoformat(envelope.get('timestamp') or '1970-01-01T00:00:00+00:00')
     event = MessageEvent(text=payload['text'], source=source, timestamp=timestamp,
                         message_type=MessageType(envelope.get('message_type', 'text')),
                         media_urls=restore_native_media(envelope.get('media', [])),
