@@ -144,3 +144,41 @@ async def test_stop_during_wake_presentation_never_executes(tmp_path):
     await task
     execute.assert_not_awaited()
     adapter._presentation_box.db.close()
+
+
+def test_real_native_intake_and_delivery_probe(tmp_path, monkeypatch):
+    from gateway.sleep_wake import collect_sleep_readiness
+    from gateway.session_authorities import SessionAuthorities
+    from hermes_state import SessionDB
+    from plugins.platforms.matrix.intake import MatrixIntakeStore
+    from gateway.config import Platform
+    db = SessionDB(tmp_path / 'state.db')
+    intake = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    registry = SessionAuthorities(tmp_path)
+    registry.add(tmp_path, SimpleNamespace(db=db, profile_id=str(tmp_path),
+                                          pending_deliveries={}, pending_results={}))
+    adapter = SimpleNamespace(platform=Platform.MATRIX, _intake_diagnostics=intake.status)
+    runner = SimpleNamespace(session_authorities=registry, adapters={'matrix': adapter},
+        _active_work_count=lambda: 0, _running_cron_job_count=lambda: 0,
+        _api_server_hook=lambda _: 0, _scale_to_zero_has_live_background_work=lambda: False,
+        _last_inbound_at=1)
+    try:
+        intake.mark('$handed', 'native', 'receipt', room_id='!room')
+        assert collect_sleep_readiness(runner, open_operations=0)['idle']
+        intake.accept({'next_batch': 'opaque', 'rooms': {}})
+        assert not collect_sleep_readiness(runner, open_operations=0)['idle']
+        intake.finish({'rooms': {}})
+        intake.mark('$unaccepted', 'pending', room_id='!room')
+        assert not collect_sleep_readiness(runner, open_operations=0)['idle']
+        intake.mark('$unaccepted', 'done', room_id='!room')
+        assert collect_sleep_readiness(runner, open_operations=0)['idle']
+        # Probe the real canonical delivery schema without dispatching a transport.
+        from gateway.delivery_ledger import _initialize_schema
+        _initialize_schema(db._conn)
+        db._conn.execute("INSERT INTO delivery_obligations (obligation_id,session_key,platform,chat_id,content,state,created_at,updated_at) VALUES ('owed','session','matrix','!room','answer','pending',1,1)")
+        assert not collect_sleep_readiness(runner, open_operations=0)['idle']
+        db._conn.execute("UPDATE delivery_obligations SET state='delivered'")
+        assert collect_sleep_readiness(runner, open_operations=0)['idle']
+    finally:
+        intake.close()
+        db.close()

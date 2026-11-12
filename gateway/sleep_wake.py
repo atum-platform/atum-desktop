@@ -131,7 +131,7 @@ def collect_sleep_readiness(runner, *, open_operations=None, now=None):
             pending |= bool(authority.pending_deliveries or authority.pending_results)
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name='delivery_obligations'").fetchone():
                 pending |= bool(conn.execute(
-                    "SELECT 1 FROM delivery_obligations WHERE state != 'delivered' LIMIT 1").fetchone())
+                    "SELECT 1 FROM delivery_obligations WHERE state NOT IN ('delivered','abandoned') LIMIT 1").fetchone())
             deadline = next_native_schedule(Path(authority.profile_id))
             if deadline is not None:
                 deadlines.append(deadline)
@@ -142,7 +142,7 @@ def collect_sleep_readiness(runner, *, open_operations=None, now=None):
                     raise ValueError('intake unavailable')
                 pending |= bool(intake.get('pending_batch') or intake.get('encrypted') or intake.get('last_error'))
                 pending |= any(count for state, count in intake.get('states', {}).items()
-                               if state not in {'done', 'ignored'})
+                               if state not in {'done', 'native'})
             box = getattr(adapter, '_presentation_box', None)
             if box is not None:
                 pending |= bool(box.db.execute('SELECT 1 FROM effects WHERE event IS NULL LIMIT 1').fetchone())
