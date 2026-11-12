@@ -59,3 +59,31 @@ def test_running_client_adopts_only_newer_borrowed_revision(tmp_path, monkeypatc
     write()
     assert agent._try_refresh_codex_client_credentials() is True
     assert agent._swap_credential.call_args.args[0].access_token == "new"
+
+
+def test_two_profile_readers_share_external_account_without_writes(tmp_path, monkeypatch):
+    account = tmp_path / "account"
+    account.mkdir()
+    path = account / "auth.json"
+    row = dict(id="shared", source="external", auth_type="oauth", borrowed=True,
+               connection_id="login", revision=1, access_token="first",
+               expires_at_ms=int((time.time() + 1000) * 1000))
+    def write():
+        path.write_text(json.dumps({"credential_pool": {"openai-codex": [row]}}))
+    write()
+    monkeypatch.setenv("ATUM_ACCOUNT_AUTH_HOME", str(account))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profile-one"))
+    first = load_pool("openai-codex")
+    assert first.select().access_token == "first"
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profile-two"))
+    second = load_pool("openai-codex")
+    assert second.select().access_token == "first"
+    row.update(revision=2, access_token="replacement")
+    write()
+    assert first.try_refresh_current().access_token == "replacement"
+    assert second.try_refresh_current().access_token == "replacement"
+    first._persist()
+    second._persist()
+    assert not (account / "auth.lock").exists()
+    assert not (tmp_path / "profile-one" / "auth.json").exists()
+    assert not (tmp_path / "profile-two" / "auth.json").exists()
