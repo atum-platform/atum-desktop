@@ -177,6 +177,18 @@ async def test_stop_notification_for_b_does_not_suppress_a_final(tmp_path):
             source_event_id='$b', admission_id='admission-b')
         await asyncio.sleep(0)
         assert not a.stopped
+        sent = []
+        class Base:
+            async def send(self, *args, **kwargs):
+                sent.append(args)
+                return 'sent'
+        token = p._current.set(a)
+        try:
+            result = await p.adapter_class(Base)().send('!room', 'A answer',
+                metadata={'delivery_obligation_id': 'a-obligation'})
+            assert result == 'sent' and sent == [('!room', 'A answer')]
+        finally:
+            p._current.reset(token)
     finally:
         p._active.pop('route', None)
         await a.end(); box.db.close()
