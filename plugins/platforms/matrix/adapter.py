@@ -2000,6 +2000,12 @@ class MatrixAdapter(BasePlatformAdapter):
             for result in results:
                 if isinstance(result, BaseException):
                     raise result
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            for data in sync_data.get("rooms", {}).get("join", {}).values():
+                for raw in data.get("timeline", {}).get("events", []):
+                    if raw.get("type") == "m.room.encrypted" and store.state(raw.get("event_id")) is None:
+                        raise RuntimeError("Matrix encrypted intake awaits decryption; retaining batch")
 
     def _is_self_sender(self, sender: str) -> bool:
         """True if *sender* is the bot itself (case-insensitive: homeservers vary localpart case). With
@@ -2073,6 +2079,13 @@ class MatrixAdapter(BasePlatformAdapter):
             self._clock_skew_warned = True
 
     async def _on_room_message(self, event: Any) -> None:
+        await self._process_room_message(event)
+        store = getattr(self, "_intake", None)
+        event_id = str(getattr(event, "event_id", ""))
+        if store is not None and event_id and store.state(event_id) is None:
+            store.mark(event_id, "done")  # authorized gating/filtering finished; no turn owed
+
+    async def _process_room_message(self, event: Any) -> None:
         room_id = str(getattr(event, "room_id", ""))
         sender = str(getattr(event, "sender", ""))
         # DEBUG-level proof the callback fires at all (silent-inbound troubleshooting).
@@ -2144,6 +2157,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 committed.set_result(None)
 
         event._on_transport_commit = accepted
+        event._transport_control_state = lambda state: store.mark(event.message_id, state)
         event._matrix_durable_intake = True
         # Commands and inline control replies can have non-idempotent effects outside
         # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
@@ -2157,7 +2171,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 return
             if task.cancelled() or task.exception() is not None:
                 raise RuntimeError("Matrix turn ended before durable admission")
-        if not event.get_command() and store.state(event.message_id) != "native":
+        if not event.get_command() and store.state(event.message_id) not in {"native", "done"}:
             raise RuntimeError("Matrix input has not reached durable native admission; retaining batch")
         store.mark(event.message_id, "done")
 

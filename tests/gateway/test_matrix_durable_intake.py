@@ -213,3 +213,30 @@ async def test_durable_handoff_is_not_process_local_base_acceptance(tmp_path):
         for task in a._session_tasks.values():
             task.cancel()
         await asyncio.gather(*a._session_tasks.values(), return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_inline_control_crash_stays_ambiguous(tmp_path):
+    from gateway.session_ingress_context import transport_control
+    a = adapter(tmp_path)
+    e = SimpleNamespace(_transport_control_state=lambda state: a._intake.mark('$control', state))
+    async def crash():
+        raise RuntimeError('crash at an external control effect')
+    with pytest.raises(RuntimeError):
+        await transport_control(e, crash)
+    assert a._intake.state('$control') == 'ambiguous'
+    async def consumed():
+        return True
+    await transport_control(e, consumed)
+    assert a._intake.state('$control') == 'done'
+
+
+@pytest.mark.asyncio
+async def test_undecrypted_event_is_retained(tmp_path):
+    a = adapter(tmp_path)
+    # Exercise the real dispatcher, not the fixture's dispatch mock.
+    a._client = SimpleNamespace(handle_sync=lambda data: [])
+    b = batch('$encrypted')
+    b['rooms']['join']['!room:example.org']['timeline']['events'][0]['type'] = 'm.room.encrypted'
+    with pytest.raises(RuntimeError, match='awaits decryption'):
+        await MatrixAdapter._dispatch_sync(a, b)
