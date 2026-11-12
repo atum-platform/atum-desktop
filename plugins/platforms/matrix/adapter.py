@@ -3264,9 +3264,14 @@ def register(ctx) -> None:
     from .send_targets import SEND_ENTRY_KWARGS
     from .dashboard_card import DASHBOARD_CARD
     from . import gateway_env  # env -> GatewayConfig bridge (gateway.config_env)
+    adapter_factory = MatrixAdapter
+    if ctx.get_config("atum_presentation", False):
+        from .presentation import adapter_class, register_hooks
+        adapter_factory = adapter_class(MatrixAdapter)
+        register_hooks(ctx)
     ctx.register_platform(
         **SEND_ENTRY_KWARGS,  # send_message target syntax + routing
-        name="matrix", label="Matrix", adapter_factory=MatrixAdapter, check_fn=matrix_deps_present,
+        name="matrix", label="Matrix", adapter_factory=adapter_factory, check_fn=matrix_deps_present,
         **DASHBOARD_CARD,
         ensure_deps_fn=ensure_matrix_deps, is_connected=_is_connected,
         required_env=["MATRIX_HOMESERVER", "MATRIX_ACCESS_TOKEN"], install_hint="pip install 'mautrix[encryption]'",
