@@ -33,6 +33,16 @@ class TurnFacadeMixin:
         persist_api_content: bool=True,
     ) -> dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
+        from hermes_cli.turn_admission import check_turn_admission
+
+        refusal = check_turn_admission(
+            platform=getattr(self, "platform", None) or "cli",
+            session_id=getattr(self, "session_id", None), task_id=task_id,
+            parent_session_id=getattr(self, "_parent_session_id", None),
+            user_message=user_message,
+        )
+        if refusal is not None:
+            return refusal
         # A review shares this session_id for cache parity: fence review startup or interrupt
         # an admitted request and await its exit before opening live-turn instrumentation.
         # Foreground priority is retained if the review does not acknowledge within the bounded deadline

@@ -1673,6 +1673,20 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         follow-up paths so attribution, image enrichment, STT, document notes, reply context and
         @ references behave the same. Side effect: buffers per-session native image paths when the
         model supports native vision; the caller consumes that buffer at ``run_conversation``."""
+        from hermes_cli.turn_admission import check_turn_admission
+
+        refusal = await asyncio.to_thread(
+            check_turn_admission, platform=source.platform.value,
+            session_id=session_key, user_message=event.text, stage="gateway_media",
+        )
+        if refusal is not None:
+            from gateway.session_results import execution_result
+
+            captured = execution_result.get()
+            if captured is not None:
+                captured["result"] = refusal
+            event._gateway_turn_refusal = refusal["final_response"]
+            return None
         rehome_inbound_media(event)  # before any consumer (vision, STT, document notes) reads media_urls
         _pending_stt_prepared = hasattr(event, "_gateway_pending_stt_text")
         message_text = (event._gateway_pending_stt_text if _pending_stt_prepared else event.text) or ""

@@ -4078,3 +4078,6 @@ plan_usage:
   large_notice_limit: "Large model: your {name} limit is reached ({resets})."
   large_notice_limit_stops: "Large model: your {name} limit is reached ({resets}), so it won't run until then."
   large_notice_percent: "Large model: uses more of your plan's usage per message. Monthly large-model limit: {percent} used."
+
+turn_admission:
+  refused: "This request was declined by the turn admission policy ({code})."

@@ -138,7 +138,10 @@ def collect_runtime_readiness(
     home = get_hermes_home()
     runtime = runtime_status if isinstance(runtime_status, dict) else {}
     state_db_probe = _probe_state_db(home)
+    from hermes_cli.turn_admission import admission_readiness
+
     checks = {
+        "turn_admission": admission_readiness(),
         "state_db": state_db_probe,
         "session_store": _probe_session_store(runtime, state_db_probe),
         "config": _probe_config(home),
