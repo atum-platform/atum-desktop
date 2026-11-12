@@ -48,6 +48,7 @@ async def reconcile_before_intake(adapter, client):
         return
     authority = adapter.gateway_runner.session_authority
     result = reconcile(authority.db, store, context)
+    apply_restore_attention(authority.runner.session_store, authority.db, context)
     for room, event_id in result['reread']:
         event = await client.get_event(room, event_id)
         raw = event if isinstance(event, dict) else event.serialize()
@@ -64,6 +65,35 @@ async def reconcile_before_intake(adapter, client):
         store._put('restore', dict(result, reread=[]))
 
 
+
+def apply_restore_attention(sessions, db, context):
+    """Use native pending Ask for stale markers and abandoned delivery obligations."""
+    import time
+    from gateway.resume_policy import ResumePolicy, pending_resume_policy
+    from gateway.status import write_runtime_status
+    tables = {r['name'] for r in db._read_all("SELECT name FROM sqlite_master WHERE type='table'")}
+    abandoned = set()
+    if 'delivery_obligations' in tables:
+        abandoned = {r['session_key'] for r in db._read_all(
+            "SELECT DISTINCT session_key FROM delivery_obligations WHERE state='abandoned'")}
+    attention = []
+    for entry in sessions.list_sessions():
+        stamp = getattr(entry, 'last_resume_marked_at', None)
+        stale = (getattr(entry, 'resume_pending', False) and
+                 (stamp is None or time.time() - stamp.timestamp() > 3600))
+        if stale or entry.session_key in abandoned:
+            pending_resume_policy(sessions, entry,
+                ResumePolicy(True, ('work restored from backup at ' + context['timestamp'] +
+                    '; later actions may already have happened; check before repeating',), frozenset()),
+                '', can_resolve=False)
+            attention.append(entry.session_key)
+    if attention:
+        write_runtime_status(platform='recovery:restore:' + str(context['generation']),
+            needs_attention=True, error_code='restore_requires_ask',
+            platform_metrics={'alert': {'code': 'restore_requires_ask',
+                'since': context['timestamp']}})
+    return attention
+
 def restore_generation(manifest_path, generation, target):
     """Restore a complete generation into a NEW scratch home; never a live home.
 
@@ -72,7 +102,8 @@ def restore_generation(manifest_path, generation, target):
     """
     import os
     from types import SimpleNamespace
-    from hermes_cli.backup import run_import, _validate_backup_zip
+    from hermes_cli.backup import run_import, _validate_backup_zip, _import_members
+    from hermes_cli.archive_safe import normalize_archive_parts
     import zipfile
     manifest_path = Path(manifest_path).resolve(strict=True)
     manifest = json.loads(manifest_path.read_text())
@@ -94,9 +125,18 @@ def restore_generation(manifest_path, generation, target):
         if digest.hexdigest() != entry['sha256']:
             raise ValueError('Archive hash mismatch')
         with zipfile.ZipFile(path) as archive:
-            ok, reason = _validate_backup_zip(archive)
-            if not ok:
-                raise ValueError(reason)
+            if part == 'private':
+                ok, reason = _validate_backup_zip(archive)
+                if not ok:
+                    raise ValueError(reason)
+            for member in archive.infolist():
+                parts = normalize_archive_parts(member.filename)
+                if (not parts or parts[0] == '_external' or
+                        any(p in {'.env', 'auth.json', 'vault.key', 'vault.json.enc'} for p in parts) or
+                        (member.external_attr >> 16) & 0o170000 == 0o120000):
+                    raise ValueError('Archive contains external state, credentials or links')
+            if archive.testzip() is not None:
+                raise ValueError('Archive CRC mismatch')
         verified[part] = path
     target = Path(target).resolve()
     if target.exists():
@@ -106,8 +146,16 @@ def restore_generation(manifest_path, generation, target):
         for part, path in verified.items():
             home = target / part
             os.environ['HERMES_HOME'] = str(home)
-            if run_import(SimpleNamespace(zipfile=str(path), force=True)):
-                raise RuntimeError('Native import incomplete')
+            if part == 'private':
+                if run_import(SimpleNamespace(zipfile=str(path), force=True), start_gateway=False):
+                    raise RuntimeError('Native import incomplete')
+            else:
+                home.mkdir(parents=True)
+                with zipfile.ZipFile(path) as archive:
+                    members = [n for n in archive.namelist() if not n.endswith('/')]
+                    result = _import_members(archive, members, '', home, len(members))
+                    if result[2]:
+                        raise RuntimeError('Native persona import incomplete')
         from hermes_state import SessionDB
         from plugins.platforms.matrix.intake import MatrixIntakeStore
         home = target / 'private'

@@ -169,3 +169,25 @@ async def test_actual_back_to_back_copies_under_hold(pair, tmp_path):
     assert elapsed < 2
     writer.close(); await writer.wait_closed()
     await hold.close()
+
+
+@pytest.mark.parametrize('reason', ['stale', 'abandoned'])
+def test_stale_markers_and_abandoned_delivery_use_native_ask(pair, reason, monkeypatch):
+    from datetime import datetime, UTC
+    from unittest.mock import MagicMock
+    from gateway.backup_restore import apply_restore_attention
+    db, _, _, _ = pair
+    entry = SimpleNamespace(session_key='route', resume_ask=None,
+        resume_pending=reason == 'stale', last_resume_marked_at=datetime.fromtimestamp(1, UTC))
+    sessions = SimpleNamespace(list_sessions=lambda: [entry], _db=db)
+    def update(key, action):
+        action(entry)
+    sessions._update_entry = update
+    if reason == 'abandoned':
+        db._execute_write(lambda c: c.execute('CREATE TABLE delivery_obligations (session_key TEXT,state TEXT)'))
+        db._execute_write(lambda c: c.execute("INSERT INTO delivery_obligations VALUES ('route','abandoned')"))
+    status = MagicMock()
+    monkeypatch.setattr('gateway.status.write_runtime_status', status)
+    assert apply_restore_attention(sessions, db, {'generation': 7, 'timestamp': 'T'}) == ['route']
+    assert entry.resume_ask
+    assert status.call_args.kwargs['needs_attention']

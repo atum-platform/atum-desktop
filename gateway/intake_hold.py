@@ -4,7 +4,20 @@ import json
 import os
 import socket
 import struct
+import hashlib
+import stat
 from pathlib import Path
+
+
+def socket_path(store):
+    # Darwin limits AF_UNIX paths to 104 bytes; homes and pytest paths can exceed it.
+    root = Path('/tmp') / ('hermes-intake-' + str(os.getuid()))
+    root.mkdir(mode=0o700, exist_ok=True)
+    info = root.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise PermissionError('Unsafe intake control directory')
+    key = hashlib.sha256(str(Path(store).resolve()).encode()).hexdigest()[:24]
+    return str(root / (key + '.sock'))
 
 
 class IntakeHold:
@@ -13,7 +26,7 @@ class IntakeHold:
         self.timeout = float(timeout)
         if not 0 < self.timeout <= 2:
             raise ValueError('snapshot_hold_seconds must be in (0, 2]')
-        self.path = str(store.path) + '.hold'
+        self.path = socket_path(store.path)
         self.lock = asyncio.Lock()
         self.server = None
         self.clients = set()

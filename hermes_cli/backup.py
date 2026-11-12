@@ -740,7 +740,7 @@ def _import_member_rel(member: str, prefix: str) -> tuple[str, bool]:
     return rel, _import_skipped(rel)
 
 
-def run_import(args) -> Optional[int]:
+def run_import(args, *, start_gateway: bool = True) -> Optional[int]:
     """Restore a Hermes backup; return 1 on damaged archives or incomplete restores."""
     zip_path = Path(args.zipfile).expanduser().resolve()
 
@@ -911,7 +911,8 @@ def run_import(args) -> Optional[int]:
             for pname in gw_profiles:
                 print(f"  hermes -p {pname} gateway install")
 
-        _revive_gateway_after_import(hermes_root)
+        if start_gateway:
+            _revive_gateway_after_import(hermes_root)
 
         if errors:
             print(f"Import incomplete: {len(errors)} file(s) were not restored (see Warnings above). "

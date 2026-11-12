@@ -72,7 +72,8 @@ async def _hold_command(store, command):
     import asyncio
     if not store or not command:
         raise ValueError('hold requires --store and --exec COMMAND [ARGS...]')
-    reader, writer = await asyncio.open_unix_connection(str(Path(store).resolve()) + '.hold')
+    from gateway.intake_hold import socket_path
+    reader, writer = await asyncio.open_unix_connection(socket_path(store))
     process = None
     started = time.monotonic()
     try:
