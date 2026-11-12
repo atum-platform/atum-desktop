@@ -6,6 +6,8 @@ import pytest
 
 from agent.error_classifier import classify_api_error
 
+pytestmark = pytest.mark.real_retry_backoff
+
 
 def refusal(status=402, *, marked=True, nested=False, body_only=False):
     error = Exception('insufficient credits')
@@ -41,7 +43,8 @@ def make_agent():
     from run_agent import AIAgent
     with patch('model_tools.get_tool_definitions', return_value=[]), \
          patch('model_tools.check_toolset_requirements', return_value={}), \
-         patch('agent.process_bootstrap.OpenAI'):
+         patch('agent.process_bootstrap.OpenAI'), \
+         patch('agent.agent_init.fetch_model_metadata', return_value=None):
         agent = AIAgent(api_key='test-key', provider='openrouter', model='test/model',
                         base_url='https://openrouter.ai/api/v1', api_mode='chat_completions',
                         quiet_mode=True, skip_context_files=True, skip_memory=True,
@@ -102,6 +105,7 @@ def test_topup_second_retry_same_request_billed_once(status, mode):
     assert result['api_calls'] == 1
     assert agent.session_prompt_tokens == 10
     assert agent.session_completion_tokens == 2
+    assert 6 <= clock.now <= 9.01
     assert len(requests) == 3 and requests[0] == requests[1] == requests[2]
     agent._emit_status.assert_any_call('Waiting for usage top-up')
     assert sum(c.args == ('Waiting for usage top-up',) for c in agent._emit_status.call_args_list) == 1
@@ -138,7 +142,7 @@ def test_persistent_and_stop_on_shared_handler(mode):
     assert verdict.result['failure_reason'] == 'allowance_exhausted'
     assert verdict.result['failure_retryable'] is True
     assert 'balance' not in verdict.result['final_response'].lower()
-    assert messages == [{'role': 'user', 'content': 'hello'}]
+    assert [(m['role'], m['content']) for m in messages] == [('user', 'hello')]
     agent._emit_status.assert_called_once_with('Waiting for usage top-up')
     agent._recover_with_credential_pool.assert_not_called()
     agent._try_activate_fallback.assert_not_called()
