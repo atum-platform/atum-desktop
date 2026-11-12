@@ -388,3 +388,22 @@ def test_native_naive_ingress_timestamp_resolves(tmp_path):
 def test_token_reply_alternative(reply, choice):
     from tools.approval import exact_gateway_approval_choice
     assert exact_gateway_approval_choice(reply, 'abcd') == choice
+
+
+def test_legacy_pending_ask_accepts_next_fresh_reply_after_load(tmp_path):
+    from datetime import datetime, UTC
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy
+    config = GatewayConfig()
+    source = SessionSource(platform=Platform.TELEGRAM, chat_id='test')
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(source)
+    store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask',
+                        {'token': 'legacy', 'actions': ['write_file']}))
+    before = datetime.now(UTC).isoformat()
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(source)
+    assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=before).ask
+    assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True,
+                                 message_timestamp=datetime.now(UTC).isoformat()) is None

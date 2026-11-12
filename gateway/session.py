@@ -617,6 +617,11 @@ class SessionEntry:
         # toggled": only their ON is a real toggle; False follows the launch policy, as it did then.
         plain["yolo"] = data["yolo_toggle"] if "yolo_toggle" in data else (True if data.get("yolo") is True else None)
         transport_profile = data.get("transport_profile")
+        pending = plain.get("resume_ask")
+        if pending and 'created_at' not in pending:
+            # Legacy questions have no arrival fence. Establish it at load, before
+            # fresh owner input, so older queued replies remain conversational.
+            plain['resume_ask'] = dict(pending, created_at=datetime.now().astimezone().isoformat())
         return cls(
             session_key=session_key, session_id=session_id,
             created_at=datetime.fromisoformat(data["created_at"]),
