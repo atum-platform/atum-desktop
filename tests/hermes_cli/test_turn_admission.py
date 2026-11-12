@@ -286,7 +286,9 @@ def test_required_unloadable_kind_has_configuration_error(admission, kind):
     from hermes_cli.turn_admission import check_turn_admission, admission_readiness
     admission[0]._plugins['authority'].manifest.kind = kind
     assert 'kind' in admission_readiness()['reason']
-    assert check_turn_admission()['admission']['code'] == 'admission_unavailable'
+    result = check_turn_admission()
+    assert result['admission']['code'] == 'admission_unavailable'
+    assert 'configuration' in result['final_response']
 
 
 @pytest.mark.asyncio

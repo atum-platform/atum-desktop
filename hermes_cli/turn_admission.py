@@ -79,7 +79,8 @@ def admission_readiness() -> dict[str, Any]:
 def _refusal(code: str, plugin: str = "", reason: str = "") -> dict[str, Any]:
     from agent.i18n import t
 
-    notice = t("turn_admission.refused", code=code)
+    notice = (t("turn_admission.configuration_error") if code == "admission_unavailable"
+              else t("turn_admission.refused", code=code))
     return {
         "final_response": notice, "messages": [], "failed": True, "completed": False,
         "error": f"turn admission {code}" + (f" ({plugin})" if plugin else "") + (f" — {reason}" if reason else ""),

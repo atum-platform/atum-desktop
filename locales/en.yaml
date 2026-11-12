@@ -4080,4 +4080,5 @@ plan_usage:
   large_notice_percent: "Large model: uses more of your plan's usage per message. Monthly large-model limit: {percent} used."
 
 turn_admission:
+  configuration_error: "This request was refused because admission configuration is invalid or unavailable. Check readiness for details."
   refused: "This request was declined by the turn admission policy ({code})."
