@@ -136,7 +136,7 @@ async def probe():
         guard = getattr(agent, '_crash_resume_tool_guard', None)
         resume = guard.args[0] if guard is not None else None
         dispatch_evidence.append({'ask': getattr(resume, 'ask', None),
-            'pending': [entry.resume_ask for entry in runner.session_store._entries.values()]})
+            'pending': [getattr(entry, 'resume_ask', None) for entry in runner.session_store._entries.values()]})
         return original_dispatch(agent, *args, **kwargs)
     tool_executor._dispatch_authorized_once = dispatch
     runner = GatewayRunner()
