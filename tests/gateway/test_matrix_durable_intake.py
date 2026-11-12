@@ -342,3 +342,14 @@ async def test_bootstrap_parked_callback_does_not_block_connect(tmp_path):
         assert await a.connect() is True
     assert a._intake.get('pending') == batch('$queued-during-bootstrap')
     await a.disconnect()
+
+
+@pytest.mark.skipif(__import__('os').name != 'posix', reason='SIGKILL crash boundary requires POSIX')
+def test_accepted_native_turn_recovers_after_real_owner_kill(tmp_path):
+    # Reuse the production-runtime recovery probe rather than invent another
+    # executor: it kills a real owner with one started and one accepted/unclaimed
+    # native turn, recovers twice, and checks unknown work never repeats.
+    import runpy
+    from pathlib import Path
+    probe = runpy.run_path(str(Path(__file__).with_name('test_session_authority.py')))
+    probe['test_native_queue_survives_owner_kill_without_replaying_unknown'](tmp_path)
