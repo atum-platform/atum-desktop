@@ -97,7 +97,7 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
             seen_tokens.add(token)
             page = await client.get_messages(room, from_token=token,
                                              direction=PaginationDirection.BACKWARD, limit=100)
-            for event in page.chunk:
+            for event in page.events:
                 raw = event if isinstance(event, dict) else event.serialize()
                 if raw['event_id'] == boundary:
                     found = True

@@ -89,8 +89,8 @@ async def test_first_start_does_not_replay_old_history(tmp_path):
 async def test_limited_timeline_paginated_deduplicated_oldest_first():
     b = batch('$six', '$seven', limited=True)
     client = SimpleNamespace(get_messages=AsyncMock(side_effect=[
-        SimpleNamespace(chunk=[event('$six'), event('$five'), event('$four')], end='page-1'),
-        SimpleNamespace(chunk=[event('$three'), event('$two'), event('$one')], end='page-2')]))
+        SimpleNamespace(events=[event('$six'), event('$five'), event('$four')], end='page-1'),
+        SimpleNamespace(events=[event('$three'), event('$two'), event('$one')], end='page-2')]))
     # Stub only the enum if optional mautrix isn't installed in the test env.
     import sys
     from types import ModuleType
@@ -109,7 +109,7 @@ async def test_missing_frontier_fails_closed():
     from types import ModuleType
     types = ModuleType('mautrix.types')
     types.PaginationDirection = SimpleNamespace(BACKWARD='b')
-    client = SimpleNamespace(get_messages=AsyncMock(return_value=SimpleNamespace(chunk=[], end=None)))
+    client = SimpleNamespace(get_messages=AsyncMock(return_value=SimpleNamespace(events=[], end=None)))
     with patch.dict(sys.modules, {'mautrix.types': types}), pytest.raises(IntakeGapError):
         await fill_gaps(client, batch('$new', limited=True), {'!room:example.org': '$lost'})
 
@@ -240,3 +240,43 @@ async def test_undecrypted_event_is_retained(tmp_path):
     b['rooms']['join']['!room:example.org']['timeline']['events'][0]['type'] = 'm.room.encrypted'
     with pytest.raises(RuntimeError, match='awaits decryption'):
         await MatrixAdapter._dispatch_sync(a, b)
+
+
+@pytest.mark.asyncio
+async def test_pagination_with_pinned_mautrix_response_type():
+    types = pytest.importorskip('mautrix.types')
+    b = batch('$three', limited=True)
+    response = types.PaginatedMessages(start='page-0', end=None,
+        events=[types.Event.deserialize({**event('$two'), 'room_id': '!room:example.org'}),
+                types.Event.deserialize({**event('$one'), 'room_id': '!room:example.org'})])
+    client = SimpleNamespace(get_messages=AsyncMock(return_value=response))
+    await fill_gaps(client, b, {'!room:example.org': '$one'})
+    assert [e['event_id'] for e in b['rooms']['join']['!room:example.org']['timeline']['events']] == ['$two', '$three']
+
+
+@pytest.mark.asyncio
+async def test_connect_takes_account_lock_before_any_sync(tmp_path):
+    import sys
+    from types import ModuleType
+    a = adapter(tmp_path)
+    a._resolve_store_dir = lambda: tmp_path
+    a._store_dir = tmp_path
+    a._connect_authenticate = AsyncMock(return_value=True)
+    a._acquire_platform_lock = MagicMock(return_value=False)
+    a._release_platform_lock = MagicMock()
+    client = SimpleNamespace(sync=AsyncMock(), api=SimpleNamespace(session=SimpleNamespace(close=AsyncMock())))
+    api = ModuleType('mautrix.api')
+    api.HTTPAPI = lambda **kwargs: client.api
+    clients = ModuleType('mautrix.client')
+    clients.Client = lambda **kwargs: client
+    state = ModuleType('mautrix.client.state_store')
+    state.MemoryStateStore = MagicMock
+    state.MemorySyncStore = MagicMock
+    with patch.dict(sys.modules, {'mautrix.api': api, 'mautrix.client': clients,
+                                 'mautrix.client.state_store': state}), patch(
+            'plugins.platforms.matrix.adapter._create_matrix_session', return_value=MagicMock()):
+        assert await a.connect() is False
+    a._acquire_platform_lock.assert_called_once_with(
+        'matrix', '["https://matrix.example.org", "@bot:example.org"]', 'Matrix account')
+    client.sync.assert_not_awaited()
+    a._release_platform_lock.assert_called_once()
