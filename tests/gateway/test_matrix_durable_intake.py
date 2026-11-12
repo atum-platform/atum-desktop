@@ -362,11 +362,14 @@ async def test_real_mautrix_swallowed_failure_retains_batch_and_siblings(tmp_pat
     client = Client(mxid='@bot:example.org', base_url='https://matrix.example.org', token='fixture')
     a._client = client
     a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
+    refuse, admissions = [True], []
     async def handler(e):
-        if str(e.event_id) == '$lost':
+        if a._intake.state(str(e.event_id)) is not None:
+            return
+        if str(e.event_id) == '$lost' and refuse[0]:
             raise RuntimeError('gateway refused before native admission')
-        if a._intake.state(str(e.event_id)) is None:
-            a._intake.mark(str(e.event_id), 'native', 'receipt')
+        a._intake.mark(str(e.event_id), 'native', 'receipt')
+        admissions.append(str(e.event_id))
     client.add_event_handler(EventType.ROOM_MESSAGE, handler, wait_sync=True)
     await client.api.session.close()  # dispatcher-only test, no network
     b = batch('$ok', '$lost')
@@ -554,3 +557,26 @@ def test_matrix_obligation_rerecord_preserves_frozen_plan(tmp_path, monkeypatch)
     original = ledger.matrix_send_plan('owed', 'r', [{'body': 'original'}])
     ledger.record_obligation(**args)
     assert ledger.matrix_send_plan('owed', 'r', [{'body': 'different'}]) == original
+
+@pytest.mark.asyncio
+async def test_history_recovery_budget_fails_without_advancing_cursor(tmp_path):
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    store.baseline(batch('$boundary', token='saved-token'))
+    b = batch('$new', token='unaccepted-token', limited=True)
+    page = [event(f'$older-{i}') for i in range(10000)]
+    client = SimpleNamespace(get_messages=AsyncMock(return_value=SimpleNamespace(events=page, end='next')))
+    with pytest.raises(IntakeGapError, match='exceeds'):
+        await fill_gaps(client, b, store.get('frontier'))
+    assert store.get('next_batch') == 'saved-token'
+    assert store.get('frontier') == {'!room:example.org': '$boundary'}
+
+
+def test_corrupt_journal_status_does_not_reset_or_replace(tmp_path):
+    import sqlite3
+    from hermes_cli.matrix_intake import cmd_matrix_intake
+    path = tmp_path / 'intake.sqlite3'
+    original = b'corrupt fixture, never a real account'
+    path.write_bytes(original)
+    with pytest.raises(sqlite3.DatabaseError):
+        cmd_matrix_intake(SimpleNamespace(store=str(path), action='status'))
+    assert path.read_bytes() == original
