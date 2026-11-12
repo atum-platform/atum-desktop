@@ -93,7 +93,7 @@ async def test_native_connect_pending_and_downtime(tmp_path):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('kind', ['queued_followup', 'crash_resume'])
-async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kind):
+async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kind, monkeypatch):
     writes, interrupts = [], []
     class Base:
         async def send_final_ledgered(self, event, *args, **kwargs):
@@ -119,11 +119,38 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
     await stale.end()
     token = p._current.set(stale)  # drain inherited A's receive context
     try:
-        async with a.admission_presentation_scope(event, 'route', kind):
+        from contextlib import nullcontext
+        from gateway import session_ingress as ingress
+        monkeypatch.setattr('gateway.session_completion_notes.note_if_unviewed', AsyncMock(return_value=None))
+        monkeypatch.setattr('gateway.session_policy.policy_for_source', lambda *args: None)
+        monkeypatch.setattr('gateway.session_managed_worker.managed_policy', lambda *args: None)
+        monkeypatch.setattr(ingress, 'restore_native', lambda *args: event)
+        monkeypatch.setattr(ingress, '_execution_scope', AsyncMock(return_value=nullcontext()))
+        monkeypatch.setattr(ingress, '_hand_over_turn_marker', AsyncMock())
+        turns = []
+        async def execute(event):
             turn = p._current.get()
+            turns.append(turn)
             assert turn is not stale and turn.admission_id == kind
             await a.send('!room', 'checking', metadata={'_interim_send': True})
             assert a._presentation_turns[('!room', event.message_id)][0] is turn
+            return 'answer'
+        a.gateway_runner._handle_message = execute
+        a.gateway_runner._adapter_for_source = lambda source: a
+        a.gateway_runner.session_store = SimpleNamespace(mark_resume_pending=MagicMock())
+        event.metadata['turn_author'] = 'owner'
+        authority = SimpleNamespace(runner=a.gateway_runner,
+            sessions={'session': SimpleNamespace(source=event.source, route='route')},
+            native_waiters={kind} if kind == 'queued_followup' else set(), pending_results={},
+            pending_deliveries={}, physical_target=lambda ref: 'physical',
+            db=SimpleNamespace(_read_one=lambda *args: None))
+        row = {'admission_id': kind, 'request_id': '$' + kind, 'generation': 1, 'payload': {'native_text_v1': {}},
+               'outcome': 'crash_resume' if kind == 'crash_resume' else None}
+        assert await ingress.execute_admission(authority, SimpleNamespace(session_id='session'), row) == 'answer'
+        turn = turns[0]
+        if kind == 'crash_resume':
+            assert kind in authority.pending_deliveries
+            a.gateway_runner.session_store.mark_resume_pending.assert_called_once()
         # Deferred final waiter can inherit an unrelated/ended context.
         await a.send_final_ledgered(event)
         assert writes[-1]['io.atum.turn'] == turn.marker
@@ -218,3 +245,24 @@ def test_ask_guard_never_publishes_tool_activity(tmp_path, monkeypatch):
         display_index=None, begin_execution=None, authorization_gate=None)
     assert result == 'blocked' and state.blocked
     assert called == []
+
+
+@pytest.mark.asyncio
+async def test_status_from_ended_context_uses_native_send(tmp_path):
+    calls = []
+    class Base:
+        async def send(self, *args, **kwargs):
+            calls.append(args)
+            return 'native-status'
+    box = p.Outbox(tmp_path / 'box.sqlite3')
+    async def port(*args):
+        return '$old-root'
+    turn = p.Turn(box, port, '!room', '$old', '@owner')
+    await turn.progress('old')
+    await turn.end()
+    token = p._current.set(turn)
+    try:
+        assert await p.adapter_class(Base)().send_or_update_status('!room', 'retry', 'Retrying') == 'native-status'
+        assert calls == [('!room', 'Retrying')]
+    finally:
+        p._current.reset(token); box.db.close()

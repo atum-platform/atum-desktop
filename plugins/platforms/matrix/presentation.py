@@ -324,7 +324,10 @@ def adapter_class(base):
             token = _current.set(turn)
             try:
                 if turn:
-                    await turn.progress('Working')
+                    try:
+                        await turn.progress('Working')
+                    except Exception:
+                        logger.warning('Matrix presentation root deferred', exc_info=True)
                 yield
             finally:
                 if turn:
@@ -452,7 +455,7 @@ def register_hooks(ctx):
             asyncio.run_coroutine_threadsafe(turn.end(), turn.loop)
     def todos(tool_name='', args=None, status=None, **_):
         turn = _current.get()
-        if turn and tool_name == 'todo' and status not in ('cancelled', 'error') and isinstance(args, dict):
+        if turn and tool_name == 'todo' and status not in ('cancelled', 'error', 'blocked') and isinstance(args, dict):
             from agent.redact import redact_for_egress
             items = args.get('todos')
             if isinstance(items, list):
