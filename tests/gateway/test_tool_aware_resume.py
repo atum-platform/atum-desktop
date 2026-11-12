@@ -141,3 +141,16 @@ def test_dispatch_guard_stops_effect_before_plugin_or_tool(monkeypatch):
         agent, state, ref, execute=forbidden, scope_block=None, display_index=None,
         begin_execution=None, authorization_gate=None)
     assert result == {'blocked': True} and state.blocked
+
+
+def test_stale_markers_become_pending_ask(tmp_path):
+    from datetime import datetime, timedelta, UTC
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    store.mark_turn_active(entry.session_key)
+    entry.active_turn_started_at = datetime.now(UTC) - timedelta(hours=2)
+    assert store.recover_interrupted_turns(stale_to_ask=True) == 1
+    assert entry.resume_pending and entry.resume_reason == 'stale_interruption'
+    assert entry.active_turn_token is None

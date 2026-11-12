@@ -21,8 +21,10 @@ class ResumePolicy:
             return ("[Recovery: Before ANY new action, ask ONE short question in the owner's "
                     "language naming the action that may have half-happened: " + actions +
                     ". Ask whether to continue it. Do not say 'check again'. Do not call any tools.]")
-        return ("[Recovery: Continue the interrupted task without asking. Resume only steps with "
-                "no recorded result. NEVER repeat completed tool calls.]")
+        return ("[Recovery: Continue the interrupted task without asking. Calls with no durable "
+                "result: " + json.dumps(self.actions, ensure_ascii=False) +
+                ". Retry those calls once; any synthetic interruption result in replay is not "
+                "completion evidence. NEVER repeat completed tool calls.]")
 
 
 def call_key(name, arguments):
