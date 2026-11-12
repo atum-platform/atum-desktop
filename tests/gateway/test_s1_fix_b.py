@@ -82,11 +82,22 @@ async def test_matrix_downtime_ok_uses_server_time(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_h12_runtime_retry_delivers_without_restart(tmp_path, monkeypatch):
+@pytest.mark.parametrize('storage_error', ['os', 'sqlite'])
+async def test_h12_runtime_retry_delivers_without_restart(tmp_path, monkeypatch, storage_error):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     monkeypatch.setenv('ATUM_FAULT_TEST', '1')
     monkeypatch.setenv('ATUM_FAULT_POINT', 'H12')
     monkeypatch.setenv('ATUM_FAULT_ONCE', str(tmp_path/'once'))
+    if storage_error == 'sqlite':
+        from gateway import fault_injection
+        import sqlite3
+        original = fault_injection.hit
+        def hit(point):
+            try:
+                original(point)
+            except OSError as exc:
+                raise sqlite3.OperationalError('database or disk is full') from exc
+        monkeypatch.setattr(fault_injection, 'hit', hit)
     from tests.gateway.test_matrix_durable_intake import adapter
     from gateway.platforms.event import MessageEvent
     from gateway.session import SessionSource

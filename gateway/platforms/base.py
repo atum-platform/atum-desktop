@@ -1,6 +1,7 @@
 """Base platform adapter interface; every platform adapter inherits from BasePlatformAdapter."""
 
 import asyncio
+import sqlite3
 import contextlib
 import inspect
 import ipaddress
@@ -4368,7 +4369,7 @@ class BasePlatformAdapter(ABC):
                 obligation_id = await self._record_delivery_obligation(
                     event, session_key, text_content, delivery_adapter, is_ephemeral_response)
                 break
-            except OSError:
+            except (OSError, sqlite3.Error):
                 # Keep the native marker while storage is unavailable. Retry the same
                 # obligation before sending, including when no process restart occurs.
                 logger.error("Final reply journal unavailable; retaining turn marker and retrying in %ss", delay)
