@@ -1456,6 +1456,8 @@ def _apply_agent_section(agent, _agent_cfg):
     except (TypeError, ValueError):
         _api_retries = 3
     agent._api_max_retries = _api_retries
+    from agent.retry_utils import allowance_wait_policy
+    agent._allowance_wait = allowance_wait_policy(_agent_section.get("allowance_wait"))
     # Bounded post-exhaustion auto-recovery cycles once retries AND the fallback chain are spent
     # on a transient outage (agent/turn_recovery_autorecover.py). 0 disables the ladder.
     try:

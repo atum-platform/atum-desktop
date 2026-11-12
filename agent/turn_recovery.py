@@ -1407,7 +1407,7 @@ def interruptible_backoff_sleep(
                 agent, messages, conversation_history, api_call_count,
                 abort_message=abort_message, interrupt_text=interrupt_text,
             )
-        time.sleep(0.2)
+        time.sleep(min(0.2, max(0.0, sleep_end - time.time())))
         _touch_counter += 1
         if _touch_counter % 150 == 0:  # 150 × 0.2s = 30s
             agent._touch_activity(f"{activity_label}, {int(sleep_end - time.time())}s remaining")
