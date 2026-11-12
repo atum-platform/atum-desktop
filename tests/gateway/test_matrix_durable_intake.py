@@ -353,3 +353,24 @@ def test_accepted_native_turn_recovers_after_real_owner_kill(tmp_path):
     from pathlib import Path
     probe = runpy.run_path(str(Path(__file__).with_name('test_session_authority.py')))
     probe['test_native_queue_survives_owner_kill_without_replaying_unknown'](tmp_path)
+
+@pytest.mark.asyncio
+async def test_real_mautrix_swallowed_failure_retains_batch_and_siblings(tmp_path):
+    from mautrix.client import Client
+    from mautrix.types import EventType
+    a = adapter(tmp_path)
+    client = Client(mxid='@bot:example.org', base_url='https://matrix.example.org', token='fixture')
+    a._client = client
+    a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
+    async def handler(e):
+        if str(e.event_id) == '$lost':
+            raise RuntimeError('gateway refused before native admission')
+        if a._intake.state(str(e.event_id)) is None:
+            a._intake.mark(str(e.event_id), 'native', 'receipt')
+    client.add_event_handler(EventType.ROOM_MESSAGE, handler, wait_sync=True)
+    b = batch('$ok', '$lost')
+    with pytest.raises(RuntimeError, match='durable acceptance'):
+        await a._absorb_sync(client, b)
+    assert a._intake.get('pending') == b
+    assert a._intake.state('$ok') == 'native'
+    assert a._intake.state('$lost') is None
