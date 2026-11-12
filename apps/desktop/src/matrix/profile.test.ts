@@ -303,3 +303,17 @@ it('brings an assistant’s public name to its record without an editor, and onl
   expect(s.writes).toHaveLength(0)
   d.stop()
 })
+
+it('discovers the server photo with an empty own-user cache and no profile writes', async () => {
+  const s = server()
+  const userId = '@alice:example.org'
+  const d = s.device(userId)
+  s.profiles.set(userId, { displayname: 'Alice', avatar_url: 'mxc://matrix.test/photo' })
+  expect(d.profile.snapshot().avatarMxc).toBeNull()
+  const read = await d.profile.command({ kind: 'profileRead' })
+  expect(read?.profile.avatarMxc).toBe('mxc://matrix.test/photo')
+  expect(read?.photo?.bytes).toEqual(png)
+  expect(d.profile.snapshot().avatarMxc).toBe('mxc://matrix.test/photo')
+  expect(s.writes).toEqual([])
+  d.stop()
+})
