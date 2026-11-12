@@ -158,6 +158,7 @@ async def test_authorized_downtime_message_bypasses_startup_age_filter(tmp_path)
     await a._on_room_message(SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
         event_id='$one', timestamp=1, content=event('$one')['content']))
     a._handle_text_message.assert_awaited_once()
+    assert a._intake.db.execute('SELECT room_id FROM intake_events WHERE event_id=?', ('$one',)).fetchone()[0] == '!room:example.org'
 
 
 @pytest.mark.asyncio
@@ -848,3 +849,44 @@ def test_old_frozen_wire_plan_is_never_rewritten(tmp_path, monkeypatch):
     with d._transaction() as db:
         db.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?', (json.dumps(original), 'old'))
     assert d.matrix_send_plan('old','r',[{'body':'changed'}],source_event_id='$new') == original
+
+
+def test_journal_room_migration_failure_rolls_back_schema_and_version(tmp_path):
+    import json
+    import sqlite3
+    path = tmp_path / 'previous.sqlite3'
+    with sqlite3.connect(path) as db:
+        db.executescript("""
+            CREATE TABLE sync_state (key TEXT PRIMARY KEY,value TEXT NOT NULL);
+            CREATE TABLE intake_events (event_id TEXT PRIMARY KEY,state TEXT NOT NULL,receipt TEXT,updated_at REAL NOT NULL DEFAULT 0);
+            INSERT INTO intake_events VALUES ('$one','native','admitted',42);
+            CREATE TRIGGER fail_upgrade BEFORE UPDATE ON intake_events BEGIN SELECT RAISE(FAIL,'migration fault'); END;
+        """)
+        db.execute('INSERT INTO sync_state VALUES (?,?)', ('pending', json.dumps(batch('$one'))))
+    with pytest.raises(sqlite3.DatabaseError, match='migration fault'):
+        MatrixIntakeStore(path)
+    with sqlite3.connect(path) as db:
+        assert db.execute('PRAGMA user_version').fetchone()[0] == 0
+        assert 'room_id' not in {r[1] for r in db.execute('PRAGMA table_info(intake_events)')}
+        assert db.execute('SELECT * FROM intake_events').fetchone() == ('$one','native','admitted',42)
+        assert json.loads(db.execute("SELECT value FROM sync_state WHERE key='pending'").fetchone()[0]) == batch('$one')
+        db.execute('DROP TRIGGER fail_upgrade')
+    store = MatrixIntakeStore(path)
+    assert store.db.execute('SELECT room_id FROM intake_events').fetchone()[0] == '!room:example.org'
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_native_final_source_is_independent_of_reply_relation(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as d
+    monkeypatch.setattr(d, '_db_path', lambda: tmp_path / 'state.db')
+    monkeypatch.setattr(d, 'ledger_enabled', lambda: True)
+    a = adapter(tmp_path)
+    e = MessageEvent(text='question', source=a.build_source(chat_id='!room:example.org',
+        chat_type='dm', user_id='@alice:example.org'), message_id='$source')
+    oid = await a._record_delivery_obligation(e, 'matrix:r', 'answer', a, False)
+    assert oid
+    # Recovery need not reconstruct reply_to, thread relations or the original event.
+    plan = d.matrix_send_plan(oid, '!room:example.org', [{'body':'answer'}])
+    assert plan[0]['content']['org.hermes.source_event_id'] == '$source'
+    assert plan[0]['content']['org.hermes.final_chunk'] == {'index':1, 'total':1}

@@ -43,6 +43,10 @@ class MatrixIntakeStore:
         # Version 0 is the previously shipped additive schema. Migrate in one
         # transaction; never reset tokens, pending payloads or admission receipts.
         with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            version = self.db.execute('PRAGMA user_version').fetchone()[0]
+            if version > 1:
+                raise RuntimeError('Matrix intake journal is newer than this runtime')
             if version < 1:
                 if 'room_id' not in {r[1] for r in self.db.execute('PRAGMA table_info(intake_events)')}:
                     self.db.execute('ALTER TABLE intake_events ADD COLUMN room_id TEXT')
