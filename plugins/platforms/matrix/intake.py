@@ -76,7 +76,6 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
     Tokens remain opaque. Missing/redacted/retention-pruned frontiers fail closed;
     an unknown sync token never silently establishes a new history baseline.
     """
-    from mautrix.types import PaginationDirection
     for room, data in batch.get('rooms', {}).get('join', {}).items():
         timeline = data.get('timeline', {})
         boundary = frontier.get(room)
@@ -88,6 +87,7 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
             timeline['events'] = events[next(i for i, e in enumerate(events)
                                              if e['event_id'] == boundary) + 1:]
             continue
+        from mautrix.types import PaginationDirection
         token = timeline.get('prev_batch')
         seen_tokens = set()
         older = []

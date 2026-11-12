@@ -88,6 +88,11 @@ def carry_callback(event, rewritten):
         bound = bound_var.get()
         if bound is not None and bound[1] is event and rewritten.source is event.source:
             bound_var.set((bound[0], rewritten, *bound[2:]))
+            # A transport's durable acceptance callback follows an authenticated
+            # rewrite of this same source, never arbitrary metadata from ingress.
+            for name in ('_on_transport_commit', '_matrix_durable_intake'):
+                if hasattr(event, name):
+                    setattr(rewritten, name, getattr(event, name))
 
 
 _PREFIX_PRODUCERS = ('webhook', 'api_server', 'msgraph_webhook')

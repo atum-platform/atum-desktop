@@ -125,8 +125,8 @@ async def test_unknown_token_recovers_from_frontier_not_time(tmp_path):
     client = SimpleNamespace(sync=AsyncMock(side_effect=[error, batch('$one', '$two', token='new')]))
     with patch('plugins.platforms.matrix.intake.fill_gaps', new_callable=AsyncMock) as recover:
         await a._connect_initial_sync(client)
-    assert recover.await_args.kwargs == {'reset': True}
-    assert recover.await_args.args[2] == {'!room:example.org': '$one'}
+    assert recover.await_args_list[0].kwargs == {'reset': True}
+    assert recover.await_args_list[0].args[2] == {'!room:example.org': '$one'}
     assert client.sync.await_args_list[0].kwargs['since'] == 'opaque/sync-token'
     assert await a._intake.get_next_batch() == 'new'
 

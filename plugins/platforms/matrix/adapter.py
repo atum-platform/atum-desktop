@@ -29,6 +29,7 @@ from __future__ import annotations
 import asyncio
 import array
 import inspect
+import hashlib
 import json
 from contextlib import suppress
 import logging
@@ -1331,7 +1332,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 logger.warning("Matrix: error disconnecting before reconnect: %s", exc)
         from mautrix.api import HTTPAPI
         from mautrix.client import Client
-        from mautrix.client.state_store import MemoryStateStore
+        from mautrix.client.state_store import MemoryStateStore, MemorySyncStore
         if not self._homeserver:
             logger.error("Matrix: homeserver URL not configured")
             return False
@@ -1340,9 +1341,7 @@ class MatrixAdapter(BasePlatformAdapter):
         client_session = _create_matrix_session(self._proxy_url)
         api = HTTPAPI(base_url=self._homeserver, token=self._access_token or "", client_session=client_session)
         state_store = MemoryStateStore()
-        from plugins.platforms.matrix.intake import MatrixIntakeStore
-        sync_store = MatrixIntakeStore(self._store_dir / "intake.sqlite3")
-        self._intake = sync_store
+        sync_store = MemorySyncStore()  # authentication only; no sync runs before the lock
         client = Client(
             mxid=UserID(self._user_id) if self._user_id else UserID(""), device_id=self._device_id or None,
             api=api, state_store=state_store, sync_store=sync_store)
@@ -1354,6 +1353,10 @@ class MatrixAdapter(BasePlatformAdapter):
         if not self._acquire_platform_lock("matrix", identity, "Matrix account"):
             await self.disconnect()
             return False
+        from plugins.platforms.matrix.intake import MatrixIntakeStore
+        store_key = hashlib.sha256(identity.encode()).hexdigest()
+        self._intake = MatrixIntakeStore(self._store_dir / f"intake-{store_key}.sqlite3")
+        client.sync_store = self._intake
         if self._encryption and not await self._connect_setup_e2ee(client, api, state_store):
             await self.disconnect()
             return False
@@ -1994,7 +1997,7 @@ class MatrixAdapter(BasePlatformAdapter):
             # return_exceptions=True: one failing handler must not drop its SIBLING events.
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
-                if isinstance(result, Exception):
+                if isinstance(result, BaseException):
                     raise result
 
     def _is_self_sender(self, sender: str) -> bool:
