@@ -2444,7 +2444,8 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 logger.info("credential pool: marking %s exhausted (status=%s), rotating", _label, status_code)
             self._current_id = None
             next_entry, _pending = self._select_unlocked(refresh=False)
-            if next_entry is not None and next_entry.id == entry.id:
+            if (next_entry is not None and next_entry.id == entry.id
+                    and not (entry.borrowed and next_entry.revision > entry.revision)):
                 # No-recovery guard (#97315): selection handed back the very entry that was
                 # just marked (the auth-store sync adopted fresher tokens, or a quota probe
                 # false-positive lifted the bench mid-selection). Returning it reports a
