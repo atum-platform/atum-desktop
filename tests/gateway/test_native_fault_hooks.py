@@ -200,3 +200,6 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     if hook == 'before_effect':
         assert not (tmp_path / 'done-count').exists()
         assert not (tmp_path / 'pending-count').exists()
+    else:
+        assert (tmp_path / 'done-count').read_text().splitlines() == ['once']
+        assert (tmp_path / 'pending-count').read_text().splitlines() == ['once']
