@@ -4362,8 +4362,18 @@ class BasePlatformAdapter(ABC):
         delivery_adapter = self._final_delivery_adapter(event.source)
         logger.info("[%s] Sending response (%d chars) to %s", delivery_adapter.name,
                     len(text_content), event.source.chat_id)
-        obligation_id = await self._record_delivery_obligation(
-            event, session_key, text_content, delivery_adapter, is_ephemeral_response)
+        delay = 1
+        while True:
+            try:
+                obligation_id = await self._record_delivery_obligation(
+                    event, session_key, text_content, delivery_adapter, is_ephemeral_response)
+                break
+            except OSError:
+                # Keep the native marker while storage is unavailable. Retry the same
+                # obligation before sending, including when no process restart occurs.
+                logger.error("Final reply journal unavailable; retaining turn marker and retrying in %ss", delay)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 300)
         if obligation_id is not None:
             await self._release_turn_marker(event)  # the ledger now owns the crash recovery
             if event.source.platform == Platform.MATRIX:

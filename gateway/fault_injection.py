@@ -10,6 +10,8 @@ import os
 def hit(point):
     if os.environ.get("ATUM_FAULT_TEST") != "1" or os.environ.get("ATUM_FAULT_POINT") != point:
         return
+    if not os.environ.get("ATUM_FAULT_ONCE") or point == "H14":
+        return
     fd = None
     try:
         fd = os.open(os.environ["ATUM_FAULT_ONCE"], os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -26,3 +28,9 @@ def hit(point):
         error.errcode = "M_UNKNOWN_POS"
         raise error
     os._exit(86)
+
+
+def warn_at_boot():
+    if os.environ.get("ATUM_FAULT_TEST") == "1":
+        import logging
+        logging.getLogger(__name__).critical("FAULT INJECTION ENABLED (ATUM_FAULT_TEST=1). Disposable test profile only.")

@@ -758,6 +758,8 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Snapshot the revision while sys.modules matches disk so a later `git pull` is detected safely.
     from gateway.code_skew import record_boot_fingerprint
     record_boot_fingerprint()
+    from gateway.fault_injection import warn_at_boot
+    warn_at_boot()
 
     # Config verdicts come before the duplicate-instance guard: `--replace` must not stop a healthy
     # gateway for a launch that cannot start.

@@ -60,16 +60,68 @@ async def test_matrix_downtime_ok_uses_server_time(tmp_path):
     from gateway.session import SessionStore, SessionSource
     from gateway.config import Platform, GatewayConfig
     a = adapter(tmp_path)
-    a._resolve_message_context = AsyncMock(return_value=('ok', True, 'dm', None, 'Alice',
+    a._resolve_message_context = AsyncMock(return_value=('yes', True, 'dm', None, 'Alice',
         SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org', user_id='@alice:example.org')))
-    a._extract_reply_context = AsyncMock(return_value=('ok', None, None, None, None))
+    a._extract_reply_context = AsyncMock(return_value=('yes', None, None, None, None))
     a.handle_message = AsyncMock()
     await a._handle_text_message('!room:example.org', '@alice:example.org', '$old', 1.0,
-                                 {'body': 'ok'}, {})
+                                 {'body': 'yes'}, {})
     event = a.handle_message.call_args.args[0]
     store = SessionStore(sessions_dir=tmp_path/'sessions', config=GatewayConfig())
     entry = store.get_or_create_session(event.source)
     pending_resume_policy(store, entry, ResumePolicy(True, ('write',), frozenset()), '', can_resolve=False)
-    assert pending_resume_policy(store, entry, None, 'ok', can_resolve=True,
+    assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True,
                                  message_timestamp=event.timestamp.isoformat()).ask
+    a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_h12_runtime_retry_delivers_without_restart(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    monkeypatch.setenv('ATUM_FAULT_TEST', '1')
+    monkeypatch.setenv('ATUM_FAULT_POINT', 'H12')
+    monkeypatch.setenv('ATUM_FAULT_ONCE', str(tmp_path/'once'))
+    from tests.gateway.test_matrix_durable_intake import adapter
+    from gateway.platforms.event import MessageEvent
+    from gateway.session import SessionSource
+    from gateway.config import Platform
+    a = adapter(tmp_path)
+    sent = []
+    class Wire:
+        async def send_message_event(self, room, kind, content, txn_id):
+            sent.append(content)
+            return '$reply'
+    a._client = Wire()
+    a._final_delivery_adapter = lambda source: a
+    a._release_turn_marker = AsyncMock()
+    a._finalize_delivery_obligation = AsyncMock()
+    event = MessageEvent(text='work', message_id='$source', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room:example.org'))
+    result, _ = await a.send_final_ledgered(event, 's', 'answer', {}, reply_to=None)
+    assert result.success
+    assert len(sent) == 1
+    assert sent[0]['org.hermes.source_event_id'] == '$source'
+    a._release_turn_marker.assert_awaited_once()
+    a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_sync_batch_admits_in_server_order(tmp_path):
+    from tests.gateway.test_matrix_durable_intake import adapter, batch
+    from plugins.platforms.matrix.adapter import MatrixAdapter
+    a = adapter(tmp_path)
+    a._dispatch_sync = MatrixAdapter._dispatch_sync.__get__(a)
+    seen = []
+    async def receive(raw):
+        if raw['event_id'] == '$first':
+            await asyncio.sleep(.02)
+        seen.append(raw['event_id'])
+        a._intake.mark(raw['event_id'], 'native', room_id='!room:example.org')
+    class Wire:
+        def handle_sync(self, data):
+            return [asyncio.create_task(receive(raw)) for room in data.get('rooms', {}).get('join', {}).values()
+                    for raw in room.get('timeline', {}).get('events', [])]
+    a._client = Wire()
+    await a._dispatch_sync(batch('$first', '$second'))
+    assert seen == ['$first', '$second']
     a._intake.close()

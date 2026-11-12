@@ -180,6 +180,25 @@ def recovery_tool_block(policy, name, arguments):
     return None
 
 
+async def resume_boot_allowed(authority, row):
+    """Native breaker scoped to a canonical admission, allowing three automatic retries."""
+    import asyncio
+    import logging
+    from gateway.restart_loop_guard import check_and_record
+    try:
+        tripped = await asyncio.to_thread(check_and_record, max_restarts=4,
+            max_gap_seconds=float('inf'), scope=row['admission_id'])
+    except (OSError, ValueError, TypeError):
+        tripped = True  # An unreadable budget must never authorize more model spend.
+    if tripped:
+        logging.getLogger(__name__).error('Automatic crash recovery paused: restart_loop; use /discard')
+        from gateway.status import write_runtime_status
+        await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
+            error_code='restart_loop', needs_attention=True,
+            error_message='Automatic recovery paused after three attempts. Use /discard.')
+    return not tripped
+
+
 async def recover_unknown_admission(authority, ref, live, rows):
     """Reclaim the SAME native admission; keep its identity, payload and transport receipt.
 
@@ -192,6 +211,8 @@ async def recover_unknown_admission(authority, ref, live, rows):
         return False
     unknown = [row for row in rows if row['status'] == 'unknown']
     if len(unknown) != 1 or 'native_text_v1' not in unknown[0]['payload']:
+        return False
+    if not await resume_boot_allowed(authority, unknown[0]):
         return False
     from hermes_state_runtime import requeue_interrupted_session_input
     return await asyncio.to_thread(requeue_interrupted_session_input, authority.db,
@@ -224,6 +245,8 @@ async def recover_failed_native_admission(authority, ref, live, rows):
     policy = choose_resume_policy(messages or [], force_ask=not messages)
     entry = authority.runner.session_store.lookup_by_session_key(live.route)
     if entry is None:
+        return False
+    if not await resume_boot_allowed(authority, row):
         return False
     # Save the decision before reclaiming. A second crash cannot lose the action names.
     await asyncio.to_thread(pending_resume_policy, authority.runner.session_store, entry,
