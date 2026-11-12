@@ -2206,7 +2206,7 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 if (
                     exhausted_until is not None
                     and now < exhausted_until
-                    and not (clear_expired and self._codex_quota_restored_upstream(entry))
+                    and not (clear_expired and not entry.borrowed and self._codex_quota_restored_upstream(entry))
                 ):
                     continue
                 if clear_expired:
@@ -2396,6 +2396,14 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 entry = self._current_unlocked() or self._select_unlocked(refresh=False)[0]
             if entry is None:
                 return None
+            if entry.borrowed and status_code == 401:
+                synced = self.adopt_borrowed(entry)
+                if synced is not None and (synced.revision > entry.revision
+                        or (api_key_hint and api_key_hint != synced.runtime_api_key)):
+                    # A delayed refusal for N cannot invalidate N+1, even when
+                    # both requests carry the same stable credential row ID.
+                    self._current_id = synced.id
+                    return synced
             _label = entry.label or entry.id[:8]
             if self._is_model_scoped_failure(status_code, model, failure_reason):
                 # A generic Anthropic 429 (per-model rate limit) or a Codex account model

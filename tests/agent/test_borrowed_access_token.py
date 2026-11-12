@@ -27,6 +27,8 @@ def test_external_replacement_is_revision_and_connection_scoped(tmp_path, monkey
     write(revision=2, access_token="access-two")
     adopted = pool.try_refresh_current()
     assert adopted.revision == 2 and adopted.access_token == "access-two"
+    recovered = pool.mark_exhausted_and_rotate(status_code=401, credential_id="borrowed", api_key_hint="access-one")
+    assert recovered.revision == 2 and recovered.last_status != "exhausted"
     write(revision=1, access_token="rollback")
     assert pool.try_refresh_current() is None
     write(revision=3, connection_id="other-login")
