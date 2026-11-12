@@ -1371,9 +1371,15 @@ class MatrixAdapter(BasePlatformAdapter):
         self._closing = False
         try:
             await self._connect_initial_sync(client)
-        except BaseException:
-            await self.disconnect()
-            raise
+        except BaseException as exc:
+            if isinstance(exc, Exception) and self._intake.get("pending") is not None:
+                # Gateway bootstrap may park callbacks until all adapters connect.
+                # Keep the accepted batch and let the sync loop retry after startup;
+                # failing connect here would deadlock native session recovery.
+                logger.warning("Matrix: accepted intake awaits handoff after connect: %s", exc)
+            else:
+                await self.disconnect()
+                raise
         if self._encryption and getattr(client, "crypto", None):
             try:
                 await client.crypto.share_keys()

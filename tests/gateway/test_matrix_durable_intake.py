@@ -302,3 +302,43 @@ async def test_first_baseline_crash_cannot_replay_history(tmp_path):
     assert reopened.get('pending') is None
     assert reopened.get('frontier') == {'!room:example.org': '$old'}
     reopened.close()
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_parked_callback_does_not_block_connect(tmp_path):
+    import sys
+    from types import ModuleType
+    a = adapter(tmp_path)
+    a._intake.close()
+    a._intake = None
+    a._resolve_store_dir = lambda: tmp_path
+    a._store_dir = tmp_path
+    a._connect_authenticate = AsyncMock(return_value=True)
+    a._acquire_platform_lock = MagicMock(return_value=True)
+    a._release_platform_lock = MagicMock()
+    a._encryption = False
+    a._sync_loop = AsyncMock()
+    a._mark_connected = MagicMock()
+    a._wire_plugin_handlers = MagicMock()
+    async def parked(client):
+        a._intake.accept(batch('$queued-during-bootstrap'))
+        raise RuntimeError('gateway startup restore queued callback before native admission')
+    a._connect_initial_sync = parked
+    client = MagicMock()
+    client.api.session.close = AsyncMock()
+    api = ModuleType('mautrix.api')
+    api.HTTPAPI = lambda **kwargs: client.api
+    clients = ModuleType('mautrix.client')
+    clients.Client = lambda **kwargs: client
+    clients.InternalEventType = SimpleNamespace(INVITE='invite')
+    dispatcher = ModuleType('mautrix.client.dispatcher')
+    dispatcher.MembershipEventDispatcher = object
+    state = ModuleType('mautrix.client.state_store')
+    state.MemoryStateStore = MagicMock
+    state.MemorySyncStore = MagicMock
+    with patch.dict(sys.modules, {'mautrix.api': api, 'mautrix.client': clients,
+            'mautrix.client.state_store': state, 'mautrix.client.dispatcher': dispatcher}), patch(
+            'plugins.platforms.matrix.adapter._create_matrix_session', return_value=MagicMock()):
+        assert await a.connect() is True
+    assert a._intake.get('pending') == batch('$queued-during-bootstrap')
+    await a.disconnect()
