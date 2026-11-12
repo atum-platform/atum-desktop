@@ -370,3 +370,21 @@ def test_ask_is_one_line_and_followup_names_original_action(tmp_path):
     store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
     entry = store.get_or_create_session(entry.origin)
     assert shape_pending_ask(store, entry, 'I can explain what happened.') == 'I can explain what happened.\n\n' + question
+
+
+def test_native_naive_ingress_timestamp_resolves(tmp_path):
+    from datetime import datetime
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    pending_resume_policy(store, entry, choose_resume_policy([call('x', 'terminal')]), '', can_resolve=False)
+    assert pending_resume_policy(store, entry, None, 'Yes!', can_resolve=True,
+                                 message_timestamp=datetime.now().isoformat()) is None
+
+
+@pytest.mark.parametrize('reply,choice', [('YES abcd!', 'once'), ('CÓ abcd.', 'once'), ('NO abcd!', 'deny'), ('KHÔNG abcd.', 'deny')])
+def test_token_reply_alternative(reply, choice):
+    from tools.approval import exact_gateway_approval_choice
+    assert exact_gateway_approval_choice(reply, 'abcd') == choice
