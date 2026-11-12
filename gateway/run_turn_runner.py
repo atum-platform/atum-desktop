@@ -928,6 +928,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
             self._resume_policy = pending_resume_policy(
                 self._runner.session_store, entry, self._resume_policy, ctx.message,
                 can_resolve=bool(ctx.inbound_message_id)
+                and bool((getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_owner_response'))
                 and not getattr(ctx, 'scheduled_heartbeat', False)
                 and not getattr(ctx, 'persist_user_display_kind', None))
             self._resume_ask_note = pending_ask_note(entry)

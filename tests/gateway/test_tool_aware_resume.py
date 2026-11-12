@@ -169,7 +169,7 @@ def test_reused_provider_id_is_not_completion_evidence():
     assert choose_resume_policy(history).ask
 
 
-@pytest.mark.parametrize('hook,expected', [('read', 1), ('between', 1), ('before_effect', 0), ('after_effect', 1)])
+@pytest.mark.parametrize('hook,expected', [('read', 1), ('between', 1), ('before_effect', 0), ('after_effect', 1), ('unknown_sequential', 1), ('unknown_concurrent', 1)])
 def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
     """Kill actual gateway execution; restart same native admission against a loopback model."""
     home = tmp_path / 'home'
@@ -194,7 +194,7 @@ def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
         assert not any(a['role'] == b['role'] == 'user'
                        for a, b in zip(request['messages'], request['messages'][1:]))
     assert '[Recovery:' in json.dumps(resumed[0])
-    if 'effect' in hook:
+    if 'effect' in hook or hook.startswith('unknown_'):
         assert 'write_file' in json.dumps(resumed[0])
 
 

@@ -11,7 +11,7 @@ import traceback
 
 home = Path(os.environ['HERMES_HOME'])
 mode, hook = sys.argv[1:]
-unsafe = hook in ('before_effect', 'after_effect')
+unsafe = hook in ('before_effect', 'after_effect', 'unknown_sequential', 'unknown_concurrent')
 
 
 class Peer(BaseHTTPRequestHandler):
@@ -32,11 +32,11 @@ class Peer(BaseHTTPRequestHandler):
             out.write(json.dumps(request) + '\n')
         index = self.server.index
         self.server.index += 1
-        if mode == 'crash' and index == 1 and hook == 'between':
+        if mode == 'crash' and ((index == 1 and hook == 'between') or (index == 2 and hook.startswith('unknown_'))):
             os.kill(os.getpid(), signal.SIGKILL)
         # Deliberately attempt the completed call again after restart. The executor must refuse.
-        if index < 2 or (mode == 'pending_again' and index % 3 < 2):
-            name = 'write_file' if unsafe and (index == 1 or mode == 'pending_again') else 'read_file'
+        if index < 2 or (mode in ('pending_again', 'ask_crash') and index % 3 < 2):
+            name = 'write_file' if unsafe and (index == 1 or mode in ('pending_again', 'ask_crash')) else 'read_file'
             args = {'path': str(home / ('done' if index == 0 else 'pending'))}
             if name == 'write_file':
                 args['content'] = 'one line'
@@ -83,14 +83,25 @@ async def probe():
     # recording, agent loop and runtime ownership are the production path.
     def handler(args, **kwargs):
         pending = Path(args['path']).name == 'pending'
-        if mode == 'crash' and pending and hook != 'after_effect':
+        if mode == 'crash' and pending and hook not in ('after_effect', 'unknown_sequential', 'unknown_concurrent'):
             os.kill(os.getpid(), signal.SIGKILL)
         counter = home / ('pending-count' if pending else 'done-count')
         with counter.open('a') as out:
             out.write('once\n'); out.flush(); os.fsync(out.fileno())
-        if mode == 'crash' and pending:
+        if mode == 'crash' and pending and not hook.startswith('unknown_'):
             os.kill(os.getpid(), signal.SIGKILL)
         return json.dumps({'content': 'fixture read', 'bytes_written': 8})
+    if hook.startswith('unknown_'):
+        # Both sequential/concurrent native completion paths converge at this persistence seam.
+        # Persist the exact native timeout evidence, then crash on the next provider request.
+        from agent import tool_executor
+        original_commit = tool_executor._commit_tool_result
+        def commit_unknown(agent, messages, ref, result, **kwargs):
+            if mode == 'crash' and ref.name == 'write_file':
+                kwargs['effect_disposition'] = 'unknown'
+                result = '[Command interrupted]'
+            return original_commit(agent, messages, ref, result, **kwargs)
+        tool_executor._commit_tool_result = commit_unknown
     registry._tools['read_file'].handler = handler
     registry._tools['write_file'].handler = handler
 
