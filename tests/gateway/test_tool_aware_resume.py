@@ -36,10 +36,11 @@ def test_unfinished_only_and_unknown_conservative():
 
 WORKER = r'''
 import os, signal, sys
+from pathlib import Path
 from hermes_state import SessionDB
 from hermes_state_runtime import begin_runtime_epoch, admit_session_input, claim_session_input
 path, hook, tool = sys.argv[1:]
-db = SessionDB(db_path=path + '/state.db')
+db = SessionDB(db_path=Path(path) / 'state.db')
 db.create_session('s', 'matrix')
 epoch = begin_runtime_epoch(db, instance_id='old')
 admit_session_input(db, epoch=epoch, principal_id='messaging:test', session_id='s',
