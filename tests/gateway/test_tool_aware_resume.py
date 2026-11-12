@@ -295,8 +295,8 @@ def test_owner_can_resolve_in_one_message_with_pending_model_note(tmp_path):
         _pending_model_notes={entry.session_key: '[Model changed]'})
     turn = object.__new__(TurnRunner)
     turn._runner = runner
-    turn._ctx = SimpleNamespace(source=source, session_key=entry.session_key, history=[], message=reply,
+    turn._ctx = SimpleNamespace(source=source, session_key=entry.session_key, history=[], message='[Room owner] ' + reply,
         persist_user_message=None, persist_user_timestamp=None, inbound_message_id='fresh-owner',
-        persist_user_display_metadata={'crash_resume_owner_response': True})
+        persist_user_display_metadata={'crash_resume_owner_response': True, 'crash_resume_decision_text': reply})
     turn._prepare_turn_message([])
     assert entry.resume_ask is None and turn._resume_policy is None
