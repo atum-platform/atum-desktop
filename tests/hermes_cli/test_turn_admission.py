@@ -186,3 +186,38 @@ async def test_refused_gateway_turn_skips_goal_judge(monkeypatch):
     await GatewayGoalsMixin._run_post_turn_hooks(
         SimpleNamespace(), agent_result="refused", source=SimpleNamespace(), is_internal=False,
         event=SimpleNamespace(_gateway_turn_refusal="refused"))
+
+
+@pytest.mark.parametrize("no_agent", [True, False])
+@pytest.mark.parametrize("outcome", ["allow", "deny", "raise", "timeout", "plugin-missing"])
+def test_cron_refuses_before_scripts(admission, monkeypatch, no_agent, outcome):
+    from cron.scheduler import _prepare_job_prompt
+    _, context, _ = admission
+    release = threading.Event()
+
+    def policy(**kwargs):
+        assert kwargs["platform"] == "cron" and kwargs["job_id"] == "job"
+        if outcome == "raise":
+            raise RuntimeError("broken")
+        if outcome == "timeout":
+            release.wait(1)
+        return outcome == "allow"
+
+    if outcome != "plugin-missing":
+        context.register_hook("pre_turn_admission", policy, fail_closed=True)
+    scripts = Mock(side_effect=RuntimeError("script reached"))
+    monkeypatch.setattr("cron.scheduler._prepare_managed_script_gate", scripts)
+    monkeypatch.setattr("hermes_cli.config.require_parseable_user_config", lambda: None)
+    try:
+        args = ({"id": "job", "no_agent": no_agent, "script": "script.py"}, "job", "job", None, None)
+        if outcome == "allow":
+            with pytest.raises(RuntimeError, match="script reached"):
+                _prepare_job_prompt(*args)
+            scripts.assert_called_once()
+        else:
+            early, prompt = _prepare_job_prompt(*args)
+            assert early[0] is False and early[2] and "turn admission" in early[3]
+            assert prompt is None
+            scripts.assert_not_called()
+    finally:
+        release.set()
