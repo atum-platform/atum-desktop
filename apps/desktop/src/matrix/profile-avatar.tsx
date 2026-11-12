@@ -15,6 +15,7 @@ export function MatrixProfileAvatar({
   mark,
   name,
   profile,
+  ready = true,
   rosterAvatar,
   scopeKey,
   target
@@ -29,25 +30,31 @@ export function MatrixProfileAvatar({
   mark?: AtumAssistantMark
   name: string
   profile?: MatrixProfileMetadata
+  /** Human profile reads require a ready SDK; retry discovery when it becomes ready. */
+  ready?: boolean
   rosterAvatar?: boolean
   scopeKey: string
   target: MatrixProfileTarget
 }) {
   const targetKey = target.kind === 'human' ? 'human' : target.principal
-  const agentAvatar = target.kind === 'agent' ? avatarUrl ?? null : undefined
-  const key = `${scopeKey}/${targetKey}/${agentAvatar === undefined ? profile?.avatarMxc ?? '' : agentAvatar ?? ''}`
+  const agentAvatar = target.kind === 'agent' ? (avatarUrl ?? null) : undefined
+  const userId = profile?.userId ?? id
+  const key = `${scopeKey}/${targetKey}/${userId}/${agentAvatar === undefined ? (profile?.avatarMxc ?? '') : (agentAvatar ?? '')}`
   const [photo, setPhoto] = useState<{ key: string; url: string | null }>()
 
   useEffect(() => {
-    if (agentAvatar !== undefined || !profile?.avatarMxc || !window.atumMatrix.profiles) {
+    const profiles = window.atumMatrix?.profiles
+
+    if (agentAvatar !== undefined || !ready || !userId || typeof profiles?.read !== 'function') {
       return
     }
 
     let current = true
-    void window.atumMatrix.profiles
+    void profiles
       .read(target)
       .then(value => {
-        if (current && value.userId === profile.userId && value.avatarMxc === profile.avatarMxc) {
+        // A cold SDK cache is not evidence that the server has no photo.
+        if (current && value.userId === userId && (!profile?.avatarMxc || value.avatarMxc === profile.avatarMxc)) {
           setPhoto({ key, url: value.avatarUrl })
         }
       })
@@ -58,7 +65,7 @@ export function MatrixProfileAvatar({
     }
     // A target is reconstructed by callers; only its identity and media revision matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agentAvatar, key, profile?.userId, profile?.avatarMxc])
+  }, [agentAvatar, key, userId, profile?.avatarMxc, ready])
 
   return (
     <AtumAssistantAvatar

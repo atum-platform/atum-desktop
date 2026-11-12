@@ -84,6 +84,7 @@ export function OwnAvatar({ className, snapshot }: { className: string; snapshot
       id={snapshot.identity?.userId ?? ''}
       name={name}
       profile={snapshot.ownProfile}
+      ready={snapshot.state === 'ready'}
       scopeKey={`${snapshot.petScope ?? ''}/${snapshot.identity?.userId}/${snapshot.identity?.deviceId}`}
       target={{ kind: 'human' }}
     />
