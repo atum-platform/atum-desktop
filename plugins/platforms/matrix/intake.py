@@ -212,6 +212,8 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
                     older.append(raw)
                     older_bytes += len(json.dumps(raw))
                     if len(older) + len(events) > 10000 or older_bytes > 16 * 1024 * 1024:
+                        from gateway.fault_injection import hit
+                        hit("H14")
                         raise IntakeGapError('Matrix history recovery exceeds 10000 events/16MiB; reconcile history offline; cursor unchanged')
             if found:
                 break

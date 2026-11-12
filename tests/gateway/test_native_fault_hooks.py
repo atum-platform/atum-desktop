@@ -125,3 +125,55 @@ def test_hooks_double_gated_and_one_shot(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         hit('H12')
     hit('H12')
+
+@pytest.mark.asyncio
+async def test_native_admission_and_gap_hook_locations(tmp_path, monkeypatch):
+    from gateway import fault_injection
+    from tests.gateway import test_matrix_durable_intake as native
+    points = []
+    monkeypatch.setattr(fault_injection, 'hit', points.append)
+    await native.test_durable_handoff_is_not_process_local_base_acceptance(tmp_path)
+    assert 'H3' in points
+    await native.test_missing_frontier_fails_closed()
+    assert 'H14' in points
+
+
+@pytest.mark.asyncio
+async def test_expired_cursor_injection_enters_native_frontier_recovery(tmp_path, monkeypatch):
+    from tests.gateway import test_matrix_durable_intake as native
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock, patch
+    a = native.adapter(tmp_path)
+    b = native.batch('$frontier')
+    a._intake.accept(b)
+    a._intake.finish(b)
+    for key, value in environment(tmp_path, 'H13').items():
+        if key.startswith('ATUM_'):
+            monkeypatch.setenv(key, value)
+    client = SimpleNamespace(sync=AsyncMock(return_value=native.batch('$new', token='recovered')))
+    with patch('plugins.platforms.matrix.intake.fill_gaps', new_callable=AsyncMock) as gaps:
+        await a._connect_initial_sync(client)
+    assert (tmp_path / 'fired').exists()
+    assert gaps.await_args_list[0].kwargs == {'reset': True}
+    assert gaps.await_args_list[0].args[2] == {'!room:example.org': '$frontier'}
+    assert await a._intake.get_next_batch() == 'recovered'
+
+
+@pytest.mark.asyncio
+async def test_stream_hook_only_after_visible_nonfinal_update(monkeypatch):
+    from gateway.stream_consumer import GatewayStreamConsumer, StreamConsumerConfig, _Tick
+    from gateway import fault_injection
+    from unittest.mock import AsyncMock, MagicMock
+    points = []
+    monkeypatch.setattr(fault_injection, 'hit', points.append)
+    adapter = MagicMock()
+    adapter.max_message_length = 4000
+    adapter.message_len_fn = len
+    consumer = GatewayStreamConsumer(adapter, 'room', config=StreamConsumerConfig())
+    consumer._accumulated = 'a visible partial answer'
+    consumer._send_or_edit = AsyncMock(return_value=True)
+    await consumer._push_update(_Tick())
+    assert points == ['H11']
+    points.clear()
+    await consumer._push_update(_Tick(got_done=True))
+    assert points == []
