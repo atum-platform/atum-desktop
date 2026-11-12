@@ -32,3 +32,6 @@ coverage must include muted/read events, with independent reconciliation for
 lost hints. Never reset the intake cursor or dispatch push payloads as prompts.
 Exactly-once final text publication is the existing delivery-ledger contract;
 this policy does not strengthen attachments, streaming or external tool effects.
+
+An unresolved native `pending_slot` prevents sleep even when `next_run_at` has
+already advanced. Let the native dispatcher recover or clear the slot first.

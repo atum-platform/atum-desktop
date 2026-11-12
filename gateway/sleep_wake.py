@@ -90,6 +90,8 @@ def next_native_schedule(home) -> float | None:
     for job in jobs:
         if not is_job_runnable(job):
             continue
+        if job.get('pending_slot'):
+            raise ValueError('unclaimed schedule occurrence needs native recovery')
         if job.get('state') == 'error':
             raise ValueError('schedule needs native recovery')
         if is_terminal_job(job):
