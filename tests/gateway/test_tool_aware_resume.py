@@ -407,3 +407,37 @@ def test_legacy_pending_ask_accepts_next_fresh_reply_after_load(tmp_path):
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=before).ask
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True,
                                  message_timestamp=datetime.now(UTC).isoformat()) is None
+
+
+@pytest.mark.parametrize('cause,native,later,eligible', [
+    ('session_persistence_failed:unknown', True, False, True),
+    ('session_persistence_failed:locked', True, False, True),
+    ('provider_error', True, False, False),
+    ('session_persistence_failed:unknown', False, False, False),
+    ('session_persistence_failed:unknown', True, True, False),
+])
+def test_failed_reclaim_keeps_native_identity_and_fences(cause, native, later, eligible, tmp_path):
+    from hermes_state import SessionDB
+    from hermes_state_runtime import (begin_runtime_epoch, admit_session_input, claim_session_input,
+        settle_session_input, requeue_interrupted_session_input, list_session_admissions)
+    db = SessionDB(db_path=tmp_path / 'state.db')
+    db.create_session('s', 'matrix')
+    old = begin_runtime_epoch(db, instance_id='old')
+    payload = {'text': 'work'}
+    if native:
+        payload['native_text_v1'] = {}
+    row = admit_session_input(db, epoch=old, principal_id='messaging:test', session_id='s',
+                             request_id='source', payload=payload)
+    claim = claim_session_input(db, epoch=old, session_id='s')
+    settle_session_input(db, epoch=old, admission_id=row['admission_id'], generation=claim['generation'],
+                         outcome='failed', result={'result': {'failed': True, 'failure_reason': cause}})
+    assert not requeue_interrupted_session_input(db, epoch=old, admission_id=row['admission_id'])
+    if later:
+        admit_session_input(db, epoch=old, principal_id='messaging:test', session_id='s',
+                            request_id='later', payload=payload)
+    new = begin_runtime_epoch(db, instance_id='new')
+    assert requeue_interrupted_session_input(db, epoch=new, admission_id=row['admission_id']) == eligible
+    recovered = list_session_admissions(db, session_id='s', pending_only=False)[0]
+    for key in ('admission_id', 'request_id', 'principal_id', 'target_session_id', 'seq', 'payload'):
+        assert recovered[key] == row[key]
+    db.close()

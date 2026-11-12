@@ -630,6 +630,10 @@ class SessionAuthority:
                     if not await recover_unknown_admission(
                             self, SessionRef(self.profile_id, sid), self.sessions[sid], rows):
                         raise RuntimeStoreError('unknown_execution')
+                else:
+                    from gateway.resume_policy import recover_failed_native_admission
+                    await recover_failed_native_admission(
+                        self, SessionRef(self.profile_id, sid), self.sessions[sid], rows)
                 self._schedule(SessionRef(self.profile_id, sid))
                 results[sid] = 'ready'
             except RuntimeStoreError as exc:

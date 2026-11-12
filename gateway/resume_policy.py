@@ -196,3 +196,36 @@ async def recover_unknown_admission(authority, ref, live, rows):
     from hermes_state_runtime import requeue_interrupted_session_input
     return await asyncio.to_thread(requeue_interrupted_session_input, authority.db,
                                    epoch=authority.epoch, admission_id=unknown[0]['admission_id'])
+
+
+async def recover_failed_native_admission(authority, ref, live, rows):
+    """Recover a persistence-failed native turn on a later boot, behind its normal Ask gate.
+
+    Only the latest admission is eligible. A later owner turn supersedes the failure,
+    and the current epoch never retries itself in a loop. The retained native result
+    carries proposed calls even when the canonical call-row write failed.
+    """
+    import asyncio
+    adapter = authority.runner._delivery_adapter_for(live.source)
+    if not getattr(adapter, 'tool_aware_resume', False) or not rows:
+        return False
+    row = rows[-1]
+    if (row['status'] != 'terminal' or row['outcome'] != 'failed'
+            or row['owner_epoch'] == authority.epoch or 'native_text_v1' not in row['payload']):
+        return False
+    from gateway.session_results import admission_result
+    saved = await asyncio.to_thread(admission_result, authority.db, row['admission_id'])
+    result = (saved or {}).get('result', {})
+    if not str(result.get('failure_reason', '')).startswith('session_persistence_failed:'):
+        return False
+    messages = result.get('messages')
+    policy = choose_resume_policy(messages or [], force_ask=not messages)
+    entry = authority.runner.session_store.lookup_by_session_key(live.route)
+    if entry is None:
+        return False
+    # Save the decision before reclaiming. A second crash cannot lose the action names.
+    await asyncio.to_thread(pending_resume_policy, authority.runner.session_store, entry,
+                            policy, '', can_resolve=False)
+    from hermes_state_runtime import requeue_interrupted_session_input
+    return await asyncio.to_thread(requeue_interrupted_session_input, authority.db,
+                                   epoch=authority.epoch, admission_id=row['admission_id'])
