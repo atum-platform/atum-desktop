@@ -133,3 +133,71 @@ def test_reverse_keeps_window_and_fences_old_side(stores, export):
     with pytest.raises(PermissionError):
         reverse_handover(*stores, agent_id='fixture-agent', generation=2,
                          session_id='fixture-history', authorize=authorize)
+
+
+@pytest.mark.asyncio
+async def test_native_matrix_handler_runs_only_new_events(stores, export, tmp_path):
+    from types import SimpleNamespace
+    from tests.gateway.test_matrix_durable_intake import adapter
+    from hermes_state_runtime import (begin_runtime_epoch, admit_session_input,
+                                     claim_session_input, settle_session_input)
+    db, journal = stores
+    run(stores, export)
+    epoch = begin_runtime_epoch(db, instance_id='fixture-runtime')
+    a = adapter(tmp_path)
+    a._intake.close()
+    a._intake = journal
+    a._user_id = '@bot:example.org'
+    answered = []
+
+    async def native_turn(room, sender, eid, timestamp, content, relates):
+        row = admit_session_input(db, epoch=epoch, principal_id='fixture-owner',
+                                  session_id='fixture-history', request_id=eid,
+                                  payload={'text':content['body']})
+        journal.mark(eid, 'native', row['admission_id'], room_id=room)
+        turn = claim_session_input(db, epoch=epoch, session_id='fixture-history')
+        if turn:
+            answered.append(eid)
+            settle_session_input(db, epoch=epoch, admission_id=turn['admission_id'],
+                                 generation=turn['generation'], outcome='completed')
+
+    a._handle_text_message = native_turn
+    for eid in ('$old-user', '$old-answer', '$live', '$live'):
+        await a._on_room_message(SimpleNamespace(room_id='!room:example.org',
+            sender='@alice:example.org', event_id=eid, timestamp=1700000002,
+            content={'msgtype':'m.text', 'body':'new question'}))
+    assert answered == ['$live']
+    assert len(db._read_rows('SELECT * FROM session_admissions')) == 1
+
+
+def test_reverse_retains_native_frozen_delivery_and_terminal_receipts(stores, export, monkeypatch):
+    from gateway import delivery_ledger as ledger
+    from hermes_state_runtime import (begin_runtime_epoch, admit_session_input,
+                                     claim_session_input, settle_session_input)
+    db, journal = stores
+    monkeypatch.setattr(ledger, '_db_path', lambda: db.db_path)
+    run(stores, export)
+    epoch = begin_runtime_epoch(db, instance_id='outgoing')
+    admitted = admit_session_input(db, epoch=epoch, principal_id='fixture-owner',
+        session_id='fixture-history', request_id='$during', payload={'text':'window'})
+    turn = claim_session_input(db, epoch=epoch, session_id='fixture-history')
+    settle_session_input(db, epoch=epoch, admission_id=turn['admission_id'],
+                         generation=turn['generation'], outcome='completed')
+    journal.mark('$during', 'native', admitted['admission_id'], room_id='!room:example.org')
+    ledger.record_obligation(obligation_id='owed', session_key='fixture-history',
+        platform='matrix', chat_id='!room:example.org', thread_id=None,
+        content='frozen answer', source_event_id='$during')
+    plan = ledger.matrix_send_plan('owed', '!room:example.org',
+                                  [{'msgtype':'m.text', 'body':'frozen answer'}], sender_id='fixture')
+    result = reverse_handover(db, journal, agent_id='fixture-agent', generation=3,
+                              session_id='fixture-history', authorize=authorize)
+    assert result['admissions'][0]['status'] == 'completed'
+    assert result['delivery_obligations'][0]['source_event_id'] == '$during'
+    assert json.loads(result['delivery_obligations'][0]['matrix_send_plan']) == plan
+    # Advancing the native epoch fences a late outgoing execution, while exact
+    # terminal replay remains terminal: controller must not re-answer it.
+    next_epoch = begin_runtime_epoch(db, instance_id='returning-controller')
+    assert next_epoch > epoch
+    assert admit_session_input(db, epoch=next_epoch, principal_id='fixture-owner',
+        session_id='fixture-history', request_id='$during', payload={'text':'window'})['status'] == 'completed'
+    assert claim_session_input(db, epoch=next_epoch, session_id='fixture-history') is None
