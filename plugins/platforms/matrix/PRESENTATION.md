@@ -1,6 +1,6 @@
 # Atum presentation extension
 
-Opt in on the Matrix plugin with `plugins.entries.matrix-platform.settings.atum_presentation: true`.
+Opt in on the Matrix plugin with `plugins.entries.platforms/matrix.settings.atum_presentation: true`.
 Use `display.platforms.matrix.tool_progress: off` and `display.platforms.matrix.streaming: false` for this surface;
 `display.interim_assistant_messages: true` enables the native commentary callback.
 The extension owns the transient activity line; native gateway text progress must
