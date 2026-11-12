@@ -134,14 +134,17 @@ def import_history(db, intake, export, *, authorize):
 
 
 def reverse_handover(db, intake, *, agent_id, generation, session_id, authorize):
-    """Snapshot after stop and reverse finish; private consumer owns replay/sends.
+    """Snapshot after confirmed stop, BEFORE reverse finish; private consumer owns replay/sends.
 
-    generation is the *new controller epoch*. Admissions and frozen obligations
+    generation is the outgoing Hermes epoch (retained during reverse drain).
+    The coordinator attaches this snapshot to finish, then the private consumer
+    must verify the new controller epoch before replaying any work.
+    Admissions and frozen obligations
     remain native records, including unknown/in-flight states; never mint new
     request IDs or treat handed-off inputs as finished. Keep mounts quiescent
     through this call, exactly as for the existing native backup path.
     """
-    _fence(agent_id, generation, 'controller', authorize)
+    _fence(agent_id, generation, 'hermes', authorize)
     history = db.export_session(session_id, include_inactive=True, include_compacted=True)
     if history is None:
         raise ValueError('missing session')

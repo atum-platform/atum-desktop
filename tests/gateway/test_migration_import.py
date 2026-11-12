@@ -125,13 +125,13 @@ def test_reverse_keeps_window_and_fences_old_side(stores, export):
         'timeline':{'events':[{'event_id':'$window', 'type':'m.room.message',
                              'content':{'body':'during move'}}]}}}}}
     journal.accept(batch)
-    result = reverse_handover(*stores, agent_id='fixture-agent', generation=3,
+    result = reverse_handover(*stores, agent_id='fixture-agent', generation=2,
                               session_id='fixture-history', authorize=authorize)
     assert result['journal']['pending'] == batch
     assert result['journal']['next_batch'] == 'window-token'
     assert len(result['history']['messages']) == 2
     with pytest.raises(PermissionError):
-        reverse_handover(*stores, agent_id='fixture-agent', generation=2,
+        reverse_handover(*stores, agent_id='fixture-agent', generation=3,
                          session_id='fixture-history', authorize=authorize)
 
 
@@ -189,7 +189,7 @@ def test_reverse_retains_native_frozen_delivery_and_terminal_receipts(stores, ex
         content='frozen answer', source_event_id='$during')
     plan = ledger.matrix_send_plan('owed', '!room:example.org',
                                   [{'msgtype':'m.text', 'body':'frozen answer'}], sender_id='fixture')
-    result = reverse_handover(db, journal, agent_id='fixture-agent', generation=3,
+    result = reverse_handover(db, journal, agent_id='fixture-agent', generation=2,
                               session_id='fixture-history', authorize=authorize)
     assert result['admissions'][0]['status'] == 'completed'
     assert result['delivery_obligations'][0]['source_event_id'] == '$during'
