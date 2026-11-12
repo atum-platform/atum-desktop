@@ -36,7 +36,7 @@ class Peer(BaseHTTPRequestHandler):
             os.kill(os.getpid(), signal.SIGKILL)
         # Deliberately attempt the completed call again after restart. The executor must refuse.
         if index < 2 or (mode in ('pending_again', 'ask_crash') and index % 3 < 2):
-            name = 'write_file' if unsafe and (index == 1 or mode in ('pending_again', 'ask_crash')) else 'read_file'
+            name = 'write_file' if unsafe and (os.environ.get('ATUM_FAULT_POINT') == 'H7' or index == 1 or mode in ('pending_again', 'ask_crash')) else 'read_file'
             args = {'path': str(home / ('done' if index == 0 else 'pending'))}
             if name == 'write_file':
                 args['content'] = 'one line'

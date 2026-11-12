@@ -179,13 +179,24 @@ async def test_stream_hook_only_after_visible_nonfinal_update(monkeypatch):
     assert points == []
 
 
-def test_native_tool_call_write_failure_prevents_every_tool(tmp_path):
+@pytest.mark.parametrize('hook', ['before_safe', 'before_effect'])
+def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     env = environment(tmp_path, 'H7')
     peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
-    result = subprocess.run([sys.executable, str(peer), 'crash', 'before_effect'], env=env,
+    result = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
                             capture_output=True, text=True, timeout=80)
     assert result.returncode == 0, result.stdout + result.stderr
     assert (tmp_path / 'fired').exists()
     assert not (tmp_path / 'done-count').exists()
     assert not (tmp_path / 'pending-count').exists()
     assert 'injected persistence failure: H7' in (tmp_path / 'logs/errors.log').read_text()
+
+    second = subprocess.run([sys.executable, str(peer), 'resume', hook], env=env,
+                            capture_output=True, text=True, timeout=80)
+    assert second.returncode == 0, second.stdout + second.stderr
+    import json
+    verdict = json.loads((tmp_path / 'verdict.json').read_text())
+    assert verdict['sent'], verdict
+    if hook == 'before_effect':
+        assert not (tmp_path / 'done-count').exists()
+        assert not (tmp_path / 'pending-count').exists()
