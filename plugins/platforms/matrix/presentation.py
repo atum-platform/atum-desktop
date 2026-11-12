@@ -37,6 +37,16 @@ def redaction_transaction(event):
     return 'atum-cr-' + event_suffix(event)
 
 
+def source_turn_marker(content):
+    if not isinstance(content, dict):
+        return None
+    for key in ('io.atum.turn', 'io.atum.handoff'):
+        value = content.get(key)
+        if isinstance(value, str) and re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}', value):
+            return value
+    return None
+
+
 def turn_id(room, source):
     return str(uuid.UUID(bytes=hashlib.sha256(f"{room}\0{source}".encode()).digest()[:16], version=4))
 
@@ -210,6 +220,7 @@ def adapter_class(base):
             if event.source.chat_type == 'dm' and event.message_id and not event.get_command():
                 turn = Turn(self._presentation_box, self._presentation_send, event.source.chat_id,
                             event.message_id, event.source.user_id)
+                turn.marker = source_turn_marker(event.raw_message) or turn.marker
                 self._presentation_turns[(turn.room, turn.source)] = (turn, session_key, event.source)
             if turn:
                 _active[session_key] = turn

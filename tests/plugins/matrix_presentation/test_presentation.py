@@ -139,6 +139,13 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         await self.turn.end()
         self.assertEqual(len(self.server.effects), 2)
 
+    def test_handoff_and_local_questions_keep_their_existing_uuid4(self):
+        value = '1c5a2e1e-6c2f-4a57-9d7b-2f0c7b3f1a10'
+        self.assertEqual(p.source_turn_marker({'io.atum.handoff': value}), value)
+        self.assertEqual(p.source_turn_marker({'io.atum.turn': value}), value)
+        self.assertIsNone(p.source_turn_marker({'io.atum.turn': value.upper()}))
+        self.assertIsNone(p.source_turn_marker({'io.atum.turn': '$not-a-uuid'}))
+
     def test_final_marker_is_stable_lowercase_uuid4(self):
         import uuid
         marker = p.turn_id('!room:example.org', '$question')
