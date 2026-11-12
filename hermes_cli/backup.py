@@ -521,7 +521,16 @@ def _write_zip_entries(
     ``track_bytes`` stats plain files for the size total.
     """
     total_bytes = 0
-    for i, (abs_path, rel_path) in enumerate(files_to_add, 1):
+    # Keep the session image and transport journal adjacent while a gateway's
+    # short snapshot lease is held. All remaining home files follow unchanged.
+    def snapshot_order(item):
+        rel = item[1]
+        if str(rel) == 'state.db':
+            return 0
+        if rel.name.startswith('intake-') and rel.suffix == '.sqlite3':
+            return 1
+        return 2
+    for i, (abs_path, rel_path) in enumerate(sorted(files_to_add, key=snapshot_order), 1):
         try:
             if abs_path.suffix in (".db", ".sqlite3"):
                 size = _zip_sqlite_snapshot(zf, abs_path, rel_path, out_path)

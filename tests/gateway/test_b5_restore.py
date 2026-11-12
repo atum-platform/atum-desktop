@@ -140,6 +140,10 @@ def test_native_backup_import_roundtrip_and_wal_journal(pair, tmp_path, monkeypa
     for part, root in [('private', home), ('persona', persona)]:
         path = tmp_path / (part + '.zip')
         assert _write_full_zip_backup(path, root)
+        if part == 'private':
+            import zipfile
+            with zipfile.ZipFile(path) as archive:
+                assert archive.namelist()[:2] == ['state.db', 'identity/intake-test.sqlite3']
         archives[part] = {'name': path.name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
     live.close()
     manifest = tmp_path / 'manifest.json'
