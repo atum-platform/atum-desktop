@@ -99,6 +99,14 @@ def _recovery_health(runtime, home):
     """Attention never requests a process restart. Pauses follow canonical admission state."""
     platforms = runtime.get('platforms') or {}
     pauses, wedge, alert = [], None, None
+    unknown = None
+    if (home / 'state.db').exists():
+        try:
+            with closing(sqlite3.connect(f"file:{(home / 'state.db').as_posix()}?mode=ro", uri=True, timeout=1)) as conn:
+                unknown = dict(conn.execute(
+                    "SELECT admission_id,target_session_id FROM session_admissions WHERE status='unknown'"))
+        except sqlite3.Error:
+            pass
     healthy = runtime.get('gateway_state') in {'running', 'draining'}
     for key, value in platforms.items():
         if not isinstance(value, dict):
@@ -110,19 +118,13 @@ def _recovery_health(runtime, home):
             aid = metrics.get('admission_id')
             # A /discard or successful resolution removes the pause even if no status
             # writer has run since. Do not expose admission payloads in readiness.
-            if (home / 'state.db').exists():
-                try:
-                    with closing(sqlite3.connect(f"file:{(home / 'state.db').as_posix()}?mode=ro", uri=True, timeout=1)) as conn:
-                        row = conn.execute('SELECT status FROM session_admissions WHERE admission_id=?', (aid,)).fetchone()
-                    if row is None or row[0] != 'unknown':
-                        continue
-                except sqlite3.Error:
-                    pass
+            if unknown is not None and aid not in unknown:
+                continue
             pauses.append({'code': 'restart_loop', 'since': value.get('retrying_since') or value.get('updated_at'),
                            **({'conversation': metrics['conversation']} if metrics.get('conversation') else {})})
         wedge = wedge or metrics.get('wedge')
         alert = alert or metrics.get('alert')
-    return dict(process_healthy=healthy, paused_conversations=len(pauses), wedge=wedge,
+    return dict(process_healthy=healthy, paused_conversations=len(set(unknown.values())) if unknown is not None else len(pauses), wedge=wedge,
                 alert=pauses[0] if pauses else alert)
 
 
