@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 from contextvars import ContextVar
+from contextlib import asynccontextmanager
 import hashlib
 import json
 import logging
@@ -112,18 +113,24 @@ class Outbox:
         self.db.commit()
         return event
 
-    async def recover(self, port):
+    def snapshot(self):
+        return ({r[0] for r in self.db.execute("SELECT txn FROM effects")},
+                self.db.execute("SELECT room,source,event FROM roots").fetchall())
+
+    async def recover(self, port, snapshot=None):
+        txns, roots = self.snapshot() if snapshot is None else snapshot
         # A progress send may have reached Matrix before the process stored its event id.
         for txn, room, content, target in self.db.execute('SELECT txn,room,content,target FROM effects WHERE event IS NULL').fetchall():
-            await self.effect(port, room, json.loads(content), txn, target)
-        for room, source, event in self.db.execute('SELECT room,source,event FROM roots').fetchall():
+            if txn in txns:
+                await self.effect(port, room, json.loads(content), txn, target)
+        for room, source, event in roots:
             await self.remove(port, room, source, event)
         # Roots not yet recorded at the crash boundary are reconstructed from sent intents.
         for txn, room, content, event in self.db.execute('''SELECT e.txn,e.room,e.content,e.event FROM effects e WHERE e.target IS NULL
                 AND e.event IS NOT NULL AND NOT EXISTS (
                     SELECT 1 FROM effects r WHERE r.target=e.event AND r.event IS NOT NULL)''').fetchall():
             body = json.loads(content)
-            if 'io.atum.progress' in body and 'm.new_content' not in body:
+            if txn in txns and 'io.atum.progress' in body and 'm.new_content' not in body:
                 await self.remove(port, room, body['m.relates_to']['m.in_reply_to']['event_id'], event)
         self.collect()
 
@@ -142,6 +149,8 @@ class Turn:
         self.delivery_lock = asyncio.Lock()
         self.attempt = str(uuid.uuid4())
         self.stopped = False
+        self.execution_finished = False
+        self.admission_id = None
         self.held_interim = None
         self.root = None
         self.revision = -1
@@ -255,11 +264,13 @@ def adapter_class(base):
             self._presentation_ready = asyncio.Event()
             self._presentation_box = Outbox(Path(get_hermes_home()) / 'matrix' / 'presentation.sqlite3')
             self._presentation_turns = {}
+            recovery = self._presentation_box.snapshot()
+            self._presentation_ready.set()
             try:
                 result = await super().connect(**kwargs)
                 if result:
                     try:
-                        await self._presentation_box.recover(self._presentation_send)
+                        await self._presentation_box.recover(self._presentation_send, recovery)
                     except Exception:
                         # Durable intents remain for the next reconnect. Presentation
                         # cleanup is best effort and must not fail the native boot.
@@ -280,34 +291,66 @@ def adapter_class(base):
 
         async def _process_message_background(self, event, session_key):
             await self._presentation_ready.wait()
+            token = _current.set(None)
+            try:
+                return await super()._process_message_background(event, session_key)
+            finally:
+                _current.reset(token)
+
+        async def run_admission_presentation(self, event, session_key, admission_id, execute):
+            response = None
+            async with self.admission_presentation_scope(event, session_key, admission_id):
+                try:
+                    response = await execute(event)
+                    return response
+                finally:
+                    if not response and _current.get():
+                        turn = _current.get()
+                        await turn.end()
+                        self._presentation_turns.pop((turn.room, turn.source), None)
+
+        @asynccontextmanager
+        async def admission_presentation_scope(self, event, session_key, admission_id):
+            # The native FIFO, including crash recovery, owns this lifetime.
             turn = None
             if event.source.chat_type == 'dm' and event.message_id and not event.get_command():
                 turn = Turn(self._presentation_box, self._presentation_send, event.source.chat_id,
                             event.message_id, event.source.user_id)
+                turn.admission_id = admission_id
                 turn.marker = source_turn_marker(event.raw_message) or turn.marker
+                event._presentation_admission_id = admission_id
                 self._presentation_turns[(turn.room, turn.source)] = (turn, session_key, event.source)
-            if turn:
                 _active[session_key] = turn
             token = _current.set(turn)
             try:
-                await super()._process_message_background(event, session_key)
+                if turn:
+                    await turn.progress('Working')
+                yield
+            finally:
+                if turn:
+                    turn.execution_finished = True
+                    if _active.get(session_key) is turn:
+                        _active.pop(session_key, None)
+                _current.reset(token)
+
+        async def send_final_ledgered(self, *args, **kwargs):
+            event = args[0] if args else kwargs.get('event')
+            entry = self._presentation_turns.get((event.source.chat_id, event.message_id)) if (
+                event is not None and hasattr(self, '_presentation_turns')) else None
+            turn = entry[0] if entry else _current.get()
+            token = _current.set(turn)
+            final_token = _final_delivery.set(True)
+            try:
+                return await super().send_final_ledgered(*args, **kwargs)
             finally:
                 try:
                     if turn:
                         await turn.end()
+                        if entry and self._presentation_turns.get((turn.room, turn.source)) is entry:
+                            self._presentation_turns.pop((turn.room, turn.source), None)
                 finally:
-                    if turn:
-                        self._presentation_turns.pop((turn.room, turn.source), None)
-                        if _active.get(session_key) is turn:
-                            _active.pop(session_key, None)
+                    _final_delivery.reset(final_token)
                     _current.reset(token)
-
-        async def send_final_ledgered(self, *args, **kwargs):
-            token = _final_delivery.set(True)
-            try:
-                return await super().send_final_ledgered(*args, **kwargs)
-            finally:
-                _final_delivery.reset(token)
 
         async def send(self, chat_id, content, reply_to=None, metadata=None):
             turn = _current.get()
@@ -331,7 +374,7 @@ def adapter_class(base):
             # Native status callbacks have their own lane: compression/retry activity
             # must never settle a turn or acquire the final-answer marker.
             turn = _current.get()
-            if turn and chat_id == turn.room:
+            if turn and not turn.ended and chat_id == turn.room:
                 from agent.redact import redact_for_egress
                 from gateway.platforms.base import SendResult
                 try:
@@ -370,8 +413,15 @@ def adapter_class(base):
                     return True
                 turn.stopped = True
             runner = self.gateway_runner
-            await runner._interrupt_and_clear_session(key, origin, interrupt_reason='User requested stop',
-                                                       invalidation_reason='stop')
+            state = runner._peek_session_state(key) if hasattr(runner, '_peek_session_state') else None
+            running = state.turn.event if state else None
+            matches = (running is not None and running.message_id == turn.source
+                       and running.source.chat_id == turn.room
+                       and getattr(running, '_presentation_admission_id', None) == turn.admission_id)
+            if matches or (not hasattr(runner, '_peek_session_state') and not turn.execution_finished
+                           and _active.get(key, turn) is turn):
+                await runner._interrupt_and_clear_session(key, origin, interrupt_reason='User requested stop',
+                                                         invalidation_reason='stop')
             await turn.end()
             return True
 
@@ -395,9 +445,9 @@ def register_hooks(ctx):
                     await turn.interim("I'll take a look.", redacted=True)
                 await turn.progress(text)
             asyncio.run_coroutine_threadsafe(publish(), turn.loop).add_done_callback(done)
-    def stopped(session_key='', platform='', **_):
+    def stopped(session_key='', platform='', source_event_id=None, admission_id=None, **_):
         turn = _active.get(session_key) if platform == 'matrix' else None
-        if turn:
+        if turn and source_event_id == turn.source and admission_id == turn.admission_id:
             turn.stopped = True
             asyncio.run_coroutine_threadsafe(turn.end(), turn.loop)
     def todos(tool_name='', args=None, status=None, **_):

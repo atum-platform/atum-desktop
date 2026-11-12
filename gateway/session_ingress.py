@@ -302,7 +302,13 @@ async def execute_admission(authority, ref, row):
                     event.text = '\n'.join(part['text'] for part in prepared['content'] if part.get('type') == 'text')
                 event.allow_gateway_control = False
                 event.internal = True  # trust comes from the private binding and preclaim, never client JSON
-            response = await authority.runner._handle_message(event)
+            # Presentation follows each native admission, including recovered rows.
+            adapter = authority.runner._adapter_for_source(event.source)
+            present = getattr(adapter, 'run_admission_presentation', None)
+            if callable(present):
+                response = await present(event, live.route, row['admission_id'], authority.runner._handle_message)
+            else:
+                response = await authority.runner._handle_message(event)
             result = captured.get('terminal_result', captured.get('result'))
             if result is None:
                 # No TurnRunner result means the handler answered without executing the turn.

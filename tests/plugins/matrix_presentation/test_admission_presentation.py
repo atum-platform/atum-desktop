@@ -57,6 +57,7 @@ async def test_native_connect_pending_and_downtime(tmp_path):
         # get past the real connect/intake/background-task readiness dependency.
         async with a.admission_presentation_scope(event, a._event_session_key(event), event.message_id):
             answered.append(event.message_id)
+            await p._current.get().end()
         return None
     a._message_handler = handler
     async def dispatch(data):
@@ -88,3 +89,132 @@ async def test_native_connect_pending_and_downtime(tmp_path):
         if hasattr(a, '_presentation_box'):
             a._presentation_box.db.close()
         reset_hermes_home_override(token)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['queued_followup', 'crash_resume'])
+async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kind):
+    writes, interrupts = [], []
+    class Base:
+        async def send_final_ledgered(self, event, *args, **kwargs):
+            return await self.send(event.source.chat_id, 'answer', reply_to=event.message_id)
+        async def send(self, room, text, **kwargs):
+            return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
+        async def _send_room_message(self, room, content, **kwargs):
+            writes.append(content)
+            return '$final'
+    a = p.adapter_class(Base)()
+    a._presentation_box = p.Outbox(tmp_path / 'box.sqlite3')
+    a._presentation_turns = {}
+    async def port(room, content, txn, target):
+        writes.append(content)
+        return '$' + txn
+    a._presentation_send = port
+    event = MessageEvent(text='hello', message_id='$' + kind, source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', chat_type='dm', user_id='@owner'))
+    state = SimpleNamespace(turn=SimpleNamespace(event=event))
+    a.gateway_runner = SimpleNamespace(_peek_session_state=lambda key: state,
+        _interrupt_and_clear_session=AsyncMock(side_effect=lambda *a, **k: interrupts.append(a)))
+    stale = p.Turn(a._presentation_box, port, '!room', '$old', '@owner')
+    await stale.end()
+    token = p._current.set(stale)  # drain inherited A's receive context
+    try:
+        async with a.admission_presentation_scope(event, 'route', kind):
+            turn = p._current.get()
+            assert turn is not stale and turn.admission_id == kind
+            await a.send('!room', 'checking', metadata={'_interim_send': True})
+            assert a._presentation_turns[('!room', event.message_id)][0] is turn
+        # Deferred final waiter can inherit an unrelated/ended context.
+        await a.send_final_ledgered(event)
+        assert writes[-1]['io.atum.turn'] == turn.marker
+        assert sum('io.atum.progress' in w and 'm.new_content' not in w for w in writes) == 1
+        assert any(w.get('io.atum.interim') for w in writes)
+        assert not turn.stopped
+    finally:
+        p._current.reset(token)
+        await turn.end()
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_stop_notification_for_b_does_not_suppress_a_final(tmp_path):
+    hooks = {}
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    box = p.Outbox(tmp_path / 'box.sqlite3')
+    async def port(*args):
+        return '$effect'
+    a = p.Turn(box, port, '!room', '$a', '@owner'); a.admission_id = 'admission-a'
+    p._active['route'] = a
+    try:
+        hooks['agent_loop_stopped'](session_key='route', platform='matrix',
+            source_event_id='$b', admission_id='admission-b')
+        await asyncio.sleep(0)
+        assert not a.stopped
+    finally:
+        p._active.pop('route', None)
+        await a.end(); box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_stop_a_after_b_started_never_interrupts_b(tmp_path):
+    box = p.Outbox(tmp_path / 'box.sqlite3')
+    async def port(*args):
+        return '$effect'
+    class Base:
+        pass
+    adapter = p.adapter_class(Base)()
+    a = p.Turn(box, port, '!room', '$a', '@owner'); a.admission_id = 'admission-a'
+    b = SimpleNamespace(message_id='$b', source=SimpleNamespace(chat_id='!room'),
+                        _presentation_admission_id='admission-b')
+    interrupt = AsyncMock()
+    adapter.gateway_runner = SimpleNamespace(_peek_session_state=lambda key: SimpleNamespace(
+        turn=SimpleNamespace(event=b)), _interrupt_and_clear_session=interrupt)
+    adapter._presentation_turns = {('!room', '$a'): (a, 'route', a)}
+    try:
+        assert await adapter.stop_presentation_turn('!room', '$a', '@owner', authenticated=True)
+        interrupt.assert_not_awaited()
+    finally:
+        await a.end(); box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_open_snapshot_never_recovers_live_connect_root(tmp_path):
+    box = p.Outbox(tmp_path / 'box.sqlite3')
+    effects = []
+    async def port(room, content, txn, target):
+        effects.append((content, target))
+        return '$' + txn
+    old = p.Turn(box, port, '!room', '$old', '@owner')
+    await old.progress('old')
+    snapshot = box.snapshot()
+    live = p.Turn(box, port, '!room', '$live', '@owner')
+    try:
+        await live.progress('live')
+        await box.recover(port, snapshot)
+        assert (('!room', '$live', live.root) in box.db.execute('SELECT * FROM roots').fetchall())
+        assert not any(target == live.root for _, target in effects)
+    finally:
+        await old.end(); await live.end(); box.db.close()
+
+
+def test_ask_guard_never_publishes_tool_activity(tmp_path, monkeypatch):
+    from agent import tool_executor as executor
+    from functools import partial
+    from gateway.resume_policy import choose_resume_policy, recovery_tool_block
+    hooks = {}
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    called = []
+    def pre(agent, ref):
+        called.append(ref.name)
+        hooks['pre_tool_call'](tool_name=ref.name)
+    monkeypatch.setattr(executor, '_pre_tool_block', pre)
+    monkeypatch.setattr(executor, '_blocked_tool_result', lambda *a, **kw: 'blocked')
+    policy = choose_resume_policy([], force_ask=True)
+    state = SimpleNamespace(blocked=False)
+    result = executor._dispatch_authorized_once(
+        SimpleNamespace(_crash_resume_tool_guard=partial(recovery_tool_block, policy)), state,
+        SimpleNamespace(name='terminal', args={'command': 'echo test'}),
+        execute=lambda: pytest.fail('Ask executed a tool'), scope_block=None,
+        display_index=None, begin_execution=None, authorization_gate=None)
+    assert result == 'blocked' and state.blocked
+    assert called == []
