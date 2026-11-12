@@ -233,3 +233,123 @@ def test_reload_requirement_added_before_callback_snapshot(admission, monkeypatc
     manager._admission_required.add("new-policy")
     monkeypatch.setattr(policy, "_policy", lambda: (manager, set(), 30))
     assert policy.check_turn_admission()["admission"]["code"] == "plugin_unavailable"
+
+
+@pytest.mark.parametrize('fallback', [{}, {'plugins': {'required_admission': []}}])
+def test_broken_config_refuses_even_with_old_backup(admission, monkeypatch, fallback):
+    from hermes_cli.config import FailedConfigRead
+    from hermes_cli.turn_admission import check_turn_admission, admission_readiness
+    monkeypatch.setattr('hermes_cli.plugins.load_config_readonly', lambda: FailedConfigRead(fallback, error=ValueError('bad yaml')))
+    assert check_turn_admission()['admission']['code'] == 'admission_unavailable'
+    assert admission_readiness()['status'] == 'unavailable'
+
+
+@pytest.mark.parametrize('timeout', [0, None, 'bad', -1])
+def test_no_policy_ignores_unused_timeout(admission, timeout):
+    from hermes_cli.turn_admission import check_turn_admission
+    _, _, config = admission
+    config['plugins'] = {'required_admission': None, 'admission_timeout': timeout}
+    assert check_turn_admission() is None
+
+
+def test_zero_timeout_configuration_diagnostic(admission):
+    from hermes_cli.turn_admission import admission_readiness
+    admission[2]['plugins']['admission_timeout'] = 0
+    result = admission_readiness()
+    assert 'positive' in result['reason'] and '0' in result['reason']
+
+
+def test_system_exit_is_denial(admission):
+    from hermes_cli.turn_admission import check_turn_admission
+    admission[1].register_hook('pre_turn_admission', Mock(side_effect=SystemExit(1)), fail_closed=True)
+    assert check_turn_admission()['admission']['code'] == 'hook_error'
+
+
+@pytest.mark.parametrize('contents', ['plugins:\n  required_admission: [managed-authority]\n', 'plugins: [broken'])
+def test_managed_pin_cannot_be_removed_by_profile(admission, monkeypatch, tmp_path, contents):
+    from hermes_cli.turn_admission import check_turn_admission
+    managed = tmp_path / 'managed'
+    managed.mkdir()
+    (managed / 'config.yaml').write_text(contents)
+    monkeypatch.setenv('HERMES_MANAGED_DIR', str(managed))
+    admission[2]['plugins']['required_admission'] = []
+    result = check_turn_admission()
+    assert result is not None
+    if 'managed-authority' in contents:
+        assert result['admission']['plugin'] == 'managed-authority'
+    else:
+        assert result['admission']['code'] == 'admission_unavailable'
+
+
+@pytest.mark.parametrize('kind', ['model-provider', 'exclusive'])
+def test_required_unloadable_kind_has_configuration_error(admission, kind):
+    from hermes_cli.turn_admission import check_turn_admission, admission_readiness
+    admission[0]._plugins['authority'].manifest.kind = kind
+    assert 'kind' in admission_readiness()['reason']
+    assert check_turn_admission()['admission']['code'] == 'admission_unavailable'
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('flip', ['stop-during-transcription', 'policy-flip'])
+async def test_second_check_is_unexecuted_failure(admission, monkeypatch, flip):
+    from datetime import datetime
+    from unittest.mock import AsyncMock
+    from gateway.run import GatewayRunner
+    from gateway.config import Platform
+    from gateway.platforms.event import MessageEvent
+    from gateway.session import SessionSource, SessionEntry
+    from hermes_cli.turn_admission import check_turn_admission
+    from gateway.session_results import execution_result
+    source = SessionSource(platform=Platform.DISCORD, chat_id='chat', user_id='user')
+    event = MessageEvent(text='voice request', source=source)
+    entry = SessionEntry(session_id='test', session_key='test', created_at=datetime.now(), updated_at=datetime.now())
+    runner = GatewayRunner.__new__(GatewayRunner)
+    runner._hmwa_resolve_session = AsyncMock(return_value=(source, entry, 'test'))
+    prepared = object.__new__(runner._PreparedTurn)
+    # The real media entry checks before STT. The mocked enrichment below flips Stop during STT.
+    policy_state = {'allow': True}
+    admission[1].register_hook('pre_turn_admission', lambda **_: policy_state['allow'], fail_closed=True)
+    async def prepare(*args):
+        assert check_turn_admission(stage='gateway_media') is None
+        policy_state['allow'] = False
+        return prepared, {}
+    for key, value in dict(history=[], message_text='transcribed voice', context_prompt='', persist_user_message=None,
+                           persist_user_timestamp=None, persist_user_display_kind=None, persist_user_display_metadata=None,
+                           persistence_owner='gateway', title_user_message='voice').items():
+        object.__setattr__(prepared, key, value)
+    runner._hmwa_prepare_turn = prepare
+    runner.hooks = SimpleNamespace(emit=AsyncMock())
+    runner._pinned_channel_inputs = lambda *a, **kw: ('', source)
+    runner._persist_prompt_pins = AsyncMock()
+    runner._reply_anchor_for_event = lambda _: ''
+    runner._run_agent = AsyncMock(side_effect=lambda **_: TurnFacadeMixin.run_conversation(SimpleNamespace(platform='discord'), 'voice'))
+    runner._hmwa_stop_typing_for_turn = AsyncMock()
+    runner._is_session_run_current = lambda *a: True
+    runner._clear_session_env = Mock()
+    runner._hmwa_shape_agent_response = AsyncMock(side_effect=AssertionError('denial reached response shaping'))
+    runner._hmwa_persist_turn_transcript = AsyncMock(side_effect=AssertionError('denial persisted'))
+    async def propagate(exc, *args):
+        raise exc
+    runner._hmwa_agent_error_reply = propagate
+    monkeypatch.setattr('gateway.run_heartbeat_acceptance.heartbeat_owner_is_current', lambda *a: True)
+    captured = {}
+    token = execution_result.set(captured)
+    try:
+        reply = await runner._handle_message_with_agent(event, source, 'test', 1)
+        assert reply == captured['result']['final_response']
+        assert 'Send it again' not in reply
+        assert captured['result']['messages'] == []
+        runner._hmwa_persist_turn_transcript.assert_not_called()
+    finally:
+        execution_result.reset(token)
+
+
+def test_stable_admission_identity_reaches_tools(admission):
+    from hermes_cli.turn_admission import check_turn_admission
+    from agent.inline_tool_executors import tool_hook_ids
+    seen = []
+    admission[1].register_hook('pre_turn_admission', lambda **ctx: seen.append(ctx) or True, fail_closed=True)
+    check_turn_admission(turn_id='owner-operation', stage='gateway_media')
+    check_turn_admission(turn_id='owner-operation', stage='turn')
+    assert [ctx['turn_id'] for ctx in seen] == ['owner-operation', 'owner-operation']
+    assert 'admission_id' in tool_hook_ids(SimpleNamespace(), '', '')
