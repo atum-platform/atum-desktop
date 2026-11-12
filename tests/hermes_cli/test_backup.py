@@ -2586,7 +2586,12 @@ class TestImportHonorsHermesHomeOverride:
         from hermes_cli.backup import run_import
 
         args = argparse.Namespace(zipfile=str(zip_path), force=True)
-        run_import(args)
+        # Scratch restore must stay offline until its reconcile gate completes.
+        from unittest.mock import Mock
+        revive = Mock(side_effect=AssertionError('scratch import started gateway'))
+        monkeypatch.setattr('hermes_cli.backup._revive_gateway_after_import', revive)
+        run_import(args, start_gateway=False)
+        revive.assert_not_called()
 
         assert (profile / "config.yaml").read_text() == (
             "model:\n  provider: anthropic\n"
