@@ -84,8 +84,10 @@ def test_missing_plugin_readiness(admission, monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["deny", "raise", "timeout", "plugin-missing"])
-async def test_gateway_refuses_before_media_tools(admission, outcome):
+async def test_gateway_refuses_before_media_tools(admission, monkeypatch, outcome):
     from gateway.run_inbound import GatewayInboundMixin
+    media = Mock(side_effect=RuntimeError("media reached"))
+    monkeypatch.setattr("gateway.run_inbound.rehome_inbound_media", media)
     manager, context, _ = admission
     release = threading.Event()
 
@@ -105,6 +107,7 @@ async def test_gateway_refuses_before_media_tools(admission, outcome):
             SimpleNamespace(), event=event, source=source, history=[], session_key="session")
         assert result is None
         assert event._gateway_turn_refusal
+        media.assert_not_called()
     finally:
         release.set()
 
