@@ -105,6 +105,9 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(edit['m.new_content']['body']), 1000)
         self.assertTrue(edit['body'].startswith('* é'))
         self.assertNotIn('\x00', edit['body'])
+        self.now = 6
+        await self.turn.progress('👩\u200d💻 Reading')
+        self.assertEqual(self.server.requests[-1][1]['m.new_content']['body'], '👩\u200d💻 Reading')
 
     async def test_completed_effects_expire_but_pending_and_live_roots_survive(self):
         await self.turn.progress('Working')

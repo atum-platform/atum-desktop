@@ -173,8 +173,8 @@ class Turn:
                           phase=phase, kind=kind, revision=self.revision)
             if kind == 'heartbeat':
                 marker['heartbeat'] = True
-            text = ''.join(c for c in unicodedata.normalize('NFC', text)
-                           if not unicodedata.category(c).startswith('C') or c in '\n\t').strip()[:1000]
+            text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '',
+                          unicodedata.normalize('NFC', text)).strip()[:1000]
             body = {'msgtype': 'm.notice', 'body': text, 'io.atum.progress': marker,
                     'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
             if self.root:
