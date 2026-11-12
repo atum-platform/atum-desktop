@@ -155,6 +155,11 @@ async def probe():
             payload['native_text_v1']['event']['message_id'] = 'queued-before-ask'
             admit_session_input(authority.db, epoch=authority.epoch, principal_id=original['principal_id'],
                                 session_id=entry.session_id, request_id='queued-before-ask', payload=payload)
+        verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
+        assert verdict[entry.session_id] == 'ready', verdict
+        task = authority.sessions[entry.session_id].task
+        if task is not None:
+            await asyncio.wait_for(task, 40)
         if mode == 'pending_again':
             assert entry.resume_ask
             await adapter.handle_message(MessageEvent(text='Finish the work.', source=source, message_id='after-restart'))
@@ -165,11 +170,6 @@ async def probe():
             assert entry.resume_ask is None
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             return
-        verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
-        assert verdict[entry.session_id] == 'ready', verdict
-        task = authority.sessions[entry.session_id].task
-        if task is not None:
-            await asyncio.wait_for(task, 40)
         rows = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)
         assert all(row['status'] == 'terminal' for row in rows), rows
         assert rows[0]['outcome'] == 'completed', rows
