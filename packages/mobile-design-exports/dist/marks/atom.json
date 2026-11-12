@@ -2,72 +2,31 @@
   "color": "currentColor",
   "electron": {
     "diameterPercent": 13,
-    "minimumDiameterPx": 2.25
+    "minimumDiameterPx": 2.25,
+    "restingAngleDegrees": -45
   },
   "kind": "atom",
   "motion": {
-    "direction": "alternate",
+    "direction": "clockwise",
     "durationMs": 1600,
-    "halfTurnMs": 800,
+    "reducedMotion": "static",
     "repeats": "infinite",
-    "restingPose": "static atom",
-    "ringPhaseHalfTurns": [
-      0,
-      -0.6666666666666666,
-      -1.3333333333333333
-    ],
-    "timingCurve": [
-      0.37,
-      0,
-      0.63,
-      1
-    ],
-    "xTravelPercent": 43.75,
-    "yPhaseOffsetHalfTurns": -0.5,
-    "yTravelPercent": 14.5
+    "timing": "linear"
   },
   "nucleus": {
-    "diameterPercent": 20
+    "diameterPercent": 15
   },
-  "orbits": [
-    {
-      "center": {
-        "x": 12,
-        "y": 12
-      },
-      "radius": {
-        "x": 10.5,
-        "y": 3.48
-      },
-      "rotationDegrees": 0
+  "orbit": {
+    "center": {
+      "x": 12,
+      "y": 12
     },
-    {
-      "center": {
-        "x": 12,
-        "y": 12
-      },
-      "radius": {
-        "x": 10.5,
-        "y": 3.48
-      },
-      "rotationDegrees": 60
-    },
-    {
-      "center": {
-        "x": 12,
-        "y": 12
-      },
-      "radius": {
-        "x": 10.5,
-        "y": 3.48
-      },
-      "rotationDegrees": -60
-    }
-  ],
-  "schemaVersion": 1,
+    "radius": 10.5
+  },
+  "schemaVersion": 2,
   "stroke": {
     "nonScaling": true,
-    "opacity": 0.4,
+    "opacity": 0.55,
     "width": 1
   },
   "viewBox": {
