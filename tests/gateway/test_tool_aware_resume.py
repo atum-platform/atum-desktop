@@ -164,3 +164,30 @@ def test_reused_provider_id_is_not_completion_evidence():
     history[1]['_tool_call_uid'] = 'first'
     history[2]['_tool_call_uids'] = {'same': 'second'}
     assert choose_resume_policy(history).ask
+
+
+@pytest.mark.parametrize('hook,expected', [('read', 1), ('between', 1), ('before_effect', 0), ('after_effect', 1)])
+def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
+    """Kill actual gateway execution; restart same native admission against a loopback model."""
+    home = tmp_path / 'home'
+    home.mkdir()
+    env = {key: os.environ[key] for key in ('PATH', 'LANG', 'TZ') if key in os.environ}
+    env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(home), PYTHONPATH=str(Path.cwd()))
+    peer = Path(__file__).parent / 'fixtures' / 'tool_resume_peer.py'
+    crash = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
+                           capture_output=True, text=True, timeout=80)
+    assert crash.returncode == -signal.SIGKILL, crash.stdout + crash.stderr
+    recovered = subprocess.run([sys.executable, str(peer), 'recover', hook], env=env,
+                               capture_output=True, text=True, timeout=80)
+    assert recovered.returncode == 0, recovered.stdout + recovered.stderr
+    assert len((home / 'done-count').read_text().splitlines()) == 1
+    count = home / 'pending-count'
+    assert (len(count.read_text().splitlines()) if count.exists() else 0) == expected
+    initial = [json.loads(line) for line in (home / 'crash-requests.jsonl').read_text().splitlines()]
+    resumed = [json.loads(line) for line in (home / 'recover-requests.jsonl').read_text().splitlines()]
+    for request in initial + resumed:
+        assert request.get('tools') == initial[0].get('tools')
+        assert request['messages'][0] == initial[0]['messages'][0]
+    assert '[Recovery:' in json.dumps(resumed[0])
+    if 'effect' in hook:
+        assert 'write_file' in json.dumps(resumed[0])
