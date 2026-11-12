@@ -894,7 +894,15 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         mark_is_fresh = resume_pending and _is_fresh_gateway_interruption(
             getattr(entry, "last_resume_marked_at", None), window_secs=window,
         )
-        if resume_pending and (interruption_is_fresh or mark_is_fresh):
+        adapter = self._runner._delivery_adapter_for(ctx.source)
+        self._resume_policy = None
+        if resume_pending and getattr(adapter, 'tool_aware_resume', False):
+            from gateway.resume_policy import choose_resume_policy
+            self._resume_policy = choose_resume_policy(
+                ctx.history, force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
+            persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
+            ctx.message = self._resume_policy.note() + ('\n\n' + ctx.message if ctx.message else '')
+        elif resume_pending and (interruption_is_fresh or mark_is_fresh):
             # Empty message = the startup auto-resume turn; there is no NEW user message.
             ctx.message, persist_override = _prepare_resume_pending_message(
                 resume_reason, ctx.message, interactive=self._resume_note_interactive(),
@@ -1308,6 +1316,9 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         try:
             agent_history, observed_group_context, history_media_paths = self._load_turn_history(agent, reused_cached_agent)
             persist_msg, persist_ts = self._prepare_turn_message(agent_history)
+            from functools import partial
+            from gateway.resume_policy import recovery_tool_block
+            agent._crash_resume_tool_guard = partial(recovery_tool_block, self._resume_policy)
             compressions = getattr(getattr(agent, "context_compressor", None), "compression_count", None)
             from gateway.session_cli_turn import run_classic_cli_turn
             from gateway.session_secret_prompt import secret_prompt_scope
@@ -1316,6 +1327,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 result = run_classic_cli_turn(self, lambda: self._run_conversation_with_approval(
                     agent, agent_history, observed_group_context, persist_msg, persist_ts))
         finally:
+            agent._crash_resume_tool_guard = None
             if local_sinks is not None:
                 from gateway import local_viewer_events
                 local_viewer_events.restore(agent, local_sinks)

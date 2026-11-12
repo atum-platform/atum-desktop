@@ -1008,6 +1008,9 @@ class SessionAuthority:
         async with live.claim_gate, live.mutation_lock:
             pending = list_session_admissions(self.db, session_id=ref.session_id)
             if any(row['status'] == 'unknown' for row in pending):
+                from gateway.resume_policy import recover_unknown_admission
+                if await recover_unknown_admission(self, ref, live, pending):
+                    return False, None
                 raise RuntimeStoreError('unknown_execution')
             first = next((row for row in pending if row['status'] == 'queued'), None)
             from gateway.config import Platform

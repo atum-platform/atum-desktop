@@ -721,7 +721,9 @@ def _dispatch_authorized_once(
         elif callback is not None:
             callback()
 
-    block_message, block_error_type = scope_block, "tool_scope_block"
+    recovery_guard = getattr(agent, '_crash_resume_tool_guard', None)
+    recovery_block = recovery_guard(ref.name, ref.args) if callable(recovery_guard) else None
+    block_message, block_error_type = scope_block or recovery_block, "tool_scope_block"
     if block_message is None:
         block_error_type = "plugin_block"
         resolve = lambda: _pre_tool_block(agent, ref)
