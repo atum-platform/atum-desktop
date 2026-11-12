@@ -157,3 +157,24 @@ def test_ask_captures_real_admission_fence(tmp_path, monkeypatch):
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=before['seq']).ask
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=after['seq']) is None
     store._db.close()
+
+@pytest.mark.asyncio
+async def test_broken_intake_journal_can_still_notice_owner_once(tmp_path, monkeypatch):
+    import sqlite3
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from tests.gateway.test_matrix_durable_intake import adapter
+    from gateway.readiness import collect_runtime_readiness
+    from gateway.status import write_runtime_status, read_runtime_status
+    a = adapter(tmp_path)
+    a.config.extra['control_room'] = '!owner'
+    a.send = AsyncMock(return_value=SimpleNamespace(success=True))
+    write_runtime_status(gateway_state='running')
+    a._intake.close()
+    for _ in range(2):
+        await a._intake_failure(sqlite3.OperationalError('disk full'))
+    a.send.assert_awaited_once()
+    assert a.send.call_args.kwargs['chat_id'] == '!owner'
+    result = collect_runtime_readiness(configured_model='fixture', runtime_status=read_runtime_status())
+    assert result['wedge']['kind'] == 'journal'
+    assert result['alert']['code'] == 'intake_wedged'
+    assert result['process_healthy'] is True

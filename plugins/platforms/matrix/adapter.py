@@ -2000,11 +2000,19 @@ class MatrixAdapter(BasePlatformAdapter):
         try:
             with self._intake.db:
                 self._intake._put('last_error', self._intake_error)
-            if room:
+        except Exception:
+            logger.error('Matrix intake journal unavailable; retaining process-local wedge', exc_info=True)
+        try:
+            if room and not getattr(self, '_wedge_notice_sent', False):
                 key = 'wedge_notice:' + room
-                if not self._intake.get(key):
+                try:
+                    notified = self._intake.get(key)
+                    frontier = self._intake.get('frontier', {})
+                except Exception:
+                    notified, frontier = False, {}
+                if not notified:
                     text = 'Message intake is paused. History or storage recovery is required.'
-                    oid = compute_obligation_id(room, 'intake-wedge:' + str(self._intake.get('frontier', {})), text)
+                    oid = compute_obligation_id(room, 'intake-wedge:' + str(frontier), text)
                     await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room,
                         platform='matrix', chat_id=room, thread_id=None, content=text,
                         adapter_profile=getattr(self, '_owner_profile', None))
@@ -2013,6 +2021,7 @@ class MatrixAdapter(BasePlatformAdapter):
                         if result.success:
                             await asyncio.to_thread(mark_delivered, oid)
                     if await asyncio.to_thread(get_delivery_state, oid) == 'delivered':
+                        self._wedge_notice_sent = True
                         with self._intake.db:
                             self._intake._put(key, True)
         except Exception:
@@ -2045,6 +2054,7 @@ class MatrixAdapter(BasePlatformAdapter):
                         self._intake_failures = 0
                         self._intake_error = None
                         self._intake_wedge = None
+                        self._wedge_notice_sent = False
                         self._sync_outage_started = None
                         with self._intake.db:
                             self._intake._put('last_error', None)
