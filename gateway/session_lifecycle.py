@@ -205,7 +205,14 @@ class SessionLifecycleMixin:
                 max_age_seconds > 0 and epoch_now - started_at.timestamp() > max_age_seconds
             )
             if (not marker_is_stale or stale_to_ask) and not entry.suspended:
-                if entry.resume_pending:
+                if marker_is_stale:
+                    # Even a previously marked drain timeout now requires an Ask; renew
+                    # discovery freshness so startup will actually schedule that notice.
+                    promoted += int(not entry.resume_pending)
+                    entry.resume_pending = True
+                    entry.resume_reason = "stale_interruption"
+                    entry.last_resume_marked_at = now
+                elif entry.resume_pending:
                     # A drain-timeout marker is more specific; keep it.
                     if entry.last_resume_marked_at is None:
                         entry.last_resume_marked_at = now

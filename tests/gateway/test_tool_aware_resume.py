@@ -143,7 +143,8 @@ def test_dispatch_guard_stops_effect_before_plugin_or_tool(monkeypatch):
     assert result == {'blocked': True} and state.blocked
 
 
-def test_stale_markers_become_pending_ask(tmp_path):
+@pytest.mark.parametrize('already_pending', [False, True])
+def test_stale_markers_become_pending_ask(tmp_path, already_pending):
     from datetime import datetime, timedelta, UTC
     from gateway.session import SessionStore, SessionSource
     from gateway.config import GatewayConfig, Platform
@@ -151,7 +152,9 @@ def test_stale_markers_become_pending_ask(tmp_path):
     entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
     store.mark_turn_active(entry.session_key)
     entry.active_turn_started_at = datetime.now(UTC) - timedelta(hours=2)
-    assert store.recover_interrupted_turns(stale_to_ask=True) == 1
+    entry.resume_pending = already_pending
+    entry.resume_reason = 'restart_timeout' if already_pending else None
+    assert store.recover_interrupted_turns(stale_to_ask=True) == int(not already_pending)
     assert entry.resume_pending and entry.resume_reason == 'stale_interruption'
     assert entry.active_turn_token is None
 
