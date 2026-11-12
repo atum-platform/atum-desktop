@@ -100,3 +100,31 @@ Distinct audience processes using separate ledgers cannot collide even for an
 identical obligation ID; a restarted process reuses the original stored IDs.
 Existing plans remain unchanged. This prepares a publication seam; it does not
 permit several sync consumers or implement the future sender-trust router.
+
+### Stable sender and final-chunk evidence
+
+Each agent/audience process needs its own private Hermes home, even when several
+processes publish through one Matrix account. The delivery ledger persists a
+sender ID in that home's `state.db`; it is reused on every boot. Provisioners can
+set `platforms.matrix.extra.sender_id` (or supply `MATRIX_SENDER_ID` at startup)
+to a unique stable ID for the agent/audience. IDs allow 1–128 letters, digits or
+hyphens. A configured ID that differs from the persisted identity is refused;
+keep the ID and private state together through restart/restore. Sharing or cloning
+one sender identity into two active audience processes is unsupported. The
+existing Matrix account intake lock still permits only one local sync owner;
+this sender seam does not implement the future audience router or cross-host fence.
+
+New ledgered final reply chunks contain `org.hermes.source_event_id` and
+`org.hermes.final_chunk` (`index` starts at 1; `total` is the chunk count). The
+source is recorded with the native final obligation, independently of reply/thread
+relations. These fields and transaction IDs are frozen before sending. Notices
+without a source event and unledgered publications carry neither final field.
+Already-frozen legacy plans retain their exact bytes/IDs and gain no retrospective
+evidence. Actual homeserver round-trip retention of custom fields remains a
+production certification task.
+
+Intake journal schema version 1 adds `room_id` to event receipts. Upgrade preserves
+cursor, frontier, payloads, receipts and quarantine state, recovering room IDs
+from retained pending batches, encrypted rows and frontiers. A legacy completed
+receipt without surviving room evidence keeps a NULL room rather than a guess.
+New adapter receipts carry the event room; later receipt updates preserve it.

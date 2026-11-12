@@ -415,6 +415,9 @@ async def test_reply_crash_reuses_real_txnid_and_frozen_chunks(tmp_path, monkeyp
     assert (await b.send('!room:example.org', 'changed retry input',
                         metadata={'delivery_obligation_id': 'owed'})).success
     assert calls[0] == calls[1]
+    for i, payload in enumerate(accepted.values(), 1):
+        assert payload['org.hermes.source_event_id'] == '$parent'
+        assert payload['org.hermes.final_chunk'] == {'index': i, 'total': len(accepted)}
     assert len(accepted) > 1  # multi-chunk plan retained, prefix did not duplicate
     assert len(accepted) == len(calls) - 1
 
@@ -747,3 +750,101 @@ def test_retry_quarantined_event_retains_payload_and_cursor(tmp_path, capsys):
     assert store.get('next_batch') == 'opaque/sync-token'
     assert list(tmp_path.glob('*.backup-*'))
     store.close()
+
+
+def test_stable_sender_and_transactions_across_real_process_restart(tmp_path):
+    import json
+    import os
+    import subprocess
+    import sys
+    code = '''
+import json, sys
+from pathlib import Path
+from gateway import delivery_ledger as d
+d._db_path = lambda: Path(sys.argv[1])
+sender = d.matrix_sender_id()
+d.record_obligation(obligation_id='same-turn', session_key='matrix:room', platform='matrix',
+                    chat_id='!room', thread_id=None, content='final', source_event_id='$source')
+print(json.dumps([sender, d.matrix_transaction_id('recomputed'),
+                  d.matrix_send_plan('same-turn', '!room', [{'body':'one'}, {'body':'two'}])]))
+'''
+    def start(path):
+        return subprocess.Popen([sys.executable, '-c', code, str(path)],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=os.environ.copy())
+    def result(child):
+        out, err = child.communicate(timeout=30)
+        assert child.returncode == 0, err
+        return json.loads(out)
+    # Same account/obligation, separate private agent/audience homes, concurrent OS processes.
+    one = start(tmp_path / 'owner.db')
+    two = start(tmp_path / 'audience.db')
+    first, other = result(one), result(two)
+    restarted = result(start(tmp_path / 'owner.db'))
+    assert restarted == first
+    assert first[0] != other[0]
+    assert first[1] != other[1]
+    assert first[2][0]['txn_id'] != other[2][0]['txn_id']
+    for i, item in enumerate(first[2], 1):
+        assert item['content']['org.hermes.source_event_id'] == '$source'
+        assert item['content']['org.hermes.final_chunk'] == {'index': i, 'total': 2}
+
+
+def test_configured_sender_persisted_and_identity_change_refused(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as d
+    monkeypatch.setattr(d, '_db_path', lambda: tmp_path / 'state.db')
+    assert d.matrix_sender_id('agent-owner') == 'agent-owner'
+    assert d.matrix_sender_id() == 'agent-owner'
+    with pytest.raises(ValueError, match='persisted'):
+        d.matrix_sender_id('different-audience')
+    with pytest.raises(ValueError, match='letters'):
+        d.matrix_sender_id('../unsafe')
+
+
+def test_versioned_previous_journal_upgrade_preserves_replay(tmp_path):
+    import json
+    import sqlite3
+    path = tmp_path / 'intake.sqlite3'
+    pending = batch('$pending', '$control')
+    with sqlite3.connect(path) as db:
+        db.executescript('''
+            CREATE TABLE sync_state (key TEXT PRIMARY KEY,value TEXT NOT NULL);
+            CREATE TABLE intake_events (event_id TEXT PRIMARY KEY,state TEXT NOT NULL,receipt TEXT,updated_at REAL NOT NULL DEFAULT 0);
+            CREATE TABLE encrypted_pending (event_id TEXT PRIMARY KEY,room TEXT NOT NULL,payload TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,created REAL NOT NULL,notified INTEGER NOT NULL DEFAULT 0,failure_reason TEXT);
+        ''')
+        db.executemany('INSERT INTO sync_state VALUES (?,?)', [(k, json.dumps(v)) for k,v in
+                       {'pending': pending, 'next_batch':'opaque', 'frontier': {'!room:example.org':'$frontier'}}.items()])
+        db.executemany('INSERT INTO intake_events VALUES (?,?,?,?)',
+                       [('$pending','native','admission',42), ('$control','ambiguous',None,43),
+                        ('$parked','undecryptable','bad payload',44), ('$legacy','done',None,45)])
+        db.execute('INSERT INTO encrypted_pending VALUES (?,?,?,0,1,0,?)',
+                   ('$parked','!encrypted',json.dumps(event('$parked')),'bad payload'))
+    for _ in range(2):  # idempotent migration/restart
+        store = MatrixIntakeStore(path)
+        assert store.db.execute('PRAGMA user_version').fetchone()[0] == 1
+        assert store.get('pending') == pending
+        assert store.get('next_batch') == 'opaque'
+        assert store.get('frontier') == {'!room:example.org':'$frontier'}
+        rows = {r[0]: r[1:] for r in store.db.execute('SELECT event_id,state,receipt,updated_at,room_id FROM intake_events')}
+        assert rows['$pending'] == ('native','admission',42,'!room:example.org')
+        assert rows['$parked'] == ('undecryptable','bad payload',44,'!encrypted')
+        assert rows['$control'][-1] == '!room:example.org'
+        assert rows['$legacy'] == ('done',None,45,None)
+        store.mark('$pending', 'done')  # CLI/reconciliation preserves room
+        assert store.db.execute('SELECT room_id FROM intake_events WHERE event_id=?', ('$pending',)).fetchone()[0] == '!room:example.org'
+        # Restore state only for repeated migration assertions.
+        store.mark('$pending', 'native', 'admission')
+        store.db.execute('UPDATE intake_events SET updated_at=42 WHERE event_id=?', ('$pending',))
+        store.db.commit()
+        store.close()
+
+
+def test_old_frozen_wire_plan_is_never_rewritten(tmp_path, monkeypatch):
+    import json
+    from gateway import delivery_ledger as d
+    monkeypatch.setattr(d, '_db_path', lambda: tmp_path / 'state.db')
+    d.record_obligation(obligation_id='old', session_key='matrix:r', platform='matrix', chat_id='r',
+                        thread_id=None, content='original')
+    original = [{'txn_id':'hermes_oldboot_exact', 'content':{'body':'old content'}}]
+    with d._transaction() as db:
+        db.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?', (json.dumps(original), 'old'))
+    assert d.matrix_send_plan('old','r',[{'body':'changed'}],source_event_id='$new') == original

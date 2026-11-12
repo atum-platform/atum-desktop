@@ -19,6 +19,10 @@ class MatrixIntakeStore:
     def __init__(self, path):
         self.path = str(path)
         self.db = sqlite3.connect(path)
+        version = self.db.execute('PRAGMA user_version').fetchone()[0]
+        if version > 1:
+            self.db.close()
+            raise RuntimeError('Matrix intake journal is newer than this runtime')
         os.chmod(path, 0o600)
         self.db.execute('PRAGMA synchronous=FULL')
         self.db.executescript('''
@@ -36,6 +40,21 @@ class MatrixIntakeStore:
         if 'failure_reason' not in {r[1] for r in self.db.execute('PRAGMA table_info(encrypted_pending)')}:
             self.db.execute('ALTER TABLE encrypted_pending ADD COLUMN failure_reason TEXT')
         self.db.commit()
+        # Version 0 is the previously shipped additive schema. Migrate in one
+        # transaction; never reset tokens, pending payloads or admission receipts.
+        with self.db:
+            if version < 1:
+                if 'room_id' not in {r[1] for r in self.db.execute('PRAGMA table_info(intake_events)')}:
+                    self.db.execute('ALTER TABLE intake_events ADD COLUMN room_id TEXT')
+                rooms = {eid: room for eid, room in self.db.execute('SELECT event_id,room FROM encrypted_pending')}
+                rooms.update({eid: room for room, eid in self.get('frontier', {}).items()})
+                for room, data in (self.get('pending') or {}).get('rooms', {}).get('join', {}).items():
+                    rooms.update({e['event_id']: room for e in data.get('timeline', {}).get('events', [])})
+                for eid, room in rooms.items():
+                    self.db.execute('UPDATE intake_events SET room_id=? WHERE event_id=? AND room_id IS NULL', (room, eid))
+                # Old completed receipts may have no surviving room evidence.
+                # NULL explicitly means unknown legacy room; never invent one.
+                self.db.execute('PRAGMA user_version=1')
 
     def get(self, key, default=None):
         row = self.db.execute('SELECT value FROM sync_state WHERE key=?', (key,)).fetchone()
@@ -72,10 +91,13 @@ class MatrixIntakeStore:
         row = self.db.execute('SELECT state FROM intake_events WHERE event_id=?', (event_id,)).fetchone()
         return row[0] if row else None
 
-    def mark(self, event_id, state, receipt=None):
+    def mark(self, event_id, state, receipt=None, *, room_id=None):
         with self.db:
-            self.db.execute('INSERT OR REPLACE INTO intake_events VALUES (?,?,?,?)',
-                            (event_id, state, receipt, time.time()))
+            self.db.execute('''INSERT INTO intake_events (event_id,state,receipt,updated_at,room_id)
+                VALUES (?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET
+                state=excluded.state,receipt=excluded.receipt,updated_at=excluded.updated_at,
+                room_id=COALESCE(excluded.room_id,intake_events.room_id)''',
+                (event_id, state, receipt, time.time(), room_id))
 
     def finish(self, batch):
         with self.db:
@@ -109,8 +131,12 @@ class MatrixIntakeStore:
         """Retain poison payload and diagnosis atomically, outside key retries."""
         with self.db:
             self.db.execute('UPDATE encrypted_pending SET failure_reason=? WHERE event_id=?', (reason, eid))
-            self.db.execute('INSERT OR REPLACE INTO intake_events VALUES (?,?,?,?)',
-                            (eid, 'undecryptable', reason, time.time()))
+            self.db.execute('''INSERT INTO intake_events (event_id,state,receipt,updated_at,room_id)
+                VALUES (?,?,?,?,(SELECT room FROM encrypted_pending WHERE event_id=?))
+                ON CONFLICT(event_id) DO UPDATE SET state=excluded.state,
+                receipt=excluded.receipt,updated_at=excluded.updated_at,
+                room_id=COALESCE(excluded.room_id,intake_events.room_id)''',
+                (eid, 'undecryptable', reason, time.time(), eid))
 
     def compact(self, now=None):
         # Native execution/delivery ownership stays in the native ledgers. Keep

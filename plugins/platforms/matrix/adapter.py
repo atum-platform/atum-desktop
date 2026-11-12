@@ -1436,6 +1436,14 @@ class MatrixAdapter(BasePlatformAdapter):
         self._release_platform_lock()
         logger.info("Matrix: disconnected")
 
+    def _sender_identity(self):
+        from gateway.delivery_ledger import matrix_sender_id
+        configured = self.config.extra.get("sender_id") or _get_scoped_secret("MATRIX_SENDER_ID", "").strip() or None
+        return matrix_sender_id(configured)
+
+    def _transaction_id(self):
+        return matrix_transaction_id(sender_id=self._sender_identity())
+
     async def send(
         self, chat_id: str, content: str, reply_to: Optional[str] = None,
         metadata: Optional[dict[str, Any]] = None) -> SendResult:
@@ -1451,9 +1459,10 @@ class MatrixAdapter(BasePlatformAdapter):
         oid = (metadata or {}).get("delivery_obligation_id")
         if oid:
             from gateway.delivery_ledger import matrix_send_plan
-            plan = await asyncio.to_thread(matrix_send_plan, oid, chat_id, chunks)
+            plan = await asyncio.to_thread(matrix_send_plan, oid, chat_id, chunks,
+                                           source_event_id=reply_to, sender_id=self._sender_identity())
         else:
-            plan = [{"content": chunk, "txn_id": matrix_transaction_id()} for chunk in chunks]
+            plan = [{"content": chunk, "txn_id": self._transaction_id()} for chunk in chunks]
         for item in plan:
             msg_content, txn_id = item["content"], item["txn_id"]
             try:
@@ -1476,7 +1485,7 @@ class MatrixAdapter(BasePlatformAdapter):
         """Send one m.room.message event (45s cap) and return its event ID as str."""
         event_id = await asyncio.wait_for(
             self._client.send_message_event(RoomID(chat_id), EventType.ROOM_MESSAGE, msg_content,
-                                            txn_id=txn_id or matrix_transaction_id()), timeout=45)
+                                            txn_id=txn_id or self._transaction_id()), timeout=45)
         return str(event_id)
 
     async def create_handoff_thread(self, parent_chat_id: str, name: str) -> Optional[str]:
@@ -1895,7 +1904,7 @@ class MatrixAdapter(BasePlatformAdapter):
     async def _send_content_event(self, room_id: str, msg_content: dict[str, Any]) -> SendResult:
         """Send a prebuilt m.room.message payload, mapping exceptions to SendResult."""
         try:
-            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content, txn_id=matrix_transaction_id())
+            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content, txn_id=self._transaction_id())
             return SendResult(success=True, message_id=str(event_id))
         except Exception as exc:
             return SendResult(success=False, error=str(exc))
@@ -2078,7 +2087,7 @@ class MatrixAdapter(BasePlatformAdapter):
             return
         if (not self._is_authorized_user(raw.get("sender", ""), room)
                 or not await self._is_allowed_matrix_room_event(room)):
-            self._intake.mark(raw["event_id"], "done")
+            self._intake.mark(raw["event_id"], "done", room_id=room)
             return
         try:
             decoded = await crypto.decrypt_megolm_event(encrypted)
@@ -2101,7 +2110,7 @@ class MatrixAdapter(BasePlatformAdapter):
         elif str(decoded.type) == "m.reaction":
             await self._on_reaction(decoded)
         else:
-            self._intake.mark(raw["event_id"], "done")
+            self._intake.mark(raw["event_id"], "done", room_id=room)
 
     async def _retry_parked(self) -> None:
         """Let mautrix decrypt again AFTER to-device sync handlers have stored late keys."""
@@ -2233,7 +2242,7 @@ class MatrixAdapter(BasePlatformAdapter):
         store = getattr(self, "_intake", None)
         event_id = str(getattr(event, "event_id", ""))
         if store is not None and event_id and store.state(event_id) is None:
-            store.mark(event_id, "done")  # authorized gating/filtering finished; no turn owed
+            store.mark(event_id, "done", room_id=str(event.room_id))  # authorized gating/filtering finished; no turn owed
 
     async def _process_room_message(self, event: Any) -> None:
         room_id = str(getattr(event, "room_id", ""))
@@ -2302,16 +2311,16 @@ class MatrixAdapter(BasePlatformAdapter):
         committed = asyncio.get_running_loop().create_future()
 
         def accepted(receipt):
-            store.mark(event.message_id, "native", receipt.admission_id)
+            store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
             if not committed.done():
                 committed.set_result(None)
 
         event._on_transport_commit = accepted
-        event._transport_control_state = lambda state: store.mark(event.message_id, state)
+        event._transport_control_state = lambda state: store.mark(event.message_id, state, room_id=event.source.chat_id)
         event._matrix_durable_intake = True
         # Commands and inline control replies can have non-idempotent effects outside
         # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
-        store.mark(event.message_id, "ambiguous" if event.get_command() else "pending")
+        store.mark(event.message_id, "ambiguous" if event.get_command() else "pending", room_id=event.source.chat_id)
         await super().handle_message(event)
         task = self._session_tasks.get(self._event_session_key(event))
         if task is not None:
@@ -2323,7 +2332,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 raise RuntimeError("Matrix turn ended before durable admission")
         if not event.get_command() and store.state(event.message_id) not in {"native", "done"}:
             raise RuntimeError("Matrix input has not reached durable native admission; retaining batch")
-        store.mark(event.message_id, "done")
+        store.mark(event.message_id, "done", room_id=event.source.chat_id)
 
     async def _resolve_message_context(
         self, room_id: str, sender: str, event_id: str, body: str, source_content: dict,
@@ -2707,7 +2716,7 @@ class MatrixAdapter(BasePlatformAdapter):
             return None
         content = {"m.relates_to": {"rel_type": "m.annotation", "event_id": event_id, "key": emoji}}
         try:
-            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content, txn_id=matrix_transaction_id())
+            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content, txn_id=self._transaction_id())
             logger.debug("Matrix: sent reaction %s to %s", emoji, event_id)
             return str(resp_event_id)
         except Exception as exc:
@@ -2759,10 +2768,10 @@ class MatrixAdapter(BasePlatformAdapter):
                 return
             if state == "ambiguous":
                 raise RuntimeError("Matrix reaction control is ambiguous; operator recovery required")
-            store.mark(event_id, "ambiguous")
+            store.mark(event_id, "ambiguous", room_id=str(event.room_id))
         await self._process_reaction(event)
         if store is not None and event_id:
-            store.mark(event_id, "done")
+            store.mark(event_id, "done", room_id=str(event.room_id))
 
     async def _process_reaction(self, event: Any) -> None:
         sender = str(getattr(event, "sender", ""))
@@ -3406,7 +3415,9 @@ async def _standalone_send(pconfig, chat_id, message, *, thread_id=None, media_f
         # run_coroutine_threadsafe ("Timeout context manager should be used inside a task").
         async with aiohttp.ClientSession() as session:
             async def _do_send(payload):
-                txn_id = matrix_transaction_id()
+                from gateway.delivery_ledger import matrix_sender_id
+                sender = matrix_sender_id(extra.get("sender_id") or get_secret("MATRIX_SENDER_ID", "") or None)
+                txn_id = matrix_transaction_id(sender_id=sender)
                 url = f"{homeserver}/_matrix/client/v3/rooms/{quote(chat_id, safe='')}/send/m.room.message/{txn_id}"
                 async with session.put(url, headers=headers, json=payload) as resp:
                     if resp.status not in {200, 201}:
