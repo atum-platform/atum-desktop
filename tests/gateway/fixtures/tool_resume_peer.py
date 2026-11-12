@@ -148,6 +148,10 @@ async def probe():
     authority = runner.session_authority
     if mode == 'crash':
         await adapter.handle_message(MessageEvent(text='Đọc tài liệu rồi làm tiếp.', source=source, message_id='source-1'))
+        if os.environ.get('ATUM_NATIVE_FAULTS') and os.environ.get('ATUM_FAULT_POINT') == 'H7':
+            await async_wait_until(lambda: not adapter._background_tasks, timeout=40,
+                                   what='native persistence failure finishes without tools')
+            return
         await async_wait_until(lambda: False, timeout=40, what='fixture SIGKILL')
     else:
         entry = runner.session_store.get_or_create_session(source)

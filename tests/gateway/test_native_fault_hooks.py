@@ -177,3 +177,15 @@ async def test_stream_hook_only_after_visible_nonfinal_update(monkeypatch):
     points.clear()
     await consumer._push_update(_Tick(got_done=True))
     assert points == []
+
+
+def test_native_tool_call_write_failure_prevents_every_tool(tmp_path):
+    env = environment(tmp_path, 'H7')
+    peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
+    result = subprocess.run([sys.executable, str(peer), 'crash', 'before_effect'], env=env,
+                            capture_output=True, text=True, timeout=80)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (tmp_path / 'fired').exists()
+    assert not (tmp_path / 'done-count').exists()
+    assert not (tmp_path / 'pending-count').exists()
+    assert 'injected persistence failure' in result.stderr
