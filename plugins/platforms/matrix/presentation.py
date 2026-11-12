@@ -116,6 +116,7 @@ class Turn:
         self.last_progress = self.last_interim = float('-inf')
         self.interims = []
         self.ended = False
+        self.frame = None
         self.pending = None
         self.progress_timer = self.interim_timer = self.heartbeat_task = None
         self.marker = turn_id(room, source)
@@ -151,11 +152,16 @@ class Turn:
                 self.box.db.execute('INSERT OR REPLACE INTO roots VALUES (?,?,?)', (self.room, self.source, event))
                 self.box.db.commit()
             self.last_progress = self.clock()
+            self.frame = (text, kind, phase)
             if self.heartbeat_task is None:
                 async def heartbeat():
                     while not self.ended:
-                        await asyncio.sleep(180)
-                        await self.progress('Still working', kind='heartbeat')
+                        await asyncio.sleep(max(1, 180 - (self.clock() - self.last_progress)))
+                        if not self.ended and self.frame and self.clock() - self.last_progress >= 180:
+                            text, kind, phase = self.frame
+                            # A quiet approval wait stays a wait; recent activity never
+                            # gets replaced by an unrelated periodic status message.
+                            await self.progress(text, kind='heartbeat' if phase == 'working' else kind, phase=phase)
                 self.heartbeat_task = asyncio.create_task(heartbeat())
 
     async def interim(self, text, *, redacted=False):
@@ -279,6 +285,8 @@ def adapter_class(base):
             if not entry or entry[0].sender != sender:
                 return False
             turn, key, origin = entry
+            if turn.ended or getattr(turn, 'stopped', False):
+                return True
             turn.stopped = True
             runner = self.gateway_runner
             await runner._interrupt_and_clear_session(key, origin, interrupt_reason='User requested stop',

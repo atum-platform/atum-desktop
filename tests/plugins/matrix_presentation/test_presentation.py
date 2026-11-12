@@ -167,6 +167,8 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, '@stranger:example.org'))
         await self.turn.progress('Working')
         self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender))
+        self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender))
+        self.assertEqual(len(calls), 1)  # repeated source Stop cannot interrupt a later run
         self.assertEqual(calls[0][0], 'matrix:dm:owner')
         self.assertEqual(calls[0][2]['invalidation_reason'], 'stop')
         self.assertTrue(self.turn.ended)
