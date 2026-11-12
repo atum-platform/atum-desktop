@@ -73,15 +73,24 @@ def ok():
         model='test/model', id='test-completion')
 
 
+@pytest.mark.parametrize('mode', ['chat_completions', 'codex_responses', 'responses_soft_failure'])
 @pytest.mark.parametrize('status', [402, 403])
-def test_topup_second_retry_same_request_billed_once(status):
+def test_topup_second_retry_same_request_billed_once(status, mode):
     agent = make_agent()
+    agent.api_mode = "chat_completions" if mode == "chat_completions" else "codex_responses"
     clock = Clock()
     requests = []
     def call(request):
         requests.append(request)
         if len(requests) < 3:
+            if mode == 'responses_soft_failure':
+                return SimpleNamespace(status='failed', output=[], output_text='',
+                    error=SimpleNamespace(**refusal(status).body))
             raise refusal(status)
+        if mode != 'chat_completions':
+            return SimpleNamespace(status='completed', output=[], output_text='Done',
+                error=None, id='test-completion', model='test/model',
+                usage=SimpleNamespace(input_tokens=10, output_tokens=2, total_tokens=12))
         return ok()
     with patch.object(agent, '_interruptible_api_call', side_effect=call), \
          patch('agent.turn_api_call._should_stream', return_value=False), \
@@ -143,3 +152,20 @@ def test_persistent_and_stop_on_shared_handler(mode):
          patch('agent.turn_recovery.time.sleep', stop):
         verdict = attempt()
     assert verdict.result['interrupted']
+
+
+@pytest.mark.parametrize('status', [402, 403])
+def test_sse_error_normalization_preserves_marker(status):
+    from agent.chat_completion_helpers import ProviderStreamError, _provider_error_body
+    payload = refusal(status).body
+    error = ProviderStreamError(status_code=status, body=_provider_error_body(payload, status), raw_text='')
+    assert classify_api_error(error, provider='openrouter').reason.value == 'allowance_exhausted'
+
+
+def test_config_policy_is_finite_and_bounded():
+    from agent.retry_utils import allowance_wait_policy
+    assert allowance_wait_policy(None) == (2, 30, 180)
+    assert allowance_wait_policy({'initial_delay': 1, 'max_delay': 5, 'max_wait': 20}) == (1, 5, 20)
+    initial, cap, window = allowance_wait_policy({'initial_delay': float('nan'),
+        'max_delay': 10000, 'max_wait': float('inf')})
+    assert (initial, cap, window) == (2, 30, 180)
