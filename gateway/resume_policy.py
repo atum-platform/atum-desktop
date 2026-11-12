@@ -41,9 +41,9 @@ def choose_resume_policy(history, *, force_ask=False):
     start = next((i for i in range(len(history)-1, -1, -1)
                   if history[i].get('role') == 'user'
                   and not str(history[i].get('content', '')).startswith('[Recovery:')), 0)
-    calls, results = {}, set()
+    calls, results, latest = {}, set(), {}
     malformed = False
-    for row in history[start:]:
+    for row_index, row in enumerate(history[start:]):
         if row.get('role') == 'assistant':
             for call in row.get('tool_calls') or []:
                 function = call.get('function') or {}
@@ -51,9 +51,12 @@ def choose_resume_policy(history, *, force_ask=False):
                 if not ident or not name:
                     malformed = True
                     continue
-                calls[ident] = (name, function.get('arguments', {}))
+                # Native per-occurrence UIDs distinguish reused provider call IDs.
+                uid = (row.get('_tool_call_uids') or {}).get(ident) or (row_index, ident)
+                latest[ident] = uid
+                calls[uid] = (name, function.get('arguments', {}))
         elif row.get('role') == 'tool' and row.get('tool_call_id'):
-            results.add(row['tool_call_id'])
+            results.add(row.get('_tool_call_uid') or latest.get(row['tool_call_id']))
     unfinished = [name for ident, (name, _) in calls.items() if ident not in results]
     unsafe = tuple(dict.fromkeys(name for name in unfinished if tool_may_have_side_effect(name)))
     return ResumePolicy(force_ask or malformed or bool(unsafe), unsafe or tuple(unfinished),

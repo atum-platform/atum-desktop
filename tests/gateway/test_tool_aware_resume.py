@@ -154,3 +154,13 @@ def test_stale_markers_become_pending_ask(tmp_path):
     assert store.recover_interrupted_turns(stale_to_ask=True) == 1
     assert entry.resume_pending and entry.resume_reason == 'stale_interruption'
     assert entry.active_turn_token is None
+
+
+def test_reused_provider_id_is_not_completion_evidence():
+    history = [call('same', 'read_file'), {'role': 'tool', 'tool_call_id': 'same', 'content': 'read'},
+               call('same', 'append_test')]
+    assert choose_resume_policy(history).ask
+    history[0]['_tool_call_uids'] = {'same': 'first'}
+    history[1]['_tool_call_uid'] = 'first'
+    history[2]['_tool_call_uids'] = {'same': 'second'}
+    assert choose_resume_policy(history).ask
