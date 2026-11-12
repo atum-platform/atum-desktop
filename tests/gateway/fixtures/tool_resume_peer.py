@@ -151,6 +151,9 @@ async def probe():
         if os.environ.get('ATUM_NATIVE_FAULTS') and os.environ.get('ATUM_FAULT_POINT') == 'H7':
             await async_wait_until(lambda: not adapter._background_tasks, timeout=40,
                                    what='native persistence failure finishes without tools')
+            rows = list_session_admissions(authority.db, session_id=runner.session_store.get_or_create_session(source).session_id,
+                                           pending_only=False)
+            (home / 'failure-verdict.json').write_text(json.dumps({'rows': rows, 'sent': adapter.sent}))
             return
         await async_wait_until(lambda: False, timeout=40, what='fixture SIGKILL')
     else:

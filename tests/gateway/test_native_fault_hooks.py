@@ -197,6 +197,13 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     import json
     verdict = json.loads((tmp_path / 'verdict.json').read_text())
     assert verdict['sent'], verdict
+    failure = json.loads((tmp_path / 'failure-verdict.json').read_text())
+    assert failure['sent'], failure  # the original storage failure alerts the owner
+    original, recovered = failure['rows'][0], verdict['rows'][0]
+    assert original['status'] == 'terminal' and original['outcome'] == 'failed'
+    assert recovered['generation'] > original['generation']
+    for key in ('admission_id', 'request_id', 'seq', 'payload'):
+        assert recovered[key] == original[key]
     if hook == 'before_effect':
         assert not (tmp_path / 'done-count').exists()
         assert not (tmp_path / 'pending-count').exists()
