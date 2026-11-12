@@ -8,6 +8,7 @@ import path from 'node:path'
 import { test } from 'vitest'
 
 import {
+  applyRuntimeOverlay,
   pythonInstallNameCommands,
   assertCleanPackageSource,
   assertLockedBrowserDependencies,
@@ -492,4 +493,105 @@ test.skipIf(process.platform !== 'darwin')('names the staged libpython @rpath an
   } finally {
     fs.rmSync(root, { recursive: true, force: true })
   }
+})
+
+function runtimeOverlayFixture(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'atum-runtime-overlay-'))
+  t.onTestFinished(() => fs.rmSync(root, { recursive: true, force: true }))
+  const assembly = path.join(root, 'assembly')
+  const repoRoot = path.join(assembly, 'public')
+  const destination = path.join(root, 'runtime')
+  const donor = path.join(assembly, 'overlay', 'agent', 'helper.py')
+  fs.mkdirSync(repoRoot, { recursive: true })
+  fs.mkdirSync(path.dirname(donor), { recursive: true })
+  fs.mkdirSync(destination)
+  fs.writeFileSync(donor, 'overlay bytes\n')
+  const digest = value => createHash('sha256').update(value).digest('hex')
+  const lock = { overlay: {
+    commit: 'a'.repeat(40),
+    files: [{ path: 'agent/helper.py', sha256: digest('overlay bytes\n'), mode: '100755' }],
+    deletions: [{ path: 'obsolete.py' }]
+  } }
+  const seal = () => {
+    lock.overlay.digest = digest(JSON.stringify(lock.overlay.files))
+    const manifest = { lock, lockDigest: digest(JSON.stringify(lock)) }
+    fs.writeFileSync(path.join(assembly, 'assembly.json'), JSON.stringify(manifest))
+    return manifest
+  }
+  seal()
+  return { assembly, repoRoot, destination, donor, lock, seal }
+}
+
+test('runtime overlay reapplies attested bytes, modes and deletions after git archive', t => {
+  const f = runtimeOverlayFixture(t)
+  fs.mkdirSync(path.join(f.repoRoot, 'agent'))
+  fs.writeFileSync(path.join(f.repoRoot, 'agent/helper.py'), 'public bytes\n')
+  fs.writeFileSync(path.join(f.repoRoot, 'obsolete.py'), 'removed\n')
+  fs.writeFileSync(path.join(f.repoRoot, 'preserved.py'), 'preserved\n')
+  runGit(f.repoRoot, ['init', '--initial-branch', 'main'])
+  runGit(f.repoRoot, ['add', '.'])
+  runGit(f.repoRoot, ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Runtime Test', '-c', 'user.email=noreply@example.invalid', 'commit', '-m', 'fixture'])
+  const archive = path.join(f.assembly, 'runtime.tar')
+  runGit(f.repoRoot, ['archive', '--format=tar', '--output', archive, 'HEAD'])
+  assert.equal(spawnSync('tar', ['-xf', archive, '-C', f.destination]).status, 0)
+  const result = applyRuntimeOverlay(f)
+  assert.equal(fs.readFileSync(path.join(f.destination, 'agent/helper.py'), 'utf8'), 'overlay bytes\n')
+  assert.equal(fs.statSync(path.join(f.destination, 'agent/helper.py')).mode & 0o777, 0o755)
+  assert.equal(fs.existsSync(path.join(f.destination, 'obsolete.py')), false)
+  assert.equal(fs.readFileSync(path.join(f.destination, 'preserved.py'), 'utf8'), 'preserved\n')
+  assert.deepEqual(result, { overlayCommit: f.lock.overlay.commit, overlayDigest: f.lock.overlay.digest, lockDigest: f.seal().lockDigest })
+})
+
+test('runtime overlay refuses changed donor bytes, lock and overlay digests', t => {
+  const f = runtimeOverlayFixture(t)
+  fs.writeFileSync(f.donor, 'tampered')
+  assert.throws(() => applyRuntimeOverlay(f), /Runtime overlay digest mismatch/)
+  assert.deepEqual(fs.readdirSync(f.destination), [])
+  fs.writeFileSync(f.donor, 'overlay bytes\n')
+  const manifest = f.seal()
+  manifest.lock.overlay.commit = 'b'.repeat(40)
+  fs.writeFileSync(path.join(f.assembly, 'assembly.json'), JSON.stringify(manifest))
+  assert.throws(() => applyRuntimeOverlay(f), /Runtime assembly lock mismatch/)
+  const resealed = f.seal()
+  resealed.lock.overlay.digest = '0'.repeat(64)
+  resealed.lockDigest = createHash('sha256').update(JSON.stringify(resealed.lock)).digest('hex')
+  fs.writeFileSync(path.join(f.assembly, 'assembly.json'), JSON.stringify(resealed))
+  assert.throws(() => applyRuntimeOverlay(f), /Runtime overlay manifest digest mismatch/)
+})
+
+test('runtime overlay refuses unsafe file and deletion paths before writing', t => {
+  const f = runtimeOverlayFixture(t)
+  for (const unsafe of ['../outside', '/outside', 'agent/../../outside', '.', '', 'agent/./helper.py', 'agent\\helper.py', '.git/config']) {
+    f.lock.overlay.files[0].path = unsafe
+    f.seal()
+    assert.throws(() => applyRuntimeOverlay(f), /Unsafe runtime overlay path/)
+  }
+  f.lock.overlay.files[0].path = 'agent/helper.py'
+  f.lock.overlay.deletions[0].path = '../outside'
+  f.seal()
+  assert.throws(() => applyRuntimeOverlay(f), /Unsafe runtime overlay path/)
+  assert.deepEqual(fs.readdirSync(f.destination), [])
+  assert.throws(() => applyRuntimeOverlay({ ...f, repoRoot: f.destination }), /Runtime assembly root mismatch/)
+})
+
+test('runtime overlay refuses symlinks in archived targets and donor paths', t => {
+  const f = runtimeOverlayFixture(t)
+  const outside = path.join(f.assembly, 'outside')
+  fs.mkdirSync(outside)
+  fs.symlinkSync(outside, path.join(f.destination, 'agent'))
+  assert.throws(() => applyRuntimeOverlay(f), /Unsafe runtime overlay symlink/)
+  assert.deepEqual(fs.readdirSync(outside), [])
+  fs.unlinkSync(path.join(f.destination, 'agent'))
+  fs.mkdirSync(path.join(f.destination, 'agent'))
+  fs.symlinkSync(f.donor, path.join(f.destination, 'agent/helper.py'))
+  assert.throws(() => applyRuntimeOverlay(f), /Unsafe runtime overlay symlink/)
+  fs.unlinkSync(path.join(f.destination, 'agent/helper.py'))
+  fs.renameSync(f.donor, path.join(outside, 'helper.py'))
+  fs.symlinkSync(path.join(outside, 'helper.py'), f.donor)
+  assert.throws(() => applyRuntimeOverlay(f), /Unsafe runtime overlay symlink/)
+})
+
+test('runtime overlay is a no-op without an assembly', () => {
+  assert.equal(applyRuntimeOverlay({ assembly: null }), null)
+  assert.equal(applyRuntimeOverlay({ assembly: '' }), null)
 })
