@@ -207,6 +207,31 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
     if "adapter_profile" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
         add_column_if_missing(conn, "delivery_obligations", "adapter_profile", "adapter_profile TEXT")
 
+    if "matrix_send_plan" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
+        add_column_if_missing(conn, "delivery_obligations", "matrix_send_plan", "matrix_send_plan TEXT")
+
+
+def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list) -> list:
+    """Freeze exact Matrix wire content and per-chunk transaction IDs before any send.
+
+    Reuse the existing final-delivery authority, not a second transport outbox.
+    The obligation ID is already durable; server deduplication is scoped to the
+    same Matrix account/access-token session across restarts.
+    """
+    import json
+    with _DB_LOCK, _transaction() as conn:
+        row = conn.execute('SELECT chat_id,matrix_send_plan FROM delivery_obligations WHERE obligation_id=?',
+                           (obligation_id,)).fetchone()
+        if row is None or row[0] != str(chat_id):
+            raise RuntimeError('Matrix send requires its durable delivery obligation')
+        if row[1]:
+            return json.loads(row[1])
+        plan = [{'txn_id': 'hermes_' + hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(),
+                 'content': chunk} for i, chunk in enumerate(chunks)]
+        conn.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?',
+                     (json.dumps(plan), obligation_id))
+        return plan
+
 
 def _transaction():
     from hermes_cli.sqlite_util import transaction

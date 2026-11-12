@@ -238,8 +238,8 @@ async def test_undecrypted_event_is_retained(tmp_path):
     a._client = SimpleNamespace(handle_sync=lambda data: [])
     b = batch('$encrypted')
     b['rooms']['join']['!room:example.org']['timeline']['events'][0]['type'] = 'm.room.encrypted'
-    with pytest.raises(RuntimeError, match='awaits decryption'):
-        await MatrixAdapter._dispatch_sync(a, b)
+    await MatrixAdapter._dispatch_sync(a, b)
+    assert a._intake.parked()[0][0] == '$encrypted'
 
 
 @pytest.mark.asyncio
@@ -368,9 +368,159 @@ async def test_real_mautrix_swallowed_failure_retains_batch_and_siblings(tmp_pat
         if a._intake.state(str(e.event_id)) is None:
             a._intake.mark(str(e.event_id), 'native', 'receipt')
     client.add_event_handler(EventType.ROOM_MESSAGE, handler, wait_sync=True)
+    await client.api.session.close()  # dispatcher-only test, no network
     b = batch('$ok', '$lost')
     with pytest.raises(RuntimeError, match='durable acceptance'):
         await a._absorb_sync(client, b)
     assert a._intake.get('pending') == b
     assert a._intake.state('$ok') == 'native'
     assert a._intake.state('$lost') is None
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('crash_after_accept', [False, True])
+async def test_reply_crash_reuses_real_txnid_and_frozen_chunks(tmp_path, monkeypatch, crash_after_accept):
+    from gateway import delivery_ledger as ledger
+    monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / 'state.db')
+    ledger.record_obligation(obligation_id='owed', session_key='matrix:room', platform='matrix',
+                             chat_id='!room:example.org', thread_id=None, content='reply')
+    a = adapter(tmp_path)
+    a.max_message_length = 200
+    accepted, calls = {}, []
+    first = True
+    async def server(room, kind, content, *, txn_id):
+        nonlocal first
+        calls.append((txn_id, content))
+        if first:
+            first = False
+            if crash_after_accept:
+                accepted.setdefault(txn_id, content)
+            raise RuntimeError('process died before ledger ACK')
+        accepted.setdefault(txn_id, content)
+        return '$reply'
+    a._client = SimpleNamespace(send_message_event=server)
+    text = 'a long reply ' * 50
+    assert not (await a.send('!room:example.org', text, reply_to='$parent',
+                           metadata={'delivery_obligation_id': 'owed'})).success
+    # New adapter/process, different input formatting/relations: the ledger's frozen plan wins.
+    b = adapter(tmp_path)
+    b._client = SimpleNamespace(send_message_event=server)
+    assert (await b.send('!room:example.org', 'changed retry input',
+                        metadata={'delivery_obligation_id': 'owed'})).success
+    assert calls[0] == calls[1]
+    assert len(accepted) > 1  # multi-chunk plan retained, prefix did not duplicate
+    assert len(accepted) == len(calls) - 1
+
+
+@pytest.mark.asyncio
+async def test_late_keys_unblock_parked_without_blocking_next_sync(tmp_path):
+    from mautrix.errors import DecryptionError
+    a = adapter(tmp_path)
+    a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
+    keys = False
+    async def decrypt(e):
+        if not keys:
+            raise DecryptionError('missing key')
+        return SimpleNamespace(type='m.room.message', event_id=e.event_id)
+    async def sync_handlers(data):
+        nonlocal keys
+        if data.get('to_device'):
+            keys = True  # native crypto to-device handler persists the inbound session
+        for d in data.get('rooms', {}).get('join', {}).values():
+            for raw in d.get('timeline', {}).get('events', []):
+                a._intake.mark(raw['event_id'], 'native', 'receipt')
+        return []
+    crypto = SimpleNamespace(decrypt_megolm_event=decrypt, request_room_key=AsyncMock())
+    a._client = SimpleNamespace(handle_sync=sync_handlers, crypto=crypto)
+    async def admitted(e):
+        a._intake.mark(str(e.event_id), 'native', 'decrypted-receipt')
+    a._on_room_message = AsyncMock(side_effect=admitted)
+    encrypted = batch('$encrypted')
+    raw = encrypted['rooms']['join']['!room:example.org']['timeline']['events'][0]
+    raw.update(type='m.room.encrypted', content={'algorithm': 'm.megolm.v1.aes-sha2',
+               'session_id': 'fixture-session', 'sender_key': 'fixture-key', 'ciphertext': 'fixture', 'device_id': 'DEVICE'})
+    await a._absorb_sync(a._client, encrypted)
+    assert a._intake.get('pending') is None
+    assert a._intake.parked()
+    crypto.request_room_key.assert_awaited()
+    second = batch('$unrelated', token='later')
+    second['to_device'] = {'events': []}
+    await a._absorb_sync(a._client, second)
+    assert a._intake.state('$unrelated') == 'native'
+    assert a._intake.state('$encrypted') == 'native'
+    assert not a._intake.parked()
+    await a._retry_parked()
+    a._on_room_message.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('kind', ['text', 'photo'])
+async def test_durable_busy_burst_keeps_each_event_receipt(tmp_path, kind):
+    from gateway.session_ingress_burst import dispatch_busy_burst
+    from gateway.platforms.event import MessageType
+    a = adapter(tmp_path)
+    a._is_queue_text_debounce_candidate = lambda e: True
+    events = [SimpleNamespace(message_id=eid, _matrix_durable_intake=True, internal=False,
+              message_type=MessageType.TEXT if kind == 'text' else MessageType.PHOTO)
+              for eid in ('$first', '$second')]
+    executed = []
+    async def commit(adapter, e, key):
+        if adapter._intake.state(e.message_id) is None:
+            adapter._intake.mark(e.message_id, 'native', 'receipt-' + e.message_id)
+            executed.append(e.message_id)
+        e._gateway_accepted = True
+    with patch('gateway.session_ingress.dispatch_shared_busy', side_effect=commit):
+        await asyncio.gather(*(dispatch_busy_burst(a, e, 'busy') for e in events))
+        # Simulate crash after native commit, before Matrix batch finish; replay both.
+        await asyncio.gather(*(dispatch_busy_burst(a, e, 'busy') for e in events))
+    assert executed == ['$first', '$second']
+    assert all(a._intake.state(e.message_id) == 'native' for e in events)
+
+
+def test_compaction_preserves_pending_parked_and_ambiguous(tmp_path):
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    for eid, state in [('$old', 'done'), ('$native', 'native'), ('$held', 'native'),
+                       ('$encrypted', 'done'), ('$control', 'ambiguous')]:
+        store.mark(eid, state)
+    store.accept(batch('$held'))
+    store.park(event('$encrypted'), '!room:example.org')
+    store.compact(now=10**11)
+    assert store.state('$old') is None
+    assert store.state('$native') is None
+    assert store.state('$held') == 'native'
+    assert store.state('$encrypted') == 'done'
+    assert store.state('$control') == 'ambiguous'
+    assert store.get('pending') == batch('$held')
+
+
+def test_recovery_cli_backup_preserves_frontier(tmp_path, capsys):
+    from hermes_cli.matrix_intake import cmd_matrix_intake
+    path = tmp_path / 'intake.sqlite3'
+    store = MatrixIntakeStore(path)
+    b = batch('$control')
+    store.accept(b)
+    store.mark('$control', 'ambiguous')
+    store.close()
+    args = SimpleNamespace(store=str(path), action='status', event=None, reconciled=None)
+    cmd_matrix_intake(args)
+    assert 'ambiguous' in capsys.readouterr().out
+    args.action, args.event, args.reconciled = 'resolve', '$control', 'verified effect completed'
+    cmd_matrix_intake(args)
+    assert list(tmp_path.glob('*.backup-*'))
+    store = MatrixIntakeStore(path)
+    assert store.state('$control') == 'done'
+    assert store.get('pending') == b
+    assert store.get('next_batch') == b['next_batch']
+
+
+def test_disk_full_receipt_failure_retains_payload(tmp_path):
+    import sqlite3
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    b = batch('$lost')
+    store.accept(b)
+    store.db.execute("CREATE TRIGGER fail_receipt BEFORE INSERT ON intake_events BEGIN SELECT RAISE(FAIL,'database or disk is full'); END")
+    with pytest.raises(sqlite3.DatabaseError):
+        store.mark('$lost', 'native', 'receipt')
+    store.close()
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    assert store.get('pending') == b
+    assert store.state('$lost') is None
