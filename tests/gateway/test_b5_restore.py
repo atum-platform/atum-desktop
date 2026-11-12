@@ -111,3 +111,61 @@ def test_restore_refuses_incomplete_generation(tmp_path, manifest):
     with pytest.raises((ValueError, FileNotFoundError)):
         restore_generation(path, 7, tmp_path / 'restored')
     assert not (tmp_path / 'restored').exists()
+
+
+def test_native_backup_import_roundtrip_and_wal_journal(pair, tmp_path, monkeypatch):
+    import hashlib
+    from hermes_cli.backup import _write_full_zip_backup
+    from gateway.backup_restore import restore_generation
+    db, store, row, _ = pair
+    store.db.execute('PRAGMA journal_mode=WAL')
+    store.mark('$event', 'done', row['admission_id'], room_id='!room')
+    home = tmp_path / 'source'
+    (home / 'identity').mkdir(parents=True)
+    from hermes_cli.backup_sqlite import _safe_copy_db
+    assert _safe_copy_db(tmp_path / 'state.db', home / 'state.db')
+    # A live WAL-backed .sqlite3 must pass through the native SQLite copier.
+    live = MatrixIntakeStore(home / 'identity' / 'intake-test.sqlite3')
+    live.db.execute('PRAGMA journal_mode=WAL')
+    live.mark('$event', 'done', row['admission_id'], room_id='!room')
+    (home / 'config.yaml').write_text('model: fixture\n')
+    persona = tmp_path / 'persona'
+    persona.mkdir()
+    (persona / 'SOUL.md').write_text('persona fixture')
+    archives = {}
+    for part, root in [('private', home), ('persona', persona)]:
+        path = tmp_path / (part + '.zip')
+        assert _write_full_zip_backup(path, root)
+        archives[part] = {'name': path.name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+    live.close()
+    manifest = tmp_path / 'manifest.json'
+    manifest.write_text(json.dumps({'version': 1, 'generation': 7, 'timestamp': 'T', 'archives': archives}))
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path / 'unrelated'))
+    target = restore_generation(manifest, 7, tmp_path / 'restored')
+    restored = MatrixIntakeStore(target / 'private/identity/intake-test.sqlite3')
+    assert restored.state('$event') == 'done'
+    assert restored.get('restore')['generation'] == 7
+    assert (target / 'persona/SOUL.md').read_text() == 'persona fixture'
+    restored.close()
+
+
+@pytest.mark.asyncio
+async def test_actual_back_to_back_copies_under_hold(pair, tmp_path):
+    from gateway.intake_hold import IntakeHold
+    from hermes_cli.backup_sqlite import _safe_copy_db
+    db, store, _, _ = pair
+    hold = IntakeHold(store)
+    await hold.start()
+    reader, writer = await asyncio.open_unix_connection(hold.path)
+    writer.write(b'hold\n'); await writer.drain()
+    assert json.loads(await reader.readline())['held']
+    started = time.monotonic()
+    assert await asyncio.to_thread(_safe_copy_db, tmp_path / 'state.db', tmp_path / 'state-copy.db')
+    assert await asyncio.to_thread(_safe_copy_db, tmp_path / 'intake.sqlite3', tmp_path / 'intake-copy.sqlite3')
+    elapsed = time.monotonic() - started
+    writer.write(b'release\n'); await writer.drain()
+    assert await reader.readline() == b''
+    print(f'back-to-back SQLite hold: {elapsed:.6f}s')
+    assert elapsed < 2
+    writer.close(); await writer.wait_closed()
+    await hold.close()

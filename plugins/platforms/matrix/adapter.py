@@ -1385,6 +1385,13 @@ class MatrixAdapter(BasePlatformAdapter):
         from plugins.platforms.matrix.intake import MatrixIntakeStore
         store_key = hashlib.sha256(identity.encode()).hexdigest()
         self._intake = MatrixIntakeStore(self._store_dir / f"intake-{store_key}.sqlite3")
+        from gateway.intake_hold import IntakeHold
+        from hermes_constants import get_hermes_home
+        from utils import load_yaml_file_readonly
+        config_path = get_hermes_home() / 'config.yaml'
+        cfg = (load_yaml_file_readonly(config_path) or {}) if config_path.exists() else {}
+        self._snapshot_hold = IntakeHold(self._intake,
+            timeout=cfg.get('recovery', {}).get('snapshot_hold_seconds', 2))
         client.sync_store = self._intake
         if self._encryption and not await self._connect_setup_e2ee(client, api, state_store):
             await self.disconnect()
@@ -1398,10 +1405,15 @@ class MatrixAdapter(BasePlatformAdapter):
         self._startup_ts = time.time()
         self._reset_clock_skew_detector()  # a reconnect after an NTP fix starts clean
         self._closing = False
+        restore_ready = False
         try:
+            from gateway.backup_restore import reconcile_before_intake
+            await reconcile_before_intake(self, client)
+            restore_ready = True
             await self._connect_initial_sync(client)
+            await self._snapshot_hold.start()
         except BaseException as exc:
-            if isinstance(exc, Exception) and self._intake.get("pending") is not None:
+            if restore_ready and isinstance(exc, Exception) and self._intake.get("pending") is not None:
                 # Gateway bootstrap may park callbacks until all adapters connect.
                 # Keep the accepted batch and let the sync loop retry after startup;
                 # failing connect here would deadlock native session recovery.
@@ -1445,6 +1457,9 @@ class MatrixAdapter(BasePlatformAdapter):
             with suppress(Exception):
                 await self._client.api.session.close()
             self._client = None
+        if getattr(self, '_snapshot_hold', None) is not None:
+            await self._snapshot_hold.close()
+            self._snapshot_hold = None
         if getattr(self, "_intake", None) is not None:
             self._intake.close()
             self._intake = None
@@ -2086,6 +2101,13 @@ class MatrixAdapter(BasePlatformAdapter):
                 await asyncio.sleep(delay)
 
     async def _absorb_sync(self, client: Any, sync_data: dict[str, Any], *, initial: bool = False) -> Optional[str]:
+        hold = getattr(self, '_snapshot_hold', None)
+        if hold is not None:
+            async with hold.lock:
+                return await self._absorb_sync_batch(client, sync_data, initial=initial)
+        return await self._absorb_sync_batch(client, sync_data, initial=initial)
+
+    async def _absorb_sync_batch(self, client, sync_data, *, initial=False):
         """Apply one sync response: joined rooms, next_batch, event dispatch, pending invites. Returns next_batch.
         The initial (full-state) sync also seeds the DM cache and dispatches so the OlmMachine sees
         to-device key shares queued while offline."""
@@ -2449,11 +2471,21 @@ class MatrixAdapter(BasePlatformAdapter):
             return  # preserve owner-only intake, including during journal recovery
         if not getattr(self.gateway_runner, "session_authority", None):
             raise RuntimeError("Durable Matrix intake requires the native session authority")
+        authority = self.gateway_runner.session_authority
+        lookup = getattr(authority, 'native_transport_receipt', None)
+        existing = await lookup(event) if lookup is not None else None
+        if existing is not None:
+            store.mark(event.message_id, 'native', existing.admission_id, room_id=event.source.chat_id)
+            return
         committed = asyncio.get_running_loop().create_future()
 
         def accepted(receipt):
             from gateway.fault_injection import hit
             hit("H3a")
+            context = store.get('restore')
+            if context and [event.source.chat_id, event.message_id] in context.get('reread', []):
+                from gateway.backup_restore import mark_restore_ask
+                mark_restore_ask(authority.db, receipt.admission_id, context)
             store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
             hit("H3")
             if not committed.done():

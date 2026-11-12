@@ -121,7 +121,8 @@ def _in_excluded_root_dir(rel_path: Path) -> bool:
 # SQLite sidecars are excluded because ``*.db`` is snapshotted via ``sqlite3.backup()``:
 # shipping the live WAL/SHM/journal alongside would pair a fresh snapshot with stale sidecar
 # state and produce a torn restore on next open. They are regenerated on first connection.
-_SQLITE_SIDECAR_SUFFIXES = (".db-wal", ".db-shm", ".db-journal")
+_SQLITE_SIDECAR_SUFFIXES = tuple(ext + sidecar for ext in (".db", ".sqlite3")
+                                 for sidecar in ("-wal", "-shm", "-journal"))
 _EXCLUDED_SUFFIXES = (".pyc", ".pyo", *_SQLITE_SIDECAR_SUFFIXES)
 
 # File names to skip (runtime state that's meaningless on another machine)
@@ -522,7 +523,7 @@ def _write_zip_entries(
     total_bytes = 0
     for i, (abs_path, rel_path) in enumerate(files_to_add, 1):
         try:
-            if abs_path.suffix == ".db":
+            if abs_path.suffix in (".db", ".sqlite3"):
                 size = _zip_sqlite_snapshot(zf, abs_path, rel_path, out_path)
                 if size is None:
                     on_db_failure(rel_path)
@@ -936,7 +937,7 @@ def _import_members(
             if home.resolve().is_relative_to(root_res):
                 homes.add(home)
         target = hermes_root / rel
-        if target.suffix == ".db" and target.resolve().is_relative_to(root_res):
+        if target.suffix in (".db", ".sqlite3") and target.resolve().is_relative_to(root_res):
             homes.update([target.absolute().parent, target.resolve().parent])
     with exclusive_maintenance(homes):
         return _import_members_exclusive(zf, members, prefix, hermes_root, file_count)
@@ -1053,7 +1054,7 @@ def _import_members_exclusive(
 
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            if target.suffix == ".db":
+            if target.suffix in (".db", ".sqlite3"):
                 # Count before the write: afterwards the rows this import
                 # drops are gone and there is nothing left to compare.
                 before = _count_session_rows(target)
@@ -1346,7 +1347,7 @@ def _create_quick_snapshot_locked(
                 if "/workspaces/" in f"/{sub_rel}/" or "/attachments/" in f"/{sub_rel}/":
                     continue
                 if _too_large(sub, sub_rel):
-                    if sub.suffix == ".db":
+                    if sub.suffix in (".db", ".sqlite3"):
                         oversized_skipped.append(sub_rel)
                     continue
                 dst = staging_dir / sub_rel
@@ -1355,7 +1356,7 @@ def _create_quick_snapshot_locked(
                     # Route SQLite DBs through the WAL-safe backup() path so a
                     # board DB with an open WAL (the gateway may hold it at
                     # snapshot time) is captured consistently.
-                    if sub.suffix == ".db":
+                    if sub.suffix in (".db", ".sqlite3"):
                         if not _safe_copy_db(sub, dst):
                             failed_dbs.append(sub_rel)
                             print(
@@ -1379,7 +1380,7 @@ def _create_quick_snapshot_locked(
             continue
 
         if _too_large(src, rel):
-            if src.suffix == ".db":
+            if src.suffix in (".db", ".sqlite3"):
                 oversized_skipped.append(rel)
             continue
 
@@ -1387,7 +1388,7 @@ def _create_quick_snapshot_locked(
         dst.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            if src.suffix == ".db":
+            if src.suffix in (".db", ".sqlite3"):
                 if not _safe_copy_db(src, dst):
                     failed_dbs.append(rel)
                     print(
@@ -1574,7 +1575,7 @@ def _snapshot_epochs_restorable(files, entry_paths) -> bool:
 def _restore_snapshot_entry(rel: str, src: Path, dst: Path) -> bool:
     """Publish one quick-snapshot file over ``dst``; False (logged) when refused or failed."""
     try:
-        if dst.suffix == ".db":
+        if dst.suffix in (".db", ".sqlite3"):
             # Restore through SQLite backup API so live connections
             # (gateway, dashboard, another CLI session) see the
             # restored data instead of continuing to serve stale
@@ -1647,7 +1648,7 @@ def _restore_quick_snapshot_exclusive(snapshot_id: str, home: Path) -> bool:
     homes = {home}
     for rel in meta.get("files", {}):
         entry = _entry_paths(rel)
-        if entry and entry[1].suffix == ".db":
+        if entry and entry[1].suffix in (".db", ".sqlite3"):
             homes.update([entry[1].absolute().parent, entry[1].resolve().parent])
     with exclusive_maintenance(homes):
         # Epoch safety is a whole-profile preflight: copying config first would

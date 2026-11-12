@@ -243,7 +243,22 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
-        if row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
+        restored = authority.db._read_one('SELECT value FROM state_meta WHERE key=?',
+                                          ('restore_backup:' + row['admission_id'],))
+        if restored:
+            import json
+            from gateway.resume_policy import ResumePolicy, pending_resume_policy
+            context = json.loads(restored['value'])
+            entry = authority.runner.session_store.lookup_by_session_key(live.route)
+            if entry is None:
+                raise RuntimeError('Restored admission lacks native session entry')
+            pending_resume_policy(authority.runner.session_store, entry,
+                ResumePolicy(True, ('work interrupted by backup restore at ' + context['timestamp'] +
+                    '; actions after that time may already have happened; check before repeating',), frozenset()),
+                '', can_resolve=False)
+            authority.runner.session_store.mark_resume_pending(live.route, reason='restore_backup')
+
+        if not restored and row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
             # Keep the native source ID for the final obligation; never replay user input.
             # Preserve an input that never reached its first durable user row (H7).
             recorded = authority.db._read_one(

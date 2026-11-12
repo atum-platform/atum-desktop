@@ -7,6 +7,18 @@ from pathlib import Path
 
 
 def cmd_matrix_intake(args):
+    if args.action == 'restore':
+        from gateway.backup_restore import restore_generation
+        if not args.manifest or args.generation is None or not args.target:
+            raise ValueError('restore requires --manifest, --generation and --target')
+        print(restore_generation(args.manifest, args.generation, args.target))
+        return
+    if args.action == 'hold':
+        import asyncio
+        asyncio.run(_hold_command(args.store, args.hold_command))
+        return
+    if not args.store:
+        raise ValueError('--store is required')
     path = Path(args.store).resolve(strict=True)
     # Inspection must work without opening a homeserver, and must not create/migrate a DB.
     conn = sqlite3.connect(path.as_uri() + '?mode=ro', uri=True)
@@ -54,3 +66,38 @@ def cmd_matrix_intake(args):
         print(f'Reconciled {args.event}; original preserved at {backup_path}; cursor unchanged')
     finally:
         store.close()
+
+
+async def _hold_command(store, command):
+    import asyncio
+    if not store or not command:
+        raise ValueError('hold requires --store and --exec COMMAND [ARGS...]')
+    reader, writer = await asyncio.open_unix_connection(str(Path(store).resolve()) + '.hold')
+    process = None
+    started = time.monotonic()
+    try:
+        writer.write(b'hold\n')
+        await writer.drain()
+        answer = json.loads(await asyncio.wait_for(reader.readline(), 2))
+        if not answer['held']:
+            raise RuntimeError('Intake batch pending; snapshot refused')
+        process = await asyncio.create_subprocess_exec(*command)
+        done = asyncio.create_task(process.wait())
+        expired = asyncio.create_task(reader.readline())
+        try:
+            completed, _ = await asyncio.wait({done, expired}, return_when=asyncio.FIRST_COMPLETED)
+            if expired in completed:
+                raise TimeoutError('Snapshot hold expired; discard generation')
+            if done.result():
+                raise RuntimeError('Snapshot command failed; discard generation')
+        finally:
+            expired.cancel()
+            if process.returncode is None:
+                process.kill()
+            await process.wait()
+            await asyncio.gather(expired, done, return_exceptions=True)
+        writer.write(b'release\n'); await writer.drain()
+        print(json.dumps({'hold_seconds': time.monotonic() - started}))
+    finally:
+        writer.close()
+        await writer.wait_closed()
