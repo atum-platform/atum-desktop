@@ -97,9 +97,8 @@ def test_topup_second_retry_same_request_billed_once(status, mode):
         return ok()
     with patch.object(agent, '_interruptible_api_call', side_effect=call), \
          patch('agent.turn_api_call._should_stream', return_value=False), \
-         patch('agent.turn_api_error.time.monotonic', clock.monotonic), \
-         patch('agent.turn_recovery.time.time', clock.monotonic), \
-         patch('agent.turn_recovery.time.sleep', clock.sleep):
+         patch('agent.turn_api_error.time', SimpleNamespace(monotonic=clock.monotonic)), \
+         patch('agent.turn_recovery.time', SimpleNamespace(time=clock.monotonic, sleep=clock.sleep)):
         result = agent.run_conversation('hello')
     assert result['completed'] and result['final_response'] == 'Done'
     assert result['api_calls'] == 1
@@ -129,9 +128,8 @@ def test_persistent_and_stop_on_shared_handler(mode):
             approx_tokens=10, retry_count=0, max_retries=3, compression_attempts=0,
             max_compression_attempts=2, api_call_count=1, api_request_id='test',
             api_start_time=0, effective_task_id='test', turn_id='test')
-    with patch('agent.turn_api_error.time.monotonic', clock.monotonic), \
-         patch('agent.turn_recovery.time.time', clock.monotonic), \
-         patch('agent.turn_recovery.time.sleep', clock.sleep):
+    with patch('agent.turn_api_error.time', SimpleNamespace(monotonic=clock.monotonic)), \
+         patch('agent.turn_recovery.time', SimpleNamespace(time=clock.monotonic, sleep=clock.sleep)):
         for _ in range(100):
             verdict = attempt()
             if verdict.action == 'return':
@@ -151,9 +149,8 @@ def test_persistent_and_stop_on_shared_handler(mode):
     def stop(seconds):
         clock.sleep(seconds)
         agent._interrupt_requested = True
-    with patch('agent.turn_api_error.time.monotonic', clock.monotonic), \
-         patch('agent.turn_recovery.time.time', clock.monotonic), \
-         patch('agent.turn_recovery.time.sleep', stop):
+    with patch('agent.turn_api_error.time', SimpleNamespace(monotonic=clock.monotonic)), \
+         patch('agent.turn_recovery.time', SimpleNamespace(time=clock.monotonic, sleep=stop)):
         verdict = attempt()
     assert verdict.result['interrupted']
 
