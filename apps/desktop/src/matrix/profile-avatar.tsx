@@ -43,12 +43,14 @@ export function MatrixProfileAvatar({
   const [photo, setPhoto] = useState<{ key: string; url: string | null }>()
 
   useEffect(() => {
-    if (agentAvatar !== undefined || !ready || !userId || !window.atumMatrix.profiles) {
+    const profiles = window.atumMatrix?.profiles
+
+    if (agentAvatar !== undefined || !ready || !userId || typeof profiles?.read !== 'function') {
       return
     }
 
     let current = true
-    void window.atumMatrix.profiles
+    void profiles
       .read(target)
       .then(value => {
         // A cold SDK cache is not evidence that the server has no photo.

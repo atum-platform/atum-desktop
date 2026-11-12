@@ -210,3 +210,56 @@ it('rejects an unexpected identity even when discovering from an empty cache', a
   expect(read).toHaveBeenCalled()
   expect(view.container.querySelector('img')).toBeNull()
 })
+
+for (const bridge of [undefined, {}, { profiles: {} }]) {
+  it(`keeps the human fallback when the profile read API is missing (${JSON.stringify(bridge)})`, () => {
+    if (bridge) {
+      window.atumMatrix = bridge as MatrixUiBridge
+    }
+
+    const view = render(
+      <MatrixProfileAvatar
+        className="size-8"
+        id="@alice:example.org"
+        name="Alice"
+        scopeKey="alice/MAC"
+        target={{ kind: 'human' }}
+      />
+    )
+
+    expect(view.getByText('A')).toBeTruthy()
+    expect(view.container.querySelector('img')).toBeNull()
+  })
+}
+
+it('retries a failed human profile read when the SDK becomes ready again', async () => {
+  const read = vi
+    .fn<MatrixProfilesBridge['read']>()
+    .mockRejectedValueOnce(new Error('matrix_profile_unavailable'))
+    .mockResolvedValue({
+      userId: '@alice:example.org',
+      displayName: 'Alice',
+      avatarMxc: 'mxc://example.org/photo',
+      avatarUrl: dataUrl
+    })
+
+  window.atumMatrix = { profiles: { read } } as unknown as MatrixUiBridge
+
+  const props = {
+    className: 'size-8',
+    id: '@alice:example.org',
+    name: 'Alice',
+    scopeKey: 'alice/MAC',
+    target: { kind: 'human' as const }
+  }
+
+  const view = render(<MatrixProfileAvatar {...props} ready />)
+  await act(async () => {})
+  expect(read).toHaveBeenCalledTimes(1)
+  expect(view.getByText('A')).toBeTruthy()
+  view.rerender(<MatrixProfileAvatar {...props} ready={false} />)
+  expect(read).toHaveBeenCalledTimes(1)
+  view.rerender(<MatrixProfileAvatar {...props} ready />)
+  await waitFor(() => expect(view.container.querySelector('img')?.getAttribute('src')).toBe(dataUrl))
+  expect(read).toHaveBeenCalledTimes(2)
+})
