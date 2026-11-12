@@ -29,7 +29,7 @@ def _policy():
 
 
 def _missing(manager, required):
-    return sorted(key for key in required if not manager._admission_callbacks.get(key)
+    return sorted(key for key in required | manager._admission_required if not manager._admission_callbacks.get(key)
                   or key not in manager._plugins or not manager._plugins[key].enabled
                   or manager._plugins[key].error)
 
