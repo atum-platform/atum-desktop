@@ -35,3 +35,5 @@ this policy does not strengthen attachments, streaming or external tool effects.
 
 An unresolved native `pending_slot` prevents sleep even when `next_run_at` has
 already advanced. Let the native dispatcher recover or clear the slot first.
+Deadline boundary tests cover timezone normalization, disabled jobs, empty stores
+and unresolved/missing occurrences; storage imports are stubbed in these units.
