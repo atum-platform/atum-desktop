@@ -1,9 +1,10 @@
 import { EventType, type MatrixEvent, MsgType, RelationType, type Room } from 'matrix-js-sdk'
 
 import { MATRIX_ROOM_PREVIEW_MAX, type MatrixRoomPreview } from '../../shared/matrix'
+import { matrixCompanyPresentationClaimed } from '../../shared/matrix-company-presentation'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
 
-import { shownContent } from './message'
+import { companyPresentationOf, shownContent } from './message'
 import { isOpaqueMatrixId, matrixPersonName } from './person-name'
 import { matrixRoomTimelineEvents } from './threads'
 
@@ -98,7 +99,8 @@ function previewOf(
   event: MatrixEvent,
   room: Room,
   ownUserId: string,
-  ignored: ReadonlySet<string>
+  ignored: ReadonlySet<string>,
+  companyAgent: string | undefined
 ): MatrixRoomPreview | null {
   const sender = event.getSender()
 
@@ -125,11 +127,23 @@ function previewOf(
     return { ...base, kind: 'sticker' }
   }
 
-  const { content } = shownContent(event)
+  const original = event.getOriginalContent()
+  const { content, edited } = shownContent(event, room)
+  // A company-claimed content is read only as company presentation (never as a personal marker), and
+  // skips the preview only when the room-local projection admits it and the agent the platform binds to
+  // the room (`companyAgent`, never inferred from who is in it) sent it.
+  const claimed = matrixCompanyPresentationClaimed(original)
 
-  // The agent's one progress line (agent-turns/1.3) is never a chat's preview: the row keeps the
-  // last message until the answer arrives.
-  if (!own && matrixProgressMarker(content)) {
+  const companyLine =
+    claimed &&
+    !own &&
+    companyAgent !== undefined &&
+    sender === companyAgent &&
+    companyPresentationOf(event, original, content, edited, room)?.stream === 'progress'
+
+  // The agent's one progress line (agent-turns/1.3, or a company agent's 1.6 line) is never a chat's
+  // preview: the row keeps the last message until the answer arrives.
+  if (!own && (claimed ? companyLine : matrixProgressMarker(content))) {
     return null
   }
 
@@ -154,15 +168,20 @@ function previewOf(
   return text ? { ...base, kind: 'text', text } : null
 }
 
-/** The latest message a person would see in this chat, as its row previews it. */
+/**
+ * The latest message a person would see in this chat, as its row previews it. `companyAgent` is the
+ * company agent the platform binds to this room (a private Chief of Staff room's), when known: only its
+ * working lines (agent-turns/1.6) are skipped; without it every company line previews as a message.
+ */
 export function matrixRoomPreview(
   room: Room,
   ownUserId: string,
   ignored: ReadonlySet<string> = new Set(),
-  events: MatrixEvent[] = matrixRoomTimelineEvents(room)
+  events: MatrixEvent[] = matrixRoomTimelineEvents(room),
+  companyAgent?: string
 ): MatrixRoomPreview | undefined {
   for (let index = events.length - 1; index >= Math.max(0, events.length - LOOK_BACK); index--) {
-    const preview = previewOf(events[index]!, room, ownUserId, ignored)
+    const preview = previewOf(events[index]!, room, ownUserId, ignored, companyAgent)
 
     if (preview) {
       return preview

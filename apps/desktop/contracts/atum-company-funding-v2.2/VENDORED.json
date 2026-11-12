@@ -1,0 +1,7 @@
+{
+  "contract": "atum.company-funding/2.2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "087aa7bc5e415dd8d22b0391a4cccda78d40ece5",
+  "path": "spec/company-funding/v2.2",
+  "sha256": "a3c899d29b646d976edafd54fe279c6edab4f9f09177a3ef6277460c655d7bc0"
+}

@@ -7,6 +7,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  lstatSync,
   readFileSync,
   readdirSync,
   readlinkSync,
@@ -241,6 +242,61 @@ function archiveHermesSource({ repoRoot, commit, destination, scratchRoot }) {
   run('git', ['-C', repoRoot, 'archive', '--format=tar', '--output', archivePath, commit])
   run('tar', ['-xf', archivePath, '-C', destination])
   rmSync(archivePath, { force: true })
+}
+
+// git archive omits composed release inputs. Reapply them before pruning/probing.
+// The release caller must validate the lock against its trusted release inputs;
+// self-consistent digests here do not authenticate an arbitrary assembly.
+export function applyRuntimeOverlay({ repoRoot, destination, assembly = process.env.ATUM_CLIENT_ASSEMBLY }) {
+  if (!assembly) return null
+  if (resolve(repoRoot) !== resolve(assembly, 'public')) throw new Error('Runtime assembly root mismatch')
+  const manifest = JSON.parse(readFileSync(join(assembly, 'assembly.json'), 'utf8'))
+  const lock = manifest.lock
+  const digest = value => createHash('sha256').update(value).digest('hex')
+  if (digest(JSON.stringify(lock)) !== manifest.lockDigest) throw new Error('Runtime assembly lock mismatch')
+  const overlay = lock.overlay
+  if (!Array.isArray(overlay.files) || digest(JSON.stringify(overlay.files)) !== overlay.digest) {
+    throw new Error('Runtime overlay manifest digest mismatch')
+  }
+
+  // Check every existing component, including the leaf: neither archived links
+  // nor donor links may redirect reads/writes outside the declared roots.
+  function safeTarget(root, file) {
+    if (typeof file !== 'string' || !file || file.includes('\\') || file.includes('\0') ||
+        isAbsolute(file) || file.split('/').some(part => ['', '.', '..', '.git'].includes(part))) {
+      throw new Error('Unsafe runtime overlay path')
+    }
+    const target = resolve(root, file)
+    if (!target.startsWith(resolve(root) + sep)) throw new Error('Unsafe runtime overlay path')
+    let current = resolve(root)
+    for (const part of ['', ...file.split('/')]) {
+      current = join(current, part)
+      try {
+        if (lstatSync(current).isSymbolicLink()) throw new Error('Unsafe runtime overlay symlink')
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error
+      }
+    }
+    return target
+  }
+
+  // Validate all paths and bytes before changing the archived source.
+  const files = overlay.files.map(entry => {
+    const target = safeTarget(destination, entry.path)
+    const donor = safeTarget(join(assembly, 'overlay'), entry.path)
+    if (!['100644', '100755'].includes(entry.mode)) throw new Error('Invalid runtime overlay mode')
+    const bytes = readFileSync(donor)
+    if (digest(bytes) !== entry.sha256) throw new Error(`Runtime overlay digest mismatch: ${entry.path}`)
+    return { target, bytes, mode: entry.mode }
+  })
+  const deletions = (overlay.deletions ?? []).map(entry => safeTarget(destination, entry.path))
+  for (const { target, bytes, mode } of files) {
+    mkdirSync(dirname(target), { recursive: true })
+    writeFileSync(target, bytes)
+    chmodSync(target, mode === '100755' ? 0o755 : 0o644)
+  }
+  for (const target of deletions) rmSync(target, { force: true })
+  return { overlayCommit: overlay.commit, overlayDigest: overlay.digest, lockDigest: manifest.lockDigest }
 }
 
 /** Remove only known non-redistributable source paths from an archived runtime tree. */
@@ -869,6 +925,7 @@ export function stageBundledRuntime({
       pythonPlatform: targetSpec.pythonPlatform
     })
     archiveHermesSource({ repoRoot, commit, destination: sourceRoot, scratchRoot })
+    const privateSourceInputs = applyRuntimeOverlay({ repoRoot, destination: sourceRoot })
     const excludedSourcePaths = excludeRestrictedStagedSkills(sourceRoot)
     // Ship only what runs: tests, internal docs, the app's own source and the website generator
     // used to ride along (~440 MB), and macOS verifies every byte on each update.
@@ -907,7 +964,8 @@ export function stageBundledRuntime({
         runtimeTree: tree
       },
       hermes: {
-        source: 'git-archive',
+        source: privateSourceInputs ? 'git-archive+private-overlay' : 'git-archive',
+        privateSourceInputs,
         excludedSourcePaths,
         prunedSourcePaths: slimmedSource.removed,
         keptWithinPrunedPaths: slimmedSource.kept,

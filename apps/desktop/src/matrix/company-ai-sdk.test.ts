@@ -11,6 +11,7 @@ import {
   joinCompanyAIChannel,
   joinCompanyPrivateCosRoom,
   openCompanyCitation,
+  publishCompanyPresentation,
   publishCompanyPrivateCosGreeting,
   publishCompanyThread,
   publishCompanyThreadMessage,
@@ -212,7 +213,9 @@ return {roomId:privateRoomId} as never})
   it('keeps waiting for the manager to leave when the room carries historical:100',async()=>{
     const invited=privateRoom({members:[agentUserId,privateScope.managerUserId],powers:{...privatePowers,historical:100}})
     const sdk=client([invited as never],{})
-    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');return {roomId:privateRoomId} as never})
+    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');
+
+return {roomId:privateRoomId} as never})
     await expect(joinCompanyPrivateCosRoom(sdk,privateScope)).resolves.toBe('manager_pending')
     expect(sdk.leave).not.toHaveBeenCalled()
   })
@@ -220,7 +223,9 @@ return {roomId:privateRoomId} as never})
   it('waits for the bootstrap manager to leave before validating or exposing intake',async()=>{
     const invited=privateRoom({members:[agentUserId,privateScope.managerUserId]})
     const sdk=client([invited as never],{})
-    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');return {roomId:privateRoomId} as never})
+    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');
+
+return {roomId:privateRoomId} as never})
     await expect(joinCompanyPrivateCosRoom(sdk,privateScope)).resolves.toBe('manager_pending')
     await expect(joinCompanyPrivateCosRoom(sdk,privateScope)).resolves.toBe('manager_pending')
     expect(sdk.joinRoom).toHaveBeenCalledTimes(1)
@@ -243,7 +248,9 @@ return {roomId:privateRoomId} as never})
     expect(sdk.joinRoom).not.toHaveBeenCalled()
     const invited=privateRoom()
     rooms.push(invited as never)
-    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');return {roomId:privateRoomId} as never})
+    sdk.joinRoom.mockImplementationOnce(async()=>{invited.setMembership('join');
+
+return {roomId:privateRoomId} as never})
     await expect(joinCompanyPrivateCosRoom(sdk,privateScope)).resolves.toBe('joined')
     expect(sdk.joinRoom).toHaveBeenCalledExactlyOnceWith(privateRoomId)
   })
@@ -267,7 +274,9 @@ return {roomId:privateRoomId} as never})
 
     const replacement=privateRoom()
     rooms.push(replacement as never)
-    sdk.joinRoom.mockImplementation(async()=>{replacement.setMembership('join');return replacement as never})
+    sdk.joinRoom.mockImplementation(async()=>{replacement.setMembership('join');
+
+return replacement as never})
     await expect(joinCompanyPrivateCosRoom(sdk,privateScope)).resolves.toBe('joined')
     expect(sdk.joinRoom).toHaveBeenCalledExactlyOnceWith(privateRoomId)
   })
@@ -622,7 +631,9 @@ return {roomId:privateRoomId} as never})
   it('reads the trigger with bounded same-thread history and never another thread',async()=>{
     const joined = room()
     const root = event('$root', { at: 100 })
-    const earlier = event('$earlier', { threadRoot: '$root', body: 'Earlier', at: 200 })
+    const earlier = event('$earlier', { threadRoot: '$root', sender: '@authenticated:test', body: '@spoofed:test: Earlier', at: 200 })
+    earlier.getContent().senderUserId = '@spoofed:test'
+    earlier.sender = { name: 'Misleading display name' } as never
     const answer = event('$answer', { threadRoot: '$root', sender: agentUserId, body: 'Answered', at: 300 })
     const trigger = event('$trigger', { threadRoot: '$root', body: 'And then?', mentions: [agentUserId], at: 400 })
     const sibling = event('$sibling', { threadRoot: '$other', body: 'Elsewhere', at: 350 })
@@ -633,7 +644,7 @@ return {roomId:privateRoomId} as never})
       triggerEventId: '$trigger' }, agentUserId)).resolves.toEqual({
       text: 'And then?',
       history: [
-        { role: 'user', text: 'Earlier' },
+        { role: 'user', text: '@spoofed:test: Earlier', senderUserId: '@authenticated:test' },
         { role: 'assistant', text: 'Answered' }
       ]
     })
@@ -720,5 +731,86 @@ return {roomId:privateRoomId} as never})
       .resolves.toEqual({ threadRootEventId: '$root' })
     await expect(openCompanyCitation(reader, { companyId, channelId: companyId, roomId, eventId: '$root' }))
       .rejects.toThrow('matrix_company_ai_unavailable')
+  })
+})
+
+
+describe('company 1.6 presentation transport',()=>{
+  function presentation() {
+    const root=event('$root'),trigger=event('$trigger',{threadRoot:'$root'})
+    const sdk=client([room()],{$root:root,$trigger:trigger})
+
+    const identity={companyId,agentPrincipal:otherCompanyId,audience:{kind:'channel' as const,channelId},roomId,
+      threadRootEventId:'$root',taskId:incarnation,invocationId:privateAttempt}
+
+    const marker={profile:'atum.agent-turns/1.6',scope:'company',...identity,revision:0}
+
+    const content={msgtype:'m.notice',body:'Working','io.atum.progress':{...marker,phase:'working',kind:'todo'},
+      'm.relates_to':{rel_type:'m.thread',event_id:'$root',is_falling_back:false,'m.in_reply_to':{event_id:'$trigger'}}}
+
+    const operation={operation:'send' as const,stream:'progress' as const,sequence:0,revision:0,targetEventId:null,
+      transactionId:'atum-company-presentation-'+ 'a'.repeat(64),content}
+
+    return {sdk,command:{kind:'companyPresentation' as const,identity,operation,triggerEventId:'$trigger'}}
+  }
+
+  it('uses the native deterministic send endpoint with exact content',async()=>{
+    const h=presentation()
+    await expect(publishCompanyPresentation(h.sdk,h.command)).resolves.toBe('$answer:test')
+    expect(h.sdk.sendEvent).toHaveBeenCalledWith(roomId,EventType.RoomMessage,h.command.operation.content,h.command.operation.transactionId)
+  })
+  it('rejects a replacement room and a trigger outside the thread',async()=>{
+    const h=presentation()
+    await expect(publishCompanyPresentation(h.sdk,{...h.command,identity:{...h.command.identity,roomId:otherRoomId}})).rejects.toThrow()
+    await expect(publishCompanyPresentation(h.sdk,{...h.command,triggerEventId:'$wrong'})).rejects.toThrow()
+    expect(h.sdk.sendEvent).not.toHaveBeenCalled()
+  })
+  it.each(['owned','sender','trigger','interim'])('verifies the original progress identity before redacting (%s)',async variant=>{
+    const h=presentation()
+    const content:any=structuredClone(h.command.operation.content)
+
+    if(variant==='trigger') {content['m.relates_to']['m.in_reply_to'].event_id='$other'}
+
+    if(variant==='interim') {content['io.atum.company']=content['io.atum.progress'];delete content['io.atum.progress']}
+
+    const original=new MatrixEvent({event_id:'$progress',room_id:roomId,
+      sender:variant==='sender'?'@other:test':agentUserId,type:EventType.RoomMessage,content})
+
+    const fetch=h.sdk.fetchRoomEvent.getMockImplementation()!
+    h.sdk.fetchRoomEvent.mockImplementation(async(room,eventId)=>eventId==='$progress'?original.event as never:fetch(room,eventId))
+    const redact=vi.fn(async()=>({event_id:'$redaction'}))
+    Object.assign(h.sdk,{redactEvent:redact})
+    const command={...h.command,operation:{...h.command.operation,operation:'redact' as const,targetEventId:'$progress'}}
+
+    if(variant==='owned') {
+      await expect(publishCompanyPresentation(h.sdk,command)).resolves.toBe('$progress')
+      expect(redact).toHaveBeenCalledWith(roomId,'$progress',command.operation.transactionId)
+    } else {
+      await expect(publishCompanyPresentation(h.sdk,command)).rejects.toThrow()
+      expect(redact).not.toHaveBeenCalled()
+    }
+  })
+  it('reads back ambiguous sends before retrying across token rotation',async()=>{
+    const h=presentation()
+
+    const found=new MatrixEvent({event_id:'$prior',room_id:roomId,sender:agentUserId,type:EventType.RoomMessage,
+      content:h.command.operation.content})
+
+    h.sdk.relations.mockResolvedValueOnce({events:[found]})
+    await expect(publishCompanyPresentation(h.sdk,{...h.command,reconcile:true})).resolves.toBe('$prior')
+    expect(h.sdk.sendEvent).not.toHaveBeenCalled()
+  })
+  it('never resends terminal ambiguous copy when read-back proves absence',async()=>{
+    const h=presentation()
+    h.sdk.relations.mockResolvedValue({events:[]})
+    await expect(publishCompanyPresentation(h.sdk,{...h.command,reconcile:true,readOnly:true}))
+      .rejects.toThrow('lookup_absent')
+    expect(h.sdk.sendEvent).not.toHaveBeenCalled()
+  })
+  it('retains uncertainty when bounded read-back cannot prove absence',async()=>{
+    const h=presentation()
+    h.sdk.relations.mockResolvedValue({events:[],nextBatch:'more'})
+    await expect(publishCompanyPresentation(h.sdk,{...h.command,reconcile:true})).rejects.toThrow('lookup_unconfirmed')
+    expect(h.sdk.sendEvent).not.toHaveBeenCalled()
   })
 })

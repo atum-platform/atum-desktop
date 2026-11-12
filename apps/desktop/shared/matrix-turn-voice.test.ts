@@ -3,14 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { MatrixInterimMessages } from './matrix-interim-messages'
 import type { MatrixNoticeEdit } from './matrix-notice-edit'
 import { MatrixProgressLine } from './matrix-progress-line'
-import { matrixAcknowledgementCopy } from './matrix-status-line-copy'
-import { MatrixTurnVoice, type MatrixTurnVoiceOptions } from './matrix-turn-voice'
+import type { matrixProgressCopy } from './matrix-status-line-copy'
+import { MatrixTurnVoice } from './matrix-turn-voice'
 
-type Locale = keyof typeof matrixAcknowledgementCopy
+type Locale = keyof typeof matrixProgressCopy
 
 const LOCALES: Locale[] = ['vi', 'en', 'ja', 'zh', 'zh-hant']
 
-function fixture(locale: Locale = 'vi', options: MatrixTurnVoiceOptions & { privateChat?: boolean } = {}) {
+function fixture(locale: Locale = 'vi', options: { privateChat?: boolean } = {}) {
   const sent: MatrixNoticeEdit[] = []
 
   const port = {
@@ -30,8 +30,7 @@ function fixture(locale: Locale = 'vi', options: MatrixTurnVoiceOptions & { priv
   const voice = new MatrixTurnVoice(
     new MatrixProgressLine(target, port, { privateChat, heartbeatText: () => 'beat' }),
     new MatrixInterimMessages(target, port, { privateChat, transactionFor: n => `atum-ci-${String(n).repeat(64)}` }),
-    locale,
-    options
+    locale
   )
 
   const messages = () => sent.filter(command => command.interim).map(command => command.body)
@@ -53,28 +52,20 @@ describe('one turn voice for the cloud, a Mac answering from the room and a Mac-
   })
 
   it('keeps the working line quiet for a tool without a category, in the owner’s language otherwise', async () => {
-    const quiet = fixture('en', { acknowledge: false })
+    const quiet = fixture('en')
     quiet.voice.event({ kind: 'tool', name: 'memory' })
     quiet.voice.event({ kind: 'tool', name: 'some_plugin_tool' })
     await quiet.drain()
     expect(quiet.sent).toEqual([])
 
-    // The acknowledgement is its own message; the working line still says nothing for such a tool.
-    const acknowledged = fixture('en')
-    acknowledged.voice.event({ kind: 'tool', name: 'some_plugin_tool' })
-    await acknowledged.drain()
-    expect(acknowledged.sent.map(command => [command.interim ? 'message' : 'line', command.body])).toEqual([
-      ['message', expect.any(String)]
-    ])
-
     const english = fixture('en')
     english.voice.event({ kind: 'tool', name: 'terminal' })
     await english.drain()
-    expect(english.sent.map(command => command.body)).toEqual([expect.any(String), 'Running a task…'])
-    expect(english.sent[1]!.interim).toBeUndefined()
+    expect(english.sent.map(command => command.body)).toEqual(['Running a task…'])
+    expect(english.sent[0]!.interim).toBeUndefined()
   })
 
-  it('at the end removes the working line, keeps the acknowledgement and takes back a remark that repeats the answer', async () => {
+  it('at the end removes the working line and takes back a remark that repeats the answer', async () => {
     const { voice, sent, drain } = fixture()
 
     voice.event({ kind: 'narration', text: 'Hôm nay bạn có hai cuộc họp.' })
@@ -94,24 +85,21 @@ describe('one turn voice for the cloud, a Mac answering from the room and a Mac-
   })
 })
 
-describe('a turn that starts work without a word is acknowledged (agent-turns/1.4: acknowledge, then keep working)', () => {
-  it('says one short line in the owner’s language when the first thing Hermes does is start a tool, ahead of the working line', async () => {
+describe('a turn that starts work without a word gets no canned opener (Atum never speaks in the agent’s place)', () => {
+  it('publishes no message of ours when the first thing Hermes does is start a tool: the working line goes out alone', async () => {
     for (const locale of LOCALES) {
       const { voice, sent, messages, drain } = fixture(locale)
 
       voice.event({ kind: 'tool', name: 'web_search' })
       await drain()
-      expect(messages(), locale).toHaveLength(1)
-      expect(matrixAcknowledgementCopy[locale], locale).toContain(messages()[0])
-      // An ordinary interim message, not a notice and not the working line; it goes out first.
-      expect(sent[0], locale).toMatchObject({ interim: true, roomId: '!room:test', eventId: '$question' })
-      expect(sent[0], locale).not.toHaveProperty('statusLine')
-      expect(sent[0], locale).not.toHaveProperty('progress')
-      expect(sent[1], locale).toMatchObject({ statusLine: true })
+      expect(messages(), locale).toEqual([])
+      expect(sent, locale).toHaveLength(1)
+      expect(sent[0], locale).toMatchObject({ statusLine: true, roomId: '!room:test', eventId: '$question' })
+      expect(sent[0], locale).not.toHaveProperty('interim')
     }
   })
 
-  it('says it once however many tools follow, and the working line keeps updating as before', async () => {
+  it('stays silent in words however many tools follow, while the working line keeps updating', async () => {
     const { voice, sent, messages, drain } = fixture('en')
 
     voice.event({ kind: 'tool', name: 'web_search' })
@@ -125,11 +113,11 @@ describe('a turn that starts work without a word is acknowledged (agent-turns/1.
       ]
     })
     await drain()
-    expect(messages()).toHaveLength(1)
-    expect(sent.filter(command => !command.interim && !command.redact).length).toBeGreaterThan(0)
+    expect(messages()).toEqual([])
+    expect(sent.filter(command => command.statusLine && !command.redact).length).toBeGreaterThan(0)
   })
 
-  it('says nothing when the agent spoke first: text and then a tool is one acknowledgement, the agent’s own', async () => {
+  it('keeps the agent’s own first sentence exactly as it said it, with nothing added', async () => {
     const { voice, messages, drain } = fixture()
 
     voice.event({ kind: 'narration', text: 'Để mình xem video này rồi tóm tắt nhé.' })
@@ -147,24 +135,16 @@ describe('a turn that starts work without a word is acknowledged (agent-turns/1.
     expect(sent).toEqual([])
   })
 
-  it('counts the todo list as work too, and a tool without a working-line word still gets the acknowledgement', async () => {
+  it('a todo list or a tool without a working-line word adds no message either', async () => {
     const plan = fixture('en')
     plan.voice.event({ kind: 'plan', todos: [{ text: 'Look', state: 'active' }] })
     await plan.drain()
-    expect(plan.messages()).toHaveLength(1)
+    expect(plan.messages()).toEqual([])
 
     const other = fixture('en')
     other.voice.event({ kind: 'tool', name: 'atum_google' })
     await other.drain()
-    expect(other.messages()).toHaveLength(1)
-    expect(other.sent).toHaveLength(1)
-  })
-
-  it('is left out for a turn with scripted words of its own, and in a group', async () => {
-    const scripted = fixture('vi', { acknowledge: false })
-    scripted.voice.event({ kind: 'tool', name: 'memory' })
-    await scripted.drain()
-    expect(scripted.sent).toEqual([])
+    expect(other.sent).toEqual([])
 
     const group = fixture('vi', { privateChat: false })
     group.voice.event({ kind: 'tool', name: 'web_search' })
@@ -172,15 +152,13 @@ describe('a turn that starts work without a word is acknowledged (agent-turns/1.
     expect(group.sent).toEqual([])
   })
 
-  it('keeps the acknowledgement at the end, removes the working line, and posts nothing a second time', async () => {
+  it('at the end removes only the working line; the answer is the turn’s only message', async () => {
     const { voice, sent, messages, drain } = fixture()
 
     voice.event({ kind: 'tool', name: 'read_file' })
     await drain()
     await voice.end('Hôm nay bạn có hai cuộc họp.')
-    expect(messages()).toHaveLength(1)
-    // Only the working line is taken back; the acknowledgement stays because the answer does not repeat it.
-    expect(sent.filter(command => command.redact).map(command => command.replaces)).toEqual(['$line-2'])
-    expect(sent.filter(command => command.interim)).toHaveLength(1)
+    expect(messages()).toEqual([])
+    expect(sent.filter(command => command.redact).map(command => command.replaces)).toEqual(['$line-1'])
   })
 })

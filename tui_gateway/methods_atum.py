@@ -17,6 +17,21 @@ _registry = HandlerRegistry()
 method = _registry.method
 
 
+@method("atum.memory.retrieve.respond")
+@method("atum.memory.current.respond")
+@method("atum.memory.invalidate.respond")
+def _memory_respond(rid, params):
+    sid = params.get("session_id")
+    with _sessions_lock:
+        session = _sessions.get(sid)
+    if (not session or session.get("transport") is not (current_transport() or _stdio_transport)):
+        return _err(rid, 4003, "memory_binding_invalid")
+    bridge = session.get("_managed_memory_bridge")
+    kind = _current_rpc_method.get().split(".")[2]
+    accepted = bridge is not None and bridge.respond(kind, params.get("request_id"), params.get("result"))
+    return _ok(rid, {"accepted": bool(accepted)})
+
+
 @method("runtime.quiesce")
 def _runtime_quiesce(rid, params: dict) -> dict:
     """Wait briefly for post-turn review so an exported home includes what the turn learned."""

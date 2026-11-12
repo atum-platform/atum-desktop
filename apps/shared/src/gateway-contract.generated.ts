@@ -117,6 +117,14 @@ export interface PetBundleFile {
   path: string
   content_base64: string
 }
+export interface MemoryRespondParams {
+  session_id: string
+  request_id: string
+  result: string
+}
+export interface MemoryRespondResult {
+  accepted: boolean
+}
 /** Any method the desktop may route to a named profile (``requestGatewayForProfile`` adds ``profile``). */
 export interface ProfileParams {
   profile?: string | null
@@ -3339,6 +3347,7 @@ export interface SessionCreateParams {
   follow_profile_config?: boolean
   idempotency_key?: string | null
   awareness_binding?: unknown | null
+  managed_memory?: unknown | null
   async_delivery?: boolean | null
 }
 /** One create-time transcript row (``session_history._coerce_seed_history``); ``text`` is the legacy alias of ``content``; only ``display_kind: "hidden"`` is accepted from the wire. Clients forward stored rows verbatim (``_row_id``, ``timestamp``, …) and the coercer drops what it does not use, so the row stays open. */
@@ -3350,6 +3359,7 @@ export interface SeedMessage {
   [key: string]: unknown
 }
 export interface SessionCreateResult {
+  managed_memory?: unknown | null
   session_id: string
   stored_session_id: string
   message_count: number
@@ -6457,6 +6467,10 @@ export interface HeartbeatSettledPayload {
 }
 /** ``change_watcher._CHANGE_WATCHES`` payload fn — ``{}`` for every watch except pet.changed. */
 export type ChangeSignalPayload = Record<string, unknown>
+export interface ManagedMemoryRequestPayload {
+  request_id: string
+  request?: unknown
+}
 export type ConnectorErrorReason = 'INVALID_PARAMS' | 'NOT_OWNER' | 'UNSUPPORTED_RUNTIME' | 'CONNECTOR_REQUEST_FAILED' | 'INVALID_CONNECTOR_RESPONSE' | 'UNKNOWN_TARGET' | 'LINK_STILL_VALID' | 'REISSUE_REFUSED' | 'UNKNOWN_OPERATION' | 'INVALID_ANSWER' | 'NEEDS_NOUS_AUTH' | 'CONNECTOR_NOT_FOUND' | 'TOOLS_UNAVAILABLE' | 'CONNECTORS_UNAVAILABLE' | 'CATALOG_UNAVAILABLE' | 'ACCOUNTS_UNAVAILABLE' | 'CONNECTION_NOT_FOUND' | 'POLICY_UNAVAILABLE' | 'POLICY_CONFLICT' | 'FORBIDDEN_SCOPE' | 'ORG_REQUIRED' | 'ORG_ACCESS_DENIED' | 'INVALID_POLICY' | 'ALIAS_TAKEN'
 
 // ── Client→server methods ──
@@ -6473,6 +6487,12 @@ export interface RpcMethods {
   'approval.received': { params: ApprovalReceivedParams; result: ApprovalReceivedResult }
   /** Deliver the user's decision on a dangerous command (falls back to durable identity on a stale sid). */
   'approval.respond': { params: ApprovalRespondParams; result: ApprovalRespondResult }
+  /** Answer a controller-bound managed memory event with a closed result. */
+  'atum.memory.current.respond': { params: MemoryRespondParams; result: MemoryRespondResult }
+  /** Answer a controller-bound managed memory event with a closed result. */
+  'atum.memory.invalidate.respond': { params: MemoryRespondParams; result: MemoryRespondResult }
+  /** Answer a controller-bound managed memory event with a closed result. */
+  'atum.memory.retrieve.respond': { params: MemoryRespondParams; result: MemoryRespondResult }
   /** Enable/disable auto top-up with its threshold and reload amount (billing:manage). */
   'billing.auto_reload': { params: BillingAutoReloadParams; result: BillingMutationResult }
   /** Start a one-off top-up charge (billing:manage, idempotent). */
@@ -7016,6 +7036,9 @@ export const RPC_METHODS = [
   'approval.pending',
   'approval.received',
   'approval.respond',
+  'atum.memory.current.respond',
+  'atum.memory.invalidate.respond',
+  'atum.memory.retrieve.respond',
   'billing.auto_reload',
   'billing.charge',
   'billing.charge_status',
@@ -7529,6 +7552,12 @@ export interface BackendGatewayEventMap {
   'agent.terminal.output': TerminalOutputPayload
   /** Pending gateway approvals were dropped by interrupt/reap/teardown; the wait resolved as deny (not a user refusal). */
   'approval.cancelled': ApprovalCancelledPayload
+  /** Ask the trusted cloud controller for bound memory authority or retrieval. */
+  'atum.memory.current.request': ManagedMemoryRequestPayload
+  /** Ask the trusted cloud controller for bound memory authority or retrieval. */
+  'atum.memory.invalidate.request': ManagedMemoryRequestPayload
+  /** Ask the trusted cloud controller for bound memory authority or retrieval. */
+  'atum.memory.retrieve.request': ManagedMemoryRequestPayload
   /** A /background side agent finished. */
   'background.complete': SideAgentCompletePayload
   /** Device-flow URL + code for the billing scope step-up; the client opens the browser. */
@@ -7691,6 +7720,9 @@ export const GATEWAY_EVENT_TYPES = [
   'agent.print',
   'agent.terminal.output',
   'approval.cancelled',
+  'atum.memory.current.request',
+  'atum.memory.invalidate.request',
+  'atum.memory.retrieve.request',
   'background.complete',
   'billing.step_up.verification',
   'bot_relay.outbox.pending',

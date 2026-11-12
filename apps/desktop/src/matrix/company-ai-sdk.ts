@@ -1,5 +1,7 @@
 import { Direction, EventStatus, EventType, Filter, type MatrixClient, MatrixEvent, MsgType, type Room } from 'matrix-js-sdk'
 
+import {canonicalJson} from '../../../../packages/device-protocol/canonical'
+import type {MatrixCompanyAISdkCommand} from '../../shared/matrix-company-ai-sdk'
 import { COMPANY_AI_WATCH_COUNTERS, type MatrixCompanyAIWatchDiagnostics } from '../../shared/matrix-company-ai-sdk'
 import type {
   MatrixCompanyAIFindPublishedRequest,
@@ -174,6 +176,7 @@ function privateCosInvite(client: MatrixClient, scope: MatrixCompanyPrivateCosSc
   const room = client.getRoom(scope.roomId)
 
   if (!room || room.roomId !== scope.roomId) {throw new Error('matrix_private_cos_room_missing')}
+
   if (room.getType() !== 'io.atum.assistant') {throw new Error('matrix_private_cos_room_type_invalid')}
 
   return room
@@ -251,8 +254,10 @@ export async function joinCompanyPrivateCosRoom(
   active: () => boolean = () => true
 ): Promise<MatrixCompanyPrivateCosJoinResult> {
   if (!active()) {return unavailable()}
+
   if (client.getUserId() !== scope.agentUserId) {throw new Error('matrix_private_cos_identity_unavailable')}
   validPrivateCosScope(scope)
+
   // PREPARED can come from a restored cache predating this room/invite. Keep the
   // session alive for live sync; activation owns the bounded wait and lease fence.
   if (!client.getRoom(scope.roomId)) {return 'join_pending'}
@@ -260,6 +265,7 @@ export async function joinCompanyPrivateCosRoom(
 
   if (room.getMyMembership() === 'join') {
     if (room.getJoinedMembers().some(member => member.userId === scope.managerUserId)) {return 'manager_pending'}
+
     try {privateCosRoom(client, scope, 'agent')}
     catch {return quarantineCompanyPrivateCosRoom(client, scope.roomId)}
 
@@ -267,6 +273,7 @@ export async function joinCompanyPrivateCosRoom(
   }
 
   if (room.getMyMembership() !== 'invite') {return 'not_invited'}
+
   const accepted = await client.joinRoom(scope.roomId).catch(error => {
     throw privateCosJoinFailure(error)
   })
@@ -280,6 +287,7 @@ export async function joinCompanyPrivateCosRoom(
 
     if (joined?.getMyMembership() === 'join') {
       if (joined.getJoinedMembers().some(member => member.userId === scope.managerUserId)) {return 'manager_pending'}
+
       try {privateCosRoom(client, scope, 'agent')}
       catch {return quarantineCompanyPrivateCosRoom(client, scope.roomId)}
 
@@ -590,11 +598,19 @@ export async function watchCompanyAI(
 
   for(const room of client.getRooms()){
     diagnostics.rooms += 1
+
     if (room.getMyMembership() !== 'join') {continue}
     diagnostics.joined += 1
     const binding = roomBinding(room)
-    if (!binding) { diagnostics.unbound += 1; continue }
-    if(binding.companyId!==command.companyId){diagnostics.otherCompany += 1; continue}
+
+    if (!binding) { diagnostics.unbound += 1;
+
+ continue }
+
+    if(binding.companyId!==command.companyId){diagnostics.otherCompany += 1;
+
+ continue}
+
     diagnostics.bound += 1
 
     if(room.currentState.getStateEvents(EventType.RoomEncryption,'')){return unavailable()}
@@ -646,6 +662,7 @@ export async function watchCompanyAI(
     fetches+=1
     const page=await forwardWatchPage(client,room,previous.token,WATCH_EVENTS_PER_ROOM,active)
     diagnostics.pages += 1
+
     if (page.token !== previous.token) {diagnostics.checkpointMoved += 1}
     positions.set(room.roomId,{roomId:room.roomId,token:page.token,liveEventId,draining:page.draining})
     lastVisited=room.roomId
@@ -656,18 +673,31 @@ export async function watchCompanyAI(
       const content = event.getContent()
 
       diagnostics.scanned += 1
+
       if (!eventId || !EVENT_ID.test(eventId) || !Number.isSafeInteger(at)) {
-        diagnostics.invalid += 1; continue
+        diagnostics.invalid += 1;
+
+ continue
       }
-      if (event.getSender() === command.agentUserId) { diagnostics.self += 1; continue }
-      if (textContent(event) === null) { diagnostics.nonText += 1; continue }
-      if (!mentionedUserIds(content).includes(command.agentUserId)) { diagnostics.notMentioned += 1; continue }
+
+      if (event.getSender() === command.agentUserId) { diagnostics.self += 1;
+
+ continue }
+
+      if (textContent(event) === null) { diagnostics.nonText += 1;
+
+ continue }
+
+      if (!mentionedUserIds(content).includes(command.agentUserId)) { diagnostics.notMentioned += 1;
+
+ continue }
 
       const relation = relatedTo(content)
 
       if ((relation?.rel_type !== undefined && relation.rel_type !== 'm.thread') ||
           (relation?.rel_type === 'm.thread' && threadRootOf(content) === null)) {
         diagnostics.relation += 1
+
         continue
       }
 
@@ -925,7 +955,7 @@ export async function readCompanyAIQuestion(
   command: { companyId: string; channelId: string; threadRootEventId: string; triggerEventId: string },
   agentUserId: string,
   active: () => boolean = () => true
-): Promise<{ text: string; history: Array<{ role: 'user' | 'assistant'; text: string }> }> {
+): Promise<{ text: string; history: Array<{ role: 'user' | 'assistant'; text: string; senderUserId?: string }> }> {
   if (!active() || !UUID.test(command.companyId) || !EVENT_ID.test(command.threadRootEventId) ||
       !EVENT_ID.test(command.triggerEventId) || !USER_ID.test(agentUserId)) {
     return unavailable()
@@ -954,7 +984,7 @@ export async function readCompanyAIQuestion(
   }
 
   const text = bounded(textContent(trigger) ?? '', QUESTION_LIMIT)
-  const history: Array<{ role: 'user' | 'assistant'; text: string }> = []
+  const history: Array<{ role: 'user' | 'assistant'; text: string; senderUserId?: string }> = []
   let total = 0
 
   for (const event of orderedThread(room, rootId, command.triggerEventId).reverse()) {
@@ -965,7 +995,9 @@ export async function readCompanyAIQuestion(
     }
 
     total += body.length
-    history.unshift({ role: event.getSender() === agentUserId ? 'assistant' : 'user', text: body })
+    const ours = event.getSender() === agentUserId
+    history.unshift({ role: ours ? 'assistant' : 'user', text: body,
+      ...(!ours ? { senderUserId: event.getSender()! } : {}) })
 
     if (history.length === HISTORY_LIMIT) {
       break
@@ -1275,13 +1307,112 @@ export async function readCompanyAIJoinedMembers(client: MatrixClient,
   const room = companyChannelRoom(client, input.companyId, input.channelId)
   // Own deadline: the engine command's 30 s timeout must not consume the turn budget.
   let timer: ReturnType<typeof setTimeout> | undefined
+
   const result = await Promise.race([
     client.members(room.roomId, 'join'),
     new Promise<never>((_, reject) => { timer = setTimeout(() => reject(Error('matrix_roster_timeout')), 5_000) })
   ]).finally(() => clearTimeout(timer))
+
   if (!active() || companyChannelRoom(client, input.companyId, input.channelId) !== room) {return unavailable()}
+
   return result.chunk.filter(member => member.room_id === room.roomId && member.type === EventType.RoomMember &&
     member.content.membership === 'join' && typeof member.state_key === 'string')
     .map(member => ({userId: member.state_key!, displayName: typeof member.content.displayname === 'string'
       ? member.content.displayname.slice(0, 1024) : null}))
+}
+
+/** Controller-authorized company presentation, using native send/edit/redact operations. */
+export async function publishCompanyPresentation(client:MatrixClient,
+  command:Extract<MatrixCompanyAISdkCommand,{kind:'companyPresentation'}>):Promise<string> {
+  const {identity,operation,triggerEventId}=command
+
+  if (!/^atum-company-presentation-[a-f0-9]{64}$/u.test(operation.transactionId) ||
+      !EVENT_ID.test(identity.threadRootEventId) || !EVENT_ID.test(triggerEventId)) {return unavailable()}
+
+  if (identity.audience.kind==='private' && (!command.privateScope ||
+      command.privateScope.companyId!==identity.companyId || command.privateScope.memberPrincipal!==identity.audience.memberPrincipal ||
+      command.privateScope.membershipIncarnation!==identity.audience.membershipIncarnation)) {return unavailable()}
+
+  const room=identity.audience.kind==='channel' ? companyChannelRoom(client,identity.companyId,identity.audience.channelId) :
+    command.privateScope ? privateCosRoom(client,command.privateScope,'pair') : unavailable()
+
+  if (room.roomId!==identity.roomId) {return unavailable()}
+  await requireFlatCompanyTarget(client,room,identity.threadRootEventId,triggerEventId)
+
+  if (operation.targetEventId) {
+    const raw=await client.fetchRoomEvent(room.roomId,operation.targetEventId)
+
+    if (!record(raw)) {return unavailable()}
+    const original=new MatrixEvent(raw as never)
+
+    if (original.getId()!==operation.targetEventId || original.getRoomId()!==room.roomId ||
+        original.getType()!==EventType.RoomMessage || original.isDecryptionFailure()) {return unavailable()}
+
+    if (operation.operation==='redact' && original.getSender()===client.getUserId() && original.isRedacted()) {return operation.targetEventId}
+    const content=original.getContent()
+    const marker=content['io.atum.progress']??content['io.atum.company']
+
+    if (operation.operation==='redact' && (!content['io.atum.progress'] ||
+        content['m.relates_to']?.rel_type!=='m.thread' ||
+        content['m.relates_to']?.event_id!==identity.threadRootEventId ||
+        content['m.relates_to']?.['m.in_reply_to']?.event_id!==triggerEventId)) {return unavailable()}
+
+    if (original.getSender()!==client.getUserId() || !marker || marker.profile!=='atum.agent-turns/1.6' ||
+        Object.entries(identity).some(([key,value])=>canonicalJson(marker[key])!==canonicalJson(value))) {return unavailable()}
+  }
+
+  if (command.readOnly && !command.reconcile) {return unavailable()}
+
+  if (operation.operation==='redact') {
+    if (command.readOnly) {throw Error('matrix_company_presentation_lookup_unconfirmed')}
+
+    if (!operation.targetEventId) {return unavailable()}
+    await client.redactEvent(room.roomId,operation.targetEventId,operation.transactionId)
+
+    return operation.targetEventId
+  }
+
+  // Adopt final-publication read-back before resending across access-token rotation.
+  // A bounded, incomplete or undecryptable scan cannot prove absence.
+  if (command.reconcile) {
+    let from:string|undefined
+    let uncertain=false
+    let covered=false
+
+    for (let page=0;page<PUBLICATION_SCAN_PAGES;page++) {
+      const batch=await client.relations(room.roomId,operation.targetEventId??identity.threadRootEventId,
+        operation.operation==='edit'?'m.replace':'m.thread',EventType.RoomMessage,
+        {from,limit:PUBLICATION_SCAN_LIMIT,dir:Direction.Backward})
+
+      for (const event of batch.events) {
+        if (event.getSender()!==client.getUserId()) {continue}
+
+        if (event.isDecryptionFailure() || event.getType()===EventType.RoomMessageEncrypted) {uncertain=true;
+
+continue}
+
+        if (canonicalJson(event.getOriginalContent())===canonicalJson(operation.content) ||
+            unsignedTransaction(event)===operation.transactionId) {
+          const id=event.getId()
+
+          if (id&&EVENT_ID.test(id)) {return id}
+        }
+      }
+
+      if (!batch.nextBatch) {covered=true;
+
+break}
+
+      from=batch.nextBatch
+    }
+
+    if (!covered || uncertain) {throw Error('matrix_company_presentation_lookup_unconfirmed')}
+  }
+
+  if (command.readOnly) {throw Error('matrix_company_presentation_lookup_absent')}
+
+  const eventId=await sendWithTransaction(client,room.roomId,operation.transactionId,()=>client.sendEvent(
+    room.roomId,EventType.RoomMessage,operation.content as never,operation.transactionId))
+
+  return typeof eventId==='string'&&EVENT_ID.test(eventId)?eventId:unavailable()
 }

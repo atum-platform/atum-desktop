@@ -1039,6 +1039,9 @@ class SessionSearchMixin:
     def _finalize_search_matches(
         self, matches: list[dict[str, Any]], result_fields: Optional[Collection[str]] = None) -> list[dict[str, Any]]:
         """Attach neighboring messages in bounded batches, only when context is requested."""
+        from agent.memory_run_lifecycle import RETIRED
+        retired = {key[len(RETIRED):] for key, _ in self.list_meta_prefix(RETIRED)}
+        matches = [match for match in matches if match.get("session_id") not in retired]
         if result_fields is None or "context" in result_fields:
             for start in range(0, len(matches), 500):
                 batch = matches[start:start + 500]

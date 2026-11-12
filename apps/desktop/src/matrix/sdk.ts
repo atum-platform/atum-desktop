@@ -125,6 +125,7 @@ import {
   leaveCompanyPrivateCosRoom,
   openCompanyCitation,
   publishCompanyOnboardingWelcome,
+  publishCompanyPresentation,
   publishCompanyPrivateCos,
   publishCompanyPrivateCosGreeting,
   publishCompanyThread,
@@ -539,6 +540,7 @@ async function appBotCurrentMembers(
   roomId: string
 ): Promise<Array<AppBotAudienceMember & { displayName?: string }>> {
   const current = await client.members(roomId)
+
   return current.chunk
     .filter(member => typeof member.content.membership === 'string' && typeof member.state_key === 'string')
     .map(member => ({
@@ -676,6 +678,7 @@ export async function startMatrixSdk(
   offerUndecryptable: (observation: MatrixUndecryptableObservation) => void = () => {}
 ) {
   const appBotMode = configuration.mode === 'app-bot'
+
   const initialPrivateCosNotificationRoomIds = matrixCompanyPrivateCosNotificationRoomIds(
     configuration.companyPrivateCosNotificationRoomIds ?? []
   )
@@ -1479,11 +1482,13 @@ export async function startMatrixSdk(
 
   async function assertAppBotDirectAudience(roomId: string, directPerson: string): Promise<void> {
     let members: AppBotAudienceMember[]
+
     try {
       members = await appBotCurrentMembers(client, roomId)
     } catch {
       throw new AppBotAudienceError(APP_BOT_AUDIENCE_UNKNOWN)
     }
+
     if (!appBotDirectSafe(members, configuration.userId, directPerson)) {
       throw new AppBotAudienceError(APP_BOT_AUDIENCE_CHANGED)
     }
@@ -3138,6 +3143,7 @@ export async function startMatrixSdk(
 
       case 'companyAIJoinedMembers':
         if (state !== 'ready') {throw new Error('matrix_company_ai_unavailable')}
+
         return readCompanyAIJoinedMembers(client, command, () => !stopped && state === 'ready')
 
       case 'companyAIQuestion':
@@ -3151,6 +3157,11 @@ export async function startMatrixSdk(
           configuration.userId,
           () => !stopped && state === 'ready'
         )
+
+      case 'companyPresentation':
+        if (state !== 'ready') {throw new Error('matrix_company_ai_unavailable')}
+
+        return publishCompanyPresentation(client, command)
 
       case 'companyAIPublish':
         if (state !== 'ready') {
@@ -4771,6 +4782,7 @@ export async function startMatrixSdk(
 
         const send = async () => {
           await assertAppBotDirectAudience(command.roomId, command.directPerson)
+
           if (!command.photo) {
             return client.sendEvent(command.roomId, EventType.RoomMessage, { msgtype: MsgType.Text, body: command.body, ...formatted, ...relation, 'io.atum.bot_api': command.metadata } as never, command.transactionId)
           }
@@ -4803,6 +4815,7 @@ export async function startMatrixSdk(
         // Every retry re-reads server membership even if transaction read-back can
         // confirm an earlier send without entering `send` again.
         await assertAppBotDirectAudience(command.roomId, command.directPerson)
+
         return await sendWithTransaction(client, command.roomId, command.transactionId, send)
       }
 

@@ -1,0 +1,7 @@
+{
+  "contract": "atum.company-agent/1",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "087aa7bc5e415dd8d22b0391a4cccda78d40ece5",
+  "path": "spec/company-agent/v1",
+  "sha256": "6d4e07e3acc3401d0a58c28f10df08a834a84401c44aa7c2f9d93b983c34c2ce"
+}

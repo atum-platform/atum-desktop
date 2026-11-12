@@ -17,6 +17,13 @@ import {
 } from '../../shared/matrix-company-channel-room'
 import { MATRIX_COMPANY_FILE, matrixCompanyFileContent } from '../../shared/matrix-company-files'
 import {
+  matrixCompanyPresentationClaimed,
+  matrixCompanyPresentationContent,
+  type MatrixCompanyPresentationContent,
+  matrixCompanyPresentationEdit,
+  sameMatrixCompanyTurn
+} from '../../shared/matrix-company-presentation'
+import {
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT,
   matrixCompanyPrivateCosRoomBinding
 } from '../../shared/matrix-company-private-cos-claim'
@@ -58,6 +65,71 @@ export function companyChannelBinding(room: Room | undefined) {
   const creation = room?.currentState.getStateEvents(EventType.RoomCreate, '')
 
   return creation ? companyRoomTargetBinding(creation.getContent(), creation.getSender()) : undefined
+}
+
+/**
+ * A company agent's working line or interim remark (agent-turns/1.6) as far as this room can check
+ * it: a strict content (the accepted edit's full new content, when edited: `shownContent`) whose
+ * identity is the original's and whose revision is above it; the event's own `m.thread` relation to the marker's root; the marker
+ * naming this room; and its company and audience matching the room's immutable binding (a channel's
+ * create binding, or a private Chief of Staff room's exact state marker). The renderer then requires
+ * the sender to be the room's bound agent. Anything else is not company presentation.
+ */
+export function companyPresentationOf(
+  event: MatrixEvent,
+  original: Record<string, unknown>,
+  content: Record<string, unknown>,
+  edited: boolean,
+  room: Room | undefined
+): MatrixCompanyPresentationContent | undefined {
+  const shown = matrixCompanyPresentationContent(content)
+  const first = edited ? matrixCompanyPresentationContent(original) : shown
+
+  if (
+    !room ||
+    !shown ||
+    !first ||
+    first.stream !== shown.stream ||
+    !sameMatrixCompanyTurn(first.identity, shown.identity) ||
+    (edited ? shown.identity.revision <= first.identity.revision : shown.identity.revision !== first.identity.revision)
+  ) {
+    return undefined
+  }
+
+  const relation = relationOf(event)
+  const roomId = event.getRoomId() ?? room.roomId
+
+  if (
+    relation?.rel_type !== 'm.thread' ||
+    relation.event_id !== shown.identity.threadRootEventId ||
+    roomId !== room.roomId ||
+    shown.identity.roomId !== roomId
+  ) {
+    return undefined
+  }
+
+  const audience = shown.identity.audience
+
+  if (audience.kind === 'channel') {
+    const binding = companyChannelBinding(room)
+
+    return binding?.target.kind === 'channel' &&
+      binding.companyId === shown.identity.companyId &&
+      binding.target.channelId === audience.channelId
+      ? shown
+      : undefined
+  }
+
+  const marker = room.currentState.getStateEvents(MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT, '')
+
+  const binding = marker && !Array.isArray(marker)
+    ? matrixCompanyPrivateCosRoomBinding(room.getType(), marker.getType(), marker.getStateKey(), marker.getContent())
+    : undefined
+
+  return binding?.companyId === shown.identity.companyId &&
+    binding.membershipIncarnation === audience.membershipIncarnation
+    ? shown
+    : undefined
 }
 
 function privateCosGreetingLinks(
@@ -104,23 +176,118 @@ function privateCosGreetingLinks(
     : undefined
 }
 
+type Shown = { content: Record<string, unknown>; edited: boolean; editedAt?: number }
+
+/** A replacement that may count at all: the original sender's, readable, not taken back. */
+function usableReplacement(replacement: MatrixEvent | undefined, sender: string | undefined): replacement is MatrixEvent {
+  return (
+    replacement !== undefined &&
+    replacement.getSender() === sender &&
+    !replacement.isDecryptionFailure() &&
+    !replacement.isRedacted() &&
+    replacement.status !== EventStatus.CANCELLED
+  )
+}
+
+const settledCompanyContent = (content: MatrixCompanyPresentationContent) =>
+  content.stream === 'progress' && content.progress.phase === 'settled'
+
+/**
+ * A company line's or remark's current content (agent-turns/1.6): every edit of its sender is read
+ * whole (`matrixCompanyPresentationEdit`) and must keep the original's identity. Revisions only go up:
+ * edits apply in revision order (of conflicting edits of one revision the lowest event ID counts, and a
+ * retry of a revision already shown is ignored), however late one
+ * arrives, so a later-sent lower revision never replaces a higher one. Settled is a terminal fence:
+ * once the original or an accepted edit says settled, nothing after it is read, so a late edit never
+ * resurrects the line. Without a valid edit the original shows unedited. This reads only the edits that
+ * survive; a settled fact seen once outlives a later redaction of its edit in the renderer's turn memory
+ * (`matrixHideEndedTransientLines`).
+ */
+function companyShownContent(event: MatrixEvent, original: Record<string, unknown>, room: Room | undefined): Shown {
+  const first = matrixCompanyPresentationContent(original)
+  const id = event.getId()
+
+  if (!first || !id || settledCompanyContent(first)) {
+    return { content: original, edited: false }
+  }
+
+  const sender = event.getSender()
+
+  const candidates = new Set(
+    room?.relations.getChildEventsForEvent(id, RelationType.Replace, EventType.RoomMessage)?.getRelations() ?? []
+  )
+
+  const latest = event.replacingEvent()
+
+  if (latest) {
+    candidates.add(latest)
+  }
+
+  const accepted = [...candidates]
+    .flatMap(replacement => {
+      if (!usableReplacement(replacement, sender)) {
+        return []
+      }
+
+      const content = replacement.getContent()
+      const next = matrixCompanyPresentationEdit({ ...content, 'm.relates_to': relationOf(replacement) }, id)
+
+      return next &&
+        next.stream === first.stream &&
+        sameMatrixCompanyTurn(first.identity, next.identity) &&
+        next.identity.revision > first.identity.revision
+        ? [
+            {
+              next,
+              content: content['m.new_content'] as Record<string, unknown>,
+              at: replacement.getTs(),
+              id: replacement.getId() ?? ''
+            }
+          ]
+        : []
+    })
+    // Conflicting edits of one revision: the lowest event ID wins, whatever their timestamps or the
+    // order they arrived in, so every client shows the same one.
+    .sort(
+      (left, right) =>
+        left.next.identity.revision - right.next.identity.revision ||
+        (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+    )
+
+  let shown: (typeof accepted)[number] | undefined
+
+  for (const edit of accepted) {
+    if (shown?.next.identity.revision === edit.next.identity.revision) {
+      continue
+    }
+
+    shown = edit
+
+    if (settledCompanyContent(edit.next)) {
+      break
+    }
+  }
+
+  return shown ? { content: shown.content, edited: true, editedAt: shown.at } : { content: original, edited: false }
+}
+
 /**
  * What a message shows now: its sender's latest standard edit (`m.replace`), or what it said
  * first. The SDK applies a replacement only from the same sender, but a server's bundled
  * edit skips that check, so it is made here again; a replacement still being decrypted, or
- * without a text body, leaves the message as it was.
+ * without a text body, leaves the message as it was. A company line or remark (agent-turns/1.6)
+ * follows its own edit rules (`companyShownContent`), which need the room's relations.
  */
-export function shownContent(event: MatrixEvent): { content: Record<string, unknown>; edited: boolean; editedAt?: number } {
+export function shownContent(event: MatrixEvent, room?: Room): Shown {
   const original = event.getOriginalContent()
-  const replacement = event.replacingEvent()
 
-  if (
-    !replacement ||
-    replacement.getSender() !== event.getSender() ||
-    replacement.isDecryptionFailure() ||
-    replacement.isRedacted() ||
-    replacement.status === EventStatus.CANCELLED
-  ) {
+  if (matrixCompanyPresentationClaimed(original)) {
+    return companyShownContent(event, original, room)
+  }
+
+  const replacement = event.replacingEvent() ?? undefined
+
+  if (!usableReplacement(replacement, event.getSender())) {
     return { content: original, edited: false }
   }
 
@@ -248,7 +415,7 @@ export function matrixMessage(
   // Markers and relations come from the message as first sent; only what it shows follows
   // its sender's latest edit.
   const original = event.getOriginalContent()
-  const { content, edited, editedAt } = failed ? { content: original, edited: false } : shownContent(event)
+  const { content, edited, editedAt } = failed ? { content: original, edited: false } : shownContent(event, room)
   const mentions = failed ? undefined : matrixMentionProjection(content['m.mentions'])
   const privateCosGreeting = failed ? undefined : privateCosGreetingLinks(event, content, room)
   // Versioned bot-api presentation metadata is read from a bot's own event only. The renderer
@@ -337,12 +504,22 @@ export function matrixMessage(
 
   const petCommands = !failed && !edited ? parseMatrixPetReply(original) : undefined
 
-  // The agent's one progress line (agent-turns/1.3), from its latest content. Only the agent
-  // itself can edit it, so a stranger's copy of the marker is never read as one.
-  const progress = !failed && !own && content.msgtype === 'm.notice' ? matrixProgressMarker(content) : undefined
+  // A content claiming the company profile (agent-turns/1.6) is read only as company presentation,
+  // never as a personal marker: dispatch is by exact profile and scope.
+  const companyClaimed = !failed && matrixCompanyPresentationClaimed(content)
+  const company = companyClaimed && !own ? companyPresentationOf(event, original, content, edited, room) : undefined
 
-  // The agent's interim remark (agent-turns/1.4): a real message that is not the answer.
-  const interim = !failed && !own && matrixInterimMarker(content)
+  // The agent's one progress line (agent-turns/1.3, or 1.6 for a company agent), from its latest
+  // content. Only the agent itself can edit it, so a stranger's copy of the marker is never read as one.
+  const progress =
+    !failed && !own && content.msgtype === 'm.notice'
+      ? companyClaimed
+        ? company?.stream === 'progress' ? company.progress : undefined
+        : matrixProgressMarker(content)
+      : undefined
+
+  // The agent's interim remark (agent-turns/1.4, or 1.6): a real message that is not the answer.
+  const interim = !failed && !own && (companyClaimed ? company?.stream === 'interim' : matrixInterimMarker(content))
 
   return {
     id,
@@ -373,6 +550,7 @@ export function matrixMessage(
     ...(edited && !progress ? { edited: true, editedAt } : {}),
     ...(progress ? { progress } : {}),
     ...(interim ? { interim: true as const } : {}),
+    ...(company ? { company: { ...company.identity, revisedAt: editedAt ?? event.getTs() } } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

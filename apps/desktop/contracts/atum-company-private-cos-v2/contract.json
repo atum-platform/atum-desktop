@@ -1,0 +1,719 @@
+{
+  "contract_id": "atum.company-private-cos",
+  "version": 2,
+  "status": "frozen",
+  "protocol_release": "0.8.2",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/capability.json",
+    "fixtures/dispatch-invalid-grant-agentPrincipal.json",
+    "fixtures/dispatch-invalid-grant-audience-companyId.json",
+    "fixtures/dispatch-invalid-grant-executorId.json",
+    "fixtures/dispatch-invalid-invocationId.json",
+    "fixtures/dispatch-invalid-session-homeId.json",
+    "fixtures/dispatch-invalid-taskId.json",
+    "fixtures/dispatch.json"
+  ],
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "cloud-controller",
+    "desktop",
+    "native Hermes bridge"
+  ],
+  "base": {
+    "contract": "atum.company-private-cos/1.3",
+    "path": "spec/company-private-cos/v1.3",
+    "sha256": "27f221629350fff7b483f8d0e04e1aef60a88523dcca809b2b33860dbc3c3731",
+    "rule": "new major; predecessor recovery only; never downgrade a new native turn"
+  },
+  "selection": {
+    "profile": "atum.company-private-cos/2",
+    "unsupported": "update_required; never silently downgrade"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "digest": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "counter": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "room_id": {
+      "type": "string",
+      "min": 4,
+      "max": 512,
+      "pattern": "![!-9;-~]{1,255}:[!-~]{1,255}"
+    },
+    "event_id": {
+      "type": "string",
+      "min": 2,
+      "max": 512,
+      "pattern": "[$][!-~]+"
+    },
+    "lease_token": {
+      "type": "string",
+      "min": 32,
+      "max": 512,
+      "pattern": "[A-Za-z0-9_-]{32,512}"
+    },
+    "audience": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "private_pair"
+        },
+        "companyId": {
+          "ref": "uuid"
+        },
+        "memberPrincipal": {
+          "ref": "uuid"
+        },
+        "membershipIncarnation": {
+          "ref": "uuid"
+        },
+        "roomId": {
+          "ref": "room_id"
+        },
+        "audiencePartitionId": {
+          "ref": "uuid"
+        },
+        "disclosureEpoch": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "owner": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "company"
+        },
+        "companyId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "payer": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "company_wallet"
+        },
+        "companyId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home": {
+      "type": "object",
+      "required": {
+        "companyId": {
+          "ref": "uuid"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "audiencePartitionId": {
+          "ref": "uuid"
+        },
+        "homeId": {
+          "ref": "uuid"
+        },
+        "disclosureEpoch": {
+          "ref": "generation"
+        },
+        "generation": {
+          "ref": "counter"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_lease": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "holderId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "lease_token"
+        },
+        "leaseGeneration": {
+          "ref": "generation"
+        },
+        "expiresAtMs": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "session_link": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "threadRootEventId": {
+          "ref": "event_id"
+        },
+        "nativeSessionId": {
+          "ref": "uuid"
+        },
+        "conversationEpoch": {
+          "ref": "generation"
+        },
+        "profileDigest": {
+          "ref": "digest"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "capability": {
+      "type": "object",
+      "required": {
+        "profile": {
+          "const": "atum.company-agent/1"
+        },
+        "runtime": {
+          "const": "cloud_agent"
+        },
+        "toolProfile": {
+          "const": "peer"
+        },
+        "promptSchemaSnapshot": {
+          "const": "conversation_epoch"
+        },
+        "deltaStreaming": {
+          "const": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "binding": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "profile": {
+          "const": "atum.company-agent/1"
+        },
+        "owner": {
+          "ref": "owner"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "assignmentEpoch": {
+          "ref": "generation"
+        },
+        "authorityGeneration": {
+          "ref": "generation"
+        },
+        "audience": {
+          "ref": "audience"
+        },
+        "home": {
+          "ref": "home"
+        },
+        "capability": {
+          "ref": "capability"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "slice": {
+      "type": "object",
+      "required": {
+        "fundingReservationId": {
+          "ref": "uuid"
+        },
+        "cloudAdmissionReservationId": {
+          "ref": "uuid"
+        },
+        "payer": {
+          "ref": "payer"
+        },
+        "ceilingMicroProtons": {
+          "ref": "generation"
+        },
+        "computeSeconds": {
+          "type": "integer",
+          "min": 1,
+          "max": 86400
+        },
+        "startedAtMs": {
+          "ref": "counter"
+        },
+        "hardDeadlineMs": {
+          "ref": "generation"
+        },
+        "expiresAtMs": {
+          "ref": "generation"
+        },
+        "settlementMarginMs": {
+          "ref": "generation"
+        },
+        "maxRequests": {
+          "const": 1000
+        },
+        "maxConcurrent": {
+          "const": 8
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "grant": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "state": {
+          "const": "active"
+        },
+        "grantProfile": {
+          "const": "atum.company-private-cos/2"
+        },
+        "owner": {
+          "ref": "owner"
+        },
+        "payer": {
+          "ref": "payer"
+        },
+        "agentPrincipal": {
+          "ref": "uuid"
+        },
+        "executorId": {
+          "ref": "uuid"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "audience": {
+          "ref": "audience"
+        },
+        "lease": {
+          "ref": "home_lease"
+        },
+        "reservationId": {
+          "ref": "uuid"
+        },
+        "funding": {
+          "const": "company_wallet"
+        },
+        "slice": {
+          "ref": "slice"
+        },
+        "alias": {
+          "const": "default"
+        },
+        "model": {
+          "const": "nguyet-thuc"
+        },
+        "effort": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ]
+        },
+        "policyDigest": {
+          "ref": "digest"
+        },
+        "contextBudget": {
+          "ref": "generation"
+        },
+        "outputBudget": {
+          "ref": "generation"
+        },
+        "maxTurnMicroProtons": {
+          "ref": "generation"
+        },
+        "toolProfile": {
+          "const": "peer"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "dispatch": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "state": {
+          "const": "dispatched"
+        },
+        "modelToken": {
+          "type": "string",
+          "min": 43,
+          "max": 43,
+          "pattern": "[A-Za-z0-9_-]{43}"
+        },
+        "binding": {
+          "ref": "binding"
+        },
+        "taskId": {
+          "ref": "uuid"
+        },
+        "invocationId": {
+          "ref": "uuid"
+        },
+        "grant": {
+          "ref": "grant"
+        },
+        "session": {
+          "ref": "session_link"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "private_capability": {
+      "type": "object",
+      "required": {
+        "schemaVersion": {
+          "const": 5
+        },
+        "profile": {
+          "const": "atum.company-private-cos/2"
+        },
+        "wire": {
+          "type": "object",
+          "required": {
+            "header": {
+              "const": "Atum-Company-Wire"
+            },
+            "value": {
+              "const": "2"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        "execution": {
+          "ref": "capability"
+        },
+        "fundingProfile": {
+          "const": "atum.company-funding/2.2"
+        },
+        "roomType": {
+          "const": "io.atum.assistant"
+        },
+        "roomEncrypted": {
+          "const": false
+        },
+        "greetingVersion": {
+          "const": 2
+        },
+        "ensureLocale": {
+          "const": true
+        },
+        "purgeAfterDays": {
+          "const": 30
+        },
+        "userExport": {
+          "const": false
+        },
+        "retiredIncarnationRestore": {
+          "const": false
+        }
+      },
+      "optional": {},
+      "additional": false
+    }
+  },
+  "directions": {
+    "authority": {
+      "from": "authenticated platform authority",
+      "to": "bound controller",
+      "forbidden_fields": [
+        "ownerUserId",
+        "personalWallet",
+        "renewableSegments"
+      ]
+    }
+  },
+  "messages": {
+    "capability": {
+      "direction": "authority",
+      "schema": {
+        "ref": "private_capability"
+      },
+      "runtime_schema": "CompanyPrivateCosCapabilityV2Schema"
+    },
+    "dispatch": {
+      "direction": "authority",
+      "schema": {
+        "ref": "dispatch"
+      },
+      "runtime_schema": "CompanyPrivateCosDispatchV2Schema"
+    }
+  },
+  "invariants": [
+    {
+      "id": "grant-grant-company-0",
+      "message": "dispatch",
+      "op": "same",
+      "left": "grant.owner.companyId",
+      "right": "grant.audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-grant-company-1",
+      "message": "dispatch",
+      "op": "same",
+      "left": "grant.payer.companyId",
+      "right": "grant.audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-grant-company-2",
+      "message": "dispatch",
+      "op": "same",
+      "left": "grant.slice.payer.companyId",
+      "right": "grant.audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-grant-admission",
+      "message": "dispatch",
+      "op": "same",
+      "left": "grant.reservationId",
+      "right": "grant.slice.cloudAdmissionReservationId",
+      "required": true
+    },
+    {
+      "id": "grant-grant-distinct-reservations",
+      "message": "dispatch",
+      "op": "not_same",
+      "left": "grant.slice.fundingReservationId",
+      "right": "grant.slice.cloudAdmissionReservationId",
+      "required": true
+    },
+    {
+      "id": "grant-grant-call-ceiling",
+      "message": "dispatch",
+      "op": "le",
+      "left": "grant.maxTurnMicroProtons",
+      "right": [
+        "grant.slice.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "grant-slice-deadline",
+      "message": "dispatch",
+      "op": "le",
+      "left": "grant.slice.hardDeadlineMs",
+      "right": [
+        "grant.slice.startedAtMs"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "grant-peer-slice",
+      "message": "dispatch",
+      "op": "peer_funded_slice",
+      "left": "grant.slice",
+      "right": [],
+      "required": true
+    },
+    {
+      "id": "grant-slice-positive-time",
+      "message": "dispatch",
+      "op": "le",
+      "left": "grant.slice.startedAtMs",
+      "right": [
+        "grant.slice.hardDeadlineMs"
+      ],
+      "required": true,
+      "offset": -1
+    },
+    {
+      "id": "binding-binding-company-0",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.owner.companyId",
+      "right": "binding.audience.companyId",
+      "required": true
+    },
+    {
+      "id": "binding-binding-company-1",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.home.companyId",
+      "right": "binding.audience.companyId",
+      "required": true
+    },
+    {
+      "id": "binding-binding-home-agentPrincipal",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.home.agentPrincipal",
+      "right": "binding.agentPrincipal",
+      "required": true
+    },
+    {
+      "id": "binding-binding-home-audiencePartitionId",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.home.audiencePartitionId",
+      "right": "binding.audience.audiencePartitionId",
+      "required": true
+    },
+    {
+      "id": "binding-binding-home-disclosureEpoch",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.home.disclosureEpoch",
+      "right": "binding.audience.disclosureEpoch",
+      "required": true
+    },
+    {
+      "id": "dispatch-taskId",
+      "message": "dispatch",
+      "op": "same",
+      "left": "taskId",
+      "right": "grant.taskId",
+      "required": true
+    },
+    {
+      "id": "dispatch-invocationId",
+      "message": "dispatch",
+      "op": "same",
+      "left": "invocationId",
+      "right": "grant.invocationId",
+      "required": true
+    },
+    {
+      "id": "dispatch-audience",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.audience",
+      "right": "grant.audience",
+      "required": true
+    },
+    {
+      "id": "dispatch-home",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.home.homeId",
+      "right": "session.homeId",
+      "required": true
+    },
+    {
+      "id": "dispatch-session-lease",
+      "message": "dispatch",
+      "op": "same",
+      "left": "session.homeId",
+      "right": "grant.lease.homeId",
+      "required": true
+    },
+    {
+      "id": "dispatch-agent",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.agentPrincipal",
+      "right": "grant.agentPrincipal",
+      "required": true
+    },
+    {
+      "id": "dispatch-executor",
+      "message": "dispatch",
+      "op": "same",
+      "left": "binding.executorId",
+      "right": "grant.executorId",
+      "required": true
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/capability.json",
+      "message": "capability",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-grant-agentPrincipal.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-grant-audience-companyId.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-grant-executorId.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-invocationId.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-session-homeId.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch-invalid-taskId.json",
+      "message": "dispatch",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/dispatch.json",
+      "message": "dispatch",
+      "expect": "accept"
+    }
+  ]
+}

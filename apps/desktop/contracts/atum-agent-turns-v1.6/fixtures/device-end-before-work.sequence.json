@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "routed",
+      "event": "mac_selected"
+    },
+    {
+      "from": "routed",
+      "to": "ended",
+      "event": "turn_ended"
+    }
+  ]
+}

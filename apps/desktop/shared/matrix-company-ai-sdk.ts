@@ -1,3 +1,4 @@
+import type {CompanyPresentationIdentity, CompanyPresentationOperation} from './matrix-company-presentation'
 /**
  * Controller-only Company AI SDK commands.
  *
@@ -196,6 +197,7 @@ export interface MatrixCompanyAIPublishValue {
 }
 
 export type MatrixCompanyAISdkCommand =
+  | {kind: 'companyPresentation'; identity:CompanyPresentationIdentity; operation:CompanyPresentationOperation; triggerEventId:string; privateScope?:MatrixCompanyPrivateCosScope; reconcile?:boolean; readOnly?:boolean}
   | ({ kind: 'companyAIJoin' } & MatrixCompanyAIJoinRequest)
   | ({ kind: 'companyAIWatch' } & MatrixCompanyAIWatchRequest)
   | ({ kind: 'companyAIReadEvent' } & MatrixCompanyAIReadEventRequest)

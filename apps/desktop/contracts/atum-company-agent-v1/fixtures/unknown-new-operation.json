@@ -1,0 +1,1 @@
+{"code":"outcome_unknown","requestId":"11111111-1111-4111-8111-a11111111111","operationId":"22222222-2222-4222-8222-a22222222222","readBack":{"kind":"operation","operationId":"33333333-3333-4333-8333-a33333333333","receiptRef":"board/operations/222"},"retry":"read_back_same_operation"}

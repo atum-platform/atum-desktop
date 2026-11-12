@@ -145,9 +145,11 @@ describe('the OpenRouter shelf in the offer', () => {
 
   it('keeps an active shelf row it cannot price out of the shelf, so no paid model is drawn without a price', () => {
     const raw = shelfSnapshot(true)
+
     const models = raw.models.map(each =>
       each.alias === 'opus' ? { ...each, cost: { currency: 'USD', maxTurnMicroProtons: 1 } } : each
     )
+
     const view = matrixCloudModelView(parseMatrixCloudModelOffer({ ...raw, models }, PRINCIPAL)!)
 
     expect(view.shelf?.map(each => each.alias)).toEqual(['glm'])
@@ -178,6 +180,7 @@ describe('the owner routes', () => {
       .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify(snapshot()), { status: 200, headers: { 'content-type': 'application/json' } }))
       .mockResolvedValueOnce(new Response(JSON.stringify(snapshot({ current: 'nhat-thuc' })), { status: 200, headers: { 'content-type': 'application/json' } }))
+
     vi.stubGlobal('fetch', fetchMock)
 
     const read = await requestMatrixCloudModelChoice(
@@ -187,7 +190,9 @@ describe('the owner routes', () => {
       'read',
       AbortSignal.timeout(1000)
     )
+
     const body = matrixCloudModelWrite(parseMatrixCloudModelOffer(read.value, PRINCIPAL)!, 'nhat-thuc', '00000000-0000-4000-8000-303617b97302')!
+
     const write = await requestMatrixCloudModelChoice(
       'https://platform.test/api/matrix/v1',
       'token',
@@ -217,6 +222,7 @@ describe('the cached offer', () => {
       call: (principal, action) => call(principal, action),
       changed: () => {}
     })
+
     model.activate({ accountKey: 'account', generation: 1 })
 
     return model
@@ -225,6 +231,7 @@ describe('the cached offer', () => {
   // `refresh` starts a read it does not return; one task turn lets the stub land.
   async function settled(model: MatrixCloudModelChoices) {
     await new Promise(resolve => setTimeout(resolve, 0))
+
     return model
   }
 
@@ -245,6 +252,7 @@ describe('the cached offer', () => {
       .fn()
       .mockResolvedValueOnce({ status: 200, value: snapshot({ current: 'nhat-thuc' }) })
       .mockResolvedValueOnce({ status: 409, value: { error: 'matrix_409', details: { reason: 'model_unavailable' } } })
+
     const model = choices(async (_principal, action) =>
       action === 'read' ? { status: 200, value: snapshot() } : write()
     )
@@ -269,5 +277,176 @@ describe('the cached offer', () => {
     await settled(model)
     expect(model.view(PRINCIPAL)).toBeUndefined()
     expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(false)
+  })
+})
+
+describe('a pick racing the periodic offer read (owner 2026-11-11: “it keeps switching back”)', () => {
+  const NEW_DIGEST = 'ac97cd7649cf0c30c8ed053043048c6c9c067c1ff1af5adb8be5afa7aba12087'
+
+  function choices(answers: Array<MatrixCloudModelResponse | Promise<MatrixCloudModelResponse>>) {
+    const call = vi.fn(async (_principal: string, _action: string, _signal: AbortSignal, _body?: unknown) => {
+      const next = answers.shift()
+
+      if (!next) {
+        throw new Error('unexpected call')
+      }
+
+      return next
+    })
+
+    const model = new MatrixCloudModelChoices({
+      scope: () => ({ accountKey: 'account', generation: 1 }),
+      call,
+      changed: () => {}
+    })
+
+    model.activate({ accountKey: 'account', generation: 1 })
+
+    return { model, call }
+  }
+
+  it.each(['read', 'write'] as const)('drops a delayed %s across sign-in generations', async action => {
+    const late = roundTwoDeferred()
+    let scope = { accountKey: '0a', generation: 1 }
+    const call = vi.fn().mockResolvedValueOnce(roundTwoState(7))
+
+    if (action === 'read') {
+      call.mockResolvedValueOnce({ status: 409, value: { details: { reason: 'revision_conflict' } } })
+    }
+
+    call.mockReturnValueOnce(late.promise)
+    const model = new MatrixCloudModelChoices({ scope: () => scope, call, changed: () => {} })
+    model.activate(scope)
+    await model.reload(PRINCIPAL)
+    const pending = model.write(PRINCIPAL, 'nhat-thuc')
+    await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(action === 'read' ? 3 : 2))
+    scope = { ...scope, generation: 2 }
+    model.activate(scope)
+    late.resolve(roundTwoState(8, 'nhat-thuc'))
+    expect(await pending).toBe(false)
+    expect(model.offer(PRINCIPAL)).toBeUndefined()
+    expect(call).toHaveBeenCalledTimes(action === 'read' ? 3 : 2)
+  })
+
+  it('drops a successful response for a superseded pick', async () => {
+    const late = roundTwoDeferred()
+    const { model } = choices([roundTwoState(7), late.promise, roundTwoState(9)])
+    await model.reload(PRINCIPAL)
+    const obsolete = model.write(PRINCIPAL, 'nhat-thuc')
+    expect(await model.write(PRINCIPAL, 'nguyet-thuc')).toBe(true)
+    late.resolve(roundTwoState(10, 'nhat-thuc'))
+    expect(await obsolete).toBe(false)
+    expect(model.offer(PRINCIPAL)?.revision).toBe(9)
+  })
+
+  function roundTwoState(revision: number, model = 'nguyet-thuc') {
+    return { status: 200, value: snapshot({ revision, current: model }) }
+  }
+
+  function roundTwoDeferred() {
+    let resolve!: (value: { status: number; value: unknown }) => void
+    const promise = new Promise<{ status: number; value: unknown }>(done => { resolve = done })
+
+    return { promise, resolve }
+  }
+
+  it('drops an obsolete retry after a newer pick succeeds during its re-read', async () => {
+    const late = roundTwoDeferred()
+
+    const { model, call } = choices([
+      roundTwoState(7),
+      { status: 409, value: { details: { reason: 'revision_conflict' } } },
+      late.promise, roundTwoState(8)
+    ])
+
+    const pick = (selected: 'nguyet-thuc' | 'nhat-thuc') => model.write(PRINCIPAL, selected)
+    await model.reload(PRINCIPAL)
+    const obsolete = pick('nhat-thuc')
+    await vi.waitFor(() => expect(call).toHaveBeenCalledTimes(3))
+    expect(await pick('nguyet-thuc')).toBe(true)
+    late.resolve(roundTwoState(7, 'nhat-thuc'))
+    expect(await obsolete).toBe(false)
+    expect(call).toHaveBeenCalledTimes(4)
+    expect(model.view(PRINCIPAL)?.current).toBe('nguyet-thuc')
+  })
+
+  it('keeps the newer read and its refresh clock after a delayed older successful write', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const late = roundTwoDeferred()
+      const { model, call } = choices([roundTwoState(7), late.promise, roundTwoState(9), roundTwoState(9)])
+      await model.reload(PRINCIPAL)
+      const pending = model.write(PRINCIPAL, 'nhat-thuc')
+      await model.reload(PRINCIPAL)
+      vi.advanceTimersByTime(30_000)
+      late.resolve(roundTwoState(8, 'nhat-thuc'))
+      expect(await pending).toBe(true)
+      expect(model.offer(PRINCIPAL)?.revision).toBe(9)
+      expect(model.view(PRINCIPAL)?.current).toBe('nguyet-thuc')
+      vi.advanceTimersByTime(30_001)
+      model.refresh(PRINCIPAL)
+      expect(call).toHaveBeenCalledTimes(4)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the saved pick when a refresh that started before it lands after it', async () => {
+    let land!: (value: MatrixCloudModelResponse) => void
+
+    const late = new Promise<MatrixCloudModelResponse>(resolve => {
+      land = resolve
+    })
+
+    const { model } = choices([
+      { status: 200, value: snapshot({ revision: 7 }) },
+      late,
+      { status: 200, value: snapshot({ revision: 8, current: 'nhat-thuc' }) }
+    ])
+
+    await model.reload(PRINCIPAL)
+    const refresh = model.reload(PRINCIPAL)
+    expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(true)
+    land({ status: 200, value: snapshot({ revision: 7 }) })
+    await refresh
+
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
+    expect(model.offer(PRINCIPAL)?.revision).toBe(8)
+  })
+
+  it('keeps the newer revision when two reads land out of order', async () => {
+    let land!: (value: MatrixCloudModelResponse) => void
+
+    const early = new Promise<MatrixCloudModelResponse>(resolve => {
+      land = resolve
+    })
+
+    const { model } = choices([early, { status: 200, value: snapshot({ revision: 8, current: 'nhat-thuc' }) }])
+
+    const first = model.reload(PRINCIPAL)
+    await model.reload(PRINCIPAL)
+    land({ status: 200, value: snapshot({ revision: 7 }) })
+    await first
+
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
+  })
+
+  it('re-reads an old-policy fence and sends the same pick once under the new digest', async () => {
+    const renewed = { ...snapshot({ revision: 7 }), policyDigest: NEW_DIGEST }
+
+    const { model, call } = choices([
+      { status: 200, value: snapshot({ revision: 7 }) },
+      { status: 409, value: { error: 'matrix_409', details: { reason: 'policy_changed' }, policyDigest: NEW_DIGEST } },
+      { status: 200, value: renewed },
+      { status: 200, value: { ...snapshot({ revision: 8, current: 'nhat-thuc' }), policyDigest: NEW_DIGEST } }
+    ])
+
+    await model.reload(PRINCIPAL)
+    expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(true)
+
+    const writes = call.mock.calls.filter(([, action]) => action === 'write').map(([, , , body]) => body)
+    expect(writes).toMatchObject([{ policyDigest: DIGEST }, { policyDigest: NEW_DIGEST, expectedRevision: 7 }])
+    expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
   })
 })

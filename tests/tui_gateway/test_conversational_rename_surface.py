@@ -131,7 +131,10 @@ def test_a_rename_changes_nothing_about_the_tool_list(bridge, monkeypatch):
     assert renamed["profile"]["displayName"] == "Bông"
 
     assert json.dumps(_definitions(), sort_keys=True) == before
-    # And the schema itself is the one the model has always had: no rename-only operation or field.
+    # A rename uses the existing update operation; independently added profile
+    # operations must remain available without changing the schema during a turn.
     from tools.atum_agents_tool import ATUM_AGENTS_SCHEMA
 
-    assert ATUM_AGENTS_SCHEMA["parameters"]["properties"]["operation"]["enum"] == ["list", "read", "update", "avatar"]
+    operations = ATUM_AGENTS_SCHEMA["parameters"]["properties"]["operation"]["enum"]
+    assert "update" in operations
+    assert "rename" not in operations

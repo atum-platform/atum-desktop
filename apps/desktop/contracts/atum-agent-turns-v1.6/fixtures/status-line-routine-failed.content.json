@@ -1,0 +1,11 @@
+{
+  "msgtype": "m.notice",
+  "body": "Việc “Hỏi thăm” lần này chưa làm xong vì Atum gặp trục trặc ở phía máy chủ.",
+  "io.atum.status": {
+    "version": 1,
+    "code": "failed",
+    "details": {
+      "routine_title": "Hỏi thăm"
+    }
+  }
+}
