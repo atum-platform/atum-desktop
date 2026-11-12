@@ -120,8 +120,8 @@ class GatewayTurnPersistenceMixin:
 
         pending = getattr(session_entry, 'resume_ask', None)
         if pending:
-            # Language follows the model's reply; literal decision tokens work in every language.
-            response += "\n\nyes " + pending['token'] + " / no " + pending['token'] + "\ncó " + pending['token'] + " / không " + pending['token']
+            from gateway.resume_policy import shape_pending_ask
+            response = shape_pending_ask(self.session_store, session_entry, response)
 
         # Normalize empty responses: surface errors, partial failures, and work-without-text.
         # Fix for #18765.

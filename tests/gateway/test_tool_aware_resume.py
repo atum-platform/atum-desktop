@@ -241,7 +241,7 @@ def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path, monkeyp
     store = SessionStore(sessions_dir=tmp_path, config=config)
     entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
     assert entry.resume_ask['token'] == token
-    for text in ('finish it', 'yes', 'no', 'yes wrong-token'):
+    for text in ('finish it', 'yes please maybe', 'yes wrong-token'):
         assert pending_resume_policy(store, entry, None, text, can_resolve=True).ask
     assert pending_resume_policy(store, entry, None, 'yes ' + token, can_resolve=False).ask
     assert pending_resume_policy(store, entry, None, 'không ' + token, can_resolve=True).ask
@@ -300,3 +300,73 @@ def test_owner_can_resolve_in_one_message_with_pending_model_note(tmp_path):
         persist_user_display_metadata={'crash_resume_owner_response': True, 'crash_resume_decision_text': reply})
     turn._prepare_turn_message([])
     assert entry.resume_ask is None and turn._resume_policy is None
+
+
+@pytest.mark.parametrize('text,choice', [
+    *[(word, 'once') for word in ('YES!', 'Yeah.', 'OK', 'Go ahead!', 'do it', 'Sure', 'CÓ!', 'Ừ.', 'Được', 'LÀM ĐI!')],
+    *[(word, 'deny') for word in ('NO!', 'Nope.', "Don't!", 'Stop', 'Cancel.', 'KHÔNG!', 'Thôi', 'Đừng.')],
+])
+def test_bare_owner_reply_after_restart(tmp_path, text, choice):
+    from datetime import datetime, UTC
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy, recovery_tool_block
+    config = GatewayConfig()
+    source = SessionSource(platform=Platform.TELEGRAM, chat_id='test')
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(source)
+    before = datetime.now(UTC).isoformat()
+    policy = choose_resume_policy([call('x', 'terminal')])
+    assert pending_resume_policy(store, entry, policy, text, can_resolve=True, message_timestamp=before).ask
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(source)
+    # Even a clear queued yes/no predating the question stays gated after restart.
+    gated = pending_resume_policy(store, entry, None, text, can_resolve=True, message_timestamp=before)
+    assert gated.ask and recovery_tool_block(gated, 'read_file', {})
+    resolved = pending_resume_policy(store, entry, None, text, can_resolve=True,
+                                     message_timestamp=datetime.now(UTC).isoformat())
+    assert entry.resume_ask is None
+    if choice == 'once':
+        assert resolved is None
+    else:
+        assert resolved.cancelled and recovery_tool_block(resolved, 'read_file', {})
+
+
+@pytest.mark.parametrize('text', ['yes or no', 'yes/no', 'maybe', 'what happened?', 'yes, but wait', 'không biết', 'not sure'])
+def test_ambiguous_resume_reply_keeps_gate(tmp_path, text):
+    from datetime import datetime, UTC
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy, recovery_tool_block
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    pending_resume_policy(store, entry, choose_resume_policy([call('x', 'terminal')]), '', can_resolve=False)
+    gated = pending_resume_policy(store, entry, None, text, can_resolve=True,
+                                 message_timestamp=datetime.now(UTC).isoformat())
+    assert entry.resume_ask and recovery_tool_block(gated, 'terminal', {})
+
+
+def test_resume_language_and_hidden_token(monkeypatch):
+    from gateway.resume_policy import pending_ask_note, pending_ask_reminder
+    import agent.i18n
+    monkeypatch.setattr(agent.i18n, 'get_language', lambda: 'en')
+    entry = SimpleNamespace(resume_ask={'token': 'secret-code', 'actions': ['write_file']})
+    assert 'English when unknown' in pending_ask_note(entry)
+    assert 'secret-code' not in pending_ask_note(entry)
+    assert pending_ask_reminder() == 'May I continue the interrupted action?'
+    monkeypatch.setattr(agent.i18n, 'get_language', lambda: 'vi')
+    assert pending_ask_reminder() == 'Bạn có muốn tôi tiếp tục việc đang dở không?'
+
+
+def test_ask_is_one_line_and_followup_names_original_action(tmp_path):
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy, shape_pending_ask
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    pending_resume_policy(store, entry, choose_resume_policy([call('x', 'terminal')]), '', can_resolve=False)
+    question = 'May I finish writing your document?'
+    assert shape_pending_ask(store, entry, question + '\nExtra detail') == question
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    entry = store.get_or_create_session(entry.origin)
+    assert shape_pending_ask(store, entry, 'I can explain what happened.') == 'I can explain what happened.\n\n' + question

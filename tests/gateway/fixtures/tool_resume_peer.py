@@ -156,8 +156,9 @@ async def probe():
             from hermes_state_runtime import admit_session_input
             original = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)[0]
             payload = deepcopy(original['payload'])
-            payload['text'] = 'Finish the same work now.'
+            payload['text'] = 'yes'
             payload['native_text_v1']['event']['message_id'] = 'queued-before-ask'
+            payload['native_text_v1']['event']['text'] = 'yes'
             admit_session_input(authority.db, epoch=authority.epoch, principal_id=original['principal_id'],
                                 session_id=entry.session_id, request_id='queued-before-ask', payload=payload)
         verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
@@ -173,8 +174,7 @@ async def probe():
                                    timeout=40, what='accepted conversational turn completed')
             assert entry.resume_ask
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent, 'handlers': (home / 'handler-events').read_text()}
-            token = entry.resume_ask['token']
-            event = MessageEvent(text='không ' + token, source=source, message_id='decline')
+            event = MessageEvent(text='KHÔNG!', source=source, message_id='decline')
             await adapter.handle_message(event)
             await async_wait_until(lambda: event._gateway_accepted and not adapter._background_tasks,
                                    timeout=40, what='accepted owner decline completed')

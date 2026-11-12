@@ -146,17 +146,25 @@ def unregister_gateway_notify(session_key: str) -> None:
             entry.event.set()
 
 
-def exact_gateway_approval_choice(text: str, request_id: str) -> Optional[str]:
-    """Question-scoped once/deny reply for a durable conversational approval.
+def exact_gateway_approval_choice(text: str, request_id: str, *, allow_unscoped: bool = False) -> Optional[str]:
+    """Exact once/deny reply, optionally for the sole pending conversational question.
 
-    Unlike an in-process waiting thread this has no timeout, session grant or YOLO
-    bypass. The caller persists the pending request and commits the choice. The
-    request id prevents an older queued answer from approving a newer question.
+    Callers allowing a bare answer must fence older queued input themselves.
+    No timeout, session grant or YOLO bypass applies to this decision.
     """
-    answer = text.strip().casefold()
-    for choice, words in (('once', ('yes', 'có', 'continue', 'tiếp tục')),
-                          ('deny', ('no', 'không', 'cancel', 'hủy'))):
-        if any(answer == word + ' ' + request_id for word in words):
+    import unicodedata
+
+    answer = unicodedata.normalize('NFC', text).casefold().strip()
+    answer = answer.replace("’", "'").replace("'", "")
+    # Ignore surrounding punctuation, preserving separators inside an ambiguous reply.
+    answer = answer.strip(''.join(c for c in answer if unicodedata.category(c).startswith('P')) + ' ')
+    answer = ' '.join(answer.split())
+    for choice, words in (
+        ('once', ('yes', 'yeah', 'ok', 'go ahead', 'do it', 'sure', 'có', 'ừ', 'được', 'làm đi', 'continue', 'tiếp tục')),
+        ('deny', ('no', 'nope', 'dont', 'stop', 'cancel', 'không', 'thôi', 'đừng', 'hủy')),
+    ):
+        if any(answer == word + ' ' + request_id.casefold() or
+               (allow_unscoped and answer == word) for word in words):
             return choice
     return None
 
