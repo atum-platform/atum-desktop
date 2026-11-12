@@ -64,12 +64,13 @@ async def test_matrix_downtime_ok_uses_server_time(tmp_path):
         SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org', user_id='@alice:example.org')))
     a._extract_reply_context = AsyncMock(return_value=('yes', None, None, None, None))
     a.handle_message = AsyncMock()
+    store = SessionStore(sessions_dir=tmp_path/'sessions', config=GatewayConfig())
+    source = a._resolve_message_context.return_value[-1]
+    entry = store.get_or_create_session(source)
+    pending_resume_policy(store, entry, ResumePolicy(True, ('write',), frozenset()), '', can_resolve=False)
     await a._handle_text_message('!room:example.org', '@alice:example.org', '$old', 1.0,
                                  {'body': 'yes'}, {})
     event = a.handle_message.call_args.args[0]
-    store = SessionStore(sessions_dir=tmp_path/'sessions', config=GatewayConfig())
-    entry = store.get_or_create_session(event.source)
-    pending_resume_policy(store, entry, ResumePolicy(True, ('write',), frozenset()), '', can_resolve=False)
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True,
                                  message_timestamp=event.timestamp.isoformat()).ask
     a._intake.close()
@@ -151,6 +152,36 @@ async def test_clean_restart_adopts_held_reply_and_delivers(tmp_path, monkeypatc
     assert await runner._redeliver_claimed_obligations(rows) == 1
     assert a.send.call_args.kwargs['content'] == 'answer'
     from gateway.delivery_ledger import matrix_send_plan
-    plan = matrix_send_plan(rows[0]['obligation_id'], [{'body':'answer'}], sender_id='test')
+    plan = matrix_send_plan(rows[0]['obligation_id'], '!room:example.org', [{'body':'answer'}], sender_id='test')
     assert plan[0]['content']['org.hermes.source_event_id'] == '$source'
     store._db.close()
+
+
+@pytest.mark.asyncio
+async def test_poison_reclaim_path_stops_before_fourth_model_turn(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from hermes_state import SessionDB
+    from hermes_state_runtime import (begin_runtime_epoch, admit_session_input, claim_session_input,
+        recover_session_inputs, list_session_admissions)
+    from gateway.resume_policy import recover_unknown_admission
+    db = SessionDB(db_path=tmp_path/'state.db')
+    db.create_session('s', 'matrix')
+    epoch = begin_runtime_epoch(db, instance_id='first')
+    row = admit_session_input(db, epoch=epoch, principal_id='messaging:test', session_id='s',
+                             request_id='$poison', payload={'native_text_v1': {}, 'text':'safe read'})
+    claim_session_input(db, epoch=epoch, session_id='s')
+    authority = SimpleNamespace(db=db, runner=SimpleNamespace(
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True)))
+    resumed = 0
+    for boot in range(6):
+        authority.epoch = begin_runtime_epoch(db, instance_id=str(boot))
+        recover_session_inputs(db, epoch=authority.epoch)
+        rows = list_session_admissions(db, session_id='s', pending_only=False)
+        allowed = await recover_unknown_admission(authority, None, SimpleNamespace(source=None), rows)
+        if allowed:
+            resumed += 1
+            assert claim_session_input(db, epoch=authority.epoch, session_id='s')
+        else:
+            assert rows[0]['status'] == 'unknown'
+    assert resumed == 3
+    db.close()
