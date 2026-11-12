@@ -82,3 +82,21 @@ The pending/parked backlog necessarily uses disk until accepted/reconciled.
 
 This is built-not-live. Cross-machine single-owner fencing, controller drain,
 cutover/rollback manifests and delayed-old-host rehearsal remain F5 gates.
+
+## Identity mount and process send namespace
+
+For the provisioner layout, mount `agents/<agent>/identity/` at
+`<HERMES_HOME>/platforms/matrix/store/`, as plan §3.8 specifies. Both `crypto.db`
+and `intake-<account-hash>.sqlite3` resolve from `get_hermes_home()` and use this
+same per-adapter pinned store. An existing mount takes precedence even if it is
+empty and an old `<home>/matrix/store/` still contains data. Mount the restored
+identity store before starting; do not start with an empty mount during recovery.
+Without a canonical store directory, Hermes's profile-local legacy store remains
+supported. Native execution and delivery ledgers remain private-home state.db.
+
+New Matrix send plans include a random process namespace in each transaction ID.
+It is generated once per process and persisted with the plan before sending.
+Distinct audience processes using separate ledgers cannot collide even for an
+identical obligation ID; a restarted process reuses the original stored IDs.
+Existing plans remain unchanged. This prepares a publication seam; it does not
+permit several sync consumers or implement the future sender-trust router.

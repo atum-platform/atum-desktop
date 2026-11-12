@@ -378,6 +378,10 @@ async def test_real_mautrix_swallowed_failure_retains_batch_and_siblings(tmp_pat
     assert a._intake.get('pending') == b
     assert a._intake.state('$ok') == 'native'
     assert a._intake.state('$lost') is None
+    refuse[0] = False
+    await a._dispatch_sync(a._intake.get('pending'))
+    a._intake.finish(b)
+    assert admissions == ['$ok', '$lost']
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('crash_after_accept', [False, True])
@@ -405,6 +409,7 @@ async def test_reply_crash_reuses_real_txnid_and_frozen_chunks(tmp_path, monkeyp
     assert not (await a.send('!room:example.org', text, reply_to='$parent',
                            metadata={'delivery_obligation_id': 'owed'})).success
     # New adapter/process, different input formatting/relations: the ledger's frozen plan wins.
+    monkeypatch.setattr(ledger, '_MATRIX_SEND_PROCESS_PREFIX', 'a-different-process')
     b = adapter(tmp_path)
     b._client = SimpleNamespace(send_message_event=server)
     assert (await b.send('!room:example.org', 'changed retry input',
@@ -580,3 +585,17 @@ def test_corrupt_journal_status_does_not_reset_or_replace(tmp_path):
     with pytest.raises(sqlite3.DatabaseError):
         cmd_matrix_intake(SimpleNamespace(store=str(path), action='status'))
     assert path.read_bytes() == original
+
+
+def test_process_namespaces_do_not_collide_for_same_account_reply(tmp_path, monkeypatch):
+    from gateway import delivery_ledger as ledger
+    plans = []
+    for process in ('owner-process', 'future-audience-process'):
+        monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / f'{process}.db')
+        monkeypatch.setattr(ledger, '_MATRIX_SEND_PROCESS_PREFIX', process)
+        ledger.record_obligation(obligation_id='same-turn', session_key='matrix:r', platform='matrix',
+                                 chat_id='r', thread_id=None, content='same reply')
+        plan = ledger.matrix_send_plan('same-turn', 'r', [{'body': 'same reply'}])
+        assert plan[0]['txn_id'].startswith(f'hermes_{process}_')
+        plans.append(plan)
+    assert plans[0][0]['txn_id'] != plans[1][0]['txn_id']

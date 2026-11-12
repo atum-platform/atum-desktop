@@ -19,6 +19,7 @@ import re
 import sqlite3
 import threading
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from gateway.dead_targets import classify_dead_error
@@ -27,6 +28,10 @@ from hermes_constants import get_process_hermes_home
 
 logger = logging.getLogger(__name__)
 _DB_LOCK = threading.Lock()
+# Distinct senders may eventually publish for one Matrix identity. Generate a
+# process namespace once, then freeze it with each plan so recovery reuses it.
+_MATRIX_SEND_PROCESS_PREFIX = uuid.uuid4().hex
+
 
 # Redelivery policy knobs (deliberately not config — the ledger is gated by
 # ``gateway.delivery_ledger`` and these only matter in the rare recovery path).
@@ -226,7 +231,7 @@ def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list) -> list:
             raise RuntimeError('Matrix send requires its durable delivery obligation')
         if row[1]:
             return json.loads(row[1])
-        plan = [{'txn_id': 'hermes_' + hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(),
+        plan = [{'txn_id': 'hermes_' + _MATRIX_SEND_PROCESS_PREFIX + '_' + hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(),
                  'content': chunk} for i, chunk in enumerate(chunks)]
         conn.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?',
                      (json.dumps(plan), obligation_id))

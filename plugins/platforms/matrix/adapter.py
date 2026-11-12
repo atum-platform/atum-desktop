@@ -412,7 +412,7 @@ def _resolve_max_message_length(config) -> int:
 # the multiplex gateway imports this once and a module constant would collide every profile's Olm
 # identity in one crypto.db.
 # Store directory for E2EE keys and sync state. Mirrors the pairing-store fix (a6397c379). See #89168.
-from hermes_constants import get_hermes_dir as _get_hermes_dir
+from hermes_constants import get_hermes_dir as _get_hermes_dir, get_hermes_home
 
 _STARTUP_GRACE_SECONDS = 5  # ignore messages older than this many seconds before startup
 
@@ -792,6 +792,19 @@ def ensure_matrix_deps() -> bool:
     return True
 
 
+def _matrix_identity_store_dir() -> Path:
+    """Profile-local mount target for the identity-owned store (plan §3.8).
+
+    A provisioned identity/ mount, including an empty first-install directory,
+    must win over legacy data elsewhere in this profile. Without a mount retain
+    native Hermes legacy-path compatibility; never reach into another home.
+    """
+    home = get_hermes_home()
+    mounted = home / "platforms" / "matrix" / "store"
+    return mounted if mounted.exists() else _get_hermes_dir(
+        "platforms/matrix/store", "matrix/store", home=home)
+
+
 class MatrixAdapter(BasePlatformAdapter):
     """Gateway adapter for Matrix (any homeserver)."""
     serial_receive_loop = True  # _sync_loop reads the next sync only after this sync's handlers return
@@ -810,12 +823,12 @@ class MatrixAdapter(BasePlatformAdapter):
     def _resolve_store_dir(self) -> Path:
         """Pin the crypto-store dir to the active profile (connect() runs inside the profile
         scope); cached so later out-of-scope reads report the store actually in use."""
-        self._store_dir = _get_hermes_dir("platforms/matrix/store", "matrix/store")
+        self._store_dir = _matrix_identity_store_dir()
         return self._store_dir
 
     @property
     def _crypto_db_path(self) -> Path:
-        return (self._store_dir or _get_hermes_dir("platforms/matrix/store", "matrix/store")) / "crypto.db"
+        return (self._store_dir or _matrix_identity_store_dir()) / "crypto.db"
 
     def __init__(self, config: PlatformConfig):
         super().__init__(config, Platform.MATRIX)
