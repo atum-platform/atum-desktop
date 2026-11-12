@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "0c8eb2edd511add96184c2caa0fc5da825f4e005",
+  "files": {
+    "apps/shell/src/lib/company-agent-presentation-cleanup.ts": "dfaf11067dae47ae9f90b6ba3d22af5c50ca5e29cac8ddc50b39de48a5bdbad0",
+    "supabase/migrations/0445_company_agent_presentation_cleanup.sql": "5b5a6278bfaeb83b27fbf0743716941976ec06f01fb20aff98dd5f89665b52cf"
+  },
+  "adaptations": [
+    "TypeScript formatting follows the consuming workspace lint rules.",
+    "Operational session notes omitted; runtime helper and migration retained."
+  ]
+}

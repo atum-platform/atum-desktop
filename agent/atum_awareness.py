@@ -23,7 +23,7 @@ from agent.atum_awareness_contract import (
     validate_recall_args,
     validate_retrieval_response,
 )
-from agent.memory_provider import MemoryProvider
+from agent.memory_provider import MemoryProvider, spawn_context_thread
 
 _INSTRUCTIONS = (
     "Use atum_recall when included conversation/file evidence would help. "
@@ -115,7 +115,22 @@ class AtumAwarenessProvider(MemoryProvider):
         timeout_seconds: float = 1.5,
         max_items: int = 10,
         max_content_bytes: int = 16384,
+        cloud_binding: dict[str, Any] | None = None,
+        record_provenance: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
+        self._cloud_binding = None
+        self._record_provenance = record_provenance
+        if cloud_binding is not None:
+            from agent.atum_awareness_v2 import validate_binding
+            self._cloud_binding = validate_binding(cloud_binding)
+            if (binding.destination != "managed" or binding.session_id != self._cloud_binding["sessionId"]
+                    or binding.agent_principal != self._cloud_binding["agentPrincipal"]
+                    or binding.audience != {"class": self._cloud_binding["audience"]["class"]}
+                    or not callable(record_provenance)):
+                raise AwarenessContractError()
+            timeout_seconds = min(timeout_seconds, 0.8)
+            max_items = min(max_items, 5)
+            max_content_bytes = min(max_content_bytes, 1536)
         audience = validate_audience(binding.audience)
         # Reuse the canonical request parser to validate the native agent UUID.
         probe = {"requestId": str(uuid4()), "audience": audience,
@@ -254,6 +269,8 @@ class AtumAwarenessProvider(MemoryProvider):
                      and (new_session_id == self._session_id or parent_session_id == self._session_id))
             if valid:
                 self._session_id = new_session_id
+        # A valid compression continuation rotates only the native physical ID.
+        # The cloud binding retains its admitted logical session for this run.
         if not valid:
             self.invalidate()
             return
@@ -278,6 +295,12 @@ class AtumAwarenessProvider(MemoryProvider):
         unavailable = {"requestId": request["requestId"], "audience": copy.deepcopy(request["audience"]),
                        "status": "unavailable", "items": [], "coverage": [],
                        "contentBytes": 0, "errors": ["service_unavailable"]}
+        if self._cloud_binding is not None:
+            from agent.atum_awareness_v2 import unavailable as cloud_unavailable
+            request.pop("audience")
+            request.pop("agentPrincipal")
+            request["binding"] = copy.deepcopy(self._cloud_binding)
+            unavailable = cloud_unavailable(request)
         box: dict[str, Any] = {}
         cancelled = threading.Event()
 
@@ -292,10 +315,15 @@ class AtumAwarenessProvider(MemoryProvider):
             if self._worker is not None and self._worker.is_alive():
                 return unavailable
             self._cancelled = cancelled
-            self._worker = threading.Thread(target=read, name="atum-awareness-read", daemon=True)
+            self._worker = spawn_context_thread(target=read, name="atum-awareness-read")
             self._worker.start()
             worker = self._worker
-        worker.join(self._timeout)
+        deadline = time.monotonic() + self._timeout
+        while worker.is_alive() and not cancelled.is_set():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            worker.join(min(remaining, 0.02))
         self.assert_clean()
         if worker.is_alive():
             cancelled.set()
@@ -304,7 +332,11 @@ class AtumAwarenessProvider(MemoryProvider):
         if box.get("failed"):
             return unavailable
         try:
-            result = validate_retrieval_response(box.get("result"), request)
+            if self._cloud_binding is not None:
+                from agent.atum_awareness_v2 import validate_response
+                result = validate_response(box.get("result"), request)
+            else:
+                result = validate_retrieval_response(box.get("result"), request)
         except AwarenessContractError:
             return unavailable
         # Metadata is context too. KS scopes coverage before returning it, but a
@@ -337,6 +369,18 @@ class AtumAwarenessProvider(MemoryProvider):
             if self._invalidated:
                 raise AwarenessSessionError()
             self._evidence_ids.update(item["evidenceId"] for item in result["items"])
+        if self._cloud_binding is not None:
+            # Persist IDs/lineage before any returned content can reach model, compression or sync.
+            try:
+                assert self._record_provenance is not None
+                self._record_provenance({"binding": copy.deepcopy(self._cloud_binding),
+                                         "items": [{k: copy.deepcopy(item[k]) for k in
+                                                    ("evidenceId", "source", "digest", "lineage")}
+                                                   for item in result["items"]]})
+            except Exception:
+                self.invalidate()
+                raise AwarenessSessionError() from None
+            self.assert_clean()
         return result
 
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs: Any) -> str:

@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "visible",
+      "event": "progress_shown"
+    },
+    {
+      "from": "visible",
+      "to": "visible",
+      "event": "progress_edited"
+    },
+    {
+      "from": "visible",
+      "to": "hidden",
+      "event": "turn_ended"
+    },
+    {
+      "from": "hidden",
+      "to": "redacted",
+      "event": "redaction_landed"
+    }
+  ]
+}

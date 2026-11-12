@@ -83,10 +83,10 @@ describe('the assistant card’s daily cap row', () => {
     expect(screen.queryByText(/gần chạm|đã chạm/)).toBeNull()
   })
 
-  it('shows one honest line when the server says usage is near the limit', () => {
+  it('shows no line when usage is only near the limit', () => {
     renderRow(WARNING)
 
-    expect(screen.getByText('Hôm nay đã gần chạm hạn mức.')).toBeTruthy()
+    expect(screen.queryByText('Hôm nay đã gần chạm hạn mức.')).toBeNull()
     expect(screen.queryByText(/dừng|không thể trả lời/)).toBeNull()
   })
 
@@ -106,12 +106,12 @@ describe('the assistant card’s daily cap row', () => {
     expect(screen.queryByText(/250\.000/)).toBeNull()
   })
 
-  it('speaks English for the row and the server’s warning', () => {
+  it('speaks English for the row and shows no nearly-reached warning at 80%', () => {
     renderRow(WARNING, 'en')
 
     expect(screen.getByText('Daily limit')).toBeTruthy()
     expect(screen.getByText('200,000 Protons')).toBeTruthy()
-    expect(screen.getByText("Today's limit is nearly reached.")).toBeTruthy()
+    expect(screen.queryByText("Today's limit is nearly reached.")).toBeNull()
   })
 
   it('says one Proton in English, not one Protons', () => {

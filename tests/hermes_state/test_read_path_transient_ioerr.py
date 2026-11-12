@@ -15,7 +15,10 @@ class _FlakyReads(sqlite3.Connection):
     """Real SQLite connection whose first N SELECTs fail the way a mid-checkpoint mode=ro reader does."""
 
     def execute(self, sql, *args, **kwargs):  # type: ignore[override]
-        if str(sql).lstrip().upper().startswith(_STATE["fail_prefix"].upper()):
+        # The retired-session fence (agent/memory_run_lifecycle.assert_session_current) reads state_meta
+        # before every transcript read; it has its own retrying reader, so these tests target the read itself.
+        if (str(sql).lstrip().upper().startswith(_STATE["fail_prefix"].upper())
+                and "FROM STATE_META" not in str(sql).upper()):
             _STATE["attempts"] += 1
             if _STATE["failures_left"] > 0:
                 _STATE["failures_left"] -= 1

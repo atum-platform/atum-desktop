@@ -7,8 +7,9 @@ import type { MatrixProgressTarget } from './matrix-progress-line'
  * `display.interim_assistant_messages`): the first remark of a turn is the acknowledgement ("Để mình
  * xem video này rồi tóm tắt nhé."), later ones say something to the person at most once per
  * `MATRIX_INTERIM_MIN_GAP_MS`. Redacted text only (Hermes projects native `text` at the JSON-RPC boundary;
- * the caller also accepts legacy `redacted_text`), private chat only, never a repeat of the answer, never the answer. A turn
- * that starts work without a remark is acknowledged with one fixed line instead (`acknowledge`).
+ * the caller also accepts legacy `redacted_text`), private chat only, never a repeat of the answer, never the answer. Only
+ * a scripted turn with authored words of its own (first learning) opens with a fixed line (`acknowledge`); an ordinary
+ * turn never gets one.
  *
  * Presentation only. A failed publication is logged and the turn goes on.
  */
@@ -154,11 +155,11 @@ export class MatrixInterimMessages {
   }
 
   /**
-   * The turn started working before Hermes said anything (a tool began and no remark has gone out):
-   * the owner is told so, once, with one of `lines` as the turn's first remark (the acknowledgement
-   * the product promises). Never once a remark has been published (a model that spoke is not
-   * repeated), never outside the private chat, never after the turn has ended. It is an ordinary
-   * remark in every other respect: the same message, transaction and removal at the end.
+   * A scripted turn started working before Hermes said anything (a tool began and no remark has gone
+   * out): its own authored line, one of `lines`, goes out once as the turn's first remark. Never once a
+   * remark has been published (a model that spoke is not repeated), never outside the private chat,
+   * never after the turn has ended. It is an ordinary remark in every other respect: the same message,
+   * transaction and removal at the end. Ordinary turns never call this.
    */
   acknowledge(lines: readonly string[]): void {
     if (this.ended || this.sequence > 0 || !lines.length || !this.port.current()) {

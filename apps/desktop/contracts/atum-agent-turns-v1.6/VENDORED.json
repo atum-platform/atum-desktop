@@ -1,0 +1,7 @@
+{
+  "contract": "atum.agent-turns/1.6",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "918968fcba9269f61101f50aedc171fb03c28262",
+  "path": "spec/agent-turns/v1.6",
+  "sha256": "3ac424f013c41fc62de643435e7de6df8fe59eff50be48d289fbe5c64a9777b1"
+}

@@ -145,12 +145,14 @@ class SessionCreateParams(ProfileParams):
     # Trusted-host-only, constructor-bound awareness authority. The model never
     # sees or selects these fields; absent keeps the upstream memory stack.
     awareness_binding: JsonValue | None = None
+    managed_memory: JsonValue | None = None
     # Atum: a request/response client (the Matrix runner, the cloud controller) that drives every turn
     # itself sends false: no detached background work, no notification / goal / recovery turn.
     async_delivery: bool | None = None
 
 
 class SessionCreateResult(Result):
+    managed_memory: JsonValue | None = None
     session_id: str
     stored_session_id: str
     message_count: int

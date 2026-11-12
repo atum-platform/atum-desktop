@@ -69,7 +69,10 @@ interface StatusCopy {
   saveUnconfirmed: string
   /** The 100% daily-cap refusal: plain state, never a spend, balance or cap number. */
   dailyCap: string
-  /** The one quiet 80% line, in the agent's main conversation: plain state, no numbers. */
+  /**
+   * The old 80% heads-up. The desktop no longer sends it; the code and its words stay so a notice
+   * already in a chat keeps being recognized and reads exactly as before.
+   */
   dailyCapWarning: string
 }
 

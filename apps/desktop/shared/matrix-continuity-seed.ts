@@ -99,7 +99,7 @@ export function continuityDiagnostic(read: MatrixContinuityRead): string | undef
 
 /** Only completed dialogue enters the new session. No trailing unanswered
  * requests, system roles, tools, media or synthetic history instructions. */
-export function conversationSeed(read: MatrixContinuityRead): MatrixHistorySeed {
+export function conversationSeed(read: Pick<MatrixContinuityRead, 'entries'>): MatrixHistorySeed {
   const end = read.entries.findIndex(entry => entry.role === 'assistant')
 
   if (end < 0) {

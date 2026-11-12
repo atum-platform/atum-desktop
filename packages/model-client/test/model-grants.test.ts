@@ -78,11 +78,14 @@ describe('model grants', () => {
 
     const held = Array.from({ length: inFlight }, () => grants.begin(token, '10.231.0.7'))
     expect(held.every(admitted => admitted.ok)).toBe(true)
-    for (const admitted of held) if (admitted.ok) admitted.admission.end()
+
+    for (const admitted of held) {if (admitted.ok) {admitted.admission.end()}}
+
     for (let call = inFlight; call < turnRequests; call++) {
       const admitted = grants.begin(token, '10.231.0.7')
       expect(admitted.ok).toBe(true)
-      if (admitted.ok) admitted.admission.end()
+
+      if (admitted.ok) {admitted.admission.end()}
     }
   })
 
@@ -109,7 +112,8 @@ describe('model grants', () => {
     grants.closeTask('task-0001abcd')
     expect(grants.begin(token, '10.231.0.7')).toEqual({ ok: false, reason: 'revoked' })
     expect(finishing.ok && !finishing.admission.signal.aborted && lingering.ok && !lingering.admission.signal.aborted).toBe(true)
-    if (finishing.ok) finishing.admission.end()
+
+    if (finishing.ok) {finishing.admission.end()}
     expect(grants.stats('task-0001abcd').inflight).toBe(1)
 
     expect(grants.revokeTask('task-0001abcd')).toBe(1)
@@ -170,8 +174,10 @@ it('reserves the cumulative roundup ceiling across concurrent calls and restores
   b.settle(90000, 4000)
   expect(used).toEqual({ inputTokens: 170000, outputTokens: 7000 })
   const restarted = new ModelGrantRegistry()
+
   const next = restarted.mint({ taskId: 'roundup-0001', aliases: ['default'], expiresAt: Date.now()+60000,
     runBudget: { ...budget, used } })
+
   expect(restarted.reserveTokens(next.token, 130001, 1)).toBeNull()
   const last = restarted.reserveTokens(next.token, 130000, 9000)!
   expect(last.output).toBe(5000)
@@ -179,3 +185,25 @@ it('reserves the cumulative roundup ceiling across concurrent calls and restores
   expect(used).toEqual({ inputTokens: 300000, outputTokens: 12000 })
   expect(restarted.reserveTokens(next.token, 1, 1)).toBeNull()
 })
+
+it.each(['atum.company-ai/2', 'atum.company-private-cos/2'] as const)(
+  'admits native company grants with explicit bounds and preserves the funding boundary (%s)', profile => {
+    const grants = new ModelGrantRegistry()
+
+    const input = {
+      taskId: 'native-abcdef', aliases: ['default'], expiresAt: Date.now() + 60_000,
+      funding: 'company_wallet' as const, profile, maxRequests: 1000, maxConcurrent: 8,
+      maxOutputTokens: 4096, contextLength: 75000, effort: 'medium' as const
+    }
+
+    const token = newOpaqueToken()
+    grants.admit(token, input)
+    expect(grants.grantOf(token)).toMatchObject({ profile, funding: 'company_wallet', maxRequests: 1000, maxConcurrent: 8 })
+
+    for (const change of [{ maxRequests: 1 }, { maxConcurrent: 1 }, { aliases: ['other'] }, { funding: undefined }]) {
+      expect(() => grants.admit(newOpaqueToken(), { ...input, ...change })).toThrow('model_grant_invalid:company')
+    }
+
+    expect(() => grants.admit(newOpaqueToken(), { ...input, profile: 'atum.company-ai/1' })).toThrow('model_grant_invalid:company')
+  }
+)

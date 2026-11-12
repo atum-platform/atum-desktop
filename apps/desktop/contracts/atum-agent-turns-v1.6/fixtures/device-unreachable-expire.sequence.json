@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "routed",
+      "event": "mac_selected"
+    },
+    {
+      "from": "routed",
+      "to": "working",
+      "event": "work_started"
+    },
+    {
+      "from": "working",
+      "to": "waiting_unreachable",
+      "event": "device_unreachable"
+    },
+    {
+      "from": "waiting_unreachable",
+      "to": "expired",
+      "event": "wait_timeout"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "recheck",
+      "to": "recheck",
+      "event": "edit"
+    }
+  ]
+}
