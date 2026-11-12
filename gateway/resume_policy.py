@@ -112,12 +112,15 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
     if pending is None and policy is not None and policy.ask:
         pending = {'token': secrets.token_hex(4), 'actions': list(policy.actions),
                    'created_at': datetime.now(UTC).isoformat()}
-        db = getattr(store, '_db', None)
-        if db is not None:
-            fence = db._read_one('SELECT MAX(seq) AS seq FROM session_admissions')
-            pending['admission_seq'] = (fence['seq'] or 0) if fence else 0
         can_resolve = False
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
+        db = getattr(store, '_db', None)
+        if db is not None:
+            # Read after the Ask is durable: input admitted before that write cannot
+            # cross its fence, even when the transport clock runs ahead.
+            fence = db._read_one('SELECT MAX(seq) AS seq FROM session_admissions')
+            pending = dict(pending, admission_seq=(fence['seq'] or 0) if fence else 0)
+            store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     if pending is None:
         return policy
     if 'created_at' not in pending:
@@ -134,7 +137,9 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
         ordered = (message_admission_seq > pending['admission_seq']
                    if message_admission_seq is not None and 'admission_seq' in pending
                    else datetime.fromisoformat(pending['created_at']).timestamp() < received)
-        fresh = received > 0 and ordered and received <= datetime.now(UTC).timestamp() + tolerance
+        fresh = (received > 0 and ordered
+                 and datetime.fromisoformat(pending['created_at']).timestamp() - tolerance < received
+                 <= datetime.now(UTC).timestamp() + tolerance)
     except (TypeError, ValueError, OSError):
         fresh = False
     token = pending['token']
