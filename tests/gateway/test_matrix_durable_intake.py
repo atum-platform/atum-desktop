@@ -599,3 +599,46 @@ def test_process_namespaces_do_not_collide_for_same_account_reply(tmp_path, monk
         assert plan[0]['txn_id'].startswith(f'hermes_{process}_')
         plans.append(plan)
     assert plans[0][0]['txn_id'] != plans[1][0]['txn_id']
+
+
+@pytest.mark.asyncio
+async def test_real_mautrix_malformed_encrypted_reviewer_reproduction(tmp_path):
+    # Exact review trigger: untrusted sender, Megolm algorithm, missing ciphertext.
+    # Real mautrix deserialization must not retain the global pending batch.
+    a = adapter(tmp_path)
+    a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
+    crypto = SimpleNamespace(decrypt_megolm_event=AsyncMock(), request_room_key=AsyncMock())
+    a._client = SimpleNamespace(handle_sync=lambda data: [], crypto=crypto)
+    bad = batch('$bad')
+    raw = bad['rooms']['join']['!room:example.org']['timeline']['events'][0]
+    raw.update(type='m.room.encrypted', sender='@mallory:example.org',
+               content={'algorithm': 'm.megolm.v1.aes-sha2'})
+    await a._absorb_sync(a._client, bad)
+    assert a._intake.get('pending') is None
+    assert a._intake.state('$bad') == 'undecryptable'
+    failure = a._intake.status()['encrypted'][0]
+    assert 'ciphertext' in failure['failure_reason']
+    assert failure['owner_action_required']
+    assert a._intake.parked()[0][2] == raw
+    crypto.decrypt_megolm_event.assert_not_awaited()
+    crypto.request_room_key.assert_not_awaited()
+    a._intake.close()
+
+
+def test_recovery_retry_unknown_event_fails(tmp_path, capsys):
+    from hermes_cli.matrix_intake import cmd_matrix_intake
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    store.accept(batch('$retained'))
+    store.close()
+    args = SimpleNamespace(store=str(tmp_path / 'intake.sqlite3'), action='retry',
+                           event='$typo', reconciled='owner checked')
+    with pytest.raises(SystemExit) as exc:
+        cmd_matrix_intake(args)
+    assert exc.value.code != 0
+    output = capsys.readouterr()
+    assert 'not found' in output.err.lower()
+    assert 'Reconciled' not in output.out
+    store = MatrixIntakeStore(args.store)
+    assert store.get('pending') == batch('$retained')
+    assert store.get('next_batch') == 'opaque/sync-token'
+    store.close()
