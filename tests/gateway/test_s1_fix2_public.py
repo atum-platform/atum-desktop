@@ -177,7 +177,7 @@ async def test_broken_intake_journal_can_still_notice_owner_once(tmp_path, monke
     result = collect_runtime_readiness(configured_model='fixture', runtime_status=read_runtime_status())
     assert result['wedge']['kind'] == 'journal'
     assert result['alert']['code'] == 'intake_wedged'
-    assert result['process_healthy'] is True
+    assert result['process_healthy'] is False
 
 @pytest.mark.asyncio
 async def test_reboot_does_not_resend_delivered_pause_notice(tmp_path, monkeypatch):

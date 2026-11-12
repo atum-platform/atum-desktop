@@ -1314,6 +1314,9 @@ class MatrixAdapter(BasePlatformAdapter):
     async def _connect_initial_sync(self, client: Any) -> None:
         try:
             await self._intake_initial_sync(client)
+            # A successful journal handoff also clears a prior boot's global wedge.
+            from gateway.status import write_runtime_status
+            await asyncio.to_thread(write_runtime_status, platform='matrix', platform_metrics={})
         except Exception as exc:
             await self._intake_failure(exc)
             raise
@@ -1993,7 +1996,8 @@ class MatrixAdapter(BasePlatformAdapter):
         await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
             error_code='intake_wedged', needs_attention=True, retrying_since=wedge['since'],
             error_message='Matrix intake requires recovery',
-            platform_metrics={'wedge': wedge, 'alert': {'code': 'intake_wedged', 'since': wedge['since']}})
+            platform_metrics={'wedge': wedge, 'process_healthy': kind != 'journal',
+                              'alert': {'code': 'intake_wedged', 'since': wedge['since']}})
         # Explicit owner control-room configuration only. Joined rooms and m.direct do not
         # prove ownership. In its absence the alert remains available to the provisioner.
         room = self.config.extra.get('control_room')
