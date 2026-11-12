@@ -33,6 +33,8 @@ class MatrixIntakeStore:
             attempts INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL)''')
         if 'notified' not in {r[1] for r in self.db.execute('PRAGMA table_info(encrypted_pending)')}:
             self.db.execute('ALTER TABLE encrypted_pending ADD COLUMN notified INTEGER NOT NULL DEFAULT 0')
+        if 'failure_reason' not in {r[1] for r in self.db.execute('PRAGMA table_info(encrypted_pending)')}:
+            self.db.execute('ALTER TABLE encrypted_pending ADD COLUMN failure_reason TEXT')
         self.db.commit()
 
     def get(self, key, default=None):
@@ -103,6 +105,13 @@ class MatrixIntakeStore:
         with self.db:
             self.db.execute('UPDATE encrypted_pending SET attempts=attempts+1 WHERE event_id=?', (eid,))
 
+    def undecryptable(self, eid, reason):
+        """Retain poison payload and diagnosis atomically, outside key retries."""
+        with self.db:
+            self.db.execute('UPDATE encrypted_pending SET failure_reason=? WHERE event_id=?', (reason, eid))
+            self.db.execute('INSERT OR REPLACE INTO intake_events VALUES (?,?,?,?)',
+                            (eid, 'undecryptable', reason, time.time()))
+
     def compact(self, now=None):
         # Native execution/delivery ownership stays in the native ledgers. Keep
         # transport receipts seven days AND through every outstanding replay batch.
@@ -123,7 +132,9 @@ class MatrixIntakeStore:
                 'states': dict(self.db.execute('SELECT state,count(*) FROM intake_events GROUP BY state')),
                 'encrypted': [{'event_id': eid, 'room': room, 'attempts': tries,
                                'age_seconds': max(0, time.time()-created),
-                               'owner_action_required': tries >= 100 or time.time()-created > 86400}
+                               'failure_reason': self.db.execute(
+                                   'SELECT failure_reason FROM encrypted_pending WHERE event_id=?', (eid,)).fetchone()[0],
+                               'owner_action_required': self.state(eid) == 'undecryptable' or tries >= 100 or time.time()-created > 86400}
                               for eid, room, raw, tries, created in self.parked()]}
 
     def close(self):

@@ -421,13 +421,13 @@ async def test_reply_crash_reuses_real_txnid_and_frozen_chunks(tmp_path, monkeyp
 
 @pytest.mark.asyncio
 async def test_late_keys_unblock_parked_without_blocking_next_sync(tmp_path):
-    from mautrix.errors import DecryptionError
+    from mautrix.errors import SessionNotFound
     a = adapter(tmp_path)
     a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
     keys = False
     async def decrypt(e):
         if not keys:
-            raise DecryptionError('missing key')
+            raise SessionNotFound('fixture-session', 'fixture-key')
         return SimpleNamespace(type='m.room.message', event_id=e.event_id)
     async def sync_handlers(data):
         nonlocal keys
@@ -641,4 +641,109 @@ def test_recovery_retry_unknown_event_fails(tmp_path, capsys):
     store = MatrixIntakeStore(args.store)
     assert store.get('pending') == batch('$retained')
     assert store.get('next_batch') == 'opaque/sync-token'
+    store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('failure', ['wire', 'decoded', 'ciphertext'])
+async def test_malformed_encryption_preserves_later_delivery_and_notice_after_restart(tmp_path, monkeypatch, failure):
+    from mautrix.client import Client
+    from mautrix.types import EventType
+    from mautrix.errors import DecryptedPayloadError, DecryptionError
+    from gateway import delivery_ledger as ledger
+    monkeypatch.setattr(ledger, '_db_path', lambda: tmp_path / 'state.db')
+    a = adapter(tmp_path)
+    a._dispatch_sync = lambda data: MatrixAdapter._dispatch_sync(a, data)
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    client = Client(mxid='@bot:example.org', base_url='https://matrix.example.org', token='fixture')
+    await client.api.session.close()  # real dispatcher/serializer, no network
+    admissions = []
+    async def admitted(e):
+        eid = str(e.event_id)
+        if a._intake.state(eid) != 'native':
+            a._intake.mark(eid, 'native', 'receipt')
+            admissions.append(eid)
+    client.add_event_handler(EventType.ROOM_MESSAGE, admitted, wait_sync=True)
+    error = DecryptedPayloadError('Failed to parse megolm payload') if failure == 'decoded' else DecryptionError('Failed to decrypt megolm event')
+    crypto = SimpleNamespace(decrypt_megolm_event=AsyncMock(side_effect=error), request_room_key=AsyncMock())
+    send = AsyncMock(return_value='$notice')
+    a._client = SimpleNamespace(handle_sync=client.handle_sync, crypto=crypto, send_message_event=send)
+    b = batch('$poison', '$same-sync')
+    raw = b['rooms']['join']['!room:example.org']['timeline']['events'][0]
+    raw.update(type='m.room.encrypted', content={'algorithm': 'm.megolm.v1.aes-sha2',
+               'session_id': 'fixture-session', 'sender_key': 'fixture-key', 'device_id': 'DEVICE'})
+    if failure != 'wire':
+        raw['content']['ciphertext'] = 'invalid-fixture'
+    # Simulate restart with the poison batch already accepted before dispatch.
+    a._intake.accept(b)
+    a._intake.close()
+    a._intake = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    await a._dispatch_sync(a._intake.get('pending'))
+    a._intake.finish(b)
+    await a._retry_parked()
+    second = batch('$following-sync', token='following')
+    second['to_device'] = {'events': []}
+    await a._absorb_sync(a._client, second)
+    # Replay both syncs and restart again: no duplicate admission or notice.
+    a._intake.close()
+    a._intake = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    await a._absorb_sync(a._client, b)
+    await a._absorb_sync(a._client, second)
+    assert admissions == ['$same-sync', '$following-sync']
+    assert a._intake.get('pending') is None
+    assert a._intake.get('next_batch') == 'following'
+    assert a._intake.state('$poison') == 'undecryptable'
+    assert a._intake.parked()[0][2] == raw
+    assert a._intake.parked()[0][3] == 0
+    send.assert_awaited_once()
+    assert 'Please send the message again' in send.await_args.args[2]['body']
+    crypto.request_room_key.assert_not_awaited()
+    assert crypto.decrypt_megolm_event.await_count == (0 if failure == 'wire' else 1)
+    a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_poison_parked_row_does_not_block_missing_key_sibling(tmp_path):
+    from mautrix.errors import SessionNotFound
+    a = adapter(tmp_path)
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    a._notify_decryption_giveup = AsyncMock()
+    poison = event('$poison')
+    poison.update(type='m.room.encrypted', content={'algorithm': 'm.megolm.v1.aes-sha2'})
+    waiting = event('$waiting')
+    waiting.update(type='m.room.encrypted', content={'algorithm': 'm.megolm.v1.aes-sha2',
+                   'session_id': 's', 'sender_key': 'k', 'ciphertext': 'fixture', 'device_id': 'DEVICE'})
+    a._intake.park(poison, '!room:example.org')
+    a._intake.park(waiting, '!room:example.org')
+    crypto = SimpleNamespace(decrypt_megolm_event=AsyncMock(side_effect=SessionNotFound('s', 'k')),
+                             request_room_key=AsyncMock())
+    a._client = SimpleNamespace(crypto=crypto)
+    await a._retry_parked()
+    assert a._intake.state('$poison') == 'undecryptable'
+    assert a._intake.state('$waiting') is None
+    crypto.request_room_key.assert_awaited_once()
+    a._notify_decryption_giveup.assert_awaited_once()
+    a._intake.close()
+
+
+def test_retry_quarantined_event_retains_payload_and_cursor(tmp_path, capsys):
+    from hermes_cli.matrix_intake import cmd_matrix_intake
+    store = MatrixIntakeStore(tmp_path / 'intake.sqlite3')
+    store.accept(batch('$poison'))
+    raw = event('$poison')
+    store.park(raw, '!room:example.org')
+    store.undecryptable('$poison', 'SerializerError: missing ciphertext')
+    store.close()
+    args = SimpleNamespace(store=str(tmp_path / 'intake.sqlite3'), action='status')
+    cmd_matrix_intake(args)
+    assert 'missing ciphertext' in capsys.readouterr().out
+    args.action, args.event, args.reconciled = 'retry', '$poison', 'operator inspected retained payload'
+    cmd_matrix_intake(args)
+    store = MatrixIntakeStore(args.store)
+    assert store.state('$poison') is None
+    assert store.status()['encrypted'][0]['failure_reason'] is None
+    assert store.parked()[0][2] == raw
+    assert store.get('pending') == batch('$poison')
+    assert store.get('next_batch') == 'opaque/sync-token'
+    assert list(tmp_path.glob('*.backup-*'))
     store.close()

@@ -1,6 +1,7 @@
 """Offline Matrix journal inspection and explicit reconciliation, never cursor reset."""
 import json
 import sqlite3
+import sys
 import time
 from pathlib import Path
 
@@ -18,10 +19,16 @@ def cmd_matrix_intake(args):
             print(json.dumps({'state': state,
                 'receipts': list(conn.execute('SELECT state,count(*) FROM intake_events GROUP BY state')),
                 'pending_batch': conn.execute("SELECT value != 'null' FROM sync_state WHERE key='pending'").fetchone(),
-                'encrypted': list(conn.execute('SELECT event_id,room,attempts,created FROM encrypted_pending'))}, indent=2))
+                'encrypted': list(conn.execute('SELECT event_id,room,attempts,created' +
+                    (',failure_reason' if 'failure_reason' in {r[1] for r in conn.execute('PRAGMA table_info(encrypted_pending)')} else '') +
+                    ' FROM encrypted_pending'))}, indent=2))
             return
         if not args.reconciled or not args.event:
             raise ValueError('Stop the gateway and reconcile external effects first; supply --event and --reconciled reason')
+        if args.action == 'retry' and conn.execute(
+                'SELECT 1 FROM encrypted_pending WHERE event_id=?', (args.event,)).fetchone() is None:
+            print(f'Encrypted event {args.event} not found; use matrix-intake status to list retained events', file=sys.stderr)
+            raise SystemExit(1)
         backup_path = str(path) + f'.backup-{time.time_ns()}'
         with sqlite3.connect(backup_path) as backup:
             conn.backup(backup)
@@ -33,8 +40,13 @@ def cmd_matrix_intake(args):
     try:
         if args.action == 'retry':
             with store.db:
-                store.db.execute('UPDATE encrypted_pending SET attempts=0,notified=0,created=? WHERE event_id=?',
-                                 (time.time(), args.event))
+                result = store.db.execute(
+                    'UPDATE encrypted_pending SET attempts=0,notified=0,created=?,failure_reason=NULL WHERE event_id=?',
+                    (time.time(), args.event))
+                if result.rowcount != 1:
+                    print(f'Encrypted event {args.event} not found; cursor unchanged', file=sys.stderr)
+                    raise SystemExit(1)
+                store.db.execute("DELETE FROM intake_events WHERE event_id=? AND state='undecryptable'", (args.event,))
         else:
             if store.state(args.event) != 'ambiguous':
                 raise ValueError('Only an ambiguous control can be reconciled as done')

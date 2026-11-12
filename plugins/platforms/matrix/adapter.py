@@ -2055,7 +2055,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 for raw in data.get("timeline", {}).get("events", []):
                     kind, eid = raw.get("type"), raw.get("event_id")
                     state = store.state(eid)
-                    if kind == "m.room.encrypted" and state not in {"native", "done"}:
+                    if kind == "m.room.encrypted" and state not in {"native", "done", "undecryptable"}:
                         room = next(room for room, value in sync_data["rooms"]["join"].items() if value is data)
                         store.park(raw, room)
                         await self._decrypt_parked(raw, room)
@@ -2067,10 +2067,22 @@ class MatrixAdapter(BasePlatformAdapter):
         if crypto is None:
             return
         from mautrix.types import EncryptedEvent
-        from mautrix.errors import DecryptionError
+        from mautrix.types.util import SerializerError
+        from mautrix.errors import DecryptionError, SessionNotFound
+        # Parsing is cheap and local, even for an unauthorized sender. Never let
+        # malformed wire content retain the global batch or enter key retries.
         try:
-            decoded = await crypto.decrypt_megolm_event(EncryptedEvent.deserialize(dict(raw, room_id=room)))
-        except DecryptionError:
+            encrypted = EncryptedEvent.deserialize(dict(raw, room_id=room))
+        except (SerializerError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
+            return
+        if (not self._is_authorized_user(raw.get("sender", ""), room)
+                or not await self._is_allowed_matrix_room_event(room)):
+            self._intake.mark(raw["event_id"], "done")
+            return
+        try:
+            decoded = await crypto.decrypt_megolm_event(encrypted)
+        except SessionNotFound:
             content = raw.get("content", {})
             if content.get("session_id") and content.get("sender_key"):
                 try:
@@ -2079,6 +2091,9 @@ class MatrixAdapter(BasePlatformAdapter):
                         {raw["sender"]: [content.get("device_id") or "*"]}, timeout=0), 10)
                 except Exception as exc:
                     logger.warning("Matrix key request for %s failed: %s", raw["event_id"], exc)
+            return
+        except (SerializerError, DecryptionError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
             return
         # Ordinary owner/room/mention gates and native authority remain authoritative.
         if str(decoded.type) == "m.room.message":
@@ -2095,6 +2110,9 @@ class MatrixAdapter(BasePlatformAdapter):
             if store.state(eid) in {"native", "done"}:
                 store.unpark(eid)
                 continue
+            if store.state(eid) == "undecryptable":
+                await self._notify_decryption_giveup(eid, room, raw)
+                continue
             if attempts >= 100 or time.time() - created > 86400:
                 logger.error("Matrix message %s in %s still cannot decrypt after bounded retries; "
                              "owner action required: hermes gateway matrix-intake status --store %s. "
@@ -2106,6 +2124,8 @@ class MatrixAdapter(BasePlatformAdapter):
             await self._decrypt_parked(raw, room)
             if store.state(eid) in {"native", "done"}:
                 store.unpark(eid)
+            elif store.state(eid) == "undecryptable":
+                await self._notify_decryption_giveup(eid, room, raw)
 
     async def _notify_decryption_giveup(self, eid, room, raw):
         store = self._intake
@@ -2117,9 +2137,14 @@ class MatrixAdapter(BasePlatformAdapter):
         from gateway.delivery_ledger import record_obligation, mark_delivered
         import hashlib
         oid = "matrix-key-" + hashlib.sha256(eid.encode()).hexdigest()[:24]
-        text = (f"I could not decrypt your Matrix message {eid}. It is saved, but I have stopped "
-                "retrying it. The owner needs to restore this device's encryption keys and use "
-                "hermes gateway matrix-intake retry. Other messages can still arrive.")
+        if store.state(eid) == "undecryptable":
+            text = (f"I could not read your encrypted Matrix message {eid} because its content is malformed. "
+                    "It is saved, but I have stopped retrying it. Please send the message again. "
+                    "Other messages can still arrive.")
+        else:
+            text = (f"I could not decrypt your Matrix message {eid}. It is saved, but I have stopped "
+                    "retrying it. The owner needs to restore this device's encryption keys and use "
+                    "hermes gateway matrix-intake retry. Other messages can still arrive.")
         try:
             await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=f"matrix:{room}",
                 platform="matrix", chat_id=room, thread_id=None, content=text,
