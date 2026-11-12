@@ -18,7 +18,8 @@ async def test_poison_admission_has_three_resume_boots_then_alert(tmp_path, monk
 
 
 @pytest.mark.asyncio
-async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monkeypatch):
+@pytest.mark.parametrize('kind', ['gap', 'ambiguous', 'journal'])
+async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monkeypatch, kind):
     monkeypatch.setenv('HERMES_HOME', str(tmp_path))
     from tests.gateway.test_matrix_durable_intake import adapter
     a = adapter(tmp_path)
@@ -27,7 +28,9 @@ async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monk
     from gateway.status import write_runtime_status
     write_runtime_status(gateway_state='running')
     from plugins.platforms.matrix.intake import IntakeGapError
-    delays = [await a._intake_failure(IntakeGapError('frontier missing')) for _ in range(8)]
+    error = {'gap': IntakeGapError('frontier missing'), 'ambiguous': RuntimeError('ambiguous control'),
+             'journal': OSError('journal unavailable')}[kind]
+    delays = [await a._intake_failure(error) for _ in range(8)]
     assert delays == [5, 10, 20, 40, 80, 160, 300, 300]
     assert a.send.await_count == 1
     assert a.send.call_args.kwargs['metadata']['delivery_obligation_id']
@@ -187,3 +190,19 @@ async def test_poison_reclaim_path_stops_before_fourth_model_turn(tmp_path, monk
             assert rows[0]['status'] == 'unknown'
     assert resumed == 3
     db.close()
+
+
+
+def test_fault_boot_warning_is_loud(monkeypatch, caplog):
+    monkeypatch.setenv('ATUM_FAULT_TEST', '1')
+    from gateway.fault_injection import warn_at_boot
+    warn_at_boot()
+    assert any(row.levelname == 'CRITICAL' and 'FAULT INJECTION ENABLED' in row.message
+               for row in caplog.records)
+
+
+def test_h3a_hook_precedes_intake_mark():
+    import inspect
+    from plugins.platforms.matrix.adapter import MatrixAdapter
+    source = inspect.getsource(MatrixAdapter.handle_message)
+    assert source.index('hit("H3a")') < source.index('store.mark(event.message_id, "native"')
