@@ -144,7 +144,7 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
             native_waiters={kind} if kind == 'queued_followup' else set(), pending_results={},
             pending_deliveries={}, physical_target=lambda ref: 'physical',
             db=SimpleNamespace(_read_one=lambda *args: None))
-        row = {'admission_id': kind, 'request_id': '$' + kind, 'generation': 1, 'payload': {'native_text_v1': {}},
+        row = {'seq': 1, 'admission_id': kind, 'request_id': '$' + kind, 'generation': 1, 'payload': {'native_text_v1': {}},
                'outcome': 'crash_resume' if kind == 'crash_resume' else None}
         assert await ingress.execute_admission(authority, SimpleNamespace(session_id='session'), row) == 'answer'
         turn = turns[0]
