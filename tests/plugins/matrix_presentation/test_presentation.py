@@ -183,7 +183,12 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
             class Client:
                 async def send_message_event(self, room, kind, content, **kwargs):
                     return await server(str(room), content, kwargs.get('txn_id', 'final'), None)
-            adapter = p.adapter_class(MatrixAdapter)(PlatformConfig(enabled=True, token='public-test', extra={'homeserver': 'https://matrix.example.org'}))
+            from hermes_constants import set_hermes_home_override, reset_hermes_home_override
+            home_token = set_hermes_home_override(home)
+            try:
+                adapter = p.adapter_class(MatrixAdapter)(PlatformConfig(enabled=True, token='public-test', extra={'homeserver': 'https://matrix.example.org'}))
+            finally:
+                reset_hermes_home_override(home_token)
             adapter._client = Client()
             turn = p.Turn(box, server, '!room:example.org', '$source', '@owner:example.org')
             token = p._current.set(turn)
