@@ -216,6 +216,11 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
         add_column_if_missing(conn, "delivery_obligations", "matrix_send_plan", "matrix_send_plan TEXT")
 
 
+def matrix_transaction_id(suffix: Optional[str] = None) -> str:
+    """Namespace every Matrix publication, including unledgered controls/media."""
+    return f"hermes_{_MATRIX_SEND_PROCESS_PREFIX}_{suffix or uuid.uuid4().hex}"
+
+
 def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list) -> list:
     """Freeze exact Matrix wire content and per-chunk transaction IDs before any send.
 
@@ -231,7 +236,7 @@ def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list) -> list:
             raise RuntimeError('Matrix send requires its durable delivery obligation')
         if row[1]:
             return json.loads(row[1])
-        plan = [{'txn_id': 'hermes_' + _MATRIX_SEND_PROCESS_PREFIX + '_' + hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(),
+        plan = [{'txn_id': matrix_transaction_id(hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest()),
                  'content': chunk} for i, chunk in enumerate(chunks)]
         conn.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?',
                      (json.dumps(plan), obligation_id))

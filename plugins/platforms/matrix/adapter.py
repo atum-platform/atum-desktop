@@ -73,6 +73,7 @@ except ImportError:
     TrustState = type("_TrustStateStub", (), {"UNVERIFIED": 0, "VERIFIED": 1})  # type: ignore[misc,assignment]
 
 from gateway.config import Platform, PlatformConfig
+from gateway.delivery_ledger import matrix_transaction_id
 from gateway.platforms.base import (
     gateway_trust_env, BasePlatformAdapter, ExecApprovalPrompt,
     SendResult, resolve_proxy_url, proxy_kwargs_for_aiohttp, ssrf_redirect_guard,
@@ -1452,7 +1453,7 @@ class MatrixAdapter(BasePlatformAdapter):
             from gateway.delivery_ledger import matrix_send_plan
             plan = await asyncio.to_thread(matrix_send_plan, oid, chat_id, chunks)
         else:
-            plan = [{"content": chunk, "txn_id": None} for chunk in chunks]
+            plan = [{"content": chunk, "txn_id": matrix_transaction_id()} for chunk in chunks]
         for item in plan:
             msg_content, txn_id = item["content"], item["txn_id"]
             try:
@@ -1475,7 +1476,7 @@ class MatrixAdapter(BasePlatformAdapter):
         """Send one m.room.message event (45s cap) and return its event ID as str."""
         event_id = await asyncio.wait_for(
             self._client.send_message_event(RoomID(chat_id), EventType.ROOM_MESSAGE, msg_content,
-                                            **({"txn_id": txn_id} if txn_id else {})), timeout=45)
+                                            txn_id=txn_id or matrix_transaction_id()), timeout=45)
         return str(event_id)
 
     async def create_handoff_thread(self, parent_chat_id: str, name: str) -> Optional[str]:
@@ -1894,7 +1895,7 @@ class MatrixAdapter(BasePlatformAdapter):
     async def _send_content_event(self, room_id: str, msg_content: dict[str, Any]) -> SendResult:
         """Send a prebuilt m.room.message payload, mapping exceptions to SendResult."""
         try:
-            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content)
+            event_id = await self._client.send_message_event(RoomID(room_id), EventType.ROOM_MESSAGE, msg_content, txn_id=matrix_transaction_id())
             return SendResult(success=True, message_id=str(event_id))
         except Exception as exc:
             return SendResult(success=False, error=str(exc))
@@ -2681,7 +2682,7 @@ class MatrixAdapter(BasePlatformAdapter):
             return None
         content = {"m.relates_to": {"rel_type": "m.annotation", "event_id": event_id, "key": emoji}}
         try:
-            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content)
+            resp_event_id = await self._client.send_message_event(RoomID(room_id), EventType.REACTION, content, txn_id=matrix_transaction_id())
             logger.debug("Matrix: sent reaction %s to %s", emoji, event_id)
             return str(resp_event_id)
         except Exception as exc:
@@ -3380,7 +3381,7 @@ async def _standalone_send(pconfig, chat_id, message, *, thread_id=None, media_f
         # run_coroutine_threadsafe ("Timeout context manager should be used inside a task").
         async with aiohttp.ClientSession() as session:
             async def _do_send(payload):
-                txn_id = f"hermes_{int(time.time() * 1000)}_{os.urandom(4).hex()}"
+                txn_id = matrix_transaction_id()
                 url = f"{homeserver}/_matrix/client/v3/rooms/{quote(chat_id, safe='')}/send/m.room.message/{txn_id}"
                 async with session.put(url, headers=headers, json=payload) as resp:
                     if resp.status not in {200, 201}:
