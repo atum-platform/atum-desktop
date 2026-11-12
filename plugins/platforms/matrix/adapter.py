@@ -1296,15 +1296,31 @@ class MatrixAdapter(BasePlatformAdapter):
 
     async def _connect_initial_sync(self, client: Any) -> None:
         """Full initial sync: seed joined rooms, DM cache, and dispatch queued to-device events."""
+        store = self._intake
+        pending = store.get("pending")
+        if pending is not None:
+            self._joined_rooms.update(pending.get("rooms", {}).get("join", {}))
+            await self._refresh_dm_cache()
+            await self._dispatch_sync(pending)
+            store.finish(pending)
+        since = await store.get_next_batch()
         try:
-            sync_data = await client.sync(timeout=10000, full_state=True)
-            if isinstance(sync_data, dict):
-                self._joined_rooms.clear()
-                await self._absorb_sync(client, sync_data, initial=True)
-            else:
-                logger.warning("Matrix: initial sync returned unexpected type %s", type(sync_data).__name__)
+            sync_data = await client.sync(since=since, timeout=10000, full_state=True)
         except Exception as exc:
-            logger.warning("Matrix: initial sync error: %s", exc)
+            if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
+                raise
+            # Reconstruct from saved room event IDs, never from wall time.
+            sync_data = await client.sync(timeout=10000, full_state=True)
+            from plugins.platforms.matrix.intake import fill_gaps
+            await fill_gaps(client, sync_data, store.get("frontier", {}), reset=True)
+        if not since:
+            # First installation establishes a baseline. Existing room history is
+            # not a queue of new requests (including recent history).
+            store.accept(sync_data)
+            store.finish(sync_data)
+            for data in sync_data.get("rooms", {}).get("join", {}).values():
+                data.get("timeline", {})["events"] = []
+        await self._absorb_sync(client, sync_data, initial=True)
 
     async def connect(self, *, is_reconnect: bool = False) -> bool:
         self._device_id_unverified = False
@@ -1315,7 +1331,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 logger.warning("Matrix: error disconnecting before reconnect: %s", exc)
         from mautrix.api import HTTPAPI
         from mautrix.client import Client
-        from mautrix.client.state_store import MemoryStateStore, MemorySyncStore
+        from mautrix.client.state_store import MemoryStateStore
         if not self._homeserver:
             logger.error("Matrix: homeserver URL not configured")
             return False
@@ -1324,14 +1340,22 @@ class MatrixAdapter(BasePlatformAdapter):
         client_session = _create_matrix_session(self._proxy_url)
         api = HTTPAPI(base_url=self._homeserver, token=self._access_token or "", client_session=client_session)
         state_store = MemoryStateStore()
-        sync_store = MemorySyncStore()
+        from plugins.platforms.matrix.intake import MatrixIntakeStore
+        sync_store = MatrixIntakeStore(self._store_dir / "intake.sqlite3")
+        self._intake = sync_store
         client = Client(
             mxid=UserID(self._user_id) if self._user_id else UserID(""), device_id=self._device_id or None,
             api=api, state_store=state_store, sync_store=sync_store)
         self._client = client
         if not await self._connect_authenticate(client, api):
+            await self.disconnect()
+            return False
+        identity = json.dumps([self._homeserver.rstrip("/").lower(), self._user_id.lower()])
+        if not self._acquire_platform_lock("matrix", identity, "Matrix account"):
+            await self.disconnect()
             return False
         if self._encryption and not await self._connect_setup_e2ee(client, api, state_store):
+            await self.disconnect()
             return False
         from mautrix.client import InternalEventType as IntEvt
         from mautrix.client.dispatcher import MembershipEventDispatcher
@@ -1342,7 +1366,11 @@ class MatrixAdapter(BasePlatformAdapter):
         self._startup_ts = time.time()
         self._reset_clock_skew_detector()  # a reconnect after an NTP fix starts clean
         self._closing = False
-        await self._connect_initial_sync(client)
+        try:
+            await self._connect_initial_sync(client)
+        except BaseException:
+            await self.disconnect()
+            raise
         if self._encryption and getattr(client, "crypto", None):
             try:
                 await client.crypto.share_keys()
@@ -1379,6 +1407,10 @@ class MatrixAdapter(BasePlatformAdapter):
             with suppress(Exception):
                 await self._client.api.session.close()
             self._client = None
+        if getattr(self, "_intake", None) is not None:
+            self._intake.close()
+            self._intake = None
+        self._release_platform_lock()
         logger.info("Matrix: disconnected")
 
     async def send(
@@ -1862,9 +1894,21 @@ class MatrixAdapter(BasePlatformAdapter):
         next_batch = await client.sync_store.get_next_batch()  # resume from the initial sync
         while not self._closing:
             try:
+                store = getattr(self, "_intake", None)
+                if store is not None and (pending := store.get("pending")) is not None:
+                    await self._dispatch_sync(pending)
+                    store.finish(pending)
+                    next_batch = await store.get_next_batch()
                 # 45s outer cap guards TCP-level hangs the 30s long-poll timeout cannot catch.
                 # mautrix raises on every non-2xx, so a non-dict here is never an error object.
-                sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
+                try:
+                    sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
+                except Exception as exc:
+                    if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
+                        raise
+                    sync_data = await asyncio.wait_for(client.sync(timeout=30000, full_state=True), timeout=45.0)
+                    from plugins.platforms.matrix.intake import fill_gaps
+                    await fill_gaps(client, sync_data, self._intake.get("frontier", {}), reset=True)
                 if isinstance(sync_data, dict):
                     next_batch = await self._absorb_sync(client, sync_data) or next_batch
                     await asyncio.sleep(0)  # let fresh invite joins start before the next sync
@@ -1891,15 +1935,23 @@ class MatrixAdapter(BasePlatformAdapter):
             self._invalidate_room_identities()
         self._warn_encrypted_drops(rooms_join, client)
         nb = sync_data.get("next_batch")  # incremental syncs resume from here
-        if nb:
-            await client.sync_store.put_next_batch(nb)
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            pending = store.get("pending")
+            if pending is not None:
+                await self._dispatch_sync(pending)
+                store.finish(pending)
+            from plugins.platforms.matrix.intake import fill_gaps
+            await fill_gaps(client, sync_data, store.get("frontier", {}))
+            store.accept(sync_data)
         if initial:
             logger.info("Matrix: initial sync complete, joined %d rooms", len(self._joined_rooms))
             await self._refresh_dm_cache()
-        try:
-            await self._dispatch_sync(sync_data)
-        except Exception as exc:
-            logger.warning("Matrix: %s: %s", "initial sync event dispatch error" if initial else "sync event dispatch error", exc)
+        await self._dispatch_sync(sync_data)
+        if store is not None:
+            store.finish(sync_data)
+        elif nb:
+            await client.sync_store.put_next_batch(nb)
         self._schedule_pending_invite_joins(sync_data)
         return nb
 
@@ -1943,7 +1995,7 @@ class MatrixAdapter(BasePlatformAdapter):
             results = await asyncio.gather(*tasks, return_exceptions=True)
             for result in results:
                 if isinstance(result, Exception):
-                    logger.warning("Matrix: event handler failed during sync dispatch: %s", result)
+                    raise result
 
     def _is_self_sender(self, sender: str) -> bool:
         """True if *sender* is the bot itself (case-insensitive: homeservers vary localpart case). With
@@ -2039,11 +2091,18 @@ class MatrixAdapter(BasePlatformAdapter):
             logger.info("Matrix: ignoring message from unauthorized room %s", room_id)
             return
         event_id = str(getattr(event, "event_id", ""))
-        if self._is_duplicate_event(event_id):
+        store = getattr(self, "_intake", None)
+        if store is not None:
+            state = store.state(event_id)
+            if state in {"native", "done"}:
+                return
+            if state == "ambiguous":
+                raise RuntimeError("Matrix control execution is ambiguous; operator recovery required")
+        elif self._is_duplicate_event(event_id):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
         event_ts = _matrix_event_timestamp_seconds(event)
-        if event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
+        if store is None and event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
             self._note_late_grace_drop(event_ts)
             return
         content = getattr(event, "content", None)
@@ -2064,6 +2123,39 @@ class MatrixAdapter(BasePlatformAdapter):
             await self._handle_media_message(room_id, sender, event_id, event_ts, source_content, relates_to, msgtype)
         elif msgtype in ("m.text", "m.notice"):
             await self._handle_text_message(room_id, sender, event_id, event_ts, source_content, relates_to)
+
+    async def handle_message(self, event: MessageEvent) -> None:
+        store = getattr(self, "_intake", None)
+        if store is None:
+            return await super().handle_message(event)
+        if not self._is_authorized_user(event.source.user_id, event.source.chat_id):
+            return  # preserve owner-only intake, including during journal recovery
+        if not getattr(self.gateway_runner, "session_authority", None):
+            raise RuntimeError("Durable Matrix intake requires the native session authority")
+        committed = asyncio.get_running_loop().create_future()
+
+        def accepted(receipt):
+            store.mark(event.message_id, "native", receipt.admission_id)
+            if not committed.done():
+                committed.set_result(None)
+
+        event._on_transport_commit = accepted
+        event._matrix_durable_intake = True
+        # Commands and inline control replies can have non-idempotent effects outside
+        # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
+        store.mark(event.message_id, "ambiguous" if event.get_command() else "pending")
+        await super().handle_message(event)
+        task = self._session_tasks.get(self._event_session_key(event))
+        if task is not None:
+            await asyncio.wait({committed, task}, return_when=asyncio.FIRST_COMPLETED)
+            if committed.done():
+                committed.result()
+                return
+            if task.cancelled() or task.exception() is not None:
+                raise RuntimeError("Matrix turn ended before durable admission")
+        if not event.get_command() and store.state(event.message_id) != "native":
+            raise RuntimeError("Matrix input has not reached durable native admission; retaining batch")
+        store.mark(event.message_id, "done")
 
     async def _resolve_message_context(
         self, room_id: str, sender: str, event_id: str, body: str, source_content: dict,
@@ -2202,7 +2294,8 @@ class MatrixAdapter(BasePlatformAdapter):
             room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to)
         if msg_event is None:
             return
-        if msg_event.message_type == MessageType.TEXT and self._text_batch_delay_seconds > 0:
+        if (getattr(self, "_intake", None) is None and msg_event.message_type == MessageType.TEXT
+                and self._text_batch_delay_seconds > 0):
             self._enqueue_text_event(msg_event)
         else:
             await self.handle_message(msg_event)

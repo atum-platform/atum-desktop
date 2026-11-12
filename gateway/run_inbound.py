@@ -1259,6 +1259,16 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # calls handle_message directly, so a teardown on the relay's inbound
         # handler left those turns muted.
 
+        if getattr(event, '_matrix_durable_intake', False) and not event.get_command():
+            from gateway.session_authorities import active_authority
+            authority = active_authority(self)
+            if authority is None:
+                raise RuntimeError('Matrix durable intake has no routed session authority')
+            receipt = await authority.native_transport_receipt(event)
+            if receipt is not None:
+                event._on_transport_commit(receipt)
+                return None  # native recovery/delivery already owns this request
+
         _paused_notice = self._hm_estop_gate(event, source, is_internal)
         if _paused_notice is not None:
             return _paused_notice
