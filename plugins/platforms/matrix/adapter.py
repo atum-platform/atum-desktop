@@ -2111,8 +2111,17 @@ class MatrixAdapter(BasePlatformAdapter):
                 timeline = data.get("timeline", {})
                 timeline["events"] = [raw for raw in timeline.get("events", [])
                                       if raw.get("type") != "m.room.encrypted"]
-        async def dispatch(data):
-            tasks = client.handle_sync(data)
+        async def dispatch(data, *, timeline=False):
+            from mautrix.client import Client, SyncStream
+            from mautrix.types import Event
+            native = getattr(client.handle_sync, '__self__', None)
+            if timeline and isinstance(native, Client):
+                room, joined = next(iter(data['rooms']['join'].items()))
+                raw = dict(joined['timeline']['events'][0], room_id=room)
+                tasks = native.dispatch_event(native._try_deserialize(Event, raw),
+                    source=SyncStream.JOINED_ROOM | SyncStream.TIMELINE)
+            else:
+                tasks = client.handle_sync(data)
             if inspect.isawaitable(tasks):
                 tasks = await tasks
             if tasks:
@@ -2138,7 +2147,7 @@ class MatrixAdapter(BasePlatformAdapter):
                             store.park(raw, room)
                             await self._decrypt_parked(raw, room)
                     else:
-                        await dispatch({'rooms': {'join': {room: {'timeline': {'events': [raw]}}}}})
+                        await dispatch({'rooms': {'join': {room: {'timeline': {'events': [raw]}}}}}, timeline=True)
         store = getattr(self, "_intake", None)
         if store is not None:
             for data in sync_data.get("rooms", {}).get("join", {}).values():
