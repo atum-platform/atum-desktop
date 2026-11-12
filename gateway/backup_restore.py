@@ -29,12 +29,16 @@ def reconcile(db, store, context):
             ask.append(receipt)
     # Older journal: seed only exact native Matrix source identities. The native
     # receipt lookup remains the guard for compacted/terminal admissions on replay.
-    for row in db._read_all('SELECT admission_id,request_id,payload_json FROM session_admissions'):
+    for row in db._read_all('SELECT admission_id,request_id,payload_json,status FROM session_admissions'):
         envelope = json.loads(row['payload_json']).get('native_text_v1', {})
         source = envelope.get('source', {})
         room = source.get('chat_id')
         if room and source.get('platform', 'matrix') == 'matrix' and store.state(row['request_id']) is None:
             store.mark(row['request_id'], 'native', row['admission_id'], room_id=room)
+            if row['status'] in ('started', 'unknown'):
+                mark_restore_ask(db, row['admission_id'], context)
+                if row['admission_id'] not in ask:
+                    ask.append(row['admission_id'])
     result = dict(context, reread=reread, ask=ask)
     with store.db:
         store._put('restore', result)

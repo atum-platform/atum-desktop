@@ -46,10 +46,14 @@ def test_reconcile_table(pair, status):
         assert db._read_one('SELECT status FROM session_admissions')['status'] == 'queued'
 
 
-def test_older_journal_reuses_native_receipt(pair):
+@pytest.mark.parametrize('status', ['queued', 'started', 'unknown'])
+def test_older_journal_reuses_native_receipt(pair, status):
     from gateway.backup_restore import reconcile
-    db, store, row, _ = pair
-    reconcile(db, store, {'generation': 7, 'timestamp': 'T'})
+    db, store, row, epoch = pair
+    db._execute_write(lambda c: c.execute(
+        'UPDATE session_admissions SET status=?,owner_epoch=?,generation=1', (status, epoch)))
+    result = reconcile(db, store, {'generation': 7, 'timestamp': 'T'})
+    assert result['ask'] == ([row['admission_id']] if status != 'queued' else [])
     assert store.state('$event') == 'native'
     assert store.db.execute('SELECT receipt,room_id FROM intake_events').fetchone() == (row['admission_id'], '!room')
 
