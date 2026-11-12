@@ -1525,6 +1525,16 @@ class MatrixAdapter(BasePlatformAdapter):
         identity = await self._resolve_room_identity(chat_id)
         return {"name": identity.display_name, "type": "dm" if identity.chat_type == "dm" else "group"}
 
+    def _intake_diagnostics(self):
+        store = getattr(self, '_intake', None)
+        if store is None:
+            return None
+        try:
+            return dict(store.status(), last_error=getattr(self, '_intake_error', None) or store.get('last_error'))
+        except Exception as exc:
+            return {'last_error': getattr(self, '_intake_error', None) or {'type': type(exc).__name__},
+                    'status': 'unavailable'}
+
     def get_diagnostics(self) -> dict[str, Any]:
         now = time.time()
         token_present = bool(self._access_token)
@@ -1536,7 +1546,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 "access_token_present": token_present, "password_present": bool(self._password),
                 "token_preview": "***" if token_present else "", "user_id": user_id,
                 "device_id_present": bool(device_id), "device_id_preview": "***" if str(device_id or "").strip() else ""},
-            "intake": dict(self._intake.status(), last_error=getattr(self, "_intake_error", None) or self._intake.get("last_error")) if getattr(self, "_intake", None) else None,
+            "intake": self._intake_diagnostics(),
             "sync": {
                 "connected": self._client is not None, "joined_room_count": len(self._joined_rooms),
                 "last_sync_age_seconds": max(0.0, now - self._last_sync_ts) if self._last_sync_ts else None},

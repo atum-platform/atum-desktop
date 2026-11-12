@@ -24,6 +24,8 @@ async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monk
     a = adapter(tmp_path)
     a._joined_rooms = {'!room:example.org'}
     a.send = AsyncMock(return_value=SimpleNamespace(success=True))
+    from gateway.status import write_runtime_status
+    write_runtime_status(gateway_state='running')
     from plugins.platforms.matrix.intake import IntakeGapError
     delays = [await a._intake_failure(IntakeGapError('frontier missing')) for _ in range(8)]
     assert delays == [5, 10, 20, 40, 80, 160, 300, 300]
