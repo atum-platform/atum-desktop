@@ -121,7 +121,8 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
         pending = dict(pending, created_at=datetime.now(UTC).isoformat())
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     try:
-        fresh = datetime.fromisoformat(message_timestamp).timestamp() > datetime.fromisoformat(pending['created_at']).timestamp()
+        received = datetime.fromisoformat(message_timestamp).timestamp()
+        fresh = datetime.fromisoformat(pending['created_at']).timestamp() < received <= datetime.now(UTC).timestamp()
     except (TypeError, ValueError):
         fresh = False
     token = pending['token']

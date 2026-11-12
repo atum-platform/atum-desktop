@@ -6,7 +6,8 @@ but not every SIGTERM source: the supervisor respawns, the gateway auto-resumes 
 restart-interrupted session, whose next turn re-runs the offending logic.  Boots are
 persisted to ``<HERMES_HOME>/gateway/restart_loop.json`` and CHAIN while gaps stay
 within ``max_gap_seconds`` (a ~150s watchdog-kill cycle trips like a ~10s loop).
-Tripped → caller SKIPS auto-resume.  Any I/O failure fails OPEN, never wedging.
+Tripped → caller SKIPS auto-resume. Legacy boot tracking fails open on I/O errors.
+Admission-scoped budgets fail closed so storage loss cannot authorize more spend.
 """
 
 from __future__ import annotations
@@ -60,11 +61,8 @@ def _save_boots(boots: list[float], scope=None) -> None:
     try:
         path = _state_path(scope)
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("w", encoding="utf-8") as stream:
-            stream.write(json.dumps({"boots": boots}))
-            stream.flush()
-            import os
-            os.fsync(stream.fileno())
+        from utils import atomic_write_text
+        atomic_write_text(path, json.dumps({"boots": boots}), fsync_dir=True)
     except (OSError, ImportError):
         if scope is not None:
             raise

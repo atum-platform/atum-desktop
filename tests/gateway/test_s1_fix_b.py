@@ -125,3 +125,32 @@ async def test_sync_batch_admits_in_server_order(tmp_path):
     await a._dispatch_sync(batch('$first', '$second'))
     assert seen == ['$first', '$second']
     a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_clean_restart_adopts_held_reply_and_delivers(tmp_path, monkeypatch):
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    from tests.gateway.test_active_turn_recovery import _db_runner
+    from gateway.session import SessionSource
+    from gateway.config import Platform
+    from gateway.delivery_ledger import sweep_recoverable
+    runner, store = _db_runner(tmp_path)
+    source = SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org')
+    entry = store.get_or_create_session(source)
+    store.mark_turn_active(entry.session_key)
+    store.append_to_transcript(entry.session_id, {'role': 'user', 'content': 'work', 'platform_message_id': '$source'})
+    store.append_to_transcript(entry.session_id, {'role': 'assistant', 'content': 'answer'})
+    marker = tmp_path/'.clean_shutdown'
+    marker.write_text('clean')
+    await runner._consume_clean_shutdown_marker(marker)
+    rows = sweep_recoverable()
+    assert len(rows) == 1
+    a = SimpleNamespace(send=AsyncMock(return_value=SimpleNamespace(success=True)))
+    runner._obligation_adapter = AsyncMock(return_value=a)
+    runner._arm_flood_timers_for_waiting_rows = AsyncMock()
+    assert await runner._redeliver_claimed_obligations(rows) == 1
+    assert a.send.call_args.kwargs['content'] == 'answer'
+    from gateway.delivery_ledger import matrix_send_plan
+    plan = matrix_send_plan(rows[0]['obligation_id'], [{'body':'answer'}], sender_id='test')
+    assert plan[0]['content']['org.hermes.source_event_id'] == '$source'
+    store._db.close()

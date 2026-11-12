@@ -1312,6 +1312,13 @@ class MatrixAdapter(BasePlatformAdapter):
                             "'not verified by its owner'): %s", exc)
 
     async def _connect_initial_sync(self, client: Any) -> None:
+        try:
+            await self._intake_initial_sync(client)
+        except Exception as exc:
+            await self._intake_failure(exc)
+            raise
+
+    async def _intake_initial_sync(self, client: Any) -> None:
         """Full initial sync: seed joined rooms, DM cache, and dispatch queued to-device events."""
         store = self._intake
         pending = store.get("pending")
@@ -2342,9 +2349,10 @@ class MatrixAdapter(BasePlatformAdapter):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
         event_ts = _matrix_event_timestamp_seconds(event)
-        if store is None and event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
+        if event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
             self._note_late_grace_drop(event_ts)
-            return
+            if store is None:
+                return
         content = getattr(event, "content", None)
         if content is None:
             return
