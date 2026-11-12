@@ -866,6 +866,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
             _last_transcript_timestamp, _prepare_resume_pending_message, build_resume_recovery_note,
         )
         ctx = self._ctx
+        recovery_reply = ctx.message  # parse human control before API-only model/recovery notes
         persist_override: Optional[Any] = ctx.persist_user_message
         from gateway.session_cli_turn import cli_turn
         api_text = cli_turn(ctx.inbound_message_id).get('api_text')
@@ -926,7 +927,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                                   (self._resume_policy is not None and self._resume_policy.ask)):
             from gateway.resume_policy import pending_resume_policy, pending_ask_note
             self._resume_policy = pending_resume_policy(
-                self._runner.session_store, entry, self._resume_policy, ctx.message,
+                self._runner.session_store, entry, self._resume_policy, recovery_reply,
                 can_resolve=bool(ctx.inbound_message_id)
                 and bool((getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_owner_response'))
                 and not getattr(ctx, 'scheduled_heartbeat', False)

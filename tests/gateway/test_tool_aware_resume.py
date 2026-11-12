@@ -275,3 +275,25 @@ def test_malformed_identity_asks_safely(uids):
     row = call('same', 'read_file')
     row['_tool_call_uids'] = uids
     assert choose_resume_policy([row]).ask
+
+
+def test_owner_can_resolve_in_one_message_with_pending_model_note(tmp_path):
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy
+    from gateway.run_turn_runner import TurnRunner
+    store = SessionStore(sessions_dir=tmp_path, config=GatewayConfig())
+    source = SessionSource(platform=Platform.TELEGRAM, chat_id='test')
+    entry = store.get_or_create_session(source)
+    pending_resume_policy(store, entry, choose_resume_policy([call('x', 'terminal')]), '', can_resolve=False)
+    reply = 'có ' + entry.resume_ask['token']
+    runner = SimpleNamespace(session_store=store,
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True),
+        _pending_model_notes={entry.session_key: '[Model changed]'})
+    turn = object.__new__(TurnRunner)
+    turn._runner = runner
+    turn._ctx = SimpleNamespace(source=source, session_key=entry.session_key, history=[], message=reply,
+        persist_user_message=None, persist_user_timestamp=None, inbound_message_id='fresh-owner',
+        persist_user_display_metadata={'crash_resume_owner_response': True})
+    turn._prepare_turn_message([])
+    assert entry.resume_ask is None and turn._resume_policy is None
