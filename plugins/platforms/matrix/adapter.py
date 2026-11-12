@@ -1321,6 +1321,9 @@ class MatrixAdapter(BasePlatformAdapter):
             store.finish(pending)
         since = await store.get_next_batch()
         try:
+            from gateway.fault_injection import hit
+            if since:
+                hit("H13")
             sync_data = await client.sync(since=since, timeout=10000, full_state=True)
         except Exception as exc:
             if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
@@ -1464,10 +1467,14 @@ class MatrixAdapter(BasePlatformAdapter):
                                            sender_id=self._sender_identity())
         else:
             plan = [{"content": chunk, "txn_id": self._transaction_id()} for chunk in chunks]
-        for item in plan:
+        for chunk_index, item in enumerate(plan):
             msg_content, txn_id = item["content"], item["txn_id"]
             try:
                 last_event_id = await self._send_room_message(chat_id, msg_content, txn_id=txn_id)
+                from gateway.fault_injection import hit
+                hit("H9")
+                if chunk_index == 1 and len(plan) == 5:
+                    hit("H10")
                 logger.info("Matrix: sent event %s to %s", last_event_id, chat_id)
             except Exception as exc:
                 if not (self._encryption and getattr(self._client, "crypto", None)):
@@ -2313,6 +2320,8 @@ class MatrixAdapter(BasePlatformAdapter):
 
         def accepted(receipt):
             store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
+            from gateway.fault_injection import hit
+            hit("H3")
             if not committed.done():
                 committed.set_result(None)
 

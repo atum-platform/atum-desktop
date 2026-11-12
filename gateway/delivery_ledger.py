@@ -330,6 +330,8 @@ def record_obligation(*, obligation_id: str, session_key: str, platform: str, ch
                       thread_id: Optional[str], content: str, adapter_profile: Optional[str] = None,
                       source_event_id: Optional[str] = None) -> None:
     """Record a final response as owed to the platform (state='pending')."""
+    from gateway.fault_injection import hit
+    hit("H12")
     now, (pid, started) = time.time(), _owner_stamp()
     with _DB_LOCK, _transaction() as conn:
         conn.execute(
@@ -343,6 +345,7 @@ def record_obligation(*, obligation_id: str, session_key: str, platform: str, ch
         # Same transaction, same connection: the cron ledgers prune this way too
         # (cron/delivery_queue._prune_terminal_unlocked, cron/executions._prune_unlocked).
         _prune_unlocked(conn, now)
+    hit("H8")
 
 
 def record_crash_left_reply(*, obligation_id: str, session_key: str, platform: str, chat_id: str,

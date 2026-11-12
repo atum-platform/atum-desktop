@@ -176,6 +176,8 @@ class SessionLifecycleMixin:
             # Aware UTC, unlike the local wall clock elsewhere: the next process compares it with
             # epoch transcript timestamps and may run in another zone (DST, container vs unit TZ).
             self._set_turn_marker_locked(session_key, entry, token, datetime.now(UTC))
+        from gateway.fault_injection import hit
+        hit("H4")
         return token
 
     def clear_turn_active(self, session_key: str, token: str) -> bool:

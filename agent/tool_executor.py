@@ -770,7 +770,15 @@ def _dispatch_authorized_once(
     from tools.connectors.data_use import collect_data_use
     with bound_tool_progress(agent.tool_progress_callback, ref.name, ref.call_id), collect_data_use() as data_use:
         try:
-            return _run_with_activity_heartbeat(agent, ref.name, lambda: execute(ref.args))
+            from gateway.fault_injection import hit
+            from agent.tool_result_classification import tool_may_have_side_effect
+            unsafe = os.environ.get("ATUM_FAULT_TEST") == "1" and tool_may_have_side_effect(ref.name)
+            if unsafe:
+                hit("H5")
+            result = _run_with_activity_heartbeat(agent, ref.name, lambda: execute(ref.args))
+            if unsafe:
+                hit("H6")
+            return result
         finally:
             state.data_use = frozenset(data_use)
 

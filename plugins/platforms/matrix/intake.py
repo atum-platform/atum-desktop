@@ -76,11 +76,14 @@ class MatrixIntakeStore:
             raise RuntimeError('Matrix cursor requires durable batch acceptance')
 
     def accept(self, batch):
+        from gateway.fault_injection import hit
+        hit("H1")
         with self.db:
             if self.get('pending') is not None:
                 raise RuntimeError('Previous Matrix batch has not finished handoff')
             self._put('pending', batch)
             self._put('next_batch', batch['next_batch'])
+        hit("H2")
 
     def baseline(self, batch):
         """First installation skips history atomically, including a crash mid-baseline."""
@@ -214,6 +217,8 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
                 break
             token = page.end
         if not found:
+            from gateway.fault_injection import hit
+            hit("H14")
             raise IntakeGapError('Matrix room frontier unavailable; history recovery required')
         timeline['events'] = list(reversed(older)) + events
         timeline['limited'] = False

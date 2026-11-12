@@ -130,6 +130,8 @@ def run_tool_round(
     # Persist the tool-call turn before any tool side effects so resume sees the executed
     # block if a destructive tool restarts Hermes.
     try:
+        from gateway.fault_injection import hit
+        hit("H7")
         _tool_turn_persisted = agent._flush_messages_to_session_db(messages, conversation_history)
     except Exception as exc:
         _tool_turn_persisted = False

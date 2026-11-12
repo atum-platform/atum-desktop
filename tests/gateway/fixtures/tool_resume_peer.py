@@ -90,13 +90,13 @@ async def probe():
         with (home / 'handler-events').open('a') as evidence:
             evidence.write(json.dumps({'mode': mode, 'hook': hook, 'path': args['path'],
                 'pending': pending, 'stack': traceback.format_stack()}) + '\n')
-        if mode == 'crash' and pending and hook not in ('after_effect', 'unknown_sequential', 'unknown_concurrent'):
+        if mode == 'crash' and not os.environ.get('ATUM_NATIVE_FAULTS') and pending and hook not in ('after_effect', 'unknown_sequential', 'unknown_concurrent'):
             os.kill(os.getpid(), signal.SIGKILL)
             threading.Event().wait()  # never race ahead while another thread receives SIGKILL
         counter = home / ('pending-count' if pending else 'done-count')
         with counter.open('a') as out:
             out.write('once\n'); out.flush(); os.fsync(out.fileno())
-        if mode == 'crash' and pending and not hook.startswith('unknown_'):
+        if mode == 'crash' and not os.environ.get('ATUM_NATIVE_FAULTS') and pending and not hook.startswith('unknown_'):
             os.kill(os.getpid(), signal.SIGKILL)
             threading.Event().wait()
         return json.dumps({'content': 'fixture read', 'bytes_written': 8})
