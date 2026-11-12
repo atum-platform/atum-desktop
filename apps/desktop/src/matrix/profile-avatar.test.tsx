@@ -74,6 +74,7 @@ it('never falls back to Matrix profile media for an agent without a canonical ph
 
 it('renders the canonical generated mark instead of an initial when no photo exists', () => {
   window.atumMatrix = {} as MatrixUiBridge
+
   const view = render(
     <MatrixProfileAvatar
       className="size-8"
@@ -84,6 +85,7 @@ it('renders the canonical generated mark instead of an initial when no photo exi
       target={target}
     />
   )
+
   expect(view.container.querySelector('[data-atum-agent-mark="heart:coral"]')).toBeTruthy()
   expect(view.queryByText('H')).toBeNull()
   expect(view.container.querySelector('img')).toBeNull()
@@ -105,6 +107,7 @@ it('cannot paint a late read from an old account/media revision, and ignores a m
   window.atumMatrix = { profiles: { read } } as unknown as MatrixUiBridge
 
   const humanTarget = { kind: 'human' as const }
+
   const view = render(
     <MatrixProfileAvatar
       className="size-8"
@@ -129,4 +132,81 @@ it('cannot paint a late read from an old account/media revision, and ignores a m
   await act(async () => finish({ ...profile, avatarUrl: dataUrl }))
   expect(view.container.querySelector('img')).toBeNull()
   expect(view.getByText('A')).toBeTruthy()
+})
+
+for (const metadata of [undefined, { userId: '@alice:example.org', displayName: 'Alice', avatarMxc: null }]) {
+  it(`discovers the human photo without a cached avatar (${metadata ? 'empty' : 'missing'} metadata)`, async () => {
+    const read = vi.fn<MatrixProfilesBridge['read']>().mockResolvedValue({
+      userId: '@alice:example.org',
+      displayName: 'Alice',
+      avatarMxc: 'mxc://example.org/photo',
+      avatarUrl: dataUrl
+    })
+
+    window.atumMatrix = { profiles: { read } } as unknown as MatrixUiBridge
+
+    const view = render(
+      <MatrixProfileAvatar
+        className="size-8"
+        id="@alice:example.org"
+        name="Alice"
+        profile={metadata}
+        scopeKey="alice/MAC"
+        target={{ kind: 'human' }}
+      />
+    )
+
+    await waitFor(() => expect(view.container.querySelector('img')?.getAttribute('src')).toBe(dataUrl))
+    expect(read).toHaveBeenCalledWith({ kind: 'human' })
+  })
+}
+
+it('waits for the human SDK to be ready before discovering a photo', async () => {
+  const read = vi.fn<MatrixProfilesBridge['read']>().mockResolvedValue({
+    userId: '@alice:example.org',
+    displayName: 'Alice',
+    avatarMxc: 'mxc://example.org/photo',
+    avatarUrl: dataUrl
+  })
+
+  window.atumMatrix = { profiles: { read } } as unknown as MatrixUiBridge
+
+  const props = {
+    className: 'size-8',
+    id: '@alice:example.org',
+    name: 'Alice',
+    scopeKey: 'alice/MAC',
+    target: { kind: 'human' as const },
+    profile: { userId: '@alice:example.org', displayName: 'Alice', avatarMxc: 'mxc://example.org/photo' }
+  }
+
+  const view = render(<MatrixProfileAvatar {...props} ready={false} />)
+  expect(read).not.toHaveBeenCalled()
+  view.rerender(<MatrixProfileAvatar {...props} ready />)
+  await waitFor(() => expect(view.container.querySelector('img')?.getAttribute('src')).toBe(dataUrl))
+})
+
+it('rejects an unexpected identity even when discovering from an empty cache', async () => {
+  const read = vi.fn<MatrixProfilesBridge['read']>().mockResolvedValue({
+    userId: '@other:example.org',
+    displayName: 'Other',
+    avatarMxc: 'mxc://example.org/photo',
+    avatarUrl: dataUrl
+  })
+
+  window.atumMatrix = { profiles: { read } } as unknown as MatrixUiBridge
+
+  const view = render(
+    <MatrixProfileAvatar
+      className="size-8"
+      id="@alice:example.org"
+      name="Alice"
+      scopeKey="alice/MAC"
+      target={{ kind: 'human' }}
+    />
+  )
+
+  await act(async () => {})
+  expect(read).toHaveBeenCalled()
+  expect(view.container.querySelector('img')).toBeNull()
 })
