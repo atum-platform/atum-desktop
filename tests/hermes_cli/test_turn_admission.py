@@ -80,3 +80,54 @@ def test_existing_fail_open_plugins(admission):
 def test_missing_plugin_readiness(admission, monkeypatch):
     from hermes_cli.turn_admission import admission_readiness
     assert admission_readiness()["status"] == "unavailable"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["deny", "raise", "timeout", "plugin-missing"])
+async def test_gateway_refuses_before_media_tools(admission, outcome):
+    from gateway.run_inbound import GatewayInboundMixin
+    manager, context, _ = admission
+    release = threading.Event()
+
+    def policy(**kwargs):
+        if outcome == "raise":
+            raise RuntimeError("broken")
+        if outcome == "timeout":
+            release.wait(1)
+        return False
+
+    if outcome != "plugin-missing":
+        context.register_hook("pre_turn_admission", policy, fail_closed=True)
+    event = SimpleNamespace(text="image", _gateway_turn_refusal=None)
+    source = SimpleNamespace(platform=SimpleNamespace(value="matrix"))
+    try:
+        result = await GatewayInboundMixin._prepare_inbound_message_text(
+            SimpleNamespace(), event, source, [], session_key="session")
+        assert result is None
+        assert event._gateway_turn_refusal
+    finally:
+        release.set()
+
+
+def test_manifest_declared_plugin_import_failure(admission, tmp_path):
+    from hermes_cli.plugins_manifest import parse_manifest_file
+    from hermes_cli.turn_admission import check_turn_admission
+    manager, _, config = admission
+    config["plugins"]["required_admission"] = []
+    plugin = tmp_path / "policy"
+    plugin.mkdir()
+    (plugin / "plugin.yaml").write_text("name: policy\nfail_closed_admission: true\n")
+    (plugin / "__init__.py").write_text("raise RuntimeError('unloadable')\n")
+    manifest = parse_manifest_file(plugin / "plugin.yaml", plugin, "user")
+    assert manifest.fail_closed_admission is True
+    manager._gate_manifest(manifest, set(), {"policy"})
+    manager._load_plugin(manifest)
+    assert check_turn_admission(platform="cron")["admission"]["code"] == "plugin_unavailable"
+
+
+def test_disposed_policy_blocks(admission):
+    from hermes_cli.turn_admission import check_turn_admission
+    _, context, _ = admission
+    handle = context.register_hook("pre_turn_admission", lambda: True, fail_closed=True)
+    handle.dispose()
+    assert check_turn_admission()["admission"]["code"] == "plugin_unavailable"
