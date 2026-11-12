@@ -240,6 +240,17 @@ def adapter_class(base):
                     return SendResult(success=True)
             return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
 
+        async def send_or_update_status(self, chat_id, status_key, content, metadata=None):
+            # Native status callbacks have their own lane: compression/retry activity
+            # must never settle a turn or acquire the final-answer marker.
+            turn = _current.get()
+            if turn and chat_id == turn.room:
+                from agent.redact import redact_for_egress
+                from gateway.platforms.base import SendResult
+                await turn.progress(redact_for_egress(content))
+                return SendResult(success=True, message_id=turn.root)
+            return await super().send(chat_id, content, metadata=metadata)
+
         async def _send_room_message(self, chat_id, msg_content, **kwargs):
             turn = _current.get()
             if (turn and chat_id == turn.room and not getattr(turn, 'stopped', False)

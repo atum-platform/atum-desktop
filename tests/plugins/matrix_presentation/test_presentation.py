@@ -189,6 +189,8 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
             token = p._current.set(turn)
             try:
                 await turn.progress('Reading a file')
+                await adapter.send_or_update_status(turn.room, 'compression', 'Continuing after compression')
+                self.assertFalse(turn.ended)
                 result = await adapter.send(turn.room, 'Here is the answer.', reply_to=turn.source)
                 self.assertTrue(result.success)
                 final = server.requests[-1][1]

@@ -3265,7 +3265,7 @@ def register(ctx) -> None:
     from .dashboard_card import DASHBOARD_CARD
     from . import gateway_env  # env -> GatewayConfig bridge (gateway.config_env)
     adapter_factory = MatrixAdapter
-    if ctx.get_config("atum_presentation", False):
+    if ctx.get_config("atum_presentation", False) is True:
         from .presentation import adapter_class, register_hooks
         adapter_factory = adapter_class(MatrixAdapter)
         register_hooks(ctx)

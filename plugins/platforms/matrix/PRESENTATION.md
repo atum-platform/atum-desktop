@@ -8,8 +8,8 @@ be disabled to avoid publishing a second activity surface.
 
 This is a Matrix platform extension, selected by its existing `register_platform`
 factory. It adds no tools, prompts, conversation messages, or model calls.
-`pre_tool_call` contributes only a fixed tool category; argument/result bodies
-never enter presentation. Native gateway interim sends pass through Hermes's
+`pre_tool_call` contributes only a fixed tool category; general argument/result bodies never enter presentation. The native todo
+completion contributes its bounded list only after forced egress redaction. Native gateway interim sends pass through Hermes's
 forced egress redactor. Only private DM background turns get presentation.
 
 Wire contracts: `atum.agent-turns/1.3` progress marker, `/1.4` interim and
