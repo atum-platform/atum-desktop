@@ -162,7 +162,7 @@ def handle_api_error(
         if _retry.allowance_wait_started is None:
             _retry.allowance_wait_started = time.monotonic()
         remaining = window - (time.monotonic() - _retry.allowance_wait_started)
-        if remaining <= 0:
+        if remaining <= 0.001:  # avoid sub-clock-resolution retries at the deadline
             summary = "Usage top-up is taking longer than expected. Please try again shortly."
             agent._persist_session(messages, conversation_history)
             return _verdict("return", {

@@ -1530,10 +1530,14 @@ def _codex_soft_failure_error(response: Any) -> dict[str, Any]:
     if isinstance(error_obj, dict):
         fields = error_obj
     elif hasattr(error_obj, "code") or hasattr(error_obj, "message"):
-        fields = {"code": getattr(error_obj, "code", None), "message": getattr(error_obj, "message", None)}
+        fields = {key: getattr(error_obj, key, None) for key in ("code", "message", "metadata")}
     else:
         fields = {"message": str(error_obj)}
-    return {k: v for k, v in fields.items() if isinstance(v, str) and v.strip()}
+    return {k: v for k, v in fields.items() if (
+        (isinstance(v, str) and v.strip())
+        or (k == "code" and isinstance(v, int) and not isinstance(v, bool))
+        or (k == "metadata" and isinstance(v, dict))
+    )}
 
 
 class _CodexSoftFailure(Exception):
