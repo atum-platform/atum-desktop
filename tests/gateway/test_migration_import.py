@@ -193,7 +193,8 @@ def test_reverse_retains_native_frozen_delivery_and_terminal_receipts(stores, ex
                                   [{'msgtype':'m.text', 'body':'frozen answer'}], sender_id='fixture')
     result = reverse_handover(db, journal, agent_id='fixture-agent', generation=2,
                               session_id='fixture-history', authorize=authorize)
-    assert result['admissions'][0]['status'] == 'completed'
+    assert result['admissions'][0]['status'] == 'terminal'
+    assert result['admissions'][0]['outcome'] == 'completed'
     assert result['delivery_obligations'][0]['source_event_id'] == '$during'
     assert json.loads(result['delivery_obligations'][0]['matrix_send_plan']) == plan
     # Advancing the native epoch fences a late outgoing execution, while exact
@@ -201,5 +202,5 @@ def test_reverse_retains_native_frozen_delivery_and_terminal_receipts(stores, ex
     next_epoch = begin_runtime_epoch(db, instance_id='returning-controller')
     assert next_epoch > epoch
     assert admit_session_input(db, epoch=next_epoch, principal_id='fixture-owner',
-        session_id='fixture-history', request_id='$during', payload={'text':'window'})['status'] == 'completed'
+        session_id='fixture-history', request_id='$during', payload={'text':'window'})['status'] == 'terminal'
     assert claim_session_input(db, epoch=next_epoch, session_id='fixture-history') is None
