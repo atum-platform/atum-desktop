@@ -933,7 +933,8 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 can_resolve=bool(ctx.inbound_message_id)
                 and bool((getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_owner_response'))
                 and not getattr(ctx, 'scheduled_heartbeat', False)
-                and not getattr(ctx, 'persist_user_display_kind', None))
+                and not getattr(ctx, 'persist_user_display_kind', None),
+                message_timestamp=(getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_received_at'))
             self._resume_ask_note = pending_ask_note(entry)
         else:
             self._resume_ask_note = ''

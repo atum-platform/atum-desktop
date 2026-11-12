@@ -6,6 +6,7 @@ this policy resumes a conversation, not a provider request or an effect.
 from dataclasses import dataclass
 import json
 import secrets
+from datetime import datetime, UTC
 
 from agent.message_metadata import resolve_tool_call_uid
 from agent.message_sanitization import coalesce_tool_call_id, tool_call_id_variants
@@ -100,22 +101,32 @@ def choose_resume_policy(history, *, force_ask=False):
                         tuple(dict.fromkeys(unsafe or unfinished)), frozenset(completed))
 
 
-def pending_resume_policy(store, entry, policy, message, *, can_resolve):
+def pending_resume_policy(store, entry, policy, message, *, can_resolve, message_timestamp=None):
     """Persist the native session's unresolved human decision before any model/tool runs.
 
     Native gateway approval waiters are process-local and timed; only their once/deny
     semantics apply here, not their timeout. SessionStore owns persistence/locking.
-    A fresh random prompt identity prevents pre-question FIFO input from resolving it.
+    The original ingress timestamp fences pre-question FIFO input across restarts.
     """
     pending = getattr(entry, 'resume_ask', None)
     if pending is None and policy is not None and policy.ask:
-        pending = {'token': secrets.token_hex(4), 'actions': list(policy.actions)}
+        pending = {'token': secrets.token_hex(4), 'actions': list(policy.actions),
+                   'created_at': datetime.now(UTC).isoformat()}
+        can_resolve = False
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     if pending is None:
         return policy
+    if 'created_at' not in pending:
+        # Older persisted questions acquire a conservative boundary on first use.
+        pending = dict(pending, created_at=datetime.now(UTC).isoformat())
+        store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
+    try:
+        fresh = datetime.fromisoformat(message_timestamp).timestamp() > datetime.fromisoformat(pending['created_at']).timestamp()
+    except (TypeError, ValueError):
+        fresh = False
     token = pending['token']
     from tools.approval import exact_gateway_approval_choice
-    decision = exact_gateway_approval_choice(str(message), token) if can_resolve else None
+    decision = exact_gateway_approval_choice(str(message), token, allow_unscoped=fresh) if can_resolve else None
     if decision is not None:
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', None))
         store.clear_resume_pending(entry.session_key)
@@ -130,10 +141,31 @@ def pending_ask_note(entry):
     pending = getattr(entry, 'resume_ask', None)
     if not pending:
         return ''
-    return (" Answer conversationally without tools until this decision is resolved. "
-            "In the owner's language, include these literal one-message choices: "
-            "yes " + pending['token'] + " / no " + pending['token'] +
-            " (Vietnamese: có " + pending['token'] + " / không " + pending['token'] + ").")
+    from agent.i18n import get_language
+    return (" Answer the owner's message conversationally without tools. Use language " +
+            get_language() + " (English when unknown). Ask only ONE short line naming the "
+            "interrupted action in everyday words and asking whether to continue. "
+            "Do not show codes, tool names or arguments. A clear yes or no is enough. "
+            "For an unrelated message, answer it and leave the pending question to the appended reminder.")
+
+
+def pending_ask_reminder():
+    from agent.i18n import get_language
+    if get_language().split('-')[0] == 'vi':
+        return 'Bạn có muốn tôi tiếp tục việc đang dở không?'
+    return 'May I continue the interrupted action?'
+
+
+def shape_pending_ask(store, entry, response):
+    """Keep the first question short and reuse its action wording on later turns."""
+    pending = entry.resume_ask
+    question = pending.get('question')
+    if not question:
+        question = next((line.strip() for line in response.splitlines() if line.strip()), pending_ask_reminder())
+        pending = dict(pending, question=question)
+        store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
+        return question
+    return response if question in response else response + '\n\n' + question
 
 
 def recovery_tool_block(policy, name, arguments):
