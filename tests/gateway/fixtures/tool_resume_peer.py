@@ -162,11 +162,17 @@ async def probe():
             await asyncio.wait_for(task, 40)
         if mode == 'pending_again':
             assert entry.resume_ask
-            await adapter.handle_message(MessageEvent(text='Finish the work.', source=source, message_id='after-restart'))
+            event = MessageEvent(text='Finish the work.', source=source, message_id='after-restart')
+            await adapter.handle_message(event)
+            await async_wait_until(lambda: event._gateway_accepted and not adapter._background_tasks,
+                                   timeout=40, what='accepted conversational turn completed')
             assert entry.resume_ask
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             token = entry.resume_ask['token']
-            await adapter.handle_message(MessageEvent(text='không ' + token, source=source, message_id='decline'))
+            event = MessageEvent(text='không ' + token, source=source, message_id='decline')
+            await adapter.handle_message(event)
+            await async_wait_until(lambda: event._gateway_accepted and not adapter._background_tasks,
+                                   timeout=40, what='accepted owner decline completed')
             assert entry.resume_ask is None
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             return
