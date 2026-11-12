@@ -33,13 +33,17 @@ class TurnFacadeMixin:
         persist_api_content: bool=True,
     ) -> dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
-        from hermes_cli.turn_admission import check_turn_admission
+        from hermes_cli.turn_admission import admission_turn_id, check_turn_admission
+        import uuid
+
+        self._admission_turn_id = admission_turn_id.get() or str(uuid.uuid4())
 
         refusal = check_turn_admission(
             platform=getattr(self, "platform", None) or "cli",
             session_id=getattr(self, "session_id", None), task_id=task_id,
             parent_session_id=getattr(self, "_parent_session_id", None),
             user_message=user_message, turn_author=turn_author, stage="turn",
+            turn_id=self._admission_turn_id,
         )
         if refusal is not None:
             refusal["messages"] = list(conversation_history or [])

@@ -1744,6 +1744,7 @@ DEFAULT_CONFIG = {
         # Host policy IDs. Missing, disabled or failed plugins deny every turn.
         "required_admission": [],
         # Strict admission always has a finite positive deadline (seconds, max 600).
+        # Zero is invalid when policy is configured, never an unlimited deadline.
         "admission_timeout": 30,
         # Deadline (seconds) for one plugin's import + register() at load. A plugin that overruns it is
         # skipped with the reason "load timed out" and the rest keep loading; the stuck worker thread is

@@ -213,6 +213,16 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
 
 
     async def _handle_message_with_agent(self, event, source, _quick_key: str, run_generation: int):
+        from hermes_cli.turn_admission import admission_turn_id
+        import uuid
+
+        token = admission_turn_id.set(str(uuid.uuid4()))
+        try:
+            return await self._handle_message_with_agent_admitted(event, source, _quick_key, run_generation)
+        finally:
+            admission_turn_id.reset(token)
+
+    async def _handle_message_with_agent_admitted(self, event, source, _quick_key: str, run_generation: int):
         """Inner handler that runs under the _running_agents sentinel guard."""
         _msg_start_time = time.time()
         _platform_name = source.platform.value if hasattr(source.platform, "value") else str(source.platform)
@@ -305,6 +315,14 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
             if not self._is_session_run_current(_quick_key, run_generation):
                 self._hmwa_discard_stale_result(source, _quick_key, run_generation)
                 return None
+
+            if agent_result.get("turn_exit_reason") == "admission_denied":
+                from gateway.session_results import execution_result, record_unexecuted_failure
+
+                captured = execution_result.get()
+                if captured is not None:
+                    captured["result"] = dict(agent_result, messages=[])
+                return record_unexecuted_failure(agent_result["final_response"])
 
             response, _intentional_silence, agent_messages = await self._hmwa_shape_agent_response(
                 agent_result, source, history, session_entry, session_key,
@@ -574,7 +592,7 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
                 response = repair_explicit_computer_use_media_paths(response, result.get("messages", []))
 
             preview = prompt[:60] + ("..." if len(prompt) > 60 else "")
-            header = t("gateway.background.complete_header", preview=preview)
+            header = "" if result and result.get("turn_exit_reason") == "admission_denied" else t("gateway.background.complete_header", preview=preview)
             images, media_files, text_content = [], [], ""
             if response:
                 media_files, response = adapter.extract_media(response)

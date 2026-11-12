@@ -352,4 +352,43 @@ def test_stable_admission_identity_reaches_tools(admission):
     check_turn_admission(turn_id='owner-operation', stage='gateway_media')
     check_turn_admission(turn_id='owner-operation', stage='turn')
     assert [ctx['turn_id'] for ctx in seen] == ['owner-operation', 'owner-operation']
-    assert 'admission_id' in tool_hook_ids(SimpleNamespace(), '', '')
+    assert tool_hook_ids(SimpleNamespace(_current_turn_id='owner-operation'), '', '')['turn_id'] == 'owner-operation'
+
+
+def test_real_config_read_managed_precedence_and_corruption(monkeypatch, tmp_path):
+    from hermes_cli.turn_admission import check_turn_admission, admission_readiness
+    from hermes_cli.config import load_config_readonly
+    home = tmp_path / 'profile'
+    home.mkdir()
+    managed = tmp_path / 'managed'
+    managed.mkdir()
+    monkeypatch.setenv('HERMES_HOME', str(home))
+    monkeypatch.setenv('HERMES_MANAGED_DIR', str(managed))
+    profile = home / 'config.yaml'
+    profile.write_text('plugins:\n  required_admission: [profile-policy]\n  admission_timeout: 0\n')
+    (managed / 'config.yaml').write_text('plugins:\n  required_admission: [managed-policy]\n  admission_timeout: 20\n')
+    config = load_config_readonly()
+    assert set(config['plugins']['required_admission']) == {'profile-policy', 'managed-policy'}
+    assert config['plugins']['admission_timeout'] == 20
+    profile.write_text('plugins: [unterminated')
+    assert check_turn_admission()['admission']['code'] == 'admission_unavailable'
+    assert admission_readiness()['status'] == 'unavailable'
+
+
+def test_facade_identifier_binds_native_tool_context(admission, monkeypatch):
+    from hermes_cli.turn_admission import admission_turn_id
+    from agent.turn_context import _bind_turn_identity
+    from agent.inline_tool_executors import tool_hook_ids
+    admission[1].register_hook('pre_turn_admission', lambda **_: True, fail_closed=True)
+    agent = SimpleNamespace(platform='discord', session_id='session')
+    def reached(agent):
+        _bind_turn_identity(agent, 'task', None, None, None, None)
+        assert tool_hook_ids(agent, 'task', 'call')['turn_id'] == 'host-admission'
+        raise RuntimeError('verified')
+    monkeypatch.setattr('agent.background_review.cancel_background_review_for_live_turn', reached)
+    token = admission_turn_id.set('host-admission')
+    try:
+        with pytest.raises(RuntimeError, match='verified'):
+            TurnFacadeMixin.run_conversation(agent, 'hello')
+    finally:
+        admission_turn_id.reset(token)

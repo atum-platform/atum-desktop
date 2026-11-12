@@ -97,8 +97,24 @@ def _load_managed_file(name: str, cache: dict[str, tuple], parse) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def load_managed_config() -> dict:
+def load_managed_config(*, strict: bool = False) -> dict:
     """Parsed managed config.yaml, or {} when absent/malformed (fail-open)."""
+    if strict:
+        managed_dir = get_managed_dir()
+        override = os.environ.get("HERMES_MANAGED_DIR", "").strip()
+        if managed_dir is None:
+            if override:
+                raise ValueError("Configured managed directory is unavailable")
+            return {}
+        path = managed_dir / "config.yaml"
+        try:
+            contents = path.read_text(encoding="utf-8-sig")
+        except FileNotFoundError:
+            return {}
+        parsed = fast_safe_load(contents) or {}
+        if not isinstance(parsed, dict):
+            raise ValueError("Managed config must be a mapping")
+        return parsed
     return _load_managed_file("config.yaml", _CONFIG_CACHE, lambda p: fast_safe_load(p.read_text(encoding="utf-8-sig")) or {})
 
 
