@@ -201,7 +201,7 @@ async def recover_unknown_admission(authority, ref, live, rows):
 async def recover_failed_native_admission(authority, ref, live, rows):
     """Recover a persistence-failed native turn on a later boot, behind its normal Ask gate.
 
-    Only the latest admission is eligible. A later owner turn supersedes the failure,
+    Only the latest executed admission is eligible. Queued followers keep their FIFO place,
     and the current epoch never retries itself in a loop. The retained native result
     carries proposed calls even when the canonical call-row write failed.
     """
@@ -209,7 +209,9 @@ async def recover_failed_native_admission(authority, ref, live, rows):
     adapter = authority.runner._delivery_adapter_for(live.source)
     if not getattr(adapter, 'tool_aware_resume', False) or not rows:
         return False
-    row = rows[-1]
+    row = next((row for row in reversed(rows) if row['status'] != 'queued'), None)
+    if row is None:
+        return False
     if (row['status'] != 'terminal' or row['outcome'] != 'failed'
             or row['owner_epoch'] == authority.epoch or 'native_text_v1' not in row['payload']):
         return False

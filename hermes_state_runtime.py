@@ -1026,8 +1026,8 @@ def requeue_interrupted_session_input(db, *, epoch, admission_id):
             result = load_result(saved[0]).get('result', {}) if saved else {}
             if not str(result.get('failure_reason', '')).startswith('session_persistence_failed:'):
                 return False
-            # Do not revive an obsolete failure after later owner work was admitted.
-            latest = conn.execute('SELECT admission_id FROM session_admissions WHERE target_session_id=? '
+            # Do not revive an obsolete failure after later owner work was executed.
+            latest = conn.execute('SELECT admission_id FROM session_admissions WHERE target_session_id=? AND status!=\'queued\' '
                                   'ORDER BY seq DESC LIMIT 1', (row['target_session_id'],)).fetchone()
             if latest is None or latest[0] != admission_id:
                 return False
