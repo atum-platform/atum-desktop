@@ -129,6 +129,12 @@ import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-compa
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixDisplayMode } from '../../shared/matrix-display-preferences'
 import { type MatrixDraftTarget, matrixDraftText } from '../../shared/matrix-drafts'
+import {
+  matrixAdmittedFiles,
+  matrixFileAnswerBody,
+  matrixFileBindingForRoom,
+  matrixHideFileStatusNotices
+} from '../../shared/matrix-file-chips'
 import { matrixMessageLink, validMatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import {
   MATRIX_NOTES_SELF_ROOM_TYPE,
@@ -154,6 +160,7 @@ import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUna
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
+import { MatrixAgentProposalCards } from './agent-proposal-card'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
 import { MatrixBotApiKeyboard, MatrixBotApiText } from './app-bots/bot-api-text'
 import { MatrixBotApiPhotoView } from './app-bots/bot-photo'
@@ -285,6 +292,7 @@ import {
 import type { MatrixDriveTaskScope } from './drive-selection'
 import { MatrixExecutionPolicyControl } from './execution-policy-control'
 import { executionPolicyOffersChoice } from './execution-policy-trigger'
+import { MatrixFileChips } from './file-chips'
 import { MatrixFirstLearningTiles } from './first-learning-tiles'
 import {
   MatrixFirstRunCard,
@@ -531,6 +539,7 @@ const ConversationActions = createContext<{
   /** The assistant's Matrix user: its answers render as markdown, as in the old app. */
   assistantUserId?: string
   assistantName?: string
+  ownerPrincipal?: string
   ownerUserId?: string
   ownerDeviceId?: string
   /** The open room's members, for the names people go by and their photos (display only). */
@@ -729,7 +738,34 @@ function MatrixEventMessageBubble() {
   const privateCosState = privateCosRecords[privateCosKey]
   // Senders, replies, receipts and mentions in a message: names only, never a public @handle.
   const people = useMatrixChatPeople(action?.members, action?.ownerUserId)
-  const message = useAuiState(state => state.message.metadata.custom?.matrix) as MatrixMessage
+  const projected = useAuiState(state => state.message.metadata.custom?.matrix) as MatrixMessage
+
+  // An agent answer's file chips (agent-turns/1.7), only for the platform-bound sender. With
+  // chips the answer is only the agent's words: no Atum sentence, and a file never marks it edited.
+  const fileCompanyAI =
+    projected.files && action?.room.companyChannel && action.accountKey
+      ? companyAIStatuses[companySpaceScope(action.accountKey, action.room.companyChannel.companyId)]
+      : undefined
+
+  const fileBinding = projected.files
+    ? matrixFileBindingForRoom(action?.room, {
+        ownerPrincipal: action?.ownerPrincipal,
+        ownerUserId: action?.ownerUserId,
+        agents: action?.agents,
+        ...(fileCompanyAI ? { companyAgent: { companyId: fileCompanyAI.companyId, ...fileCompanyAI.agent } } : {})
+      })
+    : undefined
+
+  const fileChips = fileBinding ? matrixAdmittedFiles(projected, fileBinding) : undefined
+
+  const message = useMemo(
+    () =>
+      fileChips
+        ? { ...projected, body: matrixFileAnswerBody(projected.body), edited: undefined, editedAt: undefined }
+        : projected,
+    [fileChips, projected]
+  )
+
   const local = useAuiState(state => state.message.metadata.custom?.local) as MatrixTranscriptEntry['local']
   const reply = useAuiState(state => state.message.metadata.custom?.reply) as MatrixMessage | undefined
   const consecutiveReply = useAuiState(state => state.message.metadata.custom?.consecutiveReply) as boolean
@@ -1465,6 +1501,7 @@ function MatrixEventMessageBubble() {
                 />
               )}
             </div>
+            {fileChips && <MatrixFileChips files={fileChips} />}
             {previewLink && action && (
               <MatrixLinkPreviewCard
                 message={message}
@@ -1472,6 +1509,11 @@ function MatrixEventMessageBubble() {
                 roomEncrypted={action.room.encrypted}
                 roomId={action.room.id}
               />
+            )}
+            {/* What the main agent proposed about the person's other agents: a confirm card built
+                from the platform's record (agent-proposal-card.tsx), never from this message. */}
+            {action && (agent || ownAssistant) && !message.own && (
+              <MatrixAgentProposalCards eventId={message.id} onTopUp={action.topUp} roomId={action.room.id} />
             )}
             </>
           )}
@@ -4652,6 +4694,7 @@ function MatrixThreadDetail({
               captureCard,
               cloud: false,
               assistantUserId: snapshot.assistant?.userId,
+              ownerPrincipal: snapshot.accountPrincipal,
               ownerUserId: snapshot.identity?.userId,
               ownerDeviceId: snapshot.identity?.deviceId,
               members: snapshot.members,
@@ -5301,7 +5344,14 @@ function Conversation({
 
     // A working line whose turn has ended shows nothing (agent-turns/1.4). The one still live
     // is drawn under the typing bubble, not as a transcript row of its own.
-    const visible = matrixHideEndedTransientLines(snapshot.messages, agents)
+    // A file notice about a question whose answer already shows its files says nothing more.
+    const fileBinding = matrixFileBindingForRoom(room, {
+      ownerPrincipal: snapshot.accountPrincipal,
+      ownerUserId: snapshot.identity?.userId,
+      agents: snapshot.agents
+    })
+    const shown = fileBinding ? matrixHideFileStatusNotices(snapshot.messages, fileBinding) : snapshot.messages
+    const visible = matrixHideEndedTransientLines(shown, agents)
     const line = room?.assistant ? matrixWorkingLine(visible, agents, snapshot.assistant?.userId) : undefined
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
@@ -5418,8 +5468,9 @@ function Conversation({
     snapshot.membershipLines,
     snapshot.localTurns,
     snapshot.roomId,
-    room?.assistant,
-    room?.companyChannel,
+    room,
+    snapshot.agents,
+    snapshot.accountPrincipal,
     outgoing,
     snapshot.identity?.userId,
     snapshot.assistant?.userId,
@@ -5591,6 +5642,7 @@ function Conversation({
               captureCard,
               cloud: Boolean(cloudAgent),
               assistantUserId: snapshot.assistant?.userId,
+              ownerPrincipal: snapshot.accountPrincipal,
               ownerUserId: snapshot.identity?.userId,
               ownerDeviceId: snapshot.identity?.deviceId,
               members: snapshot.members,

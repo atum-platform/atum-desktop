@@ -29,6 +29,7 @@ import type {
 } from './browser/ipc'
 import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from './execution-policy'
 import type { LookPackPublished, LookRoomAccountData } from './look-pack'
+import type { MatrixAgentProposalsBridge } from './matrix-agent-proposals'
 import type { MatrixAgentSourcesBridge } from './matrix-agent-sources'
 import type { MatrixAliasBridge } from './matrix-aliases'
 import type { MatrixAppConnectionState } from './matrix-apps'
@@ -59,6 +60,7 @@ import type { MatrixDeviceIsolation } from './matrix-device-isolation'
 import type { MatrixDisplayPreferenceChange, MatrixDisplayPreferences } from './matrix-display-preferences'
 import type { MatrixDraftsSnapshot } from './matrix-drafts'
 import type { MatrixDriveBridge } from './matrix-drive'
+import type { MatrixFileAnswerProjection } from './matrix-file-chips'
 import type { MatrixFirstLearningProgress } from './matrix-first-learning'
 import type { MatrixFolderAccessBridge } from './matrix-folder-access'
 import type {
@@ -447,6 +449,9 @@ export interface MatrixMessage {
   checkIn?: MatrixCheckInNudge
   /** Closed cloud notice code and its synthetic Stop target; display only. */
   cloudStatus?: { code: string; stopEvent?: string }
+  /** An agent answer's file chips (agent-turns/1.7) replayed from the room; display only. The
+   * window shows them only for the platform-bound sender (matrix-file-chips.ts). */
+  files?: MatrixFileAnswerProjection
   /** Versioned bot-api presentation metadata (`io.atum.bot_api/1`), present only on a message
    * from an official app bot. Display only. */
   botApi?: MatrixBotApiMessage
@@ -560,6 +565,8 @@ export interface MatrixNewSignIn {
 }
 
 export interface MatrixSnapshot {
+  /** Signed-in platform principal, projected from main's own account session only. */
+  accountPrincipal?: string
   /** SDK-confirmed account marker; unknown/offline never means a new account. */
   starterMarker?: 'unknown' | 'unseen' | 'seen'
   /** Native ledger allowance, in integer micro-Protons, while its marker is unseen. */
@@ -2103,6 +2110,8 @@ export interface MatrixUiBridge {
   /** Per-account live source switches; every read remains main/tool-handler enforced. */
   macSources?: MatrixMacSourcesBridge
   /** Current-assistant descriptor projection; main owns both account and assistant selection. */
+  /** Confirm cards for what the main agent proposes about the person's other agents. */
+  agentProposals?: MatrixAgentProposalsBridge
   agentSources?: MatrixAgentSourcesBridge
   /** Which Mac folders the owner shares; main alone asks macOS and enforces the choice. */
   folderAccess?: MatrixFolderAccessBridge

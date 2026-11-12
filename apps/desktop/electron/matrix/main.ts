@@ -131,6 +131,7 @@ import {
   type MatrixTurnLookup
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import { MATRIX_AGENT_PROPOSALS_IPC } from '../../shared/matrix-agent-proposals'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { appBotTurnRefusal } from '../../shared/matrix-app-bot-failure'
@@ -339,6 +340,7 @@ import {
 } from './agent-lifecycle'
 import { matrixAgentModelView } from './agent-model-view'
 import { manageMatrixAgentProfile } from './agent-profile-management'
+import { MatrixAgentProposals, registerMatrixAgentProposalsIpc } from './agent-proposals'
 import {
   carryMatrixHermesHome,
   MatrixAgentReenrollments,
@@ -2029,6 +2031,7 @@ let updateHandoff: UpdateHandoff | null = null
 let previousRestart: UpdateHandoffResult | null = null
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
 let appLoadHost: Host | undefined
+let agentProposals: MatrixAgentProposals | undefined
 let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
 let documents: MatrixRoomDocuments
@@ -6886,6 +6889,8 @@ const presentationCommand = createPresentationDispatch({
 })
 
 function publish(next: MatrixSnapshot) {
+  next = { ...next, accountPrincipal: next.identity ? account?.enrollment().identity?.principal : undefined }
+  agentProposals?.refreshScope()
   if (webPreviewScope(next) !== webPreviewScope(state)) {
     webPreviews.clear()
   }
@@ -19225,6 +19230,23 @@ async function start() {
       add: () => matrixFolderAccess().add(),
       remove: id => matrixFolderAccess().remove(id)
     }
+  })
+  // The confirm card for what the main agent proposes about the person's other agents
+  // (agent-proposals.ts). Off until the owner-session proposal routes ship: with no `platform`
+  // nothing is admitted, so no card ever renders. Hire names wait on the same routes.
+  registerMatrixAgentProposalsIpc(ipcMain, {
+    assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
+    proposals: agentProposals = new MatrixAgentProposals({
+      storage: outcomeStore,
+      scope: () => account?.appScope() ?? null,
+      agentName: principal => allAgents().find(agent => !agent.closed && cloudPrincipal(agent) === principal)?.name,
+      offerName: () => undefined,
+      changed: roomId => {
+        if (ui && !ui.isDestroyed()) {
+          ui.webContents.send(MATRIX_AGENT_PROPOSALS_IPC.changed, roomId)
+        }
+      }
+    })
   })
   registerMatrixAgentSourcesIpc(ipcMain, {
     assertTrusted: event => requireMatrixCaller(event, ui?.webContents, UI_URL),

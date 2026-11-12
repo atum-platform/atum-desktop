@@ -1,0 +1,7 @@
+{
+  "ownerDefaultReceipt": "m.read",
+  "ownerOffReceipt": "m.read.private",
+  "ownerTypingDefault": true,
+  "agentGroupTarget": "addressed_or_admitted",
+  "cumulative": true
+}

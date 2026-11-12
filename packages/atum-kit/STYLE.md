@@ -273,11 +273,51 @@ exceptions.
   replaced by the reader's 14 px face once read (in a group, up to three faces
   and +N). Earlier messages carry no mark
   (2026-10-29, delegated design decision).
-- **Files** in a chat are plain cards: hairline, `--ak-r-xl`, a sunk tile
-  with the file's shape glyph, name in body-strong, and one line in callout:
-  "{Kind} · saved to Drive" or "{Kind} · {size}". One trailing action: Open
-  when the file is here, a download icon button when it must be fetched
-  (2026-10-29, delegated design decision).
+- **Atum never writes into a message** (owner, 2026-11-11). No program adds a
+  sentence to, or edits, someone's message to report a file or a system
+  condition. A file's state is its card's; a blocked turn is Atum's own line
+  (below). A file changing state never marks a message edited.
+- **Files** in a chat are plain cards (`.ak-file`; 2026-10-29, revised
+  2026-11-11): hairline, `--ak-r-xl`, a 40 px sunk tile (`--ak-r-lg`, concentric
+  with the card's 6 px padding) with the file's shape glyph, the real name in
+  body-strong and one line in callout. The line says where the file is
+  ("Documents › Q4", "Company files › Q4", "Uploads"), or "{Kind} · {size}" for a
+  file that is not in Drive. Up to the 320 px card width; a file in your own
+  message sits under your bubble on the right. The card itself opens the file
+  (an in-app preview on the Mac, the Drive preview on the phone); one trailing
+  slot shows its state or, on hover or keyboard focus, a "…"
+  (`.ak-iconbtn--sm`) whose menu lists only what works now (Open with…, Show in
+  Finder when the file is on this Mac, Share). On the phone a long press offers
+  Share. A received file that must be fetched keeps a download icon button in
+  that slot. Its states, which change by themselves and never by new text:
+  - **Saving**: the kit spinner (`.ak-spinner`, an app wait, never the atom) in
+    the trailing slot, named "Saving" for screen readers and in its tooltip.
+  - **Saved**: the plain card.
+  - **Saved as a copy**: the copy's real name, and an info icon button whose
+    tooltip says why ("The original changed, so this one sits beside it.").
+  - **Not confirmed** (`.ak-file--muted`): the name in body ink-2, the glyph in
+    ink-4, the line "Not confirmed". It opens the kept draft while there is one.
+    No "save again" action, and never the danger or warning colour: nothing is
+    known to have failed.
+  - **Expired** (`.ak-file--inert`): no surface or edge, an outlined tile, the line
+    "Not confirmed"; nothing to open, and never the word "lost". A viewer who
+    no longer has access sees the same inert card without its line.
+  - **Reopened later**: a file that has moved since shows a toast ("No longer
+    where it was" · Find in Drive). Messages from before cards keep their old
+    text and get no card.
+- **Atum's own line** (`.ak-chat-note`; owner, 2026-11-11): when Atum itself has
+  something to say in a chat (the assistant can't answer: out of Protons,
+  today's limit, an outage; a long answer paused), it is one centred callout
+  line in ink-3, in Atum's voice, never the assistant's first person, with at
+  most one `.ak-btn--sm` that fixes it in place. It sits under the message it
+  is about and takes the place of the delivery mark there; when the block
+  clears it fades and the assistant answers. Someone who can't fix it (a
+  company member who is not an owner or admin) sees the line without the
+  button. It fits one phone line, about twelve Vietnamese words. Never a band,
+  a bubble or the danger colour.
+- **Quick replies** are up to three `.ak-btn--sm` under the message they answer;
+  each sends an ordinary message in your name ("Continue", "Send the rest", "Do it in
+  the cloud"). They replace words you would otherwise be told to type.
 - **The assistant at work** shows the Atum atom, never a generic spinner.
 - **A new chat** shows the assistant's face (48), one greeting in Display, one
   muted line, and up to three suggestion buttons (`.ak-btn--sm`); nothing else.
@@ -332,6 +372,8 @@ Use the kit component; never restyle one at a call site.
 | Empty / error / loading         | `.ak-state`, `.ak-skeleton`, `.ak-spinner`                         | says what this is and offers the next step           |
 | Ask (the assistant needs a yes) | `.ak-ask`                                                          | one question, its actions, nothing else              |
 | Badges                          | `.ak-badge` (+ `--mention`, `--quiet`)                             | mention is the only red badge                        |
+| File in a chat                  | `.ak-file` (+ `--muted`, `--inert`)                                | the card opens it; one trailing slot (§10)           |
+| Atum's own line in a chat       | `.ak-chat-note`                                                    | one centred line, at most one `.ak-btn--sm` (§10)    |
 
 - A **dialog** (`.ak-dialog`) is only for a confirmation: title, one line,
   Cancel and the action. Anything with a field, including choosers with a

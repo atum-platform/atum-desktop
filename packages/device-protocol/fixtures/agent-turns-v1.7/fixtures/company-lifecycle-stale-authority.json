@@ -1,0 +1,19 @@
+{
+  "steps": [
+    {
+      "from": "recheck",
+      "to": "send_allowed",
+      "event": "send_authority_current"
+    },
+    {
+      "from": "send_allowed",
+      "to": "recheck",
+      "event": "authority_invalidated"
+    },
+    {
+      "from": "recheck",
+      "to": "recheck",
+      "event": "send"
+    }
+  ]
+}

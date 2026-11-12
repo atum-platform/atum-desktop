@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "none",
+      "to": "hidden",
+      "event": "loaded_ended"
+    }
+  ]
+}

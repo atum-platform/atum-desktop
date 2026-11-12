@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "idle",
+      "to": "waiting_unreachable",
+      "event": "device_unreachable"
+    }
+  ]
+}
