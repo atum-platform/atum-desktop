@@ -19,6 +19,7 @@ import time
 import unicodedata
 import uuid
 
+_final_delivery = ContextVar("matrix_presentation_final", default=False)
 _active = {}
 logger = logging.getLogger(__name__)
 _current = ContextVar("matrix_presentation_turn", default=None)
@@ -73,11 +74,35 @@ class Outbox:
         self.db.execute('PRAGMA synchronous=FULL')
         self.db.execute('CREATE TABLE IF NOT EXISTS effects (txn TEXT PRIMARY KEY, room TEXT, content TEXT, target TEXT, event TEXT)')
         self.db.execute('CREATE TABLE IF NOT EXISTS roots (room TEXT, source TEXT, event TEXT, PRIMARY KEY(room, source))')
+        if 'created' not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
+            self.db.execute('ALTER TABLE effects ADD COLUMN created REAL NOT NULL DEFAULT 0')
+            self.db.execute('UPDATE effects SET created=?', (time.time(),))
+        self.db.execute('CREATE INDEX IF NOT EXISTS effects_target ON effects(target)')
+        self.db.commit()
+
+    def collect(self, now=None):
+        # Keep unresolved effects and live originals indefinitely. Completed receipts
+        # expire after seven days. Unresolved writes retain their original transactions.
+        cutoff = (time.time() if now is None else now) - 7 * 86400
+        rows = self.db.execute('''SELECT txn,content,target,event FROM effects
+            WHERE event IS NOT NULL AND created < ?''', (cutoff,)).fetchall()
+        completed = {row[0] for row in self.db.execute(
+            'SELECT target FROM effects WHERE target IS NOT NULL AND event IS NOT NULL')}
+        expired = []
+        for txn, content, target, event in rows:
+            body = json.loads(content)
+            original = 'io.atum.progress' in body and 'm.new_content' not in body
+            if original and event not in completed:
+                continue
+            if self.db.execute('SELECT 1 FROM roots WHERE event=?', (event,)).fetchone():
+                continue
+            expired.append((txn,))
+        self.db.executemany('DELETE FROM effects WHERE txn=?', expired)
         self.db.commit()
 
     async def effect(self, port, room, content, txn, target=None):
-        self.db.execute('INSERT OR IGNORE INTO effects VALUES (?,?,?,?,NULL)',
-                        (txn, room, json.dumps(content), target))
+        self.db.execute('INSERT OR IGNORE INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
+                        (txn, room, json.dumps(content), target, time.time()))
         self.db.commit()
         row = self.db.execute('SELECT room,content,target,event FROM effects WHERE txn=?', (txn,)).fetchone()
         if row[3]:
@@ -94,14 +119,17 @@ class Outbox:
         for room, source, event in self.db.execute('SELECT room,source,event FROM roots').fetchall():
             await self.remove(port, room, source, event)
         # Roots not yet recorded at the crash boundary are reconstructed from sent intents.
-        for txn, room, content, event in self.db.execute('SELECT txn,room,content,event FROM effects WHERE target IS NULL').fetchall():
+        for txn, room, content, event in self.db.execute('''SELECT e.txn,e.room,e.content,e.event FROM effects e WHERE e.target IS NULL
+                AND e.event IS NOT NULL AND NOT EXISTS (
+                    SELECT 1 FROM effects r WHERE r.target=e.event AND r.event IS NOT NULL)''').fetchall():
             body = json.loads(content)
             if 'io.atum.progress' in body and 'm.new_content' not in body:
                 await self.remove(port, room, body['m.relates_to']['m.in_reply_to']['event_id'], event)
+        self.collect()
 
     async def remove(self, port, room, source, event):
         await self.effect(port, room, {'reason': 'Turn ended'}, redaction_transaction(event), event)
-        self.db.execute('DELETE FROM roots WHERE room=? AND source=?', (room, source))
+        self.db.execute('DELETE FROM roots WHERE room=? AND source=? AND event=?', (room, source, event))
         self.db.commit()
 
 
@@ -111,6 +139,10 @@ class Turn:
         self.clock = clock
         self.loop = asyncio.get_running_loop()
         self.lock = asyncio.Lock()
+        self.delivery_lock = asyncio.Lock()
+        self.attempt = str(uuid.uuid4())
+        self.stopped = False
+        self.held_interim = None
         self.root = None
         self.revision = -1
         self.last_progress = self.last_interim = float('-inf')
@@ -123,7 +155,7 @@ class Turn:
 
     async def progress(self, text, *, kind='todo', phase='working'):
         async with self.lock:
-            if self.ended or self.revision >= 48:
+            if self.ended or self.revision >= 47:
                 return
             if self.clock() - self.last_progress < 3:
                 self.pending = (text, kind, phase)
@@ -139,13 +171,17 @@ class Turn:
             self.revision += 1
             marker = dict(profile='atum.agent-turns/1.3', scope='owner_private',
                           phase=phase, kind=kind, revision=self.revision)
-            body = {'msgtype': 'm.notice', 'body': text[:1000], 'io.atum.progress': marker,
+            if kind == 'heartbeat':
+                marker['heartbeat'] = True
+            text = ''.join(c for c in unicodedata.normalize('NFC', text)
+                           if not unicodedata.category(c).startswith('C') or c in '\n\t').strip()[:1000]
+            body = {'msgtype': 'm.notice', 'body': text, 'io.atum.progress': marker,
                     'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
             if self.root:
-                body = {'msgtype': 'm.notice', 'body': '* ' + text[:1000],
+                body = {'msgtype': 'm.notice', 'body': ('* ' + text)[:1000],
                         'io.atum.progress': marker, 'm.new_content': body,
                         'm.relates_to': {'rel_type': 'm.replace', 'event_id': self.root}}
-            txn = f'atum-ne-{self.revision}-{event_suffix(self.root)}' if self.root else transaction(self.source, 'progress')
+            txn = f'atum-ne-{self.revision}-{event_suffix(self.root)}' if self.root else transaction(f'{self.room}\0{self.source}\0{self.attempt}', 'progress')
             event = await self.box.effect(self.port, self.room, body, txn)
             if not self.root:
                 self.root = event
@@ -158,28 +194,42 @@ class Turn:
                     while not self.ended:
                         await asyncio.sleep(max(1, 180 - (self.clock() - self.last_progress)))
                         if not self.ended and self.frame and self.clock() - self.last_progress >= 180:
-                            text, kind, phase = self.frame
-                            # A quiet approval wait stays a wait; recent activity never
-                            # gets replaced by an unrelated periodic status message.
-                            await self.progress(text, kind='heartbeat' if phase == 'working' else kind, phase=phase)
+                            await self.heartbeat()
                 self.heartbeat_task = asyncio.create_task(heartbeat())
 
+    async def heartbeat(self):
+        if self.frame and self.clock() - self.last_progress >= 180:
+            text, kind, phase = self.frame
+            if phase == 'working':
+                minutes = max(1, int((self.clock() - self.last_progress) / 60))
+                await self.progress(f'Still working · {minutes} min', kind='heartbeat')
+            else:
+                await self.progress(text, kind=kind, phase=phase)
+
     async def interim(self, text, *, redacted=False):
+        text = text.strip()[:1000]
         async with self.lock:
-            if self.ended or not redacted or not text.strip() or any(t == text for _, t in self.interims):
+            if self.ended or text == self.held_interim or not redacted or not text.strip() or any(t == text for _, t in self.interims):
                 return
             if interim_decision(True, redacted, not self.interims, (self.clock() - self.last_interim) * 1000, False) == 'hold':
+                self.held_interim = text
                 if self.interim_timer:
-                    self.interim_timer.cancel()
+                    return
                 async def flush():
                     await asyncio.sleep(max(0, 20 - (self.clock() - self.last_interim)))
                     self.interim_timer = None
-                    await self.interim(text, redacted=True)
+                    held, self.held_interim = self.held_interim, None
+                    if held:
+                        await self.interim(held, redacted=True)
                 self.interim_timer = asyncio.create_task(flush())
                 return
+            self.held_interim = None
+            if self.interim_timer:
+                self.interim_timer.cancel()
+                self.interim_timer = None
             body = {'msgtype': 'm.text', 'body': text[:1000], 'io.atum.interim': True,
                     'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
-            event = await self.box.effect(self.port, self.room, body, transaction(self.source, 'interim', len(self.interims)))
+            event = await self.box.effect(self.port, self.room, body, transaction(f'{self.room}\0{self.source}\0{self.attempt}', 'interim', len(self.interims)))
             self.interims.append((event, text[:1000]))
             self.last_interim = self.clock()
 
@@ -189,12 +239,13 @@ class Turn:
             for task in (self.progress_timer, self.interim_timer, self.heartbeat_task):
                 if task:
                     task.cancel()
-            self.pending = None
+            self.pending = self.held_interim = None
             if self.root:
                 await self.box.remove(self.port, self.room, self.source, self.root)
             for event, text in self.interims:
                 if repeats(text, answer):
                     await self.box.remove(self.port, self.room, self.source, event)
+            self.box.collect()
 
 
 def adapter_class(base):
@@ -204,11 +255,18 @@ def adapter_class(base):
             self._presentation_ready = asyncio.Event()
             self._presentation_box = Outbox(Path(get_hermes_home()) / 'matrix' / 'presentation.sqlite3')
             self._presentation_turns = {}
-            result = await super().connect(**kwargs)
-            if result:
-                await self._presentation_box.recover(self._presentation_send)
+            try:
+                result = await super().connect(**kwargs)
+                if result:
+                    try:
+                        await self._presentation_box.recover(self._presentation_send)
+                    except Exception:
+                        # Durable intents remain for the next reconnect. Presentation
+                        # cleanup is best effort and must not fail the native boot.
+                        logger.warning('Matrix presentation recovery deferred', exc_info=True)
+                return result
+            finally:
                 self._presentation_ready.set()
-            return result
 
         async def _presentation_send(self, room, content, txn, target):
             from mautrix.types import RoomID, EventID, EventType
@@ -244,6 +302,13 @@ def adapter_class(base):
                             _active.pop(session_key, None)
                     _current.reset(token)
 
+        async def send_final_ledgered(self, *args, **kwargs):
+            token = _final_delivery.set(True)
+            try:
+                return await super().send_final_ledgered(*args, **kwargs)
+            finally:
+                _final_delivery.reset(token)
+
         async def send(self, chat_id, content, reply_to=None, metadata=None):
             turn = _current.get()
             if turn and chat_id == turn.room:
@@ -252,9 +317,12 @@ def adapter_class(base):
                     from agent.redact import redact_for_egress
                     await turn.interim(redact_for_egress(content), redacted=True)
                     return SendResult(success=True)
-                await turn.end(content)
-                if turn.ended and getattr(turn, 'stopped', False):
-                    return SendResult(success=True)
+                if _final_delivery.get() or (metadata or {}).get('delivery_obligation_id'):
+                    await turn.end(content)
+                    async with turn.delivery_lock:
+                        if turn.stopped:
+                            return SendResult(success=False, error='Turn stopped')
+                        return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
             return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
 
         async def send_or_update_status(self, chat_id, status_key, content, metadata=None):
@@ -264,30 +332,41 @@ def adapter_class(base):
             if turn and chat_id == turn.room:
                 from agent.redact import redact_for_egress
                 from gateway.platforms.base import SendResult
-                await turn.progress(redact_for_egress(content))
+                try:
+                    await turn.progress(redact_for_egress(content))
+                except Exception:
+                    logger.warning('Matrix presentation status could not be published', exc_info=True)
                 return SendResult(success=True, message_id=turn.root)
             return await super().send(chat_id, content, metadata=metadata)
 
         async def _send_room_message(self, chat_id, msg_content, **kwargs):
             turn = _current.get()
-            if (turn and chat_id == turn.room and not getattr(turn, 'stopped', False)
+            if (turn and chat_id == turn.room and not turn.stopped
+                    and _final_delivery.get()
                     and msg_content.get('msgtype') == 'm.text' and 'm.new_content' not in msg_content):
                 msg_content = {**msg_content, 'io.atum.turn': turn.marker}
             return await super()._send_room_message(chat_id, msg_content, **kwargs)
 
-        async def stop_presentation_turn(self, room, source, sender):
+        async def stop_presentation_turn(self, room, source, sender, *, authenticated=False):
             """Host/Matrix control integration: caller must independently authenticate sender.
 
+            Pass authenticated=True only after authenticating the transport principal,
+            never from a caller-supplied request field. The default rejects the call.
+            Dispatch and Stop serialize on delivery_lock. A transport write already
+            dispatched may complete before Stop acquires that boundary.
             Source and owner must match the currently executing turn; stale Stop cannot
             interrupt a later turn. G14/Shell context closure remains host-owned.
             """
+            if authenticated is not True:
+                return False
             entry = self._presentation_turns.get((room, source))
             if not entry or entry[0].sender != sender:
                 return False
             turn, key, origin = entry
-            if turn.ended or getattr(turn, 'stopped', False):
-                return True
-            turn.stopped = True
+            async with turn.delivery_lock:
+                if turn.stopped:
+                    return True
+                turn.stopped = True
             runner = self.gateway_runner
             await runner._interrupt_and_clear_session(key, origin, interrupt_reason='User requested stop',
                                                        invalidation_reason='stop')

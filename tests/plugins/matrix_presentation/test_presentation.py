@@ -57,7 +57,7 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         interim = json.loads((fixtures / 'interim-message.content.json').read_text())
         await self.turn.interim(interim['body'], redacted=True)
         published = self.server.requests[1][1]
-        self.assertEqual({k: published[k] for k in interim}, interim)
+        self.assertEqual(published, {**interim, 'm.relates_to': {'m.in_reply_to': {'event_id': self.turn.source}}})
 
     async def test_readmitted_source_gets_fresh_root_after_recovery(self):
         await self.turn.progress('Before crash')
@@ -79,6 +79,51 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         await self.turn.interim('Next', redacted=True)
         self.assertIs(self.turn.interim_timer, timer)
         self.assertFalse(timer.cancelling())
+
+    async def test_heartbeat_wire_shape_and_wait_preservation(self):
+        await self.turn.progress('Reading')
+        self.now = 180
+        await self.turn.heartbeat()
+        edit = self.server.requests[-1][1]
+        self.assertEqual(edit['m.new_content']['body'], 'Still working · 3 min')
+        self.assertEqual(edit['io.atum.progress']['kind'], 'heartbeat')
+        self.assertIs(edit['io.atum.progress']['heartbeat'], True)
+        self.now = 183
+        await self.turn.progress('Waiting for your approval', kind='device', phase='waiting')
+        self.now = 363
+        await self.turn.heartbeat()
+        marker = self.server.requests[-1][1]['io.atum.progress']
+        self.assertEqual(marker['phase'], 'waiting')
+        self.assertNotIn('heartbeat', marker)
+
+    async def test_edit_body_bounded_and_sanitized(self):
+        await self.turn.progress('Start')
+        self.now = 3
+        await self.turn.progress('e\u0301\x00' + 'x' * 1100)
+        edit = self.server.requests[-1][1]
+        self.assertEqual(len(edit['body']), 1000)
+        self.assertEqual(len(edit['m.new_content']['body']), 1000)
+        self.assertTrue(edit['body'].startswith('* é'))
+        self.assertNotIn('\x00', edit['body'])
+
+    async def test_completed_effects_expire_but_pending_and_live_roots_survive(self):
+        await self.turn.progress('Working')
+        await self.turn.end()
+        await self.box.effect(self.server, '!room', {'msgtype': 'm.text', 'body': 'Remark'}, 'interim-old')
+        self.box.db.execute("INSERT INTO effects (txn,room,content,created) VALUES ('pending','!room','{}',0)")
+        self.box.db.execute('UPDATE effects SET created=0')
+        self.box.db.commit()
+        self.box.collect(now=8 * 86400)
+        self.assertEqual(self.box.db.execute('SELECT txn FROM effects').fetchall(), [('pending',)])
+        live = p.Turn(self.box, self.server, '!room', '$live', '@owner')
+        try:
+            await live.progress('Live')
+            self.box.db.execute('UPDATE effects SET created=0')
+            self.box.db.commit()
+            self.box.collect(now=8 * 86400)
+            self.assertEqual(self.box.db.execute('SELECT count(*) FROM effects').fetchone()[0], 2)
+        finally:
+            await live.end()
 
     async def test_unredacted_interim_dropped(self):
         await self.turn.interim('private secret')
@@ -149,8 +194,8 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         for i in range(60):
             self.now = i * 3
             await self.turn.progress('Work')
-        self.assertEqual(len(self.server.effects), 49)
-        self.assertEqual(self.turn.revision, 48)
+        self.assertEqual(len(self.server.effects), 48)
+        self.assertEqual(self.turn.revision, 47)
 
     async def test_idempotent_redaction_after_ambiguous_reply(self):
         await self.turn.progress('Working')
@@ -184,11 +229,12 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
                 calls.append((key, origin, kwargs))
         adapter.gateway_runner = Runner()
         adapter._presentation_turns = {(self.turn.room, self.turn.source): (self.turn, 'matrix:dm:owner', 'origin')}
-        self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, '$stale', self.turn.sender))
-        self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, '@stranger:example.org'))
+        self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, '$stale', self.turn.sender, authenticated=True))
+        self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, '@stranger:example.org', authenticated=True))
+        self.assertFalse(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender))
         await self.turn.progress('Working')
-        self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender))
-        self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender))
+        self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender, authenticated=True))
+        self.assertTrue(await adapter.stop_presentation_turn(self.turn.room, self.turn.source, self.turn.sender, authenticated=True))
         self.assertEqual(len(calls), 1)  # repeated source Stop cannot interrupt a later run
         self.assertEqual(calls[0][0], 'matrix:dm:owner')
         self.assertEqual(calls[0][2]['invalidation_reason'], 'stop')
@@ -211,6 +257,61 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
         from hermes_constants import reset_hermes_home_override
         reset_hermes_home_override(self.home_token)
         self.native_home.cleanup()
+
+    async def test_group_event_refuses_presentation(self):
+        from types import SimpleNamespace
+        observed = []
+        class Base:
+            async def _process_message_background(self, event, session_key):
+                observed.append(p._current.get())
+        adapter = p.adapter_class(Base)()
+        adapter._presentation_ready = asyncio.Event()
+        adapter._presentation_ready.set()
+        adapter._presentation_turns = {}
+        event = SimpleNamespace(source=SimpleNamespace(chat_type='group'), message_id='$group')
+        await adapter._process_message_background(event, 'group')
+        self.assertEqual(observed, [None])
+        self.assertEqual(adapter._presentation_turns, {})
+
+    async def test_status_network_error_does_not_escape(self):
+        class Base:
+            pass
+        adapter = p.adapter_class(Base)()
+        async def offline(*args):
+            raise ConnectionError('offline')
+        box = p.Outbox(Path(self.native_home.name) / 'status.sqlite3')
+        turn = p.Turn(box, offline, '!room', '$source', '@owner')
+        token = p._current.set(turn)
+        try:
+            result = await adapter.send_or_update_status('!room', 'compression', 'Continuing')
+            self.assertTrue(result.success)
+            self.assertFalse(turn.ended)
+        finally:
+            p._current.reset(token)
+            await turn.end()
+            box.db.close()
+
+    async def test_only_final_ledger_bracket_ends_presentation(self):
+        class Base:
+            async def send(self, *args, **kwargs):
+                return 'sent'
+            async def send_final_ledgered(self, *args, **kwargs):
+                return await self.send('!room', 'Answer')
+        adapter = p.adapter_class(Base)()
+        box = p.Outbox(Path(self.native_home.name) / 'midturn.sqlite3')
+        turn = p.Turn(box, Server(), '!room', '$source', '@owner')
+        token = p._current.set(turn)
+        try:
+            await adapter.send('!room', 'Approval needed')
+            self.assertFalse(turn.ended)
+            await turn.progress('Still working')
+            await adapter.send_final_ledgered()
+            self.assertTrue(turn.ended)
+            self.assertFalse(p._final_delivery.get())
+        finally:
+            p._current.reset(token)
+            await turn.end()
+            box.db.close()
 
     async def test_connect_false_releases_background_waiters(self):
         class Base:
@@ -297,7 +398,11 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
                 await turn.progress('Reading a file')
                 await adapter.send_or_update_status(turn.room, 'compression', 'Continuing after compression')
                 self.assertFalse(turn.ended)
-                result = await adapter.send(turn.room, 'Here is the answer.', reply_to=turn.source)
+                final_token = p._final_delivery.set(True)
+                try:
+                    result = await adapter.send(turn.room, 'Here is the answer.', reply_to=turn.source)
+                finally:
+                    p._final_delivery.reset(final_token)
                 self.assertTrue(result.success)
                 final = server.requests[-1][1]
                 self.assertEqual(final['io.atum.turn'], turn.marker)
