@@ -158,7 +158,6 @@ async def probe():
             payload = deepcopy(original['payload'])
             payload['text'] = 'yes'
             payload['native_text_v1']['event']['message_id'] = 'queued-before-ask'
-            payload['native_text_v1']['event']['text'] = 'yes'
             admit_session_input(authority.db, epoch=authority.epoch, principal_id=original['principal_id'],
                                 session_id=entry.session_id, request_id='queued-before-ask', payload=payload)
         verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
