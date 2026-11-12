@@ -102,7 +102,7 @@ async def test_gateway_refuses_before_media_tools(admission, outcome):
     source = SimpleNamespace(platform=SimpleNamespace(value="matrix"))
     try:
         result = await GatewayInboundMixin._prepare_inbound_message_text(
-            SimpleNamespace(), event, source, [], session_key="session")
+            SimpleNamespace(), event=event, source=source, history=[], session_key="session")
         assert result is None
         assert event._gateway_turn_refusal
     finally:
