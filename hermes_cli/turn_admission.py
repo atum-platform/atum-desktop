@@ -23,7 +23,8 @@ def _policy():
     if not math.isfinite(timeout) or timeout <= 0 or timeout > 600:
         raise ValueError("plugins.admission_timeout must be positive and at most 600 seconds")
     manager = _delivery_manager()
-    required = set(required) | manager._admission_required
+    with manager._discovery_lock:
+        required = set(required) | manager._admission_required
     return manager, required, timeout
 
 
@@ -37,7 +38,8 @@ def admission_readiness() -> dict[str, Any]:
     """Report configured-but-unavailable policy without executing admission callbacks."""
     try:
         manager, required, _ = _policy()
-        missing = _missing(manager, required)
+        with manager._discovery_lock:
+            missing = _missing(manager, required)
     except Exception:
         return {"status": "unavailable", "code": "admission_unavailable"}
     return {"status": "unavailable" if missing else "ok", "missing_plugins": missing}
@@ -66,15 +68,18 @@ def check_turn_admission(**context: Any) -> dict[str, Any] | None:
 
     try:
         manager, required, timeout = _policy()
-        missing = _missing(manager, required)
+        with manager._discovery_lock:
+            missing = _missing(manager, required)
+            policies = {key: tuple(values) for key, values in manager._admission_callbacks.items()}
+            callbacks = tuple(manager._hooks.get("pre_turn_admission", []))
     except Exception:
         return _refusal("admission_unavailable")
     if missing:
         return _refusal("plugin_unavailable", missing[0])
     payload = dict(context, turn_id=str(uuid.uuid4()))
-    strict = {id(callback) for callbacks in manager._admission_callbacks.values() for callback in callbacks}
-    for callback in tuple(manager._hooks.get("pre_turn_admission", [])):
-        plugin = next((key for key, callbacks in manager._admission_callbacks.items() if callback in callbacks), "")
+    strict = {id(callback): key for key, values in policies.items() for callback in values}
+    for callback in callbacks:
+        plugin = strict.get(id(callback), "")
         try:
             result = manager._run_hook_callback_bounded("pre_turn_admission", callback, payload, timeout)
         except Exception as exc:

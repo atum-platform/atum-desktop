@@ -39,9 +39,10 @@ class TurnFacadeMixin:
             platform=getattr(self, "platform", None) or "cli",
             session_id=getattr(self, "session_id", None), task_id=task_id,
             parent_session_id=getattr(self, "_parent_session_id", None),
-            user_message=user_message,
+            user_message=user_message, turn_author=turn_author, stage="turn",
         )
         if refusal is not None:
+            refusal["messages"] = list(conversation_history or [])
             return refusal
         # A review shares this session_id for cache parity: fence review startup or interrupt
         # an admitted request and await its exit before opening live-turn instrumentation.
