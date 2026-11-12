@@ -179,6 +179,16 @@ if __name__ == '__main__':
 
 @unittest.skipUnless(os.environ.get('HERMES_NATIVE_TESTS'), 'run with Hermes dependency interpreter')
 class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        from hermes_constants import set_hermes_home_override
+        self.native_home = tempfile.TemporaryDirectory()
+        self.home_token = set_hermes_home_override(self.native_home.name)
+
+    async def asyncTearDown(self):
+        from hermes_constants import reset_hermes_home_override
+        reset_hermes_home_override(self.home_token)
+        self.native_home.cleanup()
+
     async def test_native_send_preserves_final_relation_and_turn_marker(self):
         # Real Hermes Matrix constructor, formatter, chunker and relation builder,
         # with an in-process SDK boundary; no homeserver or provider call.
