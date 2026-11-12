@@ -228,7 +228,8 @@ class TestMatrixSendVoiceMSC3245:
         try:
             sent_content = None
 
-            async def mock_send_message_event(room_id, event_type, content):
+            async def mock_send_message_event(room_id, event_type, content, *, txn_id):
+                assert txn_id.startswith("hermes_")
                 nonlocal sent_content
                 sent_content = content
                 return "$sent_event"
