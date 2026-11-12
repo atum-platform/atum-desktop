@@ -32,7 +32,7 @@ class Peer(BaseHTTPRequestHandler):
             out.write(json.dumps(request) + '\n')
         index = self.server.index
         self.server.index += 1
-        if mode == 'crash' and ((index == 1 and hook == 'between') or (index == 2 and hook.startswith('unknown_'))):
+        if mode == 'crash' and ((index == 1 and hook in ('between', 'unknown_concurrent')) or (index == 2 and hook == 'unknown_sequential')):
             os.kill(os.getpid(), signal.SIGKILL)
         # Deliberately attempt the completed call again after restart. The executor must refuse.
         if index < 2 or (mode in ('pending_again', 'ask_crash') and index % 3 < 2):
@@ -43,6 +43,10 @@ class Peer(BaseHTTPRequestHandler):
             message = {'role': 'assistant', 'content': '', 'tool_calls': [
                 {'id': 'call_' + str(index), 'type': 'function',
                  'function': {'name': name, 'arguments': json.dumps(args)}}]}
+            if mode == 'crash' and hook == 'unknown_concurrent' and index == 0:
+                message['tool_calls'].append({'id': 'parallel-write', 'type': 'function',
+                    'function': {'name': 'write_file', 'arguments': json.dumps({
+                        'path': str(home / 'pending'), 'content': 'one line'})}})
             finish = 'tool_calls'
         else:
             message = {'role': 'assistant', 'content': (
@@ -166,8 +170,8 @@ async def probe():
         assert any(('tiếp tục' if unsafe else 'Đã đọc xong') in text for text in adapter.sent), adapter.sent
         if mode == 'ask_crash':
             assert len(rows) == 2, rows
-            assert entry.resume_ask
             assert not (home / 'pending-count').exists()
+            assert entry.resume_ask
             os.kill(os.getpid(), signal.SIGKILL)
         (home / 'verdict.json').write_text(json.dumps({'rows': rows, 'sent': adapter.sent}))
 

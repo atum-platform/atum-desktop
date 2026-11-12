@@ -114,11 +114,12 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve):
     if pending is None:
         return policy
     token = pending['token']
-    decision = str(message).strip().casefold()
-    if can_resolve and decision in {word + ' ' + token for word in ('yes', 'có', 'continue', 'tiếp tục', 'no', 'không', 'cancel', 'hủy')}:
+    from tools.approval import exact_gateway_approval_choice
+    decision = exact_gateway_approval_choice(str(message), token) if can_resolve else None
+    if decision is not None:
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', None))
         store.clear_resume_pending(entry.session_key)
-        if decision in {word + ' ' + token for word in ('yes', 'có', 'continue', 'tiếp tục')}:
+        if decision == 'once':
             return None
         # Denial is conversational only; the next independent user turn is free to run.
         return ResumePolicy(True, (), frozenset(), cancelled=True)

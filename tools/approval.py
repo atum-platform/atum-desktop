@@ -146,6 +146,21 @@ def unregister_gateway_notify(session_key: str) -> None:
             entry.event.set()
 
 
+def exact_gateway_approval_choice(text: str, request_id: str) -> Optional[str]:
+    """Question-scoped once/deny reply for a durable conversational approval.
+
+    Unlike an in-process waiting thread this has no timeout, session grant or YOLO
+    bypass. The caller persists the pending request and commits the choice. The
+    request id prevents an older queued answer from approving a newer question.
+    """
+    answer = text.strip().casefold()
+    for choice, words in (('once', ('yes', 'có', 'continue', 'tiếp tục')),
+                          ('deny', ('no', 'không', 'cancel', 'hủy'))):
+        if any(answer == word + ' ' + request_id for word in words):
+            return choice
+    return None
+
+
 def resolve_gateway_approval(session_key: str, choice: str,
                              resolve_all: bool = False,
                              reason: Optional[str] = None,
