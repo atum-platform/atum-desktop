@@ -67,3 +67,61 @@ record_obligation(obligation_id='test', session_key='s', platform='matrix',
     assert (tmp_path / 'fired').exists()
     second = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
     assert second.returncode == 0, second.stderr
+
+@pytest.mark.parametrize('point,count', [('H9',1), ('H10',5)])
+def test_real_matrix_frozen_send_plan_across_process_loss(tmp_path, point, count):
+    env = environment(tmp_path, point)
+    env['CHUNKS'] = str(count)
+    code = r'''
+import asyncio, json, os, sqlite3
+from pathlib import Path
+from gateway.config import PlatformConfig
+from gateway.delivery_ledger import record_obligation, mark_delivered
+from plugins.platforms.matrix.adapter import MatrixAdapter
+home = Path(os.environ['HERMES_HOME'])
+# Transport double only: independent durable Matrix transaction table, like a homeserver.
+wire = sqlite3.connect(home / 'transport.db')
+wire.execute('CREATE TABLE IF NOT EXISTS sends (txn TEXT PRIMARY KEY, body TEXT)')
+class Transport:
+    async def send_message_event(self, room, kind, content, txn_id):
+        value = json.dumps(content, sort_keys=True)
+        row = wire.execute('SELECT body FROM sends WHERE txn=?', (txn_id,)).fetchone()
+        assert row is None or row[0] == value
+        wire.execute('INSERT OR IGNORE INTO sends VALUES (?,?)', (txn_id, value)); wire.commit()
+        return '$' + txn_id
+async def main():
+    a = MatrixAdapter(PlatformConfig(enabled=True, token='fixture', extra={
+        'homeserver':'http://127.0.0.1', 'user_id':'@bot:local', 'sender_id':'stable-agent'}))
+    a._client = Transport()
+    a.truncate_message = lambda *args, **kw: ['chunk-' + str(i) for i in range(int(os.environ['CHUNKS']))]
+    if not (home / 'fired').exists():
+        record_obligation(obligation_id='reply',session_key='s',platform='matrix',chat_id='!room:local',
+                          thread_id=None,content='answer',source_event_id='$source')
+    result = await a.send('!room:local', 'answer', metadata={'delivery_obligation_id':'reply'})
+    assert result.success, result
+    mark_delivered('reply')
+asyncio.run(main())
+'''
+    for expected in (86, 0):
+        result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
+        assert result.returncode == expected, result.stdout + result.stderr
+    import sqlite3
+    with sqlite3.connect(tmp_path / 'transport.db') as db:
+        rows = db.execute('SELECT body FROM sends ORDER BY rowid').fetchall()
+    assert len(rows) == count
+    import json
+    assert [json.loads(row[0])['body'] for row in rows] == ['chunk-' + str(i) for i in range(count)]
+
+
+def test_hooks_double_gated_and_one_shot(tmp_path, monkeypatch):
+    from gateway.fault_injection import hit
+    monkeypatch.delenv('ATUM_FAULT_TEST', raising=False)
+    monkeypatch.setenv('ATUM_FAULT_POINT', 'H12')
+    marker = tmp_path / 'fired'
+    monkeypatch.setenv('ATUM_FAULT_ONCE', str(marker))
+    hit('H12')
+    assert not marker.exists()
+    monkeypatch.setenv('ATUM_FAULT_TEST', '1')
+    with pytest.raises(OSError):
+        hit('H12')
+    hit('H12')
