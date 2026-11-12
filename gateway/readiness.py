@@ -131,6 +131,7 @@ def _recovery_health(runtime, home):
 def collect_runtime_readiness(
     *, configured_model: str, runtime_status: dict[str, Any] | None, active_api_runs: int = 0,
     process_completion_queue_depth: int = 0, active_delegations: int = 0,
+    open_operations: int | None = None,
 ) -> dict[str, Any]:
     """Bounded readiness diagnostics, no runtime mutation.  Even authenticated, probes
     expose status and counts only: never config values, credentials, paths, payloads."""
@@ -150,8 +151,21 @@ def collect_runtime_readiness(
             active_delegations=max(0, int(active_delegations)),
         ),
     }
+    from gateway.control_socket import query_gateway_control
+    import time
+    sleep = dict(idle=False, idle_since=None, observed_at=time.time(),
+                 next_cron_due=None, probes_complete=False)
+    try:
+        reply = query_gateway_control(home, 'sleep-readiness', params={'open_operations': open_operations})
+        if isinstance(reply, dict) and set(sleep) <= reply.keys():
+            sleep = reply
+    except Exception:
+        pass
+    health = _recovery_health(runtime, home)
+    if not health['process_healthy'] or active_api_runs or process_completion_queue_depth or active_delegations:
+        sleep.update(idle=False, idle_since=None)
     return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks,
-            **_recovery_health(runtime, home)}
+            **health, 'sleep': sleep}
 
 
 __all__ = ["collect_runtime_readiness"]

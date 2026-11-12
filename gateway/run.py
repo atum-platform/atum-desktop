@@ -3718,6 +3718,8 @@ class GatewayRunner(
         """Persist the live in-flight agent count to ``gateway_state.json`` at every turn boundary.
         Passes ONLY ``active_agents`` so the read-merge-write keeps lifecycle state (gateway_state=None
         would clobber it). Best-effort: a failed write must never disrupt a turn."""
+        if self._active_work_count():
+            self._sleep_idle_since = None
         _write_runtime_status_quiet(active_agents=self._active_work_count())
 
     def _running_agent_ids(self) -> set:

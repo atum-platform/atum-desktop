@@ -32,7 +32,7 @@ def test_live_idle_sources_and_since(tmp_path, monkeypatch):
     # A missing authority is unknown, including during wake bootstrap.
     assert not collect_sleep_readiness(runner, open_operations=0, now=1000)['idle']
     db = SimpleNamespace(_conn=None)
-    authority = SimpleNamespace(db=db, pending_deliveries={}, pending_results={})
+    authority = SimpleNamespace(db=db, profile_id=str(tmp_path), pending_deliveries={}, pending_results={})
     import sqlite3
     db._conn = sqlite3.connect(':memory:')
     db._conn.execute('CREATE TABLE session_admissions(status TEXT)')

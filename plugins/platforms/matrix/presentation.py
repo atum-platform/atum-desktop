@@ -79,7 +79,16 @@ class Outbox:
             self.db.execute('ALTER TABLE effects ADD COLUMN created REAL NOT NULL DEFAULT 0')
             self.db.execute('UPDATE effects SET created=?', (time.time(),))
         self.db.execute('CREATE INDEX IF NOT EXISTS effects_target ON effects(target)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS stops (room TEXT, source TEXT, sender TEXT, PRIMARY KEY(room, source, sender))')
         self.db.commit()
+
+    def cancel(self, room, source, sender):
+        with self.db:
+            self.db.execute('INSERT OR IGNORE INTO stops VALUES (?,?,?)', (room, source, sender))
+
+    def cancelled(self, room, source, sender):
+        return self.db.execute('SELECT 1 FROM stops WHERE room=? AND source=? AND sender=?',
+                               (room, source, sender)).fetchone() is not None
 
     def collect(self, now=None):
         # Keep unresolved effects and live originals indefinitely. Completed receipts
@@ -298,6 +307,13 @@ def adapter_class(base):
                 _current.reset(token)
 
         async def run_admission_presentation(self, event, session_key, admission_id, execute):
+            await self._presentation_ready.wait()
+            if self._presentation_box.cancelled(event.source.chat_id, event.message_id, event.source.user_id):
+                from gateway.session_results import execution_result
+                captured = execution_result.get()
+                if captured is not None:
+                    captured['result'] = {'interrupted': True, 'final_response': '', 'messages': []}
+                return None
             response = None
             async with self.admission_presentation_scope(event, session_key, admission_id):
                 try:
@@ -408,8 +424,14 @@ def adapter_class(base):
             if authenticated is not True:
                 return False
             entry = self._presentation_turns.get((room, source))
-            if not entry or entry[0].sender != sender:
+            if entry and entry[0].sender != sender:
                 return False
+            box = getattr(self, '_presentation_box', None) or (entry[0].box if entry else None)
+            if box is None:
+                return False
+            box.cancel(room, source, sender)
+            if not entry:
+                return True
             turn, key, origin = entry
             async with turn.delivery_lock:
                 if turn.stopped:

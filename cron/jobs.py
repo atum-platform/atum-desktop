@@ -1530,11 +1530,16 @@ def _unlink_quiet(path: Optional[str]) -> None:
 
 def _stage_jobs_payload(jobs_file: Path, jobs: list[dict[str, Any]]) -> str:
     """Serialize the store payload to a fsynced temp file beside the resolved *jobs_file*; return its path."""
+    from gateway.sleep_wake import native_schedule_deadline
+    try:
+        publication = {"known": True, "next_cron_due": native_schedule_deadline(jobs)}
+    except (ValueError, KeyError, TypeError, OverflowError):
+        publication = {"known": False, "next_cron_due": None}
     fd, tmp_path = mkstemp_beside(jobs_file, suffix=".tmp", prefix=".jobs_")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(
-                {"jobs": jobs, "updated_at": _hermes_now().isoformat()},
+                {"jobs": jobs, "updated_at": _hermes_now().isoformat(), "sleep_wake": publication},
                 f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())
