@@ -1972,7 +1972,7 @@ class MatrixAdapter(BasePlatformAdapter):
         try:
             with self._intake.db:
                 self._intake._put('last_error', failure)
-            for room in sorted(self._joined_rooms):
+            for room in sorted(self._joined_rooms or self._intake.get('frontier', {})):
                 key = 'wedge_notice:' + room
                 if self._intake.get(key):
                     continue
@@ -2112,10 +2112,10 @@ class MatrixAdapter(BasePlatformAdapter):
                 timeline["events"] = [raw for raw in timeline.get("events", [])
                                       if raw.get("type") != "m.room.encrypted"]
         async def dispatch(data, *, timeline=False):
-            from mautrix.client import Client, SyncStream
-            from mautrix.types import Event
             native = getattr(client.handle_sync, '__self__', None)
-            if timeline and isinstance(native, Client):
+            if timeline and native is not None and hasattr(native, '_try_deserialize'):
+                from mautrix.client import SyncStream
+                from mautrix.types import Event
                 room, joined = next(iter(data['rooms']['join'].items()))
                 raw = dict(joined['timeline']['events'][0], room_id=room)
                 tasks = native.dispatch_event(native._try_deserialize(Event, raw),

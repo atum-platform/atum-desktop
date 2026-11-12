@@ -24,6 +24,10 @@ async def test_persistent_intake_wedge_backs_off_and_ledgers_once(tmp_path, monk
     from tests.gateway.test_matrix_durable_intake import adapter
     a = adapter(tmp_path)
     a._joined_rooms = {'!room:example.org'}
+    if kind == 'gap':
+        a._joined_rooms.clear()
+        with a._intake.db:
+            a._intake._put('frontier', {'!room:example.org': '$frontier'})
     a.send = AsyncMock(return_value=SimpleNamespace(success=True))
     from gateway.status import write_runtime_status
     write_runtime_status(gateway_state='running')
