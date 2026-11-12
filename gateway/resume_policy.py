@@ -248,6 +248,11 @@ async def recover_failed_native_admission(authority, ref, live, rows):
     if entry is None:
         return False
     if not await resume_boot_allowed(authority, row):
+        # Reuse canonical uncertainty and its /discard notice on the next drain.
+        await asyncio.to_thread(authority.db._execute_write, lambda conn: conn.execute(
+            "UPDATE session_admissions SET status='unknown' WHERE admission_id=? "
+            "AND status='terminal' AND outcome='failed' AND owner_epoch!=?",
+            (row['admission_id'], authority.epoch)).rowcount)
         return False
     # Save the decision before reclaiming. A second crash cannot lose the action names.
     await asyncio.to_thread(pending_resume_policy, authority.runner.session_store, entry,

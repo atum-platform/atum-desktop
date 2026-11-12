@@ -124,6 +124,6 @@ def check_and_record(
             "threshold %d). Skipping auto-resume to break a suspected SIGTERM-respawn loop (#30719, #81642). "
             "Restart-interrupted sessions stay resume-pending and will continue on the next real user message. "
             "If this is a false positive, delete %s.",
-            len(boots), _chain_gap(window_seconds, max_gap_seconds), max_restarts, _state_path(),
+            len(boots), _chain_gap(window_seconds, max_gap_seconds), max_restarts, _state_path(scope),
         )
     return tripped
