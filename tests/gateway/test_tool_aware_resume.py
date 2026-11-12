@@ -196,3 +196,51 @@ def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
     assert '[Recovery:' in json.dumps(resumed[0])
     if 'effect' in hook:
         assert 'write_file' in json.dumps(resumed[0])
+
+
+@pytest.mark.parametrize('disposition', ['unknown', None, 'unclassified'])
+@pytest.mark.parametrize('content', ['[Command interrupted]', '{"output":"timeout","exit_code":130}'])
+def test_unknown_effect_result_never_authorizes_continue(disposition, content):
+    history = [call('x', 'terminal'), {'role': 'tool', 'tool_call_id': 'x',
+               'content': content, 'effect_disposition': disposition}]
+    policy = choose_resume_policy(history)
+    assert policy.ask
+    assert not policy.completed
+    assert recovery_tool_block(policy, 'terminal', {'command': 'send payment again'})
+    assert choose_resume_policy(history + [{'role': 'user', 'content': policy.note()}]).ask
+
+
+def test_folded_occurrence_ids_and_legacy_variants():
+    row = call('same', 'read_file')
+    row['tool_calls'] += call('same', 'write_file')['tool_calls']
+    row['_tool_call_uids'] = {'same': ['u1', 'u2']}
+    history = [row, {'role': 'tool', 'tool_call_id': 'same', '_tool_call_uid': 'u1', 'content': 'read'}]
+    policy = choose_resume_policy(history)
+    assert policy.ask and 'write_file' in policy.actions
+    assert recovery_tool_block(policy, 'read_file', {})
+    assert choose_resume_policy(history + [{'role': 'user', 'content': policy.note()}]).ask
+
+
+def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path):
+    from gateway.session import SessionStore, SessionSource
+    from gateway.config import GatewayConfig, Platform
+    from gateway.resume_policy import pending_resume_policy
+    config = GatewayConfig()
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    policy = choose_resume_policy([call('x', 'terminal')])
+    gated = pending_resume_policy(store, entry, policy, 'queued before Ask', can_resolve=True)
+    token = entry.resume_ask['token']
+    assert gated.ask
+    store.clear_resume_pending(entry.session_key)  # successful question must not clear the gate
+    store = SessionStore(sessions_dir=tmp_path, config=config)
+    entry = store.get_or_create_session(SessionSource(platform=Platform.TELEGRAM, chat_id='test'))
+    assert entry.resume_ask['token'] == token
+    for text in ('finish it', 'yes', 'no', 'yes wrong-token'):
+        assert pending_resume_policy(store, entry, None, text, can_resolve=True).ask
+    assert pending_resume_policy(store, entry, None, 'yes ' + token, can_resolve=False).ask
+    assert pending_resume_policy(store, entry, None, 'không ' + token, can_resolve=True).ask
+    assert entry.resume_ask is None
+    assert pending_resume_policy(store, entry, None, 'new work', can_resolve=True) is None
+    pending_resume_policy(store, entry, policy, '', can_resolve=False)
+    assert pending_resume_policy(store, entry, None, 'có ' + entry.resume_ask['token'], can_resolve=True) is None
