@@ -124,6 +124,7 @@ def collect_sleep_readiness(runner, *, open_operations=None, now=None):
             raise ValueError('authority not ready')
         pending = False
         deadlines = []
+        last_activity = runner._last_inbound_at
         for authority in authorities:
             conn = authority.db._conn
             pending |= bool(conn.execute(
@@ -132,10 +133,20 @@ def collect_sleep_readiness(runner, *, open_operations=None, now=None):
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name='delivery_obligations'").fetchone():
                 pending |= bool(conn.execute(
                     "SELECT 1 FROM delivery_obligations WHERE state NOT IN ('delivered','abandoned') LIMIT 1").fetchone())
-            deadline = next_native_schedule(Path(authority.profile_id))
+            home = Path(authority.profile_id)
+            deadline = next_native_schedule(home)
+            # Native cron writes also capture short runs completed between host polls.
+            jobs_path = home / 'cron' / 'jobs.json'
+            if jobs_path.exists():
+                last_activity = max(last_activity, jobs_path.stat().st_mtime)
             if deadline is not None:
                 deadlines.append(deadline)
-        for adapter in runner.adapters.values():
+        adapters = list(runner.adapters.values())
+        for profile_adapters in (getattr(runner, '_profile_adapters', {}) or {}).values():
+            adapters.extend(profile_adapters.values())
+        if any((getattr(runner, '_profile_failed_platforms', {}) or {}).values()):
+            raise ValueError('profile transport unavailable')
+        for adapter in adapters:
             if str(getattr(getattr(adapter, 'platform', None), 'value', '')) == 'matrix':
                 intake = adapter._intake_diagnostics()
                 if not intake or intake.get('status') == 'unavailable':
@@ -158,7 +169,7 @@ def collect_sleep_readiness(runner, *, open_operations=None, now=None):
         if result['idle']:
             since = getattr(runner, '_sleep_idle_since', None)
             result['idle_since'] = max(since if since is not None else current,
-                                       runner._last_inbound_at)
+                                       last_activity)
     except Exception:
         # Bootstrap, closed journals and missing sources all fail awake.
         pass
