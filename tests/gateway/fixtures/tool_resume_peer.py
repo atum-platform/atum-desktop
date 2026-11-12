@@ -92,11 +92,13 @@ async def probe():
                 'pending': pending, 'stack': traceback.format_stack()}) + '\n')
         if mode == 'crash' and pending and hook not in ('after_effect', 'unknown_sequential', 'unknown_concurrent'):
             os.kill(os.getpid(), signal.SIGKILL)
+            threading.Event().wait()  # never race ahead while another thread receives SIGKILL
         counter = home / ('pending-count' if pending else 'done-count')
         with counter.open('a') as out:
             out.write('once\n'); out.flush(); os.fsync(out.fileno())
         if mode == 'crash' and pending and not hook.startswith('unknown_'):
             os.kill(os.getpid(), signal.SIGKILL)
+            threading.Event().wait()
         return json.dumps({'content': 'fixture read', 'bytes_written': 8})
     if hook.startswith('unknown_'):
         # Both sequential/concurrent native completion paths converge at this persistence seam.
