@@ -37,7 +37,8 @@ def call_key(name, arguments):
 def choose_resume_policy(history, *, force_ask=False):
     # Limit to the interrupted turn, so an earlier unresolved call cannot poison a later turn.
     start = next((i for i in range(len(history)-1, -1, -1)
-                  if history[i].get('role') == 'user'), 0)
+                  if history[i].get('role') == 'user'
+                  and not str(history[i].get('content', '')).startswith('[Recovery:')), 0)
     calls, results = {}, set()
     malformed = False
     for row in history[start:]:

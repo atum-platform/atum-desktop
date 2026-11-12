@@ -1019,6 +1019,10 @@ def requeue_interrupted_session_input(db, *, epoch, admission_id):
         from hermes_state_runtime_workers import worker_states
         if worker_states(conn, row['target_session_id']):
             return False
-        return conn.execute("UPDATE session_admissions SET status='queued', outcome='crash_resume' "
-                            "WHERE admission_id=? AND status='unknown'", (admission_id,)).rowcount == 1
+        import time
+        stamp = conn.execute("SELECT MAX(timestamp) FROM messages WHERE session_id=? AND active=1",
+                             (row['target_session_id'],)).fetchone()[0]
+        outcome = 'crash_resume_stale' if stamp is not None and time.time() - stamp > 3600 else 'crash_resume'
+        return conn.execute("UPDATE session_admissions SET status='queued', outcome=? "
+                            "WHERE admission_id=? AND status='unknown'", (outcome, admission_id)).rowcount == 1
     return db._execute_write(write)

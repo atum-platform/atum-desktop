@@ -115,3 +115,28 @@ def test_runner_uses_policy_without_mutating_history():
     assert not turn._resume_policy.ask
     assert 'Continue' in turn._ctx.message
     assert json.dumps(history) == before
+
+
+def test_ask_survives_a_second_crash():
+    history = [{'role': 'user', 'content': 'write'}, call('x', 'append_test')]
+    ask = choose_resume_policy(history)
+    history.append({'role': 'user', 'content': ask.note()})
+    again = choose_resume_policy(history)
+    assert again.ask and 'append_test' in again.note()
+
+
+def test_dispatch_guard_stops_effect_before_plugin_or_tool(monkeypatch):
+    from agent import tool_executor as executor
+    policy = choose_resume_policy([call('x', 'append_test')])
+    from functools import partial
+    agent = SimpleNamespace(_crash_resume_tool_guard=partial(recovery_tool_block, policy))
+    ref = SimpleNamespace(name='append_test', args={})
+    state = SimpleNamespace(blocked=False)
+    def forbidden(*args, **kwargs):
+        pytest.fail('Ask attempted an action before the owner answered')
+    monkeypatch.setattr(executor, '_pre_tool_block', forbidden)
+    monkeypatch.setattr(executor, '_blocked_tool_result', lambda *a, **kw: {'blocked': True})
+    result = executor._dispatch_authorized_once(
+        agent, state, ref, execute=forbidden, scope_block=None, display_index=None,
+        begin_execution=None, authorization_gate=None)
+    assert result == {'blocked': True} and state.blocked
