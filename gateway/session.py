@@ -1003,7 +1003,7 @@ class SessionStore(
                 entry, snapshot_sid, checks.canonical_id if checks else None
             )
             checked = entry.session_id == snapshot_sid
-            stale_hit = checked and checks.is_stale
+            stale_hit = checked and checks.is_stale and not entry.resume_ask
             reset_reason = checks.reset_reason if checked else None
             if stale_hit:
                 # Stale routing self-heal: drop the entry and fall through to recovery (reopens

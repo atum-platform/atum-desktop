@@ -158,14 +158,10 @@ async def probe():
         if mode == 'pending_again':
             assert entry.resume_ask
             await adapter.handle_message(MessageEvent(text='Finish the work.', source=source, message_id='after-restart'))
-            await async_wait_until(lambda: authority.sessions[entry.session_id].task is None or authority.sessions[entry.session_id].task.done(),
-                                   timeout=40, what='pending conversational reply')
             assert entry.resume_ask
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             token = entry.resume_ask['token']
             await adapter.handle_message(MessageEvent(text='không ' + token, source=source, message_id='decline'))
-            await async_wait_until(lambda: authority.sessions[entry.session_id].task is None or authority.sessions[entry.session_id].task.done(),
-                                   timeout=40, what='owner decline')
             assert entry.resume_ask is None
             assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             return

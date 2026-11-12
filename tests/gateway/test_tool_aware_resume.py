@@ -221,7 +221,7 @@ def test_folded_occurrence_ids_and_legacy_variants():
     assert choose_resume_policy(history + [{'role': 'user', 'content': policy.note()}]).ask
 
 
-def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path):
+def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path, monkeypatch):
     from gateway.session import SessionStore, SessionSource
     from gateway.config import GatewayConfig, Platform
     from gateway.resume_policy import pending_resume_policy
@@ -234,6 +234,8 @@ def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path):
     from datetime import datetime, timedelta, UTC
     entry.updated_at = datetime.now(UTC) - timedelta(days=365)
     assert store.prune_old_entries(max_age_days=1) == 0
+    monkeypatch.setattr(store, '_is_session_ended_in_db', lambda sid: True)
+    assert store.get_or_create_session(entry.origin) is entry
     assert gated.ask
     store.clear_resume_pending(entry.session_key)  # successful question must not clear the gate
     store = SessionStore(sessions_dir=tmp_path, config=config)
