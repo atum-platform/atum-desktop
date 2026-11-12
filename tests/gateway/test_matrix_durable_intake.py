@@ -78,7 +78,7 @@ async def test_restart_recovers_acceptance_before_turn_start(tmp_path):
 @pytest.mark.asyncio
 async def test_first_start_does_not_replay_old_history(tmp_path):
     a = adapter(tmp_path)
-    client = SimpleNamespace(sync=AsyncMock(return_value=batch('$ancient', '$recent')))
+    client = SimpleNamespace(sync=AsyncMock(return_value=batch('$ancient', '$recent', limited=True)))
     await a._connect_initial_sync(client)
     dispatched = a._dispatch_sync.await_args.args[0]
     assert dispatched['rooms']['join']['!room:example.org']['timeline']['events'] == []
@@ -168,3 +168,48 @@ async def test_owner_gate_remains_before_native_admission(tmp_path):
         chat_type='dm', user_id='@mallory:example.org'), message_id='$denied')
     await a.handle_message(e)
     assert a._intake.state('$denied') is None
+
+
+@pytest.mark.asyncio
+async def test_native_commit_callback_records_acceptance_separately_from_effects(tmp_path):
+    from gateway.session_authority import SessionAuthority
+    a = adapter(tmp_path)
+    e = SimpleNamespace(_on_transport_commit=lambda receipt: a._intake.mark(
+        '$one', 'native', receipt.admission_id))
+    authority = SimpleNamespace(_receipt=lambda row: SimpleNamespace(admission_id=row['admission_id']),
+                                _publish_pending=MagicMock())
+    row = {'status': 'started', 'admission_id': 'native-one'}
+    SessionAuthority._admitted(authority, None, e, row)
+    assert a._intake.state('$one') == 'native'
+    assert e._gateway_accepted is True
+    # 'native' means the native session owns unfinished execution, not that
+    # tools or the final response have completed.
+    assert row['status'] == 'started'
+
+
+@pytest.mark.asyncio
+async def test_durable_handoff_is_not_process_local_base_acceptance(tmp_path):
+    from gateway.platforms.base import BasePlatformAdapter
+    a = adapter(tmp_path)
+    a.gateway_runner = SimpleNamespace(session_authority=object())
+    a._is_authorized_user = MagicMock(return_value=True)
+    e = MessageEvent(text='hello', source=a.build_source(chat_id='!room:example.org',
+        chat_type='dm', user_id='@alice:example.org'), message_id='$accepted')
+    gate = asyncio.Event()
+    async def fake_base(_adapter, ev):
+        async def run():
+            await gate.wait()
+            ev._on_transport_commit(SimpleNamespace(admission_id='receipt-one'))
+            await asyncio.Event().wait()  # the turn remains in flight
+        a._session_tasks[a._event_session_key(ev)] = asyncio.create_task(run())
+    with patch.object(BasePlatformAdapter, 'handle_message', fake_base):
+        intake = asyncio.create_task(a.handle_message(e))
+        await asyncio.sleep(0)
+        assert not intake.done()
+        assert a._intake.state('$accepted') == 'pending'
+        gate.set()
+        await asyncio.wait_for(intake, 2)
+        assert a._intake.state('$accepted') == 'native'
+        for task in a._session_tasks.values():
+            task.cancel()
+        await asyncio.gather(*a._session_tasks.values(), return_exceptions=True)

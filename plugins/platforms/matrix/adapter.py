@@ -1321,6 +1321,7 @@ class MatrixAdapter(BasePlatformAdapter):
             store.finish(sync_data)
             for data in sync_data.get("rooms", {}).get("join", {}).values():
                 data.get("timeline", {})["events"] = []
+                data.get("timeline", {})["limited"] = False
         await self._absorb_sync(client, sync_data, initial=True)
 
     async def connect(self, *, is_reconnect: bool = False) -> bool:

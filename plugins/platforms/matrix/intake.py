@@ -86,6 +86,7 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
         if boundary in ids:
             timeline['events'] = events[next(i for i, e in enumerate(events)
                                              if e['event_id'] == boundary) + 1:]
+            timeline['limited'] = False
             continue
         from mautrix.types import PaginationDirection
         token = timeline.get('prev_batch')
@@ -110,3 +111,4 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
         if not found:
             raise IntakeGapError('Matrix room frontier unavailable; history recovery required')
         timeline['events'] = list(reversed(older)) + events
+        timeline['limited'] = False
