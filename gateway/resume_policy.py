@@ -49,11 +49,11 @@ def choose_resume_policy(history, *, force_ask=False):
     start = next((i for i in range(len(history)-1, -1, -1)
                   if history[i].get('role') == 'user'
                   and not str(history[i].get('content', '')).startswith('[Recovery:')), 0)
-    calls, results, latest = {}, {}, {}
+    calls, results, latest = [], {}, {}
     malformed = False
     for row_index, row in enumerate(history[start:]):
         if row.get('role') == 'assistant':
-            uids = row.get('_tool_call_uids') or {}
+            uids = row.get('_tool_call_uids', {})
             if not isinstance(uids, dict):
                 uids, malformed = {}, True
             occurrences = {}
@@ -75,7 +75,7 @@ def choose_resume_policy(history, *, force_ask=False):
                 uid = uid or (row_index, ident, nth)
                 for variant in tool_call_id_variants(call):
                     latest[variant] = uid
-                calls[uid] = (name, function.get('arguments', {}))
+                calls.append((uid, name, function.get('arguments', {})))
         elif row.get('role') == 'tool' and row.get('tool_call_id'):
             uid = row.get('_tool_call_uid') or resolve_tool_call_uid(latest, row['tool_call_id'])
             if not isinstance(uid, (str, tuple)):
@@ -85,7 +85,7 @@ def choose_resume_policy(history, *, force_ask=False):
     # Presence is not completion: unknown, orphan and interrupted results never prove it.
     # Only native positive read-only classification permits unattended continuation.
     completed, unfinished, unsafe = set(), [], []
-    for uid, (name, arguments) in calls.items():
+    for uid, name, arguments in calls:
         result = results.get(uid)
         uncertain = (result is None or result.get('effect_disposition') not in (None, 'none')
                      or is_interrupted_tool_result(result.get('content'))

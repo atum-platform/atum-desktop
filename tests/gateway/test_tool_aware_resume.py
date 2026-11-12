@@ -257,3 +257,18 @@ def test_queued_message_and_second_gateway_crash_keep_ask(tmp_path):
                                 capture_output=True, text=True, timeout=80)
         assert result.returncode == expected, result.stdout + result.stderr
     assert not (home / 'pending-count').exists()
+
+
+def test_shared_occurrence_uid_does_not_hide_an_effect():
+    row = call('same', 'write_file')
+    row['tool_calls'] += call('same', 'read_file')['tool_calls']
+    row['_tool_call_uids'] = {'same': 'shared'}
+    result = {'role': 'tool', 'tool_call_id': 'same', '_tool_call_uid': 'shared', 'content': 'read'}
+    assert choose_resume_policy([row, result]).ask
+
+
+@pytest.mark.parametrize('uids', [[], 'invalid', {'same': []}])
+def test_malformed_identity_asks_safely(uids):
+    row = call('same', 'read_file')
+    row['_tool_call_uids'] = uids
+    assert choose_resume_policy([row]).ask
