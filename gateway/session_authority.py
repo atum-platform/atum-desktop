@@ -626,7 +626,10 @@ class SessionAuthority:
                 self._require_admission_open()
                 self.sessions.setdefault(sid, LiveSession(source, route))
                 if any(row['status'] == 'unknown' for row in rows):
-                    raise RuntimeStoreError('unknown_execution')
+                    from gateway.resume_policy import recover_unknown_admission
+                    if not await recover_unknown_admission(
+                            self, SessionRef(self.profile_id, sid), self.sessions[sid], rows):
+                        raise RuntimeStoreError('unknown_execution')
                 self._schedule(SessionRef(self.profile_id, sid))
                 results[sid] = 'ready'
             except RuntimeStoreError as exc:

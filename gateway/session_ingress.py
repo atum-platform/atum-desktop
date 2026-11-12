@@ -245,7 +245,12 @@ async def execute_admission(authority, ref, row):
         event = restore_native(row['payload'], authority.runner)
         if row.get('outcome') == 'crash_resume':
             # Keep the native source ID for the final obligation; never replay user input.
-            event.text = ''
+            # Preserve an input that never reached its first durable user row (H7).
+            recorded = authority.db._read_one(
+                "SELECT 1 FROM messages WHERE session_id=? AND role='user' "
+                "AND platform_message_id=?", (authority.physical_target(ref), event.message_id))
+            if recorded is not None:
+                event.text = ''
             authority.runner.session_store.mark_resume_pending(
                 live.route, reason='restart_interrupted')
     else:

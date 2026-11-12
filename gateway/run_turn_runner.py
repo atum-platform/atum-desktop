@@ -898,8 +898,16 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         self._resume_policy = None
         if resume_pending and getattr(adapter, 'tool_aware_resume', False):
             from gateway.resume_policy import choose_resume_policy
+            # Read before live-replay repair synthesizes results for dangling tool calls.
+            raw_history = ctx.history
+            db_for = getattr(self._runner.session_store, '_db_for_session_id', None)
+            if callable(db_for):
+                db = db_for(ctx.session_id)
+                if db is None:
+                    raise RuntimeError('Crash recovery requires the canonical transcript')
+                raw_history = db.get_messages_as_conversation(ctx.session_id, include_ancestors=True)
             self._resume_policy = choose_resume_policy(
-                ctx.history, force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
+                raw_history, force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
             persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
             ctx.message = self._resume_policy.note() + ('\n\n' + ctx.message if ctx.message else '')
         elif resume_pending and (interruption_is_fresh or mark_is_fresh):
