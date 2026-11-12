@@ -188,4 +188,4 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path):
     assert (tmp_path / 'fired').exists()
     assert not (tmp_path / 'done-count').exists()
     assert not (tmp_path / 'pending-count').exists()
-    assert 'injected persistence failure' in result.stderr
+    assert 'injected persistence failure: H7' in (tmp_path / 'logs/errors.log').read_text()
