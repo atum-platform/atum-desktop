@@ -6,7 +6,8 @@ but not every SIGTERM source: the supervisor respawns, the gateway auto-resumes 
 restart-interrupted session, whose next turn re-runs the offending logic.  Boots are
 persisted to ``<HERMES_HOME>/gateway/restart_loop.json`` and CHAIN while gaps stay
 within ``max_gap_seconds`` (a ~150s watchdog-kill cycle trips like a ~10s loop).
-Tripped → caller SKIPS auto-resume.  Any I/O failure fails OPEN, never wedging.
+Tripped → caller SKIPS auto-resume. Legacy boot tracking fails open on I/O errors.
+Admission-scoped budgets fail closed so storage loss cannot authorize more spend.
 """
 
 from __future__ import annotations
@@ -34,26 +35,37 @@ DEFAULT_MAX_GAP_SECONDS = 300
 _MAX_STORED_BOOTS = 50
 
 
-def _state_path():
+def _state_path(scope=None):
+    if scope is not None:
+        import hashlib
+        return get_hermes_home() / "gateway" / "restart_loops" / (hashlib.sha256(scope.encode()).hexdigest() + ".json")
     return get_hermes_home() / "gateway" / "restart_loop.json"
 
 
-def _load_boots() -> list[float]:
+def _load_boots(scope=None) -> list[float]:
     try:
         # utf-8-sig: our BOM-tolerant read fix for the persisted boot log.
-        raw = _state_path().read_text(encoding="utf-8-sig")
+        raw = _state_path(scope).read_text(encoding="utf-8-sig")
         data = json.loads(raw)
         boots = data.get("boots", [])
         return [float(t) for t in boots if isinstance(t, (int, float))]
+    except FileNotFoundError:
+        return []
     except (OSError, ValueError, TypeError):
+        if scope is not None:
+            raise
         return []
 
 
-def _save_boots(boots: list[float]) -> None:
-    with contextlib.suppress(OSError):
-        path = _state_path()
+def _save_boots(boots: list[float], scope=None) -> None:
+    try:
+        path = _state_path(scope)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"boots": boots}), encoding="utf-8")
+        from utils import atomic_write_text
+        atomic_write_text(path, json.dumps({"boots": boots}), fsync_dir=True)
+    except (OSError, ImportError):
+        if scope is not None:
+            raise
 
 
 def _chain_gap(window_seconds: int, max_gap_seconds: int) -> float:
@@ -82,13 +94,13 @@ def _chain_ending_at(boots: list[float], ts: float, gap: float) -> list[float]:
 
 def record_restart_interrupted_boot(
     window_seconds: int = DEFAULT_WINDOW_SECONDS, *, now: Optional[float] = None,
-    max_gap_seconds: int = DEFAULT_MAX_GAP_SECONDS,
+    max_gap_seconds: int = DEFAULT_MAX_GAP_SECONDS, scope=None,
 ) -> list[float]:
     """Record a restart-interrupted boot; return the pruned chain + now (most recent
     last).  A persistence failure returns the in-memory list without raising."""
     ts = time.time() if now is None else now
-    boots = _chain_ending_at(_load_boots(), ts, _chain_gap(window_seconds, max_gap_seconds)) + [ts]
-    _save_boots(boots[-_MAX_STORED_BOOTS:])
+    boots = _chain_ending_at(_load_boots(scope), ts, _chain_gap(window_seconds, max_gap_seconds)) + [ts]
+    _save_boots(boots[-_MAX_STORED_BOOTS:], scope)
     return boots
 
 
@@ -100,18 +112,18 @@ def clear() -> None:
 
 def check_and_record(
     max_restarts: int = DEFAULT_MAX_RESTARTS, window_seconds: int = DEFAULT_WINDOW_SECONDS, *,
-    now: Optional[float] = None, max_gap_seconds: int = DEFAULT_MAX_GAP_SECONDS,
+    now: Optional[float] = None, max_gap_seconds: int = DEFAULT_MAX_GAP_SECONDS, scope=None,
 ) -> bool:
     """Gateway entry point: record this boot; True when the chain reached
     ``max_restarts`` and auto-resume should be SKIPPED."""
-    boots = record_restart_interrupted_boot(window_seconds, now=now, max_gap_seconds=max_gap_seconds)
+    boots = record_restart_interrupted_boot(window_seconds, now=now, max_gap_seconds=max_gap_seconds, scope=scope)
     tripped = max_restarts > 0 and len(boots) >= max_restarts
     if tripped:
         logger.warning(
-            "Restart-loop breaker TRIPPED: %d chained restart-interrupted gateway boots (no gap wider than %ds; "
+            "Restart-loop breaker TRIPPED: %d chained restart-interrupted gateway boots (no gap wider than %ss; "
             "threshold %d). Skipping auto-resume to break a suspected SIGTERM-respawn loop (#30719, #81642). "
             "Restart-interrupted sessions stay resume-pending and will continue on the next real user message. "
             "If this is a false positive, delete %s.",
-            len(boots), int(_chain_gap(window_seconds, max_gap_seconds)), max_restarts, _state_path(),
+            len(boots), _chain_gap(window_seconds, max_gap_seconds), max_restarts, _state_path(scope),
         )
     return tripped

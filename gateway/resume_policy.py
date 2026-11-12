@@ -121,7 +121,8 @@ def pending_resume_policy(store, entry, policy, message, *, can_resolve, message
         pending = dict(pending, created_at=datetime.now(UTC).isoformat())
         store._update_entry(entry.session_key, lambda current: setattr(current, 'resume_ask', pending))
     try:
-        fresh = datetime.fromisoformat(message_timestamp).timestamp() > datetime.fromisoformat(pending['created_at']).timestamp()
+        received = datetime.fromisoformat(message_timestamp).timestamp()
+        fresh = datetime.fromisoformat(pending['created_at']).timestamp() < received <= datetime.now(UTC).timestamp()
     except (TypeError, ValueError):
         fresh = False
     token = pending['token']
@@ -180,6 +181,43 @@ def recovery_tool_block(policy, name, arguments):
     return None
 
 
+async def resume_boot_allowed(authority, row, *, ref=None, live=None):
+    """Native breaker scoped to a canonical admission, allowing three automatic retries."""
+    import asyncio
+    import logging
+    from gateway.restart_loop_guard import check_and_record
+    try:
+        tripped = await asyncio.to_thread(check_and_record, max_restarts=4,
+            max_gap_seconds=float('inf'), scope=row['admission_id'])
+    except (OSError, ValueError, TypeError):
+        tripped = True  # An unreadable budget must never authorize more model spend.
+    if tripped:
+        logging.getLogger(__name__).error('Automatic crash recovery paused: restart_loop; use /discard')
+        from gateway.status import write_runtime_status
+        await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
+            error_code='restart_loop', needs_attention=True,
+            error_message='Automatic recovery paused after three attempts. Use /discard.')
+        if ref is not None and live is not None:
+            from gateway.session_ingress import pause_notice
+            from gateway.delivery_ledger import record_obligation, compute_obligation_id, mark_delivered
+            notice = pause_notice(authority, ref, 'unknown_execution')
+            if notice:
+                try:
+                    adapter = authority.runner._delivery_adapter_for(live.source)
+                    oid = compute_obligation_id(live.route, row['admission_id'], notice)
+                    await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=live.route,
+                        platform=str(getattr(live.source.platform, 'value', live.source.platform)),
+                        chat_id=live.source.chat_id, thread_id=live.source.thread_id, content=notice,
+                        adapter_profile=getattr(adapter, '_owner_profile', None))
+                    sent = await adapter.send(chat_id=live.source.chat_id, content=notice,
+                        metadata={'delivery_obligation_id': oid, 'thread_id': live.source.thread_id})
+                    if sent.success:
+                        await asyncio.to_thread(mark_delivered, oid)
+                except Exception:
+                    logging.getLogger(__name__).exception('Recovery pause notice retained for delivery')
+    return not tripped
+
+
 async def recover_unknown_admission(authority, ref, live, rows):
     """Reclaim the SAME native admission; keep its identity, payload and transport receipt.
 
@@ -192,6 +230,8 @@ async def recover_unknown_admission(authority, ref, live, rows):
         return False
     unknown = [row for row in rows if row['status'] == 'unknown']
     if len(unknown) != 1 or 'native_text_v1' not in unknown[0]['payload']:
+        return False
+    if not await resume_boot_allowed(authority, unknown[0], ref=ref, live=live):
         return False
     from hermes_state_runtime import requeue_interrupted_session_input
     return await asyncio.to_thread(requeue_interrupted_session_input, authority.db,
@@ -224,6 +264,12 @@ async def recover_failed_native_admission(authority, ref, live, rows):
     policy = choose_resume_policy(messages or [], force_ask=not messages)
     entry = authority.runner.session_store.lookup_by_session_key(live.route)
     if entry is None:
+        return False
+    if not await resume_boot_allowed(authority, row, ref=ref, live=live):
+        # Reuse canonical uncertainty and its /discard notice on the next drain.
+        from hermes_state_runtime import requeue_interrupted_session_input
+        await asyncio.to_thread(requeue_interrupted_session_input, authority.db,
+                               epoch=authority.epoch, admission_id=row['admission_id'], pause=True)
         return False
     # Save the decision before reclaiming. A second crash cannot lose the action names.
     await asyncio.to_thread(pending_resume_policy, authority.runner.session_store, entry,

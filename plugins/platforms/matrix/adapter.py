@@ -27,6 +27,7 @@ add a third member so it has >2 joined members.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import array
 import inspect
 import hashlib
@@ -1311,6 +1312,13 @@ class MatrixAdapter(BasePlatformAdapter):
                             "'not verified by its owner'): %s", exc)
 
     async def _connect_initial_sync(self, client: Any) -> None:
+        try:
+            await self._intake_initial_sync(client)
+        except Exception as exc:
+            await self._intake_failure(exc)
+            raise
+
+    async def _intake_initial_sync(self, client: Any) -> None:
         """Full initial sync: seed joined rooms, DM cache, and dispatch queued to-device events."""
         store = self._intake
         pending = store.get("pending")
@@ -1517,6 +1525,16 @@ class MatrixAdapter(BasePlatformAdapter):
         identity = await self._resolve_room_identity(chat_id)
         return {"name": identity.display_name, "type": "dm" if identity.chat_type == "dm" else "group"}
 
+    def _intake_diagnostics(self):
+        store = getattr(self, '_intake', None)
+        if store is None:
+            return None
+        try:
+            return dict(store.status(), last_error=getattr(self, '_intake_error', None) or store.get('last_error'))
+        except Exception as exc:
+            return {'last_error': getattr(self, '_intake_error', None) or {'type': type(exc).__name__},
+                    'status': 'unavailable'}
+
     def get_diagnostics(self) -> dict[str, Any]:
         now = time.time()
         token_present = bool(self._access_token)
@@ -1528,7 +1546,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 "access_token_present": token_present, "password_present": bool(self._password),
                 "token_preview": "***" if token_present else "", "user_id": user_id,
                 "device_id_present": bool(device_id), "device_id_preview": "***" if str(device_id or "").strip() else ""},
-            "intake": self._intake.status() if getattr(self, "_intake", None) else None,
+            "intake": self._intake_diagnostics(),
             "sync": {
                 "connected": self._client is not None, "joined_room_count": len(self._joined_rooms),
                 "last_sync_age_seconds": max(0.0, now - self._last_sync_ts) if self._last_sync_ts else None},
@@ -1941,6 +1959,37 @@ class MatrixAdapter(BasePlatformAdapter):
             room_id, p.read_bytes(), fname, mimetypes.guess_type(fname)[0] or "application/octet-stream", msgtype,
             caption, reply_to, metadata, is_voice, voice_metadata)
 
+    async def _intake_failure(self, exc):
+        """Expose fail-closed intake through native status and the delivery ledger."""
+        from gateway.status import write_runtime_status
+        from gateway.delivery_ledger import compute_obligation_id, record_obligation, mark_delivered
+        failure = {"type": type(exc).__name__, "reason": str(exc)}
+        self._intake_error = failure
+        count = getattr(self, '_intake_failures', 0) + 1
+        self._intake_failures = count
+        await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
+            error_code='intake_wedged', needs_attention=True, error_message='Matrix intake requires recovery')
+        try:
+            with self._intake.db:
+                self._intake._put('last_error', failure)
+            for room in sorted(self._joined_rooms or self._intake.get('frontier', {})):
+                key = 'wedge_notice:' + room
+                if self._intake.get(key):
+                    continue
+                text = 'Message intake is paused. History or storage recovery is required.'
+                oid = compute_obligation_id(room, 'intake-wedge:' + str(self._intake.get('frontier', {})), text)
+                await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room,
+                    platform='matrix', chat_id=room, thread_id=None, content=text,
+                    adapter_profile=getattr(self, '_owner_profile', None))
+                result = await self.send(chat_id=room, content=text, metadata={'delivery_obligation_id': oid})
+                if result.success:
+                    await asyncio.to_thread(mark_delivered, oid)
+                    with self._intake.db:
+                        self._intake._put(key, True)
+        except Exception:
+            logger.error('Matrix intake notice could not be journaled; recovery alert remains active', exc_info=True)
+        return min(5 * 2 ** min(count - 1, 6), 300)
+
     async def _sync_loop(self) -> None:
         client = self._client
         next_batch = await client.sync_store.get_next_batch()  # resume from the initial sync
@@ -1963,6 +2012,16 @@ class MatrixAdapter(BasePlatformAdapter):
                     await fill_gaps(client, sync_data, self._intake.get("frontier", {}), reset=True)
                 if isinstance(sync_data, dict):
                     next_batch = await self._absorb_sync(client, sync_data) or next_batch
+                    if getattr(self, '_intake_failures', 0):
+                        self._intake_failures = 0
+                        self._intake_error = None
+                        with self._intake.db:
+                            self._intake._put('last_error', None)
+                            for room in self._joined_rooms:
+                                self._intake._put('wedge_notice:' + room, False)
+                        from gateway.status import write_runtime_status
+                        await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='connected',
+                                                error_code=None, error_message=None)
                     await asyncio.sleep(0)  # let fresh invite joins start before the next sync
             except asyncio.CancelledError:
                 return
@@ -1973,14 +2032,9 @@ class MatrixAdapter(BasePlatformAdapter):
                 if _is_permanent_matrix_auth_error(exc):
                     logger.error("Matrix: permanent auth error, stopping sync: %s", exc)
                     return
-                if getattr(self, "_intake", None) is not None:
-                    try:
-                        with self._intake.db:
-                            self._intake._put("last_error", {"type": type(exc).__name__, "reason": str(exc)})
-                    except Exception:
-                        logger.error("Matrix journal unavailable (disk-full/corruption); preserve DB and restore backup", exc_info=True)
-                logger.warning("Matrix: sync error: %s — retrying in 5s", exc)
-                await asyncio.sleep(5)
+                delay = await self._intake_failure(exc) if getattr(self, '_intake', None) else 5
+                logger.warning('Matrix sync failed; retrying in %ss: %s', delay, exc)
+                await asyncio.sleep(delay)
 
     async def _absorb_sync(self, client: Any, sync_data: dict[str, Any], *, initial: bool = False) -> Optional[str]:
         """Apply one sync response: joined rooms, next_batch, event dispatch, pending invites. Returns next_batch.
@@ -2057,15 +2111,43 @@ class MatrixAdapter(BasePlatformAdapter):
                 timeline = data.get("timeline", {})
                 timeline["events"] = [raw for raw in timeline.get("events", [])
                                       if raw.get("type") != "m.room.encrypted"]
-        tasks = client.handle_sync(dispatch_data)
-        if inspect.isawaitable(tasks):
-            tasks = await tasks
-        if tasks:
-            # return_exceptions=True: one failing handler must not drop its SIBLING events.
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, BaseException):
-                    raise result
+        async def dispatch(data, *, timeline=False):
+            native = getattr(client.handle_sync, '__self__', None)
+            if timeline and native is not None and hasattr(native, '_try_deserialize'):
+                from mautrix.client import SyncStream
+                from mautrix.types import Event
+                room, joined = next(iter(data['rooms']['join'].items()))
+                raw = dict(joined['timeline']['events'][0], room_id=room)
+                tasks = native.dispatch_event(native._try_deserialize(Event, raw),
+                    source=SyncStream.JOINED_ROOM | SyncStream.TIMELINE)
+            else:
+                tasks = client.handle_sync(data)
+            if inspect.isawaitable(tasks):
+                tasks = await tasks
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=True)
+                for result in results:
+                    if isinstance(result, BaseException):
+                        raise result
+
+        if store is None:
+            await dispatch(dispatch_data)
+        else:
+            # mautrix starts concurrent handler tasks. Feed timelines one event at
+            # a time so admission order follows server order, including decryption.
+            timelines = []
+            for room, data in dispatch_data.get('rooms', {}).get('join', {}).items():
+                timelines.append((room, sync_data['rooms']['join'][room].get('timeline', {}).get('events', [])))
+                data.get('timeline', {})['events'] = []
+            await dispatch(dispatch_data)  # state and to-device keys precede messages
+            for room, events in timelines:
+                for raw in events:
+                    if raw.get('type') == 'm.room.encrypted':
+                        if store.state(raw.get('event_id')) not in {'native', 'done', 'undecryptable'}:
+                            store.park(raw, room)
+                            await self._decrypt_parked(raw, room)
+                    else:
+                        await dispatch({'rooms': {'join': {room: {'timeline': {'events': [raw]}}}}}, timeline=True)
         store = getattr(self, "_intake", None)
         if store is not None:
             for data in sync_data.get("rooms", {}).get("join", {}).values():
@@ -2286,9 +2368,10 @@ class MatrixAdapter(BasePlatformAdapter):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
         event_ts = _matrix_event_timestamp_seconds(event)
-        if store is None and event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
+        if event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
             self._note_late_grace_drop(event_ts)
-            return
+            if store is None:
+                return
         content = getattr(event, "content", None)
         if content is None:
             return
@@ -2319,8 +2402,9 @@ class MatrixAdapter(BasePlatformAdapter):
         committed = asyncio.get_running_loop().create_future()
 
         def accepted(receipt):
-            store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
             from gateway.fault_injection import hit
+            hit("H3a")
+            store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
             hit("H3")
             if not committed.done():
                 committed.set_result(None)
@@ -2478,7 +2562,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._background_read_receipt(room_id, event_id)  # the claim receipted the voice
                 return
         msg_event = await self._build_inbound_event(
-            room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to)
+            room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to, timestamp=datetime.fromtimestamp(event_ts or 0, timezone.utc))
         if msg_event is None:
             return
         if (getattr(self, "_intake", None) is None and msg_event.message_type == MessageType.TEXT
@@ -2544,6 +2628,7 @@ class MatrixAdapter(BasePlatformAdapter):
         media_urls = [cached_path] if cached_path else ([http_url] if http_url else None)
         msg_event = await self._build_inbound_event(
             room_id, sender, event_id, body, source_content, relates_to, ctx=ctx, message_type=msg_type,
+            timestamp=datetime.fromtimestamp(event_ts or 0, timezone.utc),
             media_urls=media_urls, media_types=[media_type] if media_urls else None, media_msgtype=msgtype)
         if msg_event is not None:
             await self.handle_message(msg_event)

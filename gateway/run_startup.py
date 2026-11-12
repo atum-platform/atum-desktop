@@ -738,6 +738,7 @@ class GatewayStartupMixin:
     async def _consume_clean_shutdown_marker(self, marker_path) -> int:
         """Discard orphan turn markers before consuming a clean-exit receipt. Raises (fail closed):
         continuing with the old receipt would let a later unclean exit masquerade as clean."""
+        await self._ledger_crash_left_replies(2**62)
         discarded = await self.async_session_store.discard_active_turn_markers()
         marker_path.unlink()
         return discarded
@@ -778,8 +779,10 @@ class GatewayStartupMixin:
             started = started_at.timestamp()  # aware UTC marker; a pre-upgrade naive one reads as local
             if started < cutoff:
                 continue
-            text = self._crash_left_reply(await self.async_session_store.load_transcript(session_id),
-                                          started, origin)
+            history = await self.async_session_store.load_transcript(session_id)
+            text = self._crash_left_reply(history, started, origin)
+            source_id = next((m.get('platform_message_id') or m.get('message_id') or (m.get('display_metadata') or {}).get('inbound_message_id')
+                              for m in reversed(history) if m.get('role') == 'user'), None)
             if text is None or (text and not ledger_on):
                 continue  # no final reply to deliver: the turn resumes
             if text:
@@ -787,7 +790,7 @@ class GatewayStartupMixin:
                     record_crash_left_reply,
                     obligation_id=compute_obligation_id(key, f"crash:{token}", text), session_key=key,
                     platform=str(getattr(origin.platform, "value", origin.platform)), chat_id=origin.chat_id,
-                    thread_id=origin.thread_id, content=text, since=started, adapter_profile=profile)
+                    thread_id=origin.thread_id, content=text, since=started, adapter_profile=profile, source_event_id=source_id)
             if await self.async_session_store.clear_turn_active(key, token) and text:
                 ledgered += 1
         return ledgered

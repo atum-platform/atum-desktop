@@ -1005,7 +1005,7 @@ def apply_worker_receipt(db, *, epoch, execution_id, session_id, generation, seq
     return db._execute_write(write, patience_s=db._TRANSCRIPT_WRITE_PATIENCE_S)
 
 
-def requeue_interrupted_session_input(db, *, epoch, admission_id):
+def requeue_interrupted_session_input(db, *, epoch, admission_id, pause=False):
     """Opt-in gateway recovery of one lost native turn, retaining its admission identity.
 
     The outcome marks a recovery turn, not a replay of the original user input. A newer
@@ -1034,6 +1034,9 @@ def requeue_interrupted_session_input(db, *, epoch, admission_id):
         from hermes_state_runtime_workers import worker_states
         if worker_states(conn, row['target_session_id']):
             return False
+        if pause:
+            return conn.execute("UPDATE session_admissions SET status='unknown' WHERE admission_id=? AND status=?",
+                                (admission_id, row['status'])).rowcount == 1
         import time
         stamp = conn.execute("SELECT MAX(timestamp) FROM messages WHERE session_id=? AND active=1",
                              (row['target_session_id'],)).fetchone()[0]

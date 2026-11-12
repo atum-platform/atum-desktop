@@ -77,7 +77,8 @@ def _probe_gateway(runtime_status: dict[str, Any]) -> dict[str, Any]:
         isinstance(v, dict) and str(v.get("state") or v.get("status") or "").lower() in _CONNECTED_STATES
         for v in platforms.values()
     )
-    return _check("ok" if state in {"running", "draining"} else "degraded", state=state,
+    attention = any(isinstance(v, dict) and v.get("needs_attention") for v in platforms.values())
+    return _check("ok" if state in {"running", "draining"} and not attention else "degraded", state=state,
                   connected_platforms=connected, platforms=len(platforms))
 
 
