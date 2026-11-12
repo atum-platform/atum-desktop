@@ -49,11 +49,23 @@ class Peer(BaseHTTPRequestHandler):
                 'Việc ghi tệp có thể đã chạy một phần; bạn có muốn tôi tiếp tục không?' if unsafe else 'Đã đọc xong.')}
             finish = 'stop'
         self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Type', 'text/event-stream' if request.get('stream') else 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'id': 'local', 'model': 'local-wire-stub', 'object': 'chat.completion',
-            'choices': [{'index': 0, 'message': message, 'finish_reason': finish}],
-            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}}).encode())
+        base = {'id': 'local', 'model': 'local-wire-stub', 'created': 1}
+        if request.get('stream'):
+            delta = dict(message)
+            if 'tool_calls' in delta:
+                delta['tool_calls'] = [{**call, 'index': i} for i, call in enumerate(delta['tool_calls'])]
+            for item, reason in [(delta, None), ({}, finish)]:
+                chunk = {**base, 'object': 'chat.completion.chunk',
+                         'choices': [{'index': 0, 'delta': item, 'finish_reason': reason}]}
+                self.wfile.write(('data: ' + json.dumps(chunk) + '\n\n').encode())
+                self.wfile.flush()
+            self.wfile.write(b'data: [DONE]\n\n')
+        else:
+            self.wfile.write(json.dumps({**base, 'object': 'chat.completion',
+                'choices': [{'index': 0, 'message': message, 'finish_reason': finish}],
+                'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15}}).encode())
 
 
 async def probe():
@@ -102,7 +114,7 @@ async def probe():
     adapter = Adapter()
     runner.adapters[Platform.TELEGRAM] = adapter
     adapter.set_message_handler(runner._handle_message)
-    source = SessionSource(platform=Platform.TELEGRAM, chat_id='fixture', user_id='fixture-user')
+    source = SessionSource(platform=Platform.TELEGRAM, chat_id='fixture', chat_type='dm', user_id='fixture-user')
     authority = runner.session_authority
     if mode == 'crash':
         await adapter.handle_message(MessageEvent(text='Đọc tài liệu rồi làm tiếp.', source=source, message_id='source-1'))

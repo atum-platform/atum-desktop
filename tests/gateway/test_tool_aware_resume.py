@@ -188,6 +188,8 @@ def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
     for request in initial + resumed:
         assert request.get('tools') == initial[0].get('tools')
         assert request['messages'][0] == initial[0]['messages'][0]
+        assert not any(a['role'] == b['role'] == 'user'
+                       for a, b in zip(request['messages'], request['messages'][1:]))
     assert '[Recovery:' in json.dumps(resumed[0])
     if 'effect' in hook:
         assert 'write_file' in json.dumps(resumed[0])
