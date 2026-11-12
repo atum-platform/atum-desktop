@@ -270,7 +270,8 @@ class SessionLifecycleMixin:
             self._ensure_loaded_locked()
             removed_keys = [
                 key for key, entry in list(self._entries.items())
-                if not entry.suspended
+                if not entry.suspended and not entry.resume_ask
+                # An unresolved human decision has no expiry, including routing maintenance.
                 # The callback is keyed by session_key, NOT session_id.
                 and not self._has_active_processes_safe(entry.session_key, context="prune")
                 and entry.updated_at < cutoff

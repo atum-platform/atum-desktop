@@ -231,6 +231,9 @@ def test_pending_ask_durable_no_expiry_and_explicit_resolution(tmp_path):
     policy = choose_resume_policy([call('x', 'terminal')])
     gated = pending_resume_policy(store, entry, policy, 'queued before Ask', can_resolve=True)
     token = entry.resume_ask['token']
+    from datetime import datetime, timedelta, UTC
+    entry.updated_at = datetime.now(UTC) - timedelta(days=365)
+    assert store.prune_old_entries(max_age_days=1) == 0
     assert gated.ask
     store.clear_resume_pending(entry.session_key)  # successful question must not clear the gate
     store = SessionStore(sessions_dir=tmp_path, config=config)
