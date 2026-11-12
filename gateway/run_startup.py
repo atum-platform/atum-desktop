@@ -467,8 +467,9 @@ class GatewayStartupMixin:
             content = row["content"]
             if row.get("needs_marker") and row["platform"] != "matrix":
                 content = row.get("marker", RECOVERED_MARKER) + content
-            metadata = {"thread_id": row["thread_id"]} if row.get("thread_id") else {}
-            metadata["delivery_obligation_id"] = row["obligation_id"]
+            metadata = {"thread_id": row["thread_id"]} if row.get("thread_id") else None
+            if row["platform"] == "matrix":
+                metadata = dict(metadata or {}, delivery_obligation_id=row["obligation_id"])
             try:
                 result = await adapter.send(chat_id=row["chat_id"], content=content, metadata=metadata)
             except Exception as send_err:

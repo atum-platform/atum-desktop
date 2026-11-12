@@ -4363,7 +4363,8 @@ class BasePlatformAdapter(ABC):
             event, session_key, text_content, delivery_adapter, is_ephemeral_response)
         if obligation_id is not None:
             await self._release_turn_marker(event)  # the ledger now owns the crash recovery
-            metadata = dict(metadata or {}, delivery_obligation_id=obligation_id)
+            if event.source.platform == Platform.MATRIX:
+                metadata = dict(metadata or {}, delivery_obligation_id=obligation_id)
         result = await delivery_adapter._send_with_retry(
             chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
         stop_reply_clock(delivery_adapter, event.source.chat_id, result)
