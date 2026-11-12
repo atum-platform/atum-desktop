@@ -59,6 +59,27 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         published = self.server.requests[1][1]
         self.assertEqual({k: published[k] for k in interim}, interim)
 
+    async def test_readmitted_source_gets_fresh_root_after_recovery(self):
+        await self.turn.progress('Before crash')
+        old_root = self.turn.root
+        await self.box.recover(self.server)
+        resumed = p.Turn(self.box, self.server, self.turn.room, self.turn.source, self.turn.sender)
+        try:
+            await resumed.progress('Resumed')
+            self.assertNotEqual(resumed.root, old_root)
+            self.assertNotEqual(self.server.requests[0][2], self.server.requests[-1][2])
+            self.assertEqual(resumed.marker, self.turn.marker)
+        finally:
+            await resumed.end()
+
+    async def test_identical_held_interim_keeps_one_timer(self):
+        await self.turn.interim('First', redacted=True)
+        await self.turn.interim('Next', redacted=True)
+        timer = self.turn.interim_timer
+        await self.turn.interim('Next', redacted=True)
+        self.assertIs(self.turn.interim_timer, timer)
+        self.assertFalse(timer.cancelling())
+
     async def test_unredacted_interim_dropped(self):
         await self.turn.interim('private secret')
         self.assertEqual(self.server.requests, [])
@@ -190,6 +211,67 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
         from hermes_constants import reset_hermes_home_override
         reset_hermes_home_override(self.home_token)
         self.native_home.cleanup()
+
+    async def test_connect_false_releases_background_waiters(self):
+        class Base:
+            async def connect(self):
+                return False
+        adapter = p.adapter_class(Base)()
+        try:
+            self.assertFalse(await adapter.connect())
+            self.assertTrue(adapter._presentation_ready.is_set())
+        finally:
+            adapter._presentation_box.db.close()
+
+    async def test_recovery_network_failure_is_best_effort(self):
+        class Base:
+            async def connect(self):
+                return True
+        class Adapter(p.adapter_class(Base)):
+            async def _presentation_send(self, *args):
+                raise ConnectionError('offline cleanup')
+        from hermes_constants import get_hermes_home
+        box = p.Outbox(Path(get_hermes_home()) / 'matrix/presentation.sqlite3')
+        turn = p.Turn(box, Server(), '!room', '$source', '@owner')
+        await turn.progress('Orphan')
+        await turn.end()
+        # Retain a recorded root whose cleanup needs the network again.
+        box.db.execute('DELETE FROM effects WHERE target IS NOT NULL')
+        box.db.commit()
+        box.db.close()
+        adapter = Adapter()
+        try:
+            self.assertTrue(await adapter.connect())
+            self.assertTrue(adapter._presentation_ready.is_set())
+            self.assertGreater(adapter._presentation_box.db.execute(
+                'SELECT count(*) FROM effects WHERE event IS NULL').fetchone()[0], 0)
+        finally:
+            adapter._presentation_box.db.close()
+
+    async def test_stop_while_final_waits_for_dispatch_suppresses_send(self):
+        from types import SimpleNamespace
+        class Base:
+            async def send(self, *args, **kwargs):
+                sent.append(args)
+        sent = []
+        adapter = p.adapter_class(Base)()
+        box = p.Outbox(Path(self.native_home.name) / 'race.sqlite3')
+        turn = p.Turn(box, Server(), '!room', '$source', '@owner')
+        # Hold the dispatch boundary while a final settles its presentation.
+        turn.delivery_lock = asyncio.Lock()
+        await turn.delivery_lock.acquire()
+        token = p._current.set(turn)
+        try:
+            task = asyncio.create_task(adapter.send('!room', 'Answer', metadata={'delivery_obligation_id': 'test'}))
+            await asyncio.sleep(0)
+            turn.stopped = True
+            turn.delivery_lock.release()
+            await task
+            self.assertEqual(sent, [])
+        finally:
+            p._current.reset(token)
+            await turn.end()
+            box.db.close()
 
     async def test_native_send_preserves_final_relation_and_turn_marker(self):
         # Real Hermes Matrix constructor, formatter, chunker and relation builder,
