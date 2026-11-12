@@ -176,3 +176,13 @@ def test_refusal_supports_profile_locale_overlay(admission, monkeypatch, tmp_pat
         assert check_turn_admission()["final_response"] == "Anfrage abgelehnt (plugin_unavailable)."
     finally:
         reset_language_cache()
+
+
+@pytest.mark.asyncio
+async def test_refused_gateway_turn_skips_goal_judge(monkeypatch):
+    from gateway.run_goals import GatewayGoalsMixin
+    monkeypatch.setattr("gateway.session_authorities.active_authority", lambda _: None)
+    monkeypatch.setattr("gateway.session_viewer_automation.viewer_driven", lambda *_: False)
+    await GatewayGoalsMixin._run_post_turn_hooks(
+        SimpleNamespace(), agent_result="refused", source=SimpleNamespace(), is_internal=False,
+        event=SimpleNamespace(_gateway_turn_refusal="refused"))
