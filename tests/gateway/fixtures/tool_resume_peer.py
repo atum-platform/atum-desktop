@@ -124,6 +124,16 @@ async def probe():
         async def send_typing(self, *args, **kwargs): pass
         async def get_chat_info(self, chat_id): return {'id': chat_id}
 
+    from agent import tool_executor
+    original_dispatch = tool_executor._dispatch_authorized_once
+    dispatch_evidence = []
+    def dispatch(agent, *args, **kwargs):
+        guard = getattr(agent, '_crash_resume_tool_guard', None)
+        resume = guard.args[0] if guard is not None else None
+        dispatch_evidence.append({'ask': getattr(resume, 'ask', None),
+            'pending': [entry.resume_ask for entry in runner.session_store._entries.values()]})
+        return original_dispatch(agent, *args, **kwargs)
+    tool_executor._dispatch_authorized_once = dispatch
     runner = GatewayRunner()
     await initialize_session_authority(runner, profile_id='default', instance_id=mode)
     adapter = Adapter()
@@ -151,13 +161,13 @@ async def probe():
             await async_wait_until(lambda: authority.sessions[entry.session_id].task is None or authority.sessions[entry.session_id].task.done(),
                                    timeout=40, what='pending conversational reply')
             assert entry.resume_ask
-            assert not (home / 'pending-count').exists()
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             token = entry.resume_ask['token']
             await adapter.handle_message(MessageEvent(text='không ' + token, source=source, message_id='decline'))
             await async_wait_until(lambda: authority.sessions[entry.session_id].task is None or authority.sessions[entry.session_id].task.done(),
                                    timeout=40, what='owner decline')
             assert entry.resume_ask is None
-            assert not (home / 'pending-count').exists()
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             return
         verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
         assert verdict[entry.session_id] == 'ready', verdict
@@ -170,7 +180,7 @@ async def probe():
         assert any(('tiếp tục' if unsafe else 'Đã đọc xong') in text for text in adapter.sent), adapter.sent
         if mode == 'ask_crash':
             assert len(rows) == 2, rows
-            assert not (home / 'pending-count').exists()
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
             assert entry.resume_ask
             os.kill(os.getpid(), signal.SIGKILL)
         (home / 'verdict.json').write_text(json.dumps({'rows': rows, 'sent': adapter.sent}))
