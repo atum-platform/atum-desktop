@@ -164,7 +164,11 @@ async def probe():
             payload['native_text_v1']['event']['message_id'] = 'queued-before-ask'
             admit_session_input(authority.db, epoch=authority.epoch, principal_id=original['principal_id'],
                                 session_id=entry.session_id, request_id='queued-before-ask', payload=payload)
-        verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
+        if os.environ.get('ATUM_FAULT_POINT') == 'H7':
+            from gateway.run_runtime import recover_profile_native_sessions
+            verdict = await recover_profile_native_sessions(runner, authority)
+        else:
+            verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
         assert verdict[entry.session_id] == 'ready', verdict
         task = authority.sessions[entry.session_id].task
         if task is not None:
