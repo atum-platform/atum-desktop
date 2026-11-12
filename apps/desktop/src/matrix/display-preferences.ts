@@ -67,6 +67,8 @@ export function matrixDisplayPreferences(
   }
 
   const busy = new Set<MatrixDisplayPreferenceChange['field']>()
+  // Whether the account saved a language: unknown until it is read or its absence is confirmed.
+  let languageChosen: boolean | undefined
 
   function read(field: MatrixDisplayPreferenceChange['field'], ready: boolean) {
     const raw = client.getAccountData(MATRIX_DISPLAY_EVENTS[field])?.getContent()
@@ -87,6 +89,7 @@ export function matrixDisplayPreferences(
         confirmed.language = parsed
           ? (matrixDisplayPreferenceChange(field, parsed.value).value as DesktopLocale)
           : language
+        languageChosen = Boolean(parsed)
       } else {
         confirmed[field] = parsed
           ? (matrixDisplayPreferenceChange(field, parsed.value).value as boolean)
@@ -96,7 +99,8 @@ export function matrixDisplayPreferences(
 
     return {
       value: confirmed[field],
-      writable: ready && (raw === undefined || Boolean(parsed))
+      writable: ready && (raw === undefined || Boolean(parsed)),
+      ...(field === 'language' && languageChosen !== undefined ? { chosen: languageChosen } : {})
     }
   }
 

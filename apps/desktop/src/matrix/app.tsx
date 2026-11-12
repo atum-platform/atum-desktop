@@ -110,6 +110,7 @@ import {
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { matrixAgentNeedsLocalSetup, matrixAssistantReplySettingsShown } from '../../shared/matrix-agent-actions'
 import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
+import { matrixAgentLocalizedText } from '../../shared/matrix-agent-status-marker'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import {
   assistantOpeningBlocksRoom,
@@ -806,6 +807,10 @@ function MatrixEventMessageBubble() {
   // An assistant's notice (it held a reply it couldn't quote) is a quiet status line, not an
   // answer: no answer row, so nothing offers to ask its message again without the quote.
   const status = (agent && Boolean(message.notice)) || authenticatedBotNotice || Boolean(companyStatus)
+  // agent-turns/1.5: the room's agent's working line, outcome, scheduled line or appended warning in
+  // the reader's current language, from its code alone; `message.body` stays the canonical text that
+  // copy, export and every other client use.
+  const agentWords = agent ? matrixAgentLocalizedText(message, locale) : undefined
   // In its own private chat the assistant's answers are bare text, with no name above them.
   const ownAssistant = Boolean(!message.own && action?.assistantEligible && message.sender === action.assistantUserId)
   // A web link's preview card under the text (link-preview-card.tsx): plain chats only, never
@@ -1374,12 +1379,12 @@ function MatrixEventMessageBubble() {
                           ? message.appBot.action.app
                           : (name ?? 'Atum')
                       )
-                    : message.cloudStatus?.code === 'failed'
-                      ? // A failed turn is platform state: show Atum's neutral words, not the
-                        // body's fallback. Other codes keep their body, which carries details
-                        // (device names, attachment kind) the bare code does not.
-                        matrixAgentStatusText('failed', locale)
-                      : message.body}
+                    : (agentWords ??
+                      (message.cloudStatus?.code === 'failed'
+                        ? // A failed turn is platform state: when its words can't be given from the
+                          // code and details above, show Atum's neutral words, not the body's fallback.
+                          matrixAgentStatusText('failed', locale, message.cloudStatus.details)
+                        : message.body))}
                   {authenticatedBotNotice && message.appBot?.action?.kind === 'open_setup' && (
                     <Button
                       className="ms-2"
@@ -1450,7 +1455,7 @@ function MatrixEventMessageBubble() {
               ) : (
                 // People, apps and older history write markdown too; the host opens web links
                 // in the browser and renders nothing unsafe.
-                <MarkdownContent host={MATRIX_MARKDOWN_HOST} isRunning={false} text={message.body} />
+                <MarkdownContent host={MATRIX_MARKDOWN_HOST} isRunning={false} text={agentWords ?? message.body} />
               )}
               {companyAgent && companyAnswer && (
                 <CompanyAIAnswer

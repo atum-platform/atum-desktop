@@ -3,6 +3,19 @@ import { defineFieldCopy } from '@/app/settings/field-copy'
 import { defineLocale } from './define-locale'
 
 export const zhHant = defineLocale({
+  uiLabels: {
+    conversationTimeline: '對話時間軸',
+    messageSending: '正在傳送',
+    messageConflicted: '傳送衝突',
+    reference: '參考圖',
+    removeReference: '移除參考圖',
+    openInAtum: '在 Atum 中開啟',
+    hatchingProgress: '孵化進度',
+    steered: '已轉向',
+    toolSearch: '搜尋',
+    toolPayload: '工具資料',
+    linkText: '文字'
+  },
   cloud: {
     deviceStatusUnconfirmed: '暫時無法讀取這台 Mac 的狀態。Atum 會自動重新檢查。',
     wordRefusal: '這個助理暫時無法在 Word 或連結文件中工作。請在其他聊天中提問，或使用 Atum Drive 中的檔案。',

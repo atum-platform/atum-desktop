@@ -215,6 +215,7 @@
     "shared/matrix-action-copy.ts",
     "shared/brand-copy-scan.test-support.ts",
     "shared/matrix-agent-status-copy.ts",
+    "shared/matrix-agent-status-marker.ts",
     "shared/daily-cap-notice.ts",
     "shared/matrix-cloud-access.ts",
     "shared/matrix-turn-effects.ts",

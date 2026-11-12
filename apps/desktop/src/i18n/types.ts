@@ -56,6 +56,20 @@ interface AuxTaskCopy {
 }
 
 export interface Translations {
+  /** Small labels and accessible names of shared chrome (each in every language). */
+  uiLabels: {
+    conversationTimeline: string
+    messageSending: string
+    messageConflicted: string
+    reference: string
+    removeReference: string
+    openInAtum: string
+    hatchingProgress: string
+    steered: string
+    toolSearch: string
+    toolPayload: string
+    linkText: string
+  }
   cloud: {
     deviceStatusUnconfirmed: string
     wordRefusal: string

@@ -3,6 +3,19 @@ import { defineFieldCopy } from '@/app/settings/field-copy'
 import { defineLocale } from './define-locale'
 
 export const ja = defineLocale({
+  uiLabels: {
+    conversationTimeline: '会話のタイムライン',
+    messageSending: '送信中',
+    messageConflicted: '配信の競合',
+    reference: '参考画像',
+    removeReference: '参考画像を削除',
+    openInAtum: 'Atum で開く',
+    hatchingProgress: '孵化の進み具合',
+    steered: '方向を変更',
+    toolSearch: '検索',
+    toolPayload: 'ツールのデータ',
+    linkText: 'テキスト'
+  },
   cloud: {
     deviceStatusUnconfirmed: 'この Mac の状態は一時的に取得できません。Atum が自動的に再確認します。',
     wordRefusal:

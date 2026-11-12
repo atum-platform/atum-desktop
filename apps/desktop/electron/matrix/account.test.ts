@@ -83,7 +83,7 @@ const ownerReaderExecutor = '00000000-0000-4000-8000-cf4c4732fd3b'
 const ownerReaderEnrollment = '00000000-0000-4000-8000-ecbad70593ee'
 const ownerReaderPrincipal = '00000000-0000-4000-8000-0d23e78bd190'
 
-function ownerReaderFixture() {
+function ownerReaderFixture(hooks: ConstructorParameters<typeof MatrixAccount>[6] = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'atum-owner-reader-test-'))
   directories.push(directory)
 
@@ -112,7 +112,7 @@ function ownerReaderFixture() {
     }
   }))
 
-  return { store, account: new MatrixAccount(ownerReaderConfig, store, async () => {}) }
+  return { store, account: new MatrixAccount(ownerReaderConfig, store, async () => {}, undefined, undefined, undefined, hooks) }
 }
 
 function pendingOwnerReader(overrides: Record<string, unknown> = {}) {
@@ -1231,6 +1231,36 @@ describe('signing out on purpose', () => {
     await expect(account.signOut()).rejects.toThrow()
     expect(log).toHaveBeenLastCalledWith({ event: 'user_sign_out', result: 'pending', code: 'unexpected' })
     expect(JSON.stringify(log.mock.calls)).not.toContain('synthetic-')
+  })
+})
+
+describe('the owner language on the Matrix roster read (atum.owner-language/1)', () => {
+  it('reports the saved choice until the platform echoes it, beside the time zone, then stays quiet', async () => {
+    let language: { value: 'en' | 'ja'; source: 'explicit' } = { value: 'en', source: 'explicit' }
+    const { account, store } = ownerReaderFixture({ ownerLanguage: () => language })
+    vi.mocked(currentIanaTimeZone).mockReturnValue(undefined)
+    const sent: Array<[string | null, string | null]> = []
+    let ack: string | undefined
+
+    vi.stubGlobal('fetch', vi.fn<typeof globalThis.fetch>(async (input, init) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      sent.push([request.headers.get('atum-language'), request.headers.get('atum-language-source')])
+
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'content-type': 'application/json; charset=utf-8', ...(ack ? { 'Atum-Language-Ack': ack } : {}) }
+      })
+    }))
+
+    await account.agents(new AbortController().signal)
+    ack = 'en'
+    await account.agents(new AbortController().signal)
+    await account.agents(new AbortController().signal)
+    language = { value: 'ja', source: 'explicit' }
+    await account.agents(new AbortController().signal)
+
+    expect(sent).toEqual([['en', 'explicit'], ['en', 'explicit'], [null, null], ['ja', 'explicit']])
+    expect(store.keys('matrix-owner-language')).toHaveLength(1)
   })
 })
 

@@ -30,6 +30,7 @@ import type {
 import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from './execution-policy'
 import type { LookPackPublished, LookRoomAccountData } from './look-pack'
 import type { MatrixAgentSourcesBridge } from './matrix-agent-sources'
+import type { MatrixAgentStatusNotice, MatrixAnswerWarning } from './matrix-agent-status-marker'
 import type { MatrixAliasBridge } from './matrix-aliases'
 import type { MatrixAppConnectionState } from './matrix-apps'
 import type { MatrixAssistantCardsBridge } from './matrix-assistant-card'
@@ -98,7 +99,7 @@ import type { MatrixPetDisplayBridge } from './matrix-pet-display'
 import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matrix-pet-intent'
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
-import type { MatrixProgressMarker } from './matrix-progress-marker'
+import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -425,6 +426,10 @@ export interface MatrixMessage {
    * it is gone (`matrixHideEndedTransientLines`); never marked edited. It is not an answer: it
    * marks nothing answered and is never a roster preview. */
   progress?: MatrixProgressMarker
+  /** The working line's descriptor (agent-turns/1.5 `io.atum.presentation`), present only when it is
+   * exactly the contract's shape and pairs with `progress`. The renderer words it in the reader's
+   * current language; `body` stays the canonical text. */
+  presentation?: MatrixProgressPresentation
   /** An interim remark of the agent (agent-turns/1.4 `io.atum.interim`): a real message, never the
    * answer. It marks nothing answered and does not stop the no-reply banner. */
   interim?: true
@@ -445,8 +450,14 @@ export interface MatrixMessage {
    * its card's line, source and one offer. Display only; the window shows it as a card only
    * from the room's own assistant. */
   checkIn?: MatrixCheckInNudge
-  /** Closed cloud notice code and its synthetic Stop target; display only. */
-  cloudStatus?: { code: string; stopEvent?: string }
+  /** Closed outcome notice code (`io.atum.result.status`), its bounded details and its synthetic
+   * Stop target; display only. The renderer words it in the viewer's language for the room's agent. */
+  cloudStatus?: MatrixAgentStatusNotice & { stopEvent?: string }
+  /** A scheduled or standing line (`io.atum.status`, agent-turns/1.5 A15); display only. */
+  statusLine?: MatrixAgentStatusNotice
+  /** An answer that ends with an appended warning (`warning_from`, A14): the answer text kept as
+   * sent and the warning's code, worded by the viewer. `body` stays the whole canonical text. */
+  answerWarning?: MatrixAnswerWarning
   /** Versioned bot-api presentation metadata (`io.atum.bot_api/1`), present only on a message
    * from an official app bot. Display only. */
   botApi?: MatrixBotApiMessage

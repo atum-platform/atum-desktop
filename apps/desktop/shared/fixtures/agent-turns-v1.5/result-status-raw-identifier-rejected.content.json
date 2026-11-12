@@ -1,0 +1,18 @@
+{
+  "msgtype": "m.notice",
+  "body": "Có lỗi.",
+  "m.relates_to": {
+    "m.in_reply_to": {
+      "event_id": "$owner-question"
+    }
+  },
+  "io.atum.result": {
+    "invocation": "6f1c9b1e-7b4a-4a3c-9f0e-2d4c5a6b7c8d",
+    "transaction": "turn-6f1c9b1e-status-1",
+    "status": "failed"
+  },
+  "io.atum.result_details": {
+    "routine_title": "Báo cáo tuần",
+    "occurrence": "6f1c9b1e-7b4a-4a3c-9f0e-2d4c5a6b7c8d"
+  }
+}

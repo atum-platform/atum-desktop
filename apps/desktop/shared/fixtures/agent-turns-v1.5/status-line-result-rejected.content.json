@@ -1,0 +1,11 @@
+{
+  "msgtype": "m.text",
+  "body": "Có lỗi.",
+  "io.atum.status": {
+    "version": 1,
+    "code": "failed"
+  },
+  "io.atum.result": {
+    "transaction": "forbidden"
+  }
+}

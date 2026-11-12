@@ -19,6 +19,7 @@ import {
   type MatrixUiBridge
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import type { MatrixAgentStatusCode } from '../../shared/matrix-agent-status-copy'
 import type { MatrixAssistantCardsBridge } from '../../shared/matrix-assistant-card'
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { defaultMatrixCheckInSettings, emptyMatrixCheckInLedger } from '../../shared/matrix-check-ins'
@@ -2792,7 +2793,7 @@ describe('isolated Matrix composition', () => {
       sender: '@atum:test',
       body: 'Resuming',
       timestamp: sentAt + 1,
-      cloudStatus: { code: 'resuming_on_device', stopEvent: '$atum-occurrence-00000000-0000-4000-8000-11e594f48195' }
+      cloudStatus: { code: 'resuming_on_device' as const, stopEvent: '$atum-occurrence-00000000-0000-4000-8000-11e594f48195' }
     }
 
     const cloud: MatrixSnapshot = {
@@ -2825,7 +2826,7 @@ describe('isolated Matrix composition', () => {
   it('shows a failed cloud turn as Atum system status, and keeps other notices’ own words', async () => {
     const { emit } = fixture()
     const sentAt = Date.now()
-    const notice = (id: string, body: string, code: string, offset: number) => ({
+    const notice = (id: string, body: string, code: MatrixAgentStatusCode, offset: number) => ({
       ...controlsState.messages[0]!,
       id,
       own: false,
@@ -5056,6 +5057,34 @@ describe('isolated Matrix composition', () => {
     expect(bridge.invokeHermes).toHaveBeenCalledWith('!assistant:test', '$request', 'en')
     expect(bridge.sendAssistant).not.toHaveBeenCalled()
     expect(bridge.command).not.toHaveBeenCalled()
+  })
+
+  it('words the agent’s outcome and appended warning in the reader’s language, never a person’s look-alike', async () => {
+    const { emit } = fixture()
+
+    const base = { ...controlsState.messages[0]!, own: false, replyTo: '$request', timestamp: 2 }
+    // Sent in Vietnamese with their codes (agent-turns/1.5); this reader's app is in English.
+    const stopped = { ...base, id: '$stopped', sender: '@atum:test', body: 'Đã dừng.', notice: true, cloudStatus: { code: 'stopped' as const } }
+
+    const saved = {
+      ...base,
+      id: '$saved',
+      sender: '@atum:test',
+      body: 'Bản tóm tắt ở đây.\n\nĐã lưu vào Atum Drive.',
+      timestamp: 3,
+      answerWarning: { code: 'saved_to_drive' as const, answer: 'Bản tóm tắt ở đây.' }
+    }
+
+    const person = { ...base, id: '$person', sender: '@bob:test', body: 'Đã dừng.', notice: true, cloudStatus: { code: 'stopped' as const }, timestamp: 4 }
+
+    emit({ ...controlsState, messages: [...controlsState.messages, stopped, saved, person] })
+    expect((await screen.findByText('Stopped.')).closest('[data-matrix-notice]')).toBeTruthy()
+    // The answer's own words stay exactly as written; only the warning is the reader's.
+    expect(await screen.findByText('Bản tóm tắt ở đây.')).toBeTruthy()
+    expect(screen.getByText('Saved to Atum Drive.')).toBeTruthy()
+    expect(screen.queryByText('Đã lưu vào Atum Drive.')).toBeNull()
+    // A person carrying the same marker is a person: their words are shown as they wrote them.
+    expect(screen.getByText('Đã dừng.')).toBeTruthy()
   })
 
   it('reports one message from someone else after a short confirmation, without moderation side effects', async () => {
