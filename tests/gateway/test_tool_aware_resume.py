@@ -261,6 +261,7 @@ def test_queued_message_and_second_gateway_crash_keep_ask(tmp_path):
         result = subprocess.run([sys.executable, str(peer), mode, 'before_effect'], env=env,
                                 capture_output=True, text=True, timeout=80)
         assert result.returncode == expected, result.stdout + result.stderr
+        assert not (home / 'pending-count').exists(), (mode, (home / 'handler-events').read_text())
     assert not (home / 'pending-count').exists()
 
 

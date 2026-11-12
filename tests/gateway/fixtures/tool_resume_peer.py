@@ -87,6 +87,9 @@ async def probe():
     # recording, agent loop and runtime ownership are the production path.
     def handler(args, **kwargs):
         pending = Path(args['path']).name == 'pending'
+        with (home / 'handler-events').open('a') as evidence:
+            evidence.write(json.dumps({'mode': mode, 'hook': hook, 'path': args['path'],
+                'pending': pending, 'stack': traceback.format_stack()}) + '\n')
         if mode == 'crash' and pending and hook not in ('after_effect', 'unknown_sequential', 'unknown_concurrent'):
             os.kill(os.getpid(), signal.SIGKILL)
         counter = home / ('pending-count' if pending else 'done-count')
@@ -167,14 +170,14 @@ async def probe():
             await async_wait_until(lambda: event._gateway_accepted and not adapter._background_tasks,
                                    timeout=40, what='accepted conversational turn completed')
             assert entry.resume_ask
-            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent, 'handlers': (home / 'handler-events').read_text()}
             token = entry.resume_ask['token']
             event = MessageEvent(text='không ' + token, source=source, message_id='decline')
             await adapter.handle_message(event)
             await async_wait_until(lambda: event._gateway_accepted and not adapter._background_tasks,
                                    timeout=40, what='accepted owner decline completed')
             assert entry.resume_ask is None
-            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent, 'handlers': (home / 'handler-events').read_text()}
             return
         rows = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)
         assert all(row['status'] == 'terminal' for row in rows), rows
@@ -182,7 +185,7 @@ async def probe():
         assert any(('tiếp tục' if unsafe else 'Đã đọc xong') in text for text in adapter.sent), adapter.sent
         if mode == 'ask_crash':
             assert len(rows) == 2, rows
-            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent}
+            assert not (home / 'pending-count').exists(), {'dispatch': dispatch_evidence, 'sent': adapter.sent, 'handlers': (home / 'handler-events').read_text()}
             assert entry.resume_ask
             os.kill(os.getpid(), signal.SIGKILL)
         (home / 'verdict.json').write_text(json.dumps({'rows': rows, 'sent': adapter.sent}))
