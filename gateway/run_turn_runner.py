@@ -908,7 +908,8 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                     raise RuntimeError('Crash recovery requires the canonical transcript')
                 raw_history = db.get_messages_as_conversation(ctx.session_id, include_ancestors=True)
             self._resume_policy = choose_resume_policy(
-                raw_history, force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
+                raw_history, source_message_id=ctx.inbound_message_id,
+                force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
         elif resume_pending and (interruption_is_fresh or mark_is_fresh):
             # Empty message = the startup auto-resume turn; there is no NEW user message.
             ctx.message, persist_override = _prepare_resume_pending_message(
