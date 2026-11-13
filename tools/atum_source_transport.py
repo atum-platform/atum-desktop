@@ -28,6 +28,27 @@ def source_transport_enabled() -> bool:
     return _host_transport_enabled
 
 
+def source_transport_error(result: dict) -> str | None:
+    """Expose only corrective host codes, never raw host errors or credentials."""
+    from tools.registry import tool_error
+
+    messages = {
+        'invalid_input': 'Invalid input. Correct the request before trying again.',
+        'owner_turn_required': 'This action needs the owner’s current turn.',
+        'confirmationRequired': 'Confirm this action with the owner before continuing.',
+    }
+    code = result.get('code') or result.get('error')
+    if result.get('confirmationRequired') is True:
+        code = 'confirmationRequired'
+    if not isinstance(code, str) or code not in messages:
+        return None
+    extra = {}
+    operation = result.get('operationId')
+    if code == 'confirmationRequired' and isinstance(operation, str) and 0 < len(operation) <= 256:
+        extra['operationId'] = operation
+    return tool_error(messages[code], code=code, **extra)
+
+
 @contextmanager
 def bind_source_transport(call: Callable):
     """Bind the host's semantic (tool, payload) caller to this execution only.
