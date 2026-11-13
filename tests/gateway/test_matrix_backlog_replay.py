@@ -113,3 +113,20 @@ async def test_25_old_events_paginate_restart_and_dispatch_in_order(tmp_path):
         a._note_late_grace_drop.assert_not_called()
     finally:
         a._intake.close()
+
+
+def test_native_runtime_25_linked_finals_during_startup(tmp_path):
+    import os
+    from pathlib import Path
+    import subprocess
+    import sys
+    repo = Path(__file__).resolve().parents[2]
+    home, state = tmp_path / 'home', tmp_path / 'state'
+    home.mkdir()
+    state.mkdir()
+    env = {key: os.environ[key] for key in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ') if key in os.environ}
+    env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state),
+               PYTHONPATH=str(repo), PYTHONUNBUFFERED='1')
+    result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'matrix_backlog_peer.py')],
+        cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180, check=False)
+    assert result.returncode == 0, result.stdout + '\n' + result.stderr
