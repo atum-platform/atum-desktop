@@ -317,10 +317,16 @@ describe('the agent tab', () => {
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(within(desk).getByRole('status').textContent).toBe(`${en.working} · ${en.minutes(4)}`)
-    expect(within(desk).getByText('Ordering 40 boxes')).toBeTruthy()
-    expect(within(desk).getByText('Filling the form')).toBeTruthy()
-    // The cloud queues a new message behind the turn: the desk says so, not "type to change it".
-    expect(within(desk).getByText(en.queueHint)).toBeTruthy()
+    // One focus: the live step. The rest fold behind one quiet "1 of 2 done".
+    expect(desk.querySelector('[data-agent-desk-live]')?.textContent).toBe('Filling the form')
+    expect(within(desk).queryByText('Opened Shopee')).toBeNull()
+    const steps = within(desk).getByRole('button', { name: en.stepsDone(1, 2) })
+    expect(steps.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(steps)
+    expect(within(desk).getByText('Opened Shopee')).toBeTruthy()
+    // The cloud queues a new message behind the turn: said in a tooltip, not a sentence on the panel.
+    expect(within(desk).queryByText(en.queueHint)).toBeNull()
+    expect(desk.querySelector('[data-agent-desk-hint="queue"]')?.getAttribute('title')).toBe(en.queueHint)
 
     fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
     expect(stopTurn).toHaveBeenCalledWith({ action: 'stopTurn', roomId: ROOM, eventId: '$ask' })
@@ -339,7 +345,7 @@ describe('the agent tab', () => {
     )
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    expect(within(desk).getByText(en.steerHint)).toBeTruthy()
+    expect(desk.querySelector('[data-agent-desk-hint="steer"]')?.getAttribute('title')).toBe(en.steerHint)
     fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
     expect(cancelHermes).toHaveBeenCalledWith(ROOM)
     expect(stopTurn).not.toHaveBeenCalled()
@@ -349,7 +355,9 @@ describe('the agent tab', () => {
     render(panel({ ...base(), typing: [LUNA], agentTurns: [{ roomId: ROOM, prompts: [approval] }] }))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(desk.querySelector('[data-agent-desk-now="waiting"]')).toBeTruthy()
-    expect(within(desk).getByRole('heading', { name: en.ask('Luna') })).toBeTruthy()
+    // The question and its buttons are the focus: no second heading repeats it.
+    expect(within(desk).getByRole('region', { name: en.ask('Luna') })).toBeTruthy()
+    expect(within(desk).queryByRole('heading', { name: en.ask('Luna') })).toBeNull()
 
     await act(async () => {
       fireEvent.click(within(desk).getByRole('button', { name: 'Allow' }))
@@ -416,10 +424,15 @@ describe('the agent tab', () => {
     expect(deviceStop).not.toHaveBeenCalled()
   })
 
-  it('lists the devices at rest with their state word and no Stop', async () => {
+  it('folds the devices at rest into one row that opens to their state words, with no Stop', async () => {
     reachMacs([studio, macBook])
     render(panel(base()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
+
+    const toggle = await waitFor(() => within(desk).getByRole('button', { name: new RegExp(en.devices) }))
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(desk.querySelector('[data-agent-desk-device]')).toBeNull()
+    fireEvent.click(toggle)
 
     const rows = await waitFor(() => {
       const found = desk.querySelectorAll('[data-agent-desk-device]')
@@ -438,7 +451,7 @@ describe('the agent tab', () => {
     const vi_ = matrixAgentDeskCopy.vi
     const desk = screen.getByRole('region', { name: vi_.desk('Luna') })
     expect(within(desk).getByRole('status').textContent).toBe(vi_.working)
-    expect(within(desk).getByText(vi_.queueHint)).toBeTruthy()
+    expect(desk.querySelector('[data-agent-desk-hint]')?.getAttribute('title')).toBe(vi_.queueHint)
   })
 })
 
@@ -513,7 +526,7 @@ describe('the agent tab on native Hermes in the cloud', () => {
     render(panel({ ...hermesBase(), messages: [ask, progressLine('Reading…')], typing: [LUNA] }))
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    expect(within(desk).getByText(en.steerHint)).toBeTruthy()
+    expect(desk.querySelector('[data-agent-desk-hint="steer"]')?.getAttribute('title')).toBe(en.steerHint)
 
     await act(async () => {
       fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
@@ -566,7 +579,9 @@ describe('the agent tab on native Hermes in the cloud', () => {
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     const files = desk.querySelector<HTMLElement>('[data-agent-desk-files]')!
-    expect(within(files).getByText(en.sentHere)).toBeTruthy()
+    // Folded to one row while it is not the focus; it opens in place.
+    expect(within(files).queryByText('Q4 plan.docx')).toBeNull()
+    fireEvent.click(within(files).getByRole('button', { name: new RegExp(en.files) }))
     expect(within(files).getByText('Q4 plan.docx')).toBeTruthy()
 
     await act(async () => {
@@ -576,28 +591,36 @@ describe('the agent tab on native Hermes in the cloud', () => {
     expect(command).toHaveBeenCalledWith({ kind: 'download', roomId: ROOM, eventId: '$f1' })
   })
 
-  it('shows what needs its cloud computer as honest, empty rows with no data and no action', () => {
+  it('hides what its cloud computer cannot share yet: no empty scaffolding', () => {
     render(panel(hermesBase()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    const pending = [...desk.querySelectorAll<HTMLElement>('[data-agent-desk-pending]')]
-
-    expect(pending.map(row => row.getAttribute('data-agent-desk-pending'))).toEqual(['schedule', 'workspace', 'memory'])
-
-    for (const row of pending) {
-      expect(row.textContent).toContain(en.notYet)
-      expect(within(row).queryByRole('button')).toBeNull()
-    }
-
-    expect(within(desk).getByText(en.upNext)).toBeTruthy()
-    expect(within(desk).getByText(en.onItsComputer)).toBeTruthy()
-    expect(within(desk).getByText(en.memory)).toBeTruthy()
+    expect(desk.querySelector('[data-agent-desk-pending]')).toBeNull()
+    expect(desk.querySelector('[data-agent-desk-memory]')).toBeNull()
+    expect(desk.querySelector('[data-agent-desk-up-next]')).toBeNull()
+    // No sent files either: Files is absent too, so Free stands alone.
+    expect(desk.querySelector('[data-agent-desk-files]')).toBeNull()
   })
 
-  it('says the empty rows in Vietnamese', () => {
-    render(panel(hermesBase(), 'vi'))
-    const vi_ = matrixAgentDeskCopy.vi
-    const desk = screen.getByRole('region', { name: vi_.desk('Luna') })
-    expect(within(desk).getAllByText(vi_.notYet)).toHaveLength(3)
+  it('clamps long agent text to a few lines with More, and More opens it', () => {
+    const tall = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-agent-desk-clamp') ? 120 : 0
+    })
+
+    const short = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.hasAttribute('data-agent-desk-clamp') ? 60 : 0
+    })
+
+    const long = 'Comparing every supplier quote from the last quarter against the new price list. '.repeat(4)
+    render(panel({ ...hermesBase(), messages: [progressLine(`• ${long}`)], typing: [LUNA] }))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const live = desk.querySelector<HTMLElement>('[data-agent-desk-live]')!
+    expect(live.getAttribute('data-agent-desk-clamp')).toBe('closed')
+
+    fireEvent.click(within(desk).getByRole('button', { name: en.more }))
+    expect(live.getAttribute('data-agent-desk-clamp')).toBe('open')
+    expect(within(desk).getByRole('button', { name: en.less })).toBeTruthy()
+    tall.mockRestore()
+    short.mockRestore()
   })
 })
 
