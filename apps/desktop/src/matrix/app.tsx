@@ -3797,7 +3797,7 @@ function MatrixComposer({
         setCloudStopRefused(true)
       })
       .finally(() => {
-        if (stopRoute.kind === 'native') cloudStopRequested.current = null
+        if (stopRoute.kind === 'native') { cloudStopRequested.current = null }
         setCloudStopping(false)
       })
   }
@@ -4068,12 +4068,12 @@ function MatrixComposer({
                     ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
                     : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
                   disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStopping || cloudStopRequested.current === stopKey}
+                  onClick={stopCloud}
                   title={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : stopRoute.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
                     : stopRoute.kind === 'native'
                       ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
                       : undefined}
-                  onClick={stopCloud}
                   type="button"
                 >
                   {cloudStopping ? <span role="status">{locale === 'vi' ? 'Đang dừng…' : 'Stopping…'}</span>

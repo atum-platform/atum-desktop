@@ -3553,7 +3553,7 @@ function applyAnswering(roster: MatrixAgentDefinitionRecord[]): void {
   placedAgents.retain(roster)
   hostRuntimeAgents.clear()
   for (const agent of roster) {
-    if (agent.status === 'active' && agent.runtime === 'hermes') hostRuntimeAgents.add(agent.principal)
+    if (agent.status === 'active' && agent.runtime === 'hermes') { hostRuntimeAgents.add(agent.principal) }
   }
 
   const next = new Set(
