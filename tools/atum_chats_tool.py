@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from uuid import UUID
 
 from tools import desktop_ui
 from tools.atum_source_policy import source_enabled
@@ -146,6 +147,25 @@ def _last_ok(last: object, *, encrypted: bool) -> bool:
     )
 
 
+def _company_space_ok(space: object) -> bool:
+    if not _strict_keys(space, {"kind", "companyId", "name"}):
+        return False
+    if space["kind"] != "company" or not _bounded_string(space["name"], _MAX_LABEL_CHARS, minimum=1):
+        return False
+    raw = space["companyId"]
+    if not isinstance(raw, str) or len(raw) != 36:
+        return False
+    try:
+        identifier = UUID(raw)
+    except ValueError:
+        return False
+    # Protocol UUIDs: canonical dashed form (case-insensitive), RFC versions 1–8,
+    # or the nil/max UUIDs. UUID() alone also accepts undashed/URN forms.
+    return str(identifier) == raw.lower() and (
+        identifier.version in range(1, 9) or identifier.int in {0, (1 << 128) - 1}
+    )
+
+
 def _room_ok(room: object) -> bool:
     required = {
         "id",
@@ -159,7 +179,9 @@ def _room_ok(room: object) -> bool:
         "last",
         "encrypted",
     }
-    if not _strict_keys(room, required):
+    if not _strict_keys(room, required, {"space"}):
+        return False
+    if "space" in room and not _company_space_ok(room["space"]):
         return False
     if not _room_id_ok(room["id"]):
         return False
