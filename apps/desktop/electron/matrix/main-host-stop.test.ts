@@ -16,7 +16,7 @@ function fixture(host: boolean, answering: boolean, domain = true) {
   const fetcher = vi.fn()
   const requestHostStop = vi.fn(async () => ({ state: 'stop_requested' }))
   const stopCloudTurn = vi.fn(async () => ({ state: 'stop_requested' }))
-  const s1Request = vi.fn(async work => work('synthetic-grant', 'https://shell.test/api/matrix/v1', AbortSignal.timeout(30_000)))
+  const s1Request = vi.fn(async (work: (token: string, base: string, signal: AbortSignal) => Promise<unknown>) => work('synthetic-grant', 'https://shell.test/api/matrix/v1', AbortSignal.timeout(30_000)))
   const run = runInNewContext(code, {
     account: { appScope: () => scope, s1Request }, closing: false,
     requireRoomAgent: () => ({}), cloudPrincipal: () => principal, isCloudAgent: () => answering,
