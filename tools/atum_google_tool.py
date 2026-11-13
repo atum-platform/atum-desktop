@@ -6,7 +6,8 @@ tasks use the controller broker. This tool forwards one closed request with the
 capability Atum gave this process at launch. It never sees a Google token, and
 neither requests nor answers are logged.
 
-The tool exists only in an assistant launched with ``ATUM_GOOGLE_TOOLS_URL`` and
+The tool uses an execution-bound host transport when the native plugin installs
+one. Legacy launchers supply ``ATUM_GOOGLE_TOOLS_URL`` and
 ``ATUM_GOOGLE_TOOLS_TOKEN``. Desktop combines that task-local broker capability
 with its Google fence. The cloud controller binds the capability to the current
 turn and sandbox address while retaining the Google access token itself. These
@@ -28,6 +29,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from agent.atum_google_fence import broker_origin, mark_holding
 from tools.atum_source_policy import source_enabled
+from tools.atum_source_transport import source_transport
 from tools.registry import registry, tool_error
 
 URL_ENV = "ATUM_GOOGLE_TOOLS_URL"
@@ -127,7 +129,7 @@ def _broker() -> Optional[Tuple[str, str]]:
 
 def available() -> bool:
     """Whether Atum launched this assistant with a valid task-local Google broker."""
-    return _broker() is not None
+    return source_transport() is not None or _broker() is not None
 
 
 _available = available
@@ -139,10 +141,10 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
+    transport = source_transport()
     broker = _broker()
-    if broker is None:
+    if transport is None and broker is None:
         return tool_error("Google is not available to this assistant.")
-    base, token = broker
 
     action = str((args or {}).get("action") or "").strip()
     if action not in _ACTIONS:
@@ -162,6 +164,26 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
         if value is not None and value != "" and value != [] and value != {}:
             payload[key] = value
 
+    if transport is not None:
+        # G4 keeps access/refresh custody in the host's existing Google broker.
+        try:
+            result = transport("google", payload)
+            if not isinstance(result, dict) or "error" in result or result.get("closedAfter") is True:
+                return tool_error("Google is unavailable for this run.")
+            body = json.dumps(result, ensure_ascii=False)
+            if len(body.encode("utf-8")) > _MAX_RESPONSE_BYTES:
+                return tool_error("Google is unavailable for this run.")
+        except Exception:
+            if action in _WRITES:
+                return tool_error(
+                    "Google did not confirm this change. Ask the owner to check before retrying.",
+                    code="outcome_unknown",
+                )
+            return tool_error("Google is unavailable for this run.")
+        mark_holding()
+        return body
+
+    base, token = broker
     if action == "download_attachment":
         return _download_attachment(base, token, payload, task_id)
 
