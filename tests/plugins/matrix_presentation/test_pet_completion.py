@@ -28,7 +28,7 @@ def hooks(monkeypatch):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('kind', ['ordinary', 'failed', 'incomplete', 'cron', 'group', 'stopped', 'off', 'unset', 'subagent', 'synthetic', 'malformed'])
+@pytest.mark.parametrize('kind', ['ordinary', 'compressed', 'failed', 'incomplete', 'cron', 'group', 'stopped', 'off', 'unset', 'subagent', 'synthetic', 'malformed'])
 async def test_native_hooks_last_final_part_only(tmp_path, monkeypatch, hooks, kind):
     a = p.adapter_class(MatrixAdapter)(PlatformConfig(enabled=True, token='fixture', extra={}))
     a.max_message_length = 20
@@ -58,7 +58,7 @@ async def test_native_hooks_last_final_part_only(tmp_path, monkeypatch, hooks, k
                     with delegated_child_context('child'):
                         assert json.loads(pet_tool('jump'))['ok'] is False
                         hooks.invoke_hook('post_llm_call', session_id='child', completed=True)
-                _apply_output_hooks(SimpleNamespace(session_id='session', model='fixture'), 'One answer. ' * 8,
+                _apply_output_hooks(SimpleNamespace(session_id='rotated' if kind == 'compressed' else 'session', model='fixture'), 'One answer. ' * 8,
                     logging.getLogger(__name__), platform='matrix', effective_task_id='task', turn_id='native-turn',
                     original_user_message='wave', messages=[], completed=kind != 'incomplete', failed=kind == 'failed')
             await asyncio.to_thread(execute)
@@ -79,7 +79,7 @@ async def test_native_hooks_last_final_part_only(tmp_path, monkeypatch, hooks, k
         else:
             assert len(sent) > 1
             assert all('io.atum.pet' not in part for part in sent[:-1])
-            assert ('io.atum.pet' in sent[-1]) is (kind == 'ordinary')
+            assert ('io.atum.pet' in sent[-1]) is (kind in ('ordinary', 'compressed'))
             if kind == 'ordinary':
                 assert sent[-1]['io.atum.pet'] == {'v': 1, 'intents': [{'action': 'wave'}]}
                 # Reopen/replay with no turn object: metadata was frozen before send.
@@ -87,6 +87,17 @@ async def test_native_hooks_last_final_part_only(tmp_path, monkeypatch, hooks, k
                 assert plan[-1]['content'] == sent[-1]
                 assert all('io.atum.pet' not in part['content'] for part in plan[:-1])
                 assert all('io.atum.pet' not in call.args[1] for call in a._presentation_send.await_args_list)
+                # A readmitted presentation context cannot rewrite a frozen wire marker.
+                turn.marker = p.turn_id('!room', '$different-context')
+                current = p._current.set(turn)
+                final = p._final_delivery.set(True)
+                try:
+                    await a.send('!room', 'One answer. ' * 8, metadata=metadata)
+                finally:
+                    p._final_delivery.reset(final)
+                    p._current.reset(current)
+                replay = [call.args[2] for call in a._client.send_message_event.await_args_list[len(sent):]]
+                assert replay == sent
     finally:
         for turn, *_ in list(a._presentation_turns.values()):
             await turn.end()

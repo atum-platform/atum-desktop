@@ -203,7 +203,7 @@ class Turn:
         from tui_gateway.pet_intents import PetIntentBuffer
         self.pet_buffer = PetIntentBuffer()
         self.pet_callback = None
-        self.pet_session_id = None
+        self.pet_turn_id = None
         self.pet_intents = []
         self.pet_eligible = False
 
@@ -581,7 +581,7 @@ def adapter_class(base):
             if (turn and chat_id == turn.room and not turn.stopped
                     and _final_delivery.get()
                     and msg_content.get('msgtype') == 'm.text' and 'm.new_content' not in msg_content):
-                msg_content = {**msg_content, 'io.atum.turn': turn.marker}
+                msg_content = {'io.atum.turn': turn.marker, **msg_content}
             return await super()._send_room_message(chat_id, msg_content, **kwargs)
 
         async def stop_presentation_turn(self, room, source, sender, *, authenticated=False):
@@ -621,17 +621,17 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
-    def begin_pet(platform='', turn_id='', session_id='', parent_session_id='', **_):
+    def begin_pet(platform='', turn_id='', parent_session_id='', **_):
         turn = _current.get()
         if (turn and turn.pet_eligible and not turn.stopped and not turn.ended and platform == 'matrix'
                 and not parent_session_id and os.environ.get('ATUM_PET_INTENTS') == 'reply'):
             turn.pet_intents = []
-            turn.pet_session_id = session_id
+            turn.pet_turn_id = turn_id
             turn.pet_callback = turn.pet_buffer.begin(turn_id)
 
-    def finish_pet(session_id='', completed=False, failed=False, **_):
+    def finish_pet(turn_id='', completed=False, failed=False, **_):
         turn = _current.get()
-        if turn and turn.pet_callback and session_id == turn.pet_session_id:
+        if turn and turn.pet_callback and turn_id == turn.pet_turn_id:
             turn.pet_intents = turn.pet_buffer.finish(turn.pet_callback,
                 success=completed is True and not failed and not turn.stopped)
             turn.pet_callback = None
