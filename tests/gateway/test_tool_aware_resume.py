@@ -576,3 +576,18 @@ def test_completed_effect_is_never_offered_as_half_happened(source):
 def test_bare_please_does_not_authorize_resume():
     from tools.approval import exact_gateway_approval_choice
     assert exact_gateway_approval_choice('please', 'token', allow_unscoped=True) is None
+
+
+def test_new_message_after_discard_gets_no_recovery_instruction():
+    from gateway.run_turn_runner import TurnRunner
+    history = [{'role': 'user', 'content': 'old'}, call('unsafe', 'send_message')]
+    entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
+    turn = object.__new__(TurnRunner)
+    turn._runner = SimpleNamespace(session_store=SimpleNamespace(_entries={'key': entry}),
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True))
+    turn._ctx = SimpleNamespace(source=None, session_key='key', history=history,
+        message='unrelated new request', persist_user_message=None, persist_user_timestamp=None,
+        inbound_message_id='$fresh')
+    turn._prepare_turn_message(history)
+    assert turn._resume_policy is None
+    assert 'Continue the interrupted' not in turn._ctx.message
