@@ -182,12 +182,13 @@ describe('Stop routing', () => {
   it('uses native in-room stop for scheduled work with no owner source', async () => {
     const send = vi.fn(async () => {})
     const stop = vi.fn(async () => {})
-    await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true }), stop, send)
+    await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), stop, send)
     expect(send).toHaveBeenCalledWith('/stop')
     expect(stop).not.toHaveBeenCalled()
   })
   it('disables unresolved owner messages and idle turns', () => {
     expect(matrixStopRoute({ runtime: 'hermes', working: true, unresolvedOwner: true }).kind).toBe('unavailable')
     expect(matrixStopRoute({ runtime: 'hermes', working: false }).kind).toBe('unavailable')
+    expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
   })
 })
