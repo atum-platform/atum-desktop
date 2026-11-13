@@ -9482,7 +9482,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(await screen.findByText('Getting your Drive ready — about a minute')).toBeTruthy()
     push({ ...unavailable, revision: 3 })
     expect(await screen.findByText('Atum Drive is coming soon')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Atum Drive' })).toBeTruthy()
+    expect(
+      screen.getAllByRole('button', { name: 'Atum Drive' }).some(button => button.hasAttribute('data-atum-nav-drive'))
+    ).toBe(true)
   })
 
   it('opens a Drive row in the side panel and Ask returns to the active chat with read authority', async () => {
@@ -9493,7 +9495,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
     fireEvent.click(screen.getByRole('button', { name: 'Atum Drive' }))
     await screen.findByRole('heading', { name: 'Recents' })
-    fireEvent.click(window.document.querySelector<HTMLElement>('[data-matrix-drive-recent="opaque-notes"]')!)
+    fireEvent.doubleClick(window.document.querySelector<HTMLElement>('[data-matrix-drive-item="opaque-notes"]')!)
     await screen.findByText('Preview notes')
     fireEvent.click(screen.getByRole('button', { name: 'Ask Atum about this' }))
 
