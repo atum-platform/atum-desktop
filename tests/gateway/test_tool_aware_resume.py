@@ -594,10 +594,10 @@ def test_new_message_after_discard_gets_no_recovery_instruction():
 
 
 def test_legacy_resume_scans_unfinished_calls_without_last_user_fallback():
-    history = [{'role': 'user', 'content': 'read'}, call('unfinished', 'read_file'),
+    history = [{'role': 'user', 'content': 'old'}, {'role': 'assistant', 'content': 'Done'},
+        {'role': 'user', 'content': 'read'}, call('unfinished', 'read_file'),
         {'role': 'user', 'content': 'send'}, call('sent', 'send_message'),
-        {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'},
-        {'role': 'assistant', 'content': 'Done'}]
+        {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'}]
     policy = choose_resume_policy(history)
     assert not policy.ask
     assert policy.actions == ('read_file',)

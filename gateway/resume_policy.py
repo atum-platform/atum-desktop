@@ -30,7 +30,9 @@ class ResumePolicy:
             actions = json.dumps(self.actions or ('the interrupted request',), ensure_ascii=False)
             return ("[Recovery: Before ANY new action, ask ONE short question in the owner's "
                     "language naming the action that may have half-happened: " + actions +
-                    ". Ask whether to continue it. Do not say 'check again'. Do not call any tools.]")
+                     ". Ask whether to continue it. Do not say 'check again'. Do not call any tools.]")
+        if not self.actions and not self.completed:
+            return ''  # no unfinished tail: never suggest resurrecting an old turn
         return ("[Recovery: Continue the interrupted task without asking. Calls with no durable "
                 "result: " + json.dumps(self.actions, ensure_ascii=False) +
                 ". Retry those calls once; any synthetic interruption result in replay is not "
@@ -61,9 +63,12 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
                         if history[i].get('role') == 'user'
                         and not str(history[i].get('content', '')).startswith('[Recovery:')), len(history))
             history = history[start:end]
-    # Legacy/internal recovery has no source identity. Scan durable call occurrences
-    # across the transcript, retaining completed calls as replay guards. Never infer
-    # an interrupted request from the last user row.
+    else:
+        # Ancestors may contain old orphan/failed effects. Only the unfinished
+        # tail after the last completed answer belongs to a sourceless recovery.
+        start = next((i + 1 for i in range(len(history) - 1, -1, -1)
+                      if history[i].get('role') == 'assistant' and not history[i].get('tool_calls')), 0)
+        history = history[start:]
     calls, results, latest = [], {}, {}
     malformed = False
     seen_uids = set()

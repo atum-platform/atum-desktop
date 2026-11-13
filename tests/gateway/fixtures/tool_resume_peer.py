@@ -144,12 +144,18 @@ async def probe():
     runner = GatewayRunner()
     await initialize_session_authority(runner, profile_id='default', instance_id=mode)
     if hook == 'completed_final':
+        last_publication = None
         from gateway import fault_injection
         native_hit = fault_injection.hit
         def completed_final_hit(point):
             # Startup notices share the native send path. Arm the final fault only
             # after the fixture's side effect ran, so the test crashes this turn.
             if point in ('H8', 'H9', 'H10') and not (home / 'pending-count').exists():
+                return
+            # A delayed tool preview can finish sending AFTER the side effect.
+            # H9/H10 here must target the source-linked final plan, not that preview.
+            if point in ('H9', 'H10') and (
+                    not last_publication or last_publication.get('org.hermes.source_event_id') != 'source-1'):
                 return
             native_hit(point)
         fault_injection.hit = completed_final_hit
@@ -159,6 +165,8 @@ async def probe():
         wire.execute('CREATE TABLE IF NOT EXISTS sends (txn TEXT PRIMARY KEY, content TEXT)')
         class Transport:
             async def send_message_event(self, room, kind, content, txn_id):
+                nonlocal last_publication
+                last_publication = content
                 with wire:
                     wire.execute('INSERT OR IGNORE INTO sends VALUES (?,?)', (txn_id, json.dumps(content)))
                 return '$' + txn_id

@@ -220,4 +220,11 @@ def test_completed_side_effect_final_crash_never_reexecutes_or_asks(tmp_path, po
         result = subprocess.run([sys.executable, str(peer), mode, 'completed_final'], env=env,
             capture_output=True, text=True, timeout=100)
         assert result.returncode == expected, result.stdout + result.stderr
+        if mode == 'crash':
+            import json
+            import sqlite3
+            with sqlite3.connect((tmp_path / 'matrix-wire.db').as_uri() + '?mode=ro', uri=True) as wire:
+                publications = [json.loads(row[0]) for row in wire.execute('SELECT content FROM sends')]
+            finals = [item for item in publications if item.get('org.hermes.source_event_id') == 'source-1']
+            assert len(finals) == {'H8': 0, 'H9': 1, 'H10': 2}[point], publications
     assert (tmp_path / 'final-verdict.json').exists()
