@@ -5,9 +5,9 @@ import { ChevronRight } from '@/lib/icons'
 
 import { AGENT_HOMES_CLOUD_ONLY } from '../../../shared/agent-home-cloud-only'
 import type {
-  MatrixAgentModelBridge,
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
+  MatrixAgentModelBridge,
   MatrixAgentView,
   MatrixSubscriptionsBridge
 } from '../../../shared/matrix'

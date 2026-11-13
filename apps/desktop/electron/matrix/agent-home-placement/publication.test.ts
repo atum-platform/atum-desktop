@@ -2,7 +2,6 @@ import { createHash, randomUUID } from 'node:crypto'
 
 import { describe, expect, it, vi } from 'vitest'
 
-
 import type { HomeOperation } from './contract'
 import { AgentHomeJournal } from './journal'
 import { MemoryStore } from './mac.fixture'
