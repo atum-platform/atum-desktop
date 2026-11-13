@@ -1741,7 +1741,8 @@ def _validated_scoped_lock_gateway_owner(record: dict[str, Any]) -> Optional[tup
     """Resolve a live scoped-lock owner to a verified ``(pid, start_time, home)``. A lock file is
     only a claim: the record, the target home's PID record, and the live process must agree on
     PID, start-time, gateway identity, and home. Missing legacy metadata fails closed."""
-    if not isinstance(record, dict) or not _record_looks_like_gateway(record):
+    if (not isinstance(record, dict) or not process_epoch_matches(record)
+            or not _record_looks_like_gateway(record)):
         return None
     owner_pid = _pid_from_record(record)
     owner_start_time = record.get("start_time")
@@ -1763,7 +1764,7 @@ def _validated_scoped_lock_gateway_owner(record: dict[str, Any]) -> Optional[tup
     pid_record = _read_json_file(target_home / "gateway.pid") or {}
     pid_record_home = pid_record.get("hermes_home")
     if (
-        not _record_looks_like_gateway(pid_record)
+        not process_epoch_matches(pid_record) or not _record_looks_like_gateway(pid_record)
         or _pid_from_record(pid_record) != owner_pid
         or pid_record.get("start_time") != owner_start_time
         or not isinstance(pid_record_home, str)

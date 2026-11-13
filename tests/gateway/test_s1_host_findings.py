@@ -1,7 +1,4 @@
 """Restart-incarnation and process-readiness contracts."""
-import json
-from pathlib import Path
-
 import pytest
 
 from gateway import status
@@ -98,3 +95,11 @@ def test_initialization_fault_clears_after_success(tmp_path, monkeypatch):
     config_home.initialize_home(tmp_path, (), set())
     assert collect_runtime_readiness(configured_model='test', runtime_status={
         'gateway_state': 'running'})['process_healthy'] is True
+
+
+def test_scoped_takeover_rejects_previous_sandbox_before_signalling(monkeypatch):
+    monkeypatch.setattr(status, 'get_process_epoch', lambda: 'new:10')
+    monkeypatch.setattr(status, '_record_looks_like_gateway', lambda record: True)
+    assert status._validated_scoped_lock_gateway_owner({
+        'pid': 2, 'start_time': 1, 'boot_epoch': 'old:10', 'hermes_home': '/home/test'
+    }) is None
