@@ -221,8 +221,8 @@ async def probe():
             for name in ('done-count', 'pending-count'):
                 assert len((home / name).read_text().splitlines()) == 1
             sent = [json.loads(row[0]) for row in wire.execute('SELECT content FROM sends')]
-            finals = [content for content in sent if content.get('m.relates_to', {}).get(
-                'm.in_reply_to', {}).get('event_id') == 'source-1']
+            finals = [content for content in sent
+                if content.get('org.hermes.source_event_id') == 'source-1']
             count = len(finals)
             assert count == (5 if os.environ['ATUM_FAULT_POINT'] == 'H10' else 1), sent
             from gateway.resume_policy import choose_resume_policy
