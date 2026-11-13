@@ -302,12 +302,18 @@ def _self_profile_access(args: Any) -> bool:
     return isinstance(operation, str) and operation in {"list", "read", "update"}
 
 
-def egress_refusal(tool_name: Any, args: Any = None) -> Optional[str]:
+def egress_refusal(tool_name: Any, args: Any = None, task_id: Any = None) -> Optional[str]:
     """The refusal a tool call gets instead of running, or None when it may run.
 
     Only an assistant holding Google data is limited; every other process (and this
-    one before its first Google result) runs every tool as Hermes ships it.
+    one before its first Google result) runs every tool as Hermes ships it. A turn that
+    read Google content which looked like an injection is limited further, whether or not
+    this process is fenced (``agent/atum_google_injection.py``).
     """
+    from agent.atum_google_injection import refusal as injection_refusal
+
+    if message := injection_refusal(tool_name, args, task_id):
+        return message
     if not holding_google():
         return None
     name = str(tool_name or "")

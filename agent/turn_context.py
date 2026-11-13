@@ -591,6 +591,9 @@ def _bind_turn_identity(
     agent._relay_pending_turn_id = None
     agent._current_turn_id = turn_id
     agent._current_api_request_id = ""
+    # A new turn starts clear of any Google-injection refusal the last one set.
+    from agent.atum_google_injection import clear_turn
+    clear_turn(effective_task_id)
     # Tripwire: warn when this turn starts before the previous turn-end persist
     # (concurrent turns interleave transcript writes). Cleared in _persist_session.
     from agent.agent_runtime_helpers import note_turn_start

@@ -1817,6 +1817,10 @@ DEFAULT_CONFIG = {
         # enabled (e.g. `elevenlabs`). False = require explicit pip install for everything beyond
         # the base set (restricted/audited/air-gapped environments).
         "allow_lazy_installs": True,
+        # What screens Gmail/Calendar/Drive text for prompt injection (agent/atum_google_injection.py).
+        # "native" = Hermes' own pattern scan. The native scan always runs; another backend adds to
+        # it, and if that backend is unavailable or fails the native result stands.
+        "google_content_scanner": "native",
     },
 
     "cron": {
