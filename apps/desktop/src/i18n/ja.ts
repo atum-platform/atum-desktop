@@ -506,7 +506,7 @@ export const ja = defineLocale({
       pinLimit: '固定できるチャットは5件まで',
       title: 'チャット',
       search: 'すべてを検索',
-      searchPlaceholder: 'チャット、人、アプリを検索…',
+      searchPlaceholder: '検索',
       searching: '検索中…',
       channels: 'チャンネルとチーム',
       messages: 'メッセージ',

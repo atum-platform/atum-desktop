@@ -1,10 +1,10 @@
-import { type ComponentProps, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
-import { ChevronRight } from '@/lib/icons'
+import { Bell, ChevronRight } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import type { MatrixSnapshot } from '../../shared/matrix'
@@ -235,11 +235,11 @@ function Detail({
 }
 
 /**
- * The one place the window asks the person to act (agent-attention.ts): one small dot at the
- * start of the title bar's actions while something needs them, gone when nothing does; its words
- * are a hover or focus away, so the title bar stays the page's (Atum Kit). One item opens its
- * action; more are listed. It never takes focus by itself; a new item is said once to assistive
- * tech.
+ * The one place the window asks the person to act (agent-attention.ts): a bell in the left side
+ * of the title bar (owner, 2026-11-13), quiet while nothing needs them and wearing a small badge
+ * while something does; its words are a hover or focus away. It opens a short list of the items,
+ * each acting from its own row. It never takes focus by itself; a new item is said once to
+ * assistive tech.
  */
 interface IndicatorProps {
   agentName(principal: string): string
@@ -335,59 +335,49 @@ function AttentionIndicator({ agentName, onOpen, snapshot }: IndicatorProps) {
     </span>
   )
 
-  if (!items.length) {
-    return live
-  }
-
   const single = items.length === 1 ? items[0]! : undefined
   const label = single ? itemLabel(single, copy, agentName, locale) : copy.count(items.length)
   const tone = items.some(item => item.tone === 'danger') ? 'danger' : 'warn'
 
-  const pill = (props: ComponentProps<'button'>) => (
-    <button
-      {...props}
-      aria-label={`${copy.a11yPrefix} ${label}`}
-      // The title bar belongs to the page (Atum Kit): the mark is the dot alone, its words a hover
-      // or focus away.
-      className="atum-icon-btn grid size-7 place-items-center animate-in fade-in-0 duration-150 motion-reduce:animate-none"
-      data-matrix-attention={single ? single.kind : 'count'}
-      data-matrix-attention-count={items.length}
-      type="button"
-    >
-      <Dot tone={tone} />
-    </button>
-  )
-
-  if (single && !DETAILED.has(single.kind)) {
-    const button = pill({ onClick: () => onOpen(single) })
-
-    return (
-      <>
-        <Tip label={label}>{button}</Tip>
-        {live}
-      </>
-    )
-  }
-
   // The tip wraps the popover's trigger so the trigger keeps its own props.
-  const trigger = <PopoverTrigger asChild>{pill({})}</PopoverTrigger>
+  const trigger = (
+    <PopoverTrigger asChild>
+      <button
+        aria-label={items.length ? `${copy.a11yPrefix} ${label}` : copy.notifications}
+        // The kit's circle icon button, the sidebar toggle's size, in the title bar's left side.
+        className="atum-icon-btn relative grid size-7 shrink-0 place-items-center rounded-full after:absolute after:-inset-1 [-webkit-app-region:no-drag]"
+        data-matrix-attention={items.length ? (single ? single.kind : 'count') : undefined}
+        data-matrix-attention-bell
+        data-matrix-attention-count={items.length || undefined}
+        type="button"
+      >
+        <Bell aria-hidden className="size-[1.125rem]" />
+        {items.length > 0 && (
+          <span
+            aria-hidden
+            className={cn(
+              'absolute top-1 right-1 size-2 rounded-full animate-in fade-in-0 duration-150 motion-reduce:animate-none',
+              tone === 'danger' ? 'bg-(--atum-danger)' : 'bg-(--atum-warn)'
+            )}
+            data-matrix-attention-badge={tone}
+          />
+        )}
+      </button>
+    </PopoverTrigger>
+  )
 
   return (
     <>
       <Popover onOpenChange={setOpen} open={open}>
-        <Tip label={label}>{trigger}</Tip>
-        <PopoverContent align="start" className="w-80 p-1" data-matrix-attention-list>
-          {single ? (
-            <Detail
-              item={single}
-              key={itemKey(single)}
-              onOpen={openItem}
-              onPutOff={putDeviceOff}
-              onSnooze={snooze}
-              snapshot={snapshot}
-            />
+        <Tip label={items.length ? label : copy.notifications}>{trigger}</Tip>
+        <PopoverContent align="start" className="w-80 p-2" data-matrix-attention-list>
+          <p className="px-1.5 pt-0.5 pb-1.5 text-(length:--atum-t-ui) font-semibold text-(--atum-ink)">
+            {copy.notifications}
+          </p>
+          {items.length === 0 ? (
+            <p className="px-1.5 pb-1.5 text-(length:--atum-t-ui) text-(--atum-ink-muted)">{copy.nothing}</p>
           ) : (
-            <ul className="flex flex-col">
+            <ul className="flex flex-col gap-0.5">
               {items.map(item => (
                 <li key={itemKey(item)}>
                   {DETAILED.has(item.kind) ? (
@@ -407,12 +397,9 @@ function AttentionIndicator({ agentName, onOpen, snapshot }: IndicatorProps) {
                     </div>
                   ) : (
                     <button
-                      className="flex h-8 w-full items-center gap-2 rounded-md px-1.5 text-left text-(length:--atum-t-ui) hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)"
+                      className="flex h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-(length:--atum-t-ui) hover:bg-(--atum-hover) focus-visible:bg-(--atum-hover)"
                       data-matrix-attention-item={item.kind}
-                      onClick={() => {
-                        setOpen(false)
-                        onOpen(item)
-                      }}
+                      onClick={() => openItem(item)}
                       type="button"
                     >
                       <Dot tone={item.tone} />

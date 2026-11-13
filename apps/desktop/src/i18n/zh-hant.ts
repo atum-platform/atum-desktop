@@ -491,7 +491,7 @@ export const zhHant = defineLocale({
       pinLimit: '最多釘選5個聊天',
       title: '對話',
       search: '搜尋所有內容',
-      searchPlaceholder: '搜尋聊天、聯絡人和應用程式…',
+      searchPlaceholder: '搜尋',
       searching: '搜尋中…',
       channels: '頻道與團隊',
       messages: '訊息',

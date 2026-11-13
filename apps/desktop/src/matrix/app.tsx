@@ -6404,7 +6404,8 @@ function MatrixRoster({
   onToggle,
   newMessageRef,
   openRef,
-  snapshot
+  snapshot,
+  titleBarAction
 }: {
   assistantOpening: string | null
   cloudOnly: boolean
@@ -6428,6 +6429,8 @@ function MatrixRoster({
   /** ⌘N and the palette's New message open the same start sheet as the roster's "+". */
   newMessageRef?: MutableRefObject<(() => void) | null>
   snapshot: MatrixSnapshot
+  /** The title bar's bell, while this column leads the window's row. */
+  titleBarAction?: ReactNode
 }) {
   const copy = useMatrixCopy()
   const { locale, t } = useI18n()
@@ -6714,9 +6717,9 @@ function MatrixRoster({
           reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
           sidebarLabel={t.atum.chat.closeSidebar}
         />
-        {/* New chat sits in the title bar beside the sidebar toggle (Atum Kit mockups). */}
+        {/* The bell sits where New was; New is the plus beside the search (owner, 2026-11-13). */}
         <span className="flex-1" />
-        <MatrixStartChatButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'start' })} />
+        {titleBarAction}
       </div>
       <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-atum-search-actions>
         <SearchField
@@ -6727,6 +6730,7 @@ function MatrixRoster({
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
+        <MatrixStartChatButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'start' })} />
       </div>
       <MatrixRosterCreate
         creating={creating}
@@ -8148,6 +8152,25 @@ function MatrixAccountView({
     )
   }
 
+  // The one place the window asks the person to act (agent-attention.ts): a bell at the left of the
+  // title bar, with the window controls. One at a time: on the roster's top row while the roster
+  // leads the row, on the main header's otherwise (owner, 2026-11-13).
+  const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen
+
+  const attentionBell = snapshot.identity ? (
+    <MatrixAttentionIndicator
+      agentName={principal => {
+        const agent = snapshot.agents?.find(each => each.principal === principal)
+
+        return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
+      }}
+      onOpen={openAttention}
+      snapshot={snapshot}
+    />
+  ) : null
+
+  const sidebarBell = titleBarLeads ? null : attentionBell
+
   const conversationRoster = (
     <MatrixRoster
       assistantOpening={assistantOpening}
@@ -8180,6 +8203,7 @@ function MatrixAccountView({
       onToggle={toggle}
       openRef={rosterOpen}
       snapshot={snapshot}
+      titleBarAction={sidebarBell}
     />
   )
 
@@ -8201,6 +8225,7 @@ function MatrixAccountView({
       }}
       query={storeQuery}
       shelf={storeShelf}
+      titleBarAction={sidebarBell}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8218,6 +8243,7 @@ function MatrixAccountView({
       compact={compact}
       current={driveDestination}
       onSelect={setDriveDestination}
+      titleBarAction={sidebarBell}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8411,19 +8437,6 @@ function MatrixAccountView({
                           view={profileAgent.executionPolicy}
                         />
                       )}
-                    {/* The one place the window asks the person to act; nothing while nothing
-                        needs them (agent-attention.ts). */}
-                    {snapshot.identity && (
-                      <MatrixAttentionIndicator
-                        agentName={principal => {
-                          const agent = snapshot.agents?.find(each => each.principal === principal)
-
-                          return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
-                        }}
-                        onOpen={openAttention}
-                        snapshot={snapshot}
-                      />
-                    )}
                     {conversationShellVisible && !founderDraftShown && !driveActive && !appDestination && room && (
                       <ConversationHeaderActions
                         appearance={lookAppearance}
@@ -8482,15 +8495,18 @@ function MatrixAccountView({
                   </>
                 }
                 className={conversationLook?.ground ? (lookAppearance === 'dark' ? 'ak-dark' : 'ak-light') : undefined}
-                leadsRow={compact || !sidebarShowing || workplaceOnScreen}
+                leadsRow={titleBarLeads}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
-                  <AtumWindowControlsSurface
-                    onToggleSidebar={toggle}
-                    reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
-                    showSidebarToggle={!workplaceOnScreen}
-                    sidebarLabel={sidebarToggleLabel}
-                  />
+                  <div className="flex items-center gap-2">
+                    <AtumWindowControlsSurface
+                      onToggleSidebar={toggle}
+                      reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
+                      showSidebarToggle={!workplaceOnScreen}
+                      sidebarLabel={sidebarToggleLabel}
+                    />
+                    {attentionBell}
+                  </div>
                 }
               >
                 {/* Gives way to an open search: the subtitle first, then the name; too narrow

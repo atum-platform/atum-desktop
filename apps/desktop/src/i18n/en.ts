@@ -781,7 +781,7 @@ export const en: Translations = {
       pinLimit: 'Pin up to 5 chats',
       title: 'Chats',
       search: 'Search everything',
-      searchPlaceholder: 'Search chats, people, apps…',
+      searchPlaceholder: 'Search',
       searching: 'Searching…',
       channels: 'Channels and teams',
       messages: 'Messages',

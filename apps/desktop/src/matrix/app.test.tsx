@@ -2553,7 +2553,7 @@ describe('isolated Matrix composition', () => {
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // content and pushed the side panel down. It is the title bar's attention item now: nothing in
-  // the page's status stack, nothing in the chat card's flow; its line opens from the dot.
+  // the page's status stack, nothing in the chat card's flow; its line opens from the bell.
   it('says a new sign-in in the title bar’s indicator, never in the page’s flow', async () => {
     const ready: MatrixSnapshot = {
       ...signedOut,
@@ -2573,7 +2573,7 @@ describe('isolated Matrix composition', () => {
     fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
     fireEvent.click(pill)
 
-    const line = await screen.findByText('New sign-in on an iPhone. Was this you?')
+    const line = await screen.findByText('Was this you?')
     expect(line.closest('[data-atum-chat]')).toBeNull()
     expect(line.closest('[data-matrix-attention-list]')).toBeTruthy()
     expect(stack?.childElementCount ?? 0).toBe(0)
@@ -2602,7 +2602,8 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Sign it out' }))
 
     expect(await screen.findByText('Couldn’t open the sign-out page. Try again.')).toBeTruthy()
-    expect(screen.getByText('New sign-in on MacBook Air. Was this you?')).toBeTruthy()
+    expect(screen.getByText('New sign-in on MacBook Air')).toBeTruthy()
+    expect(screen.getByText('Was this you?')).toBeTruthy()
   })
 
   it('never exposes phone setup in the signed-out shell', async () => {
@@ -9653,6 +9654,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(screen.getByRole('textbox', { name: COMPOSER }).getAttribute('placeholder')).toBe('Update Atum')
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Update Atum/ }))
     await waitFor(() => expect(bridge.openLink).toHaveBeenCalledWith(ATUM_LINKS.download))
     expect(bridge.retryReadiness).not.toHaveBeenCalled()
   })
@@ -9685,6 +9687,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     )
     expect(screen.queryByRole('button', { name: 'Proton purchase terms' })).toBeNull()
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
   })
 
@@ -9749,6 +9752,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect((screen.getByRole('button', { name: 'Send' }) as HTMLButtonElement).disabled).toBe(true)
     // No Store checkout in this build: the top-up is Atum's payments page.
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.openTopUp).toHaveBeenCalledOnce())
     // A model of their own stays one step away, in the message box's model menu.
     fireEvent.click(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }))
@@ -9781,6 +9785,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
     await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
     fireEvent.click(await screen.findByRole('button', { name: 'Needs you: Out of Protons' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Out of Protons/ }))
     await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'discoverApps' }))
     expect(bridge.openTopUp).not.toHaveBeenCalled()
   })

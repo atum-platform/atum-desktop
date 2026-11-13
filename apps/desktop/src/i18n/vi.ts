@@ -786,7 +786,7 @@ export const vi = defineLocale({
       pinLimit: 'Chỉ ghim tối đa 5 cuộc trò chuyện',
       title: 'Trò chuyện',
       search: 'Tìm mọi thứ',
-      searchPlaceholder: 'Tìm cuộc trò chuyện, người và ứng dụng…',
+      searchPlaceholder: 'Tìm kiếm',
       searching: 'Đang tìm…',
       channels: 'Kênh và nhóm',
       messages: 'Tin nhắn',
