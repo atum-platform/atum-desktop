@@ -660,6 +660,7 @@ describe('main human replacement with a real lease', () => {
         ]),
         enrollmentOf: () => ({ state: 'ready', identity: { executorId } }),
         isCloudOnlyAgent: () => false,
+        macJobHomeHeld: () => false,
         isMovingAgent: () => false,
         // The agent-home model is not running: no drain or checkpoint is holding a lease here.
         agentHome: undefined,
