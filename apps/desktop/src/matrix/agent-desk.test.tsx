@@ -319,13 +319,15 @@ describe('the agent tab', () => {
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(within(desk).getByRole('status').textContent).toBe(`${en.working} · ${en.minutes(4)}`)
-    // One focus: the live step. The rest fold behind one quiet "1 of 2 done".
-    expect(desk.querySelector('[data-agent-desk-live]')?.textContent).toBe('Filling the form')
-    expect(within(desk).queryByText('Opened Shopee')).toBeNull()
-    const steps = within(desk).getByRole('button', { name: en.stepsDone(1, 2) })
-    expect(steps.getAttribute('aria-expanded')).toBe('false')
-    fireEvent.click(steps)
-    expect(within(desk).getByText('Opened Shopee')).toBeTruthy()
+    // Native: what Hermes sent, as it sent it. Its line, then its checklist in order (✓ done,
+    // • still to do), the same step card the chat draws; nothing picked, folded or renamed.
+    expect(desk.querySelector('[data-agent-desk-line]')?.textContent).toBe('Ordering 40 boxes')
+    const steps = [...desk.querySelectorAll('[data-agent-desk-steps] li')]
+    expect(steps.map(step => [step.textContent, step.hasAttribute('data-done')])).toEqual([
+      ['Opened Shopee', true],
+      ['Filling the form', false]
+    ])
+    expect(within(desk).queryByRole('button', { name: en.stepsDone(1, 2) })).toBeNull()
     // The cloud queues a new message behind the turn: said in a tooltip, not a sentence on the panel.
     expect(within(desk).queryByText(en.queueHint)).toBeNull()
     expect(desk.querySelector('[data-agent-desk-hint="queue"]')?.getAttribute('title')).toBe(en.queueHint)
@@ -614,7 +616,7 @@ describe('the agent tab on native Hermes in the cloud', () => {
     const long = 'Comparing every supplier quote from the last quarter against the new price list. '.repeat(4)
     render(panel({ ...hermesBase(), messages: [progressLine(`• ${long}`)], typing: [LUNA] }))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    const live = desk.querySelector<HTMLElement>('[data-agent-desk-live]')!
+    const live = desk.querySelector<HTMLElement>('[data-agent-desk-steps] [data-agent-desk-clamp]')!
     expect(live.getAttribute('data-agent-desk-clamp')).toBe('closed')
 
     fireEvent.click(within(desk).getByRole('button', { name: en.more }))
