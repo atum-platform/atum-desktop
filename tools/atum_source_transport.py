@@ -100,6 +100,7 @@ def bind_source_transport(call: Callable):
     Exit invalidates copied contexts too, preventing a late worker using a closed run.
     """
     from gateway.session_context import bound_session_key, get_session_env
+    from agent.atum_google_fence import scoped_source_holding
 
     def session_identity():
         return (bound_session_key(), get_session_env('HERMES_SESSION_ID'),
@@ -108,16 +109,20 @@ def bind_source_transport(call: Callable):
     identity = session_identity()
     active = True
 
+    def matches_session():
+        return session_identity() == identity
+
     def scoped(tool, payload):
         if not active:
             raise RuntimeError('operation_closed')
-        if not (identity[0] or identity[1]) or session_identity() != identity:
+        if not (identity[0] or identity[1]) or not matches_session():
             raise RuntimeError('source_session_mismatch')
         return call(tool, payload)
 
     token = _transport.set(scoped)
     try:
-        yield
+        with scoped_source_holding(matches_session):
+            yield
     finally:
         active = False
         _transport.reset(token)

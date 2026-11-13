@@ -1136,6 +1136,7 @@ _SESSION_STATE_MODULES = {
     "tools.approval": {},
     "tools.approval_context": {},
     "tools.atum_source_transport": {"_host_transport_enabled": False},
+    "agent.atum_google_fence": {"_holding": False},
 }
 _NOT_CAPTURED = object()
 
