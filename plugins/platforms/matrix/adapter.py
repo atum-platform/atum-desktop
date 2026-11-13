@@ -2462,8 +2462,12 @@ class MatrixAdapter(BasePlatformAdapter):
                             await asyncio.to_thread(mark_delivered, oid)
                         else:
                             await asyncio.to_thread(mark_failed, oid, result.error or 'send failed')
-                    except Exception:
+                    except Exception as exc:
+                        await asyncio.to_thread(mark_failed, oid, str(exc))
                         logger.warning('Matrix control failure notice retained for redelivery', exc_info=True)
+                    runner = getattr(self, 'gateway_runner', None)
+                    if runner is not None:
+                        await runner._arm_flood_timers_for_waiting_rows()
                 return
             if state == "ambiguous":
                 from plugins.platforms.matrix.intake import IntakeAmbiguousError

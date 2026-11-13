@@ -933,11 +933,13 @@ async def test_control_failure_notice_outage_does_not_wedge_intake(tmp_path):
     a = adapter(tmp_path)
     a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
     a._intake.mark('$failed-control', 'control_pending')
+    a.gateway_runner = SimpleNamespace(_arm_flood_timers_for_waiting_rows=AsyncMock())
     a._send_room_message = AsyncMock(side_effect=ConnectionError('offline notice'))
     raw = SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
         event_id='$failed-control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
     await a._on_room_message(raw)
     assert a._intake.state('$failed-control') == 'done'
+    a.gateway_runner._arm_flood_timers_for_waiting_rows.assert_awaited_once()
     db = _connect()
     try:
         owed = db.execute('SELECT state FROM delivery_obligations WHERE source_event_id=?',
