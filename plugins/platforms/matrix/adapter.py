@@ -2853,8 +2853,7 @@ class MatrixAdapter(BasePlatformAdapter):
         is_direct = bool(getattr(getattr(event, "content", None), "is_direct", False))
         inviter = str(getattr(event, "sender", ""))
         # Only authorized inviters — otherwise any federated user could pull the bot into rooms.
-        if not self._is_authorized_user(inviter, str(room_id)):
-            self._schedule_invite_rejection(room_id)
+        if not self._authorize_invite(inviter, room_id):
             return
         logger.info("Matrix: invited to %s — joining (is_direct=%s)", room_id, is_direct)
         # Join off the sync path; a declared DM is recorded in m.direct once the join lands.
@@ -2898,6 +2897,20 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._invite_join_tasks.pop(room_id, None)
         self._invite_join_tasks[room_id] = asyncio.create_task(_join_invite())
 
+    def _authorize_invite(self, inviter: str, room_id: str) -> bool:
+        # Unknown is not an authorization, but neither is it a permanent no:
+        # a transient check failure must not decline the owner's own invite.
+        decision = None
+        if inviter:
+            decision = (self._is_sender_authorized(inviter, chat_id=room_id)
+                        if getattr(self, '_authorization_check', None) is not None
+                        else self._is_authorized_user(inviter, room_id))
+        if decision is False:
+            self._schedule_invite_rejection(room_id)
+        elif decision is not True:
+            logger.warning('Matrix: invite authorization unknown; leaving %s pending', room_id)
+        return decision is True
+
     def _schedule_invite_rejection(self, room_id: str) -> None:
         """Decline an unauthorized invite using Matrix leave, without joining or reading it."""
         existing = self._invite_join_tasks.get(room_id)
@@ -2915,7 +2928,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._invite_join_tasks.pop(room_id, None)
 
         # Share invite task tracking with joins for sync reconciliation deduplication
-        # and disconnect cancellation. A failed leave is retried on the next sync.
+        # and disconnect cancellation. A failed leave can retry on invite sync/reconnect.
         self._invite_join_tasks[room_id] = asyncio.create_task(_reject_invite())
 
     def _schedule_pending_invite_joins(self, sync_data: dict[str, Any]) -> None:
@@ -2939,9 +2952,8 @@ class MatrixAdapter(BasePlatformAdapter):
             # _on_invite just rejected milliseconds earlier, and would
             # auto-join any invite from an arbitrary federated user on
             # restart. An inviter missing from the stripped invite state
-            # fails closed, like an empty sender in _on_invite.
-            if not self._is_authorized_user(inviter, str(room_id)):
-                self._schedule_invite_rejection(str(room_id))
+            # stays pending, like an empty sender in _on_invite.
+            if not self._authorize_invite(inviter, str(room_id)):
                 continue
             logger.info(
                 "Matrix: reconciling pending invite for %s (is_direct=%s)",
