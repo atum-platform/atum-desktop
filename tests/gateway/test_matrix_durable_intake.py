@@ -910,10 +910,11 @@ async def test_ledgered_notice_reply_relation_is_not_final_evidence(tmp_path, mo
 
 
 @pytest.mark.asyncio
-async def test_interrupted_pre_admission_control_settles_once_and_unblocks(tmp_path):
+@pytest.mark.parametrize('state', ['control_pending', 'ambiguous'])
+async def test_interrupted_pre_admission_control_settles_once_and_unblocks(tmp_path, state):
     a = adapter(tmp_path)
     a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
-    a._intake.mark('$control', 'control_pending')
+    a._intake.mark('$control', state)
     a._send_room_message = AsyncMock(return_value='$notice')
     raw = SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
         event_id='$control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
