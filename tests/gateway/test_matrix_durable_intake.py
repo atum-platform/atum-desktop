@@ -929,7 +929,7 @@ async def test_interrupted_pre_admission_control_settles_once_and_unblocks(tmp_p
 
 @pytest.mark.asyncio
 async def test_control_failure_notice_outage_does_not_wedge_intake(tmp_path):
-    from gateway.delivery_ledger import pending_retries
+    from gateway.delivery_ledger import _connect
     a = adapter(tmp_path)
     a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
     a._intake.mark('$failed-control', 'control_pending')
@@ -938,8 +938,13 @@ async def test_control_failure_notice_outage_does_not_wedge_intake(tmp_path):
         event_id='$failed-control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
     await a._on_room_message(raw)
     assert a._intake.state('$failed-control') == 'done'
-    owed = [row for row in pending_retries() if row.get('source_event_id') == '$failed-control']
-    assert len(owed) == 1
+    db = _connect()
+    try:
+        owed = db.execute('SELECT state FROM delivery_obligations WHERE source_event_id=?',
+            ('$failed-control',)).fetchall()
+        assert [row[0] for row in owed] == ['failed']
+    finally:
+        db.close()
     await a._on_room_message(raw)
     assert a._send_room_message.await_count == 1
     a._intake.close()

@@ -134,3 +134,63 @@ def test_native_runtime_25_linked_finals_during_startup(tmp_path, legacy_resume)
         *(['--legacy-resume'] if legacy_resume else [])],
         cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180, check=False)
     assert result.returncode == 0, result.stdout + '\n' + result.stderr
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('answer', ['use the other file', 'yes'])
+async def test_live_durable_matrix_routes_to_running_agent_or_blocking_approval(tmp_path, monkeypatch, answer):
+    from gateway.config import GatewayConfig, Platform, PlatformConfig
+    from gateway.platforms.base import SendResult
+    from gateway.platforms.event import MessageEvent
+    from gateway.run import GatewayRunner
+    from gateway.session import SessionSource
+    from gateway.session_authority import SessionAuthority, initialize_session_authority
+    from hermes_state_runtime import list_session_admissions
+    from plugins.platforms.matrix.adapter import MatrixAdapter
+    from tools.approval import _gateway_queues
+    from tools.approval_gateway_wait import _ApprovalEntry
+    from tests.waiting import async_wait_until
+
+    monkeypatch.setenv('MATRIX_ALLOWED_USERS', '@alice:example.org')
+    monkeypatch.setattr(SessionAuthority, '_schedule', lambda self, ref: None)
+    runner = GatewayRunner(GatewayConfig(sessions_dir=tmp_path / 'sessions'))
+    a = MatrixAdapter(PlatformConfig(enabled=True, token='fixture', extra={
+        'homeserver': 'https://matrix.example.org', 'user_id': '@bot:example.org',
+        'allowed_users': '@alice:example.org'}))
+    runner.adapters[Platform.MATRIX] = a
+    a.gateway_runner = runner
+    authority = await initialize_session_authority(runner, profile_id='default', instance_id='live-controls')
+    runner._wire_adapter_handlers(a)
+    a.send = AsyncMock(return_value=SendResult(success=True, message_id='$notice'))
+    monkeypatch.setattr(runner, '_effective_busy_input_mode', lambda source: 'interrupt')
+    source = SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org',
+        user_id='@alice:example.org', chat_type='dm')
+    key = runner._session_key_for_source(source)
+    running = SimpleNamespace(interrupt=MagicMock(), get_activity_summary=lambda: {})
+    turn = runner._session_state(key).turn
+    turn.agent = running
+    turn.event = MessageEvent(text='long task', source=source, message_id='$long')
+    approval = _ApprovalEntry({'command': 'rm -rf build'})
+    if answer == 'yes':
+        _gateway_queues.setdefault(key, []).append(approval)
+    e = MessageEvent(text=answer, source=source, message_id='$live')
+    e._matrix_durable_intake = True
+    e._matrix_backlog = False
+    task = asyncio.create_task(runner._handle_message(e))
+    try:
+        if answer == 'yes':
+            await asyncio.wait_for(asyncio.shield(task), 10)
+            assert approval.event.is_set() and approval.result == 'once'
+            running.interrupt.assert_not_called()
+        else:
+            await async_wait_until(lambda: running.interrupt.called, timeout=10, what='native live interrupt')
+            assert answer in str(running.interrupt.call_args)
+            await async_wait_until(lambda: bool(authority.sessions), timeout=10, what='follow-up admitted')
+        admitted = [row for sid in authority.sessions for row in list_session_admissions(
+            authority.db, session_id=sid, pending_only=False)]
+        assert len(admitted) == (0 if answer == 'yes' else 1)
+    finally:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
+        _gateway_queues.pop(key, None)
+        authority.db.close()
