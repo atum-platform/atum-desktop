@@ -4093,8 +4093,9 @@ async function cloudAgentRequest(request: {
   }
 
   if (request.action === 'stopTurn' && typeof request.roomId === 'string' && typeof request.eventId === 'string') {
+    const { roomId, eventId } = request
     const scope = account.appScope()
-    const agent = requireRoomAgent(request.roomId)
+    const agent = requireRoomAgent(roomId)
     const principal = cloudPrincipal(agent)
 
     if (!isCloudAgent(agent) || !principal) {
@@ -4107,9 +4108,9 @@ async function cloudAgentRequest(request: {
 
     const outcome = hostRuntimeAgents.has(principal)
       ? await account.s1Request((token, base, requestSignal) =>
-          requestHostStop(base, token, principal, request.roomId!, request.eventId!, requestSignal,
+          requestHostStop(base, token, principal, roomId, eventId, requestSignal,
             (url, init) => session.defaultSession.fetch(url, init)), AbortSignal.timeout(30_000))
-      : await stopCloudTurn(s1Call, principal, request.roomId, request.eventId, AbortSignal.timeout(30_000))
+      : await stopCloudTurn(s1Call, principal, roomId, eventId, AbortSignal.timeout(30_000))
     const current = account.appScope()
 
     if (closing || !scope || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
