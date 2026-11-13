@@ -69,9 +69,9 @@ _WRITES = frozenset({"send_email", "create_event", "update_event"})
 #: Reversible mailbox changes: no owner dialog, but never from a scheduled or background run.
 _MAILBOX_CHANGES = frozenset({"mailbox", "create_label", "create_draft", "update_draft"})
 #: Refused in a scheduled or background run before any network call. A download writes a file into the
-#: workspace and hands untrusted bytes to an unattended agent, and a send reaches other people (with the
-#: owner's files, when attached), so each needs the owner's turn too.
-_OWNER_TURN_ONLY = _MAILBOX_CHANGES | {"download_attachment", "send_email"}
+#: workspace and hands untrusted bytes to an unattended agent. Sends and calendar
+#: changes also require the owner's turn, even if a host would ask for confirmation.
+_OWNER_TURN_ONLY = _MAILBOX_CHANGES | _WRITES | {"download_attachment"}
 _READONLY_ACTIONS = (
     "status", "agenda", "waiting", "search_mail", "read_thread", "search_drive", "read_file"
 )
@@ -158,8 +158,8 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
         # A schedule or delegated worker only reads: the broker enforces the same on the cloud.
         return json.dumps({
             "error": "owner_turn_required",
-            "hint": "Sending, mailbox changes, drafts and attachment downloads are made only while the owner is "
-                    "talking to you, not in a scheduled or background run. Report what you would do instead.",
+            "hint": "Google changes and downloads need the owner's turn, not a scheduled/background run; "
+                    "report what you would do.",
         })
 
     payload: Dict[str, Any] = {"action": action}
