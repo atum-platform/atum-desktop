@@ -185,7 +185,9 @@ async def test_live_durable_matrix_routes_to_running_agent_or_blocking_approval(
         else:
             await async_wait_until(lambda: running.interrupt.called, timeout=10, what='native live interrupt')
             assert answer in str(running.interrupt.call_args)
-            await async_wait_until(lambda: bool(authority.sessions), timeout=10, what='follow-up admitted')
+            await async_wait_until(lambda: any(list_session_admissions(
+                authority.db, session_id=sid, pending_only=False) for sid in authority.sessions),
+                timeout=10, what='follow-up durably admitted')
         admitted = [row for sid in authority.sessions for row in list_session_admissions(
             authority.db, session_id=sid, pending_only=False)]
         assert len(admitted) == (0 if answer == 'yes' else 1)
