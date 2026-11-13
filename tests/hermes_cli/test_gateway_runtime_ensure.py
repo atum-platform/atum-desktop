@@ -496,6 +496,23 @@ def test_a_reserved_root_without_a_live_refusal_is_still_awaited(tmp_path, monke
     assert spawned == []
 
 
+def test_a_reservation_that_ends_without_an_owner_is_not_awaited_forever(tmp_path, monkeypatch):
+    """The root's lock is released (a retiring or failed multiplexer) and nothing took its place:
+    the wait on that reservation ends and this call starts the owner instead of running out the deadline."""
+    from hermes_cli import gateway_runtime as runtime, gateway_runtime_discovery as discovery
+
+    home, spawned = _standalone_host(tmp_path, monkeypatch, None)
+    reserved = iter(range(3))
+    root = (tmp_path / ".hermes").resolve()
+    monkeypatch.setattr(discovery, "missing_owner_state", lambda path: (
+        "starting" if Path(path).resolve() == root and next(reserved, None) is not None else "absent"))
+
+    result = runtime.ensure_gateway_runtime(home, timeout=1)
+
+    assert len(spawned) == 1
+    assert (result.state, result.reason_code) == ("starting", "deadline")
+
+
 @pytest.mark.platforms("linux", "macos")
 def test_dead_unmanaged_start_is_a_prompt_terminal_verdict(tmp_path, monkeypatch):
     """The one start this call requested exited without leaving an owner: report it with the
