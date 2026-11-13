@@ -38,10 +38,13 @@ def fingerprint(servers):
     return hashlib.sha256(_json(servers).encode()).hexdigest()
 
 
-def validate_servers(servers):
+def _server_models():
     from acp.schema import McpServerStdio, McpServerHttp, McpServerSse
+    return {'stdio': McpServerStdio, 'http': McpServerHttp, 'sse': McpServerSse}
+
+
+def validate_servers(servers):
     from pydantic import ValidationError
-    kinds = {'stdio': McpServerStdio, 'http': McpServerHttp, 'sse': McpServerSse}
     if not isinstance(servers, list):
         raise RuntimeStoreError('invalid_params', field='editor.mcp_servers',
                                 detail=f'must be a list, got {type(servers).__name__}')
@@ -51,6 +54,13 @@ def validate_servers(servers):
     if len(_json(servers)) > 65536:
         raise RuntimeStoreError('invalid_params', field='editor.mcp_servers',
                                 detail='the serialized server list exceeds 65536 bytes')
+    if not servers:
+        return
+    try:
+        kinds = _server_models()
+    except ImportError as exc:
+        raise RuntimeStoreError('invalid_params', field='editor.mcp_servers',
+                                detail='MCP server validation requires the optional ACP dependency') from exc
     names = set()
     try:
         for spec in servers:
