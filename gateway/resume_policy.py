@@ -45,7 +45,21 @@ def call_key(name, arguments):
     return json.dumps([name, arguments], sort_keys=True, ensure_ascii=False)
 
 
-def choose_resume_policy(history, *, force_ask=False):
+def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
+    # The durable admission keeps the source ID even before the first user-row
+    # write. Never substitute an older completed turn when that row is absent.
+    if source_message_id is not None:
+        start = next((i for i in range(len(history)-1, -1, -1)
+                      if history[i].get('role') == 'user'
+                      and str(history[i].get('platform_message_id') or
+                              history[i].get('message_id') or '') == str(source_message_id)), None)
+        if start is None:
+            history = []
+        else:
+            end = next((i for i in range(start + 1, len(history))
+                        if history[i].get('role') == 'user'
+                        and not str(history[i].get('content', '')).startswith('[Recovery:')), len(history))
+            history = history[start:end]
     # Limit to the interrupted turn, so an earlier unresolved call cannot poison a later turn.
     start = next((i for i in range(len(history)-1, -1, -1)
                   if history[i].get('role') == 'user'

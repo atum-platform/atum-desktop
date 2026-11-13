@@ -117,12 +117,25 @@ class Outbox:
         return ({r[0] for r in self.db.execute("SELECT txn FROM effects")},
                 self.db.execute("SELECT room,source,event FROM roots").fetchall())
 
-    async def recover(self, port, snapshot=None):
+    async def recover(self, port, snapshot=None, resolve=None):
         txns, roots = self.snapshot() if snapshot is None else snapshot
-        # A progress send may have reached Matrix before the process stored its event id.
+        # Boot cleanup must never publish stale messages/edits. A lost original
+        # receipt can be resolved by reading Matrix's transaction metadata.
         for txn, room, content, target in self.db.execute('SELECT txn,room,content,target FROM effects WHERE event IS NULL').fetchall():
-            if txn in txns:
-                await self.effect(port, room, json.loads(content), txn, target)
+            if txn not in txns:
+                continue
+            body = json.loads(content)
+            if target:
+                await self.effect(port, room, body, txn, target)
+            elif resolve is not None and 'io.atum.progress' in body and 'm.new_content' not in body:
+                try:
+                    event = await resolve(room, txn)
+                except Exception:
+                    logger.warning('Matrix presentation receipt lookup deferred', exc_info=True)
+                    continue
+                if event:
+                    self.db.execute('UPDATE effects SET event=? WHERE txn=?', (event, txn))
+                    self.db.commit()
         for room, source, event in roots:
             await self.remove(port, room, source, event)
         # Roots not yet recorded at the crash boundary are reconstructed from sent intents.
@@ -276,7 +289,7 @@ def adapter_class(base):
                 result = await super().connect(**kwargs)
                 if result:
                     try:
-                        await self._presentation_box.recover(self._presentation_send, recovery)
+                        await self._presentation_box.recover(self._presentation_send, recovery, self._presentation_resolve)
                     except Exception:
                         # Durable intents remain for the next reconnect. Presentation
                         # cleanup is best effort and must not fail the native boot.
@@ -284,6 +297,30 @@ def adapter_class(base):
                 return result
             finally:
                 self._presentation_ready.set()
+
+        async def _presentation_resolve(self, room, txn):
+            """Read a lost send receipt; never PUT a historical message at boot."""
+            from mautrix.api import Method, Path as APIPath
+            row = self._presentation_box.db.execute(
+                'SELECT created FROM effects WHERE txn=?', (txn,)).fetchone()
+            since = row[0] * 1000 if row else 0
+            cursor = None
+            while True:
+                query = {'dir': 'b', 'limit': 100}
+                if cursor:
+                    query['from'] = cursor
+                response = await asyncio.wait_for(self._client.api.request(
+                    Method.GET, APIPath.v3.rooms[room].messages, query_params=query), timeout=45)
+                events = response.get('chunk', [])
+                for event in events:
+                    if (event.get('sender') == str(self._client.mxid)
+                            and event.get('unsigned', {}).get('transaction_id') == txn):
+                        return event['event_id']
+                next_cursor = response.get('end')
+                if (not events or not next_cursor or next_cursor == cursor
+                        or all(event.get('origin_server_ts', float('inf')) < since for event in events)):
+                    return None
+                cursor = next_cursor
 
         async def _presentation_send(self, room, content, txn, target):
             from mautrix.types import RoomID, EventType

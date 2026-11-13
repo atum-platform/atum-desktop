@@ -472,3 +472,81 @@ def test_recovery_uses_source_identity_not_previous_completed_turn(tmp_path, dur
         assert recovery_tool_block(policy, 'web_search', {}) is None
         assert recovery_tool_block(policy, 'cron', {})  # old effect cannot run unattended
     db.close()
+
+
+def test_runner_targets_admission_source_before_first_user_write(tmp_path):
+    from hermes_state import SessionDB
+    from gateway.run_turn_runner import TurnRunner
+    db = SessionDB(db_path=tmp_path / 'state.db')
+    db.create_session('s', 'matrix')
+    db.append_message('s', 'user', 'file and reminder', platform_message_id='$old')
+    db.append_message('s', 'assistant', '', tool_calls=call('old', 'cron')['tool_calls'])
+    db.append_message('s', 'tool', 'scheduled', tool_call_id='old')
+    db.append_message('s', 'assistant', 'Done')
+    history = db.get_messages_as_conversation('s')
+    entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
+    runner = SimpleNamespace(_delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True),
+        session_store=SimpleNamespace(_entries={'key': entry}, _db_for_session_id=lambda sid: db))
+    turn = object.__new__(TurnRunner)
+    turn._runner = runner
+    turn._ctx = SimpleNamespace(source=None, session_key='key', session_id='s', history=history,
+        message='Search Fansipan height', persist_user_message=None, persist_user_timestamp=None,
+        inbound_message_id='$new')
+    turn._prepare_turn_message(history)
+    assert not turn._resume_policy.ask
+    assert 'Search Fansipan height' in turn._ctx.message
+    assert 'cron' not in turn._ctx.message
+    db.close()
+
+
+def test_real_h4_exits_before_new_user_row_and_recovers_only_new_source(tmp_path):
+    from hermes_state import SessionDB
+    worker = r'''
+import os, sys
+from pathlib import Path
+from gateway.config import GatewayConfig, Platform
+from gateway.session import SessionStore, SessionSource
+from hermes_state import SessionDB
+home = Path(sys.argv[1])
+db = SessionDB(db_path=home / 'transcript.db')
+db.create_session('s', 'matrix')
+db.append_message('s', 'user', 'file and reminder', platform_message_id='$old')
+db.append_message('s', 'assistant', '', tool_calls=[{'id':'old', 'type':'function',
+    'function': {'name':'cron', 'arguments':'{}'}}])
+db.append_message('s', 'tool', 'scheduled', tool_call_id='old')
+db.append_message('s', 'assistant', 'Done')
+store = SessionStore(sessions_dir=home / 'sessions', config=GatewayConfig())
+store._db = None
+entry = store.get_or_create_session(SessionSource(platform=Platform.MATRIX, chat_id='!offline', user_id='@owner'))
+store.mark_turn_active(entry.session_key)  # real H4: durable marker, before _persist_turn_start
+raise AssertionError('H4 did not fire')
+'''
+    killed = subprocess.run([sys.executable, '-c', worker, str(tmp_path)], env={**os.environ,
+        'HERMES_HOME': str(tmp_path), 'PYTHONPATH': str(Path.cwd()), 'ATUM_FAULT_TEST': '1',
+        'ATUM_FAULT_POINT': 'H4', 'ATUM_FAULT_ONCE': str(tmp_path / 'fault')})
+    assert killed.returncode == 86
+    assert (tmp_path / 'fault').exists()
+    db = SessionDB(db_path=tmp_path / 'transcript.db')
+    history = db.get_messages_as_conversation('s')
+    assert choose_resume_policy(history).ask  # reproduce the old wrong-turn inference
+    policy = choose_resume_policy(history, source_message_id='$new')
+    assert not policy.ask
+    assert 'cron' not in policy.note()
+    assert recovery_tool_block(policy, 'cron', {})
+    db.close()
+
+
+def test_source_bounded_policy_keeps_completed_reads_and_excludes_later_turn():
+    history = [
+        {'role': 'user', 'content': 'old', 'message_id': '$old'}, call('old', 'cron'),
+        {'role': 'tool', 'tool_call_id': 'old', 'content': 'scheduled'},
+        {'role': 'assistant', 'content': 'Done'},
+        {'role': 'user', 'content': 'new', 'message_id': '$new'}, call('done', 'web_search'),
+        {'role': 'tool', 'tool_call_id': 'done', 'content': 'found'}, call('pending', 'read_file'),
+        {'role': 'user', 'content': 'later', 'message_id': '$later'}, call('later', 'terminal')]
+    policy = choose_resume_policy(history, source_message_id='$new')
+    assert not policy.ask
+    assert policy.actions == ('read_file',)
+    assert recovery_tool_block(policy, 'web_search', {})
+    assert recovery_tool_block(policy, 'read_file', {}) is None
+    assert recovery_tool_block(policy, 'cron', {})

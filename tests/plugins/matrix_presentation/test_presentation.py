@@ -194,7 +194,11 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
             await self.turn.progress('Reading a file')
         self.box.db.close()
         self.box = p.Outbox(self.path)
-        await self.box.recover(self.server)
+        async def resolve(room, txn):
+            return self.server.effects.get(txn, (None, None, None, None))[3]
+        before = len(self.server.requests)
+        await self.box.recover(self.server, resolve=resolve)
+        self.assertTrue(all(r[3] for r in self.server.requests[before:]))
         writes = list(self.server.effects.values())
         self.assertEqual(len(writes), 2)  # one original, one redaction, despite lost response
         self.assertEqual(writes[1][2], writes[0][3])
@@ -492,4 +496,29 @@ class BootCleanup(unittest.IsolatedAsyncioTestCase):
             await box.recover(server)
             self.assertEqual([r[3] for r in server.requests], [root])
             await turn.end()
+            box.db.close()
+
+
+class LostReceiptLookup(unittest.IsolatedAsyncioTestCase):
+    async def test_boot_lookup_reads_transaction_receipt_without_sending(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as home:
+            box = p.Outbox(Path(home) / 'presentation.db')
+            box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+                ('lost', '!room', '{}', None, 1))
+            box.db.commit()
+            requests = []
+            async def request(method, path, **kwargs):
+                requests.append((str(method), kwargs))
+                if len(requests) == 1:
+                    return {'chunk': [{'sender': '@owner', 'origin_server_ts': 3000}], 'end': 'older'}
+                return {'chunk': [{'sender': '@agent', 'event_id': '$accepted',
+                    'unsigned': {'transaction_id': 'lost'}, 'origin_server_ts': 2000}], 'end': 'end'}
+            adapter = p.adapter_class(object)()
+            adapter._presentation_box = box
+            adapter._client = SimpleNamespace(mxid='@agent', api=SimpleNamespace(request=request))
+            self.assertEqual(await adapter._presentation_resolve('!room', 'lost'), '$accepted')
+            self.assertEqual(len(requests), 2)
+            self.assertTrue(all(method == 'GET' for method, _ in requests))
+            self.assertEqual(requests[1][1]['query_params']['from'], 'older')
             box.db.close()
