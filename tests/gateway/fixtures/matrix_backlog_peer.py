@@ -66,13 +66,16 @@ async def probe(peer):
     a.on_processing_start = AsyncMock()
     a.on_processing_complete = AsyncMock()
     finals = []
+    publications = []
     transactions = {}
 
     async def send_message_event(room, kind, content, txn_id=None, **kwargs):
         if txn_id not in transactions:
             transactions[txn_id] = '$reply-' + str(len(transactions))
-            finals.append((content.get('m.relates_to', {}).get('m.in_reply_to', {}).get('event_id'),
-                           content.get('body')))
+            publications.append(content)
+            parent = content.get('m.relates_to', {}).get('m.in_reply_to', {}).get('event_id')
+            if parent is not None:
+                finals.append((parent, content.get('body')))
         return transactions[txn_id]
 
     async def inbound(room, sender, eid, timestamp, content, relates):
@@ -108,6 +111,7 @@ async def probe(peer):
     await asyncio.wait_for(a._absorb_sync(client, sync), 60)
     await async_wait_until(lambda: len(finals) == 25, timeout=90, what='25 linked finals')
     assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, 26)], finals
+    assert not any('send it again' in str(content).lower() for content in publications), publications
     assert runner._startup_restore_queue == [], runner._startup_restore_queue
     assert all(len(numbers) == 1 for numbers in peer.inputs), peer.inputs
     assert len(peer.inputs) == 25, peer.inputs
