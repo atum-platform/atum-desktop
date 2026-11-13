@@ -22,11 +22,20 @@ class Model(BaseHTTPRequestHandler):
         text = 'ack ' + numbers[-1] if numbers else 'unexpected input'
         self.server.inputs.append(numbers)
         self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Type', 'text/event-stream' if request.get('stream') else 'application/json')
         self.end_headers()
-        self.wfile.write(json.dumps({'id': 'offline', 'model': 'local-wire-stub', 'choices': [
-            {'index': 0, 'message': {'role': 'assistant', 'content': text}, 'finish_reason': 'stop'}],
-            'usage': {'prompt_tokens': 10, 'completion_tokens': 2, 'total_tokens': 12}}).encode())
+        base = {'id': 'offline', 'model': 'local-wire-stub', 'created': 1}
+        if request.get('stream'):
+            for delta, finish in [({'role': 'assistant', 'content': text}, None), ({}, 'stop')]:
+                chunk = {**base, 'object': 'chat.completion.chunk', 'choices': [
+                    {'index': 0, 'delta': delta, 'finish_reason': finish}]}
+                self.wfile.write(('data: ' + json.dumps(chunk) + '\n\n').encode())
+                self.wfile.flush()
+            self.wfile.write(b'data: [DONE]\n\n')
+        else:
+            self.wfile.write(json.dumps({**base, 'choices': [
+                {'index': 0, 'message': {'role': 'assistant', 'content': text}, 'finish_reason': 'stop'}],
+                'usage': {'prompt_tokens': 10, 'completion_tokens': 2, 'total_tokens': 12}}).encode())
 
 
 async def probe(peer):
