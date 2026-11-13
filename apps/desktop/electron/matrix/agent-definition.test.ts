@@ -195,6 +195,12 @@ describe('Matrix agent-definition client', () => {
     )
   })
 
+  it.each(['controller', 'future', 42, undefined])('ignores unsupported roster runtime %s', async runtime => {
+    vi.stubGlobal('fetch', vi.fn(async () => json([record({ runtime })])))
+    const roster = await listMatrixAgentDefinitions(resource, grant, AbortSignal.timeout(1000))
+    expect(roster[0].runtime).toBeUndefined()
+  })
+
   it('accepts an older roster without presentation and rejects partial or unknown marks', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json([record()])))
     await expect(listMatrixAgentDefinitions(resource, grant, AbortSignal.timeout(1000))).resolves.toEqual([
