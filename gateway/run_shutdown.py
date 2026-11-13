@@ -1025,6 +1025,12 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
 
         Called at the start of stop() while adapters are connected; send failures never block shutdown.
         """
+        from gateway.run import _load_gateway_config
+
+        gateway_cfg = _load_gateway_config().get("gateway", {})
+        if isinstance(gateway_cfg, dict) and gateway_cfg.get("shutdown_notification", True) is False:
+            return
+
         restart_source = self._restart_command_source if self._restart_requested else None
         msg = t("gateway.shutdown.notice_restart" if self._restart_requested else "gateway.shutdown.notice_shutdown")
         restart_key = None
