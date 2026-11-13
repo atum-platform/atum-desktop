@@ -158,3 +158,39 @@ async def test_error_notice_only_for_terminal_attempt(tmp_path, monkeypatch, ter
         await a.cancel_background_tasks()
         a._intake.close()
         i18n.reset_language_cache()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('profile', [None, 'agent-a'])
+@pytest.mark.parametrize('outcome', ['success', 'failure', 'exception', 'cancelled', 'timeout'])
+async def test_connect_binding_lifetime_and_failed_attempt_cleanup(tmp_path, monkeypatch, profile, outcome):
+    a = adapter(tmp_path)
+    runner = GatewayRunner(GatewayConfig(sessions_dir=tmp_path / 'sessions'))
+    a.set_owner_profile(profile)
+    registry = runner._profile_adapters.setdefault(profile, {}) if profile else runner.adapters
+    async def connect(**kwargs):
+        assert registry[Platform.MATRIX] is a
+        if outcome == 'exception':
+            raise OSError('offline connect failed')
+        if outcome == 'cancelled':
+            raise asyncio.CancelledError
+        if outcome == 'timeout':
+            await asyncio.Event().wait()
+        return outcome == 'success'
+    a.connect = connect
+    monkeypatch.setattr(runner, '_platform_connect_timeout_secs', lambda *args, **kwargs: 0.05)
+    try:
+        if outcome in {'exception', 'cancelled', 'timeout'}:
+            error = {'exception': OSError, 'cancelled': asyncio.CancelledError, 'timeout': TimeoutError}[outcome]
+            with pytest.raises(error):
+                await runner._connect_adapter_with_timeout(a, Platform.MATRIX)
+        else:
+            assert await runner._connect_adapter_with_timeout(a, Platform.MATRIX) is (outcome == 'success')
+        if outcome == 'success':
+            # Keep it registered while sibling platforms still connect, not just during connect().
+            assert registry[Platform.MATRIX] is a
+            a.disconnect = AsyncMock()
+            await runner._safe_adapter_disconnect(a, Platform.MATRIX)
+        assert Platform.MATRIX not in registry
+    finally:
+        a._intake.close()
