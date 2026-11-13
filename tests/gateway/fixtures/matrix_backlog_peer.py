@@ -18,6 +18,9 @@ class Model(BaseHTTPRequestHandler):
 
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if 'messages' not in request:
+            self.send_error(400, 'fixture accepts chat completions')
+            return
         latest = next(m['content'] for m in reversed(request['messages']) if m['role'] == 'user')
         numbers = re.findall(r'CHECK5_(\d+)', str(latest))
         text = 'ack ' + numbers[-1] if numbers else 'unexpected input'
@@ -152,7 +155,7 @@ if __name__ == '__main__':
     url = f'http://127.0.0.1:{peer.server_port}/v1'
     os.environ.update(OPENAI_API_KEY='offline-loopback', OPENAI_BASE_URL=url, MATRIX_ALLOWED_USERS='@alice:example.org')
     Path(os.environ['HERMES_HOME'], 'config.yaml').write_text(
-        f'model:\n  default: local-wire-stub\n  provider: custom\n  base_url: {url}\n'
+        f'model:\n  default: local-wire-stub\n  provider: custom\n  api_mode: chat_completions\n  base_url: {url}\n'
         'auxiliary:\n  title_generation:\n    enabled: false\n'
         'display:\n  busy_input_mode: interrupt\n  streaming: false\n'
         f'terminal:\n  cwd: {os.environ["HERMES_HOME"]}\n')

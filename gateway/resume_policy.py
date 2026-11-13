@@ -11,6 +11,7 @@ from datetime import datetime, UTC
 from agent.message_metadata import resolve_tool_call_uid
 from agent.message_sanitization import coalesce_tool_call_id, tool_call_id_variants
 from agent.replay_cleanup import is_interrupted_tool_result
+from agent.tool_guardrails import classify_tool_failure
 
 from agent.tool_result_classification import tool_may_have_side_effect
 
@@ -107,6 +108,7 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
         result = results.get(uid)
         uncertain = (result is None or result.get('effect_disposition') not in (None, 'none')
                      or is_interrupted_tool_result(result.get('content'))
+                     or classify_tool_failure(name, result.get('content'))[0]
                      or str(result.get('content', '')).startswith('[Orphan recovery:'))
         if not uncertain:
             completed.add(call_key(name, arguments))

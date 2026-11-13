@@ -26,7 +26,8 @@ class Peer(BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         if 'messages' not in request:
-            raise AssertionError('unexpected auxiliary model request')
+            self.send_error(400, 'fixture accepts chat completions')
+            return
         requests = home / (mode + '-requests.jsonl')
         with requests.open('a') as out:
             out.write(json.dumps(request) + '\n')
@@ -268,7 +269,7 @@ base = f'http://127.0.0.1:{peer.server_port}/v1'
 os.environ.update(OPENAI_API_KEY='explicit-loopback-fixture', OPENAI_BASE_URL=base,
                   TELEGRAM_ALLOWED_USERS='fixture-user', MATRIX_ALLOWED_USERS='fixture-user')
 (home / 'config.yaml').write_text(
-    f'model:\n  default: local-wire-stub\n  provider: custom\n  base_url: {base}\n'
+    f'model:\n  default: local-wire-stub\n  provider: custom\n  api_mode: chat_completions\n  base_url: {base}\n'
     'auxiliary:\n  title_generation:\n    enabled: false\n'
     f'terminal:\n  cwd: {home}\ndisplay:\n  streaming: false\n  busy_input_mode: queue\n')
 status = 0
