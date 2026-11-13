@@ -2,7 +2,6 @@
 import asyncio
 import importlib.util
 import json
-import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -327,7 +326,6 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
 if __name__ == '__main__':
     unittest.main()
 
-@unittest.skipUnless(os.environ.get('HERMES_NATIVE_TESTS'), 'run with Hermes dependency interpreter')
 class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         from hermes_constants import set_hermes_home_override
