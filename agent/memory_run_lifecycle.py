@@ -13,7 +13,8 @@ PROVENANCE = 'memory.provenance.v2.'
 
 
 def assert_session_current(db, session_id):
-    if db.get_meta(RETIRED + session_id) is not None:
+    # Preserve pooled-reader close-race recovery for transcript admission.
+    if db._read_one('SELECT value FROM state_meta WHERE key=?', (RETIRED + session_id,)) is not None:
         raise AwarenessSessionError()
 
 
@@ -97,7 +98,7 @@ class MemoryRunLifecycle:
 
 
 def compose_managed_memory(existing_manager=None, *, provider=None, enabled=False,
-                           child=False, session_id='', hermes_home=''):
+                           child=False, session_id='', hermes_home='', agent_context='primary'):
     """Fix composition before AIAgent construction; preserve the external slot.
 
     Returns AIAgent kwargs. Unbound children skip memory. No config discovery,
@@ -114,7 +115,8 @@ def compose_managed_memory(existing_manager=None, *, provider=None, enabled=Fals
     manager.add_provider(provider)
     if provider not in manager.providers:
         raise AwarenessSessionError()
-    manager.initialize_all(session_id=session_id, hermes_home=hermes_home)
+    manager.initialize_all(session_id=session_id, hermes_home=hermes_home,
+                           agent_context=agent_context, platform=agent_context)
     if provider not in manager.providers:
         raise AwarenessSessionError()
     manager.assert_run_authority()
@@ -146,7 +148,7 @@ def cleanup_native_entries(store, inventory):
 
 
 def bind_cloud_memory(*, binding, hermes_home, lifecycle, retrieve, is_current, invalidate_run,
-                      enabled=False, existing_manager=None):
+                      enabled=False, existing_manager=None, agent_context='primary'):
     """Native construction port; activation requires explicit enablement.
 
     The controller owns external retirement before home restoration, authority and publication
@@ -175,4 +177,19 @@ def bind_cloud_memory(*, binding, hermes_home, lifecycle, retrieve, is_current, 
         cloud_binding=frozen, retrieve=retrieve, is_current=current,
         invalidate_run=invalidate, mark_google_derived=lambda: False, record_provenance=lifecycle.record)
     return compose_managed_memory(existing_manager, provider=provider, enabled=True,
-                                  session_id=sid, hermes_home=hermes_home)
+                                  session_id=sid, hermes_home=hermes_home, agent_context=agent_context)
+
+
+def bind_cloud_memory_from_config(config, *, agent_context='primary', **trusted_run):
+    """Select managed recall before native agent construction, including cron.
+
+    Config selects capability, never authority or credentials. The trusted host
+    supplies bind_cloud_memory's binding/lifecycle/callables for this execution,
+    and passes the returned kwargs to AIAgent. No desktop or plugin installation
+    is involved. Missing authority fails rather than falling back to another brain.
+    """
+    memory = config.get('memory', {})
+    selected = memory.get('provider') == 'atum_awareness'
+    settings = memory.get('atum_awareness', {})
+    enabled = selected and settings.get('enabled') is True
+    return bind_cloud_memory(enabled=enabled, agent_context=agent_context, **trusted_run)
