@@ -103,6 +103,40 @@ const DRIVE_STATES = [
 ] as const satisfies readonly (MatrixDriveState | 'waiting' | 'signIn')[]
 
 const MICRO = 1_000_000
+
+/** A drawn stand-in for the owner's lake photo (fixture only): dawn sky, pine hills, still water. */
+const DRIVE_LAKE_PHOTO = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb8d6"/><stop offset=".55" stop-color="#e9d3c0"/><stop offset="1" stop-color="#f4e2cf"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9c4bd"/><stop offset="1" stop-color="#5f7480"/></linearGradient>
+</defs>
+<rect width="1600" height="1000" fill="url(#sky)"/>
+<circle cx="1120" cy="430" r="60" fill="#fbeedd" opacity=".9"/>
+<path d="M0 520 L180 430 L330 480 L520 380 L700 470 L880 400 L1060 470 L1260 390 L1440 460 L1600 420 V600 H0Z" fill="#7d8f8a"/>
+<path d="M0 580 L140 520 L260 560 L420 500 L560 560 L760 490 L940 560 L1120 500 L1320 570 L1480 520 L1600 550 V620 H0Z" fill="#4c625a"/>
+<path d="M0 610 H1600 V1000 H0Z" fill="url(#water)"/>
+<path d="M0 610 L140 660 L260 630 L420 680 L560 630 L760 700 L940 630 L1120 690 L1320 620 L1480 670 L1600 640 V610Z" fill="#4c625a" opacity=".45"/>
+<rect x="0" y="740" width="1600" height="3" fill="#fff" opacity=".25"/>
+<rect x="300" y="820" width="900" height="2" fill="#fff" opacity=".18"/>
+</svg>`)}`
+
+const DRIVE_MEETING_NOTES = `# Họp sáng — thứ Sáu
+
+## Đà Lạt
+- Đặt phòng ở hồ Tuyền Lâm cho 4 người, 2 đêm.
+- Chị Trinh gửi lịch trình trước thứ Ba.
+- Ngân sách: xem "Ngân sách 2026.xlsx", mục Du lịch.
+
+## Báo cáo quý
+- Bản nháp Q4 nằm trong "Báo cáo quý".
+- Thêm số liệu tháng 10 từ trợ lý.
+
+## Việc cần làm
+1. Gửi hợp đồng thuê nhà đã ký.
+2. Xem lại slide "Thuyết trình Q4".
+3. Hẹn lịch với anh Minh tuần sau.
+`
+
 const MINUTE = 60_000
 const DRIVE_FACTS = ['normal', 'nearing', 'critical', 'exceeded', 'progress', 'issues', 'skipped', 'stale'] as const
 
@@ -215,9 +249,31 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
   }
 
   const listeners = new Set<(next: MatrixDriveView) => void>()
+  const everyRow = () => Object.values(tree).flatMap(folder => folder.rows)
 
   return {
     read: async () => view,
+    // Previews for the gallery and the side panel: the lake photo and the meeting notes draw inline.
+    preview: async id => {
+      const row = everyRow().find(item => item.id === id)
+
+      if (!row || row.kind !== 'file') {
+        throw new Error('matrix_drive_file_unavailable')
+      }
+
+      const base = { token: `preview:${id}`, name: row.name, size: row.size, modifiedAt: row.modifiedAt }
+
+      if (row.name.endsWith('.jpg')) {
+        return { ...base, kind: 'image' as const, dataUrl: DRIVE_LAKE_PHOTO }
+      }
+
+      if (row.name.endsWith('.md')) {
+        return { ...base, kind: 'text' as const, text: DRIVE_MEETING_NOTES }
+      }
+
+      return { ...base, kind: row.name.endsWith('.pdf') ? ('pdf' as const) : ('unsupported' as const) }
+    },
+    closePreview: async () => {},
     connect: async () => view,
     chooseFolder: async () => ({ cancelled: true }),
     cancelSignIn: async () => ({ ...view, state: 'disconnected', rows: [], waitingForBrowser: undefined }),

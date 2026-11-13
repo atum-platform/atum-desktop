@@ -14,6 +14,8 @@ import {
   middleTruncateDriveName,
   moveDriveSelection,
   nextDriveSort,
+  parseDriveGroupBy,
+  parseDriveLayout,
   reduceDriveLocation,
   sortDriveRows,
   typeSelectDriveRow
@@ -209,5 +211,25 @@ describe('following the open folder', () => {
     learnMatrixDrivePlaces(null, 'en')
     expect($matrixDrivePlaces.get()).toEqual([])
     expect($matrixDriveLocation.get()).toEqual(DRIVE_AT_ROOT)
+  })
+})
+
+describe('kept view choices', () => {
+  it('reads all four views back and opens anything else as icons', () => {
+    for (const layout of ['icon', 'list', 'column', 'gallery'] as const) {
+      expect(parseDriveLayout(layout)).toBe(layout)
+    }
+
+    expect(parseDriveLayout(null)).toBe('icon')
+    expect(parseDriveLayout('cover-flow')).toBe('icon')
+  })
+
+  it('reads the grouping back and treats anything else as no groups', () => {
+    for (const group of ['none', 'kind', 'modified', 'size'] as const) {
+      expect(parseDriveGroupBy(group)).toBe(group)
+    }
+
+    expect(parseDriveGroupBy('tags')).toBe('none')
+    expect(parseDriveGroupBy(null)).toBe('none')
   })
 })

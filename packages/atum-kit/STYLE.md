@@ -408,9 +408,17 @@ permission missing) uses these patterns; the canvas's States board lists them.
   Drive's top-level folders under "Favorites", then "Atum Drive" under
   "Locations". Each place is a row straight on the panel, never in a card of
   its own. The title bar leads with ‹ › and the open place's name ("Recents",
-  "Atum Drive", the folder). Its right side is the Icons/List switch, "…", and
-  search at the far edge. Icons are the default view and use the side panel
-  Files glyphs, with names cut in the middle. Click selects (the kit's selected
+  "Atum Drive", the folder). Its right side is the Icons/List/Columns/Gallery
+  switch, the Group menu, "…", and search at the far edge. Icons are the
+  default view and use the side panel Files glyphs, with names cut in the
+  middle. Columns are Finder's: the folders on the open path side by side
+  (drawn from the folders this window listed), the open folder last, a file's
+  preview after it; the folder the keyboard is on has the selected fill, the
+  ones further back a quieter fill. The gallery shows the selected item large
+  (a picture or a page of text from the preview lease, otherwise its glyph)
+  over a strip of every item. Group (Kind, Date Modified, Size, or none) splits
+  icons and lists under Finder's titles with a count and a hairline; columns
+  and the gallery keep their own order. Click selects (the kit's selected
   fill, never blue), double-click opens, Space previews, and the arrows, Return,
   ⌘[ and ⌘] work as they do in Finder. Each item carries a sync badge: the OK
   check when synced, a quiet arrow while it waits, a cloud-slash while Drive
