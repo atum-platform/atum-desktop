@@ -586,6 +586,7 @@ import {
   shownCloudTrial,
   workspaceLabelFor
 } from './device/cloud-agent'
+import { requestHostStop } from './device/host-stop'
 import { stopCloudTurn } from './device/cloud-stop'
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
@@ -2117,6 +2118,7 @@ let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
 const cloudAgents = new Set<string>()
+const hostRuntimeAgents = new Set<string>()
 /** Agents the create answer placed in the cloud this session (placed/pending_trust), until the
  * roster shows `answering: 'cloud'`: the platform owns them while their row still says local. */
 const placedAgents = new MatrixPlacedAgents()
@@ -3550,6 +3552,10 @@ function applyAnswering(roster: MatrixAgentDefinitionRecord[]): void {
   // A placed create that the platform retired, removed or tombstoned never reaches the switch:
   // the read drops it instead of keeping the id until sign-out.
   placedAgents.retain(roster)
+  hostRuntimeAgents.clear()
+  for (const agent of roster) {
+    if (agent.status === 'active' && agent.runtime === 'hermes') hostRuntimeAgents.add(agent.principal)
+  }
 
   const next = new Set(
     roster.filter(agent => agent.status === 'active' && agent.answering === 'cloud').map(agent => agent.principal)
@@ -4095,7 +4101,10 @@ async function cloudAgentRequest(request: {
       throw new Error('matrix_agent_unavailable')
     }
 
-    const outcome = await stopCloudTurn(s1Call, principal, request.roomId, request.eventId, AbortSignal.timeout(30_000))
+    const outcome = hostRuntimeAgents.has(principal)
+      ? await requestHostStop(config.domain!.resource, principal, request.roomId, request.eventId,
+          AbortSignal.timeout(30_000), (url, init) => session.defaultSession.fetch(url, init))
+      : await stopCloudTurn(s1Call, principal, request.roomId, request.eventId, AbortSignal.timeout(30_000))
     const current = account.appScope()
 
     if (closing || !scope || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
@@ -7436,6 +7445,7 @@ function agentViews(): MatrixAgentView[] {
             ...(isCloudAgent(each)
               ? {
                   answering: 'cloud' as const,
+                  ...(hostRuntimeAgents.has(principal) ? { runtime: 'hermes' as const } : {}),
                   ...(cloudModel ? { cloudModel } : {})
                 }
               : {}),
@@ -25261,6 +25271,7 @@ async function start() {
 
             agentMoves.clear()
             cloudAgents.clear()
+            hostRuntimeAgents.clear()
             placedAgents.reset()
             movingAgents.clear()
             scheduleContinuousListening()

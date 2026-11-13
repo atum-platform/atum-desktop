@@ -45,3 +45,39 @@ export function matrixCloudStopTarget(input: {
 
   return unanswered?.own && unanswered.id.startsWith('$') ? unanswered.id : undefined
 }
+
+export type MatrixStopRoute =
+  | { kind: 'host' | 'legacy'; eventId: string }
+  | { kind: 'native' }
+  | { kind: 'unavailable' }
+
+/** Only the owner-scoped roster's explicit runtime opts into the host contract. */
+export function matrixStopRoute(input: {
+  runtime?: 'hermes'
+  eventId?: string
+  working: boolean
+  unresolvedOwner?: boolean
+}): MatrixStopRoute {
+  if (input.eventId) {
+    return { kind: input.runtime === 'hermes' ? 'host' : 'legacy', eventId: input.eventId }
+  }
+  if (input.runtime === 'hermes' && input.working && !input.unresolvedOwner) {
+    return { kind: 'native' }
+  }
+  return { kind: 'unavailable' }
+}
+
+export async function executeMatrixStop(
+  route: MatrixStopRoute,
+  stop: (eventId: string) => Promise<unknown>,
+  send: (body: string) => Promise<unknown>
+): Promise<void> {
+  if (route.kind === 'unavailable') {
+    throw new Error('matrix_stop_unavailable')
+  }
+  if (route.kind === 'native') {
+    await send('/stop')
+    return
+  }
+  await stop(route.eventId)
+}

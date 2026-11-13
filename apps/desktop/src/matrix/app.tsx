@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -3762,22 +3762,36 @@ function MatrixComposer({
   // snapshot clears it, not the request resolving.
   const cloudStopRequested = useRef<string | null>(null)
 
+  const stopRoute = matrixStopRoute({
+    runtime: roomAgent?.runtime,
+    eventId: cloudStopTarget,
+    working: Boolean(agentTyping),
+    unresolvedOwner: Boolean(cloudUnanswered)
+  })
+  const stopKey = cloudStopTarget ?? (stopRoute.kind === 'native' ? `native:${room.id}` : undefined)
+  const showCloudStop = Boolean(cloudStopTarget || (cloudAssistant && agentTyping))
+
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent
 
-    if (!cloudStopTarget || !stopTurn || cloudStopRequested.current === cloudStopTarget) {
+    if (!stopKey || !cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable' || cloudStopRequested.current === stopKey) {
       return
     }
 
-    cloudStopRequested.current = cloudStopTarget
+    cloudStopRequested.current = stopKey
     setCloudStopRefused(false)
     setCloudStopping(true)
-    void stopTurn({ action: 'stopTurn', roomId: room.id, eventId: cloudStopTarget })
+    void executeMatrixStop(stopRoute,
+      eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
+      body => runMatrixCommand({ kind: 'send', roomId: room.id, body }))
       .catch(() => {
         cloudStopRequested.current = null
         setCloudStopRefused(true)
       })
-      .finally(() => setCloudStopping(false))
+      .finally(() => {
+        if (stopRoute.kind === 'native') cloudStopRequested.current = null
+        setCloudStopping(false)
+      })
   }
 
   // An archived channel has no box: the banner stands in its place, says why, and offers the way back to those
@@ -4038,11 +4052,16 @@ function MatrixComposer({
                   roomId={room.id}
                 />
               )}
-              {cloudStopTarget ? (
+              {showCloudStop ? (
                 <button
                   aria-label={matrixActionCopy[locale].cancelHermes}
                   className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
-                  disabled={cloudStopping || cloudStopRequested.current === cloudStopTarget}
+                  disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStopping || cloudStopRequested.current === stopKey}
+                  title={stopRoute.kind === 'unavailable'
+                    ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
+                    : stopRoute.kind === 'native'
+                      ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
+                      : undefined}
                   onClick={stopCloud}
                   type="button"
                 >
