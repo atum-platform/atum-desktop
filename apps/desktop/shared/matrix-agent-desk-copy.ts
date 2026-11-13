@@ -47,6 +47,8 @@ export interface MatrixAgentDeskCopy {
   memory: string
   /** The quiet end of a row whose data the cloud computer cannot share yet: no data, no action. */
   notYet: string
+  /** On the chat's working line: open the side panel on the agent's own tab. */
+  watch: string
 }
 
 export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
@@ -75,7 +77,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     schedules: 'Việc định kỳ và nhắc hẹn',
     onItsComputer: 'Trên máy của nó',
     memory: 'Trí nhớ',
-    notYet: 'Chưa xem được'
+    notYet: 'Chưa xem được',
+    watch: 'Xem'
   },
   en: {
     desk: name => `${name}’s desk`,
@@ -102,7 +105,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     schedules: 'Routines and reminders',
     onItsComputer: 'On its computer',
     memory: 'Memory',
-    notYet: 'Not available yet'
+    notYet: 'Not available yet',
+    watch: 'Watch'
   },
   ja: {
     desk: name => `${name}のデスク`,
@@ -129,7 +133,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     schedules: '定期タスクとリマインダー',
     onItsComputer: 'エージェントのコンピュータ',
     memory: 'メモリ',
-    notYet: 'まだ表示できません'
+    notYet: 'まだ表示できません',
+    watch: '見る'
   },
   zh: {
     desk: name => `${name} 的工作台`,
@@ -156,7 +161,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     schedules: '例行任务和提醒',
     onItsComputer: '在它的电脑上',
     memory: '记忆',
-    notYet: '暂时无法查看'
+    notYet: '暂时无法查看',
+    watch: '查看'
   },
   'zh-hant': {
     desk: name => `${name} 的工作台`,
@@ -183,7 +189,8 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     schedules: '例行任務和提醒',
     onItsComputer: '在它的電腦上',
     memory: '記憶',
-    notYet: '暫時無法查看'
+    notYet: '暫時無法查看',
+    watch: '查看'
   }
 }
 

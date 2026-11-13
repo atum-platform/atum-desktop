@@ -255,8 +255,8 @@ function panel(snapshot: MatrixSnapshot, locale: Locale = 'en', deskRequest?: nu
   return (
     <I18nProvider configClient={null} initialLocale={locale}>
       <MatrixWorkbench
-        deskRequest={deskRequest}
         compact={false}
+        deskRequest={deskRequest}
         expanded={false}
         hidden={false}
         motion={{ phase: 'open', rendered: true, finishExit() {} }}

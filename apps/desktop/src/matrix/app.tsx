@@ -157,7 +157,7 @@ import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/roo
 
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
-import { matrixAgentDeskSteers } from './agent-desk-model'
+import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
@@ -5094,6 +5094,7 @@ function Conversation({
   onOwnModel,
   onSubscriptions,
   onPreview,
+  onWatchDesk,
   onRestoreMessages,
   onReviewDevices,
   onCheckInSettings,
@@ -5121,6 +5122,8 @@ function Conversation({
   /** Settings › Advanced, where a model of the person's own is set up (out of Protons). */
   onOwnModel?: () => void
   onPreview: () => void
+  /** The working line's Watch: opens the side panel on the agent's own tab (absent: no Watch). */
+  onWatchDesk?: () => void
   onRestoreMessages?: () => void
   onReviewDevices?: (thisMac: boolean) => void
   /** The default assistant's card, where check-ins (and its pet) are changed. */
@@ -5792,7 +5795,9 @@ function Conversation({
                       label={chat.typingOne(companyPresentation ? privateCosName : assistantName)}
                       line={workingLine}
                       name={companyPresentation ? privateCosName : assistantName}
+                      onWatch={companyPresentation ? undefined : onWatchDesk}
                       typing={Boolean(agentTyping)}
+                      watchLabel={matrixAgentDeskText(locale).watch}
                     />
                   ) : undefined
                 }
@@ -7044,6 +7049,7 @@ function MatrixAccountView({
   const restoreWorkspaceFocus = useRef(false)
   const [workspaceTabs, setWorkspaceTabs] = useState({ scope: '', count: 0 })
   const [documentRequest, setDocumentRequest] = useState(0)
+  const [deskRequest, setDeskRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
   const [terminalRequest, setTerminalRequest] = useState<{ id: string; scope: string; serial: number }>()
   const [appRouteRequest, setAppRouteRequest] = useState<AppBotRouteRequest>()
@@ -7703,6 +7709,14 @@ function MatrixAccountView({
     setDocumentRequest(value => value + 1)
   }
 
+  // Watch on the working line of an agent's own chat: the panel opens on its desk, never by itself.
+  const deskEligible = Boolean(room && !conversationInfo && matrixAgentDeskAgent(snapshot, room))
+
+  const watchDesk = () => {
+    openWorkspace('workbench')
+    setDeskRequest(value => value + 1)
+  }
+
   const openThreads = (rootId?: string) => {
     if (!room || !isTeamSpaceRoom(room)) {
       return
@@ -8236,6 +8250,7 @@ function MatrixAccountView({
         onOwnModel={openOwnModel}
         onPlanSignIn={openPlanSignIn}
         onPreview={revealDocument}
+        onWatchDesk={deskEligible && !workspaceOpen ? watchDesk : undefined}
         onRestoreMessages={() => {
           setSettingsPane('privacy')
           setSettingsOpen(true)
@@ -9044,6 +9059,7 @@ function MatrixAccountView({
               appRouteRequest={appRouteRequest}
               browserRequest={browserRequest}
               compact={compact}
+              deskRequest={deskRequest}
               documentRequest={documentRequest}
               driveRequest={drivePreviewRequest}
               expanded={workspaceExpanded}

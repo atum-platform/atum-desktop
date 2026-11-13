@@ -147,6 +147,7 @@ export function MatrixWorkbench({
   appRouteRequest,
   onAppRouteRequestConsumed,
   documentRequest,
+  deskRequest,
   browserRequest,
   terminalRequest,
   driveRequest,
@@ -171,6 +172,8 @@ export function MatrixWorkbench({
   onAppRouteRequestConsumed?(serial: number): void
   /** Parent increments this from an explicit “show linked document” action. */
   documentRequest?: number
+  /** Bumped by the chat's Watch: bring the agent's own tab to the front. */
+  deskRequest?: number
   browserRequest?: { id: string; url: string; scope: string }
   terminalRequest?: { id: string; scope: string; serial: number }
   driveRequest?: MatrixDrivePreviewRequest
@@ -496,6 +499,21 @@ export function MatrixWorkbench({
       updateScopedTabState(current => ({ ...current, documentOpen: true, selected: 'document' }))
     }
   }, [documentRequest, link, scope, updateScopedTabState])
+
+  const deskRequestRef = useRef(deskRequest)
+  const hasDesk = Boolean(deskAgent)
+
+  useEffect(() => {
+    if (deskRequest === deskRequestRef.current) {
+      return
+    }
+
+    deskRequestRef.current = deskRequest
+
+    if (hasDesk) {
+      updateScopedTabState(current => ({ ...current, selected: 'agent' }))
+    }
+  }, [deskRequest, hasDesk, updateScopedTabState])
 
   useEffect(() => onTabCountChange?.(tabCount), [onTabCountChange, tabCount])
 
