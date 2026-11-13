@@ -10,8 +10,9 @@ must apply the same gate, reading the inviter from the stripped invite
 state.
 """
 
-import time
-from unittest.mock import AsyncMock
+import logging
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -34,6 +35,7 @@ def _make_adapter():
     adapter._allowed_user_ids = {"@alice:example.org"}
     adapter._join_room_by_id = AsyncMock(return_value=True)
     adapter._record_dm_room = AsyncMock()
+    adapter._client = MagicMock(leave_room=AsyncMock(), join_room=AsyncMock())
     return adapter
 
 
@@ -67,9 +69,8 @@ async def _drain_invite_tasks(adapter):
 class TestPendingInviteAuthorization:
     """_schedule_pending_invite_joins applies _on_invite's inviter gate.
 
-    Rejection mirrors _on_invite exactly: no join is scheduled (so no
-    entry lands in _invite_join_tasks), nothing is recorded in m.direct,
-    and the pending invite is otherwise left untouched.
+    Rejection mirrors _on_invite: leave the invite without joining or
+    recording anything in m.direct.
     """
 
     @pytest.mark.asyncio
@@ -118,3 +119,69 @@ class TestPendingInviteAuthorization:
         adapter._join_room_by_id.assert_not_awaited()
         adapter._record_dm_room.assert_not_awaited()
         assert adapter._invite_join_tasks == {}
+        adapter._client.leave_room.assert_awaited_once_with("!pending_room:example.org")
+
+
+@pytest.mark.parametrize("path", ["live", "pending"])
+@pytest.mark.parametrize("is_direct", [True, False], ids=["dm", "group"])
+@pytest.mark.parametrize("inviter", ["owner", "allowed", "stranger"])
+@pytest.mark.asyncio
+async def test_invite_membership_follows_existing_allowlist(path, is_direct, inviter, caplog):
+    adapter = _make_adapter()
+    owner = "@alice:example.org"
+    allowed = "@bob:example.org"
+    stranger = "@mallory:evil.example"
+    adapter._allowed_user_ids = {owner, allowed}
+    sender = {"owner": owner, "allowed": allowed, "stranger": stranger}[inviter]
+    # Exercise the real join path with the existing Matrix transport double.
+    del adapter._join_room_by_id
+    adapter._refresh_dm_cache = AsyncMock()
+    room_id = "!pending_room:example.org"
+    with caplog.at_level(logging.INFO):
+        if path == "live":
+            await adapter._on_invite(SimpleNamespace(
+                room_id=room_id, sender=sender,
+                content=SimpleNamespace(is_direct=is_direct, body="private invite content"),
+            ))
+        else:
+            adapter._schedule_pending_invite_joins(_invite_sync_data(invite_state={
+                "events": [_member_invite_event(sender=sender, is_direct=is_direct)],
+            }))
+        await _drain_invite_tasks(adapter)
+
+    if inviter == "stranger":
+        adapter._client.leave_room.assert_awaited_once_with(room_id)
+        adapter._client.join_room.assert_not_awaited()
+        adapter._refresh_dm_cache.assert_not_awaited()
+        adapter._record_dm_room.assert_not_awaited()
+        records = [r for r in caplog.records if "invite" in r.getMessage()]
+        assert len(records) == 1
+        assert records[0].levelno == logging.INFO
+        assert "private invite content" not in caplog.text
+        assert sender not in caplog.text
+    else:
+        adapter._client.join_room.assert_awaited_once_with(room_id)
+        adapter._client.leave_room.assert_not_awaited()
+        if is_direct:
+            adapter._record_dm_room.assert_awaited_once_with(room_id, sender)
+        else:
+            adapter._record_dm_room.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_live_and_pending_rejection_share_one_leave(caplog):
+    adapter = _make_adapter()
+    sender = "@mallory:evil.example"
+    room_id = "!pending_room:example.org"
+    with caplog.at_level(logging.INFO):
+        await adapter._on_invite(SimpleNamespace(
+            room_id=room_id, sender=sender, content=SimpleNamespace(is_direct=True),
+        ))
+        adapter._schedule_pending_invite_joins(_invite_sync_data(invite_state={
+            "events": [_member_invite_event(sender=sender)],
+        }))
+        await _drain_invite_tasks(adapter)
+
+    adapter._client.leave_room.assert_awaited_once_with(room_id)
+    adapter._join_room_by_id.assert_not_awaited()
+    assert len([r for r in caplog.records if "invite" in r.getMessage()]) == 1

@@ -2797,7 +2797,7 @@ class MatrixAdapter(BasePlatformAdapter):
         inviter = str(getattr(event, "sender", ""))
         # Only authorized inviters — otherwise any federated user could pull the bot into rooms.
         if not self._is_authorized_user(inviter, str(room_id)):
-            logger.warning("Matrix: rejecting invite to %s from unauthorized user %s", room_id, inviter)
+            self._schedule_invite_rejection(room_id)
             return
         logger.info("Matrix: invited to %s — joining (is_direct=%s)", room_id, is_direct)
         # Join off the sync path; a declared DM is recorded in m.direct once the join lands.
@@ -2841,6 +2841,26 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._invite_join_tasks.pop(room_id, None)
         self._invite_join_tasks[room_id] = asyncio.create_task(_join_invite())
 
+    def _schedule_invite_rejection(self, room_id: str) -> None:
+        """Decline an unauthorized invite using Matrix leave, without joining or reading it."""
+        existing = self._invite_join_tasks.get(room_id)
+        if not room_id or (existing and not existing.done()):
+            return
+
+        async def _reject_invite() -> None:
+            try:
+                await asyncio.wait_for(self._client.leave_room(RoomID(room_id)), timeout=45.0)
+                logger.info("Matrix: declined unauthorized invite to %s", room_id)
+            except Exception:
+                # Do not log the event, sender, or server response (which may contain user content).
+                logger.warning("Matrix: failed to decline unauthorized invite to %s", room_id)
+            finally:
+                self._invite_join_tasks.pop(room_id, None)
+
+        # Share invite task tracking with joins for sync reconciliation deduplication
+        # and disconnect cancellation. A failed leave is retried on the next sync.
+        self._invite_join_tasks[room_id] = asyncio.create_task(_reject_invite())
+
     def _schedule_pending_invite_joins(self, sync_data: dict[str, Any]) -> None:
         """Join rooms still present in rooms.invite after sync processing."""
         invites = (sync_data.get("rooms", {}) if isinstance(sync_data, dict) else {}).get("invite", {})
@@ -2864,11 +2884,7 @@ class MatrixAdapter(BasePlatformAdapter):
             # restart. An inviter missing from the stripped invite state
             # fails closed, like an empty sender in _on_invite.
             if not self._is_authorized_user(inviter, str(room_id)):
-                logger.warning(
-                    "Matrix: rejecting invite to %s from unauthorized user %s",
-                    room_id,
-                    inviter,
-                )
+                self._schedule_invite_rejection(str(room_id))
                 continue
             logger.info(
                 "Matrix: reconciling pending invite for %s (is_direct=%s)",
