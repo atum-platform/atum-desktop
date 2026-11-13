@@ -16,6 +16,16 @@ _PLACES = frozenset(("left", "right", "center"))
 _LIMIT = 3
 
 
+def pet_intent_envelope(intents: Any) -> dict[str, Any] | None:
+    """Validate cosmetic completion data without making text delivery fallible."""
+    if not isinstance(intents, list) or not 1 <= len(intents) <= _LIMIT:
+        return None
+    canonical = [_canonical_command(intent) for intent in intents]
+    if any(intent is None for intent in canonical):
+        return None
+    return {"v": 1, "intents": canonical}
+
+
 class PetIntentBuffer:
     """Collect at most three distinct canonical pet commands for one turn."""
 

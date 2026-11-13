@@ -1,5 +1,4 @@
 """Native SDK/outbox script delivery; no external accounts or model calls."""
-import asyncio
 import json
 import sys
 from pathlib import Path
@@ -130,6 +129,23 @@ async def test_cancelled_before_send_and_cosmetic_payload_never_ack(tmp_path):
                 {**CONTENT, 'io.atum.pet': {'v': 1, 'intents': [{'action': 'wave'}]}}, 'cron-pet',
                 revalidate=AsyncMock(return_value=True), acknowledge=ack)
         await a._presentation_box.recover(a._presentation_send)
+        a._client.send_message_event.assert_not_awaited()
+        ack.assert_not_awaited()
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_rotation_while_revalidating_cannot_dispatch_on_new_session(tmp_path):
+    a = adapter(tmp_path / 'box.sqlite3')
+    ack = AsyncMock()
+    async def revalidate():
+        a._client.api.token = 'rotated-during-check'
+        return True
+    try:
+        with pytest.raises(ValueError, match='reconcile'):
+            await a.send_structured_delivery('!room:example.org', CONTENT, 'rotate',
+                revalidate=revalidate, acknowledge=ack)
         a._client.send_message_event.assert_not_awaited()
         ack.assert_not_awaited()
     finally:

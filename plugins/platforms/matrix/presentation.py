@@ -24,6 +24,7 @@ _final_delivery = ContextVar("matrix_presentation_final", default=False)
 _active = {}
 logger = logging.getLogger(__name__)
 _current = ContextVar("matrix_presentation_turn", default=None)
+_pet_binding = ContextVar("matrix_presentation_pet_binding", default=None)
 
 
 def transaction(source, kind, sequence=0):
@@ -81,6 +82,8 @@ class Outbox:
         for column in ('lookup_boots', 'abandoned'):
             if column not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
                 self.db.execute(f'ALTER TABLE effects ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0')
+        if 'identity' not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
+            self.db.execute('ALTER TABLE effects ADD COLUMN identity TEXT')
         self.db.execute('CREATE INDEX IF NOT EXISTS effects_target ON effects(target)')
         self.db.commit()
 
@@ -104,14 +107,21 @@ class Outbox:
         self.db.executemany('DELETE FROM effects WHERE txn=?', expired)
         self.db.commit()
 
-    async def effect(self, port, room, content, txn, target=None):
-        self.db.execute('INSERT OR IGNORE INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
-                        (txn, room, json.dumps(content), target, time.time()))
+    async def effect(self, port, room, content, txn, target=None, *, identity=None, before_send=None):
+        self.db.execute('INSERT OR IGNORE INTO effects (txn,room,content,target,event,created,identity) VALUES (?,?,?,?,NULL,?,?)',
+                        (txn, room, json.dumps(content), target, time.time(), identity))
         self.db.commit()
-        row = self.db.execute('SELECT room,content,target,event FROM effects WHERE txn=?', (txn,)).fetchone()
+        row = self.db.execute('SELECT room,content,target,event,identity FROM effects WHERE txn=?', (txn,)).fetchone()
+        if identity is not None and (row[0] != room or json.loads(row[1]) != content
+                                    or row[2] != target or row[4] != identity):
+            raise ValueError('Delivery identity/content changed; reconcile the existing receipt')
         if row[3]:
             return row[3]
+        if before_send is not None and await before_send() is not True:
+            raise ValueError('Delivery is no longer authorized')
         event = str(await port(row[0], json.loads(row[1]), txn, row[2]))
+        if identity is not None and not event.startswith('$'):
+            raise ValueError('Delivery returned no observed Matrix event ID')
         self.db.execute('UPDATE effects SET event=? WHERE txn=?', (event, txn))
         self.db.commit()
         return event
@@ -191,6 +201,11 @@ class Turn:
         self.pending = None
         self.progress_timer = self.interim_timer = self.heartbeat_task = None
         self.marker = turn_id(room, source)
+        from tui_gateway.pet_intents import PetIntentBuffer
+        self.pet_buffer = PetIntentBuffer()
+        self.pet_callback = None
+        self.pet_intents = []
+        self.pet_eligible = False
 
     async def progress(self, text, *, kind='todo', phase='working'):
         try:
@@ -420,6 +435,9 @@ def adapter_class(base):
                 turn = Turn(self._presentation_box, self._presentation_send, event.source.chat_id,
                             event.message_id, event.source.user_id)
                 turn.admission_id = admission_id
+                turn.pet_eligible = (not getattr(event, 'internal', False) and not event.inherit_channel_pin
+                    and event.allow_gateway_control and not any(event.metadata.get(key) for key in (
+                        'notification_origin', 'automation_identities', 'cron_job_id', 'job_id')))
                 turn.marker = source_turn_marker(event.raw_message) or turn.marker
                 event._presentation_admission_id = admission_id
                 self._presentation_turns[(turn.room, turn.source)] = (turn, session_key, event.source)
@@ -436,6 +454,8 @@ def adapter_class(base):
             finally:
                 if turn:
                     turn.execution_finished = True
+                    if turn.pet_callback:
+                        turn.pet_buffer.finish(turn.pet_callback, success=False)
                     if _active.get(session_key) is turn:
                         _active.pop(session_key, None)
                 _current.reset(token)
@@ -477,6 +497,56 @@ def adapter_class(base):
                     await turn.end(content)
                     return result
             return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
+
+        async def send_structured_delivery(self, room, content, transaction_id, *, revalidate, acknowledge):
+            """Trusted plugin delivery, e.g. a script-only cron with deliver=local.
+
+            The caller owns work discovery and domain metadata validation. Revalidate
+            live authority immediately before EVERY unsent/retried write. ACK is
+            awaited only after the native outbox commits the observed event ID;
+            lost ACKs can retry this call without another send. Boot recovery never
+            publishes these originals. Account/device/token rotation requires explicit
+            receipt reconciliation, not a blind retry under a new Matrix session.
+            """
+            if (not isinstance(transaction_id, str) or not transaction_id
+                    or len(transaction_id) > 255 or not isinstance(content, dict)
+                    or content.get('msgtype') != 'm.text' or not isinstance(content.get('body'), str)
+                    or not content['body'] or len(content['body']) > self.max_message_length
+                    or any(key in content for key in ('io.atum.pet', 'io.atum.progress',
+                                                     'io.atum.interim', 'm.new_content'))):
+                raise ValueError('Expected one exact structured text delivery')
+            # A JSON copy freezes caller-owned objects before the first await.
+            content = json.loads(json.dumps(content, allow_nan=False))
+            def sender_binding():
+                return json.dumps([self._homeserver, str(self._client.mxid),
+                    str(getattr(self._client, 'device_id', '') or ''), self._sender_identity(),
+                    hashlib.sha256(str(self._client.api.token).encode()).hexdigest()])
+            identity = sender_binding()
+            async def authorized():
+                if await revalidate() is not True:
+                    return False
+                if sender_binding() != identity:
+                    raise ValueError('Delivery identity changed; reconcile the existing receipt')
+                return True
+            event = await self._presentation_box.effect(self._presentation_send, room, content,
+                transaction_id, identity=identity, before_send=authorized)
+            await acknowledge(event)
+            from gateway.platforms.base import SendResult
+            return SendResult(success=True, message_id=event)
+
+        def _prepare_final_content(self, chat_id, chunks, metadata):
+            chunks = super()._prepare_final_content(chat_id, chunks, metadata)
+            turn = _current.get()
+            if (turn and chat_id == turn.room and not turn.stopped and _final_delivery.get()):
+                chunks = [{**chunk, 'io.atum.turn': turn.marker} for chunk in chunks]
+                if (chunks and turn.pet_eligible and not (metadata or {}).get('job_id')
+                        and not (metadata or {}).get('execution_id')
+                        and os.environ.get('ATUM_PET_INTENTS') == 'reply'):
+                    from tui_gateway.pet_intents import pet_intent_envelope
+                    pet = pet_intent_envelope(turn.pet_intents)
+                    if pet:
+                        chunks[-1]['io.atum.pet'] = pet
+            return chunks
 
         async def send_or_update_status(self, chat_id, status_key, content, metadata=None):
             # Native status callbacks have their own lane: compression/retry activity
@@ -537,6 +607,28 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
+    def begin_pet(platform='', turn_id='', parent_session_id='', **_):
+        from tools.pet_tool import bind_turn_callback
+        turn = _current.get()
+        callback = None
+        if (turn and turn.pet_eligible and not turn.stopped and not turn.ended and platform == 'matrix'
+                and not parent_session_id and os.environ.get('ATUM_PET_INTENTS') == 'reply'):
+            turn.pet_intents = []
+            callback = turn.pet_callback = turn.pet_buffer.begin(turn_id)
+        previous = _pet_binding.get()
+        _pet_binding.set((turn, callback, bind_turn_callback(callback), previous))
+
+    def finish_pet(completed=False, failed=False, **_):
+        from tools.pet_tool import reset_turn_callback
+        binding = _pet_binding.get()
+        if binding:
+            turn, callback, token, previous = binding
+            if callback:
+                turn.pet_intents = turn.pet_buffer.finish(callback,
+                    success=completed is True and not failed and not turn.stopped)
+            reset_turn_callback(token)
+            _pet_binding.set(previous)
+
     def tool_activity(tool_name='', **_):
         turn = _current.get()
         if turn and not turn.ended:
@@ -593,3 +685,5 @@ def register_hooks(ctx):
     ctx.register_hook('pre_approval_request', waiting)
     ctx.register_hook('post_approval_response', resumed)
     ctx.register_hook('agent_loop_stopped', stopped)
+    ctx.register_hook('pre_llm_call', begin_pet)
+    ctx.register_hook('post_llm_call', finish_pet)
