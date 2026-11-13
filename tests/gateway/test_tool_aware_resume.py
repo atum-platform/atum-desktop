@@ -559,3 +559,20 @@ def test_source_bounded_policy_keeps_completed_reads_and_excludes_later_turn():
     assert recovery_tool_block(policy, 'web_search', {})
     assert recovery_tool_block(policy, 'read_file', {}) is None
     assert recovery_tool_block(policy, 'cron', {})
+
+
+@pytest.mark.parametrize('source', [None, '$done'])
+def test_completed_effect_is_never_offered_as_half_happened(source):
+    history = [{'role': 'user', 'content': 'send', 'platform_message_id': '$done'},
+               call('sent', 'send_message'),
+               {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'},
+               {'role': 'assistant', 'content': 'Done'}]
+    policy = choose_resume_policy(history, source_message_id=source)
+    assert not policy.ask
+    assert policy.actions == ()
+    assert recovery_tool_block(policy, 'send_message', {})
+
+
+def test_bare_please_does_not_authorize_resume():
+    from tools.approval import exact_gateway_approval_choice
+    assert exact_gateway_approval_choice('please', 'token', allow_unscoped=True) is None

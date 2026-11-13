@@ -578,3 +578,41 @@ class LostReceiptLookup(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(all(method == 'GET' for method, _ in requests))
             self.assertEqual(requests[1][1]['query_params']['from'], 'older')
             box.db.close()
+
+
+class ReviewFixes(unittest.IsolatedAsyncioTestCase):
+    async def test_unresolved_receipt_expires_and_boots_are_bounded(self):
+        from unittest.mock import AsyncMock
+        with tempfile.TemporaryDirectory() as directory:
+            box = p.Outbox(Path(directory) / 'outbox.db')
+            box.db.execute("INSERT INTO effects (txn,room,content,created) VALUES (?,?,?,?)",
+                ('lost', '!room', json.dumps({'io.atum.progress': True}), 1))
+            box.db.commit()
+            resolve = AsyncMock(return_value=None)
+            await box.recover(AsyncMock(), resolve=resolve)
+            resolve.assert_not_awaited()
+            box.db.execute("UPDATE effects SET created=?", (p.time.time(),))
+            box.db.commit()
+            for _ in range(6):
+                await box.recover(AsyncMock(), resolve=resolve)
+            assert resolve.await_count <= 3
+            box.db.close()
+
+    async def test_connect_returns_before_cleanup(self):
+        class Base:
+            async def connect(self):
+                return True
+        adapter = p.adapter_class(Base)()
+        from unittest.mock import AsyncMock, patch
+        gate = asyncio.Event()
+        async def recover(*args):
+            await gate.wait()
+        with patch.object(p.Outbox, 'recover', side_effect=recover):
+            try:
+                assert await asyncio.wait_for(adapter.connect(), .2)
+            finally:
+                gate.set()
+                task = getattr(adapter, '_presentation_recovery_task', None)
+                if task:
+                    await task
+                adapter._presentation_box.db.close()

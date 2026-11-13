@@ -907,3 +907,20 @@ async def test_ledgered_notice_reply_relation_is_not_final_evidence(tmp_path, mo
     payload = a._client.send_message_event.await_args.args[2]
     assert 'org.hermes.source_event_id' not in payload
     assert 'org.hermes.final_chunk' not in payload
+
+
+@pytest.mark.asyncio
+async def test_interrupted_pre_admission_control_settles_once_and_unblocks(tmp_path):
+    a = adapter(tmp_path)
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    a._intake.mark('$control', 'control_pending')
+    a._send_room_message = AsyncMock(return_value='$notice')
+    raw = SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
+        event_id='$control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
+    a._handle_text_message = AsyncMock()
+    await a._on_room_message(raw)
+    await a._on_room_message(raw)
+    assert a._intake.state('$control') == 'done'
+    a._send_room_message.assert_awaited_once()
+    a._handle_text_message.assert_not_awaited()
+    a._intake.close()

@@ -42,29 +42,31 @@ async def test_startup_gate_leaves_journaled_input_with_transport(durable):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('durable', [False, True])
-async def test_journal_followup_never_enters_native_busy_preemption(durable):
+@pytest.mark.parametrize('backlog,text,approval', [(False, 'use the other file', False), (False, 'yes', True), (True, 'ack 05', False)])
+async def test_journal_followup_preserves_live_controls(backlog, text, approval):
     from gateway.platforms.event import MessageEvent
     from gateway.config import Platform
     from gateway.session import SessionSource
     source = SessionSource(platform=Platform.MATRIX, chat_id='!room', user_id='@alice', chat_type='dm')
-    e = MessageEvent(text='ack 05', message_id='$followup', source=source)
-    e._matrix_durable_intake = durable
+    e = MessageEvent(text=text, message_id='$followup', source=source)
+    e._matrix_durable_intake = True
+    e._matrix_backlog = backlog
     runner = SimpleNamespace(_is_session_running=lambda key: True,
-        _route_plaintext_approval_while_busy=AsyncMock(return_value=False),
+        _route_plaintext_approval_while_busy=AsyncMock(return_value=approval),
         _hm_busy_preempt=AsyncMock(return_value=True),
         _hm_post_admission_consume=AsyncMock(return_value=(False, None)))
     authority = SimpleNamespace()
     with patch('gateway.session_authorities.active_authority', return_value=authority), patch(
             'gateway.session_ingress.admit_message', new_callable=AsyncMock, return_value='queued') as admit:
         result = await GatewayInboundMixin._hm_authority_admission(runner, e, source, 'route', False)
-    if durable:
+    if backlog:
         runner._hm_busy_preempt.assert_not_awaited()
         runner._route_plaintext_approval_while_busy.assert_not_awaited()
         admit.assert_awaited_once_with(authority, e)
         assert result == (True, 'queued')
     else:
-        runner._hm_busy_preempt.assert_awaited_once()
+        runner._route_plaintext_approval_while_busy.assert_awaited_once()
+        assert runner._hm_busy_preempt.await_count == (0 if approval else 1)
         admit.assert_not_awaited()
 
 
