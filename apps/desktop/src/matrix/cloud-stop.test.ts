@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled, matrixShowCloudStop } from './cloud-stop'
+import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 
 const ROOM = '!assistant:test'
 const TURN = '00000000-0000-4000-8000-31f949766961'

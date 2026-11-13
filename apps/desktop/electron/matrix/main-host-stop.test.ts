@@ -9,8 +9,12 @@ function fixture(host: boolean, cloud = true, ready = true) {
   const fetcher = vi.fn()
   const hostStop = vi.fn(async () => ({ state: 'stop_requested' as const }))
   const legacyStop = vi.fn(async () => ({ state: 'stop_requested' as const }))
-  const s1Request = vi.fn<MatrixAccount['s1Request']>(async work => work('synthetic-grant', 'https://shell.test/api/matrix/v1', new AbortController().signal))
-  const run = (agent: string | undefined = principal) => dispatchMatrixStop({ ...source, principal: agent, host, cloud, ready }, { s1Request, s1Call: vi.fn(), fetcher, hostStop, legacyStop })
+  const s1Request = vi.fn()
+  const runS1: MatrixAccount['s1Request'] = (work, signal, options) => {
+    s1Request(work, signal, options)
+    return work('synthetic-grant', 'https://shell.test/api/matrix/v1', signal)
+  }
+  const run = (agent: string | undefined = principal) => dispatchMatrixStop({ ...source, principal: agent, host, cloud, ready }, { s1Request: runS1, s1Call: vi.fn(), fetcher, hostStop, legacyStop })
   return { run, s1Request, hostStop, legacyStop, fetcher }
 }
 describe('main host Stop dispatch', () => {

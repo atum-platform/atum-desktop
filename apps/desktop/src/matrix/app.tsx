@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled, matrixShowCloudStop } from './cloud-stop'
+import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {

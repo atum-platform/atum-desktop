@@ -24,8 +24,8 @@ interface MatrixStopDependencies {
 /** No Electron state: the caller retains its room and account-epoch guards. */
 export function dispatchMatrixStop(input: MatrixStopDispatch, deps: MatrixStopDependencies): Promise<MatrixCloudStopOutcome> {
   const { principal, roomId, eventId } = input
-  if (!input.cloud || !principal) throw new Error('matrix_agent_unavailable')
-  if (input.host && !input.ready) throw new Error('matrix_not_ready')
+  if (!input.cloud || !principal) { throw new Error('matrix_agent_unavailable') }
+  if (input.host && !input.ready) { throw new Error('matrix_not_ready') }
   if (input.host) {
     // Shell's host transport alone has a 30s budget. Keep the grant/receipt path
     // alive beyond it, without extending deadlines for unrelated S1 operations.

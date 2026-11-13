@@ -586,7 +586,6 @@ import {
   shownCloudTrial,
   workspaceLabelFor
 } from './device/cloud-agent'
-import { dispatchMatrixStop } from './main-host-stop'
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
@@ -776,6 +775,7 @@ import {
   readMatrixAgentPresentation
 } from './main-enrollment'
 import { isMatrixGoogleAgentRole, MATRIX_GOOGLE_ASSISTANT_ROLE, MatrixGoogleAssistant } from './main-google'
+import { dispatchMatrixStop } from './main-host-stop'
 import { registerMatrixLinkPreviewIpc } from './main-link-previews'
 import { mirrorTaggedConsole } from './main-log'
 import { handleMatrixModelDestinationsRequest } from './main-model-destinations'
