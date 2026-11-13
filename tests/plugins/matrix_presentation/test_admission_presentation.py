@@ -281,3 +281,62 @@ async def test_status_from_ended_context_uses_native_send(tmp_path):
         assert calls == [('!room', 'Retrying')]
     finally:
         p._current.reset(token); box.db.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('scheduled', [False, True], ids=['owner', 'routine'])
+async def test_native_execution_trigger_on_progress_and_final(tmp_path, scheduled):
+    from cron.execution_identity import enter_cron_execution, exit_cron_execution
+    writes = []
+    class Base:
+        async def _send_room_message(self, room, content, **kwargs):
+            writes.append(content)
+            return '$final'
+        async def send(self, room, text, **kwargs):
+            return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
+        async def send_final_ledgered(self, event):
+            return await self.send(event.source.chat_id, 'answer')
+    a = p.adapter_class(Base)()
+    a._presentation_box = p.Outbox(tmp_path / 'box.sqlite3')
+    a._presentation_turns = {}
+    async def port(room, content, txn, target):
+        writes.append(content)
+        return '$effect'
+    a._presentation_send = port
+    event = MessageEvent(text='hello', message_id='$source', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', chat_type='dm', user_id='@owner'))
+    # Untrusted message metadata must never turn an owner message into a routine.
+    event.metadata['cron_execution_id'] = 'forged'
+    token = enter_cron_execution({'id': 'routine'}, 'native-fire', {'source': 'builtin'}) if scheduled else None
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            await a.send_final_ledgered(event)
+        marker = writes[0]['io.atum.progress']
+        final = next(w for w in writes if w.get('body') == 'answer')
+        assert marker.get('trigger') == ('cron' if scheduled else None)
+        assert final.get('io.atum.trigger') == ('cron' if scheduled else None)
+        assert isinstance(final['io.atum.turn'], str)  # preserve UUID wire contract
+        assert 'device' not in marker
+    finally:
+        exit_cron_execution(token)
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_cron_delivery_without_owner_admission_has_native_trigger():
+    from cron.execution_identity import enter_cron_execution, exit_cron_execution
+    writes = []
+    class Base:
+        async def _send_room_message(self, room, content, **kwargs):
+            writes.append(content)
+            return '$final'
+    a = p.adapter_class(Base)()
+    token = enter_cron_execution({'id': 'routine'}, 'native-fire', {'source': 'builtin'})
+    try:
+        await a._send_room_message('!room', {'msgtype': 'm.text', 'body': 'routine result'})
+    finally:
+        exit_cron_execution(token)
+    await a._send_room_message('!room', {'msgtype': 'm.text', 'body': 'ordinary result'})
+    assert writes[0]['io.atum.trigger'] == 'cron'
+    assert isinstance(writes[0]['io.atum.turn'], str)
+    assert 'io.atum.trigger' not in writes[1]

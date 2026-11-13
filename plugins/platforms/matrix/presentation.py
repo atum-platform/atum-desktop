@@ -215,12 +215,15 @@ class Turn:
         self.pet_turn_id = None
         self.pet_intents = []
         self.pet_eligible = False
+        from cron.execution_identity import current_cron_execution
+        self.trigger = 'cron' if current_cron_execution() is not None else None
 
     def queue_pet(self, command):
         from agent.delegation_context import is_delegated_child_context
         if not self.pet_callback or self.stopped or self.ended or is_delegated_child_context():
             return {'ok': False, 'reason': 'no_active_pet_turn'}
         return self.pet_callback(command)
+
 
     async def progress(self, text, *, kind='todo', phase='working'):
         try:
@@ -247,6 +250,8 @@ class Turn:
             self.revision += 1
             marker = dict(profile='atum.agent-turns/1.3', scope='owner_private',
                           phase=phase, kind=kind, revision=self.revision)
+            if self.trigger:
+                marker['trigger'] = self.trigger
             if kind == 'heartbeat':
                 marker['heartbeat'] = True
             text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '',
@@ -608,6 +613,17 @@ def adapter_class(base):
                     and _final_delivery.get()
                     and msg_content.get('msgtype') == 'm.text' and 'm.new_content' not in msg_content):
                 msg_content = {'io.atum.turn': turn.marker, **msg_content}
+                if turn.trigger:
+                    msg_content['io.atum.trigger'] = turn.trigger
+            elif turn is None and msg_content.get('msgtype') == 'm.text' and 'm.new_content' not in msg_content:
+                # Cron's scheduler owns result delivery separately from owner-message
+                # admissions. Its native execution context spans that delivery too.
+                from cron.execution_identity import current_cron_execution
+                occurrence = current_cron_execution()
+                if occurrence is not None:
+                    msg_content = {**msg_content, 'io.atum.trigger': 'cron',
+                                   'io.atum.turn': turn_id(chat_id, occurrence.execution_id)}
+
             return await super()._send_room_message(chat_id, msg_content, **kwargs)
 
         async def stop_presentation_turn(self, room, source, sender, *, authenticated=False):
