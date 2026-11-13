@@ -591,3 +591,28 @@ def test_new_message_after_discard_gets_no_recovery_instruction():
     turn._prepare_turn_message(history)
     assert turn._resume_policy is None
     assert 'Continue the interrupted' not in turn._ctx.message
+
+
+def test_legacy_resume_scans_unfinished_calls_without_last_user_fallback():
+    history = [{'role': 'user', 'content': 'read'}, call('unfinished', 'read_file'),
+        {'role': 'user', 'content': 'send'}, call('sent', 'send_message'),
+        {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'},
+        {'role': 'assistant', 'content': 'Done'}]
+    policy = choose_resume_policy(history)
+    assert not policy.ask
+    assert policy.actions == ('read_file',)
+    assert recovery_tool_block(policy, 'send_message', {})
+
+
+def test_recovery_metadata_must_match_running_source():
+    from gateway.run_turn_runner import TurnRunner
+    history = [{'role': 'user', 'content': 'old', 'platform_message_id': '$old'}, call('unsafe', 'send_message')]
+    entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
+    turn = object.__new__(TurnRunner)
+    turn._runner = SimpleNamespace(session_store=SimpleNamespace(_entries={'key': entry}),
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True))
+    turn._ctx = SimpleNamespace(source=None, session_key='key', history=history,
+        message='new request', persist_user_message=None, persist_user_timestamp=None,
+        inbound_message_id='$new', persist_user_display_metadata={'crash_resume_source_id': '$old'})
+    turn._prepare_turn_message(history)
+    assert turn._resume_policy is None
