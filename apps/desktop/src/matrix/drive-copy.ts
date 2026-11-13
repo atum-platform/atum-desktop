@@ -58,7 +58,12 @@ interface DriveCopy {
   viewMode: string
   listView: string
   gridView: string
-  browser: { recents: string; allFiles: string; recentFiles: string }
+  forward: string
+  quickLook: string
+  /** Finder's sidebar: Recents, the Drive's top-level folders under Favorites, the Drive under Locations. */
+  browser: { recents: string; recentFiles: string; favorites: string; locations: string; drive: string }
+  /** An item's sync badge, said aloud and in its tooltip. */
+  sync: { synced: string; pending: string; paused: string }
   preview: {
     ask: string
     open: string
@@ -159,8 +164,17 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     searchEmpty: 'No files match this search.',
     viewMode: 'View',
     listView: 'List',
-    gridView: 'Grid',
-    browser: { recents: 'Recents', allFiles: 'All files', recentFiles: 'Recent files' },
+    gridView: 'Icons',
+    forward: 'Forward',
+    quickLook: 'Quick Look',
+    browser: {
+      recents: 'Recents',
+      recentFiles: 'Recent files',
+      favorites: 'Favorites',
+      locations: 'Locations',
+      drive: 'Atum Drive'
+    },
+    sync: { synced: 'Synced', pending: 'Waiting to sync', paused: 'Syncs when Drive is back' },
     preview: {
       ask: 'Ask Atum about this',
       open: 'Open',
@@ -328,8 +342,17 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     searchEmpty: 'Không có tệp nào khớp với tìm kiếm này.',
     viewMode: 'Kiểu xem',
     listView: 'Danh sách',
-    gridView: 'Lưới',
-    browser: { recents: 'Gần đây', allFiles: 'Tất cả tệp', recentFiles: 'Tệp gần đây' },
+    gridView: 'Biểu tượng',
+    forward: 'Tiến tới',
+    quickLook: 'Xem nhanh',
+    browser: {
+      recents: 'Gần đây',
+      recentFiles: 'Tệp gần đây',
+      favorites: 'Mục ưa thích',
+      locations: 'Vị trí',
+      drive: 'Atum Drive'
+    },
+    sync: { synced: 'Đã đồng bộ', pending: 'Đang chờ đồng bộ', paused: 'Sẽ đồng bộ khi Drive hoạt động lại' },
     preview: {
       ask: 'Hỏi Atum về tệp này',
       open: 'Mở',
@@ -497,8 +520,17 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     searchEmpty: 'この検索に一致するファイルはありません。',
     viewMode: '表示',
     listView: 'リスト',
-    gridView: 'グリッド',
-    browser: { recents: '最近使った項目', allFiles: 'すべてのファイル', recentFiles: '最近のファイル' },
+    gridView: 'アイコン',
+    forward: '進む',
+    quickLook: 'クイックルック',
+    browser: {
+      recents: '最近使った項目',
+      recentFiles: '最近のファイル',
+      favorites: 'よく使う項目',
+      locations: '場所',
+      drive: 'Atum Drive'
+    },
+    sync: { synced: '同期済み', pending: '同期待ち', paused: 'Drive が再開すると同期されます' },
     preview: {
       ask: 'このファイルについて Atum に聞く',
       open: '開く',
@@ -674,8 +706,17 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     searchEmpty: '没有与此搜索匹配的文件。',
     viewMode: '视图',
     listView: '列表',
-    gridView: '网格',
-    browser: { recents: '最近使用', allFiles: '所有文件', recentFiles: '最近文件' },
+    gridView: '图标',
+    forward: '前进',
+    quickLook: '快速查看',
+    browser: {
+      recents: '最近使用',
+      recentFiles: '最近文件',
+      favorites: '个人收藏',
+      locations: '位置',
+      drive: 'Atum Drive'
+    },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢复后同步' },
     preview: {
       ask: '向 Atum 询问此文件',
       open: '打开',
@@ -836,8 +877,17 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     searchEmpty: '沒有符合此搜尋的檔案。',
     viewMode: '顯示方式',
     listView: '列表',
-    gridView: '格狀',
-    browser: { recents: '最近使用', allFiles: '所有檔案', recentFiles: '最近檔案' },
+    gridView: '圖像',
+    forward: '向前',
+    quickLook: '快速查看',
+    browser: {
+      recents: '最近使用',
+      recentFiles: '最近檔案',
+      favorites: '喜好項目',
+      locations: '位置',
+      drive: 'Atum Drive'
+    },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢復後同步' },
     preview: {
       ask: '詢問 Atum 關於此檔案',
       open: '開啟',

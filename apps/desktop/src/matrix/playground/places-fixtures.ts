@@ -8,7 +8,7 @@ import {
 } from '../../../shared/matrix-agent-sources'
 import type { MatrixCompanyBridge, MatrixCompanyMember11, MatrixCompanyRequest, MatrixCompanyResult } from '../../../shared/matrix-company'
 import { MATRIX_COMPANY_CHANNEL_TYPE } from '../../../shared/matrix-company-channel-room'
-import type { MatrixDriveBridge, MatrixDriveProblem, MatrixDriveState, MatrixDriveView } from '../../../shared/matrix-drive'
+import type { MatrixDriveBridge, MatrixDriveProblem, MatrixDriveRow, MatrixDriveState, MatrixDriveView } from '../../../shared/matrix-drive'
 import {
   MATRIX_STANDARD_FOLDERS,
   type MatrixFolderAccessBridge,
@@ -111,26 +111,80 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
   const state: MatrixDriveState = place === 'waiting' ? 'authorizing' : place === 'signIn' ? 'reauthenticate' : place
   const connected = ['ready', 'syncing', 'offline', 'paused'].includes(state)
 
+  const DAY = 86_400_000
+  const folder = (id: string, name: string, age: number): MatrixDriveRow => ({ id, name, kind: 'folder', size: 0, modifiedAt: now - age })
+  const file = (id: string, name: string, size: number, age: number): MatrixDriveRow => ({ id, name, kind: 'file', size, modifiedAt: now - age })
+
+  // A Drive like the owner's: his folders, the ones assistants keep, and loose files at the root.
+  // `syncing` leaves the two newest files waiting, so their badges differ.
+  const tree: Record<string, { label?: string; parent?: string; rows: MatrixDriveRow[] }> = {
+    root: {
+      rows: [
+        folder('d-calendar', '_calendar', 2 * DAY),
+        folder('d-email', '_email-digests', 3 * 3_600_000),
+        folder('d-imessage', '_imessage-digests', 5 * 3_600_000),
+        folder('d-meetings', '_meetings', DAY),
+        folder('d-agent', 'Agent Reports', 6 * 3_600_000),
+        folder('f-reports', 'Báo cáo quý', 3 * DAY),
+        folder('d-downloads', 'Downloads', 9 * DAY),
+        file('f-trinh', 'Chị Trinh <> Minh - Atum.docx', 61_400, 2 * DAY),
+        file('f-plan', 'Kế hoạch Đà Lạt.docx', 48_200, 2 * 3_600_000),
+        file('f-budget', 'Ngân sách 2026.xlsx', 2_483_712, DAY),
+        file('f-photo', 'Hồ Tuyền Lâm.jpg', 5_912_004, 5 * DAY),
+        file('f-meet-1', 'Impromptu Google Meeting (1).docx', 18_300, 4 * DAY),
+        file('f-meet-2', 'Impromptu Google Meeting (2).docx', 21_900, 4 * DAY),
+        file('f-meet-3', 'Impromptu Google Meeting (3).docx', 16_050, 3 * DAY),
+        file('f-deck', 'Thuyết trình Q4.pptx', 7_340_000, 6 * DAY),
+        file('f-lease', 'Hợp đồng thuê nhà.pdf', 912_000, 12 * DAY),
+        file('f-notes', 'Ghi chú họp sáng.md', 3_200, 2 * MINUTE)
+      ]
+    },
+    'd-agent': {
+      label: 'Agent Reports',
+      parent: 'root',
+      rows: [
+        folder('d-agent-weekly', 'Weekly', 2 * DAY),
+        file('f-agent-1', 'Tóm tắt email tuần 45.md', 6_400, 6 * 3_600_000),
+        file('f-agent-2', 'Lịch tuần tới.pdf', 220_000, DAY),
+        file('f-agent-3', 'Chi phí tháng 10.xlsx', 41_000, 3 * DAY)
+      ]
+    },
+    'd-agent-weekly': { label: 'Weekly', parent: 'd-agent', rows: [file('f-weekly-1', 'Tuần 44.md', 5_100, 9 * DAY)] },
+    'f-reports': {
+      label: 'Báo cáo quý',
+      parent: 'root',
+      rows: [file('f-q3', 'Báo cáo Q3.docx', 88_000, 30 * DAY), file('f-q4', 'Báo cáo Q4 (nháp).docx', 64_000, 3 * DAY)]
+    }
+  }
+
+  for (const id of ['d-calendar', 'd-email', 'd-imessage', 'd-meetings', 'd-downloads']) {
+    tree[id] = { label: tree.root!.rows.find(row => row.id === id)!.name, parent: 'root', rows: [] }
+  }
+
+  let at = 'root'
+
   const view: MatrixDriveView = {
     state,
     revision: 1,
     ...(problem ? { problem } : {}),
     ...(place === 'waiting' ? { waitingForBrowser: true as const } : {}),
     ...(place === 'signIn' ? { signInNeeded: true as const } : {}),
-    ...(state === 'ready' ? { lastSyncAt: now - 4 * MINUTE } : {}),
+    ...(state === 'ready' ? { lastSyncAt: now - MINUTE } : state === 'syncing' ? { lastSyncAt: now - 3 * 3_600_000 } : {}),
     rootLabel: 'Drive',
     rootLocation: '~/Atum/Drive',
     canGoBack: false,
     truncated: false,
-    rows:
-      connected && !empty
-        ? [
-            { id: 'f-reports', name: 'Báo cáo quý', kind: 'folder', size: 0, modifiedAt: now - 3 * 86_400_000 },
-            { id: 'f-plan', name: 'Kế hoạch Đà Lạt.docx', kind: 'file', size: 48_200, modifiedAt: now - 2 * 3_600_000 },
-            { id: 'f-budget', name: 'Ngân sách 2026.xlsx', kind: 'file', size: 2_483_712, modifiedAt: now - 86_400_000 },
-            { id: 'f-photo', name: 'Hồ Tuyền Lâm.jpg', kind: 'file', size: 5_912_004, modifiedAt: now - 5 * 86_400_000 }
-          ]
-        : []
+    rows: connected && !empty ? tree.root!.rows : []
+  }
+
+  const go = (id: string) => {
+    at = id
+    view.revision += 1
+    view.canGoBack = id !== 'root'
+    view.folderLabel = tree[id]!.label
+    view.rows = tree[id]!.rows
+
+    return { ...view }
   }
 
   if (connected && facts) {
@@ -168,8 +222,8 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
     chooseFolder: async () => ({ cancelled: true }),
     cancelSignIn: async () => ({ ...view, state: 'disconnected', rows: [], waitingForBrowser: undefined }),
     disconnect: async () => ({ ...view, state: 'disconnected', rows: [] }),
-    enter: async () => view,
-    back: async () => view,
+    enter: async id => (tree[id] ? go(id) : { ...view }),
+    back: async () => go(tree[at]?.parent ?? 'root'),
     open: async () => {},
     reveal: async () => {},
     taskStatus: async () => ({ state: 'ready' }),
@@ -594,6 +648,7 @@ function folderAccessBridge(): MatrixFolderAccessBridge {
     platform: 'macos',
     folders: MATRIX_STANDARD_FOLDERS.map(kind => ({ id: kind, kind, shared: true, mac: 'not-asked' as const }))
   }
+
   let added = 0
 
   return {
