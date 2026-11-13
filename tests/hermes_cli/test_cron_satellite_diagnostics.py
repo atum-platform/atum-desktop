@@ -1,3 +1,4 @@
+from tests.runtime_identity import current_owner_fields
 from datetime import datetime, timedelta, timezone, UTC
 import json
 import os
@@ -30,7 +31,7 @@ def served_root(tmp_path, monkeypatch):
         lambda lock_path=None: lock_path == root / "gateway.lock",
     )
     monkeypatch.setattr("gateway.status._read_process_cmdline", lambda pid: "hermes gateway run")
-    root.joinpath("gateway.pid").write_text(json.dumps({"pid": os.getpid()}))
+    root.joinpath("gateway.pid").write_text(json.dumps({**current_owner_fields(), "pid": os.getpid()}))
     root.joinpath("config.yaml").write_text("gateway:\n  multiplex_profiles: true\n")
     return root
 

@@ -1,3 +1,5 @@
+
+from tests.runtime_identity import current_owner_fields
 from datetime import datetime, timedelta, timezone, UTC
 
 from hermes_cli.gateway import _runtime_health_lines
@@ -21,7 +23,7 @@ def test_runtime_health_lines_flags_stale_running_with_dead_pid(monkeypatch):
 
     monkeypatch.setattr(
         "gateway.status.read_runtime_status",
-        lambda: {
+        lambda: {**current_owner_fields(4242),
             "gateway_state": "running",
             "pid": 4242,
             "start_time": 111,
@@ -70,7 +72,7 @@ def test_runtime_health_lines_flag_stale_heartbeat_with_live_pid(monkeypatch):
     Render it as a heartbeat warning naming the age and the live PID; a fresh stamp stays silent."""
     from gateway import status as status_mod
 
-    record = {"gateway_state": "running", "pid": 4242, "start_time": 111,
+    record = {**current_owner_fields(4242), "gateway_state": "running", "pid": 4242, "start_time": 111,
               "updated_at": _iso_age(900), "active_agents": 0, "platforms": {}}
     monkeypatch.setattr("gateway.status.read_runtime_status", lambda: record)
     monkeypatch.setattr(status_mod, "_pid_exists", lambda pid: True)
@@ -89,7 +91,7 @@ def test_runtime_health_lines_flag_stale_heartbeat_with_live_pid(monkeypatch):
 def test_runtime_health_lines_render_watchdog_degraded_exit(monkeypatch):
     """A watchdog-stamped ``degraded`` + exit_reason renders as a health line; the startup-time
     ``degraded`` (retryable platforms queued, no exit_reason) stays silent (#113372)."""
-    record = {"gateway_state": "degraded", "exit_reason": "loop_liveness_watchdog",
+    record = {**current_owner_fields(4242), "gateway_state": "degraded", "exit_reason": "loop_liveness_watchdog",
               "pid": 4242, "updated_at": _iso_age(30), "platforms": {}}
     monkeypatch.setattr("gateway.status.read_runtime_status", lambda: record)
 
@@ -104,19 +106,21 @@ def test_runtime_health_lines_render_watchdog_degraded_exit(monkeypatch):
 def test_runtime_status_running_pid_validates_live_gateway_record(monkeypatch):
     from gateway import status as status_mod
 
-    runtime = {
+    runtime = {**current_owner_fields(12345),
         "pid": 12345,
         "kind": "hermes-gateway",
         "argv": ["/opt/hermes/hermes_cli/main.py", "gateway", "run", "--replace"],
-        "start_time": None,
+        "start_time": 111,
         "gateway_state": "running",
     }
     monkeypatch.setattr(status_mod, "_pid_exists", lambda pid: pid == 12345)
-    monkeypatch.setattr(status_mod, "_get_process_start_time", lambda pid: None)
+    monkeypatch.setattr(status_mod, "_get_process_start_time", lambda pid: 111)
     # Exercise the persisted-record fallback without inspecting a real process
     # that happens to have this fixture PID on the test runner.
     monkeypatch.setattr(status_mod, "_read_process_cmdline", lambda pid: None)
 
     assert status_mod.get_runtime_status_running_pid(runtime) == 12345
+    runtime["start_time"] = None
+    assert status_mod.get_runtime_status_running_pid(runtime) is None
 
 

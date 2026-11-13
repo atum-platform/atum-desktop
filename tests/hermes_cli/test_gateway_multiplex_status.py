@@ -10,6 +10,8 @@ cron liveness use.
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import io
 import os
 from contextlib import redirect_stdout
@@ -32,7 +34,7 @@ def _fake_multiplexer(monkeypatch, tmp_path, *, multiplex: bool, pid_file: bool 
     )
     if pid_file:
         (tmp_path / "gateway.pid").write_text(str(os.getpid()))
-    (tmp_path / "gateway_state.json").write_text(json.dumps({
+    (tmp_path / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "kind": "hermes-gateway", "gateway_state": "running",
         "start_time": status._get_process_start_time(os.getpid()), "hermes_home": str(tmp_path),
     }))

@@ -26,6 +26,8 @@ Pinned surfaces:
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import subprocess
@@ -47,7 +49,7 @@ def profile_env(tmp_path, monkeypatch):
 
 
 def _record(pid=424242, start=959281018, home=None, argv=None):
-    return {
+    return {**current_owner_fields(pid),
         "pid": pid,
         "kind": "hermes-gateway",
         "argv": argv or ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -470,7 +472,7 @@ class TestStampDurability:
         home = tmp_path / "scratch-home"
         home.mkdir()
         (home / "gateway_state.json").write_text(
-            json.dumps({"gateway_state": "running", "pid": 424242}), encoding="utf-8")
+            json.dumps({**current_owner_fields(424242), "gateway_state": "running", "pid": 424242}), encoding="utf-8")
         repo_root = str(Path(__file__).resolve().parents[2])
         child = tmp_path / "refusal_child.py"
         child.write_text(_CHILD_SCRIPT.replace("@@REPO@@", repo_root), encoding="utf-8")

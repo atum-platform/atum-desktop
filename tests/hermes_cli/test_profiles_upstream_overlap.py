@@ -5,6 +5,8 @@ management, export/import, renaming, alias collision checks, profile isolation,
 and shell completion generation.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import shutil
@@ -1622,7 +1624,7 @@ class TestEdgeCases:
         live_pid = os.getpid()
         (default_home / "gateway_state.json").write_text(
             json.dumps(
-                {
+                {**current_owner_fields(live_pid),
                     "pid": live_pid,
                     "kind": "hermes-gateway",
                     "argv": ["hermes", "gateway", "run"],

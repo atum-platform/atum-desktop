@@ -37,7 +37,7 @@ async def test_adapter_consumed_control_keeps_other_rooms_and_stop_readable(tmp_
     key = runner._session_key_for_source(source)
     running = SimpleNamespace(interrupt=MagicMock(), steer=MagicMock(return_value=True),
         redirect=MagicMock(return_value=True), _supports_active_turn_redirect=control == 'redirect',
-        get_activity_summary=lambda: {})
+        get_activity_summary=dict)
     turn = runner._session_state(key).turn
     turn.agent = running
     turn.event = MessageEvent(text='long task', source=source, message_id='$long')

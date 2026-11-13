@@ -1446,9 +1446,9 @@ class TestRunJobModelResolution:
             success, _, _, error = _run_owned_job(job, tmp_path, fake_db)
 
         assert success is False
-        # Whole-turn admission rejects uncertain policy before cron's model gate.
-        assert "admission_unavailable" in error
-        assert "failed config read" in error
+        # The settings guard keeps its actionable diagnostic ahead of admission.
+        assert "Hermes stopped because your settings file" in error
+        assert str(tmp_path / "config.yaml") in error
         mock_agent_cls.assert_not_called()
 
 class TestRunJobSkillBacked:

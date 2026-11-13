@@ -70,7 +70,7 @@ def test_kill_and_reclaim_same_native_admission(tmp_path, hook, tool, count, ask
         requeue_interrupted_session_input, list_session_admissions, claim_session_input,
         admit_session_input)
     env = {**os.environ, 'HERMES_HOME': str(tmp_path), 'PYTHONPATH': str(Path.cwd())}
-    killed = subprocess.run([sys.executable, '-c', WORKER, str(tmp_path), hook, tool], env=env)
+    killed = subprocess.run([sys.executable, '-c', WORKER, str(tmp_path), hook, tool], env=env, check=False)
     assert killed.returncode == -signal.SIGKILL
     db = SessionDB(db_path=tmp_path / 'state.db')
     epoch = begin_runtime_epoch(db, instance_id='new')
@@ -178,10 +178,10 @@ def test_real_gateway_kill_and_resume(tmp_path, hook, expected):
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(home), PYTHONPATH=str(Path.cwd()))
     peer = Path(__file__).parent / 'fixtures' / 'tool_resume_peer.py'
     crash = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
-                           capture_output=True, text=True, timeout=80)
+                           capture_output=True, text=True, timeout=80, check=False)
     assert crash.returncode == -signal.SIGKILL, crash.stdout + crash.stderr
     recovered = subprocess.run([sys.executable, str(peer), 'recover', hook], env=env,
-                               capture_output=True, text=True, timeout=80)
+                               capture_output=True, text=True, timeout=80, check=False)
     assert recovered.returncode == 0, recovered.stdout + recovered.stderr
     assert len((home / 'done-count').read_text().splitlines()) == 1
     count = home / 'pending-count'
@@ -259,7 +259,7 @@ def test_queued_message_and_second_gateway_crash_keep_ask(tmp_path):
     peer = Path(__file__).parent / 'fixtures' / 'tool_resume_peer.py'
     for mode, expected in [('crash', -signal.SIGKILL), ('ask_crash', -signal.SIGKILL), ('pending_again', 0)]:
         result = subprocess.run([sys.executable, str(peer), mode, 'before_effect'], env=env,
-                                capture_output=True, text=True, timeout=80)
+                                capture_output=True, text=True, timeout=80, check=False)
         assert result.returncode == expected, result.stdout + result.stderr
         assert not (home / 'pending-count').exists(), (mode, (home / 'handler-events').read_text())
     assert not (home / 'pending-count').exists()
@@ -532,7 +532,7 @@ raise AssertionError('H4 did not fire')
 '''
     killed = subprocess.run([sys.executable, '-c', worker, str(tmp_path)], env={**os.environ,
         'HERMES_HOME': str(tmp_path), 'PYTHONPATH': str(Path.cwd()), 'ATUM_FAULT_TEST': '1',
-        'ATUM_FAULT_POINT': 'H4', 'ATUM_FAULT_ONCE': str(tmp_path / 'fault')})
+        'ATUM_FAULT_POINT': 'H4', 'ATUM_FAULT_ONCE': str(tmp_path / 'fault')}, check=False)
     assert killed.returncode == 86
     assert (tmp_path / 'fault').exists()
     db = SessionDB(db_path=tmp_path / 'transcript.db')

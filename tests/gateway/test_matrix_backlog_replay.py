@@ -166,7 +166,7 @@ async def test_live_durable_matrix_routes_to_running_agent_or_blocking_approval(
     source = SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org',
         user_id='@alice:example.org', chat_type='dm')
     key = runner._session_key_for_source(source)
-    running = SimpleNamespace(interrupt=MagicMock(), get_activity_summary=lambda: {})
+    running = SimpleNamespace(interrupt=MagicMock(), get_activity_summary=dict)
     turn = runner._session_state(key).turn
     turn.agent = running
     turn.event = MessageEvent(text='long task', source=source, message_id='$long')

@@ -9,12 +9,19 @@ import stat
 from pathlib import Path
 
 
+def _current_uid():
+    getuid = getattr(os, 'getuid', None)
+    if getuid is None:
+        raise NotImplementedError('Matrix intake control requires POSIX peer credentials')
+    return getuid()
+
+
 def socket_path(store):
     # Darwin limits AF_UNIX paths to 104 bytes; homes and pytest paths can exceed it.
-    root = Path('/tmp') / ('hermes-intake-' + str(os.getuid()))
+    root = Path('/tmp') / ('hermes-intake-' + str(_current_uid()))
     root.mkdir(mode=0o700, exist_ok=True)
     info = root.lstat()
-    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != _current_uid() or info.st_mode & 0o077:
         raise PermissionError('Unsafe intake control directory')
     key = hashlib.sha256(str(Path(store).resolve()).encode()).hexdigest()[:24]
     return str(root / (key + '.sock'))
@@ -52,7 +59,7 @@ class IntakeHold:
                 version, uid = struct.unpack_from('=II', credentials)
                 if version != 0:
                     raise PermissionError('Unsupported peer credentials')
-            if uid != os.getuid():
+            if uid != _current_uid():
                 raise PermissionError('snapshot control requires the gateway uid')
             async with asyncio.timeout(self.timeout):
                 if await reader.readline() != b'hold\n':

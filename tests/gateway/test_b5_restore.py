@@ -121,7 +121,7 @@ def test_native_backup_import_roundtrip_and_wal_journal(pair, tmp_path, monkeypa
     import hashlib
     from hermes_cli.backup import _write_full_zip_backup
     from gateway.backup_restore import restore_generation
-    db, store, row, _ = pair
+    _db, store, row, _ = pair
     store.db.execute('PRAGMA journal_mode=WAL')
     store.mark('$event', 'done', row['admission_id'], room_id='!room')
     home = tmp_path / 'source'
@@ -161,7 +161,7 @@ def test_native_backup_import_roundtrip_and_wal_journal(pair, tmp_path, monkeypa
 async def test_actual_back_to_back_copies_under_hold(pair, tmp_path):
     from gateway.intake_hold import IntakeHold
     from hermes_cli.backup_sqlite import _safe_copy_db
-    db, store, _, _ = pair
+    _db, store, _, _ = pair
     hold = IntakeHold(store)
     await hold.start()
     reader, writer = await asyncio.open_unix_connection(hold.path)
