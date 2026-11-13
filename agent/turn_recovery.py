@@ -1390,8 +1390,9 @@ def interruptible_backoff_sleep(
     messages: list[dict[str, Any]], conversation_history: Any, api_call_count: int,
     abort_message: str, interrupt_text: str, activity_label: str,
 ) -> Optional[dict[str, Any]]:
-    """Sleep ``wait_time`` in 200 ms slices so interrupts are honoured promptly, touching
-    activity every ~30 s so the gateway's inactivity monitor knows we are alive.
+    """Wait until the ``wait_time`` deadline in slices of at most 200 ms, clamping
+    the final requested sleep to the time remaining rather than rounding it up.
+    Touch activity every ~30 s so the gateway's inactivity monitor knows we are alive.
 
     On interrupt with ``_retry`` given and a redirect pending: preserve the redirect, arm
     ``_retry.restart_with_redirected_messages`` and return ``None`` (caller rebuilds the
