@@ -198,6 +198,7 @@ def reset_language_cache() -> None:
     ``save_config`` changes ``display.language``, after a pack registers/unregisters, or after editing
     an overlay file)."""
     _config_language_cached.cache_clear()
+    _owner_language_cached.cache_clear()
     with _catalog_lock:
         _catalog_cache.clear()
         _supported_cache.clear()
@@ -243,11 +244,38 @@ def t(key: str, lang: str | None = None, **format_kwargs: Any) -> str:
         return value
 
 
+@lru_cache(maxsize=8)
+def _owner_language_cached(hermes_home: str) -> str:
+    """``display.language`` exactly as configured (no catalog check), read once per profile home."""
+    try:
+        from hermes_cli.config import load_config_readonly
+        return i18n_layers.normalize_language_id((load_config_readonly().get("display") or {}).get("language"))
+    except Exception as exc:
+        logger.debug("Could not read display.language from config: %s", exc)
+        return ""
+
+
+def owner_text(en: str, vi: str) -> str:
+    """Pick a hand-written owner notice: Vietnamese when the profile asks for it, else English.
+
+    Short owner-facing notices are written by hand in the two owner languages. The configured
+    language is read as given, so Vietnamese works before any full ``vi`` catalog exists.
+    """
+    from agent.secret_scope import UnscopedSecretError, get_secret
+    try:
+        raw = get_secret("HERMES_LANGUAGE")
+    except UnscopedSecretError:
+        raw = os.environ.get("HERMES_LANGUAGE")
+    code = i18n_layers.normalize_language_id(raw) if raw else _owner_language_cached(_current_home())
+    return vi if code.split("-", 1)[0] in ("vi", "vietnamese") else en
+
+
 __all__ = [
     "DEFAULT_LANGUAGE",
     "SUPPORTED_LANGUAGES",
     "get_language",
     "language_options",
+    "owner_text",
     "reset_language_cache",
     "resolve_language_id",
     "supported_languages",

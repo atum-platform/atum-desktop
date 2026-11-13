@@ -106,8 +106,9 @@ def test_topup_second_retry_same_request_billed_once(status, mode):
     assert agent.session_completion_tokens == 2
     assert 6 <= clock.now <= 9.01
     assert len(requests) == 3 and requests[0] == requests[1] == requests[2]
-    agent._emit_status.assert_any_call('Waiting for usage top-up')
-    assert sum(c.args == ('Waiting for usage top-up',) for c in agent._emit_status.call_args_list) == 1
+    # One calm wait notice per turn, in owner words (no top-up/balance/allowance jargon).
+    waits = [c.args[0] for c in agent._emit_status.call_args_list if c.args]
+    assert len(waits) == 1 and not set(waits[0].lower().split()) & {'top-up', 'usage', 'balance', 'allowance'}
     agent._recover_with_credential_pool.assert_not_called()
     agent._try_activate_fallback.assert_not_called()
 
@@ -141,7 +142,8 @@ def test_persistent_and_stop_on_shared_handler(mode):
     assert verdict.result['failure_retryable'] is True
     assert 'balance' not in verdict.result['final_response'].lower()
     assert [(m['role'], m['content']) for m in messages] == [('user', 'hello')]
-    agent._emit_status.assert_called_once_with('Waiting for usage top-up')
+    agent._emit_status.assert_called_once()
+    assert 'top-up' not in verdict.result['final_response'].lower()
     agent._recover_with_credential_pool.assert_not_called()
     agent._try_activate_fallback.assert_not_called()
 
