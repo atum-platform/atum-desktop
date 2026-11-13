@@ -140,9 +140,10 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         try:
             migrated.collect()
             await migrated.recover(self.server)
-            self.assertEqual(self.server.requests[-1][2], 'legacy')
-            self.assertIsNotNone(migrated.db.execute(
-                "SELECT event FROM effects WHERE txn='legacy'").fetchone()[0])
+            self.assertEqual(self.server.requests, [])
+            # Migration retains the unknown receipt, but boot must not send it.
+            self.assertEqual(migrated.db.execute(
+                "SELECT content,event FROM effects WHERE txn='legacy'").fetchone(), ('{}', None))
         finally:
             migrated.db.close()
 
