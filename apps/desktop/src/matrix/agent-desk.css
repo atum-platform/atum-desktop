@@ -237,3 +237,11 @@
   box-shadow: var(--ak-shadow-1);
   padding: 4px;
 }
+
+/* One quiet line under Controls when a change did not take. */
+.atum-desk-quiet {
+  margin-top: var(--ak-s2);
+  padding: 0 10px;
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+}

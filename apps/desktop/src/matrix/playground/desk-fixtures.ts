@@ -1,6 +1,7 @@
 import type { MatrixMessage, MatrixSnapshot } from '../../../shared/matrix'
 import type {
   MatrixAgentDeskBridge,
+  MatrixHostAgentControl,
   MatrixHostDeskFiles,
   MatrixHostDeskRead,
   MatrixHostDeskSchedule
@@ -273,6 +274,8 @@ export function playgroundAgentDesk(locale: string): MatrixAgentDeskBridge {
   }
 
   return {
+    // Every control is accepted, as the host would with a running agent.
+    control: async (_principal: string, request: MatrixHostAgentControl) => ({ action: request.action, changed: 1 }),
     read: (async (_principal: string, request: MatrixHostDeskRead) => {
       if (request.read === 'schedule') {
         return schedule

@@ -537,6 +537,13 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'off', agentPrincipal, off })
   },
   agentDesk: {
+    control: (agentPrincipal, request) =>
+      ipcRenderer.invoke(channel.ui, {
+        kind: 'agentControl',
+        agentPrincipal,
+        action: request.action,
+        ...(request.action === 'routine_on' || request.action === 'routine_off' ? { job: request.job } : {})
+      }),
     read: (agentPrincipal, request) =>
       ipcRenderer.invoke(channel.ui, {
         kind: 'agentDesk',

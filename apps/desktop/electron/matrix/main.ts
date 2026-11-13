@@ -131,6 +131,7 @@ import {
   type MatrixTurnLookup
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import type { MatrixHostAgentControl } from '../../shared/matrix-agent-desk'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { appBotTurnRefusal } from '../../shared/matrix-app-bot-failure'
@@ -589,6 +590,7 @@ import {
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
+import { requestHostAgentControl } from './device/host-agent-control'
 import { requestHostDesk } from './device/host-desk'
 import { resolveDisclaimLauncher } from './device/launcher'
 import {
@@ -20975,6 +20977,8 @@ async function start() {
         /** `agentDesk`: which read of the agent's cloud home, and its folder for `files`. */
         read?: unknown
         path?: unknown
+        /** `agentControl`: the routine's native job ID for `routine_on` / `routine_off`. */
+        job?: unknown
         /** `modelDestinations` write: `cloud` or `mac:<device-service-id>`. */
         destination?: unknown
         /** `modelDestinations` cap: the whole Proton count; 0 is no limit. */
@@ -24048,6 +24052,38 @@ async function start() {
             agentHome?.prepare(agent, signal) ?? Promise.resolve({ ok: false as const, reason: 'unavailable' as const }),
           retained: agentHomePreflights
         })
+      }
+
+      if (request?.kind === 'agentControl') {
+        // The agent tab's Pause / Resume and per-routine switches: native cron through G14.
+        const principal = typeof request.agentPrincipal === 'string' ? request.agentPrincipal : ''
+        const action = request.action
+        const job = typeof request.job === 'string' ? request.job : undefined
+        const scope = account.appScope()
+
+        const control: MatrixHostAgentControl | undefined =
+          action === 'pause' || action === 'resume'
+            ? (job === undefined ? { action: action as 'pause' | 'resume' } : undefined)
+            : (action === 'routine_on' || action === 'routine_off') && job !== undefined
+              ? { action: action as 'routine_on' | 'routine_off', job }
+              : undefined
+
+        if (closing || !scope || !config.domain || !hostRuntimeAgents.has(principal) || !control) {
+          throw new Error('matrix_not_ready')
+        }
+
+        const result = await account.s1Request(
+          (token, base, signal) =>
+            requestHostAgentControl(base, token, principal, control, signal, (url, init) => session.defaultSession.fetch(url, init)),
+          AbortSignal.timeout(15_000), { timeoutMs: 15_000 })
+
+        const current = account.appScope()
+
+        if (closing || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
+          throw new Error('matrix_not_ready')
+        }
+
+        return result
       }
 
       if (request?.kind === 'agentDesk') {

@@ -9,7 +9,7 @@ import { useI18n } from '@/i18n'
 import { phosphorIcon } from '@/lib/phosphor-icon'
 
 import type { MatrixAgentView, MatrixMessage, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
-import type { MatrixHostDeskFiles, MatrixHostDeskSchedule } from '../../shared/matrix-agent-desk'
+import type { MatrixHostAgentControl, MatrixHostDeskFiles, MatrixHostDeskSchedule } from '../../shared/matrix-agent-desk'
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 import type { MatrixDeviceBridge } from '../../shared/matrix-device'
@@ -40,6 +40,7 @@ const BellIcon = phosphorIcon('bell')
 const CalendarIcon = phosphorIcon('calendar-blank')
 const CaretIcon = phosphorIcon('caret-right')
 const FolderIcon = phosphorIcon('folder-simple')
+const PauseIcon = phosphorIcon('pause')
 const SearchIcon = phosphorIcon('magnifying-glass')
 const SlidersIcon = phosphorIcon('sliders-horizontal')
 const CheckIcon = phosphorIcon('check')
@@ -657,15 +658,41 @@ function OwnFiles({ own }: { own: ReturnType<typeof useOwnFiles> }) {
   )
 }
 
-/** Its routines as the host reads its native schedule (read-only), soonest first. */
-function Routines({ agent }: { agent: MatrixAgentView }) {
-  const { locale } = useI18n()
-  const copy = matrixAgentDeskText(locale)
+type Jobs = MatrixHostDeskSchedule['jobs']
+type JobState = Jobs[number]['state']
+
+const LIVE: ReadonlySet<JobState> = new Set(['scheduled', 'running'])
+
+/** Paused when it has routines and none of them can start on its own. */
+export function matrixAgentDeskPaused(jobs: Jobs | undefined): boolean {
+  return Boolean(jobs?.some(job => job.state === 'paused') && !jobs.some(job => LIVE.has(job.state)))
+}
+
+/** The shared Shell cooldown (10 s per agent schedule) answers a quick second request with 429. */
+export const MATRIX_AGENT_CONTROL_RETRY_MS = 10_500
+
+/**
+ * Its native schedule as the host reads it (desk H1), plus its controls through the host
+ * agent-control route: Pause / Resume (native cron pause, resume with no catch-up) and each
+ * routine on or off. Optimistic: the switch moves at once and rolls back if the host refuses
+ * or changes nothing; a busy reply (the shared cooldown) is retried once after it.
+ */
+function useAgentSchedule(active: boolean, agent: MatrixAgentView) {
   const desk = window.atumMatrix.agentDesk
-  const [jobs, setJobs] = useState<MatrixHostDeskSchedule['jobs']>()
+  const [jobs, setJobs] = useState<Jobs>()
+  const [problem, setProblem] = useState<'failed' | 'stopped'>()
+  const live = useRef(true)
 
   useEffect(() => {
-    if (!desk || agent.runtime !== 'hermes') {
+    live.current = true
+
+    return () => {
+      live.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!active || !desk || agent.runtime !== 'hermes') {
       return
     }
 
@@ -678,7 +705,68 @@ function Routines({ agent }: { agent: MatrixAgentView }) {
     return () => {
       current = false
     }
-  }, [agent.principal, agent.runtime, desk])
+  }, [active, agent.principal, agent.runtime, desk])
+
+  const control = (request: MatrixHostAgentControl, optimistic: (jobs: Jobs) => Jobs) => {
+    const send = desk?.control
+
+    if (!send || !jobs) {
+      return
+    }
+
+    const before = jobs
+    setProblem(undefined)
+    setJobs(optimistic(jobs))
+
+    const attempt = (retry: boolean): Promise<void> =>
+      send(agent.principal, request).then(
+        reply => {
+          // Resume that changed nothing (its routines were turned off one by one) is no resume.
+          if (live.current && reply.changed === 0 && request.action !== 'pause') {
+            setJobs(before)
+          }
+        },
+        (error: unknown) => {
+          const code = error instanceof Error ? error.message : ''
+
+          if (retry && code === 'matrix_host_control_busy') {
+            return new Promise<void>(resolve => setTimeout(resolve, MATRIX_AGENT_CONTROL_RETRY_MS)).then(() =>
+              live.current ? attempt(false) : undefined
+            )
+          }
+
+          if (live.current) {
+            setJobs(before)
+            setProblem(code === 'matrix_host_control_stopped' ? 'stopped' : 'failed')
+          }
+        }
+      )
+
+    void attempt(true)
+  }
+
+  const setState = (from: (state: JobState) => boolean, to: JobState, only?: string) => (list: Jobs) =>
+    list.map(job => ((only === undefined || job.id === only) && from(job.state) ? { ...job, state: to } : job))
+
+  return {
+    jobs,
+    problem,
+    canControl: Boolean(desk?.control && jobs?.length),
+    pause: () => control({ action: 'pause' }, setState(state => LIVE.has(state), 'paused')),
+    resume: () => control({ action: 'resume' }, setState(state => state === 'paused', 'scheduled')),
+    routine: (job: string, on: boolean) =>
+      control(
+        on ? { action: 'routine_on', job } : { action: 'routine_off', job },
+        on ? setState(state => state === 'paused', 'scheduled', job) : setState(state => LIVE.has(state), 'paused', job)
+      )
+  }
+}
+
+/** Its routines, soonest first, each with its own switch when the host can change it. */
+function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> }) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const { jobs } = schedule
 
   if (!jobs?.length) {
     return null
@@ -692,34 +780,47 @@ function Routines({ agent }: { agent: MatrixAgentView }) {
   return (
     <>
       <div className="atum-desk-subhead">{copy.routines}</div>
-      {jobs.map(job => (
-        <div className="ak-row" data-agent-desk-routine={job.state} key={job.id} role="listitem">
-          <CalendarIcon aria-hidden className="ak-icon" />
-          <span className="ak-row-main">
-            <span className="truncate">{job.name}</span>
-          </span>
-          <span className="atum-desk-row-end">
-            {job.state === 'paused' ? copy.paused : when(job.nextRunAt) ? copy.nextRun(when(job.nextRunAt)!) : null}
-          </span>
-        </div>
-      ))}
+      {jobs.map(job => {
+        const switchable = schedule.canControl && (LIVE.has(job.state) || job.state === 'paused')
+        const next = job.state === 'paused' ? copy.paused : when(job.nextRunAt) ? copy.nextRun(when(job.nextRunAt)!) : undefined
+
+        return (
+          <div className="ak-row" data-agent-desk-routine={job.state} key={job.id} role="listitem">
+            <CalendarIcon aria-hidden className="ak-icon" />
+            <span className="ak-row-main">
+              <span className="truncate">{job.name}</span>
+              {next && <span className="ak-row-meta">{next}</span>}
+            </span>
+            {switchable && (
+              <Switch
+                aria-label={job.name}
+                checked={job.state !== 'paused'}
+                onCheckedChange={on => schedule.routine(job.id, on)}
+              />
+            )}
+          </div>
+        )
+      })}
     </>
   )
 }
 
 /**
  * Controls: the agent's settings that are real somewhere already. Notifications are this chat's
- * own mute (Matrix push rules); the model is the one picker row the agent's card uses; your
- * devices fold to one row. Rare ones sit behind one More: its routines (host schedule read) and
- * the agent's card for everything else.
+ * own mute (Matrix push rules); the model is the one picker row the agent's card uses; Pause is
+ * native cron through the host (it still answers you and starts nothing on its own, said in a
+ * tooltip); your devices fold to one row. Rare ones sit behind one More: its routines, each with
+ * a switch, and the agent's card for everything else.
  */
 function Controls({
+  active,
   agent,
   devices,
   room,
   snapshot,
   stop
 }: {
+  active: boolean
   agent: MatrixAgentView
   devices: ReturnType<typeof matrixAgentDeskDevices>
   room: MatrixRoom
@@ -730,6 +831,8 @@ function Controls({
   const copy = matrixAgentDeskText(locale)
   const [muted, setMuted] = useState(Boolean(room.muted))
   const [more, setMore] = useState(false)
+  const schedule = useAgentSchedule(active, agent)
+  const paused = matrixAgentDeskPaused(schedule.jobs)
 
   useEffect(() => setMuted(Boolean(room.muted)), [room.muted])
 
@@ -751,6 +854,19 @@ function Controls({
         </div>
       )}
       <div className="ak-group mt-2" role="list">
+        {schedule.canControl && (
+          <label className="ak-row" data-agent-desk-pause={paused ? 'paused' : 'running'} role="listitem" title={copy.pauseHint}>
+            <PauseIcon aria-hidden className="ak-icon" />
+            <span className="ak-row-main">
+              <span className="truncate">{copy.pause}</span>
+            </span>
+            <Switch
+              aria-label={copy.pause}
+              checked={paused}
+              onCheckedChange={on => (on ? schedule.pause() : schedule.resume())}
+            />
+          </label>
+        )}
         <label className="ak-row" role="listitem">
           <BellIcon aria-hidden className="ak-icon" />
           <span className="ak-row-main">
@@ -773,7 +889,7 @@ function Controls({
         </button>
         {more && (
           <div className="atum-desk-fold-body" role="list">
-            <Routines agent={agent} />
+            <Routines schedule={schedule} />
             <button
               className="ak-row w-full text-left"
               onClick={() => openAssistantCard({ kind: 'agent', principal: agent.principal })}
@@ -787,6 +903,11 @@ function Controls({
           </div>
         )}
       </div>
+      {schedule.problem && (
+        <p className="atum-desk-quiet" role="status">
+          {schedule.problem === 'stopped' ? copy.computerOff : copy.controlFailed}
+        </p>
+      )}
     </section>
   )
 }
@@ -858,6 +979,7 @@ export function MatrixAgentDesk({
           {deviceInUse && <DevicesSection devices={devices} focus stop={stop} />}
           <FilesSection active={active} agent={agent} locale={locale} roomId={room.id} sent={sent} />
           <Controls
+            active={active}
             agent={agent}
             devices={deviceInUse ? [] : devices}
             room={room}

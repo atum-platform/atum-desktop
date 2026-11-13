@@ -55,7 +55,7 @@ describe('Shell host agent control', () => {
     [401, 'matrix_s1_authentication'],
     [409, 'matrix_host_control_stopped'],
     [403, 'matrix_host_control_refused'],
-    [429, 'matrix_host_control_refused'],
+    [429, 'matrix_host_control_busy'],
     [503, 'matrix_host_control_refused']
   ])('maps %s to %s', async (status, error) => {
     const fetcher = vi.fn(async () => Response.json({ error: 'private' }, { status: status as number }))

@@ -115,8 +115,37 @@ type ReplyFor<T extends MatrixHostDeskRead> = T extends { read: 'schedule' }
     ? MatrixHostDeskMemory
     : MatrixHostDeskFiles
 
-/** Main's bridge: one read for one of the owner's native Hermes agents, by principal. */
+/**
+ * The agent's controls (`POST /api/host/agent-control`, platform 5b47b6eddc → G14 native cron
+ * pause/resume with no catch-up). Mirrors `@atum/protocol` host-agent-control.ts exactly.
+ */
+export type MatrixHostAgentControl =
+  | { action: 'pause' }
+  | { action: 'resume' }
+  | { action: 'routine_on'; job: string }
+  | { action: 'routine_off'; job: string }
+
+export const MatrixHostAgentControlRequestSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('pause') }).strict(),
+  z.object({ action: z.literal('resume') }).strict(),
+  z.object({ action: z.literal('routine_on'), job: z.string().min(1).max(512) }).strict(),
+  z.object({ action: z.literal('routine_off'), job: z.string().min(1).max(512) }).strict()
+])
+
+export const MatrixHostAgentControlResponseSchema = z
+  .object({
+    action: z.enum(['pause', 'resume', 'routine_on', 'routine_off']),
+    changed: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
+  })
+  .strict()
+
+export type MatrixHostAgentControlResponse = z.infer<typeof MatrixHostAgentControlResponseSchema>
+
+/** Main's bridge for one of the owner's native Hermes agents, by principal. */
 export interface MatrixAgentDeskBridge {
   read<T extends MatrixHostDeskRead>(agentPrincipal: string, request: T): Promise<ReplyFor<T>>
+  /** Optional while the renderer and main can be upgraded on separate clocks. Rejects with
+   * `matrix_host_control_stopped` when its runtime is stopped (409). */
+  control?(agentPrincipal: string, request: MatrixHostAgentControl): Promise<MatrixHostAgentControlResponse>
 }
 /* eslint-enable no-control-regex */

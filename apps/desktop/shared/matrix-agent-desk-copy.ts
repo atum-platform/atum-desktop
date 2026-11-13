@@ -60,6 +60,14 @@ export interface MatrixAgentDeskCopy {
   nextRun: (when: string) => string
   /** Opens the agent's card, where every other setting lives. */
   allSettings: string
+  /** The Pause switch: its routines and anything it would start on its own wait. */
+  pause: string
+  /** Pause's tooltip: the owner's 11-11 meaning, never panel text. */
+  pauseHint: string
+  /** One quiet line when a control did not take (the switch has moved back). */
+  controlFailed: string
+  /** One quiet line when its runtime is stopped (409): nothing was changed. */
+  computerOff: string
   /** On the chat's working line: open the side panel on the agent's own tab. */
   watch: string
 }
@@ -97,6 +105,10 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     paused: 'Tạm dừng',
     nextRun: when => `Lần tới: ${when}`,
     allSettings: 'Tất cả cài đặt',
+    pause: 'Tạm dừng',
+    pauseHint: 'Vẫn trả lời bạn. Không tự bắt đầu việc gì.',
+    controlFailed: 'Chưa đổi được.',
+    computerOff: 'Máy của nó đang tắt.',
     watch: 'Xem'
   },
   en: {
@@ -131,6 +143,10 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     paused: 'Paused',
     nextRun: when => `Next: ${when}`,
     allSettings: 'All settings',
+    pause: 'Pause',
+    pauseHint: 'Still answers you. Starts nothing on its own.',
+    controlFailed: 'Couldn’t change that.',
+    computerOff: 'Its computer is off right now.',
     watch: 'Watch'
   },
   ja: {
@@ -165,6 +181,10 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     paused: '一時停止中',
     nextRun: when => `次回: ${when}`,
     allSettings: 'すべての設定',
+    pause: '一時停止',
+    pauseHint: '返信は続けます。自分から作業は始めません。',
+    controlFailed: '変更できませんでした。',
+    computerOff: 'エージェントのコンピュータは停止中です。',
     watch: '見る'
   },
   zh: {
@@ -199,6 +219,10 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     paused: '已暂停',
     nextRun: when => `下次：${when}`,
     allSettings: '全部设置',
+    pause: '暂停',
+    pauseHint: '仍会回复你，但不会自行开始任何事。',
+    controlFailed: '未能更改。',
+    computerOff: '它的电脑目前已关闭。',
     watch: '查看'
   },
   'zh-hant': {
@@ -233,6 +257,10 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     paused: '已暫停',
     nextRun: when => `下次：${when}`,
     allSettings: '全部設定',
+    pause: '暫停',
+    pauseHint: '仍會回覆你，但不會自行開始任何事。',
+    controlFailed: '未能變更。',
+    computerOff: '它的電腦目前已關閉。',
     watch: '查看'
   }
 }

@@ -13,6 +13,7 @@ import type {
 import { matrixAgentDeskCopy } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 
+import { MATRIX_AGENT_CONTROL_RETRY_MS } from './agent-desk'
 import {
   matrixAgentDeskAgent,
   matrixAgentDeskDevices,
@@ -945,5 +946,50 @@ describe('round 4: pause and routines', () => {
     })
 
     expect(control).toHaveBeenCalledWith('agent-luna', { action: 'routine_on', job: 'sweep' })
+  })
+
+  it('retries once after the shared cooldown when the host is busy, keeping the switch where you put it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    let calls = 0
+
+    const control = bridge([job('brief', 'Morning brief', 'scheduled')], async () => {
+      calls++
+
+      if (calls === 1) {
+        throw new Error('matrix_host_control_busy')
+      }
+
+      return { action: 'pause', changed: 1 }
+    })
+
+    render(panel(hermesBase()))
+    const toggle = await waitFor(() => pauseSwitch())
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(pauseSwitch().getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(MATRIX_AGENT_CONTROL_RETRY_MS)
+    })
+
+    expect(control).toHaveBeenCalledTimes(2)
+    expect(pauseSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(screen.queryByText(en.controlFailed)).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('moves the switch back when Resume changed nothing (its routines were turned off one by one)', async () => {
+    bridge([job('brief', 'Morning brief', 'paused')], async () => ({ action: 'resume', changed: 0 }))
+    render(panel(hermesBase()))
+    const toggle = await waitFor(() => pauseSwitch())
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    await waitFor(() => expect(pauseSwitch().getAttribute('aria-checked')).toBe('true'))
   })
 })
