@@ -8,7 +8,9 @@ from uuid import UUID
 
 from tools import desktop_ui
 from tools.atum_source_policy import source_enabled
-from tools.atum_source_transport import source_transport, source_transport_enabled, source_transport_error
+from tools.atum_source_transport import (
+    source_transport, source_transport_enabled, source_transport_error, source_transport_http_error,
+)
 from tools.registry import registry, tool_error
 
 _HOST_TIMEOUT_SECONDS = 60
@@ -413,8 +415,8 @@ def atum_chats(
     if transport is not None:
         try:
             receipt = json.dumps(transport("chats", payload), ensure_ascii=False)
-        except Exception:
-            return tool_error("Owner chats are unavailable for this run.")
+        except Exception as error:
+            return source_transport_http_error(error) or tool_error("Owner chats are unavailable for this run.")
     else:
         receipt = desktop_ui.request(
             "atum.chats.request", payload, timeout=_HOST_TIMEOUT_SECONDS

@@ -29,7 +29,9 @@ from typing import Any, Dict, Optional, Tuple
 
 from agent.atum_google_fence import broker_origin, mark_holding
 from tools.atum_source_policy import source_enabled
-from tools.atum_source_transport import source_transport, source_transport_enabled, source_transport_error
+from tools.atum_source_transport import (
+    source_transport, source_transport_enabled, source_transport_error, source_transport_http_error,
+)
 from tools.registry import registry, tool_error
 
 URL_ENV = "ATUM_GOOGLE_TOOLS_URL"
@@ -189,7 +191,10 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
             body = json.dumps(result, ensure_ascii=False)
             if len(body.encode("utf-8")) > _MAX_RESPONSE_BYTES:
                 return unconfirmed()
-        except Exception:
+        except Exception as error:
+            correction = source_transport_http_error(error)
+            if correction is not None and action not in _WRITES:
+                return correction
             return unconfirmed()
         mark_holding()
         return body
@@ -221,7 +226,10 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
             else _WRITE_TIMEOUT_SECONDS if action in _WRITES else _READ_TIMEOUT_SECONDS,
         ) as response:
             body = response.read(_MAX_RESPONSE_BYTES + 1)
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as error:
+        correction = source_transport_http_error(error)
+        if correction is not None and action not in _WRITES:
+            return correction
         return tool_error("Google is not available to this assistant.")
     except (OSError, ValueError):
         if action in _WRITES:
