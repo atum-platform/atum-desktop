@@ -4411,17 +4411,16 @@ class BasePlatformAdapter(ABC):
         _thread_metadata = None
         try:
             _thread_metadata = _thread_metadata_for_event(event)
-            error_detail = str(e)[:300] if str(e) else t("gateway.notify.turn_error_no_details")
             # Only the policy reads bind the routed profile; the send stays in the launch scope
             # as before, so delivery bookkeeping keeps landing where boot-time recovery reads it.
             with self._media_delivery_scope(event.source):
-                content = None if diagnostic_wake_muted(event) else self.warning_text(
-                    t("gateway.notify.turn_error_detailed", error_type=type(e).__name__, error_detail=error_detail),
-                    t("gateway.notify.turn_error"),
-                    logical_platform=event.source.platform, chat_id=event.source.chat_id, metadata=_thread_metadata)
+                # The traceback stays in the log. Never prescribe a destructive session reset
+                # or expose internal exception details in a last-resort owner notice.
+                content = None if diagnostic_wake_muted(event) else t("gateway.notify.turn_error")
             if content is None:
                 return _thread_metadata
-            await self.send(chat_id=event.source.chat_id, content=content, metadata=_thread_metadata)
+            await self.send(chat_id=event.source.chat_id, content=content,
+                            reply_to=_reply_anchor_for_event(event), metadata=_thread_metadata)
         except Exception as notify_err:
             logger.error(
                 "[%s] Failed to send error notification to user: %s", self.name, notify_err, exc_info=True)

@@ -2522,6 +2522,14 @@ class MatrixAdapter(BasePlatformAdapter):
             platform_config = runner_config.platforms.setdefault(Platform.MATRIX, self.config)
             platform_config.home_channel = home
 
+    async def _notify_turn_error(self, event: MessageEvent, e: BaseException) -> Optional[dict]:
+        # The durable journal still owns this attempt: the batch will retry it. Reporting
+        # a failed turn here would be false (and produce one notice per event per retry).
+        store = getattr(self, '_intake', None)
+        if store is not None and store.state(event.message_id) == 'pending':
+            return None
+        return await super()._notify_turn_error(event, e)
+
     async def handle_message(self, event: MessageEvent) -> None:
         self._auto_home_owner_dm(event)
         store = getattr(self, "_intake", None)
