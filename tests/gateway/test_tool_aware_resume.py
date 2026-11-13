@@ -22,9 +22,9 @@ def test_unfinished_only_and_unknown_conservative():
                {'role': 'tool', 'tool_call_id': 'a', 'content': 'written'}, call('b', 'read_file')]
     before = json.dumps(history)
     policy = choose_resume_policy(history)
-    assert policy.ask  # a legacy write result has no positive read-only classification
+    assert not policy.ask  # a durable result is completion evidence, including writes
     assert recovery_tool_block(policy, 'write_file', {})
-    assert recovery_tool_block(policy, 'read_file', {})
+    assert recovery_tool_block(policy, 'read_file', {}) is None
     assert json.dumps(history) == before  # cached prefix and role sequence untouched
     for name in ('terminal', 'append_test', 'connectors__execute', 'delegate_task'):
         policy = choose_resume_policy([call('x', name)])
@@ -500,7 +500,7 @@ def test_runner_targets_admission_source_before_first_user_write(tmp_path):
     turn._runner = runner
     turn._ctx = SimpleNamespace(source=None, session_key='key', session_id='s', history=history,
         message='Search Fansipan height', persist_user_message=None, persist_user_timestamp=None,
-        inbound_message_id='$new')
+        inbound_message_id='$new', persist_user_display_metadata={'crash_resume_source_id': '$new'})
     turn._prepare_turn_message(history)
     assert not turn._resume_policy.ask
     assert 'Search Fansipan height' in turn._ctx.message
@@ -537,7 +537,7 @@ raise AssertionError('H4 did not fire')
     assert (tmp_path / 'fault').exists()
     db = SessionDB(db_path=tmp_path / 'transcript.db')
     history = db.get_messages_as_conversation('s')
-    assert choose_resume_policy(history).ask  # reproduce the old wrong-turn inference
+    assert not choose_resume_policy(history).ask  # the completed prior effect is excluded
     policy = choose_resume_policy(history, source_message_id='$new')
     assert not policy.ask
     assert 'cron' not in policy.note()
@@ -559,3 +559,61 @@ def test_source_bounded_policy_keeps_completed_reads_and_excludes_later_turn():
     assert recovery_tool_block(policy, 'web_search', {})
     assert recovery_tool_block(policy, 'read_file', {}) is None
     assert recovery_tool_block(policy, 'cron', {})
+
+
+@pytest.mark.parametrize('source', [None, '$done'])
+def test_completed_effect_is_never_offered_as_half_happened(source):
+    history = [{'role': 'user', 'content': 'send', 'platform_message_id': '$done'},
+               call('sent', 'send_message'),
+               {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'},
+               {'role': 'assistant', 'content': 'Done'}]
+    policy = choose_resume_policy(history, source_message_id=source)
+    assert not policy.ask
+    assert policy.actions == ()
+    assert recovery_tool_block(policy, 'send_message', {})
+
+
+def test_bare_please_does_not_authorize_resume():
+    from tools.approval import exact_gateway_approval_choice
+    assert exact_gateway_approval_choice('please', 'token', allow_unscoped=True) is None
+
+
+def test_new_message_after_discard_gets_no_recovery_instruction():
+    from gateway.run_turn_runner import TurnRunner
+    history = [{'role': 'user', 'content': 'old'}, call('unsafe', 'send_message')]
+    entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
+    turn = object.__new__(TurnRunner)
+    turn._runner = SimpleNamespace(session_store=SimpleNamespace(_entries={'key': entry}),
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True))
+    turn._ctx = SimpleNamespace(source=None, session_key='key', history=history,
+        message='unrelated new request', persist_user_message=None, persist_user_timestamp=None,
+        inbound_message_id='$fresh')
+    turn._prepare_turn_message(history)
+    assert turn._resume_policy is None
+    assert 'Continue the interrupted' not in turn._ctx.message
+
+
+def test_legacy_resume_scans_unfinished_calls_without_last_user_fallback():
+    history = [{'role': 'user', 'content': 'read'}, call('unfinished', 'read_file'),
+        {'role': 'user', 'content': 'send'}, call('sent', 'send_message'),
+        {'role': 'tool', 'tool_call_id': 'sent', 'content': 'sent'},
+        {'role': 'assistant', 'content': 'Done'}]
+    policy = choose_resume_policy(history)
+    assert not policy.ask
+    assert policy.actions == ('read_file',)
+    assert recovery_tool_block(policy, 'send_message', {})
+
+
+@pytest.mark.parametrize('inbound_id', ['$new', None])
+def test_recovery_metadata_must_match_running_source(inbound_id):
+    from gateway.run_turn_runner import TurnRunner
+    history = [{'role': 'user', 'content': 'old', 'platform_message_id': '$old'}, call('unsafe', 'send_message')]
+    entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
+    turn = object.__new__(TurnRunner)
+    turn._runner = SimpleNamespace(session_store=SimpleNamespace(_entries={'key': entry}),
+        _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True))
+    turn._ctx = SimpleNamespace(source=None, session_key='key', history=history,
+        message='new request', persist_user_message=None, persist_user_timestamp=None,
+        inbound_message_id=inbound_id, persist_user_display_metadata={'crash_resume_source_id': '$old'})
+    turn._prepare_turn_message(history)
+    assert turn._resume_policy is None

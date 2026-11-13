@@ -265,6 +265,7 @@ async def execute_admission(authority, ref, row):
             authority.runner.session_store.mark_resume_pending(live.route, reason='restore_backup')
 
         if not restored and row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
+            event.metadata['crash_resume_source_id'] = str(event.message_id)
             # Keep the native source ID for the final obligation; never replay user input.
             # Preserve an input that never reached its first durable user row (H7).
             recorded = authority.db._read_one(

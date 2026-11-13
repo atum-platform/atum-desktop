@@ -106,12 +106,17 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(targets, [self.turn.root])
         self.assertNotIn(final, targets)
 
-    async def test_ambiguous_progress_receipt_cleans_up_on_settlement_without_restart(self):
+    async def test_ambiguous_progress_receipt_waits_for_read_only_boot_lookup(self):
         self.server.lose_reply = True
         with self.assertRaises(ConnectionError):
             await self.turn.progress('Working')
         original = next(iter(self.server.effects.values()))[3]
+        before = len(self.server.requests)
         await self.turn.end()
+        self.assertEqual(len(self.server.requests), before)
+        async def resolve(room, txn):
+            return self.server.effects[txn][3]
+        await self.box.recover(self.server, resolve=resolve)
         targets = [request[3] for request in self.server.requests if request[3]]
         self.assertEqual(targets, [original])
 
@@ -428,6 +433,7 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
         try:
             self.assertTrue(await adapter.connect())
             self.assertTrue(adapter._presentation_ready.is_set())
+            await adapter._presentation_recovery_task
             self.assertGreater(adapter._presentation_box.db.execute(
                 'SELECT count(*) FROM effects WHERE event IS NULL').fetchone()[0], 0)
         finally:
@@ -545,7 +551,7 @@ class BootCleanup(unittest.IsolatedAsyncioTestCase):
                 {'body': 'Pending edit', 'm.new_content': {'body': 'Pending edit'},
                  'm.relates_to': {'rel_type': 'm.replace', 'event_id': root}},
             ]):
-                box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+                box.db.execute('INSERT INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
                     (f'pending-{n}', '!room', json.dumps(content), None, 1))
             box.db.commit()
             server.requests.clear()
@@ -560,7 +566,7 @@ class LostReceiptLookup(unittest.IsolatedAsyncioTestCase):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as home:
             box = p.Outbox(Path(home) / 'presentation.db')
-            box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+            box.db.execute('INSERT INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
                 ('lost', '!room', '{}', None, 1))
             box.db.commit()
             requests = []
@@ -578,3 +584,41 @@ class LostReceiptLookup(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(all(method == 'GET' for method, _ in requests))
             self.assertEqual(requests[1][1]['query_params']['from'], 'older')
             box.db.close()
+
+
+class ReviewFixes(unittest.IsolatedAsyncioTestCase):
+    async def test_unresolved_receipt_expires_and_boots_are_bounded(self):
+        from unittest.mock import AsyncMock
+        with tempfile.TemporaryDirectory() as directory:
+            box = p.Outbox(Path(directory) / 'outbox.db')
+            box.db.execute("INSERT INTO effects (txn,room,content,created) VALUES (?,?,?,?)",
+                ('lost', '!room', json.dumps({'io.atum.progress': True}), 1))
+            box.db.commit()
+            resolve = AsyncMock(return_value=None)
+            await box.recover(AsyncMock(), resolve=resolve)
+            resolve.assert_not_awaited()
+            box.db.execute("UPDATE effects SET created=?,abandoned=0", (p.time.time(),))
+            box.db.commit()
+            for _ in range(6):
+                await box.recover(AsyncMock(), resolve=resolve)
+            assert resolve.await_count == 3
+            box.db.close()
+
+    async def test_connect_returns_before_cleanup(self):
+        class Base:
+            async def connect(self):
+                return True
+        adapter = p.adapter_class(Base)()
+        from unittest.mock import AsyncMock, patch
+        gate = asyncio.Event()
+        async def recover(*args):
+            await gate.wait()
+        with patch.object(p.Outbox, 'recover', side_effect=recover):
+            try:
+                assert await asyncio.wait_for(adapter.connect(), .2)
+            finally:
+                gate.set()
+                task = getattr(adapter, '_presentation_recovery_task', None)
+                if task:
+                    await task
+                adapter._presentation_box.db.close()

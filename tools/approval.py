@@ -161,7 +161,7 @@ def exact_gateway_approval_choice(text: str, request_id: str, *, allow_unscoped:
     answer = ' '.join(answer.split())
     for choice, words in (
         # Natural answers to the resume reminder in both owner languages (exact matches only).
-        ('once', ('yes', 'yeah', 'yep', 'ok', 'okay', 'go ahead', 'do it', 'sure', 'yes please', 'please',
+        ('once', ('yes', 'yeah', 'yep', 'ok', 'okay', 'go ahead', 'do it', 'sure', 'yes please',
                   'carry on', 'go on', 'continue', 'có', 'ừ', 'ừm', 'vâng', 'được', 'đồng ý', 'làm đi',
                   'làm tiếp', 'làm tiếp đi', 'tiếp đi', 'tiếp tục')),
         ('deny', ('no', 'nope', 'no thanks', 'dont', 'leave it', 'skip it', 'stop', 'cancel', 'không',

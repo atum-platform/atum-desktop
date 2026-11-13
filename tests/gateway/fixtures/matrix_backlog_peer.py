@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import threading
+import sys
 import traceback
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -17,6 +18,9 @@ class Model(BaseHTTPRequestHandler):
 
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+        if 'messages' not in request:
+            self.send_error(400, 'fixture accepts chat completions')
+            return
         latest = next(m['content'] for m in reversed(request['messages']) if m['role'] == 'user')
         numbers = re.findall(r'CHECK5_(\d+)', str(latest))
         text = 'ack ' + numbers[-1] if numbers else 'unexpected input'
@@ -81,7 +85,8 @@ async def probe(peer):
         return transactions[txn_id]
 
     async def inbound(room, sender, eid, timestamp, content, relates):
-        e = MessageEvent(text=content['body'], message_id=eid, source=SessionSource(
+        from datetime import datetime, UTC
+        e = MessageEvent(timestamp=datetime.fromtimestamp(timestamp, UTC), text=content['body'], message_id=eid, source=SessionSource(
             platform=Platform.MATRIX, chat_id=room, chat_type='dm', user_id=sender))
         await a.handle_message(e)
     a._handle_text_message = inbound
@@ -109,20 +114,38 @@ async def probe(peer):
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
     runner._startup_restore_in_progress = True
     runner._startup_restore_queue = []
-    sync = batch([raw(i) for i in range(16, 26)], 'after-restart', True)
+    legacy = '--legacy-resume' in sys.argv
+    if legacy:
+        from gateway.run import _AGENT_PENDING_SENTINEL
+        source = SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org',
+            chat_type='dm', user_id='@alice:example.org')
+        entry = runner.session_store.get_or_create_session(source)
+        runner.session_store.mark_resume_pending(entry.session_key, reason='restart_interrupted')
+        runner._session_state(entry.session_key).turn.agent = _AGENT_PENDING_SENTINEL
+        async def finish_legacy():
+            await asyncio.sleep(1)
+            assert finals == [] and peer.inputs == [], 'durable turn overlapped legacy resume'
+            runner._release_running_agent_state(entry.session_key)
+        release = asyncio.create_task(finish_legacy())
+        a._startup_ts = 0  # the new durable event is live
+    count = 1 if legacy else 25
+    sync = (batch([raw(1)], 'live-during-resume') if legacy else
+        batch([raw(i) for i in range(16, 26)], 'after-restart', True))
     await asyncio.wait_for(a._absorb_sync(client, sync), 60)
-    await async_wait_until(lambda: len(finals) == 25, timeout=90, what='25 linked finals')
-    assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, 26)], finals
+    await async_wait_until(lambda: len(finals) == count, timeout=90, what='source-linked finals')
+    if legacy:
+        await release
+    assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, count + 1)], finals
     assert not any('send it again' in str(content).lower() for content in publications), publications
     assert runner._startup_restore_queue == [], runner._startup_restore_queue
     assert all(len(numbers) == 1 for numbers in peer.inputs), peer.inputs
-    assert len(peer.inputs) == 25, peer.inputs
+    assert len(peer.inputs) == count, peer.inputs
     # Reopen the journal as on process restart, replay the multi-page batch.
     a._intake.close()
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
     await a._dispatch_sync(sync)
-    assert len(finals) == 25
-    assert client.get_messages.await_count == 2
+    assert len(finals) == count
+    assert client.get_messages.await_count == (0 if legacy else 2)
     a._intake.close()
     print(json.dumps({'finals': finals, 'model_calls': len(peer.inputs), 'startup_queue': 0}))
 
@@ -134,7 +157,7 @@ if __name__ == '__main__':
     url = f'http://127.0.0.1:{peer.server_port}/v1'
     os.environ.update(OPENAI_API_KEY='offline-loopback', OPENAI_BASE_URL=url, MATRIX_ALLOWED_USERS='@alice:example.org')
     Path(os.environ['HERMES_HOME'], 'config.yaml').write_text(
-        f'model:\n  default: local-wire-stub\n  provider: custom\n  base_url: {url}\n'
+        f'model:\n  default: local-wire-stub\n  provider: custom\n  api_mode: chat_completions\n  base_url: {url}\n'
         'auxiliary:\n  title_generation:\n    enabled: false\n'
         'display:\n  busy_input_mode: interrupt\n  streaming: false\n'
         f'terminal:\n  cwd: {os.environ["HERMES_HOME"]}\n')

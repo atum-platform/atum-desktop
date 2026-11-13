@@ -239,6 +239,7 @@ async def fill_gaps(client, batch, frontier, *, reset=False):
                     break
                 if raw['event_id'] not in ids:
                     ids.add(raw['event_id'])
+                    raw = dict(raw, _matrix_backlog=True)
                     older.append(raw)
                     older_bytes += len(json.dumps(raw))
                     if len(older) + len(events) > 10000 or older_bytes > 16 * 1024 * 1024:

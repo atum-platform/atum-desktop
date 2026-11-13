@@ -78,6 +78,9 @@ class Outbox:
         if 'created' not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
             self.db.execute('ALTER TABLE effects ADD COLUMN created REAL NOT NULL DEFAULT 0')
             self.db.execute('UPDATE effects SET created=?', (time.time(),))
+        for column in ('lookup_boots', 'abandoned'):
+            if column not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
+                self.db.execute(f'ALTER TABLE effects ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0')
         self.db.execute('CREATE INDEX IF NOT EXISTS effects_target ON effects(target)')
         self.db.commit()
 
@@ -128,8 +131,19 @@ class Outbox:
             if target:
                 await self.effect(port, room, body, txn, target)
             elif resolve is not None and 'io.atum.progress' in body and 'm.new_content' not in body:
+                created, boots, abandoned = self.db.execute(
+                    'SELECT created,lookup_boots,abandoned FROM effects WHERE txn=?', (txn,)).fetchone()
+                if abandoned:
+                    continue
+                if time.time() - created >= 86400 or boots >= 3:
+                    self.db.execute('UPDATE effects SET abandoned=1 WHERE txn=?', (txn,))
+                    self.db.commit()
+                    logger.warning('Matrix presentation receipt lookup abandoned for %s', txn)
+                    continue
+                self.db.execute('UPDATE effects SET lookup_boots=lookup_boots+1 WHERE txn=?', (txn,))
+                self.db.commit()
                 try:
-                    event = await resolve(room, txn)
+                    event = await asyncio.wait_for(resolve(room, txn), timeout=45)
                 except Exception:
                     logger.warning('Matrix presentation receipt lookup deferred', exc_info=True)
                     continue
@@ -290,13 +304,6 @@ class Turn:
         if self.lock.locked():
             return
         async with self.lock:
-            if not self.root and self.root_txn:
-                try:
-                    # A lost receipt still has a durable original intent. Reuse its
-                    # transaction to recover the id before redacting, without a reboot.
-                    self.root = await self.box.effect(self.port, self.room, self.root_content, self.root_txn)
-                except Exception:
-                    logger.warning('Matrix presentation root recovery deferred', exc_info=True)
             targets = ([self.root] if self.root else []) + [
                 event for event, text in self.interims if repeats(text, self.answer)]
             for event in targets:
@@ -323,15 +330,23 @@ def adapter_class(base):
             try:
                 result = await super().connect(**kwargs)
                 if result:
-                    try:
-                        await self._presentation_box.recover(self._presentation_send, recovery, self._presentation_resolve)
-                    except Exception:
-                        # Durable intents remain for the next reconnect. Presentation
-                        # cleanup is best effort and must not fail the native boot.
-                        logger.warning('Matrix presentation recovery deferred', exc_info=True)
+                    self._presentation_recovery_task = asyncio.create_task(self._recover_presentation(recovery))
                 return result
             finally:
                 self._presentation_ready.set()
+
+        async def disconnect(self):
+            task = getattr(self, '_presentation_recovery_task', None)
+            if task is not None and not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+            return await super().disconnect()
+
+        async def _recover_presentation(self, recovery):
+            try:
+                await self._presentation_box.recover(self._presentation_send, recovery, self._presentation_resolve)
+            except Exception:
+                logger.warning('Matrix presentation recovery deferred', exc_info=True)
 
         async def _presentation_resolve(self, room, txn):
             """Read a lost send receipt; never PUT a historical message at boot."""
@@ -340,7 +355,7 @@ def adapter_class(base):
                 'SELECT created FROM effects WHERE txn=?', (txn,)).fetchone()
             since = row[0] * 1000 if row else 0
             cursor = None
-            while True:
+            for _ in range(10):
                 query = {'dir': 'b', 'limit': 100}
                 if cursor:
                     query['from'] = cursor

@@ -70,7 +70,7 @@ async def test_restart_recovers_acceptance_before_turn_start(tmp_path):
     a._intake.accept(batch('$one'))
     client = SimpleNamespace(sync=AsyncMock(return_value=batch('$two', token='next')))
     await a._connect_initial_sync(client)
-    assert a._dispatch_sync.await_args_list[0].args[0] == batch('$one')
+    assert a._dispatch_sync.await_args_list[0].args[0] == dict(batch('$one'), _matrix_backlog=True)
     assert client.sync.await_args.kwargs['since'] == 'opaque/sync-token'
     assert a._intake.get('pending') is None
 
@@ -217,7 +217,7 @@ async def test_durable_handoff_is_not_process_local_base_acceptance(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_inline_control_crash_stays_ambiguous(tmp_path):
+async def test_inline_control_crash_keeps_typed_failure_obligation(tmp_path):
     from gateway.session_ingress_context import transport_control
     a = adapter(tmp_path)
     e = SimpleNamespace(_transport_control_state=lambda state: a._intake.mark('$control', state))
@@ -225,7 +225,7 @@ async def test_inline_control_crash_stays_ambiguous(tmp_path):
         raise RuntimeError('crash at an external control effect')
     with pytest.raises(RuntimeError):
         await transport_control(e, crash)
-    assert a._intake.state('$control') == 'ambiguous'
+    assert a._intake.state('$control') == 'control_pending'
     async def consumed():
         return True
     await transport_control(e, consumed)
@@ -907,3 +907,46 @@ async def test_ledgered_notice_reply_relation_is_not_final_evidence(tmp_path, mo
     payload = a._client.send_message_event.await_args.args[2]
     assert 'org.hermes.source_event_id' not in payload
     assert 'org.hermes.final_chunk' not in payload
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('state', ['control_pending', 'ambiguous'])
+async def test_interrupted_pre_admission_control_settles_once_and_unblocks(tmp_path, state):
+    a = adapter(tmp_path)
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    a._intake.mark('$control', state)
+    a._send_room_message = AsyncMock(return_value='$notice')
+    raw = SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
+        event_id='$control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
+    a._handle_text_message = AsyncMock()
+    await a._on_room_message(raw)
+    await a._on_room_message(raw)
+    assert a._intake.state('$control') == 'done'
+    a._send_room_message.assert_awaited_once()
+    a._handle_text_message.assert_not_awaited()
+    a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_control_failure_notice_outage_does_not_wedge_intake(tmp_path):
+    from gateway.delivery_ledger import _connect
+    a = adapter(tmp_path)
+    a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
+    a._intake.mark('$failed-control', 'control_pending')
+    a.gateway_runner = SimpleNamespace(_arm_flood_timers_for_waiting_rows=AsyncMock())
+    a._send_room_message = AsyncMock(side_effect=ConnectionError('offline notice'))
+    raw = SimpleNamespace(room_id='!room:example.org', sender='@alice:example.org',
+        event_id='$failed-control', timestamp=1, content={'msgtype': 'm.text', 'body': 'yes'})
+    await a._on_room_message(raw)
+    assert a._intake.state('$failed-control') == 'done'
+    a.gateway_runner._arm_flood_timers_for_waiting_rows.assert_awaited_once()
+    db = _connect()
+    try:
+        owed = db.execute('SELECT state FROM delivery_obligations WHERE source_event_id=?',
+            ('$failed-control',)).fetchall()
+        assert [row[0] for row in owed] == ['failed']
+    finally:
+        db.close()
+    await a._on_room_message(raw)
+    assert a._send_room_message.await_count == 1
+    a._intake.close()

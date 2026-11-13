@@ -11,7 +11,7 @@ import traceback
 
 home = Path(os.environ['HERMES_HOME'])
 mode, hook = sys.argv[1:]
-unsafe = hook in ('before_effect', 'after_effect', 'unknown_sequential', 'unknown_concurrent')
+unsafe = hook in ('before_effect', 'after_effect', 'unknown_sequential', 'unknown_concurrent', 'completed_final')
 
 
 class Peer(BaseHTTPRequestHandler):
@@ -26,7 +26,8 @@ class Peer(BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         if 'messages' not in request:
-            raise AssertionError('unexpected auxiliary model request')
+            self.send_error(400, 'fixture accepts chat completions')
+            return
         requests = home / (mode + '-requests.jsonl')
         with requests.open('a') as out:
             out.write(json.dumps(request) + '\n')
@@ -50,6 +51,7 @@ class Peer(BaseHTTPRequestHandler):
             finish = 'tool_calls'
         else:
             message = {'role': 'assistant', 'content': (
+                'Đã hoàn tất.' if hook == 'completed_final' else
                 'Việc ghi tệp có thể đã chạy một phần; bạn có muốn tôi tiếp tục không?' if unsafe else 'Đã đọc xong.')}
             finish = 'stop'
         self.send_response(200)
@@ -141,10 +143,52 @@ async def probe():
     tool_executor._dispatch_authorized_once = dispatch
     runner = GatewayRunner()
     await initialize_session_authority(runner, profile_id='default', instance_id=mode)
-    adapter = Adapter()
-    runner.adapters[Platform.TELEGRAM] = adapter
+    if hook == 'completed_final':
+        from gateway import fault_injection
+        native_hit = fault_injection.hit
+        def completed_final_hit(point):
+            # Startup notices share the native send path. Arm the final fault only
+            # after the fixture's side effect ran, so the test crashes this turn.
+            if point in ('H8', 'H9', 'H10') and not (home / 'pending-count').exists():
+                return
+            native_hit(point)
+        fault_injection.hit = completed_final_hit
+        import sqlite3
+        from plugins.platforms.matrix.adapter import MatrixAdapter
+        wire = sqlite3.connect(home / 'matrix-wire.db')
+        wire.execute('CREATE TABLE IF NOT EXISTS sends (txn TEXT PRIMARY KEY, content TEXT)')
+        class Transport:
+            async def send_message_event(self, room, kind, content, txn_id):
+                with wire:
+                    wire.execute('INSERT OR IGNORE INTO sends VALUES (?,?)', (txn_id, json.dumps(content)))
+                return '$' + txn_id
+        class MatrixFinalAdapter(MatrixAdapter):
+            tool_aware_resume = True
+            def __init__(self):
+                super().__init__(PlatformConfig(enabled=True, token='fixture', extra={
+                    'homeserver': 'http://127.0.0.1', 'user_id': '@bot:local', 'sender_id': 'stable-agent',
+                    'allowed_users': 'fixture-user'}))
+                self.sent = []
+                self._client = Transport()
+                if os.environ['ATUM_FAULT_POINT'] == 'H10':
+                    self.truncate_message = lambda content, *a, **kw: (
+                        ['chunk-' + str(i) for i in range(5)] if 'Đã hoàn tất.' in content else [content])
+            async def send(self, *args, **kwargs):
+                content = kwargs.get('content', args[1] if len(args) > 1 else '')
+                self.sent.append(content)
+                return await super().send(*args, **kwargs)
+            async def send_typing(self, *args, **kwargs): pass
+            async def on_processing_start(self, *args, **kwargs): pass
+            async def on_processing_complete(self, *args, **kwargs): pass
+            async def get_chat_info(self, chat_id): return {'id': chat_id}
+        adapter = MatrixFinalAdapter()
+        platform = Platform.MATRIX
+    else:
+        adapter = Adapter()
+        platform = Platform.TELEGRAM
+    runner.adapters[platform] = adapter
     adapter.set_message_handler(runner._handle_message)
-    source = SessionSource(platform=Platform.TELEGRAM, chat_id='fixture', chat_type='dm', user_id='fixture-user')
+    source = SessionSource(platform=platform, chat_id='fixture', chat_type='dm', user_id='fixture-user')
     authority = runner.session_authority
     if mode == 'crash':
         await adapter.handle_message(MessageEvent(text='Đọc tài liệu rồi làm tiếp.', source=source, message_id='source-1'))
@@ -158,6 +202,36 @@ async def probe():
         await async_wait_until(lambda: False, timeout=40, what='fixture SIGKILL')
     else:
         entry = runner.session_store.get_or_create_session(source)
+        if hook == 'completed_final':
+            # Real startup order: adopt persisted finals before considering auto-resume,
+            # then use the native boot delivery sweep and authority route recovery.
+            await runner._recover_unclean_sessions()
+            await runner._redeliver_pending_obligations()
+            verdict = await authority.recover_native_sessions([(entry.session_id, source, adapter)])
+            assert verdict[entry.session_id] == 'ready', verdict
+            task = authority.sessions[entry.session_id].task
+            if task is not None:
+                await asyncio.wait_for(task, 40)
+            rows = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)
+            assert len(rows) == 1 and rows[0]['status'] == 'terminal', rows
+            assert entry.resume_ask is None
+            request_path = home / (mode + '-requests.jsonl')
+            requests = [json.loads(line) for line in request_path.read_text().splitlines()] if request_path.exists() else []
+            assert not [request for request in requests if request.get('tools')], requests
+            for name in ('done-count', 'pending-count'):
+                assert len((home / name).read_text().splitlines()) == 1
+            sent = [json.loads(row[0]) for row in wire.execute('SELECT content FROM sends')]
+            finals = [content for content in sent
+                if content.get('org.hermes.source_event_id') == 'source-1']
+            count = len(finals)
+            assert count == (5 if os.environ['ATUM_FAULT_POINT'] == 'H10' else 1), sent
+            from gateway.resume_policy import choose_resume_policy
+            history = authority.db.get_messages_as_conversation(entry.session_id)
+            for source_id in (None, 'source-1'):
+                policy = choose_resume_policy(history, source_message_id=source_id)
+                assert not policy.ask and not policy.actions, policy
+            (home / 'final-verdict.json').write_text(json.dumps({'rows': rows, 'publications': count}))
+            return
         if mode == 'ask_crash':
             from copy import deepcopy
             from hermes_state_runtime import admit_session_input
@@ -208,9 +282,9 @@ peer.index = 0
 threading.Thread(target=peer.serve_forever, daemon=True).start()
 base = f'http://127.0.0.1:{peer.server_port}/v1'
 os.environ.update(OPENAI_API_KEY='explicit-loopback-fixture', OPENAI_BASE_URL=base,
-                  TELEGRAM_ALLOWED_USERS='fixture-user')
+                  TELEGRAM_ALLOWED_USERS='fixture-user', MATRIX_ALLOWED_USERS='fixture-user')
 (home / 'config.yaml').write_text(
-    f'model:\n  default: local-wire-stub\n  provider: custom\n  base_url: {base}\n'
+    f'model:\n  default: local-wire-stub\n  provider: custom\n  api_mode: chat_completions\n  base_url: {base}\n'
     'auxiliary:\n  title_generation:\n    enabled: false\n'
     f'terminal:\n  cwd: {home}\ndisplay:\n  streaming: false\n  busy_input_mode: queue\n')
 status = 0
