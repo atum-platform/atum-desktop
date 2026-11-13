@@ -700,7 +700,9 @@ async def test_malformed_encryption_preserves_later_delivery_and_notice_after_re
     assert a._intake.parked()[0][2] == raw
     assert a._intake.parked()[0][3] == 0
     send.assert_awaited_once()
-    assert 'Please send the message again' in send.await_args.args[2]['body']
+    body = send.await_args.args[2]['body']
+    # The owner is asked to resend; raw event ids stay out of the chat.
+    assert 'send it again' in body and '$' not in body
     crypto.request_room_key.assert_not_awaited()
     assert crypto.decrypt_megolm_event.await_count == (0 if failure == 'wire' else 1)
     a._intake.close()

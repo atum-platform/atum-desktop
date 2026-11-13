@@ -211,7 +211,9 @@ class Turn:
             text, kind, phase = self.frame
             if phase == 'working':
                 minutes = max(1, int((self.clock() - self.last_progress) / 60))
-                await self.progress(f'Still working · {minutes} min', kind='heartbeat')
+                from agent.i18n import owner_text
+                await self.progress(owner_text(f'Still working · {minutes} min', f'Vẫn đang làm · {minutes} phút'),
+                                    kind='heartbeat')
             else:
                 await self.progress(text, kind=kind, phase=phase)
 
@@ -341,7 +343,8 @@ def adapter_class(base):
             try:
                 if turn:
                     try:
-                        await turn.progress('Working')
+                        from agent.i18n import owner_text
+                        await turn.progress(owner_text('Working…', 'Đang làm…'))
                     except Exception:
                         logger.warning('Matrix presentation root deferred', exc_info=True)
                 yield
@@ -453,8 +456,14 @@ def register_hooks(ctx):
         turn = _current.get()
         if turn and not turn.ended:
             # Names only, never arguments/results. Schedule on the owning event loop.
-            text = {'terminal': 'Running a command', 'read_file': 'Reading a file',
-                    'web_search': 'Searching the web', 'todo': 'Updating the plan'}.get(tool_name, 'Using a tool')
+            # Same words as the desktop's own activity line (matrix-status-line-copy.ts).
+            from agent.i18n import owner_text
+            text = owner_text(*{'terminal': ('Running a task…', 'Đang chạy tác vụ…'),
+                                'read_file': ('Reading…', 'Đang đọc…'),
+                                'web_search': ('Looking it up on the web…', 'Đang tra cứu trên web…'),
+                                'todo': ('Planning the next steps…', 'Đang lên các bước tiếp theo…'),
+                                }.get(tool_name, ('Working on it…', 'Đang xử lý…')))
+            ack = owner_text("I'll take a look.", 'Mình xem ngay nhé.')
             def done(future):
                 try:
                     future.result()
@@ -462,7 +471,7 @@ def register_hooks(ctx):
                     logger.warning('Matrix presentation activity could not be published')
             async def publish():
                 if not turn.interims:
-                    await turn.interim("I'll take a look.", redacted=True)
+                    await turn.interim(ack, redacted=True)
                 await turn.progress(text)
             asyncio.run_coroutine_threadsafe(publish(), turn.loop).add_done_callback(done)
     def stopped(session_key='', platform='', source_event_id=None, admission_id=None, **_):
@@ -486,11 +495,14 @@ def register_hooks(ctx):
     def waiting(**_):
         turn = _current.get()
         if turn:
-            asyncio.run_coroutine_threadsafe(turn.progress('Waiting for your approval', kind='device', phase='waiting'), turn.loop)
+            from agent.i18n import owner_text
+            asyncio.run_coroutine_threadsafe(turn.progress(owner_text('Waiting for your OK…', 'Đang chờ bạn đồng ý…'),
+                                                           kind='device', phase='waiting'), turn.loop)
     def resumed(**_):
         turn = _current.get()
         if turn:
-            asyncio.run_coroutine_threadsafe(turn.progress('Continuing'), turn.loop)
+            from agent.i18n import owner_text
+            asyncio.run_coroutine_threadsafe(turn.progress(owner_text('Continuing…', 'Đang làm tiếp…')), turn.loop)
     ctx.register_hook('pre_tool_call', tool_activity)
     ctx.register_hook('post_tool_call', todos)
     ctx.register_hook('pre_approval_request', waiting)

@@ -2030,7 +2030,10 @@ class MatrixAdapter(BasePlatformAdapter):
                 except Exception:
                     notified, frontier = False, {}
                 if not notified:
-                    text = 'Message intake is paused. History or storage recovery is required.'
+                    from agent.i18n import owner_text
+                    text = owner_text('I can’t read new messages right now. They’re safe, and I’ll reply once this is fixed.',
+                                      'Mình tạm thời chưa đọc được tin nhắn mới. Tin nhắn vẫn còn nguyên, '
+                                      'mình sẽ trả lời ngay khi khắc phục xong.')
                     oid = compute_obligation_id(room, 'intake-wedge:' + str(frontier), text)
                     await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room,
                         platform='matrix', chat_id=room, thread_id=None, content=text,
@@ -2307,14 +2310,16 @@ class MatrixAdapter(BasePlatformAdapter):
         from gateway.delivery_ledger import record_obligation, mark_delivered
         import hashlib
         oid = "matrix-key-" + hashlib.sha256(eid.encode()).hexdigest()[:24]
+        # Resending is the owner's fix either way; the event id and key-restore steps stay in the log.
+        from agent.i18n import owner_text
         if store.state(eid) == "undecryptable":
-            text = (f"I could not read your encrypted Matrix message {eid} because its content is malformed. "
-                    "It is saved, but I have stopped retrying it. Please send the message again. "
-                    "Other messages can still arrive.")
+            text = owner_text("I couldn’t read one of your messages, so I stopped retrying it. Please send it again.",
+                              "Mình không đọc được một tin nhắn của bạn nên đã ngừng thử lại. Bạn gửi lại giúp mình nhé.")
         else:
-            text = (f"I could not decrypt your Matrix message {eid}. It is saved, but I have stopped "
-                    "retrying it. The owner needs to restore this device's encryption keys and use "
-                    "hermes gateway matrix-intake retry. Other messages can still arrive.")
+            text = owner_text("I couldn’t unlock one of your encrypted messages, so I stopped retrying it. Please send it again.",
+                              "Mình không mở được một tin nhắn mã hóa của bạn nên đã ngừng thử lại. Bạn gửi lại giúp mình nhé.")
+        logger.warning("Matrix message %s in %s is unreadable (%s); asking the sender to resend it",
+                       eid, room, store.state(eid))
         try:
             await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=f"matrix:{room}",
                 platform="matrix", chat_id=room, thread_id=None, content=text,

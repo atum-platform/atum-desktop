@@ -160,8 +160,12 @@ def exact_gateway_approval_choice(text: str, request_id: str, *, allow_unscoped:
     answer = answer.strip(''.join(c for c in answer if unicodedata.category(c).startswith('P')) + ' ')
     answer = ' '.join(answer.split())
     for choice, words in (
-        ('once', ('yes', 'yeah', 'ok', 'go ahead', 'do it', 'sure', 'có', 'ừ', 'được', 'làm đi', 'continue', 'tiếp tục')),
-        ('deny', ('no', 'nope', 'dont', 'stop', 'cancel', 'không', 'thôi', 'đừng', 'hủy')),
+        # Natural answers to the resume reminder in both owner languages (exact matches only).
+        ('once', ('yes', 'yeah', 'yep', 'ok', 'okay', 'go ahead', 'do it', 'sure', 'yes please', 'please',
+                  'carry on', 'go on', 'continue', 'có', 'ừ', 'ừm', 'vâng', 'được', 'đồng ý', 'làm đi',
+                  'làm tiếp', 'làm tiếp đi', 'tiếp đi', 'tiếp tục')),
+        ('deny', ('no', 'nope', 'no thanks', 'dont', 'leave it', 'skip it', 'stop', 'cancel', 'không',
+                  'không cần', 'thôi', 'khỏi', 'đừng', 'dừng', 'bỏ qua', 'hủy', 'huỷ')),
     ):
         if any(answer == word + ' ' + request_id.casefold() or
                (allow_unscoped and answer == word) for word in words):

@@ -159,19 +159,17 @@ def pending_ask_note(entry):
     pending = getattr(entry, 'resume_ask', None)
     if not pending:
         return ''
-    from agent.i18n import get_language
-    return (" Answer the owner's message conversationally without tools. Use language " +
-            get_language() + " (English when unknown). Ask only ONE short line naming the "
+    return (" Answer the owner's message conversationally without tools. Reply in the language the "
+            "owner writes in (English when unclear). Ask only ONE short line naming the "
             "interrupted action in everyday words and asking whether to continue. "
             "Do not show codes, tool names or arguments. A clear yes or no is enough. "
             "For an unrelated message, answer it and leave the pending question to the appended reminder.")
 
 
 def pending_ask_reminder():
-    from agent.i18n import get_language
-    if get_language().split('-')[0] == 'vi':
-        return 'Bạn có muốn tôi tiếp tục việc đang dở không?'
-    return 'May I continue the interrupted action?'
+    # A plain yes/no question: every natural answer to it is in exact_gateway_approval_choice.
+    from agent.i18n import owner_text
+    return owner_text('Should I carry on with what I was doing?', 'Mình làm tiếp việc lúc nãy nhé?')
 
 
 def shape_pending_ask(store, entry, response):
@@ -213,7 +211,7 @@ async def resume_boot_allowed(authority, row, *, ref=None, live=None):
         from gateway.status import write_runtime_status
         await asyncio.to_thread(write_runtime_status, platform='matrix', platform_state='degraded',
             error_code='restart_loop', needs_attention=True,
-            error_message='Automatic recovery paused after three attempts. Use /discard.')
+            error_message='A chat is paused after three restarts. Send /discard in it to carry on.')
         await asyncio.to_thread(write_runtime_status, platform='recovery:' + row['admission_id'],
             platform_state='paused', error_code='restart_loop', needs_attention=True,
             retrying_since=datetime.now(UTC).isoformat(),

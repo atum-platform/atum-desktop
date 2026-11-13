@@ -348,14 +348,22 @@ def test_ambiguous_resume_reply_keeps_gate(tmp_path, text):
 
 def test_resume_language_and_hidden_token(monkeypatch):
     from gateway.resume_policy import pending_ask_note, pending_ask_reminder
+    from tools.approval import exact_gateway_approval_choice
     import agent.i18n
-    monkeypatch.setattr(agent.i18n, 'get_language', lambda: 'en')
     entry = SimpleNamespace(resume_ask={'token': 'secret-code', 'actions': ['write_file']})
-    assert 'English when unknown' in pending_ask_note(entry)
+    assert "language the owner writes in" in pending_ask_note(entry)
     assert 'secret-code' not in pending_ask_note(entry)
-    assert pending_ask_reminder() == 'May I continue the interrupted action?'
-    monkeypatch.setattr(agent.i18n, 'get_language', lambda: 'vi')
-    assert pending_ask_reminder() == 'Bạn có muốn tôi tiếp tục việc đang dở không?'
+    # The reminder is one short question in the owner's language that a bare yes/no answers.
+    monkeypatch.setenv('HERMES_LANGUAGE', 'en')
+    english = pending_ask_reminder()
+    monkeypatch.setenv('HERMES_LANGUAGE', 'vi')
+    vietnamese = pending_ask_reminder()
+    agent.i18n.reset_language_cache()
+    for question in (english, vietnamese):
+        assert question.endswith('?') and '\n' not in question and len(question) <= 60
+    assert english != vietnamese and english.isascii() and not vietnamese.isascii()
+    assert exact_gateway_approval_choice('yes', 'tok', allow_unscoped=True) == 'once'
+    assert exact_gateway_approval_choice('ừ', 'tok', allow_unscoped=True) == 'once'
 
 
 def test_ask_is_one_line_and_followup_names_original_action(tmp_path):
@@ -384,7 +392,8 @@ def test_native_naive_ingress_timestamp_resolves(tmp_path):
                                  message_timestamp=datetime.now().isoformat()) is None
 
 
-@pytest.mark.parametrize('reply,choice', [('YES abcd!', 'once'), ('CÓ abcd.', 'once'), ('NO abcd!', 'deny'), ('KHÔNG abcd.', 'deny')])
+@pytest.mark.parametrize('reply,choice', [('YES abcd!', 'once'), ('CÓ abcd.', 'once'), ('NO abcd!', 'deny'), ('KHÔNG abcd.', 'deny'),
+                                          ('Làm tiếp đi abcd', 'once'), ('Yes please abcd', 'once'), ('Thôi abcd', 'deny'), ('Skip it abcd', 'deny')])
 def test_token_reply_alternative(reply, choice):
     from tools.approval import exact_gateway_approval_choice
     assert exact_gateway_approval_choice(reply, 'abcd') == choice
