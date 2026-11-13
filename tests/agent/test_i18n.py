@@ -176,3 +176,19 @@ def test_locales_dir_env_override_ignored_when_missing(tmp_path, monkeypatch):
     assert result.name == "locales"
 
 
+
+
+def test_owner_text_follows_the_configured_owner_language(monkeypatch, tmp_path):
+    """Hand-written owner notices: Vietnamese whenever the profile asks for it (even with no
+    bundled vi catalog for get_language() to resolve), English for everything else."""
+    monkeypatch.delenv("HERMES_LANGUAGE", raising=False)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    try:
+        for configured, expected in (("vi", "vi"), ("vi-VN", "vi"), ("vi_VN", "vi"), ("fr", "en"), (None, "en")):
+            (tmp_path / "config.yaml").write_text(f"display:\n  language: {configured}\n" if configured else "{}\n")
+            i18n.reset_language_cache()
+            assert i18n.owner_text("en", "vi") == expected, configured
+        monkeypatch.setenv("HERMES_LANGUAGE", "vi")  # the .env value wins over config, as for t()
+        assert i18n.owner_text("en", "vi") == "vi"
+    finally:
+        i18n.reset_language_cache()

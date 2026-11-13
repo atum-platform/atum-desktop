@@ -77,10 +77,17 @@ def admission_readiness() -> dict[str, Any]:
 
 
 def _refusal(code: str, plugin: str = "", reason: str = "") -> dict[str, Any]:
-    from agent.i18n import t
+    from agent.i18n import owner_text, t
 
-    notice = (t("turn_admission.configuration_error") if code == "admission_unavailable"
-              else t("turn_admission.refused", code=code))
+    # A required plugin that is missing, failing or slow reads the same to the owner: setup is not
+    # ready, try again shortly. Only a plugin's explicit "no" refuses the request itself.
+    # The code, plugin and reason stay in ``error``/``admission`` for logs and readiness.
+    if code == "denied":
+        notice = owner_text(t("turn_admission.refused", code=code),
+                            "Yêu cầu này không được phép ở đây nên mình chưa làm.")
+    else:
+        notice = owner_text(t("turn_admission.configuration_error", code=code),
+                            "Mình chưa bắt đầu được vì một phần thiết lập chưa sẵn sàng. Bạn thử lại sau vài phút nhé.")
     return {
         "final_response": notice, "messages": [], "failed": True, "completed": False,
         "error": f"turn admission {code}" + (f" ({plugin})" if plugin else "") + (f" — {reason}" if reason else ""),

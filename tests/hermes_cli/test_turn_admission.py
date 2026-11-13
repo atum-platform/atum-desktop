@@ -173,10 +173,12 @@ def test_refusal_supports_profile_locale_overlay(admission, monkeypatch, tmp_pat
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_LANGUAGE", "de")
     (tmp_path / "locales").mkdir()
-    (tmp_path / "locales" / "de.yaml").write_text('turn_admission:\n  refused: "Anfrage abgelehnt ({code})."\n')
+    (tmp_path / "locales" / "de.yaml").write_text(
+        'turn_admission:\n  configuration_error: "Noch nicht bereit ({code})."\n')
     reset_language_cache()
     try:
-        assert check_turn_admission()["final_response"] == "Anfrage abgelehnt (plugin_unavailable)."
+        # A missing plugin is a setup problem, so the overlay's configuration line is shown.
+        assert check_turn_admission()["final_response"] == "Noch nicht bereit (plugin_unavailable)."
     finally:
         reset_language_cache()
 
@@ -288,7 +290,10 @@ def test_required_unloadable_kind_has_configuration_error(admission, kind):
     assert 'kind' in admission_readiness()['reason']
     result = check_turn_admission()
     assert result['admission']['code'] == 'admission_unavailable'
-    assert 'configuration' in result['final_response']
+    # The owner sees the setup-not-ready line (the same one a missing plugin gets), not a refusal.
+    from agent.i18n import t
+    assert result['final_response'] == t('turn_admission.configuration_error')
+    assert result['final_response'] != t('turn_admission.refused')
 
 
 @pytest.mark.asyncio
