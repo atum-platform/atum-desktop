@@ -2,6 +2,8 @@ import type { Locale } from '@/i18n'
 
 import type { MatrixDriveIssue, MatrixDriveProblem, MatrixDriveState } from '../../shared/matrix-drive'
 
+import type { DriveKindFamily, MatrixDriveGroupsCopy } from './drive-groups'
+
 export interface MatrixDriveFactsCopy {
   storageLabel: string
   storage: string
@@ -58,6 +60,12 @@ interface DriveCopy {
   viewMode: string
   listView: string
   gridView: string
+  columnView: string
+  galleryView: string
+  /** Finder's Group By: the toolbar button, its choices, and the group titles. */
+  groups: MatrixDriveGroupsCopy & { title: string; none: string; kind: string; modified: string; size: string }
+  /** One item's kind, as the column view's preview and the gallery's caption name it. */
+  itemKinds: Record<DriveKindFamily, string>
   forward: string
   quickLook: string
   /** Finder's sidebar: Recents, the Drive's top-level folders under Favorites, the Drive under Locations. */
@@ -165,6 +173,54 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     viewMode: 'View',
     listView: 'List',
     gridView: 'Icons',
+    columnView: 'Columns',
+    galleryView: 'Gallery',
+    groups: {
+      title: 'Group',
+      none: 'None',
+      kind: 'Kind',
+      modified: 'Date Modified',
+      size: 'Size',
+      kinds: {
+        folder: 'Folders',
+        image: 'Images',
+        pdf: 'PDF Documents',
+        document: 'Documents',
+        text: 'Text Documents',
+        spreadsheet: 'Spreadsheets',
+        presentation: 'Presentations',
+        movie: 'Movies',
+        music: 'Music',
+        archive: 'Archives',
+        code: 'Code',
+        other: 'Other'
+      },
+      dates: { today: 'Today', yesterday: 'Yesterday', week: 'Previous 7 Days', month: 'Previous 30 Days' },
+      sizes: {
+        gb: 'More than 1 GB',
+        hundredsMb: '100 MB to 1 GB',
+        tensMb: '10 to 100 MB',
+        mb: '1 to 10 MB',
+        hundredsKb: '100 KB to 1 MB',
+        small: 'Less than 100 KB',
+        empty: 'Empty',
+        folders: 'Folders'
+      }
+    },
+    itemKinds: {
+      folder: 'Folder',
+      image: 'Image',
+      pdf: 'PDF document',
+      document: 'Document',
+      text: 'Text document',
+      spreadsheet: 'Spreadsheet',
+      presentation: 'Presentation',
+      movie: 'Movie',
+      music: 'Audio',
+      archive: 'Archive',
+      code: 'Code',
+      other: 'File'
+    },
     forward: 'Forward',
     quickLook: 'Quick Look',
     browser: {
@@ -343,6 +399,54 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     viewMode: 'Kiểu xem',
     listView: 'Danh sách',
     gridView: 'Biểu tượng',
+    columnView: 'Cột',
+    galleryView: 'Bộ sưu tập',
+    groups: {
+      title: 'Nhóm',
+      none: 'Không nhóm',
+      kind: 'Loại',
+      modified: 'Ngày sửa',
+      size: 'Kích thước',
+      kinds: {
+        folder: 'Thư mục',
+        image: 'Hình ảnh',
+        pdf: 'Tài liệu PDF',
+        document: 'Tài liệu',
+        text: 'Tài liệu văn bản',
+        spreadsheet: 'Bảng tính',
+        presentation: 'Bản trình bày',
+        movie: 'Phim',
+        music: 'Âm thanh',
+        archive: 'Tệp nén',
+        code: 'Mã nguồn',
+        other: 'Khác'
+      },
+      dates: { today: 'Hôm nay', yesterday: 'Hôm qua', week: '7 ngày qua', month: '30 ngày qua' },
+      sizes: {
+        gb: 'Trên 1 GB',
+        hundredsMb: '100 MB đến 1 GB',
+        tensMb: '10 đến 100 MB',
+        mb: '1 đến 10 MB',
+        hundredsKb: '100 KB đến 1 MB',
+        small: 'Dưới 100 KB',
+        empty: 'Trống',
+        folders: 'Thư mục'
+      }
+    },
+    itemKinds: {
+      folder: 'Thư mục',
+      image: 'Hình ảnh',
+      pdf: 'Tài liệu PDF',
+      document: 'Tài liệu',
+      text: 'Tài liệu văn bản',
+      spreadsheet: 'Bảng tính',
+      presentation: 'Bản trình bày',
+      movie: 'Phim',
+      music: 'Âm thanh',
+      archive: 'Tệp nén',
+      code: 'Mã nguồn',
+      other: 'Tệp'
+    },
     forward: 'Tiến tới',
     quickLook: 'Xem nhanh',
     browser: {
@@ -521,6 +625,54 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     viewMode: '表示',
     listView: 'リスト',
     gridView: 'アイコン',
+    columnView: 'カラム',
+    galleryView: 'ギャラリー',
+    groups: {
+      title: 'グループ',
+      none: 'なし',
+      kind: '種類',
+      modified: '変更日',
+      size: 'サイズ',
+      kinds: {
+        folder: 'フォルダー',
+        image: '画像',
+        pdf: 'PDF 書類',
+        document: '書類',
+        text: 'テキスト書類',
+        spreadsheet: 'スプレッドシート',
+        presentation: 'プレゼンテーション',
+        movie: 'ムービー',
+        music: 'オーディオ',
+        archive: 'アーカイブ',
+        code: 'コード',
+        other: 'その他'
+      },
+      dates: { today: '今日', yesterday: '昨日', week: '過去 7 日間', month: '過去 30 日間' },
+      sizes: {
+        gb: '1 GB 超',
+        hundredsMb: '100 MB〜1 GB',
+        tensMb: '10〜100 MB',
+        mb: '1〜10 MB',
+        hundredsKb: '100 KB〜1 MB',
+        small: '100 KB 未満',
+        empty: '空',
+        folders: 'フォルダー'
+      }
+    },
+    itemKinds: {
+      folder: 'フォルダー',
+      image: '画像',
+      pdf: 'PDF 書類',
+      document: '書類',
+      text: 'テキスト書類',
+      spreadsheet: 'スプレッドシート',
+      presentation: 'プレゼンテーション',
+      movie: 'ムービー',
+      music: 'オーディオ',
+      archive: 'アーカイブ',
+      code: 'コード',
+      other: 'ファイル'
+    },
     forward: '進む',
     quickLook: 'クイックルック',
     browser: {
@@ -707,6 +859,54 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     viewMode: '视图',
     listView: '列表',
     gridView: '图标',
+    columnView: '分栏',
+    galleryView: '画廊',
+    groups: {
+      title: '分组',
+      none: '无',
+      kind: '种类',
+      modified: '修改日期',
+      size: '大小',
+      kinds: {
+        folder: '文件夹',
+        image: '图像',
+        pdf: 'PDF 文稿',
+        document: '文稿',
+        text: '文本文稿',
+        spreadsheet: '电子表格',
+        presentation: '演示文稿',
+        movie: '影片',
+        music: '音频',
+        archive: '归档',
+        code: '代码',
+        other: '其他'
+      },
+      dates: { today: '今天', yesterday: '昨天', week: '过去 7 天', month: '过去 30 天' },
+      sizes: {
+        gb: '大于 1 GB',
+        hundredsMb: '100 MB 到 1 GB',
+        tensMb: '10 到 100 MB',
+        mb: '1 到 10 MB',
+        hundredsKb: '100 KB 到 1 MB',
+        small: '小于 100 KB',
+        empty: '空',
+        folders: '文件夹'
+      }
+    },
+    itemKinds: {
+      folder: '文件夹',
+      image: '图像',
+      pdf: 'PDF 文稿',
+      document: '文稿',
+      text: '文本文稿',
+      spreadsheet: '电子表格',
+      presentation: '演示文稿',
+      movie: '影片',
+      music: '音频',
+      archive: '归档',
+      code: '代码',
+      other: '文件'
+    },
     forward: '前进',
     quickLook: '快速查看',
     browser: {
@@ -878,6 +1078,54 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     viewMode: '顯示方式',
     listView: '列表',
     gridView: '圖像',
+    columnView: '直欄',
+    galleryView: '圖庫',
+    groups: {
+      title: '群組',
+      none: '無',
+      kind: '種類',
+      modified: '修改日期',
+      size: '大小',
+      kinds: {
+        folder: '資料夾',
+        image: '影像',
+        pdf: 'PDF 文件',
+        document: '文件',
+        text: '文字文件',
+        spreadsheet: '試算表',
+        presentation: '簡報',
+        movie: '影片',
+        music: '音訊',
+        archive: '封存檔',
+        code: '程式碼',
+        other: '其他'
+      },
+      dates: { today: '今天', yesterday: '昨天', week: '過去 7 天', month: '過去 30 天' },
+      sizes: {
+        gb: '大於 1 GB',
+        hundredsMb: '100 MB 至 1 GB',
+        tensMb: '10 至 100 MB',
+        mb: '1 至 10 MB',
+        hundredsKb: '100 KB 至 1 MB',
+        small: '小於 100 KB',
+        empty: '空白',
+        folders: '資料夾'
+      }
+    },
+    itemKinds: {
+      folder: '資料夾',
+      image: '影像',
+      pdf: 'PDF 文件',
+      document: '文件',
+      text: '文字文件',
+      spreadsheet: '試算表',
+      presentation: '簡報',
+      movie: '影片',
+      music: '音訊',
+      archive: '封存檔',
+      code: '程式碼',
+      other: '檔案'
+    },
     forward: '向前',
     quickLook: '快速查看',
     browser: {

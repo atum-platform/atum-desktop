@@ -2116,6 +2116,8 @@ body:has(.atum-shell) [data-slot='notification-region'] {
   --atum-folder-tab: #c9cdd3;
   --atum-folder-body: linear-gradient(180deg, #dee1e6, #ccd0d6);
   --atum-page: #ffffff;
+  /* Words printed on that page (a text file's gallery preview): dark in both ramps, as paper is. */
+  --atum-page-ink: #4a4f58;
   /* Terminal is always the dark surface, in both ramps. */
   --atum-terminal-bg: #1e2025;
   --atum-terminal-ink: #d9dbe0;
@@ -2351,6 +2353,7 @@ body:has(.atum-shell) [data-slot='notification-region'] {
   --atum-folder-tab: #4a4f58;
   --atum-folder-body: linear-gradient(180deg, #3b3f47, #2b2e35);
   --atum-page: #ecedf0;
+  --atum-page-ink: #4a4f58;
 
   --atum-office-doc: #5b8def;
   --atum-office-sheet: #3fa36b;

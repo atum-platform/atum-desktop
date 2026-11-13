@@ -2,30 +2,56 @@ import { atom } from 'nanostores'
 
 import type { MatrixDriveRow, MatrixDriveView } from '../../shared/matrix-drive'
 
-/** Finder's two everyday views. Column and gallery need more than one listing at a time. */
-export type MatrixDriveLayout = 'icon' | 'list'
+import type { MatrixDriveGroupBy } from './drive-groups'
 
+/** Finder's four views. */
+export type MatrixDriveLayout = 'icon' | 'list' | 'column' | 'gallery'
+
+const LAYOUTS: readonly MatrixDriveLayout[] = ['icon', 'list', 'column', 'gallery']
+const GROUPINGS: readonly MatrixDriveGroupBy[] = ['none', 'kind', 'modified', 'size']
 const LAYOUT_KEY = 'io.atum.drive.layout'
+const GROUP_KEY = 'io.atum.drive.group'
 
-function storedLayout(): MatrixDriveLayout {
+/** A stored view, or icons (as Finder opens) for anything else. */
+export function parseDriveLayout(value: string | null): MatrixDriveLayout {
+  return LAYOUTS.find(layout => layout === value) ?? 'icon'
+}
+
+/** A stored grouping, or none (Finder's default) for anything else. */
+export function parseDriveGroupBy(value: string | null): MatrixDriveGroupBy {
+  return GROUPINGS.find(group => group === value) ?? 'none'
+}
+
+function stored(key: string): string | null {
   try {
-    return localStorage.getItem(LAYOUT_KEY) === 'list' ? 'list' : 'icon'
+    return localStorage.getItem(key)
   } catch {
-    return 'icon'
+    return null
+  }
+}
+
+function store(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Storage off: the choice lasts for this window.
   }
 }
 
 /** Icons by default, as Finder opens; the person's choice is kept on this Mac. */
-export const $matrixDriveLayout = atom<MatrixDriveLayout>(storedLayout())
+export const $matrixDriveLayout = atom<MatrixDriveLayout>(parseDriveLayout(stored(LAYOUT_KEY)))
 
 export function setMatrixDriveLayout(layout: MatrixDriveLayout): void {
   $matrixDriveLayout.set(layout)
+  store(LAYOUT_KEY, layout)
+}
 
-  try {
-    localStorage.setItem(LAYOUT_KEY, layout)
-  } catch {
-    // Storage off: the choice lasts for this window.
-  }
+/** Finder's Group By, off by default and kept on this Mac like the view. */
+export const $matrixDriveGroupBy = atom<MatrixDriveGroupBy>(parseDriveGroupBy(stored(GROUP_KEY)))
+
+export function setMatrixDriveGroupBy(group: MatrixDriveGroupBy): void {
+  $matrixDriveGroupBy.set(group)
+  store(GROUP_KEY, group)
 }
 
 export type MatrixDriveSortKey = 'name' | 'modified' | 'size'
@@ -181,12 +207,16 @@ export interface MatrixDriveLocation {
   path: readonly string[] | null
   forward: readonly string[]
   pending: { kind: 'enter'; name: string } | { kind: 'back' } | null
+  /** A multi-step walk (the column view) is under way: its in-between views say nothing. */
+  walking?: true
 }
 
 export type MatrixDriveLocationEvent =
   | { type: 'enter'; name: string }
   | { type: 'back'; from: string }
   | { type: 'jump' }
+  | { type: 'walk' }
+  | { type: 'arrive'; path: readonly string[] | null }
   | { type: 'view'; view: Pick<MatrixDriveView, 'canGoBack' | 'folderLabel' | 'listingStatus'> }
 
 export const DRIVE_AT_ROOT: MatrixDriveLocation = { path: [], forward: [], pending: null }
@@ -207,12 +237,19 @@ export function reduceDriveLocation(state: MatrixDriveLocation, event: MatrixDri
       return { ...state, forward: [...state.forward, event.from], pending: { kind: 'back' } }
 
     case 'jump':
-      return { ...state, forward: [], pending: null }
+      return { path: state.path, forward: [], pending: null }
+
+    case 'walk':
+      return { ...state, forward: [], pending: null, walking: true }
+
+    // The walk knows where each of its steps led; it says where it ended.
+    case 'arrive':
+      return { path: event.path, forward: [], pending: null }
     case 'view': {
       const { view } = event
 
       // A scan in flight still describes the folder being left.
-      if (view.listingStatus === 'loading') {
+      if (view.listingStatus === 'loading' || state.walking) {
         return state
       }
 
@@ -247,6 +284,47 @@ export function noteMatrixDriveLocation(event: MatrixDriveLocationEvent): void {
   $matrixDriveLocation.set(reduceDriveLocation($matrixDriveLocation.get(), event))
 }
 
+/** A place in the Drive as a key: its folder names from the root. */
+export function driveListingKey(path: readonly string[]): string {
+  return path.join('\u0000')
+}
+
+const LISTINGS_KEPT = 64
+
+/**
+ * The folders this window has listed, under their place in the Drive: the column view draws the
+ * folders on the open path from these. Memory only, a bounded few, the newest kept. Their item ids
+ * expire with the listing; only names are used to walk back to them.
+ */
+export const $matrixDriveListings = atom<ReadonlyMap<string, readonly MatrixDriveRow[]>>(new Map())
+
+export function rememberMatrixDriveListing(path: readonly string[], rows: readonly MatrixDriveRow[]): void {
+  const next = new Map($matrixDriveListings.get())
+  const key = driveListingKey(path)
+  next.delete(key)
+  next.set(key, rows)
+
+  for (const oldest of next.keys()) {
+    if (next.size <= LISTINGS_KEPT) {
+      break
+    }
+
+    next.delete(oldest)
+  }
+
+  $matrixDriveListings.set(next)
+}
+
+/** Follow a view main sent back, and remember its listing once its place in the Drive is known. */
+export function observeMatrixDriveView(view: Pick<MatrixDriveView, 'canGoBack' | 'folderLabel' | 'listingStatus' | 'rows'>): void {
+  noteMatrixDriveLocation({ type: 'view', view })
+  const { path, walking } = $matrixDriveLocation.get()
+
+  if (path && !walking && view.listingStatus !== 'loading') {
+    rememberMatrixDriveListing(path, view.rows)
+  }
+}
+
 /** Learn the Favorites from a root listing; forget them when Drive is no longer browsable here. */
 export function learnMatrixDrivePlaces(
   view: Pick<MatrixDriveView, 'canGoBack' | 'rows' | 'listingStatus' | 'truncated'> | null,
@@ -255,6 +333,7 @@ export function learnMatrixDrivePlaces(
   if (!view) {
     $matrixDrivePlaces.set([])
     $matrixDriveLocation.set(DRIVE_AT_ROOT)
+    $matrixDriveListings.set(new Map())
 
     return
   }
@@ -312,3 +391,9 @@ export function currentDrivePlace(
 
   return location.path?.length === 1 ? { kind: 'folder', name: location.path[0]! } : null
 }
+
+/**
+ * The side panel is showing a Drive PDF, whose pages need its preview lease kept alive. Main holds
+ * one lease at a time, so the gallery doesn't take one for its own preview meanwhile.
+ */
+export const $matrixDrivePdfLease = atom(false)
