@@ -944,7 +944,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
             self._resume_ask_note = pending_ask_note(entry)
         else:
             self._resume_ask_note = ''
-        if self._resume_policy is not None:
+        if self._resume_policy is not None and self._resume_policy.note():
             persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
             ctx.message = self._resume_policy.note() + self._resume_ask_note + ('\n\n' + ctx.message if ctx.message else '')
         self._prepend_pending_note("_pending_skills_reload_notes")
@@ -954,7 +954,10 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         # did not fire (freshness signals disagreed, marker cleared) we must NOT hand the model a blank
         # user turn. Restricted to resume_pending sessions so caption-less image turns are untouched.
         if isinstance(ctx.message, str) and not ctx.message.strip() and resume_pending:
-            ctx.message = build_resume_recovery_note(resume_reason, "", interactive=self._resume_note_interactive())
+            if self._resume_policy is not None and not self._resume_policy.note():
+                ctx.message = 'The previous turn is complete. Acknowledge briefly without taking any action.'
+            else:
+                ctx.message = build_resume_recovery_note(resume_reason, "", interactive=self._resume_note_interactive())
         return persist_override, ctx.persist_user_timestamp
 
     def _native_image_run_message(self):

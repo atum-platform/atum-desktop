@@ -6,8 +6,18 @@ import pytest
 from tools import atum_chats_tool as chats, atum_google_tool as google
 
 
+@pytest.fixture(autouse=True)
+def native_source_session():
+    from gateway.session_context import scoped_session_key, scoped_current_session_id
+    with scoped_session_key('source-fixture'), scoped_current_session_id('source-fixture'):
+        yield
+
+
 def test_cron_sources_use_native_operation(monkeypatch):
+    from tools import atum_source_transport as host
     from tools.atum_source_transport import bind_source_transport
+    monkeypatch.setattr(host, '_host_transport_enabled', False)
+    host.enable_source_transport()
     monkeypatch.setenv('HERMES_CRON_SESSION', '1')
     monkeypatch.delenv(google.URL_ENV, raising=False)
     monkeypatch.delenv(google.TOKEN_ENV, raising=False)
@@ -25,7 +35,7 @@ def test_cron_sources_use_native_operation(monkeypatch):
         assert json.loads(google.atum_google({'action': 'agenda'}))['events']
         assert json.loads(chats.atum_chats('list')) == {'rooms': [], 'truncated': False}
     assert calls == [('google', {'action': 'agenda'}), ('chats', {'op': 'list'})]
-    assert not google.available() and not chats.available()
+    assert google.available() and chats.available()  # fixed across run boundaries
 
 
 @pytest.mark.parametrize('tool', ['google', 'chats'])

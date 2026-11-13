@@ -1335,14 +1335,17 @@ class MatrixAdapter(BasePlatformAdapter):
             from gateway.fault_injection import hit
             if since:
                 hit("H13")
+            poll_started = time.time()
             sync_data = await client.sync(since=since, timeout=10000, full_state=True)
         except Exception as exc:
             if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
                 raise
             # Reconstruct from saved room event IDs, never from wall time.
+            poll_started = time.time()
             sync_data = await client.sync(timeout=10000, full_state=True)
             from plugins.platforms.matrix.intake import fill_gaps
             await fill_gaps(client, sync_data, store.get("frontier", {}), reset=True)
+        sync_data['_matrix_poll_started'] = poll_started
         if not since:
             # First installation establishes a baseline. Existing room history is
             # not a queue of new requests (including recent history).
@@ -2063,14 +2066,17 @@ class MatrixAdapter(BasePlatformAdapter):
                 # 45s outer cap guards TCP-level hangs the 30s long-poll timeout cannot catch.
                 # mautrix raises on every non-2xx, so a non-dict here is never an error object.
                 try:
+                    poll_started = time.time()
                     sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
                 except Exception as exc:
                     if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
                         raise
+                    poll_started = time.time()
                     sync_data = await asyncio.wait_for(client.sync(timeout=30000, full_state=True), timeout=45.0)
                     from plugins.platforms.matrix.intake import fill_gaps
                     await fill_gaps(client, sync_data, self._intake.get("frontier", {}), reset=True)
                 if isinstance(sync_data, dict):
+                    sync_data['_matrix_poll_started'] = poll_started
                     next_batch = await self._absorb_sync(client, sync_data) or next_batch
                     if getattr(self, '_intake_failures', 0):
                         self._intake_failures = 0
@@ -2116,6 +2122,16 @@ class MatrixAdapter(BasePlatformAdapter):
         to-device key shares queued while offline."""
         self._last_sync_ts = time.time()
         rooms_join = sync_data.get("rooms", {}).get("join", {})
+        # A healthy long-poll delivers live typing after its request began. After
+        # an outage/wedge, older input is backlog even without a process restart.
+        # Stamp provenance before journaling so late decryption preserves it too.
+        poll_started = sync_data.get('_matrix_poll_started')
+        if isinstance(poll_started, (int, float)):
+            for data in rooms_join.values():
+                for raw in data.get('timeline', {}).get('events', []):
+                    ts = raw.get('origin_server_ts')
+                    if isinstance(ts, (int, float)) and 0 < ts / 1000 < poll_started - _STARTUP_GRACE_SECONDS:
+                        raw['_matrix_backlog'] = True
         if rooms_join or initial:
             self._joined_rooms.update(rooms_join.keys())
             self._invalidate_room_identities()
@@ -2271,6 +2287,8 @@ class MatrixAdapter(BasePlatformAdapter):
             self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
             return
         # Ordinary owner/room/mention gates and native authority remain authoritative.
+        if raw.get('_matrix_backlog'):
+            self._matrix_backlog_ids = getattr(self, '_matrix_backlog_ids', set()) | {raw['event_id']}
         if str(decoded.type) == "m.room.message":
             await self._on_room_message(decoded)
         elif str(decoded.type) == "m.reaction":
@@ -2561,9 +2579,13 @@ class MatrixAdapter(BasePlatformAdapter):
         # Commands and inline control replies can have non-idempotent effects outside
         # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
         store.mark(event.message_id, "ambiguous" if event.get_command() else "pending", room_id=event.source.chat_id)
+        key = self._event_session_key(event)
+        before = self._session_tasks.get(key)
         await super().handle_message(event)
-        task = self._session_tasks.get(self._event_session_key(event))
-        if task is not None:
+        task = self._session_tasks.get(key)
+        # Busy controls are consumed inline without a new admission task. The
+        # existing task belongs to the long turn, not this transport event.
+        if task is not None and task is not before:
             await asyncio.wait({committed, task}, return_when=asyncio.FIRST_COMPLETED)
             if committed.done():
                 committed.result()
@@ -2831,8 +2853,7 @@ class MatrixAdapter(BasePlatformAdapter):
         is_direct = bool(getattr(getattr(event, "content", None), "is_direct", False))
         inviter = str(getattr(event, "sender", ""))
         # Only authorized inviters — otherwise any federated user could pull the bot into rooms.
-        if not self._is_authorized_user(inviter, str(room_id)):
-            self._schedule_invite_rejection(room_id)
+        if not self._authorize_invite(inviter, room_id):
             return
         logger.info("Matrix: invited to %s — joining (is_direct=%s)", room_id, is_direct)
         # Join off the sync path; a declared DM is recorded in m.direct once the join lands.
@@ -2876,6 +2897,20 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._invite_join_tasks.pop(room_id, None)
         self._invite_join_tasks[room_id] = asyncio.create_task(_join_invite())
 
+    def _authorize_invite(self, inviter: str, room_id: str) -> bool:
+        # Unknown is not an authorization, but neither is it a permanent no:
+        # a transient check failure must not decline the owner's own invite.
+        decision = None
+        if inviter:
+            decision = (self._is_sender_authorized(inviter, chat_id=room_id)
+                        if getattr(self, '_authorization_check', None) is not None
+                        else self._is_authorized_user(inviter, room_id))
+        if decision is False:
+            self._schedule_invite_rejection(room_id)
+        elif decision is not True:
+            logger.warning('Matrix: invite authorization unknown; leaving %s pending', room_id)
+        return decision is True
+
     def _schedule_invite_rejection(self, room_id: str) -> None:
         """Decline an unauthorized invite using Matrix leave, without joining or reading it."""
         existing = self._invite_join_tasks.get(room_id)
@@ -2893,7 +2928,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._invite_join_tasks.pop(room_id, None)
 
         # Share invite task tracking with joins for sync reconciliation deduplication
-        # and disconnect cancellation. A failed leave is retried on the next sync.
+        # and disconnect cancellation. A failed leave can retry on invite sync/reconnect.
         self._invite_join_tasks[room_id] = asyncio.create_task(_reject_invite())
 
     def _schedule_pending_invite_joins(self, sync_data: dict[str, Any]) -> None:
@@ -2917,9 +2952,8 @@ class MatrixAdapter(BasePlatformAdapter):
             # _on_invite just rejected milliseconds earlier, and would
             # auto-join any invite from an arbitrary federated user on
             # restart. An inviter missing from the stripped invite state
-            # fails closed, like an empty sender in _on_invite.
-            if not self._is_authorized_user(inviter, str(room_id)):
-                self._schedule_invite_rejection(str(room_id))
+            # stays pending, like an empty sender in _on_invite.
+            if not self._authorize_invite(inviter, str(room_id)):
                 continue
             logger.info(
                 "Matrix: reconciling pending invite for %s (is_direct=%s)",

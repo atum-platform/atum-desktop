@@ -119,7 +119,10 @@ class TestPendingInviteAuthorization:
         adapter._join_room_by_id.assert_not_awaited()
         adapter._record_dm_room.assert_not_awaited()
         assert adapter._invite_join_tasks == {}
-        adapter._client.leave_room.assert_awaited_once_with("!pending_room:example.org")
+        if invite_state and invite_state.get('events') and invite_state['events'][0].get('sender') == '@mallory:evil.example':
+            adapter._client.leave_room.assert_awaited_once_with("!pending_room:example.org")
+        else:
+            adapter._client.leave_room.assert_not_awaited()
 
 
 @pytest.mark.parametrize("path", ["live", "pending"])
@@ -185,3 +188,29 @@ async def test_live_and_pending_rejection_share_one_leave(caplog):
     adapter._client.leave_room.assert_awaited_once_with(room_id)
     adapter._join_room_by_id.assert_not_awaited()
     assert len([r for r in caplog.records if "invite" in r.getMessage()]) == 1
+
+
+@pytest.mark.parametrize('path', ['live', 'pending'])
+@pytest.mark.parametrize('authorization', ['error', 'unknown', 'denied'])
+@pytest.mark.asyncio
+async def test_invite_declines_only_on_explicit_authorization_no(path, authorization, caplog):
+    a = _make_adapter()
+    def check(*args, **kwargs):
+        if authorization == 'error':
+            raise ConnectionError('authorization store unavailable')
+        return False if authorization == 'denied' else None
+    a._authorization_check = check
+    with caplog.at_level(logging.WARNING):
+        if path == 'live':
+            await a._on_invite(SimpleNamespace(room_id='!pending_room:example.org', sender='@alice:example.org',
+                content=SimpleNamespace(is_direct=True)))
+        else:
+            a._schedule_pending_invite_joins(_invite_sync_data(invite_state={'events': [_member_invite_event()]}))
+        await _drain_invite_tasks(a)
+    a._join_room_by_id.assert_not_awaited()
+    a._record_dm_room.assert_not_awaited()
+    if authorization == 'denied':
+        a._client.leave_room.assert_awaited_once_with('!pending_room:example.org')
+    else:
+        a._client.leave_room.assert_not_awaited()
+        assert 'pending' in caplog.text.lower()

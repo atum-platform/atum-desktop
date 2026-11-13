@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from agent.atum_google_fence import broker_origin, mark_holding
 from tools.atum_source_policy import source_enabled
-from tools.atum_source_transport import source_transport
+from tools.atum_source_transport import source_transport, source_transport_enabled, source_transport_error
 from tools.registry import registry, tool_error
 
 URL_ENV = "ATUM_GOOGLE_TOOLS_URL"
@@ -128,8 +128,8 @@ def _broker() -> Optional[Tuple[str, str]]:
 
 
 def available() -> bool:
-    """Whether Atum launched this assistant with a valid task-local Google broker."""
-    return source_transport() is not None or _broker() is not None
+    """Static host capability or legacy process broker, never a per-turn binding."""
+    return source_transport_enabled() or _broker() is not None
 
 
 _available = available
@@ -142,6 +142,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
     transport = source_transport()
+    if source_transport_enabled() and transport is None:
+        return tool_error("Google is unavailable for this run.")
     broker = _broker()
     if transport is None and broker is None:
         return tool_error("Google is not available to this assistant.")
@@ -166,20 +168,29 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
 
     if transport is not None:
         # G4 keeps access/refresh custody in the host's existing Google broker.
-        try:
-            result = transport("google", payload)
-            if not isinstance(result, dict) or "error" in result or result.get("closedAfter") is True:
-                return tool_error("Google is unavailable for this run.")
-            body = json.dumps(result, ensure_ascii=False)
-            if len(body.encode("utf-8")) > _MAX_RESPONSE_BYTES:
-                return tool_error("Google is unavailable for this run.")
-        except Exception:
+        def unconfirmed():
             if action in _WRITES:
                 return tool_error(
                     "Google did not confirm this change. Ask the owner to check before retrying.",
                     code="outcome_unknown",
                 )
             return tool_error("Google is unavailable for this run.")
+
+        try:
+            result = transport("google", payload)
+            if not isinstance(result, dict) or result.get("closedAfter") is True:
+                return unconfirmed()
+            correction = source_transport_error(result)
+            if correction is not None:
+                return correction
+            if ("error" in result or result.get('code') == 'outcome_unknown'
+                    or result.get('ok') is False or result.get('success') is False):
+                return unconfirmed()
+            body = json.dumps(result, ensure_ascii=False)
+            if len(body.encode("utf-8")) > _MAX_RESPONSE_BYTES:
+                return unconfirmed()
+        except Exception:
+            return unconfirmed()
         mark_holding()
         return body
 
