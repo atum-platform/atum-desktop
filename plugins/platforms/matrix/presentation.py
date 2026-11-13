@@ -153,6 +153,9 @@ class Turn:
         self.admission_id = None
         self.held_interim = None
         self.root = None
+        self.root_txn = None
+        self.root_content = None
+        self.answer = ''
         self.revision = -1
         self.last_progress = self.last_interim = float('-inf')
         self.interims = []
@@ -163,6 +166,13 @@ class Turn:
         self.marker = turn_id(room, source)
 
     async def progress(self, text, *, kind='todo', phase='working'):
+        try:
+            await self._progress(text, kind=kind, phase=phase)
+        finally:
+            if self.ended:
+                await self.end()
+
+    async def _progress(self, text, *, kind='todo', phase='working'):
         async with self.lock:
             if self.ended or self.revision >= 47:
                 return
@@ -191,6 +201,9 @@ class Turn:
                         'io.atum.progress': marker, 'm.new_content': body,
                         'm.relates_to': {'rel_type': 'm.replace', 'event_id': self.root}}
             txn = f'atum-ne-{self.revision}-{event_suffix(self.root)}' if self.root else transaction(f'{self.room}\0{self.source}\0{self.attempt}', 'progress')
+            if not self.root:
+                self.root_txn = txn
+                self.root_content = body
             event = await self.box.effect(self.port, self.room, body, txn)
             if not self.root:
                 self.root = event
@@ -198,7 +211,7 @@ class Turn:
                 self.box.db.commit()
             self.last_progress = self.clock()
             self.frame = (text, kind, phase)
-            if self.heartbeat_task is None:
+            if not self.ended and self.heartbeat_task is None:
                 async def heartbeat():
                     while not self.ended:
                         await asyncio.sleep(max(1, 180 - (self.clock() - self.last_progress)))
@@ -216,6 +229,13 @@ class Turn:
                 await self.progress(text, kind=kind, phase=phase)
 
     async def interim(self, text, *, redacted=False):
+        try:
+            await self._interim(text, redacted=redacted)
+        finally:
+            if self.ended:
+                await self.end()
+
+    async def _interim(self, text, *, redacted=False):
         text = text.strip()[:1000]
         async with self.lock:
             if self.ended or text == self.held_interim or not redacted or not text.strip() or any(t == text for _, t in self.interims):
@@ -243,14 +263,27 @@ class Turn:
             self.last_interim = self.clock()
 
     async def end(self, answer=''):
+        # Record settlement before waiting for an in-flight presentation receipt.
+        # Its publisher owns the lock and applies cleanup when the event id arrives,
+        # even if the final-delivery waiter has already been cancelled or returned.
+        self.ended = True
+        self.answer = answer or self.answer
+        for task in (self.progress_timer, self.interim_timer, self.heartbeat_task):
+            if task and task is not asyncio.current_task():
+                task.cancel()
+        self.pending = self.held_interim = None
+        if self.lock.locked():
+            return
         async with self.lock:
-            self.ended = True
-            for task in (self.progress_timer, self.interim_timer, self.heartbeat_task):
-                if task:
-                    task.cancel()
-            self.pending = self.held_interim = None
+            if not self.root and self.root_txn:
+                try:
+                    # A lost receipt still has a durable original intent. Reuse its
+                    # transaction to recover the id before redacting, without a reboot.
+                    self.root = await self.box.effect(self.port, self.room, self.root_content, self.root_txn)
+                except Exception:
+                    logger.warning('Matrix presentation root recovery deferred', exc_info=True)
             targets = ([self.root] if self.root else []) + [
-                event for event, text in self.interims if repeats(text, answer)]
+                event for event, text in self.interims if repeats(text, self.answer)]
             for event in targets:
                 try:
                     await self.box.remove(self.port, self.room, self.source, event)
