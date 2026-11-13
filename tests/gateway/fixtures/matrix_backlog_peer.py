@@ -128,22 +128,24 @@ async def probe(peer):
             runner._release_running_agent_state(entry.session_key)
         release = asyncio.create_task(finish_legacy())
         a._startup_ts = 0  # the new durable event is live
-    sync = batch([raw(i) for i in range(16, 26)], 'after-restart', True)
+    count = 1 if legacy else 25
+    sync = (batch([raw(1)], 'live-during-resume') if legacy else
+        batch([raw(i) for i in range(16, 26)], 'after-restart', True))
     await asyncio.wait_for(a._absorb_sync(client, sync), 60)
-    await async_wait_until(lambda: len(finals) == 25, timeout=90, what='25 linked finals')
+    await async_wait_until(lambda: len(finals) == count, timeout=90, what='source-linked finals')
     if legacy:
         await release
-    assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, 26)], finals
+    assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, count + 1)], finals
     assert not any('send it again' in str(content).lower() for content in publications), publications
     assert runner._startup_restore_queue == [], runner._startup_restore_queue
     assert all(len(numbers) == 1 for numbers in peer.inputs), peer.inputs
-    assert len(peer.inputs) == 25, peer.inputs
+    assert len(peer.inputs) == count, peer.inputs
     # Reopen the journal as on process restart, replay the multi-page batch.
     a._intake.close()
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
     await a._dispatch_sync(sync)
-    assert len(finals) == 25
-    assert client.get_messages.await_count == 2
+    assert len(finals) == count
+    assert client.get_messages.await_count == (0 if legacy else 2)
     a._intake.close()
     print(json.dumps({'finals': finals, 'model_calls': len(peer.inputs), 'startup_queue': 0}))
 

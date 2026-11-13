@@ -117,8 +117,8 @@ async def test_25_old_events_paginate_restart_and_dispatch_in_order(tmp_path):
         a._intake.close()
 
 
-@pytest.mark.parametrize('legacy_resume', [False, True])
-def test_native_runtime_25_linked_finals_during_startup(tmp_path, legacy_resume):
+@pytest.mark.parametrize('legacy_resume', [False, True], ids=['25-backlog', 'live-during-legacy-resume'])
+def test_native_runtime_linked_finals_during_startup(tmp_path, legacy_resume):
     import os
     from pathlib import Path
     import subprocess
