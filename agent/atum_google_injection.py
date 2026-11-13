@@ -52,16 +52,28 @@ REFUSAL = (
 CHANGE_ACTIONS = frozenset(
     {"send_email", "create_event", "update_event", "mailbox", "create_label", "create_draft", "update_draft"}
 )
-#: Beyond the fence's outbound tools: spawning another agent or a schedule would carry the
-#: instruction past this turn's refusal.
-_EXTRA_BLOCKED_TOOLS = frozenset({"delegate_task", "cronjob", "manage_connections"})
+#: Beyond the fence's outbound tools: a shell or code run can reach anything, memory and schedules
+#: and other agents carry an instruction past this turn's refusal.
+_EXTRA_BLOCKED_TOOLS = frozenset(
+    {
+        "terminal",
+        "execute_code",
+        "memory",
+        "delegate_task",
+        "cronjob",
+        "cronjob_manage",
+        "manage_connections",
+    }
+)
 _EXTRA_BLOCKED_PREFIXES = ("connectors__",)
 
-#: Findings that fire on ordinary mail: forwarding "check in with the team", newsletter padding,
-#: emoji joiners. They stay out of the decision so a normal reply is not refused; the explicit
-#: override, role-hijack, hidden-markup and prompt-leak patterns remain.
+#: Findings that fire on ordinary mail: "check in with the team", newsletter padding, emoji joiners,
+#: HTML comments. They are logged (ids only) but stay out of the decision so a normal reply is not
+#: refused; the explicit override, role-hijack, hidden-div and prompt-leak patterns remain.
 _NOISY_FINDINGS = frozenset(
     {
+        # HTML comments ("<!-- hidden preheader ... -->") are standard in marketing mail.
+        "html_comment_injection",
         "c2_node_registration",
         "c2_heartbeat",
         "c2_task_pull",
@@ -72,6 +84,8 @@ _NOISY_FINDINGS = frozenset(
     }
 )
 _NOISY_PREFIXES = ("invisible_unicode_",)
+#: The file tools that open what a Google attachment was saved as.
+_FILE_READERS = frozenset({"read_file", "search_files"})
 
 #: Longest text scanned in one go (the scanner's own cap) and the overlap between windows,
 #: so a payload split at a window edge, or placed after the cap in one long field, is still found.
@@ -86,6 +100,8 @@ _MAX_TURNS = 512
 
 _lock = threading.Lock()
 _tainted: OrderedDict[str, None] = OrderedDict()
+#: Saved Google attachments that were flagged, so a later turn that reads one back is marked again.
+_flagged_files: OrderedDict[str, None] = OrderedDict()
 
 
 def _key(task_id: Any) -> str:
@@ -116,9 +132,50 @@ def _tainted_count() -> int:
         return len(_tainted)
 
 
+def note_flagged_file(path: Any) -> None:
+    """Remember a saved attachment that looked like an injection (this process only)."""
+    import os
+
+    with _lock:
+        key = os.path.realpath(str(path))
+        _flagged_files[key] = None
+        _flagged_files.move_to_end(key)
+        while len(_flagged_files) > _MAX_TURNS:
+            _flagged_files.popitem(last=False)
+
+
+def _flagged_file_count() -> int:
+    with _lock:
+        return len(_flagged_files)
+
+
+def _reads_flagged_file(tool_name: str, args: Any, task_id: Any) -> bool:
+    """Whether a file read, or a search whose root contains a remembered file, targets a flagged attachment."""
+    import os
+
+    if not _flagged_files or tool_name not in _FILE_READERS or not isinstance(args, dict):
+        return False
+    raw = args.get("path")
+    if not isinstance(raw, str) or not raw.strip():
+        if tool_name != "search_files":
+            return False
+        raw = "."
+    try:
+        from tools.file_tools_paths import _resolve_path_for_task
+
+        target = os.path.realpath(str(_resolve_path_for_task(raw, str(task_id or "default"))))
+    except Exception:
+        return False
+    with _lock:
+        known = list(_flagged_files)
+    return any(path == target or path.startswith(target.rstrip(os.sep) + os.sep) for path in known) \
+        if tool_name == "search_files" else target in known
+
+
 def _reset_for_tests() -> None:
     with _lock:
         _tainted.clear()
+        _flagged_files.clear()
     _BACKENDS.clear()
     _warned_backends.clear()
 
@@ -155,14 +212,22 @@ def _native_scan(text: str) -> list[str]:
     from tools.threat_patterns import scan_for_threats
 
     found: list[str] = []
+    ignored: list[str] = []
+    # One space-joined string, so an instruction split across fields (a subject that ends "ignore"
+    # and a body that starts "all previous instructions") is found; windows overlap for the cap.
+    joined = text.replace(FIELD_BREAK, " ")
     step = _WINDOW - _OVERLAP
-    for field in text.split(FIELD_BREAK):
-        for start in range(0, len(field), step):
-            for finding in scan_for_threats(field[start:start + _WINDOW], scope="context"):
-                if _enforced(finding) and finding not in found:
-                    found.append(finding)
-            if start + _WINDOW >= len(field):
-                break
+    for start in range(0, len(joined), step):
+        for finding in scan_for_threats(joined[start:start + _WINDOW], scope="context"):
+            if not _enforced(finding):
+                if finding not in ignored:
+                    ignored.append(finding)
+            elif finding not in found:
+                found.append(finding)
+        if start + _WINDOW >= len(joined):
+            break
+    if ignored:
+        logger.debug("Google content matched advisory patterns only (not enforced): %s", ",".join(ignored))
     return found
 
 
@@ -217,9 +282,9 @@ def _collect_text(value: Any) -> str:
             if len(item) >= _MIN_TEXT:
                 fields.append(item)
         elif isinstance(item, dict):
-            pending.extend(item.values())
+            pending.extend(reversed(list(item.values())))  # document order, so a split phrase reads in order
         elif isinstance(item, (list, tuple)):
-            pending.extend(item)
+            pending.extend(reversed(item))
     return FIELD_BREAK.join(fields)
 
 
@@ -242,8 +307,9 @@ def screen_result(result: dict, action: str, task_id: Any) -> bool:
     return True
 
 
-def screen_attachment(data: bytes, mime: str, task_id: Any) -> bool:
-    """Scan a saved text attachment; True (and the turn marked) on a match. Other types are not text."""
+def screen_attachment(data: bytes, mime: str, task_id: Any, path: Any = None) -> bool:
+    """Scan a saved text attachment; True (and the turn marked) on a match. Other types are not text.
+    ``path`` is where it was saved: a later turn that reads it back is marked again."""
     kind = (mime or "").split(";")[0].strip().lower()
     if not (kind.startswith("text/") or kind in {"application/json", "application/xml"}
             or kind.endswith(("+json", "+xml"))):
@@ -252,14 +318,19 @@ def screen_attachment(data: bytes, mime: str, task_id: Any) -> bool:
     if not verdict.flagged:
         return False
     _flagged(verdict, "attachment", task_id)
+    if path:
+        note_flagged_file(path)
     return True
 
 
 def refusal(tool_name: Any, args: Any, task_id: Any) -> Optional[str]:
     """The one-line refusal a tool call gets in a turn that read an injection, else None."""
+    name = str(tool_name or "")
+    if _reads_flagged_file(name, args, task_id):
+        # The read itself runs; what it brings in is Google-authored text the turn must not act on.
+        taint_turn(task_id)
     if not turn_tainted(task_id):
         return None
-    name = str(tool_name or "")
     if name == "atum_google":
         action = args.get("action") if isinstance(args, dict) else None
         return REFUSAL if not isinstance(action, str) or action in CHANGE_ACTIONS else None
@@ -285,6 +356,7 @@ __all__ = [
     "WARNING_KEY",
     "Verdict",
     "clear_turn",
+    "note_flagged_file",
     "refusal",
     "register_backend",
     "scan_google_content",

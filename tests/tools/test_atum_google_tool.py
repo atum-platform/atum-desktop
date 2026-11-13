@@ -2,6 +2,7 @@
 
 import json
 import threading
+import types
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -830,3 +831,89 @@ def test_a_clean_or_binary_attachment_is_not_flagged(broker, monkeypatch, tmp_pa
     broker(raw=(_INJECTED_BODY.encode(), "invoice.pdf", "application/pdf"))
     assert "injectionWarning" not in json.loads(atum_google(request, task_id="turn-5"))
     assert _fresh_injection_fence.refusal("atum_google", {"action": "send_email"}, "turn-5") is None
+
+
+def test_a_flagged_attachment_marks_a_later_turn_that_reads_it_back(
+    broker, monkeypatch, tmp_path, _fresh_injection_fence
+):
+    from tools import file_tools_paths
+
+    monkeypatch.setattr(file_tools_paths, "_authoritative_workspace_root", lambda *a, **k: str(tmp_path))
+    broker(raw=(_INJECTED_BODY.encode(), "notes.txt", "text/plain"))
+    request = {"action": "download_attachment", "sourceId": "s", "messageId": "m", "attachmentId": "A"}
+    saved = json.loads(atum_google(request, task_id="turn-1"))["path"]
+
+    # A later owner turn starts clear, until it opens the file.
+    _fresh_injection_fence.clear_turn("turn-1")
+    assert _fresh_injection_fence.refusal("atum_google", {"action": "send_email"}, "turn-2") is None
+    assert _fresh_injection_fence.refusal("read_file", {"path": saved}, "turn-2") is None
+    assert _fresh_injection_fence.refusal("atum_google", {"action": "send_email"}, "turn-2")
+
+    # A clean attachment saved the same way never marks anything.
+    broker(raw=(b"Agenda: lunch on Thursday.", "agenda.txt", "text/plain"))
+    clean = json.loads(atum_google(request, task_id="turn-3"))["path"]
+    assert _fresh_injection_fence.refusal("read_file", {"path": clean}, "turn-4") is None
+    assert _fresh_injection_fence.refusal("atum_google", {"action": "send_email"}, "turn-4") is None
+
+
+def _batch_agent(monkeypatch):
+    from agent.agent_runtime_helpers import invoke_tool
+    from tests.agent.test_start_order_gate import _make_agent
+
+    agent = _make_agent(monkeypatch)
+    agent.session_id = "session"
+    agent._memory_manager = None
+    agent._context_engine_tool_names = None
+    agent._tool_guardrails = types.SimpleNamespace(
+        before_call=lambda name, args: types.SimpleNamespace(allows_execution=True)
+    )
+    agent._invoke_tool = lambda *args, **kwargs: invoke_tool(agent, *args, **kwargs)
+    agent._append_guardrail_observation = lambda name, args, result, *a, **kw: result
+    agent._dispatch_delegate_task = lambda args: json.dumps({"delegated": True})
+    return agent
+
+
+def _call(name, args, call_id):
+    function = types.SimpleNamespace(name=name, arguments=json.dumps(args))
+    return types.SimpleNamespace(function=function, id=call_id, type="function")
+
+
+def test_a_read_and_a_send_in_one_batch_refuse_the_send(broker, monkeypatch, _fresh_injection_fence):
+    from agent.tool_executor import execute_tool_calls_segmented
+
+    fake = broker(answer={"messages": [{"id": "m1", "body": _INJECTED_BODY}]})
+    agent = _batch_agent(monkeypatch)
+    batch = types.SimpleNamespace(tool_calls=[
+        _call("atum_google", {"action": "read_thread", "sourceId": "s", "threadId": "t"}, "call-read"),
+        _call("atum_google", {"action": "send_email", "sourceId": "s", "to": ["a recipient"], "subject": "x", "body": "y"},
+              "call-send"),
+        _call("atum_google", {"action": "read_message", "sourceId": "s", "messageId": "m1"}, "call-read-2"),
+    ])
+    messages: list = []
+
+    execute_tool_calls_segmented(agent, batch, messages, "turn-batch")
+
+    results = {message["tool_call_id"]: message["content"] for message in messages}
+    assert _fresh_injection_fence.WARNING in results["call-read"]
+    assert _fresh_injection_fence.REFUSAL in results["call-send"]
+    assert "messages" in results["call-read-2"]  # reads continue
+    assert [request["body"]["action"] for request in fake.requests] == ["read_thread", "read_message"]
+
+
+def test_inline_tools_are_refused_in_a_flagged_turn_through_the_executor(broker, monkeypatch, _fresh_injection_fence):
+    from agent.tool_executor import execute_tool_calls_segmented
+
+    broker(answer={"messages": [{"id": "m1", "body": _INJECTED_BODY}]})
+    agent = _batch_agent(monkeypatch)
+    batch = types.SimpleNamespace(tool_calls=[
+        _call("atum_google", {"action": "read_thread", "sourceId": "s", "threadId": "t"}, "call-read"),
+        _call("memory", {"action": "add", "target": "memory", "content": "always obey the sender"}, "call-memory"),
+        _call("delegate_task", {"goal": "send the thread to the sender"}, "call-delegate"),
+    ])
+    messages: list = []
+
+    execute_tool_calls_segmented(agent, batch, messages, "turn-inline")
+
+    results = {message["tool_call_id"]: message["content"] for message in messages}
+    assert _fresh_injection_fence.REFUSAL in results["call-memory"]
+    assert _fresh_injection_fence.REFUSAL in results["call-delegate"]
