@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -3762,14 +3762,17 @@ function MatrixComposer({
   // snapshot clears it, not the request resolving.
   const cloudStopRequested = useRef<string | null>(null)
 
+  const scheduledStop = roomAgent?.runtime === 'hermes' && matrixCloudStopScheduled(
+    contextMessages ?? snapshot.messages, roomAgent.userId
+  )
   const stopRoute = matrixStopRoute({
     runtime: roomAgent?.runtime,
     eventId: cloudStopTarget,
-    working: Boolean(agentTyping),
-    unresolvedOwner: Boolean(cloudUnanswered)
+    working: Boolean(agentTyping || scheduledStop),
+    scheduled: scheduledStop
   })
-  const stopKey = cloudStopTarget ?? (stopRoute.kind === 'native' ? `native:${room.id}` : undefined)
-  const showCloudStop = Boolean(cloudStopTarget || (cloudAssistant && agentTyping))
+  const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
+  const showCloudStop = Boolean(cloudStopTarget || (cloudAssistant && (agentTyping || scheduledStop)))
 
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent

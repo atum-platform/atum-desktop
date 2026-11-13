@@ -56,13 +56,13 @@ export function matrixStopRoute(input: {
   runtime?: 'hermes'
   eventId?: string
   working: boolean
-  unresolvedOwner?: boolean
+  scheduled?: boolean
 }): MatrixStopRoute {
+  if (input.runtime === 'hermes' && input.working && input.scheduled) {
+    return { kind: 'native' }
+  }
   if (input.eventId) {
     return { kind: input.runtime === 'hermes' ? 'host' : 'legacy', eventId: input.eventId }
-  }
-  if (input.runtime === 'hermes' && input.working && !input.unresolvedOwner) {
-    return { kind: 'native' }
   }
   return { kind: 'unavailable' }
 }
@@ -80,4 +80,10 @@ export async function executeMatrixStop(
     return
   }
   await stop(route.eventId)
+}
+
+/** The bound agent's latest progress line identifies a cron turn explicitly. */
+export function matrixCloudStopScheduled(messages: readonly MatrixMessage[], agentId: string | undefined): boolean {
+  const progress = messages.findLast(message => message.sender === agentId && !message.own && !message.redacted && message.progress)?.progress
+  return Boolean(progress && 'trigger' in progress && progress.trigger === 'cron' && progress.phase !== 'settled')
 }

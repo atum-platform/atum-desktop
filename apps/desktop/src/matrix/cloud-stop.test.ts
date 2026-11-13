@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled } from './cloud-stop'
 
 const ROOM = '!assistant:test'
 const TURN = '00000000-0000-4000-8000-31f949766961'
@@ -187,8 +187,16 @@ describe('Stop routing', () => {
     expect(stop).not.toHaveBeenCalled()
   })
   it('disables unresolved owner messages and idle turns', () => {
-    expect(matrixStopRoute({ runtime: 'hermes', working: true, unresolvedOwner: true }).kind).toBe('unavailable')
+    expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
     expect(matrixStopRoute({ runtime: 'hermes', working: false }).kind).toBe('unavailable')
     expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
   })
+})
+
+it('requires the bound agent’s latest active cron marker', () => {
+  const progress = { profile: 'atum.agent-turns/1.3' as const, scope: 'owner_private' as const, phase: 'working' as const, kind: 'heartbeat' as const, revision: 1, trigger: 'cron' as const }
+  const cron = message({ sender: '@agent:test', own: false, progress })
+  expect(matrixCloudStopScheduled([cron], '@agent:test')).toBe(true)
+  expect(matrixCloudStopScheduled([cron], '@foreign:test')).toBe(false)
+  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, progress: { ...progress, phase: 'settled' } })], '@agent:test')).toBe(false)
 })
