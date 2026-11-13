@@ -1962,8 +1962,9 @@ def _run_agent_with_watchdog(
     def _abort_if_fire_claim_lost() -> None:
         if cancel_event is None or not cancel_event.is_set():
             return
-        if agent is not None and hasattr(agent, "interrupt"):
-            agent.interrupt("Cron fire claim ownership was lost")
+        if agent is not None:
+            request_hard_interrupt(agent, "Cron fire cancelled or claim ownership was lost",
+                                   tool_reason="cron cancellation")
         raise RuntimeError(f"Cron job '{job_name}' lost its durable fire claim ownership")
 
     def _heartbeat_run_claim_if_due():
