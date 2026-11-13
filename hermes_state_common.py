@@ -1276,10 +1276,13 @@ def _write_lock_holder_record(handle) -> None:
     from a live wedged one.
 
     Written under the flock so contenders that time out can tell an orphaned-fd holder (recorded process
-    dead, flock inherited by a forked child — issue #100108) from a live wedged holder.  ``pidns``: see
+    dead, flock inherited by a forked child — issue #100108) from a live wedged holder.
+    The native boot witness disambiguates PID/start-tick reuse after sandbox restart. ``pidns``: see
     ``hermes_state_pidns``.
     """
-    record = {"pid": os.getpid(), "pidns": pid_namespace_id(),
+    from gateway.status import get_process_epoch
+
+    record = {"pid": os.getpid(), "pidns": pid_namespace_id(), "boot_epoch": get_process_epoch(),
               "start_ticks": _proc_start_ticks(os.getpid()), "acquired_at": time.time()}
     _rewrite_lock_file(handle, json.dumps(record, sort_keys=True).encode("utf-8"))
 
@@ -1290,15 +1293,22 @@ def _clear_lock_holder_record(handle) -> None:
 
 
 def _lock_holder_provably_dead(record) -> bool:
-    """True ONLY when the recorded holder is provably dead or PID-recycled.  Anything indeterminate
-    (no/malformed record, PID owned by another user, /proc unavailable, foreign PID namespace)
-    is False: FAIL CLOSED and defer.  Unstamped records keep probing: see ``hermes_state_pidns``."""
+    """True ONLY when the recorded holder is provably dead or PID-recycled.
+
+    A conflicting boot witness proves death before PID/start-tick probes. Indeterminate cases
+    (no/malformed record, foreign user/namespace, unavailable /proc) fail closed.
+    Unstamped records keep probing: see ``hermes_state_pidns``.
+    """
     try:
         pid = int(record["pid"])
     except (KeyError, TypeError, ValueError):
         return False
     if pid <= 0:
         return False
+    from gateway.status import process_epoch_conflicts
+
+    if process_epoch_conflicts(record):
+        return True
     if not persistent_record_pidns_checkable(record.get("pidns")):
         return False  # foreign namespace: a local reading is not proof — defer
     try:

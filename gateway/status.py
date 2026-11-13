@@ -799,6 +799,32 @@ def process_epoch_matches(record: dict, key: str = "boot_epoch") -> bool:
     return (not record.get(key)) if current is None else record.get(key) == current
 
 
+def process_epoch_conflicts(record: dict, key: str = "boot_epoch") -> bool:
+    """True only when *record* names a DIFFERENT instantiation than this one.
+
+    The bounded half of :func:`process_epoch_matches` for the records read by durable owners that
+    are not gateway pid records — the managed local-model runtime's state file
+    (``boot_epoch``) and the background-process checkpoint (``host_boot_epoch``). A record that
+    names its boot is foreign the moment that name changes (a fresh sandbox reuses the PID and the
+    boot-relative start ticks, so the birth guards alone accept a stranger); a record written
+    before the witness existed names nothing and keeps the process-birth checks its reader
+    already had, because each of those writers stamps the witness on its next write and the
+    unproven population only shrinks.
+    """
+    return bool(record.get(key)) and not process_epoch_matches(record, key)
+
+
+def process_epoch_unproven(record: dict, key: str = "boot_epoch") -> bool:
+    """True when *record* carries no boot witness at all on a host that can supply one.
+
+    For an owner whose ONLY identity is the witness-shaped fingerprint (a Kanban worker row: pid
+    plus boot-relative start ticks) a legacy value cannot prove which instantiation wrote it — the
+    recurrence this fixes, where a fresh sandbox reuses both the pid and the tick value. Hosts
+    with no witness to read (macOS/Windows) keep their existing start-time answer.
+    """
+    return get_process_epoch() is not None and not record.get(key)
+
+
 def _build_pid_record() -> dict:
     return {
         "pid": os.getpid(), "kind": _GATEWAY_KIND, "argv": _record_argv(),

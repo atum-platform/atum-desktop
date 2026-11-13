@@ -35,7 +35,7 @@ from hermes_state_common import (
     stat_db_file_identity as _stat_db_file_identity,
 )
 from hermes_state_holders import read_only_db_uri
-from hermes_state_pidns import holder_pid_checkable
+from hermes_state_pidns import holder_boot_epoch_conflicts, holder_pid_checkable
 from hermes_state_health import (
     STORAGE_CORRUPT, mark_storage_corrupt, note_storage_error, storage_corrupt_reason, storage_state,
 )
@@ -143,10 +143,15 @@ def _compression_lock_holder_process_is_dead(holder: str) -> bool:
     Reclaim on kernel proof only: unstructured/same-process holders (another
     thread's live lease) and any probe doubt keep the lease until TTL expiry
     (PID reuse must never steal a live lease; a wrongly-kept one self-heals).
-    Foreign/unstamped PID namespaces defer to TTL: see ``hermes_state_pidns``."""
+    Foreign/unstamped PID namespaces defer to TTL: see ``hermes_state_pidns``.
+    A conflicting boot witness proves death before even the same-PID shortcut."""
     match = re.search(r"(?:^|:)pid=(\d+)(?::|$)", holder or "")
     pid = int(match.group(1)) if match else 0
-    if pid <= 0 or pid == os.getpid():
+    if pid <= 0:
+        return False
+    if holder_boot_epoch_conflicts(holder):
+        return True
+    if pid == os.getpid():
         return False
     if not holder_pid_checkable(holder):
         return False  # foreign / unknown namespace: defer to TTL

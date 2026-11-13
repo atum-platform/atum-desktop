@@ -61,14 +61,13 @@ def test_recycled_pid_is_reclaimed_without_being_signalled(board):
 
 
 def test_matching_fingerprint_keeps_the_live_worker(board):
-    """The same PID with ITS OWN fingerprint (recorded at spawn) is our worker: the expired claim is
-    extended rather than reclaimed, and the timeout path signals it."""
-    from gateway.status import get_process_start_time
-
+    """The same PID with ITS OWN fingerprint (recorded at spawn, boot witness included) is our
+    worker: the expired claim is extended rather than reclaimed, and the timeout path signals it."""
     conn = board
     killed = []
-    tid = _claimed_running(conn, pid=os.getpid(), started_at=get_process_start_time(os.getpid()))
-    assert kbd._worker_alive(os.getpid(), get_process_start_time(os.getpid())) is True
+    own_fingerprint = kbd._process_fingerprint(os.getpid())
+    tid = _claimed_running(conn, pid=os.getpid(), started_at=own_fingerprint)
+    assert kbd._worker_alive(os.getpid(), own_fingerprint) is True
     assert kb.release_stale_claims(conn) == 0
     assert kb.get_task(conn, tid).status == "running"
     kinds = [e.kind for e in kb.list_events(conn, tid)]
@@ -149,3 +148,48 @@ def test_unverified_fingerprint_capture_never_authorizes_a_signal(board, monkeyp
     monkeypatch.setattr(kb, "_pid_alive", lambda pid: False)
     assert kb.release_stale_claims(conn, signal_fn=sig) == 1
     assert killed == [] and kb.get_task(conn, tid2).status == "ready"
+
+
+def test_legacy_tick_fingerprint_cannot_prove_its_instantiation(board, monkeypatch):
+    """A row written before the boot witness existed keeps a bare tick value: boot-relative, with no
+    instantiation name. On a host that has one, the value cannot prove which boot wrote it — in a
+    fresh sandbox the PID and the tick value both recur — so the claim is released and the live
+    process the number now names is never signalled."""
+    from gateway import drain_control
+    from gateway.status import get_process_start_time
+
+    monkeypatch.setattr(drain_control, "current_instantiation_epoch", lambda: "cafebabe-boot:42")
+    conn = board
+    killed = []
+    ticks = get_process_start_time(os.getpid())
+    tid = _claimed_running(conn, pid=os.getpid(), started_at=ticks, max_runtime=1)
+
+    assert kbd._worker_alive(os.getpid(), ticks) is False
+    assert kbd._pid_recycled(os.getpid(), ticks) is True
+    assert tid in kbd.enforce_max_runtime(conn, signal_fn=lambda pid, sig: killed.append((pid, sig)))
+    assert killed == []
+    task = kb.get_task(conn, tid)
+    assert task.status == "ready" and task.worker_pid is None
+
+    tid2 = _claimed_running(conn, pid=os.getpid(), started_at=ticks)
+    assert kb.release_stale_claims(conn, signal_fn=lambda pid, sig: killed.append((pid, sig))) == 1
+    assert killed == []
+    assert kb.get_task(conn, tid2).status == "ready"
+
+
+def test_legacy_tick_fingerprint_keeps_its_answer_without_a_boot_witness(board, monkeypatch):
+    """Bounded legacy behaviour: where the host cannot name an instantiation (macOS/Windows) there is
+    no witness to demand, so a bare tick value keeps its start-time answer and a live worker keeps
+    its claim instead of being reclaimed beside a duplicate spawn."""
+    from gateway import drain_control
+    from gateway.status import get_process_start_time
+
+    monkeypatch.setattr(drain_control, "current_instantiation_epoch", lambda: "")
+    conn = board
+    ticks = get_process_start_time(os.getpid())
+    tid = _claimed_running(conn, pid=os.getpid(), started_at=ticks)
+
+    assert kbd._worker_alive(os.getpid(), ticks) is True
+    assert kbd._pid_recycled(os.getpid(), ticks) is False
+    assert kb.release_stale_claims(conn) == 0
+    assert kb.get_task(conn, tid).status == "running"
