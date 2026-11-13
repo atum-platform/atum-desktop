@@ -50,10 +50,10 @@ def test_real_mautrix_keyword_contracts():
 async def test_completion_real_client_http_boundary(tmp_path, cleanup_fails):
     writes = []
     api = HTTPAPI(base_url='https://matrix.invalid', token='fixture', client_session=SimpleNamespace())
-    async def request(method, path, **kwargs):
+    async def request(method, path, *args, **kwargs):
         # Validate even the stub against HTTPAPI's real declared arguments.
-        inspect.signature(HTTPAPI.request).bind(api, method, path, **kwargs)
-        writes.append((str(path), kwargs.get('content')))
+        inspect.signature(HTTPAPI.request).bind(api, method, path, *args, **kwargs)
+        writes.append((str(path), args[0] if args else kwargs.get('content')))
         if '/redact/' in str(path) and cleanup_fails:
             raise RuntimeError('cleanup unavailable')
         return {'event_id': '$effect' + str(len(writes))}
