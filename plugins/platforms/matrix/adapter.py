@@ -2445,10 +2445,9 @@ class MatrixAdapter(BasePlatformAdapter):
             return
         # Startup grace: ignore old messages replayed by the initial sync.
         event_ts = _matrix_event_timestamp_seconds(event)
-        if event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
+        if store is None and event_ts and event_ts < self._startup_ts - _STARTUP_GRACE_SECONDS:
             self._note_late_grace_drop(event_ts)
-            if store is None:
-                return
+            return
         content = getattr(event, "content", None)
         if content is None:
             return

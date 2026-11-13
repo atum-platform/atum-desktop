@@ -200,6 +200,9 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
             and not is_internal
             and not getattr(event, "_hermes_startup_restore_replay", False)
             and not executing_admission.get()
+            # The Matrix journal retains this input until its native commit callback.
+            # Parking it here creates a second, process-local replay owner.
+            and not getattr(event, "_matrix_durable_intake", False)
         ):
             self._queue_startup_restore_event(event)
             return None
@@ -1221,7 +1224,11 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
                 # A bare "yes"/"no" to a blocking dangerous-command approval answers it (#46866):
                 # never an interrupt (read as deny) nor a queued turn (auto-deny deadlock).
                 # A turn a slash command produced (``/queue yes``) is never live typing.
-                if self._is_session_running(_quick_key) and not getattr(event, "_fifo_only", False) and (
+                # Journal-owned Matrix backlog is also queued input. Each source must
+                # reach its own admission without interrupting or steering an earlier one.
+                if (not getattr(event, "_matrix_durable_intake", False)
+                        and self._is_session_running(_quick_key)
+                        and not getattr(event, "_fifo_only", False)) and (
                         await transport_control(event, lambda: self._route_plaintext_approval_while_busy(event, _quick_key))
                         or await transport_control(event, lambda: self._hm_busy_preempt(event, source, _quick_key))):
                     return True, None

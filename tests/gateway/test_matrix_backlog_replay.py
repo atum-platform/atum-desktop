@@ -1,7 +1,7 @@
 """Offline backlog regressions at the real adapter/startup/admission seams."""
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -75,7 +75,7 @@ async def test_25_old_events_paginate_restart_and_dispatch_in_order(tmp_path):
     a = adapter(tmp_path)
     a._startup_ts = 9999999999
     a._is_allowed_matrix_room_event = AsyncMock(return_value=True)
-    a._note_late_grace_drop = AsyncMock()  # synchronous spy, must never be invoked
+    a._note_late_grace_drop = MagicMock()
     baseline = batch('$baseline', token='before-stop')
     a._intake.accept(baseline)
     a._intake.finish(baseline)
