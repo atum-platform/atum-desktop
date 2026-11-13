@@ -61,6 +61,8 @@ import io
 import json
 import logging
 import os
+
+from hermes_cli.atum_runtime_environment import in_cloud_sandbox
 import re
 import shutil
 import sqlite3
@@ -939,12 +941,6 @@ CLOUD_ONE_OFF_CATCHUP_MS = CLOUD_CATCHUP_MAX_MS
 # fast-forwards a job past its grace window (cron/jobs.py get_due_jobs).
 CLOUD_LATE_MARGIN_MS = 60_000
 
-
-def in_cloud_sandbox(environ: dict | None = None) -> bool:
-    """Whether this Hermes runs in an Atum cloud task sandbox: only the controller sets the task's
-    workspace and deadline (atum.cloud-execution/1 ``sandbox.environment``)."""
-    env = os.environ if environ is None else environ
-    return bool(env.get("ATUM_TASK_WORKSPACE")) and bool(env.get("ATUM_TASK_DEADLINE_MS"))
 
 
 def schedule_period_seconds(schedule: dict) -> int | None:

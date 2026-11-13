@@ -273,7 +273,7 @@ def maybe_dispatch(
     native scheduler needs only one narrow override point in its tool handler.
     """
     try:
-        from hermes_cli.atum_home import in_cloud_sandbox
+        from hermes_cli.atum_runtime_environment import in_cloud_sandbox
 
         if not in_cloud_sandbox():
             return None

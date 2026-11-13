@@ -63,7 +63,7 @@ def _dns_delegated_to_egress_proxy(hostname: str, scheme: str) -> bool:
     never for a host the sandbox reaches directly (``NO_PROXY``: the model broker, loopback).
     """
     try:
-        from hermes_cli.atum_home import in_cloud_sandbox
+        from hermes_cli.atum_runtime_environment import in_cloud_sandbox
 
         return in_cloud_sandbox() and _request_goes_through_proxy(hostname, scheme)
     except Exception:

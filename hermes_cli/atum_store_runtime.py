@@ -312,7 +312,7 @@ def _reconcile_jobs(wanted_jobs: list[dict[str, str]]) -> tuple[int, int]:
 
 def reconcile_store_runtime(value: Any) -> dict[str, Any]:
     """Apply one entitlement-authorized plan idempotently before session open."""
-    from hermes_cli.atum_home import in_cloud_sandbox
+    from hermes_cli.atum_runtime_environment import in_cloud_sandbox
 
     if not in_cloud_sandbox():
         # The held path relies on the controller discarding this task home.

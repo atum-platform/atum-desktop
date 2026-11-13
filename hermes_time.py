@@ -126,7 +126,7 @@ def _timezone_entry() -> tuple[str, Optional[ZoneInfo]]:
             # diagnostic. The portable checkpoint module intentionally builds
             # on this same home boundary; neither path derives another home.
             try:
-                from hermes_cli.atum_home import in_cloud_sandbox
+                from hermes_cli.atum_runtime_environment import in_cloud_sandbox
 
                 cloud = in_cloud_sandbox()
             except Exception:
