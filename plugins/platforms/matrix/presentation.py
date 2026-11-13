@@ -249,12 +249,18 @@ class Turn:
                 if task:
                     task.cancel()
             self.pending = self.held_interim = None
-            if self.root:
-                await self.box.remove(self.port, self.room, self.source, self.root)
-            for event, text in self.interims:
-                if repeats(text, answer):
+            targets = ([self.root] if self.root else []) + [
+                event for event, text in self.interims if repeats(text, answer)]
+            for event in targets:
+                try:
                     await self.box.remove(self.port, self.room, self.source, event)
-            self.box.collect()
+                except Exception:
+                    # Outbox retains the stable intent for reconnect recovery.
+                    logger.warning('Matrix presentation cleanup deferred', exc_info=True)
+            try:
+                self.box.collect()
+            except Exception:
+                logger.warning('Matrix presentation collection deferred', exc_info=True)
 
 
 def adapter_class(base):
@@ -280,9 +286,19 @@ def adapter_class(base):
                 self._presentation_ready.set()
 
         async def _presentation_send(self, room, content, txn, target):
-            from mautrix.types import RoomID, EventID, EventType
+            from mautrix.types import RoomID, EventType
             if target:
-                return await self._client.redact(RoomID(room), EventID(target), reason=content['reason'], txn_id=txn)
+                from mautrix.api import Method, Path as APIPath
+                from mautrix.errors import MatrixResponseError
+                # mautrix 0.21 EventMethods.redact uses this exact native path,
+                # but generates its own txn and forwards unknown kwargs to HTTPAPI.
+                # https://github.com/mautrix/python/blob/v0.21.0/mautrix/client/api/events.py
+                response = await asyncio.wait_for(self._client.api.request(
+                    Method.PUT, APIPath.v3.rooms[room].redact[target][txn],
+                    content={'reason': content['reason']}, metrics_method='redact'), timeout=45)
+                if 'event_id' not in response:
+                    raise MatrixResponseError('`event_id` not in response.')
+                return response['event_id']
             # Use the native encrypted send path, including G1's stable-txn seam when assembled.
             import inspect
             if 'txn_id' in inspect.signature(super()._send_room_message).parameters:
@@ -364,13 +380,14 @@ def adapter_class(base):
                     await turn.interim(redact_for_egress(content), redacted=True)
                     return SendResult(success=True)
                 if _final_delivery.get() or (metadata or {}).get('delivery_obligation_id'):
-                    await turn.end(content)
                     async with turn.delivery_lock:
                         if turn.stopped:
                             # Intentional suppression completes the native obligation so
                             # reconnect cannot redeliver an answer cancelled by Stop.
                             return SendResult(success=True)
-                        return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
+                        result = await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
+                    await turn.end(content)
+                    return result
             return await super().send(chat_id, content, reply_to=reply_to, metadata=metadata)
 
         async def send_or_update_status(self, chat_id, status_key, content, metadata=None):

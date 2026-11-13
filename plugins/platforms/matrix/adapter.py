@@ -2463,7 +2463,32 @@ class MatrixAdapter(BasePlatformAdapter):
         elif msgtype in ("m.text", "m.notice"):
             await self._handle_text_message(room_id, sender, event_id, event_ts, source_content, relates_to)
 
+    def _auto_home_owner_dm(self, event: MessageEvent) -> None:
+        """Opt-in first owner DM home, using the same durable home as /sethome."""
+        source = event.source
+        if (self.config.extra.get("auto_home_owner_dm") is not True
+                or source.chat_type != "dm"
+                or source.user_id not in self._allowed_user_ids
+                or not self._is_authorized_user(source.user_id, source.chat_id)):
+            return
+        runner_config = getattr(getattr(self, "gateway_runner", None), "config", None)
+        if (self.config.home_channel
+                or (runner_config and runner_config.get_home_channel(Platform.MATRIX))
+                or _get_scoped_secret("MATRIX_HOME_ROOM", "").strip()):
+            return
+        from gateway.config import HomeChannel, persist_home_channel
+        home = HomeChannel(platform=Platform.MATRIX, chat_id=source.chat_id,
+                           name=source.chat_name or source.chat_id, user_id=source.user_id)
+        # No await between check, persistence and publication: concurrent DMs cannot
+        # replace the first home. Fail closed if durability fails; retry on next intake.
+        persist_home_channel(home)
+        self.config.home_channel = home
+        if runner_config:
+            platform_config = runner_config.platforms.setdefault(Platform.MATRIX, self.config)
+            platform_config.home_channel = home
+
     async def handle_message(self, event: MessageEvent) -> None:
+        self._auto_home_owner_dm(event)
         store = getattr(self, "_intake", None)
         if store is None:
             return await super().handle_message(event)
