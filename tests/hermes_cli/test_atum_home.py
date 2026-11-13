@@ -960,3 +960,31 @@ def _with_config(archive: bytes, config: dict) -> bytes:
     header = json.loads(line)
     header["config"] = config
     return json.dumps(header).encode() + b"\n" + rest
+
+
+def test_export_file_filter_selects_before_reading_and_preserves_archive_contract(tmp_path):
+    home = tmp_path / "home"
+    (home / "memories").mkdir(parents=True)
+    (home / "SOUL.md").write_text("keep")
+    (home / "memories" / "keep.md").write_text("memory")
+    # A corrupt database proves excluded paths are never read or backed up.
+    (home / "state.db").write_bytes(b"not sqlite")
+    (home / ".env").write_text("private")
+    out = io.BytesIO()
+    header = export_home(str(home), out, file_filter=lambda path: path != "state.db")
+    assert {entry["path"] for entry in header["files"]} == {"SOUL.md", "memories/keep.md"}
+    out.seek(0)
+    restored = tmp_path / "restored"
+    hydrate_home(str(restored), out)
+    assert (restored / "SOUL.md").read_text() == "keep"
+    assert (restored / "memories" / "keep.md").read_text() == "memory"
+    assert not (restored / "state.db").exists()
+    assert not (restored / ".env").exists()
+
+
+def test_export_file_filter_can_exclude_every_file(tmp_path):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / "SOUL.md").write_text("excluded")
+    header = export_home(str(home), io.BytesIO(), file_filter=lambda path: False)
+    assert header["files"] == []
