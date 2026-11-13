@@ -293,10 +293,11 @@ describe('the agent tab', () => {
     expect(screen.queryByRole('region', { name: en.desk('Luna') })).toBeNull()
   })
 
-  it('shows Free with no Stop, no devices and no sent files when there are none', async () => {
+  it('says nothing about state when idle: no "Free", no Stop, no devices and no files when there are none', async () => {
     render(panel(base()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    expect(desk.querySelector('[data-agent-desk-now="free"]')?.textContent).toBe(en.free)
+    expect(desk.querySelector('[data-agent-desk-now]')).toBeNull()
+    expect(within(desk).queryByText(en.free)).toBeNull()
     await act(async () => {})
     expect(within(desk).queryByText(en.devices)).toBeNull()
     expect(within(desk).queryByText(en.sentHere)).toBeNull()
@@ -579,9 +580,8 @@ describe('the agent tab on native Hermes in the cloud', () => {
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     const files = desk.querySelector<HTMLElement>('[data-agent-desk-files]')!
-    // Folded to one row while it is not the focus; it opens in place.
-    expect(within(files).queryByText('Q4 plan.docx')).toBeNull()
-    fireEvent.click(within(files).getByRole('button', { name: new RegExp(en.files) }))
+    // Files is a roomy, open list (owner, round 3), under its own heading.
+    expect(within(files).getByRole('heading', { name: en.files })).toBeTruthy()
     expect(within(files).getByText('Q4 plan.docx')).toBeTruthy()
 
     await act(async () => {
@@ -649,5 +649,157 @@ describe('Watch', () => {
     rerender(panel(base(), 'en', 1))
     expect(screen.getAllByRole('tab')[0]?.getAttribute('aria-selected')).toBe('true')
     expect(screen.getByRole('region', { name: en.desk('Luna') })).toBeTruthy()
+  })
+})
+
+/** Round 3 (owner): today's browser frame, an open Files list, and the agent's controls. */
+describe('round 3: frame, files and controls', () => {
+  const hermes: MatrixAgentView = {
+    ...luna,
+    runtime: 'hermes',
+    modelDestinations: { profile: 'atum.model-choice/1.3', choices: [], here: undefined } as never
+  }
+
+  const hermesBase = (): MatrixSnapshot => ({ ...base(), agents: [{ ...luna, runtime: 'hermes' }] })
+
+  function deskBridge(answers: Partial<Record<'files' | 'schedule' | 'memory', unknown>>) {
+    const read = vi.fn(async (_principal: string, request: { read: string; path?: string }) => {
+      const answer = answers[request.read as 'files']
+
+      if (answer === undefined) {
+        throw new Error('matrix_host_desk_refused')
+      }
+
+      return typeof answer === 'function' ? (answer as (path?: string) => unknown)(request.path) : answer
+    })
+
+    Object.assign(window.atumMatrix, { agentDesk: { read } })
+
+    return read
+  }
+
+  it('keeps the new tab’s address bar on the agent’s tab, in the new tab’s frame', () => {
+    Object.assign(window.atumMatrix, { consumerBrowser: { prepare: vi.fn(), subscribe: vi.fn(() => () => {}) } })
+    render(panel(hermesBase()))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const frame = desk.closest<HTMLElement>('[data-agent-desk-frame]')!
+    expect(frame.querySelector('[data-matrix-new-tab-search]')).toBeTruthy()
+    // The content sits in the new tab's own reading column, not a second layout.
+    expect(frame.querySelector('[data-agent-desk-column]')?.className).toContain('max-w-[44rem]')
+  })
+
+  it('lists its own files from its computer only when the host sends some, and opens a folder in place', async () => {
+    const read = deskBridge({
+      files: (path?: string) =>
+        path === 'home/reports'
+          ? { read: 'files', root: 'home', path: 'reports', rows: [{ name: 'Q4.pdf', kind: 'file', size: 2048, modifiedAt: 1 }], truncated: false }
+          : {
+              read: 'files',
+              root: 'home',
+              path: '',
+              rows: [
+                { name: 'reports', kind: 'folder', size: 0, modifiedAt: 2 },
+                { name: 'notes.md', kind: 'file', size: 900, modifiedAt: 1 }
+              ],
+              truncated: false
+            }
+    })
+
+    render(panel(hermesBase()))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const own = await waitFor(() => {
+      const found = desk.querySelector<HTMLElement>('[data-agent-desk-own-files]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(read).toHaveBeenCalledWith('agent-luna', { read: 'files' })
+    expect(within(own).getByText(en.onItsComputer)).toBeTruthy()
+    expect(within(own).getByText('notes.md')).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(within(own).getByRole('button', { name: 'reports' }))
+    })
+
+    expect(read).toHaveBeenCalledWith('agent-luna', { read: 'files', path: 'home/reports' })
+    await waitFor(() => expect(within(own).getByText('Q4.pdf')).toBeTruthy())
+    fireEvent.click(within(own).getByRole('button', { name: en.back }))
+    await waitFor(() => expect(within(own).getByText('notes.md')).toBeTruthy())
+  })
+
+  it('shows nothing of its computer when the host refuses or has no files', async () => {
+    deskBridge({ files: { read: 'files', root: 'home', path: '', rows: [], truncated: false } })
+    const { unmount } = render(panel(hermesBase()))
+    await act(async () => {})
+    expect(document.querySelector('[data-agent-desk-own-files]')).toBeNull()
+    unmount()
+
+    deskBridge({})
+    render(panel(hermesBase()))
+    await act(async () => {})
+    expect(document.querySelector('[data-agent-desk-own-files]')).toBeNull()
+  })
+
+  it('has the agent’s controls: notifications for this chat use the chat’s own mute', async () => {
+    const command = window.atumMatrix.command as ReturnType<typeof vi.fn>
+    render(panel(hermesBase()))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const controls = desk.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    expect(within(controls).getByRole('heading', { name: en.controls })).toBeTruthy()
+
+    const notifications = within(controls).getByRole('switch', { name: en.notifications })
+    expect(notifications.getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => {
+      fireEvent.click(notifications)
+    })
+
+    expect(command).toHaveBeenCalledWith({ kind: 'mute', roomId: ROOM, muted: true })
+  })
+
+  it('reuses the one model picker row when the agent has a model choice', () => {
+    render(panel({ ...hermesBase(), agents: [hermes] }))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    expect(controls.querySelector('[data-agent-desk-model]')).toBeTruthy()
+  })
+
+  it('keeps rare controls behind one More: its routines as the host reads them, and the agent’s card', async () => {
+    deskBridge({
+      schedule: {
+        read: 'schedule',
+        observedAt: 1,
+        jobs: [
+          {
+            id: 'brief',
+            name: 'Morning brief',
+            kind: 'cron',
+            display: 'Every day at 08:00',
+            timezone: 'Asia/Ho_Chi_Minh',
+            state: 'scheduled',
+            nextRunAt: '2026-11-14T01:00:00Z',
+            lastRunAt: null,
+            lastStatus: null,
+            expr: '0 8 * * *',
+            minutes: null,
+            runAt: null
+          }
+        ],
+        truncated: false
+      }
+    })
+
+    render(panel(hermesBase()))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    const more = within(controls).getByRole('button', { name: en.moreControls })
+    expect(more.getAttribute('aria-expanded')).toBe('false')
+    expect(within(controls).queryByText('Morning brief')).toBeNull()
+
+    await act(async () => {
+      fireEvent.click(more)
+    })
+
+    await waitFor(() => expect(within(controls).getByText('Morning brief')).toBeTruthy())
+    expect(within(controls).getByRole('button', { name: en.allSettings })).toBeTruthy()
   })
 })
