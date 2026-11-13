@@ -220,7 +220,10 @@ def run(job: dict[str, Any], context_json: str) -> str:
     # private dotenv, secret sources and machine config are not shared assets.
     os.environ["PYTHON_DOTENV_DISABLED"] = "1"
     managed = hermes_home / "managed"
-    managed.mkdir(exist_ok=True)
+    try:
+        managed.mkdir(exist_ok=True)
+    except OSError:
+        _fail("invalid_environment")
     os.environ["HERMES_MANAGED_DIR"] = str(managed)
 
     from run_agent import AIAgent
