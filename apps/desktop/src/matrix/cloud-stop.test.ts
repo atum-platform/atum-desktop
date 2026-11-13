@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
-import { matrixCloudStopTarget } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop } from './cloud-stop'
 
 const ROOM = '!assistant:test'
 const TURN = '00000000-0000-4000-8000-31f949766961'
@@ -168,5 +168,26 @@ describe('the event a cloud Stop names', () => {
         working: true
       })
     ).toBe('$older')
+  })
+})
+
+// Both cloud generations share the composer, but only an explicit runtime advertisement opts in.
+describe('Stop routing', () => {
+  it('preserves the old route when the capability is absent', () => {
+    expect(matrixStopRoute({ eventId: '$owner', working: true })).toEqual({ kind: 'legacy', eventId: '$owner' })
+  })
+  it('uses host Stop for a new-runtime owner source', () => {
+    expect(matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })).toEqual({ kind: 'host', eventId: '$owner' })
+  })
+  it('uses native in-room stop for scheduled work with no owner source', async () => {
+    const send = vi.fn(async () => {})
+    const stop = vi.fn(async () => {})
+    await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true }), stop, send)
+    expect(send).toHaveBeenCalledWith('/stop')
+    expect(stop).not.toHaveBeenCalled()
+  })
+  it('disables unresolved owner messages and idle turns', () => {
+    expect(matrixStopRoute({ runtime: 'hermes', working: true, unresolvedOwner: true }).kind).toBe('unavailable')
+    expect(matrixStopRoute({ runtime: 'hermes', working: false }).kind).toBe('unavailable')
   })
 })
