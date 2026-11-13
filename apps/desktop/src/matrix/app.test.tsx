@@ -24,6 +24,7 @@ import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { defaultMatrixCheckInSettings, emptyMatrixCheckInLedger } from '../../shared/matrix-check-ins'
 import type { MatrixCompanyBridge } from '../../shared/matrix-company'
 import { MATRIX_COMPANY_CHANNEL_TYPE, MATRIX_COMPANY_CONVERSATION_TYPE } from '../../shared/matrix-company-channel-room'
+import type { MatrixCompanyAudience, MatrixCompanyPresentation } from '../../shared/matrix-company-presentation'
 import {
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   type MatrixCompanyPrivateCosCapabilityV13,
@@ -46,6 +47,7 @@ import { companyPrivateCosRecipient } from './company-ai-sdk'
 import { $companyChannelOrder } from './company-chrome'
 import type { CompanyAIView } from './company-desktop-adapter'
 import { $companyAIStatuses, $companySpacePreferences, companySpacePreferences } from './company-space-store'
+import { companyTurnMemory } from './company-turn-memory'
 import { resolveProjectedConversation } from './conversation-marker'
 import { conversationRoom } from './conversations'
 import { $matrixDesktopServices } from './desktop-services'
@@ -2850,6 +2852,33 @@ describe('isolated Matrix composition', () => {
     expect(await screen.findByText('Atum couldn’t complete this request. Please try again.')).toBeTruthy()
     expect(screen.queryByText('controller fallback')).toBeNull()
     expect(screen.getByText('Resuming on Studio')).toBeTruthy()
+  })
+
+  it('renders an 80% heads-up already in a chat with its own words, as before', async () => {
+    const { emit } = fixture()
+    const sentAt = Date.now()
+    const heads = 'I’m close to today’s usage limit. I’ll keep going as usual; this is just a heads-up.'
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'cloud-t' })),
+      messages: [
+        ...controlsState.messages.map(message => ({ ...message, timestamp: sentAt })),
+        {
+          ...controlsState.messages[0]!,
+          id: '$heads-up',
+          own: false,
+          notice: true,
+          sender: '@atum:test',
+          body: heads,
+          timestamp: sentAt + 1,
+          cloudStatus: { code: 'daily_cap_warning' as const }
+        }
+      ],
+      agents: [{ principal: 'cloud-t', userId: '@atum:test', ready: true, isDefault: false, atumModel: true, hermes: 'unavailable', answering: 'cloud' }]
+    })
+
+    expect(await screen.findByText(heads)).toBeTruthy()
   })
 
   it.each([false, true])('uses the cloud Atum destination when a standby Mac has stale local ChatGPT auth (moved: %s)', async moved => {
@@ -9453,7 +9482,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     expect(await screen.findByText('Getting your Drive ready — about a minute')).toBeTruthy()
     push({ ...unavailable, revision: 3 })
     expect(await screen.findByText('Atum Drive is coming soon')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Atum Drive' })).toBeTruthy()
+    expect(
+      screen.getAllByRole('button', { name: 'Atum Drive' }).some(button => button.hasAttribute('data-atum-nav-drive'))
+    ).toBe(true)
   })
 
   it('opens a Drive row in the side panel and Ask returns to the active chat with read authority', async () => {
@@ -9464,7 +9495,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
     fireEvent.click(screen.getByRole('button', { name: 'Atum Drive' }))
     await screen.findByRole('heading', { name: 'Recents' })
-    fireEvent.click(window.document.querySelector<HTMLElement>('[data-matrix-drive-recent="opaque-notes"]')!)
+    fireEvent.doubleClick(window.document.querySelector<HTMLElement>('[data-matrix-drive-item="opaque-notes"]')!)
     await screen.findByText('Preview notes')
     fireEvent.click(screen.getByRole('button', { name: 'Ask Atum about this' }))
 
@@ -13606,6 +13637,9 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     $companyAIStatuses.set({})
     $companySpacePreferences.set({})
     clearCompanyPrivateCos('@owner:test:OWNER')
+    // The window's company turn memory lives for the session; each test starts a new one.
+    companyTurnMemory('@owner:test:OWNER').ended.clear()
+    companyTurnMemory('@owner:test:OWNER').lines.clear()
   })
 
   async function openChannel(view: CompanyAIView, extra: Partial<MatrixSnapshot> = {}, role: 'admin' | 'member' = 'admin') {
@@ -13618,7 +13652,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       companyWorkspaceWithChannel('!launch:test', undefined, COMPANY, role), undefined, { companyDesktop })
 
     await screen.findByRole('button', { name: 'Continue with Google' })
-    emit({
+    const snapshot: MatrixSnapshot = {
       ...signedOut, state: 'ready', identity: { userId: '@owner:test', deviceId: 'OWNER' },
       companyWorkspaceEnabled: true, roomId: '!launch:test',
       rooms: [{
@@ -13638,12 +13672,14 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       ],
       messages: [message('$quote', 'Send the quote before Friday')],
       ...extra
-    })
+    }
+
+    emit(snapshot)
 
     const composer = await screen.findByRole('textbox', { name: COMPOSER })
     await waitFor(() => expect(companyDesktop.readAI).toHaveBeenCalledWith(COMPANY))
 
-    return { command, companyDesktop, composer, view: rendered }
+    return { command, companyDesktop, composer, emit, snapshot, view: rendered }
   }
 
   it('inserts and sends a ready Chief of Staff as a real Matrix mention pill', async () => {
@@ -13850,6 +13886,398 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     expect(line.textContent).not.toContain('Company AI needs Protons.')
     expect(within(line).queryByRole('button')).toBeNull()
     expect(view.container.querySelector('[data-company-wallet]')).toBeNull()
+  })
+
+  // agent-turns/1.6: the company agent's working line and interim remarks, drawn as a personal agent's.
+  const TURN_TASK = 'c3d4e5f6-a7b8-4c9d-8e1f-2a3b4c5d6e7f'
+  const TURN_INVOCATION = 'd4e5f6a7-b8c9-4d0e-9f2a-3b4c5d6e7f8a'
+
+  const companyTurn = (audience: MatrixCompanyAudience, roomId: string, agentPrincipal: string, rootId: string): MatrixCompanyPresentation => ({
+    companyId: COMPANY,
+    agentPrincipal,
+    audience,
+    roomId,
+    threadRootEventId: rootId,
+    taskId: TURN_TASK,
+    invocationId: TURN_INVOCATION,
+    revision: 0,
+    triggerEventId: rootId
+  })
+
+  const companyLine = (id: string, body: string, turn: ReturnType<typeof companyTurn>, over = {}) =>
+    message(id, body, {
+      sender: COS, notice: true, timestamp: 20,
+      progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'working', kind: 'todo', revision: 0 },
+      company: turn,
+      ...over
+    })
+
+  const companyRemark = (id: string, body: string, turn: ReturnType<typeof companyTurn>, over = {}) =>
+    message(id, body, {
+      sender: COS, interim: true, timestamp: 15, company: turn,
+      ...over
+    })
+
+  async function companyProgressThread(replies: MatrixSnapshot['messages'], view = aiView()) {
+    const root = message('$ask', '@Chief of Staff summarise this', { sender: '@owner:test', own: true })
+    const threaded = replies.map(reply => ({ ...reply, thread: true as const, threadRootId: '$ask', replyTo: '$ask' }))
+
+    const opened = await openChannel(view, {
+      messages: [root],
+      threads: [{
+        root, replies: threaded, participantIds: ['@owner:test', COS], replyCount: threaded.length, lastActivityAt: 20,
+        unread: false, highlights: 0, followed: true
+      }]
+    })
+
+    const rendered = opened.view
+
+    const conversationOptions = await screen.findByRole('button', { name: 'Conversation options' })
+    fireEvent.keyDown(conversationOptions, { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Open threads' }))
+    const panel = rendered.container.querySelector<HTMLElement>('[data-matrix-thread-panel]')!
+    fireEvent.click(within(panel).getByRole('button', { name: /summarise this/ }))
+    await waitFor(() => expect(panel.querySelector('[data-matrix-message-id="$ask"]')).toBeTruthy())
+
+    return Object.assign(panel, { opened })
+  }
+
+  it('shows the Chief of Staff working in a channel thread with its interim remark, as a personal chat does', async () => {
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+
+    const panel = await companyProgressThread([
+      companyRemark('$remark', 'Let me check the board first.', turn),
+      companyLine('$line', 'Reading the board.', turn)
+    ])
+
+    const working = await waitFor(() => {
+      const found = panel.querySelector<HTMLElement>('[data-matrix-agent-working]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(working.getAttribute('aria-label')).toBe('Chief of Staff is typing…')
+    expect(working.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.')
+    // The line is the transient row only; the remark is a real message of the thread.
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
+    expect(panel.querySelector('[data-matrix-message-id="$remark"]')?.textContent).toContain('Let me check the board first.')
+  })
+
+  it('clears the channel line only when its own turn settles, and never draws one that is not the bound agent', async () => {
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+
+    // An answer of the agent to another task in this thread (it names no trigger) leaves this line.
+    const unrelated = await companyProgressThread([
+      companyRemark('$remark', 'Let me check the board first.', turn),
+      companyLine('$line', 'Reading the board.', turn, { timestamp: 18 }),
+      message('$answer', 'Here is the other summary.', { sender: COS, timestamp: 30 })
+    ])
+
+    await waitFor(() => expect(unrelated.querySelector('[data-matrix-message-id="$answer"]')).toBeTruthy())
+    expect(unrelated.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.')
+    cleanup()
+
+    const settled = await companyProgressThread([
+      companyRemark('$remark', 'Let me check the board first.', turn),
+      companyLine('$line', 'Done.', turn, {
+        timestamp: 18,
+        progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'settled', kind: 'settled', revision: 3 }
+      }),
+      message('$answer', 'Here is the summary.', { sender: COS, timestamp: 30 })
+    ])
+
+    await waitFor(() => expect(settled.querySelector('[data-matrix-message-id="$answer"]')).toBeTruthy())
+    expect(settled.querySelector('[data-matrix-agent-working]')).toBeNull()
+    expect(settled.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
+    expect(settled.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
+    cleanup()
+
+    // Another principal in the marker, or another sender: the standard notice, never a working line.
+    const stranger = await companyProgressThread([
+      companyLine('$forged', 'Reading the board.', { ...turn, agentPrincipal: MEMBER_PRINCIPAL }),
+      companyLine('$member', 'Also reading.', turn, { sender: '@linh:test', timestamp: 21 })
+    ])
+
+    await waitFor(() => expect(stranger.querySelector('[data-matrix-message-id="$forged"]')).toBeTruthy())
+    expect(stranger.querySelector('[data-matrix-message-id="$member"]')).toBeTruthy()
+    expect(stranger.querySelector('[data-matrix-agent-working]')).toBeNull()
+  })
+
+  it('stops drawing the old agent’s line once the channel is reassigned, and draws none while the binding is changing', async () => {
+    const NEXT = '@cos-next:test'
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+    const reassigned = aiView({ revision: 2, agent: { principal: MEMBER_PRINCIPAL, userId: NEXT, displayName: 'Chief of Staff' } })
+    let answer: (view: CompanyAIView) => void = () => undefined
+
+    const panel = await companyProgressThread([companyLine('$line', 'Reading the board.', turn)])
+
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+
+    // The platform now names another agent; the old one stays a member. The new one joining is the change.
+    const { companyDesktop, emit, snapshot } = panel.opened
+
+    companyDesktop.readAI.mockImplementation(() => new Promise<CompanyAIView>(resolve => {
+      answer = resolve
+    }))
+    emit({
+      ...snapshot,
+      rooms: snapshot.rooms.map(room => ({
+        ...room,
+        participants: [...(room.participants ?? []), { userId: NEXT, membership: 'join' }]
+      }))
+    })
+
+    // Until the fresh read answers, the old agent's line is the standard message, not a working line.
+    await waitFor(() => expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull())
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')?.textContent).toContain('Reading the board.')
+
+    await act(async () => answer(reassigned))
+    expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull()
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')).toBeTruthy()
+  })
+
+  it('refreshes at once when a marker comes from an agent no view has bound, with both agents joined, and fails closed until it answers', async () => {
+    const NEXT = '@cos-next:test'
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+    const nextTurn = { ...turn, agentPrincipal: MEMBER_PRINCIPAL, invocationId: '00000000-0000-4000-8000-0e1f2a3b4c5d' }
+    const reassigned = aiView({ revision: 2, agent: { principal: MEMBER_PRINCIPAL, userId: NEXT, displayName: 'Chief of Staff' } })
+    let answer: (view: CompanyAIView) => void = () => undefined
+
+    const panel = await companyProgressThread([companyLine('$line', 'Reading the board.', turn)])
+    const { companyDesktop, emit, snapshot } = panel.opened
+
+    // Both agents are already channel members: no membership change will follow the reassignment.
+    const joined: MatrixSnapshot = {
+      ...snapshot,
+      rooms: snapshot.rooms.map(room => ({
+        ...room,
+        participants: [...(room.participants ?? []), { userId: NEXT, membership: 'join' }]
+      }))
+    }
+
+    emit(joined)
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+    const reads = companyDesktop.readAI.mock.calls.length
+
+    companyDesktop.readAI.mockImplementation(() => new Promise<CompanyAIView>(resolve => {
+      answer = resolve
+    }))
+
+    const thread = joined.threads![0]!
+
+    const nextLine = {
+      ...companyLine('$next', 'Planning the launch.', nextTurn, { sender: NEXT, timestamp: 30 }),
+      thread: true as const, threadRootId: '$ask', replyTo: '$ask'
+    }
+
+    emit({ ...joined, threads: [{ ...thread, replies: [...thread.replies, nextLine], replyCount: 2, lastActivityAt: 30 }] })
+
+    // The stranger's marker asks the platform again at once, and until it answers no line is drawn as one.
+    await waitFor(() => expect(companyDesktop.readAI.mock.calls.length).toBeGreaterThan(reads))
+    await waitFor(() => expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull())
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')?.textContent).toContain('Reading the board.')
+
+    // The platform names the new agent: its line is the working line; the old one's is a plain message.
+    await act(async () => answer(reassigned))
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Planning the launch.'))
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')?.textContent).toContain('Reading the board.')
+    expect(panel.querySelector('[data-matrix-message-id="$next"]')).toBeNull()
+  })
+
+  it('re-reads the channel binding every half minute while markers show, and stops trusting an answer older than a minute', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+    const panel = await companyProgressThread([companyLine('$line', 'Reading the board.', turn)])
+    const { companyDesktop } = panel.opened
+
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+    const reads = companyDesktop.readAI.mock.calls.length
+
+    // The quiet re-read answers as before: the line stays drawn throughout.
+    await act(async () => void vi.advanceTimersByTime(30_000))
+    await waitFor(() => expect(companyDesktop.readAI.mock.calls.length).toBeGreaterThan(reads))
+    expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.')
+
+    // The platform stops answering: the last answer ages out at a minute and the line is no longer drawn.
+    companyDesktop.readAI.mockImplementation(() => new Promise<CompanyAIView>(() => undefined))
+    await act(async () => void vi.advanceTimersByTime(30_000))
+    expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.')
+    await act(async () => void vi.advanceTimersByTime(31_000))
+    await waitFor(() => expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull())
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')?.textContent).toContain('Reading the board.')
+  })
+
+  it('hides a channel line three quiet heartbeats after its newest revision, by a timer, and expired is not done', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+
+    const start = Date.now()
+    const turn = companyTurn({ kind: 'channel', channelId: binding.channelId }, '!launch:test', aiView().agent.principal, '$ask')
+
+    const panel = await companyProgressThread([
+      companyLine('$line', 'Reading the board.', { ...turn, revisedAt: start })
+    ])
+
+    const { emit, snapshot } = panel.opened
+
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+
+    // Nothing arrives: once the newest revision is older than 540000 ms the line is gone, by its own timer.
+    await act(async () => void vi.advanceTimersByTime(start + 540_001 - Date.now()))
+    await waitFor(() => expect(panel.querySelector('[data-matrix-agent-working]')).toBeNull())
+    // Hidden, not finished: no transcript row, and nothing the user could read as done.
+    expect(panel.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
+
+    // Expiry never ends the turn: a newer revision of the same tuple shows it again.
+    const thread = snapshot.threads![0]!
+
+    const heartbeat = {
+      ...companyLine('$line', 'Still reading the board.', { ...turn, revision: 1, revisedAt: Date.now() }, {
+        progress: { profile: 'atum.agent-turns/1.6', scope: 'company', phase: 'working', kind: 'heartbeat', revision: 1 }
+      }),
+      thread: true as const, threadRootId: '$ask', replyTo: '$ask'
+    }
+
+    emit({ ...snapshot, threads: [{ ...thread, replies: [heartbeat] }] })
+    await waitFor(() => expect(panel.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Still reading the board.'))
+  })
+
+  it('hides the private Chief of Staff’s line three quiet heartbeats after its newest revision, never as done', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+
+    const adapter = playgroundCompanyDesktopAdapter()
+
+    const companyDesktop = {
+      ...adapter,
+      readPrivateCosCapability: vi.fn(async () => privateCapability),
+      readPrivateCos: vi.fn(async () => privateView),
+      ensurePrivateCos: vi.fn(async () => privateView),
+      readPrivateCosReceipt: vi.fn(async () => {throw new Error('not used')}),
+      stopPrivateCos: vi.fn(async () => {throw new Error('not used')})
+    }
+
+    const { emit, view } = fixture(undefined, 'en', undefined, vi.fn(async () => null), undefined,
+      companyWorkspaceWithChannel('!launch:test', undefined, COMPANY), undefined, { companyDesktop })
+
+    await screen.findByRole('button', { name: /Google/ })
+
+    const start = Date.now()
+
+    const turn = {
+      ...companyTurn(
+        { kind: 'private', memberPrincipal: MEMBER_PRINCIPAL, membershipIncarnation: INCARNATION },
+        PRIVATE_ROOM,
+        privateView.state === 'ready' ? privateView.binding.agentPrincipal : '',
+        '$question'
+      ),
+      revisedAt: start
+    }
+
+    emit({
+      ...signedOut,
+      state: 'ready',
+      identity: { userId: '@owner:test', deviceId: 'OWNER' },
+      companyWorkspaceEnabled: true,
+      roomId: PRIVATE_ROOM,
+      rooms: [privateRoom],
+      members: [
+        { userId: '@owner:test', name: 'You', membership: 'join', canRemove: false },
+        { userId: COS, name: 'Chief of Staff', membership: 'join', canRemove: false }
+      ],
+      messages: [
+        message('$question', 'Plan the launch', { sender: '@owner:test', own: true, timestamp: 5 }),
+        companyLine('$line', 'Reading the board.', turn)
+      ]
+    })
+
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Reading the board.'))
+
+    await act(async () => void vi.advanceTimersByTime(start + 540_001 - Date.now()))
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-agent-working]')).toBeNull())
+    // Hidden only: no row for it, and no answer is implied (the question still waits for one).
+    expect(view.container.querySelector('[data-matrix-message-id="$line"]')).toBeNull()
+    expect(view.container.querySelector('[data-matrix-message-id="$question"]')).toBeTruthy()
+  })
+
+  it('shows the private Chief of Staff working in its room, bound to the platform pair', async () => {
+    vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+
+    const adapter = playgroundCompanyDesktopAdapter()
+
+    const companyDesktop = {
+      ...adapter,
+      readPrivateCosCapability: vi.fn(async () => privateCapability),
+      readPrivateCos: vi.fn(async () => privateView),
+      ensurePrivateCos: vi.fn(async () => privateView),
+      readPrivateCosReceipt: vi.fn(async () => {throw new Error('not used')}),
+      stopPrivateCos: vi.fn(async () => {throw new Error('not used')})
+    }
+
+    const { emit, view } = fixture(undefined, 'vi', undefined, vi.fn(async () => null), undefined,
+      companyWorkspaceWithChannel('!launch:test', undefined, COMPANY), undefined, { companyDesktop })
+
+    await screen.findByRole('button', { name: /Google/ })
+
+    const turn = companyTurn(
+      { kind: 'private', memberPrincipal: MEMBER_PRINCIPAL, membershipIncarnation: INCARNATION },
+      PRIVATE_ROOM,
+      privateView.state === 'ready' ? privateView.binding.agentPrincipal : '',
+      '$question'
+    )
+
+    const snapshot: MatrixSnapshot = {
+      ...signedOut,
+      state: 'ready',
+      identity: { userId: '@owner:test', deviceId: 'OWNER' },
+      companyWorkspaceEnabled: true,
+      roomId: PRIVATE_ROOM,
+      rooms: [privateRoom],
+      members: [
+        { userId: '@owner:test', name: 'You', membership: 'join', canRemove: false },
+        { userId: COS, name: 'Chief of Staff', membership: 'join', canRemove: false }
+      ],
+      messages: [
+        message('$question', 'Plan the launch', { sender: '@owner:test', own: true, timestamp: 5 }),
+        companyRemark('$remark', 'Để mình xem bảng công việc trước.', turn),
+        companyLine('$line', 'Đang đọc bảng công việc.', turn)
+      ]
+    }
+
+    emit(snapshot)
+
+    const working = await waitFor(() => {
+      const found = view.container.querySelector<HTMLElement>('[data-matrix-agent-working]')
+      expect(found).toBeTruthy()
+
+      return found!
+    })
+
+    expect(working.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Đang đọc bảng công việc.')
+    expect(working.getAttribute('aria-label')).toBe('Chief of Staff đang soạn tin…')
+    expect(view.container.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
+
+    // A later message of the agent (another task's final, a Stop line) never clears this turn's line.
+    emit({ ...snapshot, messages: [...snapshot.messages,
+      message('$other-answer', 'Done with the other question.', { sender: COS, timestamp: 30 }),
+      message('$stopped', 'Stopped.', { sender: COS, notice: true, timestamp: 40 })] })
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-message-id="$other-answer"]')).toBeTruthy())
+    expect(view.container.querySelector('[data-matrix-progress-line]')?.textContent).toBe('Đang đọc bảng công việc.')
+
+    // A personal interim flag from the bound agent, without the 1.6 identity, is a plain message.
+    emit({ ...snapshot, messages: [...snapshot.messages,
+      message('$personal', 'Một phút nhé.', { sender: COS, interim: true, timestamp: 35 })] })
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-message-id="$personal"]')).toBeTruthy())
+
+    // Its publisher's cleanup (the line redacted) ends it; the remark stays history.
+    emit({ ...snapshot, messages: [
+      ...snapshot.messages.filter(entry => entry.id !== '$line'),
+      message('$line', '', { sender: COS, notice: true, redacted: true, timestamp: 20 })
+    ] })
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-agent-working]')).toBeNull())
+    expect(view.container.querySelector('[data-matrix-message-id="$remark"]')).toBeTruthy()
   })
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.

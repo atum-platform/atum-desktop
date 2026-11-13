@@ -1,0 +1,591 @@
+{
+  "contract_id": "atum.company-funding",
+  "version": "2.2",
+  "status": "frozen",
+  "protocol_release": "0.8.2",
+  "pack_files": [
+    "README.md",
+    "contract.json",
+    "fixtures/channel.json",
+    "fixtures/compute-window-overrun.json",
+    "fixtures/early-server-expiry.json",
+    "fixtures/invalid-maxTurnMicroProtons.json",
+    "fixtures/invalid-owner-companyId.json",
+    "fixtures/invalid-payer-companyId.json",
+    "fixtures/invalid-reservationId.json",
+    "fixtures/invalid-slice-expiresAtMs.json",
+    "fixtures/invalid-slice-fundingReservationId.json",
+    "fixtures/invalid-slice-hardDeadlineMs.json",
+    "fixtures/invalid-slice-payer-companyId.json",
+    "fixtures/invalid-slice-settlementMarginMs.json",
+    "fixtures/invalid-slice-startedAtMs.json",
+    "fixtures/long-compute-hard-cap.json",
+    "fixtures/personal.json",
+    "fixtures/private.json",
+    "fixtures/profile-scope-mismatch.json",
+    "fixtures/renewable.json",
+    "fixtures/short-compute.json"
+  ],
+  "providers": [
+    "Atum platform company authority"
+  ],
+  "consumers": [
+    "cloud-controller",
+    "desktop",
+    "native Hermes bridge"
+  ],
+  "base": {
+    "contract": "atum.company-funding/2.1",
+    "path": "spec/company-funding/v2.1",
+    "sha256": "9d4a54a1e4887d600ef8ff19ae2207b9cbf4d63e97c2227450289b934f12781e",
+    "rule": "focused additive minor; predecessor messages and bytes unchanged"
+  },
+  "selection": {
+    "profile": "atum.company-funding/2.2",
+    "unsupported": "update_required; never silently downgrade"
+  },
+  "types": {
+    "uuid": {
+      "type": "string",
+      "min": 36,
+      "max": 36,
+      "pattern": "[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+    },
+    "digest": {
+      "type": "string",
+      "min": 64,
+      "max": 64,
+      "pattern": "[0-9a-f]{64}"
+    },
+    "counter": {
+      "type": "integer",
+      "min": 0,
+      "max": 9007199254740991
+    },
+    "generation": {
+      "type": "integer",
+      "min": 1,
+      "max": 9007199254740991
+    },
+    "room_id": {
+      "type": "string",
+      "min": 4,
+      "max": 512,
+      "pattern": "![!-9;-~]{1,255}:[!-~]{1,255}"
+    },
+    "lease_token": {
+      "type": "string",
+      "min": 32,
+      "max": 512,
+      "pattern": "[A-Za-z0-9_-]{32,512}"
+    },
+    "owner": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "company"
+        },
+        "companyId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "payer": {
+      "type": "object",
+      "required": {
+        "kind": {
+          "const": "company_wallet"
+        },
+        "companyId": {
+          "ref": "uuid"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "home_lease": {
+      "type": "object",
+      "required": {
+        "homeId": {
+          "ref": "uuid"
+        },
+        "holderId": {
+          "ref": "uuid"
+        },
+        "leaseToken": {
+          "ref": "lease_token"
+        },
+        "leaseGeneration": {
+          "ref": "generation"
+        },
+        "expiresAtMs": {
+          "ref": "generation"
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "slice": {
+      "type": "object",
+      "required": {
+        "fundingReservationId": {
+          "ref": "uuid"
+        },
+        "cloudAdmissionReservationId": {
+          "ref": "uuid"
+        },
+        "payer": {
+          "ref": "payer"
+        },
+        "ceilingMicroProtons": {
+          "ref": "generation"
+        },
+        "computeSeconds": {
+          "type": "integer",
+          "min": 1,
+          "max": 86400
+        },
+        "startedAtMs": {
+          "ref": "counter"
+        },
+        "hardDeadlineMs": {
+          "ref": "generation"
+        },
+        "expiresAtMs": {
+          "ref": "generation"
+        },
+        "settlementMarginMs": {
+          "ref": "generation"
+        },
+        "maxRequests": {
+          "const": 1000
+        },
+        "maxConcurrent": {
+          "const": 8
+        }
+      },
+      "optional": {},
+      "additional": false
+    },
+    "grant": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 2
+            },
+            "state": {
+              "const": "active"
+            },
+            "grantProfile": {
+              "const": "atum.company-ai/2"
+            },
+            "owner": {
+              "ref": "owner"
+            },
+            "payer": {
+              "ref": "payer"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "executorId": {
+              "ref": "uuid"
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "audience": {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "channel"
+                },
+                "companyId": {
+                  "ref": "uuid"
+                },
+                "channelId": {
+                  "ref": "uuid"
+                },
+                "roomId": {
+                  "ref": "room_id"
+                },
+                "audiencePartitionId": {
+                  "ref": "uuid"
+                },
+                "disclosureEpoch": {
+                  "ref": "generation"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "lease": {
+              "ref": "home_lease"
+            },
+            "reservationId": {
+              "ref": "uuid"
+            },
+            "funding": {
+              "const": "company_wallet"
+            },
+            "slice": {
+              "ref": "slice"
+            },
+            "alias": {
+              "const": "default"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "ref": "digest"
+            },
+            "contextBudget": {
+              "ref": "generation"
+            },
+            "outputBudget": {
+              "ref": "generation"
+            },
+            "maxTurnMicroProtons": {
+              "ref": "generation"
+            },
+            "toolProfile": {
+              "const": "peer"
+            }
+          },
+          "optional": {},
+          "additional": false
+        },
+        {
+          "type": "object",
+          "required": {
+            "schemaVersion": {
+              "const": 2
+            },
+            "state": {
+              "const": "active"
+            },
+            "grantProfile": {
+              "const": "atum.company-private-cos/2"
+            },
+            "owner": {
+              "ref": "owner"
+            },
+            "payer": {
+              "ref": "payer"
+            },
+            "agentPrincipal": {
+              "ref": "uuid"
+            },
+            "executorId": {
+              "ref": "uuid"
+            },
+            "taskId": {
+              "ref": "uuid"
+            },
+            "invocationId": {
+              "ref": "uuid"
+            },
+            "audience": {
+              "type": "object",
+              "required": {
+                "kind": {
+                  "const": "private_pair"
+                },
+                "companyId": {
+                  "ref": "uuid"
+                },
+                "memberPrincipal": {
+                  "ref": "uuid"
+                },
+                "membershipIncarnation": {
+                  "ref": "uuid"
+                },
+                "roomId": {
+                  "ref": "room_id"
+                },
+                "audiencePartitionId": {
+                  "ref": "uuid"
+                },
+                "disclosureEpoch": {
+                  "ref": "generation"
+                }
+              },
+              "optional": {},
+              "additional": false
+            },
+            "lease": {
+              "ref": "home_lease"
+            },
+            "reservationId": {
+              "ref": "uuid"
+            },
+            "funding": {
+              "const": "company_wallet"
+            },
+            "slice": {
+              "ref": "slice"
+            },
+            "alias": {
+              "const": "default"
+            },
+            "model": {
+              "const": "nguyet-thuc"
+            },
+            "effort": {
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            },
+            "policyDigest": {
+              "ref": "digest"
+            },
+            "contextBudget": {
+              "ref": "generation"
+            },
+            "outputBudget": {
+              "ref": "generation"
+            },
+            "maxTurnMicroProtons": {
+              "ref": "generation"
+            },
+            "toolProfile": {
+              "const": "peer"
+            }
+          },
+          "optional": {},
+          "additional": false
+        }
+      ]
+    }
+  },
+  "directions": {
+    "authority": {
+      "from": "authenticated platform authority",
+      "to": "bound controller",
+      "forbidden_fields": [
+        "ownerUserId",
+        "personalWallet",
+        "renewableSegments"
+      ]
+    }
+  },
+  "messages": {
+    "grant": {
+      "direction": "authority",
+      "schema": {
+        "ref": "grant"
+      },
+      "runtime_schema": "CompanyNativeModelGrantSchema"
+    }
+  },
+  "invariants": [
+    {
+      "id": "grant-company-0",
+      "message": "grant",
+      "op": "same",
+      "left": "owner.companyId",
+      "right": "audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-company-1",
+      "message": "grant",
+      "op": "same",
+      "left": "payer.companyId",
+      "right": "audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-company-2",
+      "message": "grant",
+      "op": "same",
+      "left": "slice.payer.companyId",
+      "right": "audience.companyId",
+      "required": true
+    },
+    {
+      "id": "grant-admission",
+      "message": "grant",
+      "op": "same",
+      "left": "reservationId",
+      "right": "slice.cloudAdmissionReservationId",
+      "required": true
+    },
+    {
+      "id": "grant-distinct-reservations",
+      "message": "grant",
+      "op": "not_same",
+      "left": "slice.fundingReservationId",
+      "right": "slice.cloudAdmissionReservationId",
+      "required": true
+    },
+    {
+      "id": "grant-call-ceiling",
+      "message": "grant",
+      "op": "le",
+      "left": "maxTurnMicroProtons",
+      "right": [
+        "slice.ceilingMicroProtons"
+      ],
+      "required": true
+    },
+    {
+      "id": "slice-deadline",
+      "message": "grant",
+      "op": "le",
+      "left": "slice.hardDeadlineMs",
+      "right": [
+        "slice.startedAtMs"
+      ],
+      "required": true,
+      "offset": 7200000
+    },
+    {
+      "id": "peer-slice",
+      "message": "grant",
+      "op": "peer_funded_slice",
+      "left": "slice",
+      "right": [],
+      "required": true
+    },
+    {
+      "id": "slice-positive-time",
+      "message": "grant",
+      "op": "le",
+      "left": "slice.startedAtMs",
+      "right": [
+        "slice.hardDeadlineMs"
+      ],
+      "required": true,
+      "offset": -1
+    }
+  ],
+  "fixtures": [
+    {
+      "file": "fixtures/channel.json",
+      "message": "grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/compute-window-overrun.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/early-server-expiry.json",
+      "message": "grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/invalid-maxTurnMicroProtons.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-owner-companyId.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-payer-companyId.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-reservationId.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-expiresAtMs.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-fundingReservationId.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-hardDeadlineMs.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-payer-companyId.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-settlementMarginMs.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/invalid-slice-startedAtMs.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "invariant"
+    },
+    {
+      "file": "fixtures/long-compute-hard-cap.json",
+      "message": "grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/personal.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/private.json",
+      "message": "grant",
+      "expect": "accept"
+    },
+    {
+      "file": "fixtures/profile-scope-mismatch.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "variant"
+    },
+    {
+      "file": "fixtures/renewable.json",
+      "message": "grant",
+      "expect": "reject",
+      "violation": "forbidden_field"
+    },
+    {
+      "file": "fixtures/short-compute.json",
+      "message": "grant",
+      "expect": "accept"
+    }
+  ]
+}

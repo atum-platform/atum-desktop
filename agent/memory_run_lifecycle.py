@@ -13,7 +13,8 @@ PROVENANCE = 'memory.provenance.v2.'
 
 
 def assert_session_current(db, session_id):
-    # Preserve pooled-reader close-race recovery for transcript admission.
+    # Transcript reads must retain SessionDB's pooled-reader and close-race
+    # recovery contracts. get_meta uses the writer for transaction-local FTS state.
     if db._read_one('SELECT value FROM state_meta WHERE key=?', (RETIRED + session_id,)) is not None:
         raise AwarenessSessionError()
 

@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { AtumNavSwitchSurface } from '@/app/atum/shell-surface'
@@ -10,11 +11,13 @@ import {
   formatDriveSize,
   formatDriveSyncTime,
   MatrixDrive,
+  type MatrixDriveDestination,
   matrixDrivePhase,
   MatrixDriveSidebar,
   recentDriveRows
 } from './drive'
 import { matrixDriveCopy } from './drive-copy'
+import { learnMatrixDrivePlaces, setMatrixDriveLayout } from './drive-finder'
 import { $matrixDriveTaskSelection, setMatrixDriveTaskScope } from './drive-selection'
 
 vi.stubGlobal('ResizeObserver', class {
@@ -26,7 +29,12 @@ vi.stubGlobal('ResizeObserver', class {
 afterEach(() => {
   cleanup()
   setMatrixDriveTaskScope(null, null)
+  setMatrixDriveLayout('icon')
+  learnMatrixDrivePlaces(null, 'en')
+  localStorage.clear()
 })
+
+const item = (name: string) => screen.getByRole('option', { name })
 
 it('adds Drive to the existing siderail with current-page and accessible labeling', () => {
   const navigate = vi.fn()
@@ -47,25 +55,13 @@ it('adds Drive to the existing siderail with current-page and accessible labelin
   expect(navigate).toHaveBeenCalledWith('drive')
 })
 
-it('navigates the Drive sidebar between Recents and All files', () => {
-  const select = vi.fn()
-  render(
-    <I18nProvider configClient={null} initialLocale="en">
-      <MatrixDriveSidebar compact={false} current="recents" onSelect={select} windowControls={null} />
-    </I18nProvider>
-  )
-
-  expect(screen.getByRole('button', { name: 'Recents' }).getAttribute('aria-current')).toBe('page')
-  fireEvent.click(screen.getByRole('button', { name: 'All files' }))
-  expect(select).toHaveBeenCalledWith('all')
-})
-
 it('orders the local Recents projection by modified time and previews only the opaque row', async () => {
   const rows = [
     { id: 'older', name: 'older.txt', kind: 'file' as const, size: 1, modifiedAt: 10 },
     { id: 'newest', name: 'newest.txt', kind: 'file' as const, size: 2, modifiedAt: 30 },
     { id: 'middle', name: 'middle.txt', kind: 'file' as const, size: 3, modifiedAt: 20 }
   ]
+
   expect(recentDriveRows(rows).map(row => row.id)).toEqual(['newest', 'middle', 'older'])
 
   const view: MatrixDriveView = {
@@ -75,18 +71,25 @@ it('orders the local Recents projection by modified time and previews only the o
     truncated: false,
     rows
   }
+
   const onPreview = vi.fn()
   const bridge = { read: async () => view, subscribe: () => () => {} } as unknown as MatrixDriveBridge
-  const rendered = render(
+  render(
     <I18nProvider configClient={null} initialLocale="en">
       <MatrixDrive bridge={bridge} destination="recents" onPreview={onPreview} />
     </I18nProvider>
   )
 
   await screen.findByRole('heading', { name: 'Recents' })
-  const cards = [...rendered.container.querySelectorAll<HTMLElement>('[data-matrix-drive-recent]')]
-  expect(cards.map(card => card.dataset.matrixDriveRecent)).toEqual(['newest', 'middle', 'older'])
-  fireEvent.click(cards[0])
+  expect(screen.getAllByRole('option').map(option => option.getAttribute('aria-label'))).toEqual([
+    'newest.txt',
+    'middle.txt',
+    'older.txt'
+  ])
+  // One click selects, as in Finder; a double-click opens.
+  fireEvent.click(item('newest.txt'))
+  expect(onPreview).not.toHaveBeenCalled()
+  fireEvent.doubleClick(item('newest.txt'))
   expect(onPreview).toHaveBeenCalledWith(rows[1])
   expect(JSON.stringify(onPreview.mock.calls)).not.toContain('/')
 })
@@ -109,7 +112,7 @@ it('renders actual native rows and only sends an opaque file id to open', async 
     </I18nProvider>
   )
   await screen.findByText('Up to date')
-  fireEvent.click(screen.getByRole('button', { name: 'notes.txt' }))
+  fireEvent.doubleClick(item('notes.txt'))
   await waitFor(() => expect(open).toHaveBeenCalledWith('opaque-file'))
 })
 
@@ -188,13 +191,25 @@ it('offers plain file actions, title-bar controls and no Turn off on a running D
     </I18nProvider>
   )
   await screen.findByText('Up to date')
+  expect(screen.getByRole('button', { name: 'Icons' }).getAttribute('aria-pressed')).toBe('true')
+  expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('false')
+  fireEvent.click(screen.getByRole('button', { name: 'List' }))
   expect(screen.getByText('2.5 MB')).toBeTruthy()
+  // The selected item's actions for this chat float in one bar: a file can be read or edited…
+  expect(screen.queryByRole('button', { name: 'Let assistant read' })).toBeNull()
+  fireEvent.click(item('notes.txt'))
   expect(screen.getByRole('button', { name: 'Let assistant read' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Let assistant edit' })).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'Save result here' })).toBeTruthy()
+  // …and a folder can take a result.
+  fireEvent.click(item('Reports'))
+  expect(screen.queryByRole('button', { name: 'Let assistant read' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'Save result here' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Result file name' }), { target: { value: 'summary.md' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+  expect($matrixDriveTaskSelection.get().selections).toEqual([
+    expect.objectContaining({ id: 'opaque-folder', mode: 'create', leafName: 'summary.md' })
+  ])
   expect(screen.queryByRole('button', { name: 'Turn off Drive' })).toBeNull()
-  expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
-  expect(screen.getByRole('button', { name: 'Grid' }).getAttribute('aria-pressed')).toBe('false')
   expect(screen.getByRole('button', { name: 'Search Drive' })).toBeTruthy()
   expect(screen.getByRole('button', { name: 'More Drive actions' })).toBeTruthy()
   expect(disconnect).not.toHaveBeenCalled()
@@ -205,9 +220,11 @@ it('clears an old bridge action on replacement and ignores its late result', asy
     state: 'ready', revision: 10, rows: [{ id: 'folder', name: 'Folder', kind: 'folder', size: 0, modifiedAt: 0 }],
     canGoBack: false, truncated: false
   }
+
   let finish!: (value: MatrixDriveView) => void
 
   const read = vi.fn().mockResolvedValue(view)
+
   const enter = vi.fn().mockImplementationOnce(
       () =>
         new Promise(resolve => {
@@ -230,7 +247,7 @@ it('clears an old bridge action on replacement and ignores its late result', asy
 
   const rendered = render(surface(old))
   await screen.findByText('Up to date')
-  fireEvent.click(screen.getByRole('button', { name: 'Folder' }))
+  fireEvent.doubleClick(item('Folder'))
   rendered.rerender(surface(next))
   await screen.findByText('Getting your Drive ready — about a minute')
   expect(screen.queryByRole('button', { name: 'Turn on Atum Drive' })).toBeNull()
@@ -273,6 +290,7 @@ it('stages only opaque selections for the current assistant conversation and ret
     </I18nProvider>
   )
   await screen.findByText('Up to date')
+  fireEvent.click(item('notes.txt'))
   fireEvent.click(screen.getByRole('button', { name: 'Let assistant read' }))
   expect($matrixDriveTaskSelection.get().selections).toEqual([
     expect.objectContaining({ id: 'opaque-file', mode: 'read' })
@@ -452,13 +470,14 @@ it('opens the kit search field and filters the current Drive rows', async () => 
     { id: 'notes', name: 'notes.txt', kind: 'file', size: 14, modifiedAt: 0 },
     { id: 'plan', name: 'plan.txt', kind: 'file', size: 14, modifiedAt: 0 }
   ] }))
+
   show(drive.bridge, 'en')
   fireEvent.click(await screen.findByRole('button', { name: 'Search Drive' }))
   const search = screen.getByRole('textbox', { name: 'Search Drive' })
   expect(search.closest('.ak-field--search')).toBeTruthy()
   fireEvent.change(search, { target: { value: 'plan' } })
-  expect(screen.getByRole('button', { name: 'plan.txt' })).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'notes.txt' })).toBeNull()
+  expect(screen.getByRole('option', { name: 'plan.txt' })).toBeTruthy()
+  expect(screen.queryByRole('option', { name: 'notes.txt' })).toBeNull()
 })
 
 it('offline: says the files are still here, and keeps the list', async () => {
@@ -468,7 +487,7 @@ it('offline: says the files are still here, and keeps the list', async () => {
 
   show(drive.bridge)
   expect((await screen.findByText('Mất mạng, tệp của bạn vẫn ở đây')).closest('[role="status"]')).toBeTruthy()
-  expect(screen.getByRole('button', { name: 'notes.txt' })).toBeTruthy()
+  expect(screen.getByRole('option', { name: 'notes.txt' })).toBeTruthy()
 })
 
 it('offline with no cached rows never pretends the Drive is empty', async () => {
@@ -551,12 +570,12 @@ it.each(['connecting', 'error', 'reauthenticate', 'offline'] as const)(
     )
 
     show(drive.bridge, 'en')
-    expect(await screen.findByRole('button', { name: `${state}.txt` })).toBeTruthy()
+    expect(await screen.findByRole('option', { name: `${state}.txt` })).toBeTruthy()
     expect(screen.getByText(matrixDriveCopy.en.status[state])).toBeTruthy()
     expect(screen.getByText('Showing the last known files on this Mac. Refresh to try again.')).toBeTruthy()
     expect(
       screen
-        .getByRole('button', { name: `${state}.txt` })
+        .getByRole('option', { name: `${state}.txt` })
         .closest('[data-matrix-drive-phase]')
         ?.getAttribute('data-matrix-drive-phase')
     ).toBe('files')
@@ -574,7 +593,7 @@ it('keeps a verified local list visible during setup, and a retry only when it s
   )
 
   const startingSurface = show(starting.bridge, 'en')
-  await screen.findByRole('button', { name: 'kept.txt' })
+  await screen.findByRole('option', { name: 'kept.txt' })
   expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
 
@@ -589,7 +608,7 @@ it('keeps a verified local list visible during setup, and a retry only when it s
   )
 
   show(retry.bridge, 'en')
-  await screen.findByRole('button', { name: 'retry.txt' })
+  await screen.findByRole('option', { name: 'retry.txt' })
   fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
   await waitFor(() => expect(retry.connect).toHaveBeenCalledOnce())
 })
@@ -605,7 +624,7 @@ it('turns a signed-out issue into Try again beside a verified local list, never 
   )
 
   show(drive.bridge, 'en')
-  await screen.findByRole('button', { name: 'kept.txt' })
+  await screen.findByRole('option', { name: 'kept.txt' })
   const retry = screen.getAllByRole('button', { name: 'Try again' })
   expect(retry.length).toBeGreaterThanOrEqual(1)
   expect(screen.queryByRole('button', { name: 'Sign in again' })).toBeNull()
@@ -624,7 +643,7 @@ it('never shows browser-wait controls beside a verified local list', async () =>
   )
 
   show(drive.bridge, 'en')
-  await screen.findByRole('button', { name: 'kept.txt' })
+  await screen.findByRole('option', { name: 'kept.txt' })
   expect(screen.queryByRole('button', { name: 'Open again' })).toBeNull()
   expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull()
   expect(drive.cancelSignIn).not.toHaveBeenCalled()
@@ -652,11 +671,11 @@ it('keeps local navigation and keyboard focus through a sync-only status update'
   } as unknown as MatrixDriveBridge
 
   show(bridge, 'en')
-  const row = await screen.findByRole('button', { name: 'kept.txt' })
+  const row = await screen.findByRole('option', { name: 'kept.txt' })
   row.focus()
   await act(async () => receive({ ...ready, state: 'error', revision: 11, listingStatus: 'stale' }))
 
-  expect(screen.getByRole('button', { name: 'kept.txt' })).toBe(row)
+  expect(screen.getByRole('option', { name: 'kept.txt' })).toBe(row)
   expect(row.ownerDocument.activeElement).toBe(row)
   expect(screen.getByText('Projects')).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy()
@@ -672,7 +691,7 @@ it('keeps first-connect setup as a hero until main grants local browsing', async
 
   show(drive.bridge, 'en')
   await screen.findByRole('heading', { name: 'Getting your Drive ready — about a minute' })
-  expect(screen.queryByRole('button', { name: 'not-yet.txt' })).toBeNull()
+  expect(screen.queryByRole('option', { name: 'not-yet.txt' })).toBeNull()
 })
 
 it('never calls a verified local folder empty before its first scan completes', async () => {
@@ -713,7 +732,7 @@ it.each(['connecting', 'error', 'reauthenticate', 'offline'] as const)(
       </I18nProvider>
     )
 
-    await screen.findByRole('button', { name: 'local.txt' })
+    await screen.findByRole('option', { name: 'local.txt' })
     expect(screen.queryByRole('button', { name: 'Let assistant read' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Let assistant edit' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Save result here' })).toBeNull()
@@ -728,7 +747,7 @@ it('keeps the old error hero when an older main process does not provide local a
 
   show(drive.bridge, 'en')
   await screen.findByRole('heading', { name: 'Drive stopped' })
-  expect(screen.queryByRole('button', { name: 'legacy.txt' })).toBeNull()
+  expect(screen.queryByRole('option', { name: 'legacy.txt' })).toBeNull()
 })
 
 it('withdraws local rows when main explicitly revokes local browsing', async () => {
@@ -742,7 +761,7 @@ it('withdraws local rows when main explicitly revokes local browsing', async () 
 
   show(drive.bridge, 'en')
   await screen.findByRole('heading', { name: 'Getting your Drive ready — about a minute' })
-  expect(screen.queryByRole('button', { name: 'revoked.txt' })).toBeNull()
+  expect(screen.queryByRole('option', { name: 'revoked.txt' })).toBeNull()
 })
 
 it('keeps the small print behind a quiet “About syncing”, passwords and keys first', async () => {
@@ -810,4 +829,254 @@ it('names a phase for every native state; a browser wait or sign-in is only a st
   for (const state of ['ready', 'syncing', 'paused', 'offline'] as const) {
     expect(matrixDrivePhase({ state })).toBe('files')
   }
+})
+
+/** A small Drive that really moves between folders, as main does: opaque ids, one listing at a time. */
+function treeBridge(lastSyncAt = 1_000) {
+  const folders: Record<string, { label?: string; parent?: string; rows: MatrixDriveView['rows'] }> = {
+    root: {
+      rows: [
+        { id: 'h-reports', name: 'Reports', kind: 'folder', size: 0, modifiedAt: 500 },
+        { id: 'h-agent', name: 'Agent Reports', kind: 'folder', size: 0, modifiedAt: 500 },
+        { id: 'h-plan', name: 'plan.docx', kind: 'file', size: 48_200, modifiedAt: 900 },
+        { id: 'h-new', name: 'new.md', kind: 'file', size: 10, modifiedAt: 2_000 }
+      ]
+    },
+    'h-reports': {
+      label: 'Reports',
+      parent: 'root',
+      rows: [{ id: 'h-q3', name: 'Q3.docx', kind: 'file', size: 88_000, modifiedAt: 400 }]
+    },
+    'h-agent': { label: 'Agent Reports', parent: 'root', rows: [] }
+  }
+
+  let at = 'root'
+  let revision = 1
+
+  const view = (): MatrixDriveView => ({
+    state: 'ready',
+    revision,
+    lastSyncAt,
+    canBrowseLocally: true,
+    listingStatus: 'current',
+    canGoBack: at !== 'root',
+    folderLabel: folders[at]!.label,
+    truncated: false,
+    rows: folders[at]!.rows
+  })
+
+  const go = (id: string) => {
+    at = id
+    revision += 1
+
+    return view()
+  }
+
+  const enter = vi.fn(async (id: string) => go(id))
+  const back = vi.fn(async () => go(folders[at]!.parent ?? 'root'))
+  const bridge = { read: async () => view(), subscribe: () => () => {}, enter, back } as unknown as MatrixDriveBridge
+
+  return { bridge, enter, back }
+}
+
+function Finder({ bridge, onPreview }: { bridge: MatrixDriveBridge; onPreview?: () => void }) {
+  const [destination, setDestination] = useState<MatrixDriveDestination>('all')
+
+  return (
+    <I18nProvider configClient={null} initialLocale="en">
+      <MatrixDriveSidebar compact={false} current={destination} onSelect={setDestination} windowControls={null} />
+      <MatrixDrive bridge={bridge} destination={destination} onDestinationChange={setDestination} onPreview={onPreview} />
+    </I18nProvider>
+  )
+}
+
+const sidebar = () => within(window.document.querySelector<HTMLElement>('[data-matrix-drive-sidebar]')!)
+
+it('lays the sidebar out as Finder does: Recents, the Drive’s folders as Favorites, the Drive under Locations', async () => {
+  const drive = treeBridge()
+  render(<Finder bridge={drive.bridge} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  expect(sidebar().getByText('Favorites')).toBeTruthy()
+  expect(sidebar().getByText('Locations')).toBeTruthy()
+  // Assistants' folders sit beside the owner's: nothing in the data tells them apart.
+  expect(
+    [...window.document.querySelectorAll('[data-matrix-drive-favorites] button')].map(button => button.textContent)
+  ).toEqual(['Agent Reports', 'Reports'])
+  expect(sidebar().getByRole('button', { name: 'Atum Drive' }).getAttribute('aria-current')).toBe('page')
+
+  fireEvent.click(sidebar().getByRole('button', { name: 'Reports' }))
+  await screen.findByRole('heading', { name: 'Reports' })
+  expect(drive.enter).toHaveBeenCalledWith('h-reports')
+  expect(sidebar().getByRole('button', { name: 'Reports' }).getAttribute('aria-current')).toBe('page')
+  expect(sidebar().getByRole('button', { name: 'Atum Drive' }).getAttribute('aria-current')).toBeNull()
+
+  // Another favourite goes up to the Drive first, then into that folder.
+  fireEvent.click(sidebar().getByRole('button', { name: 'Agent Reports' }))
+  await screen.findByRole('heading', { name: 'Agent Reports' })
+  expect(drive.back).toHaveBeenCalledOnce()
+  expect(drive.enter).toHaveBeenLastCalledWith('h-agent')
+
+  fireEvent.click(sidebar().getByRole('button', { name: 'Recents' }))
+  await screen.findByRole('heading', { name: 'Recents' })
+  expect(sidebar().getByRole('button', { name: 'Recents' }).getAttribute('aria-current')).toBe('page')
+  expect(screen.getAllByRole('option').map(option => option.getAttribute('aria-label'))).toEqual([
+    'new.md',
+    'plan.docx',
+    'Agent Reports',
+    'Reports'
+  ])
+})
+
+it('goes back and forward from the toolbar, as Finder’s ‹ › do', async () => {
+  const drive = treeBridge()
+  render(<Finder bridge={drive.bridge} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  const back = screen.getByRole('button', { name: 'Back' }) as HTMLButtonElement
+  const forward = screen.getByRole('button', { name: 'Forward' }) as HTMLButtonElement
+  expect(back.disabled).toBe(true)
+  expect(forward.disabled).toBe(true)
+
+  fireEvent.doubleClick(item('Reports'))
+  await screen.findByRole('heading', { name: 'Reports' })
+  expect(back.disabled).toBe(false)
+  fireEvent.click(back)
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  expect(drive.back).toHaveBeenCalledOnce()
+  // The folder you came out of is the one selected.
+  expect(item('Reports').getAttribute('aria-selected')).toBe('true')
+  await waitFor(() => expect(forward.disabled).toBe(false))
+  fireEvent.click(forward)
+  await screen.findByRole('heading', { name: 'Reports' })
+  expect(drive.enter).toHaveBeenLastCalledWith('h-reports')
+  expect(forward.disabled).toBe(true)
+})
+
+it('selects with a click, clears on empty space, and opens with a double-click', async () => {
+  const drive = treeBridge()
+  const onPreview = vi.fn()
+  render(<Finder bridge={drive.bridge} onPreview={onPreview} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  fireEvent.click(item('plan.docx'))
+  expect(item('plan.docx').getAttribute('aria-selected')).toBe('true')
+  fireEvent.click(item('Reports'))
+  expect(item('plan.docx').getAttribute('aria-selected')).toBe('false')
+  expect(item('Reports').getAttribute('aria-selected')).toBe('true')
+  fireEvent.click(screen.getByRole('listbox'))
+  expect(item('Reports').getAttribute('aria-selected')).toBe('false')
+  expect(drive.enter).not.toHaveBeenCalled()
+  expect(onPreview).not.toHaveBeenCalled()
+
+  fireEvent.doubleClick(item('plan.docx'))
+  expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: 'h-plan' }))
+  fireEvent.doubleClick(item('Reports'))
+  await screen.findByRole('heading', { name: 'Reports' })
+  expect(drive.enter).toHaveBeenCalledWith('h-reports')
+  expect(item('Q3.docx').getAttribute('aria-selected')).toBe('false')
+})
+
+it('moves, opens, previews and goes back from the keyboard, as Finder does', async () => {
+  const drive = treeBridge()
+  const onPreview = vi.fn()
+  render(<Finder bridge={drive.bridge} onPreview={onPreview} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  act(() => setMatrixDriveLayout('list'))
+  const list = await screen.findByRole('listbox')
+  // Name order: Agent Reports, new.md, plan.docx, Reports.
+  fireEvent.keyDown(list, { key: 'ArrowDown' })
+  expect(item('Agent Reports').getAttribute('aria-selected')).toBe('true')
+  fireEvent.keyDown(list, { key: 'ArrowDown' })
+  fireEvent.keyDown(list, { key: 'ArrowDown' })
+  expect(item('plan.docx').getAttribute('aria-selected')).toBe('true')
+  expect(window.document.activeElement).toBe(item('plan.docx'))
+  fireEvent.keyDown(list, { key: ' ' })
+  expect(onPreview).toHaveBeenCalledWith(expect.objectContaining({ id: 'h-plan' }))
+  fireEvent.keyDown(list, { key: 'Escape' })
+  expect(item('plan.docx').getAttribute('aria-selected')).toBe('false')
+
+  // Typing a name's first letters jumps to it; Return opens it.
+  fireEvent.keyDown(list, { key: 'r' })
+  expect(item('Reports').getAttribute('aria-selected')).toBe('true')
+  fireEvent.keyDown(list, { key: 'Enter' })
+  await screen.findByRole('heading', { name: 'Reports' })
+  expect(drive.enter).toHaveBeenCalledWith('h-reports')
+
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: '[', metaKey: true })
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  expect(drive.back).toHaveBeenCalledOnce()
+  fireEvent.keyDown(screen.getByRole('listbox'), { key: ']', metaKey: true })
+  await screen.findByRole('heading', { name: 'Reports' })
+})
+
+it('switches between icons and list, keeps the choice, and sorts the list from its headers', async () => {
+  const drive = treeBridge()
+  const first = render(<Finder bridge={drive.bridge} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  expect(window.document.querySelector('[data-matrix-drive-browser]')?.getAttribute('data-matrix-drive-browser')).toBe(
+    'icon'
+  )
+  expect(screen.queryByRole('button', { name: 'Size' })).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'List' }))
+  expect(window.document.querySelector('[data-matrix-drive-browser]')?.getAttribute('data-matrix-drive-browser')).toBe(
+    'list'
+  )
+  expect(screen.getByText('48 kB')).toBeTruthy()
+
+  fireEvent.click(screen.getByRole('button', { name: 'Size' }))
+  expect(screen.getAllByRole('option').map(option => option.getAttribute('aria-label'))).toEqual([
+    'plan.docx',
+    'new.md',
+    'Agent Reports',
+    'Reports'
+  ])
+  fireEvent.click(screen.getByRole('button', { name: 'Size' }))
+  expect(screen.getAllByRole('option')[0]!.getAttribute('aria-label')).toBe('Agent Reports')
+
+  first.unmount()
+  render(<Finder bridge={drive.bridge} />)
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
+})
+
+it.each(['icon', 'list'] as const)('badges each item with its sync state in the %s view', async layout => {
+  setMatrixDriveLayout(layout)
+  const drive = treeBridge(1_000)
+  render(<Finder bridge={drive.bridge} />)
+
+  await screen.findByRole('heading', { name: 'Atum Drive' })
+  const badge = (name: string) => item(name).querySelector('[data-matrix-drive-sync]')?.getAttribute('data-matrix-drive-sync')
+  expect(badge('plan.docx')).toBe('synced')
+  // Changed after Drive last finished syncing: still waiting.
+  expect(badge('new.md')).toBe('pending')
+  const describedBy = item('new.md').getAttribute('aria-describedby')!
+  expect(window.document.getElementById(describedBy)?.textContent).toBe('Waiting to sync')
+})
+
+it('shows no sync badge when Drive’s facts are stale', async () => {
+  const drive = staticBridge(
+    base({
+      state: 'ready',
+      factsStale: true,
+      rows: [{ id: 'f', name: 'notes.txt', kind: 'file', size: 14, modifiedAt: 0 }]
+    })
+  )
+
+  show(drive.bridge, 'en')
+  expect((await screen.findByRole('option', { name: 'notes.txt' })).querySelector('[data-matrix-drive-sync]')).toBeNull()
+})
+
+it('cuts a long icon label in the middle and shows it whole once selected', async () => {
+  const name = 'Impromptu Google Meeting (3).docx'
+  const drive = staticBridge(base({ state: 'ready', rows: [{ id: 'f', name, kind: 'file', size: 14, modifiedAt: 0 }] }))
+
+  show(drive.bridge, 'en')
+  const option = await screen.findByRole('option', { name })
+  expect(option.textContent).toContain('…')
+  expect(option.textContent).toContain('(3).docx')
+  fireEvent.click(option)
+  expect(option.textContent).toContain(name)
 })

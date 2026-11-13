@@ -25,6 +25,23 @@ const vectors = readdirSync(folder)
       .map(line => JSON.parse(line) as Vector)
   )
 
+it('requires negotiated file-status capability and validates every private path and closed state', () => {
+  const context: MatrixDriveFrameContext = { phase: 'started', offered: ['file_status'], accepted: ['file_status'], issuer: 'https://auth.test/', origin: 'https://drive.test' }
+  const frame = { kind: 'file_status', path: 'Docs/report.txt', state: 'conflict' }
+
+  for (const state of ['conflict', 'error', 'uploading', 'clear']) {
+    expect(() => validateMatrixDriveFrame({ ...frame, state }, context)).not.toThrow()
+  }
+
+  expect(() => validateMatrixDriveFrame(frame, { ...context, accepted: [] })).toThrow('feature_not_accepted')
+  expect(() => validateMatrixDriveFrame(frame, context, 'app_to_engine')).toThrow('direction')
+
+  for (const invalid of [
+    { ...frame, state: 'synced' }, { ...frame, message: 'private error text' },
+    ...['../secret', '/outside', 'Docs/../secret', 'Docs//file', 'Docs/.hidden', 'C:/file', 'Docs\\file', 'Docs/\nfile'].map(path => ({ ...frame, path }))
+  ]) {expect(() => validateMatrixDriveFrame(invalid, context)).toThrow()}
+})
+
 it.each(vectors)('canonical wire $id', vector => {
   const reader = new MatrixDriveFrameReader()
   const bytes = Buffer.from(vector.wire)

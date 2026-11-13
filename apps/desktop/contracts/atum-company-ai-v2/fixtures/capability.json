@@ -1,0 +1,1 @@
+{"schemaVersion":2,"profile":"atum.company-ai/2","execution":{"profile":"atum.company-agent/1","runtime":"cloud_agent","toolProfile":"peer","promptSchemaSnapshot":"conversation_epoch","deltaStreaming":false},"homePartitioning":"per_audience","fundingProfile":"atum.company-funding/2.2","recovery":"peer_turn_resume"}

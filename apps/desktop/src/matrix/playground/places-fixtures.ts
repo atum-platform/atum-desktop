@@ -8,7 +8,7 @@ import {
 } from '../../../shared/matrix-agent-sources'
 import type { MatrixCompanyBridge, MatrixCompanyMember11, MatrixCompanyRequest, MatrixCompanyResult } from '../../../shared/matrix-company'
 import { MATRIX_COMPANY_CHANNEL_TYPE } from '../../../shared/matrix-company-channel-room'
-import type { MatrixDriveBridge, MatrixDriveProblem, MatrixDriveState, MatrixDriveView } from '../../../shared/matrix-drive'
+import type { MatrixDriveBridge, MatrixDriveProblem, MatrixDriveRow, MatrixDriveState, MatrixDriveView } from '../../../shared/matrix-drive'
 import {
   MATRIX_STANDARD_FOLDERS,
   type MatrixFolderAccessBridge,
@@ -103,6 +103,40 @@ const DRIVE_STATES = [
 ] as const satisfies readonly (MatrixDriveState | 'waiting' | 'signIn')[]
 
 const MICRO = 1_000_000
+
+/** A drawn stand-in for the owner's lake photo (fixture only): dawn sky, pine hills, still water. */
+const DRIVE_LAKE_PHOTO = `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb8d6"/><stop offset=".55" stop-color="#e9d3c0"/><stop offset="1" stop-color="#f4e2cf"/></linearGradient>
+<linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9c4bd"/><stop offset="1" stop-color="#5f7480"/></linearGradient>
+</defs>
+<rect width="1600" height="1000" fill="url(#sky)"/>
+<circle cx="1120" cy="430" r="60" fill="#fbeedd" opacity=".9"/>
+<path d="M0 520 L180 430 L330 480 L520 380 L700 470 L880 400 L1060 470 L1260 390 L1440 460 L1600 420 V600 H0Z" fill="#7d8f8a"/>
+<path d="M0 580 L140 520 L260 560 L420 500 L560 560 L760 490 L940 560 L1120 500 L1320 570 L1480 520 L1600 550 V620 H0Z" fill="#4c625a"/>
+<path d="M0 610 H1600 V1000 H0Z" fill="url(#water)"/>
+<path d="M0 610 L140 660 L260 630 L420 680 L560 630 L760 700 L940 630 L1120 690 L1320 620 L1480 670 L1600 640 V610Z" fill="#4c625a" opacity=".45"/>
+<rect x="0" y="740" width="1600" height="3" fill="#fff" opacity=".25"/>
+<rect x="300" y="820" width="900" height="2" fill="#fff" opacity=".18"/>
+</svg>`)}`
+
+const DRIVE_MEETING_NOTES = `# Họp sáng — thứ Sáu
+
+## Đà Lạt
+- Đặt phòng ở hồ Tuyền Lâm cho 4 người, 2 đêm.
+- Chị Trinh gửi lịch trình trước thứ Ba.
+- Ngân sách: xem "Ngân sách 2026.xlsx", mục Du lịch.
+
+## Báo cáo quý
+- Bản nháp Q4 nằm trong "Báo cáo quý".
+- Thêm số liệu tháng 10 từ trợ lý.
+
+## Việc cần làm
+1. Gửi hợp đồng thuê nhà đã ký.
+2. Xem lại slide "Thuyết trình Q4".
+3. Hẹn lịch với anh Minh tuần sau.
+`
+
 const MINUTE = 60_000
 const DRIVE_FACTS = ['normal', 'nearing', 'critical', 'exceeded', 'progress', 'issues', 'skipped', 'stale'] as const
 
@@ -111,26 +145,80 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
   const state: MatrixDriveState = place === 'waiting' ? 'authorizing' : place === 'signIn' ? 'reauthenticate' : place
   const connected = ['ready', 'syncing', 'offline', 'paused'].includes(state)
 
+  const DAY = 86_400_000
+  const folder = (id: string, name: string, age: number): MatrixDriveRow => ({ id, name, kind: 'folder', size: 0, modifiedAt: now - age })
+  const file = (id: string, name: string, size: number, age: number): MatrixDriveRow => ({ id, name, kind: 'file', size, modifiedAt: now - age })
+
+  // A Drive like the owner's: his folders, the ones assistants keep, and loose files at the root.
+  // `syncing` leaves the two newest files waiting, so their badges differ.
+  const tree: Record<string, { label?: string; parent?: string; rows: MatrixDriveRow[] }> = {
+    root: {
+      rows: [
+        folder('d-calendar', '_calendar', 2 * DAY),
+        folder('d-email', '_email-digests', 3 * 3_600_000),
+        folder('d-imessage', '_imessage-digests', 5 * 3_600_000),
+        folder('d-meetings', '_meetings', DAY),
+        folder('d-agent', 'Agent Reports', 6 * 3_600_000),
+        folder('f-reports', 'Báo cáo quý', 3 * DAY),
+        folder('d-downloads', 'Downloads', 9 * DAY),
+        file('f-trinh', 'Chị Trinh <> Minh - Atum.docx', 61_400, 2 * DAY),
+        file('f-plan', 'Kế hoạch Đà Lạt.docx', 48_200, 2 * 3_600_000),
+        file('f-budget', 'Ngân sách 2026.xlsx', 2_483_712, DAY),
+        file('f-photo', 'Hồ Tuyền Lâm.jpg', 5_912_004, 5 * DAY),
+        file('f-meet-1', 'Impromptu Google Meeting (1).docx', 18_300, 4 * DAY),
+        file('f-meet-2', 'Impromptu Google Meeting (2).docx', 21_900, 4 * DAY),
+        file('f-meet-3', 'Impromptu Google Meeting (3).docx', 16_050, 3 * DAY),
+        file('f-deck', 'Thuyết trình Q4.pptx', 7_340_000, 6 * DAY),
+        file('f-lease', 'Hợp đồng thuê nhà.pdf', 912_000, 12 * DAY),
+        file('f-notes', 'Ghi chú họp sáng.md', 3_200, 2 * MINUTE)
+      ]
+    },
+    'd-agent': {
+      label: 'Agent Reports',
+      parent: 'root',
+      rows: [
+        folder('d-agent-weekly', 'Weekly', 2 * DAY),
+        file('f-agent-1', 'Tóm tắt email tuần 45.md', 6_400, 6 * 3_600_000),
+        file('f-agent-2', 'Lịch tuần tới.pdf', 220_000, DAY),
+        file('f-agent-3', 'Chi phí tháng 10.xlsx', 41_000, 3 * DAY)
+      ]
+    },
+    'd-agent-weekly': { label: 'Weekly', parent: 'd-agent', rows: [file('f-weekly-1', 'Tuần 44.md', 5_100, 9 * DAY)] },
+    'f-reports': {
+      label: 'Báo cáo quý',
+      parent: 'root',
+      rows: [file('f-q3', 'Báo cáo Q3.docx', 88_000, 30 * DAY), file('f-q4', 'Báo cáo Q4 (nháp).docx', 64_000, 3 * DAY)]
+    }
+  }
+
+  for (const id of ['d-calendar', 'd-email', 'd-imessage', 'd-meetings', 'd-downloads']) {
+    tree[id] = { label: tree.root!.rows.find(row => row.id === id)!.name, parent: 'root', rows: [] }
+  }
+
+  let at = 'root'
+
   const view: MatrixDriveView = {
     state,
     revision: 1,
     ...(problem ? { problem } : {}),
     ...(place === 'waiting' ? { waitingForBrowser: true as const } : {}),
     ...(place === 'signIn' ? { signInNeeded: true as const } : {}),
-    ...(state === 'ready' ? { lastSyncAt: now - 4 * MINUTE } : {}),
+    ...(state === 'ready' ? { lastSyncAt: now - MINUTE } : state === 'syncing' ? { lastSyncAt: now - 3 * 3_600_000 } : {}),
     rootLabel: 'Drive',
     rootLocation: '~/Atum/Drive',
     canGoBack: false,
     truncated: false,
-    rows:
-      connected && !empty
-        ? [
-            { id: 'f-reports', name: 'Báo cáo quý', kind: 'folder', size: 0, modifiedAt: now - 3 * 86_400_000 },
-            { id: 'f-plan', name: 'Kế hoạch Đà Lạt.docx', kind: 'file', size: 48_200, modifiedAt: now - 2 * 3_600_000 },
-            { id: 'f-budget', name: 'Ngân sách 2026.xlsx', kind: 'file', size: 2_483_712, modifiedAt: now - 86_400_000 },
-            { id: 'f-photo', name: 'Hồ Tuyền Lâm.jpg', kind: 'file', size: 5_912_004, modifiedAt: now - 5 * 86_400_000 }
-          ]
-        : []
+    rows: connected && !empty ? tree.root!.rows : []
+  }
+
+  const go = (id: string) => {
+    at = id
+    view.revision += 1
+    view.canGoBack = id !== 'root'
+    view.folderLabel = tree[id]!.label
+    view.rows = tree[id]!.rows
+
+    return { ...view }
   }
 
   if (connected && facts) {
@@ -161,15 +249,54 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
   }
 
   const listeners = new Set<(next: MatrixDriveView) => void>()
+  const everyRow = () => Object.values(tree).flatMap(folder => folder.rows)
 
   return {
     read: async () => view,
+    search: async (query, scope) => {
+      const rows: MatrixDriveRow[] = []
+      const parents = (id: string): string[] => id === 'root' ? [] : [...parents(tree[id]!.parent!), tree[id]!.label!]
+
+      const walk = (id: string) => {
+        for (const row of tree[id]!.rows) {
+          if (row.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) {rows.push({ ...row, folders: parents(id) })}
+
+          if (row.kind === 'folder' && tree[row.id]) {walk(row.id)}
+        }
+      }
+
+      if (connected && !empty) {walk(scope === 'drive' ? 'root' : at)}
+
+      return { revision: view.revision, query, rows, truncated: false }
+    },
+    cancelSearch: async () => {},
+    // Previews for the gallery and the side panel: the lake photo and the meeting notes draw inline.
+    preview: async id => {
+      const row = everyRow().find(item => item.id === id)
+
+      if (!row || row.kind !== 'file') {
+        throw new Error('matrix_drive_file_unavailable')
+      }
+
+      const base = { token: `preview:${id}`, name: row.name, size: row.size, modifiedAt: row.modifiedAt }
+
+      if (row.name.endsWith('.jpg')) {
+        return { ...base, kind: 'image' as const, dataUrl: DRIVE_LAKE_PHOTO }
+      }
+
+      if (row.name.endsWith('.md')) {
+        return { ...base, kind: 'text' as const, text: DRIVE_MEETING_NOTES }
+      }
+
+      return { ...base, kind: row.name.endsWith('.pdf') ? ('pdf' as const) : ('unsupported' as const) }
+    },
+    closePreview: async () => {},
     connect: async () => view,
     chooseFolder: async () => ({ cancelled: true }),
     cancelSignIn: async () => ({ ...view, state: 'disconnected', rows: [], waitingForBrowser: undefined }),
     disconnect: async () => ({ ...view, state: 'disconnected', rows: [] }),
-    enter: async () => view,
-    back: async () => view,
+    enter: async id => (tree[id] ? go(id) : { ...view }),
+    back: async () => go(tree[at]?.parent ?? 'root'),
     open: async () => {},
     reveal: async () => {},
     taskStatus: async () => ({ state: 'ready' }),
@@ -594,6 +721,7 @@ function folderAccessBridge(): MatrixFolderAccessBridge {
     platform: 'macos',
     folders: MATRIX_STANDARD_FOLDERS.map(kind => ({ id: kind, kind, shared: true, mac: 'not-asked' as const }))
   }
+
   let added = 0
 
   return {

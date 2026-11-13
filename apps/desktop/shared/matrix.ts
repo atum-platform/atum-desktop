@@ -49,6 +49,7 @@ import type { MatrixCompanyActivityItem } from './matrix-company-activity'
 import type { MatrixCompanyAISdkCommand } from './matrix-company-ai-sdk'
 import type { MatrixCompanyChannelRoomCommand } from './matrix-company-channel-room'
 import type { MatrixCompanyFileSdkCommand } from './matrix-company-files'
+import type { MatrixCompanyPresentation, MatrixCompanyProgressMarker } from './matrix-company-presentation'
 import type { MatrixCompanyPrivateCosRoomCommand } from './matrix-company-private-cos-room'
 import type { MatrixCompanyRoomCommand } from './matrix-company-room'
 import type { MatrixCompanyMessageSearchSdkCommand } from './matrix-company-search'
@@ -408,6 +409,10 @@ export interface MatrixMessage {
   editedAt?: number
   /** Deleted (a standard redaction): it has no body any more. */
   redacted?: boolean
+  /** With `redacted`: its own sender removed it with the agent-turns removal reason
+   * (`MATRIX_TRANSIENT_REDACTION_REASON`), so it was a working line whose turn ended, not a real
+   * deletion. It shows nothing, not a "deleted" tombstone (`matrixHideEndedTransientLines`). */
+  transientRemoved?: true
   /** Standard `m.annotation` reactions, most used first. */
   reactions?: MatrixReaction[]
   /** Sent inside a standard Matrix thread; shown only in its thread panel. */
@@ -424,10 +429,15 @@ export interface MatrixMessage {
    * the typing indicator while the turn works (agent-turns/1.4: transient). Once the turn has ended
    * it is gone (`matrixHideEndedTransientLines`); never marked edited. It is not an answer: it
    * marks nothing answered and is never a roster preview. */
-  progress?: MatrixProgressMarker
+  progress?: MatrixProgressMarker | MatrixCompanyProgressMarker
   /** An interim remark of the agent (agent-turns/1.4 `io.atum.interim`): a real message, never the
    * answer. It marks nothing answered and does not stop the no-reply banner. */
   interim?: true
+  /** A company agent's working line or interim remark (agent-turns/1.6, scope `company`): its admitted
+   * public identity, after the projection's strict read and room-local checks. The renderer keeps it
+   * (with `progress`/`interim`) only for the room's bound agent (`matrixAdmitCompanyPresentation`).
+   * Display correlation only; never authority. */
+  company?: MatrixCompanyPresentation
   /** Native-validated bot device/marker evidence, never inferred from m.notice. */
   appBot?: {
     appId: string

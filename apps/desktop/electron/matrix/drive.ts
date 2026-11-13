@@ -23,6 +23,8 @@ import type {
   MatrixDriveProblem,
   MatrixDriveProgress,
   MatrixDriveQuota,
+  MatrixDriveRow,
+  MatrixDriveSearchResult,
   MatrixDriveState,
   MatrixDriveView
 } from '../../shared/matrix-drive'
@@ -39,6 +41,7 @@ import {
   type MatrixDriveSync,
   validateMatrixDriveFrame
 } from './drive-engine-frames'
+import { matrixDriveLocalOnly } from './drive-exclusions'
 import {
   matrixDriveChosenRoot,
   type MatrixDriveFolderChoice,
@@ -49,6 +52,7 @@ import {
   matrixDriveRootEnrolled,
   openMatrixDriveMarker
 } from './drive-folder'
+import { searchDriveNames } from './drive-search'
 
 /**
  * `manual` is the person's "Turn on"; `launch` is the launch reconnect of a Drive the person turned
@@ -321,6 +325,10 @@ export class MatrixDrive {
   private binding?: Binding
   private folder = ''
   private rows = new Map<string, Row>()
+  private searchRows = new Map<string, Row>()
+  private searchRequest?: { id: string; controller: AbortController }
+  private searchResult?: MatrixDriveView['searchResult']
+  private fileStatuses = new Map<string, NonNullable<MatrixDriveRow['syncStatus']>>()
   private previews = new Map<string, PreviewLease>()
   private process?: ChildProcessWithoutNullStreams
   private taskFiles = false
@@ -1202,6 +1210,7 @@ export class MatrixDrive {
   }
 
   private clearFacts(): void {
+    this.fileStatuses.clear()
     clearTimeout(this.offlineTimer)
     this.offlineTimer = undefined
     this.offlineSince = undefined
@@ -1226,6 +1235,22 @@ export class MatrixDrive {
   /** Presentation changes keep the directory's existing capability handles intact. */
   private publishFacts(): void {
     const view = { ...this.view }
+    delete view.fileStatusAvailable
+
+    if (this.acceptedFeatures.includes('file_status')) {
+      view.fileStatusAvailable = true
+    }
+
+    view.rows = view.rows.map(row => this.rowFacts(row, this.rows.get(row.id)))
+    delete view.searchResult
+
+    if (this.searchResult) {
+      this.searchResult = {
+        ...this.searchResult,
+        rows: this.searchResult.rows.map(row => this.rowFacts(row, this.searchRows.get(row.id)))
+      }
+      view.searchResult = this.searchResult
+    }
 
     for (const key of ['progress', 'quota', 'issues', 'factsStale', 'lastSyncAt'] as const) {
       delete view[key]
@@ -1354,6 +1379,21 @@ export class MatrixDrive {
       this.publishFacts()
     } else if (message.kind === 'exclusions') {
       this.facts.exclusions = [...(message.patterns as string[])]
+      this.publishFacts()
+    } else if (message.kind === 'file_status') {
+      const relative = message.path as string
+
+      if (message.state === 'clear') {
+        this.fileStatuses.delete(relative)
+      } else {
+        if (!this.fileStatuses.has(relative) && this.fileStatuses.size >= 20_000) {
+          throw new Error('file_status_limit')
+        }
+
+        this.fileStatuses.set(relative, message.state as NonNullable<MatrixDriveRow['syncStatus']>)
+      }
+
+      this.publishFacts()
     }
   }
 
@@ -1534,6 +1574,7 @@ export class MatrixDrive {
 
   /** Withdraw local handles when their owner/root boundary no longer validates. */
   private clearLocalBrowseState(): void {
+    this.cancelSearch()
     this.listing++
     this.folder = ''
     this.rows.clear()
@@ -1860,7 +1901,7 @@ export class MatrixDrive {
         const id = existing?.[0] ?? randomUUID()
         const kind = stat.isDirectory() ? 'folder' : 'file'
         handles.set(id, { path: file, kind, dev: stat.dev, ino: stat.ino })
-        rows.push({ id, name: entry.name, kind, size: stat.size, modifiedAt: stat.mtimeMs })
+        rows.push(this.rowFacts({ id, name: entry.name, kind, size: stat.size, modifiedAt: stat.mtimeMs }, handles.get(id)))
       }
 
       if (!this.current(revision) || listing !== this.listing) {
@@ -1905,6 +1946,105 @@ export class MatrixDrive {
     }
 
     return this.view
+  }
+
+  private rowFacts(row: MatrixDriveRow, handle?: Row): MatrixDriveRow {
+    const next = { ...row }
+    delete next.localOnly
+    delete next.syncStatus
+
+    if (!handle || !this.binding) {
+      return next
+    }
+
+    const relative = path.relative(this.binding.root, handle.path).split(path.sep).join('/')
+
+    if (matrixDriveLocalOnly(relative, handle.kind === 'folder', this.facts.exclusions)) {
+      next.localOnly = true
+    }
+
+    if (this.process && ['ready', 'syncing'].includes(this.state) && this.acceptedFeatures.includes('file_status')) {
+      const status = this.fileStatuses.get(relative)
+
+      if (status) {
+        next.syncStatus = status
+      }
+    }
+
+    return next
+  }
+
+  cancelSearch(requestId?: string): void {
+    if (requestId !== undefined && this.searchRequest?.id !== requestId) {
+      return
+    }
+
+    this.searchRequest?.controller.abort()
+    this.searchRequest = undefined
+    this.searchRows.clear()
+    this.searchResult = undefined
+    delete this.view.searchResult
+  }
+
+  async search(query: string, scope: 'drive' | 'folder', requestId: string): Promise<MatrixDriveSearchResult> {
+    this.activate()
+    this.cancelSearch()
+
+    if (!['drive', 'folder'].includes(scope) || typeof requestId !== 'string' || requestId.length > 64 || !requestId.length) {
+      throw new Error('matrix_drive_search_invalid')
+    }
+
+    const root = this.requiredLocalBrowseRoot()
+    const revision = this.revision
+    const folder = this.folder
+    const request = { id: requestId, controller: new AbortController() }
+    this.searchRequest = request
+
+    try {
+      const result = await searchDriveNames(root, scope === 'folder' && folder ? path.join(root, folder) : root, query, {
+        signal: request.controller.signal,
+        check: () => {
+          if (!this.current(revision) || this.requiredLocalBrowseRoot() !== root || this.folder !== folder) {
+            request.controller.abort()
+          }
+        }
+      })
+
+      request.controller.signal.throwIfAborted()
+      this.requiredLocalBrowseRoot()
+      const handles = new Map<string, Row>()
+
+      const rows = result.rows.flatMap(match => {
+        const kind = match.stat.isDirectory() ? 'folder' as const : 'file' as const
+        const handle = { path: match.path, kind, dev: match.stat.dev, ino: match.stat.ino }
+
+        try {
+          this.recheck(handle, root)
+        } catch {
+          return []
+        }
+
+        const id = randomUUID()
+        handles.set(id, handle)
+
+        return [this.rowFacts({
+          id, name: match.name, kind, size: match.stat.size, modifiedAt: match.stat.mtimeMs, folders: match.folders
+        }, handle)]
+      })
+
+      this.searchRows = handles
+      const answer = { revision, query, rows, truncated: result.truncated }
+      this.searchResult = { ...answer, requestId }
+      this.publishFacts()
+
+      return answer
+    } catch (error) {
+      if (this.searchRequest === request) {
+        this.cancelSearch()
+      }
+
+      throw error
+    }
   }
 
   /** Retry only a failed transport/credential read of an already enrolled folder. Never
@@ -2674,6 +2814,9 @@ export class MatrixDrive {
               }
 
               if (!['ready', 'syncing'].includes(next)) {
+                // A reconnect must report fresh per-file facts, never resurrect an old upload.
+                this.fileStatuses.clear()
+
                 if (this.progressTimer) {
                   clearTimeout(this.progressTimer)
                 }
@@ -3131,7 +3274,7 @@ export class MatrixDrive {
   }
 
   private resolve(id: string): Row {
-    return this.recheck(this.rows.get(id), this.requiredLocalBrowseRoot())
+    return this.recheck(this.rows.get(id) ?? this.searchRows.get(id), this.requiredLocalBrowseRoot())
   }
 
   /** The row is still the same local file or folder, inside the root, reached without a symlink. */
@@ -3393,12 +3536,14 @@ export class MatrixDrive {
     }
 
     this.folder = path.relative(this.requiredLocalBrowseRoot(), row.path)
+    this.cancelSearch()
 
     return this.read()
   }
 
   async back(): Promise<MatrixDriveView> {
     this.activate()
+    this.cancelSearch()
     this.folder = this.folder ? path.dirname(this.folder) : ''
 
     if (this.folder === '.') {

@@ -6,8 +6,8 @@
  *
  * It rides in the owner's new message, never the system prompt: a stored conversation's cached prefix and
  * its role alternation stay as they were, and a conversation that began before this existed gets it on its
- * next turn. The words the agent answers with are published by `MatrixTurnVoice`, which also covers a model
- * that ignores this line (`matrixAcknowledgementCopy`).
+ * next turn. The words the agent answers with are published by `MatrixTurnVoice`; a model that ignores this
+ * line still shows typing and the working line, and Atum adds no words of its own.
  */
 
 /** The header the cloud's turn context opens with; a Mac's carries the style line alone under it. */

@@ -1,0 +1,39 @@
+{
+  "vectors": [
+    {
+      "name": "private first narration publishes",
+      "private": true,
+      "elapsedMs": 0,
+      "edits": 0,
+      "decision": "publish"
+    },
+    {
+      "name": "groups never receive progress",
+      "private": false,
+      "elapsedMs": 10000,
+      "edits": 0,
+      "decision": "drop"
+    },
+    {
+      "name": "edits are throttled for three seconds",
+      "private": true,
+      "elapsedMs": 2999,
+      "edits": 1,
+      "decision": "hold"
+    },
+    {
+      "name": "the edit cap settles the line",
+      "private": true,
+      "elapsedMs": 3000,
+      "edits": 48,
+      "decision": "settle"
+    },
+    {
+      "name": "quiet work gets a heartbeat after three minutes",
+      "private": true,
+      "elapsedMs": 180000,
+      "edits": 1,
+      "decision": "publish"
+    }
+  ]
+}

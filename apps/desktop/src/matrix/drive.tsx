@@ -1,5 +1,5 @@
 import { useStore } from '@nanostores/react'
-import { Fragment, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -18,6 +21,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { type Locale, useI18n } from '@/i18n'
 import {
   ChevronLeft,
+  ChevronRight,
   Clock,
   Cloud,
   CloudCheck,
@@ -25,7 +29,10 @@ import {
   Folder,
   FolderOpen,
   Info,
+  LayoutColumns,
+  LayoutGallery,
   LayoutGrid,
+  LayoutGroups,
   List,
   MoreHorizontal,
   Pause,
@@ -41,10 +48,40 @@ import type {
   MatrixDriveView
 } from '../../shared/matrix-drive'
 
+import { MatrixDriveBrowser, type MatrixDriveItemAction } from './drive-browser'
+import { MatrixDriveColumns } from './drive-column-view'
+import { type DriveColumn, driveColumns, type DriveColumnTarget, driveWalk } from './drive-columns'
 import { matrixDriveCopy } from './drive-copy'
 import { MatrixDriveFacts, MatrixDriveSkippedNote } from './drive-facts'
+import {
+  $matrixDriveGroupBy,
+  $matrixDriveHeader,
+  $matrixDriveIntent,
+  $matrixDriveLayout,
+  $matrixDriveListings,
+  $matrixDriveLocation,
+  $matrixDrivePlaces,
+  currentDrivePlace,
+  DRIVE_NAME_ORDER,
+  DRIVE_RECENT_ORDER,
+  learnMatrixDrivePlaces,
+  type MatrixDriveIntent,
+  type MatrixDriveLayout,
+  type MatrixDriveSort,
+  nextDriveSort,
+  noteMatrixDriveLocation,
+  observeMatrixDriveView,
+  rememberMatrixDriveListing,
+  requestMatrixDriveIntent,
+  setMatrixDriveGroupBy,
+  setMatrixDriveLayout,
+  sortDriveRows
+} from './drive-finder'
+import { MatrixDriveGallery } from './drive-gallery-view'
+import type { MatrixDriveGroupBy } from './drive-groups'
 import { MatrixDriveImportSheet } from './drive-import'
 import { matrixDriveImportCopy } from './drive-import-copy'
+import { useDriveSearch } from './drive-search'
 import {
   $matrixDriveTaskSelection,
   clearMatrixDriveTaskSelections,
@@ -55,9 +92,11 @@ import {
   validMatrixDriveLeafName
 } from './drive-selection'
 import type { MatrixDriveTaskScope } from './drive-selection'
-import { MatrixFileGlyph } from './file-glyph'
 
 const initial: MatrixDriveView = { state: 'unavailable', revision: 0, rows: [], canGoBack: false, truncated: false }
+
+/** The bridge whose Drive the sidebar's Favorites were learned from. */
+let placesBridge: MatrixDriveBridge | undefined
 
 const SIZE_UNITS = ['byte', 'kilobyte', 'megabyte', 'gigabyte', 'terabyte'] as const
 
@@ -103,10 +142,22 @@ export function MatrixDriveSidebar({
 }) {
   const { locale } = useI18n()
   const copy = matrixDriveCopy[locale]
-  const destinations = [
-    { id: 'recents' as const, label: copy.browser.recents, icon: Clock },
-    { id: 'all' as const, label: copy.browser.allFiles, icon: Folder }
-  ]
+  const folders = useStore($matrixDrivePlaces)
+  const place = currentDrivePlace(current, useStore($matrixDriveLocation))
+
+  const row = (key: string, label: string, Icon: typeof Clock, isCurrent: boolean, go: () => void) => (
+    <button
+      aria-current={isCurrent ? 'page' : undefined}
+      className="ak-row atum-row w-full"
+      data-current={isCurrent ? 'true' : undefined}
+      key={key}
+      onClick={go}
+      type="button"
+    >
+      <Icon aria-hidden className="ak-icon ak-icon--sm" />
+      <span className="truncate">{label}</span>
+    </button>
+  )
 
   return (
     <aside
@@ -121,26 +172,78 @@ export function MatrixDriveSidebar({
       >
         {windowControls}
       </div>
+      {/* Finder's sidebar on the roster panel itself: Recents, the Drive's own folders as Favorites
+          (the owner's and the ones assistants made alike), and the Drive under Locations. */}
       <nav aria-label={copy.title} className="min-h-0 flex-1 overflow-y-auto px-(--ak-s2) pb-(--ak-s3)">
-        <p className="ak-section">{copy.title}</p>
-        {/* Atum Kit Drive board: the places sit on the roster panel itself, a hairline between rows. */}
-        <div className="flex flex-col" data-matrix-drive-places>
-          {destinations.map(({ id, label, icon: Icon }) => (
-            <button
-              aria-current={current === id ? 'page' : undefined}
-              className="ak-row atum-row w-full"
-              data-current={current === id ? 'true' : undefined}
-              key={id}
-              onClick={() => onSelect(id)}
-              type="button"
-            >
-              <Icon aria-hidden className="ak-icon ak-icon--sm" />
-              <span>{label}</span>
-            </button>
-          ))}
+        <div className="flex flex-col pt-(--ak-s2)" data-matrix-drive-places>
+          {row('recents', copy.browser.recents, Clock, place?.kind === 'recents', () => {
+            onSelect('recents')
+            requestMatrixDriveIntent({ kind: 'root' })
+          })}
+        </div>
+        {folders.length > 0 && (
+          <>
+            <p className="ak-section">{copy.browser.favorites}</p>
+            <div className="flex flex-col" data-matrix-drive-favorites>
+              {folders.map(name =>
+                row(`folder:${name}`, name, Folder, place?.kind === 'folder' && place.name === name, () => {
+                  onSelect('all')
+                  requestMatrixDriveIntent({ kind: 'folder', name })
+                })
+              )}
+            </div>
+          </>
+        )}
+        <p className="ak-section">{copy.browser.locations}</p>
+        <div className="flex flex-col" data-matrix-drive-locations>
+          {row('root', copy.browser.drive, Cloud, place?.kind === 'root', () => {
+            onSelect('all')
+            requestMatrixDriveIntent({ kind: 'root' })
+          })}
         </div>
       </nav>
     </aside>
+  )
+}
+
+/** The title bar's lead for Drive, as Finder's toolbar: ‹ › and the open place's name. */
+export function MatrixDriveTitle() {
+  const { locale } = useI18n()
+  const copy = matrixDriveCopy[locale]
+  const header = useStore($matrixDriveHeader)
+
+  if (!header) {
+    return <span className="truncate [font:var(--ak-t-headline)] text-(--ak-ink)">{copy.title}</span>
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-(--ak-s2)" data-matrix-drive-nav>
+      <div className="flex shrink-0 items-center [-webkit-app-region:no-drag]">
+        <Tip label={copy.back}>
+          <button
+            aria-label={copy.back}
+            className="ak-iconbtn ak-iconbtn--sm disabled:pointer-events-none disabled:opacity-38"
+            disabled={!header.canBack}
+            onClick={() => requestMatrixDriveIntent({ kind: 'back' })}
+            type="button"
+          >
+            <ChevronLeft aria-hidden className="ak-icon" />
+          </button>
+        </Tip>
+        <Tip label={copy.forward}>
+          <button
+            aria-label={copy.forward}
+            className="ak-iconbtn ak-iconbtn--sm disabled:pointer-events-none disabled:opacity-38"
+            disabled={!header.canForward}
+            onClick={() => requestMatrixDriveIntent({ kind: 'forward' })}
+            type="button"
+          >
+            <ChevronRight aria-hidden className="ak-icon" />
+          </button>
+        </Tip>
+      </div>
+      <h1 className="truncate [font:var(--ak-t-headline)] text-(--ak-ink)">{header.title}</h1>
+    </div>
   )
 }
 
@@ -406,7 +509,16 @@ export function MatrixDrive({
   const [outputName, setOutputName] = useState('')
   const [importPlan, setImportPlan] = useState<Exclude<MatrixDriveImportPlan, { state: 'cancelled' }> | null>(null)
   const [importPicking, setImportPicking] = useState(false)
-  const [layout, setLayout] = useState<'list' | 'grid'>('list')
+  const layout = useStore($matrixDriveLayout)
+  const groupBy = useStore($matrixDriveGroupBy)
+  const location = useStore($matrixDriveLocation)
+  const listings = useStore($matrixDriveListings)
+  const [selectedItem, setSelectedItem] = useState<{ place: string; id: string } | null>(null)
+
+  const [sortChoice, setSortChoice] = useState<{ destination: MatrixDriveDestination; sort: MatrixDriveSort } | null>(
+    null
+  )
+
   const [searchOpen, setSearchOpen] = useState(false)
   const [titleBar, setTitleBar] = useState<{ actions: HTMLElement; status: HTMLElement } | null>(null)
 
@@ -418,6 +530,8 @@ export function MatrixDrive({
     setTitleBar(actions && status ? { actions, status } : null)
   }, [])
   const [query, setQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<'drive' | 'folder'>('drive')
+  const search = useDriveSearch(bridge, view, query, searchScope)
   const selection = useStore($matrixDriveTaskSelection)
   const alive = useRef(true)
   const request = useRef(0)
@@ -549,9 +663,164 @@ export function MatrixDrive({
   }, [taskScope, view.revision, view.state])
 
   const firstRead = loading && view.revision === initial.revision && view.state === initial.state
+  const unavailable = !loading && view.state === 'unavailable' && !view.canBrowseLocally
+  const phase = matrixDrivePhase(view)
+  // This is an explicit local-root capability. Its absence intentionally preserves the legacy
+  // state-driven screen selection for older main processes.
+  const browseLocally = view.canBrowseLocally === true
+  const legacyFileSurface = view.canBrowseLocally === undefined && phase === 'files'
+  const showsFiles = Boolean(bridge) && !firstRead && !unavailable && (browseLocally || legacyFileSurface)
+
+  // The sidebar's Favorites and the followed path belong to one account's Drive.
+  useEffect(() => {
+    if (bridge !== placesBridge) {
+      placesBridge = bridge
+      learnMatrixDrivePlaces(null, locale)
+    }
+  }, [bridge, locale])
+
+  useEffect(() => {
+    if (firstRead) {
+      return
+    }
+
+    if (showsFiles) {
+      learnMatrixDrivePlaces(view, locale)
+      observeMatrixDriveView(view)
+    } else {
+      learnMatrixDrivePlaces(null, locale)
+    }
+  }, [firstRead, locale, showsFiles, view])
+
+  const forwardName = location.forward.at(-1)
+  const forwardRow = forwardName ? view.rows.find(row => row.kind === 'folder' && row.name === forwardName) : undefined
+
+  const placeTitle =
+    destination === 'recents'
+      ? copy.browser.recents
+      : view.canGoBack
+        ? view.folderLabel || copy.browser.drive
+        : copy.browser.drive
+
+  useEffect(() => {
+    $matrixDriveHeader.set(
+      showsFiles ? { title: placeTitle, canBack: view.canGoBack, canForward: Boolean(forwardRow) } : null
+    )
+  }, [forwardRow, placeTitle, showsFiles, view.canGoBack])
+
+  useEffect(() => () => $matrixDriveHeader.set(null), [])
+
+  const latestView = useRef(view)
+  // The columns as they stood before a walk: its in-between listings never show.
+  const steadyColumns = useRef<DriveColumn[]>([])
+  const navigate = useRef<(intent: MatrixDriveIntent) => void>(() => {})
+
+  // A selection belongs to the place it was made in.
+  const placeKeyOf = (where: Pick<MatrixDriveView, 'canGoBack' | 'folderLabel'>) =>
+    `${destination}\u0000${where.canGoBack}\u0000${where.folderLabel ?? ''}`
+
+  const enterFolder = (row: MatrixDriveRow) => {
+    if (!bridge) {
+      return
+    }
+
+    if (row.folders) {
+      // A search handle can enter a folder anywhere in Drive. Commit the learned location only
+      // after main confirms its listing, never by guessing from a clicked result.
+      noteMatrixDriveLocation({ type: 'walk' })
+      onDestinationChange?.('all')
+      void run(async () => {
+        try {
+          const next = await bridge.enter(row.id)
+          const listed = next.listingStatus === 'current' || next.listingStatus === 'partial'
+          noteMatrixDriveLocation({ type: 'arrive', path: listed ? [...row.folders!, row.name] : null })
+          setQuery('')
+
+          return next
+        } catch (error) {
+          noteMatrixDriveLocation({ type: 'arrive', path: null })
+          throw error
+        }
+      })
+
+      return
+    }
+
+    noteMatrixDriveLocation({ type: 'enter', name: row.name })
+
+    onDestinationChange?.('all')
+    void run(() => bridge.enter(row.id))
+  }
+
+  /** The sidebar's places: up to the Drive's root, then into the named top-level folder. */
+  const jump = (name: string | null) => {
+    if (!bridge) {
+      return
+    }
+
+    noteMatrixDriveLocation({ type: 'jump' })
+    void run(async () => {
+      let next = latestView.current
+
+      for (let step = 0; next.canGoBack && step < 64; step++) {
+        next = await bridge.back()
+      }
+
+      observeMatrixDriveView(next)
+      const folder = name ? next.rows.find(row => row.kind === 'folder' && row.name === name) : undefined
+
+      if (!folder) {
+        return next
+      }
+
+      noteMatrixDriveLocation({ type: 'enter', name: folder.name })
+
+      return bridge.enter(folder.id)
+    })
+  }
+
+  useEffect(() => {
+    latestView.current = view
+
+    navigate.current = intent => {
+      if (!bridge || !showsFiles) {
+        return
+      }
+
+      if (intent.kind === 'back') {
+        if (view.canGoBack) {
+          const from = view.folderLabel ?? ''
+          noteMatrixDriveLocation({ type: 'back', from })
+          void run(async () => {
+            const next = await bridge.back()
+            // As in Finder, the folder you came out of is the one selected.
+            const came = next.rows.find(row => row.kind === 'folder' && row.name === from)
+
+            if (came && alive.current) {
+              setSelectedItem({ place: placeKeyOf(next), id: came.id })
+            }
+
+            return next
+          })
+        }
+      } else if (intent.kind === 'forward') {
+        if (forwardRow) {
+          enterFolder(forwardRow)
+        }
+      } else {
+        jump(intent.kind === 'folder' ? intent.name : null)
+      }
+    }
+  })
+
+  useEffect(() => $matrixDriveIntent.listen(intent => intent && navigate.current(intent)), [])
+
+  const placeKey = placeKeyOf(view)
+  const selectedId = selectedItem?.place === placeKey ? selectedItem.id : null
+  const selectItem = (id: string | null) => setSelectedItem(id ? { place: placeKey, id } : null)
 
   // A build without Drive has nothing to show: one calm sentence, no controls, no sections.
-  if (!loading && view.state === 'unavailable' && !view.canBrowseLocally) {
+  if (unavailable) {
     return (
       <div className="flex min-h-0 flex-1 flex-col" data-matrix-drive data-matrix-drive-state="unavailable">
         <h1 className="sr-only">{copy.title}</h1>
@@ -560,14 +829,9 @@ export function MatrixDrive({
     )
   }
 
-  const phase = matrixDrivePhase(view)
   const failure = failed && <NoticeBand tone="notice">{copy.failed}</NoticeBand>
-  // This is an explicit local-root capability. Its absence intentionally preserves the legacy
-  // state-driven screen selection for older main processes.
-  const browseLocally = view.canBrowseLocally === true
-  const legacyFileSurface = view.canBrowseLocally === undefined && phase === 'files'
 
-  if (firstRead || !bridge || (!browseLocally && !legacyFileSurface)) {
+  if (!showsFiles || !bridge) {
     const spec = firstRead || !bridge ? undefined : HERO[phase === 'files' ? 'off' : phase](copy, view)
 
     return (
@@ -643,22 +907,166 @@ export function MatrixDrive({
   const problemLine = view.problem ? copy.problem[view.problem] : undefined
 
   const atRoot = !view.canGoBack
-  const matchingRows = view.rows.filter(row =>
+
+  const matchingRows = search.enabled ? search.result?.rows ?? [] : view.rows.filter(row =>
     row.name.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale))
   )
-  const shownRows = destination === 'recents' ? recentDriveRows(matchingRows) : matchingRows
-  const recentRows = recentDriveRows(matchingRows).slice(0, 4)
+
+  const sort =
+    sortChoice?.destination === destination
+      ? sortChoice.sort
+      : destination === 'recents'
+        ? DRIVE_RECENT_ORDER
+        : DRIVE_NAME_ORDER
+
+  const shownRows = sortDriveRows(matchingRows, sort, locale)
+  const selectedRow = shownRows.find(row => row.id === selectedId)
 
   const openRow = (row: MatrixDriveRow) => {
     if (row.kind === 'folder') {
-      onDestinationChange?.('all')
-      void run(() => bridge.enter(row.id))
+      enterFolder(row)
     } else if (onPreview) {
       onPreview(row)
     } else {
       void run(() => bridge.open(row.id))
     }
   }
+
+  // Search shows its matches as a list, as Finder does from the column view.
+  const shownLayout: MatrixDriveLayout = query.trim() && (search.enabled || layout === 'column') ? 'list' : layout
+
+  if (!location.walking && !query.trim()) {
+    steadyColumns.current = driveColumns(location.path, shownRows, listings).map(column =>
+      column.live ? column : { ...column, rows: sortDriveRows(column.rows, sort, locale) }
+    )
+  }
+
+  const columns = steadyColumns.current
+
+  /**
+   * The column view's moves. The bridge lists one folder at a time, so another column's folder is
+   * reached step by step: up to the folder both share, then down by name. Each listing on the way is
+   * remembered for its column; then the target item is selected, or opened.
+   */
+  const walkTo = (target: DriveColumnTarget, then?: 'open') => {
+    const from = location.path
+
+    if (!from) {
+      return
+    }
+
+    const steps = driveWalk(from, target.path)
+
+    const land = (next: MatrixDriveView) => {
+      const row = target.selected ? next.rows.find(item => item.kind === 'file' && item.name === target.selected) : undefined
+
+      if (!alive.current) {
+        return
+      }
+
+      setSelectedItem(row ? { place: placeKeyOf(next), id: row.id } : null)
+
+      if (row && then === 'open') {
+        openRow(row)
+      }
+    }
+
+    if (target.path.length) {
+      onDestinationChange?.('all')
+    }
+
+    if (!steps.back && !steps.enter.length) {
+      land(latestView.current)
+
+      return
+    }
+
+    noteMatrixDriveLocation({ type: 'walk' })
+    void run(async () => {
+      let next = latestView.current
+      let at: string[] | null = [...from]
+
+      // A step main couldn't list (a kept older listing) leaves the place unknown rather than guessed.
+      const settled = (step: MatrixDriveView, place: string[]) => {
+        next = step
+
+        if (step.listingStatus !== 'stale' && step.listingStatus !== 'loading') {
+          rememberMatrixDriveListing(place, step.rows)
+
+          return place
+        }
+
+        return null
+      }
+
+      try {
+        for (let step = 0; step < steps.back && at; step++) {
+          at = settled(await bridge.back(), at.slice(0, -1))
+        }
+
+        for (const name of steps.enter) {
+          const folder = at && next.rows.find(item => item.kind === 'folder' && item.name === name)
+
+          if (!at || !folder) {
+            break
+          }
+
+          at = settled(await bridge.enter(folder.id), [...at, name])
+        }
+      } finally {
+        noteMatrixDriveLocation({ type: 'arrive', path: at })
+      }
+
+      if (at && at.length === target.path.length && at.every((name, index) => name === target.path[index])) {
+        land(next)
+      } else if (alive.current) {
+        setSelectedItem(null)
+      }
+
+      return next
+    })
+  }
+
+  // What the assistant may do with an item in this chat: read or edit a file, save a result into a folder.
+  const taskActions = (row: MatrixDriveRow): MatrixDriveItemAction[] => {
+    if (!taskReady || selected.length >= 4) {
+      return []
+    }
+
+    return row.kind === 'file'
+      ? [
+          { label: copy.useRead, run: () => selectMatrixDriveFile(row.id, row.name, 'read') },
+          { label: copy.replace, run: () => selectMatrixDriveFile(row.id, row.name, 'replace') }
+        ]
+      : [
+          {
+            label: copy.createOutput,
+            run: () => {
+              selectItem(row.id)
+              setCreateInFolder(row.id)
+              setOutputName('')
+            }
+          }
+        ]
+  }
+
+  const selectedActions = selectedRow ? taskActions(selectedRow) : []
+
+  const viewProps = {
+    formatDate: (at: number) => formatModified(at, locale),
+    formatSize: (bytes: number) => formatDriveSize(bytes, locale),
+    itemActions: taskActions,
+    locale,
+    onNavigate: (direction: 'back' | 'forward') => navigate.current({ kind: direction }),
+    onOpen: openRow,
+    onQuickLook: onPreview,
+    onSelect: selectItem,
+    rows: shownRows,
+    selectedId,
+    view
+  }
+
+  const creating = Boolean(taskReady && selectedRow && createInFolder === selectedRow.id)
 
   // Preserve the old file-surface contract: importing is a sync operation, not an offline/local
   // browsing operation. It stays hidden in states that only retain local read access.
@@ -695,55 +1103,65 @@ export function MatrixDrive({
     </>
   )
 
+  const views = [
+    { id: 'icon' as const, label: copy.gridView, icon: LayoutGrid },
+    { id: 'list' as const, label: copy.listView, icon: List },
+    { id: 'column' as const, label: copy.columnView, icon: LayoutColumns },
+    { id: 'gallery' as const, label: copy.galleryView, icon: LayoutGallery }
+  ]
+
+  const groupings: { id: MatrixDriveGroupBy; label: string }[] = [
+    { id: 'none', label: copy.groups.none },
+    { id: 'kind', label: copy.groups.kind },
+    { id: 'modified', label: copy.groups.modified },
+    { id: 'size', label: copy.groups.size }
+  ]
+
+  // Finder groups icons and lists; columns and the gallery have their own order.
+  const groupable = shownLayout === 'icon' || shownLayout === 'list'
+
+  // Finder's toolbar, right side: the view switch, "…", then search at the far edge.
   const driveControls = (
     <div className="flex shrink-0 items-center gap-(--ak-s1)">
-      {searchOpen && (
-        <label className="ak-field ak-field--search">
-          <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
-          <input
-            aria-label={copy.search}
-            autoFocus
-            onChange={event => setQuery(event.currentTarget.value)}
-            placeholder={copy.search}
-            value={query}
-          />
-        </label>
-      )}
       <div aria-label={copy.viewMode} className="ak-seg ak-seg--sm" role="group">
-        <Tip label={copy.listView}>
-          <button
-            aria-label={copy.listView}
-            aria-pressed={layout === 'list'}
-            className={layout === 'list' ? 'is-selected' : undefined}
-            onClick={() => setLayout('list')}
-            type="button"
-          >
-            <List aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-        </Tip>
-        <Tip label={copy.gridView}>
-          <button
-            aria-label={copy.gridView}
-            aria-pressed={layout === 'grid'}
-            className={layout === 'grid' ? 'is-selected' : undefined}
-            onClick={() => setLayout('grid')}
-            type="button"
-          >
-            <LayoutGrid aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-      </Tip>
+        {views.map(({ id, label, icon: Icon }) => (
+          <Tip key={id} label={label}>
+            <button
+              aria-label={label}
+              aria-pressed={layout === id}
+              className={layout === id ? 'is-selected' : undefined}
+              onClick={() => setMatrixDriveLayout(id)}
+              type="button"
+            >
+              <Icon aria-hidden className="ak-icon ak-icon--sm" />
+            </button>
+          </Tip>
+        ))}
       </div>
-      <Tip label={copy.search}>
-        <button
-          aria-label={copy.search}
-          aria-pressed={searchOpen}
-          className="ak-iconbtn"
-          onClick={() => setSearchOpen(value => !value)}
-          type="button"
-        >
-          <SearchIcon aria-hidden className="ak-icon" />
-        </button>
-      </Tip>
+      <DropdownMenu>
+        <Tip label={copy.groups.title}>
+          <DropdownMenuTrigger asChild disabled={!groupable}>
+            <button
+              aria-label={copy.groups.title}
+              className="ak-iconbtn disabled:pointer-events-none disabled:opacity-38"
+              data-matrix-drive-group-menu={groupBy}
+              type="button"
+            >
+              <LayoutGroups aria-hidden className="ak-icon" />
+            </button>
+          </DropdownMenuTrigger>
+        </Tip>
+        <DropdownMenuContent align="end" className="min-w-44">
+          <DropdownMenuLabel>{copy.groups.title}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup onValueChange={value => setMatrixDriveGroupBy(value as MatrixDriveGroupBy)} value={groupBy}>
+            {groupings.map(({ id, label }) => (
+              <DropdownMenuRadioItem key={id} value={id}>
+                {label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DropdownMenu>
         <Tip label={copy.more}>
           <DropdownMenuTrigger asChild>
@@ -767,42 +1185,91 @@ export function MatrixDrive({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      {searchOpen ? (
+        <label className="ak-field ak-field--search">
+          <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
+          <input
+            aria-label={copy.search}
+            autoFocus
+            onBlur={() => !query && setSearchOpen(false)}
+            onChange={event => setQuery(event.currentTarget.value)}
+            onKeyDown={event => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                setQuery('')
+                setSearchOpen(false)
+              }
+            }}
+            placeholder={copy.search}
+            value={query}
+          />
+        </label>
+      ) : (
+        <Tip label={copy.search}>
+          <button aria-label={copy.search} className="ak-iconbtn" onClick={() => setSearchOpen(true)} type="button">
+            <SearchIcon aria-hidden className="ak-icon" />
+          </button>
+        </Tip>
+      )}
     </div>
   )
 
   return (
     <div
-      className="min-h-0 flex-1 overflow-auto px-10 py-6"
+      className="flex min-h-0 flex-1 flex-col overflow-auto"
       data-matrix-drive
       data-matrix-drive-phase="files"
       data-matrix-drive-state={view.state}
     >
-      <div className="mx-auto max-w-4xl">
-        {titleBar ? (
-          <>
-            <h1 className="sr-only">{copy.title}</h1>
-            {createPortal(
-              <div className="flex min-w-0 items-center gap-(--ak-s3)" data-matrix-drive-status>
-                {driveStatus}
-              </div>,
-              titleBar.status
-            )}
-            {createPortal(driveControls, titleBar.actions)}
-          </>
-        ) : (
-          <header
-            className="flex items-center justify-between gap-(--ak-s4) border-b border-(--ak-line) py-(--ak-s3)"
-            data-matrix-drive-titlebar
-          >
-            <div className="flex min-w-0 items-center gap-(--ak-s3)">
-              <h1 className="[font:var(--ak-t-display)] text-(--ak-ink)">{copy.title}</h1>
+      {titleBar ? (
+        <>
+          {createPortal(
+            <div className="flex min-w-0 items-center gap-(--ak-s3)" data-matrix-drive-status>
               {driveStatus}
-            </div>
-            {driveControls}
-          </header>
-        )}
+            </div>,
+            titleBar.status
+          )}
+          {createPortal(driveControls, titleBar.actions)}
+        </>
+      ) : (
+        <header
+          className="flex items-center justify-between gap-(--ak-s4) border-b border-(--ak-line) px-(--ak-s6) py-(--ak-s3)"
+          data-matrix-drive-titlebar
+        >
+          <div className="flex min-w-0 items-center gap-(--ak-s3)">
+            <MatrixDriveTitle />
+            {driveStatus}
+          </div>
+          {driveControls}
+        </header>
+      )}
+      {query.trim() && bridge.search && (
+        <div
+          className="flex items-center gap-(--ak-s3) border-b border-(--ak-line) px-(--ak-s6) py-(--ak-s2) [font:var(--ak-t-callout)] text-(--ak-ink-3)"
+          data-matrix-drive-search-scope
+        >
+          <span>{copy.searchScope.title}</span>
+          <div aria-label={copy.searchScope.title} className="ak-seg ak-seg--sm" role="group">
+            {(['drive', 'folder'] as const).map(scope => (
+              <button
+                aria-pressed={searchScope === scope}
+                className={searchScope === scope ? 'is-selected' : undefined}
+                key={scope}
+                onClick={() => setSearchScope(scope)}
+                type="button"
+              >
+                {scope === 'drive' ? copy.searchScope.drive : view.folderLabel || copy.browser.drive}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div
+        className="flex min-h-full flex-1 flex-col px-(--ak-s6) pt-(--ak-s3) pb-(--ak-s5)"
+        onClick={event => event.target === event.currentTarget && selectItem(null)}
+      >
         {(listingLine || problemLine) && (
-          <div className="grid gap-(--ak-s1) py-(--ak-s2) [font:var(--ak-t-caption)] text-(--ak-ink-3)">
+          <div className="grid gap-(--ak-s1) pb-(--ak-s2) [font:var(--ak-t-caption)] text-(--ak-ink-3)">
             {listingLine && <p data-matrix-drive-listing={view.listingStatus}>{listingLine}</p>}
             {problemLine && <p data-matrix-drive-problem={view.problem}>{problemLine}</p>}
           </div>
@@ -835,7 +1302,7 @@ export function MatrixDrive({
         {failure && <div className="mt-4">{failure}</div>}
         {/* Choosing files for a chat only means something once there are files to choose. */}
         {taskReady && selected.length > 0 && (
-          <section className="mt-5 border-t border-(--atum-line) pt-3" data-matrix-drive-task-selection>
+          <section className="mb-(--ak-s3) border-b border-(--ak-line) pb-(--ak-s3)" data-matrix-drive-task-selection>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-medium">{copy.selectedFiles}</span>
               <Button onClick={clearMatrixDriveTaskSelections} size="sm" variant="text">
@@ -871,176 +1338,28 @@ export function MatrixDrive({
             )}
           </section>
         )}
-        {view.canGoBack && (
-          <div className="mt-6 flex min-w-0 items-center gap-2 text-(length:--atum-t-ui)">
-            <Button disabled={busy} onClick={() => void run(() => bridge.back())} size="sm" variant="text">
-              <ChevronLeft aria-hidden />
-              {copy.back}
-            </Button>
-            <Folder aria-hidden className="size-4 shrink-0 text-(--atum-ink-muted)" />
-            <span className="truncate font-medium text-(--atum-ink)">{view.folderLabel}</span>
-          </div>
-        )}
-        {destination === 'recents' && recentRows.length > 0 && (
-          <section className="mt-(--ak-s5)" data-matrix-drive-recents>
-            {/* The page is named for where you are (Atum Kit Drive board: "Recents" in Display). */}
-            <h2 className="[font:var(--ak-t-display)] text-(--ak-ink)">{copy.browser.recents}</h2>
-            <div className="mt-(--ak-s3) grid grid-cols-[repeat(auto-fit,minmax(calc(var(--ak-h-lg)*3),1fr))] gap-(--ak-s3)">
-              {recentRows.map(row => (
-                <button
-                  aria-label={row.name}
-                  className="group min-w-0 text-left"
-                  data-matrix-drive-recent={row.id}
-                  disabled={busy}
-                  key={row.id}
-                  onClick={() => openRow(row)}
-                  type="button"
-                >
-                  <span className="grid h-28 place-items-center rounded-(--ak-r-lg) border border-(--ak-line) bg-(--ak-fill-quiet) transition-colors group-hover:bg-(--ak-fill-hover)">
-                    {row.kind === 'folder' ? (
-                      <Folder aria-hidden className="ak-icon ak-icon--xl text-(--ak-ink-2)" />
-                    ) : (
-                      <MatrixFileGlyph className="ak-icon ak-icon--xl text-(--ak-ink-2)" name={row.name} />
-                    )}
-                  </span>
-                  <span className="mt-(--ak-s2) block truncate [font:var(--ak-t-body-strong)] text-(--ak-ink)">
-                    {row.name}
-                  </span>
-                  <span className="block truncate [font:var(--ak-t-callout)] text-(--ak-ink-3)">
-                    {formatModified(row.modifiedAt, locale)}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-        {shownRows.length ? layout === 'list' ? (
-          <table className="mt-5 w-full text-left text-(length:--atum-t-ui)">
-            <thead className="text-(length:--atum-t-caption) text-(--atum-ink-muted)">
-              <tr>
-                <th className="pb-2 ps-2 font-normal">{copy.name}</th>
-                <th className="pb-2 pe-5 font-normal">{copy.size}</th>
-                <th className="pb-2 font-normal">{copy.modified}</th>
-                <th className="pb-2 text-right font-normal">
-                  <span className="sr-only">{copy.selectedFiles}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {shownRows.map(row => (
-                <Fragment key={row.id}>
-                  <tr className="group/row border-t border-(--atum-line) transition-colors hover:bg-(--ak-fill-quiet,var(--atum-hover))">
-                    <td className="ps-2">
-                      <button
-                        className="flex w-full min-w-0 items-center gap-3 py-2.5 text-left text-(--atum-ink) outline-none focus-visible:underline"
-                        disabled={busy}
-                        onClick={() => openRow(row)}
-                        type="button"
-                      >
-                        {row.kind === 'folder' ? (
-                          <Folder
-                            aria-hidden
-                            className="size-[1.125rem] shrink-0 text-(--atum-ink-soft)"
-                            strokeWidth={1.6}
-                          />
-                        ) : (
-                          <MatrixFileGlyph
-                            className="size-[1.125rem] shrink-0 text-(--atum-ink-muted)"
-                            name={row.name}
-                          />
-                        )}
-                        <span className="truncate">{row.name}</span>
-                      </button>
-                    </td>
-                    <td className="whitespace-nowrap pe-5 text-(length:--atum-t-caption) text-(--atum-ink-muted) tabular-nums">
-                      {row.kind === 'file' ? formatDriveSize(row.size, locale) : '—'}
-                    </td>
-                    <td className="whitespace-nowrap text-(length:--atum-t-caption) text-(--atum-ink-muted) tabular-nums">
-                      {formatModified(row.modifiedAt, locale)}
-                    </td>
-                    {/* A Finder list is calm: a row's actions show on hover or keyboard focus (Atum Kit 0.1). */}
-                    <td className="whitespace-nowrap pe-2 text-right text-xs opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100">
-                      {taskReady && selected.length < 4 && row.kind === 'file' && (
-                        <span className="inline-flex gap-1">
-                          <Button
-                            onClick={() => selectMatrixDriveFile(row.id, row.name, 'read')}
-                            size="sm"
-                            variant="text"
-                          >
-                            {copy.useRead}
-                          </Button>
-                          <Button
-                            onClick={() => selectMatrixDriveFile(row.id, row.name, 'replace')}
-                            size="sm"
-                            variant="text"
-                          >
-                            {copy.replace}
-                          </Button>
-                        </span>
-                      )}
-                      {taskReady && selected.length < 4 && row.kind === 'folder' && (
-                        <Button
-                          onClick={() => {
-                            setCreateInFolder(row.id)
-                            setOutputName('')
-                          }}
-                          size="sm"
-                          variant="text"
-                        >
-                          {copy.createOutput}
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                  {taskReady && createInFolder === row.id && (
-                    <tr className="border-t border-(--atum-line)" key={`${row.id}:create`}>
-                      <td className="py-2" colSpan={4}>
-                        <div className="flex items-center gap-2">
-                          <Input
-                            aria-label={copy.outputName}
-                            className="min-w-0 flex-1"
-                            onChange={event => setOutputName(event.target.value)}
-                            placeholder={copy.outputName}
-                            value={outputName}
-                          />
-                          <Button
-                            disabled={!validMatrixDriveLeafName(outputName)}
-                            onClick={() => {
-                              selectMatrixDriveCreate(row.id, row.name, outputName)
-                              setCreateInFolder(null)
-                              setOutputName('')
-                            }}
-                            size="sm"
-                          >
-                            {copy.addOutput}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="mt-(--ak-s4) grid grid-cols-[repeat(auto-fill,minmax(calc(var(--ak-h-lg)*3),1fr))] gap-(--ak-s3)" data-matrix-drive-grid>
-            {shownRows.map(row => (
-              <button
-                className="grid min-w-0 justify-items-center gap-(--ak-s2) rounded-(--ak-r-lg) bg-(--ak-fill-quiet) p-(--ak-s3) text-center [font:var(--ak-t-callout)] text-(--ak-ink)"
-                disabled={busy}
-                key={row.id}
-                onClick={() => openRow(row)}
-                type="button"
-              >
-                {row.kind === 'folder' ? (
-                  <Folder aria-hidden className="ak-icon ak-icon--xl text-(--ak-ink-2)" />
-                ) : (
-                  <MatrixFileGlyph className="ak-icon ak-icon--xl text-(--ak-ink-2)" name={row.name} />
-                )}
-                <span className="max-w-full truncate">{row.name}</span>
-              </button>
-            ))}
-          </div>
+        {search.loading ? (
+          <Loader className="m-auto size-8" label={copy.searchScope.searching} />
+        ) : search.failed ? (
+          <NoticeBand tone="notice">{copy.failed}</NoticeBand>
+        ) : shownLayout === 'column' && (shownRows.length > 0 || Boolean(location.path?.length)) ? (
+          <MatrixDriveColumns
+            {...viewProps}
+            columns={columns}
+            onPick={walkTo}
+            path={location.path}
+            rootLabel={destination === 'recents' ? copy.browser.recents : copy.browser.drive}
+          />
+        ) : shownRows.length && shownLayout === 'gallery' ? (
+          <MatrixDriveGallery {...viewProps} bridge={bridge} />
+        ) : shownRows.length ? (
+          <MatrixDriveBrowser
+            {...viewProps}
+            groupBy={groupable ? groupBy : 'none'}
+            layout={shownLayout === 'list' ? 'list' : 'icon'}
+            onSort={key => setSortChoice({ destination, sort: nextDriveSort(sort, key) })}
+            sort={sort}
+          />
         ) : query.trim() ? (
           <EmptyState title={copy.searchEmpty} />
         ) : view.listingStatus && view.listingStatus !== 'current' ? (
@@ -1080,10 +1399,50 @@ export function MatrixDrive({
         ) : (
           <EmptyState title={copy.empty} />
         )}
-        {view.truncated && (
+        {(search.enabled ? search.result?.truncated : view.truncated) && (
           <p className="mt-3 text-(length:--atum-t-caption) text-(--atum-ink-muted)">{copy.truncated}</p>
         )}
-        <DriveAbout className="mt-10" copy={copy} />
+        {/* In a chat, the selected item's actions float over the bottom of the page, Finder-calm. */}
+        {selectedRow && (selectedActions.length > 0 || creating) && (
+          <div
+            className="pointer-events-none sticky bottom-(--ak-s4) z-10 mt-(--ak-s4) flex justify-center"
+            data-matrix-drive-selection-bar
+          >
+            <div className="ak-glass pointer-events-auto flex max-w-full min-w-0 items-center gap-(--ak-s2) rounded-(--ak-r-full) py-(--ak-s1) ps-(--ak-s4) pe-(--ak-s1)">
+              <span className="min-w-0 truncate [font:var(--ak-t-body-strong)] text-(--ak-ink)">{selectedRow.name}</span>
+              {creating ? (
+                <>
+                  <Input
+                    aria-label={copy.outputName}
+                    autoFocus
+                    className="h-7 w-48"
+                    onChange={event => setOutputName(event.target.value)}
+                    placeholder={copy.outputName}
+                    value={outputName}
+                  />
+                  <Button
+                    disabled={!validMatrixDriveLeafName(outputName)}
+                    onClick={() => {
+                      selectMatrixDriveCreate(selectedRow.id, selectedRow.name, outputName)
+                      setCreateInFolder(null)
+                      setOutputName('')
+                    }}
+                    size="sm"
+                  >
+                    {copy.addOutput}
+                  </Button>
+                </>
+              ) : (
+                selectedActions.map(action => (
+                  <Button key={action.label} onClick={action.run} size="sm" variant="text">
+                    {action.label}
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+        <DriveAbout className="mt-auto pt-(--ak-s8)" copy={copy} />
       </div>
     </div>
   )

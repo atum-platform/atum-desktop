@@ -1,0 +1,228 @@
+{
+  "vectors": [
+    {
+      "name": "a tool category renders",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": {
+          "activity": "run"
+        }
+      },
+      "decision": "render"
+    },
+    {
+      "name": "a todo count renders",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "todo_progress",
+        "args": {
+          "done": 2,
+          "total": 5
+        }
+      },
+      "decision": "render"
+    },
+    {
+      "name": "a finished todo list renders",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "todo_progress",
+        "args": {
+          "done": 5,
+          "total": 5
+        }
+      },
+      "decision": "render"
+    },
+    {
+      "name": "first learning renders",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "first_learning",
+        "args": {}
+      },
+      "decision": "render"
+    },
+    {
+      "name": "a heartbeat renders",
+      "kind": "heartbeat",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "heartbeat",
+        "args": {
+          "elapsed_minutes": 3
+        }
+      },
+      "decision": "render"
+    },
+    {
+      "name": "a Mac wait renders",
+      "kind": "device",
+      "phase": "waiting",
+      "descriptor": {
+        "version": 1,
+        "code": "device_wait",
+        "args": {}
+      },
+      "decision": "render"
+    },
+    {
+      "name": "a Touch ID wait renders",
+      "kind": "touch_id",
+      "phase": "waiting",
+      "descriptor": {
+        "version": 1,
+        "code": "touch_id",
+        "args": {}
+      },
+      "decision": "render"
+    },
+    {
+      "name": "an unknown category falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": {
+          "activity": "teleport"
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a raw tool name falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": {
+          "activity": "run",
+          "tool": "terminal"
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a missing category falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": {}
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a future version falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 2,
+        "code": "tool_activity",
+        "args": {
+          "activity": "run"
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "an unknown code falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "mac_is_sleepy",
+        "args": {}
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a zero-minute heartbeat falls back to the body",
+      "kind": "heartbeat",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "heartbeat",
+        "args": {
+          "elapsed_minutes": 0
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a done count above the total falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "todo_progress",
+        "args": {
+          "done": 6,
+          "total": 5
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "an activity descriptor on a Mac wait falls back to the body",
+      "kind": "device",
+      "phase": "waiting",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": {
+          "activity": "run"
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a heartbeat on the working line falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "heartbeat",
+        "args": {
+          "elapsed_minutes": 3
+        }
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a Mac wait on a settled line falls back to the body",
+      "kind": "settled",
+      "phase": "settled",
+      "descriptor": {
+        "version": 1,
+        "code": "device_wait",
+        "args": {}
+      },
+      "decision": "fallback"
+    },
+    {
+      "name": "a descriptor that is not an object falls back to the body",
+      "kind": "todo",
+      "phase": "working",
+      "descriptor": {
+        "version": 1,
+        "code": "tool_activity",
+        "args": "run"
+      },
+      "decision": "fallback"
+    }
+  ]
+}

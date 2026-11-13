@@ -1,0 +1,7 @@
+{
+  "contract": "atum.company-private-cos/2",
+  "repository": "https://github.com/atum-platform/atum-platform.git",
+  "commit": "087aa7bc5e415dd8d22b0391a4cccda78d40ece5",
+  "path": "spec/company-private-cos/v2",
+  "sha256": "9b6b5f29b684ae907ac9e823e00d7cc79d7b0f2ea530c671655c4aefa0b705bb"
+}

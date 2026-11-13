@@ -1,0 +1,9 @@
+{
+  "steps": [
+    {
+      "from": "hidden",
+      "to": "visible",
+      "event": "progress_shown"
+    }
+  ]
+}

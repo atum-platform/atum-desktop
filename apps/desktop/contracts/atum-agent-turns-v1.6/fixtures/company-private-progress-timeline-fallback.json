@@ -1,0 +1,30 @@
+{
+  "msgtype": "m.notice",
+  "body": "Checking the next step.",
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.6",
+    "scope": "company",
+    "companyId": "00000000-0000-4000-8000-a00000000001",
+    "agentPrincipal": "00000000-0000-4000-8000-a00000000002",
+    "audience": {
+      "kind": "private",
+      "memberPrincipal": "00000000-0000-4000-8000-a00000000006",
+      "membershipIncarnation": "00000000-0000-4000-8000-a00000000007"
+    },
+    "roomId": "!company:example.test",
+    "threadRootEventId": "$root",
+    "taskId": "00000000-0000-4000-8000-a00000000004",
+    "invocationId": "00000000-0000-4000-8000-a00000000005",
+    "revision": 0,
+    "phase": "working",
+    "kind": "todo"
+  },
+  "m.relates_to": {
+    "rel_type": "m.thread",
+    "event_id": "$root",
+    "is_falling_back": true,
+    "m.in_reply_to": {
+      "event_id": "$trigger"
+    }
+  }
+}

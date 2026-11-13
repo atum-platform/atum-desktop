@@ -1,0 +1,46 @@
+{
+  "vectors": [
+    {
+      "name": "the warning splits off after the answer",
+      "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\nMình đã lưu bản ghi vào Atum Drive.",
+      "warning_from": 42,
+      "decision": "split"
+    },
+    {
+      "name": "an offset inside an astral-plane answer counts scalars, not UTF-16 units",
+      "body": "😀😀\n\nSaved to Drive.",
+      "warning_from": 2,
+      "decision": "split"
+    },
+    {
+      "name": "combining marks and ZWJ count individual scalars",
+      "body": "é👩‍💻\n\nSaved.",
+      "warning_from": 5,
+      "decision": "split"
+    },
+    {
+      "name": "an offset past the body keeps the whole body",
+      "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\nMình đã lưu bản ghi vào Atum Drive.",
+      "warning_from": 80,
+      "decision": "whole"
+    },
+    {
+      "name": "an offset not on the separator keeps the whole body",
+      "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\nMình đã lưu bản ghi vào Atum Drive.",
+      "warning_from": 3,
+      "decision": "whole"
+    },
+    {
+      "name": "a body with no warning text keeps the whole body",
+      "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\n",
+      "warning_from": 42,
+      "decision": "whole"
+    },
+    {
+      "name": "an absent offset (0 here) keeps the whole body",
+      "body": "Mình đã tóm tắt xong video và lưu ghi chú.\n\nMình đã lưu bản ghi vào Atum Drive.",
+      "warning_from": 0,
+      "decision": "whole"
+    }
+  ]
+}

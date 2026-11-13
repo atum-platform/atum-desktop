@@ -1,0 +1,38 @@
+{
+  "msgtype": "m.notice",
+  "body": "* Đang chờ MacBook của Minh…",
+  "m.new_content": {
+    "msgtype": "m.notice",
+    "body": "Đang chờ MacBook của Minh…",
+    "io.atum.progress": {
+      "profile": "atum.agent-turns/1.3",
+      "scope": "owner_private",
+      "phase": "waiting",
+      "kind": "device",
+      "revision": 4,
+      "device": "MacBook của Minh"
+    },
+    "io.atum.presentation": {
+      "version": 1,
+      "code": "device_wait",
+      "args": {}
+    }
+  },
+  "m.relates_to": {
+    "rel_type": "m.replace",
+    "event_id": "$progress-root"
+  },
+  "io.atum.progress": {
+    "profile": "atum.agent-turns/1.3",
+    "scope": "owner_private",
+    "phase": "waiting",
+    "kind": "device",
+    "revision": 4,
+    "device": "MacBook của Minh"
+  },
+  "io.atum.presentation": {
+    "version": 1,
+    "code": "device_wait",
+    "args": {}
+  }
+}

@@ -66,11 +66,21 @@ def managed_home(tmp_path, monkeypatch):
     coordinator.begin_turn.return_value = SimpleNamespace(relay_enabled=False)
     monkeypatch.setattr("agent.relay_runtime.SESSION_COORDINATOR", coordinator)
     (home / "profile.yaml").write_text("identity_id: " + str(uuid.uuid4()) + "\n")
-    (home / "config.yaml").write_text("model:\n  context_length: 75000\n")
+    # The main response is stubbed below, but auto-title uses its own client.
+    # Keep instant titles and disable the unrelated background model request so
+    # pytest's title-thread joins cannot wait on the fake managed endpoint.
+    (home / "config.yaml").write_text(
+        "model:\n  context_length: 75000\n"
+        "auxiliary:\n  title_generation:\n    model_upgrade_enabled: false\n",
+        encoding="utf-8",
+    )
+    title_call = MagicMock(side_effect=AssertionError("Checkpoint tests must stay offline"))
+    monkeypatch.setattr("agent.title_generator.call_llm", title_call)
     (tmp_path / "note.txt").write_text("ORIGINAL")
     db = SessionDB(db_path=home / "state.db")
     yield home, db
     db.close()
+    title_call.assert_not_called()
 
 
 def test_restores_exact_second_request_without_repeating_tool_or_user(managed_home, monkeypatch):
@@ -300,7 +310,6 @@ def test_fresh_request_rewrites_require_confirmed_non_dispatch(managed_home, mon
     agent._atum_submission_identity = "fresh-rewrite"
     checkpoint = agent._request_checkpoint = RequestCheckpoint(db, "fresh-rewrite", {})
     sent = []
-    monkeypatch.setattr("agent.conversation_loop.time.sleep", lambda _seconds: None)
 
     def dispatch(request):
         sent.append(json.loads(json.dumps(request)))

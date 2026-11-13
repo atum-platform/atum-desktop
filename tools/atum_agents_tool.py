@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from tools import desktop_ui
+from tools import atum_agent_management as management
 from tools.registry import registry, tool_error
 
 _PRINCIPAL = re.compile(r"^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$", re.I)
@@ -75,8 +76,15 @@ def atum_agents(
     soul: str | None = None,
     avatar_path: str = "",
     remove_avatar: bool = False,
+    **management_fields,
 ) -> str:
     """List/read profiles or make one revision-fenced identity change."""
+    if isinstance(operation, str) and operation in management.OPERATIONS:
+        values = {"target": target, "expected_definition_revision": expected_definition_revision,
+                  "expected_identity_revision": expected_identity_revision, "display_name": display_name,
+                  "soul": soul, "avatar_path": avatar_path, "remove_avatar": remove_avatar}
+        values = {key: value for key, value in values.items() if value is not None and value != "" and value is not False}
+        return management.request(operation, {**values, **management_fields})
     if operation not in {"list", "read", "update", "avatar"}:
         return tool_error("operation must be list, read, update, or avatar.")
     if not isinstance(target, str) or target and not _PRINCIPAL.fullmatch(target):
@@ -152,12 +160,18 @@ ATUM_AGENTS_SCHEMA = {
         "Every agent may edit its own name, SOUL, and avatar. The current Main agent may also edit "
         "owned sibling agents; the host checks Main on every call. Read before update and pass both "
         "revisions. Use avatar only when the owner explicitly asks to publish or remove that photo. "
-        "This cannot promote Main, change credentials, approve charges, or alter model/skills."
+        "Main may create other owned agents, set_model, set_skills, set_tools, propose_hire, or "
+        "propose_retire in an eligible owner turn. Create requires request_id, display_name, definition. "
+        "Setting changes and retire require target and both read revisions; retire also needs request_id. "
+        "Hire requires request_id, offer_id, offer_version. Model takes effect next turn; skills/tools next session. "
+        "A confirmation_required result is only a proposal: the person must confirm in the app within 24 hours. "
+        "Never claim a proposal completed. Charging remains unavailable until enabled by the platform. "
+        "This cannot confirm, promote Main, change credentials, or manage another agent's files or memory."
     ),
     "parameters": {
         "type": "object",
         "properties": {
-            "operation": {"type": "string", "enum": ["list", "read", "update", "avatar"]},
+            "operation": {"type": "string", "enum": ["list", "read", "update", "avatar", *management.OPERATIONS]},
             "target": {"type": "string", "description": "Exact principal from list; omit for yourself."},
             "expected_definition_revision": {"type": "integer", "minimum": 0},
             "expected_identity_revision": {"type": "integer", "minimum": 1},
@@ -165,6 +179,7 @@ ATUM_AGENTS_SCHEMA = {
             "soul": {"type": "string", "description": "Complete SOUL text, at most 65536 UTF-8 bytes."},
             "avatar_path": {"type": "string", "description": "Prepared JPEG, PNG, or WebP file, at most 2 MiB."},
             "remove_avatar": {"type": "boolean"},
+            **management.MODEL_PROPERTIES,
         },
         "required": ["operation"],
     },
@@ -175,6 +190,8 @@ def _handle_atum_agents(args: object) -> str:
     if not isinstance(args, dict):
         return atum_agents(operation="")
     operation = args.get("operation", "")
+    if isinstance(operation, str) and operation in management.OPERATIONS:
+        return management.request(operation, {key: value for key, value in args.items() if key != "operation"})
     fields = (
         _MODEL_FIELDS_BY_OPERATION.get(operation, ())
         if isinstance(operation, str)

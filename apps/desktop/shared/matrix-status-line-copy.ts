@@ -81,18 +81,3 @@ export function matrixToolActivity(locale: keyof typeof matrixToolActivityCopy, 
 
   return kind ? matrixToolActivityCopy[locale][kind] : undefined
 }
-
-/**
- * The acknowledgement an agent says when its turn starts working before it has said anything (a tool
- * began and no remark went out), so a model that goes straight to a tool call never leaves the chat
- * silent (agent-turns/1.4 "acknowledge, then keep working"). Fixed words with nothing from the turn in
- * them and no emoji; a few variants so it does not read as canned, one chosen per turn by its own
- * transaction (stable across a retry).
- */
-export const matrixAcknowledgementCopy: Record<'en' | 'vi' | 'ja' | 'zh' | 'zh-hant', readonly string[]> = {
-  en: ['On it, one moment.', 'Let me take a look.', 'Got it, working on it now.'],
-  vi: ['Mình xem ngay nhé.', 'Để mình xử lý nhé.', 'Mình bắt tay vào làm đây, chờ chút nhé.'],
-  ja: ['確認しますね。', 'すぐ取りかかります。', '少々お待ちください。'],
-  zh: ['好的，我来处理。', '收到，我先看看。', '马上处理，请稍等。'],
-  'zh-hant': ['好的，我來處理。', '收到，我先看看。', '馬上處理，請稍等。']
-}

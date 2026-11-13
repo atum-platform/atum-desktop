@@ -1,0 +1,8 @@
+{
+  "startsAt": "take",
+  "stopsAt": "answer_or_terminal",
+  "renewMs": 20000,
+  "timeoutMs": 30000,
+  "deviceStepKeepsTyping": true,
+  "personWaitPausesTyping": true
+}

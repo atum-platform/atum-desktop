@@ -6,6 +6,8 @@ import { createClient, EventType, MatrixEvent, Method, MsgType, type Room } from
 import { logger, type Logger } from 'matrix-js-sdk/lib/logger'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
+
 import { shownContent } from './message'
 import { matrixNoticeEditPayload, matrixNoticeEditTransaction } from './notice-edit'
 import { matrixNoticeTransaction, publishMatrixNotice, publishMatrixResult } from './publish-result'
@@ -468,6 +470,9 @@ it('removes the agent’s own ended progress line (and its interim remark), and 
     expect(new MatrixEvent(await client.fetchRoomEvent(command.roomId, line)).getContent()).toEqual({})
     expect(new MatrixEvent(await client.fetchRoomEvent(command.roomId, remark)).getContent()).toEqual({})
   })
+  // Removed with the agent-turns reason, so a reader shows no "deleted" tombstone for it.
+  const because = new MatrixEvent(await client.fetchRoomEvent(command.roomId, line)).getRedactionEvent()
+  expect(because && 'content' in because ? because.content.reason : undefined).toBe(MATRIX_TRANSIENT_REDACTION_REASON)
   // The outcome notice is untouched.
   expect(new MatrixEvent(await client.fetchRoomEvent(command.roomId, outcome)).getContent().body).toBe('Máy Mac đang tắt.')
 }, 90_000)
