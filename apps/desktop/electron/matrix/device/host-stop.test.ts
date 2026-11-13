@@ -14,7 +14,7 @@ describe('Shell host Stop', () => {
     })
     await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stop_requested' })
     expect(fetcher).toHaveBeenCalledWith('https://shell.test/api/host/stop', expect.objectContaining({
-      method: 'POST', credentials: 'include', redirect: 'error',
+      method: 'POST', credentials: 'omit', redirect: 'error',
       headers: { Authorization: 'Bearer synthetic-token', 'Content-Type': 'application/json', Origin: 'https://shell.test', 'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' }
     }))
   })
