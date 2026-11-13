@@ -2561,9 +2561,13 @@ class MatrixAdapter(BasePlatformAdapter):
         # Commands and inline control replies can have non-idempotent effects outside
         # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
         store.mark(event.message_id, "ambiguous" if event.get_command() else "pending", room_id=event.source.chat_id)
+        key = self._event_session_key(event)
+        before = self._session_tasks.get(key)
         await super().handle_message(event)
-        task = self._session_tasks.get(self._event_session_key(event))
-        if task is not None:
+        task = self._session_tasks.get(key)
+        # Busy controls are consumed inline without a new admission task. The
+        # existing task belongs to the long turn, not this transport event.
+        if task is not None and task is not before:
             await asyncio.wait({committed, task}, return_when=asyncio.FIRST_COMPLETED)
             if committed.done():
                 committed.result()
