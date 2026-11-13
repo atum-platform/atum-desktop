@@ -191,24 +191,30 @@ def pause_notice(authority, ref, reason):
     if live.pause_notified:
         return None
     live.pause_notified = True
+    from agent.i18n import owner_text
     if reason == 'runtime_draining':
         # Transient: the row runs when the restarted owner drains it, so /reset would be wrong advice.
-        return '⏳ Hermes is restarting — your message is saved and will be answered when it is back.'
+        return owner_text('⏳ I’m restarting. I’ll answer as soon as I’m back.',
+                          '⏳ Mình đang khởi động lại, xong là trả lời bạn ngay.')
     if reason == 'session_busy':
         # Transient: queued behind work already running on this conversation (a worker execution).
-        return '⏳ Your message is saved and will be answered when the work running in this conversation finishes.'
+        return owner_text('⏳ I’m finishing something in this chat first. I’ll answer right after.',
+                          '⏳ Mình đang làm nốt một việc trong cuộc trò chuyện này, xong sẽ trả lời bạn ngay.')
     if reason == 'unknown_execution':
         # GW-10: the way out is in this chat. /discard acknowledges the lost turn (never replayed)
         # through the same fenced resolve_unknown as Desktop/TUI, and the saved messages then run.
         # Slack registers no native /discard (its slash cap): the umbrella `/hermes discard` reaches it.
         slack = getattr(getattr(live.source, 'platform', None), 'value', None) == 'slack'
         discard = '/hermes discard' if slack else '/discard'
-        return ('⏸️ This conversation is paused: a previous turn did not finish when Hermes restarted, '
-                f'and only you know whether to send it again. Your message is saved. Send {discard} to drop '
-                'the lost turn and continue (it is not re-run), or /reset to start a fresh conversation.')
-    cause = f'a queued message could not be re-authorized ({reason})'
-    return (f'⏸️ This conversation is paused: {cause}. Your message is saved but will not be answered here. '
-            'Send /reset to start a fresh conversation, or ask the operator to resume this one.')
+        return owner_text(
+            f'⏸️ I paused this chat because my last task stopped partway. Send {discard} to skip it '
+            'and carry on, or /reset to start fresh.',
+            f'⏸️ Mình tạm dừng cuộc trò chuyện này vì việc lúc nãy bị ngắt giữa chừng. Gửi {discard} '
+            'để bỏ qua và làm tiếp, hoặc /reset để bắt đầu lại.')
+    # The refusal code is for the log, not the chat.
+    logger.info('Conversation %s paused: queued input could not be re-authorized (%s)', ref.session_id, reason)
+    return owner_text('⏸️ I can’t answer in this chat right now. Send /reset to start fresh.',
+                      '⏸️ Mình chưa trả lời được trong cuộc trò chuyện này. Gửi /reset để bắt đầu lại nhé.')
 
 
 def row_turn_author(policy, row):

@@ -50,5 +50,10 @@ the transport principal, and derive the sender from that principal. Do not map a
 caller-supplied authentication flag into this argument. Do not expose this Python
 entry point directly as an unauthenticated endpoint.
 
+Activity labels and the short owner notices (intake paused, unreadable message, chat paused)
+are written in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi`
+(or `HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English. The words match the
+desktop's own activity line.
+
 Offline tests (no homeserver or model calls):
 `python3 -m unittest discover -s tests/plugins/matrix_presentation -v`.
