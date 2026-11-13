@@ -2440,7 +2440,9 @@ class MatrixAdapter(BasePlatformAdapter):
             state = store.state(event_id)
             if state in {"native", "done"}:
                 return
-            if state == "control_pending":
+            content = getattr(event, 'content', None)
+            body = content.get('body', '') if isinstance(content, dict) else getattr(content, 'body', '')
+            if state == "control_pending" or (state == "ambiguous" and not body.lstrip().startswith(('/', '!'))):
                 # The pre-admission control may have run. Settle with a stable Matrix
                 # transaction so a lost notice receipt cannot duplicate the notice.
                 import hashlib
