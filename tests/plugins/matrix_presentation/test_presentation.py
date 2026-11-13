@@ -221,9 +221,12 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
     async def test_idempotent_redaction_after_ambiguous_reply(self):
         await self.turn.progress('Working')
         self.server.lose_reply = True
-        with self.assertRaises(ConnectionError):
-            await self.turn.end()
+        await self.turn.end()  # cleanup failure is best effort, intent remains durable
+        self.assertEqual(self.box.db.execute(
+            'SELECT count(*) FROM effects WHERE target IS NOT NULL AND event IS NULL').fetchone()[0], 1)
+        first_attempt = self.server.requests[-1]
         await self.turn.end()
+        self.assertEqual(self.server.requests[-1], first_attempt)
         self.assertEqual(len(self.server.effects), 2)
 
     def test_handoff_and_local_questions_keep_their_existing_uuid4(self):
@@ -457,10 +460,10 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
                 finally:
                     p._final_delivery.reset(final_token)
                 self.assertTrue(result.success)
-                final = server.requests[-1][1]
+                final = server.requests[-2][1]
                 self.assertEqual(final['io.atum.turn'], turn.marker)
                 self.assertEqual(final['m.relates_to']['m.in_reply_to']['event_id'], turn.source)
-                self.assertEqual(server.requests[-2][3], '$0')
+                self.assertEqual(server.requests[-1][3], '$0')
                 self.assertNotIn('io.atum.interim', final)
             finally:
                 p._current.reset(token)

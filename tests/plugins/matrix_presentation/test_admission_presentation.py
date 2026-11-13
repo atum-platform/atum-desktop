@@ -153,7 +153,10 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
             a.gateway_runner.session_store.mark_resume_pending.assert_called_once()
         # Deferred final waiter can inherit an unrelated/ended context.
         await a.send_final_ledgered(event)
-        assert writes[-1]['io.atum.turn'] == turn.marker
+        finals = [w for w in writes if w.get('io.atum.turn')]
+        assert len(finals) == 1
+        assert finals[0]['io.atum.turn'] == turn.marker
+        assert writes.index(finals[0]) < len(writes) - 1  # cleanup follows delivery
         assert sum('io.atum.progress' in w and 'm.new_content' not in w for w in writes) == 1
         assert any(w.get('io.atum.interim') for w in writes)
         assert not turn.stopped
