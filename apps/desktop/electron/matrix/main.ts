@@ -4101,6 +4101,10 @@ async function cloudAgentRequest(request: {
       throw new Error('matrix_agent_unavailable')
     }
 
+    if (hostRuntimeAgents.has(principal) && (!scope || !config.domain)) {
+      throw new Error('matrix_not_ready')
+    }
+
     const outcome = hostRuntimeAgents.has(principal)
       ? await requestHostStop(config.domain!.resource, principal, request.roomId, request.eventId,
           AbortSignal.timeout(30_000), (url, init) => session.defaultSession.fetch(url, init))

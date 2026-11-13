@@ -250,7 +250,7 @@ describe('Matrix agent-definition client', () => {
       'fetch',
       vi.fn(async () =>
         json([
-          record({ answering: 'cloud', answeringChangedAt: 1791100800000 }),
+          record({ answering: 'cloud', runtime: 'hermes', answeringChangedAt: 1791100800000 }),
           record({ id: OTHER_ASSISTANT, principal: OTHER_PRINCIPAL, is_default: false, answering: 'local' })
         ])
       )
@@ -258,6 +258,7 @@ describe('Matrix agent-definition client', () => {
 
     const roster = await listMatrixAgentDefinitions(resource, grant, new AbortController().signal)
     expect(roster.map(agent => agent.answering)).toEqual(['cloud', 'local'])
+    expect(roster.map(agent => agent.runtime)).toEqual(['hermes', undefined])
 
     // An older platform says nothing, and a value this client does not know never reads as cloud.
     vi.stubGlobal(

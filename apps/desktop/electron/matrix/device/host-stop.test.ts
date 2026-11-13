@@ -7,8 +7,8 @@ const signal = new AbortController().signal
 
 describe('Shell host Stop', () => {
   it('sends the exact source with owner cookies, CSRF origin and contract header', async () => {
-    const fetcher = vi.fn(async (_url, init) => {
-      const body = JSON.parse(String(init.body))
+    const fetcher = vi.fn(async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body))
       expect(body).toEqual({ agent, requestId: expect.any(String), source: { room: '!dm:test', event: '$owner' } })
       return Response.json({ ok: true, requestId: body.requestId, cancelled: true, interrupted: true })
     })
