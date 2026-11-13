@@ -2443,14 +2443,27 @@ class MatrixAdapter(BasePlatformAdapter):
             content = getattr(event, 'content', None)
             body = content.get('body', '') if isinstance(content, dict) else getattr(content, 'body', '')
             if state == "control_pending" or (state == "ambiguous" and not body.lstrip().startswith(('/', '!'))):
-                # The pre-admission control may have run. Settle with a stable Matrix
-                # transaction so a lost notice receipt cannot duplicate the notice.
-                import hashlib
-                txn = 'atum-control-failed-' + hashlib.sha256(event_id.encode()).hexdigest()
-                await self._send_room_message(room_id, {
-                    'msgtype': 'm.notice',
-                    'body': 'I was interrupted while handling that reply. Please send it again.'}, txn_id=txn)
+                # The pre-admission control may have run. Its typed failure is a
+                # native delivery obligation, so a notice outage cannot wedge intake.
+                from gateway.delivery_ledger import (
+                    compute_obligation_id, record_obligation, get_delivery_state,
+                    mark_delivered, mark_failed)
+                text = 'I was interrupted while handling that reply. Please send it again.'
+                oid = compute_obligation_id(room_id, 'control-failed:' + event_id, text)
+                await asyncio.to_thread(record_obligation, obligation_id=oid, session_key=room_id,
+                    platform='matrix', chat_id=room_id, thread_id=None, content=text,
+                    source_event_id=event_id, adapter_profile=getattr(self, '_owner_profile', None))
                 store.mark(event_id, 'done', room_id=room_id)
+                if await asyncio.to_thread(get_delivery_state, oid) != 'delivered':
+                    try:
+                        result = await self.send(chat_id=room_id, content=text,
+                            metadata={'delivery_obligation_id': oid})
+                        if result.success:
+                            await asyncio.to_thread(mark_delivered, oid)
+                        else:
+                            await asyncio.to_thread(mark_failed, oid, result.error or 'send failed')
+                    except Exception:
+                        logger.warning('Matrix control failure notice retained for redelivery', exc_info=True)
                 return
             if state == "ambiguous":
                 from plugins.platforms.matrix.intake import IntakeAmbiguousError

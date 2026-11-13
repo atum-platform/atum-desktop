@@ -210,3 +210,14 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     else:
         assert (tmp_path / 'done-count').read_text().splitlines() == ['once']
         assert (tmp_path / 'pending-count').read_text().splitlines() == ['once']
+
+
+@pytest.mark.parametrize('point', ['H8', 'H9', 'H10'])
+def test_completed_side_effect_final_crash_never_reexecutes_or_asks(tmp_path, point):
+    env = environment(tmp_path, point)
+    peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
+    for mode, expected in [('crash', 86), ('recover', 0)]:
+        result = subprocess.run([sys.executable, str(peer), mode, 'completed_final'], env=env,
+            capture_output=True, text=True, timeout=100)
+        assert result.returncode == expected, result.stdout + result.stderr
+    assert (tmp_path / 'final-verdict.json').exists()

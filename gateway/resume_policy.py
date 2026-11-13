@@ -60,13 +60,13 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
                         if history[i].get('role') == 'user'
                         and not str(history[i].get('content', '')).startswith('[Recovery:')), len(history))
             history = history[start:end]
-    # Limit to the interrupted turn, so an earlier unresolved call cannot poison a later turn.
-    start = next((i for i in range(len(history)-1, -1, -1)
-                  if history[i].get('role') == 'user'
-                  and not str(history[i].get('content', '')).startswith('[Recovery:')), 0)
+    # Legacy/internal recovery has no source identity. Scan durable call occurrences
+    # across the transcript, retaining completed calls as replay guards. Never infer
+    # an interrupted request from the last user row.
     calls, results, latest = [], {}, {}
     malformed = False
-    for row_index, row in enumerate(history[start:]):
+    seen_uids = set()
+    for row_index, row in enumerate(history):
         if row.get('role') == 'assistant':
             uids = row.get('_tool_call_uids', {})
             if not isinstance(uids, dict):
@@ -88,6 +88,9 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
                 if uid is not None and (not isinstance(uid, str) or not uid):
                     uid, malformed = None, True
                 uid = uid or (row_index, ident, nth)
+                if uid in seen_uids:
+                    malformed = True
+                seen_uids.add(uid)
                 for variant in tool_call_id_variants(call):
                     latest[variant] = uid
                 calls.append((uid, name, function.get('arguments', {})))
@@ -109,10 +112,8 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
             completed.add(call_key(name, arguments))
         elif tool_may_have_side_effect(name) or (result is not None and result.get('effect_disposition') not in (None, 'none')):
             unsafe.append(name + ' ' + json.dumps(arguments, ensure_ascii=False)[:500])
-        elif uncertain:
-            unfinished.append(name)
         else:
-            completed.add(call_key(name, arguments))
+            unfinished.append(name)
     return ResumePolicy(force_ask or malformed or bool(unsafe),
                         tuple(dict.fromkeys(unsafe or unfinished)), frozenset(completed))
 

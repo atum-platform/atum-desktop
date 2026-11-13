@@ -546,7 +546,7 @@ class BootCleanup(unittest.IsolatedAsyncioTestCase):
                 {'body': 'Pending edit', 'm.new_content': {'body': 'Pending edit'},
                  'm.relates_to': {'rel_type': 'm.replace', 'event_id': root}},
             ]):
-                box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+                box.db.execute('INSERT INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
                     (f'pending-{n}', '!room', json.dumps(content), None, 1))
             box.db.commit()
             server.requests.clear()
@@ -561,7 +561,7 @@ class LostReceiptLookup(unittest.IsolatedAsyncioTestCase):
         from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as home:
             box = p.Outbox(Path(home) / 'presentation.db')
-            box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+            box.db.execute('INSERT INTO effects (txn,room,content,target,event,created) VALUES (?,?,?,?,NULL,?)',
                 ('lost', '!room', '{}', None, 1))
             box.db.commit()
             requests = []
