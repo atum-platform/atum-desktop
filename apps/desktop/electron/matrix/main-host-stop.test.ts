@@ -1,49 +1,54 @@
-import { readFileSync } from 'node:fs'
-import { runInNewContext } from 'node:vm'
-import ts from 'typescript'
 import { describe, expect, it, vi } from 'vitest'
 
-// Follow existing main callback tests, executing the committed dispatcher without Electron.
-const source = ts.createSourceFile('main.ts', readFileSync(new URL('./main.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true)
-const declaration = source.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'cloudAgentRequest')!
-const code = ts.transpileModule(`(${declaration.getText(source)})`, {
-  compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
-}).outputText
+import type { MatrixAccount } from './account'
+import { dispatchMatrixStop } from './main-host-stop'
+
 const principal = '00000000-0000-4000-8000-159badba71cd'
-const request = { action: 'stopTurn', roomId: '!room:test', eventId: '$source' }
-function fixture(host: boolean, answering: boolean, domain = true) {
-  const scope = { accountKey: 'owner', generation: 1 }
+const source = { roomId: '!room:test', eventId: '$source' }
+function fixture(host: boolean, cloud = true, ready = true) {
   const fetcher = vi.fn()
-  const requestHostStop = vi.fn(async () => ({ state: 'stop_requested' }))
-  const stopCloudTurn = vi.fn(async () => ({ state: 'stop_requested' }))
-  const s1Request = vi.fn(async (work: (token: string, base: string, signal: AbortSignal) => Promise<unknown>) => work('synthetic-grant', 'https://shell.test/api/matrix/v1', AbortSignal.timeout(30_000)))
-  const run = runInNewContext(code, {
-    account: { appScope: () => scope, identity: () => ({ userId: '@owner:test' }), s1Request }, closing: false,
-    deviceIdentity: {}, cloudEnrollments: {},
-    requireRoomAgent: () => ({}), cloudPrincipal: () => principal, isCloudAgent: () => answering,
-    hostRuntimeAgents: new Set(host ? [principal] : []), config: { domain: domain ? { resource: 'https://shell.test/api/matrix/v1' } : undefined },
-    requestHostStop, stopCloudTurn, s1Call: vi.fn(), session: { defaultSession: { fetch: fetcher } }, AbortSignal, Error
-  })
-  return { run, s1Request, requestHostStop, stopCloudTurn }
+  const hostStop = vi.fn(async () => ({ state: 'stop_requested' as const }))
+  const legacyStop = vi.fn(async () => ({ state: 'stop_requested' as const }))
+  const s1Request = vi.fn<MatrixAccount['s1Request']>(async work => work('synthetic-grant', 'https://shell.test/api/matrix/v1', new AbortController().signal))
+  const run = (agent: string | undefined = principal) => dispatchMatrixStop({ ...source, principal: agent, host, cloud, ready }, { s1Request, s1Call: vi.fn(), fetcher, hostStop, legacyStop })
+  return { run, s1Request, hostStop, legacyStop, fetcher }
 }
 describe('main host Stop dispatch', () => {
-  it('uses account domain grant for a Hermes cloud agent', async () => {
-    const f = fixture(true, true)
-    await f.run(request)
-    expect(f.s1Request).toHaveBeenCalledOnce()
-    expect(f.requestHostStop).toHaveBeenCalledWith('https://shell.test/api/matrix/v1', 'synthetic-grant', principal, request.roomId, request.eventId, expect.any(AbortSignal), expect.any(Function))
-    expect(f.stopCloudTurn).not.toHaveBeenCalled()
+  it('uses the domain grant and a 40s S1 budget for Hermes', async () => {
+    const f = fixture(true)
+    await expect(f.run()).resolves.toEqual({ state: 'stop_requested' })
+    expect(f.s1Request).toHaveBeenCalledWith(expect.any(Function), expect.any(AbortSignal), { timeoutMs: 40_000 })
+    expect(f.hostStop).toHaveBeenCalledWith('https://shell.test/api/matrix/v1', 'synthetic-grant', principal, source.roomId, source.eventId, expect.any(AbortSignal), f.fetcher)
+    expect(f.legacyStop).not.toHaveBeenCalled()
   })
-  it('retains the legacy cloud Stop path', async () => {
-    const f = fixture(false, true)
-    await f.run(request)
-    expect(f.stopCloudTurn).toHaveBeenCalledOnce()
+  it('retains the legacy cloud Stop path and its deadline', async () => {
+    const f = fixture(false)
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    try {
+      await f.run()
+      expect(f.legacyStop).toHaveBeenCalledWith(expect.any(Function), principal, source.roomId, source.eventId, expect.any(AbortSignal))
+      expect(timeout).toHaveBeenCalledWith(30_000)
+      expect(f.s1Request).not.toHaveBeenCalled()
+    } finally { timeout.mockRestore() }
+  })
+  it('refuses local agents before any transport', () => {
+    const f = fixture(false, false)
+    expect(() => f.run()).toThrow('matrix_agent_unavailable')
+    expect(f.s1Request).not.toHaveBeenCalled()
+    expect(f.legacyStop).not.toHaveBeenCalled()
+  })
+  it('refuses a missing principal', () => {
+    expect(() => dispatchMatrixStop({ ...source, cloud: true, host: true, ready: true }, { s1Request: vi.fn(), s1Call: vi.fn(), fetcher: vi.fn() })).toThrow('matrix_agent_unavailable')
+  })
+  it('requires configured domain and account scope for host Stop', () => {
+    const f = fixture(true, true, false)
+    expect(() => f.run()).toThrow('matrix_not_ready')
     expect(f.s1Request).not.toHaveBeenCalled()
   })
-  it('refuses a legacy local agent', async () => {
-    await expect(fixture(false, false).run(request)).rejects.toThrow('matrix_agent_unavailable')
-  })
-  it('requires configured domain for host Stop', async () => {
-    await expect(fixture(true, true, false).run(request)).rejects.toThrow('matrix_not_ready')
+  it('never downgrades a refused host Stop to legacy', async () => {
+    const f = fixture(true)
+    f.hostStop.mockRejectedValueOnce(new Error('matrix_host_stop_refused'))
+    await expect(f.run()).rejects.toThrow('matrix_host_stop_refused')
+    expect(f.legacyStop).not.toHaveBeenCalled()
   })
 })

@@ -586,8 +586,7 @@ import {
   shownCloudTrial,
   workspaceLabelFor
 } from './device/cloud-agent'
-import { requestHostStop } from './device/host-stop'
-import { stopCloudTurn } from './device/cloud-stop'
+import { dispatchMatrixStop } from './main-host-stop'
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
@@ -4098,19 +4097,13 @@ async function cloudAgentRequest(request: {
     const agent = requireRoomAgent(roomId)
     const principal = cloudPrincipal(agent)
 
-    if (!isCloudAgent(agent) || !principal) {
-      throw new Error('matrix_agent_unavailable')
-    }
-
-    if (hostRuntimeAgents.has(principal) && (!scope || !config.domain)) {
-      throw new Error('matrix_not_ready')
-    }
-
-    const outcome = hostRuntimeAgents.has(principal)
-      ? await account.s1Request((token, base, requestSignal) =>
-          requestHostStop(base, token, principal, roomId, eventId, requestSignal,
-            (url, init) => session.defaultSession.fetch(url, init)), AbortSignal.timeout(30_000))
-      : await stopCloudTurn(s1Call, principal, roomId, eventId, AbortSignal.timeout(30_000))
+    const outcome = await dispatchMatrixStop({
+      principal, cloud: isCloudAgent(agent), host: Boolean(principal && hostRuntimeAgents.has(principal)),
+      ready: Boolean(scope && config.domain), roomId, eventId
+    }, {
+      s1Request: account.s1Request.bind(account), s1Call,
+      fetcher: (url, init) => session.defaultSession.fetch(url, init)
+    })
     const current = account.appScope()
 
     if (closing || !scope || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {

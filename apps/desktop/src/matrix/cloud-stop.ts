@@ -51,6 +51,16 @@ export type MatrixStopRoute =
   | { kind: 'native' }
   | { kind: 'unavailable' }
 
+/** Legacy agents hide Stop without a source; only Hermes advertises an unresolved target. */
+export function matrixShowCloudStop(input: {
+  eventId?: string
+  cloud: boolean
+  runtime?: 'hermes'
+  working: boolean
+}): boolean {
+  return Boolean(input.eventId || (input.cloud && input.runtime === 'hermes' && input.working))
+}
+
 /** Only the owner-scoped roster's explicit runtime opts into the host contract. */
 export function matrixStopRoute(input: {
   runtime?: 'hermes'

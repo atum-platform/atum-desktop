@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled, matrixShowCloudStop } from './cloud-stop'
 
 const ROOM = '!assistant:test'
 const TURN = '00000000-0000-4000-8000-31f949766961'
@@ -173,6 +173,13 @@ describe('the event a cloud Stop names', () => {
 
 // Both cloud generations share the composer, but only an explicit runtime advertisement opts in.
 describe('Stop routing', () => {
+  it('keeps unresolved legacy Stop hidden, but shows disabled unresolved Hermes Stop', () => {
+    expect(matrixShowCloudStop({ cloud: true, working: true })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: true, runtime: 'hermes', working: true })).toBe(true)
+    expect(matrixShowCloudStop({ cloud: true, runtime: 'hermes', working: false })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: false, runtime: 'hermes', working: true })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: true, working: false, eventId: '$owner' })).toBe(true)
+  })
   it('preserves the old route when the capability is absent', () => {
     expect(matrixStopRoute({ eventId: '$owner', working: true })).toEqual({ kind: 'legacy', eventId: '$owner' })
   })

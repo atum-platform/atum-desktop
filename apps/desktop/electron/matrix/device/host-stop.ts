@@ -23,7 +23,7 @@ export async function requestHostStop(
   const requestId = randomUUID()
   const response = await fetcher(new URL('/api/host/stop', url).href, {
     method: 'POST',
-    credentials: 'include',
+    credentials: 'omit',
     redirect: 'error',
     headers: {
       Authorization: `Bearer ${token}`,

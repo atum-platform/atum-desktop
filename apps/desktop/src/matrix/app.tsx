@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled } from './cloud-stop'
+import { matrixCloudStopTarget, matrixStopRoute, executeMatrixStop, matrixCloudStopScheduled, matrixShowCloudStop } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -3771,7 +3771,8 @@ function MatrixComposer({
     scheduled: scheduledStop
   })
   const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
-  const showCloudStop = Boolean(cloudStopTarget || (cloudAssistant && (agentTyping || scheduledStop)))
+  const showCloudStop = matrixShowCloudStop({ eventId: cloudStopTarget, cloud: Boolean(cloudAssistant),
+    runtime: roomAgent?.runtime, working: Boolean(agentTyping || scheduledStop) })
 
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent
@@ -4061,10 +4062,11 @@ function MatrixComposer({
               )}
               {showCloudStop ? (
                 <button
-                  aria-label={matrixActionCopy[locale].cancelHermes}
+                  aria-busy={cloudStopping || undefined}
+                  aria-label={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : matrixActionCopy[locale].cancelHermes}
                   className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
                   disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStopping || cloudStopRequested.current === stopKey}
-                  title={stopRoute.kind === 'unavailable'
+                  title={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : stopRoute.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
                     : stopRoute.kind === 'native'
                       ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
@@ -4072,7 +4074,8 @@ function MatrixComposer({
                   onClick={stopCloud}
                   type="button"
                 >
-                  <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
+                  {cloudStopping ? <span role="status">{locale === 'vi' ? 'Đang dừng…' : 'Stopping…'}</span>
+                    : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
                 </button>
               ) : running ? (
                 <button
