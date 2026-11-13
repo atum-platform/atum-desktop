@@ -6,6 +6,13 @@ import pytest
 from tools import atum_chats_tool as chats, atum_google_tool as google
 
 
+@pytest.fixture(autouse=True)
+def native_source_session():
+    from gateway.session_context import scoped_session_key, scoped_current_session_id
+    with scoped_session_key('source-fixture'), scoped_current_session_id('source-fixture'):
+        yield
+
+
 def test_cron_sources_use_native_operation(monkeypatch):
     from tools import atum_source_transport as host
     from tools.atum_source_transport import bind_source_transport

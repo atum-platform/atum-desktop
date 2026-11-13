@@ -45,6 +45,10 @@ def test_seeded_brief_reads_sources_history_and_delivers_once(tmp_path, monkeypa
     class FixtureModel:
         def __init__(self, **kwargs):
             self.session_id = kwargs['session_id']
+            # Mirror AIAgent's native constructor identity publication
+            # (agent/agent_init.py), not the cron job's delivery origin.
+            from gateway.session_context import set_current_session_id
+            set_current_session_id(self.session_id)
             self.task_id = self.session_id
             self.db = kwargs['session_db']
 
@@ -70,8 +74,14 @@ def test_seeded_brief_reads_sources_history_and_delivers_once(tmp_path, monkeypa
     monkeypatch.setattr('run_agent.AIAgent', FixtureModel)
     job = jobs.create_job('Morning brief from Google, chats and history', '0 1 * * *',
                           name='Morning brief', deliver='matrix:!owner:fixture')
-    with bind_source_transport(source):
-        success, doc, final, error = scheduler.run_job(job, native_claimed=True)
+    # The private plugin installs its binding after native cron session context,
+    # before the real watchdog copies that context into the model worker.
+    native_watchdog = scheduler._run_agent_with_watchdog
+    def bound_watchdog(*args, **kwargs):
+        with bind_source_transport(source):
+            return native_watchdog(*args, **kwargs)
+    monkeypatch.setattr(scheduler, '_run_agent_with_watchdog', bound_watchdog)
+    success, doc, final, error = scheduler.run_job(job, native_claimed=True)
     assert success, error
     assert reads == ['google', 'chats']
     assert 'Design review' in final and 'proposal' in final and 'budget' in final

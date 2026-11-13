@@ -53,15 +53,26 @@ def source_transport_error(result: dict) -> str | None:
 def bind_source_transport(call: Callable):
     """Bind the host's semantic (tool, payload) caller to this execution only.
 
-    Enable the process at plugin startup, then enter before agent construction. Worker
-    threads must use Hermes's existing context propagation, as memory providers do.
+    Enable advertisement at plugin startup; bind around the native run only
+    AFTER its session identity is installed. Worker threads must use Hermes's
+    existing context propagation, as memory providers do. Every call must
+    still match that session; inherited contexts rebound to another room fail closed.
     Exit invalidates copied contexts too, preventing a late worker using a closed run.
     """
+    from gateway.session_context import bound_session_key, get_session_env
+
+    def session_identity():
+        return (bound_session_key(), get_session_env('HERMES_SESSION_ID'),
+                get_session_env('HERMES_SESSION_PROFILE'))
+
+    identity = session_identity()
     active = True
 
     def scoped(tool, payload):
         if not active:
             raise RuntimeError('operation_closed')
+        if not (identity[0] or identity[1]) or session_identity() != identity:
+            raise RuntimeError('source_session_mismatch')
         return call(tool, payload)
 
     token = _transport.set(scoped)

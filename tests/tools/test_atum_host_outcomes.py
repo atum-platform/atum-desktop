@@ -7,6 +7,13 @@ from tools import atum_google_tool as google, atum_chats_tool as chats
 from tools.atum_source_transport import bind_source_transport
 
 
+@pytest.fixture(autouse=True)
+def native_source_session():
+    from gateway.session_context import scoped_session_key, scoped_current_session_id
+    with scoped_session_key('source-fixture'), scoped_current_session_id('source-fixture'):
+        yield
+
+
 @pytest.mark.parametrize('action', ['send_email', 'create_event', 'update_event'])
 @pytest.mark.parametrize('receipt', [None, {'error': 'outcome_unknown'}, {'error': 'unavailable'},
     {'code': 'outcome_unknown'}, {'ok': False},

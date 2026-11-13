@@ -1135,6 +1135,7 @@ _SESSION_STATE_MODULES = {
     "gateway.session_context": {"_session_context_engaged": False},
     "tools.approval": {},
     "tools.approval_context": {},
+    "tools.atum_source_transport": {"_host_transport_enabled": False},
 }
 _NOT_CAPTURED = object()
 
