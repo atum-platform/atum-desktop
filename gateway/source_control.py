@@ -39,10 +39,16 @@ def register_source_stop(server, runner, loop):
     async def stop(params):
         from gateway.config import Platform
         from gateway.session_authorities import owner_scope, require_serving
-        if (set(params) != {'profile_id', 'room', 'event', 'sender', 'action'}
+        schedule = params.get('kind') == 'schedule'
+        fields = ({'profile_id', 'kind', 'job', 'execution', 'action'} if schedule
+                  else {'profile_id', 'room', 'event', 'sender', 'action'})
+        allowed = (fields, fields | {'member'}) if schedule else (fields,)
+        if (set(params) not in allowed
                 or any(not isinstance(v, str) or not v or len(v) > 2048 for v in params.values())
                 or params['action'] not in {'stop', 'receipt'}):
             raise ValueError('invalid source Stop parameters')
+        if schedule and ':' in params['execution']:
+            raise ValueError('invalid cron execution identity')
         home = Path(params['profile_id'])
         if not home.is_absolute() or home != home.resolve():
             raise ValueError('canonical served profile required')
@@ -51,6 +57,10 @@ def register_source_stop(server, runner, loop):
         if authority is None:
             raise ValueError('profile unavailable')
         require_serving(authority)
+        if schedule:
+            with owner_scope(authority):
+                from gateway.schedule_source_control import stop_schedule
+                return await stop_schedule(authority, params)
         name = registry.profile_name(authority)
         adapters = runner.adapters if name is None else getattr(runner, '_profile_adapters', {}).get(name, {})
         adapter = adapters.get(Platform.MATRIX)
