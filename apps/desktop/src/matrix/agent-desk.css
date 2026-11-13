@@ -1,18 +1,30 @@
-/* The agent's desk (side panel's agent tab). Kit tokens and components only (STYLE.md §13, §14). */
+/* The agent's desk (side panel's agent tab). Kit tokens and components only (STYLE.md §13, §14).
+   Rhythm is the shipped new tab's (workbench-launcher.tsx): 32 px top and bottom, 24 px sides,
+   32 px between sections, a 44 rem reading column. Never denser than that. */
 
 .atum-desk {
   display: flex;
   flex-direction: column;
+  gap: var(--ak-s8);
+  width: 100%;
+  max-width: 44rem;
   min-height: 100%;
+  margin: 0 auto;
   overflow-y: auto;
-  padding: var(--ak-s1) var(--ak-s3) var(--ak-s4);
+  padding: var(--ak-s8) var(--ak-s6);
 }
 
+/* Now: one focus. A quiet caption, the focus line, then its one action. */
 .atum-desk-now {
   display: flex;
   flex-direction: column;
-  gap: var(--ak-s2);
-  padding: var(--ak-s3) 10px var(--ak-s1);
+  align-items: flex-start;
+  gap: var(--ak-s3);
+  min-width: 0;
+}
+
+.atum-desk-now > * {
+  max-width: 100%;
 }
 
 .atum-desk-now-head {
@@ -22,52 +34,98 @@
   min-width: 0;
 }
 
-.atum-desk-now-state {
-  font: var(--ak-t-headline);
-  color: var(--ak-ink);
-}
-
 .atum-desk-caption {
-  font: var(--ak-t-caption);
+  font: var(--ak-t-callout);
   font-weight: 600;
   color: var(--ak-ink-3);
 }
 
+.atum-desk-free {
+  font: var(--ak-t-headline);
+  color: var(--ak-ink-2);
+}
+
 .atum-desk-dot {
+  width: 6px;
+  height: 6px;
   background: var(--ak-ink-2);
 }
 
-.atum-desk-now-line {
-  font: var(--ak-t-body);
-  color: var(--ak-ink-2);
+/* The one thing to read: the live step, or the native wait's own words. */
+.atum-desk-focus {
+  font: var(--ak-t-chat);
+  color: var(--ak-ink);
   overflow-wrap: anywhere;
 }
 
-.atum-desk-hint {
+/* Long agent text: a few lines, then More. Steps clamp tighter than the focus. */
+[data-agent-desk-clamp='closed'] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--atum-desk-clamp, 3);
+  overflow: hidden;
+}
+
+.atum-desk-more {
+  margin-top: calc(-1 * var(--ak-s2));
   font: var(--ak-t-callout);
   color: var(--ak-ink-3);
+}
+
+.atum-desk-more:hover {
+  color: var(--ak-ink);
 }
 
 .atum-desk-now-actions {
   display: flex;
   align-items: center;
   gap: var(--ak-s2);
-  margin-top: 2px;
+  margin-top: var(--ak-s1);
+}
+
+/* The folded steps: one quiet line under Stop that opens to the list. */
+.atum-desk-steps-fold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ak-s3);
+  margin-top: var(--ak-s2);
+  min-width: 0;
+}
+
+.atum-desk-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ak-s1);
+  align-self: flex-start;
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-fold:hover {
+  color: var(--ak-ink);
+}
+
+.atum-desk-caret {
+  flex: none;
+  transition: transform var(--ak-dur-1) var(--ak-ease);
+}
+
+.atum-desk-caret[data-open] {
+  transform: rotate(90deg);
 }
 
 .atum-desk-steps {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 6px;
-  padding: 2px 0;
+  gap: var(--ak-s3);
 }
 
 .atum-desk-step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--ak-s2);
   font: var(--ak-t-body);
-  color: var(--ak-ink);
+  color: var(--ak-ink-2);
   min-width: 0;
 }
 
@@ -76,48 +134,80 @@
 }
 
 .atum-desk-step .ak-icon {
+  margin-top: 2px;
   color: var(--ak-ink-3);
   flex: none;
 }
 
-.atum-desk-step-spinner {
+.atum-desk-step-text {
+  --atum-desk-clamp: 2;
+  min-width: 0;
+}
+
+.atum-desk-step .atum-desk-more {
+  margin-top: 0;
+}
+
+.atum-desk-step-todo {
   width: var(--ak-i-sm);
   height: var(--ak-i-sm);
+  margin-top: 2px;
   flex: none;
+  border: 1px dotted var(--ak-ink-3);
+  border-radius: 50%;
 }
 
 .atum-desk-ask {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ak-s2);
-}
-
-.atum-desk-ask-head {
-  display: flex;
-  align-items: center;
-  gap: var(--ak-s2);
-}
-
-.atum-desk-ask-title {
-  font: var(--ak-t-headline);
-  color: var(--ak-ink);
-}
-
-.atum-desk-ask-prompts {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--ak-s2);
+  gap: var(--ak-s3);
+  width: 100%;
+}
+
+/* The ask's question clamps like any agent text; its buttons never do. */
+.atum-desk-ask [data-clarify-choices] .whitespace-pre-wrap {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+/* Secondary: Files and Your devices folded into one quiet card, the shipped Recent list's shape. */
+.atum-desk-secondary {
+  gap: 0;
+}
+
+.atum-desk-fold-row {
+  width: 100%;
+  text-align: start;
+}
+
+.atum-desk-fold-row:hover {
+  background: var(--ak-fill-hover);
 }
 
 .atum-desk .ak-row .ak-icon {
   width: var(--ak-i-md);
   height: var(--ak-i-md);
   flex: none;
+  color: var(--ak-ink-2);
+}
+
+.atum-desk .ak-row .atum-desk-caret {
+  width: var(--ak-i-sm);
+  height: var(--ak-i-sm);
+  color: var(--ak-ink-3);
 }
 
 .atum-desk .ak-row-main > span:first-child {
   font: var(--ak-t-body);
   color: var(--ak-ink);
+}
+
+.atum-desk-fold-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 var(--ak-s1) var(--ak-s6);
 }
 
 .atum-desk-row-end {
@@ -127,22 +217,17 @@
   white-space: nowrap;
 }
 
-/* "Sent in this chat": a quiet caption over the files the agent sent here. */
-.atum-desk-subhead {
-  padding: 6px 10px 2px;
-  font: var(--ak-t-caption);
-  color: var(--ak-ink-3);
+.atum-desk-mark {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--ak-warn);
 }
 
-/* A row whose data stays on the agent's cloud computer for now: present, quiet, inert. */
-.atum-desk-pending .ak-icon,
-.atum-desk .atum-desk-pending .ak-row-main > span:first-child {
-  color: var(--ak-ink-3);
-}
-
-/* Memory sits at the foot under one hairline. */
-.atum-desk-memory {
-  margin-top: var(--ak-s3);
-  border-top: 1px solid var(--ak-line);
-  padding-top: 6px;
+/* The devices section as Now's companion while one is in use: the same card, open. */
+.atum-desk > .atum-desk-fold-section {
+  border-radius: var(--ak-r-lg);
+  background: var(--ak-surface);
+  box-shadow: var(--ak-shadow-1);
+  padding: 4px;
 }

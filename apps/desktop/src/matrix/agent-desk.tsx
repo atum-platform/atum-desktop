@@ -1,6 +1,6 @@
 import './agent-desk.css'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AtumAtom } from '@/components/brand/atum-atom'
 import { NoticeBand } from '@/components/ui/error-state'
@@ -29,12 +29,10 @@ import { MatrixPersonAvatar } from './member-avatar'
 import { matrixRosterAgentName } from './roster-model'
 import type { MatrixCloudStop } from './use-cloud-stop'
 
-const BrainIcon = phosphorIcon('brain')
-const CalendarIcon = phosphorIcon('calendar-blank')
+const CaretIcon = phosphorIcon('caret-right')
 const CheckIcon = phosphorIcon('check')
 const DesktopIcon = phosphorIcon('desktop')
 const FileIcon = phosphorIcon('file')
-const HardDrivesIcon = phosphorIcon('hard-drives')
 const StopIcon = phosphorIcon('stop')
 
 /** The agent's face at the size a tab chip or the ask's mark wants. */
@@ -75,24 +73,100 @@ function useMinuteClock(on: boolean): number {
   return now
 }
 
+/**
+ * Agent text, clamped to a few lines (`--atum-desk-clamp`, 3 by default) with More when it
+ * overflows: a long step or ask never pushes the rest of the panel away.
+ */
+function Clamped({
+  as: Tag = 'p',
+  className,
+  live,
+  text
+}: {
+  as?: 'p' | 'span'
+  className: string
+  live?: boolean
+  text: string
+}) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const ref = useRef<HTMLElement>(null)
+  const [open, setOpen] = useState(false)
+  const [overflows, setOverflows] = useState(false)
+
+  useLayoutEffect(() => {
+    const node = ref.current
+
+    if (!node || open) {
+      return
+    }
+
+    // Half a line of slack: a font's ascenders can poke past one clamped line by a pixel or two.
+    // Re-measured on resize: the panel opens with a width animation and can be dragged wider.
+    const measure = () => {
+      const line = Number.parseFloat(getComputedStyle(node).lineHeight)
+      setOverflows(node.scrollHeight - node.clientHeight > (Number.isFinite(line) ? line / 2 : 1))
+    }
+
+    measure()
+    const observer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    observer?.observe(node)
+
+    return () => observer?.disconnect()
+  }, [open, text])
+
+  return (
+    <>
+      <Tag
+        className={className}
+        data-agent-desk-clamp={open ? 'open' : 'closed'}
+        data-agent-desk-live={live || undefined}
+        ref={ref as never}
+      >
+        {text}
+      </Tag>
+      {(overflows || open) && (
+        <button className="atum-desk-more" onClick={() => setOpen(value => !value)} type="button">
+          {open ? copy.less : copy.more}
+        </button>
+      )}
+    </>
+  )
+}
+
+/** The folded steps: one quiet line ("2 of 3 done") that opens to the whole list. */
 function Steps({ steps }: { steps: readonly MatrixProgressStep[] }) {
-  if (!steps.length) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const [open, setOpen] = useState(false)
+
+  if (steps.length < 2) {
     return null
   }
 
+  const done = steps.filter(step => step.done).length
+
   return (
-    <ul className="atum-desk-steps" data-agent-desk-steps>
-      {steps.map((step, index) => (
-        <li className="atum-desk-step" data-done={step.done || undefined} key={`${step.text}:${index}`}>
-          {step.done ? (
-            <CheckIcon aria-hidden className="ak-icon ak-icon--sm" />
-          ) : (
-            <span aria-hidden className="ak-spinner atum-desk-step-spinner" />
-          )}
-          <span>{step.text}</span>
-        </li>
-      ))}
-    </ul>
+    <div className="atum-desk-steps-fold">
+      <button aria-expanded={open} className="atum-desk-fold" onClick={() => setOpen(value => !value)} type="button">
+        <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" data-open={open || undefined} />
+        <span>{copy.stepsDone(done, steps.length)}</span>
+      </button>
+      {open && (
+        <ul className="atum-desk-steps" data-agent-desk-steps>
+          {steps.map((step, index) => (
+            <li className="atum-desk-step" data-done={step.done || undefined} key={`${step.text}:${index}`}>
+              {step.done ? (
+                <CheckIcon aria-hidden className="ak-icon ak-icon--sm" />
+              ) : (
+                <span aria-hidden className="atum-desk-step-todo" />
+              )}
+              <Clamped as="span" className="atum-desk-step-text" text={step.text} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
@@ -152,7 +226,7 @@ function StopButton({ label, stop }: { label: string; stop: MatrixAgentDeskStop 
 
   return (
     <div className="atum-desk-now-actions">
-      <button className="ak-btn ak-btn--sm" data-agent-desk-stop disabled={stop.disabled} onClick={stop.stop} type="button">
+      <button className="ak-btn" data-agent-desk-stop disabled={stop.disabled} onClick={stop.stop} type="button">
         <StopIcon aria-hidden className="ak-icon ak-icon--sm" />
         {label}
       </button>
@@ -160,14 +234,17 @@ function StopButton({ label, stop }: { label: string; stop: MatrixAgentDeskStop 
   )
 }
 
+/**
+ * Now: one focus per state. Working → the live step and Stop; Waiting → the question and its
+ * action; Free → nothing urgent. The head is a quiet caption; how a message steers or waits is a
+ * tooltip on it, never a sentence on the panel.
+ */
 function NowBlock({
-  agent,
   name,
   now,
   steers,
   stop
 }: {
-  agent: MatrixAgentView
   name: string
   now: MatrixAgentDeskNow
   /** A message sent now changes the running turn (otherwise it waits for it). */
@@ -183,25 +260,7 @@ function NowBlock({
   if (now.state === 'free') {
     return (
       <div className="atum-desk-now" data-agent-desk-now="free">
-        <div className="atum-desk-now-head">
-          <span className="atum-desk-now-state">{copy.free}</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (now.state === 'waiting' && !now.prompts.length) {
-    // The native turn's own wait (e.g. Touch ID or an approval on a Mac): its words, and Stop.
-    return (
-      <div className="atum-desk-now" data-agent-desk-now="waiting">
-        <div className="atum-desk-now-head">
-          <span aria-hidden className="ak-dot atum-desk-dot" />
-          <span className="atum-desk-now-state" role="status">
-            {withTime(copy.waiting)}
-          </span>
-        </div>
-        {now.line && <p className="atum-desk-now-line">{now.line}</p>}
-        <StopButton label={copy.stop} stop={stop} />
+        <span className="atum-desk-free">{copy.free}</span>
       </div>
     )
   }
@@ -211,20 +270,23 @@ function NowBlock({
       <div className="atum-desk-now" data-agent-desk-now="waiting">
         <div className="atum-desk-now-head">
           <span aria-hidden className="ak-dot atum-desk-dot" />
-          <span className="atum-desk-caption">{withTime(copy.waiting)}</span>
+          <span className="atum-desk-caption" role="status">
+            {withTime(copy.waiting)}
+          </span>
         </div>
-        {/* The chat's own ask card, as it is: one object, so its frame is the only frame. */}
-        <section aria-label={copy.ask(name)} className="atum-desk-ask">
-          <div className="atum-desk-ask-head">
-            <MatrixAgentDeskFace agent={agent} className="ak-avatar ak-avatar--sm" name={name} />
-            <h3 className="atum-desk-ask-title">{copy.ask(name)}</h3>
-          </div>
-          <div className="atum-desk-ask-prompts">
+        {now.prompts.length ? (
+          // The chat's own ask, as it is: one object, its question and its buttons are the focus.
+          <section aria-label={copy.ask(name)} className="atum-desk-ask">
             {now.prompts.map(prompt => (
               <HermesPrompt key={prompt.id} prompt={prompt} />
             ))}
-          </div>
-        </section>
+          </section>
+        ) : (
+          <>
+            {now.line && <Clamped className="atum-desk-focus" live text={now.line} />}
+            <StopButton label={copy.stop} stop={stop} />
+          </>
+        )}
       </div>
     )
   }
@@ -238,29 +300,85 @@ function NowBlock({
         ? copy.routine
         : copy.working
 
+  // The live step: the first one not done yet; else what it says it is doing.
+  const live = now.steps.find(step => !step.done)?.text ?? now.line
+
   return (
     <div className="atum-desk-now" data-agent-desk-now={now.state}>
-      <div className="atum-desk-now-head">
-        <AtumAtom aria-hidden className="ak-icon ak-icon--sm text-(--ak-ink-2)" data-working />
-        <span className="atum-desk-now-state" role="status">
+      <div
+        className="atum-desk-now-head"
+        data-agent-desk-hint={steers ? 'steer' : 'queue'}
+        title={steers ? copy.steerHint : copy.queueHint}
+      >
+        <AtumAtom aria-hidden className="ak-icon ak-icon--sm text-(--ak-ink-3)" data-working />
+        <span className="atum-desk-caption" role="status">
           {withTime(head)}
         </span>
       </div>
-      {now.line && <p className="atum-desk-now-line">{now.line}</p>}
-      <Steps steps={now.steps} />
+      {live && <Clamped className="atum-desk-focus" live text={live} />}
       <StopButton label={copy.stop} stop={stop} />
-      <p className="atum-desk-hint" data-agent-desk-hint={steers ? 'steer' : 'queue'}>
-        {steers ? copy.steerHint : copy.queueHint}
-      </p>
+      <Steps steps={now.steps} />
     </div>
+  )
+}
+
+/** A secondary section folded to one row: its name, a count, and a caret; it opens in place. */
+function Fold({
+  children,
+  count,
+  data,
+  icon: Icon,
+  initiallyOpen = false,
+  label,
+  mark,
+  title
+}: {
+  children: React.ReactNode
+  count: number
+  data: Record<string, string | true>
+  icon: typeof FileIcon
+  initiallyOpen?: boolean
+  label: string
+  /** A small dot on the folded row when something inside wants a look (a missing permission). */
+  mark?: boolean
+  title?: string
+}) {
+  const [open, setOpen] = useState(initiallyOpen)
+
+  return (
+    <section aria-label={label} className="atum-desk-fold-section" {...data}>
+      <button
+        aria-expanded={open}
+        className="ak-row atum-desk-fold-row"
+        onClick={() => setOpen(value => !value)}
+        title={title}
+        type="button"
+      >
+        <Icon aria-hidden className="ak-icon" />
+        <span className="ak-row-main">
+          <span className="truncate">{label}</span>
+        </span>
+        {mark && <span aria-hidden className="ak-dot atum-desk-mark" />}
+        <span className="atum-desk-row-end">{count}</span>
+        <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" data-open={open || undefined} />
+      </button>
+      {open && (
+        <div className="atum-desk-fold-body" role="list">
+          {children}
+        </div>
+      )}
+    </section>
   )
 }
 
 function DevicesSection({
   devices,
+  focus,
   stop
 }: {
   devices: ReturnType<typeof matrixAgentDeskDevices>
+  /** One is in use: the section is the focus, open, right under Now. */
+  focus: boolean
   stop: MatrixAgentDeskStop
 }) {
   const { locale } = useI18n()
@@ -273,24 +391,29 @@ function DevicesSection({
   }
 
   return (
-    <section aria-label={copy.devices} data-agent-desk-devices>
-      <h3 className="ak-section">{copy.devices}</h3>
-      <div className="ak-group--plain" role="list">
-        {devices.map(({ mac, inUse }) => (
-          <DeviceRow
-            inUse={inUse}
-            key={mac.id}
-            locale={locale}
-            mac={mac}
-            permissions={permissions}
-            sources={sources}
-            stop={stop}
-            stopLabel={copy.stop}
-            usingNow={copy.usingNow}
-          />
-        ))}
-      </div>
-    </section>
+    <Fold
+      count={devices.length}
+      data={{ 'data-agent-desk-devices': true }}
+      icon={DesktopIcon}
+      initiallyOpen={focus}
+      key={focus ? 'focus' : 'rest'}
+      label={copy.devices}
+      mark={devices.some(each => each.mac.state === 'needs_permission')}
+    >
+      {devices.map(({ mac, inUse }) => (
+        <DeviceRow
+          inUse={inUse}
+          key={mac.id}
+          locale={locale}
+          mac={mac}
+          permissions={permissions}
+          sources={sources}
+          stop={stop}
+          stopLabel={copy.stop}
+          usingNow={copy.usingNow}
+        />
+      ))}
+    </Fold>
   )
 }
 
@@ -351,33 +474,7 @@ function DeviceRow({
   )
 }
 
-/**
- * A row whose data lives on the agent's cloud computer and has no read route yet (plan r2 §3:
- * "needs a host read API"). It says so, quietly: no data, no action, never a guess.
- */
-function PendingRow({
-  icon: Icon,
-  kind,
-  label,
-  notYet
-}: {
-  icon: typeof FileIcon
-  kind: 'memory' | 'schedule' | 'workspace'
-  label: string
-  notYet: string
-}) {
-  return (
-    <div aria-disabled className="ak-row atum-desk-pending" data-agent-desk-pending={kind} role="listitem">
-      <Icon aria-hidden className="ak-icon" />
-      <div className="ak-row-main">
-        <span className="truncate">{label}</span>
-      </div>
-      <span className="atum-desk-row-end">{notYet}</span>
-    </div>
-  )
-}
-
-/** The files it sent in this chat (Matrix file events), newest first, each with Save. */
+/** A file it sent in this chat (a Matrix file event), with Save. */
 function SentFileRow({
   file,
   locale,
@@ -396,7 +493,9 @@ function SentFileRow({
       <FileIcon aria-hidden className="ak-icon" />
       <div className="ak-row-main">
         <span className="truncate">{file.body}</span>
-        {file.attachmentSize !== undefined && <span className="ak-row-meta">{formatDriveSize(file.attachmentSize, locale)}</span>}
+        {file.attachmentSize !== undefined && (
+          <span className="ak-row-meta">{formatDriveSize(file.attachmentSize, locale)}</span>
+        )}
       </div>
       <button
         aria-label={save}
@@ -412,11 +511,10 @@ function SentFileRow({
 
 /**
  * The agent's own tab in its 1:1 chat's side panel (plan 2026-11-13, side panel r2, native
- * Hermes in the cloud). Now reads the native turn's Matrix progress (`io.atum.progress`) and the
- * chat's own signals; Files lists what it sent here; Your devices are the account's reach Macs.
- * What lives on its cloud computer (its schedule, its own files, its memory) shows as a quiet
- * empty row until the host can share it. No money, no settings, no second chat: steering is the
- * composer.
+ * Hermes in the cloud), in the shipped panel's rhythm: the same padding and section gaps as the
+ * new tab. Now is the one focus; Files and Your devices are folded rows below it; what its cloud
+ * computer cannot share yet is absent, never an empty row. No money, no settings, no second
+ * chat: steering is the composer.
  */
 export function MatrixAgentDesk({
   active,
@@ -454,48 +552,41 @@ export function MatrixAgentDesk({
   const devices = matrixAgentDeskDevices(macs ?? [], now)
   const onThisMac = devices.some(each => each.inUse && each.mac.thisMac) || (now.state === 'device' && !now.device)
   const stop = matrixAgentDeskStop({ cloud: cloudStop, onThisMac, roomId: room.id, running })
-  // A device in use lifts the whole section under Now (in use first); at rest it sits below Files.
   const deviceInUse = devices.some(each => each.inUse)
   const sent = matrixAgentDeskSentFiles(snapshot.messages, agent.userId)
   const steers = matrixAgentDeskSteers({ runtime: agent.runtime, running })
 
   return (
     <div aria-label={copy.desk(name)} className="atum-desk" data-agent-desk role="region">
-      <NowBlock agent={agent} name={name} now={now} steers={steers} stop={stop} />
-      {deviceInUse && <DevicesSection devices={devices} stop={stop} />}
-      <section aria-label={copy.upNext} data-agent-desk-up-next>
-        <h3 className="ak-section">{copy.upNext}</h3>
-        <div className="ak-group--plain" role="list">
-          <PendingRow icon={CalendarIcon} kind="schedule" label={copy.schedules} notYet={copy.notYet} />
-        </div>
-      </section>
-      <section aria-label={copy.files} data-agent-desk-files>
-        <h3 className="ak-section">{copy.files}</h3>
-        <div className="ak-group--plain" role="list">
+      <NowBlock name={name} now={now} steers={steers} stop={stop} />
+      {deviceInUse && <DevicesSection devices={devices} focus stop={stop} />}
+      {(sent.length > 0 || (!deviceInUse && devices.length > 0)) && (
+        <div className="ak-group atum-desk-secondary">
           {sent.length > 0 && (
-            <div className="atum-desk-subhead" role="presentation">
-              {copy.sentHere}
-            </div>
+            <Fold
+              count={sent.length}
+              data={{ 'data-agent-desk-files': true }}
+              icon={FileIcon}
+              label={copy.files}
+              title={copy.sentHere}
+            >
+              {sent.map(file => (
+                <SentFileRow
+                  file={file}
+                  key={file.id}
+                  locale={locale}
+                  roomId={room.id}
+                  save={copy.save(file.body)}
+                  saveShort={copy.saveShort}
+                />
+              ))}
+            </Fold>
           )}
-          {sent.map(file => (
-            <SentFileRow
-              file={file}
-              key={file.id}
-              locale={locale}
-              roomId={room.id}
-              save={copy.save(file.body)}
-              saveShort={copy.saveShort}
-            />
-          ))}
-          <PendingRow icon={HardDrivesIcon} kind="workspace" label={copy.onItsComputer} notYet={copy.notYet} />
+          {!deviceInUse && <DevicesSection devices={devices} focus={false} stop={stop} />}
         </div>
-      </section>
-      {!deviceInUse && <DevicesSection devices={devices} stop={stop} />}
-      <div className="ak-group--plain atum-desk-memory" data-agent-desk-memory role="list">
-        <PendingRow icon={BrainIcon} kind="memory" label={copy.memory} notYet={copy.notYet} />
-      </div>
+      )}
       {cloudStop.refused && (
-        <NoticeBand className="mx-(--ak-s2) mt-(--ak-s2)" role="status" tone="notice">
+        <NoticeBand className="mt-(--ak-s4)" role="status" tone="notice">
           {t.cloud.stopRefused}
         </NoticeBand>
       )}

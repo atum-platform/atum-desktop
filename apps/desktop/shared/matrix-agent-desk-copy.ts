@@ -33,20 +33,17 @@ export interface MatrixAgentDeskCopy {
   composerSteer: (name: string) => string
   /** Now's head while a native cron turn runs (its marker says `trigger: 'cron'`). */
   routine: string
-  /** Files › the files the agent sent in this chat (Matrix file events). */
+  /** Files' tooltip: they are the files the agent sent in this chat (Matrix file events). */
   sentHere: string
   /** A sent file's Save button, for screen readers: "Save Q4 plan.docx". */
   save: (name: string) => string
   /** The visible word on that button. */
   saveShort: string
-  upNext: string
-  /** Up next's one row until the cloud computer's schedule can be read. */
-  schedules: string
-  /** Files › the agent's own home on its cloud computer. */
-  onItsComputer: string
-  memory: string
-  /** The quiet end of a row whose data the cloud computer cannot share yet: no data, no action. */
-  notYet: string
+  /** The folded steps: "2 of 3 done". */
+  stepsDone: (done: number, total: number) => string
+  /** Opens clamped agent text in place, and folds it again. */
+  more: string
+  less: string
   /** On the chat's working line: open the side panel on the agent's own tab. */
   watch: string
 }
@@ -73,11 +70,9 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'Gửi trong trò chuyện này',
     save: name => `Lưu ${name}`,
     saveShort: 'Lưu',
-    upNext: 'Sắp tới',
-    schedules: 'Việc định kỳ và nhắc hẹn',
-    onItsComputer: 'Trên máy của nó',
-    memory: 'Trí nhớ',
-    notYet: 'Chưa xem được',
+    stepsDone: (done, total) => `Xong ${done}/${total}`,
+    more: 'Xem thêm',
+    less: 'Thu gọn',
     watch: 'Xem'
   },
   en: {
@@ -101,11 +96,9 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'Sent in this chat',
     save: name => `Save ${name}`,
     saveShort: 'Save',
-    upNext: 'Up next',
-    schedules: 'Routines and reminders',
-    onItsComputer: 'On its computer',
-    memory: 'Memory',
-    notYet: 'Not available yet',
+    stepsDone: (done, total) => `${done} of ${total} done`,
+    more: 'More',
+    less: 'Less',
     watch: 'Watch'
   },
   ja: {
@@ -129,11 +122,9 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'このチャットで送信',
     save: name => `${name}を保存`,
     saveShort: '保存',
-    upNext: '次の予定',
-    schedules: '定期タスクとリマインダー',
-    onItsComputer: 'エージェントのコンピュータ',
-    memory: 'メモリ',
-    notYet: 'まだ表示できません',
+    stepsDone: (done, total) => `${total}件中${done}件完了`,
+    more: '続きを表示',
+    less: '閉じる',
     watch: '見る'
   },
   zh: {
@@ -157,11 +148,9 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: '在此聊天中发送',
     save: name => `保存 ${name}`,
     saveShort: '保存',
-    upNext: '接下来',
-    schedules: '例行任务和提醒',
-    onItsComputer: '在它的电脑上',
-    memory: '记忆',
-    notYet: '暂时无法查看',
+    stepsDone: (done, total) => `已完成 ${done}/${total}`,
+    more: '更多',
+    less: '收起',
     watch: '查看'
   },
   'zh-hant': {
@@ -185,11 +174,9 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: '在此聊天中傳送',
     save: name => `儲存 ${name}`,
     saveShort: '儲存',
-    upNext: '接下來',
-    schedules: '例行任務和提醒',
-    onItsComputer: '在它的電腦上',
-    memory: '記憶',
-    notYet: '暫時無法查看',
+    stepsDone: (done, total) => `已完成 ${done}/${total}`,
+    more: '更多',
+    less: '收起',
     watch: '查看'
   }
 }
