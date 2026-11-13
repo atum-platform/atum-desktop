@@ -18,7 +18,9 @@ import {
   matrixAgentDeskDevices,
   matrixAgentDeskMinutes,
   matrixAgentDeskNow,
-  type MatrixAgentDeskNowInput
+  type MatrixAgentDeskNowInput,
+  matrixAgentDeskSentFiles,
+  matrixAgentDeskSteers
 } from './agent-desk-model'
 import { MatrixWorkbench } from './workbench'
 
@@ -62,7 +64,12 @@ function message(overrides: Partial<MatrixMessage> & Pick<MatrixMessage, 'id' | 
 }
 
 /** The agent's working line (agent-turns/1.3 progress notice), as the chat shows it. */
-function progressLine(body: string, kind: 'todo' | 'device' | 'heartbeat' = 'todo', device?: string): MatrixMessage {
+function progressLine(
+  body: string,
+  kind: 'todo' | 'device' | 'heartbeat' = 'todo',
+  device?: string,
+  extra: { phase?: 'working' | 'waiting'; trigger?: 'cron' } = {}
+): MatrixMessage {
   return message({
     id: '$line',
     sender: LUNA,
@@ -72,10 +79,11 @@ function progressLine(body: string, kind: 'todo' | 'device' | 'heartbeat' = 'tod
     progress: {
       profile: 'atum.agent-turns/1.3',
       scope: 'owner_private',
-      phase: 'working',
+      phase: extra.phase ?? 'working',
       kind,
       revision: 1,
-      ...(device ? { device } : {})
+      ...(device ? { device } : {}),
+      ...(extra.trigger ? { trigger: extra.trigger } : {})
     }
   })
 }
@@ -429,5 +437,164 @@ describe('the agent tab', () => {
     const desk = screen.getByRole('region', { name: vi_.desk('Luna') })
     expect(within(desk).getByRole('status').textContent).toBe(vi_.working)
     expect(within(desk).getByText(vi_.queueHint)).toBeTruthy()
+  })
+})
+
+/** r2: the desk on native Hermes in the cloud (plan 2026-11-13-agent-side-panel-hermes-cloud). */
+describe('the desk on native Hermes in the cloud', () => {
+  it('reads a native todo list (all marked lines) as steps with no headline', () => {
+    const now = matrixAgentDeskNow(nowInput({ messages: [progressLine('✓ Read the inbox\n• Draft the reply\n• Send it')] }))
+
+    expect(now).toEqual({
+      state: 'working',
+      since: 2_000,
+      steps: [
+        { done: true, text: 'Read the inbox' },
+        { done: false, text: 'Draft the reply' },
+        { done: false, text: 'Send it' }
+      ]
+    })
+  })
+
+  it('is Waiting for you while the native turn waits for your OK, with its own words and no buttons', () => {
+    const now = matrixAgentDeskNow(
+      nowInput({ messages: [progressLine('Waiting for your OK…', 'device', undefined, { phase: 'waiting' })] })
+    )
+
+    expect(now).toEqual({ state: 'waiting', since: 2_000, line: 'Waiting for your OK…', prompts: [] })
+  })
+
+  it('says a scheduled (cron) turn is a routine', () => {
+    const now = matrixAgentDeskNow(
+      nowInput({ messages: [progressLine('Looking it up on the web…', 'todo', undefined, { trigger: 'cron' })] })
+    )
+
+    expect(now).toMatchObject({ state: 'working', scheduled: true, line: 'Looking it up on the web…' })
+  })
+
+  it('steers on native Hermes (busy input interrupts the turn), queues on the old cloud path', () => {
+    expect(matrixAgentDeskSteers({ runtime: 'hermes', running: false })).toBe(true)
+    expect(matrixAgentDeskSteers({ running: true })).toBe(true)
+    expect(matrixAgentDeskSteers({ running: false })).toBe(false)
+  })
+
+  it('lists the files the agent sent in this chat, newest first, never the owner’s or a stranger’s', () => {
+    const file = (id: string, sender: string, body: string, timestamp: number, extra: Partial<MatrixMessage> = {}) =>
+      message({ id, sender, body, timestamp, attachment: true, ...extra })
+
+    const files = matrixAgentDeskSentFiles(
+      [
+        file('$f1', LUNA, 'Q4 plan.docx', 1_000, { attachmentSize: 2048 }),
+        file('$f2', OWNER, 'Mine.pdf', 2_000),
+        file('$f3', '@stranger:test', 'Evil.docx', 3_000),
+        file('$f4', LUNA, 'Quote.xlsx', 4_000),
+        file('$f5', LUNA, 'Gone.pdf', 5_000, { redacted: true }),
+        file('$f6', LUNA, 'Locked.pdf', 6_000, { decryptionFailed: true }),
+        message({ id: '$t', sender: LUNA, body: 'Done.', timestamp: 7_000 })
+      ],
+      LUNA
+    )
+
+    expect(files.map(each => [each.id, each.body])).toEqual([
+      ['$f4', 'Quote.xlsx'],
+      ['$f1', 'Q4 plan.docx']
+    ])
+  })
+})
+
+describe('the agent tab on native Hermes in the cloud', () => {
+  const hermes: MatrixAgentView = { ...luna, runtime: 'hermes' }
+  const hermesBase = (): MatrixSnapshot => ({ ...base(), agents: [hermes] })
+
+  it('says a message steers the native turn, and Stop goes through the host Stop route', async () => {
+    const ask = message({ id: '$ask', sender: OWNER, body: 'Read my inbox', timestamp: Date.now() - 2 * 60_000 })
+    render(panel({ ...hermesBase(), messages: [ask, progressLine('Reading…')], typing: [LUNA] }))
+
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    expect(within(desk).getByText(en.steerHint)).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
+    })
+
+    expect(stopTurn).toHaveBeenCalledWith({ action: 'stopTurn', roomId: ROOM, eventId: '$ask' })
+  })
+
+  it('stops a scheduled turn with the native /stop command in this chat', async () => {
+    const command = window.atumMatrix.command as ReturnType<typeof vi.fn>
+    render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron' })] }))
+
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    expect(within(desk).getByRole('status').textContent).toBe(en.routine)
+
+    await act(async () => {
+      fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
+    })
+
+    expect(command).toHaveBeenCalledWith({ kind: 'send', roomId: ROOM, body: '/stop' })
+    expect(stopTurn).not.toHaveBeenCalled()
+  })
+
+  it('offers Stop while the native turn waits for your OK', () => {
+    const ask = message({ id: '$ask', sender: OWNER, body: 'Clean up my Downloads', timestamp: Date.now() })
+
+    render(
+      panel({
+        ...hermesBase(),
+        messages: [ask, progressLine('Waiting for your OK…', 'device', undefined, { phase: 'waiting' })],
+        typing: [LUNA]
+      })
+    )
+
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    expect(desk.querySelector('[data-agent-desk-now="waiting"]')).toBeTruthy()
+    expect(within(desk).getByText('Waiting for your OK…')).toBeTruthy()
+    expect(within(desk).getByRole('button', { name: en.stop })).toBeTruthy()
+  })
+
+  it('lists the files it sent in this chat, and Save downloads that event', async () => {
+    const command = window.atumMatrix.command as ReturnType<typeof vi.fn>
+
+    render(
+      panel({
+        ...hermesBase(),
+        messages: [message({ id: '$f1', sender: LUNA, body: 'Q4 plan.docx', attachment: true, attachmentSize: 2048 })]
+      })
+    )
+
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const files = desk.querySelector<HTMLElement>('[data-agent-desk-files]')!
+    expect(within(files).getByText(en.sentHere)).toBeTruthy()
+    expect(within(files).getByText('Q4 plan.docx')).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(within(files).getByRole('button', { name: en.save('Q4 plan.docx') }))
+    })
+
+    expect(command).toHaveBeenCalledWith({ kind: 'download', roomId: ROOM, eventId: '$f1' })
+  })
+
+  it('shows what needs its cloud computer as honest, empty rows with no data and no action', () => {
+    render(panel(hermesBase()))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const pending = [...desk.querySelectorAll<HTMLElement>('[data-agent-desk-pending]')]
+
+    expect(pending.map(row => row.getAttribute('data-agent-desk-pending'))).toEqual(['schedule', 'workspace', 'memory'])
+
+    for (const row of pending) {
+      expect(row.textContent).toContain(en.notYet)
+      expect(within(row).queryByRole('button')).toBeNull()
+    }
+
+    expect(within(desk).getByText(en.upNext)).toBeTruthy()
+    expect(within(desk).getByText(en.onItsComputer)).toBeTruthy()
+    expect(within(desk).getByText(en.memory)).toBeTruthy()
+  })
+
+  it('says the empty rows in Vietnamese', () => {
+    render(panel(hermesBase(), 'vi'))
+    const vi_ = matrixAgentDeskCopy.vi
+    const desk = screen.getByRole('region', { name: vi_.desk('Luna') })
+    expect(within(desk).getAllByText(vi_.notYet)).toHaveLength(3)
   })
 })
