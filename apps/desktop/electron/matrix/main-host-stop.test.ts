@@ -26,8 +26,8 @@ function fixture(host: boolean, answering: boolean, domain = true) {
   return { run, s1Request, requestHostStop, stopCloudTurn }
 }
 describe('main host Stop dispatch', () => {
-  it.each([true, false])('uses account domain grant for Hermes with legacy cloud answering %s', async answering => {
-    const f = fixture(true, answering)
+  it('uses account domain grant for a Hermes cloud agent', async () => {
+    const f = fixture(true, true)
     await f.run(request)
     expect(f.s1Request).toHaveBeenCalledOnce()
     expect(f.requestHostStop).toHaveBeenCalledWith('https://shell.test/api/matrix/v1', 'synthetic-grant', principal, request.roomId, request.eventId, expect.any(AbortSignal), expect.any(Function))
@@ -43,6 +43,6 @@ describe('main host Stop dispatch', () => {
     await expect(fixture(false, false).run(request)).rejects.toThrow('matrix_agent_unavailable')
   })
   it('requires configured domain for host Stop', async () => {
-    await expect(fixture(true, false, false).run(request)).rejects.toThrow('matrix_not_ready')
+    await expect(fixture(true, true, false).run(request)).rejects.toThrow('matrix_not_ready')
   })
 })

@@ -4097,7 +4097,7 @@ async function cloudAgentRequest(request: {
     const agent = requireRoomAgent(request.roomId)
     const principal = cloudPrincipal(agent)
 
-    if (!principal || (!hostRuntimeAgents.has(principal) && !isCloudAgent(agent))) {
+    if (!isCloudAgent(agent) || !principal) {
       throw new Error('matrix_agent_unavailable')
     }
 
