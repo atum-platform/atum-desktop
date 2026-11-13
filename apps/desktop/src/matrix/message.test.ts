@@ -14,7 +14,7 @@ import {
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos'
-import { matrixHideEndedTransientLines } from '../../shared/matrix-transient-lines'
+import { MATRIX_TRANSIENT_REDACTION_REASON, matrixHideEndedTransientLines } from '../../shared/matrix-transient-lines'
 
 import { matrixMessage } from './message'
 
@@ -784,6 +784,33 @@ it('drops metadata from a redacted bot message', () => {
 
   expect(matrixMessage(raw, '@owner:test', new Set())).toMatchObject({ redacted: true })
   expect(matrixMessage(raw, '@owner:test', new Set())?.botApi).toBeUndefined()
+})
+
+it('marks a progress line its sender removed when the turn ended, and no other deletion', () => {
+  const redacted = (id: string, sender: string, because: Record<string, unknown>) =>
+    new MatrixEvent({
+      type: EventType.RoomMessage,
+      room_id: '!room:test',
+      event_id: id,
+      sender: botUser,
+      origin_server_ts: 1,
+      content: {},
+      unsigned: { redacted_because: { type: EventType.RoomRedaction, sender, redacts: id, ...because } } as never
+    })
+
+  const ended = redacted('$working', botUser, { content: { reason: MATRIX_TRANSIENT_REDACTION_REASON } })
+  expect(matrixMessage(ended, '@owner:test', new Set())).toMatchObject({ redacted: true, transientRemoved: true })
+
+  // A real deletion (no reason, another reason, or someone else's redaction) stays a plain deletion.
+  for (const other of [
+    redacted('$a', botUser, { content: {} }),
+    redacted('$b', botUser, { content: { reason: 'spam' } }),
+    redacted('$c', '@moderator:test', { content: { reason: MATRIX_TRANSIENT_REDACTION_REASON } })
+  ]) {
+    const shown = matrixMessage(other, '@owner:test', new Set())
+    expect(shown).toMatchObject({ redacted: true })
+    expect(shown).not.toHaveProperty('transientRemoved')
+  }
 })
 
 describe('company agent progress and interim remarks (agent-turns/1.6)', () => {

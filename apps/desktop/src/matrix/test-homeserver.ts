@@ -238,7 +238,9 @@ export class TestHomeserver {
 
         if (target && Object.keys(target.content as object).length) {
           target.content = {}
-          target.unsigned = { redacted_because: { type: 'm.room.redaction', event_id: id, sender: device.userId } }
+          // The redaction keeps its own content (its `reason`), as a homeserver does.
+          const content = typeof body.reason === 'string' ? { reason: body.reason } : {}
+          target.unsigned = { redacted_because: { type: 'm.room.redaction', event_id: id, sender: device.userId, content } }
           this.room.events[this.room.events.findIndex(entry => entry.event === target)]!.position = this.next()
           this.changed()
         }

@@ -11,6 +11,7 @@ import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
 import { type MatrixDeviceIsolation, matrixLegacyGroupKeys } from '../../shared/matrix-device-isolation'
 import { MATRIX_GOOGLE_PROVENANCE, MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { matrixPetReplyMixin } from '../../shared/matrix-pet-intent'
+import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 import { MATRIX_CRON_KEY, MATRIX_TURN_KEY, matrixTurnId } from '../../shared/matrix-turn'
 
 import { agentTaskRoomBinding, readAgentTaskRoom } from './agent-tasks'
@@ -271,7 +272,10 @@ export async function publishMatrixNotice(
       return command.replaces!
     }
 
-    await client.redactEvent(command.roomId, command.replaces!, matrixRedactionTransaction(command.replaces!))
+    // The reason tells every reader this was a working line that ended, not a real deletion.
+    await client.redactEvent(command.roomId, command.replaces!, matrixRedactionTransaction(command.replaces!), {
+      reason: MATRIX_TRANSIENT_REDACTION_REASON
+    })
 
     return command.replaces!
   }

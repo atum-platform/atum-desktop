@@ -409,6 +409,10 @@ export interface MatrixMessage {
   editedAt?: number
   /** Deleted (a standard redaction): it has no body any more. */
   redacted?: boolean
+  /** With `redacted`: its own sender removed it with the agent-turns removal reason
+   * (`MATRIX_TRANSIENT_REDACTION_REASON`), so it was a working line whose turn ended, not a real
+   * deletion. It shows nothing, not a "deleted" tombstone (`matrixHideEndedTransientLines`). */
+  transientRemoved?: true
   /** Standard `m.annotation` reactions, most used first. */
   reactions?: MatrixReaction[]
   /** Sent inside a standard Matrix thread; shown only in its thread panel. */
