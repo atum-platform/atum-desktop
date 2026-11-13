@@ -1,5 +1,7 @@
 """Tests for gateway runtime status tracking."""
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import sys
@@ -71,7 +73,7 @@ class TestGatewayPidState:
         pid_path = tmp_path / "gateway.pid"
 
         def _write_record(pid: int, start_time: int) -> None:
-            record = {
+            record = {**current_owner_fields(pid),
                 "pid": pid,
                 "kind": "hermes-gateway",
                 "argv": ["python", "-m", "hermes_cli.main", "gateway"],
@@ -104,7 +106,7 @@ class TestGatewayPidState:
     def test_get_running_pid_falls_back_to_live_lock_record(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         pid_path = tmp_path / "gateway.pid"
-        pid_path.write_text(json.dumps({
+        pid_path.write_text(json.dumps({**current_owner_fields(99999),
             "pid": 99999,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway"],
@@ -116,7 +118,7 @@ class TestGatewayPidState:
         monkeypatch.setattr(
             status,
             "_build_pid_record",
-            lambda: {
+            lambda: {**current_owner_fields(os.getpid()),
                 "pid": os.getpid(),
                 "kind": "hermes-gateway",
                 "argv": ["python", "-m", "hermes_cli.main", "gateway"],
@@ -178,7 +180,7 @@ class TestGatewayPidState:
         identity rejection (a matcher lagging a launcher shape) must not unlink the live
         gateway's gateway.pid/gateway.lock (#125610, #123109)."""
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-        record = {
+        record = {**current_owner_fields(4242),
             "pid": 4242, "kind": "hermes-gateway", "start_time": 123,
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "hermes_home": str(tmp_path.resolve()),
@@ -202,7 +204,7 @@ class TestGatewayPidState:
         """A live gateway.pid that names ANOTHER home's gateway is poison inside this home and goes
         on refusal (#89315); the HELD gateway.lock is the holder's and stays (#125610)."""
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-        record = {
+        record = {**current_owner_fields(4242),
             "pid": 4242, "kind": "hermes-gateway", "start_time": 123,
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "hermes_home": str((tmp_path / "other-home").resolve()),
@@ -231,7 +233,7 @@ class TestScopedGatewayPidQuery:
     def _write_scoped_profile(self, tmp_path):
         profile_dir = tmp_path / "profiles" / "wiki"
         profile_dir.mkdir(parents=True)
-        record = {
+        record = {**current_owner_fields(4242),
             "pid": 4242,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "--profile", "wiki"],
@@ -358,7 +360,7 @@ class TestGatewayRuntimeStatus:
 
         # Simulate a previous gateway run that left a state file with a stale PID
         state_path = tmp_path / "gateway_state.json"
-        state_path.write_text(json.dumps({
+        state_path.write_text(json.dumps({**current_owner_fields(99999),
             "pid": 99999,
             "start_time": 1000.0,
             "kind": "hermes-gateway",
@@ -384,7 +386,7 @@ class TestGatewayRuntimeStatus:
         guard does not catch it.  Without the profile scope the live command
         line still ``looks_like_gateway`` and ``coder`` is wrongly reported up.
         """
-        payload = {
+        payload = {**current_owner_fields(139),
             "pid": 139,
             "gateway_state": "running",
             "kind": "hermes-gateway",
@@ -407,7 +409,7 @@ class TestGatewayRuntimeStatus:
     def test_runtime_status_running_pid_accepts_matching_profile_cmdline(self, monkeypatch):
         """A genuinely-live named gateway carries ``-p <profile>`` / ``--profile``
         on its command line and must be reported running for that profile."""
-        payload = {
+        payload = {**current_owner_fields(139),
             "pid": 139,
             "gateway_state": "running",
             "kind": "hermes-gateway",
@@ -787,7 +789,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "telegram-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(99999),
             "pid": 99999,
             "start_time": 123,
             "kind": "hermes-gateway",
@@ -814,7 +816,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "telegram-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(873),
             "pid": 873,
             "start_time": None,
             "kind": "hermes-gateway",
@@ -851,7 +853,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "discord-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(os.getpid()),
             "pid": os.getpid(),
             "start_time": None,
             "kind": "hermes-gateway",
@@ -883,7 +885,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "discord-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(os.getpid()),
             "pid": os.getpid(),
             "start_time": None,
             "kind": "hermes-gateway",
@@ -906,7 +908,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "discord-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(os.getpid()),
             "pid": os.getpid(),
             "start_time": 111,
             "kind": "hermes-gateway",
@@ -934,7 +936,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "telegram-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        stale_record = {
+        stale_record = {**current_owner_fields(99999),
             "pid": 99999,
             "start_time": 123,
             "kind": "hermes-gateway",
@@ -942,7 +944,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps(stale_record))
         monkeypatch.setattr(status, "_pid_exists", lambda pid: False)
 
-        winner_record = {
+        winner_record = {**current_owner_fields(424242),
             "pid": 424242,
             "start_time": 456,
             "kind": "hermes-gateway",
@@ -973,7 +975,7 @@ class TestScopedLocks:
         monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
         lock_path = tmp_path / "locks" / "telegram-bot-token-2bb80d537b1da3e3.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock_path.write_text(json.dumps({
+        lock_path.write_text(json.dumps({**current_owner_fields(99999),
             "pid": 99999,
             "start_time": 123,
             "kind": "hermes-gateway",
@@ -997,12 +999,12 @@ class TestScopedLocks:
 
         target_lock = lock_dir / "telegram-bot-token-target.lock"
         other_lock = lock_dir / "slack-app-token-other.lock"
-        target_lock.write_text(json.dumps({
+        target_lock.write_text(json.dumps({**current_owner_fields(111),
             "pid": 111,
             "start_time": 222,
             "kind": "hermes-gateway",
         }))
-        other_lock.write_text(json.dumps({
+        other_lock.write_text(json.dumps({**current_owner_fields(999),
             "pid": 999,
             "start_time": 333,
             "kind": "hermes-gateway",
@@ -1098,7 +1100,7 @@ class TestScopedLockOwnerLabel:
 
     def test_owner_label_falls_back_to_hermes_home(self):
         # Locks written before the profile field existed still attribute.
-        record = {"pid": 559, "hermes_home": "/opt/data/profiles/zerocool"}
+        record = {**current_owner_fields(559), "pid": 559, "hermes_home": "/opt/data/profiles/zerocool"}
         assert status.scoped_lock_owner_label(record) == "zerocool"
 
     def test_owner_label_none_for_legacy_and_malformed_records(self):
@@ -1183,7 +1185,7 @@ class TestTakeoverMarker:
         from datetime import datetime, timezone
         # Marker names OUR pid + start_time (the coincidental match the bug
         # relied on) but was written by a gateway in a different profile.
-        marker_path.write_text(json.dumps({
+        marker_path.write_text(json.dumps({**current_owner_fields(),
             "target_pid": os.getpid(),
             "target_start_time": 100,
             "replacer_pid": 99999,
@@ -1206,7 +1208,7 @@ class TestTakeoverMarker:
         monkeypatch.setattr(status, "_get_process_start_time", lambda pid: 100)
         marker_path = tmp_path / ".gateway-takeover.json"
         from datetime import datetime, timezone
-        marker_path.write_text(json.dumps({
+        marker_path.write_text(json.dumps({**current_owner_fields(),
             "target_pid": os.getpid(),
             "target_start_time": 100,
             "replacer_pid": 99999,
@@ -1225,7 +1227,7 @@ class TestScopedLockTakeover:
     @staticmethod
     def _owner_record(target_home: Path, *, pid: int = 4242, start_time: int = 123):
         target_home.mkdir(parents=True, exist_ok=True)
-        record = {
+        record = {**current_owner_fields(pid),
             "pid": pid,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -1750,7 +1752,7 @@ def test_strict_gateway_identity_raises_on_malformed_active_metadata(
 def test_strict_gateway_identity_rejects_reused_pid(tmp_path, monkeypatch):
     pid_path = tmp_path / "gateway.pid"
     lock_path = tmp_path / "gateway.lock"
-    record = {"pid": 123, "start_time": 10.0, "kind": "hermes-gateway"}
+    record = {**current_owner_fields(123), "pid": 123, "start_time": 10.0, "kind": "hermes-gateway"}
     pid_path.write_text(json.dumps(record), encoding="utf-8")
     lock_path.write_text(json.dumps(record), encoding="utf-8")
     monkeypatch.setattr(status, "_get_gateway_lock_path", lambda _path=None: lock_path)
@@ -1768,7 +1770,7 @@ def test_strict_gateway_identity_adopts_held_lock_when_pid_file_is_gone(tmp_path
     gateway.pid, and raising there aborted every following `hermes update` (#123430)."""
     pid_path = tmp_path / "gateway.pid"
     lock_path = tmp_path / "gateway.lock"
-    record = {"pid": 123, "start_time": 10.0, "kind": "hermes-gateway",
+    record = {**current_owner_fields(123), "pid": 123, "start_time": 10.0, "kind": "hermes-gateway",
               "argv": ["python", "-m", "hermes_cli.main", "gateway", "run", "--replace"]}
     lock_path.write_text(json.dumps(record), encoding="utf-8")
     monkeypatch.setattr(status, "_get_gateway_lock_path", lambda _path=None: lock_path)

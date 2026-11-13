@@ -2563,6 +2563,7 @@ dev = [
 test = [
     { name = "anthropic" },
     { name = "distlib", marker = "sys_platform == 'win32'" },
+    { name = "mautrix" },
 ]
 
 [package.metadata]
@@ -2748,6 +2749,7 @@ dev = [
 test = [
     { name = "anthropic", specifier = "==0.87.0" },
     { name = "distlib", marker = "sys_platform == 'win32'", specifier = "==0.4.3" },
+    { name = "mautrix", specifier = "==0.21.1" },
 ]
 
 [[package]]

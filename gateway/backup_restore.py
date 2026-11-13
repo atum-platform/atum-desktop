@@ -112,7 +112,7 @@ def restore_generation(manifest_path, generation, target):
     from hermes_cli.archive_safe import normalize_archive_parts
     import zipfile
     manifest_path = Path(manifest_path).resolve(strict=True)
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get('version') != 1 or manifest.get('generation') != generation or not manifest.get('timestamp'):
         raise ValueError('Incomplete or wrong-generation manifest')
     archives = manifest.get('archives', {})

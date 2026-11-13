@@ -1,3 +1,5 @@
+
+from tests.runtime_identity import current_owner_fields
 import pytest
 from unittest.mock import AsyncMock
 
@@ -186,7 +188,7 @@ async def test_start_gateway_replace_aborts_when_force_killed_pid_still_alive(
     # persisted record is bound to target pid 42 in this home.
     monkeypatch.setattr(
         "gateway.status._read_pid_record",
-        lambda path=None: {
+        lambda path=None: {**current_owner_fields(42),
             "pid": 42,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -242,7 +244,7 @@ async def test_start_gateway_replace_writes_takeover_marker_before_sigterm(
         )
         # Actually write the marker so we can verify cleanup later
         from gateway.status import _get_takeover_marker_path, _write_json_file
-        _write_json_file(_get_takeover_marker_path(), {
+        _write_json_file(_get_takeover_marker_path(), {**current_owner_fields(),
             "target_pid": target_pid,
             "target_start_time": 0,
             "replacer_pid": 100,
@@ -288,7 +290,7 @@ async def test_start_gateway_replace_writes_takeover_marker_before_sigterm(
     # convention; the live probe is patched to agree.
     monkeypatch.setattr(
         "gateway.status._read_pid_record",
-        lambda path=None: {
+        lambda path=None: {**current_owner_fields(42),
             "pid": 42,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -339,7 +341,7 @@ async def test_start_gateway_replace_clears_marker_on_permission_denied(
 
     def write_marker(target_pid: int) -> bool:
         from gateway.status import _get_takeover_marker_path, _write_json_file
-        _write_json_file(_get_takeover_marker_path(), {
+        _write_json_file(_get_takeover_marker_path(), {**current_owner_fields(),
             "target_pid": target_pid,
             "target_start_time": 0,
             "replacer_pid": 100,
@@ -355,7 +357,7 @@ async def test_start_gateway_replace_clears_marker_on_permission_denied(
     # actually reaches the SIGTERM (and its EPERM) instead of refusing on unprovable ownership.
     monkeypatch.setattr(
         "gateway.status._read_pid_record",
-        lambda path=None: {
+        lambda path=None: {**current_owner_fields(42),
             "pid": 42,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -567,7 +569,7 @@ async def test_live_foreign_token_lock_at_startup_exits_ex_config(monkeypatch, t
         "gateway.status.acquire_scoped_lock",
         lambda scope, identity, metadata=None: (
             False,
-            {"pid": 424242, "start_time": 1, "hermes_home": "/other/home", "profile": "other"},
+            {**current_owner_fields(424242), "pid": 424242, "start_time": 1, "hermes_home": "/other/home", "profile": "other"},
         ),
     )
     config = GatewayConfig(
@@ -600,7 +602,7 @@ async def test_token_lock_plus_retryable_peer_stays_alive(monkeypatch, tmp_path)
     monkeypatch.setenv("HERMES_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
     monkeypatch.setattr(
         "gateway.status.acquire_scoped_lock",
-        lambda scope, identity, metadata=None: (False, {"pid": 424242, "start_time": 1}),
+        lambda scope, identity, metadata=None: (False, {**current_owner_fields(424242), "pid": 424242, "start_time": 1}),
     )
     config = GatewayConfig(
         platforms={

@@ -188,7 +188,7 @@ async def test_poison_reclaim_path_stops_before_fourth_model_turn(tmp_path, monk
     db = SessionDB(db_path=tmp_path/'state.db')
     db.create_session('s', 'matrix')
     epoch = begin_runtime_epoch(db, instance_id='first')
-    row = admit_session_input(db, epoch=epoch, principal_id='messaging:test', session_id='s',
+    admit_session_input(db, epoch=epoch, principal_id='messaging:test', session_id='s',
                              request_id='$poison', payload={'native_text_v1': {}, 'text':'safe read'})
     claim_session_input(db, epoch=epoch, session_id='s')
     authority = SimpleNamespace(db=db, runner=SimpleNamespace(

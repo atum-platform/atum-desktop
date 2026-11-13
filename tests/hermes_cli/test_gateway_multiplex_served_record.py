@@ -10,6 +10,8 @@
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import argparse
 import contextlib
 import io
@@ -26,9 +28,9 @@ def served_root(tmp_path, monkeypatch):
         (root / "profiles" / name).mkdir(parents=True)
         (root / "profiles" / name / "config.yaml").write_text("{}\n")  # identity marker
     (root / "config.yaml").write_text("model: {default: x}\n")  # NO multiplex flag: env-only opt-in
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
     (root / "gateway_state.json").write_text(json.dumps(
-        {"pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
+        {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
          "served_profiles": ["default", "coder"]}))
     monkeypatch.setenv("HERMES_HOME", str(root / "profiles" / "coder"))
     monkeypatch.delenv("GATEWAY_MULTIPLEX_PROFILES", raising=False)
@@ -59,7 +61,7 @@ def test_probe_trusts_live_record_over_cli_side_config(served_root):
 def test_probe_falls_back_to_config_only_without_recorded_key(served_root):
     from hermes_cli.gateway import named_profile_served_by_running_multiplexer
     (served_root / "gateway_state.json").write_text(json.dumps(
-        {"pid": os.getpid(), "hermes_home": str(served_root), "gateway_state": "running"}))
+        {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(served_root), "gateway_state": "running"}))
     assert named_profile_served_by_running_multiplexer("coder") is False
     (served_root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n")
     assert named_profile_served_by_running_multiplexer("coder") is True
@@ -142,7 +144,7 @@ def test_recycled_pid_does_not_lend_a_stale_record_its_served_profiles(served_ro
     try:
         stale_start = (status._get_process_start_time(child.pid) or 10**9) - 4242
         for name in ("gateway.pid", "gateway_state.json"):
-            (served_root / name).write_text(json.dumps({
+            (served_root / name).write_text(json.dumps({**current_owner_fields(child.pid),
                 "pid": child.pid, "hermes_home": str(served_root), "gateway_state": "running",
                 "start_time": stale_start, "served_profiles": ["default", "coder"]}))
         assert live_default_gateway_pid() is None
@@ -221,7 +223,7 @@ def test_dashboard_liveness_ladder_reports_served_profile_running(served_root):
     profile has no gateway.pid/gateway_state.json, so without the multiplexer rung the dashboard said
     "stopped" while `hermes -p X status` said running. Alpha's `<X>:<platform>` entries project as its own."""
     from gateway.status import profile_platforms_from_multiplexer, resolve_gateway_liveness
-    (served_root / "gateway_state.json").write_text(json.dumps({
+    (served_root / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "hermes_home": str(served_root), "gateway_state": "running",
         "served_profiles": ["default", "coder"],
         "platforms": {"api_server": {"state": "connected"}, "coder:telegram": {"state": "connected"}}}))

@@ -58,7 +58,6 @@ async def test_native_connect_pending_and_downtime(tmp_path):
         async with a.admission_presentation_scope(event, a._event_session_key(event), event.message_id):
             answered.append(event.message_id)
             await p._current.get().end()
-        return None
     a._message_handler = handler
     async def dispatch(data):
         for raw in data['rooms']['join']['!room:example.org']['timeline']['events']:

@@ -14,7 +14,7 @@ from tests.agent.test_run_agent import _mock_response
 
 @pytest.fixture
 def policy(monkeypatch, tmp_path):
-    import hermes_cli.plugins as plugins
+    from hermes_cli import plugins
     manager = PluginManager(scope_key=str(tmp_path))
     manager._discovered = True
     manifest = PluginManifest(name='binding-policy', key='binding-policy')

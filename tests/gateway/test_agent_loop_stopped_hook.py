@@ -74,6 +74,8 @@ async def test_interrupt_fires_agent_loop_stopped_hook(mock_invoke_hook):
     running_agent.interrupt.assert_called_once_with("user_stop")
     mock_invoke_hook.assert_any_call(
         "agent_loop_stopped",
+        source_event_id=None,
+        admission_id=None,
         session_key=session_key,
         platform="telegram",
         reason="user_stop",

@@ -13,6 +13,8 @@ under test â€” ownership, the plan's topology verdict, what the apply signals â€
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 from pathlib import Path
@@ -47,20 +49,20 @@ def converged_host(tmp_path, monkeypatch):
     pid = os.getpid()
     # What a live multiplexer leaves on disk: its own pid file + runtime record in the launch
     # home, and a runtime record stamped into EVERY served profile's home.
-    (root / "gateway.pid").write_text(json.dumps({"pid": pid, "hermes_home": str(root)}))
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(pid), "pid": pid, "hermes_home": str(root)}))
     (root / "gateway_state.json").write_text(json.dumps(
-        {"pid": pid, "hermes_home": str(root), "gateway_state": "running", "served_profiles": served}))
+        {**current_owner_fields(pid), "pid": pid, "hermes_home": str(root), "gateway_state": "running", "served_profiles": served}))
     for name in ("coder", "ops"):
         home = root / "profiles" / name
         (home / "gateway_state.json").write_text(json.dumps(
-            {"pid": pid, "hermes_home": str(home), "gateway_state": "running"}))
+            {**current_owner_fields(pid), "pid": pid, "hermes_home": str(home), "gateway_state": "running"}))
 
     from gateway import status
     from gateway import host_attach, host_rendezvous as hr
     monkeypatch.setattr(status, "_read_process_cmdline", lambda p: "hermes gateway run")
     # The WIRE only: the owner's control socket answer. Everything that reads it is real.
     monkeypatch.setattr("gateway.control_socket.identify_gateway",
-                        lambda home: {"pid": pid, "hermes_home": str(root), "served_profiles": served})
+                        lambda home: {**current_owner_fields(pid), "pid": pid, "hermes_home": str(root), "served_profiles": served})
     # A live owner holds the host lock for its lifetime (run.py claims before it publishes).
     assert hr.claim_host_lock(hr.ROLE_GATEWAY)[0] is hr.HostLockOutcome.ACQUIRED
     hr.publish_record(hr.ROLE_GATEWAY, profiles=tuple(served), home=str(root))

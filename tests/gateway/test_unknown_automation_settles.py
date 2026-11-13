@@ -42,6 +42,7 @@ def _runner(tmp_path, monkeypatch, executed):
 
     runner = SimpleNamespace(_session_db=store._db, session_store=store, _draining=False,
                              _handle_message=answer, _adapter_for_source=lambda source: None)
+    runner._delivery_adapter_for = runner._adapter_for_source
     return store, runner
 
 
@@ -184,7 +185,7 @@ async def test_messaging_pause_notice_names_discard_and_discard_resumes_the_fifo
     store, authority, head_id, _follower_id = await _lost_head_then_restart(tmp_path, monkeypatch, executed, _person_head)
     try:
         notice = pause_notice(authority, SessionRef('p', 's'), 'unknown_execution')
-        assert '/discard' in notice and 'restarted' in notice, notice
+        assert '/discard' in notice and 'stopped partway' in notice, notice
         reply = await discard_lost_turns(authority, 's')
         assert '1' in reply and 'discard' in reply.lower(), reply
         live = authority.sessions['s']

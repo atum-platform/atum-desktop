@@ -1,6 +1,6 @@
 """Offline contracts separating transport health from conversation recovery."""
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 import pytest
@@ -70,12 +70,12 @@ async def test_connected_cannot_clear_pause_alert(tmp_path, monkeypatch):
 @pytest.mark.parametrize('seconds,seq,expected', [(30,None,True), (-30,11,True), (-30,9,False), (600,11,False), (0,11,False)])
 def test_ask_skew_and_admission_fence(tmp_path, seconds, seq, expected):
     from gateway.resume_policy import pending_resume_policy
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     entry = SimpleNamespace(session_key='s', resume_ask={'token':'token', 'actions':['write'], 'created_at':now.isoformat(), 'admission_seq':10})
     class Store:
         def _update_entry(self, key, update): update(entry)
         def clear_resume_pending(self, key): pass
-    stamp = datetime.fromtimestamp(0, timezone.utc) if seconds == 0 else now + timedelta(seconds=seconds)
+    stamp = datetime.fromtimestamp(0, UTC) if seconds == 0 else now + timedelta(seconds=seconds)
     kwargs = {'message_admission_seq': seq} if seq is not None else {}
     result = pending_resume_policy(Store(), entry, None, 'yes', can_resolve=True, message_timestamp=stamp.isoformat(), **kwargs)
     assert (result is None) is expected
@@ -105,7 +105,7 @@ async def test_boot_scan_only_latest_old_epoch_failure(tmp_path, monkeypatch):
     claimed = claim_session_input(db, epoch=epoch, session_id='old_failure')
     settle_session_input(db, epoch=epoch, admission_id=row['admission_id'], generation=claimed['generation'], outcome='completed')
     # The scan must exclude current-epoch failed rows and obsolete failures before binding.
-    rows = db._read_all("SELECT * FROM session_admissions WHERE target_session_id='current'")
+    db._read_all("SELECT * FROM session_admissions WHERE target_session_id='current'")
     current_epoch = begin_runtime_epoch(db, instance_id='second')
     db._conn.execute("UPDATE session_admissions SET owner_epoch=? WHERE target_session_id='current'", (current_epoch,))
     db._conn.commit()
@@ -153,7 +153,7 @@ def test_ask_captures_real_admission_fence(tmp_path, monkeypatch):
     before = admit_session_input(store._db, epoch=epoch, principal_id='p', session_id=entry.session_id, request_id='before', payload={'text':'yes'})
     pending_resume_policy(store, entry, ResumePolicy(True, ('write',), frozenset()), '', can_resolve=False)
     after = admit_session_input(store._db, epoch=epoch, principal_id='p', session_id=entry.session_id, request_id='after', payload={'text':'yes'})
-    skewed = (datetime.now(timezone.utc)-timedelta(seconds=30)).isoformat()
+    skewed = (datetime.now(UTC)-timedelta(seconds=30)).isoformat()
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=before['seq']).ask
     assert pending_resume_policy(store, entry, None, 'yes', can_resolve=True, message_timestamp=skewed, message_admission_seq=after['seq']) is None
     store._db.close()

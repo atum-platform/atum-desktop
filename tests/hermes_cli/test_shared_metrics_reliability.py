@@ -3,6 +3,8 @@ hermes.process.exit from per-process markers and turn watchdogs."""
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import subprocess
@@ -122,13 +124,13 @@ def test_dead_markers_report_killed_or_crash_and_live_ones_wait(marks):
     directory.mkdir(parents=True)
     dead = _dead_pid()
     killed = directory / f"cli-{dead}.json"
-    killed.write_text(json.dumps({"kind": "cli", "pid": dead, "start_time": None, "state": "running"}))
+    killed.write_text(json.dumps({**current_owner_fields(dead), "kind": "cli", "pid": dead, "start_time": None, "state": "running"}))
     crashed = directory / "tui-2.json"
-    crashed.write_text(json.dumps({
+    crashed.write_text(json.dumps({**current_owner_fields(_dead_pid()),
         "kind": "tui", "pid": _dead_pid(), "start_time": None, "state": "crash", "crash_class": "import_error"}))
     parent = os.getppid()
     live = directory / f"gateway-{parent}.json"
-    live.write_text(json.dumps({
+    live.write_text(json.dumps({**current_owner_fields(parent),
         "kind": "gateway", "pid": parent, "start_time": get_process_start_time(parent), "state": "running"}))
 
     process_metrics._report_dead_markers(marks.home, directory / "self.json")
@@ -176,7 +178,7 @@ def test_opted_out_start_purges_markers_left_while_opted_in(marks, monkeypatch):
             marks.home / "telemetry" / "shared_metrics" / "desktop_onboarding" / "provider.completed"]  # CLI opt-out
     for marker in left:
         marker.parent.mkdir(parents=True)
-        marker.write_text(json.dumps({"pid": 1, "started_at": 0, "surface": "tui", "provider": "xai", "state": "running"}))
+        marker.write_text(json.dumps({**current_owner_fields(1), "pid": 1, "started_at": 0, "surface": "tui", "provider": "xai", "state": "running"}))
     monkeypatch.setattr(process_metrics, "_STATE", {})
     marks.policy["on"] = False
     process_metrics.begin_process("cli")
@@ -240,7 +242,7 @@ def test_a_marker_the_store_did_not_save_is_kept_for_the_next_start(marks):
     directory = process_metrics.markers_dir(marks.home)
     directory.mkdir(parents=True)
     marker = directory / "gateway-2.json"
-    marker.write_text(json.dumps({"kind": "gateway", "pid": _dead_pid(), "start_time": None, "state": "clean"}))
+    marker.write_text(json.dumps({**current_owner_fields(_dead_pid()), "kind": "gateway", "pid": _dead_pid(), "start_time": None, "state": "clean"}))
     marks.store["saves"] = False  # "database is locked"
     process_metrics._report_dead_markers(marks.home, directory / "self.json")
     assert marker.exists() and marks.rows == []

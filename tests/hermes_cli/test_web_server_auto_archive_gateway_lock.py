@@ -14,6 +14,8 @@ import subprocess
 import sys
 import time
 
+from tests.runtime_identity import current_owner_fields
+import json
 import pytest
 
 from hermes_cli.profiles import _check_gateway_running
@@ -81,7 +83,7 @@ def test_serve_auto_archive_defers_to_a_live_gateway_for_the_profile(archive_pro
     assert stdout is not None
     try:
         assert stdout.readline().strip() == "locked"
-        (tmp_path / "gateway.pid").write_text(str(holder.pid), encoding="utf-8")
+        (tmp_path / "gateway.pid").write_text(json.dumps({**current_owner_fields(holder.pid), "pid": holder.pid}), encoding="utf-8")
         assert _check_gateway_running(tmp_path), "probe did not look like a live gateway"
 
         wss._maybe_auto_archive_for_profile(None)

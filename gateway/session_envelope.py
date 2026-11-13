@@ -7,7 +7,7 @@ Relay snapshots bind the authenticated connector and exact source; replay rechec
 import asyncio
 from copy import copy, deepcopy
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 import json
 import logging
 
@@ -280,6 +280,10 @@ def restore_native(payload, runner=None):
     envelope = payload['native_text_v1']
     source = restore_native_source(payload, runner)
     timestamp = datetime.fromisoformat(envelope.get('timestamp') or '1970-01-01T00:00:00+00:00')
+    # Zero is a provider retry sentinel, not the time this turn occurred.
+    # Preserve it in the durable envelope/fingerprint; normalize only execution.
+    if timestamp.timestamp() == 0:
+        timestamp = datetime.now(UTC)
     event = MessageEvent(text=payload['text'], source=source, timestamp=timestamp,
                         message_type=MessageType(envelope.get('message_type', 'text')),
                         media_urls=restore_native_media(envelope.get('media', [])),

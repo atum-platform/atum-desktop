@@ -586,6 +586,7 @@ dev = [
 # environment, not the core runtime. Keep the Anthropic SDK at the same
 # reviewed version as the optional runtime extra above.
 test = [
+  "mautrix==0.21.1",
   "distlib==0.4.3; sys_platform == 'win32'",
   "anthropic==0.87.0",
 ]

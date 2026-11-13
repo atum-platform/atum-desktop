@@ -26,7 +26,7 @@ s = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.db')
 s.accept({'next_batch': 'new', 'rooms': {}})
 s.close()
 '''
-    first = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
+    first = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=False)
     assert first.returncode == 86, first.stderr
     from plugins.platforms.matrix.intake import MatrixIntakeStore
     s = MatrixIntakeStore(tmp_path / 'intake.db')
@@ -40,11 +40,11 @@ def test_real_gateway_hook_restart(tmp_path, point, hook, effects):
     env = environment(tmp_path, point)
     peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
     first = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
-                           capture_output=True, text=True, timeout=80)
+                           capture_output=True, text=True, timeout=80, check=False)
     assert first.returncode == 86, first.stdout + first.stderr
     assert (tmp_path / 'fired').exists()
     second = subprocess.run([sys.executable, str(peer), 'resume', hook], env=env,
-                            capture_output=True, text=True, timeout=80)
+                            capture_output=True, text=True, timeout=80, check=False)
     assert second.returncode == 0, second.stdout + second.stderr
     counter = tmp_path / 'pending-count'
     if point != 'H4':
@@ -62,10 +62,10 @@ from gateway.delivery_ledger import record_obligation
 record_obligation(obligation_id='test', session_key='s', platform='matrix',
                   chat_id='room', thread_id=None, content='reply', source_event_id='$source')
 '''
-    first = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
+    first = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=False)
     assert first.returncode == (86 if point == 'H8' else 1), first.stderr
     assert (tmp_path / 'fired').exists()
-    second = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
+    second = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=False)
     assert second.returncode == 0, second.stderr
 
 @pytest.mark.parametrize('point,count', [('H9',1), ('H10',5)])
@@ -103,7 +103,7 @@ async def main():
 asyncio.run(main())
 '''
     for expected in (86, 0):
-        result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True)
+        result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, check=False)
         assert result.returncode == expected, result.stdout + result.stderr
     import sqlite3
     with sqlite3.connect(tmp_path / 'transport.db') as db:
@@ -184,7 +184,7 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     env = environment(tmp_path, 'H7')
     peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
     result = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
-                            capture_output=True, text=True, timeout=80)
+                            capture_output=True, text=True, timeout=80, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert (tmp_path / 'fired').exists()
     assert not (tmp_path / 'done-count').exists()
@@ -192,7 +192,7 @@ def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
     assert 'injected persistence failure: H7' in (tmp_path / 'logs/errors.log').read_text()
 
     second = subprocess.run([sys.executable, str(peer), 'resume', hook], env=env,
-                            capture_output=True, text=True, timeout=80)
+                            capture_output=True, text=True, timeout=80, check=False)
     assert second.returncode == 0, second.stdout + second.stderr
     import json
     verdict = json.loads((tmp_path / 'verdict.json').read_text())
@@ -218,7 +218,7 @@ def test_completed_side_effect_final_crash_never_reexecutes_or_asks(tmp_path, po
     peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
     for mode, expected in [('crash', 86), ('recover', 0)]:
         result = subprocess.run([sys.executable, str(peer), mode, 'completed_final'], env=env,
-            capture_output=True, text=True, timeout=100)
+            capture_output=True, text=True, timeout=100, check=False)
         assert result.returncode == expected, result.stdout + result.stderr
         if mode == 'crash':
             import json

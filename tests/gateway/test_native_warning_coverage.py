@@ -38,7 +38,7 @@ async def test_matrix_download_diagnostic_not_caption_is_suppressed(policy, capt
     adapter = MatrixAdapter(PlatformConfig())
     frames = []
 
-    async def record(room, event_type, content):
+    async def record(room, event_type, content, *, txn_id=None):
         frames.append(content)
         return "$sent"
 
