@@ -22,6 +22,7 @@ import {
   matrixAgentDeskSentFiles,
   matrixAgentDeskSteers
 } from './agent-desk-model'
+import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixWorkbench } from './workbench'
 
 const en = matrixAgentDeskCopy.en
@@ -250,10 +251,11 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'atumDevice')
 })
 
-function panel(snapshot: MatrixSnapshot, locale: Locale = 'en') {
+function panel(snapshot: MatrixSnapshot, locale: Locale = 'en', deskRequest?: number) {
   return (
     <I18nProvider configClient={null} initialLocale={locale}>
       <MatrixWorkbench
+        deskRequest={deskRequest}
         compact={false}
         expanded={false}
         hidden={false}
@@ -596,5 +598,33 @@ describe('the agent tab on native Hermes in the cloud', () => {
     const vi_ = matrixAgentDeskCopy.vi
     const desk = screen.getByRole('region', { name: vi_.desk('Luna') })
     expect(within(desk).getAllByText(vi_.notYet)).toHaveLength(3)
+  })
+})
+
+/** Owner 11-11: no auto-open; the chat's working line gets a Watch button that opens the desk. */
+describe('Watch', () => {
+  it('the working line offers Watch only when the chat can open the desk, and Watch asks for it', () => {
+    const onWatch = vi.fn()
+    const line = progressLine('Reading…')
+
+    const { rerender } = render(
+      <MatrixAgentWorking id={LUNA} label="Luna is working" line={line} name="Luna" onWatch={onWatch} typing watchLabel={en.watch} />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: en.watch }))
+    expect(onWatch).toHaveBeenCalledTimes(1)
+
+    rerender(<MatrixAgentWorking id={LUNA} label="Luna is working" line={line} name="Luna" typing />)
+    expect(screen.queryByRole('button', { name: en.watch })).toBeNull()
+  })
+
+  it('a desk request brings the agent’s tab back to the front', () => {
+    const { rerender } = render(panel(base()))
+    fireEvent.click(screen.getByRole('button', { name: 'Open a new workspace tab' }))
+    expect(screen.getAllByRole('tab')[0]?.getAttribute('aria-selected')).toBe('false')
+
+    rerender(panel(base(), 'en', 1))
+    expect(screen.getAllByRole('tab')[0]?.getAttribute('aria-selected')).toBe('true')
+    expect(screen.getByRole('region', { name: en.desk('Luna') })).toBeTruthy()
   })
 })
