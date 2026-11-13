@@ -1741,6 +1741,12 @@ DEFAULT_CONFIG = {
         # Wall-clock cap (seconds) for one in-process Python plugin hook callback; shell hooks keep
         # their own per-entry `timeout`. 0 = no cap (sync call on agent thread). Max 600.
         "hook_callback_timeout": 30,
+        # Host policy IDs, pinned through administrator-owned managed config.
+        # Missing, disabled or failed plugins deny every turn.
+        "required_admission": [],
+        # Strict admission always has a finite positive deadline (seconds, max 600).
+        # Zero is invalid when policy is configured, never an unlimited deadline.
+        "admission_timeout": 30,
         # Deadline (seconds) for one plugin's import + register() at load. A plugin that overruns it is
         # skipped with the reason "load timed out" and the rest keep loading; the stuck worker thread is
         # abandoned. 0 = no deadline (load inline). Max 600.

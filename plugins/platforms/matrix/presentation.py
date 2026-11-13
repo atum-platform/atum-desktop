@@ -82,7 +82,16 @@ class Outbox:
             if column not in {row[1] for row in self.db.execute('PRAGMA table_info(effects)')}:
                 self.db.execute(f'ALTER TABLE effects ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0')
         self.db.execute('CREATE INDEX IF NOT EXISTS effects_target ON effects(target)')
+        self.db.execute('CREATE TABLE IF NOT EXISTS stops (room TEXT, source TEXT, sender TEXT, PRIMARY KEY(room, source, sender))')
         self.db.commit()
+
+    def cancel(self, room, source, sender):
+        with self.db:
+            self.db.execute('INSERT OR IGNORE INTO stops VALUES (?,?,?)', (room, source, sender))
+
+    def cancelled(self, room, source, sender):
+        return self.db.execute('SELECT 1 FROM stops WHERE room=? AND source=? AND sender=?',
+                               (room, source, sender)).fetchone() is not None
 
     def collect(self, now=None):
         # Keep unresolved effects and live originals indefinitely. Completed receipts
@@ -400,10 +409,27 @@ def adapter_class(base):
             finally:
                 _current.reset(token)
 
+        def _cancelled_before_execution(self, event):
+            if not self._presentation_box.cancelled(event.source.chat_id, event.message_id, event.source.user_id):
+                return False
+            from gateway.session_results import execution_result
+            captured = execution_result.get()
+            if captured is not None:
+                captured['result'] = {'interrupted': True, 'final_response': '', 'messages': []}
+            return True
+
         async def run_admission_presentation(self, event, session_key, admission_id, execute):
+            ready = getattr(self, '_presentation_ready', None)
+            if ready is not None:
+                await ready.wait()
+            if self._cancelled_before_execution(event):
+                return None
             response = None
             async with self.admission_presentation_scope(event, session_key, admission_id):
                 try:
+                    # Root publication can yield while waking. Stop must win that gap too.
+                    if self._cancelled_before_execution(event):
+                        return None
                     response = await execute(event)
                     return response
                 finally:
@@ -513,8 +539,14 @@ def adapter_class(base):
             if authenticated is not True:
                 return False
             entry = self._presentation_turns.get((room, source))
-            if not entry or entry[0].sender != sender:
+            if entry and entry[0].sender != sender:
                 return False
+            box = getattr(self, '_presentation_box', None) or (entry[0].box if entry else None)
+            if box is None:
+                return False
+            box.cancel(room, source, sender)
+            if not entry:
+                return True
             turn, key, origin = entry
             async with turn.delivery_lock:
                 if turn.stopped:

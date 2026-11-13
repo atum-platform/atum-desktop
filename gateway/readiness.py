@@ -132,13 +132,17 @@ def _recovery_health(runtime, home):
 def collect_runtime_readiness(
     *, configured_model: str, runtime_status: dict[str, Any] | None, active_api_runs: int = 0,
     process_completion_queue_depth: int = 0, active_delegations: int = 0,
+    open_operations: int | None = None,
 ) -> dict[str, Any]:
     """Bounded readiness diagnostics, no runtime mutation.  Even authenticated, probes
     expose status and counts only: never config values, credentials, paths, payloads."""
     home = get_hermes_home()
     runtime = runtime_status if isinstance(runtime_status, dict) else {}
     state_db_probe = _probe_state_db(home)
+    from hermes_cli.turn_admission import admission_readiness
+
     checks = {
+        "turn_admission": admission_readiness(),
         "state_db": state_db_probe,
         "session_store": _probe_session_store(runtime, state_db_probe),
         "config": _probe_config(home),
@@ -168,8 +172,20 @@ def collect_runtime_readiness(
             or any(isinstance(v, dict) and v.get("error_code") == "adapter_unavailable"
                    for v in platforms.values())):
         health["process_healthy"] = False
+    from gateway.control_socket import query_gateway_control
+    import time
+    sleep = dict(idle=False, idle_since=None, observed_at=time.time(),
+                 next_cron_due=None, probes_complete=False)
+    try:
+        reply = query_gateway_control(home, 'sleep-readiness', params={'open_operations': open_operations})
+        if isinstance(reply, dict) and set(sleep) <= reply.keys():
+            sleep = reply
+    except Exception:
+        pass
+    if not health['process_healthy'] or active_api_runs or process_completion_queue_depth or active_delegations:
+        sleep.update(idle=False, idle_since=None)
     return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks,
-            **health}
+            **health, 'sleep': sleep}
 
 
 __all__ = ["collect_runtime_readiness"]

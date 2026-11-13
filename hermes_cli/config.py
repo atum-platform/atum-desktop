@@ -2342,7 +2342,12 @@ def _merge_managed_overlay(expanded: dict[str, Any]) -> tuple[dict[str, Any], An
     if isinstance(managed_normalized.get("model"), str):
         managed_normalized = dict(managed_normalized)
         managed_normalized["model"] = {"default": managed_normalized["model"]}
-    return _deep_merge(expanded, _expand_env_vars(managed_normalized)), managed_config
+    profile_required = (expanded.get("plugins") or {}).get("required_admission")
+    merged = _deep_merge(expanded, _expand_env_vars(managed_normalized))
+    managed_required = (managed_normalized.get("plugins") or {}).get("required_admission")
+    if isinstance(profile_required, list) and isinstance(managed_required, list):
+        merged["plugins"]["required_admission"] = list(dict.fromkeys(profile_required + managed_required))
+    return merged, managed_config
 
 
 def _load_config_cache_hit(path_key: str, cache_sig: Any) -> Optional[dict[str, Any]]:
