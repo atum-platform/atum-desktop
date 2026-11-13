@@ -40,9 +40,9 @@ describe('one Settings state per subscription status', () => {
         'ready',
         'manage'
       ],
-      [{ status: status(macOnly) }, 'cloud_setting_up', 'manage'],
-      [{ status: status(macOnly), cloudSetup: 'working' }, 'cloud_setting_up', 'manage'],
-      [{ status: status(macOnly), cloudSetup: 'failed' }, 'cloud_failed', 'manage']
+      [{ status: status(macOnly) }, 'ready', 'manage'],
+      [{ status: status(macOnly) }, 'ready', 'manage'],
+      [{ status: status(macOnly) }, 'ready', 'manage']
     ]
 
     for (const [input, state, action] of cases) {
@@ -53,13 +53,6 @@ describe('one Settings state per subscription status', () => {
     }
   })
 
-  it('offers the one fix only where the person can fix something', () => {
-    expect(matrixSubscriptionView({ status: status(macOnly), cloudSetup: 'failed' }).fix).toBe('retry_cloud')
-    expect(matrixSubscriptionView({ status: status(macOnly), cloudSetup: 'working' }).fix).toBeUndefined()
-    expect(matrixSubscriptionView({ status: status({ ...macOnly, relay: { state: 'enabled', thisMac: true, revision: 1 } }) }).fix)
-      .toBeUndefined()
-  })
-
   it('reads a plan served by another Mac as ready here, with nothing to set up', () => {
     const view = matrixSubscriptionView({
       status: status({
@@ -68,11 +61,9 @@ describe('one Settings state per subscription status', () => {
         localConnected: false,
         relay: { state: 'enabled', thisMac: false, revision: 2 }
       }),
-      cloudSetup: 'failed'
     })
 
     expect(view).toMatchObject({ state: 'ready', provider: 'openai-codex' })
-    expect(view.fix).toBeUndefined()
   })
 
   it('names the connected plan, and puts a this-Mac ChatGPT first', () => {
@@ -82,13 +73,12 @@ describe('one Settings state per subscription status', () => {
     })
     expect(
       matrixSubscriptionView({ status: status({ id: 'opencode-go', connected: true }, macOnly) })
-    ).toMatchObject({ state: 'cloud_setting_up', provider: 'openai-codex' })
+    ).toMatchObject({ state: 'ready', provider: 'openai-codex' })
   })
 
   it('never reads a quarantined sign-in as connected or as never linked', () => {
     const view = matrixSubscriptionView({
       status: status({ id: 'openai-codex', connected: false, needsSignIn: true }),
-      cloudSetup: 'failed'
     })
 
     expect(view.state).toBe('needs_sign_in')

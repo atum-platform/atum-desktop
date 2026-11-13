@@ -535,15 +535,6 @@ describe('native Matrix app participant custody', () => {
 })
 
 describe('Matrix app resource authority', () => {
-  it('keeps home migration disabled unless a bounded synthetic-agent list is configured', () => {
-    const agent = '00000000-0000-4000-8000-d9f59d29173c'
-    expect(parseMatrixConfig(config).cloudMigrationTestAgents).toBeUndefined()
-    expect(parseMatrixConfig({ ...config, cloudMigrationTestAgents: [agent] }).cloudMigrationTestAgents).toEqual([agent])
-
-    for (const cloudMigrationTestAgents of [true, ['not-a-principal'], [agent, agent], [agent, agent, agent]]) {
-      expect(() => parseMatrixConfig({ ...config, cloudMigrationTestAgents })).toThrow('matrix_configuration_invalid')
-    }
-  })
   it.each([400, 403, 404, 409, 429, 503])(
     'classifies untyped HTTP %i without retrying permanent refusal',
     async status => {

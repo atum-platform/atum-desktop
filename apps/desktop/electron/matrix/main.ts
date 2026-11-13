@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { chmod, mkdir, readdir, stat } from 'node:fs/promises'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -102,13 +102,11 @@ import {
   MATRIX_CHANNELS as channel,
   MATRIX_MAX_FILE_BYTES,
   MATRIX_PLAIN_SENDER_DEVICE,
-  type MatrixAgentHomeView,
   type MatrixAgentServiceStatus,
   type MatrixAgentTurnView,
   type MatrixAgentView,
   type MatrixCloudAccess,
   type MatrixCloudAgentStatus,
-  type MatrixCloudMoveOutcome,
   type MatrixCloudStopOutcome,
   type MatrixCloudTrialAccepted,
   type MatrixCloudTrialOffer,
@@ -184,7 +182,6 @@ import {
   MATRIX_MESSAGE_LINK_IPC,
   type MatrixMessageLinkTarget
 } from '../../shared/matrix-message-link'
-import { matrixModelDisplayName } from '../../shared/matrix-model-display-name'
 import {
   MATRIX_ATUM_PROVIDER,
   MATRIX_CHECK_IN_MODEL_ALIAS,
@@ -194,7 +191,6 @@ import {
   matrixConnectedModelEfforts,
   type MatrixEffort,
   type MatrixModelId,
-  type MatrixModelRoute,
   matrixTurnEffort,
   matrixTurnModel,
   parseMatrixConnectedModel,
@@ -293,7 +289,6 @@ import {
   matrixSubscriptionHostExecutor,
   matrixSubscriptionHostHome,
   matrixSubscriptionPlanSignInGate,
-  matrixSubscriptionsWithChatGptRelay
 } from './account-subscription-flow'
 import {
   forgetSubscriptionChatGpt,
@@ -316,15 +311,8 @@ import {
   type MatrixAgentDefinitionSnapshot
 } from './agent-definition'
 import { markMatrixAgentHosted, matrixAgentHosted, matrixRuntimeHome, reconcileMatrixAgentHome } from './agent-home'
-import { type AgentHomeApp, createAgentHomeApp } from './agent-home-placement/app'
-import { agentAtRest, agentHoldWrites } from './agent-home-placement/at-rest'
 import type { HomeSignedAction, PublicationEnvelope } from './agent-home-placement/contract'
-import { type AgentHomeOwnerMovePreflightV25, placementConnectionSignedBytes } from './agent-home-placement/contract-v25'
 import { fenceFromLease, withOperation } from './agent-home-placement/fence'
-import { handleAgentHomeOwnerRequest } from './agent-home-placement/owner-ipc'
-import type { MacAgentHandle } from './agent-home-placement/runtime-adapter'
-import { waitForAgentSetup } from './agent-home-placement/setup-wait'
-import { homeViewFor, type MacNames, ownerHomeReadFallback, ownerHomeViewFor } from './agent-home-placement/view'
 import {
   markMatrixAgentSoulApplied,
   MATRIX_AGENT_CREATIONS,
@@ -362,8 +350,6 @@ import {
 } from './agent-routing'
 import {
   MATRIX_AGENT_SCOPES,
-  matrixAgentAtRest,
-  matrixAgentQuiet,
   MatrixAgentRuntime,
   matrixAgentScope,
   matrixBackendRestartable,
@@ -381,7 +367,6 @@ import {
 import { MatrixAgentTaskControls } from './agent-task-controls'
 import { hasStoredMatrixAgentTaskOutcome, invokeMatrixAgentTask } from './agent-task-invocation'
 import { backgroundAgentTrust, prepareMatrixAgentTrust, resumeAfterAgentTrust } from './agent-trust'
-import { switchAnsweringToCloud } from './answering-switch'
 import { openAppAuthSheet } from './app-auth-sheet'
 import { appBotIntakeAuthorized, appBotPinRequired, appBotSendAuthorized } from './app-bots/authority'
 import { canRetireLegacyAppCopy } from './app-bots/legacy-retirement'
@@ -476,7 +461,6 @@ import { MatrixBackgroundVerifications, MatrixLaunchSummary } from './background
 import { appBotPhotoForRenderer } from './bot-api-media'
 import { createBrowserImport } from './browser-import/compose'
 import { registerBrowserImportIpc } from './browser-import/ipc'
-import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import { type MatrixCheckInLeaseHold, MatrixCheckIns, refuseMatrixCheckIns } from './check-ins'
 import { FileCheckoutJournal, MatrixCheckoutController } from './checkout'
 import { registerMatrixClipboard } from './clipboard'
@@ -493,13 +477,6 @@ import {
   MatrixPlacedAgents,
   matrixPlacedCloudOnly
 } from './cloud-agent-placement'
-import {
-  cloudHomeMemoryNote,
-  cloudHomeReadApplies,
-  type CloudHomeSync,
-  MatrixCloudHomeReader,
-  requestCloudHome
-} from './cloud-home-read'
 import {
   MatrixCloudModelChoices,
   requestMatrixCloudModelChoice
@@ -532,8 +509,7 @@ import { continuityDiagnostic, readContinuityResult } from './continuity'
 import { type ContinuousListeningPreference, MatrixContinuousListening } from './continuous-listening'
 import {
   conversationBackgroundAction,
-  ConversationRequestActivity,
-  requireConversationSnapshot
+  ConversationRequestActivity
 } from './conversation/activity'
 import { conversationMacFleetReady } from './conversation/app-version'
 import { postEarlierConversationNotice } from './conversation/earlier'
@@ -543,7 +519,6 @@ import { conversationRemovalAllowed } from './conversation/removal'
 import { conversationRuntimeFence } from './conversation/runtime-fence'
 import { type ConversationMigrationAction, ConversationMigrationService } from './conversation/service'
 import {
-  MATRIX_CREDENTIAL_RENEWAL,
   MatrixCredentialRenewal,
   matrixRenewedWatchEnd,
   renewMatrixAgentHost
@@ -561,7 +536,6 @@ import {
   DeviceServiceBootstrap,
   fenceDeviceBeforeOperationLock
 } from './device/bootstrap'
-import { runChatGptRelayProcess } from './device/chatgpt-relay-process'
 import {
   acceptCloudTrial,
   CloudAccessLog,
@@ -582,25 +556,13 @@ import {
   type S1Resource,
   s1Route,
   sameCloudTrial,
-  setAgentAnswering,
   shownCloudTrial,
   workspaceLabelFor
 } from './device/cloud-agent'
 import { stopCloudTurn } from './device/cloud-stop'
 import { deviceHubUrl } from './device/connection'
-import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
 import { resolveDisclaimLauncher } from './device/launcher'
-import {
-  AgentMigration,
-  exportAgentHome,
-  fileSha256,
-  migrationConfirmCopy,
-  type MigrationOutcome
-} from './device/migration'
-import { DesktopHomeMigration, type MigrationLocalAgent } from './device/migration-client'
-import { confirmMigrationReport } from './device/migration-confirmation'
-import { MigrationWriterHolds } from './device/migration-hold'
 import { createDeviceNativeUi } from './device/native-ui'
 import { appBundleOf } from './device/protected-paths'
 import { createDeviceRuntime, type DeviceRuntime } from './device/runtime'
@@ -622,7 +584,7 @@ import { MatrixDriveImport } from './drive-import'
 import { registerMatrixDriveIpc } from './drive-ipc'
 import { sendDriveTask } from './drive-task'
 import { MatrixEnrollmentRateLimited, sameMatrixEnrollment } from './enrollment'
-import { executionDeviceNamesProjectionChanged, MatrixExecutionDeviceNames } from './execution-device-names'
+import { MatrixExecutionDeviceNames } from './execution-device-names'
 import {
   MatrixExecutionPolicyController,
   matrixExecutionPolicyHasLocalDestination,
@@ -681,9 +643,7 @@ import {
   forgetMatrixAccountCodex,
   forgetMatrixAccountCodexSignIn,
   MATRIX_ATUM_FOLDER,
-  matrixAccountCodexScope,
   type MatrixHermesConnection,
-  matrixHermesEnvironment,
   matrixHermesHome,
   type MatrixHermesRuntimeConfig,
   openMatrixHermes,
@@ -742,7 +702,8 @@ import { type MatrixLocalTurn, MatrixLocalTurns, matrixTurnPrompt, matrixTurnQue
 import { fileLoginStartupMemory, MatrixLoginStartup, registerMatrixLoginStartupIpc } from './login-startup'
 import { LookAssetDiskCache, MatrixLookAssets } from './look-asset'
 import { projectMacFleet } from './mac-fleet'
-import { assertMacJobDeliveryHome, completeMacJobDelivery, drainMacJobs, settleMacJobDelivery } from './mac-job-delivery'
+import { assertMacJobDeliveryHome, completeMacJobDelivery, settleMacJobDelivery } from './mac-job-delivery'
+import { createMacJobHome, type MacJobHome } from './mac-job-home'
 import { macJobAuthority, MacJobLifecycle } from './mac-job-lifecycle'
 import { runMacJobs } from './mac-job-runner'
 import { macJobsTickerPlan } from './mac-job-startup'
@@ -808,12 +769,6 @@ import { logNotesSelfOpenFailures } from './notes-self-log'
 import { createMatrixNotifications } from './notifications'
 import { MatrixOfficialAccountsController } from './official-accounts'
 import { createMatrixOpenSourceNotices, MATRIX_NOTICES_DIRECTORY } from './open-source-notices'
-import {
-  nodeOperatorFiles,
-  OPERATOR_MOVE_TICK_MS,
-  operatorMoveDirectory,
-  operatorMoveTicker
-} from './operator-move'
 import { MatrixOwnerDeviceRepair, matrixOwnerRepairError, matrixOwnerRepairPreservesWork } from './owner-device-repair'
 import {
   forgetMatrixOwnerKey,
@@ -937,7 +892,6 @@ import {
 } from './store-schedules'
 import { MatrixSubscriptionAuthLifecycle } from './subscription-auth-lifecycle'
 import {
-  atumChatGptModelVisible,
   listMatrixSubscriptionCatalog,
   matrixSubscriptionCatalogWithGrant
 } from './subscriptions'
@@ -1028,12 +982,14 @@ protocol.registerSchemesAsPrivileged([
 ])
 const UI_URL = 'atum-matrix://ui/matrix.html'
 const SDK_URL = 'atum-matrix://sdk/matrix-sdk.html'
+
 const lookAssets = config.domain
   ? new MatrixLookAssets(
       config.domain.resource,
       new LookAssetDiskCache(path.join(app.getPath('userData'), 'look-assets'))
     )
   : undefined
+
 let ui: BrowserWindow | undefined
 let microphoneConsent: (() => boolean) | undefined
 const messageLinks = new MatrixMessageLinkBroker()
@@ -1042,6 +998,7 @@ const inviteLinks = new MatrixInviteLinkBroker()
 function publishMatrixMessageLink(target: MatrixMessageLinkTarget): void {
   if (ui && !ui.isDestroyed()) {
     ui.webContents.send(MATRIX_MESSAGE_LINK_IPC.opened, target)
+
     if (ui.isMinimized()) {ui.restore()}
     ui.show()
     ui.focus()
@@ -1051,6 +1008,7 @@ function publishMatrixMessageLink(target: MatrixMessageLinkTarget): void {
 /** Consume only `atum://message`; malformed attempts are dropped without payload logging. */
 function deliverMatrixMessageLink(value: unknown): boolean {
   const outcome = messageLinks.deliver(value, publishMatrixMessageLink)
+
   if (outcome !== 'not_message_link') {
     console.warn(`[Matrix] message link ${outcome}`)
   }
@@ -1061,6 +1019,7 @@ function deliverMatrixMessageLink(value: unknown): boolean {
 function publishMatrixInviteLink(token: string): void {
   if (ui && !ui.isDestroyed()) {
     ui.webContents.send(MATRIX_INVITE_LINK_IPC.opened, token)
+
     if (ui.isMinimized()) {ui.restore()}
     ui.show()
     ui.focus()
@@ -1070,6 +1029,7 @@ function publishMatrixInviteLink(token: string): void {
 /** Consume only `atum://join`; the static outcome log never contains the bearer token or URL. */
 function deliverMatrixInviteLink(value: unknown): boolean {
   const outcome = inviteLinks.deliver(value, publishMatrixInviteLink)
+
   if (outcome !== 'not_invite_link') {
     console.warn(`[Matrix] invite link ${outcome}`)
   }
@@ -1095,13 +1055,16 @@ function registerMatrixMessageLinkProtocol(): void {
 
 registerMatrixMessageLinkProtocol()
 const coldMessageLink = matrixMessageLinkArg(process.argv)
+
 if (coldMessageLink) {deliverMatrixMessageLink(coldMessageLink)}
 const coldInviteLink = process.argv.find(value => isMatrixInviteDeepLinkCandidate(value))
+
 if (coldInviteLink) {deliverMatrixInviteLink(coldInviteLink)}
 // macOS can deliver before `whenReady`; the broker retains the validated target for the renderer.
 app.on('open-url', (event, url) => {
   if (isMatrixMessageLinkCandidate(url) || isMatrixInviteDeepLinkCandidate(url)) {
     event.preventDefault()
+
     if (!deliverMatrixMessageLink(url)) {deliverMatrixInviteLink(url)}
   }
 })
@@ -1422,7 +1385,9 @@ function reconcileDeviceControl(force = false): Promise<void> {
       ? deviceControlReadyFlight
       : deviceControlReadyFlight.then(() => reconcileDeviceControl(true))
   }
+
   const interval = deviceControlOwner ? DEVICE_CONTROL_RETRY_MS : DEVICE_CONTROL_VERIFY_MS
+
   if (!force && deviceControlScope === scope && now - deviceControlLastAttempt < interval) {
     return Promise.resolve()
   }
@@ -1441,12 +1406,14 @@ function reconcileDeviceControl(force = false): Promise<void> {
       }
 
       deviceControlOwner = presence.state === 'enrolled' ? undefined : identity
+
       if (presence.state === 'enrolled') {
         executionDeviceNames.invalidate()
         executionPolicies?.refreshAll()
         scheduleExecutionPolicyReconcile()
         scheduleContinuousListening()
       }
+
       publish(state)
     })
     .catch(() => {
@@ -1454,6 +1421,7 @@ function reconcileDeviceControl(force = false): Promise<void> {
         deviceControlOwner = identity
         publish(state)
       }
+
       console.warn('[Device] device service reconnect pending')
     })
     .finally(() => {
@@ -2112,37 +2080,16 @@ let cloudEnrollments: CloudAgentEnrollment | undefined
 let executionPolicies: MatrixExecutionPolicyController | undefined
 let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
-let chatGptRelay: MatrixChatGptRelay | undefined
 let modelDestinations: MatrixModelDestinations | undefined
-let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
 const cloudAgents = new Set<string>()
 /** Agents the create answer placed in the cloud this session (placed/pending_trust), until the
  * roster shows `answering: 'cloud'`: the platform owns them while their row still says local. */
 const placedAgents = new MatrixPlacedAgents()
-/** Agents being moved to the cloud right now: their local turns wait, nothing runs here. */
-const movingAgents = new Set<string>()
 /** The agent-home model (atum.agent-home/2.1): which Mac an agent lives on, and a manual move between the
- * owner's Macs. It holds an agent off here exactly while this Mac is not its home (`isMovingAgent`), and
+ * owner's Macs. It holds an agent off here exactly while this Mac is not its home (`macJobHomeHeld`), and
  * leaves every agent the platform has not placed under it as it was. Built with the device identity. */
-let agentHome: AgentHomeApp | undefined
-const agentHomePreflights = new Map<
-  string,
-  { scope: string; preflight: AgentHomeOwnerMovePreflightV25 }
->()
-/** The owner's names for their Macs, as the agent settings show them (a short cache of the registry read). */
-let agentHomeNames: { at: number; names: MacNames; superseded: readonly string[] } | undefined
-const agentMoves = new Map<string, AgentMigration>()
-
-let homeMigration:
-  | { owner: string; generation: number; holds: MigrationWriterHolds; client: DesktopHomeMigration }
-  | undefined
-
-let migrationTickRunning = false
-/** Each move's abort: sign-out ends it before the switch (nothing moves for a signed-out owner). */
-const moveAborts = new Set<AbortController>()
-/** Bumped at sign-out: a move from before it never touches the agents again, not even to restore. */
-let moveGeneration = 0
+let agentHome: MacJobHome | undefined
 /** This Mac's Matrix device fingerprints (a device's never changes). */
 const deviceFingerprints = new Map<string, string>()
 
@@ -2278,202 +2225,17 @@ function rememberPlacedCloudAgent(principal: string): void {
   publish(state)
 }
 
-/** A stand-down fences local execution, not the owner's messages to the agent's new home. */
-function isActivelyMovingAgent(agentRuntime: MatrixAgentRuntime | undefined): boolean {
-  const principal = cloudPrincipal(agentRuntime)
-
-  if (!principal) {
-    return false
-  }
-
-  try {
-    // isHeld seeds durable holds before reading their reasons.
-    const held = agentHome?.isHeld(principal)
-
-    return (
-      movingAgents.has(principal) ||
-      Boolean(homeMigrationForOwner()?.holds.held(principal)) ||
-      Boolean(held && agentHome.holds.reasons(principal).some(reason => reason !== 'standDown'))
-    )
-  } catch {
-    return true
-  }
-}
-
 /** Being moved to the cloud from this Mac: its local writers stay off until the move ends. */
-function isMovingAgent(agentRuntime: MatrixAgentRuntime | undefined): boolean {
+/** Persisted Mac-job authority fences local work until the platform confirms this home. */
+function macJobHomeHeld(agentRuntime: MatrixAgentRuntime | undefined): boolean {
   const principal = cloudPrincipal(agentRuntime)
-
-  if (!principal) {
-    return false
-  }
-
-  try {
-    return (
-      movingAgents.has(principal) ||
-      Boolean(homeMigrationForOwner()?.holds.held(principal)) ||
-      // This Mac is not the home of an agent the placement model manages (or is moving it): nothing runs here.
-      Boolean(agentHome?.isHeld(principal))
-    )
-  } catch {
-    return true
-  } // An unreadable writer hold can never restart the agent.
+  if (!principal) { return false }
+  try { return Boolean(agentHome?.isHeld(principal)) }
+  catch { return true }
 }
 
-function homeMigrationForOwner() {
-  const owner = account?.identity()?.userId
-
-  if (!owner || !deviceIdentity) {
-    return undefined
-  }
-
-  if (homeMigration?.owner === owner && homeMigration.generation === moveGeneration) {
-    return homeMigration
-  }
-
-  const holds = new MigrationWriterHolds({ ownerUserId: owner, store: deviceIdentity.store })
-
-  const client = new DesktopHomeMigration({
-    connection: () => deviceIdentity?.connection() ?? null,
-    holds,
-    agent: (principal, userId) => migrationLocalAgent(principal, userId),
-    confirm: async (agent, model) => {
-      if (!agent.current()) {
-        return null
-      }
-
-      return confirmMigrationReport(deviceLocale(), model, async options => {
-        if (!agent.current()) {
-          return options.cancelId
-        }
-
-        const result =
-          ui && !ui.isDestroyed()
-            ? await dialog.showMessageBox(ui, { ...options, type: 'question' })
-            : await dialog.showMessageBox({ ...options, type: 'question' })
-
-        return agent.current() ? result.response : options.cancelId
-      })
-    },
-    changed: () => {
-      for (const agent of allAgents()) {
-        agent.readiness?.recheck()
-        agent.localTurns?.kick()
-      }
-
-      publish(state)
-    }
-  })
-
-  homeMigration = { owner, generation: moveGeneration, holds, client }
-  deviceIdentity.attachMigration(client)
-
-  return homeMigration
-}
-
-function migrationLocalAgent(principal: string, userId: string): MigrationLocalAgent | null {
-  if (!config.cloudMigrationTestAgents?.includes(principal)) {
-    return null
-  }
-
-  const agent = allAgents().find(each => cloudPrincipal(each) === principal && each.userId === userId)
-
-  const owner = account?.identity()?.userId,
-    generation = moveGeneration
-
-  if (!owner || !agent || agent.closed) {
-    return null
-  }
-
-  const current = () => generation === moveGeneration && account?.identity()?.userId === owner && !agent.closed
-
-  const home = () => {
-    if (!current() || !runtime) {
-      return null
-    }
-
-    const identity = enrollmentOf(agent).identity
-
-    return identity ? agentHermesHome(agent, identity, runtime) : (account.retainedAgentHermes(principal)?.home ?? null)
-  }
-
-  let continuousRoom: string | undefined
-
-  return {
-    principal,
-    userId,
-    current,
-    hasHome: () => Boolean(home()),
-    quiesce: async () => {
-      if (!current()) {
-        throw Error('matrix_migration_account_changed')
-      }
-
-      continuousRoom = agent.continuous?.enabled ? agent.continuous.roomId : undefined
-      await quiesceForCloud(agent)
-      await requireConversationSnapshot(conversations.get(agent)?.activity, () => conversationPending(agent))
-    },
-    snapshot: async migrationId => {
-      const sourceHome = home(),
-        selectedRuntime = runtime
-
-      if (!sourceHome || !selectedRuntime) {
-        throw Error('matrix_migration_no_local_home')
-      }
-
-      const directory = path.join(app.getPath('userData'), 'device', 'migration')
-      await mkdir(directory, { recursive: true, mode: 0o700 })
-      await chmod(directory, 0o700)
-      const archive = path.join(directory, `${migrationId}.atum-home`)
-      const exported = await exportAgentHome(selectedRuntime, sourceHome, archive)
-      await chmod(archive, 0o600)
-
-      return { archive, files: exported.files, bytes: (await stat(archive)).size, sha256: await fileSha256(archive) }
-    },
-    restore: async () => {
-      if (!current() || isCloudAgent(agent) || isMovingAgent(agent)) {
-        return
-      }
-
-      const binding = continuousRoom ? continuousBinding(continuousRoom, agent) : undefined
-
-      if (binding && continuousRoom) {
-        agent.continuous?.enable(binding, continuousRoom)
-      }
-
-      // The quiesce stopped its host; a recheck of a ready agent only runs the watch.
-      agent.readiness?.start()
-      agent.localTurns?.kick()
-      publish(state)
-    },
-    switchToCloud: async () => {
-      if (!current()) {
-        throw Error('matrix_migration_account_changed')
-      }
-
-      await switchAnsweringToCloud({
-        savedPolicy: agentHasSavedExecutionPolicy(principal),
-        switchAnswering: () =>
-          setAgentAnswering(
-            s1Call,
-            { agentPrincipal: principal, mode: 'cloud', expectedMode: 'local' },
-            AbortSignal.timeout(30_000)
-          )
-      })
-
-      if (!current()) {
-        return
-      }
-
-      cloudAgents.add(principal)
-      agentRoster.request()
-    }
-  }
-}
-
-/** Local-only capabilities require this Mac to be an enabled policy destination. */
 function refuseCloudAgent(agentRuntime: MatrixAgentRuntime | undefined): void {
-  if (isMovingAgent(agentRuntime)) {
+  if (macJobHomeHeld(agentRuntime)) {
     throw new Error('matrix_agent_unavailable')
   }
 
@@ -2664,11 +2426,13 @@ function buildDeviceRuntime(): DeviceRuntime {
       enabled: remoteMacSourceReadsEnabled,
       scope: () => {
         const scope = account.appScope()
+
         return scope ? `${scope.accountKey}:${scope.generation}` : null
       },
       allowed: source => macSourcesConsentStore().read()[source],
       ownerPrincipal: grant => {
         const identity = account?.enrollment().identity
+
         return identity?.userId === grant.ownerUserId ? identity.principal : null
       },
       authority: (query, signal) => s1Call({ kind: 'source-authority', agentPrincipal: query.agentPrincipal,
@@ -2719,56 +2483,6 @@ function buildDeviceRuntime(): DeviceRuntime {
     signer: () => deviceIdentity?.approvalSigner() ?? null,
     approvalKey: () => deviceIdentity?.approvalKey() ?? null,
     deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId ?? null,
-    chatGptRelay: {
-      authority: () => {
-        const ownerPrincipal = account?.enrollment().identity?.principal
-        const deviceServiceId = deviceIdentity?.enrollment()?.deviceServiceId
-
-        if (!ownerPrincipal || !deviceServiceId || closing || account.sessionEnded() || account.signOutPending()) {
-          return null
-        }
-
-        return {
-          ownerPrincipal,
-          deviceServiceId,
-          agentPrincipals: allAgents().flatMap(agent => {
-            const identity = enrollmentOf(agent).identity
-            return !agent.closed && identity?.principal === ownerPrincipal && identity.agentPrincipal
-              ? [identity.agentPrincipal]
-              : []
-          })
-        }
-      },
-      authorize: async (request, signal) => {
-        signal.throwIfAborted()
-        const selected = await chatGptRelay?.refresh()
-        signal.throwIfAborted()
-        return selected?.state === 'enabled' && selected.deviceServiceId === request.deviceServiceId &&
-          selected.revision === request.relayRevision
-      },
-      call: async (input, signal) => {
-        const ownerPrincipal = account?.enrollment().identity?.principal
-
-        if (!runtime || !ownerPrincipal || closing) {
-          throw new Error('chatgpt_relay_unavailable')
-        }
-
-        const relayHome = matrixHermesHome(runtime, ownerPrincipal, 'chatgpt-relay')
-        mkdirSync(relayHome, { recursive: true, mode: 0o700 })
-        return runChatGptRelayProcess({
-          python: runtime.python,
-          source: runtime.source,
-          env: {
-            ...matrixHermesEnvironment(runtime, relayHome, app.getPath('home'), process.env,
-              sharedCodexHere() ? null : matrixAccountCodexScope(runtime, ownerPrincipal)),
-            // The relay answers on the account's plan: the same auth root as every assistant.
-            ...matrixSubscriptionEnvironment(undefined, subscriptionAuthHome())
-          },
-          ...input,
-          signal
-        })
-      }
-    },
     agentName: userId => allAgents().find(each => each.matrixUser === userId || each.userId === userId)?.name ?? 'Atum',
     deviceName: () => macComputerName(),
     tray: native.tray,
@@ -2885,30 +2599,6 @@ async function quiesceForExecutionPolicy(agentRuntime: MatrixAgentRuntime): Prom
   publish(state)
 }
 
-/** The owner's Macs by name, read through the one shared registry read (a short cache; failures keep the last). */
-function refreshAgentHomeNames(): Promise<void> {
-  if (agentHomeNames && Date.now() - agentHomeNames.at < 60_000) {
-    return Promise.resolve()
-  }
-
-  return executionDeviceNames.read().then(
-    names => {
-      const next: MacNames = Object.fromEntries(
-        Object.entries(names).map(([id, each]) => [id, { displayName: each.displayName, thisMac: each.thisMac }])
-      )
-
-      const superseded = executionDeviceNames.superseded()
-      const changed = executionDeviceNamesProjectionChanged(agentHomeNames, next, superseded)
-      agentHomeNames = { at: Date.now(), names: next, superseded }
-
-      if (changed) {
-        publish(state)
-      }
-    },
-    () => undefined
-  )
-}
-
 /** The placement model governs this agent (atum.agent-home/2.1): its results reach a room only through the
  * platform's outbox and its turns are on the platform's ledger. An agent it has not taken over is unchanged. */
 function isMigratedAgent(agentRuntime: MatrixAgentRuntime | undefined): boolean {
@@ -2924,199 +2614,9 @@ function outboxedResult(agentRuntime: MatrixAgentRuntime, invocationId: string):
   return Boolean(principal && agentHome?.outboxed(principal, invocationId))
 }
 
-/** Where the agent lives and a move in plain steps, for its settings; absent while the platform has no placement for it. */
-function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
-  const view = agentHome?.service.view(principal)
-
-  if (!agentHomeNames || Date.now() - agentHomeNames.at >= 60_000) {
-    void refreshAgentHomeNames()
-  }
-
-  const presence = deviceIdentity?.presence()
-
-  const me = presence?.state === 'enrolled' ? presence.deviceServiceId : null
-  const owner = agentHome?.owner.state(principal)
-  const ownerFailure = agentHome?.owner.failure(principal)
-  const base = homeViewFor(view ?? null, agentHomeNames?.names ?? null, me) ?? (owner
-    ? {
-        lives:
-          owner.snapshot.placement.location.kind === 'cloud'
-            ? { kind: 'cloud' as const }
-            : {
-                kind: 'mac' as const,
-                name: agentHomeNames?.names?.[owner.snapshot.placement.location.deviceServiceId]?.displayName ?? '',
-                thisMac: owner.snapshot.placement.location.deviceServiceId === me
-              },
-        move: null,
-        targets: [],
-        issue: null
-      }
-    : ownerHomeReadFallback(
-        ownerFailure,
-        Boolean(allAgents().some(agent => cloudPrincipal(agent) === principal && isCloudAgent(agent)))
-      ))
-  const application = agentHome?.participant?.projection(principal)
-  if (base && application?.status === 'unavailable' && (!base.issue || base.issue === 'model_unavailable')) {
-    base.issue = application.reason
-  }
-  // The SAVED cloud choice, never the recommended fallback: a ChatGPT/OpenCode Go choice is
-  // the current model as itself, so an Atum row is not mistaken for the one already chosen.
-  const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
-  const cloudModel = cloudDestinationChoice?.external
-    ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
-      ? {
-          source: cloudDestinationChoice.external.source,
-          model: cloudDestinationChoice.external.model,
-          modelLabel: cloudDestinationChoice.external.modelLabel,
-          providerLabel: cloudDestinationChoice.external.providerLabel,
-          effort: cloudDestinationChoice.external.effort
-        }
-      : undefined
-    : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
-
-  return base && owner
-    ? ownerHomeViewFor(
-        base,
-        owner,
-        agentHomeNames?.names ?? null,
-        me,
-        cloudModel,
-        cloudHomeOffers(principal),
-        agentHomeNames?.superseded
-      )
-    : base && ownerFailure
-      ? { ...base, issue: ownerFailure.kind === 'unsupported' ? 'platform_unsupported' : 'placement_unavailable' }
-      : base
-}
-
 /** The cloud models the platform serves this agent now (`atum.model-choice/1.1`); absent until an offer was read. */
 function cloudHomeOffers(principal: string) {
   return cloudModelChoices?.offer(principal)?.models
-}
-
-/** Whether this Mac already holds the agent: an enrollment that names it and a Hermes home that exists. */
-function agentHomeCustody(principal: string): boolean {
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-  const home = agentRuntime ? agentHomeDir(agentRuntime) : null
-
-  return Boolean(home && existsSync(home))
-}
-
-function agentHomeOwnerScope(): string | null {
-  const scope = account?.appScope()
-  return scope ? `${scope.accountKey}:${scope.generation}` : null
-}
-
-function createAgentHome(device: MacDeviceIdentity): AgentHomeApp {
-  const base = path.join(app.getPath('userData'), 'device', 'agent-home')
-
-  return createAgentHomeApp({
-    request: (send, signal) => account.s1Request(send, signal),
-    key: () => device.executorKey(),
-    verifyController: (message, value) => {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return false
-      }
-
-      const row = value as Record<string, unknown>
-      const common = row.common && typeof row.common === 'object' && !Array.isArray(row.common)
-        ? row.common as Record<string, unknown>
-        : undefined
-      const meta = (row.meta ?? common?.meta) as Record<string, unknown> | undefined
-
-      if (!meta || typeof meta.signerKeyId !== 'string' || typeof meta.signature !== 'string') {
-        return false
-      }
-
-      const enrollment = device.enrollment()
-      const key = enrollment?.controllerKeys.find(
-        candidate =>
-          candidate.kid === meta.signerKeyId &&
-          enrollment.pinnedControllerKeys.includes(candidate.kid)
-      )
-
-      return Boolean(
-        key &&
-        verifyControllerSignature(
-          key.publicKey,
-          placementConnectionSignedBytes(message, row),
-          meta.signature
-        )
-      )
-    },
-    store: device.store,
-    runtime: () => runtime,
-    dirs: { work: path.join(base, 'work'), backups: path.join(base, 'backups'), quarantine: path.join(base, 'quarantine') },
-    handle: agentHomeHandle,
-    materialize: materializeAgentHomeTarget,
-    custody: agentHomeCustody,
-    connections: {
-      catalog: placementConnectionCatalog,
-      apply: applyPlacementConnectionChoice,
-      keepExecutor: keepAgentHomeExecutor
-    },
-    // Where the event bytes handed to the platform are kept: the agent's own encrypted store, beside its outcomes.
-    publicationStore: principal => allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)?.store ?? null,
-    // Every active owner agent is reconciled. A cloud-home agent may need this Mac to materialize
-    // target custody and publish its catalog before a move exists.
-    agents: () =>
-      allAgents().flatMap(each => {
-        const principal = cloudPrincipal(each)
-
-        return principal && !each.closed ? [principal] : []
-      }),
-    ready: () => !closing && Boolean(account?.identity()) && Boolean(config.domain),
-    scope: () => account?.identity()?.userId ?? null,
-    // Who the platform says this sign-in is (its `/me` answer, never a guess from the Matrix id): a data key is taken only
-    // under the name the platform derives for this owner, and "not readable now" takes no key.
-    ownerPrincipal: async () => {
-      try {
-        return (await account.readDomain(false)).principal
-      } catch {
-        return null
-      }
-    },
-    changed: () => {
-      for (const agent of macJobs.keys()) {reconcileMacJobs(agent)}
-      void refreshAgentHomeNames()
-      publish(state)
-    },
-    log: line => console.warn(line)
-  })
-}
-
-/**
- * Holds every writer of an agent's Hermes home still for the agent-home model (agent-home-placement/): the
- * turn in flight is waited for, never cut; the executor and scheduled jobs stop. With `keepLease` the answering
- * lease stays held and renewing, because a drain acknowledgement and a checkpoint are signed with it; without
- * it (this Mac is no longer the home) the lease, the listening and the agent's own host go too.
- */
-async function quiesceForHome(agentRuntime: MatrixAgentRuntime, keepLease: boolean): Promise<void> {
-  await agentRuntime.invocation?.pending.catch(() => undefined)
-  await conversations.get(agentRuntime)?.activity.settled()
-  agentRuntime.cronListening?.()
-  agentRuntime.cronListening = undefined
-
-  if (keepLease) {
-    stopListening('cancelled', agentRuntime)
-  } else {
-    // The person's listening preference is kept; it comes back with the agent if the agent comes back.
-    agentRuntime.continuous?.pause('offline')
-    stopListening('cancelled', agentRuntime)
-    agentRuntime.listener.clear()
-    await agentRuntime.lease?.stop()
-  }
-
-  await stopHermesExecutor(agentRuntime)
-  await agentRuntime.starting
-  await stopHermesExecutor(agentRuntime)
-
-  if (!keepLease) {
-    await stopHost(agentRuntime.role)
-  }
-
-  agentRuntime.localTurns?.kick()
-  publish(state)
 }
 
 /** The Hermes home path is known only once an enrollment names the agent on this Mac. */
@@ -3138,182 +2638,6 @@ function agentHomeDir(agentRuntime: MatrixAgentRuntime): string | null {
   }
 }
 
-/** One agent's runtime on this Mac, as the agent-home model works through it (runtime-adapter.ts). */
-function agentHomeHandle(principal: string): MacAgentHandle | null {
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-
-  if (!agentRuntime) {
-    return null
-  }
-
-  const usable = () => agentRuntime.readiness?.current.phase === 'ready' && Boolean(agentRuntime.executor?.connected)
-
-  const appFacts = () => ({
-    busy: Boolean(operation || domainOperation),
-    closing,
-    conversationPending: conversationPending(agentRuntime)
-  })
-
-  /** Nothing of this agent's own is writing its home, by the app's facts (agent-runtime.ts). */
-  const resting = () => matrixAgentAtRest(agentRuntime, appFacts())
-
-  /**
-   * The same facts without the turn lock, and with the agent's content sync (which writes its persona, skills and memories into
-   * the home): what the barrier asks once it holds the lock itself (`agentHoldWrites`).
-   */
-  const quiet = () => matrixAgentQuiet(agentRuntime, appFacts()) && !agentContent.writing(principal)
-
-  return {
-    home: () => agentHomeDir(agentRuntime),
-    leaseFacts: () => {
-      const identity = enrollmentOf(agentRuntime).identity
-
-      return identity ? (agentRuntime.lease?.fenceFacts(identity.executorId) ?? null) : null
-    },
-    drain: async deadline => {
-      // No new target is admitted; the one admitted finishes and says its piece. The lease is not touched.
-      // Managed jobs drain beside the turn: admission stops, then this home publishes and settles its pending
-      // deliveries until the deadline. Past it the move proceeds and they stay this home's (drainMacJobs).
-      const jobs = drainMacJobs({ lifecycle: macJobs.get(agentRuntime)?.lifecycle, delivery: agentRuntime.cron,
-        deadline: deadline ?? AbortSignal.timeout(90_000), log: line => console.warn(line) })
-
-      agentRuntime.listener.drainAndStop('cancelled')
-      await agentRuntime.invocation?.pending.catch(() => undefined)
-      await conversations.get(agentRuntime)?.activity.settled()
-      await jobs
-    },
-    // A move's drain and final checkpoint, and a restore: the agent is leaving or arriving, so its executor is stopped.
-    // The checkpoint cadence never comes here: it captures beside the running agent (`atRest`).
-    stopWriters: ({ keepLease }) => quiesceForHome(agentRuntime, keepLease),
-    restart: () => {
-      // The gate starts the agent the way it starts any agent: host, executor, lease, listening.
-      agentRuntime.readiness?.start()
-      agentRuntime.localTurns?.kick()
-      scheduleContinuousListening()
-      publish(state)
-    },
-    beginHere: () => {
-      // The Hermes sessions on this Mac are older than the room; a fresh one per conversation is rebuilt
-      // from the room's history by the turn that opens it (hermes-executor.ts).
-      for (const key of agentRuntime.store.keys('matrix-conversation-')) {
-        agentRuntime.store.removeItem(key)
-      }
-
-      markAgentHostedHere(agentRuntime)
-    },
-    running: (ms, signal) => waitUntil(usable, ms, signal),
-    // In the middle of a turn, a task, a claim or an operation: the checkpoint cadence waits for it to end.
-    busy: () => !resting(),
-    // A good moment to capture beside the agent: the app's facts, and Hermes's own word that the review of the last
-    // answer has finished (`runtime.quiesce` with no wait). It takes no lock, stops nothing and waits for nothing, so a
-    // reply is never held up by it (at-rest.ts); the capture itself is proved afterwards (checkpoint.ts).
-    atRest: () =>
-      agentAtRest({
-        resting,
-        hermes: () => agentRuntime.executor?.connected?.gateway,
-        log: line => console.warn(line)
-      }),
-    // The checkpoint's barrier, for the moment a snapshot of the home takes: the agent's turn lock (every path that starts
-    // Hermes on this agent waits for it: a local turn, the listening watch, an explicit run, a model change), then the app's
-    // facts and Hermes's own word. Nothing is stopped; a turn that arrives meanwhile waits that moment (at-rest.ts).
-    holdWrites: () =>
-      agentHoldWrites({
-        lock: () => agentRuntime.lock.tryAcquire('home', 'checkpoint'),
-        resting: quiet,
-        hermes: () => agentRuntime.executor?.connected?.gateway,
-        log: line => console.warn(line)
-      }),
-    readiness: () => {
-      const home = agentHomeDir(agentRuntime)
-      const host = hosts.get(agentRuntime.role)
-
-      return {
-        homeAccessible: Boolean(home && existsSync(home)),
-        runtimeUsable: usable(),
-        matrixIntakeWorking: Boolean(host?.ready) && !host?.degraded
-      }
-    }
-  }
-}
-
-/**
- * Create target custody for an agent whose authoritative home may still be cloud. This does
- * not start a host, lease, listener or turn; placement continues to deny work until commit.
- */
-async function materializeAgentHomeTarget(principal: string, signal: AbortSignal): Promise<void> {
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-  const selectedRuntime = runtime
-
-  if (!agentRuntime || !selectedRuntime || closing || agentRuntime.closed) {
-    throw new Error('matrix_agent_unavailable')
-  }
-
-  await waitForAgentSetup(agentRuntime.setup, signal)
-  signal.throwIfAborted()
-
-  if (closing || agentRuntime.closed) {
-    throw new Error('matrix_agent_unavailable')
-  }
-
-  let enrollment = enrollmentOf(agentRuntime)
-
-  if (enrollment.state !== 'ready' || !enrollment.identity) {
-    if (agentRuntime.operation || !account.identity()) {throw new Error('matrix_agent_busy')}
-    agentRuntime.operation = true
-    try {
-      await account.enrollAgent(principal)
-    } finally {
-      agentRuntime.operation = false
-    }
-    signal.throwIfAborted()
-    enrollment = enrollmentOf(agentRuntime)
-  }
-
-  const identity = enrollment.identity
-  if (enrollment.state !== 'ready' || !identity || closing || agentRuntime.closed) {
-    throw new Error('matrix_agent_unavailable')
-  }
-
-  const home = reconcileAgentHome(agentRuntime, principal, identity, selectedRuntime)
-  await mkdir(home, { recursive: true, mode: 0o700 })
-  signal.throwIfAborted()
-}
-
-/**
- * Keeps this Mac's executor for an agent it holds without running answerable, so the platform still lists this Mac as a place
- * the agent can move to (a Mac the owner set up for it, or the target of a move). The credential lasts an hour and only a
- * running host renews it (credential-renewal.ts), so with no host it is rotated half an hour ahead of its expiry, and enrolled
- * again once it lapsed. `force` rotates now (the platform refused this Mac's catalog for lack of an active executor). Starts no
- * host, lease, listener or turn.
- */
-async function keepAgentHomeExecutor(principal: string, signal: AbortSignal, force: boolean): Promise<void> {
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-
-  if (!agentRuntime || closing || agentRuntime.closed) {
-    throw new Error('matrix_agent_unavailable')
-  }
-
-  // A running host renews its own executor (createCredentialRenewal).
-  if (hosts.get(agentRuntime.role)) {
-    return
-  }
-
-  const enrollment = enrollmentOf(agentRuntime)
-
-  if (enrollment.state !== 'ready' || !enrollment.identity) {
-    await materializeAgentHomeTarget(principal, signal)
-
-    return
-  }
-
-  if (!force && enrollment.identity.expiresAt - Date.now() > MATRIX_CREDENTIAL_RENEWAL.leadMs) {
-    return
-  }
-
-  signal.throwIfAborted()
-  await account.renewAgentExecutor(principal)
-}
-
 /** True only when this process is opening the agent's authoritative Mac home. */
 function atumInstructionsForMacHome(agentRuntime: MatrixAgentRuntime): boolean {
   const principal = cloudPrincipal(agentRuntime)
@@ -3324,119 +2648,6 @@ function atumInstructionsForMacHome(agentRuntime: MatrixAgentRuntime): boolean {
   }
 
   return !isCloudAgent(agentRuntime) && agentHostedHere(agentRuntime) !== false
-}
-
-function placementConnectedModelAgent(
-  agentRuntime: MatrixAgentRuntime,
-  identity: NonNullable<MatrixEnrollment['identity']>,
-  connection: MatrixHermesConnection
-): MatrixConnectedModelsAgent {
-  return {
-    connected: agentRuntime.connectedModel ?? { provider: MATRIX_ATUM_PROVIDER, model: MATRIX_DEFAULT_MODEL },
-    allowManagedCurrent: true,
-    ...(agentRuntime.name ? { agentName: agentRuntime.name } : {}),
-    forward: request => {
-      if (!connection.pages || connection.signal.aborted) {throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)}
-      return connection.pages(request)
-    },
-    isCurrent: () =>
-      !closing &&
-      !agentRuntime.closed &&
-      enrollmentOf(agentRuntime).identity?.executorId === identity.executorId &&
-      !connection.signal.aborted,
-    // A background participant may never put a dialog on an unattended Mac. Any provider
-    // requiring extra confirmation remains unavailable until the owner acts on that Mac.
-    confirmCost: () => false,
-    selected: model => {
-      const own = model.provider !== MATRIX_MANAGED_ENDPOINT.id
-      rememberOwnModel(identity.executorId, own, agentRuntime, own ? model : undefined)
-      publish(state)
-    }
-  }
-}
-
-async function withPlacementConnection<T>(
-  principal: string,
-  signal: AbortSignal,
-  write: boolean,
-  run: (agent: MatrixConnectedModelsAgent, connection: MatrixHermesConnection) => Promise<T>
-): Promise<T> {
-  // Reads a connection catalog from what this Mac already holds; custody is created only for an agent this Mac is
-  // (about to be) the home of, by the placement model's own materialize step.
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-  const selectedRuntime = runtime
-  const identity = agentRuntime ? enrollmentOf(agentRuntime).identity : undefined
-
-  if (!agentRuntime || !selectedRuntime || !identity || agentRuntime.invocation || agentRuntime.setup) {
-    throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.busy)
-  }
-
-  const execute = (connection: MatrixHermesConnection) =>
-    run(placementConnectedModelAgent(agentRuntime, identity, connection), connection)
-  const existing = agentRuntime.executor?.connected
-
-  if (!write && existing?.pages && !existing.signal.aborted) {return execute(existing)}
-
-  const release = await agentRuntime.lock.acquire('*', 'management', signal)
-  try {
-    signal.throwIfAborted()
-    if (agentRuntime.invocation || agentRuntime.setup) {throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.busy)}
-
-    const live = agentRuntime.executor?.connected
-    if (live?.pages && !live.signal.aborted) {return execute(live)}
-
-    return withMatrixHermes(
-      selectedRuntime,
-      {
-        owner: identity.principal,
-        executorId: identity.executorId,
-        signal,
-        home: agentHermesHome(agentRuntime, identity, selectedRuntime),
-        sharedCodex: sharedCodexHere(),
-        atumInstructions: atumInstructionsForMacHome(agentRuntime)
-      },
-      execute
-    )
-  } finally {
-    release()
-  }
-}
-
-async function placementConnectionCatalog(principal: string, signal: AbortSignal) {
-  // The agent's own launch-time set-up holds the same backend slot as a management read; waiting
-  // for it keeps an owner's "set this Mac up" from failing as busy for a few seconds after launch.
-  const agentRuntime = allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
-
-  if (agentRuntime) {
-    await waitForAgentSetup(agentRuntime.setup, signal)
-    signal.throwIfAborted()
-  }
-
-  return withPlacementConnection(principal, signal, false, agent => listMatrixModelCatalog(agent))
-}
-
-async function applyPlacementConnectionChoice(
-  principal: string,
-  route: MatrixModelRoute,
-  effort: 'low' | 'medium' | 'high' | 'max',
-  signal: AbortSignal
-) {
-  return withPlacementConnection(principal, signal, true, async (agent, connection) => {
-    const selected = await selectMatrixModelRoute(agent, route.id)
-    if (selected.status !== 'applied') {
-      return { status: 'unavailable' as const, reason: 'connection_needs_attention' as const }
-    }
-
-    await connection.api('/api/config', {
-      config: { agent: { reasoning_effort: effort, atum_instructions: true } }
-    })
-    const readback = await listMatrixModelCatalog(agent)
-    const current = readback.routes.find(candidate => candidate.current)
-
-    return current?.id === route.id
-      ? { status: 'applied' as const, provider: current.provider, model: current.model }
-      : { status: 'unavailable' as const, reason: 'model_unavailable' as const }
-  })
 }
 
 const executionPolicyLocalStates = new Map<string, boolean>()
@@ -3453,7 +2664,7 @@ async function restartForExecutionPolicy(agent: MatrixAgentRuntime, principal: s
     await stopHermesExecutor(agent)
     executionPolicyRuntimeRestarts.delete(principal)
 
-    if (!closing && !agent.closed && executionPolicyLocal(agent) === 'enabled' && !isMovingAgent(agent)) {
+    if (!closing && !agent.closed && executionPolicyLocal(agent) === 'enabled' && !macJobHomeHeld(agent)) {
       await startAssistantHermes(agent)
     }
   } finally {
@@ -3683,204 +2894,14 @@ async function cloudOrigin(
   return origin ?? undefined
 }
 
-/** Moves one agent to the cloud from this Mac, with the owner's confirmation (migration.ts). */
 /** The trial offer main last read and showed, for the account it was read for (trialAccept). */
 let trialShown: { owner: string; offer: CloudTrialOffer } | undefined
 /** The last access fact logged per account, so the line appears when the fact changes. */
 const lastCloudAccess = new CloudAccessLog()
 
-function moveAgentToCloud(agentRuntime: MatrixAgentRuntime): Promise<MigrationOutcome> {
-  const principal = cloudPrincipal(agentRuntime)
-
-  // The default assistant uses the same owner-bound, multi-Mac home migration as every other
-  // agent. Keeping it local would make the first assistant the only one that disappears when the
-  // person's Macs sleep.
-  if (!principal || !cloudEnrollments || isCloudAgent(agentRuntime)) {
-    return Promise.reject(new Error('matrix_agent_unavailable'))
-  }
-
-  if (config.cloudMigrationTestAgents?.includes(principal)) {
-    const abort = new AbortController(),
-      generation = moveGeneration
-
-    moveAborts.add(abort)
-    const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(90 * 60_000)])
-
-    return (async (): Promise<MigrationOutcome> => {
-      // Nothing has stopped here yet: a refusal (no entitlement, a declined Touch ID) is an outcome
-      // that leaves the agent on this Mac, so the renderer can say so and offer the trial.
-      try {
-        await deviceIdentity!.enroll(signal)
-        await cloudEnrollments!.begin(principal, signal)
-        await cloudEnrollments!.waitTrusted(principal, signal)
-      } catch (error) {
-        const code = deviceEnrollmentCode(error)
-        console.warn(`[Device] move of ${principal.slice(0, 8)} stopped at cloud enrollment: ${code}`)
-
-        return { state: 'failed', step: 'cloud_enrollment', code }
-      }
-
-      const deadline = Date.now() + 30_000
-
-      while (!deviceIdentity!.connection()?.session()) {
-        signal.throwIfAborted()
-
-        if (generation !== moveGeneration || Date.now() > deadline) {
-          throw Error('matrix_migration_device_offline')
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
-
-      signal.throwIfAborted()
-      const local = migrationLocalAgent(principal, agentRuntime.userId ?? '')
-
-      if (!local || generation !== moveGeneration) {
-        throw Error('matrix_migration_account_changed')
-      }
-
-      return homeMigrationForOwner()!.client.start(local, signal)
-    })().finally(() => {
-      moveAborts.delete(abort)
-    })
-  }
-
-  let move = agentMoves.get(principal)
-
-  if (!move) {
-    /** The room continuous listening was on in, put back if the move does not happen. */
-    let continuousRoom: string | undefined
-    const generation = moveGeneration
-
-    move = new AgentMigration({
-      agentPrincipal: principal,
-      agentName: agentRuntime.name ?? 'Atum',
-      writers: () => ({
-        executor: enrollmentOf(agentRuntime).state === 'ready',
-        cron: runsJobsHere(),
-        lease: Boolean(agentRuntime.lease && agentRuntime.lease.current.state !== 'stopped'),
-        listening: Boolean(agentRuntime.continuous?.enabled) || agentRuntime.listener.snapshot()?.state === 'listening',
-        gateways: []
-      }),
-      quiesce: async () => {
-        continuousRoom = agentRuntime.continuous?.enabled ? agentRuntime.continuous.roomId : undefined
-        movingAgents.add(principal)
-        await quiesceForCloud(agentRuntime)
-        await requireConversationSnapshot(conversations.get(agentRuntime)?.activity, () =>
-          conversationPending(agentRuntime)
-        )
-      },
-      restore: async () => {
-        // Signed out meanwhile: the agents are gone with the account; nothing to put back.
-        if (generation !== moveGeneration || agentRuntime.closed) {
-          return
-        }
-
-        movingAgents.delete(principal)
-        const binding = continuousRoom ? continuousBinding(continuousRoom, agentRuntime) : undefined
-
-        // Continuous listening comes back as the owner left it (the quiesce turned it off).
-        if (continuousRoom && binding && !agentRuntime.closed) {
-          try {
-            agentRuntime.continuous?.enable(binding, continuousRoom)
-          } catch {
-            console.warn('[Matrix] cloud move: continuous listening not restored')
-          }
-        }
-
-        // Its host, lease and turns come back through the gate (setUpAgent restarts the host). A
-        // recheck of a ready agent only runs the watch, so the gate is started again.
-        agentRuntime.readiness?.start()
-        agentRuntime.localTurns?.kick()
-        publish(state)
-      },
-      hermesHome: () => {
-        const identity = enrollmentOf(agentRuntime).identity
-
-        if (!runtime) {
-          return null
-        }
-
-        if (identity) {
-          return agentHermesHome(agentRuntime, identity, runtime)
-        }
-
-        try {
-          return agentRuntime.principal ? (account.retainedAgentHermes(agentRuntime.principal)?.home ?? null) : null
-        } catch {
-          return null
-        }
-      },
-      exportHome: (home, archive) => {
-        if (!runtime) {
-          return Promise.reject(new Error('matrix_runtime_unavailable'))
-        }
-
-        return exportAgentHome(runtime, home, archive)
-      },
-      beginCloudEnrollment: async signal => {
-        const attempt = await cloudEnrollments!.beginAttempt(principal, signal)
-
-        return { enrollmentId: attempt.enrollment.enrollmentId, created: attempt.created }
-      },
-      waitCloudEnrollment: async signal => {
-        await cloudEnrollments!.waitTrusted(principal, signal)
-      },
-      revokeCloudEnrollment: enrollmentId =>
-        cloudEnrollments!.revoke(enrollmentId, AbortSignal.timeout(30_000)).then(() => undefined),
-      confirm: async plan => {
-        const copy = migrationConfirmCopy(deviceLocale(), plan)
-
-        const options = {
-          type: 'question' as const,
-          buttons: [copy.move, copy.cancel],
-          defaultId: 1,
-          cancelId: 1,
-          message: copy.title,
-          detail: copy.detail
-        }
-
-        const { response } =
-          ui && !ui.isDestroyed() ? await dialog.showMessageBox(ui, options) : await dialog.showMessageBox(options)
-
-        return response === 0
-      },
-      switchToCloud: async signal => {
-        await switchAnsweringToCloud({
-          savedPolicy: agentHasSavedExecutionPolicy(principal),
-          switchAnswering: () =>
-            setAgentAnswering(s1Call, { agentPrincipal: principal, mode: 'cloud', expectedMode: 'local' }, signal)
-        })
-
-        // Signed out meanwhile: the next sign-in reads it from the roster.
-        if (generation !== moveGeneration) {
-          return
-        }
-
-        // Effective now, before the roster says so: nothing local may start for it again.
-        cloudAgents.add(principal)
-        movingAgents.delete(principal)
-        agentRoster.request()
-      },
-      stagingDir: path.join(app.getPath('userData'), 'device', 'migration'),
-      store: outcomeStore,
-      log: line => console.warn(line)
-    })
-
-    agentMoves.set(principal, move)
-  }
-
-  const abort = new AbortController()
-  moveAborts.add(abort)
-
-  return move.run(AbortSignal.any([abort.signal, AbortSignal.timeout(20 * 60_000)])).finally(() => {
-    moveAborts.delete(abort)
-  })
-}
-
 /**
  * The cloud-agent requests main answers (renderer: Settings › Device and the agent menu): this
- * Mac's device service, enrolling it (Touch ID), and moving an agent to the cloud.
+ * Mac's device service, enrollment and native cloud status.
  */
 async function cloudAgentRequest(request: {
   action?: unknown
@@ -3893,7 +2914,6 @@ async function cloudAgentRequest(request: {
   | MatrixAgentServiceStatus
   | MatrixCloudAgentStatus
   | { device: MatrixDevicePresence }
-  | MatrixCloudMoveOutcome
   | MatrixCloudStopOutcome
   | MatrixOwnerReaderStatus
   | MatrixCloudTrialOffer
@@ -3901,6 +2921,10 @@ async function cloudAgentRequest(request: {
   | MatrixCloudAccess
   | null
 > {
+  if (!['serviceStatus', 'cloudAccess', 'status', 'readerStatus', 'readerEnroll', 'trialOffer', 'trialAccept', 'stopTurn'].includes(String(request.action))) {
+    throw new Error('matrix_command_invalid')
+  }
+
   if (request.action === 'serviceStatus') {
     if (closing || !account.identity() || typeof request.principal !== 'string') {
       throw new Error('matrix_not_ready')
@@ -4103,16 +3127,6 @@ async function cloudAgentRequest(request: {
     }
 
     return outcome
-  }
-
-  if (request.action === 'moveToCloud' && typeof request.principal === 'string') {
-    const agentRuntime = allAgents().find(each => cloudPrincipal(each) === request.principal)
-
-    if (!agentRuntime) {
-      throw new Error('matrix_agent_unavailable')
-    }
-
-    return moveAgentToCloud(agentRuntime)
   }
 
   throw new Error('matrix_command_invalid')
@@ -4892,6 +3906,7 @@ function subscriptionProvidersFor(authLifecycle?: MatrixSubscriptionAuthLifecycl
   })
 
   let closingProviders: Promise<void> | undefined
+
   const close = () => {
     closingProviders ??= (async () => {
       await scope.stop()
@@ -4914,76 +3929,6 @@ async function retireSubscriptionProviders(): Promise<void> {
   const current = subscriptionProviders
   subscriptionProviders = undefined
   await current?.close()
-}
-
-/** The ChatGPT plan's models as this Mac last read them for relay publication, per account. Shown,
- * disabled, to cloud assistants while the relay is not up yet; ids and effort levels only. */
-let chatGptLocalModels: { accountKey: string; models: ReturnType<typeof chatGptRelayModelRows> } | undefined
-
-function chatGptRelayModelRows(models: readonly string[]) {
-  return models.filter(atumChatGptModelVisible).map(model => ({
-    id: model,
-    displayName: matrixModelDisplayName(model),
-    efforts: ['low', 'medium', 'high'] as const,
-    defaultEffort: 'medium' as const,
-    contextBudget: 128_000,
-    outputBudget: 16_384
-  }))
-}
-
-async function chatGptRelayModels() {
-  const { transport } = subscriptionProvidersFor()
-  const catalog = await listMatrixSubscriptionCatalog({
-    forward: value => transport.forward(value),
-    isCurrent: () => transport.current()
-  })
-  const chatgpt = catalog.providers.find(provider => provider.id === 'openai-codex')
-
-  if (!chatgpt?.connected || !chatgpt.models?.length) {
-    throw new Error('matrix_subscriptions_unavailable')
-  }
-
-  // The desktop-safe provider snapshot deliberately exposes model ids and effort levels only; the
-  // richer Python runtime catalogue (including live context metadata) is not an Electron contract.
-  // Publish conservative relay ceilings instead of claiming provider maxima: 128K is the lowest
-  // known Codex-OAuth context in Hermes's existing fallback catalogue, while 16K is the bounded
-  // completion ceiling this relay version already enforces. The shared formatter supplies the
-  // readable name without inventing a second model-name catalogue here.
-  const rows = chatGptRelayModelRows(chatgpt.models)
-  const accountKey = account?.appScope()?.accountKey
-
-  chatGptLocalModels = accountKey ? { accountKey, models: rows } : undefined
-
-  return rows
-}
-
-/** Select/clear this enrolled Mac as the account relay. Disable fences the local handler first,
- * then revokes platform grants; enable publishes safe model metadata before opening locally. */
-async function configureThisMacAsChatGptRelay(enabled: boolean): Promise<boolean> {
-  if (!enabled) {
-    deviceBootstrap?.configureChatGptRelay(false)
-    return chatGptRelay ? chatGptRelay.disable() : true
-  }
-
-  if (!chatGptRelay || !deviceIdentity || !deviceBootstrap) {
-    return false
-  }
-
-  await reconcileDeviceControl()
-  const deviceServiceId = deviceIdentity.enrollment()?.deviceServiceId
-
-  if (!deviceServiceId) {
-    return false
-  }
-
-  const models = await chatGptRelayModels()
-
-  if (!(await chatGptRelay.enable(deviceServiceId, models))) {
-    return false
-  }
-
-  deviceBootstrap.configureChatGptRelay(true, models.map(model => model.id))
-  return true
 }
 
 /** A subscription changed: idle assistants restart so their next turn sees it. A running turn is
@@ -5041,13 +3986,14 @@ function repairChatGptSubscription(
   }
 
   stopSubscriptionFollowUpRepair()
+
   const repair = new MatrixSubscriptionFollowUpRepair({
-    registerRelay: () => configureThisMacAsChatGptRelay(true),
     refresh: () => refreshSubscriptionAgents(),
     outcome: (stage, status) => diagnostics.followUp(stage, status),
     current: () => {
       try {
         const current = requireSubscriptionAccount()
+
         if (`${current.accountKey}:${current.generation}:${current.owner}` !== key) {
           return false
         }
@@ -5061,7 +4007,9 @@ function repairChatGptSubscription(
       }
     }
   })
+
   subscriptionFollowUpRepair = { key, repair }
+
   return repair
 }
 
@@ -5290,6 +4238,7 @@ function noteProtectedFolderDenied(): void {
     publish(state)
   }
 }
+
 /** The person's engine's last error code logged (`chat engine error`), so each is one line. */
 let humanEngineError: string | null = null
 /** Main's question to the sign-in server after a refused token, and its last engine restart. */
@@ -6128,89 +5077,6 @@ interface MatrixExecutionPolicyListening {
 
 const executionPolicyListening = new Map<MatrixAgentRuntime, MatrixExecutionPolicyListening>()
 
-/** How long a Mac that has just taken a cloud agent's term may spend reading the cloud home before
- * it answers anyway, saying so (cloud-home-read.ts). A failover must not wait on a slow read. */
-const CLOUD_HOME_READ_MS = 20_000
-
-interface CloudHomeTakeover {
-  /** The term this read is for: a new term reads again. */
-  token: string
-  abort: AbortController
-  result?: CloudHomeSync
-}
-
-const cloudHomeTakeovers = new Map<MatrixAgentRuntime, CloudHomeTakeover>()
-
-/** Preserve user-visible identity, state and recovery behavior across connection changes. */
-function cloudHomeGate(agent: MatrixAgentRuntime, token: string): 'pending' | 'settled' {
-  const principal = cloudPrincipal(agent)
-  const view = principal ? executionPolicies?.snapshot(principal) : undefined
-
-  if (!cloudHomeReader || !principal || !cloudHomeReadApplies(view)) {
-    return 'settled'
-  }
-
-  const existing = cloudHomeTakeovers.get(agent)
-
-  if (existing?.token === token) {
-    return existing.result ? 'settled' : 'pending'
-  }
-
-  existing?.abort.abort()
-  const takeover: CloudHomeTakeover = { token, abort: new AbortController() }
-  cloudHomeTakeovers.set(agent, takeover)
-  void runCloudHomeRead(agent, principal, takeover)
-
-  return 'pending'
-}
-
-async function runCloudHomeRead(
-  agent: MatrixAgentRuntime,
-  principal: string,
-  takeover: CloudHomeTakeover
-): Promise<void> {
-  const signal = AbortSignal.any([takeover.abort.signal, AbortSignal.timeout(CLOUD_HOME_READ_MS)])
-  let result: CloudHomeSync = { state: 'unavailable' }
-
-  try {
-    const identity = enrollmentOf(agent).identity
-
-    // No live cloud enrollment: the agent has no cloud home, so there is nothing to read.
-    if (!(await cloudEnrollments?.current(principal, signal))) {
-      result = { state: 'none' }
-    } else if (identity && runtime && cloudHomeReader) {
-      result = await cloudHomeReader.sync({
-        agentPrincipal: principal,
-        home: agentHermesHome(agent, { principal: identity.principal, executorId: identity.executorId }, runtime),
-        signal
-      })
-    }
-  } catch {
-    result = { state: 'unavailable' }
-  }
-
-  if (cloudHomeTakeovers.get(agent) !== takeover || takeover.abort.signal.aborted) {
-    return
-  }
-
-  takeover.result = result
-  console.warn(
-    `[Matrix] cloud home read agent=${principal.slice(0, 8)} state=${result.state}` +
-      (result.state === 'fresh'
-        ? ` generation=${result.generation} files=${result.files} changed=${result.changed} skipped=${result.skipped}` +
-          // Paths only, never content; a long list is cut.
-          ` kept=${result.kept.length}${result.kept.length ? `[${result.kept.slice(0, 20).join(',')}${result.kept.length > 20 ? ',…' : ''}]` : ''}`
-        : '')
-  )
-  scheduleContinuousListening()
-  publish(state)
-}
-
-/** The Mac that answers for a cloud agent says what happened to its memory (cloud-home-read.ts). */
-function cloudHomeAgentMemoryNote(agent: MatrixAgentRuntime): 'local_saved' | 'without_recent' | undefined {
-  return cloudHomeMemoryNote(cloudHomeTakeovers.get(agent)?.result)
-}
-
 /** H-F's own-chat watch is in memory only. It neither reads nor writes the person's persistent
  * keep-listening preference; the saved execution policy and exact lease are its authority. */
 function reconcileExecutionPolicyListening(agent: MatrixAgentRuntime): void {
@@ -6249,17 +5115,6 @@ function reconcileExecutionPolicyListening(agent: MatrixAgentRuntime): void {
   // hosts are live again (host-health.ts). The change back reconciles at once.
   if (action === 'arm' && listening?.state !== 'listening' && !hostsTakeNewClaims(agent)) {
     return
-  }
-
-  // The term was just taken: read the cloud home before the first reply (bounded, then it answers
-  // and says so). Losing the term forgets the read, so the next term reads again.
-  if (action === 'arm' && listening?.state !== 'listening' && held?.leaseToken) {
-    if (cloudHomeGate(agent, held.leaseToken) === 'pending') {
-      return
-    }
-  } else if (!held?.leaseToken) {
-    cloudHomeTakeovers.get(agent)?.abort.abort()
-    cloudHomeTakeovers.delete(agent)
   }
 
   if (action !== 'arm' || !roomId) {
@@ -6527,7 +5382,7 @@ function adoptDefaultContinuousListening(agent: MatrixAgentRuntime) {
     !enrolled.identity ||
     continuousDefaults.get(agent) === roomId ||
     isCloudAgent(agent) ||
-    isMovingAgent(agent) ||
+    macJobHomeHeld(agent) ||
     answersFromHome(agent)
   ) {
     return
@@ -6901,13 +5756,14 @@ function publish(next: MatrixSnapshot) {
   // Company-channel confirmations belong to one signed-in session: a new session (or quit) voids them.
   companyChannelConfirmations.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   companyConversationConfirmations.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   if (!closing && next.state === 'ready' && next.identity && pendingMatrixDrafts) {
     void pendingMatrixDrafts.drain(next.identity, draft => dispatchSdkCommand(draft)).catch(() => {})
   }
+
   executionPolicies?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
-  chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
   for (const each of allAgents()) {
@@ -6962,10 +5818,13 @@ function publish(next: MatrixSnapshot) {
   agentActionsLog.observe(agentList)
   const primary = participants?.primary
   const primaryMacRole = primary ? cloudAgentMacRole(primary) : undefined
+
   const primaryAnswersInCloud = primary
     ? matrixCloudAgentAnswersInCloud({ cloudRoute: isCloudAgent(primary), role: primaryMacRole })
     : false
+
   const primaryLocalReadiness = primary ? readinessOf(primary) : undefined
+
   const primaryReadiness = primary
     ? matrixCloudAgentReadinessForUser({
         cloudRoute: isCloudAgent(primary),
@@ -6974,6 +5833,7 @@ function publish(next: MatrixSnapshot) {
         since: primaryLocalReadiness?.since ?? Date.now()
       })
     : undefined
+
   const primarySetup = primary
     ? matrixCloudAgentSetupForUser({
         cloudRoute: isCloudAgent(primary),
@@ -6981,6 +5841,7 @@ function publish(next: MatrixSnapshot) {
         setup: primary === defaultAgent ? assistantSetupState : primary.setupState
       })
     : undefined
+
   const defaultAuthority = primary ? matrixEnrollmentAuthority(enrollmentOf(primary)) : { ok: false }
 
   const projection = projectAssistantRooms(
@@ -7309,22 +6170,12 @@ function cloudModelView(principal: string) {
   const base = cloudModelChoices?.view(principal)
   const choice = modelDestinations?.cloudChoice(principal)
   const connection = providerConnections?.view()?.connection
-  const relay = chatGptRelay?.view()
   const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' ? choice : undefined
-  const subscriptionState = subscription
-    ? subscription.source === 'chatgpt_plan'
-      ? relay?.state === 'enabled' ? ('connected' as const) : relay ? ('revoked' as const) : ('unavailable' as const)
-      : connection?.state === 'connected' ? ('connected' as const) : connection ? ('revoked' as const) : ('unavailable' as const)
-    : connection?.state === 'connected'
-      ? ('connected' as const)
-      : relay?.state === 'enabled'
-        ? ('connected' as const)
-        : connection || relay
-        ? ('disconnected' as const)
-        : ('unavailable' as const)
-  const models = subscription?.source === 'chatgpt_plan'
-    ? relay?.state === 'enabled' ? relay.models : []
-    : connection?.state === 'connected' ? connection.models : []
+
+  const subscriptionState = connection?.state === 'connected' ? ('connected' as const)
+    : connection ? ('revoked' as const) : ('unavailable' as const)
+
+  const models = connection?.state === 'connected' ? connection.models : []
 
   if (!base && !subscription) {
     return undefined
@@ -7375,12 +6226,14 @@ function agentViews(): MatrixAgentView[] {
     const destinations = modelDestinations?.view(principal)
     const cloudModel = isCloudAgent(each) ? cloudModelView(principal) : undefined
     const macRole = cloudAgentMacRole(each)
+
     const readiness = matrixCloudAgentReadinessForUser({
       cloudRoute: isCloudAgent(each),
       role: macRole,
       local: localReadiness,
       since: localReadiness?.since ?? Date.now()
     })
+
     const setup = matrixCloudAgentSetupForUser({
       cloudRoute: isCloudAgent(each),
       role: macRole,
@@ -7432,7 +6285,6 @@ function agentViews(): MatrixAgentView[] {
             ...(executionPolicies?.snapshot(principal)
               ? { executionPolicy: executionPolicies.snapshot(principal) }
               : {}),
-            ...(home => (home ? { home } : {}))(agentHomeView(principal)),
             ...(isCloudAgent(each)
               ? {
                   answering: 'cloud' as const,
@@ -7441,9 +6293,6 @@ function agentViews(): MatrixAgentView[] {
               : {}),
             ...(destinations ? { modelDestinations: destinations } : {}),
             ...(macRole ? { macRole } : {}),
-            ...(macRole === 'answering' && cloudHomeAgentMemoryNote(each)
-              ? { memoryNote: cloudHomeAgentMemoryNote(each) }
-              : {}),
             ...(leaseHandover.persistent(each) ? { answeringTrouble: 'handover' as const } : {})
           }
         ]
@@ -7588,7 +6437,7 @@ function conversationPending(agent: MatrixAgentRuntime): boolean {
 
 function conversationIdle(agent: MatrixAgentRuntime): boolean {
   return (
-    !isMovingAgent(agent) &&
+    !macJobHomeHeld(agent) &&
     !agent.invocation &&
     !agent.lock.holder &&
     !agent.lock.waiting &&
@@ -8878,7 +7727,7 @@ async function runAgentTask(
     closing ||
     agentRuntime.closed ||
     isCloudOnlyAgent(agentRuntime) ||
-    isMovingAgent(agentRuntime)
+    macJobHomeHeld(agentRuntime)
   ) {return}
 
   const conversationKey = matrixConversationKey(identity, human, target.roomId, target.taskId)
@@ -12139,7 +10988,7 @@ function setUpAssistant(interactive: boolean): Promise<void> {
 
   // As setUpAgent: a legacy cloud-only assistant is never started or checked on this Mac. A saved
   // H-F policy can prepare it for a fenced takeover; a move still cannot restart it mid-flight.
-  if (isCloudOnlyAgent(defaultAgent) || isMovingAgent(defaultAgent)) {
+  if (isCloudOnlyAgent(defaultAgent) || macJobHomeHeld(defaultAgent)) {
     assistantSetupState = undefined
     assistantSetupRetryAt = undefined
     startupState = undefined
@@ -12387,7 +11236,7 @@ function setUpAgent(agentRuntime: MatrixAgentRuntime): Promise<void> {
 
   // S1 legacy cloud-only agents are not enrolled, started or checked here. A saved H-F policy can
   // prepare one for a fenced takeover; a move still cannot restart it mid-flight.
-  if (isCloudOnlyAgent(agentRuntime) || isMovingAgent(agentRuntime)) {
+  if (isCloudOnlyAgent(agentRuntime) || macJobHomeHeld(agentRuntime)) {
     agentRuntime.setupState = undefined
     agentRuntime.setupRetryAt = undefined
 
@@ -12892,6 +11741,7 @@ interface MatrixSoulTurnStart {
 function readSoulRaw(home: string): string | undefined {
   try {
     const value = readFileSync(path.join(home, 'SOUL.md'), 'utf8')
+
     return Buffer.byteLength(value, 'utf8') <= 65_536 ? value : undefined
   } catch {
     return undefined
@@ -12922,12 +11772,14 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
       ) {return undefined}
 
       const snapshot = await account.agentDefinition(assistantId, AbortSignal.timeout(15_000))
+
       if (agentRuntime.closed || enrollmentOf(agentRuntime).identity?.executorId !== identity.executorId) {return undefined}
 
       refreshAgentSoul(agentRuntime, snapshot.definition?.soul, snapshot.definitionRevision)
       const home = agentHermesHome(agentRuntime, identity, selectedRuntime)
       const raw = readSoulRaw(home)
       const localText = matrixAgentSoulText(home)
+
       if (raw === undefined || localText === undefined) {return undefined}
 
       const primary = productAgent() === agentRuntime ? matrixPrimarySoulFallback(agentRuntime.name).soul.trim() : ''
@@ -12939,6 +11791,7 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
           revision?: unknown
           platformText?: unknown
         } | null
+
         if (
           pending?.revision === snapshot.definitionRevision &&
           pending.platformText === platformText &&
@@ -12966,10 +11819,12 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
     },
     afterTurn: async value => {
       const start = value as MatrixSoulTurnStart | undefined
+
       if (!start || agentRuntime.closed || enrollmentOf(agentRuntime).identity?.executorId !== start.executorId) {return}
 
       const raw = readSoulRaw(start.home)
       const text = matrixAgentSoulText(start.home)
+
       if (raw === undefined || text === undefined || text === start.text) {return}
 
       const clearPending = () => {
@@ -12983,6 +11838,7 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
       if (!text || text.includes('\u0000') || Buffer.byteLength(text, 'utf8') > 65_536) {
         if (start.platformText) {replaceMatrixAgentSoul(start.home, raw, start.platformText)}
         clearPending()
+
         return
       }
 
@@ -13016,9 +11872,12 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
           const current = await account.agentDefinition(start.assistantId, AbortSignal.timeout(15_000)).catch(() => undefined)
           const primary = productAgent() === agentRuntime ? matrixPrimarySoulFallback(agentRuntime.name).soul.trim() : ''
           const winner = (current?.definition?.soul ?? primary).trim()
+
           if (winner) {replaceMatrixAgentSoul(start.home, raw, winner)}
+
           if (current) {reconciledSouls.set(start.principal, current.definitionRevision)}
           clearPending()
+
           return
         }
 
@@ -13247,6 +12106,7 @@ function requestAgentChats(
 
 function localMacSourcesConsentScope() {
   const installation = new MacSourcesConsentStore(outcomeStore, () => null).installationId()
+
   return macSourceConsentScope(null, false, installation)!
 }
 
@@ -13354,17 +12214,20 @@ function commitPendingMacSourceOff(gate: Parameters<MatrixAccountSourceGates['se
 
 async function setMacSourceConsent(source: Parameters<MacSourcesConsentStore['set']>[0], enabled: boolean) {
   const gate = source === 'teamSpaces' ? 'team_spaces' : source
+
   if (sourceGateSync) {await sourceGateSync.set(gate, enabled)}
   else if (!enabled) {commitPendingMacSourceOff(gate)}
   else {
     commitMacSourceConsent(source, true)
     macSourcesConsentStore().clearPendingNarrow([source])
   }
+
   return macSourcesConsentStore().read()
 }
 
 function shownOnThisMac(): boolean {
   const store = macSourcesConsentStore()
+
   return Boolean(store.presentedAt(store.installationId()))
 }
 
@@ -13383,6 +12246,7 @@ function macLocationAccessStatus() { return 'not-determined' as const }
 /** Account-level source facts for Settings. No assistant or open chat is consulted. */
 function accountSourceFacts() {
   const home = app.getPath('home')
+
   const fullDisk = process.platform === 'darwin'
     ? probeFullDiskAccess({
         messages: path.join(home, 'Library', 'Messages', 'chat.db'),
@@ -13450,6 +12314,7 @@ async function requestAgentMacSources(
     agentPrincipal: identity.agentPrincipal,
     executorId: identity.executorId
   }
+
   const current = () => {
     signal.throwIfAborted()
     const scope = account.appScope()
@@ -13627,7 +12492,7 @@ function reconcileMacJobs(agent: MatrixAgentRuntime, force = false): void {
   const principal = cloudPrincipal(agent)
   const facts = principal ? agentHome?.controller.ctx.runtime.leaseFacts(principal) : null
 
-  const authority = !closing && !agent.closed && !isMovingAgent(agent) && facts
+  const authority = !closing && !agent.closed && !macJobHomeHeld(agent) && facts
     ? `${facts.leaseId}:${facts.executorTerm}` : ''
 
   if (!force && entry.authority === authority) {return}
@@ -13658,6 +12523,7 @@ async function prepareMacJobs(agent: MatrixAgentRuntime, signal: AbortSignal, se
   previous?.stop()
   await previous?.drained()
   signal.throwIfAborted()
+
   if (macJobPreparations.get(agent) !== preparation) {throw new Error('mac_job_start_superseded')}
   macJobs.delete(agent)
   const context = agentHome?.controller.ctx
@@ -13770,7 +12636,7 @@ async function openAssistantHermes(
   if (
     lifecycle.blocksRuntime(agentRuntime.principal) ||
     isCloudOnlyAgent(agentRuntime) ||
-    isMovingAgent(agentRuntime)
+    macJobHomeHeld(agentRuntime)
   ) {
     throw new Error('matrix_agent_unavailable')
   }
@@ -13796,6 +12662,7 @@ async function openAssistantHermes(
 
   await prepareMacJobs(agentRuntime, signal, selectedRuntime, input)
   signal.throwIfAborted()
+
   const tickerMayRun = applyMatrixJobsHold(holds, agentRuntime.role,
     macJobsTickerPlan(agentJobsPlan(agentRuntime), macJobs.get(agentRuntime)?.lifecycle, macJobsPlaced(agentRuntime)))
 
@@ -13987,6 +12854,7 @@ async function backgroundSweepContinuity(
     agentId: runtime.userId,
     bounded: true
   }
+
   const value = await human.queue.command({ kind: 'readContinuity', ...scope }, MATRIX_CONTINUITY.deadlineMs + 1_000)
   const read = readContinuityResult(value, scope)
   const room = state.rooms.find(each => each.id === candidate.roomId)
@@ -14002,7 +12870,7 @@ async function backgroundSweepContinuity(
 async function backgroundSweepActivity(candidate: BackgroundSweepCandidate) {
   const runtime = backgroundSweepRuntime(candidate)
 
-  if (!runtime || isCloudOnlyAgent(runtime) || isMovingAgent(runtime)) {
+  if (!runtime || isCloudOnlyAgent(runtime) || macJobHomeHeld(runtime)) {
     return null
   }
 
@@ -14039,11 +12907,14 @@ async function backgroundSweepMemorySource(
   for (const name of ['SOUL.md', 'USER.md', 'MEMORY.md']) {
     try {
       const file = path.join(home, name)
+
       if (!existsSync(file) || !statSync(file).isFile()) {
         continue
       }
+
       observedAt = Math.max(observedAt, Math.trunc(statSync(file).mtimeMs))
       const text = readFileSync(file, 'utf8').trim()
+
       if (text) {
         parts.push(`${name}\n${text}`)
       }
@@ -14053,6 +12924,7 @@ async function backgroundSweepMemorySource(
   }
 
   const capturedAt = Date.now()
+
   // Background work never probes protected Desktop/Documents/Downloads: even testing access can
   // raise a macOS prompt. Atum Drive is app-created and already background-safe.
   const macFiles = includeMacFiles && process.platform === 'darwin'
@@ -14062,6 +12934,7 @@ async function backgroundSweepMemorySource(
         limit: 2
       })
     : []
+
   const fileEntries = macFiles.map(file => backgroundSweepMacFileEvidence(
     file,
     !warmup && file.modifiedAt >= capturedAt - sourceIntervalMs
@@ -14091,6 +12964,7 @@ async function backgroundSweepConversationSource(
   const { read, at } = await backgroundSweepContinuity(candidate)
   const visible = read.entries.slice(0, 20)
   const ownerEvent = backgroundSweepOwnerEvent(visible, at)
+
   const entries = ownerEvent
     ? [
         backgroundSweepConversationEvidence(
@@ -14126,15 +13000,18 @@ async function backgroundSweepChatsSource(
   if (!agent || !identity || !owner) {
     return { status: 'unavailable' }
   }
+
   const now = Date.now()
   const priorCarry = sweepWatermarkCarry(prior)
   const priorAt = sweepWatermarkAt(prior, now - 24 * 60 * 60_000)
+
   // A warm-up nudge reads recent rooms, not only unread ones; an already-read message can still be
   // the most useful detail when the agent is building its first picture of the owner's work.
   const sinceMs = warmup ? now - 7 * 24 * 60 * 60_000
     : priorCarry.size > 0
       ? now - 48 * 60 * 60_000
       : Math.max(now - 48 * 60 * 60_000, priorAt - 2 * 60 * 60_000)
+
   const listed = JSON.parse(
     await requestAgentChats(
       agent,
@@ -14153,6 +13030,7 @@ async function backgroundSweepChatsSource(
   if (!Array.isArray(listed.rooms)) {
     return { status: 'failed' }
   }
+
   const entries: FollowupSweepEvidenceInput[] = []
   const included = new Set<string>()
   const selection = selectBackgroundSweepChats(listed.rooms, prior ?? null, now, warmup)
@@ -14171,6 +13049,7 @@ async function backgroundSweepChatsSource(
         signal
       )
     ) as { messages?: unknown }
+
     const messages = Array.isArray(detail.messages) ? (detail.messages as Array<Record<string, unknown>>) : []
     const message = messages.find(each => each.mine === false && typeof each.text === 'string')
     const observedAt = message && (Number(message.at) || now)
@@ -14220,21 +13099,27 @@ async function backgroundSweepGoogleSource(
   if (agent !== defaultAgent || !googleConnections?.configured) {
     return { status: 'not_configured' }
   }
+
   const gate = googleAssistant.gate(agent.role)
+
   if (gate !== 'ok') {
     return { status: gate === 'not_available' ? 'not_configured' : 'not_authorized' }
   }
+
   signal.throwIfAborted()
   const now = Date.now()
   const priorCarry = sweepWatermarkCarry(prior ?? null)
   const priorAt = sweepWatermarkAt(prior ?? null, now - 24 * 60 * 60_000)
+
   const sinceMs = priorCarry.size > 0
     ? now - 48 * 60 * 60_000
     : Math.max(now - 48 * 60 * 60_000, priorAt - 2 * 60 * 60_000)
+
   const request =
     source === 'google_mail'
       ? { action: 'search_mail' as const, query: `is:unread -from:me after:${Math.floor(sinceMs / 1_000)}` }
       : { action: 'agenda' as const, when: 'today_and_tomorrow' as const }
+
   const utility = matrixGoogleUtilityInput(request, new Date(now))
   const outcome = 'read' in utility ? await googleConnections.toolRead(utility.read) : null
   signal.throwIfAborted()
@@ -14242,13 +13127,17 @@ async function backgroundSweepGoogleSource(
   if (!outcome) {
     return { status: 'unavailable' }
   }
+
   if (outcome.ok === false) {
     return { status: googleSourceStatus(outcome.error) }
   }
+
   const result = matrixGoogleToolResult(request, outcome.value) as Record<string, unknown>
+
   if (typeof result.error === 'string') {
     return { status: googleSourceStatus(result.error) }
   }
+
   const entries: FollowupSweepEvidenceInput[] = []
   let watermark: string
 
@@ -14262,22 +13151,28 @@ async function backgroundSweepGoogleSource(
     for (const { message, observedAt } of selection.entries) {
       entries.push(backgroundSweepMailEvidence(message, observedAt))
     }
+
     watermark = selection.watermark
+
     // Warm-up only: a category pass adds durable context (what the owner buys, subscribes to, or
     // ignores) as non-fresh evidence. It never advances the unread frontier, so the next normal
     // sweep still sees the same unread mail it would have seen without this pass.
     if (warmup) {
       const categoryRequest = { action: 'search_mail' as const,
         query: '-from:me newer_than:90d (category:updates OR category:promotions OR category:social)' }
+
       const categoryUtility = matrixGoogleUtilityInput(categoryRequest, new Date(now))
+
       const categoryOutcome = 'read' in categoryUtility
         ? await googleConnections.toolRead(categoryUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
 
       if (categoryOutcome && categoryOutcome.ok !== false) {
         const category = matrixGoogleToolResult(categoryRequest, categoryOutcome.value) as Record<string, unknown>
         const seen = new Set(entries.map(entry => entry.anchorId))
+
         const messages = (Array.isArray(category.messages) ? category.messages : [])
           .filter((message): message is Record<string, unknown> => Boolean(message) && typeof message === 'object' &&
             !Array.isArray(message) && typeof message.messageId === 'string')
@@ -14287,6 +13182,7 @@ async function backgroundSweepGoogleSource(
           if (seen.has(String(message.messageId))) {
             continue
           }
+
           entries.push({ ...backgroundSweepMailEvidence({
             messageId: String(message.messageId),
             ...(typeof message.threadId === 'string' ? { threadId: message.threadId } : {}),
@@ -14305,20 +13201,25 @@ async function backgroundSweepGoogleSource(
       .slice(0, 20)
       .map(({ event, start }) => {
         const revision = `calendar:${String(event.eventId)}:${String(event.start ?? '')}`
+
         return { event, start, revision, key: sweepCarryKey(revision) }
       })
+
     const driveFiles = new Map<string, Record<string, unknown>>()
 
     for (const sort of includeDrive ? ['modified', 'viewed'] as const : []) {
       const driveRequest = { action: 'search_drive' as const, sort }
       const driveUtility = matrixGoogleUtilityInput(driveRequest, new Date(now))
+
       const driveOutcome = 'read' in driveUtility
         ? await googleConnections.toolRead(driveUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
 
       if (driveOutcome && driveOutcome.ok !== false) {
         const drive = matrixGoogleToolResult(driveRequest, driveOutcome.value) as Record<string, unknown>
+
         for (const file of (Array.isArray(drive.files) ? drive.files : []).filter(
           (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
             typeof (value as Record<string, unknown>).fileId === 'string'
@@ -14332,6 +13233,7 @@ async function backgroundSweepGoogleSource(
       const modifiedAt = typeof file.modified === 'string' ? file.modified : undefined
       const viewedAt = typeof file.viewed === 'string' ? file.viewed : undefined
       const revision = `drive:${String(file.fileId)}:${modifiedAt ?? ''}:${viewedAt ?? ''}`
+
       const evidence = backgroundSweepDriveEvidence({
         fileId: String(file.fileId),
         ...(typeof file.sourceId === 'string' ? { sourceId: file.sourceId } : {}),
@@ -14339,17 +13241,22 @@ async function backgroundSweepGoogleSource(
         ...(modifiedAt ? { modifiedAt } : {}),
         ...(viewedAt ? { viewedAt } : {})
       }, true)
+
       return evidence ? [{ evidence, revision, key: sweepCarryKey(revision) }] : []
     })
+
     const revisions = [...events.map(candidate => candidate.revision), ...files.map(candidate => candidate.revision)]
     const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
     const calendarPending = events
       .filter(candidate => changed || priorCarry.has(candidate.key))
       .sort((left, right) => Number(priorCarry.has(right.key)) - Number(priorCarry.has(left.key)) || left.start - right.start)
+
     const drivePending = files
       .filter(candidate => changed || priorCarry.has(candidate.key))
       .sort((left, right) => Number(priorCarry.has(right.key)) - Number(priorCarry.has(left.key)) ||
         right.evidence.observedAt - left.evidence.observedAt)
+
     const included = new Set<string>()
     const inside = followupSweepInsideNormalWindow(now, ownerTimeZone)
 
@@ -14365,6 +13272,7 @@ async function backgroundSweepGoogleSource(
         ...(typeof candidate.event.notes === 'string' ? { notes: candidate.event.notes } : {})
       }, now, inside))
     }
+
     for (const candidate of drivePending.slice(0, 2)) {
       included.add(candidate.key)
       entries.push(candidate.evidence)
@@ -14373,13 +13281,17 @@ async function backgroundSweepGoogleSource(
     if (warmup) {
       const historyRequest = { action: 'agenda' as const, when: 'past_30d' as const }
       const historyUtility = matrixGoogleUtilityInput(historyRequest, new Date(now))
+
       const historyOutcome = 'read' in historyUtility
         ? await googleConnections.toolRead(historyUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
+
       if (historyOutcome && historyOutcome.ok !== false) {
         const history = matrixGoogleToolResult(historyRequest, historyOutcome.value) as Record<string, unknown>
         const currentIds = new Set(events.map(candidate => String(candidate.event.eventId)))
+
         for (const event of (Array.isArray(history.events) ? history.events : []).filter(
           (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
             typeof (value as Record<string, unknown>).eventId === 'string'
@@ -14387,10 +13299,13 @@ async function backgroundSweepGoogleSource(
           if (currentIds.has(String(event.eventId)) || entries.filter(entry => entry.source === 'google_calendar').length >= 5) {
             continue
           }
+
           const start = Date.parse(String(event.start ?? ''))
+
           if (!Number.isFinite(start)) {
             continue
           }
+
           entries.push({ ...backgroundSweepCalendarEvidence({
             eventId: String(event.eventId),
             ...(typeof event.sourceId === 'string' ? { sourceId: event.sourceId } : {}),
@@ -14407,6 +13322,7 @@ async function backgroundSweepGoogleSource(
     const carry = [...new Set([...priorCarry, ...events.map(candidate => candidate.key), ...files.map(candidate => candidate.key)])]
       .filter(key => !included.has(key))
       .slice(0, 20)
+
     // The frozen wire has one Google-calendar frontier. It tracks the bounded calendar+Drive
     // planning bundle so Mac and cloud homes make the same fresh/unchanged decision.
     watermark = sweepWatermark(now, revisions, carry)
@@ -14421,31 +13337,40 @@ async function backgroundSweepGoogleDriveSource(
   signal: AbortSignal
 ): Promise<BackgroundSweepSourceRead> {
   const agent = backgroundSweepRuntime(candidate)
+
   if (agent !== defaultAgent || !googleConnections?.configured) {
     return { status: 'not_configured' }
   }
+
   const gate = googleAssistant.gate(agent.role)
+
   if (gate !== 'ok') {
     return { status: gate === 'not_available' ? 'not_configured' : 'not_authorized' }
   }
 
   const now = Date.now()
   const files = new Map<string, Record<string, unknown>>()
+
   for (const sort of ['modified', 'viewed'] as const) {
     const request = { action: 'search_drive' as const, sort }
     const utility = matrixGoogleUtilityInput(request, new Date(now))
     const outcome = 'read' in utility ? await googleConnections.toolRead(utility.read).catch(() => null) : null
     signal.throwIfAborted()
+
     if (!outcome) {
       return { status: 'unavailable' }
     }
+
     if (outcome.ok === false) {
       return { status: googleSourceStatus(outcome.error) }
     }
+
     const result = matrixGoogleToolResult(request, outcome.value) as Record<string, unknown>
+
     if (typeof result.error === 'string') {
       return { status: googleSourceStatus(result.error) }
     }
+
     for (const file of (Array.isArray(result.files) ? result.files : []).filter(
       (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' &&
         !Array.isArray(value) && typeof (value as Record<string, unknown>).fileId === 'string'
@@ -14460,8 +13385,10 @@ async function backgroundSweepGoogleDriveSource(
       ...(typeof file.name === 'string' ? { name: file.name } : {}),
       ...(typeof file.modified === 'string' ? { modifiedAt: file.modified } : {}),
       ...(typeof file.viewed === 'string' ? { viewedAt: file.viewed } : {}) }, true)
+
     return evidence ? [{ evidence, revision: evidence.anchorId }] : []
   }).sort((left, right) => right.evidence.observedAt - left.evidence.observedAt)
+
   const revisions = candidates.map(candidate_ => candidate_.revision)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
   const entries = candidates.slice(0, 2).map(candidate_ => ({ ...candidate_.evidence, fresh: changed }))
@@ -14479,29 +13406,39 @@ async function backgroundSweepScopedRoomSource(
   const agent = backgroundSweepRuntime(candidate)
   const identity = agent && enrollmentOf(agent).identity
   const owner = account.appScope()
+
   if (!agent || !identity || !owner || !roomId.startsWith('!')) {
     return { status: 'unavailable' }
   }
+
   const value = JSON.parse(
     await requestAgentChats(agent, identity, owner, { op: 'read', id: roomId, limit: 20 }, signal)
   ) as { error?: unknown; messages?: unknown }
+
   if (value.error === 'disabled') {
     return { status: 'not_authorized' }
   }
+
   if (typeof value.error === 'string' || !Array.isArray(value.messages)) {
     return { status: 'unavailable' }
   }
+
   const message = (value.messages as Array<Record<string, unknown>>)
     .find(each => each.mine === false && typeof each.eventId === 'string' && typeof each.text === 'string')
+
   if (!message) {
     return { status: 'ok', ...(prior ? { cursor: prior } : {}), entries: [] }
   }
+
   const observedAt = Number(message.at)
+
   if (!Number.isSafeInteger(observedAt)) {
     return { status: 'failed' }
   }
+
   const eventId = String(message.eventId)
   const cursor = sweepWatermark(observedAt, [eventId])
+
   const entries = cursor === prior ? [] : [backgroundSweepChatEvidence(roomId, {
     eventId,
     at: observedAt,
@@ -14519,24 +13456,32 @@ async function requestBackgroundMacSources(
   if (process.platform !== 'darwin') {
     return { error: 'unavailable' }
   }
+
   const agent = backgroundSweepRuntime(candidate)
   const identity = agent && enrollmentOf(agent).identity
   const owner = account.appScope()
+
   if (!agent || !identity || !owner) {
     return { error: 'unavailable' }
   }
+
   const accountKey = owner.accountKey
   const generation = owner.generation
+
   const current = () => {
     const scope = account.appScope()
     const enrolled = enrollmentOf(agent).identity
+
     return !closing && !agent.closed && scope?.accountKey === accountKey && scope.generation === generation &&
       enrolled?.agentPrincipal === identity.agentPrincipal && enrolled.executorId === identity.executorId
   }
+
   if (!current()) {
     return { error: 'unavailable' }
   }
+
   const value = JSON.parse(await macSourcesService().request(payload, { background: true }, signal)) as Record<string, unknown>
+
   return current() ? value : { error: 'disabled' }
 }
 
@@ -14558,14 +13503,20 @@ async function backgroundSweepMacFilesSource(
   if (process.platform !== 'darwin' || !backgroundSweepRuntime(candidate)) {
     return { status: 'unavailable' }
   }
+
   const now = Date.now()
+
   const files = await recentMacFileNames({ roots: [path.join(app.getPath('home'), 'Atum', 'Drive')],
     since: now - 30 * 24 * 60 * 60_000, limit: 5 })
+
   const revisions = files.map(file => `${file.identity}:${file.modifiedAt}`)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries = files.map(file => backgroundSweepMacFileEvidence(file,
     changed && file.modifiedAt >= now - sourceIntervalMs))
+
   const cursor = sweepWatermark(now, revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14576,32 +13527,42 @@ async function backgroundSweepMacMessagesSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate, { op: 'messages.conversations', days: 30, limit: 10 }, signal)
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (!Array.isArray(value.conversations)) {
     return { status: 'failed' }
   }
+
   const rows = (value.conversations as Array<Record<string, unknown>>).filter(row =>
     typeof row.id === 'string' && typeof row.lastActivity === 'string')
+
   const revisions = rows.map(row => `${row.id}:${row.lastActivity}:${String(row.messageCount ?? '')}`)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries: FollowupSweepEvidenceInput[] = rows.slice(0, 5).flatMap(row => {
     const observedAt = Date.parse(String(row.lastActivity))
+
     if (!Number.isFinite(observedAt)) {
       return []
     }
+
     const participants = Array.isArray(row.participants)
       ? row.participants.map(item => typeof item === 'object' && item && 'name' in item ? String(item.name) : '')
         .filter(Boolean).slice(0, 3).join(', ')
       : ''
+
     return [{ source: 'mac_messages', scope: 'mac:messages', objectId: String(row.id),
       anchorId: `${String(row.id)}:${String(row.lastActivity)}:${String(row.messageCount ?? 0)}`, dueAt: null,
       observedAt, title: String(row.title ?? '').slice(0, 240),
       text: `${participants || (row.isGroup ? 'Group conversation' : 'Conversation')}; ${String(row.messageCount ?? 0)} messages`,
       fresh: changed }]
   })
+
   const cursor = sweepWatermark(Date.now(), revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14612,28 +13573,38 @@ async function backgroundSweepMacBrowserSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate,
     { op: 'browser.history', browser: 'all', days: 14, limit: 20, mode: 'recent' }, signal)
+
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (!Array.isArray(value.history)) {
     return { status: 'failed' }
   }
+
   const rows = value.history as Array<Record<string, unknown>>
   const revisions = rows.map(row => JSON.stringify([row.browser, row.domain, row.path, row.lastVisit, row.visits]))
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries: FollowupSweepEvidenceInput[] = rows.slice(0, 5).flatMap(row => {
     const observedAt = Date.parse(String(row.lastVisit ?? ''))
+
     if (!Number.isFinite(observedAt) || typeof row.domain !== 'string') {
       return []
     }
+
     const identity = createHash('sha256').update(JSON.stringify([row.browser, row.domain, row.path])).digest('hex')
+
     return [{ source: 'mac_browser_history', scope: 'mac:browser', objectId: identity,
       anchorId: `${identity}:${String(row.lastVisit)}`, dueAt: null, observedAt,
       title: String(row.title ?? row.domain).slice(0, 240),
       text: `${row.domain}; ${String(row.visits ?? 1)} visits`, fresh: changed }]
   })
+
   const cursor = sweepWatermark(Date.now(), revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14644,20 +13615,25 @@ async function backgroundSweepMacLocationSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate, { op: 'location.current', precision: 'city' }, signal)
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (typeof value.timeZone !== 'string') {
     return { status: 'failed' }
   }
+
   const revision = JSON.stringify([value.city ?? '', value.region ?? '', value.country ?? '', value.timeZone])
   const cursor = sweepWatermark(Date.now(), [revision])
   const changed = cursor !== prior && sweepWatermarkDigest(prior ?? null) !== sweepHash([revision])
   const label = [value.city, value.region, value.country].filter(item => typeof item === 'string').join(', ')
+
   const entries: FollowupSweepEvidenceInput[] = changed ? [{ source: 'mac_location', scope: 'mac:location',
     objectId: 'current-city', anchorId: createHash('sha256').update(revision).digest('hex'), dueAt: null,
     observedAt: Date.now(), title: label.slice(0, 240), text: `${label || 'Current city unavailable'}; ${value.timeZone}`,
     fresh: true }] : []
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14669,11 +13645,13 @@ function backgroundSweepSourceRegistry(
 ): BackgroundSweepSourceRegistry {
   const registry = new BackgroundSweepSourceRegistry()
   const interval = policy.effectiveSourceIntervalMs ?? policy.sourceIntervalMs
+
   const register = (operations: readonly string[], handler: Parameters<BackgroundSweepSourceRegistry['register']>[1]) => {
     for (const operation of operations) {
       registry.register(operation, handler)
     }
   }
+
   register([NATIVE_AGENT_SOURCE_OPERATIONS.chats, NATIVE_AGENT_SOURCE_OPERATIONS.cloudChats], context =>
     backgroundSweepChatsSource(candidate, context.priorCursor, context.signal, warmup))
   registry.register(NATIVE_AGENT_SOURCE_OPERATIONS.scopedRoom, context =>
@@ -14701,28 +13679,36 @@ function backgroundSweepSourceRegistry(
     backgroundSweepMacBrowserSource(candidate, context.priorCursor, context.signal))
   registry.register(NATIVE_AGENT_SOURCE_OPERATIONS.macLocation, context =>
     backgroundSweepMacLocationSource(candidate, context.priorCursor, context.signal))
+
   return registry
 }
 
 async function backgroundSweepAuthority(candidate: BackgroundSweepCandidate, signal: AbortSignal) {
   const ctx = agentHome?.controller.ctx
+
   if (!ctx) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   const placement = await ctx.platform.readPlacement(candidate.agentPrincipal, signal)
+
   if (placement.ok === false) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   const home = fenceFromLease(placement.value, ctx.runtime.leaseFacts(candidate.agentPrincipal))
+
   if (!home || home.leaseId === undefined) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   return { ctx, placement: placement.value, home }
 }
 
 function backgroundSweepPlatform(candidate: BackgroundSweepCandidate, signal: AbortSignal) {
   const sign = async (request: unknown, occurrenceId?: string) => {
     const { ctx, home } = await backgroundSweepAuthority(candidate, signal)
+
     return ctx.auth.sign(AGENT_SWEEP_SIGNED_ACTION, meta =>
       occurrenceId
         ? { meta, fence: withOperation(home, { kind: 'job', id: occurrenceId }), request }
@@ -14745,10 +13731,13 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
       const agent = allAgents().find(
         each => cloudPrincipal(each) === input.agent && assistantHomeRoom(each) === input.roomId
       )
+
       const host = agent && hosts.get(agent.role)
+
       if (!agent || !host?.ready || !agent.assistantId) {
         throw new Error('matrix_background_sweep_publication_unavailable')
       }
+
       const value = (await host.queue.command(
         {
           kind: 'prepareResult',
@@ -14763,6 +13752,7 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
         },
         30_000
       )) as { eventType?: unknown; content?: unknown }
+
       if (
         (value.eventType !== 'm.room.message' && value.eventType !== 'm.room.encrypted') ||
         !value.content ||
@@ -14770,20 +13760,25 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
       ) {
         throw new Error('matrix_background_sweep_publication_invalid')
       }
+
       return { eventType: value.eventType, content: value.content }
     },
     enqueue: async (record, signal) => {
       const candidateRuntime = allAgents().find(each => cloudPrincipal(each) === record.agent)
+
       if (!candidateRuntime?.assistantId) {
         throw new Error('matrix_background_sweep_publication_unavailable')
       }
+
       const candidate = {
         agentPrincipal: record.agent,
         assistantId: candidateRuntime.assistantId,
         roomId: record.roomId,
         ownerPrincipal: account.identity()?.userId ?? ''
       }
+
       const { ctx, placement, home } = await backgroundSweepAuthority(candidate, signal)
+
       const publication = await ctx.auth.sign('MatrixPublicationEnqueue', meta => ({
         meta,
         fence: withOperation(home, { kind: 'job', id: record.occurrenceId }),
@@ -14794,12 +13789,15 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
         transactionId: record.transactionId,
         payloadSha256: record.payloadSha256
       }))
+
       const envelope: PublicationEnvelope = {
         publication: publication as PublicationEnvelope['publication'],
         eventType: record.eventType,
         payloadBase64: record.payloadBase64
       }
+
       const result = await ctx.platform.enqueuePublication(record.agent, envelope, signal)
+
       // A native sweep is only staged here. The platform keeps this queued row
       // unclaimable until settlement admits the offer and invokes publication.
       if (result.ok === false || result.value.state !== 'queued') {
@@ -14817,12 +13815,15 @@ function backgroundSweepSuggestions(): MatrixBackgroundSweepSuggestions {
 
 function createBackgroundSweeps(): MatrixBackgroundSweeps {
   backgroundSweepPublications ??= createBackgroundSweepPublications()
+
   return new MatrixBackgroundSweeps({
     candidates: () => {
       const ownerPrincipal = account.identity()?.userId ?? ''
+
       return allAgents().flatMap(agent => {
         const principal = cloudPrincipal(agent)
         const roomId = assistantHomeRoom(agent)
+
         return !closing && ownerPrincipal && principal && agent.assistantId && roomId && !agent.closed &&
           !isCloudOnlyAgent(agent)
           ? [{ agentPrincipal: principal, assistantId: agent.assistantId, roomId, ownerPrincipal }]
@@ -14839,6 +13840,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
 
       try {
         await backgroundSweepAuthority(candidate, signal)
+
         return { active: true, revision: setting.revision }
       } catch {
         return { active: false, revision: setting.revision }
@@ -14848,15 +13850,18 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     hold: async candidate => {
       const agent = backgroundSweepRuntime(candidate)
       const held = agent ? await holdAgentLease(agent) : null
+
       return held?.leaseToken ? (held as BackgroundSweepLease) : null
     },
     acquire: async candidate => {
       const agent = backgroundSweepRuntime(candidate)
       const release = agent?.lock.tryAcquire(candidate.roomId, 'background-sweep')
+
       return release ? { release } : null
     },
     negotiate: async (candidate, signal) => {
       const sources = await backgroundSweepPlatform(candidate, signal).sources(candidate.assistantId, signal)
+
       return sources ? AGENT_SWEEP_PROFILE_V2 : AGENT_SWEEP_PROFILE_V11
     },
     claim: (candidate, _lease, request, signal) =>
@@ -14867,6 +13872,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
       const warmup = claim.profile !== AGENT_SWEEP_PROFILE && claim.occurrenceKind === 'warmup_nudge'
       const registry = backgroundSweepSourceRegistry(candidate, claim.policy, claim.ownerTimeZone, warmup)
       const gateEnabled = (gate: string) => macSourceGateEnabled(macSourcesConsentStore().read(), gate)
+
       const snapshot = claim.profile === AGENT_SWEEP_PROFILE_V2
         ? await collectBackgroundSweepSources({ ownerTimeZone: claim.ownerTimeZone,
             admittedSources: claim.admittedSources, sourceCursors: claim.sourceCursors, registry, gateEnabled,
@@ -14874,13 +13880,16 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         : await collectLegacyBackgroundSweepSources({ ownerTimeZone: claim.ownerTimeZone,
             prior: claim.sourceWatermarks, registry, gateEnabled, current: () => backgroundSweepCurrent(candidate),
             signal, warmup })
+
       if (warmup) {
         return claim.profile === AGENT_SWEEP_PROFILE_V2
           ? fitAgentSourceSweepSnapshot(snapshot as AgentSourceSweepSnapshot, { warmup: claim.warmupNudgeIndex })
           : fitWarmupNudgeSnapshot(snapshot as FollowupSweepEvidenceSnapshot, claim.warmupNudgeIndex)
       }
+
       const evidence = snapshot as FollowupSweepPromptSnapshot
       const suggestion = !followupSweepNeedsModel(evidence) && followupSweepNeedsSuggestion(evidence)
+
       const history = suggestion
         ? followupSweepSuggestionHistory(evidence, candidate.ownerPrincipal,
           backgroundSweepSuggestions().read(candidate.ownerPrincipal))
@@ -14905,11 +13914,14 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     classify: async (candidate, authorization, prompt, signal) => {
       const agent = backgroundSweepRuntime(candidate)
       const gateway = agent?.storeGateway as MatrixHermesConnection['gateway'] | undefined
+
       if (!agent || !gateway || authorization.expiresAt <= Date.now()) {
         throw new Error('matrix_background_sweep_unavailable')
       }
+
       let release = () => {}
       const atum = authorization.attribution.lane === 'atum_managed'
+
       if (atum) {
         if (
           authorization.limits.maxModelMicroProtons === null ||
@@ -14917,6 +13929,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         ) {
           throw new Error('matrix_background_sweep_authorization_invalid')
         }
+
         release = backgroundSweepModelCalls.begin(agent.role, {
           authorizationId: authorization.authorizationId,
           attributionId: authorization.attribution.id,
@@ -14926,6 +13939,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
           maxModelMicroProtons: authorization.limits.maxModelMicroProtons
         })
       }
+
       try {
         const result = await gateway.request<{ text?: unknown; usage?: unknown }>(
           'background_sweep.classify',
@@ -14940,10 +13954,13 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
           authorization.limits.activeComputeSeconds * 1_000 + 60_000,
           signal
         )
+
         const usage = backgroundSweepReportedUsage(result?.usage, authorization.limits.activeComputeSeconds)
+
         if (!result || typeof result.text !== 'string' || !usage) {
           throw new Error('matrix_background_sweep_model_invalid')
         }
+
         return {
           value: result.text,
           usage
@@ -14972,6 +13989,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         reason: input.reason,
         ...(input.usage ? { usage: input.usage } : {})
       }
+
       return backgroundSweepPlatform(input.candidate, signal).release(
         input.candidate.assistantId,
         input.occurrenceId,
@@ -14981,6 +13999,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     },
     settle: async (input, signal) => {
       const { home } = await backgroundSweepAuthority(input.candidate, signal)
+
       const request = {
         profile: input.profile,
         operation: 'settle' as const,
@@ -15010,13 +14029,16 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         findingHashes: input.findingHashes,
         outbox: input.outbox
       }
+
       const result = await backgroundSweepPlatform(input.candidate, signal).settle(
         input.candidate.assistantId,
         input.occurrenceId,
         request,
         signal
       )
+
       backgroundSweepPublications?.settled(input.candidate.agentPrincipal, input.occurrenceId)
+
       return { publication: { state: result.publication.state } }
     },
     log: line => console.warn(line)
@@ -15341,9 +14363,11 @@ function createCheckIns(): MatrixCheckIns {
  * goes on to the assistant as usual. */
 function noteCheckInOwnerMessage(agentRuntime: MatrixAgentRuntime | undefined, body: string) {
   const principal = cloudPrincipal(agentRuntime)
+
   if (principal) {
     backgroundSweeps?.cancel(principal)
   }
+
   const records = state.checkIns
   const owner = hosts.get('human')
   const identity = state.identity
@@ -15438,7 +14462,7 @@ function refreshGoogleTools(agentRuntime: MatrixAgentRuntime) {
 function startAssistantHermes(agentRuntime: MatrixAgentRuntime = defaultAgent): Promise<boolean> {
   if (
     isCloudOnlyAgent(agentRuntime) ||
-    isMovingAgent(agentRuntime) ||
+    macJobHomeHeld(agentRuntime) ||
     (!conversations.get(agentRuntime)?.activity.changing && conversationPending(agentRuntime))
   ) {
     return Promise.resolve(false)
@@ -15493,7 +14517,7 @@ function startAssistantHermes(agentRuntime: MatrixAgentRuntime = defaultAgent): 
       if (
         !matrixEnrollmentAuthority(enrollmentOf(agentRuntime)).ok ||
         isCloudOnlyAgent(agentRuntime) ||
-        isMovingAgent(agentRuntime)
+        macJobHomeHeld(agentRuntime)
       ) {
         return false
       }
@@ -15515,7 +14539,7 @@ function startAssistantHermes(agentRuntime: MatrixAgentRuntime = defaultAgent): 
       if (
         !matrixEnrollmentAuthority(enrollmentOf(agentRuntime)).ok ||
         isCloudOnlyAgent(agentRuntime) ||
-        isMovingAgent(agentRuntime)
+        macJobHomeHeld(agentRuntime)
       ) {
         return false
       }
@@ -15646,7 +14670,7 @@ function reconcileLease(agent: MatrixAgentRuntime): void {
 
   // Legacy cloud-only agents hold no local lease. A saved H-F policy may keep this Mac ready;
   // an exact yielding term drains without admitting another claim.
-  if (isCloudOnlyAgent(agent) || isMovingAgent(agent)) {
+  if (isCloudOnlyAgent(agent) || macJobHomeHeld(agent)) {
     void agent.lease.release()
 
     return
@@ -16092,7 +15116,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
         return { kind: 'cloud' }
       }
 
-      if (isMovingAgent(agentRuntime)) {
+      if (macJobHomeHeld(agentRuntime)) {
         return { kind: 'unavailable' }
       }
 
@@ -16582,6 +15606,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
       // says so in the owner's language instead, in the answer's place and under its transaction.
       const part = input.part
       const pet = !input.status && (!part || part.index === part.count - 1) ? matrixPetIntentEnvelope(turn.answerPet) : undefined
+
       const body = input.status
         ? matrixAgentStatusText(
             input.status,
@@ -16707,6 +15732,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
 
       if (turn.profile === 'first_learning') {
         const target = { roomId: turn.roomId, eventId: `$first-learning-${turn.turnId}` }
+
         const interim = new MatrixInterimMessages(target, port, {
           privateChat: true,
           transactionFor: sequence =>
@@ -17690,7 +16716,21 @@ async function start() {
   cloudEnrollments = createCloudEnrollments()
   // Which Mac an agent lives on (atum.agent-home/2.1). Inert for a signed-out account, for an agent the
   // platform has not placed under the model, and against a platform that has no such routes.
-  agentHome = createAgentHome(deviceIdentity)
+  agentHome = createMacJobHome({
+    request: (send, signal) => account.s1Request(send, signal),
+    key: () => deviceIdentity?.executorKey() ?? null,
+    store: deviceIdentity.store,
+    leaseFacts: principal => (() => { const agent = allAgents().find(agent => cloudPrincipal(agent) === principal); const identity = agent && enrollmentOf(agent).identity;
+
+ return identity ? agent?.lease?.fenceFacts(identity.executorId) ?? null : null })(),
+    publicationStore: principal => allAgents().find(agent => cloudPrincipal(agent) === principal)?.store ?? null,
+    agents: () => allAgents().flatMap(agent => { const principal = cloudPrincipal(agent);
+
+ return principal && !agent.closed ? [principal] : [] }),
+    ready: () => !closing && Boolean(account?.identity()) && Boolean(config.domain),
+    changed: () => { for (const agent of macJobs.keys()) { reconcileMacJobs(agent) }; publish(state) },
+    log: line => console.warn(line)
+  })
   agentHome.service.start()
   deviceBootstrap = new DeviceServiceBootstrap({
     createRuntime: buildDeviceRuntime,
@@ -17745,81 +16785,7 @@ async function start() {
     if (!closing && account?.identity()) {
       void reconcileDeviceControl()
     }
-
-    if ((cloudAgents.size || config.cloudMigrationTestAgents?.length) && !closing && account?.identity()) {
-      try {
-        homeMigrationForOwner()
-      } catch {
-        return
-      }
-    }
   }, 15_000).unref()
-  setInterval(() => {
-    if (migrationTickRunning || closing || !account?.identity()) {
-      return
-    }
-
-    migrationTickRunning = true
-
-    void (async () => {
-      try {
-        await homeMigrationForOwner()?.client.tick()
-      } catch {
-        console.warn('[Device] migration hold remains active')
-      } finally {
-        migrationTickRunning = false
-      }
-    })()
-  }, 1_000).unref()
-
-  // The operator's single-shot trigger for the owner's home move (operator-move.ts). It lives in
-  // the app's private data folder, is gated by the same allow-list as the migration itself and by
-  // the agent being ready, and has no IPC or UI surface.
-  const operatorMoveTick = operatorMoveTicker(() => {
-    const allowed = config.cloudMigrationTestAgents
-
-    if (!allowed?.length || closing || !account?.identity()) {
-      return null
-    }
-
-    const moveTarget = (principal: string) => allAgents().find(each => cloudPrincipal(each) === principal)
-
-    return {
-      // Beside the operator's public-config.json, not under userData (operatorMoveDirectory).
-      directory: operatorMoveDirectory(app.getPath('appData')),
-      allowed,
-      files: nodeOperatorFiles(),
-      // While the roster still calls the agent a cloud agent the move refuses to start (its saved
-      // policy has cloud on), so the trigger waits for the roster to say local, with a home bound.
-      ready: principal => {
-        try {
-          const agent = moveTarget(principal)
-
-          return Boolean(
-            agent &&
-              agent.userId &&
-              !agent.closed &&
-              !isCloudAgent(agent) &&
-              !isMovingAgent(agent) &&
-              cloudEnrollments &&
-              deviceIdentity &&
-              migrationLocalAgent(principal, agent.userId)?.hasHome()
-          )
-        } catch {
-          return false // An unreadable home is not ready; the next tick looks again.
-        }
-      },
-      move: principal => {
-        const agent = moveTarget(principal)
-
-        return agent ? moveAgentToCloud(agent) : Promise.reject(new Error('matrix_agent_unavailable'))
-      },
-      now: Date.now,
-      log: line => console.warn(line)
-    }
-  })
-
-  setInterval(() => void operatorMoveTick(), OPERATOR_MOVE_TICK_MS).unref()
   personalPetCache = new MatrixPersonalPetCache(path.join(app.getPath('userData'), 'matrix-personal-pets'))
   pets = new MatrixPets({
     scope: target => {
@@ -18287,7 +17253,9 @@ async function start() {
           const gates = macSourceGates(seed.consent)
           // Domain-less explicit OFF choices join the first import; defaults never do.
           const localOnly = new MacSourcesConsentStore(outcomeStore, localMacSourcesConsentScope)
+
           for (const source of localOnly.pendingNarrow()) {gates[source === 'teamSpaces' ? 'team_spaces' : source] = false}
+
           return { mergeId: seed.mergeId, gates }
         },
         recordOverridden: gates => {
@@ -18301,8 +17269,10 @@ async function start() {
         markMerged: () => macSourcesConsentStore().markAccountGatesMerged(),
         apply: gates => {
           const current = macSourceGates(macSourcesConsentStore().read())
+
           for (const [gate, enabled] of Object.entries(gates)) {
             const source = gate as keyof typeof gates
+
             if (current[source] !== enabled) {commitMacSourceConsent(source === 'team_spaces' ? 'teamSpaces' : source, enabled)}
           }
         },
@@ -18340,14 +17310,6 @@ async function start() {
       })
     : undefined
 
-  chatGptRelay = config.domain
-    ? new MatrixChatGptRelay({
-        scope: () => account.appScope(),
-        call: (action, signal, body) => account.s1Request(
-          (accessToken, resource) => requestMatrixChatGptRelay(resource, accessToken, action, signal, body), signal),
-        changed: () => publish(state)
-      })
-    : undefined
 
   cloudModelChoices = config.domain
     ? new MatrixCloudModelChoices({
@@ -18383,19 +17345,6 @@ async function start() {
         },
         thisDevice: () => deviceIdentity?.enrollment()?.deviceServiceId,
         changed: () => publish(state)
-      })
-    : undefined
-
-  cloudHomeReader = config.domain
-    ? new MatrixCloudHomeReader({
-        // Beside the device state, outside every agent's home: a local file the cloud's copy is about to
-        // replace is saved here first, so a takeover never silently drops what this Mac learned.
-        backups: path.join(app.getPath('userData'), 'device', 'cloud-home-backups'),
-        request: (agentPrincipal, action, signal) =>
-          account.s1Request(
-            (accessToken, resource) => requestCloudHome(resource, accessToken, agentPrincipal, action, signal),
-            signal
-          )
       })
     : undefined
 
@@ -18721,11 +17670,15 @@ async function start() {
       connections: () => googleConnections && {
         status: async () => {
           const owner = account.appScope()
+
           try {
             const signal = AbortSignal.timeout(20_000)
+
             const result = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountStatus(resource, token, signal), signal)
+
             const current = account.appScope()
+
             return owner && current?.accountKey === owner.accountKey && current.generation === owner.generation
               ? result : { status: null, error: 'cancelled' }
           } catch {
@@ -18735,17 +17688,24 @@ async function start() {
         connect: async () => {
           const owner = account.appScope()
           const signal = AbortSignal.timeout(20_000)
+
           try {
             const current = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountStatus(resource, token, signal), signal)
+
             if (current.status?.accountState !== 'disconnected') { return current }
+
             const url = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountConnect(resource, token, signal), signal)
+
             const next = account.appScope()
+
             if (!owner || next?.accountKey !== owner.accountKey || next.generation !== owner.generation) {
               return { status: null, error: 'cancelled' }
             }
+
             await shell.openExternal(url)
+
             return current
           } catch {
             return { status: null, error: 'network' }
@@ -18901,10 +17861,12 @@ async function start() {
 
       if (net.isOnline() !== online) {
         online = !online
+
         if (online) {
           void reconcileDeviceControl(true)
           drive?.recoverConnectivity(true)
         }
+
         recheckAgents()
       }
     }, 5_000).unref()
@@ -19171,12 +18133,15 @@ async function start() {
       macs: async () => {
         const rows = await deviceRegistryTransport(s1Call).list(AbortSignal.timeout(3_000)).catch(() => null)
         const enrollment = deviceIdentity?.enrollment()
+
         if (process.platform !== 'darwin') {return rows ? projectMacFleet(rows, undefined) : []}
         const presence = deviceIdentity?.presence()
         const connected = presence?.state === 'enrolled' && presence.connection === 'status_exchanged'
         const sources = nativeMacSourceStatus(macSourcesConsentStore().read(), accountSourceFacts().fullDisk, macLocationAccessStatus())
+
         const here = { id: enrollment?.deviceServiceId ?? macSourcesConsentStore().installationId(), name: macComputerName(), thisMac: true,
           state: !connected ? 'not_connected' as const : Object.values(sources).includes('needs_permission') ? 'needs_permission' as const : 'ready' as const, sources }
+
         return rows ? projectMacFleet(rows, here) : [here]
       },
       // R1 supplies verified legacy-writer evidence. Never infer it from a gate change.
@@ -19187,9 +18152,12 @@ async function start() {
         const store = macSourcesConsentStore()
         const consent = store.read()
         const overridden = store.overriddenOptOuts()
+
         const sources = (['messages', 'browser', 'location', 'folders'] as const)
           .filter(source => consent[source] || overridden.includes(source))
+
         const noticed = [...new Set([...sources, ...overridden])].map(source => source === 'teamSpaces' ? 'team_spaces' as const : source)
+
         return noticed.length ? { sources: noticed } : undefined
       },
       presented: () => {
@@ -19273,6 +18241,7 @@ async function start() {
 
     void documents.refreshWord()
     void wallet?.refresh('focus')
+
     if (!closing && account.identity()) {void store?.refresh()}
   })
   ui.on('blur', () => void ownPresence.away())
@@ -19423,6 +18392,7 @@ async function start() {
       const owner = account.appScope()
 
       const candidates = allAgents()
+
       const requested =
         input.agentPrincipal === undefined
           ? candidates[0]
@@ -20581,9 +19551,11 @@ async function start() {
               identity: host.identity, presence: undefined, error: snapshot.error }
           : humanSnapshot)
         const published = state
+
         if (role === 'human' && snapshot.state === 'ready') {
           void ownPresence.refresh()
         }
+
         deviceApproval.observe(snapshot.security)
         unverifiedDevices.observe(host, snapshot.security, snapshot.state === 'ready')
 
@@ -20838,6 +19810,7 @@ async function start() {
             avatarMxc?: unknown
             avatarUrl?: unknown
           } | null
+
           const mxc = value?.avatarMxc === null ? null : matrixProfileMxc(value?.avatarMxc)
           const url = value?.avatarUrl
 
@@ -21115,13 +20088,17 @@ async function start() {
         if (closing) {
           throw Error('matrix_owner_location_unavailable')
         }
+
         const signal = AbortSignal.timeout(10_000)
+
         if (request.kind === 'ownerLocationRead') {
           return await account.ownerLocation(signal)
         }
+
         if (typeof request.enabled !== 'boolean') {
           throw Error('matrix_owner_location_invalid')
         }
+
         return await account.setOwnerLocationEnabled(request.enabled, signal)
       }
 
@@ -21825,6 +20802,7 @@ async function start() {
               { kind: 'appBotReadMedia', roomId: request.roomId, eventId: request.eventId },
               matrixSdkCommandTimeout({ kind: 'appBotReadMedia' })
             )
+
             const photo = appBotPhotoForRenderer(media)
 
             if (!stillCurrent() || !photo) {
@@ -22478,8 +21456,10 @@ async function start() {
       if (request?.kind === 'previewDocument' || request?.kind === 'pdfShow') {
         const identity = state.identity
         const roomId = state.roomId
+
         const drivePdf =
           request.kind === 'pdfShow' && typeof request.token === 'string' ? drive?.resolvePreview(request.token) : null
+
         const roomCanPreview = Boolean(
           roomId && state.rooms.some(room => room.id === roomId && usableAgentRoom(room))
         )
@@ -23162,12 +22142,10 @@ async function start() {
         }
 
         const local = matrixSubscriptionsStatus({ accountAuthHome: subscriptionAuthHome(), keys: subscriptionKeys() })
-        const [platform, relay] = await Promise.all([providerConnections?.refresh(), chatGptRelay?.refresh()])
+        const platform = await providerConnections?.refresh()
         const connected = matrixSubscriptionsWithProviderConnections(local, platform)
-        const me = deviceIdentity?.enrollment()?.deviceServiceId
-        const localModels =
-          chatGptLocalModels?.accountKey === account?.appScope()?.accountKey ? chatGptLocalModels?.models : undefined
-        return matrixSubscriptionsWithChatGptRelay(connected, relay, me, Boolean(chatGptRelay), localModels)
+
+        return connected
       }
 
       if (request?.kind === 'subscriptionCatalog') {
@@ -23190,7 +22168,7 @@ async function start() {
           state.state !== 'ready' ||
           enrolled.state !== 'ready' ||
           isCloudOnlyAgent(agent) ||
-          isMovingAgent(agent) ||
+          macJobHomeHeld(agent) ||
           lifecycle.blocksRuntime(agent.principal)
         ) {
           throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)
@@ -23206,7 +22184,7 @@ async function start() {
               !agent.closed &&
               allAgents().includes(agent) &&
               !isCloudOnlyAgent(agent) &&
-              !isMovingAgent(agent) &&
+              !macJobHomeHeld(agent) &&
               !lifecycle.blocksRuntime(agent.principal) &&
               scope?.accountKey === owner.accountKey &&
               scope.generation === owner.generation &&
@@ -23244,6 +22222,7 @@ async function start() {
 
       if (request?.kind === 'subscriptionChatGptStart') {
         const subscription = requireSubscriptionAccount()
+
         const localConnected = matrixSubscriptionsStatus({
           accountAuthHome: matrixSubscriptionHostHome(runtime!, subscription.owner, subscription.accountKey),
           keys: subscriptionKeys()
@@ -23347,9 +22326,9 @@ async function start() {
       if (request?.kind === 'subscriptionChatGptDisconnect') {
         const { owner, accountKey } = requireSubscriptionAccount()
         const { scope } = subscriptionProvidersFor()
+
         try {
           stopSubscriptionFollowUpRepair()
-          await configureThisMacAsChatGptRelay(false).catch(() => false)
 
           await scope
             .request({
@@ -23360,7 +22339,6 @@ async function start() {
             .catch(() => undefined)
 
           forgetSubscriptionChatGpt({ config: runtime!, owner, sharedCodex: sharedCodexHere() })
-          chatGptLocalModels = undefined
           // Hermes's DELETE above is the native disconnect. If it did not land, Hermes's own locked
           // clear_provider_auth drops the grant from the account home (never another provider's
           // rows): once before the assistants stop, so a restart cannot borrow it, and once after,
@@ -23374,28 +22352,6 @@ async function start() {
         }
 
         return
-      }
-
-      if (request?.kind === 'subscriptionChatGptRelay') {
-        if (typeof request.enabled !== 'boolean') {
-          throw new Error('matrix_command_invalid')
-        }
-
-        try {
-          if (!request.enabled) {
-            stopSubscriptionFollowUpRepair()
-            return {
-              status: await configureThisMacAsChatGptRelay(false) ? 'applied' as const : 'unavailable' as const
-            }
-          }
-
-          const result = await repairChatGptSubscription().run()
-          return {
-            status: result.relay === 'ok' ? 'applied' as const : 'unavailable' as const
-          }
-        } finally {
-          await retireSubscriptionProviders()
-        }
       }
 
       if (request?.kind === 'subscriptionOpenCodeSave') {
@@ -23450,10 +22406,12 @@ async function start() {
         const enrolled = enrollmentOf(agent)
         const executorId = enrolled.identity?.executorId
         const connected = agent.ownModel ? agent.connectedModel : undefined
+
         // A managed Mac agent may switch to a subscription model without already being on one:
         // that pick is the agent's own profile switch (the same native select writes it).
         const subscriptionRoute =
           input.kind === 'selectModelRoute' ? parseMatrixModelRouteId(input.routeId) : undefined
+
         const subscriptionPick = parseMatrixSubscriptionProvider(subscriptionRoute?.provider) !== undefined
 
         if (
@@ -23465,7 +22423,7 @@ async function start() {
           state.state !== 'ready' ||
           enrolled.state !== 'ready' ||
           isCloudOnlyAgent(agent) ||
-          isMovingAgent(agent) ||
+          macJobHomeHeld(agent) ||
           lifecycle.blocksRuntime(agent.principal)
         ) {
           throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)
@@ -23651,55 +22609,9 @@ async function start() {
         return cloudAgentRequest(request)
       }
 
-      if (request?.kind === 'executionPolicy') {
-        const principal = request.agentPrincipal
-
-        if (
-          !executionPolicies ||
-          closing ||
-          !account.identity() ||
-          typeof principal !== 'string' ||
-          !allAgents().some(agent => !agent.closed && cloudPrincipal(agent) === principal)
-        ) {
-          throw new Error('matrix_execution_policy_unavailable')
-        }
-
-        if (request.action === 'read') {
-          return executionPolicies.read(principal)
-        }
-
-        if (request.action === 'save') {
-          const result = await executionPolicies.save(principal, request.update)
-
-          if (result.ok) {
-            // Saving the first policy also changes the legacy roster route to cloud. Refresh that
-            // projection before main decides which local writers the audited switch may keep.
-            agentRoster.request()
-            void syncAgents()
-          }
-
-          return result
-        }
-
-        // The per-agent off switch: back to the legacy local path. The platform route may not exist
-        // yet; the cache offers this only after its capability check, and refuses it otherwise.
-        if (request.action === 'off') {
-          const result = await executionPolicies.turnOff(principal, request.off)
-
-          if (result.ok) {
-            // The agent leaves the cloud route: refresh the roster so its local writers come back.
-            agentRoster.request()
-            void syncAgents()
-          }
-
-          return result
-        }
-
-        throw new Error('matrix_command_invalid')
-      }
-
       if (request?.kind === 'backgroundSweep') {
         const principal = request.agentPrincipal
+
         const agent = typeof principal === 'string'
           ? allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
           : undefined
@@ -23723,37 +22635,6 @@ async function start() {
         throw new Error('matrix_command_invalid')
       }
 
-      if (request?.kind === 'agentHome') {
-        const principal = request.agentPrincipal
-
-        if (
-          !agentHome ||
-          closing ||
-          !account.identity() ||
-          typeof principal !== 'string' ||
-          !allAgents().some(agent => !agent.closed && cloudPrincipal(agent) === principal)
-        ) {
-          throw new Error('matrix_agent_home_unavailable')
-        }
-
-        return handleAgentHomeOwnerRequest(request, principal, {
-          owner: agentHome.owner,
-          kick: agent => agentHome?.kick(agent),
-          publish: () => publish(state),
-          scope: agentHomeOwnerScope,
-          refreshNames: refreshAgentHomeNames,
-          view: agentHomeView,
-          cloudOffers: cloudHomeOffers,
-          loadCloudOffers: async agent => {
-            await cloudModelChoices?.reload(agent)
-          },
-          cloudChoiceRevision: async agent => (await modelDestinations?.read(agent))?.dailyCap?.revision,
-          prepare: (agent, signal) =>
-            agentHome?.prepare(agent, signal) ?? Promise.resolve({ ok: false as const, reason: 'unavailable' as const }),
-          retained: agentHomePreflights
-        })
-      }
-
       if (request?.kind === 'modelDestinations') {
         return handleMatrixModelDestinationsRequest(request, {
           destinations: modelDestinations,
@@ -23772,7 +22653,7 @@ async function start() {
         const roomAgent = matrixTurnAgent(request.turnId, allAgents())
 
         // Cloud-route questions stay on the shared ledger; `answerHere` is the Mac-to-Mac path.
-        if (!roomAgent?.localTurns || isCloudAgent(roomAgent) || isMovingAgent(roomAgent)) {
+        if (!roomAgent?.localTurns || isCloudAgent(roomAgent) || macJobHomeHeld(roomAgent)) {
           throw new Error('matrix_turn_unavailable')
         }
 
@@ -23812,10 +22693,6 @@ async function start() {
 
         const roomAgent = requireRoomAgent(input.roomId)
 
-        if (isActivelyMovingAgent(roomAgent)) {
-          throw new Error('matrix_agent_unavailable')
-        }
-
         if (
           isCloudOnlyAgent(roomAgent) ||
           matrixCloudAgentAnswersInCloud({ cloudRoute: isCloudAgent(roomAgent), role: cloudAgentMacRole(roomAgent) })
@@ -23833,10 +22710,6 @@ async function start() {
 
           if (closing || state.state !== 'ready' || hosts.get('human') !== humanHost || account.identity()?.userId !== owner.userId) {
             throw new Error('matrix_not_ready')
-          }
-
-          if (isActivelyMovingAgent(roomAgent)) {
-            throw new Error('matrix_agent_unavailable')
           }
 
           const eventId = (await command(input)) as string
@@ -24100,11 +22973,15 @@ async function start() {
 
       if (request?.kind === 'renewAgent') {
         const assistantId = typeof request.assistantId === 'string' ? request.assistantId : ''
+
         if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(assistantId) || closing || !account.identity()) {
           throw new Error('matrix_agent_unavailable')
         }
+
         const result = await account.renewAgentHire(assistantId, randomUUID(), AbortSignal.timeout(20_000))
+
         if ('renewed' in result) { agentRoster.request(); void syncAgents() }
+
         return result
       }
 
@@ -24639,15 +23516,18 @@ async function start() {
           if (!owner || !companyFiles || !config.domain) {
             throw new Error('matrix_company_file_unsupported')
           }
+
           const current = () => {
             try {
               const identity = account.identity()
+
               return !closing && hosts.get('human') === owner && state.state === 'ready' &&
                 identity?.userId === owner.identity.userId && identity?.deviceId === owner.identity.deviceId
             } catch {
               return false
             }
           }
+
           return {
             platform: (value: Parameters<typeof account.companyFileV2>[0], signal: AbortSignal) =>
               account.companyFileV2(value, signal),
@@ -24661,13 +23541,16 @@ async function start() {
           if (!owner || !companyFiles || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
           }
+
           const signal = AbortSignal.timeout(10 * 60_000)
           const authority = await resolveCompanyFileAuthorityV2(account, teamSpaceRoom, 'upload', signal)
+
           const sendInput = {
             roomId: input.roomId, name: input.name,
             contentType: input.contentType ?? 'application/octet-stream', bytes: input.bytes,
             ...(input.threadRootId ? { threadRootId: input.threadRootId, replyTo: input.replyTo ?? input.threadRootId } : {})
           }
+
           return authority.kind === 'v2'
             ? sendCompanyFileV2(sendInput, authority.authority, companyFilePortsV2(), signal)
             : sendCompanyFile(sendInput, companyFilePorts(), signal)
@@ -24681,18 +23564,23 @@ async function start() {
           if (!owner || !companyFiles || !teamSpaceRoom || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
           }
+
           const downloadPorts = companyFilePortsV2()
           const sdk = downloadPorts.sdk
+
           const reference = await sdk({
             kind: 'companyFileReference', roomId: input.roomId, eventId: input.eventId
           }) as MatrixCompanyFileRef
+
           const signal = AbortSignal.timeout(10 * 60_000)
           const authority = await resolveCompanyFileAuthorityV2(account, teamSpaceRoom, 'download', signal)
           let file: { name: string; bytes: Uint8Array }
+
           if (reference.v === 2) {
             if (authority.kind !== 'v2') {
               throw new Error('matrix_company_file_unsupported')
             }
+
             file = await readCompanyFileV2(reference as MatrixCompanyFileRefV2, authority.authority,
               downloadPorts, signal)
           } else {
@@ -24706,12 +23594,15 @@ async function start() {
             if (!compatiblePublic || !companyRoom) {
               throw new Error('matrix_company_file_denied')
             }
+
             const ports = companyFilePorts()
             const pendingCompanyFile = ports.pending()
+
             if (pendingCompanyFile?.fileId === reference.file_id &&
                 (!pendingCompanyFile.eventId || pendingCompanyFile.eventId === input.eventId)) {
               await recoverCompanyFile(ports, signal)
             }
+
             file = await readCompanyFile(reference, ports, signal)
           }
 
@@ -25246,23 +24137,10 @@ async function start() {
             cloudEnrollments?.stop()
             petOverlays?.clear()
 
-            moveGeneration += 1
 
-            for (const each of moveAborts) {
-              each.abort()
-            }
 
-            if (defaultAgent.assistantId) {
-              const authority = await account.firstRunGoogleAuthority(defaultAgent.assistantId).catch(() => undefined)
-              await firstRunGoogleValue.cancel(authority)
-            }
-
-            await deviceBootstrap?.signedOut()
-
-            agentMoves.clear()
             cloudAgents.clear()
             placedAgents.reset()
-            movingAgents.clear()
             scheduleContinuousListening()
             // The recovery key stays on this Mac for the person (owner-keys.ts) unless they
             // choose to forget it (selling or giving the Mac away): then it goes first, so it is
@@ -25548,8 +24426,10 @@ if (stagedRecovery === 'exiting') {
 
   app.on('second-instance', (_event, argv) => {
     const link = matrixMessageLinkArg(argv)
+
     if (link) {deliverMatrixMessageLink(link)}
     const invite = argv.find(value => isMatrixInviteDeepLinkCandidate(value))
+
     if (invite) {deliverMatrixInviteLink(invite)}
 
     ui?.show()
@@ -25579,6 +24459,7 @@ if (stagedRecovery === 'exiting') {
         // room turn finish under its exact yielding term before ordinary quit teardown stops SDKs
         // or processes. A rejected turn is contained by the drain helper and its normal settlement.
         const drainStarted = performance.now()
+
         const drained = await drainMatrixRuntimes(allAgents(), {
           holdOperations: true,
           reason: 'cancelled',
@@ -25586,6 +24467,7 @@ if (stagedRecovery === 'exiting') {
         })
 
         console.warn(`[updates] restart phase=drain ms=${Math.round(performance.now() - drainStarted)}`)
+
         if (drained.timedOut) {
           console.warn('[Matrix] quit drain timed out; checkpointing admitted turns before teardown')
         }
@@ -25594,8 +24476,10 @@ if (stagedRecovery === 'exiting') {
         // withdraw Drive's sign-in the way a sign-out does (drive.ts dispose).
         const timedStop = async (phase: string, stop: () => unknown) => {
           const started = performance.now()
+
           try {return await stop()} finally {console.warn(`[updates] restart phase=${phase} ms=${Math.round(performance.now() - started)}`)}
         }
+
         const driveStop = timedStop('drive', () => drive?.dispose())
         closing = true
         ownPresence.stop()

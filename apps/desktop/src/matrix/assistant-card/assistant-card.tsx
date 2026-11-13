@@ -21,7 +21,7 @@ import {
   isAssistantNameLocked
 } from '../../../shared/matrix-assistant-name'
 import { parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
-import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
+import { MatrixAgentPlaceRow } from '../agent-place-row'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
 import { matrixCheckInTime } from '../check-ins-copy'
@@ -574,6 +574,7 @@ function CardAvatar({
 
     try {
       const result = await bridge.avatar({ principal: agent.principal, avatar: photo ?? null })
+
       if (!result.ok) {throw new Error(result.error)}
       setAvatarUrl(result.avatarUrl)
     } catch {
@@ -607,6 +608,7 @@ function CardAvatar({
 
     if (file) {
       event.preventDefault()
+
       if (!pending) {setCropFile(file)}
     }
   }
@@ -691,38 +693,7 @@ function CardRows({
     void runMatrixCommand({ kind: 'discoverApps' }).catch(() => $matrixStoreShelfRequest.set(null))
   }
 
-  // The routines panel's "Chuyển lên đám mây" opens the card's one placement surface (D1 home).
-  const openAnswerWhere = () => {
-    const trigger = window.document.querySelector<HTMLElement>('[data-assistant-card-home]')
-
-    if (trigger) {
-      trigger.scrollIntoView({ block: 'nearest' })
-      trigger.click()
-    }
-  }
-
-  const rows: ReactNode[] = []
-  // `agent.home` is main's data boundary for a migrated D1 assistant. Only then does this card show
-  // the authoritative home, its owner-placement readiness, and manual moves.
-  const homeBridge = window.atumMatrix.agentHome
-
-  if (agent.home && homeBridge) {
-    rows.push(
-      <MatrixAgentHomeRow
-        agentName={agent.name}
-        agentPrincipal={agent.principal}
-        bridge={homeBridge}
-        key="agent-home"
-        view={agent.home}
-      />
-    )
-  }
-
-  // Cloud-only U1: an assistant without `agent.home` gets the same row, read-only (where it answers
-  // and the Macs it can use). The legacy execution-order editor is gone from the card.
-  if (!(agent.home && homeBridge)) {
-    rows.push(<MatrixAgentPlaceRow agent={agent} key="agent-home" />)
-  }
+  const rows: ReactNode[] = [<MatrixAgentPlaceRow agent={agent} key="agent-home" />]
 
   if (agent.modelDestinations) {
     rows.push(
@@ -777,7 +748,7 @@ function CardRows({
         initiallyOpen={focusRoutines}
         key="routines"
         locale={locale}
-        onMoveToCloud={agent.home && homeBridge ? openAnswerWhere : undefined}
+
       />
     )
   } else if (agent.isDefault && snapshot.checkIns && snapshot.identity) {

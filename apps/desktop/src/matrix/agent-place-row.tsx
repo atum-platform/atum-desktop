@@ -1,17 +1,23 @@
 import { useState } from 'react'
+
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useI18n } from '@/i18n'
 import { ChevronRight, Cloud, DeviceDesktop } from '@/lib/icons'
+
 import type { MatrixAgentView } from '../../shared/matrix'
 import { matrixAgentAnswersInCloud } from '../../shared/matrix-agent-actions'
 import type { MatrixAgentSourcesBridge } from '../../shared/matrix-agent-sources'
+
 import { agentPlaceCopy } from './agent-place-copy'
 import { openMatrixConnections } from './connections-request'
 import { MatrixCanUseList, useMatrixReachMacs } from './mac-reach-rows'
+
 function PlaceIcon({ className, kind }: { className?: string; kind: 'cloud' | 'mac' }) {
   const Icon = kind === 'cloud' ? Cloud : DeviceDesktop
+
   return <Icon aria-hidden className={className} strokeWidth={1.7} />
 }
+
 /**
  * The same "Lives on" row for an assistant without an authoritative home (U1 §2): where it
  * answers, read-only, and the Macs it can use. Every card shows the same row; nothing here moves it.

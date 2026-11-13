@@ -20,7 +20,6 @@ import { ApprovalWindow } from './approval-window'
 import type { ApprovalAnswer } from './approvals'
 import type { AuditWriter } from './audit'
 import { argsHash, deviceMessageHash } from './canonical'
-import type { ChatGptRelayHandler } from './chatgpt-relay'
 import type {
   DeviceApproval,
   DeviceArtifact,
@@ -623,7 +622,7 @@ export interface DeviceSessionFacts {
 export type DeviceFrameVerdict = 'ok' | 'bad_signature' | 'unpinned_controller_key'
 
 export interface DeviceInboundFrameFacts {
-  readonly type: 'TurnGrant' | 'Execute' | 'Renew' | 'Cancel' | 'WorkspaceFinalize' | 'WorkspaceConfirm' | 'ChatGptRelayRequest'
+  readonly type: 'TurnGrant' | 'Execute' | 'Renew' | 'Cancel' | 'WorkspaceFinalize' | 'WorkspaceConfirm'
   readonly body: Record<string, unknown>
   readonly kid: string
   readonly verdict: DeviceFrameVerdict
@@ -631,7 +630,7 @@ export interface DeviceInboundFrameFacts {
   readonly receivedAt: number
 }
 
-export type DeviceOutboundType = 'GrantAck' | 'Receipt' | 'Status' | 'Stop' | 'WorkspaceResult' | 'WorkspaceRefused' | 'ChatGptRelayResponse'
+export type DeviceOutboundType = 'GrantAck' | 'Receipt' | 'Status' | 'Stop' | 'WorkspaceResult' | 'WorkspaceRefused'
 
 export interface DeviceOutboundFrameFacts {
   readonly type: DeviceOutboundType
@@ -665,7 +664,6 @@ export interface DeviceIdentityFacts {
 export interface DeviceServiceDeps {
   macSource?(args: Record<string, unknown>, grant: DeviceGrant, signal: AbortSignal): Promise<string>
   connected?(): void
-  relay?: Pick<ChatGptRelayHandler, 'handle' | 'disable'>
   workspace?: {
     finalize(request: WorkspaceFinalize, session: DeviceSessionFacts): Promise<void>
     confirm(request: WorkspaceConfirm, session: DeviceSessionFacts): Promise<void>
@@ -1119,15 +1117,6 @@ export class DeviceService {
       case 'TurnGrant':
         return [this.turnGrant(frame, session)]
 
-      case 'ChatGptRelayRequest':
-        return this.deps.relay
-          ? [{ type: 'ChatGptRelayResponse', body: await this.deps.relay.handle(frame.body, session, frame.verdict) }]
-          : [{ type: 'ChatGptRelayResponse', body: {
-              capabilityId: typeof frame.body.capabilityId === 'string'
-                ? frame.body.capabilityId
-                : '00000000-0000-4000-8000-000000000000',
-              state: 'refused', status: 403, code: 'relay_disabled'
-            } }]
 
       case 'Execute':
         return this.execute(frame, session)
@@ -1217,7 +1206,6 @@ export class DeviceService {
     this.fencing = null
     // A Stop (and sign-out, account switch, sleep) ends every task approval window.
     this.approvalWindow.clear()
-    this.deps.relay?.disable()
 
     try {
       this.deps.killAllGroups?.()

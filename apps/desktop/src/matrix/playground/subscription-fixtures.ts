@@ -116,11 +116,6 @@ export function playgroundSubscriptions(mode: PlaygroundSubscriptionsMode): Matr
     pollChatGpt: async () => ({ status: 'pending' }),
     cancelChatGpt: async () => undefined,
     disconnectChatGpt: async () => undefined,
-    // Cloud setup: in flight forever for `cloud-setup`, refused for `cloud-failed`.
-    useThisMacForChatGpt: enabled =>
-      mode === 'cloud-setup' && enabled
-        ? new Promise(() => undefined)
-        : Promise.resolve({ status: mode === 'cloud-failed' ? 'unavailable' : 'applied' }),
     connectOpenCode: async () => ({ status: 'applied' }),
     disconnectOpenCode: async () => undefined
   }

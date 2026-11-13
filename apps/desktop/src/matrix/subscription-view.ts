@@ -16,25 +16,15 @@ export type MatrixSubscriptionViewState =
   | 'needs_sign_in'
   /** Connected and reachable by every assistant, on this Mac and in the cloud. */
   | 'ready'
-  /** ChatGPT works on this Mac; cloud access is being set up right now. */
-  | 'cloud_setting_up'
-  /** ChatGPT works on this Mac; this window's last cloud setup attempt did not succeed. */
-  | 'cloud_failed'
-
 /** What one press of the row's single action does. Every connected state opens the plan's own
  * page (so Disconnect is always one click away); a state that can be fixed carries that one fix. */
 export type MatrixSubscriptionAction = 'connect' | 'sign_in' | 'manage' | 'reload'
-
-/** This window's own cloud setup attempt for the current relay revision. */
-export type MatrixSubscriptionCloudSetup = 'idle' | 'working' | 'failed'
 
 export interface MatrixSubscriptionView {
   state: MatrixSubscriptionViewState
   /** The plan the row is about: the connected one, else ChatGPT (the one offered first). */
   provider: MatrixSubscriptionProvider
   action?: MatrixSubscriptionAction
-  /** The plan page's one act for a state the person can fix (cloud setup that did not finish). */
-  fix?: 'retry_cloud'
 }
 
 function providerOf(
@@ -44,16 +34,10 @@ function providerOf(
   return status.providers.find(provider => provider.id === id)
 }
 
-/** Whether this Mac holds a working ChatGPT sign-in that cloud assistants cannot reach yet. */
-export function matrixChatGptNeedsCloudSetup(provider: MatrixSubscriptionProviderStatus | undefined): boolean {
-  return provider?.id === 'openai-codex' && provider.localConnected === true && provider.relay?.state !== 'enabled'
-}
-
 /** The one state Settings shows for the account's subscriptions. */
 export function matrixSubscriptionView(input: {
   status: MatrixSubscriptionsStatus | null
   readFailed?: boolean
-  cloudSetup?: MatrixSubscriptionCloudSetup
 }): MatrixSubscriptionView {
   const { status } = input
 
@@ -65,15 +49,7 @@ export function matrixSubscriptionView(input: {
 
   const chatgpt = providerOf(status, 'openai-codex')
 
-  // A ChatGPT sign-in saved on this Mac outranks everything else: it is the plan the person
-  // connected, and it already works for the assistants on this Mac.
-  if (matrixChatGptNeedsCloudSetup(chatgpt)) {
-    return input.cloudSetup === 'failed'
-      ? { state: 'cloud_failed', provider: 'openai-codex', action: 'manage', fix: 'retry_cloud' }
-      : { state: 'cloud_setting_up', provider: 'openai-codex', action: 'manage' }
-  }
-
-  const connected = status.providers.find(provider => provider.connected)
+  const connected = chatgpt?.connected ? chatgpt : status.providers.find(provider => provider.connected)
 
   if (connected) {
     return { state: 'ready', provider: connected.id, action: 'manage' }

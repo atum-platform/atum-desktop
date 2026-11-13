@@ -5,8 +5,6 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { decodeMigrationChunk } from '../../../../../packages/device-protocol/migration-chunk'
-
 import {
   DEVICE_CONNECTION,
   DEVICE_FRAME_BODY_MAX_BYTES,
@@ -102,71 +100,6 @@ const settle = async () => {
     await new Promise(resolve => setImmediate(resolve))
   }
 }
-
-describe('migration on the authenticated device connection', () => {
-  it('delivers only validated pinned-controller frames after the status exchange', async () => {
-    const h = harness()
-    const received: string[] = []
-    const closed: string[] = []
-    h.connection.attachMigration({ frame: type => { received.push(type) }, closed: (_session, reason) => { closed.push(reason) } })
-    h.connection.start()
-    const socket = h.sockets[0]
-    await h.handshake(socket)
-    const body = fixture('migration-ack-staged.frame.json').body
-    const good = envelope(h.hub, 'MigrationAck', body)
-    const forged = JSON.parse(good)
-    forged.sig = 'a'.repeat(86)
-    socket.deliver(JSON.stringify(forged))
-    await settle()
-    expect(received).toEqual([])
-    socket.deliver(good)
-    await settle()
-    expect(received).toEqual(['MigrationAck'])
-    expect(h.frames).toEqual([])
-    h.connection.stop('sign_out')
-    expect(closed).toEqual(['sign_out'])
-  })
-
-  it('signs only valid migration bodies and refuses bytes from an earlier connection', async () => {
-    const h = harness()
-    h.connection.attachMigration({ frame() {}, closed() {} })
-    h.connection.start()
-    const socket = h.sockets[0]
-    await h.handshake(socket)
-    const session = h.connection.session()!
-    const migrationId = randomUUID()
-
-    const body = { migrationId, agentPrincipal: randomUUID(), deviceServiceId: session.deviceServiceId,
-      enrollmentEpoch: session.enrollmentEpoch, accountEpoch: session.accountEpoch,
-      connectionId: session.connectionId, reason: 'owner_cancelled' }
-
-    expect(await h.connection.send('MigrationCancel', body)).toBe(true)
-    const sent = socket.last('MigrationCancel')!
-    expect(verifyDeviceSignature(h.signer.identity.public.spki, deviceSignedBytes(sent.type, sent.body), sent.sig)).toBe(true)
-    expect(await h.connection.send('MigrationCancel', { ...body, reason: 'invented' })).toBe(false)
-    const bytes = Buffer.from('snapshot')
-    const header = { migrationId, offset: 0, size: bytes.length }
-    expect(h.connection.sendMigrationChunk(session, header, bytes)).toBe(true)
-    expect(decodeMigrationChunk(socket.binary[0].data)).toEqual({ header, bytes })
-    h.connection.suspend()
-    h.connection.resume()
-    await h.handshake(h.sockets[1])
-    expect(h.connection.sendMigrationChunk(session, header, bytes)).toBe(false)
-    h.connection.stop()
-  })
-
-  it('never admits migration bytes or messages before status or without a migration client', async () => {
-    const h = harness()
-    h.connection.start()
-    await h.handshake(h.sockets[0], 'ready')
-    const body = fixture('migration-ack-staged.frame.json').body
-    h.sockets[0].deliver(envelope(h.hub, 'MigrationAck', body))
-    await settle()
-    expect(h.connection.state()).toBe('closed')
-    expect(await h.connection.send('MigrationCancel', {})).toBe(false)
-    h.connection.stop()
-  })
-})
 
 function harness(
   options: {
@@ -915,6 +848,7 @@ describe('the device hub connection', () => {
     const fixtureController = fixture('public-keys.json').keys.find(
       (key: { name: string }) => key.name === 'controller.revoke-public-trusted'
     )
+
     const h = harness({ extraPins: [{ kid: fixtureController.kid, publicKey: fixtureController.publicKey }] })
     h.connection.start()
     const socket = h.sockets[0]!

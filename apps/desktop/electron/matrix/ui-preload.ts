@@ -40,7 +40,6 @@ import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
-  MatrixSubscriptionRelayResult,
   MatrixSubscriptionSignIn,
   MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
@@ -180,8 +179,6 @@ const bridge: MatrixUiBridge = {
     disconnectChatGpt: async () => {
       await ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptDisconnect' })
     },
-    useThisMacForChatGpt: enabled =>
-      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptRelay', enabled }) as Promise<MatrixSubscriptionRelayResult>,
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {
@@ -523,7 +520,7 @@ const bridge: MatrixUiBridge = {
     ipcRenderer.invoke(channel.ui, {
       kind: 'cloudAgent',
       action: request.action,
-      ...(request.action === 'moveToCloud' || request.action === 'serviceStatus'
+      ...(request.action === 'serviceStatus'
         ? { principal: request.principal }
         : {}),
       ...(request.action === 'stopTurn' ? { roomId: request.roomId, eventId: request.eventId } : {}),
@@ -531,30 +528,6 @@ const bridge: MatrixUiBridge = {
         ? { offerVersion: request.offerVersion, disclosureVersion: request.disclosureVersion }
         : {})
     }),
-  executionPolicy: {
-    read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'read', agentPrincipal }),
-    save: (agentPrincipal, update) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'save', agentPrincipal, update }),
-    turnOff: (agentPrincipal, off) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'off', agentPrincipal, off })
-  },
-  agentHome: {
-    read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'read', agentPrincipal }),
-    preflight: (agentPrincipal, target, model) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'preflight', agentPrincipal, target, model }),
-    move: (agentPrincipal, preflightId, acceptCheckpointLoss) =>
-      ipcRenderer.invoke(channel.ui, {
-        kind: 'agentHome',
-        action: 'move',
-        agentPrincipal,
-        preflightId,
-        acceptCheckpointLoss: acceptCheckpointLoss === true
-      }),
-    cancel: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'cancel', agentPrincipal }),
-    model: (agentPrincipal, model) =>
-      ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'model', agentPrincipal, model }),
-    prepare: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'prepare', agentPrincipal })
-  },
   modelDestinations: {
     read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'modelDestinations', action: 'read', agentPrincipal }),
     write: (agentPrincipal, destination, model) =>

@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EncryptedStore } from '../encrypted-store'
 
 import { END_DEVICE_SESSION_ACTION, END_DEVICE_SESSION_ID, MatrixAccount } from './account'
-import { requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import { matrixConfigurationKey } from './config'
 import { currentIanaTimeZone } from './time-zone'
 import type * as TimeZoneModule from './time-zone'
@@ -1446,6 +1445,7 @@ describe('the owner time zone on the Matrix roster read', () => {
       const url = new URL(request.url)
       calls.push({ method: request.method, path: url.pathname,
         body: request.method === 'PUT' ? await request.text() : null, authorization: request.headers.get('authorization') })
+
       return Response.json(answer)
     }))
 
@@ -1473,43 +1473,26 @@ describe('the owner time zone on the Matrix roster read', () => {
   })
 })
 
-describe('relay publication bearer repair', () => {
-  it.each([false, true])('refreshes once on 401 (repeat rejection: %s)', async repeat => {
-    const { account, store } = ownerReaderFixture()
-    vi.mocked(oidc.refreshTokenGrant).mockResolvedValue({ access_token: 'fresh-domain-access', refresh_token: 'fresh-domain-refresh' } as never)
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ state: 'enabled' }), {
-        status: repeat ? 401 : 200, headers: { 'content-type': 'application/json' }
-      }))
-    vi.stubGlobal('fetch', fetch)
-    const signal = AbortSignal.timeout(10_000)
-    const result = account.s1Request((token, resource) =>
-      requestMatrixChatGptRelay(resource, token, 'enable', signal, { requestId: 'same-request' }), signal)
-    if (repeat) {await expect(result).rejects.toThrow('matrix_s1_authentication')}
-    else {await expect(result).resolves.toEqual({ status: 200, value: { state: 'enabled' } })}
-    expect(fetch).toHaveBeenCalledTimes(2)
-    expect(oidc.refreshTokenGrant).toHaveBeenCalledTimes(1)
-    expect(fetch.mock.calls.map(([, init]) => (init?.headers as Record<string, string>).Authorization))
-      .toEqual(['Bearer synthetic-domain-access', 'Bearer fresh-domain-access'])
-    expect(fetch.mock.calls[0][1]?.body).toBe(fetch.mock.calls[1][1]?.body)
-    expect(store.getItem('matrix-account')).toBeTruthy()
-  })
-})
-
 it('bounds S1 credential/send waits and passes cancellation to the transport', async () => {
   vi.useFakeTimers()
+
   const timeout = vi.spyOn(AbortSignal, 'timeout').mockImplementation(ms => {
     const abort = new AbortController()
     setTimeout(() => abort.abort(new Error('fixture deadline')), ms)
+
     return abort.signal
   })
+
   try {
     const { account } = ownerReaderFixture()
     let requestSignal: AbortSignal | undefined
+
     const result = account.s1Request(async (_token, _resource, signal) => {
       requestSignal = signal
+
       return new Promise(() => {})
     }, new AbortController().signal)
+
     const rejected = expect(result).rejects.toThrow('fixture deadline')
     await vi.advanceTimersByTimeAsync(15_000)
     await rejected

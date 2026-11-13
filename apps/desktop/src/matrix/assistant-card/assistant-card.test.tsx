@@ -153,6 +153,7 @@ describe('background follow-ups on the card', () => {
 
   it('shows exactly one short Vietnamese switch for a personal agent beside, not inside, routines', async () => {
     const bridge = backgroundSweep()
+
     const routines = {
       read: vi.fn(async (principal: string) => ({
         ok: true as const,
@@ -165,12 +166,15 @@ describe('background follow-ups on the card', () => {
         }
       }))
     } as unknown as MatrixRoutinesBridge
+
     window.atumMatrix = { ...window.atumMatrix, backgroundSweep: bridge, routines } as MatrixUiBridge
 
     await openLan()
+
     const row = await waitFor(() => {
       const found = document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
       expect(found).toBeTruthy()
+
       return found!
     })
 
@@ -208,6 +212,7 @@ it('shows the routines row on a card that is not the primary’s', async () => {
       }
     })
   )
+
   window.atumMatrix = {
     ...window.atumMatrix,
     routines: { read } as unknown as MatrixRoutinesBridge
@@ -233,6 +238,7 @@ it('opens the routines list on arrival when the composer asks for routines', asy
       }
     })
   )
+
   window.atumMatrix = {
     ...window.atumMatrix,
     routines: { read } as unknown as MatrixRoutinesBridge
@@ -1088,6 +1094,7 @@ describe('the failover policy on the card', () => {
     base.agents = base.agents?.map(each =>
       each.principal === LAN ? { ...each, answering: 'cloud' as const, executionPolicy: policy } : each
     )
+
     const sourcesRead = vi.fn(async () => ({
       gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
       sources: [],
@@ -1096,6 +1103,7 @@ describe('the failover policy on the card', () => {
         { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' as const }
       ]
     }))
+
     window.atumMatrix = {
       assistants,
       command: vi.fn().mockResolvedValue(null),
@@ -1119,6 +1127,7 @@ describe('the failover policy on the card', () => {
 
       return found!
     })
+
     expect(popover.textContent).toContain('Dùng được')
     expect(popover.querySelector('button[data-agent-home-can-use-mac="needs_permission"]')?.textContent).toContain('Cần cấp quyền')
     expect(popover.querySelector('button[data-agent-home-can-use-mac="ready"]')).toBeNull()
@@ -1126,9 +1135,10 @@ describe('the failover policy on the card', () => {
     expect(read).not.toHaveBeenCalled()
   })
 
-  it('shows only D1 home when an authoritative home and a legacy policy coexist', async () => {
+  it('ignores retired home controls when stale home and legacy policy data coexist', async () => {
     const base = snapshot()
     const policy = policyView()
+
     const home: NonNullable<MatrixAgentView['home']> = {
       lives: { kind: 'cloud' },
       move: null,
@@ -1154,6 +1164,7 @@ describe('the failover policy on the card', () => {
         ]
       }
     }
+
     base.agents = base.agents?.map(each =>
       each.principal === LAN ? { ...each, executionPolicy: policy, home } : each
     )
@@ -1175,78 +1186,9 @@ describe('the failover policy on the card', () => {
     act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
     await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
 
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeTruthy()
+    expect(window.document.querySelector('[data-assistant-card-home]')).toBeNull()
+    expect(window.document.querySelector('[data-assistant-card-place]')).toBeTruthy()
     expect(window.document.querySelector('[data-assistant-card-answer-where]')).toBeNull()
-  })
-})
-
-describe('where the assistant lives on the card', () => {
-  const home: MatrixAgentView['home'] = {
-    lives: { kind: 'mac', name: 'MacBook', thisMac: true },
-    move: null,
-    targets: [{ id: '00000000-0000-4000-8000-b454f82c5857', name: 'Mac mini' }],
-    issue: null
-  }
-
-  const bridge = {
-    read: vi.fn(),
-    preflight: vi.fn(),
-    move: vi.fn(),
-    cancel: vi.fn(),
-    model: vi.fn(),
-    prepare: vi.fn()
-  }
-
-  async function open(agentHome: MatrixAgentView['home'], withBridge: boolean) {
-    const base = snapshot()
-    base.agents = base.agents?.map(each => (each.principal === LAN && agentHome ? { ...each, home: agentHome } : each))
-    window.atumMatrix = {
-      assistants,
-      command: vi.fn().mockResolvedValue(null),
-      ...(withBridge ? { agentHome: bridge } : {})
-    } as unknown as MatrixUiBridge
-
-    render(<Window base={base} />)
-    act(() => openAssistantCard({ kind: 'agent', principal: LAN }))
-    await waitFor(() => expect(assistants.read).toHaveBeenCalledWith(LAN))
-  }
-
-  it('shows the Mac it lives on, in the owner’s name for it', async () => {
-    await open(home, true)
-
-    const row = window.document.querySelector<HTMLElement>('[data-assistant-card-home]')!
-    expect(row.textContent).toContain('Đang ở trên')
-    expect(row.textContent).toContain('MacBook · máy này')
-  })
-
-  it('does not claim a D1 home before authoritative home data exists', async () => {
-    await open(undefined, true)
-
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeNull()
-    cleanup()
-
-    // A window without the bridge has nothing to read or move with, so it draws no row at all.
-    await open(home, false)
-    expect(window.document.querySelector('[data-assistant-card-home]')).toBeNull()
-  })
-
-  it('keeps the known cloud place on a stale snapshot and Retry performs another read', async () => {
-    const stale: MatrixAgentView['home'] = {
-      lives: { kind: 'cloud' },
-      move: null,
-      targets: [],
-      issue: 'placement_stale'
-    }
-    bridge.read.mockResolvedValue(stale)
-    await open(stale, true)
-
-    fireEvent.click(window.document.querySelector<HTMLElement>('[data-assistant-card-home]')!)
-    await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(1))
-    expect(window.document.querySelector('[data-agent-home-current]')?.textContent).toContain('Đám mây')
-    expect(window.document.querySelector('[data-agent-home-popover]')?.textContent).toContain('cần sửa vị trí đã lưu')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }))
-    await waitFor(() => expect(bridge.read).toHaveBeenCalledTimes(2))
   })
 })
 
@@ -1261,8 +1203,9 @@ describe('one assistant card, the primary included', () => {
   const rowsOf = () =>
     [...window.document.querySelectorAll<HTMLElement>('[data-assistant-card-rows] > *')].map(row => {
       const tag = row.tagName.toLowerCase()
+
       const attributes = [
-        'data-assistant-card-home',
+        'data-assistant-card-place',
         'data-assistant-card-pet',
         'data-assistant-card-skills',
         'data-assistant-card-background-sweep',
@@ -1382,7 +1325,7 @@ describe('one assistant card, the primary included', () => {
     expect(templatePersona).toBe(1)
     expect(customPersona).toBe(1)
     expect(customField.value).toBe('You are Mai, a hand-written research partner.\n\n## Rules\n\nKeep citations exact.')
-    expect(primary.some(row => row.includes('data-assistant-card-home'))).toBe(true)
+    expect(primary.some(row => row.includes('data-assistant-card-place'))).toBe(true)
     expect(primary.some(row => row.includes('data-assistant-card-model-destination'))).toBe(true)
     cleanup()
 

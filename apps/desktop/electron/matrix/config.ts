@@ -28,7 +28,6 @@ export interface MatrixConfig {
    * answers it (its home device). Absent means on; `false` keeps every turn on this Mac. */
   agentHandoff?: boolean
   /** Phase A: at most two synthetic homes; empty/absent keeps the fresh-home demo route. */
-  cloudMigrationTestAgents?: string[]
   /** Google full power for the default assistant on this Mac (public-launch decision 2026-10-25):
    * on unless this is exactly `false`, so a config that never names it runs with full power. On,
    * main-google.ts grants the local Google broker without latching or fencing the assistant; its
@@ -107,11 +106,7 @@ export function parseMatrixConfig(value: unknown): MatrixConfig {
     throw new Error('matrix_configuration_invalid')
   }
 
-  if (input.cloudMigrationTestAgents !== undefined && (!Array.isArray(input.cloudMigrationTestAgents) ||
-      input.cloudMigrationTestAgents.length > 2 || new Set(input.cloudMigrationTestAgents).size !== input.cloudMigrationTestAgents.length ||
-      input.cloudMigrationTestAgents.some(id => typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)))) {
-    throw new Error('matrix_configuration_invalid')
-  }
+
 
   // The registered MAS client currently requires this exact loopback redirect.
   const port = input.callbackPort ?? 21881
@@ -161,7 +156,6 @@ export function parseMatrixConfig(value: unknown): MatrixConfig {
     server: endpoint(input.server).replace(/\/$/, ''),
     nativeClientId: input.nativeClientId,
     callbackPort: port,
-    ...(input.cloudMigrationTestAgents?.length && domain ? { cloudMigrationTestAgents: [...input.cloudMigrationTestAgents] } : {}),
     // Full power is the default; only an explicit `false` is carried, so the parsed shape of every
     // existing configuration is unchanged.
     ...(input.googleFullPower === false ? { googleFullPower: false } : {}),

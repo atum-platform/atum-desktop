@@ -83,32 +83,6 @@ export function ModelDestinationsRow({
     setHomeView(agent.home)
   }, [agent.home, agent.principal])
 
-  // The roster snapshot can predate an account-wide subscription connection. Refresh the native
-  // owner projection in the background while the card is open so this Mac's row converges on the
-  // same current catalog (and opaque connection references) as the composer without delaying a
-  // click on any destination.
-  useEffect(() => {
-    const home = window.atumMatrix?.agentHome
-
-    if (!home) {
-      return
-    }
-
-    let current = true
-    void home.read(agent.principal).then(
-      next => {
-        if (current && next) {
-          setHomeView(next)
-        }
-      },
-      () => {}
-    )
-
-    return () => {
-      current = false
-    }
-  }, [agent.principal])
-
   // The snapshot's rows can be a minute old; opening the card asks once, quietly.
   useEffect(() => {
     if (!bridge) {
@@ -207,43 +181,7 @@ export function ModelDestinationsRow({
       return result
     }
 
-    // A subscription belongs to the Mac where it is connected; only the assistant's current
-    // home can be written through that Mac's home bridge.
-    const homeBridge = window.atumMatrix.agentHome
-
-    if (!homeBridge || choice.kind !== 'mac' || choice.id !== currentHome) {
-      return { status: 'refused' as const }
-    }
-
-    const result = await homeBridge.model(agent.principal, option)
-    const source = option.source as 'chatgpt_plan' | 'opencode_go' | `own_key:${string}`
-
-    if (result.status === 'saved') {
-      setPicks(current => ({ ...current, [choice.id]: option }))
-      setView(current =>
-        current
-          ? {
-              ...current,
-              choices: current.choices.map(each =>
-                each.id === choice.id
-                  ? {
-                      ...each,
-                      external: {
-                        source,
-                        providerLabel: option.providerLabel,
-                        model: option.model,
-                        modelLabel: option.modelLabel,
-                        effort: option.effort
-                      }
-                    }
-                  : each
-              )
-            }
-          : current
-      )
-    }
-
-    return result
+    return { status: 'refused' as const }
   }
 
   const homeFor = (choice: MatrixModelDestinationView): MatrixAgentHomeView => {
@@ -435,6 +373,7 @@ export function cardModelChoice(
   }
 
   const currentMac = view.choices.find(choice => choice.kind === 'mac' && choice.id === currentHomeId)
+
   const localWithoutPlacement =
     currentHomeId === undefined && !matrixAgentAnswersInCloud(agent)
       ? view.choices.find(choice => choice.kind === 'mac' && choice.thisMac === true)
@@ -541,7 +480,6 @@ function cardSubscriptions(
     pollChatGpt: async () => ({ status: 'pending' }),
     cancelChatGpt: async () => undefined,
     disconnectChatGpt: async () => undefined,
-    useThisMacForChatGpt: async () => ({ status: 'unavailable' }),
     connectOpenCode: async () => ({ status: 'cancelled' }),
     disconnectOpenCode: async () => undefined
   }

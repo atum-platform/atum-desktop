@@ -27,7 +27,6 @@ import {
 } from './approvals'
 import { type AuditWriter, FileAuditWriter } from './audit'
 import { deviceMessageHash } from './canonical'
-import { type ChatGptRelayCall, ChatGptRelayHandler, type ChatGptRelayRequestBody } from './chatgpt-relay'
 import type {
   DeviceArtifact,
   DeviceExecutor,
@@ -95,12 +94,6 @@ export interface DeviceRuntimeEnvironment {
   approvalKey(): ApprovalKeyRef | null
   deviceServiceId(): string | null
   macSource?: DeviceServiceDeps['macSource']
-  chatGptRelay?: {
-    authority(): { ownerPrincipal: string; agentPrincipals: readonly string[]; deviceServiceId: string } | null
-    call(input: { model: string; effort: 'low' | 'medium' | 'high'; request: Record<string, unknown> },
-      signal: AbortSignal): Promise<ChatGptRelayCall>
-    authorize?(request: ChatGptRelayRequestBody, signal: AbortSignal): Promise<boolean>
-  }
 
   // ---- naming
   agentName(agentUserId: string): string
@@ -162,7 +155,6 @@ export interface DeviceRuntime {
   hello(): { terminal: boolean; files: boolean; computer: { available: boolean; reason?: string } }
   /** The Settings › Device bridge. */
   request(input: unknown): Promise<unknown>
-  configureChatGptRelay(enabled: boolean, models?: readonly string[]): void
 }
 
 class DeviceRequestError extends Error {
@@ -178,36 +170,15 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   const audit: AuditWriter = new FileAuditWriter(path.join(deviceDir, 'audit'))
   const ledger = new DeviceLedger(env.store)
   const grants = new GrantsStore(env.store, () => env.approvalKey(), line => env.log(line))
-  const relayKey = 'chatgpt-relay-v1'
-  let relayEnabled = false
-  let relayModels: string[] = []
-  try {
-    const saved = JSON.parse(env.store.getItem(relayKey) ?? 'null') as { enabled?: unknown; models?: unknown } | null
-    relayEnabled = saved?.enabled === true
-    relayModels = Array.isArray(saved?.models)
-      ? saved.models.filter((model): model is string => typeof model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(model)).slice(0, 64)
-      : []
-  } catch {
-    relayEnabled = false
-    relayModels = []
-  }
-  const relay = env.chatGptRelay ? new ChatGptRelayHandler({
-    authority: () => {
-      const base = env.chatGptRelay?.authority()
-      return base ? { ...base, enabled: relayEnabled, models: relayModels } : null
-    },
-    call: (input, signal) => env.chatGptRelay!.call(input, signal),
-    authorize: env.chatGptRelay.authorize
-      ? (request, signal) => env.chatGptRelay!.authorize!(request, signal)
-      : undefined,
-    log: line => env.log(line)
-  }) : undefined
   const tasksRoot = path.join(env.home, 'Atum Tasks')
   const savedKey = () => 'device-workspace-saved:' + env.deviceServiceId() + ':' + (env.accountEpoch?.() ?? 0)
+
   const savedCopies = (key = savedKey()): Record<string, { digest: string; resultHash: string }> => {
     try {
       const value = JSON.parse(env.store.getItem(key) ?? '{}')
+
       if (!value || typeof value !== 'object' || Array.isArray(value)) {return {}}
+
       return Object.fromEntries(Object.entries(value).filter(([copy, receipt]: [string, any]) =>
         copy.startsWith(tasksRoot + path.sep) && /^[0-9a-f]{64}$/.test(receipt?.digest)
           && /^[A-Za-z0-9_-]{43}$/.test(receipt?.resultHash))) as Record<string, { digest: string; resultHash: string }>
@@ -246,11 +217,13 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   let started: Promise<void> | undefined
   let ready = false
   let conflictTimer: ReturnType<typeof setInterval> | undefined
+
   const scanConflicts = () => {
     if (ready && env.identity()?.signedIn) {
       void env.conflictCopies?.scan().catch(() => env.log('[Device] conflict scan retained for retry'))
     }
   }
+
   /** A stop's teardown in flight; a start waits for it so it never returns a memo the stop is tearing down. */
   let stopping: Promise<void> | undefined
 
@@ -340,7 +313,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
 
   const service: DeviceService = new DeviceService({
     connected: scanConflicts,
-    relay,
     macSource: env.macSource,
     ledger,
     executor,
@@ -379,6 +351,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       service, copies: env.workspaceCopies,
       quiesce: async () => {
         egress.closeAll()
+
         if (!supervisor) {throw Error('device_host_quiescence_unavailable')}
         await supervisor.quiesce()
       },
@@ -389,8 +362,10 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       saved: async (copy, digest, result) => {
         const key = savedKey()
         const generation = service.workspaceGeneration()
+
         if (await workspaceCopyDigest(copy) !== digest || key !== savedKey()
           || generation !== service.workspaceGeneration()) {return}
+
         const records = savedCopies(key)
         records[copy] = { digest, resultHash: result.resultHash }
         env.store.setItem(key, JSON.stringify(Object.fromEntries(Object.entries(records).slice(-4000))))
@@ -461,6 +436,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
         if (pruneKey !== savedKey() || pruneGeneration !== service.workspaceGeneration()) {return}
         const archive = path.join(env.home, 'Atum Tasks Archive')
         mkdirSync(archive, { recursive: true, mode: 0o700 })
+
         if (realpathSync.native(archive) !== archive) {throw Error('workspace_archive_symlink')}
         await rename(copy, path.join(archive, path.basename(copy) + '-' + randomUUID()))
         const records = savedCopies(pruneKey)
@@ -545,6 +521,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       }
     })
     ready = true
+
     if (env.conflictCopies && !conflictTimer) {
       conflictTimer = setInterval(scanConflicts, 5 * 60_000)
       conflictTimer.unref?.()
@@ -639,17 +616,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
         : { available: false, reason: 'cua_driver_missing' }
 
       return { terminal: true, files: true, computer }
-    },
-
-    configureChatGptRelay(enabled, models = []) {
-      relayEnabled = enabled
-      relayModels = enabled
-        ? [...new Set(models)].filter(model => /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(model)).slice(0, 64)
-        : []
-      env.store.setItem(relayKey, JSON.stringify({ enabled: relayEnabled, models: relayModels }))
-      if (!enabled) {
-        relay?.disable()
-      }
     },
 
     async request(input) {

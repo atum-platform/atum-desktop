@@ -46,4 +46,5 @@ cloudPlace: '雲端',
 thisMac: '這部 Mac'
 },
 }
+
 export function agentPlaceCopy(locale: string) { return words[locale as keyof typeof words] ?? words.en }

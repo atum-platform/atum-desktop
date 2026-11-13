@@ -36,7 +36,6 @@ import { randomBytes } from 'node:crypto'
 
 import { parseFrame } from '../../../../../packages/device-protocol'
 import { helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
-import { encodeMigrationChunk, type MigrationChunkHeader } from '../../../../../packages/device-protocol/migration-chunk'
 
 import {
   b64u,
@@ -252,7 +251,7 @@ export interface DeviceSession {
 }
 
 export interface DeviceInboundFrame {
-  type: 'TurnGrant' | 'Execute' | 'Renew' | 'Cancel' | 'WorkspaceFinalize' | 'WorkspaceConfirm' | 'ChatGptRelayRequest'
+  type: 'TurnGrant' | 'Execute' | 'Renew' | 'Cancel' | 'WorkspaceFinalize' | 'WorkspaceConfirm'
   body: Record<string, unknown>
   kid: string
   verdict: FrameVerdict
@@ -261,13 +260,6 @@ export interface DeviceInboundFrame {
 }
 
 export type DeviceOutboundType = 'GrantAck' | 'Receipt' | 'Status' | 'Stop' | 'OriginReceipt' | 'WorkspaceResult' | 'WorkspaceRefused'
-  | 'MigrationOffer' | 'MigrationDecline' | 'MigrationChoose' | 'MigrationCancel' | 'ChatGptRelayResponse'
-
-/** Migration has its own lifecycle; it must not pass through command admission. */
-export interface DeviceMigrationSink {
-  frame(type: 'MigrationRequest' | 'MigrationAck' | 'MigrationReport' | 'MigrationResult', body: Record<string, unknown>, session: DeviceSession): void | Promise<void>
-  closed(session: DeviceSession, reason: DeviceCloseReason): void
-}
 
 export interface DeviceOutboundFrame {
   type: DeviceOutboundType
@@ -407,11 +399,6 @@ const CONTROLLER_TYPES = new Set([
   'Revoke',
   'WorkspaceFinalize',
   'WorkspaceConfirm',
-  'MigrationRequest',
-  'MigrationAck',
-  'MigrationReport',
-  'MigrationResult',
-  'ChatGptRelayRequest'
 ])
 
 export interface DeviceHelloFacts {
@@ -468,7 +455,6 @@ export class DeviceConnection {
   private lastKeyFailure = ''
   private generation = 0
   private sink: DeviceFrameSink
-  private migration?: DeviceMigrationSink
   private processing: Promise<void> = Promise.resolve()
   private readonly timers = new Map<'retry' | 'preauth' | 'silence' | 'helloFallback', unknown>()
   private readonly listeners = new Set<(state: DeviceConnectionState, reason?: DeviceCloseReason) => void>()
@@ -476,10 +462,6 @@ export class DeviceConnection {
 
   constructor(private readonly deps: DeviceConnectionDeps) {
     this.sink = deps.sink ?? refusingDeviceSink
-  }
-
-  attachMigration(sink: DeviceMigrationSink | undefined): void {
-    this.migration = sink
   }
 
   private now(): number {
@@ -669,22 +651,11 @@ export class DeviceConnection {
 
     if (type.startsWith('Workspace') && attempt.session?.workspaceProtocol !== 1) {return false}
 
-    if (type.startsWith('Migration') && !this.migration) {return false}
 
     return this.sendOn(attempt, type, body)
   }
 
   /** Bound to the session that accepted the offer; a reconnect cannot receive its old bytes. */
-  sendMigrationChunk(session: DeviceSession, header: MigrationChunkHeader, bytes: Uint8Array): boolean {
-    const attempt = this.current
-
-    if (!this.migration || !attempt || attempt.session !== session || this.connectionState !== 'status_exchanged' ||
-        attempt.socket.readyState !== OPEN || (attempt.socket.bufferedAmount ?? 0) > 4 * DEVICE_CONNECTION.maxFrameBytes) {return false}
-
-    attempt.socket.send(encodeMigrationChunk(header, bytes))
-
-    return true
-  }
 
   /**
    * Sends one artifact's bytes as binary chunk frames on the status-exchanged connection, before
@@ -746,10 +717,6 @@ export class DeviceConnection {
     }
 
     const frame = JSON.stringify({ v: 1, type, body, kid: signature.kid, sig: signature.sig })
-
-    if (type.startsWith('Migration')) {
-      try {parseFrame(frame, 'device_to_controller')} catch {return false}
-    }
 
     // The hub closes a connection on an oversized frame (1009), and the Mac would only send it again.
     if (Buffer.byteLength(frame, 'utf8') > DEVICE_CONNECTION.maxFrameBytes) {
@@ -971,7 +938,7 @@ export class DeviceConnection {
       )
     }
 
-    if (type.startsWith('Workspace') || type.startsWith('Migration') || type.startsWith('ChatGptRelay') ||
+    if (type.startsWith('Workspace') ||
       (type === 'Ready' && ((body as Record<string, unknown>).workspaceProtocol !== undefined || (body as Record<string, unknown>).sourceProtocol !== undefined))) {
       try {parseFrame(raw, 'controller_to_device')} catch {return this.fail(attempt, 'protocol', 'invalid extension frame')}
     }
@@ -1000,13 +967,6 @@ export class DeviceConnection {
         return this.status(attempt, frame, verdict)
 
       case 'status_exchanged':
-        if (type.startsWith('Migration')) {
-          if (verdict === 'ok') {
-            await this.migration?.frame(type as Parameters<DeviceMigrationSink['frame']>[0], frame, attempt.session!)
-          }
-
-          return
-        }
 
         if (type.startsWith('Workspace') && attempt.session?.workspaceProtocol !== 1) {
           return this.fail(attempt, 'protocol', 'workspace was not negotiated')
@@ -1295,12 +1255,6 @@ export class DeviceConnection {
       socket.onopen = socket.onmessage = socket.onclose = socket.onerror = null
 
       if (attempt.session) {
-        try {
-          this.migration?.closed(attempt.session, reason)
-        } catch {
-          // A failed migration observer cannot preserve an expired connection.
-        }
-
         try {
           this.sink.closed(attempt.session, reason)
         } catch {

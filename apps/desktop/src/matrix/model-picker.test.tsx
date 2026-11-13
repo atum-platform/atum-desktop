@@ -324,6 +324,7 @@ function picker(room: MatrixRoom, options: PickerOptions = {}) {
   const view = (nextRoom: MatrixRoom) => (
     <I18nProvider configClient={null} initialLocale={current.locale ?? 'en'}>
       <MatrixModelPicker
+        agentHome={current.bridge?.agentHome}
         agentPrincipal={current.agentPrincipal}
         capability={current.capability}
         cloud={current.cloud ?? false}
@@ -590,12 +591,15 @@ describe('the T3-layout conversation model picker', () => {
 
   it('lists Atum’s models for a Mac assistant on its own connection; one click switches back AND picks the model', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`setModel:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     let view: ReturnType<typeof picker> | undefined
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
       // As main does: the assistant is back on Atum's AI, so its projection changes under the card.
@@ -603,6 +607,7 @@ describe('the T3-layout conversation model picker', () => {
 
       return { state: 'ready' as const }
     })
+
     const onBackToAtum = vi.fn()
 
     view = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command, useAtumModel }, onBackToAtum })
@@ -631,6 +636,7 @@ describe('the T3-layout conversation model picker', () => {
     const command = vi.fn(async () => {
       throw new Error('matrix_model_choice_unavailable')
     })
+
     const { fail } = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command } })
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
     await waitFor(() => expect(rail(card, 'atum')).toBeTruthy())
@@ -950,7 +956,6 @@ describe('account subscriptions in the model picker', () => {
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
       disconnectOpenCode: vi.fn(async () => undefined)
     }
@@ -1166,6 +1171,7 @@ describe('account subscriptions in the model picker', () => {
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
     const command = vi.fn(async () => ({ status: 'applied' as const }))
     const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+
     const bridge = {
       command,
       subscriptions,
@@ -1176,6 +1182,7 @@ describe('account subscriptions in the model picker', () => {
         cap: vi.fn(async () => ({ status: 'saved' as const }))
       }
     }
+
     const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
 
     const view = picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
@@ -1193,6 +1200,7 @@ describe('account subscriptions in the model picker', () => {
       subscription: { source: 'chatgpt_plan', model: 'gpt-6-sol', effort: 'medium', displayName: 'GPT-6 Sol' },
       subscriptionState: 'connected'
     }
+
     view.rerender(ROOM, { cloudChoice: chatgptSaved })
 
     // Rail and list stay; the chosen model is checked; nothing says "no models".
@@ -1223,11 +1231,13 @@ describe('account subscriptions in the model picker', () => {
 
   it('takes an assistant on this Mac from its ChatGPT connection back to an Atum model in one click', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`command:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
 
@@ -1292,6 +1302,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const onSubscriptions = vi.fn()
 
     picker(ROOM, { bridge: { subscriptions }, cloud: true, local: true, managed: true, onSubscriptions })
@@ -1362,6 +1373,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const staleChatGpt = { ...HOME_GPT, available: false }
 
     picker(ROOM, {

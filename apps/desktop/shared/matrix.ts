@@ -1027,7 +1027,6 @@ export type MatrixCloudMoveOutcome =
 export type MatrixCloudAgentRequest =
   | { action: 'status' }
   | { action: 'serviceStatus'; principal: string }
-  | { action: 'moveToCloud'; principal: string }
   | { action: 'stopTurn'; roomId: string; eventId: string }
   | { action: 'readerStatus' }
   | { action: 'readerEnroll' }
@@ -2066,7 +2065,6 @@ export interface MatrixSubscriptionsBridge {
   pollChatGpt(session: string): Promise<MatrixSubscriptionPoll>
   cancelChatGpt(session: string): Promise<void>
   disconnectChatGpt(): Promise<void>
-  useThisMacForChatGpt(enabled: boolean): Promise<MatrixSubscriptionRelayResult>
   /** The account-wide OpenCode Go connection: the key is sent once and never read back. */
   connectOpenCode(value: string): Promise<MatrixSubscriptionKeyResult>
   disconnectOpenCode(): Promise<void>
@@ -2229,7 +2227,6 @@ export interface MatrixUiBridge {
   /** S1: this Mac's device service, and moving an agent to the cloud (MatrixCloudAgentRequest). */
   cloudAgent?(request: { action: 'status' }): Promise<MatrixCloudAgentStatus>
   cloudAgent?(request: { action: 'serviceStatus'; principal: string }): Promise<MatrixAgentServiceStatus>
-  cloudAgent?(request: { action: 'moveToCloud'; principal: string }): Promise<MatrixCloudMoveOutcome>
   cloudAgent?(request: { action: 'stopTurn'; roomId: string; eventId: string }): Promise<MatrixCloudStopOutcome>
   cloudAgent?(request: { action: 'readerStatus' | 'readerEnroll' }): Promise<MatrixOwnerReaderStatus>
   cloudAgent?(request: { action: 'trialOffer' }): Promise<MatrixCloudTrialOffer | null>
@@ -2241,7 +2238,7 @@ export interface MatrixUiBridge {
   }): Promise<MatrixCloudTrialAccepted>
   /** H-F: owner-authoritative per-agent order/enablement. Main owns URL, bearer and validation. */
   executionPolicy?: MatrixExecutionPolicyBridge
-  /** Where an agent lives: move it to another of the owner's Macs, or cancel the move. */
+  /** Legacy model test/consumer adapter; no runtime relocation IPC is exposed. */
   agentHome?: MatrixAgentHomeBridge
   /** The owner's default model per destination (`atum.model-choice/1.3`); display rows only. */
   modelDestinations?: {

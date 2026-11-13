@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import type { ConversationCandidateRead, MatrixConversationView } from '../../../shared/agent-conversation/view'
-import { MigrationWriterHolds } from '../device/migration-hold'
 
 import type { ConversationMigrationJournal } from './migrate'
 import { ConversationMigrationService, type ConversationMigrationServicePorts } from './service'
@@ -100,26 +99,6 @@ function fixture(initial: ConversationCandidateRead[]) {
 }
 
 describe('ConversationMigrationService', () => {
-  it('keeps conversation writes and home/job convergence behind the persisted cloud snapshot writer hold', async () => {
-    const saved = new Map<string, string>()
-    const store = { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => { saved.set(key, value) },
-      removeItem: (key: string) => { saved.delete(key) }, failureCode: () => null }
-    const principal = '00000000-0000-4000-8000-bd7662a5eeb4'
-    const migration = '00000000-0000-4000-8000-b454f82c5857'
-    let holds = new MigrationWriterHolds({ ownerUserId: '@owner:example.test', store })
-    const f = fixture([readable(rooms[0])])
-    f.ports.idle = () => !holds.held(principal)
-    await f.service.request('preview')
-    holds.begin(migration, principal)
-    holds = new MigrationWriterHolds({ ownerUserId: '@owner:example.test', store })
-    await expect(f.service.request('reconcile')).resolves.toMatchObject({ state: 'blocked', reason: 'turn_live' })
-    expect(f.writes).toEqual([])
-    expect(f.ports.finish).not.toHaveBeenCalled()
-    expect(f.journal()).toBeNull()
-    holds.release(migration, 'declined')
-    await expect(f.service.request('reconcile')).resolves.toMatchObject({ state: 'marked', main: rooms[0] })
-    expect(f.ports.finish).toHaveBeenCalledOnce()
-  })
   it('keeps a single-room preview read-only and marks it only during native reconciliation', async () => {
     const f = fixture([readable(rooms[0])])
     await expect(f.service.request('preview')).resolves.toMatchObject({ state: 'legacy', proposed: rooms[0], jobs: 2 })
@@ -137,6 +116,7 @@ describe('ConversationMigrationService', () => {
       readable(rooms[0], { marker: { role: 'main', main: rooms[0], at: 2 } }),
       readable(rooms[1])
     ])
+
     await expect(f.service.request('preview')).resolves.toMatchObject({ state: 'marked', main: rooms[0] })
     expect(f.writes).toEqual([])
     expect(f.ports.finish).not.toHaveBeenCalled()
@@ -154,6 +134,7 @@ describe('ConversationMigrationService', () => {
       readable(rooms[0], { marker: { role: 'main', main: rooms[0], at: 2 } }),
       readable(rooms[1], { marker: { role: 'earlier', main: rooms[0], at: 2 } })
     ])
+
     vi.mocked(f.ports.jobs).mockImplementation(async (_rooms, main) => (main === rooms[1] ? 7 : 1))
     await expect(f.service.request('preview', rooms[1])).resolves.toMatchObject({
       state: 'marked',
@@ -474,6 +455,7 @@ describe('ConversationMigrationService', () => {
     f.setFinishFails(true)
     vi.mocked(f.ports.create).mockImplementation(async () => {
       f.setCandidates([{ roomId: rooms[0], read: 'unreachable', writable: false }, readable('!new:example.test')])
+
       return '!new:example.test'
     })
     await expect(f.service.request('replaceMain')).resolves.toMatchObject({ state: 'retry', reason: 'effects_pending' })
@@ -534,6 +516,7 @@ describe('ConversationMigrationService', () => {
       readable(rooms[1], { writable: false }),
       readable(rooms[2])
     ])
+
     await expect(f.service.request('reconcile')).resolves.toMatchObject({
       state: 'marked',
       main: rooms[0],

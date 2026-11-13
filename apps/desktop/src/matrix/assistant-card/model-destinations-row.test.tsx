@@ -141,7 +141,6 @@ function bridge(
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'unavailable' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'cancelled' as const })),
       disconnectOpenCode: vi.fn(async () => undefined)
     }
@@ -383,6 +382,7 @@ describe('the assistant card’s model rows', () => {
       model: 'private/model', modelLabel: 'Private Model', effort: 'high' as const, efforts: ['high'] as const,
       available: true
     }
+
     const home: MatrixAgentHomeView = {
       lives: { kind: 'cloud' }, move: null, targets: [], issue: null,
       placement: {
@@ -433,6 +433,7 @@ describe('the assistant card’s model rows', () => {
     const star = card
       .querySelector<HTMLButtonElement>(`[data-matrix-model-route="${NGUYET}"]`)!
       .parentElement!.querySelector<HTMLButtonElement>('[data-matrix-model-favorite]')!
+
     fireEvent.pointerDown(star)
     fireEvent.click(star)
     expect(await dialog()).toBe(card)
@@ -471,72 +472,7 @@ describe('the assistant card’s model rows', () => {
     expect(write).not.toHaveBeenCalled()
   })
 
-  it('shows connected account subscriptions on the assistant’s Mac and in the cloud', async () => {
-    const mac = choice({
-      id: MAC,
-      kind: 'mac',
-      deviceName: "Owner's MacBook Air",
-      thisMac: true,
-      current: 'nguyet-thuc',
-      recommended: true,
-      models: ['nguyet-thuc', 'nhat-thuc']
-    })
-
-    const subscription = {
-      connectionRef: 'chatgpt-1',
-      source: 'chatgpt_plan' as const,
-      providerLabel: 'ChatGPT',
-      model: 'gpt-5.6-luna',
-      modelLabel: 'GPT-5.6 Luna',
-      effort: 'medium' as const,
-      efforts: ['low', 'medium', 'high'] as const,
-      available: true
-    }
-
-    const atum = {
-      connectionRef: 'atum',
-      source: 'atum' as const,
-      providerLabel: 'Atum',
-      model: 'nguyet-thuc',
-      modelLabel: 'Nguyệt Thực 1.3',
-      effort: 'medium' as const,
-      efforts: ['low', 'medium', 'high'] as const,
-      available: true
-    }
-
-    renderRow(view([mac]), {
-      // The roster snapshot predates the account connection; opening the card refreshes the same
-      // owner catalog the composer uses and exposes the connected plan to every assistant.
-      home: macHome([atum]),
-      freshHome: macHome([
-        atum,
-        {
-          ...subscription
-        }
-      ])
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
-    let card = await dialog()
-    const chatGptRail = await waitFor(() => {
-      const button = card.querySelector<HTMLButtonElement>('[data-matrix-model-rail-item="openai-codex"]')
-      expect(button).toBeTruthy()
-
-      return button!
-    })
-    fireEvent.click(chatGptRail)
-    await waitFor(() =>
-      expect(modelRow(card, matrixModelRouteId('openai-codex', 'gpt-5.6-luna')).textContent).toContain('GPT-5.6 Luna')
-    )
-    fireEvent.click(modelRow(card, matrixModelRouteId('openai-codex', 'gpt-5.6-luna')))
-    await waitFor(() =>
-      expect(chooseHome).toHaveBeenCalledWith(AGENT, expect.objectContaining({ model: 'gpt-5.6-luna' }))
-    )
-    fireEvent.keyDown(window.document, { key: 'Escape' })
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-
-    // A selected relay Mac makes the same ChatGPT plan a real cloud choice (R2).
-    cleanup()
+  it('shows connected account subscriptions in the cloud through the native model choice', async () => {
     renderRow(view([choice()]), {
       subscriptions: {
         scope: 'account',
@@ -552,7 +488,8 @@ describe('the assistant card’s model rows', () => {
       }
     })
     fireEvent.click(screen.getByRole('button', { name: /^Mô hình/ }))
-    card = await dialog()
+    const card = await dialog()
+
     // Providers are separated: the card opens on Atum; ChatGPT's models are under its own icon.
     const cloudChatGpt = await waitFor(() => {
       const button = card.querySelector<HTMLButtonElement>('[data-matrix-model-rail-item="openai-codex"]')
@@ -560,6 +497,7 @@ describe('the assistant card’s model rows', () => {
 
       return button!
     })
+
     expect(card.querySelector(`[data-matrix-model-route="${matrixModelRouteId('openai-codex', 'gpt-5.6-luna')}"]`)).toBeNull()
     fireEvent.click(cloudChatGpt)
     await waitFor(() => expect(modelRow(card, matrixModelRouteId('openai-codex', 'gpt-5.6-luna'))).toBeTruthy())

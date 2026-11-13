@@ -1,13 +1,11 @@
 import type { HomeLeaseFence } from './agent-home-placement/contract'
 import { fenceFromLease } from './agent-home-placement/fence'
-import type { HomeContext } from './agent-home-placement/runtime-ops'
 import { mayAct, mayPublish } from './agent-home-placement/standing'
 import type { MatrixCronHolds } from './cron-hold'
+import type { MacJobHome } from './mac-job-home'
 import { MacJobsClient, type MacJobsOptions } from './mac-jobs'
 
-export type MacJobHomeContext = Pick<HomeContext, 'standing' | 'platform' | 'auth' | 'me'> & {
-  runtime: Pick<HomeContext['runtime'], 'leaseFacts'>
-}
+export type MacJobHomeContext = Omit<MacJobHome['controller']['ctx'], 'journal'>
 
 /** Fresh D1 authority for every signed attempt, including bearer refresh. */
 export async function macJobAuthority(ctx: MacJobHomeContext, principal: string, signal: AbortSignal, delivery = false): Promise<HomeLeaseFence | null> {

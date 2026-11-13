@@ -43,7 +43,6 @@ import {
   DeviceConnection,
   type DeviceFrameSink,
   type DeviceHelloFacts,
-  type DeviceMigrationSink,
   type DeviceSocketFactory
 } from './connection'
 import type { DeviceCapability } from './contracts'
@@ -943,7 +942,6 @@ export class MacDeviceIdentity {
   readonly epochs: DeviceEpochs
   private device?: OwnerDevice
   private sink?: DeviceFrameSink
-  private migration?: DeviceMigrationSink
   private helloFacts?: () => DeviceHelloFacts
   private suspended = false
 
@@ -1007,7 +1005,6 @@ export class MacDeviceIdentity {
       log: line => this.options.log(line)
     })
 
-    connection.attachMigration(this.migration)
 
     this.device = { userId, keys, store, enrollment, origin, connection }
 
@@ -1246,11 +1243,6 @@ export class MacDeviceIdentity {
 
   connection(): DeviceConnection | null {
     return this.device?.connection ?? null
-  }
-
-  attachMigration(sink: DeviceMigrationSink | undefined): void {
-    this.migration = sink
-    this.device?.connection.attachMigration(sink)
   }
 
   private async loadApprovalKey(device: OwnerDevice): Promise<void> {

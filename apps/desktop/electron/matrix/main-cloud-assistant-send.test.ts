@@ -111,8 +111,7 @@ function fixture(options: { cloud?: boolean; reasons?: HoldReason[]; moving?: bo
 
   context.dispatchSdkCommand = mainCode('dispatchSdkCommand', context)
   context.command = mainCode('command', context)
-  context.isActivelyMovingAgent = mainCode('isActivelyMovingAgent', context)
-  context.isMovingAgent = mainCode('isMovingAgent', context)
+  context.macJobHomeHeld = mainCode('macJobHomeHeld', context)
   context.refuseCloudAgent = mainCode('refuseCloudAgent', context)
   const invoke = mainCode('ui', context, true)
 
@@ -135,33 +134,6 @@ describe('cloud assistant owner send IPC', () => {
     expect(f.context.requireAssistantRoom).not.toHaveBeenCalled()
   })
 
-  it.each<HoldReason>(['drain', 'quiesce', 'model'])('refuses a %s hold alongside stand-down', async reason => {
-    const f = fixture({ reasons: ['standDown', reason] })
-    await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
-    expect(f.human.queue.command).not.toHaveBeenCalled()
-    expect(f.context.runHermes).not.toHaveBeenCalled()
-  })
-
-  it.each([{ moving: true }, { migration: true }])('refuses an active migration %j', async options => {
-    const f = fixture(options)
-    await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
-    expect(f.human.queue.command).not.toHaveBeenCalled()
-  })
-
-  it('refuses if a move starts while the room guard is pending', async () => {
-    const f = fixture()
-
-    f.context.guardRoomCommand = async () => { (f.context.movingAgents as Set<string>).add('luna') }
-
-    // The IPC closes over its own sandbox, so construct it after replacing this boundary.
-    const invoke = mainCode('ui', f.context, true)
-    const ui = f.context.ui as { webContents: { mainFrame: object } }
-    await expect(invoke({ sender: ui.webContents, senderFrame: ui.webContents.mainFrame }, {
-      kind: 'sendAssistant', roomId: '!luna:test', body: 'Hello Luna'
-    })).rejects.toThrow('matrix_agent_unavailable')
-    expect(f.human.queue.command).not.toHaveBeenCalled()
-  })
-
   it('retains local room preflight and exactly one local invocation', async () => {
     const f = fixture({ cloud: false, hostReady: true })
     await expect(f.send()).resolves.toMatchObject({ eventId: '$sent' })
@@ -174,4 +146,9 @@ describe('cloud assistant owner send IPC', () => {
     await expect(f.send()).rejects.toThrow('matrix_agent_unavailable')
     expect(f.human.queue.command).not.toHaveBeenCalled()
   })
+})
+
+it('refuses the retired move action without calling an account or transport', async () => {
+  const request = mainCode('cloudAgentRequest', {})
+  await expect(request({ action: 'moveToCloud', principal: 'luna' })).rejects.toThrow('matrix_command_invalid')
 })

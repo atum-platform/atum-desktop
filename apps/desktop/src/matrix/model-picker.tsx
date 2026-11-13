@@ -161,6 +161,7 @@ function cloudSubscriptionOption(input: {
   source: 'opencode_go' | 'chatgpt_plan'
 }): MatrixAgentHomeModelOption {
   const chatgpt = input.source === 'chatgpt_plan'
+
   return {
     connectionRef: `${input.source}:${input.model.id}`,
     source: input.source,
@@ -341,6 +342,7 @@ export function MatrixModelPicker({
   const cloudCurrent: ManagedPick | undefined = cloud
     ? (parseMatrixShelfModel(cloudChoice?.current) ?? matrixCloudModelAlias(cloudChoice?.current) ?? destinationDefault)
     : undefined
+
   // The account-wide OpenCode Go source: the model the cloud runs, its connection state, and
   // the models the connected account serves. A revoked choice never reads as Atum.
   const cloudSubscription = cloud ? cloudChoice?.subscription : undefined
@@ -377,21 +379,25 @@ export function MatrixModelPicker({
 
   const [pendingEffort, setPendingEffort] = usePendingPick<MatrixEffort>(room.effort)
   const [pendingConnected, setPendingConnected] = useState<{ route: MatrixModelRoute; saved: boolean } | null>(null)
+
   const [pendingCloudSubscription, setPendingCloudSubscription] = useState<{
     route: MatrixModelRoute
     saved: boolean
   } | null>(null)
+
   const [pendingHome, setPendingHome] = useState<PendingHomePick | null>(null)
   const [retryPick, setRetryPick] = useState<PickerRoute | null>(null)
   const [catalog, setCatalog] = useState<ConnectedCatalog>({ status: 'idle' })
   const [subscriptions, setSubscriptions] = useState<SubscriptionCatalog>({ status: 'idle' })
   const [accountSubscriptions, setAccountSubscriptions] = useState<MatrixSubscriptionsStatus | null>(null)
   const [filterTouched, setFilterTouched] = useState(false)
+
   // The chooser opened from the rail, with the account state as the card last read it (the card
   // closes first, and a closed card drops its reads).
   const [connecting, setConnecting] = useState<{ providers?: readonly MatrixSubscriptionProviderStatus[] } | null>(
     null
   )
+
   const [problem, setProblem] = useState<MatrixConnectedModelProblem>()
   const [effortNotice, setEffortNotice] = useState<EffortNotice>()
 
@@ -420,7 +426,7 @@ export function MatrixModelPicker({
   const chosenEffort = pendingEffort?.value ?? room.effort
   const placement = home?.placement
   const currentDestination = placement?.destinations.find(destination => destination.id === placement.current)
-  const homeBridge = agentHome ?? window.atumMatrix.agentHome
+  const homeBridge = agentHome
   const subscriptionsService = subscriptionBridge ?? window.atumMatrix.subscriptions
   const homeMode = Boolean(agentPrincipal && placement && currentDestination && homeBridge)
   const currentHomeOption = pendingHome?.option ?? placement?.currentModel
@@ -452,6 +458,7 @@ export function MatrixModelPicker({
 
     const visible = (option: MatrixAgentHomeModelOption) =>
       !(cloudOnly && currentDestination.kind === 'cloud' && option.source.startsWith('own_key:'))
+
     const options = currentDestination.models.filter(visible)
 
     if (
@@ -761,12 +768,14 @@ export function MatrixModelPicker({
 
   const chatgptProvider = cloudProvider('openai-codex')
   const cloudChatGptConnected = chatgptProvider?.connected === true && chatgptProvider.relay?.state === 'enabled'
+
   // A plan signed in on this Mac that cloud assistants cannot reach yet: its models stay listed,
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   const cloudChatGptPending =
     cloudSubscriptions &&
     (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true) &&
     chatgptProvider?.relay?.state !== 'enabled'
+
   const opencodeProvider = cloudProvider('opencode-go')
   const opencodeConnected = opencodeProvider?.connected === true
 
@@ -779,6 +788,7 @@ export function MatrixModelPicker({
         defaultEffort: 'medium' as MatrixEffort
       })))
     : []
+
   const chatgptModels = chatgptProvider
     ? (chatgptProvider.modelDetails ??
       (chatgptProvider.models ?? []).map(model => ({
@@ -848,12 +858,15 @@ export function MatrixModelPicker({
   // the sign-in; a saved sign-in that stopped working is one Reconnect row; a plan the cloud
   // cannot reach yet keeps its models (disabled above) and one row that opens Settings.
   const chatgptRead = cloudSubscriptions ? Boolean(accountSubscriptions) : subscriptionListable && Boolean(subscriptionValue)
+
   const chatgptLinked = cloudSubscriptions
     ? chatgptProvider?.connected === true || chatgptProvider?.localConnected === true
     : subscriptionValue?.providers.some(provider => provider.id === 'openai-codex' && provider.connected) === true
+
   const chatgptSignedOut = cloudSubscriptions
     ? chatgptProvider?.needsSignIn === true && !chatgptLinked
     : chatgptNeedsSignIn
+
   // One short note in a subscription's own list when it has nothing choosable; the fix is the
   // rail's Connect, never a row here.
   const subscriptionNote: { provider: string; text: string } | undefined =
@@ -1595,6 +1608,7 @@ export function MatrixModelPicker({
   useEffect(() => {
     selection.current += 1
     setPreferences(readPreferences(scope))
+
     // The account's subscriptions are the same account's after a pick: keep them (the ChatGPT
     // rail and its models must not vanish once a ChatGPT model is chosen) and re-read them while
     // the card is open, so a refreshed relay or connection shows up in place.
@@ -1605,6 +1619,7 @@ export function MatrixModelPicker({
         void loadSubscriptions()
       }
     }
+
     setFilterTouched(false)
     setPendingConnected(null)
     setPendingCloudSubscription(null)
@@ -1770,6 +1785,7 @@ export function MatrixModelPicker({
   // falls back to the assistant-scoped native Hermes page.
   const showConnections = Boolean(onSubscriptions || subscriptionsService?.startChatGpt)
   const catalogReady = homeMode || !legacyListable || catalog.status === 'ready'
+
   // The rail's Connect: choose a service and sign in right here (ChatGPT, OpenCode Go, and any
   // service added later). An older main without the bridge opens Settings instead.
   const openConnections = () => {
@@ -1786,6 +1802,7 @@ export function MatrixModelPicker({
 
 
   const atumChipName = MATRIX_MODEL_LINEUP.find(row => row.id === (cloud ? cloudCurrent : managedCurrent))?.name
+
   const chipLabel =
     !connectedHere && !shownPlanName && (!homeDisplayRoute || homeDisplayRoute.provider === 'atum')
       ? (atumChipName ?? label)

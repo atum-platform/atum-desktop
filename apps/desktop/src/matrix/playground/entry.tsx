@@ -11,18 +11,11 @@ import { applyMatrixMaterial, MatrixAppearance } from '../appearance'
 import { openAssistantCard } from '../assistant-card'
 import { MatrixDesktopServicesBootstrap } from '../desktop-services'
 
-import { playgroundAgentHome, withPlaygroundHome } from './agent-home-fixtures'
 import { playgroundAssistants } from './assistant-fixtures'
 import { playgroundBridge, playgroundDesktopServices, PlaygroundStore } from './bridge'
 import { PlaygroundCheckIns, playgroundCheckInsMode } from './check-ins-fixtures'
 import { playgroundCompanyDesktopAdapter, withPlaygroundPrivateCos } from './company-ai-fixtures'
 import { playgroundCompanyStore, type PlaygroundCompanyStoreMode } from './company-store-fixtures'
-import {
-  playgroundPolicyBridge,
-  playgroundPolicyMode,
-  playgroundPolicyView,
-  withPlaygroundPolicy
-} from './execution-policy-fixtures'
 import { PLAYGROUND_SCENARIO_LABELS, PLAYGROUND_SCENARIOS, playgroundAlias, type PlaygroundScenario } from './fixtures'
 import { isPlaygroundView, PlaygroundGallery } from './gallery'
 import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPreviews } from './link-preview-fixtures'
@@ -84,42 +77,38 @@ const googleConnections = playgroundGoogleConnections(settings)
 // Check-ins' records everywhere, and their cards and lines from the URL (?checkins=).
 const checkIns = new PlaygroundCheckIns(playgroundCheckInsMode(params), () => store.locale)
 // The failover control's states from the URL (?policy=paused|loading|answering|saving-failed).
-const policyMode = playgroundPolicyMode(params)
-const policyView = playgroundPolicyView(policyMode)
 const bridge = playgroundBridge(store)
 // Link preview cards under messages in the open chat (?links=1).
 const linkPreviews = playgroundLinkPreviewMode(params)
 // The account's ChatGPT states in Settings › Connections and the model picker (?subscriptions=).
 const subscriptionsMode = playgroundSubscriptionsMode(params)
 // `?home=off` draws an assistant without the agent-home projection (the plain model menu).
-const homeDecorated = params.get('home') === 'off' ? (snapshot: typeof store.current) => snapshot : withPlaygroundHome
+const homeDecorated = (snapshot: typeof store.current) => snapshot
 
 store.emit = snapshot =>
   emitSnapshot(
-    withPlaygroundPolicy(
+    (
       withPlaygroundSettings(
         commerce.decorate(
           checkIns.decorate(homeDecorated(withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews)))
         ),
         settings
-      ),
-      policyView,
-      policyMode
+      )
     )
   )
 commerce.subscribe(() => store.emit(store.current))
 checkIns.subscribe(() => store.emit(store.current))
+
 if (linkPreviews) {
   store.emit(store.current)
 }
+
 window.atumMatrix = {
   ...bridge,
   command: checkIns.wrap(bridge.command),
-  agentHome: playgroundAgentHome(() => store.current),
   ...playgroundPlaceBridges(places, () => store.current),
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
-  executionPolicy: playgroundPolicyBridge(policyMode),
   store: commerce.storeBridge(),
   checkout: commerce.checkoutBridge(),
   wallet: commerce.walletBridge(),
@@ -176,6 +165,7 @@ if (places.company) {
   if (market === 'short') {
     // The short wallet the refusal speaks of: 2,500 Protons available.
     const readWallet = companyDesktop.readWallet.bind(companyDesktop)
+
     companyDesktop.readWallet = async companyId => {
       const wallet = await readWallet(companyId)
 

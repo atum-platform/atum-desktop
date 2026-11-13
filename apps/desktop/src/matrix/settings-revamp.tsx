@@ -417,7 +417,7 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
  * and the compact native flows they share. The status is the Atum account's, never one agent's. */
 function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
   const copy = useMatrixSettingsCopy()
-  const { bridge, reload, retryCloud, status, view } = useMatrixSubscriptions(scopeKey)
+  const { bridge, reload, status, view } = useMatrixSubscriptions(scopeKey)
   const [dialog, setDialog] = useState<{ provider: MatrixSubscriptionProvider; kind: 'connect' | 'manage' } | null>(null)
   const [choosing, setChoosing] = useState(false)
   const { provider, state } = view
@@ -471,7 +471,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
         data-matrix-subscription-state={state}
         data-matrix-subscriptions
         help={help}
-        tip={state === 'cloud_setting_up' || state === 'cloud_failed' ? copy.chatgptCloudTip : undefined}
         title={copy.yourSubscription}
       />
       <SubscriptionChooser
@@ -496,7 +495,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
           onChanged={() => void reload()}
           onClose={() => setDialog(null)}
           onReconnect={() => setDialog({ provider: dialog.provider, kind: 'connect' })}
-          onRetryCloud={() => void retryCloud()}
           open={dialog.kind === 'manage'}
           provider={dialog.provider}
           status={subscriptionProviderStatus(status, dialog.provider)}
