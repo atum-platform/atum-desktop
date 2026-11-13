@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from agent.atum_google_fence import broker_origin, mark_holding
 from tools.atum_source_policy import source_enabled
-from tools.atum_source_transport import source_transport
+from tools.atum_source_transport import source_transport, source_transport_enabled
 from tools.registry import registry, tool_error
 
 URL_ENV = "ATUM_GOOGLE_TOOLS_URL"
@@ -128,8 +128,8 @@ def _broker() -> Optional[Tuple[str, str]]:
 
 
 def available() -> bool:
-    """Whether Atum launched this assistant with a valid task-local Google broker."""
-    return source_transport() is not None or _broker() is not None
+    """Static host capability or legacy process broker, never a per-turn binding."""
+    return source_transport_enabled() or _broker() is not None
 
 
 _available = available
@@ -142,6 +142,8 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
     transport = source_transport()
+    if source_transport_enabled() and transport is None:
+        return tool_error("Google is unavailable for this run.")
     broker = _broker()
     if transport is None and broker is None:
         return tool_error("Google is not available to this assistant.")

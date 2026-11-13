@@ -3,20 +3,36 @@
 The trusted gateway binds a callable around one admitted owner turn or cron
 occurrence. It closes over Operation.call and native effect indexes. Credentials,
 owner identity and operation IDs never come from tool arguments. The host still
-checks the owner's live grant on every call. No binding means legacy transport.
+checks the owner's live grant on every call. Advertisement is fixed at startup;
+an enabled host process without a binding refuses instead of borrowing another route.
 """
 from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Callable
 
 _transport: ContextVar[Callable | None] = ContextVar('atum_source_transport', default=None)
+_host_transport_enabled = False
+
+
+def enable_source_transport() -> None:
+    """Trusted plugin startup only, BEFORE any agents/tool catalogs are built.
+
+    This monotonic process marker advertises capability, never grants access.
+    Do not toggle it per turn: registry and model catalogs are process-cached.
+    """
+    global _host_transport_enabled
+    _host_transport_enabled = True
+
+
+def source_transport_enabled() -> bool:
+    return _host_transport_enabled
 
 
 @contextmanager
 def bind_source_transport(call: Callable):
     """Bind the host's semantic (tool, payload) caller to this execution only.
 
-    Enter before native agent construction so check_fn sees the binding. Worker
+    Enable the process at plugin startup, then enter before agent construction. Worker
     threads must use Hermes's existing context propagation, as memory providers do.
     Exit invalidates copied contexts too, preventing a late worker using a closed run.
     """
