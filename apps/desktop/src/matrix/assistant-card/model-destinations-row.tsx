@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react'
 import { useI18n } from '@/i18n'
 import { ChevronRight } from '@/lib/icons'
 
-import { AGENT_HOMES_CLOUD_ONLY } from '../../../shared/agent-home-cloud-only'
 import type {
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
@@ -45,7 +44,7 @@ const SHOW_DAILY_CAP = false
 export function ModelDestinationsRow({
   agent,
   preferenceScope,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly = true
 }: {
   agent: MatrixAgentView
   /** The same account scope the composer uses, so one set of favorites follows the person. */
@@ -362,7 +361,7 @@ export function cardModelChoice(
   view: Pick<MatrixModelDestinationsView, 'choices'>,
   agent: Pick<MatrixAgentView, 'answering' | 'macRole'>,
   currentHomeId: string | undefined,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): readonly MatrixModelDestinationView[] {
   if (!cloudOnly) {
     return view.choices

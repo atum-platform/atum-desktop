@@ -88,7 +88,6 @@ import { cn } from '@/lib/utils'
 import { attentionConversationRoom, rosterConversationRoom } from '../../shared/agent-conversation'
 import { agentConversationCopy } from '../../shared/agent-conversation/copy'
 import { AGENT_ONE_CONVERSATION } from '../../shared/agent-conversation/enabled'
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { type AppDescriptor, appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAppHistoryEntry } from '../../shared/app-history'
 import type { LookRoomAccountData } from '../../shared/look-pack'
@@ -6896,7 +6895,7 @@ function usePendingCompanyInvites(snapshot: MatrixSnapshot) {
 
 export function MatrixApp({
   children,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly = true
 }: {
   children?: ReactNode
   cloudOnly?: boolean

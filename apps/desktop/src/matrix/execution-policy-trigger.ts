@@ -1,4 +1,3 @@
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { ExecutionDestinationView, MatrixExecutionPolicyView } from '../../shared/execution-policy'
 import { executionDestinationViews } from '../../shared/execution-policy'
 
@@ -44,7 +43,7 @@ export function executionPolicyAvailability(view: MatrixExecutionPolicyView | un
 /** Local/cloud placement follows the saved execution policy and current lease. */
 export function executionPolicyOffersChoice(
   view: Pick<MatrixExecutionPolicyView, 'policy'>,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): boolean {
   return !cloudOnly && view.policy.order.filter(id => id !== 'cloud').length > 1
 }
@@ -119,7 +118,7 @@ export function executionPolicyRowSummary(locale: string, view: MatrixExecutionP
 export function executionPolicyRosterLine(
   locale: string,
   view: MatrixExecutionPolicyView,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): string | undefined {
   if (cloudOnly) {
     return undefined

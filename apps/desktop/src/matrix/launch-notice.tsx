@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { Info } from '@/lib/icons'
 
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { MatrixSnapshot } from '../../shared/matrix'
 
 import { matrixAgentAttention, useMatrixAttentionNow } from './agent-attention'
@@ -95,7 +94,7 @@ function ProgressLine({ label, percent }: { label: string; percent: number }) {
  * paused. Withdrawn permission explains itself and offers nothing that cannot help.
  */
 export function MatrixLaunchNotice({
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  cloudOnly = true,
   fail,
   name,
   onBackToAtum,

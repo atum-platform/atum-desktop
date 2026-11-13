@@ -14,7 +14,6 @@ import { BellOff } from '@/lib/icons'
 import { MINUTE } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import { type AppDescriptor, appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
@@ -832,7 +831,7 @@ export function matrixAgentStatusLine(
   locale = 'en',
   /** Try again / Reconnect is on the row: the error is the line, never "On Mac mini" beside it. */
   offersRetry = false,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): string | undefined {
   if (!status) {
     return undefined
@@ -882,7 +881,7 @@ export function MatrixRosterConversations({
   agentActions,
   assistantOpening,
   children,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  cloudOnly = true,
   externalResultCount = 0,
   externalSearching = false,
   fail,

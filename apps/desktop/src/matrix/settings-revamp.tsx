@@ -20,7 +20,6 @@ import {
   UserCircle
 } from '@/lib/icons'
 
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { MatrixSnapshot } from '../../shared/matrix'
 import type { MatrixOwnerLocationView } from '../../shared/matrix-owner-location'
 import type { MatrixPageId } from '../../shared/matrix-pages'
@@ -94,7 +93,7 @@ export function normalizeMatrixSettingsPane(pane: MatrixSettingsPane): MatrixSet
 }
 
 export function settingsLocalRuntimeControlsShown(
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): boolean {
   return !cloudOnly
 }
@@ -1012,7 +1011,7 @@ function AdvancedTools({
 
 /** The expert corner: which model answers, repair, technical checks, developer pages. */
 function AdvancedPane({
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  cloudOnly = true,
   onOpenAdvancedPage,
   snapshot,
   visible
@@ -1064,7 +1063,7 @@ function AdvancedPane({
 export type MatrixSettingsProtons = React.ComponentProps<typeof MatrixProtonsPane>
 
 export function SettingsRevampPane({
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY,
+  cloudOnly = true,
   current,
   fail,
   onClose,

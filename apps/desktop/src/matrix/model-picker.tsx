@@ -7,7 +7,6 @@ import { useI18n } from '@/i18n'
 import { ChevronDown, Refresh, Spinner } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type {
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
@@ -263,7 +262,7 @@ export function MatrixModelPicker({
   contentClassName,
   side = 'top',
   assistantName,
-  cloudOnly = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly = true
 }: {
   room: MatrixRoom
   disabled: boolean

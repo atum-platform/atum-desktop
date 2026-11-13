@@ -1,4 +1,3 @@
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { MatrixAgentView } from '../../shared/matrix'
 import type { MatrixPageId } from '../../shared/matrix-pages'
 
@@ -39,7 +38,7 @@ export const WORKPLACE_DEVELOPER_PAGES: readonly MatrixPageId[] = WORKPLACE_NAV.
 /** Mac-hosted pages are absent for a cloud assistant; its Atum places remain outside this list. */
 export function workplaceDeveloperPages(
   agent: Pick<MatrixAgentView, 'answering' | 'home'> | undefined,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): readonly MatrixPageId[] {
   if (!cloudOnly || !agent) {
     return WORKPLACE_DEVELOPER_PAGES

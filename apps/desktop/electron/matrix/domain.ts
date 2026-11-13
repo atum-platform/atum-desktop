@@ -1,4 +1,3 @@
-import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type { MatrixDomainIdentity } from '../../shared/matrix'
 
 import type { NativeGrant } from './authorization'
@@ -47,7 +46,7 @@ export async function readDomainIdentity(resource: string, grant: NativeGrant): 
 export async function readCloudDisclosureVersion(
   resource: string,
   grant: NativeGrant,
-  cloudOnly: boolean = AGENT_HOMES_CLOUD_ONLY
+  cloudOnly: boolean = true
 ): Promise<number | undefined> {
   const first = await readCloudDisclosureVersionOnce(resource, grant)
 
