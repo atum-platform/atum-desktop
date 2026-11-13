@@ -52,13 +52,18 @@ REFUSAL = (
 CHANGE_ACTIONS = frozenset(
     {"send_email", "create_event", "update_event", "mailbox", "create_label", "create_draft", "update_draft"}
 )
-#: Beyond the fence's outbound tools: a shell or code run can reach anything, memory and schedules
-#: and other agents carry an instruction past this turn's refusal.
+#: Beyond the fence's outbound tools: a shell or code run can reach anything, driving the Mac or a
+#: computer can send data out through a real browser or app, and memory, skills, schedules and other
+#: agents carry an instruction past this turn's refusal. Local file writes and ``process_manage`` stay
+#: allowed: the sandbox is the boundary there.
 _EXTRA_BLOCKED_TOOLS = frozenset(
     {
         "terminal",
         "execute_code",
         "memory",
+        "skill_manage",
+        "atum_mac",
+        "computer_use",
         "delegate_task",
         "cronjob",
         "cronjob_manage",

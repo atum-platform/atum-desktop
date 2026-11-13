@@ -362,6 +362,16 @@ def test_shell_code_memory_and_schedules_are_refused_in_a_flagged_turn():
         assert injection.refusal(tool, {}, "other-turn") is None, tool
 
 
+def test_mac_computer_and_skill_tools_are_refused_but_local_work_is_not():
+    _flag(INJECTION)
+
+    for tool in ("atum_mac", "computer_use", "skill_manage"):
+        assert injection.refusal(tool, {}, "t1") == injection.REFUSAL, tool
+        assert injection.refusal(tool, {}, "other-turn") is None, tool
+    for tool in ("process_manage", "write_file", "patch"):
+        assert injection.refusal(tool, {}, "t1") is None, tool
+
+
 def test_the_empty_task_id_bucket_is_cleared_by_every_new_turn():
     from types import SimpleNamespace
 
