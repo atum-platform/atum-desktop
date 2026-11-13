@@ -98,6 +98,7 @@ class GatewayAdapterLifecycleMixin:
     async def _safe_adapter_disconnect(self, adapter, platform) -> None:
         """Call adapter.disconnect() defensively (bounded, never raises, tolerates partial-init state):
         after a failed connect() partial resources (ClientSession, poll tasks, subprocesses) leak."""
+        self._withdraw_adapter_binding(adapter, platform)
         timeout = self._adapter_disconnect_timeout_secs()
         label = platform.value if platform is not None else "adapter"
         with _log_suppressed(logging.DEBUG, "Defensive %s disconnect after failed connect raised: %s", label):
@@ -190,13 +191,37 @@ class GatewayAdapterLifecycleMixin:
         ``initial`` selects the capped cold-start budget for platforms whose full connect budget is too long
         to spend before the gateway reaches ``running`` (#85993 — Telegram's 180s).
         """
+        # A connector may deliver authenticated backlog INSIDE connect() (Matrix initial sync).
+        # Native provenance must already resolve that same adapter through the ordinary registry.
+        # Keep a successful binding while sibling connects finish; their drains can already run.
+        registry = self._adapter_binding_registry(adapter)
+        ok = False
         try:
+            if registry is not None:
+                existing = registry.get(platform)
+                if existing is not None and existing is not adapter:
+                    raise RuntimeError(f"{platform.value} already has an owning adapter")
+                registry[platform] = adapter
             ok = await self._connect_adapter_bounded(adapter, platform, is_reconnect=is_reconnect, initial=initial)
         except Exception as exc:
             record_platform_connect(adapter, platform, is_reconnect=is_reconnect, ok=False, exc=exc)
             raise
+        finally:
+            if not ok:
+                self._withdraw_adapter_binding(adapter, platform)
         record_platform_connect(adapter, platform, is_reconnect=is_reconnect, ok=bool(ok))
         return ok
+
+    def _adapter_binding_registry(self, adapter):
+        owner = getattr(adapter, '_owner_profile', None)
+        registry = (getattr(self, '_profile_adapters', {}).get(owner)
+                    if isinstance(owner, str) and owner else getattr(self, 'adapters', None))
+        return registry if isinstance(registry, dict) else None
+
+    def _withdraw_adapter_binding(self, adapter, platform):
+        registry = self._adapter_binding_registry(adapter)
+        if registry is not None and registry.get(platform) is adapter:
+            del registry[platform]  # a stale failure must never withdraw a replacement
 
     async def _connect_adapter_bounded(self, adapter, platform, *, is_reconnect: bool, initial: bool) -> bool:
         timeout = self._platform_connect_timeout_secs(platform, initial=initial)
@@ -1482,7 +1507,7 @@ class GatewayAdapterLifecycleMixin:
                         return
                     if success and self._running:
                         profile_map = self._profile_adapters.setdefault(profile_name, {})
-                        if platform not in profile_map:
+                        if platform not in profile_map or profile_map[platform] is adapter:
                             profile_map[platform] = adapter
                             hand_over_held_inbound(predecessor, adapter)
                             self._sync_voice_mode_state_to_adapter(adapter)

@@ -1302,7 +1302,8 @@ class GatewayStartupMixin:
         for _t in _pending_tasks:
             _t.cancel()
         await asyncio.gather(*_pending_tasks, return_exceptions=True)
-        # Then tear down adapters whose connect succeeded — never registered, so stop() won't reach them.
+        # Then tear down adapters whose connect succeeded; defensive disconnect also withdraws
+        # their early native-admission binding (aggregation has not run yet).
         _connected_ok = [
             _t for _t in _task_map
             if _t not in _pending_tasks and not _t.cancelled() and _t.exception() is None and _t.result()[3] == "ok"
