@@ -387,3 +387,38 @@ async def test_shutdown_notifications_are_fully_muted_when_flag_disabled():
     adapter.send.assert_not_awaited()
 
 
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("restart", [False, True], ids=["shutdown", "restart"])
+@pytest.mark.parametrize("enabled", [None, True, False], ids=["default", "enabled", "disabled"])
+async def test_shutdown_notification_config_switch(tmp_path, monkeypatch, restart, enabled):
+    monkeypatch.setattr(gateway_run, "_hermes_home", tmp_path)
+    if enabled is not None:
+        (tmp_path / "config.yaml").write_text(
+            f"gateway:\n  shutdown_notification: {str(enabled).lower()}\n"
+        )
+
+    runner, adapter = make_restart_runner()
+    runner._restart_requested = restart
+    source = make_restart_source(chat_id="active-42")
+    session_key = build_session_key(source)
+    runner._running_agents[session_key] = object()
+    runner.session_store._entries[session_key] = MagicMock(origin=source)
+    runner.config.platforms[Platform.TELEGRAM].home_channel = HomeChannel(
+        platform=Platform.TELEGRAM, chat_id="home-42", name="Ops Home",
+    )
+    adapter.send = AsyncMock(return_value=SendResult(success=True, message_id="notice"))
+
+    await runner._notify_active_sessions_of_shutdown()
+
+    if enabled is False:
+        adapter.send.assert_not_awaited()
+    else:
+        from agent.i18n import t
+
+        expected = t(
+            "gateway.shutdown.notice_restart" if restart else "gateway.shutdown.notice_shutdown"
+        )
+        assert [(call.args[0], call.args[1]) for call in adapter.send.await_args_list] == [
+            ("active-42", expected), ("home-42", expected),
+        ]
