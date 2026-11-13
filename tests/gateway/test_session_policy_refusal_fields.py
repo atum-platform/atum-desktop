@@ -235,8 +235,18 @@ def test_a_server_literally_named_mcp_prefix_keeps_its_own_name(tmp_path):
     assert 'mcp-foo' in policy.toolsets and 'foo' not in policy.toolsets, policy.toolsets
 
 
-def test_an_unusable_server_spec_never_echoes_its_values(tmp_path):
+def test_an_unusable_server_spec_never_echoes_its_values(tmp_path, monkeypatch):
     """pydantic's message carries ``input_value=``, and a server's argv may hold a credential."""
+    from pydantic import BaseModel
+    from gateway import session_local_mcp
+
+    # Exercise real pydantic error redaction independently of the optional ACP install.
+    class Server(BaseModel):
+        name: str
+        command: str
+        args: list[str]
+
+    monkeypatch.setattr(session_local_mcp, '_server_models', lambda: {'stdio': Server})
     spec = {'type': 'stdio', 'name': 'x', 'command': 'srv', 'args': '--token=SECRETSECRET', 'env': []}
     refusal = _refusal({'cwd': str(tmp_path), 'source': 'acp', 'editor': {'mcp_servers': [spec]}})
     assert refusal.field == 'editor.mcp_servers' and 'args' in refusal.detail
