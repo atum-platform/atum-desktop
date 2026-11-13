@@ -444,7 +444,12 @@ permission missing) uses these patterns; the canvas's States board lists them.
   Waiting for you with the chat's own ask, On your <device>); Stop is a quiet
   `.ak-btn`, never the primary. Your devices rise under Now while one is in
   use. Memory is the assistant card's row at the foot. No money, no settings,
-  no second text box: steering is the composer.
+  no second text box: steering is the composer. (2026-11-13, r2 on native
+  Hermes in the cloud) A row whose data stays on the agent's cloud computer
+  until the host can share it is present but inert: its icon and name in
+  ink-3 and a quiet "Not available yet" at the end, no data, no button. The
+  panel still never opens by itself; the chat's working line has a plain
+  **Watch** that opens it on the agent's tab.
 - **Connections sources**: one row per source, its glyph in a small sunk tile
   before the name (body-strong) and one line, the switch at the end
   (2026-10-31). Documents read as a page, never as
