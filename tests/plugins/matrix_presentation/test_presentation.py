@@ -428,6 +428,7 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
         try:
             self.assertTrue(await adapter.connect())
             self.assertTrue(adapter._presentation_ready.is_set())
+            await adapter._presentation_recovery_task
             self.assertGreater(adapter._presentation_box.db.execute(
                 'SELECT count(*) FROM effects WHERE event IS NULL').fetchone()[0], 0)
         finally:
@@ -591,11 +592,11 @@ class ReviewFixes(unittest.IsolatedAsyncioTestCase):
             resolve = AsyncMock(return_value=None)
             await box.recover(AsyncMock(), resolve=resolve)
             resolve.assert_not_awaited()
-            box.db.execute("UPDATE effects SET created=?", (p.time.time(),))
+            box.db.execute("UPDATE effects SET created=?,abandoned=0", (p.time.time(),))
             box.db.commit()
             for _ in range(6):
                 await box.recover(AsyncMock(), resolve=resolve)
-            assert resolve.await_count <= 3
+            assert resolve.await_count == 3
             box.db.close()
 
     async def test_connect_returns_before_cleanup(self):

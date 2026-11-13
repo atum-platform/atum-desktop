@@ -81,7 +81,8 @@ async def probe(peer):
         return transactions[txn_id]
 
     async def inbound(room, sender, eid, timestamp, content, relates):
-        e = MessageEvent(text=content['body'], message_id=eid, source=SessionSource(
+        from datetime import datetime, UTC
+        e = MessageEvent(timestamp=datetime.fromtimestamp(timestamp, UTC), text=content['body'], message_id=eid, source=SessionSource(
             platform=Platform.MATRIX, chat_id=room, chat_type='dm', user_id=sender))
         await a.handle_message(e)
     a._handle_text_message = inbound

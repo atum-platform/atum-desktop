@@ -105,7 +105,9 @@ def choose_resume_policy(history, *, force_ask=False, source_message_id=None):
         uncertain = (result is None or result.get('effect_disposition') not in (None, 'none')
                      or is_interrupted_tool_result(result.get('content'))
                      or str(result.get('content', '')).startswith('[Orphan recovery:'))
-        if tool_may_have_side_effect(name) or (result is not None and result.get('effect_disposition') not in (None, 'none')):
+        if not uncertain:
+            completed.add(call_key(name, arguments))
+        elif tool_may_have_side_effect(name) or (result is not None and result.get('effect_disposition') not in (None, 'none')):
             unsafe.append(name + ' ' + json.dumps(arguments, ensure_ascii=False)[:500])
         elif uncertain:
             unfinished.append(name)

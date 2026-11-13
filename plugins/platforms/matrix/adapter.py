@@ -1328,7 +1328,7 @@ class MatrixAdapter(BasePlatformAdapter):
         if pending is not None:
             self._joined_rooms.update(pending.get("rooms", {}).get("join", {}))
             await self._refresh_dm_cache()
-            await self._dispatch_sync(pending)
+            await self._dispatch_sync(dict(pending, _matrix_backlog=True))
             store.finish(pending)
         since = await store.get_next_batch()
         try:
@@ -2057,7 +2057,7 @@ class MatrixAdapter(BasePlatformAdapter):
             try:
                 store = getattr(self, "_intake", None)
                 if store is not None and (pending := store.get("pending")) is not None:
-                    await self._dispatch_sync(pending)
+                    await self._dispatch_sync(dict(pending, _matrix_backlog=True))
                     store.finish(pending)
                     next_batch = await store.get_next_batch()
                 # 45s outer cap guards TCP-level hangs the 30s long-poll timeout cannot catch.
@@ -2125,7 +2125,7 @@ class MatrixAdapter(BasePlatformAdapter):
         if store is not None:
             pending = store.get("pending")
             if pending is not None:
-                await self._dispatch_sync(pending)
+                await self._dispatch_sync(dict(pending, _matrix_backlog=True))
                 store.finish(pending)
             from plugins.platforms.matrix.intake import fill_gaps
             await fill_gaps(client, sync_data, store.get("frontier", {}))
@@ -2214,6 +2214,8 @@ class MatrixAdapter(BasePlatformAdapter):
                 timelines.append((room, sync_data['rooms']['join'][room].get('timeline', {}).get('events', [])))
                 data.get('timeline', {})['events'] = []
             await dispatch(dispatch_data)  # state and to-device keys precede messages
+            self._matrix_backlog_ids = {raw.get('event_id') for _, events in timelines for raw in events
+                if sync_data.get('_matrix_backlog') or raw.get('_matrix_backlog')}
             for room, events in timelines:
                 for raw in events:
                     if raw.get('type') == 'm.room.encrypted':
@@ -2438,6 +2440,16 @@ class MatrixAdapter(BasePlatformAdapter):
             state = store.state(event_id)
             if state in {"native", "done"}:
                 return
+            if state == "control_pending":
+                # The pre-admission control may have run. Settle with a stable Matrix
+                # transaction so a lost notice receipt cannot duplicate the notice.
+                import hashlib
+                txn = 'atum-control-failed-' + hashlib.sha256(event_id.encode()).hexdigest()
+                await self._send_room_message(room_id, {
+                    'msgtype': 'm.notice',
+                    'body': 'I was interrupted while handling that reply. Please send it again.'}, txn_id=txn)
+                store.mark(event_id, 'done', room_id=room_id)
+                return
             if state == "ambiguous":
                 from plugins.platforms.matrix.intake import IntakeAmbiguousError
                 raise IntakeAmbiguousError("Matrix control execution is ambiguous; operator recovery required")
@@ -2523,6 +2535,10 @@ class MatrixAdapter(BasePlatformAdapter):
         event._on_transport_commit = accepted
         event._transport_control_state = lambda state: store.mark(event.message_id, state, room_id=event.source.chat_id)
         event._matrix_durable_intake = True
+        timestamp = getattr(event, 'timestamp', None)
+        timestamp = timestamp.timestamp() if hasattr(timestamp, 'timestamp') else 0
+        event._matrix_backlog = (event.message_id in getattr(self, '_matrix_backlog_ids', set())
+            or bool(timestamp and timestamp < self._startup_ts))
         # Commands and inline control replies can have non-idempotent effects outside
         # the FIFO. Persist ambiguity before dispatch; never blindly replay those.
         store.mark(event.message_id, "ambiguous" if event.get_command() else "pending", room_id=event.source.chat_id)

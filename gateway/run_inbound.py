@@ -1226,7 +1226,7 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
                 # A turn a slash command produced (``/queue yes``) is never live typing.
                 # Journal-owned Matrix backlog is also queued input. Each source must
                 # reach its own admission without interrupting or steering an earlier one.
-                if (not getattr(event, "_matrix_durable_intake", False)
+                if (not getattr(event, "_matrix_backlog", False)
                         and self._is_session_running(_quick_key)
                         and not getattr(event, "_fifo_only", False)) and (
                         await transport_control(event, lambda: self._route_plaintext_approval_while_busy(event, _quick_key))

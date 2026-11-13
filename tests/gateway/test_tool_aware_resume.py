@@ -22,9 +22,9 @@ def test_unfinished_only_and_unknown_conservative():
                {'role': 'tool', 'tool_call_id': 'a', 'content': 'written'}, call('b', 'read_file')]
     before = json.dumps(history)
     policy = choose_resume_policy(history)
-    assert policy.ask  # a legacy write result has no positive read-only classification
+    assert not policy.ask  # a durable result is completion evidence, including writes
     assert recovery_tool_block(policy, 'write_file', {})
-    assert recovery_tool_block(policy, 'read_file', {})
+    assert recovery_tool_block(policy, 'read_file', {}) is None
     assert json.dumps(history) == before  # cached prefix and role sequence untouched
     for name in ('terminal', 'append_test', 'connectors__execute', 'delegate_task'):
         policy = choose_resume_policy([call('x', name)])
@@ -500,7 +500,7 @@ def test_runner_targets_admission_source_before_first_user_write(tmp_path):
     turn._runner = runner
     turn._ctx = SimpleNamespace(source=None, session_key='key', session_id='s', history=history,
         message='Search Fansipan height', persist_user_message=None, persist_user_timestamp=None,
-        inbound_message_id='$new')
+        inbound_message_id='$new', persist_user_display_metadata={'crash_resume_source_id': '$new'})
     turn._prepare_turn_message(history)
     assert not turn._resume_policy.ask
     assert 'Search Fansipan height' in turn._ctx.message
@@ -537,7 +537,7 @@ raise AssertionError('H4 did not fire')
     assert (tmp_path / 'fault').exists()
     db = SessionDB(db_path=tmp_path / 'transcript.db')
     history = db.get_messages_as_conversation('s')
-    assert choose_resume_policy(history).ask  # reproduce the old wrong-turn inference
+    assert not choose_resume_policy(history).ask  # the completed prior effect is excluded
     policy = choose_resume_policy(history, source_message_id='$new')
     assert not policy.ask
     assert 'cron' not in policy.note()

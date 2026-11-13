@@ -90,7 +90,7 @@ def carry_callback(event, rewritten):
             bound_var.set((bound[0], rewritten, *bound[2:]))
             # A transport's durable acceptance callback follows an authenticated
             # rewrite of this same source, never arbitrary metadata from ingress.
-            for name in ('_on_transport_commit', '_matrix_durable_intake', '_transport_control_state'):
+            for name in ('_on_transport_commit', '_matrix_durable_intake', '_matrix_backlog', '_transport_control_state'):
                 if hasattr(event, name):
                     setattr(rewritten, name, getattr(event, name))
 
@@ -253,12 +253,12 @@ def callback_runner():
 async def transport_control(event, action, *, consumed=bool):
     """Fence non-FIFO control effects for transports with durable intake.
 
-    A crash/exception leaves an ambiguous control, never a request to replay it.
+    A crash leaves a typed-failure obligation, never a request to repeat the control.
     The callback is process-local provenance, not deserialized ingress metadata.
     """
     state = getattr(event, '_transport_control_state', None)
     if state is not None:
-        state('ambiguous')
+        state('control_pending')
     result = await action()
     if state is not None:
         state('done' if consumed(result) else 'pending')
