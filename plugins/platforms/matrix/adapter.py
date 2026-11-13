@@ -1335,14 +1335,17 @@ class MatrixAdapter(BasePlatformAdapter):
             from gateway.fault_injection import hit
             if since:
                 hit("H13")
+            poll_started = time.time()
             sync_data = await client.sync(since=since, timeout=10000, full_state=True)
         except Exception as exc:
             if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
                 raise
             # Reconstruct from saved room event IDs, never from wall time.
+            poll_started = time.time()
             sync_data = await client.sync(timeout=10000, full_state=True)
             from plugins.platforms.matrix.intake import fill_gaps
             await fill_gaps(client, sync_data, store.get("frontier", {}), reset=True)
+        sync_data['_matrix_poll_started'] = poll_started
         if not since:
             # First installation establishes a baseline. Existing room history is
             # not a queue of new requests (including recent history).
@@ -2063,14 +2066,17 @@ class MatrixAdapter(BasePlatformAdapter):
                 # 45s outer cap guards TCP-level hangs the 30s long-poll timeout cannot catch.
                 # mautrix raises on every non-2xx, so a non-dict here is never an error object.
                 try:
+                    poll_started = time.time()
                     sync_data = await asyncio.wait_for(client.sync(since=next_batch, timeout=30000), timeout=45.0)
                 except Exception as exc:
                     if getattr(exc, "errcode", None) != "M_UNKNOWN_POS":
                         raise
+                    poll_started = time.time()
                     sync_data = await asyncio.wait_for(client.sync(timeout=30000, full_state=True), timeout=45.0)
                     from plugins.platforms.matrix.intake import fill_gaps
                     await fill_gaps(client, sync_data, self._intake.get("frontier", {}), reset=True)
                 if isinstance(sync_data, dict):
+                    sync_data['_matrix_poll_started'] = poll_started
                     next_batch = await self._absorb_sync(client, sync_data) or next_batch
                     if getattr(self, '_intake_failures', 0):
                         self._intake_failures = 0
@@ -2116,6 +2122,16 @@ class MatrixAdapter(BasePlatformAdapter):
         to-device key shares queued while offline."""
         self._last_sync_ts = time.time()
         rooms_join = sync_data.get("rooms", {}).get("join", {})
+        # A healthy long-poll delivers live typing after its request began. After
+        # an outage/wedge, older input is backlog even without a process restart.
+        # Stamp provenance before journaling so late decryption preserves it too.
+        poll_started = sync_data.get('_matrix_poll_started')
+        if isinstance(poll_started, (int, float)):
+            for data in rooms_join.values():
+                for raw in data.get('timeline', {}).get('events', []):
+                    ts = raw.get('origin_server_ts')
+                    if isinstance(ts, (int, float)) and 0 < ts / 1000 < poll_started - _STARTUP_GRACE_SECONDS:
+                        raw['_matrix_backlog'] = True
         if rooms_join or initial:
             self._joined_rooms.update(rooms_join.keys())
             self._invalidate_room_identities()
@@ -2271,6 +2287,8 @@ class MatrixAdapter(BasePlatformAdapter):
             self._intake.undecryptable(raw["event_id"], f"{type(exc).__name__}: {exc}")
             return
         # Ordinary owner/room/mention gates and native authority remain authoritative.
+        if raw.get('_matrix_backlog'):
+            self._matrix_backlog_ids = getattr(self, '_matrix_backlog_ids', set()) | {raw['event_id']}
         if str(decoded.type) == "m.room.message":
             await self._on_room_message(decoded)
         elif str(decoded.type) == "m.reaction":

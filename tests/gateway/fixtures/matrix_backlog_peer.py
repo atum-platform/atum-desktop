@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import threading
+import time
 import sys
 import traceback
 from types import SimpleNamespace
@@ -27,6 +28,9 @@ class Model(BaseHTTPRequestHandler):
         # Hermes also uses the model for periodic memory maintenance.
         if numbers:
             self.server.inputs.append(numbers)
+            if self.server.hold_first and len(self.server.inputs) == 1:
+                self.server.first_started.set()
+                self.server.release_first.wait(60)
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream' if request.get('stream') else 'application/json')
         self.end_headers()
@@ -63,7 +67,9 @@ async def probe(peer):
     runner.adapters[Platform.MATRIX] = a
     a.set_message_handler(runner._primary_message_handler())
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
-    a._startup_ts = 9999999999
+    outage = '--sync-outage' in sys.argv
+    source_ts = int((time.time() - 300) * 1000) if outage else 1
+    a._startup_ts = time.time() - 600 if outage else 9999999999
     a._refresh_dm_cache = AsyncMock()
     a._warn_encrypted_drops = MagicMock()
     a._schedule_pending_invite_joins = MagicMock()
@@ -89,10 +95,15 @@ async def probe(peer):
         e = MessageEvent(timestamp=datetime.fromtimestamp(timestamp, UTC), text=content['body'], message_id=eid, source=SessionSource(
             platform=Platform.MATRIX, chat_id=room, chat_type='dm', user_id=sender))
         await a.handle_message(e)
+        if outage:
+            backlog_flags.append(e._matrix_backlog)
+            if eid == '$check5-01':
+                await async_wait_until(peer.first_started.is_set, timeout=30, what='first live agent model call')
     a._handle_text_message = inbound
+    backlog_flags = []
     def raw(i):
         return {'type': 'm.room.message', 'event_id': f'$check5-{i:02}', 'sender': '@alice:example.org',
-                'origin_server_ts': 1, 'content': {'msgtype': 'm.text', 'body': f'CHECK5_{i:02}'}}
+                'origin_server_ts': source_ts, 'content': {'msgtype': 'm.text', 'body': f'CHECK5_{i:02}'}}
     def batch(events, token, limited=False):
         return {'next_batch': token, 'rooms': {'join': {'!room:example.org': {'timeline': {
             'events': events, 'limited': limited, 'prev_batch': 'page-0'}}}}}
@@ -100,7 +111,7 @@ async def probe(peer):
         for room, joined in data.get('rooms', {}).get('join', {}).items():
             for raw_event in joined.get('timeline', {}).get('events', []):
                 await a._on_room_message(SimpleNamespace(room_id=room, sender=raw_event['sender'],
-                    event_id=raw_event['event_id'], timestamp=1, content=raw_event['content']))
+                    event_id=raw_event['event_id'], timestamp=raw_event['origin_server_ts'], content=raw_event['content']))
         return []
     client = SimpleNamespace(handle_sync=handle_sync, send_message_event=send_message_event,
         get_messages=AsyncMock(side_effect=[
@@ -129,9 +140,29 @@ async def probe(peer):
         release = asyncio.create_task(finish_legacy())
         a._startup_ts = 0  # the new durable event is live
     count = 1 if legacy else 25
-    sync = (batch([raw(1)], 'live-during-resume') if legacy else
+    sync = (batch([raw(i) for i in range(1, 26)], 'after-outage') if outage else
+        batch([raw(1)], 'live-during-resume') if legacy else
         batch([raw(i) for i in range(16, 26)], 'after-restart', True))
-    await asyncio.wait_for(a._absorb_sync(client, sync), 60)
+    if outage:
+        attempts = 0
+        async def poll(**kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts <= 2:
+                raise ConnectionError('offline homeserver outage')
+            a._closing = True
+            return sync
+        client.sync_store = a._intake
+        client.sync = poll
+        a._intake_failure = AsyncMock(return_value=0)
+        try:
+            await asyncio.wait_for(a._sync_loop(), 60)
+        finally:
+            peer.release_first.set()
+        assert attempts == 3
+        assert len(backlog_flags) == 25 and all(backlog_flags), 'outage messages arrived live'
+    else:
+        await asyncio.wait_for(a._absorb_sync(client, sync), 60)
     await async_wait_until(lambda: len(finals) == count, timeout=90, what='source-linked finals')
     if legacy:
         await release
@@ -145,14 +176,18 @@ async def probe(peer):
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
     await a._dispatch_sync(sync)
     assert len(finals) == count
-    assert client.get_messages.await_count == (0 if legacy else 2)
+    assert client.get_messages.await_count == (0 if legacy or outage else 2)
     a._intake.close()
-    print(json.dumps({'finals': finals, 'model_calls': len(peer.inputs), 'startup_queue': 0}))
+    print(json.dumps({'finals': finals, 'model_calls': len(peer.inputs), 'startup_queue': 0,
+                      'mode': 'sync-outage' if outage else 'legacy' if legacy else 'restart'}), flush=True)
 
 
 if __name__ == '__main__':
     peer = ThreadingHTTPServer(('127.0.0.1', 0), Model)
     peer.inputs = []
+    peer.hold_first = '--sync-outage' in sys.argv
+    peer.first_started = threading.Event()
+    peer.release_first = threading.Event()
     threading.Thread(target=peer.serve_forever, daemon=True).start()
     url = f'http://127.0.0.1:{peer.server_port}/v1'
     os.environ.update(OPENAI_API_KEY='offline-loopback', OPENAI_BASE_URL=url, MATRIX_ALLOWED_USERS='@alice:example.org')
