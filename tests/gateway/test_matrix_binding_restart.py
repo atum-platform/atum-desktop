@@ -48,7 +48,9 @@ async def test_connect_backlog_has_15_linked_finals_and_no_error_notices(tmp_pat
         # Real native command dispatch, not a manual edit to the routing store.
         a.send = AsyncMock(return_value=SendResult(success=True, message_id='$reset-notice'))
         await a.handle_message(message(a, reset, '$reset'))
-        await async_wait_until(lambda: not a._session_tasks, timeout=15, what='reset completed')
+        await async_wait_until(lambda: not a._session_tasks, timeout=15, what='reset confirmation requested')
+        await a.handle_message(message(a, '/approve', '$approve-reset'))
+        await async_wait_until(lambda: not a._session_tasks, timeout=15, what='approved reset completed')
     key = runner._session_key_for_source(source)
     expected_sid = runner.session_store.peek_session_id(key)
     assert (expected_sid != old.session_id) is bool(reset)
@@ -149,6 +151,7 @@ async def test_error_notice_only_for_terminal_attempt(tmp_path, monkeypatch, ter
             a.send.assert_awaited_once()
             notice = a.send.await_args.kwargs['content']
             assert notice == i18n.t('gateway.notify.turn_error')
+            assert a.send.await_args.kwargs['reply_to'] == e.message_id
             assert '\n' not in notice and '/reset' not in notice
             assert 'private' not in notice and 'RuntimeError' not in notice
         else:
@@ -192,5 +195,24 @@ async def test_connect_binding_lifetime_and_failed_attempt_cleanup(tmp_path, mon
             a.disconnect = AsyncMock()
             await runner._safe_adapter_disconnect(a, Platform.MATRIX)
         assert Platform.MATRIX not in registry
+    finally:
+        a._intake.close()
+
+
+@pytest.mark.asyncio
+async def test_stale_connect_failure_cannot_replace_or_withdraw_current_owner(tmp_path):
+    a = adapter(tmp_path)
+    runner = GatewayRunner(GatewayConfig(sessions_dir=tmp_path / 'sessions'))
+    current = object()
+    runner.adapters[Platform.MATRIX] = current
+    a.connect = AsyncMock(return_value=True)
+    a.disconnect = AsyncMock()
+    try:
+        with pytest.raises(RuntimeError, match='owning adapter'):
+            await runner._connect_adapter_with_timeout(a, Platform.MATRIX)
+        a.connect.assert_not_awaited()
+        assert runner.adapters[Platform.MATRIX] is current
+        await runner._safe_adapter_disconnect(a, Platform.MATRIX)
+        assert runner.adapters[Platform.MATRIX] is current
     finally:
         a._intake.close()
