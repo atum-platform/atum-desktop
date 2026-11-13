@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import io
+import shutil
 import json
 
 import pytest
 
-from hermes_cli.atum_home import export_home, hydrate_home
 from hermes_cli.atum_store_runtime import (
     PROFILE,
     StoreRuntimeError,
@@ -125,11 +124,9 @@ def test_install_replay_restart_and_lapse_are_home_local_and_recoverable(
         replay = reconcile_store_runtime(_plan(first["state"]["managedSkills"]))
         assert (replay["installed"], replay["added"], replay["released"], replay["removed"]) == (0, 0, 0, 0)
 
-        archive = io.BytesIO()
-        export_home(str(first_home), archive)
-        archive.seek(0)
         restored_home = tmp_path / "restored-home"
-        hydrate_home(str(restored_home), archive)
+        # Store restart persistence is independent of the retired transfer archive.
+        shutil.copytree(first_home, restored_home)
     finally:
         reset_hermes_home_override(token)
 

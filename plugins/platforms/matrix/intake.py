@@ -117,34 +117,6 @@ class MatrixIntakeStore:
             self._put('next_batch', batch['next_batch'])
             self._put('pending', None)
 
-    def check_migration(self, key, cutover):
-        """Offline seed preflight; retries cannot reset an existing cursor."""
-        previous = self.get(key)
-        if previous is not None:
-            if previous != cutover:
-                raise ValueError('Migration cutover conflict')
-        elif self.get('next_batch') is not None or self.get('pending') is not None:
-            raise ValueError('Migration requires an unstarted intake journal')
-
-    def seed_migration(self, key, cutover, events):
-        """Seed transport receipts/cursor only after native history is committed.
-
-        Caller holds the stopped agent's exclusive identity/home mounts. Receipts
-        deliberately use done (handoff), never an execution/delivery ACK.
-        """
-        with self.db:
-            self.db.execute('BEGIN IMMEDIATE')
-            self.check_migration(key, cutover)
-            fresh = self.get(key) is None
-            for event, room in events:
-                self.db.execute('''INSERT OR IGNORE INTO intake_events
-                    (event_id,state,receipt,updated_at,room_id) VALUES (?,'done',?,0,?)''',
-                    (event, key, room))
-            if fresh:
-                self._put('frontier', cutover['frontier'])
-                self._put('next_batch', cutover['next_batch'])
-                self._put(key, cutover)
-
     def state(self, event_id):
         row = self.db.execute('SELECT state FROM intake_events WHERE event_id=?', (event_id,)).fetchone()
         return row[0] if row else None

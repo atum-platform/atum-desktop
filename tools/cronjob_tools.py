@@ -743,16 +743,6 @@ def _action_remove(job: dict[str, Any], a: dict[str, Any]) -> str:
 def _job_state_result(updated: dict[str, Any]) -> str:
     _notify_provider_jobs_changed_safe()
     formatted = _format_job(updated)
-    try:
-        from hermes_cli.atum_home import cloud_schedule_problem, in_cloud_sandbox
-        if in_cloud_sandbox():
-            formatted["legacy_home_job"] = True
-            formatted["cloud_warning"] = cloud_schedule_problem(updated) or (
-                "Atum's cloud will not run this legacy home job until it is imported "
-                "into the owner's schedule list."
-            )
-    except Exception:
-        pass
     return _dumps({"success": True, "job": formatted})
 
 
@@ -962,16 +952,6 @@ def _action_update(job: dict[str, Any], a: dict[str, Any]) -> str:
     _notify_provider_jobs_changed_safe()
     # An update can switch modes or delivery — echo the same guidance as create.
     formatted = _format_job(updated)
-    try:
-        from hermes_cli.atum_home import cloud_schedule_problem, in_cloud_sandbox
-        if in_cloud_sandbox():
-            formatted["legacy_home_job"] = True
-            formatted["cloud_warning"] = cloud_schedule_problem(updated) or (
-                "Atum's cloud will not run this legacy home job until it is imported "
-                "into the owner's schedule list."
-            )
-    except Exception:
-        pass
     return _dumps(_with_guidance(
         {"success": True, "job": formatted}, updated, _normalize_deliver_param(a["deliver"])))
 
@@ -1042,18 +1022,6 @@ def cronjob(
     del a["task_id"]  # unused but kept for handler signature compatibility
     try:
         normalized = (action or "").strip().lower()
-        # In an Atum cloud sandbox the owner's platform routines are the one
-        # schedule list. The adapter returns None outside that environment or
-        # for a legacy local job, preserving Hermes's native scheduler path.
-        from tools import cronjob_cloud_routines
-
-        routed = cronjob_cloud_routines.maybe_dispatch(
-            normalized,
-            a,
-            scan_prompt=_scan_cron_prompt,
-        )
-        if routed is not None:
-            return routed
         handler = _JOBLESS_ACTIONS.get(normalized)
         if handler is not None:
             return handler(a)

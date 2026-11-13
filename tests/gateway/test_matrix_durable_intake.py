@@ -950,3 +950,17 @@ async def test_control_failure_notice_outage_does_not_wedge_intake(tmp_path):
     await a._on_room_message(raw)
     assert a._send_room_message.await_count == 1
     a._intake.close()
+
+
+def test_migrated_receipts_survive_retirement_restart_and_compaction(tmp_path):
+    path = tmp_path / 'intake.sqlite3'
+    journal = MatrixIntakeStore(path)
+    # Existing transferred data: retirement removes the importer, not its receipts.
+    journal.mark('$moved', 'done', 'migration:receipt', room_id='!room')
+    journal.mark('$native', 'done', 'native:receipt', room_id='!room')
+    journal.close()
+    reopened = MatrixIntakeStore(path)
+    reopened.compact(now=10**12)
+    assert reopened.state('$moved') == 'done'
+    assert reopened.state('$native') is None
+    reopened.close()
