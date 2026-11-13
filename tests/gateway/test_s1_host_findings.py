@@ -16,14 +16,14 @@ def test_persisted_pid_cannot_cross_lock_incarnation(tmp_path, monkeypatch, sour
     locks.mkdir()
     monkeypatch.setenv('HERMES_HOME', str(home))
     monkeypatch.setenv('HERMES_GATEWAY_LOCK_DIR', str(locks))
-    monkeypatch.setattr(status, 'get_process_boot_id', lambda: 'sandbox-a')
+    monkeypatch.setattr(status, 'get_process_epoch', lambda: 'sandbox-a')
     record = status._build_pid_record()
     record['gateway_state'] = 'running'
     monkeypatch.setattr(status, '_pid_exists', lambda pid: True)
     monkeypatch.setattr(status, '_record_matches_live_gateway_pid', lambda *a, **kw: True)
     assert status._live_pid_from_record(record) == record['pid']
     # Container restart preserves home, replaces its private tmpfs lock rendezvous.
-    monkeypatch.setattr(status, 'get_process_boot_id', lambda: 'sandbox-b')
+    monkeypatch.setattr(status, 'get_process_epoch', lambda: 'sandbox-b')
     if source == 'runtime':
         assert status.get_runtime_status_running_pid(record) is None
     else:
@@ -52,10 +52,10 @@ def test_storage_and_required_adapter_failures_are_process_faults(tmp_path, monk
 
 def test_previous_sandbox_platform_writer_is_not_current(monkeypatch):
     from hermes_cli.web_server_gateway import _owned_profile_platforms
-    monkeypatch.setattr(status, 'get_process_boot_id', lambda: 'new')
-    entries = {'matrix': {'writer_pid': 2, 'writer_start_time': 10, 'writer_boot_id': 'old'}}
+    monkeypatch.setattr(status, 'get_process_epoch', lambda: 'new')
+    entries = {'matrix': {'writer_pid': 2, 'writer_start_time': 10, 'writer_boot_epoch': 'old'}}
     assert _owned_profile_platforms((2, 10), entries) == {}
-    entries['matrix']['writer_boot_id'] = 'new'
+    entries['matrix']['writer_boot_epoch'] = 'new'
     assert _owned_profile_platforms((2, 10), entries) == entries
 
 
@@ -81,7 +81,7 @@ def test_gofer_is_distinct_from_cross_vm_filesystems(tmp_path, monkeypatch, fsty
 
 
 def test_bare_pid_is_not_process_identity(monkeypatch):
-    monkeypatch.setattr(status, 'get_process_boot_id', lambda: None)
+    monkeypatch.setattr(status, 'get_process_epoch', lambda: None)
     monkeypatch.setattr(status, '_pid_exists', lambda pid: True)
     monkeypatch.setattr(status, '_get_process_start_time', lambda pid: 100)
     assert status._live_pid_from_record({'pid': 2}) is None

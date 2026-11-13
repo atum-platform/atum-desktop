@@ -150,14 +150,14 @@ def _owned_profile_platforms(writer_identity: Optional[tuple], platforms: dict) 
     """
     if writer_identity is None:
         return {}
-    from gateway.status import process_boot_matches
+    from gateway.status import process_epoch_matches
     live_pid, live_start = writer_identity
     return {
         key: value for key, value in platforms.items()
         if isinstance(value, dict)
         and value.get("writer_pid") == live_pid
         and value.get("writer_start_time") == live_start
-        and process_boot_matches(value, "writer_boot_id")}
+        and process_epoch_matches(value, "writer_boot_epoch")}
 
 
 def _collect_profile_gateway_topology() -> dict[str, Any]:
