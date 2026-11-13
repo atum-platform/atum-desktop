@@ -812,7 +812,7 @@ describe('round 3: frame, files and controls', () => {
 describe('round 4: pause and routines', () => {
   const hermesBase = (): MatrixSnapshot => ({ ...base(), agents: [{ ...luna, runtime: 'hermes' }] })
 
-  const job = (id: string, name: string, state: 'scheduled' | 'paused') => ({
+  const job = (id: string, name: string, state: 'scheduled' | 'paused', pausedReason: string | null = null) => ({
     id,
     name,
     kind: 'cron',
@@ -824,7 +824,8 @@ describe('round 4: pause and routines', () => {
     lastStatus: null,
     expr: '0 8 * * *',
     minutes: null,
-    runAt: null
+    runAt: null,
+    pausedReason
   })
 
   function bridge(jobs: ReturnType<typeof job>[] | undefined, control: (request: unknown) => Promise<unknown>) {
@@ -844,6 +845,16 @@ describe('round 4: pause and routines', () => {
 
   const pauseSwitch = () =>
     within(document.querySelector<HTMLElement>('[data-agent-desk-controls]')!).getByRole('switch', { name: en.pause })
+
+  async function openMore(controls: HTMLElement, label = en.moreControls) {
+    await act(async () => {
+      fireEvent.click(within(controls).getByRole('button', { name: label }))
+    })
+  }
+
+  async function routineRow(controls: HTMLElement, name: string) {
+    return (await waitFor(() => within(controls).getByText(name))).closest<HTMLElement>('[data-agent-desk-routine]')!
+  }
 
   it('offers one Pause switch once its schedule is known, with the meaning as a tooltip only', async () => {
     const control = bridge([job('brief', 'Morning brief', 'scheduled')], async () => ({ action: 'pause', changed: 1 }))
@@ -948,6 +959,44 @@ describe('round 4: pause and routines', () => {
     })
 
     expect(control).toHaveBeenCalledWith('agent-luna', { action: 'routine_on', job: 'sweep' })
+  })
+
+  it('says one quiet Paused on the row the owner paused, in its own words in every locale', async () => {
+    for (const locale of ['vi', 'en', 'ja', 'zh', 'zh-hant'] as const) {
+      const copy = matrixAgentDeskCopy[locale]
+      bridge([job('sweep', 'Follow-up sweep', 'paused', 'owner_pause')], async () => ({ action: 'pause', changed: 1 }))
+      render(panel(hermesBase(), locale))
+      const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+      await waitFor(() => within(controls).getByRole('switch', { name: copy.pause }))
+      await openMore(controls, copy.moreControls)
+      const row = await routineRow(controls, 'Follow-up sweep')
+      // One existing word on the row's own quiet line: no new element, nothing denser.
+      expect(within(row).getByText(copy.paused)).toBeTruthy()
+      cleanup()
+    }
+  })
+
+  it('adds no word to a routine switched off one by one, or to a reason this build does not know', async () => {
+    bridge(
+      [
+        job('sweep', 'Follow-up sweep', 'paused', 'owner_routine_off'),
+        job('digest', 'Daily digest', 'paused', 'Paused by our team while we check the source.'),
+        job('note', 'Weekly note', 'paused')
+      ],
+      async () => ({ action: 'pause', changed: 1 })
+    )
+
+    render(panel(hermesBase()))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    await waitFor(() => pauseSwitch())
+    await openMore(controls)
+
+    for (const name of ['Follow-up sweep', 'Daily digest', 'Weekly note']) {
+      const row = await routineRow(controls, name)
+      // Its own switch already reads off, so the row says nothing more.
+      expect(within(row).getByRole('switch', { name }).getAttribute('aria-checked')).toBe('false')
+      expect(row.textContent).toBe(name)
+    }
   })
 
   it('retries once after the shared cooldown when the host is busy, keeping the switch where you put it', async () => {

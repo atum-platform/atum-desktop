@@ -45,6 +45,24 @@ export type MatrixHostDeskRead = { read: 'schedule' } | { read: 'memory' } | { r
 const stamp = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER)
 const date = z.iso.datetime({ offset: true }).nullable()
 
+/** Native `paused_reason` on a schedule row: `owner_pause`, `owner_routine_off`, or an operator's
+ * note. One trimmed line, no control characters, at most 160 characters. */
+export const MATRIX_HOST_DESK_PAUSED_REASON_MAX = 160
+
+/**
+ * The reason as this build reads it, by the platform's own rule, and null whenever the value is
+ * off that rule (absent, null, overlong, not a string). A reason is a quiet extra on one row, so a
+ * malformed one leaves that row without it rather than costing the whole read.
+ */
+export function matrixHostDeskPausedReason(value: unknown): string | null {
+  return typeof value === 'string' &&
+    value.length <= MATRIX_HOST_DESK_PAUSED_REASON_MAX &&
+    value.trim().length > 0 &&
+    !/[\u0000-\u001f\u007f]/u.test(value)
+    ? value
+    : null
+}
+
 export const MatrixHostDeskScheduleSchema = z
   .object({
     read: z.literal('schedule'),
@@ -64,7 +82,9 @@ export const MatrixHostDeskScheduleSchema = z
             lastStatus: z.enum(['ok', 'error']).nullable(),
             expr: z.string().nullable(),
             minutes: z.number().positive().nullable(),
-            runAt: date
+            runAt: date,
+            /** Optional on the wire (an older G14 has no such field); normalised to null here. */
+            pausedReason: z.unknown().optional().transform(value => matrixHostDeskPausedReason(value))
           })
           .strict()
       )

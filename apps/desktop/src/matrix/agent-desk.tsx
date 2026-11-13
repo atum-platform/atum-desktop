@@ -760,17 +760,25 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
     return null
   }
 
-  const when = (iso: string | null) =>
-    iso
-      ? new Intl.DateTimeFormat(locale, { weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(iso))
-      : undefined
+  const when = (iso: string | null) => {
+    if (!iso) {
+      return undefined
+    }
+
+    return copy.nextRun(
+      new Intl.DateTimeFormat(locale, { weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(iso))
+    )
+  }
 
   return (
     <>
       <div className="atum-desk-subhead">{copy.routines}</div>
       {jobs.map(job => {
         const switchable = schedule.canControl && (LIVE.has(job.state) || job.state === 'paused')
-        const next = job.state === 'paused' ? copy.paused : when(job.nextRunAt) ? copy.nextRun(when(job.nextRunAt)!) : undefined
+        // Only the owner's whole-agent Pause is said on the row. A routine switched off already
+        // reads off on its own switch, and a reason this build does not know says nothing.
+        const next =
+          job.state !== 'paused' ? when(job.nextRunAt) : job.pausedReason === 'owner_pause' ? copy.paused : undefined
 
         return (
           <div className="ak-row" data-agent-desk-routine={job.state} key={job.id} role="listitem">

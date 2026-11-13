@@ -262,12 +262,12 @@ export function playgroundAgentDesk(locale: string): MatrixAgentDeskBridge {
       {
         id: 'brief', name: vi ? 'Bản tin buổi sáng' : 'Morning brief', kind: 'cron', display: 'Every day at 08:00',
         timezone: 'Asia/Ho_Chi_Minh', state: 'scheduled', nextRunAt: new Date(now + day / 2).toISOString(),
-        lastRunAt: null, lastStatus: null, expr: '0 8 * * *', minutes: null, runAt: null
+        lastRunAt: null, lastStatus: null, expr: '0 8 * * *', minutes: null, runAt: null, pausedReason: null
       },
       {
         id: 'sweep', name: vi ? 'Kiểm tra việc còn dở' : 'Follow-up sweep', kind: 'cron', display: 'every 2h',
         timezone: 'Asia/Ho_Chi_Minh', state: 'paused', nextRunAt: null, lastRunAt: null, lastStatus: null,
-        expr: '0 */2 * * *', minutes: null, runAt: null
+        expr: '0 */2 * * *', minutes: null, runAt: null, pausedReason: 'owner_pause'
       }
     ],
     truncated: false
