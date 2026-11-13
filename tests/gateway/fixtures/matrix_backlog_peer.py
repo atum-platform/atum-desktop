@@ -121,6 +121,7 @@ async def probe(peer):
         runner._session_state(entry.session_key).turn.agent = _AGENT_PENDING_SENTINEL
         async def finish_legacy():
             await asyncio.sleep(1)
+            assert finals == [] and peer.inputs == [], 'durable turn overlapped legacy resume'
             runner._release_running_agent_state(entry.session_key)
         release = asyncio.create_task(finish_legacy())
         a._startup_ts = 0  # the new durable event is live
