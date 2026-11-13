@@ -188,11 +188,23 @@ describe('Stop routing', () => {
   })
   it('uses native in-room stop for scheduled work with no owner source', async () => {
     const send = vi.fn(async () => {})
-    const stop = vi.fn(async () => {})
+    const stop = vi.fn(async () => ({ state: 'stopped' as const }))
     await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), stop, send)
     expect(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true, eventId: '$older-owner' }).kind).toBe('native')
     expect(send).toHaveBeenCalledWith('/stop')
     expect(stop).not.toHaveBeenCalled()
+  })
+  it('calls a turn stopped only when the agent confirmed it', async () => {
+    const send = vi.fn(async () => {})
+    const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
+    await expect(executeMatrixStop(route, async () => ({ state: 'stopped' }), send)).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, async () => ({ state: 'completed' }), send)).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, async () => ({ state: 'stop_requested' }), send)).resolves.toBe('stopping')
+    await expect(executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), vi.fn(), send)).resolves.toBe('sent')
+  })
+  it('passes a failed Stop through as a failure', async () => {
+    const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
+    await expect(executeMatrixStop(route, async () => { throw new Error('matrix_host_stop_refused') }, vi.fn())).rejects.toThrow('matrix_host_stop_refused')
   })
   it('disables unresolved owner messages and idle turns', () => {
     expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')

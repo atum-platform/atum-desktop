@@ -46,5 +46,7 @@ export async function requestHostStop(
   ) {
     throw new Error('matrix_host_stop_unconfirmed')
   }
-  return { state: 'stop_requested' }
+  // `cancelled` means the host cut the turn's tools; only `interrupted` is the agent confirming
+  // the turn stopped. Without it the agent may still be finishing a reply.
+  return { state: receipt.interrupted ? 'stopped' : 'stop_requested' }
 }
