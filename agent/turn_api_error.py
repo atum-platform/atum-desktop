@@ -153,6 +153,45 @@ def handle_api_error(
         reason=classified.reason.value,
     )
 
+    if classified.reason == FailoverReason.allowance_exhausted:
+        # Stay in the existing API retry loop, before pool rotation, compression,
+        # managed-route terminal handling and the generic fallback ladder.
+        from agent.retry_utils import jittered_backoff
+
+        initial, cap, window = getattr(agent, "_allowance_wait", (2.0, 30.0, 180.0))
+        # Owner words: a short wait, never "top-up", balance or allowance (the wallet notice owns that).
+        from agent.i18n import owner_text
+        waiting = owner_text("Waiting a moment before I continue…", "Chờ mình một chút để làm tiếp nhé…")
+        if _retry.allowance_wait_started is None:
+            _retry.allowance_wait_started = time.monotonic()
+        remaining = window - (time.monotonic() - _retry.allowance_wait_started)
+        if remaining <= 0.001:  # avoid sub-clock-resolution retries at the deadline
+            summary = owner_text("I couldn’t continue just now. Please try again in a few minutes.",
+                                 "Lúc này mình chưa làm tiếp được. Bạn thử lại sau vài phút nhé.")
+            agent._persist_session(messages, conversation_history)
+            return _verdict("return", {
+                "final_response": summary, "error": summary, "messages": messages,
+                "api_calls": api_call_count, "completed": False, "failed": True,
+                "failure_reason": "allowance_exhausted", "failure_retryable": True,
+            })
+        if not getattr(agent, "_allowance_wait_notice_sent", False):
+            agent._allowance_wait_notice_sent = True
+            agent._emit_status(waiting)
+        _retry.allowance_wait_attempts += 1
+        delay = min(remaining, cap, jittered_backoff(
+            _retry.allowance_wait_attempts, base_delay=initial, max_delay=cap,
+        ))
+        result = interruptible_backoff_sleep(
+            agent, delay, _retry, messages=messages, conversation_history=conversation_history,
+            api_call_count=api_call_count, abort_message="Usage top-up wait interrupted.",
+            interrupt_text="Operation interrupted.", activity_label=waiting,
+        )
+        if result is not None:
+            return _verdict("return", result)
+        if _retry.restart_with_redirected_messages:
+            return _verdict("break")
+        return _verdict("continue")
+
     _is_atum_managed = (getattr(agent, "provider", "") or "").strip().lower() == "atum-managed"
     _is_atum_cap = (
         (

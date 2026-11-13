@@ -228,7 +228,7 @@ def _provider_error_body(payload: dict, status_code: Optional[int]) -> dict:
     normalized_error = {"message": str(message)}
     if code:
         normalized_error["code"] = str(code)
-    for key in ("request_id", "param", "type"):
+    for key in ("request_id", "param", "type", "metadata"):
         if payload.get(key):
             normalized_error[key] = payload[key]
     return {"error": normalized_error}
