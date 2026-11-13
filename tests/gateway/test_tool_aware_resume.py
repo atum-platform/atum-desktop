@@ -446,3 +446,29 @@ def test_failed_reclaim_keeps_native_identity_and_fences(cause, native, later, e
     for key in ('admission_id', 'request_id', 'principal_id', 'target_session_id', 'seq', 'payload'):
         assert recovered[key] == row[key]
     db.close()
+
+
+@pytest.mark.parametrize('durable', [False, True])
+@pytest.mark.parametrize('tool,ask', [('web_search', False), ('terminal', True)])
+def test_recovery_uses_source_identity_not_previous_completed_turn(tmp_path, durable, tool, ask):
+    from hermes_state import SessionDB
+    db = SessionDB(db_path=tmp_path / 'state.db')
+    db.create_session('s', 'matrix')
+    db.append_message('s', 'user', 'file and reminder', platform_message_id='$old')
+    db.append_message('s', 'assistant', '', tool_calls=call('old', 'cron')['tool_calls'])
+    db.append_message('s', 'tool', 'scheduled', tool_call_id='old')
+    db.append_message('s', 'assistant', 'Delivered and scheduled')
+    if durable:
+        db.append_message('s', 'user', 'new request', platform_message_id='$new')
+        db.append_message('s', 'assistant', '', tool_calls=call('new', tool)['tool_calls'])
+    history = db.get_messages_as_conversation('s')
+    policy = choose_resume_policy(history, source_message_id='$new')
+    assert policy.ask == (durable and ask)
+    assert 'cron' not in policy.note()
+    assert 'file and reminder' not in policy.note()
+    if durable and ask:
+        assert 'terminal' in policy.note()
+    else:
+        assert recovery_tool_block(policy, 'web_search', {}) is None
+        assert recovery_tool_block(policy, 'cron', {})  # old effect cannot run unattended
+    db.close()

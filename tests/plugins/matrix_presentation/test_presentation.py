@@ -469,3 +469,27 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
                 p._current.reset(token)
                 await turn.end()
                 box.db.close()
+
+
+class BootCleanup(unittest.IsolatedAsyncioTestCase):
+    async def test_pending_edits_and_unsent_notes_are_never_published_at_boot(self):
+        with tempfile.TemporaryDirectory() as home:
+            box = p.Outbox(Path(home) / 'presentation.db')
+            server = Server()
+            turn = p.Turn(box, server, '!room', '$source', '@owner')
+            await turn.progress('Real orphan')
+            root = turn.root
+            for n, content in enumerate([
+                {'body': 'Never sent', 'io.atum.progress': {},
+                 'm.relates_to': {'m.in_reply_to': {'event_id': '$other'}}},
+                {'body': 'Pending edit', 'm.new_content': {'body': 'Pending edit'},
+                 'm.relates_to': {'rel_type': 'm.replace', 'event_id': root}},
+            ]):
+                box.db.execute('INSERT INTO effects VALUES (?,?,?,?,NULL,?)',
+                    (f'pending-{n}', '!room', json.dumps(content), None, 1))
+            box.db.commit()
+            server.requests.clear()
+            await box.recover(server)
+            self.assertEqual([r[3] for r in server.requests], [root])
+            await turn.end()
+            box.db.close()
