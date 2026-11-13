@@ -900,12 +900,16 @@ def _start_times_conflict(recorded_start: Any, current_start: Any) -> bool:
     return None not in (recorded_start, current_start) and current_start != recorded_start
 
 
-def _live_pid_from_record(record: Optional[dict[str, Any]]) -> Optional[int]:
+def _live_pid_from_record(record: Optional[dict[str, Any]], *, lock_verified: bool = False) -> Optional[int]:
     """Record's PID when it is alive and passes the start-time PID-reuse guard, else None."""
     pid = _pid_from_record(record)
     if pid is None or not process_boot_matches(record) or not _pid_exists(pid):
         return None
-    if _start_times_conflict(record.get("start_time"), _get_process_start_time(pid)):
+    current_start = _get_process_start_time(pid)
+    recorded_start = record.get("start_time")
+    if not lock_verified and (recorded_start is None or current_start is None):
+        return None
+    if _start_times_conflict(recorded_start, current_start):
         return None
     return pid
 
@@ -2008,7 +2012,7 @@ def get_running_pid(
         saw_live_pid = False
         foreign_live_pid = False
         for record in records:
-            pid = _live_pid_from_record(record)
+            pid = _live_pid_from_record(record, lock_verified=True)
             if pid is None:
                 continue
             home_ok = (

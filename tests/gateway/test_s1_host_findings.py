@@ -78,3 +78,23 @@ def test_gofer_is_distinct_from_cross_vm_filesystems(tmp_path, monkeypatch, fsty
     mounts = tmp_path / 'mountinfo'
     mounts.write_text(f'25 1 0:1 / / rw - {fstype} none rw\n')
     assert wal._detect_cross_vm_fs('/data', str(mounts)) is expected
+
+
+def test_bare_pid_is_not_process_identity(monkeypatch):
+    monkeypatch.setattr(status, 'get_process_boot_id', lambda: None)
+    monkeypatch.setattr(status, '_pid_exists', lambda pid: True)
+    monkeypatch.setattr(status, '_get_process_start_time', lambda pid: 100)
+    assert status._live_pid_from_record({'pid': 2}) is None
+    # A held native runtime flock remains valid proof for a legacy PID file.
+    assert status._live_pid_from_record({'pid': 2}, lock_verified=True) == 2
+
+
+def test_initialization_fault_clears_after_success(tmp_path, monkeypatch):
+    from hermes_cli import config_home
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    config_home._initialization_failures.add(str(tmp_path.resolve()))
+    monkeypatch.setattr(config_home, '_ensure_directory', lambda *a, **k: None)
+    monkeypatch.setattr('hermes_cli.config._ensure_default_soul_md', lambda *a: None)
+    config_home.initialize_home(tmp_path, (), set())
+    assert collect_runtime_readiness(configured_model='test', runtime_status={
+        'gateway_state': 'running'})['process_healthy'] is True
