@@ -7,6 +7,7 @@ import re
 
 from tools import desktop_ui
 from tools.atum_source_policy import source_enabled
+from tools.atum_source_transport import source_transport
 from tools.registry import registry, tool_error
 
 _HOST_TIMEOUT_SECONDS = 60
@@ -58,7 +59,7 @@ _MODEL_PLACEHOLDERS = {
 
 def available() -> bool:
     """True when the live Atum host bridge is present for this process."""
-    return desktop_ui.available()
+    return source_transport() is not None or desktop_ui.available()
 
 
 def _closed_error(code: str) -> str:
@@ -384,9 +385,16 @@ def atum_chats(
         if checked is not None:
             payload["limit"] = checked
 
-    receipt = desktop_ui.request(
-        "atum.chats.request", payload, timeout=_HOST_TIMEOUT_SECONDS
-    )
+    transport = source_transport()
+    if transport is not None:
+        try:
+            receipt = json.dumps(transport("chats", payload), ensure_ascii=False)
+        except Exception:
+            return tool_error("Owner chats are unavailable for this run.")
+    else:
+        receipt = desktop_ui.request(
+            "atum.chats.request", payload, timeout=_HOST_TIMEOUT_SECONDS
+        )
     if not isinstance(receipt, str) or not receipt:
         return _closed_error("unavailable")
     if len(receipt.encode("utf-8")) > _MAX_RESPONSE_BYTES:
@@ -398,6 +406,8 @@ def atum_chats(
     if not isinstance(result, dict):
         return _closed_error("unavailable")
     if "error" in result:
+        if transport is not None:
+            return tool_error("Owner chats are unavailable for this run.")
         if (
             set(result) != {"error"}
             or not isinstance(result["error"], str)

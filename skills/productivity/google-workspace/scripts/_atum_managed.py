@@ -1,12 +1,9 @@
-"""Atum's cloud and this skill's token file.
+"""Legacy token-file recognition for the standalone Google Workspace scripts.
 
-On Atum's cloud the controller writes ``$HERMES_HOME/google_token.json`` for each turn: one
-short-lived Google access token for the owner's account, and placeholders where Hermes' reader
-requires a refresh token and an OAuth client. The platform keeps the real refresh token sealed on
-its own side; the next turn gets a new access token. So these scripts must never try to refresh
-a managed token (the placeholders can only fail at Google), and an expired one has one remedy: a
-new turn. A token from this skill's own ``setup.py`` flow carries a real refresh token and is
-unaffected.
+Long-lived managed gateways use the existing atum_google tool, bound by the
+host-authority plugin to the account broker. The Workspace skill already routes
+managed calls there. Legacy placeholder files remain recognizable, but cannot
+renew authority. Refresh custody belongs to the host, outside the agent home.
 """
 
 from __future__ import annotations
@@ -16,8 +13,8 @@ from __future__ import annotations
 MANAGED_REFRESH_TOKEN = "atum-cloud-managed"
 
 EXPIRED_MESSAGE = (
-    "The Google access token Atum gave this turn has expired. Atum issues a new one at the start of "
-    "every turn, so ask the owner to send another message. Do not run setup.py or ask for credentials."
+    "Google access expired. Use the atum_google tool through Atum's connection. "
+    "If unavailable, report that Google is unavailable for this run. Do not run setup.py."
 )
 
 
