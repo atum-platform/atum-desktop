@@ -59,6 +59,63 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         published = self.server.requests[1][1]
         self.assertEqual(published, {**interim, 'm.relates_to': {'m.in_reply_to': {'event_id': self.turn.source}}})
 
+    async def test_queued_turns_redact_each_root_once_and_keep_finals(self):
+        turns = [self.turn, *[p.Turn(self.box, self.server, self.turn.room,
+                 source, self.turn.sender) for source in ('$second', '$third')]]
+        finals = []
+        try:
+            for index, turn in enumerate(turns):
+                await turn.progress('Working')
+                if index:
+                    # The next admission can start before its predecessor's delivery.
+                    previous = turns[index - 1]
+                    finals.append(await self.box.effect(self.server, previous.room,
+                        {'msgtype': 'm.text', 'body': str(index), 'm.relates_to': {
+                            'm.in_reply_to': {'event_id': previous.source}}}, f'final-{index}'))
+                    await previous.end()
+            finals.append(await self.box.effect(self.server, turns[-1].room,
+                {'msgtype': 'm.text', 'body': 'three'}, 'final-3'))
+            await asyncio.gather(*(turn.end() for turn in turns))
+            targets = [request[3] for request in self.server.requests if request[3]]
+            self.assertCountEqual(targets, [turn.root for turn in turns])
+            self.assertFalse(set(finals).intersection(targets))
+        finally:
+            for turn in turns:
+                await turn.end()
+
+    async def test_late_progress_receipt_cleans_up_after_final_waiter_cancelled(self):
+        accepted, release = asyncio.Event(), asyncio.Event()
+        async def delayed(room, content, txn, target):
+            event = await self.server(room, content, txn, target)
+            if 'io.atum.progress' in content:
+                accepted.set()
+                await release.wait()
+            return event
+        self.turn.port = delayed
+        progress = asyncio.create_task(self.turn.progress('Working'))
+        await accepted.wait()
+        final = await self.box.effect(self.server, self.turn.room,
+            {'msgtype': 'm.text', 'body': 'answer'}, 'final')
+        settling = asyncio.create_task(self.turn.end('answer'))
+        await asyncio.sleep(0)
+        # A delivery lifecycle may be cancelled after Matrix accepted the final.
+        settling.cancel()
+        await asyncio.gather(settling, return_exceptions=True)
+        release.set()
+        await progress
+        targets = [request[3] for request in self.server.requests if request[3]]
+        self.assertEqual(targets, [self.turn.root])
+        self.assertNotIn(final, targets)
+
+    async def test_ambiguous_progress_receipt_cleans_up_on_settlement_without_restart(self):
+        self.server.lose_reply = True
+        with self.assertRaises(ConnectionError):
+            await self.turn.progress('Working')
+        original = next(iter(self.server.effects.values()))[3]
+        await self.turn.end()
+        targets = [request[3] for request in self.server.requests if request[3]]
+        self.assertEqual(targets, [original])
+
     async def test_readmitted_source_gets_fresh_root_after_recovery(self):
         await self.turn.progress('Before crash')
         old_root = self.turn.root
