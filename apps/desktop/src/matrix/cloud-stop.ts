@@ -84,6 +84,9 @@ export async function executeMatrixStop(
 
 /** The bound agent's latest progress line identifies a cron turn explicitly. */
 export function matrixCloudStopScheduled(messages: readonly MatrixMessage[], agentId: string | undefined): boolean {
-  const progress = messages.findLast(message => message.sender === agentId && !message.own && !message.redacted && message.progress)?.progress
+  const progress = messages.findLast(message =>
+    message.sender === agentId && !message.own && !message.redacted &&
+    (message.progress || (!message.notice && !message.interim))
+  )?.progress
   return Boolean(progress && 'trigger' in progress && progress.trigger === 'cron' && progress.phase !== 'settled')
 }

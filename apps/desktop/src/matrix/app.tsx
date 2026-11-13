@@ -3762,9 +3762,8 @@ function MatrixComposer({
   // snapshot clears it, not the request resolving.
   const cloudStopRequested = useRef<string | null>(null)
 
-  const scheduledStop = roomAgent?.runtime === 'hermes' && matrixCloudStopScheduled(
-    contextMessages ?? snapshot.messages, roomAgent.userId
-  )
+  const scheduledStop = roomAgent?.runtime === 'hermes' &&
+    matrixCloudStopScheduled(contextMessages ?? snapshot.messages, roomAgent.userId)
   const stopRoute = matrixStopRoute({
     runtime: roomAgent?.runtime,
     eventId: cloudStopTarget,
@@ -3777,16 +3776,21 @@ function MatrixComposer({
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent
 
-    if (!stopKey || !cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable' || cloudStopRequested.current === stopKey) {
+    if (
+      !stopKey || !cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable' ||
+      cloudStopRequested.current === stopKey
+    ) {
       return
     }
 
     cloudStopRequested.current = stopKey
     setCloudStopRefused(false)
     setCloudStopping(true)
-    void executeMatrixStop(stopRoute,
+    void executeMatrixStop(
+      stopRoute,
       eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
-      body => runMatrixCommand({ kind: 'send', roomId: room.id, body }))
+      body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
+    )
       .catch(() => {
         cloudStopRequested.current = null
         setCloudStopRefused(true)
