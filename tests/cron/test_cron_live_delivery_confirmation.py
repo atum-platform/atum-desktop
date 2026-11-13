@@ -395,3 +395,45 @@ class TestStandaloneSendIsBounded:
 
         assert error is None
         assert f"delivered to telegram:{CHAT_ID}" in caplog.text
+
+
+class TestPerJobNotificationIntent:
+    """A job's boolean notification intent overrides the home default on every route."""
+
+    @pytest.mark.parametrize("notify", [False, True])
+    @pytest.mark.parametrize("relay", [False, True])
+    def test_job_setting_reaches_text_delivery(self, notify, relay):
+        job = dict(_job(), notifications=notify)
+        error, router_calls, _ = _run(
+            job, "Report.", _SendResult(message_id=1), relay=relay,
+            cron_cfg={"delivery": {"notify": not notify}},
+        )
+        assert error is None
+        assert router_calls[0]["metadata"]["notify"] is notify
+
+    @pytest.mark.parametrize("notify", [False, True])
+    def test_job_setting_reaches_media_delivery(self, tmp_path, notify):
+        media = tmp_path / "report.png"
+        media.write_bytes(b"\x89PNG\r\n\x1a\n")
+        sent = []
+        with patch("cron.scheduler_delivery._send_media_via_adapter",
+                   side_effect=lambda adapter, chat_id, media_files, metadata, loop, job, platform=None:
+                   sent.append(metadata) or []), \
+             patch("gateway.platforms.base.BasePlatformAdapter.filter_media_delivery_paths",
+                   side_effect=lambda files: files):
+            error, router_calls, _ = _run(
+                dict(_job(), notifications=notify), f"Report.\nMEDIA:{media}", _SendResult(message_id=1),
+                cron_cfg={"delivery": {"notify": not notify}},
+            )
+        assert error is None
+        assert router_calls[0]["metadata"]["notify"] is notify
+        assert sent[0]["notify"] is notify
+
+    @pytest.mark.parametrize("value", [None, "false", 0, 1, [], {}])
+    @pytest.mark.parametrize("default", [False, True])
+    def test_non_boolean_job_setting_uses_home_default(self, value, default):
+        _, router_calls, _ = _run(
+            dict(_job(), notifications=value), "Report.", _SendResult(message_id=1),
+            cron_cfg={"delivery": {"notify": default}},
+        )
+        assert router_calls[0]["metadata"]["notify"] is default

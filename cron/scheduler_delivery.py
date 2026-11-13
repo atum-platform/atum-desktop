@@ -1057,9 +1057,15 @@ def _is_channel_dm_topic(runtime_adapter: Any, chat_id: Any, loop: Any, job_id: 
     return is_channel
 
 
-def _cron_delivery_notify_enabled(cfg: Optional[dict]) -> bool:
-    """Resolve ``cron.delivery.notify`` (default True). Only an explicit ``False`` disables; a
-    missing/malformed section keeps the default so a typo cannot silently mute briefs."""
+def _cron_delivery_notify_enabled(cfg: Optional[dict], job: Optional[dict] = None) -> bool:
+    """Use a job's boolean ``notifications`` intent, else ``cron.delivery.notify``.
+
+    Only actual booleans override the home setting. Missing/malformed job values
+    keep the existing home-wide behavior: only explicit False disables notifications,
+    with True as the default when config is missing or malformed.
+    """
+    if isinstance(job, dict) and type(job.get("notifications")) is bool:
+        return job["notifications"]
     try:
         cron_cfg = (cfg or {}).get("cron")
         delivery_cfg = cron_cfg.get("delivery") if isinstance(cron_cfg, dict) else None
@@ -1834,7 +1840,7 @@ def _deliver_result(
         user_cfg = _sched.load_config()
         wrap_response = user_cfg.get("cron", {}).get("wrap_response", True)
     # Mark live sends FINAL so the platform pushes them (Telegram "important" mode mutes otherwise).
-    notify_delivery = _cron_delivery_notify_enabled(user_cfg)
+    notify_delivery = _cron_delivery_notify_enabled(user_cfg, job)
     # Targets acked with NO evidence (bare SendResult(success=True) — Slack/Matrix/Mattermost);
     # persisted as ``last_delivery_unverified`` so `hermes cron list` shows it.
     unverified_targets: list = []
