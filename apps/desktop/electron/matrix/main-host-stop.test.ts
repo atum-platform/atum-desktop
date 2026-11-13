@@ -18,7 +18,8 @@ function fixture(host: boolean, answering: boolean, domain = true) {
   const stopCloudTurn = vi.fn(async () => ({ state: 'stop_requested' }))
   const s1Request = vi.fn(async (work: (token: string, base: string, signal: AbortSignal) => Promise<unknown>) => work('synthetic-grant', 'https://shell.test/api/matrix/v1', AbortSignal.timeout(30_000)))
   const run = runInNewContext(code, {
-    account: { appScope: () => scope, s1Request }, closing: false,
+    account: { appScope: () => scope, identity: () => ({ userId: '@owner:test' }), s1Request }, closing: false,
+    deviceIdentity: {}, cloudEnrollments: {},
     requireRoomAgent: () => ({}), cloudPrincipal: () => principal, isCloudAgent: () => answering,
     hostRuntimeAgents: new Set(host ? [principal] : []), config: { domain: domain ? { resource: 'https://shell.test/api/matrix/v1' } : undefined },
     requestHostStop, stopCloudTurn, s1Call: vi.fn(), session: { defaultSession: { fetch: fetcher } }, AbortSignal, Error
