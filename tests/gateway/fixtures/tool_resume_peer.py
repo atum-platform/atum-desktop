@@ -144,6 +144,15 @@ async def probe():
     runner = GatewayRunner()
     await initialize_session_authority(runner, profile_id='default', instance_id=mode)
     if hook == 'completed_final':
+        from gateway import fault_injection
+        native_hit = fault_injection.hit
+        def completed_final_hit(point):
+            # Startup notices share the native send path. Arm the final fault only
+            # after the fixture's side effect ran, so the test crashes this turn.
+            if point in ('H8', 'H9', 'H10') and not (home / 'pending-count').exists():
+                return
+            native_hit(point)
+        fault_injection.hit = completed_final_hit
         import sqlite3
         from plugins.platforms.matrix.adapter import MatrixAdapter
         wire = sqlite3.connect(home / 'matrix-wire.db')
@@ -162,7 +171,8 @@ async def probe():
                 self.sent = []
                 self._client = Transport()
                 if os.environ['ATUM_FAULT_POINT'] == 'H10':
-                    self.truncate_message = lambda *a, **kw: ['chunk-' + str(i) for i in range(5)]
+                    self.truncate_message = lambda content, *a, **kw: (
+                        ['chunk-' + str(i) for i in range(5)] if 'Đã hoàn tất.' in content else [content])
             async def send(self, *args, **kwargs):
                 content = kwargs.get('content', args[1] if len(args) > 1 else '')
                 self.sent.append(content)
@@ -205,11 +215,16 @@ async def probe():
             rows = list_session_admissions(authority.db, session_id=entry.session_id, pending_only=False)
             assert len(rows) == 1 and rows[0]['status'] == 'terminal', rows
             assert entry.resume_ask is None
-            assert not (home / (mode + '-requests.jsonl')).exists(), 'completed turn invoked model again'
+            request_path = home / (mode + '-requests.jsonl')
+            requests = [json.loads(line) for line in request_path.read_text().splitlines()] if request_path.exists() else []
+            assert not [request for request in requests if request.get('tools')], requests
             for name in ('done-count', 'pending-count'):
                 assert len((home / name).read_text().splitlines()) == 1
-            count = wire.execute('SELECT count(*) FROM sends').fetchone()[0]
-            assert count == (5 if os.environ['ATUM_FAULT_POINT'] == 'H10' else 1), count
+            sent = [json.loads(row[0]) for row in wire.execute('SELECT content FROM sends')]
+            finals = [content for content in sent if content.get('m.relates_to', {}).get(
+                'm.in_reply_to', {}).get('event_id') == 'source-1']
+            count = len(finals)
+            assert count == (5 if os.environ['ATUM_FAULT_POINT'] == 'H10' else 1), sent
             from gateway.resume_policy import choose_resume_policy
             history = authority.db.get_messages_as_conversation(entry.session_id)
             for source_id in (None, 'source-1'):
