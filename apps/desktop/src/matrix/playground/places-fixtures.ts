@@ -253,6 +253,23 @@ function driveBridge(place: MatrixDriveState | 'waiting' | 'signIn', problem?: M
 
   return {
     read: async () => view,
+    search: async (query, scope) => {
+      const rows: MatrixDriveRow[] = []
+      const parents = (id: string): string[] => id === 'root' ? [] : [...parents(tree[id]!.parent!), tree[id]!.label!]
+
+      const walk = (id: string) => {
+        for (const row of tree[id]!.rows) {
+          if (row.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) {rows.push({ ...row, folders: parents(id) })}
+
+          if (row.kind === 'folder' && tree[row.id]) {walk(row.id)}
+        }
+      }
+
+      if (connected && !empty) {walk(scope === 'drive' ? 'root' : at)}
+
+      return { revision: view.revision, query, rows, truncated: false }
+    },
+    cancelSearch: async () => {},
     // Previews for the gallery and the side panel: the lake photo and the meeting notes draw inline.
     preview: async id => {
       const row = everyRow().find(item => item.id === id)

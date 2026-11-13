@@ -56,6 +56,7 @@ interface DriveCopy {
   refreshing: string
   reveal: string
   search: string
+  searchScope: { title: string; drive: string; searching: string }
   searchEmpty: string
   viewMode: string
   listView: string
@@ -71,7 +72,7 @@ interface DriveCopy {
   /** Finder's sidebar: Recents, the Drive's top-level folders under Favorites, the Drive under Locations. */
   browser: { recents: string; recentFiles: string; favorites: string; locations: string; drive: string }
   /** An item's sync badge, said aloud and in its tooltip. */
-  sync: { synced: string; pending: string; paused: string }
+  sync: { synced: string; pending: string; paused: string; localOnly: string; conflict: string; error: string; uploading: string }
   preview: {
     ask: string
     open: string
@@ -169,6 +170,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Refreshing…',
     reveal: 'Show in Finder',
     search: 'Search Drive',
+    searchScope: { title: 'Search:', drive: 'This Drive', searching: 'Searching Drive…' },
     searchEmpty: 'No files match this search.',
     viewMode: 'View',
     listView: 'List',
@@ -230,7 +232,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: 'Locations',
       drive: 'Atum Drive'
     },
-    sync: { synced: 'Synced', pending: 'Waiting to sync', paused: 'Syncs when Drive is back' },
+    sync: { synced: 'Synced', pending: 'Waiting to sync', paused: 'Syncs when Drive is back', localOnly: 'Only on this Mac', conflict: 'Sync conflict', error: 'Couldn’t sync', uploading: 'Uploading' },
     preview: {
       ask: 'Ask Atum about this',
       open: 'Open',
@@ -395,6 +397,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Đang làm mới…',
     reveal: 'Hiện trong Finder',
     search: 'Tìm trong Drive',
+    searchScope: { title: 'Tìm trong:', drive: 'Drive này', searching: 'Đang tìm trong Drive…' },
     searchEmpty: 'Không có tệp nào khớp với tìm kiếm này.',
     viewMode: 'Kiểu xem',
     listView: 'Danh sách',
@@ -456,7 +459,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: 'Vị trí',
       drive: 'Atum Drive'
     },
-    sync: { synced: 'Đã đồng bộ', pending: 'Đang chờ đồng bộ', paused: 'Sẽ đồng bộ khi Drive hoạt động lại' },
+    sync: { synced: 'Đã đồng bộ', pending: 'Đang chờ đồng bộ', paused: 'Sẽ đồng bộ khi Drive hoạt động lại', localOnly: 'Chỉ trên máy Mac này', conflict: 'Xung đột đồng bộ', error: 'Không đồng bộ được', uploading: 'Đang tải lên' },
     preview: {
       ask: 'Hỏi Atum về tệp này',
       open: 'Mở',
@@ -621,6 +624,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '更新中…',
     reveal: 'Finder に表示',
     search: 'Drive を検索',
+    searchScope: { title: '検索範囲:', drive: 'この Drive', searching: 'Drive を検索中…' },
     searchEmpty: 'この検索に一致するファイルはありません。',
     viewMode: '表示',
     listView: 'リスト',
@@ -682,7 +686,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '場所',
       drive: 'Atum Drive'
     },
-    sync: { synced: '同期済み', pending: '同期待ち', paused: 'Drive が再開すると同期されます' },
+    sync: { synced: '同期済み', pending: '同期待ち', paused: 'Drive が再開すると同期されます', localOnly: 'この Mac のみ', conflict: '同期の競合', error: '同期できませんでした', uploading: 'アップロード中' },
     preview: {
       ask: 'このファイルについて Atum に聞く',
       open: '開く',
@@ -855,6 +859,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在刷新…',
     reveal: '在 Finder 中显示',
     search: '搜索 Drive',
+    searchScope: { title: '搜索范围：', drive: '此 Drive', searching: '正在搜索 Drive…' },
     searchEmpty: '没有与此搜索匹配的文件。',
     viewMode: '视图',
     listView: '列表',
@@ -916,7 +921,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '位置',
       drive: 'Atum Drive'
     },
-    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢复后同步' },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢复后同步', localOnly: '仅在这台 Mac 上', conflict: '同步冲突', error: '无法同步', uploading: '正在上传' },
     preview: {
       ask: '向 Atum 询问此文件',
       open: '打开',
@@ -1074,6 +1079,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在重新整理…',
     reveal: '在 Finder 中顯示',
     search: '搜尋 Drive',
+    searchScope: { title: '搜尋範圍：', drive: '此 Drive', searching: '正在搜尋 Drive…' },
     searchEmpty: '沒有符合此搜尋的檔案。',
     viewMode: '顯示方式',
     listView: '列表',
@@ -1135,7 +1141,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '位置',
       drive: 'Atum Drive'
     },
-    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢復後同步' },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢復後同步', localOnly: '僅在這部 Mac 上', conflict: '同步衝突', error: '無法同步', uploading: '正在上傳' },
     preview: {
       ask: '詢問 Atum 關於此檔案',
       open: '開啟',

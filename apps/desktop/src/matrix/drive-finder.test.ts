@@ -94,6 +94,21 @@ describe('sync badges', () => {
   it('shows no badge on stale facts rather than a guess', () => {
     expect(driveItemSync({ modifiedAt: 900 }, { state: 'ready', lastSyncAt, factsStale: true })).toBeNull()
   })
+
+  it('local-only takes precedence, even while offline or stale', () => {
+    expect(driveItemSync({ modifiedAt: 900, localOnly: true, syncStatus: 'error' }, { state: 'offline', factsStale: true })).toBe('localOnly')
+  })
+
+  it('uses real states only with the capability and never guesses a missing per-file fact', () => {
+    for (const syncStatus of ['conflict', 'error', 'uploading'] as const) {
+      const row = { modifiedAt: 900, syncStatus }
+      expect(driveItemSync(row, { state: 'ready', fileStatusAvailable: true })).toBe(syncStatus)
+      expect(driveItemSync(row, { state: 'ready', fileStatusAvailable: true, factsStale: true })).toBeNull()
+      expect(driveItemSync(row, { state: 'ready' })).not.toBe(syncStatus)
+    }
+
+    expect(driveItemSync({ modifiedAt: 900 }, { state: 'ready', fileStatusAvailable: true })).toBeNull()
+  })
 })
 
 describe('keyboard movement', () => {

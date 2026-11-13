@@ -47,6 +47,19 @@ export interface MatrixDriveRow {
   kind: 'file' | 'folder'
   size: number
   modifiedAt: number
+  /** Present only when main's current exclusion rules keep this item local. */
+  localOnly?: true
+  /** Negotiated engine facts only; never inferred from Drive-wide counters. */
+  syncStatus?: 'conflict' | 'error' | 'uploading'
+  /** Search results' parent folder names from Drive's root, never a native path. */
+  folders?: string[]
+}
+
+export interface MatrixDriveSearchResult {
+  revision: number
+  query: string
+  rows: MatrixDriveRow[]
+  truncated: boolean
 }
 
 /** One bounded, main-owned preview lease. Native paths never cross this contract. */
@@ -113,6 +126,9 @@ export interface MatrixDriveView {
   issues?: MatrixDriveIssue[]
   /** Prior engine facts may be presented, but cannot authorize operations while stale. */
   factsStale?: true
+  fileStatusAvailable?: true
+  /** Live presentation facts for the active, separately leased search. Never a folder listing. */
+  searchResult?: MatrixDriveSearchResult & { requestId: string }
 }
 
 /** Explicit owner intent. IDs are opaque native row handles, never paths or remote IDs. */
@@ -172,6 +188,9 @@ export type MatrixDriveTaskResult =
 
 export interface MatrixDriveBridge {
   read(): Promise<MatrixDriveView>
+  /** Main searches names under its own enrolled root/current folder. No renderer-selected path. */
+  search?(query: string, scope: 'drive' | 'folder', requestId: string): Promise<MatrixDriveSearchResult>
+  cancelSearch?(requestId: string): Promise<void>
   /** Turn Drive on in `~/Atum/Drive` (made when missing): never a folder picker. */
   connect(): Promise<MatrixDriveView | { cancelled: true }>
   /** The person's "Choose another folder…": the only way to the folder picker. */

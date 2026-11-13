@@ -4,6 +4,7 @@ import { MATRIX_DRIVE_IPC, type MatrixDriveBridge } from '../../shared/matrix-dr
 
 import type { MatrixDrive } from './drive'
 import type { MatrixDriveImport } from './drive-import'
+import { validDriveSearchQuery } from './drive-search'
 import { parseDriveTaskInput } from './drive-task'
 
 export function registerMatrixDriveIpc(
@@ -21,6 +22,18 @@ export function registerMatrixDriveIpc(
     }
 
     const request = value as Record<string, unknown>
+
+    if (request.kind === 'search' || request.kind === 'cancelSearch') {
+      const search = request.kind === 'search'
+
+      if (Object.keys(request).sort().join(',') !== (search ? 'kind,query,requestId,scope' : 'kind,requestId') ||
+        typeof request.requestId !== 'string' || !/^[a-f0-9-]{36}$/u.test(request.requestId) ||
+        (search && (!validDriveSearchQuery(request.query) || !['drive', 'folder'].includes(request.scope as string)))) {
+        throw new Error('matrix_drive_request_invalid')
+      }
+
+      return search ? drive.search(request.query as string, request.scope as 'drive' | 'folder', request.requestId) : drive.cancelSearch(request.requestId)
+    }
 
     if (request.kind === 'importPlan' && Object.keys(request).join(',') === 'kind' && importer) {
       return importer.importPlan()

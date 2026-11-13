@@ -98,7 +98,7 @@ export function nextDriveSort(current: MatrixDriveSort, key: MatrixDriveSortKey)
 }
 
 /** An item's badge: synced, waiting to sync, or not syncing while Drive can't. */
-export type MatrixDriveItemSync = 'synced' | 'pending' | 'paused'
+export type MatrixDriveItemSync = 'synced' | 'pending' | 'paused' | 'localOnly' | 'conflict' | 'error' | 'uploading'
 
 /**
  * The engine reports Drive-wide facts, not a status per file. An item that has not changed since
@@ -106,12 +106,16 @@ export type MatrixDriveItemSync = 'synced' | 'pending' | 'paused'
  * badge rather than a guess.
  */
 export function driveItemSync(
-  row: Pick<MatrixDriveRow, 'modifiedAt'>,
-  view: Pick<MatrixDriveView, 'state' | 'lastSyncAt' | 'factsStale'>
+  row: Pick<MatrixDriveRow, 'modifiedAt' | 'localOnly' | 'syncStatus'>,
+  view: Pick<MatrixDriveView, 'state' | 'lastSyncAt' | 'factsStale' | 'fileStatusAvailable'>
 ): MatrixDriveItemSync | null {
+  if (row.localOnly) {return 'localOnly'}
+
   if (view.factsStale) {
     return null
   }
+
+  if (view.fileStatusAvailable) {return row.syncStatus ?? null}
 
   const settled = view.lastSyncAt === undefined ? view.state === 'ready' : row.modifiedAt <= view.lastSyncAt
 

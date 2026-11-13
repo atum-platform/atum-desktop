@@ -2,7 +2,7 @@ import type { MatrixDriveProgress, MatrixDriveQuota } from '../../shared/matrix-
 
 /** Wire boundary shared by the native receiver and the canonical 1.1 conformance tests. */
 export const MATRIX_DRIVE_FRAME_BYTES = 16_384
-export const MATRIX_DRIVE_FACT_FEATURES = ['progress', 'sync', 'quota', 'exclusions'] as const
+export const MATRIX_DRIVE_FACT_FEATURES = ['progress', 'sync', 'quota', 'exclusions', 'file_status'] as const
 const features = [...MATRIX_DRIVE_FACT_FEATURES, 'trash']
 export type MatrixDriveEngineFeature = (typeof MATRIX_DRIVE_FACT_FEATURES)[number] | 'trash'
 
@@ -255,7 +255,19 @@ export function validateMatrixDriveFrame(
     reject('feature_not_accepted')
   }
 
-  if (kind === 'progress') {
+  if (kind === 'file_status') {
+    keys(message, ['kind', 'path', 'state'])
+
+    if (
+      typeof message.path !== 'string' || !message.path || Buffer.byteLength(message.path) > 4096 ||
+      /^[\\/]|^[a-zA-Z]:/u.test(message.path) || message.path.includes('\\') || hasControl(message.path) ||
+      message.path.split('/').some(part => !part || part.startsWith('.'))
+    ) {
+      reject('file_status_path')
+    }
+
+    member(message.state, ['conflict', 'error', 'uploading', 'clear'])
+  } else if (kind === 'progress') {
     keys(message, ['kind', 'active', 'files', 'bytes', 'etaSeconds', 'direction'])
 
     if (typeof message.active !== 'boolean') {
