@@ -419,6 +419,8 @@ def ensure_gateway_runtime(profile_home: str | Path, *, timeout: float = DEFAULT
     deadline = time.monotonic() + timeout
     home = _overlay_owner_home(Path(_canonical_home(profile_home)))
     requested = False
+    # True while the only reason this call has not started an owner is a root reservation it saw.
+    awaiting_reservation = False
     child = None
     child_home, child_offset = home, 0
     # A gateway ending through its own idle exit is not a refusal: wait for it to go (its lock is
@@ -452,16 +454,21 @@ def ensure_gateway_runtime(profile_home: str | Path, *, timeout: float = DEFAULT
                 return GatewayDiscovery("inaccessible", reason_code="runtime_exited",
                                         detail=startup_failure_report(child_home, child_offset, status, child.pid))
             if observed.state == "starting" and not retiring:
-                requested = True
+                requested, awaiting_reservation = True, False
             if observed.state == "absent":
                 retiring = False
-            reserved = _starting_multiplexer_root(home) if observed.state == "absent" and not requested else None
+            reserved = (_starting_multiplexer_root(home)
+                        if observed.state == "absent" and (not requested or awaiting_reservation) else None)
             if reserved is not None and (reason := _standalone_multiplexer_reason(reserved)):
                 return GatewayDiscovery("inaccessible", reason_code="profile_parked", detail=reason)
             # A default multiplexer that is still starting will serve this named profile; never
             # spawn a competing per-profile daemon while its reservation is pending.
             if reserved is not None:
-                requested = True
+                requested = awaiting_reservation = True
+            elif awaiting_reservation and observed.state == "absent":
+                # The reservation ended (its owner exited, or a retiring one released its lock) and
+                # no owner appeared: nothing is coming, so this call owes the client the start.
+                requested = awaiting_reservation = False
             if observed.state == "absent" and not requested:
                 # A named profile the default multiplexer serves has no daemon of its own: start
                 # (or await) the MULTIPLEXER. A per-profile spawn here would become a second owner

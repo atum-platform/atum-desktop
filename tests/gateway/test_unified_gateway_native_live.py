@@ -143,9 +143,11 @@ def planned_stop(home, proc, desc):
     """The ``hermes gateway stop`` contract: marker first, then the owner drains itself.
 
     The marker names the gateway's own pid from ``identify`` (what the PID file carries), not
-    the Popen handle: a Windows uv venv ``python.exe`` is a trampoline whose pid differs."""
+    the Popen handle: a Windows uv venv ``python.exe`` is a trampoline whose pid differs.
+    Like the real writer it stamps the instantiation epoch, which Linux consumers require."""
+    from gateway.status import get_process_epoch
     pid = desc['pid']
-    marker = {'target_pid': pid, 'target_start_time': process_start_time(pid),
+    marker = {'boot_epoch': get_process_epoch(), 'target_pid': pid, 'target_start_time': process_start_time(pid),
               'stopper_pid': os.getpid(), 'written_at': datetime.now(UTC).isoformat()}
     (home / '.gateway-planned-stop.json').write_text(json.dumps(marker), encoding='utf-8')
     try:
