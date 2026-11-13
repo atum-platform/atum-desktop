@@ -117,7 +117,8 @@ async def test_25_old_events_paginate_restart_and_dispatch_in_order(tmp_path):
         a._intake.close()
 
 
-def test_native_runtime_25_linked_finals_during_startup(tmp_path):
+@pytest.mark.parametrize('legacy_resume', [False, True])
+def test_native_runtime_25_linked_finals_during_startup(tmp_path, legacy_resume):
     import os
     from pathlib import Path
     import subprocess
@@ -129,6 +130,7 @@ def test_native_runtime_25_linked_finals_during_startup(tmp_path):
     env = {key: os.environ[key] for key in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ') if key in os.environ}
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state),
                PYTHONPATH=str(repo), PYTHONUNBUFFERED='1')
-    result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'matrix_backlog_peer.py')],
+    result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'matrix_backlog_peer.py'),
+        *(['--legacy-resume'] if legacy_resume else [])],
         cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=180, check=False)
     assert result.returncode == 0, result.stdout + '\n' + result.stderr

@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import re
 import threading
+import sys
 import traceback
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -110,9 +111,24 @@ async def probe(peer):
     a._intake = MatrixIntakeStore(Path(os.environ['HERMES_HOME']) / 'intake.sqlite3')
     runner._startup_restore_in_progress = True
     runner._startup_restore_queue = []
+    legacy = '--legacy-resume' in sys.argv
+    if legacy:
+        from gateway.run import _AGENT_PENDING_SENTINEL
+        source = SessionSource(platform=Platform.MATRIX, chat_id='!room:example.org',
+            chat_type='dm', user_id='@alice:example.org')
+        entry = runner.session_store.get_or_create_session(source)
+        runner.session_store.mark_resume_pending(entry.session_key, reason='restart_interrupted')
+        runner._session_state(entry.session_key).turn.agent = _AGENT_PENDING_SENTINEL
+        async def finish_legacy():
+            await asyncio.sleep(1)
+            runner._release_running_agent_state(entry.session_key)
+        release = asyncio.create_task(finish_legacy())
+        a._startup_ts = 0  # the new durable event is live
     sync = batch([raw(i) for i in range(16, 26)], 'after-restart', True)
     await asyncio.wait_for(a._absorb_sync(client, sync), 60)
     await async_wait_until(lambda: len(finals) == 25, timeout=90, what='25 linked finals')
+    if legacy:
+        await release
     assert finals == [(f'$check5-{i:02}', f'ack {i:02}') for i in range(1, 26)], finals
     assert not any('send it again' in str(content).lower() for content in publications), publications
     assert runner._startup_restore_queue == [], runner._startup_restore_queue
