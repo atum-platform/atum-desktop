@@ -90,6 +90,7 @@ function picker(
   const view = (cloudChoice = options.cloudChoice) => (
     <I18nProvider configClient={null} initialLocale={options.locale ?? 'en'}>
       <MatrixModelPicker
+        agentHome={options.agentHome}
         agentPrincipal={options.home ? 'agent-luna' : undefined}
         cloud
         cloudChoice={cloudChoice}
