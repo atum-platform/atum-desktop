@@ -31,6 +31,7 @@ import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
+import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 
 import { parseBotApiMessage } from './app-bots/bot-api'
@@ -177,6 +178,29 @@ function privateCosGreetingLinks(
 }
 
 type Shown = { content: Record<string, unknown>; edited: boolean; editedAt?: number }
+
+/**
+ * A deletion by the event's own sender with the agent-turns removal reason: a working line its
+ * publisher cleared when the turn ended, not a real deletion (`MATRIX_TRANSIENT_REDACTION_REASON`).
+ * Reads the redaction itself (`redacted_because`, or a local one still sending), which keeps its
+ * reason after the line's content and markers are gone.
+ */
+function removedWorkingLine(event: MatrixEvent): boolean {
+  const local = event.localRedactionEvent()
+  const remote = event.getRedactionEvent()
+
+  const redaction = local
+    ? { sender: local.getSender(), content: local.getContent() }
+    : remote && 'sender' in remote
+      ? { sender: remote.sender, content: remote.content }
+      : undefined
+
+  return (
+    redaction !== undefined &&
+    redaction.sender === event.getSender() &&
+    redaction.content?.reason === MATRIX_TRANSIENT_REDACTION_REASON
+  )
+}
 
 /** A replacement that may count at all: the original sender's, readable, not taken back. */
 function usableReplacement(replacement: MatrixEvent | undefined, sender: string | undefined): replacement is MatrixEvent {
@@ -402,7 +426,8 @@ export function matrixMessage(
       pending: false,
       failed: false,
       attachment: false,
-      redacted: true
+      redacted: true,
+      ...(removedWorkingLine(event) ? { transientRemoved: true as const } : {})
     }
   }
 

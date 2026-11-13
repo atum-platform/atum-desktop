@@ -13,6 +13,15 @@ import { matrixStatusLineCopy } from './matrix-status-line-copy'
  * Pure and dependency-free: web, desktop and phone apply the same rule.
  */
 
+/**
+ * The redaction reason a publisher sets when it removes its own working line because the turn
+ * ended (agent-turns/1.4 §3). The Hermes Matrix presentation plugin
+ * (`plugins/platforms/matrix/presentation.py`, `Outbox.remove`) and this app's progress line
+ * (`publish-result.ts`) both send it. A redaction keeps its own `reason` while the line's content
+ * (and its `io.atum.progress` marker) is gone, so this is the one signal that survives a reload.
+ */
+export const MATRIX_TRANSIENT_REDACTION_REASON = 'Turn ended'
+
 /** The fixed "waiting/waited for your Mac" status lines older builds posted as ordinary notices
  * (no marker). They are working text, so they are transient too. */
 const RETIRED_WAIT_LINES: readonly string[] = [
@@ -27,7 +36,17 @@ const RETIRED = new Set<string>([
 
 type Line = Pick<
   MatrixMessage,
-  'body' | 'decryptionFailed' | 'failed' | 'interim' | 'notice' | 'own' | 'pending' | 'progress' | 'redacted' | 'sender'
+  | 'body'
+  | 'decryptionFailed'
+  | 'failed'
+  | 'interim'
+  | 'notice'
+  | 'own'
+  | 'pending'
+  | 'progress'
+  | 'redacted'
+  | 'sender'
+  | 'transientRemoved'
 > &
   Partial<Pick<MatrixMessage, 'company' | 'id'>>
 
@@ -150,7 +169,8 @@ export function matrixCompanyLineExpiresAt(
 /**
  * What a chat shows of `messages` (in timeline order), in one pass from the newest:
  * - an agent's redacted message shows nothing, not a "deleted" tombstone (the agent removes only its
- *   own working lines and a duplicated interim remark);
+ *   own working lines and a duplicated interim remark); nor does any working line its sender removed
+ *   when the turn ended (`transientRemoved`), even from a sender this chat does not know as an agent;
  * - an agent's working line is hidden once the turn has ended: its marker says `settled`, or the same
  *   agent posted a later message that is neither a working line nor an interim remark (the answer,
  *   an outcome notice). A line that is still the newest thing the agent said stays.
@@ -174,6 +194,10 @@ export function matrixHideEndedTransientLines<T extends Line>(
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!
+
+    if (message.redacted && message.transientRemoved && !message.own) {
+      continue
+    }
 
     if (message.own || !agents.has(message.sender)) {
       kept.push(message)
