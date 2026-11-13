@@ -24,7 +24,6 @@ _final_delivery = ContextVar("matrix_presentation_final", default=False)
 _active = {}
 logger = logging.getLogger(__name__)
 _current = ContextVar("matrix_presentation_turn", default=None)
-_pet_binding = ContextVar("matrix_presentation_pet_binding", default=None)
 
 
 def transaction(source, kind, sequence=0):
@@ -204,8 +203,15 @@ class Turn:
         from tui_gateway.pet_intents import PetIntentBuffer
         self.pet_buffer = PetIntentBuffer()
         self.pet_callback = None
+        self.pet_session_id = None
         self.pet_intents = []
         self.pet_eligible = False
+
+    def queue_pet(self, command):
+        from agent.delegation_context import is_delegated_child_context
+        if not self.pet_callback or self.stopped or self.ended or is_delegated_child_context():
+            return {'ok': False, 'reason': 'no_active_pet_turn'}
+        return self.pet_callback(command)
 
     async def progress(self, text, *, kind='todo', phase='working'):
         try:
@@ -436,6 +442,7 @@ def adapter_class(base):
                             event.message_id, event.source.user_id)
                 turn.admission_id = admission_id
                 turn.pet_eligible = (not getattr(event, 'internal', False) and not event.inherit_channel_pin
+                    and os.environ.get('ATUM_PET_INTENTS') == 'reply'
                     and event.allow_gateway_control and not any(event.metadata.get(key) for key in (
                         'notification_origin', 'automation_identities', 'cron_job_id', 'job_id')))
                 turn.marker = source_turn_marker(event.raw_message) or turn.marker
@@ -443,6 +450,11 @@ def adapter_class(base):
                 self._presentation_turns[(turn.room, turn.source)] = (turn, session_key, event.source)
                 _active[session_key] = turn
             token = _current.set(turn)
+            # Hook callbacks run on bounded workers: ContextVar writes inside a
+            # pre_llm_call hook cannot bind the agent/tool execution context.
+            # Bind here; hooks only update the shared, turn-bound collector.
+            from tools.pet_tool import bind_turn_callback, reset_turn_callback
+            pet_token = bind_turn_callback(turn.queue_pet if turn and turn.pet_eligible else None)
             try:
                 if turn:
                     try:
@@ -456,8 +468,10 @@ def adapter_class(base):
                     turn.execution_finished = True
                     if turn.pet_callback:
                         turn.pet_buffer.finish(turn.pet_callback, success=False)
+                        turn.pet_callback = None
                     if _active.get(session_key) is turn:
                         _active.pop(session_key, None)
+                reset_turn_callback(pet_token)
                 _current.reset(token)
 
         async def send_final_ledgered(self, *args, **kwargs):
@@ -607,27 +621,20 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
-    def begin_pet(platform='', turn_id='', parent_session_id='', **_):
-        from tools.pet_tool import bind_turn_callback
+    def begin_pet(platform='', turn_id='', session_id='', parent_session_id='', **_):
         turn = _current.get()
-        callback = None
         if (turn and turn.pet_eligible and not turn.stopped and not turn.ended and platform == 'matrix'
                 and not parent_session_id and os.environ.get('ATUM_PET_INTENTS') == 'reply'):
             turn.pet_intents = []
-            callback = turn.pet_callback = turn.pet_buffer.begin(turn_id)
-        previous = _pet_binding.get()
-        _pet_binding.set((turn, callback, bind_turn_callback(callback), previous))
+            turn.pet_session_id = session_id
+            turn.pet_callback = turn.pet_buffer.begin(turn_id)
 
-    def finish_pet(completed=False, failed=False, **_):
-        from tools.pet_tool import reset_turn_callback
-        binding = _pet_binding.get()
-        if binding:
-            turn, callback, token, previous = binding
-            if callback:
-                turn.pet_intents = turn.pet_buffer.finish(callback,
-                    success=completed is True and not failed and not turn.stopped)
-            reset_turn_callback(token)
-            _pet_binding.set(previous)
+    def finish_pet(session_id='', completed=False, failed=False, **_):
+        turn = _current.get()
+        if turn and turn.pet_callback and session_id == turn.pet_session_id:
+            turn.pet_intents = turn.pet_buffer.finish(turn.pet_callback,
+                success=completed is True and not failed and not turn.stopped)
+            turn.pet_callback = None
 
     def tool_activity(tool_name='', **_):
         turn = _current.get()
