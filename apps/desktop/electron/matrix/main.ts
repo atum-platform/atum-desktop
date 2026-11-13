@@ -4097,7 +4097,7 @@ async function cloudAgentRequest(request: {
     const agent = requireRoomAgent(request.roomId)
     const principal = cloudPrincipal(agent)
 
-    if (!isCloudAgent(agent) || !principal) {
+    if (!principal || (!hostRuntimeAgents.has(principal) && !isCloudAgent(agent))) {
       throw new Error('matrix_agent_unavailable')
     }
 
@@ -4106,8 +4106,9 @@ async function cloudAgentRequest(request: {
     }
 
     const outcome = hostRuntimeAgents.has(principal)
-      ? await requestHostStop(config.domain!.resource, principal, request.roomId, request.eventId,
-          AbortSignal.timeout(30_000), (url, init) => session.defaultSession.fetch(url, init))
+      ? await account.s1Request((token, base, requestSignal) =>
+          requestHostStop(base, token, principal, request.roomId!, request.eventId!, requestSignal,
+            (url, init) => session.defaultSession.fetch(url, init)), AbortSignal.timeout(30_000))
       : await stopCloudTurn(s1Call, principal, request.roomId, request.eventId, AbortSignal.timeout(30_000))
     const current = account.appScope()
 

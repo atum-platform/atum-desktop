@@ -3,9 +3,10 @@ import { randomUUID } from 'node:crypto'
 import type { MatrixCloudStopOutcome } from '../../../shared/matrix'
 import { readDomainJson } from '../domain'
 
-/** Shell authenticates its owner cookie session. A MAS or process bearer is never sent here. */
+/** Uses the account domain grant, refreshed by s1Request on authentication failure. */
 export async function requestHostStop(
   base: string,
+  token: string,
   agent: string,
   room: string,
   event: string,
@@ -25,6 +26,7 @@ export async function requestHostStop(
     credentials: 'include',
     redirect: 'error',
     headers: {
+      Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
       Origin: url.origin,
       'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0'
@@ -34,7 +36,7 @@ export async function requestHostStop(
   })
   if (!response.ok) {
     await response.body?.cancel().catch(() => {})
-    throw new Error('matrix_host_stop_refused')
+    throw new Error(response.status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
   }
   const receipt = (await readDomainJson(response, 4096)) as Record<string, unknown> | null
   signal.throwIfAborted()
