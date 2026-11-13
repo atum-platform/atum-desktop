@@ -786,10 +786,25 @@ def _record_argv() -> list[str]:
     return argv
 
 
+def get_process_boot_id() -> Optional[str]:
+    """Kernel/sandbox incarnation; Linux start ticks alone can repeat after a reboot."""
+    try:
+        return Path("/proc/sys/kernel/random/boot_id").read_text().strip() or None
+    except OSError:
+        return None
+
+
+def process_boot_matches(record: dict, key: str = "boot_id") -> bool:
+    current = get_process_boot_id()
+    # Linux legacy records cannot prove which sandbox wrote them. A fresh writer
+    # stamps the identity; other platforms retain their process-birth guard.
+    return current is None or record.get(key) == current
+
+
 def _build_pid_record() -> dict:
     return {
         "pid": os.getpid(), "kind": _GATEWAY_KIND, "argv": _record_argv(),
-        "start_time": _get_process_start_time(os.getpid()),
+        "start_time": _get_process_start_time(os.getpid()), "boot_id": get_process_boot_id(),
         # Scoped locks are machine-global; the owner's home lets a cross-profile
         # --replace place its takeover marker where the target will read it.
         "hermes_home": str(_canonical_hermes_home(_get_process_hermes_home())),
@@ -888,7 +903,7 @@ def _start_times_conflict(recorded_start: Any, current_start: Any) -> bool:
 def _live_pid_from_record(record: Optional[dict[str, Any]]) -> Optional[int]:
     """Record's PID when it is alive and passes the start-time PID-reuse guard, else None."""
     pid = _pid_from_record(record)
-    if pid is None or not _pid_exists(pid):
+    if pid is None or not process_boot_matches(record) or not _pid_exists(pid):
         return None
     if _start_times_conflict(record.get("start_time"), _get_process_start_time(pid)):
         return None
@@ -1120,7 +1135,7 @@ def _prepare_runtime_status_update(
                 if not isinstance(k, str) or ":" not in k
                 or (drop_prefix is not None and not k.startswith(drop_prefix))
             }
-        payload.update({key: current_record[key] for key in ("kind", "pid", "argv", "start_time")})
+        payload.update({key: current_record[key] for key in ("kind", "pid", "argv", "start_time", "boot_id")})
         payload["updated_at"] = _utc_now_iso()
         payload.update(_get_code_identity_fields())
         _apply_set_fields(payload, (
@@ -1152,7 +1167,7 @@ def _prepare_runtime_status_update(
             ))
             platform_payload.update(
                 updated_at=_utc_now_iso(), writer_pid=current_record["pid"],
-                writer_start_time=current_record["start_time"])
+                writer_start_time=current_record["start_time"], writer_boot_id=current_record["boot_id"])
             payload["platforms"][platform] = platform_payload
         _runtime_status_state = payload
         return path, payload, previous_payload

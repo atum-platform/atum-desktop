@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sqlite3
 from contextlib import closing
@@ -150,8 +151,25 @@ def collect_runtime_readiness(
             active_delegations=max(0, int(active_delegations)),
         ),
     }
+    from hermes_cli.config_home import home_initialization_failed
+    # The container healthcheck may be a separate process, so also inspect the
+    # home permissions there. No files are created and no config fallback runs.
+    storage_paths = [home] + [home / name for name in ("sessions", "logs", "cron", "memories")
+                             if (home / name).exists() or (home / name).is_symlink()]
+    checks["home_storage"] = _check("ok" if all(
+        path.is_dir() and os.access(path, os.W_OK | os.X_OK) for path in storage_paths
+    ) else "unavailable")
+    health = _recovery_health(runtime, home)
+    platforms = runtime.get("platforms") or {}
+    if (checks["home_storage"]["status"] != "ok"
+            or home_initialization_failed(home)
+            or checks["state_db"]["status"] != "ok"
+            or checks["session_store"]["status"] != "ok"
+            or any(isinstance(v, dict) and v.get("error_code") == "adapter_unavailable"
+                   for v in platforms.values())):
+        health["process_healthy"] = False
     return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks,
-            **_recovery_health(runtime, home)}
+            **health}
 
 
 __all__ = ["collect_runtime_readiness"]

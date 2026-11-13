@@ -205,7 +205,7 @@ def _status_platform_key_allowed(key: object, configured: set[str] | None) -> bo
 # Per-entry writer-identity stamps (added by gateway.status.write_runtime_status for the
 # aggregation ownership check) are process recon — the same class of detail as the
 # auth-gated top-level ``gateway_pid`` — and must not project onto the public endpoint.
-_PRIVATE_PLATFORM_ENTRY_KEYS = frozenset({"writer_pid", "writer_start_time"})
+_PRIVATE_PLATFORM_ENTRY_KEYS = frozenset({"writer_pid", "writer_start_time", "writer_boot_id"})
 
 
 def _public_platform_entry(value: Any) -> Any:
