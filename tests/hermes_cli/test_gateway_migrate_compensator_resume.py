@@ -8,6 +8,8 @@ suite already fakes).
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 from pathlib import Path
@@ -20,10 +22,10 @@ from hermes_cli import gateway_migrate as gm
 
 
 def _write_live_gateway(home: Path, served: list[str] | None = None) -> None:
-    record = {"pid": os.getpid(), "hermes_home": str(home), "gateway_state": "running"}
+    record = {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(home), "gateway_state": "running"}
     if served is not None:
         record["served_profiles"] = served
-    (home / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(home)}))
+    (home / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(home)}))
     (home / "gateway_state.json").write_text(json.dumps(record))
 
 

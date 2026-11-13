@@ -5,6 +5,8 @@ While the host serves a profile it publishes its own pid into that profile's run
 read by ``find_gateway_pids`` and ``stop_profile_gateway``) answers only on positive ownership
 evidence; these cases drive it through the real host-record and launch-record readers.
 """
+
+from tests.runtime_identity import current_owner_fields
 import json
 import os
 from types import SimpleNamespace
@@ -116,7 +118,7 @@ def test_sticky_profile_force_gateway_stays_stoppable(homes, monkeypatch):
     try:
         pid = child.pid
         (root / 'active_profile').write_text('default\n')  # the sticky choice moved on after launch
-        (secondary / 'gateway.pid').write_text(json.dumps({
+        (secondary / 'gateway.pid').write_text(json.dumps({**current_owner_fields(pid),
             'pid': pid, 'kind': status._GATEWAY_KIND, 'argv': ['hermes', 'gateway', 'run', '--force'],
             'start_time': status._get_process_start_time(pid), 'hermes_home': str(secondary)}))
         monkeypatch.setenv('HERMES_HOME', str(secondary))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import subprocess
@@ -190,13 +192,13 @@ def test_dead_or_stale_marker_is_abandoned_at_the_next_start_and_live_waits(mark
     directory.mkdir(parents=True)
     now = time.time()
     (directory / "cli_setup-1-1.json").write_text(json.dumps(
-        {"pid": _dead_pid(), "start_time": None, "started_at": now, "surface": "cli_setup", "provider": "anthropic"}))
+        {**current_owner_fields(), "pid": _dead_pid(), "start_time": None, "started_at": now, "surface": "cli_setup", "provider": "anthropic"}))
     parent = os.getppid()
     live = directory / f"tui-{parent}-2.json"
-    live.write_text(json.dumps({"pid": parent, "start_time": get_process_start_time(parent), "started_at": now,
+    live.write_text(json.dumps({**current_owner_fields(parent), "pid": parent, "start_time": get_process_start_time(parent), "started_at": now,
                                 "surface": "tui", "provider": "nous"}))
     (directory / f"dashboard-{parent}-3.json").write_text(json.dumps(
-        {"pid": parent, "start_time": get_process_start_time(parent), "started_at": now - 2 * setup_metrics.STALE_AFTER_S,
+        {**current_owner_fields(parent), "pid": parent, "start_time": get_process_start_time(parent), "started_at": now - 2 * setup_metrics.STALE_AFTER_S,
          "surface": "dashboard", "provider": "xai"}))
 
     flow = setup_metrics.begin_provider_setup("cli_setup", "openrouter")

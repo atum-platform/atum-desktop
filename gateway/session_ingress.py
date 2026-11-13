@@ -249,6 +249,11 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
+        # Keep restore/preflight identity stable; zero becomes local time only
+        # on the claimed event entering execution, never on its durable envelope.
+        if event.timestamp.timestamp() == 0:
+            from datetime import UTC, datetime
+            event.timestamp = datetime.now(UTC)
         restored = authority.db._read_one('SELECT value FROM state_meta WHERE key=?',
                                           ('restore_backup:' + row['admission_id'],))
         if restored:

@@ -152,7 +152,7 @@ def test_cron_execution_recovered_after_namespace_restart(tmp_path, monkeypatch)
     monkeypatch.setattr(status, 'get_process_epoch', lambda: 'boot-A:1')
     monkeypatch.setattr(status, '_pid_exists', lambda pid: True)
     monkeypatch.setattr(executions, '_process_start_time', lambda pid: 7)
-    record = executions.create_execution('job', source='builtin')
+    executions.create_execution('job', source='builtin')
     monkeypatch.setattr(status, 'get_process_epoch', lambda: 'boot-B:1')
     monkeypatch.setattr(executions, '_PROCESS_ID', 'new-gateway')
     assert executions.recover_interrupted_executions() == 1

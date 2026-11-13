@@ -27,7 +27,7 @@ add a third member so it has >2 joined members.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 import array
 import inspect
 import hashlib
@@ -1999,7 +1999,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 'journal' if isinstance(exc, (sqlite3.Error, IntakeJournalError)) else None)
         count = getattr(self, '_intake_failures', 0) + 1
         self._intake_failures = count
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         if kind is None:
             if not hasattr(self, '_sync_outage_started') or self._sync_outage_started is None:
                 self._sync_outage_started = time.monotonic()
@@ -2746,7 +2746,7 @@ class MatrixAdapter(BasePlatformAdapter):
                 self._background_read_receipt(room_id, event_id)  # the claim receipted the voice
                 return
         msg_event = await self._build_inbound_event(
-            room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to, timestamp=datetime.fromtimestamp(event_ts or 0, timezone.utc))
+            room_id, sender, event_id, _normalize_matrix_bang_command(body), source_content, relates_to, timestamp=datetime.fromtimestamp(event_ts or 0, UTC))
         if msg_event is None:
             return
         if (getattr(self, "_intake", None) is None and msg_event.message_type == MessageType.TEXT
@@ -2812,7 +2812,7 @@ class MatrixAdapter(BasePlatformAdapter):
         media_urls = [cached_path] if cached_path else ([http_url] if http_url else None)
         msg_event = await self._build_inbound_event(
             room_id, sender, event_id, body, source_content, relates_to, ctx=ctx, message_type=msg_type,
-            timestamp=datetime.fromtimestamp(event_ts or 0, timezone.utc),
+            timestamp=datetime.fromtimestamp(event_ts or 0, UTC),
             media_urls=media_urls, media_types=[media_type] if media_urls else None, media_msgtype=msgtype)
         if msg_event is not None:
             await self.handle_message(msg_event)

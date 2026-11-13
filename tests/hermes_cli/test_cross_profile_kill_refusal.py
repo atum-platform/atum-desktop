@@ -11,6 +11,8 @@ flock-held gateway lock, and a real dummy child process — no mocks of the
 code under test.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import subprocess
@@ -57,7 +59,7 @@ def _spawn_gateway_lookalike(bin_dir: Path, lock_path: Path) -> subprocess.Popen
 def _pid_record(proc: subprocess.Popen, script: Path, owner_home: Path) -> dict:
     from gateway.status import get_process_start_time
 
-    return {
+    return {**current_owner_fields(proc.pid),
         "pid": proc.pid,
         "kind": "hermes-gateway",
         "argv": [str(script), "gateway", "run"],
@@ -69,24 +71,24 @@ def _pid_record(proc: subprocess.Popen, script: Path, owner_home: Path) -> dict:
 class TestRecordedGatewayHomeConflicts:
     def test_conflicting_home_detected(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profiles" / "tim"))
-        record = {"pid": 1, "hermes_home": str(tmp_path)}
+        record = {**current_owner_fields(1), "pid": 1, "hermes_home": str(tmp_path)}
         assert recorded_gateway_home_conflicts(record) is True
 
     def test_same_home_accepted(self, tmp_path, monkeypatch):
         home = tmp_path / "profiles" / "tim"
         monkeypatch.setenv("HERMES_HOME", str(home))
-        record = {"pid": 1, "hermes_home": str(home)}
+        record = {**current_owner_fields(1), "pid": 1, "hermes_home": str(home)}
         assert recorded_gateway_home_conflicts(record) is False
 
     def test_legacy_record_without_home_proves_nothing(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         assert recorded_gateway_home_conflicts({"pid": 1}) is False
         assert recorded_gateway_home_conflicts(None) is False
-        assert recorded_gateway_home_conflicts({"pid": 1, "hermes_home": "  "}) is False
+        assert recorded_gateway_home_conflicts({**current_owner_fields(1), "pid": 1, "hermes_home": "  "}) is False
 
     def test_expected_home_override(self, tmp_path):
         target = tmp_path / "profiles" / "tim"
-        record = {"pid": 1, "hermes_home": str(tmp_path)}
+        record = {**current_owner_fields(1), "pid": 1, "hermes_home": str(tmp_path)}
         assert (
             recorded_gateway_home_conflicts(record, expected_home=target) is True
         )

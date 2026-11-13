@@ -81,7 +81,7 @@ def test_seeded_brief_reads_sources_history_and_delivers_once(tmp_path, monkeypa
         with bind_source_transport(source):
             return native_watchdog(*args, **kwargs)
     monkeypatch.setattr(scheduler, '_run_agent_with_watchdog', bound_watchdog)
-    success, doc, final, error = scheduler.run_job(job, native_claimed=True)
+    success, _doc, final, error = scheduler.run_job(job, native_claimed=True)
     assert success, error
     assert reads == ['google', 'chats']
     assert 'Design review' in final and 'proposal' in final and 'budget' in final

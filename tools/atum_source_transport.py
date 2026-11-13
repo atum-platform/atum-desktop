@@ -8,7 +8,7 @@ an enabled host process without a binding refuses instead of borrowing another r
 """
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import timezone
+from datetime import timezone, UTC
 from email.utils import format_datetime, parsedate_to_datetime
 from typing import Callable
 from urllib.error import HTTPError
@@ -40,7 +40,7 @@ def _retry_after(value: object) -> str | None:
     try:
         date = parsedate_to_datetime(value)
         if date.tzinfo is not None:
-            return format_datetime(date.astimezone(timezone.utc), usegmt=True)
+            return format_datetime(date.astimezone(UTC), usegmt=True)
     except (TypeError, ValueError, OverflowError):
         pass
     return None

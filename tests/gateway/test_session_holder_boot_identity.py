@@ -121,7 +121,7 @@ db.close()
         assert sum(results) == 1
     finally:
         for child in children:
-            out, err = child.communicate('\n', timeout=30)
+            _out, err = child.communicate('\n', timeout=30)
             assert child.returncode == 0, err
 
 

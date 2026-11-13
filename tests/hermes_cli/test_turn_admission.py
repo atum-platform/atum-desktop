@@ -11,7 +11,7 @@ from hermes_cli.plugins import PluginContext, PluginManager, PluginManifest, Loa
 
 @pytest.fixture
 def admission(monkeypatch, tmp_path):
-    import hermes_cli.plugins as plugins
+    from hermes_cli import plugins
     manager = PluginManager(scope_key=str(tmp_path))
     manager._discovered = True
     manifest = PluginManifest(name="authority", key="authority")
@@ -26,7 +26,7 @@ def admission(monkeypatch, tmp_path):
 @pytest.mark.parametrize("platform", ["matrix", "cron", "api", "background", "subagent", "cli", "tui"])
 @pytest.mark.parametrize("outcome", ["allow", "deny", "raise", "timeout", "plugin-missing"])
 def test_all_turn_sources(admission, monkeypatch, platform, outcome):
-    manager, context, config = admission
+    _manager, context, _config = admission
     release = threading.Event()
 
     def policy(**kwargs):
@@ -71,7 +71,7 @@ def test_all_turn_sources(admission, monkeypatch, platform, outcome):
 
 def test_existing_fail_open_plugins(admission):
     from hermes_cli.turn_admission import check_turn_admission
-    manager, context, config = admission
+    _manager, context, config = admission
     config["plugins"]["required_admission"] = []
     context.register_hook("pre_turn_admission", Mock(side_effect=RuntimeError("legacy")))
     assert check_turn_admission(platform="cli") is None
@@ -98,7 +98,7 @@ async def test_gateway_refuses_before_media_tools(admission, monkeypatch, outcom
     from gateway.run_inbound import GatewayInboundMixin
     media = Mock(side_effect=RuntimeError("media reached"))
     monkeypatch.setattr("gateway.run_inbound.rehome_inbound_media", media)
-    manager, context, _ = admission
+    _manager, context, _ = admission
     release = threading.Event()
 
     def policy(**kwargs):

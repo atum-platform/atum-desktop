@@ -219,7 +219,9 @@ def run(job: dict[str, Any], context_json: str) -> str:
     # checkout. These are existing Hermes/python-dotenv bootstrap controls;
     # private dotenv, secret sources and machine config are not shared assets.
     os.environ["PYTHON_DOTENV_DISABLED"] = "1"
-    os.environ["HERMES_MANAGED_DIR"] = str(hermes_home / "managed")
+    managed = hermes_home / "managed"
+    managed.mkdir(exist_ok=True)
+    os.environ["HERMES_MANAGED_DIR"] = str(managed)
 
     from run_agent import AIAgent
 

@@ -19,7 +19,7 @@ async def test_aborted_hygiene_retains_cooldown_across_restart_and_final_result(
     (managed / "config.yaml").write_text(
         "plugins:\n  required_admission: [hygiene-policy]\n", encoding="utf-8")
     monkeypatch.setenv("HERMES_MANAGED_DIR", str(managed))
-    import hermes_cli.plugins as plugins
+    from hermes_cli import plugins
     from hermes_cli.plugins import PluginContext, PluginManager, PluginManifest, LoadedPlugin
     manager = PluginManager(scope_key=str(tmp_path))
     manager._discovered = True
