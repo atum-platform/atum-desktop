@@ -60,6 +60,7 @@ describe('Shell host desk read', () => {
 
   it('refuses a reply for another read, a stray field, or a path outside its roots', async () => {
     const answer = (body: unknown) => async () => Response.json(body)
+
     const ask = (body: unknown, request: Parameters<typeof requestHostDesk>[3] = { read: 'files' }) =>
       requestHostDesk('https://shell.test/api/matrix/v1', 'synthetic-token', agent, request, signal, answer(body))
 

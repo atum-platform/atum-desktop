@@ -731,8 +731,10 @@ export function MatrixWorkbench({
             <MatrixAgentDesk
               active={selected === 'agent' && !hidden}
               agent={deskAgent}
+              browser={Boolean(matrixBrowser)}
               cloudStop={cloudStop}
               key={`${scope}:${deskAgent.principal}`}
+              onOpenBrowser={openBrowser}
               room={room}
               snapshot={snapshot}
             />

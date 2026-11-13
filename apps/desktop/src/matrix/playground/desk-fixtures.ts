@@ -1,4 +1,10 @@
 import type { MatrixMessage, MatrixSnapshot } from '../../../shared/matrix'
+import type {
+  MatrixAgentDeskBridge,
+  MatrixHostDeskFiles,
+  MatrixHostDeskRead,
+  MatrixHostDeskSchedule
+} from '../../../shared/matrix-agent-desk'
 
 /**
  * The agent's desk (the side panel's agent tab, plan r2) on fixture data: `?desk=free|working|
@@ -122,7 +128,27 @@ export function withPlaygroundDesk(
   const base: MatrixSnapshot = {
     ...snapshot,
     agents: snapshot.agents?.map(each =>
-      each.principal === agent.principal ? { ...each, answering: 'cloud' as const, runtime: 'hermes' as const } : each
+      each.principal === agent.principal
+        ? {
+            ...each,
+            answering: 'cloud' as const,
+            runtime: 'hermes' as const,
+            modelDestinations: each.modelDestinations ?? {
+              recommended: 'nguyet-thuc' as const,
+              here: 'nguyet-thuc' as const,
+              choices: [
+                {
+                  id: 'cloud',
+                  kind: 'cloud' as const,
+                  current: 'nguyet-thuc' as const,
+                  recommended: true,
+                  models: ['nguyet-thuc', 'nhat-thuc'] as const,
+                  unavailable: []
+                }
+              ]
+            }
+          }
+        : each
     )
   }
 
@@ -205,5 +231,58 @@ export function withPlaygroundDesk(
           progress(agent.userId, `${words.macDoing}\n${todo(words.macSteps)}`, 'device', { device: 'MacBook Air' })
         ]
       }
+  }
+}
+
+/** The host desk route on fixture data: its own files (home, one folder) and its routines. */
+export function playgroundAgentDesk(locale: string): MatrixAgentDeskBridge {
+  const vi = locale === 'vi'
+  const day = 86_400_000
+  const now = Date.now()
+
+  const files: Record<string, MatrixHostDeskFiles> = {
+    home: {
+      read: 'files',
+      root: 'home',
+      path: '',
+      rows: [
+        { name: vi ? 'Báo cáo' : 'Reports', kind: 'folder', size: 0, modifiedAt: now - day },
+        { name: vi ? 'ghi-chu-nha-cung-cap.md' : 'supplier-notes.md', kind: 'file', size: 3_400, modifiedAt: now - 2 * day },
+        { name: 'shopee-orders.csv', kind: 'file', size: 12_800, modifiedAt: now - 3 * day }
+      ],
+      truncated: false
+    }
+  }
+
+  const schedule: MatrixHostDeskSchedule = {
+    read: 'schedule',
+    observedAt: now,
+    jobs: [
+      {
+        id: 'brief', name: vi ? 'Bản tin buổi sáng' : 'Morning brief', kind: 'cron', display: 'Every day at 08:00',
+        timezone: 'Asia/Ho_Chi_Minh', state: 'scheduled', nextRunAt: new Date(now + day / 2).toISOString(),
+        lastRunAt: null, lastStatus: null, expr: '0 8 * * *', minutes: null, runAt: null
+      },
+      {
+        id: 'sweep', name: vi ? 'Kiểm tra việc còn dở' : 'Follow-up sweep', kind: 'cron', display: 'every 2h',
+        timezone: 'Asia/Ho_Chi_Minh', state: 'paused', nextRunAt: null, lastRunAt: null, lastStatus: null,
+        expr: '0 */2 * * *', minutes: null, runAt: null
+      }
+    ],
+    truncated: false
+  }
+
+  return {
+    read: (async (_principal: string, request: MatrixHostDeskRead) => {
+      if (request.read === 'schedule') {
+        return schedule
+      }
+
+      if (request.read === 'files') {
+        return request.path ? { ...files.home!, path: request.path.split('/').slice(1).join('/'), rows: [] } : files.home
+      }
+
+      throw new Error('playground_desk_unavailable')
+    }) as MatrixAgentDeskBridge['read']
   }
 }

@@ -1,13 +1,15 @@
 import './agent-desk.css'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { type FormEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import { AtumAtom } from '@/components/brand/atum-atom'
 import { NoticeBand } from '@/components/ui/error-state'
+import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { phosphorIcon } from '@/lib/phosphor-icon'
 
 import type { MatrixAgentView, MatrixMessage, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
+import type { MatrixHostDeskFiles, MatrixHostDeskSchedule } from '../../shared/matrix-agent-desk'
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 import type { MatrixDeviceBridge } from '../../shared/matrix-device'
@@ -22,14 +24,24 @@ import {
   matrixAgentDeskSteers,
   type MatrixProgressStep
 } from './agent-desk-model'
+import { ModelDestinationsRow } from './assistant-card/model-destinations-row'
+import { openAssistantCard } from './assistant-card/store'
 import { formatDriveSize } from './drive'
 import { HermesPrompt } from './hermes-prompts'
 import { matrixMacRowLine, MatrixMacState, useMatrixReachMacs } from './mac-reach-rows'
 import { MatrixPersonAvatar } from './member-avatar'
 import { matrixRosterAgentName } from './roster-model'
+import { runMatrixCommand } from './text-document-actions'
 import type { MatrixCloudStop } from './use-cloud-stop'
+import { useMatrixWorkbenchCopy } from './workbench-copy'
 
+const ArrowLeftIcon = phosphorIcon('arrow-left')
+const BellIcon = phosphorIcon('bell')
+const CalendarIcon = phosphorIcon('calendar-blank')
 const CaretIcon = phosphorIcon('caret-right')
+const FolderIcon = phosphorIcon('folder-simple')
+const SearchIcon = phosphorIcon('magnifying-glass')
+const SlidersIcon = phosphorIcon('sliders-horizontal')
 const CheckIcon = phosphorIcon('check')
 const DesktopIcon = phosphorIcon('desktop')
 const FileIcon = phosphorIcon('file')
@@ -236,7 +248,7 @@ function StopButton({ label, stop }: { label: string; stop: MatrixAgentDeskStop 
 
 /**
  * Now: one focus per state. Working → the live step and Stop; Waiting → the question and its
- * action; Free → nothing urgent. The head is a quiet caption; how a message steers or waits is a
+ * action; idle → nothing at all. The head is a quiet caption; how a message steers or waits is a
  * tooltip on it, never a sentence on the panel.
  */
 function NowBlock({
@@ -257,12 +269,9 @@ function NowBlock({
   const minutes = now.state === 'free' ? undefined : matrixAgentDeskMinutes(now.since, clock)
   const withTime = (head: string) => (minutes === undefined ? head : `${head} · ${copy.minutes(minutes)}`)
 
+  // Idle is not news: no state word. The tab already names the agent.
   if (now.state === 'free') {
-    return (
-      <div className="atum-desk-now" data-agent-desk-now="free">
-        <span className="atum-desk-free">{copy.free}</span>
-      </div>
-    )
+    return null
   }
 
   if (now.state === 'waiting') {
@@ -491,12 +500,17 @@ function SentFileRow({
   return (
     <div className="ak-row" data-agent-desk-file={file.id} role="listitem">
       <FileIcon aria-hidden className="ak-icon" />
-      <div className="ak-row-main">
+      <span className="ak-row-main">
         <span className="truncate">{file.body}</span>
-        {file.attachmentSize !== undefined && (
-          <span className="ak-row-meta">{formatDriveSize(file.attachmentSize, locale)}</span>
-        )}
-      </div>
+        <span className="ak-row-meta">
+          {[
+            file.attachmentSize !== undefined ? formatDriveSize(file.attachmentSize, locale) : undefined,
+            relativeWhen(file.timestamp, locale)
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </span>
+      </span>
       <button
         aria-label={save}
         className="ak-btn ak-btn--sm"
@@ -509,24 +523,297 @@ function SentFileRow({
   )
 }
 
+/** A short local time: today's hour, else the day. */
+function relativeWhen(at: number, locale: string): string {
+  const date = new Date(at)
+  const today = new Date().toDateString() === date.toDateString()
+
+  return new Intl.DateTimeFormat(locale, today ? { hour: 'numeric', minute: '2-digit' } : { day: 'numeric', month: 'short' }).format(date)
+}
+
+/** The same address bar the new tab has: a page typed here opens as its own tab. */
+function AddressBar({ onOpen }: { onOpen(url: string): void }) {
+  const copy = useMatrixWorkbenchCopy()
+  const [address, setAddress] = useState('')
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const url = address.trim()
+
+    if (url) {
+      onOpen(url)
+    }
+  }
+
+  return (
+    <div className="shrink-0 px-(--ak-s6) pt-(--ak-s4)" data-matrix-new-tab-search>
+      <form className="ak-field ak-field--search" data-matrix-workbench-navigation onSubmit={submit}>
+        <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
+        <input
+          aria-label={copy.searchWeb}
+          onChange={event => setAddress(event.target.value)}
+          placeholder={copy.searchWeb}
+          value={address}
+        />
+      </form>
+    </div>
+  )
+}
+
 /**
- * The agent's own tab in its 1:1 chat's side panel (plan 2026-11-13, side panel r2, native
- * Hermes in the cloud), in the shipped panel's rhythm: the same padding and section gaps as the
- * new tab. Now is the one focus; Files and Your devices are folded rows below it; what its cloud
- * computer cannot share yet is absent, never an empty row. No money, no settings, no second
- * chat: steering is the composer.
+ * Its own files on its cloud computer (`agentDesk.read`, the host desk route), one folder at a
+ * time. Listing only, never contents. A refusal or a window without the route reads as none.
+ */
+function useOwnFiles(active: boolean, agent: MatrixAgentView) {
+  const desk = window.atumMatrix.agentDesk
+  const [path, setPath] = useState<string>()
+  const [view, setView] = useState<MatrixHostDeskFiles>()
+
+  useEffect(() => {
+    if (!active || !desk || agent.runtime !== 'hermes') {
+      return
+    }
+
+    let current = true
+    void desk
+      .read(agent.principal, path === undefined ? { read: 'files' as const } : { read: 'files' as const, path })
+      .then(
+        next => {
+          if (current) {
+            setView(next)
+          }
+        },
+        () => {
+          if (current && path === undefined) {
+            setView(undefined)
+          }
+        }
+      )
+
+    return () => {
+      current = false
+    }
+  }, [active, agent.principal, agent.runtime, desk, path])
+
+  return { path, setPath, view: view && (view.rows.length || path !== undefined) ? view : undefined }
+}
+
+function OwnFiles({ own }: { own: ReturnType<typeof useOwnFiles> }) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const { path, setPath, view } = own
+
+  if (!view) {
+    return null
+  }
+
+  const parent = path?.split('/').slice(0, -1).join('/')
+
+  return (
+    <div className="atum-desk-own" data-agent-desk-own-files>
+      <h3 className="atum-desk-subheading">{copy.onItsComputer}</h3>
+      <div className="ak-group mt-2" role="list">
+        {path !== undefined && (
+          <button
+            className="ak-row w-full text-left"
+            onClick={() => setPath(parent && parent.includes('/') ? parent : undefined)}
+            type="button"
+          >
+            <ArrowLeftIcon aria-hidden className="ak-icon" />
+            <span className="ak-row-main">
+              <span className="truncate">{copy.back}</span>
+            </span>
+          </button>
+        )}
+        {view.rows.map(row =>
+          row.kind === 'folder' ? (
+            <button
+              aria-label={row.name}
+              className="ak-row w-full text-left"
+              key={`folder:${row.name}`}
+              onClick={() => setPath(`${path ?? view.root}/${row.name}`)}
+              type="button"
+            >
+              <FolderIcon aria-hidden className="ak-icon" />
+              <span className="ak-row-main">
+                <span className="truncate">{row.name}</span>
+              </span>
+              <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+            </button>
+          ) : (
+            <div className="ak-row" key={`file:${row.name}`} role="listitem">
+              <FileIcon aria-hidden className="ak-icon" />
+              <span className="ak-row-main">
+                <span className="truncate">{row.name}</span>
+                <span className="ak-row-meta">
+                  {formatDriveSize(row.size, locale)} · {relativeWhen(row.modifiedAt, locale)}
+                </span>
+              </span>
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Its routines as the host reads its native schedule (read-only), soonest first. */
+function Routines({ agent }: { agent: MatrixAgentView }) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const desk = window.atumMatrix.agentDesk
+  const [jobs, setJobs] = useState<MatrixHostDeskSchedule['jobs']>()
+
+  useEffect(() => {
+    if (!desk || agent.runtime !== 'hermes') {
+      return
+    }
+
+    let current = true
+    void desk.read(agent.principal, { read: 'schedule' as const }).then(
+      next => current && setJobs(next.jobs),
+      () => undefined
+    )
+
+    return () => {
+      current = false
+    }
+  }, [agent.principal, agent.runtime, desk])
+
+  if (!jobs?.length) {
+    return null
+  }
+
+  const when = (iso: string | null) =>
+    iso
+      ? new Intl.DateTimeFormat(locale, { weekday: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(iso))
+      : undefined
+
+  return (
+    <>
+      <div className="atum-desk-subhead">{copy.routines}</div>
+      {jobs.map(job => (
+        <div className="ak-row" data-agent-desk-routine={job.state} key={job.id} role="listitem">
+          <CalendarIcon aria-hidden className="ak-icon" />
+          <span className="ak-row-main">
+            <span className="truncate">{job.name}</span>
+          </span>
+          <span className="atum-desk-row-end">
+            {job.state === 'paused' ? copy.paused : when(job.nextRunAt) ? copy.nextRun(when(job.nextRunAt)!) : null}
+          </span>
+        </div>
+      ))}
+    </>
+  )
+}
+
+/**
+ * Controls: the agent's settings that are real somewhere already. Notifications are this chat's
+ * own mute (Matrix push rules); the model is the one picker row the agent's card uses; your
+ * devices fold to one row. Rare ones sit behind one More: its routines (host schedule read) and
+ * the agent's card for everything else.
+ */
+function Controls({
+  agent,
+  devices,
+  room,
+  snapshot,
+  stop
+}: {
+  agent: MatrixAgentView
+  devices: ReturnType<typeof matrixAgentDeskDevices>
+  room: MatrixRoom
+  snapshot: MatrixSnapshot
+  stop: MatrixAgentDeskStop
+}) {
+  const { locale } = useI18n()
+  const copy = matrixAgentDeskText(locale)
+  const [muted, setMuted] = useState(Boolean(room.muted))
+  const [more, setMore] = useState(false)
+
+  useEffect(() => setMuted(Boolean(room.muted)), [room.muted])
+
+  const toggle = (on: boolean) => {
+    setMuted(!on)
+    void runMatrixCommand({ kind: 'mute', roomId: room.id, muted: !on }).catch(() => setMuted(Boolean(room.muted)))
+  }
+
+  return (
+    <section aria-label={copy.controls} data-agent-desk-controls>
+      <h2 className="atum-launcher-heading">{copy.controls}</h2>
+      {agent.modelDestinations && (
+        <div className="atum-settings-group mt-2 atum-desk-model" data-agent-desk-model>
+          <ModelDestinationsRow
+            agent={agent}
+            cloudOnly
+            preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
+          />
+        </div>
+      )}
+      <div className="ak-group mt-2" role="list">
+        <label className="ak-row" role="listitem">
+          <BellIcon aria-hidden className="ak-icon" />
+          <span className="ak-row-main">
+            <span className="truncate">{copy.notifications}</span>
+          </span>
+          <Switch aria-label={copy.notifications} checked={!muted} onCheckedChange={toggle} />
+        </label>
+        <DevicesSection devices={devices} focus={false} stop={stop} />
+        <button
+          aria-expanded={more}
+          className="ak-row w-full text-left atum-desk-fold-row"
+          onClick={() => setMore(value => !value)}
+          type="button"
+        >
+          <SlidersIcon aria-hidden className="ak-icon" />
+          <span className="ak-row-main">
+            <span className="truncate">{copy.moreControls}</span>
+          </span>
+          <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" data-open={more || undefined} />
+        </button>
+        {more && (
+          <div className="atum-desk-fold-body" role="list">
+            <Routines agent={agent} />
+            <button
+              className="ak-row w-full text-left"
+              onClick={() => openAssistantCard({ kind: 'agent', principal: agent.principal })}
+              type="button"
+            >
+              <span className="ak-row-main">
+                <span className="truncate">{copy.allSettings}</span>
+              </span>
+              <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" />
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * The agent's own tab in its 1:1 chat's side panel (plan 2026-11-13, side panel r2, round 3).
+ * Today's frame stays: the tab strip and the new tab's address bar and reading column; only the
+ * content is the agent's. Now shows only while it works or waits; Files is an open list (what it
+ * sent here, then its own files when the host shares them); Controls holds its real settings. No
+ * money, no explanations, no second chat: steering is the composer.
  */
 export function MatrixAgentDesk({
   active,
   agent,
+  browser,
   cloudStop,
+  onOpenBrowser,
   room,
   snapshot
 }: {
-  /** The desk is on screen: device reads run only then. */
+  /** The desk is on screen: device and host reads run only then. */
   active: boolean
   agent: MatrixAgentView
+  /** The window has its in-app browser: the address bar shows, as on the new tab. */
+  browser: boolean
   cloudStop: MatrixCloudStop
+  onOpenBrowser(url: string): void
   room: MatrixRoom
   snapshot: MatrixSnapshot
 }) {
@@ -557,39 +844,76 @@ export function MatrixAgentDesk({
   const steers = matrixAgentDeskSteers({ runtime: agent.runtime, running })
 
   return (
-    <div aria-label={copy.desk(name)} className="atum-desk" data-agent-desk role="region">
-      <NowBlock name={name} now={now} steers={steers} stop={stop} />
-      {deviceInUse && <DevicesSection devices={devices} focus stop={stop} />}
-      {(sent.length > 0 || (!deviceInUse && devices.length > 0)) && (
-        <div className="ak-group atum-desk-secondary">
-          {sent.length > 0 && (
-            <Fold
-              count={sent.length}
-              data={{ 'data-agent-desk-files': true }}
-              icon={FileIcon}
-              label={copy.files}
-              title={copy.sentHere}
-            >
-              {sent.map(file => (
-                <SentFileRow
-                  file={file}
-                  key={file.id}
-                  locale={locale}
-                  roomId={room.id}
-                  save={copy.save(file.body)}
-                  saveShort={copy.saveShort}
-                />
-              ))}
-            </Fold>
+    <div className="flex h-full min-h-0 flex-col" data-agent-desk-frame>
+      {browser && <AddressBar onOpen={onOpenBrowser} />}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          aria-label={copy.desk(name)}
+          className="atum-desk mx-auto flex max-w-[44rem] flex-col gap-8 px-6 pt-8 pb-8"
+          data-agent-desk
+          data-agent-desk-column
+          role="region"
+        >
+          <NowBlock name={name} now={now} steers={steers} stop={stop} />
+          {deviceInUse && <DevicesSection devices={devices} focus stop={stop} />}
+          <FilesSection active={active} agent={agent} locale={locale} roomId={room.id} sent={sent} />
+          <Controls
+            agent={agent}
+            devices={deviceInUse ? [] : devices}
+            room={room}
+            snapshot={snapshot}
+            stop={stop}
+          />
+          {cloudStop.refused && (
+            <NoticeBand role="status" tone="notice">
+              {t.cloud.stopRefused}
+            </NoticeBand>
           )}
-          {!deviceInUse && <DevicesSection devices={devices} focus={false} stop={stop} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Files: what it sent in this chat, then its own files when the host shares them. */
+function FilesSection({
+  active,
+  agent,
+  locale,
+  roomId,
+  sent
+}: {
+  active: boolean
+  agent: MatrixAgentView
+  locale: ReturnType<typeof useI18n>['locale']
+  roomId: string
+  sent: MatrixMessage[]
+}) {
+  const copy = matrixAgentDeskText(locale)
+  const own = useOwnFiles(active, agent)
+
+  if (!sent.length && !own.view) {
+    return null
+  }
+
+  return (
+    <section aria-label={copy.files} data-agent-desk-files>
+      <h2 className="atum-launcher-heading">{copy.files}</h2>
+      {sent.length > 0 && (
+        <div className="ak-group mt-2" role="list" title={copy.sentHere}>
+          {sent.map(file => (
+            <SentFileRow
+              file={file}
+              key={file.id}
+              locale={locale}
+              roomId={roomId}
+              save={copy.save(file.body)}
+              saveShort={copy.saveShort}
+            />
+          ))}
         </div>
       )}
-      {cloudStop.refused && (
-        <NoticeBand className="mt-(--ak-s4)" role="status" tone="notice">
-          {t.cloud.stopRefused}
-        </NoticeBand>
-      )}
-    </div>
+      <OwnFiles own={own} />
+    </section>
   )
 }

@@ -17,7 +17,7 @@ import { playgroundBridge, playgroundDesktopServices, PlaygroundStore } from './
 import { PlaygroundCheckIns, playgroundCheckInsMode } from './check-ins-fixtures'
 import { playgroundCompanyDesktopAdapter, withPlaygroundPrivateCos } from './company-ai-fixtures'
 import { playgroundCompanyStore, type PlaygroundCompanyStoreMode } from './company-store-fixtures'
-import { playgroundDeskMode, withPlaygroundDesk } from './desk-fixtures'
+import { playgroundAgentDesk, playgroundDeskMode, withPlaygroundDesk } from './desk-fixtures'
 import {
   playgroundPolicyBridge,
   playgroundPolicyMode,
@@ -120,9 +120,11 @@ store.emit = snapshot =>
   )
 commerce.subscribe(() => store.emit(store.current))
 checkIns.subscribe(() => store.emit(store.current))
+
 if (linkPreviews) {
   store.emit(store.current)
 }
+
 window.atumMatrix = {
   ...bridge,
   command: checkIns.wrap(bridge.command),
@@ -134,6 +136,8 @@ window.atumMatrix = {
   // The desk's Stop asks the fixture, never a controller: it answers as a stopped turn.
   ...(deskMode
     ? {
+        // Its cloud home's files and routines, as the host desk route would read them.
+        agentDesk: playgroundAgentDesk(initialLocale),
         // Only Stop is answered (`stopTurn`); any other cloud request fails as offline would.
         cloudAgent: (async (request: { action: string }) => {
           if (request.action !== 'stopTurn') {
@@ -200,6 +204,7 @@ if (places.company) {
   if (market === 'short') {
     // The short wallet the refusal speaks of: 2,500 Protons available.
     const readWallet = companyDesktop.readWallet.bind(companyDesktop)
+
     companyDesktop.readWallet = async companyId => {
       const wallet = await readWallet(companyId)
 

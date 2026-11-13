@@ -1,17 +1,28 @@
-/* The agent's desk (side panel's agent tab). Kit tokens and components only (STYLE.md §13, §14).
-   Rhythm is the shipped new tab's (workbench-launcher.tsx): 32 px top and bottom, 24 px sides,
-   32 px between sections, a 44 rem reading column. Never denser than that. */
+/* The agent's tab (side panel). Kit tokens and components only (STYLE.md §13, §14). The frame,
+   address bar, reading column, padding and section gaps are the new tab's own classes
+   (workbench-launcher.tsx: px-6 pt-8 pb-8 gap-8 max-w-[44rem]); this file styles only the content. */
 
 .atum-desk {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ak-s8);
   width: 100%;
-  max-width: 44rem;
-  min-height: 100%;
-  margin: 0 auto;
-  overflow-y: auto;
-  padding: var(--ak-s8) var(--ak-s6);
+}
+
+/* A second heading inside a section (Files › On its computer): the launcher heading's voice. */
+.atum-desk-subheading {
+  margin-top: var(--ak-s6);
+  font: var(--ak-t-callout);
+  font-weight: 600;
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-subhead {
+  padding: 6px 10px 2px;
+  font: var(--ak-t-caption);
+  color: var(--ak-ink-3);
+}
+
+/* The model row is the agent card's own (atum-settings-row); here it sits as one quiet card. */
+.atum-desk-model {
+  margin-bottom: var(--ak-s2);
 }
 
 /* Now: one focus. A quiet caption, the focus line, then its one action. */
@@ -170,11 +181,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   overflow: hidden;
-}
-
-/* Secondary: Files and Your devices folded into one quiet card, the shipped Recent list's shape. */
-.atum-desk-secondary {
-  gap: 0;
 }
 
 .atum-desk-fold-row {

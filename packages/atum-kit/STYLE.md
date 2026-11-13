@@ -445,16 +445,16 @@ permission missing) uses these patterns; the canvas's States board lists them.
   `.ak-btn`, never the primary. Your devices rise under Now while one is in
   use. Memory is the assistant card's row at the foot. No money, no settings,
   no second text box: steering is the composer. (2026-11-13, r2 on native
-  Hermes in the cloud, density pass) The tab keeps the new tab's rhythm:
-  32 px top and bottom, 24 px sides, 32 px between blocks, a 44 rem column;
-  never denser. Now has one focus per state (the live step and Stop; the
-  question and its action; Free and nothing else), with its caption quiet,
-  how a message steers in a tooltip, and other steps folded behind "2 of 3
-  done". Agent text clamps to three lines (steps two) with More. Files and
-  Your devices fold to one row each in a single card; a section with nothing
-  the host can share yet is absent, never an empty row. The panel still never
-  opens by itself; the chat's working line has a plain **Watch** that opens
-  it on the agent's tab.
+  Hermes in the cloud, round 3) The agent's tab keeps today's frame: the tab
+  strip, the new tab's address bar, its 44 rem column and rhythm (32 px top
+  and bottom, 24 px sides, 32 px between sections, launcher headings). Only
+  the content is the agent's: Now only while it works or waits (no idle
+  word), then **Files** as open `.ak-group` lists (sent in this chat, then
+  On its computer when the host shares it), then **Controls** (the one model
+  row, Notifications, Your devices, and one More for rare ones). No empty
+  sections, no explanatory text. The panel never opens by itself; the
+  chat's working line has a plain **Watch** that opens it on the agent's
+  tab.
 - **Connections sources**: one row per source, its glyph in a small sunk tile
   before the name (body-strong) and one line, the switch at the end
   (2026-10-31). Documents read as a page, never as

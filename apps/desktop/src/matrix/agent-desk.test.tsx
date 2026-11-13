@@ -297,7 +297,7 @@ describe('the agent tab', () => {
     render(panel(base()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(desk.querySelector('[data-agent-desk-now]')).toBeNull()
-    expect(within(desk).queryByText(en.free)).toBeNull()
+    expect(desk.textContent).not.toContain('Free')
     await act(async () => {})
     expect(within(desk).queryByText(en.devices)).toBeNull()
     expect(within(desk).queryByText(en.sentHere)).toBeNull()
@@ -707,6 +707,7 @@ describe('round 3: frame, files and controls', () => {
 
     render(panel(hermesBase()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
+
     const own = await waitFor(() => {
       const found = desk.querySelector<HTMLElement>('[data-agent-desk-own-files]')
       expect(found).toBeTruthy()

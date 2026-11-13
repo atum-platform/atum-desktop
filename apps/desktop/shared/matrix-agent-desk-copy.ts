@@ -8,7 +8,6 @@ import type { DesktopLocale } from './desktop-locale'
 export interface MatrixAgentDeskCopy {
   /** The desk's region, for screen readers: "Luna's desk". */
   desk: (name: string) => string
-  free: string
   working: string
   waiting: string
   /** "On your MacBook Pro": the device it is using right now, by its owner-visible name. */
@@ -44,6 +43,23 @@ export interface MatrixAgentDeskCopy {
   /** Opens clamped agent text in place, and folds it again. */
   more: string
   less: string
+  /** Files › its own files on its cloud computer (the host desk route). */
+  onItsComputer: string
+  /** Back out of a folder of its computer. */
+  back: string
+  controls: string
+  /** This chat's notifications (the chat's own mute). */
+  notifications: string
+  /** The one disclosure for rarely used controls. */
+  moreControls: string
+  /** Its routines, as the host reads its native schedule. */
+  routines: string
+  /** A paused routine's state word. */
+  paused: string
+  /** A routine's next run: "Next: Fri 08:00". */
+  nextRun: (when: string) => string
+  /** Opens the agent's card, where every other setting lives. */
+  allSettings: string
   /** On the chat's working line: open the side panel on the agent's own tab. */
   watch: string
 }
@@ -51,7 +67,6 @@ export interface MatrixAgentDeskCopy {
 export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
   vi: {
     desk: name => `Bàn làm việc của ${name}`,
-    free: 'Rảnh',
     working: 'Đang làm',
     waiting: 'Chờ bạn',
     onDevice: device => `Trên ${device}`,
@@ -73,11 +88,19 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     stepsDone: (done, total) => `Xong ${done}/${total}`,
     more: 'Xem thêm',
     less: 'Thu gọn',
+    onItsComputer: 'Trên máy của nó',
+    back: 'Quay lại',
+    controls: 'Điều khiển',
+    notifications: 'Thông báo',
+    moreControls: 'Thêm',
+    routines: 'Việc định kỳ',
+    paused: 'Tạm dừng',
+    nextRun: when => `Lần tới: ${when}`,
+    allSettings: 'Tất cả cài đặt',
     watch: 'Xem'
   },
   en: {
     desk: name => `${name}’s desk`,
-    free: 'Free',
     working: 'Working',
     waiting: 'Waiting for you',
     onDevice: device => `On your ${device}`,
@@ -97,13 +120,21 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     save: name => `Save ${name}`,
     saveShort: 'Save',
     stepsDone: (done, total) => `${done} of ${total} done`,
-    more: 'More',
-    less: 'Less',
+    more: 'Show more',
+    less: 'Show less',
+    onItsComputer: 'On its computer',
+    back: 'Back',
+    controls: 'Controls',
+    notifications: 'Notifications',
+    moreControls: 'More',
+    routines: 'Routines',
+    paused: 'Paused',
+    nextRun: when => `Next: ${when}`,
+    allSettings: 'All settings',
     watch: 'Watch'
   },
   ja: {
     desk: name => `${name}のデスク`,
-    free: '待機中',
     working: '作業中',
     waiting: 'あなたを待っています',
     onDevice: device => `${device}で作業中`,
@@ -125,11 +156,19 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     stepsDone: (done, total) => `${total}件中${done}件完了`,
     more: '続きを表示',
     less: '閉じる',
+    onItsComputer: 'エージェントのコンピュータ',
+    back: '戻る',
+    controls: '操作',
+    notifications: '通知',
+    moreControls: 'その他',
+    routines: '定期タスク',
+    paused: '一時停止中',
+    nextRun: when => `次回: ${when}`,
+    allSettings: 'すべての設定',
     watch: '見る'
   },
   zh: {
     desk: name => `${name} 的工作台`,
-    free: '空闲',
     working: '工作中',
     waiting: '等你回复',
     onDevice: device => `在你的 ${device} 上`,
@@ -151,11 +190,19 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     stepsDone: (done, total) => `已完成 ${done}/${total}`,
     more: '更多',
     less: '收起',
+    onItsComputer: '在它的电脑上',
+    back: '返回',
+    controls: '控制',
+    notifications: '通知',
+    moreControls: '更多设置',
+    routines: '例行任务',
+    paused: '已暂停',
+    nextRun: when => `下次：${when}`,
+    allSettings: '全部设置',
     watch: '查看'
   },
   'zh-hant': {
     desk: name => `${name} 的工作台`,
-    free: '空閒',
     working: '工作中',
     waiting: '等你回覆',
     onDevice: device => `在你的 ${device} 上`,
@@ -177,6 +224,15 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     stepsDone: (done, total) => `已完成 ${done}/${total}`,
     more: '更多',
     less: '收起',
+    onItsComputer: '在它的電腦上',
+    back: '返回',
+    controls: '控制',
+    notifications: '通知',
+    moreControls: '更多設定',
+    routines: '例行任務',
+    paused: '已暫停',
+    nextRun: when => `下次：${when}`,
+    allSettings: '全部設定',
     watch: '查看'
   }
 }
