@@ -1652,6 +1652,9 @@ def _read_live_pid_marker(path: Path, ttl_s: int) -> Optional[tuple[dict[str, An
     if not record:
         return None
     target_pid = _pid_from_record(record, "target_pid")
+    if not process_epoch_matches(record):
+        _unlink_quietly(path)
+        return None
     if target_pid is None or _marker_is_stale(record.get("written_at") or "", ttl_s):
         if record.get("accepted") is not True or not _update_pause_on_disk():
             _unlink_quietly(path)
@@ -1709,7 +1712,7 @@ def write_takeover_marker(
         if target_start_time is _UNSET:
             target_start_time = _get_process_start_time(target_pid)
         return _write_marker(_get_takeover_marker_path(marker_home), {
-            "target_pid": target_pid, "target_start_time": target_start_time,
+            "boot_epoch": get_process_epoch(), "target_pid": target_pid, "target_start_time": target_start_time,
             "target_hermes_home": str(marker_home), "replacer_pid": os.getpid(),
             "replacer_hermes_home": str(_canonical_hermes_home(_get_process_hermes_home())),
             "written_at": _utc_now_iso(),
@@ -1925,7 +1928,7 @@ def write_planned_stop_marker(target_pid: int) -> bool:
     so service managers revive the gateway; the CLI writes this first so a deliberate stop exits
     cleanly."""
     return _write_marker(_get_planned_stop_marker_path(), {
-        "target_pid": target_pid, "target_start_time": _get_process_start_time(target_pid),
+        "boot_epoch": get_process_epoch(), "target_pid": target_pid, "target_start_time": _get_process_start_time(target_pid),
         "stopper_pid": os.getpid(), "written_at": _utc_now_iso(),
     })
 

@@ -731,6 +731,7 @@ CREATE TABLE IF NOT EXISTS async_delegations (
     delivered_at REAL,
     owner_pid INTEGER,
     owner_started_at INTEGER,
+    owner_boot_epoch TEXT,
     task_json TEXT,
     -- Owner-side execution fence (unified runtime).
     owner_execution_id TEXT,
