@@ -2522,11 +2522,14 @@ class MatrixAdapter(BasePlatformAdapter):
             platform_config = runner_config.platforms.setdefault(Platform.MATRIX, self.config)
             platform_config.home_channel = home
 
+    def _retains_message_for_retry(self, event: MessageEvent) -> bool:
+        store = getattr(self, '_intake', None)
+        return store is not None and store.state(event.message_id) == 'pending'
+
     async def _notify_turn_error(self, event: MessageEvent, e: BaseException) -> Optional[dict]:
         # The durable journal still owns this attempt: the batch will retry it. Reporting
         # a failed turn here would be false (and produce one notice per event per retry).
-        store = getattr(self, '_intake', None)
-        if store is not None and store.state(event.message_id) == 'pending':
+        if self._retains_message_for_retry(event):
             return None
         return await super()._notify_turn_error(event, e)
 
@@ -3019,6 +3022,8 @@ class MatrixAdapter(BasePlatformAdapter):
         msg_id, room_id = event.message_id, event.source.chat_id
         if not self._reactions_enabled or not msg_id or not room_id or outcome == ProcessingOutcome.CANCELLED:
             return
+        if outcome == ProcessingOutcome.FAILURE and self._retains_message_for_retry(event):
+            return  # retry is still owed, not a terminal failure reaction
         eyes_event_id = self._pending_reactions.pop((room_id, msg_id), None)
         if eyes_event_id:
             self._schedule_reaction_redaction(room_id, eyes_event_id, "processing complete")

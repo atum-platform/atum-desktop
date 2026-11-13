@@ -128,7 +128,8 @@ async def test_error_notice_only_for_terminal_attempt(tmp_path, monkeypatch, ter
     a._is_authorized_user = MagicMock(return_value=True)
     a.send = AsyncMock(return_value=SendResult(success=True, message_id='$notice'))
     a.on_processing_start = AsyncMock()
-    a.on_processing_complete = AsyncMock()
+    a._reactions_enabled = True
+    a._send_reaction = AsyncMock(return_value='$reaction')
     e = message(a)
     async def fail(ev):
         if terminal:
@@ -149,6 +150,7 @@ async def test_error_notice_only_for_terminal_attempt(tmp_path, monkeypatch, ter
                     admission_id='committed')
         if terminal:
             a.send.assert_awaited_once()
+            a._send_reaction.assert_awaited_once_with(e.source.chat_id, e.message_id, '\u274c')
             notice = a.send.await_args.kwargs['content']
             assert notice == i18n.t('gateway.notify.turn_error')
             assert a.send.await_args.kwargs['reply_to'] == e.message_id
@@ -156,6 +158,7 @@ async def test_error_notice_only_for_terminal_attempt(tmp_path, monkeypatch, ter
             assert 'private' not in notice and 'RuntimeError' not in notice
         else:
             a.send.assert_not_awaited()
+            a._send_reaction.assert_not_awaited()
             assert a._intake.state(e.message_id) == 'pending'
     finally:
         await a.cancel_background_tasks()
