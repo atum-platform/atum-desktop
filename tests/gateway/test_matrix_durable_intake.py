@@ -70,7 +70,7 @@ async def test_restart_recovers_acceptance_before_turn_start(tmp_path):
     a._intake.accept(batch('$one'))
     client = SimpleNamespace(sync=AsyncMock(return_value=batch('$two', token='next')))
     await a._connect_initial_sync(client)
-    assert a._dispatch_sync.await_args_list[0].args[0] == batch('$one')
+    assert a._dispatch_sync.await_args_list[0].args[0] == dict(batch('$one'), _matrix_backlog=True)
     assert client.sync.await_args.kwargs['since'] == 'opaque/sync-token'
     assert a._intake.get('pending') is None
 

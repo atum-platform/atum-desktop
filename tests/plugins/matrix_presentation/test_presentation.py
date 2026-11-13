@@ -106,12 +106,17 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(targets, [self.turn.root])
         self.assertNotIn(final, targets)
 
-    async def test_ambiguous_progress_receipt_cleans_up_on_settlement_without_restart(self):
+    async def test_ambiguous_progress_receipt_waits_for_read_only_boot_lookup(self):
         self.server.lose_reply = True
         with self.assertRaises(ConnectionError):
             await self.turn.progress('Working')
         original = next(iter(self.server.effects.values()))[3]
+        before = len(self.server.requests)
         await self.turn.end()
+        self.assertEqual(len(self.server.requests), before)
+        async def resolve(room, txn):
+            return self.server.effects[txn][3]
+        await self.box.recover(self.server, resolve=resolve)
         targets = [request[3] for request in self.server.requests if request[3]]
         self.assertEqual(targets, [original])
 
