@@ -775,10 +775,10 @@ function Routines({ schedule }: { schedule: ReturnType<typeof useAgentSchedule> 
       <div className="atum-desk-subhead">{copy.routines}</div>
       {jobs.map(job => {
         const switchable = schedule.canControl && (LIVE.has(job.state) || job.state === 'paused')
-        // Only the owner's whole-agent Pause is said on the row. A routine switched off already
-        // reads off on its own switch, and a reason this build does not know says nothing.
-        const next =
-          job.state !== 'paused' ? when(job.nextRunAt) : job.pausedReason === 'owner_pause' ? copy.paused : undefined
+        const switchedOff = job.state === 'paused' && job.pausedReason === 'owner_routine_off'
+        // A switched-off routine already reads off on its own switch, so it adds nothing; every
+        // other paused row keeps the word it always had, whether its reason is known or not.
+        const next = switchedOff ? undefined : job.state === 'paused' ? copy.paused : when(job.nextRunAt)
 
         return (
           <div className="ak-row" data-agent-desk-routine={job.state} key={job.id} role="listitem">

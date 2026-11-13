@@ -812,7 +812,7 @@ describe('round 3: frame, files and controls', () => {
 describe('round 4: pause and routines', () => {
   const hermesBase = (): MatrixSnapshot => ({ ...base(), agents: [{ ...luna, runtime: 'hermes' }] })
 
-  const job = (id: string, name: string, state: 'scheduled' | 'paused', pausedReason: string | null = null) => ({
+  const job = (id: string, name: string, state: 'scheduled' | 'paused', pausedReason?: string | null) => ({
     id,
     name,
     kind: 'cron',
@@ -825,7 +825,8 @@ describe('round 4: pause and routines', () => {
     expr: '0 8 * * *',
     minutes: null,
     runAt: null,
-    pausedReason
+    // Absent when not given: an older G14 sends no reason at all.
+    ...(pausedReason === undefined ? {} : { pausedReason })
   })
 
   function bridge(jobs: ReturnType<typeof job>[] | undefined, control: (request: unknown) => Promise<unknown>) {
@@ -976,12 +977,28 @@ describe('round 4: pause and routines', () => {
     }
   })
 
-  it('adds no word to a routine switched off one by one, or to a reason this build does not know', async () => {
+  it('adds no word to a routine switched off one by one, because its own switch says it', async () => {
+    bridge(
+      [job('sweep', 'Follow-up sweep', 'paused', 'owner_routine_off')],
+      async () => ({ action: 'pause', changed: 1 })
+    )
+
+    render(panel(hermesBase()))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    await waitFor(() => pauseSwitch())
+    await openMore(controls)
+
+    const row = await routineRow(controls, 'Follow-up sweep')
+    expect(within(row).getByRole('switch', { name: 'Follow-up sweep' }).getAttribute('aria-checked')).toBe('false')
+    expect(row.textContent).toBe('Follow-up sweep')
+  })
+
+  it('keeps today’s Paused word when the reason is absent, null, or one this build does not know', async () => {
     bridge(
       [
-        job('sweep', 'Follow-up sweep', 'paused', 'owner_routine_off'),
-        job('digest', 'Daily digest', 'paused', 'Paused by our team while we check the source.'),
-        job('note', 'Weekly note', 'paused')
+        job('note', 'Weekly note', 'paused'),
+        job('quiet', 'Quiet hours', 'paused', null),
+        job('digest', 'Daily digest', 'paused', 'Paused by our team while we check the source.')
       ],
       async () => ({ action: 'pause', changed: 1 })
     )
@@ -991,11 +1008,10 @@ describe('round 4: pause and routines', () => {
     await waitFor(() => pauseSwitch())
     await openMore(controls)
 
-    for (const name of ['Follow-up sweep', 'Daily digest', 'Weekly note']) {
+    for (const name of ['Weekly note', 'Quiet hours', 'Daily digest']) {
       const row = await routineRow(controls, name)
-      // Its own switch already reads off, so the row says nothing more.
-      expect(within(row).getByRole('switch', { name }).getAttribute('aria-checked')).toBe('false')
-      expect(row.textContent).toBe(name)
+      // Safe to land before the platform sends a reason at all.
+      expect(within(row).getByText(en.paused)).toBeTruthy()
     }
   })
 
