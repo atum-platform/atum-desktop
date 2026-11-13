@@ -327,7 +327,7 @@ describe('the agent tab', () => {
       ['Opened Shopee', true],
       ['Filling the form', false]
     ])
-    expect(within(desk).queryByRole('button', { name: en.stepsDone(1, 2) })).toBeNull()
+    expect(desk.querySelector('[data-agent-desk-steps] button')).toBeNull()
     // The cloud queues a new message behind the turn: said in a tooltip, not a sentence on the panel.
     expect(within(desk).queryByText(en.queueHint)).toBeNull()
     expect(desk.querySelector('[data-agent-desk-hint="queue"]')?.getAttribute('title')).toBe(en.queueHint)

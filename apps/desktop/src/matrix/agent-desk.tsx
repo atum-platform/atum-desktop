@@ -93,12 +93,13 @@ function useMinuteClock(on: boolean): number {
 function Clamped({
   as: Tag = 'p',
   className,
-  live,
+  line,
   text
 }: {
   as?: 'p' | 'span'
   className: string
-  live?: boolean
+  /** Marks the native progress line (the turn's own words). */
+  line?: boolean
   text: string
 }) {
   const { locale } = useI18n()
@@ -133,7 +134,7 @@ function Clamped({
       <Tag
         className={className}
         data-agent-desk-clamp={open ? 'open' : 'closed'}
-        data-agent-desk-live={live || undefined}
+        data-agent-desk-line={line || undefined}
         ref={ref as never}
       >
         {text}
@@ -147,39 +148,28 @@ function Clamped({
   )
 }
 
-/** The folded steps: one quiet line ("2 of 3 done") that opens to the whole list. */
+/**
+ * The native todo checklist exactly as Hermes sent it (presentation plugin `post_tool_call`):
+ * every item in order, ✓ done or • still to do, the chat's own step card. Only long items clamp.
+ */
 function Steps({ steps }: { steps: readonly MatrixProgressStep[] }) {
-  const { locale } = useI18n()
-  const copy = matrixAgentDeskText(locale)
-  const [open, setOpen] = useState(false)
-
-  if (steps.length < 2) {
+  if (!steps.length) {
     return null
   }
 
-  const done = steps.filter(step => step.done).length
-
   return (
-    <div className="atum-desk-steps-fold">
-      <button aria-expanded={open} className="atum-desk-fold" onClick={() => setOpen(value => !value)} type="button">
-        <CaretIcon aria-hidden className="ak-icon ak-icon--sm atum-desk-caret" data-open={open || undefined} />
-        <span>{copy.stepsDone(done, steps.length)}</span>
-      </button>
-      {open && (
-        <ul className="atum-desk-steps" data-agent-desk-steps>
-          {steps.map((step, index) => (
-            <li className="atum-desk-step" data-done={step.done || undefined} key={`${step.text}:${index}`}>
-              {step.done ? (
-                <CheckIcon aria-hidden className="ak-icon ak-icon--sm" />
-              ) : (
-                <span aria-hidden className="atum-desk-step-todo" />
-              )}
-              <Clamped as="span" className="atum-desk-step-text" text={step.text} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    <ul className="atum-desk-steps" data-agent-desk-steps>
+      {steps.map((step, index) => (
+        <li className="atum-desk-step" data-done={step.done || undefined} key={`${step.text}:${index}`}>
+          {step.done ? (
+            <CheckIcon aria-hidden className="ak-icon ak-icon--sm" />
+          ) : (
+            <span aria-hidden className="atum-desk-step-todo" />
+          )}
+          <Clamped as="span" className="atum-desk-step-text" text={step.text} />
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -248,8 +238,8 @@ function StopButton({ label, stop }: { label: string; stop: MatrixAgentDeskStop 
 }
 
 /**
- * Now: one focus per state. Working → the live step and Stop; Waiting → the question and its
- * action; idle → nothing at all. The head is a quiet caption; how a message steers or waits is a
+ * Now, only while it works or waits: the native progress notice as Hermes sent it (its line,
+ * its checklist) and Stop; the question and its action; idle → nothing at all. The head is a quiet caption; how a message steers or waits is a
  * tooltip on it, never a sentence on the panel.
  */
 function NowBlock({
@@ -293,7 +283,7 @@ function NowBlock({
           </section>
         ) : (
           <>
-            {now.line && <Clamped className="atum-desk-focus" live text={now.line} />}
+            {now.line && <Clamped className="atum-desk-focus" line text={now.line} />}
             <StopButton label={copy.stop} stop={stop} />
           </>
         )}
@@ -310,8 +300,6 @@ function NowBlock({
         ? copy.routine
         : copy.working
 
-  // The live step: the first one not done yet; else what it says it is doing.
-  const live = now.steps.find(step => !step.done)?.text ?? now.line
 
   return (
     <div className="atum-desk-now" data-agent-desk-now={now.state}>
@@ -325,9 +313,9 @@ function NowBlock({
           {withTime(head)}
         </span>
       </div>
-      {live && <Clamped className="atum-desk-focus" live text={live} />}
-      <StopButton label={copy.stop} stop={stop} />
+      {now.line && <Clamped className="atum-desk-focus" line text={now.line} />}
       <Steps steps={now.steps} />
+      <StopButton label={copy.stop} stop={stop} />
     </div>
   )
 }

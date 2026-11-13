@@ -38,8 +38,6 @@ export interface MatrixAgentDeskCopy {
   save: (name: string) => string
   /** The visible word on that button. */
   saveShort: string
-  /** The folded steps: "2 of 3 done". */
-  stepsDone: (done: number, total: number) => string
   /** Opens clamped agent text in place, and folds it again. */
   more: string
   less: string
@@ -93,7 +91,6 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'Gửi trong trò chuyện này',
     save: name => `Lưu ${name}`,
     saveShort: 'Lưu',
-    stepsDone: (done, total) => `Xong ${done}/${total}`,
     more: 'Xem thêm',
     less: 'Thu gọn',
     onItsComputer: 'Trên máy của nó',
@@ -131,7 +128,6 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'Sent in this chat',
     save: name => `Save ${name}`,
     saveShort: 'Save',
-    stepsDone: (done, total) => `${done} of ${total} done`,
     more: 'Show more',
     less: 'Show less',
     onItsComputer: 'On its computer',
@@ -169,7 +165,6 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: 'このチャットで送信',
     save: name => `${name}を保存`,
     saveShort: '保存',
-    stepsDone: (done, total) => `${total}件中${done}件完了`,
     more: '続きを表示',
     less: '閉じる',
     onItsComputer: 'エージェントのコンピュータ',
@@ -207,7 +202,6 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: '在此聊天中发送',
     save: name => `保存 ${name}`,
     saveShort: '保存',
-    stepsDone: (done, total) => `已完成 ${done}/${total}`,
     more: '更多',
     less: '收起',
     onItsComputer: '在它的电脑上',
@@ -245,7 +239,6 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     sentHere: '在此聊天中傳送',
     save: name => `儲存 ${name}`,
     saveShort: '儲存',
-    stepsDone: (done, total) => `已完成 ${done}/${total}`,
     more: '更多',
     less: '收起',
     onItsComputer: '在它的電腦上',
