@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+pytestmark = pytest.mark.platforms('posix')  # existing private control peer credentials are POSIX-only
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize('claimed', [False, True])
