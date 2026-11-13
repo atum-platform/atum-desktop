@@ -604,7 +604,8 @@ def test_legacy_resume_scans_unfinished_calls_without_last_user_fallback():
     assert recovery_tool_block(policy, 'send_message', {})
 
 
-def test_recovery_metadata_must_match_running_source():
+@pytest.mark.parametrize('inbound_id', ['$new', None])
+def test_recovery_metadata_must_match_running_source(inbound_id):
     from gateway.run_turn_runner import TurnRunner
     history = [{'role': 'user', 'content': 'old', 'platform_message_id': '$old'}, call('unsafe', 'send_message')]
     entry = SimpleNamespace(resume_pending=True, resume_reason='restart_interrupted', last_resume_marked_at=None)
@@ -613,6 +614,6 @@ def test_recovery_metadata_must_match_running_source():
         _delivery_adapter_for=lambda source: SimpleNamespace(tool_aware_resume=True))
     turn._ctx = SimpleNamespace(source=None, session_key='key', history=history,
         message='new request', persist_user_message=None, persist_user_timestamp=None,
-        inbound_message_id='$new', persist_user_display_metadata={'crash_resume_source_id': '$old'})
+        inbound_message_id=inbound_id, persist_user_display_metadata={'crash_resume_source_id': '$old'})
     turn._prepare_turn_message(history)
     assert turn._resume_policy is None

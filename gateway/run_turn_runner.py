@@ -900,7 +900,8 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         recovery_source = (getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_source_id')
         tool_aware = getattr(adapter, 'tool_aware_resume', False)
         recovering_admission = recovery_source is not None and str(recovery_source) == str(ctx.inbound_message_id)
-        if resume_pending and tool_aware and (recovering_admission or not ctx.inbound_message_id):
+        legacy_resume = recovery_source is None and not ctx.inbound_message_id
+        if resume_pending and tool_aware and (recovering_admission or legacy_resume):
             from gateway.resume_policy import choose_resume_policy
             # Read before live-replay repair synthesizes results for dangling tool calls.
             raw_history = ctx.history
