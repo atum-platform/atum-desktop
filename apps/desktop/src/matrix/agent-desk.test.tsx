@@ -291,14 +291,14 @@ describe('the agent tab', () => {
     expect(screen.queryByRole('region', { name: en.desk('Luna') })).toBeNull()
   })
 
-  it('shows Free and nothing else when the agent has no files, devices or memory to show', async () => {
+  it('shows Free with no Stop, no devices and no sent files when there are none', async () => {
     render(panel(base()))
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(desk.querySelector('[data-agent-desk-now="free"]')?.textContent).toBe(en.free)
     await act(async () => {})
     expect(within(desk).queryByText(en.devices)).toBeNull()
-    expect(within(desk).queryByText(en.files)).toBeNull()
-    expect(desk.querySelector('[data-agent-desk-memory]')).toBeNull()
+    expect(within(desk).queryByText(en.sentHere)).toBeNull()
+    expect(desk.querySelector('[data-agent-desk-file]')).toBeNull()
     expect(within(desk).queryByRole('button', { name: en.stop })).toBeNull()
   })
 
@@ -525,7 +525,7 @@ describe('the agent tab on native Hermes in the cloud', () => {
     render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron' })] }))
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
-    expect(within(desk).getByRole('status').textContent).toBe(en.routine)
+    expect(within(desk).getByRole('status').textContent?.startsWith(en.routine)).toBe(true)
 
     await act(async () => {
       fireEvent.click(within(desk).getByRole('button', { name: en.stop }))

@@ -1,12 +1,13 @@
 import type { MatrixMessage, MatrixSnapshot } from '../../../shared/matrix'
 
 /**
- * The agent's desk (the side panel's agent tab, plan P1) on fixture data: `?desk=free|working|
- * waiting|device` dresses the open assistant chat in that moment of Now. The assistant answers in
- * the cloud, so Stop names its question; nothing reaches a network. Pair with `?macs=three` for
- * Your devices.
+ * The agent's desk (the side panel's agent tab, plan r2) on fixture data: `?desk=free|working|
+ * waiting|ok|routine|device` dresses the open assistant chat in that moment of Now. The assistant
+ * is native Hermes in the cloud (`runtime: 'hermes'`), and every line is what its Matrix
+ * presentation plugin sends: a native todo list, "Waiting for your OK…", a cron turn. Stop
+ * answers from the fixture; nothing reaches a network. Pair with `?macs=three` for Your devices.
  */
-export const PLAYGROUND_DESK_MODES = ['free', 'working', 'waiting', 'device'] as const
+export const PLAYGROUND_DESK_MODES = ['free', 'working', 'waiting', 'ok', 'routine', 'device'] as const
 export type PlaygroundDeskMode = (typeof PLAYGROUND_DESK_MODES)[number]
 
 export function playgroundDeskMode(params: URLSearchParams): PlaygroundDeskMode | undefined {
@@ -18,7 +19,6 @@ export function playgroundDeskMode(params: URLSearchParams): PlaygroundDeskMode 
 const WORDS = {
   en: {
     ask: 'Order 40 boxes from the usual supplier on Shopee.',
-    doing: 'Ordering 40 boxes on Shopee',
     steps: ['Opened Shopee, already signed in', 'Found your usual supplier', 'Filling the order form'],
     bank: 'Get last month’s invoice from my bank. It only works on my Mac.',
     macDoing: 'Getting October’s invoice from your bank',
@@ -28,10 +28,13 @@ const WORDS = {
     choices: ['Send', 'Not now'],
     plan: 'Is the Q4 plan done?',
     done: 'Done, split by month. I also moved the launch dates to December.',
+    files: ['Q4 plan.docx', 'Quote Q4.xlsx'],
+    clean: 'Clear out my Downloads folder on the Mac.',
+    okLine: 'Waiting for your OK…',
+    routineLine: 'Looking it up on the web…',
   },
   vi: {
     ask: 'Đặt 40 thùng carton ở nhà cung cấp quen trên Shopee nhé.',
-    doing: 'Đặt 40 thùng carton trên Shopee',
     steps: ['Mở Shopee, đã đăng nhập sẵn', 'Tìm thấy nhà cung cấp quen', 'Điền đơn đặt hàng'],
     bank: 'Lấy hoá đơn tháng trước từ ngân hàng giúp mình. Chỉ vào được trên máy Mac.',
     macDoing: 'Lấy hoá đơn tháng 10 từ ngân hàng',
@@ -41,6 +44,10 @@ const WORDS = {
     choices: ['Gửi', 'Để sau'],
     plan: 'Kế hoạch Q4 xong chưa?',
     done: 'Xong rồi, chia theo từng tháng. Mình dời ngày ra mắt sang tháng 12 luôn.',
+    files: ['Kế hoạch Q4.docx', 'Báo giá Q4.xlsx'],
+    clean: 'Dọn thư mục Downloads trên máy Mac giúp mình.',
+    okLine: 'Đang chờ bạn đồng ý…',
+    routineLine: 'Đang tra cứu trên web…',
   }
 } as const
 
@@ -66,16 +73,22 @@ function line(
   }
 }
 
-function progress(sender: string, body: string, kind: 'todo' | 'device', device?: string): MatrixMessage {
-  return line('$desk-line', sender, body, Date.now() - 30_000, {
+function progress(
+  sender: string,
+  body: string,
+  kind: 'todo' | 'device',
+  extra: { device?: string; phase?: 'working' | 'waiting'; trigger?: 'cron'; minutes?: number } = {}
+): MatrixMessage {
+  return line('$desk-line', sender, body, Date.now() - (extra.minutes ?? 0.5) * 60_000, {
     notice: true,
     progress: {
       profile: 'atum.agent-turns/1.3',
       scope: 'owner_private',
-      phase: 'working',
+      phase: extra.phase ?? 'working',
       kind,
       revision: 2,
-      ...(device ? { device } : {})
+      ...(extra.device ? { device: extra.device } : {}),
+      ...(extra.trigger ? { trigger: extra.trigger } : {})
     }
   })
 }
@@ -98,16 +111,18 @@ export function withPlaygroundDesk(
   // The store decorates its own output again on every emit: replace this fixture's lines, never add twice.
   const earlier = snapshot.messages.filter(message => !message.id.startsWith('$desk-'))
   const now = Date.now()
+
   const own = (id: string, body: string, minutes: number) =>
     line(id, owner, body, now - minutes * 60_000, { own: true })
 
-  const steps = (current: string, list: readonly string[]) =>
-    [current, ...list.map((step, index) => (index === list.length - 1 ? `• ${step}` : `✓ ${step}`))].join('\n')
+  // The native presentation plugin's todo list: every line marked, ✓ done and • still to do.
+  const todo = (list: readonly string[]) =>
+    list.map((step, index) => (index === list.length - 1 ? `• ${step}` : `✓ ${step}`)).join('\n')
 
   const base: MatrixSnapshot = {
     ...snapshot,
     agents: snapshot.agents?.map(each =>
-      each.principal === agent.principal ? { ...each, answering: 'cloud' as const } : each
+      each.principal === agent.principal ? { ...each, answering: 'cloud' as const, runtime: 'hermes' as const } : each
     )
   }
 
@@ -120,7 +135,13 @@ export function withPlaygroundDesk(
         messages: [
           ...earlier,
           ask,
-          line('$desk-plan-answer', agent.userId, words.done, now - 28 * 60_000, { replyTo: ask.id })
+          line('$desk-plan-answer', agent.userId, words.done, now - 28 * 60_000, { replyTo: ask.id }),
+          ...words.files.map((name, index) =>
+            line(`$desk-file-${index}`, agent.userId, name, now - (27 - index) * 60_000, {
+              attachment: true,
+              attachmentSize: [48_200, 21_700][index]
+            })
+          )
         ]
       }
     }
@@ -132,8 +153,25 @@ export function withPlaygroundDesk(
         messages: [
           ...earlier,
           own('$desk-ask', words.ask, 4),
-          progress(agent.userId, steps(words.doing, words.steps), 'todo')
+          progress(agent.userId, todo(words.steps), 'todo')
         ]
+      }
+
+    case 'ok':
+      return {
+        ...base,
+        typing: [agent.userId],
+        messages: [
+          ...earlier,
+          own('$desk-clean', words.clean, 3),
+          progress(agent.userId, words.okLine, 'device', { phase: 'waiting' })
+        ]
+      }
+
+    case 'routine':
+      return {
+        ...base,
+        messages: [...earlier, progress(agent.userId, words.routineLine, 'todo', { trigger: 'cron', minutes: 2 })]
       }
 
     case 'waiting':
@@ -164,7 +202,7 @@ export function withPlaygroundDesk(
         messages: [
           ...earlier,
           own('$desk-bank', words.bank, 2),
-          progress(agent.userId, steps(words.macDoing, words.macSteps), 'device', 'MacBook Air')
+          progress(agent.userId, `${words.macDoing}\n${todo(words.macSteps)}`, 'device', { device: 'MacBook Air' })
         ]
       }
   }

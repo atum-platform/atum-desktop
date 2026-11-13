@@ -31,6 +31,22 @@ export interface MatrixAgentDeskCopy {
   openDrive: string
   /** The composer while the agent works and a message steers it. */
   composerSteer: (name: string) => string
+  /** Now's head while a native cron turn runs (its marker says `trigger: 'cron'`). */
+  routine: string
+  /** Files › the files the agent sent in this chat (Matrix file events). */
+  sentHere: string
+  /** A sent file's Save button, for screen readers: "Save Q4 plan.docx". */
+  save: (name: string) => string
+  /** The visible word on that button. */
+  saveShort: string
+  upNext: string
+  /** Up next's one row until the cloud computer's schedule can be read. */
+  schedules: string
+  /** Files › the agent's own home on its cloud computer. */
+  onItsComputer: string
+  memory: string
+  /** The quiet end of a row whose data the cloud computer cannot share yet: no data, no action. */
+  notYet: string
 }
 
 export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
@@ -50,7 +66,16 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     usingNow: 'Đang dùng',
     files: 'Tệp',
     openDrive: 'Mở trong Drive',
-    composerSteer: name => `Bảo ${name} đổi gì…`
+    composerSteer: name => `Bảo ${name} đổi gì…`,
+    routine: 'Đang chạy việc định kỳ',
+    sentHere: 'Gửi trong trò chuyện này',
+    save: name => `Lưu ${name}`,
+    saveShort: 'Lưu',
+    upNext: 'Sắp tới',
+    schedules: 'Việc định kỳ và nhắc hẹn',
+    onItsComputer: 'Trên máy của nó',
+    memory: 'Trí nhớ',
+    notYet: 'Chưa xem được'
   },
   en: {
     desk: name => `${name}’s desk`,
@@ -68,7 +93,16 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     usingNow: 'Using it now',
     files: 'Files',
     openDrive: 'Open in Drive',
-    composerSteer: name => `Tell ${name} what to change…`
+    composerSteer: name => `Tell ${name} what to change…`,
+    routine: 'Running a routine',
+    sentHere: 'Sent in this chat',
+    save: name => `Save ${name}`,
+    saveShort: 'Save',
+    upNext: 'Up next',
+    schedules: 'Routines and reminders',
+    onItsComputer: 'On its computer',
+    memory: 'Memory',
+    notYet: 'Not available yet'
   },
   ja: {
     desk: name => `${name}のデスク`,
@@ -86,7 +120,16 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     usingNow: '使用中',
     files: 'ファイル',
     openDrive: 'Driveで開く',
-    composerSteer: name => `${name}に変えてほしいことを伝える…`
+    composerSteer: name => `${name}に変えてほしいことを伝える…`,
+    routine: '定期タスクを実行中',
+    sentHere: 'このチャットで送信',
+    save: name => `${name}を保存`,
+    saveShort: '保存',
+    upNext: '次の予定',
+    schedules: '定期タスクとリマインダー',
+    onItsComputer: 'エージェントのコンピュータ',
+    memory: 'メモリ',
+    notYet: 'まだ表示できません'
   },
   zh: {
     desk: name => `${name} 的工作台`,
@@ -104,7 +147,16 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     usingNow: '正在使用',
     files: '文件',
     openDrive: '在 Drive 中打开',
-    composerSteer: name => `告诉 ${name} 要改什么…`
+    composerSteer: name => `告诉 ${name} 要改什么…`,
+    routine: '正在执行例行任务',
+    sentHere: '在此聊天中发送',
+    save: name => `保存 ${name}`,
+    saveShort: '保存',
+    upNext: '接下来',
+    schedules: '例行任务和提醒',
+    onItsComputer: '在它的电脑上',
+    memory: '记忆',
+    notYet: '暂时无法查看'
   },
   'zh-hant': {
     desk: name => `${name} 的工作台`,
@@ -122,7 +174,16 @@ export const matrixAgentDeskCopy: Record<DesktopLocale, MatrixAgentDeskCopy> = {
     usingNow: '正在使用',
     files: '檔案',
     openDrive: '在 Drive 中開啟',
-    composerSteer: name => `告訴 ${name} 要改什麼…`
+    composerSteer: name => `告訴 ${name} 要改什麼…`,
+    routine: '正在執行例行任務',
+    sentHere: '在此聊天中傳送',
+    save: name => `儲存 ${name}`,
+    saveShort: '儲存',
+    upNext: '接下來',
+    schedules: '例行任務和提醒',
+    onItsComputer: '在它的電腦上',
+    memory: '記憶',
+    notYet: '暫時無法查看'
   }
 }
 

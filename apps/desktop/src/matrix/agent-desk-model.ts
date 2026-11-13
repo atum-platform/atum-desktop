@@ -44,7 +44,13 @@ export interface MatrixProgressStep {
   text: string
 }
 
-/** A working line's words: its first line is what it is doing, the rest its steps (✓ done). */
+const STEP_MARK = /^[✓✔•◦]/u
+
+/**
+ * A working line's words: its first line is what it is doing, the rest its steps (✓ done). A
+ * native Hermes todo list (the presentation plugin's `post_tool_call` hook) has only marked
+ * lines: then every line is a step and there is no headline.
+ */
 export function matrixProgressLineParts(body: string | undefined): { current?: string; steps: MatrixProgressStep[] } {
   const lines =
     body
@@ -52,17 +58,26 @@ export function matrixProgressLineParts(body: string | undefined): { current?: s
       .map(value => value.trim())
       .filter(Boolean) ?? []
 
+  const headed = lines[0] !== undefined && !STEP_MARK.test(lines[0])
+
   return {
-    ...(lines[0] ? { current: lines[0] } : {}),
-    steps: lines.slice(1).map(value => ({ done: /^[✓✔]/u.test(value), text: value.replace(/^[✓✔•◦]\s*/u, '') }))
+    ...(headed ? { current: lines[0] } : {}),
+    steps: lines
+      .slice(headed ? 1 : 0)
+      .map(value => ({ done: /^[✓✔]/u.test(value), text: value.replace(/^[✓✔•◦]\s*/u, '') }))
   }
 }
 
 export type MatrixAgentDeskNow =
   | { state: 'free' }
-  | { state: 'working'; since?: number; line?: string; steps: MatrixProgressStep[] }
-  /** The ask is the chat's own (one object): answering either clears both. */
-  | { state: 'waiting'; since?: number; prompts: readonly MatrixHermesPrompt[] }
+  /** `scheduled`: a native cron turn (its progress marker says `trigger: 'cron'`), a routine. */
+  | { state: 'working'; since?: number; line?: string; steps: MatrixProgressStep[]; scheduled?: true }
+  /**
+   * The ask is the chat's own (one object): answering either clears both. With no prompts it is
+   * the native turn's own wait (its progress marker in phase `waiting`, e.g. "Waiting for your
+   * OK…" while Touch ID or an approval is pending), told in its `line`.
+   */
+  | { state: 'waiting'; since?: number; line?: string; prompts: readonly MatrixHermesPrompt[] }
   /** Reach-down: it is using one of the owner's devices. `device` absent means this Mac, unnamed. */
   | { state: 'device'; device?: string; since?: number; line?: string; steps: MatrixProgressStep[] }
 
@@ -130,6 +145,17 @@ export function matrixAgentDeskNow(input: MatrixAgentDeskNowInput): MatrixAgentD
   // A heartbeat only says how long it has been: the head already does.
   const parts = matrixProgressLineParts(line?.progress?.kind === 'heartbeat' ? undefined : line?.body)
   const words = { ...(parts.current ? { line: parts.current } : {}), steps: parts.steps }
+
+  // The native turn is waiting on the owner (presentation `pre_approval_request`): its own words.
+  if (line?.progress?.phase === 'waiting') {
+    return {
+      state: 'waiting',
+      ...(since !== undefined ? { since } : {}),
+      ...(parts.current ? { line: parts.current } : {}),
+      prompts: []
+    }
+  }
+
   const onDevice = line?.progress && (line.progress.kind === 'device' || line.progress.kind === 'touch_id')
 
   if (onDevice || (working && input.terminalOpen)) {
@@ -142,10 +168,60 @@ export function matrixAgentDeskNow(input: MatrixAgentDeskNowInput): MatrixAgentD
   }
 
   if (working) {
-    return { state: 'working', ...(since !== undefined ? { since } : {}), ...words }
+    const scheduled = line?.progress && 'trigger' in line.progress && line.progress.trigger === 'cron'
+
+    return {
+      state: 'working',
+      ...(since !== undefined ? { since } : {}),
+      ...words,
+      ...(scheduled ? { scheduled: true as const } : {})
+    }
   }
 
   return { state: 'free' }
+}
+
+/**
+ * A message typed now changes what it is doing: a Mac-run agent's own run, or a native Hermes
+ * agent in the cloud, whose gateway handles a message that arrives during a turn with
+ * `busy_input_mode` (default `interrupt`, gateway/run.py). The old cloud path queued it instead.
+ */
+export function matrixAgentDeskSteers(input: { runtime?: MatrixAgentView['runtime']; running: boolean }): boolean {
+  return input.running || input.runtime === 'hermes'
+}
+
+/** How many files the desk's Files section shows at rest. */
+export const MATRIX_AGENT_DESK_FILES_MAX = 4
+
+/**
+ * The files the agent itself sent in this chat (native Hermes sends a file as a Matrix file
+ * event), newest first. Only the agent's own, readable, live events: never the owner's, never a
+ * stranger's, never a redacted or undecryptable one.
+ */
+export function matrixAgentDeskSentFiles(messages: readonly MatrixMessage[], agentId: string | undefined): MatrixMessage[] {
+  if (!agentId) {
+    return []
+  }
+
+  const files: MatrixMessage[] = []
+
+  for (let index = messages.length - 1; index >= 0 && files.length < MATRIX_AGENT_DESK_FILES_MAX; index--) {
+    const message = messages[index]!
+
+    if (
+      message.attachment &&
+      message.sender === agentId &&
+      !message.own &&
+      !message.redacted &&
+      !message.decryptionFailed &&
+      !message.pending &&
+      !message.failed
+    ) {
+      files.push(message)
+    }
+  }
+
+  return files
 }
 
 /** Whole minutes since `since`, or nothing under one (the head then says only the state). */

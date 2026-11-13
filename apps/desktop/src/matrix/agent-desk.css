@@ -127,24 +127,20 @@
   white-space: nowrap;
 }
 
-.atum-desk-files {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--ak-s2);
-  padding: var(--ak-s1) 6px;
+/* "Sent in this chat": a quiet caption over the files the agent sent here. */
+.atum-desk-subhead {
+  padding: 6px 10px 2px;
+  font: var(--ak-t-caption);
+  color: var(--ak-ink-3);
 }
 
-.atum-desk-files > .ak-file {
-  max-width: none;
+/* A row whose data stays on the agent's cloud computer for now: present, quiet, inert. */
+.atum-desk-pending .ak-icon,
+.atum-desk .atum-desk-pending .ak-row-main > span:first-child {
+  color: var(--ak-ink-3);
 }
 
-.atum-desk-open-drive {
-  align-self: flex-start;
-  margin: var(--ak-s1) 6px 0;
-}
-
-/* Memory sits at the foot under one hairline: the same row and view the assistant card opens. */
+/* Memory sits at the foot under one hairline. */
 .atum-desk-memory {
   margin-top: var(--ak-s3);
   border-top: 1px solid var(--ak-line);

@@ -7,7 +7,7 @@ import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 import { phosphorIcon } from '@/lib/phosphor-icon'
 
-import type { MatrixAgentView, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
+import type { MatrixAgentView, MatrixMessage, MatrixRoom, MatrixSnapshot } from '../../shared/matrix'
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
 import type { MatrixDeviceBridge } from '../../shared/matrix-device'
@@ -18,16 +18,23 @@ import {
   matrixAgentDeskMinutes,
   type MatrixAgentDeskNow,
   matrixAgentDeskNow,
+  matrixAgentDeskSentFiles,
+  matrixAgentDeskSteers,
   type MatrixProgressStep
 } from './agent-desk-model'
+import { formatDriveSize } from './drive'
 import { HermesPrompt } from './hermes-prompts'
 import { matrixMacRowLine, MatrixMacState, useMatrixReachMacs } from './mac-reach-rows'
 import { MatrixPersonAvatar } from './member-avatar'
 import { matrixRosterAgentName } from './roster-model'
 import type { MatrixCloudStop } from './use-cloud-stop'
 
+const BrainIcon = phosphorIcon('brain')
+const CalendarIcon = phosphorIcon('calendar-blank')
 const CheckIcon = phosphorIcon('check')
 const DesktopIcon = phosphorIcon('desktop')
+const FileIcon = phosphorIcon('file')
+const HardDrivesIcon = phosphorIcon('hard-drives')
 const StopIcon = phosphorIcon('stop')
 
 /** The agent's face at the size a tab chip or the ask's mark wants. */
@@ -97,10 +104,11 @@ export interface MatrixAgentDeskStop {
 }
 
 /**
- * Stop for the desk, on the existing paths only: the cloud turn's stop (`stopTurn`, the same
- * hook the composer's button uses), a Mac-run agent's own cancel, and, while it is using this
- * Mac, the device host's Stop (Settings › Device) when that host says it is in use. Nothing is
- * decided here; each path's owner refuses what it will not do.
+ * Stop for the desk, on the existing paths only: the composer's own cloud Stop (one hook: the
+ * Shell host Stop route for a Hermes-runtime agent's owner turn, native `/stop` for its
+ * scheduled turn, `stopTurn` on the old cloud path), a Mac-run agent's own cancel, and, while it
+ * is using this Mac, the device host's Stop (Settings › Device) when that host says it is in use.
+ * Nothing is decided here; each path's owner refuses what it will not do.
  */
 export function matrixAgentDeskStop({
   cloud,
@@ -113,13 +121,13 @@ export function matrixAgentDeskStop({
   roomId: string
   running: boolean
 }): MatrixAgentDeskStop {
-  const available = Boolean(cloud.target) || running
+  const available = cloud.shown || running
 
   return {
     available,
-    disabled: Boolean(cloud.target) && (cloud.stopping || cloud.requested),
+    disabled: cloud.shown && !cloud.ready,
     stop: () => {
-      if (cloud.target) {
+      if (cloud.shown) {
         cloud.stop()
       } else if (running) {
         void window.atumMatrix.cancelHermes(roomId).catch(() => undefined)
@@ -135,6 +143,21 @@ export function matrixAgentDeskStop({
       }
     }
   }
+}
+
+function StopButton({ label, stop }: { label: string; stop: MatrixAgentDeskStop }) {
+  if (!stop.available) {
+    return null
+  }
+
+  return (
+    <div className="atum-desk-now-actions">
+      <button className="ak-btn ak-btn--sm" data-agent-desk-stop disabled={stop.disabled} onClick={stop.stop} type="button">
+        <StopIcon aria-hidden className="ak-icon ak-icon--sm" />
+        {label}
+      </button>
+    </div>
+  )
 }
 
 function NowBlock({
@@ -167,6 +190,22 @@ function NowBlock({
     )
   }
 
+  if (now.state === 'waiting' && !now.prompts.length) {
+    // The native turn's own wait (e.g. Touch ID or an approval on a Mac): its words, and Stop.
+    return (
+      <div className="atum-desk-now" data-agent-desk-now="waiting">
+        <div className="atum-desk-now-head">
+          <span aria-hidden className="ak-dot atum-desk-dot" />
+          <span className="atum-desk-now-state" role="status">
+            {withTime(copy.waiting)}
+          </span>
+        </div>
+        {now.line && <p className="atum-desk-now-line">{now.line}</p>}
+        <StopButton label={copy.stop} stop={stop} />
+      </div>
+    )
+  }
+
   if (now.state === 'waiting') {
     return (
       <div className="atum-desk-now" data-agent-desk-now="waiting">
@@ -190,7 +229,14 @@ function NowBlock({
     )
   }
 
-  const head = now.state === 'device' ? (now.device ? copy.onDevice(now.device) : copy.onThisMac) : copy.working
+  const head =
+    now.state === 'device'
+      ? now.device
+        ? copy.onDevice(now.device)
+        : copy.onThisMac
+      : now.scheduled
+        ? copy.routine
+        : copy.working
 
   return (
     <div className="atum-desk-now" data-agent-desk-now={now.state}>
@@ -202,20 +248,7 @@ function NowBlock({
       </div>
       {now.line && <p className="atum-desk-now-line">{now.line}</p>}
       <Steps steps={now.steps} />
-      {stop.available && (
-        <div className="atum-desk-now-actions">
-          <button
-            className="ak-btn ak-btn--sm"
-            data-agent-desk-stop
-            disabled={stop.disabled}
-            onClick={stop.stop}
-            type="button"
-          >
-            <StopIcon aria-hidden className="ak-icon ak-icon--sm" />
-            {copy.stop}
-          </button>
-        </div>
-      )}
+      <StopButton label={copy.stop} stop={stop} />
       <p className="atum-desk-hint" data-agent-desk-hint={steers ? 'steer' : 'queue'}>
         {steers ? copy.steerHint : copy.queueHint}
       </p>
@@ -319,9 +352,71 @@ function DeviceRow({
 }
 
 /**
- * The agent's own tab in its 1:1 chat's side panel: Now and your devices, from what the window
- * already knows. A section with nothing to show is absent. No
- * money, no settings, no second chat: steering is the composer.
+ * A row whose data lives on the agent's cloud computer and has no read route yet (plan r2 §3:
+ * "needs a host read API"). It says so, quietly: no data, no action, never a guess.
+ */
+function PendingRow({
+  icon: Icon,
+  kind,
+  label,
+  notYet
+}: {
+  icon: typeof FileIcon
+  kind: 'memory' | 'schedule' | 'workspace'
+  label: string
+  notYet: string
+}) {
+  return (
+    <div aria-disabled className="ak-row atum-desk-pending" data-agent-desk-pending={kind} role="listitem">
+      <Icon aria-hidden className="ak-icon" />
+      <div className="ak-row-main">
+        <span className="truncate">{label}</span>
+      </div>
+      <span className="atum-desk-row-end">{notYet}</span>
+    </div>
+  )
+}
+
+/** The files it sent in this chat (Matrix file events), newest first, each with Save. */
+function SentFileRow({
+  file,
+  locale,
+  roomId,
+  save,
+  saveShort
+}: {
+  file: MatrixMessage
+  locale: string
+  roomId: string
+  save: string
+  saveShort: string
+}) {
+  return (
+    <div className="ak-row" data-agent-desk-file={file.id} role="listitem">
+      <FileIcon aria-hidden className="ak-icon" />
+      <div className="ak-row-main">
+        <span className="truncate">{file.body}</span>
+        {file.attachmentSize !== undefined && <span className="ak-row-meta">{formatDriveSize(file.attachmentSize, locale)}</span>}
+      </div>
+      <button
+        aria-label={save}
+        className="ak-btn ak-btn--sm"
+        onClick={() => void window.atumMatrix.command({ kind: 'download', roomId, eventId: file.id }).catch(() => undefined)}
+        type="button"
+      >
+        {saveShort}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * The agent's own tab in its 1:1 chat's side panel (plan 2026-11-13, side panel r2, native
+ * Hermes in the cloud). Now reads the native turn's Matrix progress (`io.atum.progress`) and the
+ * chat's own signals; Files lists what it sent here; Your devices are the account's reach Macs.
+ * What lives on its cloud computer (its schedule, its own files, its memory) shows as a quiet
+ * empty row until the host can share it. No money, no settings, no second chat: steering is the
+ * composer.
  */
 export function MatrixAgentDesk({
   active,
@@ -361,12 +456,44 @@ export function MatrixAgentDesk({
   const stop = matrixAgentDeskStop({ cloud: cloudStop, onThisMac, roomId: room.id, running })
   // A device in use lifts the whole section under Now (in use first); at rest it sits below Files.
   const deviceInUse = devices.some(each => each.inUse)
+  const sent = matrixAgentDeskSentFiles(snapshot.messages, agent.userId)
+  const steers = matrixAgentDeskSteers({ runtime: agent.runtime, running })
 
   return (
     <div aria-label={copy.desk(name)} className="atum-desk" data-agent-desk role="region">
-      <NowBlock agent={agent} name={name} now={now} steers={running} stop={stop} />
+      <NowBlock agent={agent} name={name} now={now} steers={steers} stop={stop} />
       {deviceInUse && <DevicesSection devices={devices} stop={stop} />}
+      <section aria-label={copy.upNext} data-agent-desk-up-next>
+        <h3 className="ak-section">{copy.upNext}</h3>
+        <div className="ak-group--plain" role="list">
+          <PendingRow icon={CalendarIcon} kind="schedule" label={copy.schedules} notYet={copy.notYet} />
+        </div>
+      </section>
+      <section aria-label={copy.files} data-agent-desk-files>
+        <h3 className="ak-section">{copy.files}</h3>
+        <div className="ak-group--plain" role="list">
+          {sent.length > 0 && (
+            <div className="atum-desk-subhead" role="presentation">
+              {copy.sentHere}
+            </div>
+          )}
+          {sent.map(file => (
+            <SentFileRow
+              file={file}
+              key={file.id}
+              locale={locale}
+              roomId={room.id}
+              save={copy.save(file.body)}
+              saveShort={copy.saveShort}
+            />
+          ))}
+          <PendingRow icon={HardDrivesIcon} kind="workspace" label={copy.onItsComputer} notYet={copy.notYet} />
+        </div>
+      </section>
       {!deviceInUse && <DevicesSection devices={devices} stop={stop} />}
+      <div className="ak-group--plain atum-desk-memory" data-agent-desk-memory role="list">
+        <PendingRow icon={BrainIcon} kind="memory" label={copy.memory} notYet={copy.notYet} />
+      </div>
       {cloudStop.refused && (
         <NoticeBand className="mx-(--ak-s2) mt-(--ak-s2)" role="status" tone="notice">
           {t.cloud.stopRefused}

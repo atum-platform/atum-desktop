@@ -157,6 +157,7 @@ import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/roo
 
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
+import { matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
@@ -4117,10 +4118,13 @@ function MatrixComposer({
               onSelect={event => setMentionCursor(event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
               placeholder={
                 pausedHint ||
-                // A message sent while this agent's own run goes changes it: the box says so. A cloud
-                // turn queues the next message instead (the platform has no live steer yet), so its box
-                // keeps the plain prompt and the desk's Now says the message waits.
-                (running && room.assistant && !threadRootId
+                // A message sent while this agent works changes what it does: its own run on this Mac, or
+                // a native Hermes turn in the cloud (busy input interrupts it). The old cloud path queues
+                // the next message instead, so its box keeps the plain prompt and the desk says it waits.
+                ((running || (agentTyping && roomAgent?.runtime === 'hermes')) &&
+                room.assistant &&
+                !threadRootId &&
+                matrixAgentDeskSteers({ runtime: roomAgent?.runtime, running: Boolean(running) })
                   ? matrixAgentDeskText(locale).composerSteer(assistantName)
                   : composerPrompt)
               }
