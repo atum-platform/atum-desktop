@@ -940,6 +940,8 @@ def _pool_codex_credential() -> tuple[str, str]:
     from hermes_cli.auth import _nonempty_str, read_credential_pool
     try:
         for entry in _codex_pool_dicts(read_credential_pool("openai-codex")):
+            if entry.get("borrowed") and (entry.get("expires_at_ms", 0) / 1000 <= time.time()):
+                continue
             token = entry.get("access_token")
             # Same normaliser as ``_codex_pool_rate_limit_status``: a millisecond epoch compared
             # raw reads as far-future here and as elapsed there, hiding a usable entry (#103349).
