@@ -5,7 +5,7 @@ import { ChevronRight } from '@/lib/icons'
 
 import { AGENT_HOMES_CLOUD_ONLY } from '../../../shared/agent-home-cloud-only'
 import type {
-  MatrixAgentHomeBridge,
+  MatrixAgentModelBridge,
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
   MatrixAgentView,
@@ -249,11 +249,8 @@ export function ModelDestinationsRow({
     }
   }
 
-  const cardHome = (choice: MatrixModelDestinationView): MatrixAgentHomeBridge => ({
+  const cardHome = (choice: MatrixModelDestinationView): MatrixAgentModelBridge => ({
     read: async () => homeFor(choice),
-    preflight: async () => ({ ok: false as const, reason: 'unused' }),
-    move: async () => ({ ok: false as const, reason: 'unused' }),
-    cancel: async () => ({ ok: false }),
     model: async (_principal, choiceModel) => {
       const option = homeFor(choice).placement?.destinations[0]?.models.find(
         each =>
@@ -264,7 +261,6 @@ export function ModelDestinationsRow({
 
       return option ? choose(choice, option) : { status: 'refused' as const }
     },
-    prepare: async () => ({ ok: false as const, reason: 'unused' })
   })
 
   return (

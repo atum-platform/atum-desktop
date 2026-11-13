@@ -1,14 +1,14 @@
 /**
  * Test support only: a simulated Mac for the agent-home tests. A software P-256 identity key stands in
  * for the Secure Enclave (`SoftwareDeviceSigner`), a memory map for the device store, and the real
- * `MacExecutorAuth` and `ShellHomePlatform` talk to the in-memory platform through its `fetch`.
+ * `MacExecutorAuth` and `HistoricalFixturePlatform` talk to the in-memory platform through its `fetch`.
  */
 import { randomUUID } from 'node:crypto'
 
 import { SoftwareDeviceSigner } from '../device/device-signer.fixture'
 
 import { type ExecutorKey, MacExecutorAuth } from './executor-auth'
-import { ShellHomePlatform } from './platform-client'
+import { HistoricalFixturePlatform } from './historical-platform.fixture'
 import type { StubHomePlatform } from './stub-platform.fixture'
 
 /** One clock for the platform and every Mac in a test, so signed windows and lease terms agree. */
@@ -56,7 +56,7 @@ export interface TestMac {
   enrollment: { state: 'active' | 'revoked'; enrollmentEpoch: number; identityKid: string }
   key(): ExecutorKey | null
   auth: MacExecutorAuth
-  platform: ShellHomePlatform
+  platform: HistoricalFixturePlatform
 }
 
 export async function createTestMac(stub: StubHomePlatform, clock: FakeClock, name: string): Promise<TestMac> {
@@ -86,7 +86,7 @@ export async function createTestMac(stub: StubHomePlatform, clock: FakeClock, na
     enrollment,
     key,
     auth: new MacExecutorAuth({ key, store, now: clock.now }),
-    platform: new ShellHomePlatform({
+    platform: new HistoricalFixturePlatform({
       request: send => send(stub.token, 'https://shell.test/api/matrix/v1'),
       fetch: stub.fetch
     })

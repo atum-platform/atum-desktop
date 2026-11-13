@@ -889,6 +889,9 @@ export type MatrixAgentHomeMoveResult =
       reason: string
     }
 
+/** Model-only adapter used by native destination rows; it cannot relocate an agent. */
+export type MatrixAgentModelBridge = Pick<MatrixAgentHomeBridge, 'read' | 'model'>
+
 export interface MatrixAgentHomeBridge {
   /** Fresh owner projection plus target catalogs for the one placement/model sheet. */
   read(agentPrincipal: string): Promise<MatrixAgentHomeView | undefined>

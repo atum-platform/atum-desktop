@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 import { AGENT_HOMES_CLOUD_ONLY } from '../../shared/agent-home-cloud-only'
 import type {
-  MatrixAgentHomeBridge,
+  MatrixAgentModelBridge,
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
   MatrixRoom,
@@ -297,7 +297,7 @@ export function MatrixModelPicker({
   /** The current home and its model catalog, when the platform supports atum.agent-home/2.5. */
   home?: MatrixAgentHomeView
   /** A surface that brings its own scoped home bridge (the assistant card's destination rows). */
-  agentHome?: MatrixAgentHomeBridge
+  agentHome?: MatrixAgentModelBridge
   /** A surface that reads subscriptions for one host instead of a live room. */
   subscriptionBridge?: MatrixSubscriptionsBridge
   /** A row that opens this picker, replacing the composer's model pill. */

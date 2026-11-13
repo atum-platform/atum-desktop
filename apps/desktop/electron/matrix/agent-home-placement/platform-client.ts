@@ -22,28 +22,13 @@ import { readDomainJson } from '../domain'
 import {
   AGENT_HOME_WIRE_HEADER,
   AGENT_HOME_WIRE_VERSION,
-  type CheckpointCommitOutcome,
-  type CheckpointReserveOutcome,
-  type DrainAckOutcome,
   type ExecutorSignedMeta,
   type HomeAuthorityFence,
   type HomePlacement,
-  type HomeReadinessObservation,
-  type HomeReadinessReport,
   type HomeRefusalReason,
   isUuid,
-  type MoveAbortOutcome,
-  type MoveCommitOutcome,
-  type MoveRequestOutcome,
-  parseCheckpointCommitResult,
-  parseCheckpointReserveResult,
-  parseDrainAckResult,
-  parseMoveAbortResult,
-  parseMoveCommitResult,
-  parseMoveRequestResult,
   parsePlacement,
   parsePublicationReceipt,
-  parseReadinessObservation,
   parseRefusal,
   type PublicationEnvelope,
   type PublicationReceipt,
@@ -139,13 +124,6 @@ export interface MoveAbortInput extends MoveCasInput {
 /** What the rest of the Mac depends on: the stub platform in tests and the Shell in the app both give this. */
 export interface HomePlatform {
   readPlacement(agent: string, signal: AbortSignal): Promise<HomePlatformResult<HomePlacement>>
-  requestMove(agent: string, input: MoveRequestInput, signal: AbortSignal): Promise<HomePlatformResult<MoveRequestOutcome>>
-  commitMove(agent: string, input: MoveCasInput, signal: AbortSignal): Promise<HomePlatformResult<MoveCommitOutcome>>
-  abortMove(agent: string, input: MoveAbortInput, signal: AbortSignal): Promise<HomePlatformResult<MoveAbortOutcome>>
-  ackDrain(agent: string, body: DrainAckBody, signal: AbortSignal): Promise<HomePlatformResult<DrainAckOutcome>>
-  reserveCheckpoint(agent: string, body: CheckpointReserveBody, signal: AbortSignal): Promise<HomePlatformResult<CheckpointReserveOutcome>>
-  commitCheckpoint(agent: string, body: CheckpointCommitBody, signal: AbortSignal): Promise<HomePlatformResult<CheckpointCommitOutcome>>
-  reportReadiness(agent: string, body: HomeReadinessReport, signal: AbortSignal): Promise<HomePlatformResult<HomeReadinessObservation>>
   /**
    * Hand the platform the final Matrix event bytes to send (`matrix.publication.enqueue`). The answer is the outbox
    * row's receipt, whatever its state: a refusal is a receipt with `state: "refused"`, not a failure of the call.
@@ -167,7 +145,7 @@ export interface ShellHomePlatformOptions {
 export class ShellHomePlatform implements HomePlatform {
   constructor(private readonly options: ShellHomePlatformOptions) {}
 
-  private async call<T>(
+  protected async call<T>(
     agent: string,
     suffix: '' | '/moves' | '/drain' | '/checkpoints' | '/readiness' | '/publications',
     body: unknown | undefined,
@@ -245,36 +223,6 @@ export class ShellHomePlatform implements HomePlatform {
 
       return placement && placement.agentPrincipal === agent ? placement : null
     })
-  }
-
-  requestMove(agent: string, input: MoveRequestInput, signal: AbortSignal) {
-    return this.call(agent, '/moves', { operation: 'request', intent: 'manual', ...input }, signal, value =>
-      parseMoveRequestResult(value, agent)
-    )
-  }
-
-  commitMove(agent: string, input: MoveCasInput, signal: AbortSignal) {
-    return this.call(agent, '/moves', { operation: 'commit', ...input }, signal, value => parseMoveCommitResult(value, agent))
-  }
-
-  abortMove(agent: string, input: MoveAbortInput, signal: AbortSignal) {
-    return this.call(agent, '/moves', { operation: 'abort', ...input }, signal, parseMoveAbortResult)
-  }
-
-  ackDrain(agent: string, body: DrainAckBody, signal: AbortSignal) {
-    return this.call(agent, '/drain', body, signal, parseDrainAckResult)
-  }
-
-  reserveCheckpoint(agent: string, body: CheckpointReserveBody, signal: AbortSignal) {
-    return this.call(agent, '/checkpoints', body, signal, parseCheckpointReserveResult)
-  }
-
-  commitCheckpoint(agent: string, body: CheckpointCommitBody, signal: AbortSignal) {
-    return this.call(agent, '/checkpoints', body, signal, parseCheckpointCommitResult)
-  }
-
-  reportReadiness(agent: string, body: HomeReadinessReport, signal: AbortSignal) {
-    return this.call(agent, '/readiness', body, signal, parseReadinessObservation)
   }
 
   async enqueuePublication(agent: string, envelope: PublicationEnvelope, signal: AbortSignal): Promise<HomePlatformResult<PublicationReceipt>> {

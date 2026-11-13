@@ -3,8 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   completeMatrixSubscriptionChatGptFollowUp,
   finishMatrixSubscriptionChatGptPoll,
-  MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionAccountAvailable,
+  MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionHostHome,
   matrixSubscriptionPlanSignInGate,
   updateMatrixSubscriptionSignIn
@@ -71,8 +71,12 @@ it('retries failed agent refresh and cancels its scheduled work on account close
   let retry: (() => void) | undefined
   const cancel = vi.fn()
   const refresh = vi.fn(async () => { throw new Error('fixture transport failed') })
+
   const repair = new MatrixSubscriptionFollowUpRepair({ refresh, current: () => true,
-    schedule: run => { retry = run; return cancel } })
+    schedule: run => { retry = run;
+
+ return cancel } })
+
   expect(await repair.run()).toEqual({ refresh: 'transport_error' })
   await Promise.resolve()
   expect(retry).toBeTypeOf('function')
