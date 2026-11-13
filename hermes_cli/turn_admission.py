@@ -9,10 +9,85 @@ from __future__ import annotations
 
 import math
 import uuid
+from contextlib import contextmanager, ExitStack
 from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 admission_turn_id: ContextVar[str] = ContextVar("admission_turn_id", default="")
+_native_source: ContextVar[tuple | None] = ContextVar("admission_native_source", default=None)
+
+
+@dataclass(frozen=True)
+class AdmissionBindings:
+    """In-process lazy factories, never serialized into a turn/result/history."""
+    factories: tuple
+
+
+@contextmanager
+def bind_admission_source(event):
+    """Native gateway event only: a raw source, never a prompt or reply anchor."""
+    source = None
+    origin = event.source
+    if (getattr(origin.platform, 'value', origin.platform) == 'matrix'
+            and not getattr(event, 'internal', False) and event.message_id):
+        source = ({'kind': 'owner_turn', 'room': origin.chat_id, 'event': str(event.message_id)}, origin.user_id)
+    token = _native_source.set(source)
+    try:
+        yield
+    finally:
+        _native_source.reset(token)
+
+
+def _source_payload(context):
+    from agent.delegation_context import is_delegated_child_context
+    from cron.execution_identity import current_cron_execution
+    from datetime import datetime
+    empty = dict(source=None, source_sender=None, cron_execution_id=None)
+    if is_delegated_child_context():
+        return empty
+    occurrence = current_cron_execution()
+    if occurrence is not None:
+        empty['cron_execution_id'] = occurrence.execution_id
+        if context.get('job_id', occurrence.job_id) != occurrence.job_id:
+            return empty
+        instant = occurrence.scheduled_instant
+        if instant:
+            try:
+                parsed = datetime.fromisoformat(instant)
+                if parsed.tzinfo is not None:
+                    stamp = round(parsed.timestamp() * 1000)
+                    if 0 <= stamp <= 9007199254740991:
+                        empty['source'] = dict(kind='schedule', job=occurrence.job_id, scheduledAt=stamp)
+            except (ValueError, TypeError, OverflowError):
+                pass
+        return empty
+    if context.get('platform') == 'matrix' and (source := _native_source.get()) is not None:
+        empty.update(source=dict(source[0]), source_sender=source[1])
+    return empty
+
+
+@contextmanager
+def admission_context(decision):
+    """Enter only approved lazy bindings, on the executing turn's own context."""
+    if not isinstance(decision, AdmissionBindings):
+        yield decision
+        return
+    stack = ExitStack()
+    try:
+        for factory in decision.factories:
+            stack.enter_context(factory())
+    except (Exception, SystemExit):
+        # Roll back entered bindings before exposing the refusal. A plugin's
+        # cleanup failure must not accidentally admit a partially bound turn.
+        try:
+            stack.close()
+        except (Exception, SystemExit):
+            pass
+        yield _refusal('binding_error')
+        return
+    with stack:
+        yield None
 
 
 def _policy():
@@ -96,8 +171,8 @@ def _refusal(code: str, plugin: str = "", reason: str = "") -> dict[str, Any]:
     }
 
 
-def check_turn_admission(**context: Any) -> dict[str, Any] | None:
-    """Return a native failed result on refusal. None admits the turn.
+def check_turn_admission(**context: Any) -> dict[str, Any] | AdmissionBindings | None:
+    """Refusal dict, plain allowance (None), or lazy caller-owned AdmissionBindings.
 
     A strict callback must explicitly return True or {allow: True}. Deny, invalid
     responses, exceptions and abandoned/suppressed workers all refuse execution.
@@ -117,11 +192,16 @@ def check_turn_admission(**context: Any) -> dict[str, Any] | None:
         return _refusal("plugin_unavailable", missing[0])
     payload = dict(context)
     payload["turn_id"] = context.get("turn_id") or admission_turn_id.get() or str(uuid.uuid4())
+    payload.update(_source_payload(context))
     strict = {id(callback): key for key, values in policies.items() for callback in values}
+    factories = []
     for callback in callbacks:
         plugin = strict.get(id(callback), "")
         try:
-            result = manager._run_hook_callback_bounded("pre_turn_admission", callback, payload, timeout)
+            callback_payload = dict(payload)
+            if isinstance(payload.get('source'), dict):
+                callback_payload['source'] = dict(payload['source'])
+            result = manager._run_hook_callback_bounded("pre_turn_admission", callback, callback_payload, timeout)
         except (Exception, SystemExit) as exc:
             manager._report_hook_failure("pre_turn_admission", callback, payload, exc)
             if id(callback) in strict:
@@ -132,8 +212,12 @@ def check_turn_admission(**context: Any) -> dict[str, Any] | None:
                 return _refusal("hook_timeout", plugin)
             continue
         if result is True or isinstance(result, dict) and result.get("allow") is True:
+            if isinstance(result, dict) and 'enter' in result:
+                if context.get('stage') != 'turn' or not callable(result['enter']):
+                    return _refusal('binding_error', plugin)
+                factories.append(result['enter'])
             continue
         if id(callback) in strict or result is False or isinstance(result, dict) and result.get("allow") is False:
             reason = result.get("reason", "") if isinstance(result, dict) else ""
             return _refusal("denied", plugin, str(reason)[:200])
-    return None
+    return AdmissionBindings(tuple(factories)) if factories else None

@@ -42,3 +42,17 @@ def test_cron_prepare_reads_selected_native_occurrence_not_job_fields(policy):
     assert early is not None
     assert seen[0]['source'] == {'kind': 'schedule', 'job': 'selected', 'scheduledAt': 1794531723000}
     assert seen[0]['cron_execution_id'] == 'selected-execution'
+
+
+def test_manual_cron_and_untrusted_payload_cannot_fabricate_occurrence(policy):
+    from cron.execution_identity import enter_cron_execution, exit_cron_execution
+    from hermes_cli.turn_admission import check_turn_admission
+    seen = []
+    policy[1].register_hook('pre_turn_admission', lambda **kw: seen.append(kw) or False, fail_closed=True)
+    token = enter_cron_execution({'id': 'manual'}, 'manual-execution', {'source': 'direct'})
+    try:
+        check_turn_admission(platform='cron', stage='turn', source={'kind': 'schedule', 'job': 'fake', 'scheduledAt': 1})
+    finally:
+        exit_cron_execution(token)
+    assert seen[0]['source'] is None
+    assert seen[0]['cron_execution_id'] == 'manual-execution'

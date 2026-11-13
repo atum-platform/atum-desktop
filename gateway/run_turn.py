@@ -213,12 +213,13 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
 
 
     async def _handle_message_with_agent(self, event, source, _quick_key: str, run_generation: int):
-        from hermes_cli.turn_admission import admission_turn_id
+        from hermes_cli.turn_admission import admission_turn_id, bind_admission_source
         import uuid
 
         token = admission_turn_id.set(str(uuid.uuid4()))
         try:
-            return await self._handle_message_with_agent_admitted(event, source, _quick_key, run_generation)
+            with bind_admission_source(event):
+                return await self._handle_message_with_agent_admitted(event, source, _quick_key, run_generation)
         finally:
             admission_turn_id.reset(token)
 

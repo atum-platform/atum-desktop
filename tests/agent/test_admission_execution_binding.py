@@ -43,7 +43,8 @@ def agent():
 
 
 @pytest.mark.parametrize('stop', [False, True])
-def test_bounded_policy_binding_reaches_real_tool_and_unwinds_in_turn_context(policy, monkeypatch, stop):
+@pytest.mark.parametrize('scheduled', [False, True], ids=['owner-turn', 'native-cron'])
+def test_bounded_policy_binding_reaches_real_tool_and_unwinds_in_turn_context(policy, monkeypatch, stop, scheduled):
     from gateway.session_context import scoped_session_key
     from tools import atum_source_transport as port
     from tools.atum_chats_tool import atum_chats
@@ -70,6 +71,9 @@ def test_bounded_policy_binding_reaches_real_tool_and_unwinds_in_turn_context(po
 
     def admit(**payload):
         workers.append(threading.get_ident())
+        if scheduled:
+            assert payload['source'] == {'kind': 'schedule', 'job': 'selected', 'scheduledAt': 1794531723000}
+            assert payload['cron_execution_id'] == 'native-execution'
         return {'allow': True, 'enter': binding}
 
     policy[1].register_hook('pre_turn_admission', admit, fail_closed=True)
@@ -77,8 +81,14 @@ def test_bounded_policy_binding_reaches_real_tool_and_unwinds_in_turn_context(po
         name='atum_chats', arguments=json.dumps({'op': 'list'})))
     replies = [_mock_response(content=None, finish_reason='tool_calls', tool_calls=[call]),
                _mock_response(content='Done', finish_reason='stop')]
-    with scoped_session_key('owner-dm'), patch.object(a, '_interruptible_api_call', side_effect=replies):
-        result = a.run_conversation('Read my chats')
+    from cron.execution_identity import enter_cron_execution, exit_cron_execution
+    token = enter_cron_execution({'id': 'selected'}, 'native-execution', {
+        'source': 'builtin', 'scheduled_instant': '2026-11-13T01:02:03+00:00'}) if scheduled else None
+    try:
+        with scoped_session_key('owner-dm'), patch.object(a, '_interruptible_api_call', side_effect=replies):
+            result = a.run_conversation('Read my chats')
+    finally:
+        exit_cron_execution(token)
     assert requests and requests[0][0] == 'chats'
     assert entered == exited == [owner]
     assert workers and all(worker != owner for worker in workers)

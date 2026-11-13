@@ -33,22 +33,22 @@ class TurnFacadeMixin:
         persist_api_content: bool=True,
     ) -> dict[str, Any]:
         """Forwarder — see ``agent.conversation_loop.run_conversation``."""
-        from hermes_cli.turn_admission import admission_turn_id, check_turn_admission
+        from hermes_cli.turn_admission import admission_turn_id, check_turn_admission, admission_context
         import uuid
 
         self._admission_turn_id = (getattr(self, "_relay_pending_turn_id", "")
                                    or admission_turn_id.get() or str(uuid.uuid4()))
 
-        refusal = check_turn_admission(
+        decision = check_turn_admission(
             platform=getattr(self, "platform", None) or "cli",
             session_id=getattr(self, "session_id", None), task_id=task_id,
             parent_session_id=getattr(self, "_parent_session_id", None),
             user_message=user_message, turn_author=turn_author, stage="turn",
             turn_id=self._admission_turn_id,
         )
-        if refusal is not None:
-            refusal["messages"] = list(conversation_history or [])
-            return refusal
+        if isinstance(decision, dict):
+            decision["messages"] = list(conversation_history or [])
+            return decision
         # A review shares this session_id for cache parity: fence review startup or interrupt
         # an admitted request and await its exit before opening live-turn instrumentation.
         # Foreground priority is retained if the review does not acknowledge within the bounded deadline
@@ -158,7 +158,14 @@ class TurnFacadeMixin:
 
             # Keep the ContextVar scope local (agent tokens may be observed from another thread).
             # A host that owns this thread (Hermes Console) may cancel the turn cross-thread.
-            with bind_subagent_parent(self), scoped_runtime_main({}), track_in_interrupt_scope(self):
+            with (admission_context(decision) as refusal, bind_subagent_parent(self),
+                  scoped_runtime_main({}), track_in_interrupt_scope(self)):
+                if refusal is not None:
+                    refusal['messages'] = list(conversation_history or [])
+                    if task_started:
+                        task_finished = True
+                        finish_task_run(**task_context, result=refusal)
+                    return refusal
                 try:
                     if lease is not None:
                         lease.start()
