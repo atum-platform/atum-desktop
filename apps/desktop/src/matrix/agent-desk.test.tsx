@@ -804,3 +804,146 @@ describe('round 3: frame, files and controls', () => {
     expect(within(controls).getByRole('button', { name: en.allSettings })).toBeTruthy()
   })
 })
+
+/** Round 4: Pause / Resume and per-routine on/off through the host agent-control route. */
+describe('round 4: pause and routines', () => {
+  const hermesBase = (): MatrixSnapshot => ({ ...base(), agents: [{ ...luna, runtime: 'hermes' }] })
+
+  const job = (id: string, name: string, state: 'scheduled' | 'paused') => ({
+    id,
+    name,
+    kind: 'cron',
+    display: 'Every day at 08:00',
+    timezone: 'Asia/Ho_Chi_Minh',
+    state,
+    nextRunAt: state === 'paused' ? null : '2026-11-14T01:00:00Z',
+    lastRunAt: null,
+    lastStatus: null,
+    expr: '0 8 * * *',
+    minutes: null,
+    runAt: null
+  })
+
+  function bridge(jobs: ReturnType<typeof job>[] | undefined, control: (request: unknown) => Promise<unknown>) {
+    const read = vi.fn(async (_principal: string, request: { read: string }) => {
+      if (request.read !== 'schedule' || !jobs) {
+        throw new Error('matrix_host_desk_refused')
+      }
+
+      return { read: 'schedule', observedAt: 1, jobs, truncated: false }
+    })
+
+    const controlFn = vi.fn(async (_principal: string, request: unknown) => control(request))
+    Object.assign(window.atumMatrix, { agentDesk: { read, control: controlFn } })
+
+    return controlFn
+  }
+
+  const pauseSwitch = () =>
+    within(document.querySelector<HTMLElement>('[data-agent-desk-controls]')!).getByRole('switch', { name: en.pause })
+
+  it('offers one Pause switch once its schedule is known, with the meaning as a tooltip only', async () => {
+    const control = bridge([job('brief', 'Morning brief', 'scheduled')], async () => ({ action: 'pause', changed: 1 }))
+    render(panel(hermesBase()))
+
+    const toggle = await waitFor(() => pauseSwitch())
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    expect(toggle.closest('[title]')?.getAttribute('title')).toBe(en.pauseHint)
+    expect(screen.queryByText(en.pauseHint)).toBeNull()
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(control).toHaveBeenCalledWith('agent-luna', { action: 'pause' })
+    expect(pauseSwitch().getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('reads as paused when every routine is paused, and Resume asks to resume', async () => {
+    const control = bridge([job('brief', 'Morning brief', 'paused')], async () => ({ action: 'resume', changed: 1 }))
+    render(panel(hermesBase()))
+    const toggle = await waitFor(() => pauseSwitch())
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    expect(control).toHaveBeenCalledWith('agent-luna', { action: 'resume' })
+    expect(pauseSwitch().getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('rolls back honestly when the change fails, and says so in one quiet line', async () => {
+    bridge([job('brief', 'Morning brief', 'scheduled')], async () => {
+      throw new Error('matrix_host_control_refused')
+    })
+
+    render(panel(hermesBase()))
+    const toggle = await waitFor(() => pauseSwitch())
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    await waitFor(() => expect(pauseSwitch().getAttribute('aria-checked')).toBe('false'))
+    expect(screen.getByText(en.controlFailed)).toBeTruthy()
+  })
+
+  it('says its computer is off when the runtime is stopped (409), and changes nothing', async () => {
+    bridge([job('brief', 'Morning brief', 'scheduled')], async () => {
+      throw new Error('matrix_host_control_stopped')
+    })
+
+    render(panel(hermesBase()))
+    const toggle = await waitFor(() => pauseSwitch())
+
+    await act(async () => {
+      fireEvent.click(toggle)
+    })
+
+    await waitFor(() => expect(pauseSwitch().getAttribute('aria-checked')).toBe('false'))
+    expect(screen.getByText(en.computerOff)).toBeTruthy()
+    expect(screen.queryByText(en.controlFailed)).toBeNull()
+  })
+
+  it('has no Pause switch while its schedule cannot be read', async () => {
+    bridge(undefined, async () => ({ action: 'pause', changed: 0 }))
+    render(panel(hermesBase()))
+    await act(async () => {})
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    expect(within(controls).queryByRole('switch', { name: en.pause })).toBeNull()
+  })
+
+  it('turns one routine off and on from More › Routines, optimistically', async () => {
+    const control = bridge(
+      [job('brief', 'Morning brief', 'scheduled'), job('sweep', 'Follow-up sweep', 'paused')],
+      async request => ({ action: (request as { action: string }).action, changed: 1 })
+    )
+
+    render(panel(hermesBase()))
+    const controls = document.querySelector<HTMLElement>('[data-agent-desk-controls]')!
+    await waitFor(() => pauseSwitch())
+
+    await act(async () => {
+      fireEvent.click(within(controls).getByRole('button', { name: en.moreControls }))
+    })
+
+    const brief = await waitFor(() => within(controls).getByRole('switch', { name: 'Morning brief' }))
+    const sweep = within(controls).getByRole('switch', { name: 'Follow-up sweep' })
+    expect(brief.getAttribute('aria-checked')).toBe('true')
+    expect(sweep.getAttribute('aria-checked')).toBe('false')
+
+    await act(async () => {
+      fireEvent.click(brief)
+    })
+
+    expect(control).toHaveBeenCalledWith('agent-luna', { action: 'routine_off', job: 'brief' })
+    expect(within(controls).getByRole('switch', { name: 'Morning brief' }).getAttribute('aria-checked')).toBe('false')
+
+    await act(async () => {
+      fireEvent.click(within(controls).getByRole('switch', { name: 'Follow-up sweep' }))
+    })
+
+    expect(control).toHaveBeenCalledWith('agent-luna', { action: 'routine_on', job: 'sweep' })
+  })
+})
