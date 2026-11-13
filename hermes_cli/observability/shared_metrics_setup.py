@@ -150,7 +150,7 @@ def begin_provider_setup(surface: str, provider: Any, *, hermes_home: Any = None
             fields = provider_setup_fields(surface=surface, provider=provider, event="started")
             if fields is None:
                 return None
-            from gateway.status import get_process_start_time
+            from gateway.status import get_process_epoch, get_process_start_time
             from hermes_constants import get_hermes_home
 
             home = get_hermes_home()
@@ -160,7 +160,7 @@ def begin_provider_setup(surface: str, provider: Any, *, hermes_home: Any = None
             pid = os.getpid()
             marker = directory / f"{surface}-{pid}-{time.time_ns()}.json"
             record = {
-                "pid": pid, "start_time": get_process_start_time(pid), "started_at": time.time(),
+                "pid": pid, "start_time": get_process_start_time(pid), "boot_epoch": get_process_epoch(), "started_at": time.time(),
                 "surface": surface, "provider": fields["provider"],
             }
             tmp = marker.with_name(f".{marker.name}.tmp")

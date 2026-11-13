@@ -275,3 +275,12 @@ def test_graceful_gateway_exit_stamps_the_marker_clean(marks, monkeypatch):
 
 def test_unrepresentable_timestamps_read_as_unknown():
     assert update_metrics._epoch(10 ** 400) is None
+
+
+def test_live_reporting_claim_is_not_stolen(marks):
+    directory = process_metrics.markers_dir(marks.home)
+    directory.mkdir(parents=True, exist_ok=True)
+    claimed = directory / f"cli-old.json.{os.getpid()}.reporting"
+    claimed.write_text(json.dumps({"kind": "cli", "state": "crash"}), encoding="utf-8")
+    assert process_metrics._claim(claimed) is None
+    assert claimed.exists()
