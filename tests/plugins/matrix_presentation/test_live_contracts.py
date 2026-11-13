@@ -33,7 +33,12 @@ def test_real_mautrix_keyword_contracts():
             method = getattr(Client, node.func.attr, None)
             if method is None:  # local wrappers and version-gated compatibility methods
                 continue
-            declared = inspect.signature(method).parameters
+            # Client encryption wrappers forward to ClientAPI; follow that real MRO.
+            declared = set()
+            for cls in Client.__mro__:
+                implementation = cls.__dict__.get(node.func.attr)
+                if implementation is not None:
+                    declared.update(inspect.signature(implementation).parameters)
             for kw in node.keywords:
                 if kw.arg and kw.arg not in declared:
                     failures.append(f'{path.relative_to(root)}:{node.lineno}: {node.func.attr}({kw.arg}=)')
