@@ -12,9 +12,29 @@ from tests.gateway.test_session_hygiene import _make_cooldown_runner
 @pytest.mark.parametrize("setting", [None, False, True])
 async def test_aborted_hygiene_retains_cooldown_across_restart_and_final_result(tmp_path, monkeypatch, caplog, setting):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_MANAGED_DIR", str(tmp_path / "managed"))
+    # An explicit managed path is an admission-policy declaration, not an
+    # absent/unmanaged placeholder. Exercise hygiene with a real managed policy.
+    managed = tmp_path / "managed"
+    managed.mkdir()
+    (managed / "config.yaml").write_text(
+        "plugins:\n  required_admission: [hygiene-policy]\n", encoding="utf-8")
+    monkeypatch.setenv("HERMES_MANAGED_DIR", str(managed))
+    import hermes_cli.plugins as plugins
+    from hermes_cli.plugins import PluginContext, PluginManager, PluginManifest, LoadedPlugin
+    manager = PluginManager(scope_key=str(tmp_path))
+    manager._discovered = True
+    manifest = PluginManifest(name="hygiene-policy", key="hygiene-policy")
+    manager._plugins[manifest.key] = LoadedPlugin(manifest=manifest, enabled=True)
+    monkeypatch.setattr(plugins, "_delivery_manager", lambda: manager)
     sid = "hygiene-policy"
     calls = []
+    admissions = []
+
+    def allow(**context):
+        admissions.append((context["stage"], len(calls)))
+        return True
+
+    PluginContext(manifest, manager).register_hook("pre_turn_admission", allow, fail_closed=True)
     recovering = False
     class CompressorAgent:
         def __init__(self, **kwargs):
@@ -69,5 +89,8 @@ async def test_aborted_hygiene_retains_cooldown_across_restart_and_final_result(
         assert len(warnings) == (0 if setting is True else 1)
         assert db.get_messages(sid)[-1]["content"] == "retained summary"
         runner.session_store.rewrite_transcript.assert_not_called()
+        # Native compression is not a new owner turn: it runs directly before
+        # pre-media admission, while each actual user turn still checks policy.
+        assert admissions == [("gateway_media", 1), ("gateway_media", 1), ("gateway_media", 2)]
     finally:
         db.close()

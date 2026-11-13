@@ -82,6 +82,16 @@ def test_missing_plugin_readiness(admission, monkeypatch):
     assert admission_readiness()["status"] == "unavailable"
 
 
+def test_explicit_missing_managed_directory_still_refuses_real_turn(monkeypatch, tmp_path):
+    from hermes_cli.turn_admission import check_turn_admission
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setenv("HERMES_MANAGED_DIR", str(tmp_path / "missing-managed"))
+    (tmp_path / "config.yaml").write_text("{}\n", encoding="utf-8")
+    result = check_turn_admission(platform="matrix", user_message="real user turn")
+    assert result["turn_exit_reason"] == "admission_denied"
+    assert result["admission"]["code"] == "admission_unavailable"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["deny", "raise", "timeout", "plugin-missing"])
 async def test_gateway_refuses_before_media_tools(admission, monkeypatch, outcome):
