@@ -200,6 +200,136 @@ function drainCommands(child: { stdin: PassThrough }): Record<string, unknown>[]
     : []
 }
 
+it('search handles use the enrolled root and expire on cancellation, replacement and owner withdrawal', async () => {
+  const f = fixture()
+  await f.enrolled()
+  mkdirSync(path.join(f.root, 'Docs'))
+  writeFileSync(path.join(f.root, 'Docs', 'report.txt'), 'not searched')
+  const result = await f.drive.search('report', 'drive', 'search-1')
+  expect(result.rows).toMatchObject([{ name: 'report.txt', folders: ['Docs'] }])
+  expect(JSON.stringify(result)).not.toContain(f.root)
+  const id = result.rows[0]!.id
+  await f.drive.open(id)
+  f.drive.cancelSearch('search-1')
+  await expect(f.drive.open(id)).rejects.toThrow()
+  const next = await f.drive.search('report', 'drive', 'search-2')
+  rmSync(path.join(f.root, 'Docs', 'report.txt'))
+  symlinkSync(path.join(f.home, 'outside'), path.join(f.root, 'Docs', 'report.txt'))
+  await expect(f.drive.open(next.rows[0]!.id)).rejects.toThrow()
+  f.changeOwner()
+  await expect(f.drive.search('report', 'drive', 'search-3')).rejects.toThrow()
+})
+
+it('marks local-only rows using engine import exclusions, including excluded ancestors', async () => {
+  const f = fixture()
+  await f.enrolled()
+  mkdirSync(path.join(f.root, 'node_modules'))
+  writeFileSync(path.join(f.root, 'node_modules', 'report.txt'), '')
+  writeFileSync(path.join(f.root, 'normal.txt'), '')
+  const view = await f.drive.read()
+  expect(view.rows.find(row => row.name === 'node_modules')).toMatchObject({ localOnly: true })
+  expect(view.rows.find(row => row.name === 'normal.txt')?.localOnly).toBeUndefined()
+  expect((await f.drive.search('report', 'drive', 'local-only')).rows[0]).toMatchObject({ localOnly: true })
+})
+
+it('searches the requested current-folder subtree without moving the folder and cancels only its own lease', async () => {
+  const f = fixture()
+  await f.enrolled()
+  mkdirSync(path.join(f.root, 'Docs'))
+  mkdirSync(path.join(f.root, 'Elsewhere'))
+  writeFileSync(path.join(f.root, 'Docs', 'report-here.txt'), '')
+  writeFileSync(path.join(f.root, 'Elsewhere', 'report-there.txt'), '')
+  const listing = await f.drive.read()
+  await f.drive.enter(listing.rows.find(row => row.name === 'Docs')!.id)
+  expect((await f.drive.search('report', 'folder', 'folder-search')).rows.map(row => row.name)).toEqual(['report-here.txt'])
+  const all = await f.drive.search('report', 'drive', 'all-search')
+  expect(all.rows).toHaveLength(2)
+  f.drive.cancelSearch('folder-search')
+  await f.drive.open(all.rows[0]!.id)
+  expect((await f.drive.read()).folderLabel).toBe('Docs')
+  await expect(f.drive.search('../outside', 'drive', 'invalid')).rejects.toThrow('invalid')
+  const pending = f.drive.search('report', 'drive', 'cancel-me')
+  f.drive.cancelSearch('cancel-me')
+  await expect(pending).rejects.toThrow()
+})
+
+it('enters a folder found outside the current listing using its separately verified handle', async () => {
+  const f = fixture()
+  await f.enrolled()
+  mkdirSync(path.join(f.root, 'Docs', 'Weekly'), { recursive: true })
+  writeFileSync(path.join(f.root, 'Docs', 'Weekly', 'report.txt'), '')
+  const found = await f.drive.search('Weekly', 'drive', 'found-folder')
+  expect(found.rows[0]).toMatchObject({ kind: 'folder', folders: ['Docs'] })
+  expect(await f.drive.enter(found.rows[0]!.id)).toMatchObject({ folderLabel: 'Weekly', rows: [{ name: 'report.txt' }] })
+  await expect(f.drive.enter(found.rows[0]!.id)).rejects.toThrow()
+})
+
+it('withdraws search results when the enrolled root or marker is replaced', async () => {
+  const f = fixture()
+  await f.enrolled()
+  writeFileSync(path.join(f.root, 'report'), '')
+  const result = await f.drive.search('report', 'drive', 'root-test')
+  // A person-chosen root, not the app-owned default's deliberate one-time auto-rebind.
+  f.options.defaultFolder = undefined
+  renameSync(f.root, f.root + '-old')
+  mkdirSync(f.root)
+  f.bind()
+  await expect(f.drive.open(result.rows[0]!.id)).rejects.toThrow()
+  await expect(f.drive.search('report', 'drive', 'root-test-2')).rejects.toThrow()
+})
+
+it('never consumes unsolicited per-file status on an engine without the capability', async () => {
+  const f = fixture()
+  await f.enrolled()
+  writeFileSync(path.join(f.root, 'report.txt'), '')
+  await f.drive.read()
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'conflict' })
+  const view = f.options.changed.mock.lastCall?.[0]
+  expect(view?.fileStatusAvailable).toBeUndefined()
+  expect(view?.rows.every(row => row.syncStatus === undefined)).toBe(true)
+})
+
+it('consumes per-file facts only after negotiation and clears them when the engine stops', async () => {
+  const f = fixture()
+  f.bind()
+  await f.drive.connect()
+  f.send({ kind: 'hello', protocol: 1, issuer: f.options.engine.issuer, origin: f.options.engine.origin, features: ['file_status'] })
+  f.send({ kind: 'state', state: 'ready' })
+  writeFileSync(path.join(f.root, 'report.txt'), '')
+  await f.drive.read()
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'uploading' })
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]).toMatchObject({ syncStatus: 'uploading' })
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'conflict' })
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]).toMatchObject({ syncStatus: 'conflict' })
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'clear' })
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]?.syncStatus).toBeUndefined()
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'error' })
+  const search = await f.drive.search('report', 'drive', 'statuses')
+  expect(search.rows[0]?.syncStatus).toBe('error')
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'uploading' })
+  expect(f.options.changed.mock.lastCall?.[0].searchResult?.rows[0]?.syncStatus).toBe('uploading')
+  f.send({ kind: 'state', state: 'offline' })
+  f.send({ kind: 'state', state: 'ready' })
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]?.syncStatus).toBeUndefined()
+  expect(f.options.changed.mock.lastCall?.[0].searchResult?.rows[0]?.syncStatus).toBeUndefined()
+  f.send({ kind: 'file_status', path: 'report.txt', state: 'error' })
+  f.child.emit('close', 1)
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]?.syncStatus).toBeUndefined()
+})
+
+it('replaces local-only rules with the engine’s complete exclusion snapshot', async () => {
+  const f = fixture()
+  f.bind()
+  await f.drive.connect()
+  f.send({ kind: 'hello', protocol: 1, issuer: f.options.engine.issuer, origin: f.options.engine.origin, features: ['exclusions'] })
+  f.send({ kind: 'state', state: 'ready' })
+  writeFileSync(path.join(f.root, 'report.draft'), '')
+  expect((await f.drive.read()).rows[0]?.localOnly).toBeUndefined()
+  f.send({ kind: 'exclusions', patterns: ['*.draft'] })
+  expect(f.options.changed.mock.lastCall?.[0].rows[0]?.localOnly).toBe(true)
+  expect((await f.drive.search('report', 'drive', 'excluded')).rows[0]?.localOnly).toBe(true)
+})
+
 async function metadataCommand(child: { stdin: PassThrough }): Promise<Record<string, unknown>> {
   let request: Record<string, unknown> | undefined
 
@@ -572,22 +702,27 @@ it.each([true, false])('allows slow credential cleanup but requires acknowledgme
   const f = fixture()
   await f.enrolled()
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+
   try {
     const disconnect = f.drive.disconnect()
     await vi.waitFor(() => expect(drainCommands(f.child).some(command => command.kind === 'forget')).toBe(true))
     await vi.advanceTimersByTimeAsync(20_000)
     expect(f.child.kill).not.toHaveBeenCalled()
     expect(stored(f, 'drive-cleanup:')).toBe('pending')
+
     if (acknowledged) {
       f.send({ kind: 'state', state: 'disconnected' })
     }
+
     f.child.emit('close', 0)
+
     if (!acknowledged) {
       // Missing acknowledgment triggers a separate stored-credential cleanup.
       // That helper also must fail closed when its deadline expires.
       await vi.waitFor(() => expect(f.options.spawn).toHaveBeenCalledTimes(2))
       await vi.advanceTimersByTimeAsync(45_000)
     }
+
     expect((await disconnect).state).toBe(acknowledged ? 'disconnected' : 'cleanup_failed')
     expect(stored(f, 'drive-cleanup:')).toBe(acknowledged ? '' : 'pending')
   } finally {
@@ -995,6 +1130,7 @@ it('renews the app token when the engine asks; a lost grant fails closed, never 
       accessToken: refused === undefined ? 'app-access' : refused === 'app-access' ? 'app-access-2' : 'app-access-3',
       expiresAt: Date.now() + 300_000
     }))
+
     const f = fixture(() => ({ credential }))
 
     await f.drive.connect()
@@ -1084,6 +1220,7 @@ it('caps a refused app token at two renewals, then stops on a Try again row inst
     accessToken: refused ? 'app-access-2' : 'app-access',
     expiresAt: Date.now() + 300_000
   }))
+
   const f = fixture(() => ({ credential }))
 
   await f.drive.connect()
@@ -1095,6 +1232,7 @@ it('caps a refused app token at two renewals, then stops on a Try again row inst
 
   // The refused token is "adopted" and reported offline every 2 s. That must not repay the cap.
   f.bind()
+
   for (const expected of [1, 2]) {
     f.send({ kind: 'credential_request' })
     await vi.waitFor(() => expect(rotations()).toBe(expected))

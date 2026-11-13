@@ -6,6 +6,32 @@ import { MATRIX_DRIVE_IPC } from '../../shared/matrix-drive'
 import type { MatrixDrive } from './drive'
 import { registerMatrixDriveIpc } from './drive-ipc'
 
+it('search accepts names and closed scopes only, and cancellation is UI-bound', async () => {
+  let handler!: (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+  const ipc = { handle: vi.fn((_channel, callback) => (handler = callback)) }
+  const drive = { search: vi.fn(), cancelSearch: vi.fn() }
+  const requireUi = vi.fn()
+  registerMatrixDriveIpc(ipc, drive as unknown as MatrixDrive, requireUi)
+  const event = {} as IpcMainInvokeEvent
+  const requestId = '00000000-0000-4000-8000-11e594f48195'
+  const request = { kind: 'search', query: 'report', scope: 'drive', requestId }
+  await handler(event, request)
+  await handler(event, { kind: 'cancelSearch', requestId })
+  expect(drive.search).toHaveBeenCalledExactlyOnceWith('report', 'drive', requestId)
+  expect(drive.cancelSearch).toHaveBeenCalledExactlyOnceWith(requestId)
+
+  for (const invalid of [
+    { ...request, root: '../outside' }, { ...request, scope: '../outside' }, { ...request, query: '../outside' },
+    { ...request, path: '/outside' }, { ...request, requestId: '../outside' },
+    { ...request, query: 'a'.repeat(257) }, { kind: 'cancelSearch', requestId, all: true }
+  ]) {await expect(handler(event, invalid)).rejects.toThrow('invalid')}
+
+  requireUi.mockImplementation(() => { throw new Error('caller denied') })
+  await expect(handler(event, request)).rejects.toThrow('caller denied')
+  await expect(handler(event, { kind: 'cancelSearch', requestId })).rejects.toThrow('caller denied')
+  expect(drive.search).toHaveBeenCalledOnce()
+})
+
 it('import chooses only through main and accepts only a cached opaque intent id', async () => {
   let handler!: (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
 

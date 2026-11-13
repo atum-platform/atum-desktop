@@ -7,6 +7,7 @@ import type { MatrixDriveBridge, MatrixDriveRow, MatrixDriveView } from '../../s
 
 import { MatrixDrive } from './drive'
 import {
+  $matrixDriveLocation,
   $matrixDrivePdfLease,
   learnMatrixDrivePlaces,
   setMatrixDriveGroupBy,
@@ -118,6 +119,73 @@ const columnNames = (path: string) =>
   within(column(path)!)
     .queryAllByRole('option')
     .map(option => option.getAttribute('aria-label'))
+
+it('switches search scopes, drops stale results and cancels on Escape', async () => {
+  const { bridge } = treeBridge(TREE)
+
+  const search = vi.fn(async (query: string, scope: string) => ({
+    revision: 1, query, rows: [{ id: 'found', name: scope === 'drive' ? 'remote-report.txt' : 'local-report.txt', kind: 'file', size: 1, modifiedAt: 1, folders: ['Docs'] }], truncated: false
+  }))
+
+  const cancelSearch = vi.fn(async () => {})
+  renderDrive({ ...bridge, search, cancelSearch })
+  fireEvent.doubleClick(await screen.findByRole('option', { name: 'Docs' }))
+  await screen.findByRole('option', { name: 'notes.md' })
+  fireEvent.click(screen.getByRole('button', { name: 'Search Drive' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search Drive' }), { target: { value: 'report' } })
+  await screen.findByRole('option', { name: 'remote-report.txt' })
+  fireEvent.click(screen.getByRole('button', { name: 'Docs' }))
+  await screen.findByRole('option', { name: 'local-report.txt' })
+  expect(screen.queryByRole('option', { name: 'remote-report.txt' })).toBeNull()
+  expect(search.mock.calls.map(call => call[1])).toEqual(['drive', 'folder'])
+  fireEvent.keyDown(screen.getByRole('textbox', { name: 'Search Drive' }), { key: 'Escape' })
+  await screen.findByRole('option', { name: 'notes.md' })
+  expect(cancelSearch).toHaveBeenCalled()
+})
+
+it.each(['icon', 'list', 'column', 'gallery'] as const)('shows the local-only marker in the %s view', async layout => {
+  setMatrixDriveLayout(layout)
+  const row = { id: 'local', name: 'backup.sqlite', kind: 'file' as const, size: 1, modifiedAt: 1, localOnly: true as const }
+  const view = { state: 'ready', revision: 1, rows: [row], canGoBack: false, truncated: false }
+  renderDrive({ read: async () => view, subscribe: () => () => {} })
+  const option = await screen.findByRole('option', { name: row.name })
+  expect(within(option).getByText('Only on this Mac')).toBeDefined()
+  expect(window.document.querySelector('[data-matrix-drive-sync="synced"]')).toBeNull()
+})
+
+it('never displays a late response from a previous search scope', async () => {
+  const { bridge } = treeBridge(TREE)
+  let finishOld!: (value: unknown) => void
+
+  const search = vi.fn((query: string, scope: string) => scope === 'drive'
+    ? new Promise(resolve => { finishOld = resolve })
+    : Promise.resolve({ query, revision: 1, rows: [], truncated: false }))
+
+  renderDrive({ ...bridge, search, cancelSearch: vi.fn(async () => {}) })
+  await screen.findByRole('option', { name: 'Docs' })
+  fireEvent.click(screen.getByRole('button', { name: 'Search Drive' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search Drive' }), { target: { value: 'report' } })
+  await waitFor(() => expect(search).toHaveBeenCalledTimes(1))
+  fireEvent.click(within(window.document.querySelector('[data-matrix-drive-search-scope]')!).getByRole('button', { name: 'Atum Drive' }))
+  await waitFor(() => expect(search).toHaveBeenCalledTimes(2))
+  await act(async () => finishOld({ query: 'report', revision: 1, rows: [{ id: 'old', name: 'old-report', kind: 'file', size: 1, modifiedAt: 1 }], truncated: false }))
+  expect(screen.queryByRole('option', { name: 'old-report' })).toBeNull()
+})
+
+it('leaves search and learns the confirmed location when opening a found folder', async () => {
+  const { bridge } = treeBridge(TREE)
+  const enter = vi.fn(async () => ({ state: 'ready', revision: 1, canGoBack: true, folderLabel: 'Weekly', listingStatus: 'current', rows: [{ id: 'inside', name: 'report.txt', kind: 'file', size: 1, modifiedAt: 1 }], truncated: false }))
+  const search = vi.fn(async (query: string) => ({ query, revision: 1, rows: [{ id: 'found-folder', name: 'Weekly', kind: 'folder', size: 0, modifiedAt: 1, folders: ['Docs'] }], truncated: false }))
+  renderDrive({ ...bridge, enter, search, cancelSearch: vi.fn(async () => {}) })
+  await screen.findByRole('option', { name: 'Docs' })
+  fireEvent.click(screen.getByRole('button', { name: 'Search Drive' }))
+  fireEvent.change(screen.getByRole('textbox', { name: 'Search Drive' }), { target: { value: 'Weekly' } })
+  fireEvent.doubleClick(await screen.findByRole('option', { name: 'Weekly' }))
+  await screen.findByRole('option', { name: 'report.txt' })
+  expect(enter).toHaveBeenCalledExactlyOnceWith('found-folder')
+  expect($matrixDriveLocation.get().path).toEqual(['Docs', 'Weekly'])
+  expect(window.document.querySelector('[data-matrix-drive-search-scope]')).toBeNull()
+})
 
 it('shows the folders on the open path side by side and moves through them with the arrow keys', async () => {
   setMatrixDriveLayout('column')

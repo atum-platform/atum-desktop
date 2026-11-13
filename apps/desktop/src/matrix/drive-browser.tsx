@@ -3,7 +3,7 @@ import { type KeyboardEvent, type MouseEvent, type ReactElement, useEffect, useI
 import { ConsumerFileGlyph } from '@/app/atum/consumer-file-icon'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/ui/context-menu'
 import type { Locale } from '@/i18n'
-import { CheckCircle2, ChevronDown, ChevronUp, CloudOff, Folder, RefreshCw } from '@/lib/icons'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, CloudOff, Folder, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 import type { MatrixDriveRow, MatrixDriveView } from '../../shared/matrix-drive'
@@ -32,7 +32,7 @@ export interface MatrixDriveItemAction {
 /** What every Drive view shares: the items' place, their facts, and what can be done with them. */
 export interface MatrixDriveViewProps {
   rows: readonly MatrixDriveRow[]
-  view: Pick<MatrixDriveView, 'state' | 'lastSyncAt' | 'factsStale'>
+  view: Pick<MatrixDriveView, 'state' | 'lastSyncAt' | 'factsStale' | 'fileStatusAvailable'>
   locale: Locale
   selectedId: string | null
   formatSize(bytes: number): string
@@ -56,7 +56,11 @@ export interface MatrixDriveBrowserProps extends MatrixDriveViewProps {
 const BADGE: Record<MatrixDriveItemSync, { icon: typeof CheckCircle2; tone: string }> = {
   synced: { icon: CheckCircle2, tone: 'text-(--ak-ok)' },
   pending: { icon: RefreshCw, tone: 'text-(--ak-ink-3)' },
-  paused: { icon: CloudOff, tone: 'text-(--ak-ink-4)' }
+  paused: { icon: CloudOff, tone: 'text-(--ak-ink-4)' },
+  localOnly: { icon: CloudOff, tone: 'text-(--ak-ink-3)' },
+  conflict: { icon: AlertTriangle, tone: 'text-(--ak-warn)' },
+  error: { icon: AlertTriangle, tone: 'text-(--ak-danger)' },
+  uploading: { icon: RefreshCw, tone: 'text-(--ak-ink-3)' }
 }
 
 export function DriveSyncBadge({
@@ -77,6 +81,7 @@ export function DriveSyncBadge({
       className={cn('grid size-4 shrink-0 place-items-center rounded-full bg-(--ak-surface)', tone, className)}
       data-matrix-drive-sync={sync}
       id={id}
+      title={label}
     >
       <Icon aria-hidden className="size-3.5" />
       <span className="sr-only">{label}</span>
@@ -387,7 +392,10 @@ export function MatrixDriveBrowser({
             ) : (
               <MatrixFileGlyph className="size-4 shrink-0 text-(--ak-ink-2)" name={row.name} />
             )}
-            <span className={cn('truncate', selected && 'font-semibold')}>{row.name}</span>
+            <span className="min-w-0 truncate">
+              <span className={cn(selected && 'font-semibold')}>{row.name}</span>
+              {row.folders && <span className="ms-(--ak-s2) [font:var(--ak-t-caption)] text-(--ak-ink-3)">{[copy.browser.drive, ...row.folders].join(' › ')}</span>}
+            </span>
             {sync && <DriveSyncBadge className="bg-transparent" id={badgeId} label={copy.sync[sync]} sync={sync} />}
           </span>
           <span className="truncate [font:var(--ak-t-callout)] text-(--ak-ink-3) tabular-nums">
