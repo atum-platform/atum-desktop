@@ -4064,7 +4064,9 @@ function MatrixComposer({
                 <button
                   aria-busy={cloudStopping || undefined}
                   aria-label={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : matrixActionCopy[locale].cancelHermes}
-                  className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
+                  className={cloudStopping
+                    ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
+                    : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
                   disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStopping || cloudStopRequested.current === stopKey}
                   title={cloudStopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : stopRoute.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
