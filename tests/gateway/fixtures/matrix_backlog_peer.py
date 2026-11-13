@@ -20,7 +20,9 @@ class Model(BaseHTTPRequestHandler):
         latest = next(m['content'] for m in reversed(request['messages']) if m['role'] == 'user')
         numbers = re.findall(r'CHECK5_(\d+)', str(latest))
         text = 'ack ' + numbers[-1] if numbers else 'unexpected input'
-        self.server.inputs.append(numbers)
+        # Hermes also uses the model for periodic memory maintenance.
+        if numbers:
+            self.server.inputs.append(numbers)
         self.send_response(200)
         self.send_header('Content-Type', 'text/event-stream' if request.get('stream') else 'application/json')
         self.end_headers()
