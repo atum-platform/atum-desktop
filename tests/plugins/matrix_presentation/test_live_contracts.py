@@ -28,14 +28,15 @@ def test_real_mautrix_keyword_contracts():
             if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
                 continue
             receiver = ast.unparse(node.func.value)
-            if receiver not in ('self._client', 'client'):
+            owner = HTTPAPI if receiver in ('self._client.api', 'client.api') else Client
+            if receiver not in ('self._client', 'client', 'self._client.api', 'client.api'):
                 continue
-            method = getattr(Client, node.func.attr, None)
+            method = getattr(owner, node.func.attr, None)
             if method is None:  # local wrappers and version-gated compatibility methods
                 continue
             # Client encryption wrappers forward to ClientAPI; follow that real MRO.
             declared = set()
-            for cls in Client.__mro__:
+            for cls in owner.__mro__:
                 implementation = cls.__dict__.get(node.func.attr)
                 if implementation is not None:
                     declared.update(inspect.signature(implementation).parameters)
@@ -85,6 +86,10 @@ async def test_completion_real_client_http_boundary(tmp_path, cleanup_fails):
         assert redactions[0] == (str(APIPath.v3.rooms[event.source.chat_id].redact[root][p.redaction_transaction(root)]), {'reason': 'Turn ended'})
         if cleanup_fails:
             assert a._presentation_box.db.execute('SELECT COUNT(*) FROM effects WHERE target IS NOT NULL AND event IS NULL').fetchone()[0] == 1
+            cleanup_fails = False
+            await a._presentation_box.recover(a._presentation_send)
+            assert [w for w in writes if '/redact/' in w[0]][-1] == redactions[0]
+            assert a._presentation_box.db.execute('SELECT COUNT(*) FROM effects WHERE event IS NULL').fetchone()[0] == 0
     finally:
         a._presentation_box.db.close()
 
