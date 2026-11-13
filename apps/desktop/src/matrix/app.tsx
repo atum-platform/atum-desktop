@@ -8250,7 +8250,6 @@ function MatrixAccountView({
         onOwnModel={openOwnModel}
         onPlanSignIn={openPlanSignIn}
         onPreview={revealDocument}
-        onWatchDesk={deskEligible && !workspaceOpen ? watchDesk : undefined}
         onRestoreMessages={() => {
           setSettingsPane('privacy')
           setSettingsOpen(true)
@@ -8273,6 +8272,7 @@ function MatrixAccountView({
 
           setThreadView(next)
         }}
+        onWatchDesk={deskEligible && !workspaceOpen ? watchDesk : undefined}
         pinsOpen={pinsOpen}
         settled={settled}
         snapshot={roomView}
