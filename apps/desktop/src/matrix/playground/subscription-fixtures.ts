@@ -13,6 +13,7 @@ import type { MatrixSubscriptionProviderStatus, MatrixSubscriptionsStatus } from
  * - `signed-out` — a saved ChatGPT sign-in stopped working.
  * - `unavailable` — the status read itself fails.
  * - `relay-offline` — ChatGPT's relay Mac is registered but offline (owner 2026-11-11).
+ * - `carried` — ChatGPT's sign-in was carried to cloud custody (S2): the cloud serves it, no Mac.
  */
 export type PlaygroundSubscriptionsMode =
   | 'none'
@@ -23,6 +24,7 @@ export type PlaygroundSubscriptionsMode =
   | 'signed-out'
   | 'unavailable'
   | 'relay-offline'
+  | 'carried'
 
 const MODES: readonly PlaygroundSubscriptionsMode[] = [
   'none',
@@ -32,7 +34,8 @@ const MODES: readonly PlaygroundSubscriptionsMode[] = [
   'cloud-failed',
   'signed-out',
   'unavailable',
-  'relay-offline'
+  'relay-offline',
+  'carried'
 ]
 
 const CHATGPT_MODELS = [
@@ -81,6 +84,17 @@ function chatgpt(mode: PlaygroundSubscriptionsMode): MatrixSubscriptionProviderS
         models: CHATGPT_MODELS.map(model => model.id),
         modelDetails: CHATGPT_MODELS,
         relay: { state: 'enabled', thisMac: false, revision: 3, presence: 'offline' },
+        source: 'platform'
+      }
+
+    case 'carried':
+      return {
+        id: 'openai-codex',
+        connected: true,
+        localConnected: false,
+        models: CHATGPT_MODELS.map(model => model.id),
+        modelDetails: CHATGPT_MODELS,
+        relay: { state: 'carried', thisMac: false, revision: 4 },
         source: 'platform'
       }
 

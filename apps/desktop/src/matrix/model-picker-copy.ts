@@ -45,6 +45,8 @@ interface ModelPickerCopy {
   /** The faint line under an answer a fallback model gave, and its tooltip. Never a cost. */
   fallbackAnswer: string
   fallbackWhy: Record<'offline' | 'limit' | 'slow' | 'other', (plan: string) => string>
+  /** The once-per-conversation Google switch line; the model is Atum's own name, when known. */
+  googleSwitched: (model?: string) => string
   /** The model line under the thinking level, and the list it opens. */
   chooseModel: string
   modelsLoading: string
@@ -154,6 +156,8 @@ const en: ModelPickerCopy = {
     no_mac: plan => `${plan} isn’t ready for your assistants yet`,
     reconnect: plan => `Reconnect ${plan} to use it`
   },
+  googleSwitched: model =>
+    `Switched to ${model ?? 'Atum’s model'} for this conversation because it now includes Google data`,
   fallbackAnswer: 'Answered with a fallback',
   fallbackWhy: {
     offline: plan => `${plan} was offline`,
@@ -261,6 +265,8 @@ const vi: ModelPickerCopy = {
     no_mac: plan => `${plan} chưa dùng được cho trợ lý của bạn`,
     reconnect: plan => `Kết nối lại ${plan} để dùng`
   },
+  googleSwitched: model =>
+    `Đã chuyển sang ${model ?? 'mô hình của Atum'} cho cuộc trò chuyện này vì giờ có dữ liệu Google`,
   fallbackAnswer: 'Đã trả lời bằng mô hình dự phòng',
   fallbackWhy: {
     offline: plan => `Lúc đó ${plan} không kết nối được`,
@@ -367,6 +373,8 @@ const ja: ModelPickerCopy = {
     no_mac: plan => `${plan} はまだアシスタントで使えません`,
     reconnect: plan => `${plan} を再接続してください`
   },
+  googleSwitched: model =>
+    `Google のデータが含まれるようになったため、この会話は ${model ?? 'Atum のモデル'} に切り替えました`,
   fallbackAnswer: '代替モデルで回答しました',
   fallbackWhy: {
     offline: plan => `${plan} がオフラインでした`,
@@ -474,6 +482,7 @@ const zh: ModelPickerCopy = {
     no_mac: plan => `${plan} 暂时还不能给助理使用`,
     reconnect: plan => `重新连接 ${plan} 后即可使用`
   },
+  googleSwitched: model => `此对话现已包含 Google 数据，已切换为 ${model ?? 'Atum 的模型'}`,
   fallbackAnswer: '由备用模型回答',
   fallbackWhy: {
     offline: plan => `${plan} 当时离线`,
@@ -580,6 +589,7 @@ const zhHant: ModelPickerCopy = {
     no_mac: plan => `${plan} 暫時還不能給助理使用`,
     reconnect: plan => `重新連接 ${plan} 後即可使用`
   },
+  googleSwitched: model => `此對話現已包含 Google 資料，已切換為 ${model ?? 'Atum 的模型'}`,
   fallbackAnswer: '由備用模型回答',
   fallbackWhy: {
     offline: plan => `${plan} 當時離線`,

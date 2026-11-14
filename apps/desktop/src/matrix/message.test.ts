@@ -1135,6 +1135,7 @@ describe('company agent progress and interim remarks (agent-turns/1.6)', () => {
       }
     })
   })
+})
 
 it('projects the agent’s fallback notice (agent-turns/1.7) and never a stranger’s copy', () => {
   const content = {
@@ -1157,4 +1158,27 @@ it('projects the agent’s fallback notice (agent-turns/1.7) and never a strange
   // A descriptor with a price (or any other extra field) is not this notice.
   const priced = { ...content, 'io.atum.presentation': { ...content['io.atum.presentation'], protons: 12 } }
   expect(matrixMessage(event(priced, '@assistant:test'), '@owner:test', new Set())?.subscriptionFallback).toBeUndefined()
+})
+
+it('projects the agent’s Google switch line (S2) and never yours or a malformed one', () => {
+  const content = {
+    msgtype: 'm.notice',
+    body: 'I’m continuing with Nguyệt Thực for your Google information.',
+    'io.atum.presentation': { version: 1, code: 'google_route_switched', args: { servedBy: 'nguyet-thuc' } }
+  }
+
+  expect(matrixMessage(event(content, '@assistant:test'), '@owner:test', new Set())).toMatchObject({
+    notice: true,
+    googleSwitch: { servedBy: 'nguyet-thuc' }
+  })
+  expect(matrixMessage(event(content, '@owner:test'), '@owner:test', new Set())?.googleSwitch).toBeUndefined()
+
+  for (const broken of [
+    { ...content, msgtype: 'm.text' },
+    { ...content, 'io.atum.presentation': { version: 2, code: 'google_route_switched', args: { servedBy: 'nguyet-thuc' } } },
+    { ...content, 'io.atum.presentation': { version: 1, code: 'google_route_switched', args: { servedBy: 'x', protons: 3 } } },
+    { ...content, 'io.atum.presentation': { version: 1, code: 'google_route_switched', args: {} } }
+  ]) {
+    expect(matrixMessage(event(broken, '@assistant:test'), '@owner:test', new Set())?.googleSwitch).toBeUndefined()
+  }
 })

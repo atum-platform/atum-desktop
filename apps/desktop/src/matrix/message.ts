@@ -31,7 +31,7 @@ import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
-import { matrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
+import { matrixGoogleRouteSwitch, matrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 import { MATRIX_CRON_KEY, matrixTurnMarker } from '../../shared/matrix-turn'
 
@@ -549,6 +549,8 @@ export function matrixMessage(
 
   // The agent's fallback notice (agent-turns/1.7): it marks the answer it replies to, never shown itself.
   const subscriptionFallback = !failed && !own ? matrixSubscriptionFallback(original) : undefined
+  // The once-per-conversation Google switch line (S2): drawn as one quiet line, not a bubble.
+  const googleSwitch = !failed && !own && !subscriptionFallback ? matrixGoogleRouteSwitch(original) : undefined
 
   return {
     id,
@@ -581,6 +583,7 @@ export function matrixMessage(
     ...(interim ? { interim: true as const } : {}),
     ...(company ? { company: { ...company.identity, revisedAt: editedAt ?? event.getTs() } } : {}),
     ...(subscriptionFallback ? { subscriptionFallback } : {}),
+    ...(googleSwitch ? { googleSwitch } : {}),
     ...(!failed && original[MATRIX_FORWARDED_KEY] === true ? { forwarded: true as const } : {}),
     ...(thread ? { thread: true, threadRootId } : {}),
     ...(!failed && original.msgtype === 'm.notice' ? { notice: true } : {}),

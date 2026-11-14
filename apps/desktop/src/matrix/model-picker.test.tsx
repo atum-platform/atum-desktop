@@ -19,6 +19,7 @@ import {
   matrixModelRouteId,
   type MatrixModelRouteSelection
 } from '../../shared/matrix-models'
+import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 
 import { MatrixModelPicker } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -312,6 +313,7 @@ interface PickerOptions {
   agentPrincipal?: string
   home?: MatrixAgentHomeView
   cloudOnly?: boolean
+  lastFallback?: MatrixSubscriptionFallback
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -335,6 +337,7 @@ function picker(room: MatrixRoom, options: PickerOptions = {}) {
         fail={fail}
         here={current.here}
         home={current.home}
+        lastFallback={current.lastFallback}
         local={current.local ?? !(current.managed ?? true)}
         managed={current.managed ?? true}
         onAdvanced={onAdvanced ?? undefined}
@@ -1514,7 +1517,7 @@ describe('account subscriptions in the model picker', () => {
 describe('a plan that cannot answer now (owner 2026-11-11)', () => {
   type Presence = 'online' | 'offline' | 'none' | undefined
 
-  const relayAccount = (presence: Presence, state: 'enabled' | 'disabled' = 'enabled') => ({
+  const relayAccount = (presence: Presence, state: 'enabled' | 'disabled' | 'carried' = 'enabled') => ({
     catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers: [] })),
     status: vi.fn(async () => ({
       scope: 'account' as const,
@@ -1562,7 +1565,7 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
 
   const cloudPicker = (
     presence: Presence,
-    options: Partial<PickerOptions> & { state?: 'enabled' | 'disabled' } = {}
+    options: Partial<PickerOptions> & { state?: 'enabled' | 'disabled' | 'carried' } = {}
   ) => {
     const subscriptions = relayAccount(presence, options.state)
     const modelDestinations = destinations()
@@ -1662,6 +1665,52 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
 
     cleanup()
     cloudPicker('offline')
+    expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }).querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
+
+  it('lists ChatGPT as choosable once its sign-in is carried to the cloud (S2): no Mac needed', async () => {
+    cloudPicker(undefined, { state: 'carried' })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+
+    expect(rail(card, 'openai-codex').className).not.toMatch(/opacity-45/u)
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(row(card, SOL_ROUTE).disabled).toBe(false)
+    expect(row(card, SOL_ROUTE).textContent).not.toMatch(/offline|Not ready/u)
+  })
+
+  it.each([
+    ['en', 'Model: GPT-6 Sol · ChatGPT was offline', 'ChatGPT was offline'],
+    ['vi', 'Mô hình: GPT-6 Sol · Lúc đó ChatGPT không kết nối được', 'Lúc đó ChatGPT không kết nối được']
+  ] as const)('marks the chip when the last turn fell back (%s): the same red glyph, one line, never a cost', async (locale, name, why) => {
+    const { command, modelDestinations } = cloudPicker('online', {
+      locale,
+      cloudChoice: solChoice({ relayPresence: 'online' }),
+      lastFallback: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' }
+    })
+
+    const chip = screen.getByRole('button', { name })
+    const warning = chip.querySelector<SVGElement>('[data-matrix-model-warning]')!
+
+    expect(warning.getAttribute('style')).toContain('var(--ak-danger)')
+    expect(chip.dataset.matrixModelUnavailable).toBe('fell_back')
+    expect(chip.textContent).toContain('GPT-6 Sol')
+    const said = await tip(chip)
+    expect(said).toContain(why)
+    expect(said).not.toMatch(/Proton|\d/u)
+    expect(command).not.toHaveBeenCalled()
+    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('keeps the chip plain when the fallback was for another plan, or the chip names Atum', () => {
+    cloudPicker('online', {
+      cloudChoice: solChoice({ relayPresence: 'online' }),
+      lastFallback: { plan: 'opencode_go', reason: 'rate_limited', servedBy: 'nguyet-thuc' }
+    })
+    expect(screen.getByRole('button', { name: 'Model: GPT-6 Sol' }).querySelector('[data-matrix-model-warning]')).toBeNull()
+
+    cleanup()
+    cloudPicker('online', { lastFallback: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' } })
     expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }).querySelector('[data-matrix-model-warning]')).toBeNull()
   })
 

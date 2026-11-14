@@ -17,6 +17,9 @@ import type {
  * `relay.state` by `matrixSubscriptionsWithChatGptRelay` and as `subscriptionState` by main's
  * `cloudModelView`): an enabled relay counts as reachable, anything else as no Mac.
  *
+ * On S2 the plan's sign-in is carried to cloud custody (`relay.state: carried`) and the cloud serves
+ * it natively, so no Mac is in the path and the plan answers.
+ *
  * OpenCode Go is account-wide (no Mac in the path): its one fact is whether the key still works.
  * Pure and dependency-free. Presentation only: the platform still refuses a pick it cannot serve.
  */
@@ -37,8 +40,16 @@ function unavailable(reason: MatrixPlanUnavailableReason): MatrixPlanAvailabilit
   return { available: false, reason }
 }
 
-/** The relay rule: presence when known, else the registration state. */
-function relayAvailability(state: 'enabled' | 'disabled' | undefined, presence: MatrixRelayPresence | undefined) {
+/** The relay rule: a plan carried to cloud custody (S2) needs no Mac; otherwise presence when known,
+ * else the registration state. */
+function relayAvailability(
+  state: 'enabled' | 'disabled' | 'carried' | undefined,
+  presence: MatrixRelayPresence | undefined
+) {
+  if (state === 'carried') {
+    return AVAILABLE
+  }
+
   if (presence === 'offline') {
     return unavailable('mac_offline')
   }

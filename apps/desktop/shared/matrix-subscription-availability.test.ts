@@ -88,3 +88,12 @@ describe('which plan can answer a cloud assistant now', () => {
     expect(matrixCurrentPlanAvailability({ choice: undefined, account: [chatgpt(enabled)] })).toBeUndefined()
   })
 })
+
+describe('a ChatGPT plan carried to cloud custody (S2)', () => {
+  it('answers with no Mac, whatever presence a stale relay row still carries', () => {
+    const carried = { state: 'carried' as const, thisMac: false, revision: 5 }
+
+    expect(matrixAccountPlanAvailability(chatgpt(carried))).toEqual({ available: true })
+    expect(matrixAccountPlanAvailability(chatgpt({ ...carried, presence: 'offline' }))).toEqual({ available: true })
+  })
+})

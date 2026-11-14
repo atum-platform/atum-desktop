@@ -86,6 +86,45 @@ export function matrixSubscriptionFallback(content: unknown): MatrixSubscription
   }
 }
 
+/**
+ * The once-per-conversation Google switch line (S2, owner 2026-11-14): when Google content enters a
+ * conversation, the agent moves it to the approved Atum model and posts one `m.notice` carrying
+ * `io.atum.presentation` `{ version: 1, code: "google_route_switched", args: { servedBy } }`.
+ * The body is the host's own line for older clients; this client draws its own quiet words instead.
+ */
+export interface MatrixGoogleRouteSwitch {
+  /** The model alias that answers from now on. Display only. */
+  servedBy: string
+}
+
+/** The descriptor of a Google switch notice, or undefined for anything else. */
+export function matrixGoogleRouteSwitch(content: unknown): MatrixGoogleRouteSwitch | undefined {
+  if (!record(content) || content.msgtype !== 'm.notice' || typeof content.body !== 'string') {
+    return undefined
+  }
+
+  const descriptor = content[MATRIX_PRESENTATION_KEY]
+
+  if (!record(descriptor) || !exactKeys(descriptor, ['version', 'code', 'args'])) {
+    return undefined
+  }
+
+  const args = descriptor.args
+
+  if (
+    descriptor.version !== 1 ||
+    descriptor.code !== 'google_route_switched' ||
+    !record(args) ||
+    !exactKeys(args, ['servedBy']) ||
+    typeof args.servedBy !== 'string' ||
+    !SERVED_BY.test(args.servedBy)
+  ) {
+    return undefined
+  }
+
+  return { servedBy: args.servedBy }
+}
+
 interface FoldLine {
   id: string
   sender: string
@@ -94,14 +133,20 @@ interface FoldLine {
   subscriptionFallback?: MatrixSubscriptionFallback
   /** Set on the answer a fallback notice names. */
   answeredByFallback?: MatrixSubscriptionFallback
+  googleSwitch?: MatrixGoogleRouteSwitch
 }
 
 /**
- * What a transcript shows of fallback notices: none as rows of their own. Each one marks the answer
- * it replies to (same sender, already in view), which draws the line; a notice whose answer is not
- * in view shows nothing. Order is kept.
+ * What a transcript shows of the agent's presentation notices. A fallback notice is never a row of
+ * its own: each one marks the answer it replies to (same sender, already in view), which draws the
+ * line; a notice whose answer is not in view shows nothing. A Google switch line shows once: the
+ * first in view stays, any later one is dropped. With `agents`, a switch line from anyone else is
+ * not one (it stays an ordinary message). Order is kept.
  */
-export function matrixFoldSubscriptionFallbacks<T extends FoldLine>(messages: readonly T[]): T[] {
+export function matrixFoldSubscriptionFallbacks<T extends FoldLine>(
+  messages: readonly T[],
+  agents?: ReadonlySet<string>
+): T[] {
   const notices = new Map<string, MatrixSubscriptionFallback>()
 
   for (const message of messages) {
@@ -110,17 +155,79 @@ export function matrixFoldSubscriptionFallbacks<T extends FoldLine>(messages: re
     }
   }
 
-  if (!notices.size) {
+  const switches = messages.some(message => message.googleSwitch)
+
+  if (!notices.size && !switches) {
     return [...messages]
   }
+
+  let switchShown = false
 
   return messages.flatMap(message => {
     if (!message.own && message.subscriptionFallback) {
       return []
     }
 
+    if (message.googleSwitch) {
+      if (message.own || (agents && !agents.has(message.sender))) {
+        const { googleSwitch: _ignored, ...plain } = message
+
+        return [plain as T]
+      }
+
+      if (switchShown) {
+        return []
+      }
+
+      switchShown = true
+
+      return [message]
+    }
+
     const fallback = message.own ? undefined : notices.get(`${message.sender}\n${message.id}`)
 
     return [fallback ? { ...message, answeredByFallback: fallback } : message]
   })
+}
+
+/**
+ * The fallback that answered the agent's latest reply, for the composer's chip: undefined once a
+ * later reply came from the chosen plan. Reads the raw transcript (the notice follows its answer)
+ * or a folded one (the answer carries `answeredByFallback`). Working lines and switch lines are not
+ * replies and are skipped.
+ */
+export function matrixLatestAnswerFallback(
+  messages: readonly (FoldLine & { progress?: unknown; transientRemoved?: unknown; redacted?: unknown })[],
+  agent: string | undefined
+): MatrixSubscriptionFallback | undefined {
+  if (!agent) {
+    return undefined
+  }
+
+  // Scanning back from the end, a notice is seen before the answer it replies to.
+  const notices = new Map<string, MatrixSubscriptionFallback>()
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]!
+
+    if (message.own || message.sender !== agent) {
+      continue
+    }
+
+    if (message.subscriptionFallback) {
+      if (message.replyTo && !notices.has(message.replyTo)) {
+        notices.set(message.replyTo, message.subscriptionFallback)
+      }
+
+      continue
+    }
+
+    if (message.googleSwitch || message.progress || message.transientRemoved || message.redacted) {
+      continue
+    }
+
+    return message.answeredByFallback ?? notices.get(message.id)
+  }
+
+  return undefined
 }

@@ -6,7 +6,7 @@ import { I18nProvider, type Locale } from '@/i18n'
 
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 
-import { SubscriptionFallbackLine } from './subscription-fallback-line'
+import { GoogleSwitchLine, SubscriptionFallbackLine } from './subscription-fallback-line'
 
 afterEach(cleanup)
 
@@ -51,5 +51,42 @@ describe('the line under an answer a fallback gave', () => {
 
     expect(tip).toContain(why)
     expect(`${shown.textContent} ${tip}`).not.toMatch(/Proton|cost|price|\d/iu)
+  })
+})
+
+describe('the Google switch line (S2)', () => {
+  function line(servedBy: string, locale: Locale) {
+    const { container } = render(
+      <I18nProvider configClient={null} initialLocale={locale}>
+        <GoogleSwitchLine switched={{ servedBy }} timestamp={0} />
+      </I18nProvider>
+    )
+
+    return container.querySelector<HTMLElement>('[data-matrix-google-switch]')!
+  }
+
+  it.each([
+    ['en', 'Switched to Nguyệt Thực for this conversation because it now includes Google data'],
+    ['vi', 'Đã chuyển sang Nguyệt Thực cho cuộc trò chuyện này vì giờ có dữ liệu Google'],
+    ['ja', 'Google のデータが含まれるようになったため、この会話は Nguyệt Thực に切り替えました'],
+    ['zh', '此对话现已包含 Google 数据，已切换为 Nguyệt Thực'],
+    ['zh-hant', '此對話現已包含 Google 資料，已切換為 Nguyệt Thực']
+  ] as const)('is one quiet centred line in %s, naming the Atum model', (locale, words) => {
+    const shown = line('nguyet-thuc', locale)
+
+    expect(shown.textContent).toBe(words)
+    expect(shown.tagName).toBe('P')
+    expect(shown.className).toContain('text-center')
+    expect(shown.className).toContain('text-xs')
+    expect(shown.className).toContain('--atum-ink-faint')
+    expect(shown.querySelector('button, a')).toBeNull()
+    expect(shown.textContent).not.toMatch(/Proton|\d/u)
+  })
+
+  it('names Atum’s model generically when the alias is not one of the line-up', () => {
+    const shown = line('google-protected', 'en')
+
+    expect(shown.textContent).toBe('Switched to Atum’s model for this conversation because it now includes Google data')
+    expect(shown.dataset.matrixGoogleSwitch).toBe('atum')
   })
 })

@@ -47,9 +47,11 @@ import {
 import {
   matrixAccountPlanAvailability,
   matrixCloudPlanAvailability,
+  matrixCloudPlanProvider,
   matrixCurrentPlanAvailability,
   type MatrixPlanAvailability
 } from '../../shared/matrix-subscription-availability'
+import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import {
   type MatrixSubscriptionCatalog,
   matrixSubscriptionProviderLabel,
@@ -79,6 +81,7 @@ import {
   pickerSections
 } from './model-picker-sections'
 import { PICKER_NOTE, PICKER_ROW } from './model-picker-style'
+import { MATRIX_FALLBACK_WHY } from './subscription-fallback-line'
 import { SubscriptionConnectFlow } from './subscriptions'
 
 type ConnectedCatalog =
@@ -262,6 +265,7 @@ export function MatrixModelPicker({
   home,
   agentHome,
   subscriptionBridge,
+  lastFallback,
   trigger,
   open: controlledOpen,
   onOpenChange,
@@ -305,6 +309,8 @@ export function MatrixModelPicker({
   agentHome?: MatrixAgentHomeBridge
   /** A surface that reads subscriptions for one host instead of a live room. */
   subscriptionBridge?: MatrixSubscriptionsBridge
+  /** The fallback that answered the agent's latest reply here (agent-turns/1.7), if one did. */
+  lastFallback?: MatrixSubscriptionFallback
   /** A row that opens this picker, replacing the composer's model pill. */
   trigger?: ReactNode
   /** Controlled open state, for a surface whose row owns it. */
@@ -774,12 +780,15 @@ export function MatrixModelPicker({
   const chatgptProvider = cloudProvider('openai-codex')
   // Whether the relay Mac can serve the plan now: the availability adapter alone decides.
   const chatgptAvailability = matrixAccountPlanAvailability(chatgptProvider)
-  const cloudChatGptConnected = chatgptProvider?.connected === true && chatgptAvailability?.available === true
+  // A plan carried to cloud custody (S2) is the account's connection even with no local sign-in left.
+  const chatgptCarried = chatgptProvider?.relay?.state === 'carried'
+  const cloudChatGptConnected =
+    (chatgptProvider?.connected === true || chatgptCarried) && chatgptAvailability?.available === true
   // A linked plan cloud assistants cannot reach now (no relay Mac, or its Mac is offline): its
   // models stay listed, greyed, with one line saying why and the one fix in the tooltip.
   const cloudChatGptPending =
     cloudSubscriptions &&
-    (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true) &&
+    (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true || chatgptCarried) &&
     chatgptAvailability?.available !== true
   const chatgptDown = (chatgptAvailability?.available === false ? chatgptAvailability.reason : undefined) ?? 'no_mac'
   const chatgptReason = chatgptDown === 'mac_offline' ? words.chatgptMacOffline : words.chatgptCloudNotReady
@@ -1805,12 +1814,33 @@ export function MatrixModelPicker({
   // A lapsed key's chip already reads "Reconnect …", so its name does not say it twice.
   const chipDown = chipPlan?.available === false ? chipPlan.reason : undefined
 
+  // The plan the chip names now, whichever projection names it (a saved cloud plan, or the
+  // current home's subscription route). A pick in flight names nothing yet.
+  const chipPlanProvider = pendingCloudSubscription || pendingHome
+    ? undefined
+    : homeDisplayRoute
+      ? parseMatrixSubscriptionProvider(homeDisplayRoute.provider)
+      : savedCloudPlan
+        ? matrixCloudPlanProvider(savedCloudPlan.source)
+        : undefined
+
+  // The latest reply came from a fallback while the chip still names that plan: the same glyph,
+  // and the tip says why in one line. A later reply from the plan clears it. Never a cost.
+  const fellBack =
+    !chipDown &&
+    lastFallback &&
+    chipPlanProvider === (lastFallback.plan === 'chatgpt' ? 'openai-codex' : 'opencode-go')
+      ? lastFallback
+      : undefined
+
   const chipWarning =
     chipDown && savedCloudPlan
       ? words.planUnavailable[chipDown](
           matrixSubscriptionProviderLabel(savedCloudPlan.source === 'chatgpt_plan' ? 'openai-codex' : 'opencode-go')
         )
-      : undefined
+      : fellBack && chipPlanProvider
+        ? words.fallbackWhy[MATRIX_FALLBACK_WHY[fellBack.reason]](matrixSubscriptionProviderLabel(chipPlanProvider))
+        : undefined
 
   const atumChipName = MATRIX_MODEL_LINEUP.find(row => row.id === (cloud ? cloudCurrent : managedCurrent))?.name
   const chipLabel =
@@ -1855,7 +1885,7 @@ export function MatrixModelPicker({
               }
               className="ak-btn ak-btn--plain ak-btn--sm max-w-52 shrink-0"
               data-matrix-model-picker
-              data-matrix-model-unavailable={chipWarning ? chipDown : undefined}
+              data-matrix-model-unavailable={chipWarning ? (chipDown ?? 'fell_back') : undefined}
               disabled={disabled}
               style={{ color: 'var(--ak-ink-2)' }}
               type="button"
