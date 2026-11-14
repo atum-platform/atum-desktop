@@ -131,6 +131,7 @@ import {
   type MatrixTurnLookup
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
+import type { MatrixHostAgentControl } from '../../shared/matrix-agent-desk'
 import { MATRIX_AGENT_SOURCES_IPC } from '../../shared/matrix-agent-sources'
 import { matrixAgentStatusText, matrixCheckingLine } from '../../shared/matrix-agent-status-copy'
 import { appBotTurnRefusal } from '../../shared/matrix-app-bot-failure'
@@ -590,6 +591,8 @@ import {
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
+import { requestHostAgentControl } from './device/host-agent-control'
+import { requestHostDesk } from './device/host-desk'
 import { resolveDisclaimLauncher } from './device/launcher'
 import {
   AgentMigration,
@@ -1029,12 +1032,14 @@ protocol.registerSchemesAsPrivileged([
 ])
 const UI_URL = 'atum-matrix://ui/matrix.html'
 const SDK_URL = 'atum-matrix://sdk/matrix-sdk.html'
+
 const lookAssets = config.domain
   ? new MatrixLookAssets(
       config.domain.resource,
       new LookAssetDiskCache(path.join(app.getPath('userData'), 'look-assets'))
     )
   : undefined
+
 let ui: BrowserWindow | undefined
 let microphoneConsent: (() => boolean) | undefined
 const messageLinks = new MatrixMessageLinkBroker()
@@ -1043,6 +1048,7 @@ const inviteLinks = new MatrixInviteLinkBroker()
 function publishMatrixMessageLink(target: MatrixMessageLinkTarget): void {
   if (ui && !ui.isDestroyed()) {
     ui.webContents.send(MATRIX_MESSAGE_LINK_IPC.opened, target)
+
     if (ui.isMinimized()) {ui.restore()}
     ui.show()
     ui.focus()
@@ -1052,6 +1058,7 @@ function publishMatrixMessageLink(target: MatrixMessageLinkTarget): void {
 /** Consume only `atum://message`; malformed attempts are dropped without payload logging. */
 function deliverMatrixMessageLink(value: unknown): boolean {
   const outcome = messageLinks.deliver(value, publishMatrixMessageLink)
+
   if (outcome !== 'not_message_link') {
     console.warn(`[Matrix] message link ${outcome}`)
   }
@@ -1062,6 +1069,7 @@ function deliverMatrixMessageLink(value: unknown): boolean {
 function publishMatrixInviteLink(token: string): void {
   if (ui && !ui.isDestroyed()) {
     ui.webContents.send(MATRIX_INVITE_LINK_IPC.opened, token)
+
     if (ui.isMinimized()) {ui.restore()}
     ui.show()
     ui.focus()
@@ -1071,6 +1079,7 @@ function publishMatrixInviteLink(token: string): void {
 /** Consume only `atum://join`; the static outcome log never contains the bearer token or URL. */
 function deliverMatrixInviteLink(value: unknown): boolean {
   const outcome = inviteLinks.deliver(value, publishMatrixInviteLink)
+
   if (outcome !== 'not_invite_link') {
     console.warn(`[Matrix] invite link ${outcome}`)
   }
@@ -1096,13 +1105,16 @@ function registerMatrixMessageLinkProtocol(): void {
 
 registerMatrixMessageLinkProtocol()
 const coldMessageLink = matrixMessageLinkArg(process.argv)
+
 if (coldMessageLink) {deliverMatrixMessageLink(coldMessageLink)}
 const coldInviteLink = process.argv.find(value => isMatrixInviteDeepLinkCandidate(value))
+
 if (coldInviteLink) {deliverMatrixInviteLink(coldInviteLink)}
 // macOS can deliver before `whenReady`; the broker retains the validated target for the renderer.
 app.on('open-url', (event, url) => {
   if (isMatrixMessageLinkCandidate(url) || isMatrixInviteDeepLinkCandidate(url)) {
     event.preventDefault()
+
     if (!deliverMatrixMessageLink(url)) {deliverMatrixInviteLink(url)}
   }
 })
@@ -1423,7 +1435,9 @@ function reconcileDeviceControl(force = false): Promise<void> {
       ? deviceControlReadyFlight
       : deviceControlReadyFlight.then(() => reconcileDeviceControl(true))
   }
+
   const interval = deviceControlOwner ? DEVICE_CONTROL_RETRY_MS : DEVICE_CONTROL_VERIFY_MS
+
   if (!force && deviceControlScope === scope && now - deviceControlLastAttempt < interval) {
     return Promise.resolve()
   }
@@ -1442,12 +1456,14 @@ function reconcileDeviceControl(force = false): Promise<void> {
       }
 
       deviceControlOwner = presence.state === 'enrolled' ? undefined : identity
+
       if (presence.state === 'enrolled') {
         executionDeviceNames.invalidate()
         executionPolicies?.refreshAll()
         scheduleExecutionPolicyReconcile()
         scheduleContinuousListening()
       }
+
       publish(state)
     })
     .catch(() => {
@@ -1455,6 +1471,7 @@ function reconcileDeviceControl(force = false): Promise<void> {
         deviceControlOwner = identity
         publish(state)
       }
+
       console.warn('[Device] device service reconnect pending')
     })
     .finally(() => {
@@ -2129,10 +2146,12 @@ const movingAgents = new Set<string>()
  * owner's Macs. It holds an agent off here exactly while this Mac is not its home (`isMovingAgent`), and
  * leaves every agent the platform has not placed under it as it was. Built with the device identity. */
 let agentHome: AgentHomeApp | undefined
+
 const agentHomePreflights = new Map<
   string,
   { scope: string; preflight: AgentHomeOwnerMovePreflightV25 }
 >()
+
 /** The owner's names for their Macs, as the agent settings show them (a short cache of the registry read). */
 let agentHomeNames: { at: number; names: MacNames; superseded: readonly string[] } | undefined
 const agentMoves = new Map<string, AgentMigration>()
@@ -2667,11 +2686,13 @@ function buildDeviceRuntime(): DeviceRuntime {
       enabled: remoteMacSourceReadsEnabled,
       scope: () => {
         const scope = account.appScope()
+
         return scope ? `${scope.accountKey}:${scope.generation}` : null
       },
       allowed: source => macSourcesConsentStore().read()[source],
       ownerPrincipal: grant => {
         const identity = account?.enrollment().identity
+
         return identity?.userId === grant.ownerUserId ? identity.principal : null
       },
       authority: (query, signal) => s1Call({ kind: 'source-authority', agentPrincipal: query.agentPrincipal,
@@ -2736,6 +2757,7 @@ function buildDeviceRuntime(): DeviceRuntime {
           deviceServiceId,
           agentPrincipals: allAgents().flatMap(agent => {
             const identity = enrollmentOf(agent).identity
+
             return !agent.closed && identity?.principal === ownerPrincipal && identity.agentPrincipal
               ? [identity.agentPrincipal]
               : []
@@ -2746,6 +2768,7 @@ function buildDeviceRuntime(): DeviceRuntime {
         signal.throwIfAborted()
         const selected = await chatGptRelay?.refresh()
         signal.throwIfAborted()
+
         return selected?.state === 'enabled' && selected.deviceServiceId === request.deviceServiceId &&
           selected.revision === request.relayRevision
       },
@@ -2758,6 +2781,7 @@ function buildDeviceRuntime(): DeviceRuntime {
 
         const relayHome = matrixHermesHome(runtime, ownerPrincipal, 'chatgpt-relay')
         mkdirSync(relayHome, { recursive: true, mode: 0o700 })
+
         return runChatGptRelayProcess({
           python: runtime.python,
           source: runtime.source,
@@ -2940,6 +2964,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   const me = presence?.state === 'enrolled' ? presence.deviceServiceId : null
   const owner = agentHome?.owner.state(principal)
   const ownerFailure = agentHome?.owner.failure(principal)
+
   const base = homeViewFor(view ?? null, agentHomeNames?.names ?? null, me) ?? (owner
     ? {
         lives:
@@ -2958,13 +2983,17 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
         ownerFailure,
         Boolean(allAgents().some(agent => cloudPrincipal(agent) === principal && isCloudAgent(agent)))
       ))
+
   const application = agentHome?.participant?.projection(principal)
+
   if (base && application?.status === 'unavailable' && (!base.issue || base.issue === 'model_unavailable')) {
     base.issue = application.reason
   }
+
   // The SAVED cloud choice, never the recommended fallback: a ChatGPT/OpenCode Go choice is
   // the current model as itself, so an Atum row is not mistaken for the one already chosen.
   const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
+
   const cloudModel = cloudDestinationChoice?.external
     ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
       ? {
@@ -3007,6 +3036,7 @@ function agentHomeCustody(principal: string): boolean {
 
 function agentHomeOwnerScope(): string | null {
   const scope = account?.appScope()
+
   return scope ? `${scope.accountKey}:${scope.generation}` : null
 }
 
@@ -3022,9 +3052,11 @@ function createAgentHome(device: MacDeviceIdentity): AgentHomeApp {
       }
 
       const row = value as Record<string, unknown>
+
       const common = row.common && typeof row.common === 'object' && !Array.isArray(row.common)
         ? row.common as Record<string, unknown>
         : undefined
+
       const meta = (row.meta ?? common?.meta) as Record<string, unknown> | undefined
 
       if (!meta || typeof meta.signerKeyId !== 'string' || typeof meta.signature !== 'string') {
@@ -3032,6 +3064,7 @@ function createAgentHome(device: MacDeviceIdentity): AgentHomeApp {
       }
 
       const enrollment = device.enrollment()
+
       const key = enrollment?.controllerKeys.find(
         candidate =>
           candidate.kid === meta.signerKeyId &&
@@ -3263,16 +3296,19 @@ async function materializeAgentHomeTarget(principal: string, signal: AbortSignal
   if (enrollment.state !== 'ready' || !enrollment.identity) {
     if (agentRuntime.operation || !account.identity()) {throw new Error('matrix_agent_busy')}
     agentRuntime.operation = true
+
     try {
       await account.enrollAgent(principal)
     } finally {
       agentRuntime.operation = false
     }
+
     signal.throwIfAborted()
     enrollment = enrollmentOf(agentRuntime)
   }
 
   const identity = enrollment.identity
+
   if (enrollment.state !== 'ready' || !identity || closing || agentRuntime.closed) {
     throw new Error('matrix_agent_unavailable')
   }
@@ -3340,6 +3376,7 @@ function placementConnectedModelAgent(
     ...(agentRuntime.name ? { agentName: agentRuntime.name } : {}),
     forward: request => {
       if (!connection.pages || connection.signal.aborted) {throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.unavailable)}
+
       return connection.pages(request)
     },
     isCurrent: () =>
@@ -3376,16 +3413,20 @@ async function withPlacementConnection<T>(
 
   const execute = (connection: MatrixHermesConnection) =>
     run(placementConnectedModelAgent(agentRuntime, identity, connection), connection)
+
   const existing = agentRuntime.executor?.connected
 
   if (!write && existing?.pages && !existing.signal.aborted) {return execute(existing)}
 
   const release = await agentRuntime.lock.acquire('*', 'management', signal)
+
   try {
     signal.throwIfAborted()
+
     if (agentRuntime.invocation || agentRuntime.setup) {throw new Error(MATRIX_CONNECTED_MODEL_ERRORS.busy)}
 
     const live = agentRuntime.executor?.connected
+
     if (live?.pages && !live.signal.aborted) {return execute(live)}
 
     return withMatrixHermes(
@@ -3426,6 +3467,7 @@ async function applyPlacementConnectionChoice(
 ) {
   return withPlacementConnection(principal, signal, true, async (agent, connection) => {
     const selected = await selectMatrixModelRoute(agent, route.id)
+
     if (selected.status !== 'applied') {
       return { status: 'unavailable' as const, reason: 'connection_needs_attention' as const }
     }
@@ -3554,6 +3596,7 @@ function applyAnswering(roster: MatrixAgentDefinitionRecord[]): void {
   // the read drops it instead of keeping the id until sign-out.
   placedAgents.retain(roster)
   hostRuntimeAgents.clear()
+
   for (const agent of roster) {
     if (agent.status === 'active' && agent.runtime === 'hermes') { hostRuntimeAgents.add(agent.principal) }
   }
@@ -4106,6 +4149,7 @@ async function cloudAgentRequest(request: {
       s1Request: account.s1Request.bind(account), s1Call,
       fetcher: (url, init) => session.defaultSession.fetch(url, init)
     })
+
     const current = account.appScope()
 
     if (closing || !scope || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
@@ -4902,6 +4946,7 @@ function subscriptionProvidersFor(authLifecycle?: MatrixSubscriptionAuthLifecycl
   })
 
   let closingProviders: Promise<void> | undefined
+
   const close = () => {
     closingProviders ??= (async () => {
       await scope.stop()
@@ -4943,10 +4988,12 @@ function chatGptRelayModelRows(models: readonly string[]) {
 
 async function chatGptRelayModels() {
   const { transport } = subscriptionProvidersFor()
+
   const catalog = await listMatrixSubscriptionCatalog({
     forward: value => transport.forward(value),
     isCurrent: () => transport.current()
   })
+
   const chatgpt = catalog.providers.find(provider => provider.id === 'openai-codex')
 
   if (!chatgpt?.connected || !chatgpt.models?.length) {
@@ -4972,6 +5019,7 @@ async function chatGptRelayModels() {
 async function configureThisMacAsChatGptRelay(enabled: boolean): Promise<boolean> {
   if (!enabled) {
     deviceBootstrap?.configureChatGptRelay(false)
+
     return chatGptRelay ? chatGptRelay.disable() : true
   }
 
@@ -4993,6 +5041,7 @@ async function configureThisMacAsChatGptRelay(enabled: boolean): Promise<boolean
   }
 
   deviceBootstrap.configureChatGptRelay(true, models.map(model => model.id))
+
   return true
 }
 
@@ -5051,6 +5100,7 @@ function repairChatGptSubscription(
   }
 
   stopSubscriptionFollowUpRepair()
+
   const repair = new MatrixSubscriptionFollowUpRepair({
     registerRelay: () => configureThisMacAsChatGptRelay(true),
     refresh: () => refreshSubscriptionAgents(),
@@ -5058,6 +5108,7 @@ function repairChatGptSubscription(
     current: () => {
       try {
         const current = requireSubscriptionAccount()
+
         if (`${current.accountKey}:${current.generation}:${current.owner}` !== key) {
           return false
         }
@@ -5071,7 +5122,9 @@ function repairChatGptSubscription(
       }
     }
   })
+
   subscriptionFollowUpRepair = { key, repair }
+
   return repair
 }
 
@@ -5300,6 +5353,7 @@ function noteProtectedFolderDenied(): void {
     publish(state)
   }
 }
+
 /** The person's engine's last error code logged (`chat engine error`), so each is one line. */
 let humanEngineError: string | null = null
 /** Main's question to the sign-in server after a refused token, and its last engine restart. */
@@ -6911,9 +6965,11 @@ function publish(next: MatrixSnapshot) {
   // Company-channel confirmations belong to one signed-in session: a new session (or quit) voids them.
   companyChannelConfirmations.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   companyConversationConfirmations.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   if (!closing && next.state === 'ready' && next.identity && pendingMatrixDrafts) {
     void pendingMatrixDrafts.drain(next.identity, draft => dispatchSdkCommand(draft)).catch(() => {})
   }
+
   executionPolicies?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
@@ -6973,10 +7029,13 @@ function publish(next: MatrixSnapshot) {
   agentActionsLog.observe(agentList)
   const primary = participants?.primary
   const primaryMacRole = primary ? cloudAgentMacRole(primary) : undefined
+
   const primaryAnswersInCloud = primary
     ? matrixCloudAgentAnswersInCloud({ cloudRoute: isCloudAgent(primary), role: primaryMacRole })
     : false
+
   const primaryLocalReadiness = primary ? readinessOf(primary) : undefined
+
   const primaryReadiness = primary
     ? matrixCloudAgentReadinessForUser({
         cloudRoute: isCloudAgent(primary),
@@ -6985,6 +7044,7 @@ function publish(next: MatrixSnapshot) {
         since: primaryLocalReadiness?.since ?? Date.now()
       })
     : undefined
+
   const primarySetup = primary
     ? matrixCloudAgentSetupForUser({
         cloudRoute: isCloudAgent(primary),
@@ -6992,6 +7052,7 @@ function publish(next: MatrixSnapshot) {
         setup: primary === defaultAgent ? assistantSetupState : primary.setupState
       })
     : undefined
+
   const defaultAuthority = primary ? matrixEnrollmentAuthority(enrollmentOf(primary)) : { ok: false }
 
   const projection = projectAssistantRooms(
@@ -7322,6 +7383,7 @@ function cloudModelView(principal: string) {
   const connection = providerConnections?.view()?.connection
   const relay = chatGptRelay?.view()
   const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' ? choice : undefined
+
   const subscriptionState = subscription
     ? subscription.source === 'chatgpt_plan'
       ? (relay?.state === 'enabled' || relay?.state === 'carried') ? ('connected' as const) : relay ? ('revoked' as const) : ('unavailable' as const)
@@ -7333,6 +7395,7 @@ function cloudModelView(principal: string) {
         : connection || relay
         ? ('disconnected' as const)
         : ('unavailable' as const)
+
   const models = subscription?.source === 'chatgpt_plan'
     ? (relay?.state === 'enabled' || relay?.state === 'carried') ? relay.models : []
     : connection?.state === 'connected' ? connection.models : []
@@ -7387,12 +7450,14 @@ function agentViews(): MatrixAgentView[] {
     const destinations = modelDestinations?.view(principal)
     const cloudModel = isCloudAgent(each) ? cloudModelView(principal) : undefined
     const macRole = cloudAgentMacRole(each)
+
     const readiness = matrixCloudAgentReadinessForUser({
       cloudRoute: isCloudAgent(each),
       role: macRole,
       local: localReadiness,
       since: localReadiness?.since ?? Date.now()
     })
+
     const setup = matrixCloudAgentSetupForUser({
       cloudRoute: isCloudAgent(each),
       role: macRole,
@@ -12907,6 +12972,7 @@ interface MatrixSoulTurnStart {
 function readSoulRaw(home: string): string | undefined {
   try {
     const value = readFileSync(path.join(home, 'SOUL.md'), 'utf8')
+
     return Buffer.byteLength(value, 'utf8') <= 65_536 ? value : undefined
   } catch {
     return undefined
@@ -12937,12 +13003,14 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
       ) {return undefined}
 
       const snapshot = await account.agentDefinition(assistantId, AbortSignal.timeout(15_000))
+
       if (agentRuntime.closed || enrollmentOf(agentRuntime).identity?.executorId !== identity.executorId) {return undefined}
 
       refreshAgentSoul(agentRuntime, snapshot.definition?.soul, snapshot.definitionRevision)
       const home = agentHermesHome(agentRuntime, identity, selectedRuntime)
       const raw = readSoulRaw(home)
       const localText = matrixAgentSoulText(home)
+
       if (raw === undefined || localText === undefined) {return undefined}
 
       const primary = productAgent() === agentRuntime ? matrixPrimarySoulFallback(agentRuntime.name).soul.trim() : ''
@@ -12954,6 +13022,7 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
           revision?: unknown
           platformText?: unknown
         } | null
+
         if (
           pending?.revision === snapshot.definitionRevision &&
           pending.platformText === platformText &&
@@ -12981,10 +13050,12 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
     },
     afterTurn: async value => {
       const start = value as MatrixSoulTurnStart | undefined
+
       if (!start || agentRuntime.closed || enrollmentOf(agentRuntime).identity?.executorId !== start.executorId) {return}
 
       const raw = readSoulRaw(start.home)
       const text = matrixAgentSoulText(start.home)
+
       if (raw === undefined || text === undefined || text === start.text) {return}
 
       const clearPending = () => {
@@ -12998,6 +13069,7 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
       if (!text || text.includes('\u0000') || Buffer.byteLength(text, 'utf8') > 65_536) {
         if (start.platformText) {replaceMatrixAgentSoul(start.home, raw, start.platformText)}
         clearPending()
+
         return
       }
 
@@ -13031,9 +13103,12 @@ function matrixAgentSoulLifecycle(agentRuntime: MatrixAgentRuntime): MatrixHerme
           const current = await account.agentDefinition(start.assistantId, AbortSignal.timeout(15_000)).catch(() => undefined)
           const primary = productAgent() === agentRuntime ? matrixPrimarySoulFallback(agentRuntime.name).soul.trim() : ''
           const winner = (current?.definition?.soul ?? primary).trim()
+
           if (winner) {replaceMatrixAgentSoul(start.home, raw, winner)}
+
           if (current) {reconciledSouls.set(start.principal, current.definitionRevision)}
           clearPending()
+
           return
         }
 
@@ -13262,6 +13337,7 @@ function requestAgentChats(
 
 function localMacSourcesConsentScope() {
   const installation = new MacSourcesConsentStore(outcomeStore, () => null).installationId()
+
   return macSourceConsentScope(null, false, installation)!
 }
 
@@ -13369,17 +13445,20 @@ function commitPendingMacSourceOff(gate: Parameters<MatrixAccountSourceGates['se
 
 async function setMacSourceConsent(source: Parameters<MacSourcesConsentStore['set']>[0], enabled: boolean) {
   const gate = source === 'teamSpaces' ? 'team_spaces' : source
+
   if (sourceGateSync) {await sourceGateSync.set(gate, enabled)}
   else if (!enabled) {commitPendingMacSourceOff(gate)}
   else {
     commitMacSourceConsent(source, true)
     macSourcesConsentStore().clearPendingNarrow([source])
   }
+
   return macSourcesConsentStore().read()
 }
 
 function shownOnThisMac(): boolean {
   const store = macSourcesConsentStore()
+
   return Boolean(store.presentedAt(store.installationId()))
 }
 
@@ -13398,6 +13477,7 @@ function macLocationAccessStatus() { return 'not-determined' as const }
 /** Account-level source facts for Settings. No assistant or open chat is consulted. */
 function accountSourceFacts() {
   const home = app.getPath('home')
+
   const fullDisk = process.platform === 'darwin'
     ? probeFullDiskAccess({
         messages: path.join(home, 'Library', 'Messages', 'chat.db'),
@@ -13465,6 +13545,7 @@ async function requestAgentMacSources(
     agentPrincipal: identity.agentPrincipal,
     executorId: identity.executorId
   }
+
   const current = () => {
     signal.throwIfAborted()
     const scope = account.appScope()
@@ -13673,6 +13754,7 @@ async function prepareMacJobs(agent: MatrixAgentRuntime, signal: AbortSignal, se
   previous?.stop()
   await previous?.drained()
   signal.throwIfAborted()
+
   if (macJobPreparations.get(agent) !== preparation) {throw new Error('mac_job_start_superseded')}
   macJobs.delete(agent)
   const context = agentHome?.controller.ctx
@@ -13811,6 +13893,7 @@ async function openAssistantHermes(
 
   await prepareMacJobs(agentRuntime, signal, selectedRuntime, input)
   signal.throwIfAborted()
+
   const tickerMayRun = applyMatrixJobsHold(holds, agentRuntime.role,
     macJobsTickerPlan(agentJobsPlan(agentRuntime), macJobs.get(agentRuntime)?.lifecycle, macJobsPlaced(agentRuntime)))
 
@@ -14002,6 +14085,7 @@ async function backgroundSweepContinuity(
     agentId: runtime.userId,
     bounded: true
   }
+
   const value = await human.queue.command({ kind: 'readContinuity', ...scope }, MATRIX_CONTINUITY.deadlineMs + 1_000)
   const read = readContinuityResult(value, scope)
   const room = state.rooms.find(each => each.id === candidate.roomId)
@@ -14054,11 +14138,14 @@ async function backgroundSweepMemorySource(
   for (const name of ['SOUL.md', 'USER.md', 'MEMORY.md']) {
     try {
       const file = path.join(home, name)
+
       if (!existsSync(file) || !statSync(file).isFile()) {
         continue
       }
+
       observedAt = Math.max(observedAt, Math.trunc(statSync(file).mtimeMs))
       const text = readFileSync(file, 'utf8').trim()
+
       if (text) {
         parts.push(`${name}\n${text}`)
       }
@@ -14068,6 +14155,7 @@ async function backgroundSweepMemorySource(
   }
 
   const capturedAt = Date.now()
+
   // Background work never probes protected Desktop/Documents/Downloads: even testing access can
   // raise a macOS prompt. Atum Drive is app-created and already background-safe.
   const macFiles = includeMacFiles && process.platform === 'darwin'
@@ -14077,6 +14165,7 @@ async function backgroundSweepMemorySource(
         limit: 2
       })
     : []
+
   const fileEntries = macFiles.map(file => backgroundSweepMacFileEvidence(
     file,
     !warmup && file.modifiedAt >= capturedAt - sourceIntervalMs
@@ -14106,6 +14195,7 @@ async function backgroundSweepConversationSource(
   const { read, at } = await backgroundSweepContinuity(candidate)
   const visible = read.entries.slice(0, 20)
   const ownerEvent = backgroundSweepOwnerEvent(visible, at)
+
   const entries = ownerEvent
     ? [
         backgroundSweepConversationEvidence(
@@ -14141,15 +14231,18 @@ async function backgroundSweepChatsSource(
   if (!agent || !identity || !owner) {
     return { status: 'unavailable' }
   }
+
   const now = Date.now()
   const priorCarry = sweepWatermarkCarry(prior)
   const priorAt = sweepWatermarkAt(prior, now - 24 * 60 * 60_000)
+
   // A warm-up nudge reads recent rooms, not only unread ones; an already-read message can still be
   // the most useful detail when the agent is building its first picture of the owner's work.
   const sinceMs = warmup ? now - 7 * 24 * 60 * 60_000
     : priorCarry.size > 0
       ? now - 48 * 60 * 60_000
       : Math.max(now - 48 * 60 * 60_000, priorAt - 2 * 60 * 60_000)
+
   const listed = JSON.parse(
     await requestAgentChats(
       agent,
@@ -14168,6 +14261,7 @@ async function backgroundSweepChatsSource(
   if (!Array.isArray(listed.rooms)) {
     return { status: 'failed' }
   }
+
   const entries: FollowupSweepEvidenceInput[] = []
   const included = new Set<string>()
   const selection = selectBackgroundSweepChats(listed.rooms, prior ?? null, now, warmup)
@@ -14186,6 +14280,7 @@ async function backgroundSweepChatsSource(
         signal
       )
     ) as { messages?: unknown }
+
     const messages = Array.isArray(detail.messages) ? (detail.messages as Array<Record<string, unknown>>) : []
     const message = messages.find(each => each.mine === false && typeof each.text === 'string')
     const observedAt = message && (Number(message.at) || now)
@@ -14235,21 +14330,27 @@ async function backgroundSweepGoogleSource(
   if (agent !== defaultAgent || !googleConnections?.configured) {
     return { status: 'not_configured' }
   }
+
   const gate = googleAssistant.gate(agent.role)
+
   if (gate !== 'ok') {
     return { status: gate === 'not_available' ? 'not_configured' : 'not_authorized' }
   }
+
   signal.throwIfAborted()
   const now = Date.now()
   const priorCarry = sweepWatermarkCarry(prior ?? null)
   const priorAt = sweepWatermarkAt(prior ?? null, now - 24 * 60 * 60_000)
+
   const sinceMs = priorCarry.size > 0
     ? now - 48 * 60 * 60_000
     : Math.max(now - 48 * 60 * 60_000, priorAt - 2 * 60 * 60_000)
+
   const request =
     source === 'google_mail'
       ? { action: 'search_mail' as const, query: `is:unread -from:me after:${Math.floor(sinceMs / 1_000)}` }
       : { action: 'agenda' as const, when: 'today_and_tomorrow' as const }
+
   const utility = matrixGoogleUtilityInput(request, new Date(now))
   const outcome = 'read' in utility ? await googleConnections.toolRead(utility.read) : null
   signal.throwIfAborted()
@@ -14257,13 +14358,17 @@ async function backgroundSweepGoogleSource(
   if (!outcome) {
     return { status: 'unavailable' }
   }
+
   if (outcome.ok === false) {
     return { status: googleSourceStatus(outcome.error) }
   }
+
   const result = matrixGoogleToolResult(request, outcome.value) as Record<string, unknown>
+
   if (typeof result.error === 'string') {
     return { status: googleSourceStatus(result.error) }
   }
+
   const entries: FollowupSweepEvidenceInput[] = []
   let watermark: string
 
@@ -14277,22 +14382,28 @@ async function backgroundSweepGoogleSource(
     for (const { message, observedAt } of selection.entries) {
       entries.push(backgroundSweepMailEvidence(message, observedAt))
     }
+
     watermark = selection.watermark
+
     // Warm-up only: a category pass adds durable context (what the owner buys, subscribes to, or
     // ignores) as non-fresh evidence. It never advances the unread frontier, so the next normal
     // sweep still sees the same unread mail it would have seen without this pass.
     if (warmup) {
       const categoryRequest = { action: 'search_mail' as const,
         query: '-from:me newer_than:90d (category:updates OR category:promotions OR category:social)' }
+
       const categoryUtility = matrixGoogleUtilityInput(categoryRequest, new Date(now))
+
       const categoryOutcome = 'read' in categoryUtility
         ? await googleConnections.toolRead(categoryUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
 
       if (categoryOutcome && categoryOutcome.ok !== false) {
         const category = matrixGoogleToolResult(categoryRequest, categoryOutcome.value) as Record<string, unknown>
         const seen = new Set(entries.map(entry => entry.anchorId))
+
         const messages = (Array.isArray(category.messages) ? category.messages : [])
           .filter((message): message is Record<string, unknown> => Boolean(message) && typeof message === 'object' &&
             !Array.isArray(message) && typeof message.messageId === 'string')
@@ -14302,6 +14413,7 @@ async function backgroundSweepGoogleSource(
           if (seen.has(String(message.messageId))) {
             continue
           }
+
           entries.push({ ...backgroundSweepMailEvidence({
             messageId: String(message.messageId),
             ...(typeof message.threadId === 'string' ? { threadId: message.threadId } : {}),
@@ -14320,20 +14432,25 @@ async function backgroundSweepGoogleSource(
       .slice(0, 20)
       .map(({ event, start }) => {
         const revision = `calendar:${String(event.eventId)}:${String(event.start ?? '')}`
+
         return { event, start, revision, key: sweepCarryKey(revision) }
       })
+
     const driveFiles = new Map<string, Record<string, unknown>>()
 
     for (const sort of includeDrive ? ['modified', 'viewed'] as const : []) {
       const driveRequest = { action: 'search_drive' as const, sort }
       const driveUtility = matrixGoogleUtilityInput(driveRequest, new Date(now))
+
       const driveOutcome = 'read' in driveUtility
         ? await googleConnections.toolRead(driveUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
 
       if (driveOutcome && driveOutcome.ok !== false) {
         const drive = matrixGoogleToolResult(driveRequest, driveOutcome.value) as Record<string, unknown>
+
         for (const file of (Array.isArray(drive.files) ? drive.files : []).filter(
           (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
             typeof (value as Record<string, unknown>).fileId === 'string'
@@ -14347,6 +14464,7 @@ async function backgroundSweepGoogleSource(
       const modifiedAt = typeof file.modified === 'string' ? file.modified : undefined
       const viewedAt = typeof file.viewed === 'string' ? file.viewed : undefined
       const revision = `drive:${String(file.fileId)}:${modifiedAt ?? ''}:${viewedAt ?? ''}`
+
       const evidence = backgroundSweepDriveEvidence({
         fileId: String(file.fileId),
         ...(typeof file.sourceId === 'string' ? { sourceId: file.sourceId } : {}),
@@ -14354,17 +14472,22 @@ async function backgroundSweepGoogleSource(
         ...(modifiedAt ? { modifiedAt } : {}),
         ...(viewedAt ? { viewedAt } : {})
       }, true)
+
       return evidence ? [{ evidence, revision, key: sweepCarryKey(revision) }] : []
     })
+
     const revisions = [...events.map(candidate => candidate.revision), ...files.map(candidate => candidate.revision)]
     const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
     const calendarPending = events
       .filter(candidate => changed || priorCarry.has(candidate.key))
       .sort((left, right) => Number(priorCarry.has(right.key)) - Number(priorCarry.has(left.key)) || left.start - right.start)
+
     const drivePending = files
       .filter(candidate => changed || priorCarry.has(candidate.key))
       .sort((left, right) => Number(priorCarry.has(right.key)) - Number(priorCarry.has(left.key)) ||
         right.evidence.observedAt - left.evidence.observedAt)
+
     const included = new Set<string>()
     const inside = followupSweepInsideNormalWindow(now, ownerTimeZone)
 
@@ -14380,6 +14503,7 @@ async function backgroundSweepGoogleSource(
         ...(typeof candidate.event.notes === 'string' ? { notes: candidate.event.notes } : {})
       }, now, inside))
     }
+
     for (const candidate of drivePending.slice(0, 2)) {
       included.add(candidate.key)
       entries.push(candidate.evidence)
@@ -14388,13 +14512,17 @@ async function backgroundSweepGoogleSource(
     if (warmup) {
       const historyRequest = { action: 'agenda' as const, when: 'past_30d' as const }
       const historyUtility = matrixGoogleUtilityInput(historyRequest, new Date(now))
+
       const historyOutcome = 'read' in historyUtility
         ? await googleConnections.toolRead(historyUtility.read).catch(() => null)
         : null
+
       signal.throwIfAborted()
+
       if (historyOutcome && historyOutcome.ok !== false) {
         const history = matrixGoogleToolResult(historyRequest, historyOutcome.value) as Record<string, unknown>
         const currentIds = new Set(events.map(candidate => String(candidate.event.eventId)))
+
         for (const event of (Array.isArray(history.events) ? history.events : []).filter(
           (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value) &&
             typeof (value as Record<string, unknown>).eventId === 'string'
@@ -14402,10 +14530,13 @@ async function backgroundSweepGoogleSource(
           if (currentIds.has(String(event.eventId)) || entries.filter(entry => entry.source === 'google_calendar').length >= 5) {
             continue
           }
+
           const start = Date.parse(String(event.start ?? ''))
+
           if (!Number.isFinite(start)) {
             continue
           }
+
           entries.push({ ...backgroundSweepCalendarEvidence({
             eventId: String(event.eventId),
             ...(typeof event.sourceId === 'string' ? { sourceId: event.sourceId } : {}),
@@ -14422,6 +14553,7 @@ async function backgroundSweepGoogleSource(
     const carry = [...new Set([...priorCarry, ...events.map(candidate => candidate.key), ...files.map(candidate => candidate.key)])]
       .filter(key => !included.has(key))
       .slice(0, 20)
+
     // The frozen wire has one Google-calendar frontier. It tracks the bounded calendar+Drive
     // planning bundle so Mac and cloud homes make the same fresh/unchanged decision.
     watermark = sweepWatermark(now, revisions, carry)
@@ -14436,31 +14568,40 @@ async function backgroundSweepGoogleDriveSource(
   signal: AbortSignal
 ): Promise<BackgroundSweepSourceRead> {
   const agent = backgroundSweepRuntime(candidate)
+
   if (agent !== defaultAgent || !googleConnections?.configured) {
     return { status: 'not_configured' }
   }
+
   const gate = googleAssistant.gate(agent.role)
+
   if (gate !== 'ok') {
     return { status: gate === 'not_available' ? 'not_configured' : 'not_authorized' }
   }
 
   const now = Date.now()
   const files = new Map<string, Record<string, unknown>>()
+
   for (const sort of ['modified', 'viewed'] as const) {
     const request = { action: 'search_drive' as const, sort }
     const utility = matrixGoogleUtilityInput(request, new Date(now))
     const outcome = 'read' in utility ? await googleConnections.toolRead(utility.read).catch(() => null) : null
     signal.throwIfAborted()
+
     if (!outcome) {
       return { status: 'unavailable' }
     }
+
     if (outcome.ok === false) {
       return { status: googleSourceStatus(outcome.error) }
     }
+
     const result = matrixGoogleToolResult(request, outcome.value) as Record<string, unknown>
+
     if (typeof result.error === 'string') {
       return { status: googleSourceStatus(result.error) }
     }
+
     for (const file of (Array.isArray(result.files) ? result.files : []).filter(
       (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' &&
         !Array.isArray(value) && typeof (value as Record<string, unknown>).fileId === 'string'
@@ -14475,8 +14616,10 @@ async function backgroundSweepGoogleDriveSource(
       ...(typeof file.name === 'string' ? { name: file.name } : {}),
       ...(typeof file.modified === 'string' ? { modifiedAt: file.modified } : {}),
       ...(typeof file.viewed === 'string' ? { viewedAt: file.viewed } : {}) }, true)
+
     return evidence ? [{ evidence, revision: evidence.anchorId }] : []
   }).sort((left, right) => right.evidence.observedAt - left.evidence.observedAt)
+
   const revisions = candidates.map(candidate_ => candidate_.revision)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
   const entries = candidates.slice(0, 2).map(candidate_ => ({ ...candidate_.evidence, fresh: changed }))
@@ -14494,29 +14637,39 @@ async function backgroundSweepScopedRoomSource(
   const agent = backgroundSweepRuntime(candidate)
   const identity = agent && enrollmentOf(agent).identity
   const owner = account.appScope()
+
   if (!agent || !identity || !owner || !roomId.startsWith('!')) {
     return { status: 'unavailable' }
   }
+
   const value = JSON.parse(
     await requestAgentChats(agent, identity, owner, { op: 'read', id: roomId, limit: 20 }, signal)
   ) as { error?: unknown; messages?: unknown }
+
   if (value.error === 'disabled') {
     return { status: 'not_authorized' }
   }
+
   if (typeof value.error === 'string' || !Array.isArray(value.messages)) {
     return { status: 'unavailable' }
   }
+
   const message = (value.messages as Array<Record<string, unknown>>)
     .find(each => each.mine === false && typeof each.eventId === 'string' && typeof each.text === 'string')
+
   if (!message) {
     return { status: 'ok', ...(prior ? { cursor: prior } : {}), entries: [] }
   }
+
   const observedAt = Number(message.at)
+
   if (!Number.isSafeInteger(observedAt)) {
     return { status: 'failed' }
   }
+
   const eventId = String(message.eventId)
   const cursor = sweepWatermark(observedAt, [eventId])
+
   const entries = cursor === prior ? [] : [backgroundSweepChatEvidence(roomId, {
     eventId,
     at: observedAt,
@@ -14534,24 +14687,32 @@ async function requestBackgroundMacSources(
   if (process.platform !== 'darwin') {
     return { error: 'unavailable' }
   }
+
   const agent = backgroundSweepRuntime(candidate)
   const identity = agent && enrollmentOf(agent).identity
   const owner = account.appScope()
+
   if (!agent || !identity || !owner) {
     return { error: 'unavailable' }
   }
+
   const accountKey = owner.accountKey
   const generation = owner.generation
+
   const current = () => {
     const scope = account.appScope()
     const enrolled = enrollmentOf(agent).identity
+
     return !closing && !agent.closed && scope?.accountKey === accountKey && scope.generation === generation &&
       enrolled?.agentPrincipal === identity.agentPrincipal && enrolled.executorId === identity.executorId
   }
+
   if (!current()) {
     return { error: 'unavailable' }
   }
+
   const value = JSON.parse(await macSourcesService().request(payload, { background: true }, signal)) as Record<string, unknown>
+
   return current() ? value : { error: 'disabled' }
 }
 
@@ -14573,14 +14734,20 @@ async function backgroundSweepMacFilesSource(
   if (process.platform !== 'darwin' || !backgroundSweepRuntime(candidate)) {
     return { status: 'unavailable' }
   }
+
   const now = Date.now()
+
   const files = await recentMacFileNames({ roots: [path.join(app.getPath('home'), 'Atum', 'Drive')],
     since: now - 30 * 24 * 60 * 60_000, limit: 5 })
+
   const revisions = files.map(file => `${file.identity}:${file.modifiedAt}`)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries = files.map(file => backgroundSweepMacFileEvidence(file,
     changed && file.modifiedAt >= now - sourceIntervalMs))
+
   const cursor = sweepWatermark(now, revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14591,32 +14758,42 @@ async function backgroundSweepMacMessagesSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate, { op: 'messages.conversations', days: 30, limit: 10 }, signal)
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (!Array.isArray(value.conversations)) {
     return { status: 'failed' }
   }
+
   const rows = (value.conversations as Array<Record<string, unknown>>).filter(row =>
     typeof row.id === 'string' && typeof row.lastActivity === 'string')
+
   const revisions = rows.map(row => `${row.id}:${row.lastActivity}:${String(row.messageCount ?? '')}`)
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries: FollowupSweepEvidenceInput[] = rows.slice(0, 5).flatMap(row => {
     const observedAt = Date.parse(String(row.lastActivity))
+
     if (!Number.isFinite(observedAt)) {
       return []
     }
+
     const participants = Array.isArray(row.participants)
       ? row.participants.map(item => typeof item === 'object' && item && 'name' in item ? String(item.name) : '')
         .filter(Boolean).slice(0, 3).join(', ')
       : ''
+
     return [{ source: 'mac_messages', scope: 'mac:messages', objectId: String(row.id),
       anchorId: `${String(row.id)}:${String(row.lastActivity)}:${String(row.messageCount ?? 0)}`, dueAt: null,
       observedAt, title: String(row.title ?? '').slice(0, 240),
       text: `${participants || (row.isGroup ? 'Group conversation' : 'Conversation')}; ${String(row.messageCount ?? 0)} messages`,
       fresh: changed }]
   })
+
   const cursor = sweepWatermark(Date.now(), revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14627,28 +14804,38 @@ async function backgroundSweepMacBrowserSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate,
     { op: 'browser.history', browser: 'all', days: 14, limit: 20, mode: 'recent' }, signal)
+
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (!Array.isArray(value.history)) {
     return { status: 'failed' }
   }
+
   const rows = value.history as Array<Record<string, unknown>>
   const revisions = rows.map(row => JSON.stringify([row.browser, row.domain, row.path, row.lastVisit, row.visits]))
   const changed = prior === undefined || sweepWatermarkDigest(prior) !== sweepHash([...revisions].sort())
+
   const entries: FollowupSweepEvidenceInput[] = rows.slice(0, 5).flatMap(row => {
     const observedAt = Date.parse(String(row.lastVisit ?? ''))
+
     if (!Number.isFinite(observedAt) || typeof row.domain !== 'string') {
       return []
     }
+
     const identity = createHash('sha256').update(JSON.stringify([row.browser, row.domain, row.path])).digest('hex')
+
     return [{ source: 'mac_browser_history', scope: 'mac:browser', objectId: identity,
       anchorId: `${identity}:${String(row.lastVisit)}`, dueAt: null, observedAt,
       title: String(row.title ?? row.domain).slice(0, 240),
       text: `${row.domain}; ${String(row.visits ?? 1)} visits`, fresh: changed }]
   })
+
   const cursor = sweepWatermark(Date.now(), revisions)
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14659,20 +14846,25 @@ async function backgroundSweepMacLocationSource(
 ): Promise<BackgroundSweepSourceRead> {
   const value = await requestBackgroundMacSources(candidate, { op: 'location.current', precision: 'city' }, signal)
   const status = macBackgroundStatus(value)
+
   if (status) {
     return { status }
   }
+
   if (typeof value.timeZone !== 'string') {
     return { status: 'failed' }
   }
+
   const revision = JSON.stringify([value.city ?? '', value.region ?? '', value.country ?? '', value.timeZone])
   const cursor = sweepWatermark(Date.now(), [revision])
   const changed = cursor !== prior && sweepWatermarkDigest(prior ?? null) !== sweepHash([revision])
   const label = [value.city, value.region, value.country].filter(item => typeof item === 'string').join(', ')
+
   const entries: FollowupSweepEvidenceInput[] = changed ? [{ source: 'mac_location', scope: 'mac:location',
     objectId: 'current-city', anchorId: createHash('sha256').update(revision).digest('hex'), dueAt: null,
     observedAt: Date.now(), title: label.slice(0, 240), text: `${label || 'Current city unavailable'}; ${value.timeZone}`,
     fresh: true }] : []
+
   return { status: 'ok', cursor, entryCursors: entries.map(() => cursor), entries }
 }
 
@@ -14684,11 +14876,13 @@ function backgroundSweepSourceRegistry(
 ): BackgroundSweepSourceRegistry {
   const registry = new BackgroundSweepSourceRegistry()
   const interval = policy.effectiveSourceIntervalMs ?? policy.sourceIntervalMs
+
   const register = (operations: readonly string[], handler: Parameters<BackgroundSweepSourceRegistry['register']>[1]) => {
     for (const operation of operations) {
       registry.register(operation, handler)
     }
   }
+
   register([NATIVE_AGENT_SOURCE_OPERATIONS.chats, NATIVE_AGENT_SOURCE_OPERATIONS.cloudChats], context =>
     backgroundSweepChatsSource(candidate, context.priorCursor, context.signal, warmup))
   registry.register(NATIVE_AGENT_SOURCE_OPERATIONS.scopedRoom, context =>
@@ -14716,28 +14910,36 @@ function backgroundSweepSourceRegistry(
     backgroundSweepMacBrowserSource(candidate, context.priorCursor, context.signal))
   registry.register(NATIVE_AGENT_SOURCE_OPERATIONS.macLocation, context =>
     backgroundSweepMacLocationSource(candidate, context.priorCursor, context.signal))
+
   return registry
 }
 
 async function backgroundSweepAuthority(candidate: BackgroundSweepCandidate, signal: AbortSignal) {
   const ctx = agentHome?.controller.ctx
+
   if (!ctx) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   const placement = await ctx.platform.readPlacement(candidate.agentPrincipal, signal)
+
   if (placement.ok === false) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   const home = fenceFromLease(placement.value, ctx.runtime.leaseFacts(candidate.agentPrincipal))
+
   if (!home || home.leaseId === undefined) {
     throw new Error('matrix_background_sweep_unavailable')
   }
+
   return { ctx, placement: placement.value, home }
 }
 
 function backgroundSweepPlatform(candidate: BackgroundSweepCandidate, signal: AbortSignal) {
   const sign = async (request: unknown, occurrenceId?: string) => {
     const { ctx, home } = await backgroundSweepAuthority(candidate, signal)
+
     return ctx.auth.sign(AGENT_SWEEP_SIGNED_ACTION, meta =>
       occurrenceId
         ? { meta, fence: withOperation(home, { kind: 'job', id: occurrenceId }), request }
@@ -14760,10 +14962,13 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
       const agent = allAgents().find(
         each => cloudPrincipal(each) === input.agent && assistantHomeRoom(each) === input.roomId
       )
+
       const host = agent && hosts.get(agent.role)
+
       if (!agent || !host?.ready || !agent.assistantId) {
         throw new Error('matrix_background_sweep_publication_unavailable')
       }
+
       const value = (await host.queue.command(
         {
           kind: 'prepareResult',
@@ -14778,6 +14983,7 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
         },
         30_000
       )) as { eventType?: unknown; content?: unknown }
+
       if (
         (value.eventType !== 'm.room.message' && value.eventType !== 'm.room.encrypted') ||
         !value.content ||
@@ -14785,20 +14991,25 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
       ) {
         throw new Error('matrix_background_sweep_publication_invalid')
       }
+
       return { eventType: value.eventType, content: value.content }
     },
     enqueue: async (record, signal) => {
       const candidateRuntime = allAgents().find(each => cloudPrincipal(each) === record.agent)
+
       if (!candidateRuntime?.assistantId) {
         throw new Error('matrix_background_sweep_publication_unavailable')
       }
+
       const candidate = {
         agentPrincipal: record.agent,
         assistantId: candidateRuntime.assistantId,
         roomId: record.roomId,
         ownerPrincipal: account.identity()?.userId ?? ''
       }
+
       const { ctx, placement, home } = await backgroundSweepAuthority(candidate, signal)
+
       const publication = await ctx.auth.sign('MatrixPublicationEnqueue', meta => ({
         meta,
         fence: withOperation(home, { kind: 'job', id: record.occurrenceId }),
@@ -14809,12 +15020,15 @@ function createBackgroundSweepPublications(): MatrixBackgroundSweepPublication {
         transactionId: record.transactionId,
         payloadSha256: record.payloadSha256
       }))
+
       const envelope: PublicationEnvelope = {
         publication: publication as PublicationEnvelope['publication'],
         eventType: record.eventType,
         payloadBase64: record.payloadBase64
       }
+
       const result = await ctx.platform.enqueuePublication(record.agent, envelope, signal)
+
       // A native sweep is only staged here. The platform keeps this queued row
       // unclaimable until settlement admits the offer and invokes publication.
       if (result.ok === false || result.value.state !== 'queued') {
@@ -14832,12 +15046,15 @@ function backgroundSweepSuggestions(): MatrixBackgroundSweepSuggestions {
 
 function createBackgroundSweeps(): MatrixBackgroundSweeps {
   backgroundSweepPublications ??= createBackgroundSweepPublications()
+
   return new MatrixBackgroundSweeps({
     candidates: () => {
       const ownerPrincipal = account.identity()?.userId ?? ''
+
       return allAgents().flatMap(agent => {
         const principal = cloudPrincipal(agent)
         const roomId = assistantHomeRoom(agent)
+
         return !closing && ownerPrincipal && principal && agent.assistantId && roomId && !agent.closed &&
           !isCloudOnlyAgent(agent)
           ? [{ agentPrincipal: principal, assistantId: agent.assistantId, roomId, ownerPrincipal }]
@@ -14854,6 +15071,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
 
       try {
         await backgroundSweepAuthority(candidate, signal)
+
         return { active: true, revision: setting.revision }
       } catch {
         return { active: false, revision: setting.revision }
@@ -14863,15 +15081,18 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     hold: async candidate => {
       const agent = backgroundSweepRuntime(candidate)
       const held = agent ? await holdAgentLease(agent) : null
+
       return held?.leaseToken ? (held as BackgroundSweepLease) : null
     },
     acquire: async candidate => {
       const agent = backgroundSweepRuntime(candidate)
       const release = agent?.lock.tryAcquire(candidate.roomId, 'background-sweep')
+
       return release ? { release } : null
     },
     negotiate: async (candidate, signal) => {
       const sources = await backgroundSweepPlatform(candidate, signal).sources(candidate.assistantId, signal)
+
       return sources ? AGENT_SWEEP_PROFILE_V2 : AGENT_SWEEP_PROFILE_V11
     },
     claim: (candidate, _lease, request, signal) =>
@@ -14882,6 +15103,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
       const warmup = claim.profile !== AGENT_SWEEP_PROFILE && claim.occurrenceKind === 'warmup_nudge'
       const registry = backgroundSweepSourceRegistry(candidate, claim.policy, claim.ownerTimeZone, warmup)
       const gateEnabled = (gate: string) => macSourceGateEnabled(macSourcesConsentStore().read(), gate)
+
       const snapshot = claim.profile === AGENT_SWEEP_PROFILE_V2
         ? await collectBackgroundSweepSources({ ownerTimeZone: claim.ownerTimeZone,
             admittedSources: claim.admittedSources, sourceCursors: claim.sourceCursors, registry, gateEnabled,
@@ -14889,13 +15111,16 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         : await collectLegacyBackgroundSweepSources({ ownerTimeZone: claim.ownerTimeZone,
             prior: claim.sourceWatermarks, registry, gateEnabled, current: () => backgroundSweepCurrent(candidate),
             signal, warmup })
+
       if (warmup) {
         return claim.profile === AGENT_SWEEP_PROFILE_V2
           ? fitAgentSourceSweepSnapshot(snapshot as AgentSourceSweepSnapshot, { warmup: claim.warmupNudgeIndex })
           : fitWarmupNudgeSnapshot(snapshot as FollowupSweepEvidenceSnapshot, claim.warmupNudgeIndex)
       }
+
       const evidence = snapshot as FollowupSweepPromptSnapshot
       const suggestion = !followupSweepNeedsModel(evidence) && followupSweepNeedsSuggestion(evidence)
+
       const history = suggestion
         ? followupSweepSuggestionHistory(evidence, candidate.ownerPrincipal,
           backgroundSweepSuggestions().read(candidate.ownerPrincipal))
@@ -14920,11 +15145,14 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     classify: async (candidate, authorization, prompt, signal) => {
       const agent = backgroundSweepRuntime(candidate)
       const gateway = agent?.storeGateway as MatrixHermesConnection['gateway'] | undefined
+
       if (!agent || !gateway || authorization.expiresAt <= Date.now()) {
         throw new Error('matrix_background_sweep_unavailable')
       }
+
       let release = () => {}
       const atum = authorization.attribution.lane === 'atum_managed'
+
       if (atum) {
         if (
           authorization.limits.maxModelMicroProtons === null ||
@@ -14932,6 +15160,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         ) {
           throw new Error('matrix_background_sweep_authorization_invalid')
         }
+
         release = backgroundSweepModelCalls.begin(agent.role, {
           authorizationId: authorization.authorizationId,
           attributionId: authorization.attribution.id,
@@ -14941,6 +15170,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
           maxModelMicroProtons: authorization.limits.maxModelMicroProtons
         })
       }
+
       try {
         const result = await gateway.request<{ text?: unknown; usage?: unknown }>(
           'background_sweep.classify',
@@ -14955,10 +15185,13 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
           authorization.limits.activeComputeSeconds * 1_000 + 60_000,
           signal
         )
+
         const usage = backgroundSweepReportedUsage(result?.usage, authorization.limits.activeComputeSeconds)
+
         if (!result || typeof result.text !== 'string' || !usage) {
           throw new Error('matrix_background_sweep_model_invalid')
         }
+
         return {
           value: result.text,
           usage
@@ -14987,6 +15220,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         reason: input.reason,
         ...(input.usage ? { usage: input.usage } : {})
       }
+
       return backgroundSweepPlatform(input.candidate, signal).release(
         input.candidate.assistantId,
         input.occurrenceId,
@@ -14996,6 +15230,7 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
     },
     settle: async (input, signal) => {
       const { home } = await backgroundSweepAuthority(input.candidate, signal)
+
       const request = {
         profile: input.profile,
         operation: 'settle' as const,
@@ -15025,13 +15260,16 @@ function createBackgroundSweeps(): MatrixBackgroundSweeps {
         findingHashes: input.findingHashes,
         outbox: input.outbox
       }
+
       const result = await backgroundSweepPlatform(input.candidate, signal).settle(
         input.candidate.assistantId,
         input.occurrenceId,
         request,
         signal
       )
+
       backgroundSweepPublications?.settled(input.candidate.agentPrincipal, input.occurrenceId)
+
       return { publication: { state: result.publication.state } }
     },
     log: line => console.warn(line)
@@ -15356,9 +15594,11 @@ function createCheckIns(): MatrixCheckIns {
  * goes on to the assistant as usual. */
 function noteCheckInOwnerMessage(agentRuntime: MatrixAgentRuntime | undefined, body: string) {
   const principal = cloudPrincipal(agentRuntime)
+
   if (principal) {
     backgroundSweeps?.cancel(principal)
   }
+
   const records = state.checkIns
   const owner = hosts.get('human')
   const identity = state.identity
@@ -16597,6 +16837,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
       // says so in the owner's language instead, in the answer's place and under its transaction.
       const part = input.part
       const pet = !input.status && (!part || part.index === part.count - 1) ? matrixPetIntentEnvelope(turn.answerPet) : undefined
+
       const body = input.status
         ? matrixAgentStatusText(
             input.status,
@@ -16722,6 +16963,7 @@ function createLocalTurns(agentRuntime: MatrixAgentRuntime = defaultAgent): Matr
 
       if (turn.profile === 'first_learning') {
         const target = { roomId: turn.roomId, eventId: `$first-learning-${turn.turnId}` }
+
         const interim = new MatrixInterimMessages(target, port, {
           privateChat: true,
           transactionFor: sequence =>
@@ -18302,7 +18544,9 @@ async function start() {
           const gates = macSourceGates(seed.consent)
           // Domain-less explicit OFF choices join the first import; defaults never do.
           const localOnly = new MacSourcesConsentStore(outcomeStore, localMacSourcesConsentScope)
+
           for (const source of localOnly.pendingNarrow()) {gates[source === 'teamSpaces' ? 'team_spaces' : source] = false}
+
           return { mergeId: seed.mergeId, gates }
         },
         recordOverridden: gates => {
@@ -18316,8 +18560,10 @@ async function start() {
         markMerged: () => macSourcesConsentStore().markAccountGatesMerged(),
         apply: gates => {
           const current = macSourceGates(macSourcesConsentStore().read())
+
           for (const [gate, enabled] of Object.entries(gates)) {
             const source = gate as keyof typeof gates
+
             if (current[source] !== enabled) {commitMacSourceConsent(source === 'team_spaces' ? 'teamSpaces' : source, enabled)}
           }
         },
@@ -18761,11 +19007,15 @@ async function start() {
       connections: () => googleConnections && {
         status: async () => {
           const owner = account.appScope()
+
           try {
             const signal = AbortSignal.timeout(20_000)
+
             const result = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountStatus(resource, token, signal), signal)
+
             const current = account.appScope()
+
             return owner && current?.accountKey === owner.accountKey && current.generation === owner.generation
               ? result : { status: null, error: 'cancelled' }
           } catch {
@@ -18775,17 +19025,24 @@ async function start() {
         connect: async () => {
           const owner = account.appScope()
           const signal = AbortSignal.timeout(20_000)
+
           try {
             const current = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountStatus(resource, token, signal), signal)
+
             if (current.status?.accountState !== 'disconnected') { return current }
+
             const url = await account.s1Request(
               (token, resource) => requestMatrixGoogleAccountConnect(resource, token, signal), signal)
+
             const next = account.appScope()
+
             if (!owner || next?.accountKey !== owner.accountKey || next.generation !== owner.generation) {
               return { status: null, error: 'cancelled' }
             }
+
             await shell.openExternal(url)
+
             return current
           } catch {
             return { status: null, error: 'network' }
@@ -18941,10 +19198,12 @@ async function start() {
 
       if (net.isOnline() !== online) {
         online = !online
+
         if (online) {
           void reconcileDeviceControl(true)
           drive?.recoverConnectivity(true)
         }
+
         recheckAgents()
       }
     }, 5_000).unref()
@@ -19211,12 +19470,15 @@ async function start() {
       macs: async () => {
         const rows = await deviceRegistryTransport(s1Call).list(AbortSignal.timeout(3_000)).catch(() => null)
         const enrollment = deviceIdentity?.enrollment()
+
         if (process.platform !== 'darwin') {return rows ? projectMacFleet(rows, undefined) : []}
         const presence = deviceIdentity?.presence()
         const connected = presence?.state === 'enrolled' && presence.connection === 'status_exchanged'
         const sources = nativeMacSourceStatus(macSourcesConsentStore().read(), accountSourceFacts().fullDisk, macLocationAccessStatus())
+
         const here = { id: enrollment?.deviceServiceId ?? macSourcesConsentStore().installationId(), name: macComputerName(), thisMac: true,
           state: !connected ? 'not_connected' as const : Object.values(sources).includes('needs_permission') ? 'needs_permission' as const : 'ready' as const, sources }
+
         return rows ? projectMacFleet(rows, here) : [here]
       },
       // R1 supplies verified legacy-writer evidence. Never infer it from a gate change.
@@ -19227,9 +19489,12 @@ async function start() {
         const store = macSourcesConsentStore()
         const consent = store.read()
         const overridden = store.overriddenOptOuts()
+
         const sources = (['messages', 'browser', 'location', 'folders'] as const)
           .filter(source => consent[source] || overridden.includes(source))
+
         const noticed = [...new Set([...sources, ...overridden])].map(source => source === 'teamSpaces' ? 'team_spaces' as const : source)
+
         return noticed.length ? { sources: noticed } : undefined
       },
       presented: () => {
@@ -19313,6 +19578,7 @@ async function start() {
 
     void documents.refreshWord()
     void wallet?.refresh('focus')
+
     if (!closing && account.identity()) {void store?.refresh()}
   })
   ui.on('blur', () => void ownPresence.away())
@@ -19463,6 +19729,7 @@ async function start() {
       const owner = account.appScope()
 
       const candidates = allAgents()
+
       const requested =
         input.agentPrincipal === undefined
           ? candidates[0]
@@ -20621,9 +20888,11 @@ async function start() {
               identity: host.identity, presence: undefined, error: snapshot.error }
           : humanSnapshot)
         const published = state
+
         if (role === 'human' && snapshot.state === 'ready') {
           void ownPresence.refresh()
         }
+
         deviceApproval.observe(snapshot.security)
         unverifiedDevices.observe(host, snapshot.security, snapshot.state === 'ready')
 
@@ -20736,6 +21005,11 @@ async function start() {
         assistantId?: unknown
         principal?: unknown
         agentPrincipal?: unknown
+        /** `agentDesk`: which read of the agent's cloud home, and its folder for `files`. */
+        read?: unknown
+        path?: unknown
+        /** `agentControl`: the routine's native job ID for `routine_on` / `routine_off`. */
+        job?: unknown
         /** `modelDestinations` write: `cloud` or `mac:<device-service-id>`. */
         destination?: unknown
         /** `modelDestinations` cap: the whole Proton count; 0 is no limit. */
@@ -20878,6 +21152,7 @@ async function start() {
             avatarMxc?: unknown
             avatarUrl?: unknown
           } | null
+
           const mxc = value?.avatarMxc === null ? null : matrixProfileMxc(value?.avatarMxc)
           const url = value?.avatarUrl
 
@@ -21155,13 +21430,17 @@ async function start() {
         if (closing) {
           throw Error('matrix_owner_location_unavailable')
         }
+
         const signal = AbortSignal.timeout(10_000)
+
         if (request.kind === 'ownerLocationRead') {
           return await account.ownerLocation(signal)
         }
+
         if (typeof request.enabled !== 'boolean') {
           throw Error('matrix_owner_location_invalid')
         }
+
         return await account.setOwnerLocationEnabled(request.enabled, signal)
       }
 
@@ -21865,6 +22144,7 @@ async function start() {
               { kind: 'appBotReadMedia', roomId: request.roomId, eventId: request.eventId },
               matrixSdkCommandTimeout({ kind: 'appBotReadMedia' })
             )
+
             const photo = appBotPhotoForRenderer(media)
 
             if (!stillCurrent() || !photo) {
@@ -22518,8 +22798,10 @@ async function start() {
       if (request?.kind === 'previewDocument' || request?.kind === 'pdfShow') {
         const identity = state.identity
         const roomId = state.roomId
+
         const drivePdf =
           request.kind === 'pdfShow' && typeof request.token === 'string' ? drive?.resolvePreview(request.token) : null
+
         const roomCanPreview = Boolean(
           roomId && state.rooms.some(room => room.id === roomId && usableAgentRoom(room))
         )
@@ -23205,8 +23487,10 @@ async function start() {
         const [platform, relay] = await Promise.all([providerConnections?.refresh(), chatGptRelay?.refresh()])
         const connected = matrixSubscriptionsWithProviderConnections(local, platform)
         const me = deviceIdentity?.enrollment()?.deviceServiceId
+
         const localModels =
           chatGptLocalModels?.accountKey === account?.appScope()?.accountKey ? chatGptLocalModels?.models : undefined
+
         return matrixSubscriptionsWithChatGptRelay(connected, relay, me, Boolean(chatGptRelay), localModels)
       }
 
@@ -23284,6 +23568,7 @@ async function start() {
 
       if (request?.kind === 'subscriptionChatGptStart') {
         const subscription = requireSubscriptionAccount()
+
         const localConnected = matrixSubscriptionsStatus({
           accountAuthHome: matrixSubscriptionHostHome(runtime!, subscription.owner, subscription.accountKey),
           keys: subscriptionKeys()
@@ -23387,6 +23672,7 @@ async function start() {
       if (request?.kind === 'subscriptionChatGptDisconnect') {
         const { owner, accountKey } = requireSubscriptionAccount()
         const { scope } = subscriptionProvidersFor()
+
         try {
           stopSubscriptionFollowUpRepair()
           await configureThisMacAsChatGptRelay(false).catch(() => false)
@@ -23424,12 +23710,14 @@ async function start() {
         try {
           if (!request.enabled) {
             stopSubscriptionFollowUpRepair()
+
             return {
               status: await configureThisMacAsChatGptRelay(false) ? 'applied' as const : 'unavailable' as const
             }
           }
 
           const result = await repairChatGptSubscription().run()
+
           return {
             status: result.relay === 'ok' ? 'applied' as const : 'unavailable' as const
           }
@@ -23490,10 +23778,12 @@ async function start() {
         const enrolled = enrollmentOf(agent)
         const executorId = enrolled.identity?.executorId
         const connected = agent.ownModel ? agent.connectedModel : undefined
+
         // A managed Mac agent may switch to a subscription model without already being on one:
         // that pick is the agent's own profile switch (the same native select writes it).
         const subscriptionRoute =
           input.kind === 'selectModelRoute' ? parseMatrixModelRouteId(input.routeId) : undefined
+
         const subscriptionPick = parseMatrixSubscriptionProvider(subscriptionRoute?.provider) !== undefined
 
         if (
@@ -23740,6 +24030,7 @@ async function start() {
 
       if (request?.kind === 'backgroundSweep') {
         const principal = request.agentPrincipal
+
         const agent = typeof principal === 'string'
           ? allAgents().find(each => !each.closed && cloudPrincipal(each) === principal)
           : undefined
@@ -23792,6 +24083,69 @@ async function start() {
             agentHome?.prepare(agent, signal) ?? Promise.resolve({ ok: false as const, reason: 'unavailable' as const }),
           retained: agentHomePreflights
         })
+      }
+
+      if (request?.kind === 'agentControl') {
+        // The agent tab's Pause / Resume and per-routine switches: native cron through G14.
+        const principal = typeof request.agentPrincipal === 'string' ? request.agentPrincipal : ''
+        const action = request.action
+        const job = typeof request.job === 'string' ? request.job : undefined
+        const scope = account.appScope()
+
+        const control: MatrixHostAgentControl | undefined =
+          action === 'pause' || action === 'resume'
+            ? (job === undefined ? { action: action as 'pause' | 'resume' } : undefined)
+            : (action === 'routine_on' || action === 'routine_off') && job !== undefined
+              ? { action: action as 'routine_on' | 'routine_off', job }
+              : undefined
+
+        if (closing || !scope || !config.domain || !hostRuntimeAgents.has(principal) || !control) {
+          throw new Error('matrix_not_ready')
+        }
+
+        const result = await account.s1Request(
+          (token, base, signal) =>
+            requestHostAgentControl(base, token, principal, control, signal, (url, init) => session.defaultSession.fetch(url, init)),
+          AbortSignal.timeout(15_000), { timeoutMs: 15_000 })
+
+        const current = account.appScope()
+
+        if (closing || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
+          throw new Error('matrix_not_ready')
+        }
+
+        return result
+      }
+
+      if (request?.kind === 'agentDesk') {
+        // The side panel's agent tab: one read-only view of an owned native Hermes agent's cloud
+        // home. Only roster `runtime: 'hermes'` agents; the Shell resolves the owner from the bearer.
+        const principal = typeof request.agentPrincipal === 'string' ? request.agentPrincipal : ''
+        const read = request.read
+        const path = typeof request.path === 'string' ? request.path : undefined
+        const scope = account.appScope()
+
+        if (
+          closing || !scope || !config.domain || !hostRuntimeAgents.has(principal) ||
+          (read !== 'schedule' && read !== 'memory' && read !== 'files') ||
+          (path !== undefined && read !== 'files')
+        ) {
+          throw new Error('matrix_not_ready')
+        }
+
+        const result = await account.s1Request(
+          (token, base, signal) =>
+            requestHostDesk(base, token, principal, read === 'files' ? { read, ...(path !== undefined ? { path } : {}) } : { read },
+              signal, (url, init) => session.defaultSession.fetch(url, init)),
+          AbortSignal.timeout(15_000), { timeoutMs: 15_000 })
+
+        const current = account.appScope()
+
+        if (closing || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
+          throw new Error('matrix_not_ready')
+        }
+
+        return result
       }
 
       if (request?.kind === 'modelDestinations') {
@@ -24140,11 +24494,15 @@ async function start() {
 
       if (request?.kind === 'renewAgent') {
         const assistantId = typeof request.assistantId === 'string' ? request.assistantId : ''
+
         if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(assistantId) || closing || !account.identity()) {
           throw new Error('matrix_agent_unavailable')
         }
+
         const result = await account.renewAgentHire(assistantId, randomUUID(), AbortSignal.timeout(20_000))
+
         if ('renewed' in result) { agentRoster.request(); void syncAgents() }
+
         return result
       }
 
@@ -24679,15 +25037,18 @@ async function start() {
           if (!owner || !companyFiles || !config.domain) {
             throw new Error('matrix_company_file_unsupported')
           }
+
           const current = () => {
             try {
               const identity = account.identity()
+
               return !closing && hosts.get('human') === owner && state.state === 'ready' &&
                 identity?.userId === owner.identity.userId && identity?.deviceId === owner.identity.deviceId
             } catch {
               return false
             }
           }
+
           return {
             platform: (value: Parameters<typeof account.companyFileV2>[0], signal: AbortSignal) =>
               account.companyFileV2(value, signal),
@@ -24701,13 +25062,16 @@ async function start() {
           if (!owner || !companyFiles || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
           }
+
           const signal = AbortSignal.timeout(10 * 60_000)
           const authority = await resolveCompanyFileAuthorityV2(account, teamSpaceRoom, 'upload', signal)
+
           const sendInput = {
             roomId: input.roomId, name: input.name,
             contentType: input.contentType ?? 'application/octet-stream', bytes: input.bytes,
             ...(input.threadRootId ? { threadRootId: input.threadRootId, replyTo: input.replyTo ?? input.threadRootId } : {})
           }
+
           return authority.kind === 'v2'
             ? sendCompanyFileV2(sendInput, authority.authority, companyFilePortsV2(), signal)
             : sendCompanyFile(sendInput, companyFilePorts(), signal)
@@ -24721,18 +25085,23 @@ async function start() {
           if (!owner || !companyFiles || !teamSpaceRoom || sdkBusy || state.state !== 'ready') {
             throw new Error(companyFiles ? 'matrix_company_file_unavailable' : 'matrix_company_file_unsupported')
           }
+
           const downloadPorts = companyFilePortsV2()
           const sdk = downloadPorts.sdk
+
           const reference = await sdk({
             kind: 'companyFileReference', roomId: input.roomId, eventId: input.eventId
           }) as MatrixCompanyFileRef
+
           const signal = AbortSignal.timeout(10 * 60_000)
           const authority = await resolveCompanyFileAuthorityV2(account, teamSpaceRoom, 'download', signal)
           let file: { name: string; bytes: Uint8Array }
+
           if (reference.v === 2) {
             if (authority.kind !== 'v2') {
               throw new Error('matrix_company_file_unsupported')
             }
+
             file = await readCompanyFileV2(reference as MatrixCompanyFileRefV2, authority.authority,
               downloadPorts, signal)
           } else {
@@ -24746,12 +25115,15 @@ async function start() {
             if (!compatiblePublic || !companyRoom) {
               throw new Error('matrix_company_file_denied')
             }
+
             const ports = companyFilePorts()
             const pendingCompanyFile = ports.pending()
+
             if (pendingCompanyFile?.fileId === reference.file_id &&
                 (!pendingCompanyFile.eventId || pendingCompanyFile.eventId === input.eventId)) {
               await recoverCompanyFile(ports, signal)
             }
+
             file = await readCompanyFile(reference, ports, signal)
           }
 
@@ -25588,8 +25960,10 @@ if (stagedRecovery === 'exiting') {
 
   app.on('second-instance', (_event, argv) => {
     const link = matrixMessageLinkArg(argv)
+
     if (link) {deliverMatrixMessageLink(link)}
     const invite = argv.find(value => isMatrixInviteDeepLinkCandidate(value))
+
     if (invite) {deliverMatrixInviteLink(invite)}
 
     ui?.show()
@@ -25619,6 +25993,7 @@ if (stagedRecovery === 'exiting') {
         // room turn finish under its exact yielding term before ordinary quit teardown stops SDKs
         // or processes. A rejected turn is contained by the drain helper and its normal settlement.
         const drainStarted = performance.now()
+
         const drained = await drainMatrixRuntimes(allAgents(), {
           holdOperations: true,
           reason: 'cancelled',
@@ -25626,6 +26001,7 @@ if (stagedRecovery === 'exiting') {
         })
 
         console.warn(`[updates] restart phase=drain ms=${Math.round(performance.now() - drainStarted)}`)
+
         if (drained.timedOut) {
           console.warn('[Matrix] quit drain timed out; checkpointing admitted turns before teardown')
         }
@@ -25634,8 +26010,10 @@ if (stagedRecovery === 'exiting') {
         // withdraw Drive's sign-in the way a sign-out does (drive.ts dispose).
         const timedStop = async (phase: string, stop: () => unknown) => {
           const started = performance.now()
+
           try {return await stop()} finally {console.warn(`[updates] restart phase=${phase} ms=${Math.round(performance.now() - started)}`)}
         }
+
         const driveStop = timedStop('drive', () => drive?.dispose())
         closing = true
         ownPresence.stop()

@@ -112,7 +112,8 @@ function MaskedPrompt({
 /** How long before its deadline a prompt starts saying that time is short. */
 const LAST_MINUTE_S = 60
 
-function Prompt({ prompt }: { prompt: MatrixHermesPrompt }) {
+/** One open ask with its own buttons; the chat and the agent's desk show the same object. */
+export function HermesPrompt({ prompt }: { prompt: MatrixHermesPrompt }) {
   const { t, locale } = useI18n()
   const copy = matrixActionCopy[locale]
   const [failed, setFailed] = useState(false)
@@ -328,7 +329,7 @@ export function HermesPrompts({
               </Button>
             </div>
             {pending.prompts.map(prompt => (
-              <Prompt key={prompt.id} prompt={prompt} />
+              <HermesPrompt key={prompt.id} prompt={prompt} />
             ))}
           </section>
         ) : (

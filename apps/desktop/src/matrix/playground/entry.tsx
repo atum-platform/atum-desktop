@@ -17,6 +17,7 @@ import { playgroundBridge, playgroundDesktopServices, PlaygroundStore } from './
 import { PlaygroundCheckIns, playgroundCheckInsMode } from './check-ins-fixtures'
 import { playgroundCompanyDesktopAdapter, withPlaygroundPrivateCos } from './company-ai-fixtures'
 import { playgroundCompanyStore, type PlaygroundCompanyStoreMode } from './company-store-fixtures'
+import { playgroundAgentDesk, playgroundDeskMode, withPlaygroundDesk } from './desk-fixtures'
 import {
   playgroundPolicyBridge,
   playgroundPolicyMode,
@@ -91,6 +92,8 @@ const bridge = playgroundBridge(store)
 const linkPreviews = playgroundLinkPreviewMode(params)
 // The account's ChatGPT states in Settings › Connections and the model picker (?subscriptions=).
 const subscriptionsMode = playgroundSubscriptionsMode(params)
+// The agent's desk in the side panel (?desk=free|working|waiting|device), on the open assistant chat.
+const deskMode = playgroundDeskMode(params)
 // `?home=off` draws an assistant without the agent-home projection (the plain model menu).
 const homeDecorated = params.get('home') === 'off' ? (snapshot: typeof store.current) => snapshot : withPlaygroundHome
 
@@ -99,7 +102,15 @@ store.emit = snapshot =>
     withPlaygroundPolicy(
       withPlaygroundSettings(
         commerce.decorate(
-          checkIns.decorate(homeDecorated(withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews)))
+          checkIns.decorate(
+            homeDecorated(
+              withPlaygroundDesk(
+                withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews),
+                deskMode,
+                store.locale ?? 'en'
+              )
+            )
+          )
         ),
         settings
       ),
@@ -109,9 +120,11 @@ store.emit = snapshot =>
   )
 commerce.subscribe(() => store.emit(store.current))
 checkIns.subscribe(() => store.emit(store.current))
+
 if (linkPreviews) {
   store.emit(store.current)
 }
+
 window.atumMatrix = {
   ...bridge,
   command: checkIns.wrap(bridge.command),
@@ -120,6 +133,21 @@ window.atumMatrix = {
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
   executionPolicy: playgroundPolicyBridge(policyMode),
+  // The desk's Stop asks the fixture, never a controller: it answers as a stopped turn.
+  ...(deskMode
+    ? {
+        // Its cloud home's files and routines, as the host desk route would read them.
+        agentDesk: playgroundAgentDesk(initialLocale),
+        // Only Stop is answered (`stopTurn`); any other cloud request fails as offline would.
+        cloudAgent: (async (request: { action: string }) => {
+          if (request.action !== 'stopTurn') {
+            throw new Error('playground_cloud_unavailable')
+          }
+
+          return { state: 'stopped' as const }
+        }) as unknown as NonNullable<typeof window.atumMatrix.cloudAgent>
+      }
+    : {}),
   store: commerce.storeBridge(),
   checkout: commerce.checkoutBridge(),
   wallet: commerce.walletBridge(),
@@ -176,6 +204,7 @@ if (places.company) {
   if (market === 'short') {
     // The short wallet the refusal speaks of: 2,500 Protons available.
     const readWallet = companyDesktop.readWallet.bind(companyDesktop)
+
     companyDesktop.readWallet = async companyId => {
       const wallet = await readWallet(companyId)
 

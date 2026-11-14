@@ -130,6 +130,7 @@
     "shared/matrix-assistant-persona.ts",
     "shared/matrix-native-apps.ts",
     "shared/matrix-permissions.ts",
+    "shared/matrix-agent-desk.ts",
     "shared/matrix-agent-sources.ts",
     "shared/matrix-folder-access.ts",
     "shared/matrix-mac-sources.ts",

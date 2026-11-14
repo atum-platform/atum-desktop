@@ -1489,6 +1489,7 @@ class MatrixAdapter(BasePlatformAdapter):
             msg_content = self._build_text_message_content(chunk)
             self._apply_relation_metadata(msg_content, reply_to=reply_to, metadata=metadata)
             chunks.append(msg_content)
+        chunks = self._prepare_final_content(chat_id, chunks, metadata)
         oid = (metadata or {}).get("delivery_obligation_id")
         if oid:
             from gateway.delivery_ledger import matrix_send_plan
@@ -1517,6 +1518,10 @@ class MatrixAdapter(BasePlatformAdapter):
                     logger.error("Matrix: failed to send to %s after retry: %s", chat_id, retry_exc)
                     return SendResult(success=False, error=str(retry_exc))
         return SendResult(success=True, message_id=last_event_id)
+
+    def _prepare_final_content(self, chat_id, chunks, metadata):
+        """Adapter extensions decorate content BEFORE the native plan is frozen."""
+        return chunks
 
     async def _send_room_message(self, chat_id: str, msg_content: dict[str, Any], *, txn_id=None) -> str:
         """Send one m.room.message event (45s cap) and return its event ID as str."""

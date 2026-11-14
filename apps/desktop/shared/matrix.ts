@@ -29,6 +29,7 @@ import type {
 } from './browser/ipc'
 import type { MatrixExecutionPolicyBridge, MatrixExecutionPolicyView } from './execution-policy'
 import type { LookPackPublished, LookRoomAccountData } from './look-pack'
+import type { MatrixAgentDeskBridge } from './matrix-agent-desk'
 import type { MatrixAgentSourcesBridge } from './matrix-agent-sources'
 import type { MatrixAliasBridge } from './matrix-aliases'
 import type { MatrixAppConnectionState } from './matrix-apps'
@@ -2254,6 +2255,8 @@ export interface MatrixUiBridge {
   executionPolicy?: MatrixExecutionPolicyBridge
   /** Where an agent lives: move it to another of the owner's Macs, or cancel the move. */
   agentHome?: MatrixAgentHomeBridge
+  /** Read-only views of a native Hermes agent's cloud home (the side panel's agent tab). */
+  agentDesk?: MatrixAgentDeskBridge
   /** The owner's default model per destination (`atum.model-choice/1.3`); display rows only. */
   modelDestinations?: {
     read(agentPrincipal: string): Promise<MatrixModelDestinationsView | undefined>

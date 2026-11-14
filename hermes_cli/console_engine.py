@@ -812,7 +812,7 @@ _BUILTIN_COMMANDS = (
      "Update Hermes configuration?"),
     (("cron", "pause"), "cron pause <job>", "Pause a scheduled job.", _cron_pause,
      "Pause this cron job?"),
-    (("cron", "resume"), "cron resume <job>", "Resume a paused cron job.", _cron_resume,
+    (("cron", "resume"), "cron resume <job> [--skip-missed]", "Resume a paused cron job; optionally skip missed runs.", _cron_resume,
      "Resume this cron job?"),
     (("cron", "run"), "cron run <job>", "Run a job on the next scheduler tick.", _cron_run,
      "Trigger this cron job?"),
