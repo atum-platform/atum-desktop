@@ -425,6 +425,7 @@ describe('main app chat open, while its room is on its way', () => {
       defaultAgent: {},
       agentMoves: { clear: vi.fn() },
       cloudAgents: { clear: vi.fn() },
+      hostRuntimeAgents: { clear: vi.fn() },
       placedAgents: { reset: vi.fn() },
       movingAgents: { clear: vi.fn() },
       deviceApproval: { reset: vi.fn() },
