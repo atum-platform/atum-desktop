@@ -2051,7 +2051,7 @@ def resolve_pre_tool_block(
     from hermes_cli.atum_filesystem_guard import (
         capability_required, guard_unavailable_message, requires_filesystem_guard)
 
-    if fence_message := egress_refusal(tool_name, args):
+    if fence_message := egress_refusal(tool_name, args, task_id=hook_kwargs.get("task_id", "")):
         return fence_message
     details = _get_pre_tool_call_directive_details(tool_name, args, **hook_kwargs)
     if (capability_required() and requires_filesystem_guard(tool_name, args)
