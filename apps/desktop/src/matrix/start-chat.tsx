@@ -5,7 +5,7 @@ import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { MessagePlus, Search, Users, X } from '@/lib/icons'
+import { Plus, Search, Users, X } from '@/lib/icons'
 
 import { appLocalizedCopy } from '../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../shared/matrix'
@@ -22,7 +22,7 @@ import { MatrixProfileAvatar } from './profile-avatar'
 import { useRosterCreateCopy } from './roster-create-copy'
 import { matrixRosterAgentName, projectMatrixRoster } from './roster-model'
 
-/** New chat, in the roster's title bar: one question, who do you want to talk to? */
+/** New chat, the kit's plus to the right of the roster's search: one question, who do you want to talk to? */
 export function MatrixStartChatButton({ disabled, onClick }: { disabled?: boolean; onClick(): void }) {
   const copy = useRosterCreateCopy()
 
@@ -30,14 +30,14 @@ export function MatrixStartChatButton({ disabled, onClick }: { disabled?: boolea
     <Tip label={copy.newMenu}>
       <button
         aria-label={copy.newMenu}
-        className="atum-icon-btn grid size-7 shrink-0 place-items-center rounded-full [-webkit-app-region:no-drag] disabled:opacity-45"
+        className="ak-iconbtn shrink-0 disabled:opacity-45"
         data-atum-create-menu
         data-icon-only
         disabled={disabled}
         onClick={onClick}
         type="button"
       >
-        <MessagePlus aria-hidden className="size-4" />
+        <Plus aria-hidden className="ak-icon" />
       </button>
     </Tip>
   )
