@@ -769,14 +769,18 @@ def _cron_pause(_engine: HermesConsoleEngine, args: list[str]) -> str:
 
 
 def _cron_resume(_engine: HermesConsoleEngine, args: list[str]) -> str:
-    ns = _parse("cron resume", args, "job", "--at", (("--run-now",), dict(action="store_true")))
+    ns = _parse("cron resume", args, "job", "--at",
+                (("--run-now",), dict(action="store_true")),
+                (("--skip-missed",), dict(action="store_true")))
+    if ns.skip_missed and (ns.at or ns.run_now):
+        raise ConsoleCommandError("--skip-missed cannot be combined with --at or --run-now.")
     if ns.at and ns.run_now:
         raise ConsoleCommandError("Use exactly one of --at or --run-now.")
     from cron.jobs import AmbiguousJobReference, _hermes_now, rearm_oneshot, resume_job
     try:
         job = (
             rearm_oneshot(ns.job, _hermes_now().isoformat() if ns.run_now else ns.at)
-            if ns.at or ns.run_now else resume_job(ns.job))
+            if ns.at or ns.run_now else resume_job(ns.job, skip_missed=ns.skip_missed))
     except (AmbiguousJobReference, ValueError) as exc:
         raise ConsoleCommandError(str(exc)) from exc
     if not job:

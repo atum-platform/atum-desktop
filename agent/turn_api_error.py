@@ -100,6 +100,17 @@ def handle_api_error(
     status_code = getattr(api_error, "status_code", None)
     error_context = agent._extract_api_error_context(api_error)
 
+    from agent.atum_wallet import refused as wallet_refused
+    if wallet_refused(agent, status_code):
+        # The 0462 host outbox delivers the single short top-up line.
+        append_message(messages, {"role": "assistant", "content": "[SILENT]", "wallet_empty": True})
+        agent._persist_session(messages, conversation_history)
+        return _verdict("return", {
+            "final_response": "[SILENT]", "messages": messages,
+            "api_calls": api_call_count, "completed": True, "failed": False,
+            "wallet_empty": True, "session_id": agent.session_id,
+        })
+
     # A Nous 402/403 carries the same x-nous-credits-* headers as a success, and a usage-window plan's
     # "ran out for this model" / "payment paused" state is only visible on the blocking response itself
     # (the stream path captures headers after the stream opens, which a 402 never does). Fail-open.

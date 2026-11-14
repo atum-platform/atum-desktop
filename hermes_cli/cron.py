@@ -911,6 +911,19 @@ def cron_resume(args) -> int:
     if run_at and run_now:
         print(color("Use exactly one of --at or --run-now.", Colors.RED))
         return 1
+    if getattr(args, 'skip_missed', False):
+        if run_at or run_now:
+            print(color("--skip-missed cannot be combined with --at or --run-now.", Colors.RED))
+            return 1
+        from cron.jobs import resume_job
+        try:
+            job = resume_job(args.job_id, skip_missed=True)
+        except ValueError as exc:
+            print(color(str(exc), Colors.RED))
+            return 1
+        if job:
+            print(color(f"Resumed job: {job.get('name', args.job_id)} ({args.job_id})", Colors.GREEN))
+        return 0 if job else 1
     if not run_at and not run_now:
         return _job_action("resume", args.job_id, "Resumed")
     from cron.jobs import AmbiguousJobReference, _hermes_now, rearm_oneshot

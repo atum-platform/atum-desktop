@@ -3524,6 +3524,10 @@ def _run_one_job_body(
     native_sweep_gate: Optional[str] = None, native_claimed: bool = False,
     execution_token: Optional[object] = None,
 ) -> bool:
+    from agent.atum_wallet import held as wallet_held, set_funded
+    if job.get('deliver') != 'local' and wallet_held():
+        set_funded(False)  # Also pause visible jobs created since the first refusal.
+        return True  # Intentional hold, never a daily failure delivery.
     fence = _FireOwnership(job, claim_lost, transport_cancel)
     fire_owner = fence.owner
     _side_effect_fence = fence.side_effect_fence
