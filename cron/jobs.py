@@ -2143,7 +2143,7 @@ def pause_job(job_id: str, reason: Optional[str] = None) -> Optional[dict[str, A
     })
 
 
-def resume_job(job_id: str) -> Optional[dict[str, Any]]:
+def resume_job(job_id: str, *, skip_missed: bool = False) -> Optional[dict[str, Any]]:
     """Resume a paused job. Accepts a job ID or name.
 
     A recurring job paused across one of its slots must not lose that slot silently: the stored
@@ -2151,6 +2151,11 @@ def resume_job(job_id: str) -> Optional[dict[str, Any]]:
     catch-up / ``cron.catch_up_missed`` policy in the due scan decides what happens to it — one
     fire or a logged skip, never a silent re-anchor past it (#113603). One-shots and future
     instants recompute from now as before.
+
+    With ``skip_missed=True``, discard elapsed recurring occurrences and compute the
+    next slot from now using the native schedule/profile timezone. Intervals start a
+    fresh full interval; cron expressions keep their local wall-clock schedule.
+    Expired one-shots still require explicit rearming.
     """
     job = resolve_job_ref(job_id)
     if not job:
@@ -2158,7 +2163,8 @@ def resume_job(job_id: str) -> Optional[dict[str, Any]]:
     stored_next = job.get("next_run_at")
     stored_dt = _parse_aware(stored_next) if stored_next else None
     if (
-        job["schedule"].get("kind") in {"cron", "interval"}
+        not skip_missed
+        and job["schedule"].get("kind") in {"cron", "interval"}
         and stored_dt is not None
         and _instant_at_or_before(stored_dt, _hermes_now())
     ):

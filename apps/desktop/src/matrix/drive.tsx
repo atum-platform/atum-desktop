@@ -133,11 +133,14 @@ export function MatrixDriveSidebar({
   compact,
   current,
   onSelect,
+  titleBarAction,
   windowControls
 }: {
   compact: boolean
   current: MatrixDriveDestination
   onSelect(destination: MatrixDriveDestination): void
+  /** The title bar's bell, while this column leads the window's row. */
+  titleBarAction?: ReactNode
   windowControls: ReactNode
 }) {
   const { locale } = useI18n()
@@ -171,6 +174,8 @@ export function MatrixDriveSidebar({
         data-atum-roster-header
       >
         {windowControls}
+        <span className="flex-1" />
+        {titleBarAction}
       </div>
       {/* Finder's sidebar on the roster panel itself: Recents, the Drive's own folders as Favorites
           (the owner's and the ones assistants made alike), and the Drive under Locations. */}
