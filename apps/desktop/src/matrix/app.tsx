@@ -109,6 +109,7 @@ import {
 } from '../../shared/matrix'
 import { matrixActionCopy } from '../../shared/matrix-action-copy'
 import { matrixAgentNeedsLocalSetup, matrixAssistantReplySettingsShown } from '../../shared/matrix-agent-actions'
+import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 import { appChatCopy } from '../../shared/matrix-app-chat-copy'
 import {
@@ -156,6 +157,7 @@ import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/roo
 
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
 import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
+import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
 import { authorizedBotApi, botApiAppForMessage, isBotApiRoom } from './app-bots/bot-api'
@@ -215,7 +217,6 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -3708,79 +3709,14 @@ function MatrixComposer({
       running: snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running'
     })
 
-  const cloudUnanswered = cloudAssistant
-    ? matrixUnansweredOwnerMessage(
-        contextMessages ?? snapshot.messages,
-        new Set(
-          [snapshot.assistant?.userId, ...(snapshot.agents ?? []).map(agent => agent.userId)].filter(
-            (userId): userId is string => Boolean(userId)
-          )
-        )
-      )
-    : null
-
-  const cloudStopAvailable = Boolean(cloudAssistant && room.membership === 'join' && window.atumMatrix.cloudAgent)
-
-  const liveCloudStopTarget = cloudStopAvailable
-    ? matrixCloudStopTarget({
-        messages: contextMessages ?? snapshot.messages,
-        turns: snapshot.localTurns,
-        roomId: room.id,
-        unanswered: cloudUnanswered,
-        working: Boolean(agentTyping)
-      })
-    : undefined
-
-  // The typing signal a question from another device shows through expires in moments, long
-  // before a cloud turn does. Once Stop has named that question, keep naming it until the
-  // question clears or the room changes, so the button does not vanish mid-turn.
-  const cloudStopLatch = useRef<{ roomId: string; unansweredId: string | null; eventId: string } | null>(null)
-
-  if (liveCloudStopTarget) {
-    cloudStopLatch.current = {
-      roomId: room.id,
-      unansweredId: cloudUnanswered?.id ?? null,
-      eventId: liveCloudStopTarget
-    }
-  } else if (
-    cloudStopLatch.current &&
-    (!cloudStopAvailable ||
-      cloudStopLatch.current.roomId !== room.id ||
-      cloudStopLatch.current.unansweredId !== (cloudUnanswered?.id ?? null))
-  ) {
-    cloudStopLatch.current = null
-  }
-
-  const cloudStopTarget = liveCloudStopTarget ?? cloudStopLatch.current?.eventId
-
-  const scheduledStop = roomAgent?.runtime === 'hermes' &&
-    matrixCloudStopScheduled(contextMessages ?? snapshot.messages, roomAgent.userId)
-  const stopRoute = matrixStopRoute({
-    runtime: roomAgent?.runtime,
-    eventId: cloudStopTarget,
-    working: Boolean(agentTyping || scheduledStop),
-    scheduled: scheduledStop
+  const cloudStop = useMatrixCloudStop({
+    messages: contextMessages ?? snapshot.messages,
+    room,
+    snapshot,
+    working: Boolean(agentTyping)
   })
-  const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
-  const showCloudStop = matrixShowCloudStop({ eventId: cloudStopTarget, cloud: Boolean(cloudAssistant),
-    runtime: roomAgent?.runtime, working: Boolean(agentTyping || scheduledStop) })
-  const cloudStop = useMatrixCloudStop({ roomId: room.id, stopKey })
 
-  const stopCloud = () => {
-    const stopTurn = window.atumMatrix.cloudAgent
-
-    if (!cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable') {
-      return
-    }
-
-    cloudStop.stop(() =>
-      executeMatrixStop(
-        stopRoute,
-        eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
-        body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
-      )
-    )
-  }
+  const cloudStopTarget = cloudStop.target
 
   // An archived channel has no box: the banner stands in its place, says why, and offers the way back to those
   // who may restore it. (The thread panel's box is this same component, so it closes with the channel.)
@@ -4040,7 +3976,7 @@ function MatrixComposer({
                   roomId={room.id}
                 />
               )}
-              {showCloudStop ? (
+              {cloudStop.shown ? (
                 <button
                   aria-busy={cloudStop.stopping || undefined}
                   aria-label={cloudStop.stopping ? t.cloud.stopping : matrixActionCopy[locale].cancelHermes}
@@ -4048,11 +3984,11 @@ function MatrixComposer({
                     ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
                     : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
                   data-matrix-cloud-stopping={cloudStop.stopping || undefined}
-                  disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStop.stopping || cloudStop.requested}
-                  onClick={stopCloud}
-                  title={cloudStop.stopping ? t.cloud.stopping : stopRoute.kind === 'unavailable'
+                  disabled={!cloudStop.ready}
+                  onClick={cloudStop.stop}
+                  title={cloudStop.stopping ? t.cloud.stopping : cloudStop.route.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
-                    : stopRoute.kind === 'native'
+                    : cloudStop.route.kind === 'native'
                       ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
                       : undefined}
                   type="button"
@@ -4181,7 +4117,18 @@ function MatrixComposer({
                 }
               }}
               onSelect={event => setMentionCursor(event.currentTarget.selectionStart ?? event.currentTarget.value.length)}
-              placeholder={pausedHint || (running && room.assistant && !threadRootId ? copy.addToRequest : composerPrompt)}
+              placeholder={
+                pausedHint ||
+                // A message sent while this agent works changes what it does: its own run on this Mac, or
+                // a native Hermes turn in the cloud (busy input interrupts it). The old cloud path queues
+                // the next message instead, so its box keeps the plain prompt and the desk says it waits.
+                ((running || (agentTyping && roomAgent?.runtime === 'hermes')) &&
+                room.assistant &&
+                !threadRootId &&
+                matrixAgentDeskSteers({ runtime: roomAgent?.runtime, running: Boolean(running) })
+                  ? matrixAgentDeskText(locale).composerSteer(assistantName)
+                  : composerPrompt)
+              }
               ref={input}
               submitMode={paused ? 'none' : 'enter'}
             />
@@ -5148,6 +5095,7 @@ function Conversation({
   onOwnModel,
   onSubscriptions,
   onPreview,
+  onWatchDesk,
   onRestoreMessages,
   onReviewDevices,
   onCheckInSettings,
@@ -5175,6 +5123,8 @@ function Conversation({
   /** Settings › Advanced, where a model of the person's own is set up (out of Protons). */
   onOwnModel?: () => void
   onPreview: () => void
+  /** The working line's Watch: opens the side panel on the agent's own tab (absent: no Watch). */
+  onWatchDesk?: () => void
   onRestoreMessages?: () => void
   onReviewDevices?: (thisMac: boolean) => void
   /** The default assistant's card, where check-ins (and its pet) are changed. */
@@ -5846,7 +5796,9 @@ function Conversation({
                       label={chat.typingOne(companyPresentation ? privateCosName : assistantName)}
                       line={workingLine}
                       name={companyPresentation ? privateCosName : assistantName}
+                      onWatch={companyPresentation ? undefined : onWatchDesk}
                       typing={Boolean(agentTyping)}
+                      watchLabel={matrixAgentDeskText(locale).watch}
                     />
                   ) : undefined
                 }
@@ -7102,6 +7054,7 @@ function MatrixAccountView({
   const restoreWorkspaceFocus = useRef(false)
   const [workspaceTabs, setWorkspaceTabs] = useState({ scope: '', count: 0 })
   const [documentRequest, setDocumentRequest] = useState(0)
+  const [deskRequest, setDeskRequest] = useState(0)
   const [browserRequest, setBrowserRequest] = useState<{ id: string; url: string; scope: string }>()
   const [terminalRequest, setTerminalRequest] = useState<{ id: string; scope: string; serial: number }>()
   const [appRouteRequest, setAppRouteRequest] = useState<AppBotRouteRequest>()
@@ -7761,6 +7714,14 @@ function MatrixAccountView({
     setDocumentRequest(value => value + 1)
   }
 
+  // Watch on the working line of an agent's own chat: the panel opens on its desk, never by itself.
+  const deskEligible = Boolean(room && !conversationInfo && matrixAgentDeskAgent(snapshot, room))
+
+  const watchDesk = () => {
+    openWorkspace('workbench')
+    setDeskRequest(value => value + 1)
+  }
+
   const openThreads = (rootId?: string) => {
     if (!room || !isTeamSpaceRoom(room)) {
       return
@@ -8338,6 +8299,7 @@ function MatrixAccountView({
 
           setThreadView(next)
         }}
+        onWatchDesk={deskEligible && !workspaceOpen ? watchDesk : undefined}
         pinsOpen={pinsOpen}
         settled={settled}
         snapshot={roomView}
@@ -9114,6 +9076,7 @@ function MatrixAccountView({
               appRouteRequest={appRouteRequest}
               browserRequest={browserRequest}
               compact={compact}
+              deskRequest={deskRequest}
               documentRequest={documentRequest}
               driveRequest={drivePreviewRequest}
               expanded={workspaceExpanded}
