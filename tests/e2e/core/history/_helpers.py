@@ -9,6 +9,10 @@ three durable/observable projections of a conversation and cross-check them:
 * what the model will be sent on resume (``SessionDB.get_resume_conversations`` model view),
 * what a user sees on resume (the display view, compaction archive included),
 * what was billed (``sessions`` / ``session_model_usage`` vs the fake's reported usage).
+
+In-process teardown drains title upgrades before releasing the agent and DB, as the real
+oneshot does. Failure reports retain both output tails and distinguish exit, signal and timeout.
+The event-gated lifecycle and process-diagnostic regressions live in ``test_helpers.py``.
 """
 
 from __future__ import annotations
@@ -370,10 +374,18 @@ def run_oneshot(env: dict[str, str], cwd: Path, prompt: str, spawned: Spawned, *
     except subprocess.TimeoutExpired:
         p.kill()
         out, err = p.communicate(timeout=10)
-        raise AssertionError(f"oneshot did not finish in {timeout}s; stderr tail: {err[-2000:]}")
-    assert p.returncode == 0, f"oneshot rc={p.returncode}; stderr tail: {err[-3000:]}"
+        raise AssertionError(f"oneshot timed out after {timeout}s (killed, rc={p.returncode}); "
+                             f"stdout tail: {out[-3000:]}\nstderr tail: {err[-3000:]}")
+    exit_reason = f"signal {-p.returncode}" if p.returncode < 0 else f"exit status {p.returncode}"
+    assert p.returncode == 0, (
+        f"oneshot rc={p.returncode} ({exit_reason}); "
+        f"stdout tail: {out[-3000:]}\nstderr tail: {err[-3000:]}"
+    )
     sids = _SID_RE.findall(err)
-    assert sids, f"oneshot printed no session_id line; stderr tail: {err[-2000:]}"
+    assert sids, (
+        f"oneshot rc=0 but printed no session_id line; "
+        f"stdout tail: {out[-3000:]}\nstderr tail: {err[-3000:]}"
+    )
     return out, sids[-1]
 
 
@@ -621,6 +633,11 @@ class InProcessSession:
         return result
 
     def close(self) -> None:
+        # Match the real oneshot lifecycle: title upgrades bill/write from a daemon thread.
+        # Closing first lets a delayed title write reopen this DB while the next surface resumes.
+        from agent.title_generator import wait_for_title_upgrades
+
+        wait_for_title_upgrades()
         try:
             self.agent.close()
         finally:
