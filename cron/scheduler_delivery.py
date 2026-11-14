@@ -1821,9 +1821,12 @@ def _deliver_result(
         from cron.delivery_queue import enqueue_and_wait
 
         _record_delivery_verification(job, [])
-        error = enqueue_and_wait(external_execution, job, content, for_failure=for_failure)
+        delivery_key = external_execution
+        if job.get("seed_key") == "first-learning" and job.get("_delivery_part") in {"progress-1", "progress-2", "progress-3"}:
+            delivery_key += "-" + job["_delivery_part"]
+        error = enqueue_and_wait(delivery_key, job, content, for_failure=for_failure)
         from cron.delivery_queue import get_status
-        delivery_status = get_status(external_execution)
+        delivery_status = get_status(delivery_key)
         if delivery_status and delivery_status["status"] == "suppressed":
             job["_notification_all_targets_suppressed"] = True
         from cron.jobs import get_job
