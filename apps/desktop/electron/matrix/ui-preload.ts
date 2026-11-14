@@ -538,6 +538,22 @@ const bridge: MatrixUiBridge = {
     turnOff: (agentPrincipal, off) =>
       ipcRenderer.invoke(channel.ui, { kind: 'executionPolicy', action: 'off', agentPrincipal, off })
   },
+  agentDesk: {
+    control: (agentPrincipal, request) =>
+      ipcRenderer.invoke(channel.ui, {
+        kind: 'agentControl',
+        agentPrincipal,
+        action: request.action,
+        ...(request.action === 'routine_on' || request.action === 'routine_off' ? { job: request.job } : {})
+      }),
+    read: (agentPrincipal, request) =>
+      ipcRenderer.invoke(channel.ui, {
+        kind: 'agentDesk',
+        agentPrincipal,
+        read: request.read,
+        ...(request.read === 'files' && request.path !== undefined ? { path: request.path } : {})
+      })
+  },
   agentHome: {
     read: agentPrincipal => ipcRenderer.invoke(channel.ui, { kind: 'agentHome', action: 'read', agentPrincipal }),
     preflight: (agentPrincipal, target, model) =>

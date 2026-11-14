@@ -1,0 +1,230 @@
+/* The agent's tab (side panel). Kit tokens and components only (STYLE.md §13, §14). The frame,
+   address bar, reading column, padding and section gaps are the new tab's own classes
+   (workbench-launcher.tsx: px-6 pt-8 pb-8 gap-8 max-w-[44rem]); this file styles only the content. */
+
+.atum-desk {
+  width: 100%;
+}
+
+/* A second heading inside a section (Files › On its computer): the launcher heading's voice. */
+.atum-desk-subheading {
+  margin-top: var(--ak-s6);
+  font: var(--ak-t-callout);
+  font-weight: 600;
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-subhead {
+  padding: 6px 10px 2px;
+  font: var(--ak-t-caption);
+  color: var(--ak-ink-3);
+}
+
+/* The model row is the agent card's own (atum-settings-row); here it sits as one quiet card. */
+.atum-desk-model {
+  margin-bottom: var(--ak-s2);
+}
+
+/* Now: one focus. A quiet caption, the focus line, then its one action. */
+.atum-desk-now {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ak-s3);
+  min-width: 0;
+}
+
+.atum-desk-now > * {
+  max-width: 100%;
+}
+
+.atum-desk-now-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  min-width: 0;
+}
+
+.atum-desk-caption {
+  font: var(--ak-t-callout);
+  font-weight: 600;
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-free {
+  font: var(--ak-t-headline);
+  color: var(--ak-ink-2);
+}
+
+.atum-desk-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--ak-ink-2);
+}
+
+/* The one thing to read: the live step, or the native wait's own words. */
+.atum-desk-focus {
+  font: var(--ak-t-chat);
+  color: var(--ak-ink);
+  overflow-wrap: anywhere;
+}
+
+/* Long agent text: a few lines, then More. Steps clamp tighter than the focus. */
+[data-agent-desk-clamp='closed'] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--atum-desk-clamp, 3);
+  overflow: hidden;
+}
+
+.atum-desk-more {
+  margin-top: calc(-1 * var(--ak-s2));
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-more:hover {
+  color: var(--ak-ink);
+}
+
+.atum-desk-now-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ak-s2);
+  margin-top: var(--ak-s1);
+}
+
+.atum-desk-caret {
+  flex: none;
+  transition: transform var(--ak-dur-1) var(--ak-ease);
+}
+
+.atum-desk-caret[data-open] {
+  transform: rotate(90deg);
+}
+
+.atum-desk-steps {
+  /* The chat's own step card (typing-indicator.tsx): a quiet fill, the native ✓ / • items. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ak-s2);
+  width: 100%;
+  padding: var(--ak-s3);
+  border-radius: var(--ak-r-lg);
+  background: var(--ak-fill-quiet);
+}
+
+.atum-desk-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ak-s2);
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-2);
+  min-width: 0;
+}
+
+.atum-desk-step[data-done] {
+  color: var(--ak-ink-3);
+}
+
+.atum-desk-step .ak-icon {
+  margin-top: 2px;
+  color: var(--ak-ink-3);
+  flex: none;
+}
+
+.atum-desk-step-text {
+  --atum-desk-clamp: 2;
+  min-width: 0;
+}
+
+.atum-desk-step .atum-desk-more {
+  margin-top: 0;
+}
+
+.atum-desk-step-todo {
+  width: var(--ak-i-sm);
+  height: var(--ak-i-sm);
+  margin-top: 2px;
+  flex: none;
+  border: 1px dotted var(--ak-ink-3);
+  border-radius: 50%;
+}
+
+.atum-desk-ask {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ak-s3);
+  width: 100%;
+}
+
+/* The ask's question clamps like any agent text; its buttons never do. */
+.atum-desk-ask [data-clarify-choices] .whitespace-pre-wrap {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+}
+
+.atum-desk-fold-row {
+  width: 100%;
+  text-align: start;
+}
+
+.atum-desk-fold-row:hover {
+  background: var(--ak-fill-hover);
+}
+
+.atum-desk .ak-row .ak-icon {
+  width: var(--ak-i-md);
+  height: var(--ak-i-md);
+  flex: none;
+  color: var(--ak-ink-2);
+}
+
+.atum-desk .ak-row .atum-desk-caret {
+  width: var(--ak-i-sm);
+  height: var(--ak-i-sm);
+  color: var(--ak-ink-3);
+}
+
+.atum-desk .ak-row-main > span:first-child {
+  font: var(--ak-t-body);
+  color: var(--ak-ink);
+}
+
+.atum-desk-fold-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 var(--ak-s1) var(--ak-s6);
+}
+
+.atum-desk-row-end {
+  flex: none;
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+  white-space: nowrap;
+}
+
+.atum-desk-mark {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  background: var(--ak-warn);
+}
+
+/* The devices section as Now's companion while one is in use: the same card, open. */
+.atum-desk > .atum-desk-fold-section {
+  border-radius: var(--ak-r-lg);
+  background: var(--ak-surface);
+  box-shadow: var(--ak-shadow-1);
+  padding: 4px;
+}
+
+/* One quiet line under Controls when a change did not take. */
+.atum-desk-quiet {
+  margin-top: var(--ak-s2);
+  padding: 0 10px;
+  font: var(--ak-t-callout);
+  color: var(--ak-ink-3);
+}

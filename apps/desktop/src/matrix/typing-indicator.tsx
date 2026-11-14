@@ -12,7 +12,9 @@ import type { MatrixAgentView, MatrixMessage } from '../../shared/matrix'
 export function MatrixAgentWorking({
   line,
   label,
-  typing
+  onWatch,
+  typing,
+  watchLabel
 }: {
   agent?: MatrixAgentView
   avatarMxc?: null | string
@@ -20,7 +22,10 @@ export function MatrixAgentWorking({
   line?: MatrixMessage
   name: string
   label: string
+  /** Opens the side panel on the agent's own tab (owner 11-11: never by itself). */
+  onWatch?: () => void
   typing: boolean
+  watchLabel?: string
 }) {
   const lines = line?.body.split('\n').map(value => value.trim()).filter(Boolean) ?? []
   const current = lines[0]
@@ -59,6 +64,11 @@ export function MatrixAgentWorking({
             </ul>
           )}
         </div>
+      )}
+      {onWatch && watchLabel && (
+        <button className="ak-btn ak-btn--plain ak-btn--sm shrink-0" data-matrix-agent-watch onClick={onWatch} type="button">
+          {watchLabel}
+        </button>
       )}
     </div>
   )
