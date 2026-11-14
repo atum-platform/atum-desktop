@@ -1,3 +1,4 @@
+import { ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, readdir, stat } from 'node:fs/promises'
@@ -2112,6 +2113,7 @@ let cloudEnrollments: CloudAgentEnrollment | undefined
 let executionPolicies: MatrixExecutionPolicyController | undefined
 let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
+let chatGptCarry: ChatGptCarry | undefined
 let chatGptRelay: MatrixChatGptRelay | undefined
 let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
@@ -6916,6 +6918,7 @@ function publish(next: MatrixSnapshot) {
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  if (!closing && next.state === 'ready' && next.identity) void chatGptCarry?.sync()
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
   for (const each of allAgents()) {
@@ -18350,6 +18353,13 @@ async function start() {
         changed: () => publish(state)
       })
     : undefined
+
+  chatGptCarry = config.domain ? new ChatGptCarry({
+    scope: () => account.appScope(),
+    home: subscriptionAuthHome,
+    call: (body, signal) => account.s1Request(
+      (accessToken, resource) => requestChatGptCarry(resource, accessToken, body, signal), signal)
+  }) : undefined
 
   chatGptRelay = config.domain
     ? new MatrixChatGptRelay({
