@@ -7,7 +7,7 @@ export const MATRIX_CHATGPT_RELAY_PROFILE = 'atum.chatgpt-relay/1' as const
 
 export interface MatrixChatGptRelaySnapshot {
   revision: number
-  state: 'disabled' | 'enabled'
+  state: 'disabled' | 'enabled' | 'carried'
   deviceServiceId?: string
   selectedAt?: number
   models: readonly MatrixProviderConnectionModel[]
@@ -82,6 +82,7 @@ export async function requestMatrixChatGptRelay(resource: string, accessToken: s
 export class MatrixChatGptRelay {
   private owner: Scope | null = null
   private snapshot?: MatrixChatGptRelaySnapshot
+  private carried = false
 
   constructor(private readonly options: { scope(): Scope | null; call(action: Action, signal: AbortSignal, body?: unknown): Promise<Answer>; changed(): void }) {}
 
@@ -89,17 +90,25 @@ export class MatrixChatGptRelay {
     if (owner?.accountKey === this.owner?.accountKey && owner?.generation === this.owner?.generation) {
       return
     }
-    this.owner = owner; this.snapshot = undefined
+    this.owner = owner; this.snapshot = undefined; this.carried = false
+  }
+
+  markCarried(): void {
+    this.carried = true
+    this.snapshot = { revision: this.snapshot?.revision ?? 0, state: 'carried', models: [] }
+    this.options.changed()
   }
 
   view() { return this.snapshot }
 
   async refresh(): Promise<MatrixChatGptRelaySnapshot | undefined> {
     const scope = this.options.scope()
+    if (this.carried) return this.snapshot
     if (!scope) {
       return
     }
     const answer = await this.options.call('status', AbortSignal.timeout(20_000)).catch(() => undefined)
+    if (this.carried) return this.snapshot
     const next = answer?.status === 200 ? parse(answer.value) : undefined
     if (!next || scope.accountKey !== this.options.scope()?.accountKey || scope.generation !== this.options.scope()?.generation) {
       return
@@ -108,7 +117,7 @@ export class MatrixChatGptRelay {
   }
 
   async enable(deviceServiceId: string, models: readonly MatrixProviderConnectionModel[]): Promise<boolean> {
-    if (!this.options.scope() || !UUID.test(deviceServiceId) || models.length < 1) {
+    if (this.carried || !this.options.scope() || !UUID.test(deviceServiceId) || models.length < 1) {
       return false
     }
     const answer = await this.options.call('enable', AbortSignal.timeout(20_000), {

@@ -1,35 +1,77 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { ChatGptCarry } from './chatgpt-carry'
+import { ChatGptCarry, CarryRejected } from './chatgpt-carry'
 
-test('automatic carry uploads once and never reads credentials on the second run', async () => {
-  let state = 'pending', reads = 0, uploads = 0
+function fixture(call: (body: Record<string, string>) => Promise<string>) {
+  let state = 'local', now = 0, drains = 0, carried = 0, restored = 0
+  const actions: string[] = []
   const carry = new ChatGptCarry({ scope: () => ({ accountKey: 'one', generation: 1 }), home: () => '/synthetic',
-    read: () => { reads++; return { access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' } },
-    call: async body => { if (body.access_token) { uploads++; state = 'migrated' }; return state } })
-  await carry.sync(); await carry.sync()
-  assert.equal(reads, 1); assert.equal(uploads, 1)
+    now: () => now, call,
+    custody: async (_home, action) => {
+      actions.push(action)
+      if (action === 'begin') { state = 'paused'; return { state, access_token: 'fake-access', refresh_token: 'fake-refresh' } }
+      state = action === 'commit' ? 'carried' : 'local'; return { state }
+    }, drain: async () => { drains++ }, carried: () => { carried++ }, restored: () => { restored++ } })
+  return { carry, actions, state: () => state, restored: () => restored, carried: () => carried, drains: () => drains, retry: () => { now += 61_000 } }
+}
+
+test('drains before upload, commits once, and never uploads again', async () => {
+  let f: ReturnType<typeof fixture>, uploads = 0
+  f = fixture(async body => {
+    if (!body.access_token) return 'pending'
+    assert.equal(f.state(), 'paused'); assert.equal(f.drains(), 1)
+    uploads++; return 'migrated'
+  })
+  await f.carry.sync(); await f.carry.sync()
+  assert.equal(uploads, 1); assert.equal(f.carried(), 1)
+  assert.deepEqual(f.actions, ['begin', 'commit'])
 })
 
-test('lost upload response retries server status without re-reading the credential', async () => {
-  let state = 'pending', reads = 0, now = 0
-  const carry = new ChatGptCarry({ scope: () => ({ accountKey: 'one', generation: 1 }), home: () => '/synthetic', now: () => now,
-    read: () => { reads++; return { access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' } },
-    call: async body => { if (body.access_token) { state = 'migrated'; throw new Error('lost') }; return state } })
-  await carry.sync(); now = 61000; await carry.sync()
-  assert.equal(reads, 1)
+test('lost response keeps Mac paused and recovers from server marker', async () => {
+  let state = 'pending'
+  const f = fixture(async body => { if (body.access_token) { state = 'migrated'; throw Error('lost') }; return state })
+  await f.carry.sync(); assert.equal(f.state(), 'paused')
+  f.retry(); await f.carry.sync(); assert.equal(f.state(), 'carried')
+  assert.deepEqual(f.actions, ['begin', 'commit'])
 })
 
-test('account change during status never reads or uploads the previous account grant', async () => {
-  let scope = { accountKey: 'one', generation: 1 }, reads = 0
-  const carry = new ChatGptCarry({ scope: () => scope, home: () => '/synthetic',
-    read: () => { reads++; return undefined },
-    call: async () => { scope = { accountKey: 'two', generation: 2 }; return 'pending' } })
-  await carry.sync(); assert.equal(reads, 0)
+test('definite rejection returns refresh ownership to the Mac', async () => {
+  const f = fixture(async body => { if (body.access_token) throw new CarryRejected(); return 'pending' })
+  await f.carry.sync(); assert.equal(f.state(), 'local'); assert.equal(f.restored(), 1)
+  assert.deepEqual(f.actions, ['begin', 'rollback'])
 })
 
-test('already migrated on another Mac skips credential reading', async () => {
-  const carry = new ChatGptCarry({ scope: () => ({ accountKey: 'one', generation: 1 }), home: () => '/synthetic',
-    read: () => { throw new Error('unexpected read') }, call: async () => 'migrated' })
-  await carry.sync()
+test('already migrated retires local credentials without reading them for upload', async () => {
+  const f = fixture(async () => 'migrated')
+  await f.carry.sync(); assert.deepEqual(f.actions, ['commit']); assert.equal(f.carried(), 1)
+})
+
+test('cloud outage before transfer leaves local ownership intact', async () => {
+  const f = fixture(async () => { throw Error('offline') })
+  await f.carry.sync(); assert.equal(f.state(), 'local'); assert.deepEqual(f.actions, [])
+})
+
+test('a busy import restores the Mac grant for a later retry', async () => {
+  const f = fixture(async body => body.access_token ? 'busy' : 'pending')
+  await f.carry.sync(); assert.equal(f.state(), 'local')
+})
+
+test('validation outage acknowledged before custody mutation restores local ownership', async () => {
+  const f = fixture(async body => body.access_token ? 'not_imported' : 'pending')
+  await f.carry.sync(); assert.equal(f.state(), 'local')
+})
+
+test('carried local relay cannot be re-enabled by an in-flight status response', async () => {
+  const { MatrixChatGptRelay } = await import('./chatgpt-relay-client')
+  let finish!: (answer: { status: number; value: unknown }) => void
+  let calls = 0
+  const relay = new MatrixChatGptRelay({ scope: () => ({ accountKey: 'one', generation: 1 }), changed: () => {},
+    call: async () => { calls++; return new Promise(resolve => { finish = resolve }) } })
+  const refreshing = relay.refresh()
+  relay.markCarried()
+  finish({ status: 200, value: { profile: 'atum.chatgpt-relay/1', state: 'disabled', revision: 1, models: [] } })
+  await refreshing
+  assert.equal(relay.view()?.state, 'carried')
+  await relay.refresh(); assert.equal(calls, 1)
+  assert.equal(await relay.enable('synthetic-device', []), false)
 })

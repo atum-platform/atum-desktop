@@ -1,4 +1,4 @@
-import { ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
+import { ChatGptCarry, carryCustody, requestChatGptCarry } from './chatgpt-carry'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, readdir, stat } from 'node:fs/promises'
@@ -18357,6 +18357,24 @@ async function start() {
   chatGptCarry = config.domain ? new ChatGptCarry({
     scope: () => account.appScope(),
     home: subscriptionAuthHome,
+    custody: (home, action) => {
+      if (!runtime) throw new Error('carry_unavailable')
+      return carryCustody(runtime.python, runtime.source, home, action)
+    },
+    drain: async () => {
+      deviceBootstrap?.configureChatGptRelay(false, [])
+      // Do not use refreshSubscriptionAgents: that helper immediately restarts consumers.
+      for (const each of allAgents()) if (!each.closed) await stopHost(each.role)
+      await retireSubscriptionProviders()
+    },
+    carried: () => { chatGptRelay?.markCarried(); recheckAgents() },
+    restored: () => {
+      const relay = chatGptRelay?.view()
+      if (relay?.state === 'enabled' && relay.deviceServiceId === deviceIdentity?.enrollment()?.deviceServiceId) {
+        deviceBootstrap?.configureChatGptRelay(true, relay.models.map(model => model.id))
+      }
+      recheckAgents()
+    },
     call: (body, signal) => account.s1Request(
       (accessToken, resource) => requestChatGptCarry(resource, accessToken, body, signal), signal)
   }) : undefined
