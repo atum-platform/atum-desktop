@@ -1390,8 +1390,9 @@ def interruptible_backoff_sleep(
     messages: list[dict[str, Any]], conversation_history: Any, api_call_count: int,
     abort_message: str, interrupt_text: str, activity_label: str,
 ) -> Optional[dict[str, Any]]:
-    """Sleep ``wait_time`` in 200 ms slices so interrupts are honoured promptly, touching
-    activity every ~30 s so the gateway's inactivity monitor knows we are alive.
+    """Wait until the ``wait_time`` deadline in slices of at most 200 ms, clamping
+    the final requested sleep to the time remaining rather than rounding it up.
+    Touch activity every ~30 s so the gateway's inactivity monitor knows we are alive.
 
     On interrupt with ``_retry`` given and a redirect pending: preserve the redirect, arm
     ``_retry.restart_with_redirected_messages`` and return ``None`` (caller rebuilds the
@@ -1407,7 +1408,7 @@ def interruptible_backoff_sleep(
                 agent, messages, conversation_history, api_call_count,
                 abort_message=abort_message, interrupt_text=interrupt_text,
             )
-        time.sleep(0.2)
+        time.sleep(min(0.2, max(0.0, sleep_end - time.time())))
         _touch_counter += 1
         if _touch_counter % 150 == 0:  # 150 × 0.2s = 30s
             agent._touch_activity(f"{activity_label}, {int(sleep_end - time.time())}s remaining")
@@ -1530,10 +1531,14 @@ def _codex_soft_failure_error(response: Any) -> dict[str, Any]:
     if isinstance(error_obj, dict):
         fields = error_obj
     elif hasattr(error_obj, "code") or hasattr(error_obj, "message"):
-        fields = {"code": getattr(error_obj, "code", None), "message": getattr(error_obj, "message", None)}
+        fields = {key: getattr(error_obj, key, None) for key in ("code", "message", "metadata")}
     else:
         fields = {"message": str(error_obj)}
-    return {k: v for k, v in fields.items() if isinstance(v, str) and v.strip()}
+    return {k: v for k, v in fields.items() if (
+        (isinstance(v, str) and v.strip())
+        or (k == "code" and isinstance(v, int) and not isinstance(v, bool))
+        or (k == "metadata" and isinstance(v, dict))
+    )}
 
 
 class _CodexSoftFailure(Exception):

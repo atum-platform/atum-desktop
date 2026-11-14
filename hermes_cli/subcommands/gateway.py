@@ -67,6 +67,17 @@ def build_gateway_parser(
     gateway_subparsers = gateway_parser.add_subparsers(
         dest="gateway_command", parser_class=_GatewayCommandParser)
 
+    intake = gateway_subparsers.add_parser('matrix-intake', help='Inspect/reconcile durable Matrix intake (stop gateway before recovery)')
+    intake.add_argument('action', choices=('status', 'retry', 'resolve', 'hold', 'restore'))
+    intake.add_argument('--store', help='Exact intake-*.sqlite3 path from Matrix store directory')
+    intake.add_argument('--manifest')
+    intake.add_argument('--generation', type=int)
+    intake.add_argument('--target')
+    intake.add_argument('--exec', dest='hold_command', nargs=argparse.REMAINDER,
+                        help='Run snapshot command while holding intake (lease <=2 seconds)')
+    intake.add_argument('--event')
+    intake.add_argument('--reconciled', help='Operator confirmation/reason after effects reconciliation; gateway must be stopped')
+
     gateway_run = gateway_subparsers.add_parser(
         "run", help="Run gateway in foreground (recommended for WSL and Docker)"
     )

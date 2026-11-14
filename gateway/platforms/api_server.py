@@ -2393,7 +2393,9 @@ class APIServerAdapter(OpenAICompatRoutesMixin, BasePlatformAdapter):
         # drainable use the same shared contract as /api/status so the two never disagree.
         active_api_runs, process_depth, active_delegations = self._readiness_work_counts()
         from gateway.run import _resolve_gateway_model
-        readiness = collect_runtime_readiness(
+        # The readiness collector queries our control socket. Let this loop
+        # serve that request while the synchronous probe waits off-loop.
+        readiness = await asyncio.to_thread(collect_runtime_readiness,
             configured_model=_resolve_gateway_model(), runtime_status=runtime,
             active_api_runs=active_api_runs, process_completion_queue_depth=process_depth,
             active_delegations=active_delegations)

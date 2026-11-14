@@ -118,6 +118,11 @@ class GatewayTurnPersistenceMixin:
             except Exception as _e:
                 logger.debug("clear_resume_pending failed for %s: %s", session_key, _e, exc_info=True)
 
+        pending = getattr(session_entry, 'resume_ask', None)
+        if pending:
+            from gateway.resume_policy import shape_pending_ask
+            response = shape_pending_ask(self.session_store, session_entry, response)
+
         # Normalize empty responses: surface errors, partial failures, and work-without-text.
         # Fix for #18765.
         if not _intentional_silence:

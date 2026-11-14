@@ -173,9 +173,11 @@ def _registered_live_pids(home: Path) -> set[int]:
     """Live pids Hermes registered for *home*: the machine spawn ledger (every long-lived entry
     point and MCP helper, ``hermes_cli.process_identity``) and the background-process checkpoint
     (``tools.process_registry``, ``processes.json``). A recorded start time that no longer
-    matches is a reused pid, not ownership."""
+    matches is a reused pid, not ownership; so is an entry that names another instantiation —
+    a fresh sandbox reuses both the pid and the boot-relative start ticks."""
     import psutil
 
+    from gateway.status import process_epoch_conflicts
     from hermes_cli.process_identity import spawner_is_dead
     from hermes_constants import get_default_hermes_root
 
@@ -196,6 +198,9 @@ def _registered_live_pids(home: Path) -> set[int]:
             # rule reap_orphaned_mcp_helpers applies. Long-lived entry points (gateway, serve) that
             # outlive their launcher stay owned; an unprovable spawner keeps ownership.
             if entry.get("purpose") == "mcp-helper" and spawner_is_dead(entry) is True:
+                continue
+            # A checkpoint another instantiation wrote names a process that died with it.
+            if stamp_key == "host_start_time" and process_epoch_conflicts(entry, "host_boot_epoch"):
                 continue
             try:
                 if stamp is None:

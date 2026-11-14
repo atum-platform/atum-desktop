@@ -19,6 +19,7 @@ import re
 import sqlite3
 import threading
 import time
+import uuid
 from typing import Any, Dict, List, Optional
 
 from gateway.dead_targets import classify_dead_error
@@ -27,6 +28,10 @@ from hermes_constants import get_process_hermes_home
 
 logger = logging.getLogger(__name__)
 _DB_LOCK = threading.Lock()
+# Explicit process-prefix seam retained for callers/tests. Default identity is
+# durable per private process home (one home per agent/audience), never per boot.
+_MATRIX_SEND_PROCESS_PREFIX = None
+
 
 # Redelivery policy knobs (deliberately not config — the ledger is gated by
 # ``gateway.delivery_ledger`` and these only matter in the rare recovery path).
@@ -204,8 +209,63 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
             adapter_profile TEXT
         )"""
     )
+    add_column_if_missing(conn, "delivery_obligations", "owner_boot_epoch", "owner_boot_epoch TEXT")
     if "adapter_profile" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
         add_column_if_missing(conn, "delivery_obligations", "adapter_profile", "adapter_profile TEXT")
+
+    if "matrix_send_plan" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
+        add_column_if_missing(conn, "delivery_obligations", "matrix_send_plan", "matrix_send_plan TEXT")
+
+    if "source_event_id" not in {row[1] for row in conn.execute("PRAGMA table_info(delivery_obligations)")}:
+        add_column_if_missing(conn, "delivery_obligations", "source_event_id", "source_event_id TEXT")
+
+
+def matrix_sender_id(configured: Optional[str] = None) -> str:
+    """Persist one sender per agent/audience home, with a provisioning override.
+
+    Different processes sharing an account must have distinct private homes and
+    configured IDs. A restarted process keeps its home/ID; no PID or boot nonce.
+    """
+    if configured is not None and not re.fullmatch(r"[A-Za-z0-9-]{1,128}", configured):
+        raise ValueError("Matrix sender_id must be 1-128 letters, digits or hyphens")
+    with _DB_LOCK, _transaction() as conn:
+        conn.execute('CREATE TABLE IF NOT EXISTS matrix_sender_identity (id INTEGER PRIMARY KEY CHECK(id=1), sender TEXT NOT NULL)')
+        conn.execute('INSERT OR IGNORE INTO matrix_sender_identity VALUES (1,?)', (configured or uuid.uuid4().hex,))
+        sender = conn.execute('SELECT sender FROM matrix_sender_identity WHERE id=1').fetchone()[0]
+        if configured is not None and sender != configured:
+            raise ValueError("Matrix sender_id differs from persisted process identity")
+        return sender
+
+
+def matrix_transaction_id(suffix: Optional[str] = None, *, sender_id: Optional[str] = None) -> str:
+    """Namespace every Matrix publication, including unledgered controls/media."""
+    return f"hermes_{sender_id or _MATRIX_SEND_PROCESS_PREFIX or matrix_sender_id()}_{suffix or uuid.uuid4().hex}"
+
+
+def matrix_send_plan(obligation_id: str, chat_id: str, chunks: list, *, sender_id: Optional[str] = None) -> list:
+    """Freeze exact Matrix wire content and per-chunk transaction IDs before any send.
+
+    Reuse the existing final-delivery authority, not a second transport outbox.
+    The obligation ID is already durable; server deduplication is scoped to the
+    same Matrix account/access-token session across restarts.
+    """
+    import json
+    sender_id = sender_id or _MATRIX_SEND_PROCESS_PREFIX or matrix_sender_id()
+    with _DB_LOCK, _transaction() as conn:
+        row = conn.execute('SELECT chat_id,matrix_send_plan,source_event_id FROM delivery_obligations WHERE obligation_id=?',
+                           (obligation_id,)).fetchone()
+        if row is None or row[0] != str(chat_id):
+            raise RuntimeError('Matrix send requires its durable delivery obligation')
+        if row[1]:
+            return json.loads(row[1])
+        source_event_id = row[2]
+        plan = [{'txn_id': matrix_transaction_id(hashlib.sha256(f'{obligation_id}:{i}'.encode()).hexdigest(), sender_id=sender_id),
+                 'content': dict(chunk, **({'org.hermes.source_event_id': source_event_id,
+                     'org.hermes.final_chunk': {'index': i + 1, 'total': len(chunks)}}
+                     if source_event_id else {}))} for i, chunk in enumerate(chunks)]
+        conn.execute('UPDATE delivery_obligations SET matrix_send_plan=? WHERE obligation_id=?',
+                     (json.dumps(plan), obligation_id))
+        return plan
 
 
 def _transaction():
@@ -227,8 +287,11 @@ def _owner_stamp() -> tuple[int, Optional[int]]:
     return pid, _start_time(pid)
 
 
-def _owner_alive(pid: Any, started_at: Any) -> bool:
-    """True when the recorded owning process still exists (pid + start time)."""
+def _owner_alive(pid: Any, started_at: Any, boot_epoch: Optional[str] = None) -> bool:
+    """True when the owner belongs to this instantiation and its process is live."""
+    from gateway.status import process_epoch_matches
+    if not process_epoch_matches({"boot_epoch": boot_epoch}):
+        return False
     if not pid:
         return False
     try:
@@ -268,26 +331,32 @@ def compute_obligation_id(session_key: str, message_ref: str, content: str) -> s
 
 
 def record_obligation(*, obligation_id: str, session_key: str, platform: str, chat_id: str,
-                      thread_id: Optional[str], content: str, adapter_profile: Optional[str] = None) -> None:
+                      thread_id: Optional[str], content: str, adapter_profile: Optional[str] = None,
+                      source_event_id: Optional[str] = None) -> None:
     """Record a final response as owed to the platform (state='pending')."""
+    from gateway.fault_injection import hit
+    hit("H12")
+    from gateway.status import get_process_epoch
     now, (pid, started) = time.time(), _owner_stamp()
+    epoch = get_process_epoch()
     with _DB_LOCK, _transaction() as conn:
         conn.execute(
-            """INSERT OR REPLACE INTO delivery_obligations
+            ("INSERT OR IGNORE" if platform == "matrix" else "INSERT OR REPLACE") + """ INTO delivery_obligations
                (obligation_id, session_key, platform, chat_id, thread_id,
                 content, state, attempts, created_at, updated_at,
-                owner_pid, owner_started_at, adapter_profile)
-               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?)""",
+                owner_pid, owner_started_at, owner_boot_epoch, adapter_profile, source_event_id)
+               VALUES (?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?, ?, ?, ?)""",
             (obligation_id, session_key, platform, str(chat_id), str(thread_id) if thread_id else None,
-             content, now, now, pid, started, str(adapter_profile).strip() if adapter_profile else "default"))
+             content, now, now, pid, started, epoch, str(adapter_profile).strip() if adapter_profile else "default", source_event_id))
         # Same transaction, same connection: the cron ledgers prune this way too
         # (cron/delivery_queue._prune_terminal_unlocked, cron/executions._prune_unlocked).
         _prune_unlocked(conn, now)
+    hit("H8")
 
 
 def record_crash_left_reply(*, obligation_id: str, session_key: str, platform: str, chat_id: str,
                             thread_id: Optional[str], content: str, since: float,
-                            adapter_profile: Optional[str] = None) -> None:
+                            adapter_profile: Optional[str] = None, source_event_id: Optional[str] = None) -> None:
     """Adopt a reply a killed process persisted but never ledgered. Unowned, so this boot's sweep
     claims it, and 'attempting', because a streamed reply may already be on screen: it is
     redelivered once, with the recovered marker. A no-op when the same reply was already ledgered
@@ -298,17 +367,24 @@ def record_crash_left_reply(*, obligation_id: str, session_key: str, platform: s
             """INSERT OR IGNORE INTO delivery_obligations
                (obligation_id, session_key, platform, chat_id, thread_id,
                 content, state, attempts, created_at, updated_at,
-                owner_pid, owner_started_at, adapter_profile)
-               SELECT ?, ?, ?, ?, ?, ?, 'attempting', 0, ?, ?, NULL, NULL, ?
+                owner_pid, owner_started_at, adapter_profile, source_event_id)
+               SELECT ?, ?, ?, ?, ?, ?, 'attempting', 0, ?, ?, NULL, NULL, ?, ?
                WHERE NOT EXISTS (SELECT 1 FROM delivery_obligations
                                  WHERE session_key = ? AND content = ? AND created_at >= ?)""",
             (obligation_id, session_key, platform, str(chat_id), str(thread_id) if thread_id else None,
-             content, now, now, str(adapter_profile).strip() if adapter_profile else "default",
+             content, now, now, str(adapter_profile).strip() if adapter_profile else "default", source_event_id,
              session_key, content, since))
 
 
 def mark_attempting(obligation_id: str) -> None:
     _update_state(obligation_id, "attempting")
+
+
+def get_delivery_state(obligation_id: str) -> Optional[str]:
+    """Inspect an existing obligation without claiming or resending it."""
+    with _DB_LOCK, _transaction() as conn:
+        row = conn.execute('SELECT state FROM delivery_obligations WHERE obligation_id=?', (obligation_id,)).fetchone()
+        return row[0] if row else None
 
 
 def mark_delivered(obligation_id: str) -> None:
@@ -325,6 +401,7 @@ def release_runtime_claim(obligation_id: str, error: str = "") -> bool:
     Runtime recovery claims before clearing ``resume_pending`` so two reconnect paths cannot send the
     same row; if the flag cannot be cleared no send was attempted and the claim must not consume the
     redelivery budget. Fail-closed to the exact current process instance and ``attempting`` state."""
+    from gateway.status import get_process_epoch
     pid, started = _owner_stamp()
     if started is None:
         return False
@@ -335,8 +412,8 @@ def release_runtime_claim(obligation_id: str, error: str = "") -> bool:
                        WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
                    updated_at=?, last_error=?
                WHERE obligation_id=? AND state='attempting'
-                 AND owner_pid IS ? AND owner_started_at IS ?""",
-            (time.time(), error[:500] if error else None, obligation_id, pid, started))
+                 AND owner_pid IS ? AND owner_started_at IS ? AND owner_boot_epoch IS ?""",
+            (time.time(), error[:500] if error else None, obligation_id, pid, started, get_process_epoch()))
     return bool(cursor.rowcount)
 
 
@@ -367,12 +444,13 @@ def _claimed_row(oid, session_key, platform, chat_id, thread_id, content, attemp
 
 def sweep_recoverable(now: Optional[float] = None, *, deliverable_platforms: Optional[set] = None,
                       deliverable_targets: Optional[set] = None) -> list[dict[str, Any]]:
-    """Claim undelivered rows owned by dead processes; return them for redelivery.
+    """Claim undelivered rows whose owner incarnation is gone; return them for redelivery.
 
     Claiming atomically re-stamps the owner to THIS process, moves the row to 'attempting' and increments
     ``attempts`` (the UPDATE is guarded on the previous owner stamp, so a second gateway racing the same
     sweep cannot double-claim).
-    Rows over the attempts cap or stale cutoff become 'abandoned'. ``deliverable_platforms`` restricts
+    Rows over the attempts cap or stale cutoff become 'abandoned' even when their recorded
+    owner appears live. A missing legacy Linux boot epoch cannot establish liveness. ``deliverable_platforms`` restricts
     claiming to platforms the caller can send on this boot: ``attempts`` is the redelivery budget and
     must only be spent on a real send, else a platform that failed to connect burns one attempt per boot
     and hits the cap having never been sent once (the stale cutoff still bounds untouched rows).
@@ -385,25 +463,30 @@ def sweep_recoverable(now: Optional[float] = None, *, deliverable_platforms: Opt
     timer does once the wait has passed. A legacy row without ``adapter_profile`` is normalised to
     ``'default'`` on claim or adoption (the caller only accepts such rows when it is not multiplexed),
     because the runtime sweep matches profiles exactly and could otherwise never claim it."""
+    from gateway.status import get_process_epoch
     now, (pid, started) = now if now is not None else time.time(), _owner_stamp()
+    epoch = get_process_epoch()
     claimed: list[dict[str, Any]] = []
     with _DB_LOCK, _transaction() as conn:
         rows = conn.execute(
             """SELECT obligation_id, session_key, platform, chat_id, thread_id,
                       content, state, attempts, created_at,
-                      owner_pid, owner_started_at, adapter_profile, last_error, updated_at
+                      owner_pid, owner_started_at, owner_boot_epoch, adapter_profile, last_error, updated_at
                FROM delivery_obligations
                WHERE state IN ('pending', 'attempting', 'failed')"""
         ).fetchall()
         for (oid, session_key, platform, chat_id, thread_id, content, state, attempts, created_at,
-             owner_pid, owner_started_at, adapter_profile, last_error, updated_at) in rows:
-            if _owner_alive(owner_pid, owner_started_at):
-                continue  # a live gateway still owns this row
+             owner_pid, owner_started_at, owner_boot_epoch, adapter_profile, last_error, updated_at) in rows:
             if attempts >= MAX_ATTEMPTS or (now - created_at) > STALE_AFTER_SECONDS:  # exhausted -> abandoned
                 conn.execute(
                     """UPDATE delivery_obligations
-                       SET state='abandoned', updated_at=? WHERE obligation_id=?""", (now, oid))
+                       SET state='abandoned', updated_at=?
+                       WHERE obligation_id=? AND state=? AND attempts=?
+                         AND owner_pid IS ? AND owner_started_at IS ? AND owner_boot_epoch IS ?""",
+                    (now, oid, state, attempts, owner_pid, owner_started_at, owner_boot_epoch))
                 continue
+            if _owner_alive(owner_pid, owner_started_at, owner_boot_epoch):
+                continue  # a live gateway still owns this row
             if ((deliverable_platforms is not None and platform not in deliverable_platforms)
                     or (deliverable_targets is not None and (platform, adapter_profile) not in deliverable_targets)):
                 continue  # no adapter this boot — claiming would spend an attempt on a no-op
@@ -413,10 +496,11 @@ def sweep_recoverable(now: Optional[float] = None, *, deliverable_platforms: Opt
                 # (state and error kept) so this process's flood timer can claim it once the wait passes.
                 cursor = conn.execute(
                     """UPDATE delivery_obligations
-                       SET owner_pid=?, owner_started_at=?,
+                       SET owner_pid=?, owner_started_at=?, owner_boot_epoch=?,
                            adapter_profile=COALESCE(adapter_profile, 'default')
-                       WHERE obligation_id=? AND (owner_pid IS ? OR owner_pid=?)""",
-                    (pid, started, oid, owner_pid, owner_pid))
+                       WHERE obligation_id=? AND owner_pid IS ? AND owner_started_at IS ?
+                         AND owner_boot_epoch IS ? AND state=? AND attempts=?""",
+                    (pid, started, epoch, oid, owner_pid, owner_started_at, owner_boot_epoch, state, attempts))
                 if cursor.rowcount:
                     claimed.append({
                         "obligation_id": oid, "session_key": session_key, "platform": platform,
@@ -430,11 +514,13 @@ def sweep_recoverable(now: Optional[float] = None, *, deliverable_platforms: Opt
             # claimed flood row also drops its stale refusal, so an interrupted resend has no error.
             cursor = conn.execute(
                 """UPDATE delivery_obligations
-                   SET owner_pid=?, owner_started_at=?, attempts=attempts+1, updated_at=?,
+                   SET owner_pid=?, owner_started_at=?, owner_boot_epoch=?, attempts=attempts+1, updated_at=?,
                        adapter_profile=COALESCE(adapter_profile, 'default'), state='attempting',
                        last_error=CASE WHEN ? THEN NULL ELSE last_error END
-                   WHERE obligation_id=? AND (owner_pid IS ? OR owner_pid=?)""",
-                (pid, started, now, 1 if flood_row else 0, oid, owner_pid, owner_pid))
+                   WHERE obligation_id=? AND owner_pid IS ? AND owner_started_at IS ?
+                         AND owner_boot_epoch IS ? AND state=? AND attempts=?""",
+                (pid, started, epoch, now, 1 if flood_row else 0, oid, owner_pid,
+                 owner_started_at, owner_boot_epoch, state, attempts))
             if cursor.rowcount:
                 # A never-claimed pending row was never sent: redeliver plainly. Anything else (crashed
                 # mid-await, other rejection, a flood refusal whose earlier chunks the platform may have
@@ -458,6 +544,7 @@ def sweep_failed_for_runtime(platform: str, now: Optional[float] = None, *,
     past their ``retry_not_before`` deadline, same attempts/staleness bounds, every update guarded by the
     prior owner stamp and ``failed`` state. Claimed rows always carry a marker (the failed send's ack is not safe to
     infer): the reconnect one, or the rate-limit one for a flood-refused row."""
+    from gateway.status import get_process_epoch, process_epoch_matches
     now, (pid, started) = now if now is not None else time.time(), _owner_stamp()
     if started is None:  # PID alone cannot distinguish this process from a stale row left after PID
         return []        # reuse; runtime replay is optional, so fail closed (startup recovery remains).
@@ -467,24 +554,25 @@ def sweep_failed_for_runtime(platform: str, now: Optional[float] = None, *,
         rows = conn.execute(
             """SELECT obligation_id, session_key, platform, chat_id, thread_id,
                       content, attempts, created_at, owner_pid,
-                      owner_started_at, last_error, adapter_profile, updated_at
+                      owner_started_at, owner_boot_epoch, last_error, adapter_profile, updated_at
                FROM delivery_obligations
                WHERE state='failed' AND platform=?""", (platform,)).fetchall()
         for (oid, session_key, row_platform, chat_id, thread_id, content, attempts, created_at,
-             owner_pid, owner_started_at, last_error, adapter_profile, updated_at) in rows:
+             owner_pid, owner_started_at, owner_boot_epoch, last_error, adapter_profile, updated_at) in rows:
             # Exact process-start matching prevents PID reuse from stealing work.
-            if adapter_profile != expected_profile or owner_pid != pid or owner_started_at != started:
+            if (adapter_profile != expected_profile or owner_pid != pid or owner_started_at != started
+                    or not process_epoch_matches({"boot_epoch": owner_boot_epoch})):
                 continue
-            due = retry_not_before(updated_at, last_error, attempts)
-            if due is None:
-                continue
-            owner_guard = (now, oid, owner_pid, owner_started_at)
+            owner_guard = (now, oid, owner_pid, owner_started_at, owner_boot_epoch)
             if attempts >= MAX_ATTEMPTS or (now - created_at) > STALE_AFTER_SECONDS:  # exhausted -> abandoned
                 conn.execute(
                     """UPDATE delivery_obligations
                        SET state='abandoned', updated_at=?
                        WHERE obligation_id=? AND state='failed'
-                         AND owner_pid IS ? AND owner_started_at IS ?""", owner_guard)
+                         AND owner_pid IS ? AND owner_started_at IS ? AND owner_boot_epoch IS ?""", owner_guard)
+                continue
+            due = retry_not_before(updated_at, last_error, attempts)
+            if due is None:
                 continue
             if now < due:
                 continue  # the platform's wait or the backoff has not passed; the timer comes back for it
@@ -494,7 +582,7 @@ def sweep_failed_for_runtime(platform: str, now: Optional[float] = None, *,
                 """UPDATE delivery_obligations
                    SET state='attempting', attempts=attempts+1, updated_at=?, last_error=NULL
                    WHERE obligation_id=? AND state='failed'
-                     AND owner_pid IS ? AND owner_started_at IS ?""", owner_guard)
+                     AND owner_pid IS ? AND owner_started_at IS ? AND owner_boot_epoch IS ?""", owner_guard)
             if cursor.rowcount:
                 # The failed send's ack may have been lost (reconnect) or its earlier chunks accepted
                 # (flood): every runtime redelivery carries a marker. The pre-claim error rides along so a
@@ -510,14 +598,17 @@ def pending_retries(now: Optional[float] = None) -> list[dict[str, Any]]:
     earliest deadline (``not_before``). The runner arms one redelivery timer per entry, so a row adopted
     at boot, skipped because its wait had not passed, or rejected again is never stranded. Rows past the
     attempts cap or stale cutoff are left for the sweeps to abandon."""
+    from gateway.status import get_process_epoch
     now, (pid, started) = now if now is not None else time.time(), _owner_stamp()
+    epoch = get_process_epoch()
     if started is None:
         return []
     with _DB_LOCK, _transaction() as conn:
         rows = conn.execute(
             """SELECT platform, adapter_profile, updated_at, last_error, attempts, created_at
                FROM delivery_obligations
-               WHERE state='failed' AND owner_pid IS ? AND owner_started_at IS ?""", (pid, started)).fetchall()
+               WHERE state='failed' AND owner_pid IS ? AND owner_started_at IS ?
+                 AND owner_boot_epoch IS ?""", (pid, started, epoch)).fetchall()
     earliest: dict[tuple, float] = {}
     for platform, adapter_profile, updated_at, last_error, attempts, created_at in rows:
         # Reconnect-only rows (a claim released because the adapter was gone) are re-claimed by the

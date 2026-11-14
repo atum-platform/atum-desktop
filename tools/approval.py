@@ -146,6 +146,33 @@ def unregister_gateway_notify(session_key: str) -> None:
             entry.event.set()
 
 
+def exact_gateway_approval_choice(text: str, request_id: str, *, allow_unscoped: bool = False) -> Optional[str]:
+    """Exact once/deny reply, optionally for the sole pending conversational question.
+
+    Callers allowing a bare answer must fence older queued input themselves.
+    No timeout, session grant or YOLO bypass applies to this decision.
+    """
+    import unicodedata
+
+    answer = unicodedata.normalize('NFC', text).casefold().strip()
+    answer = answer.replace("’", "'").replace("'", "")
+    # Ignore surrounding punctuation, preserving separators inside an ambiguous reply.
+    answer = answer.strip(''.join(c for c in answer if unicodedata.category(c).startswith('P')) + ' ')
+    answer = ' '.join(answer.split())
+    for choice, words in (
+        # Natural answers to the resume reminder in both owner languages (exact matches only).
+        ('once', ('yes', 'yeah', 'yep', 'ok', 'okay', 'go ahead', 'do it', 'sure', 'yes please',
+                  'carry on', 'go on', 'continue', 'có', 'ừ', 'ừm', 'vâng', 'được', 'đồng ý', 'làm đi',
+                  'làm tiếp', 'làm tiếp đi', 'tiếp đi', 'tiếp tục')),
+        ('deny', ('no', 'nope', 'no thanks', 'dont', 'leave it', 'skip it', 'stop', 'cancel', 'không',
+                  'không cần', 'thôi', 'khỏi', 'đừng', 'dừng', 'bỏ qua', 'hủy', 'huỷ')),
+    ):
+        if any(answer == word + ' ' + request_id.casefold() or
+               (allow_unscoped and answer == word) for word in words):
+            return choice
+    return None
+
+
 def resolve_gateway_approval(session_key: str, choice: str,
                              resolve_all: bool = False,
                              reason: Optional[str] = None,

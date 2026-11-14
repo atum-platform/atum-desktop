@@ -216,6 +216,10 @@ class PooledCredential:
     source: str
     access_token: str
     refresh_token: Optional[str] = None
+    # Externally managed access-only grant. Only its writer owns persisted status.
+    borrowed: bool = False
+    connection_id: Optional[str] = None
+    revision: int = 0
     last_status: Optional[str] = None
     last_status_at: Optional[float] = None
     last_error_code: Optional[int] = None
@@ -1111,6 +1115,10 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
     ) -> None:
         # Self-locking: snapshotting self._entries must not race a rotation.
         with self._lock:
+            if any(entry.borrowed for entry in self._entries):
+                # External stores may be mounted read-only. Never copy their tokens
+                # or a local cooldown back to the authoritative store.
+                return
             payloads = [entry.to_dict() for entry in self._entries]
             written = persist_pool_entries(
                 self.provider, payloads,
@@ -1497,7 +1505,33 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
 
     # ---- refresh -----------------------------------------------------------
 
+    def adopt_borrowed(self, entry: PooledCredential) -> Optional[PooledCredential]:
+        """Read without a file lock/write; atomic store replacement is the writer's job.
+
+        A failed revision must never poison its successor. A new connection is
+        a new login, requiring a process restart rather than an account swap.
+        """
+        if not entry.borrowed or not entry.connection_id:
+            return None
+        with self._lock:
+            for row in read_credential_pool(self.provider):
+                stored = PooledCredential.from_dict(self.provider, row)
+                if (stored.id == entry.id and stored.borrowed
+                        and stored.connection_id == entry.connection_id
+                        and isinstance(stored.revision, int) and not isinstance(stored.revision, bool)
+                        and stored.revision >= entry.revision
+                        and stored.access_token and not stored.refresh_token):
+                    if stored.revision > entry.revision:
+                        self._replace_entry(entry, stored)
+                        return stored
+                    # Same revision is immutable, including its token.
+                    if stored.access_token == entry.access_token:
+                        return entry
+            return None
+
     def _refresh_entry(self, entry: PooledCredential, *, force: bool) -> Optional[PooledCredential]:
+        if entry.borrowed:
+            return self.adopt_borrowed(entry)
         if entry.auth_type != AUTH_TYPE_OAUTH or not entry.refresh_token:
             if force:
                 self._mark_exhausted(entry, None)
@@ -2128,6 +2162,13 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
         pending_refresh: list[PooledCredential] = []
         sole_credential = self._is_sole_credential()
         for entry in self._entries:
+            if entry.borrowed:
+                entry = self.adopt_borrowed(entry)
+                if entry is None:
+                    continue
+                expiry = (entry.expires_at_ms or 0) / 1000
+                if expiry <= now:
+                    continue
             # Borrowed credentials persist as metadata-only references and are
             # hydrated from their live source on load; never lease an
             # unhydrated duplicate as an empty key.
@@ -2165,7 +2206,7 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 if (
                     exhausted_until is not None
                     and now < exhausted_until
-                    and not (clear_expired and self._codex_quota_restored_upstream(entry))
+                    and not (clear_expired and not entry.borrowed and self._codex_quota_restored_upstream(entry))
                 ):
                     continue
                 if clear_expired:
@@ -2355,6 +2396,14 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 entry = self._current_unlocked() or self._select_unlocked(refresh=False)[0]
             if entry is None:
                 return None
+            if entry.borrowed and status_code == 401:
+                synced = self.adopt_borrowed(entry)
+                if synced is not None and (synced.revision > entry.revision
+                        or (api_key_hint and api_key_hint != synced.runtime_api_key)):
+                    # A delayed refusal for N cannot invalidate N+1, even when
+                    # both requests carry the same stable credential row ID.
+                    self._current_id = synced.id
+                    return synced
             _label = entry.label or entry.id[:8]
             if self._is_model_scoped_failure(status_code, model, failure_reason):
                 # A generic Anthropic 429 (per-model rate limit) or a Codex account model
@@ -2395,7 +2444,8 @@ class CredentialPool(CredentialPoolAdminMixin, CredentialPoolModelCooldownMixin)
                 logger.info("credential pool: marking %s exhausted (status=%s), rotating", _label, status_code)
             self._current_id = None
             next_entry, _pending = self._select_unlocked(refresh=False)
-            if next_entry is not None and next_entry.id == entry.id:
+            if (next_entry is not None and next_entry.id == entry.id
+                    and not (entry.borrowed and next_entry.revision > entry.revision)):
                 # No-recovery guard (#97315): selection handed back the very entry that was
                 # just marked (the auth-store sync adopted fresher tokens, or a quota probe
                 # false-positive lifted the bench mid-selection). Returning it reports a
@@ -3104,6 +3154,9 @@ def _seed_custom_pool(pool_key: str, entries: list[PooledCredential]) -> tuple[b
 
 def load_pool(provider: str) -> CredentialPool:
     provider = (provider or "").strip().lower()
+    raw_borrowed = read_credential_pool(provider)
+    if raw_borrowed and all(row.get("borrowed") is True for row in raw_borrowed):
+        return CredentialPool(provider, [PooledCredential.from_dict(provider, row) for row in raw_borrowed])
     if provider in SINGLE_USE_REFRESH_POOL_PROVIDERS:
         # One-time heal for installs that forked this grant across profiles
         # before the clone-strip / root write-through existed (#100339).

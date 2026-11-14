@@ -160,6 +160,7 @@ async def test_turn_error_preserves_diagnostic_bridge_and_failed_outcome(
         profiles, monkeypatch, setting, diagnostic, caplog):
     import logging
     from types import SimpleNamespace
+    from agent.i18n import t
     from agent.monitoring import gateway_health
     root, _ = profiles
     (root / "config.yaml").write_text(
@@ -191,7 +192,8 @@ async def test_turn_error_preserves_diagnostic_bridge_and_failed_outcome(
             assert adapter.wire == []
         else:
             assert len(adapter.wire) == 1
-            assert ("same source failure" in adapter.wire[0][0]) is (setting is not True)
+            assert adapter.wire[0][0] == t('gateway.notify.turn_error')
+            assert 'same source failure' not in adapter.wire[0][0]
         assert not adapter._active_sessions
     finally:
         logger.removeHandler(bridge)

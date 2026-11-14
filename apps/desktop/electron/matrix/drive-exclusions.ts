@@ -73,3 +73,30 @@ export function matrixDriveImportPatterns(patterns: readonly string[] = snapshot
     }
   })
 }
+
+/** The import/engine rules, including an excluded ancestor. A directory-only rule must not
+ * accidentally label a regular file with that name. */
+let localOnlySignature = ''
+let localOnlyRules: { matcher: RegExp; directoryOnly: boolean }[] = []
+
+export function matrixDriveLocalOnly(relative: string, directory: boolean, patterns?: readonly string[]): boolean {
+  const signature = JSON.stringify(patterns ?? snapshot.patterns)
+
+  if (localOnlySignature !== signature) {
+    localOnlyRules = matrixDriveImportPatterns(patterns).map(rule => ({
+      matcher: new RegExp(rule.expression, 'iu'),
+      directoryOnly: rule.directoryOnly
+    }))
+    localOnlySignature = signature
+  }
+
+  const parts = relative.split('/')
+
+  return localOnlyRules.some(rule =>
+    parts.some((_, index) => {
+      const isDirectory = index < parts.length - 1 || directory
+
+      return (!rule.directoryOnly || isDirectory) && rule.matcher.test(parts.slice(0, index + 1).join('/'))
+    })
+  )
+}

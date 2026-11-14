@@ -176,6 +176,8 @@ class SessionLifecycleMixin:
             # Aware UTC, unlike the local wall clock elsewhere: the next process compares it with
             # epoch transcript timestamps and may run in another zone (DST, container vs unit TZ).
             self._set_turn_marker_locked(session_key, entry, token, datetime.now(UTC))
+        from gateway.fault_injection import hit
+        hit("H4")
         return token
 
     def clear_turn_active(self, session_key: str, token: str) -> bool:
@@ -188,7 +190,7 @@ class SessionLifecycleMixin:
             self._set_turn_marker_locked(session_key, entry, None, None)
         return True
 
-    def recover_interrupted_turns(self, max_age_seconds: int = 60 * 60) -> int:
+    def recover_interrupted_turns(self, max_age_seconds: int = 60 * 60, *, stale_to_ask: bool = False) -> int:
         """Promote crash-left turn markers into ``resume_pending`` (unclean startup only).
         Old/invalid markers are cleared without resuming; suspended sessions are never re-armed.
         Returns the number of newly promoted sessions."""
@@ -204,14 +206,21 @@ class SessionLifecycleMixin:
             marker_is_stale = started_at is None or (
                 max_age_seconds > 0 and epoch_now - started_at.timestamp() > max_age_seconds
             )
-            if not marker_is_stale and not entry.suspended:
-                if entry.resume_pending:
+            if (not marker_is_stale or stale_to_ask) and not entry.suspended:
+                if marker_is_stale:
+                    # Even a previously marked drain timeout now requires an Ask; renew
+                    # discovery freshness so startup will actually schedule that notice.
+                    promoted += int(not entry.resume_pending)
+                    entry.resume_pending = True
+                    entry.resume_reason = "stale_interruption"
+                    entry.last_resume_marked_at = now
+                elif entry.resume_pending:
                     # A drain-timeout marker is more specific; keep it.
                     if entry.last_resume_marked_at is None:
                         entry.last_resume_marked_at = now
                 else:
                     entry.resume_pending = True
-                    entry.resume_reason = "restart_interrupted"
+                    entry.resume_reason = "stale_interruption" if marker_is_stale else "restart_interrupted"
                     entry.last_resume_marked_at = now  # freshness starts at discovery
                     promoted += 1
             entry.active_turn_token = None
@@ -263,7 +272,8 @@ class SessionLifecycleMixin:
             self._ensure_loaded_locked()
             removed_keys = [
                 key for key, entry in list(self._entries.items())
-                if not entry.suspended
+                if not entry.suspended and not entry.resume_ask
+                # An unresolved human decision has no expiry, including routing maintenance.
                 # The callback is keyed by session_key, NOT session_id.
                 and not self._has_active_processes_safe(entry.session_key, context="prune")
                 and entry.updated_at < cutoff

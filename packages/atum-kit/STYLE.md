@@ -403,10 +403,27 @@ permission missing) uses these patterns; the canvas's States board lists them.
   kind's glyph when the table has none (2026-10-30). A row's one button reads the price as a
   number ("4,000"), "Get" when free, "Open" when owned; the balance sits once,
   in the title bar (2026-10-29, delegated design decision).
-- **Drive**: a Finder-calm list; a row's actions show on hover or focus. The
-  page is named for where you are ("Recents" in Display) and the places sit on
-  the roster panel itself under a small "Drive" label, never in a card of their
-  own (2026-10-31).
+- **Drive** looks and behaves like Finder (owner, 2026-11-13: "pretty much
+  like actual Finder"). The roster panel is Finder's sidebar: Recents, then the
+  Drive's top-level folders under "Favorites", then "Atum Drive" under
+  "Locations". Each place is a row straight on the panel, never in a card of
+  its own. The title bar leads with ‹ › and the open place's name ("Recents",
+  "Atum Drive", the folder). Its right side is the Icons/List/Columns/Gallery
+  switch, the Group menu, "…", and search at the far edge. Icons are the
+  default view and use the side panel Files glyphs, with names cut in the
+  middle. Columns are Finder's: the folders on the open path side by side
+  (drawn from the folders this window listed), the open folder last, a file's
+  preview after it; the folder the keyboard is on has the selected fill, the
+  ones further back a quieter fill. The gallery shows the selected item large
+  (a picture or a page of text from the preview lease, otherwise its glyph)
+  over a strip of every item. Group (Kind, Date Modified, Size, or none) splits
+  icons and lists under Finder's titles with a count and a hairline; columns
+  and the gallery keep their own order. Click selects (the kit's selected
+  fill, never blue), double-click opens, Space previews, and the arrows, Return,
+  ⌘[ and ⌘] work as they do in Finder. Each item carries a sync badge: the OK
+  check when synced, a quiet arrow while it waits, a cloud-slash while Drive
+  can't sync. Item actions are in the right-click menu. In a chat, the selected
+  item's assistant actions also float in one glass bar at the bottom.
   Files Drive leaves on this Mac on purpose (private files, `.env`, databases,
   code folders) are a quiet caption beside the status ("7 files only on this
   Mac") whose popover says why and offers Show in Finder; only real problems

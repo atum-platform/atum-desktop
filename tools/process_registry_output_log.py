@@ -103,7 +103,8 @@ class ProcessOutputLogMixin:
                 return False
             if proc is not None:
                 return proc.poll() is None
-            return self._detached_host_fate(session.pid, session.host_start_time) == "running"
+            return self._detached_host_fate(session.pid, session.host_start_time,
+                                            session.host_boot_epoch) == "running"
         try:
             with open(session.output_log, "rb") as stream:
                 drained = 0

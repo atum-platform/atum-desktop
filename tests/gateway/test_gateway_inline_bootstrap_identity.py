@@ -11,6 +11,8 @@ source splits across tokens); Windows CIM reports the CreateProcess line (``list
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import base64
 import json
 import shlex
@@ -159,7 +161,7 @@ def test_live_payload_launched_gateway_is_found_for_its_home(argv, profile, foun
     monkeypatch.setattr(hermes_constants.Path, "home", lambda: tmp_path)
     monkeypatch.setenv("HERMES_HOME", str(root))
     monkeypatch.setattr(hermes_constants, "_default_hermes_root_memo", None, raising=False)
-    record = {
+    record = {**current_owner_fields(4242),
         "pid": 4242, "kind": "hermes-gateway", "gateway_state": "running", "start_time": 1000,
         "argv": ["/opt/hermes/hermes-agent/hermes_cli/main.py", *argv], "hermes_home": str(home),
     }

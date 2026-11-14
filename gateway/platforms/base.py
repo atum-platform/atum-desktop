@@ -1,6 +1,7 @@
 """Base platform adapter interface; every platform adapter inherits from BasePlatformAdapter."""
 
 import asyncio
+import sqlite3
 import contextlib
 import inspect
 import ipaddress
@@ -1893,6 +1894,8 @@ class BasePlatformAdapter(ABC):
     # answer, and an acknowledgement would silently abandon the task (#57056). Read generically via
     # ``getattr(adapter, "interactive_resume", True)`` — no per-platform branching at the call site.
     interactive_resume: bool = True
+    # Opt into per-turn crash classification using the canonical tool/result rows.
+    tool_aware_resume: bool = False
     # Port-binding adapter that answers ``/p/<profile>/...`` for every served profile on the default
     # listener under ``gateway.multiplex_profiles``. Declared per adapter (not in a central list) so
     # ``hermes gateway migrate`` can tell "URL changes" from "this profile would be skipped" as new
@@ -4237,10 +4240,13 @@ class BasePlatformAdapter(ABC):
                 platform=str(getattr(source.platform, "value", source.platform)),
                 chat_id=source.chat_id, thread_id=getattr(source, "thread_id", None),
                 content=text_content,
-                adapter_profile=getattr(delivery_adapter, "_owner_profile", None))
+                adapter_profile=getattr(delivery_adapter, "_owner_profile", None),
+                **({"source_event_id": str(_ledger_id or "")} if str(getattr(source.platform, "value", source.platform)) == "matrix" else {}))
             await asyncio.to_thread(mark_attempting, obligation_id)
             return obligation_id
         except Exception:
+            if str(getattr(event.source.platform, "value", event.source.platform)) == "matrix":
+                raise  # never send an unledgered durable Matrix final response
             logger.debug("delivery ledger record failed", exc_info=True)
             return None
 
@@ -4357,10 +4363,22 @@ class BasePlatformAdapter(ABC):
         delivery_adapter = self._final_delivery_adapter(event.source)
         logger.info("[%s] Sending response (%d chars) to %s", delivery_adapter.name,
                     len(text_content), event.source.chat_id)
-        obligation_id = await self._record_delivery_obligation(
-            event, session_key, text_content, delivery_adapter, is_ephemeral_response)
+        delay = 1
+        while True:
+            try:
+                obligation_id = await self._record_delivery_obligation(
+                    event, session_key, text_content, delivery_adapter, is_ephemeral_response)
+                break
+            except (OSError, sqlite3.Error):
+                # Keep the native marker while storage is unavailable. Retry the same
+                # obligation before sending, including when no process restart occurs.
+                logger.error("Final reply journal unavailable; retaining turn marker and retrying in %ss", delay)
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 300)
         if obligation_id is not None:
             await self._release_turn_marker(event)  # the ledger now owns the crash recovery
+            if event.source.platform == Platform.MATRIX:
+                metadata = dict(metadata or {}, delivery_obligation_id=obligation_id)
         result = await delivery_adapter._send_with_retry(
             chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
         stop_reply_clock(delivery_adapter, event.source.chat_id, result)
@@ -4393,17 +4411,16 @@ class BasePlatformAdapter(ABC):
         _thread_metadata = None
         try:
             _thread_metadata = _thread_metadata_for_event(event)
-            error_detail = str(e)[:300] if str(e) else t("gateway.notify.turn_error_no_details")
             # Only the policy reads bind the routed profile; the send stays in the launch scope
             # as before, so delivery bookkeeping keeps landing where boot-time recovery reads it.
             with self._media_delivery_scope(event.source):
-                content = None if diagnostic_wake_muted(event) else self.warning_text(
-                    t("gateway.notify.turn_error_detailed", error_type=type(e).__name__, error_detail=error_detail),
-                    t("gateway.notify.turn_error"),
-                    logical_platform=event.source.platform, chat_id=event.source.chat_id, metadata=_thread_metadata)
+                # The traceback stays in the log. Never prescribe a destructive session reset
+                # or expose internal exception details in a last-resort owner notice.
+                content = None if diagnostic_wake_muted(event) else t("gateway.notify.turn_error")
             if content is None:
                 return _thread_metadata
-            await self.send(chat_id=event.source.chat_id, content=content, metadata=_thread_metadata)
+            await self.send(chat_id=event.source.chat_id, content=content,
+                            reply_to=_reply_anchor_for_event(event), metadata=_thread_metadata)
         except Exception as notify_err:
             logger.error(
                 "[%s] Failed to send error notification to user: %s", self.name, notify_err, exc_info=True)

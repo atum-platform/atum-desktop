@@ -1,4 +1,4 @@
-"""PID-namespace identity for state.db lock/lease holders.
+"""PID-namespace and boot identity for state.db lock/lease holders.
 
 A ``pid=<n>`` holder is relative to its writer's PID namespace; a reader in a
 sibling namespace (two containers on one volume, systemd ``PrivatePIDs=``) sees
@@ -24,6 +24,7 @@ import sys
 from typing import NamedTuple, Optional
 
 # ``pidns=`` token inside a structured holder string (``pid=123:pidns=4026533184:turn=…``).
+_BOOT_TOKEN_RE = re.compile(r"(?:^|:)boot_epoch=([0-9a-f]+)(?::|$)")
 _PIDNS_TOKEN_RE = re.compile(r"(?:^|:)pidns=(\d+)(?::|$)")
 
 
@@ -79,12 +80,35 @@ def pid_namespace_id() -> Optional[str]:
 
 
 def holder_namespace_token() -> str:
-    """The ``:pidns=<id>`` fragment to append to a new holder string, or ``""``.
+    """Namespace and boot fragments to append to a new holder string.
 
     Callers build ``f"pid={os.getpid()}{holder_namespace_token()}:turn=…"``.
     """
+    from gateway.status import get_process_epoch
+
     ns = pid_namespace_id()
-    return f":pidns={ns}" if ns else ""
+    epoch = get_process_epoch()
+    # The native witness contains colons; hex keeps structured-holder token boundaries intact.
+    return (f":pidns={ns}" if ns else "") + (
+        f":boot_epoch={epoch.encode('utf-8').hex()}" if epoch else "")
+
+
+def holder_boot_epoch_conflicts(holder: str) -> bool:
+    """A stamped holder from a previous instantiation is dead even if its PID recurs.
+
+    Unstamped/unknown witnesses provide no proof: keep the existing PID-namespace
+    policy and the row's bounded TTL. Reuse the native gateway witness, not another clock.
+    """
+    from gateway.status import process_epoch_conflicts
+
+    match = _BOOT_TOKEN_RE.search(holder or "")
+    if match is None:
+        return False
+    try:
+        epoch = bytes.fromhex(match.group(1)).decode('utf-8')
+    except (ValueError, UnicodeDecodeError):
+        return False
+    return process_epoch_conflicts({"boot_epoch": epoch})
 
 
 def _recorded_namespace(holder: str) -> Optional[str]:

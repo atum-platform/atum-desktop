@@ -8,6 +8,8 @@ access posture for the ACTIVE profile (allowlist / open / pairing / deny_all),
 counting pairing grants, evaluated against the profile's own env/config/pairing
 store — never the dashboard process's environment.
 """
+
+from tests.runtime_identity import current_owner_fields
 import json
 import os
 from pathlib import Path
@@ -25,9 +27,9 @@ def _gateway_state(home: Path) -> None:
 
     start_time = _gw_status._get_process_start_time(os.getpid())
     (home / "gateway.pid").write_text(
-        json.dumps({"pid": os.getpid(), "hermes_home": str(home)}), encoding="utf-8"
+        json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(home)}), encoding="utf-8"
     )
-    (home / "gateway_state.json").write_text(json.dumps({
+    (home / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "hermes_home": str(home), "gateway_state": "running",
         "kind": "hermes-gateway", "start_time": start_time,
         "updated_at": "2026-01-01T00:00:00+00:00",

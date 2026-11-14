@@ -1,6 +1,7 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -227,7 +228,9 @@ describe.skipIf(process.platform !== 'darwin')('install', () => {
     children.push(helper)
 
     const swap = new StagedSwap({
-      home, id: ID, target: bundle, version: '1.0.0', handoffDirectory: home, enabled: () => true, log: () => {}, processWaitMs: 300
+      home, id: ID, target: bundle, version: '1.0.0', handoffDirectory: home, enabled: () => true, log: () => {}, processWaitMs: 300,
+      // Exercise real ps and parentage without macOS background-priority starvation under test load.
+      tools: { run: promisify(execFile) }
     })
 
     // The real ps, the real parent/child relation: the helper is ours and alive, and does not block.

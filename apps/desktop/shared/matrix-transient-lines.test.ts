@@ -93,6 +93,20 @@ describe('hiding working lines whose turn has ended (agent-turns/1.4 A7)', () =>
     expect(kept).toEqual([other, mine])
   })
 
+  it('shows no "deleted" tombstone for a removed working line, whoever sent it; a real deletion keeps one', () => {
+    // A cloud Hermes agent the chat does not know as an agent (not in `agents`) clears its
+    // "Working" root with the agent-turns removal reason when it answers.
+    const cloud = '@hermes-test:test'
+    const cleared = message({ sender: cloud, body: '', redacted: true, transientRemoved: true })
+    const deleted = message({ sender: cloud, body: '', redacted: true })
+    const answer = message({ sender: cloud, body: 'Đây là câu trả lời.' })
+    const kept = matrixHideEndedTransientLines([owner('Q'), cleared, deleted, answer], agents)
+    expect(kept.map(m => m.id)).toEqual([kept[0]!.id, deleted.id, answer.id])
+    expect(kept).not.toContain(cleared)
+    // It never becomes the working line either.
+    expect(matrixWorkingLine([owner('Q'), cleared], new Set([cloud]), cloud)).toBeUndefined()
+  })
+
   it('one agent answering does not end another agent\'s turn, and a stranger\'s notice is never hidden', () => {
     const other = '@other:test'
     const both = new Set([AGENT, other])

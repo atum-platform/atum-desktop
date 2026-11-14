@@ -282,7 +282,7 @@ import { MatrixApprovalSheet } from './device-approval'
 import { matrixDeviceHealthCopy, MatrixDeviceHealthNotice } from './device-health-notice'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
 import { DocumentLink } from './document-link'
-import { MatrixDrive, type MatrixDriveDestination, MatrixDriveSidebar } from './drive'
+import { MatrixDrive, type MatrixDriveDestination, MatrixDriveSidebar, MatrixDriveTitle } from './drive'
 import { matrixDriveCopy } from './drive-copy'
 import {
   $matrixDriveTaskSelection,
@@ -8602,13 +8602,13 @@ function MatrixAccountView({
                               )}
                             </span>
                           )}
+                          {/* Drive's lead is Finder's: ‹ › and the open folder's name (drive.tsx). */}
+                          {driveActive && <MatrixDriveTitle />}
                           <span className={cn(
                             'truncate [font:var(--ak-t-headline)]',
                             teamSpaceChannelHeaded ? 'max-w-40 shrink-0' : 'max-w-full shrink-0'
-                          )}>
-                            {driveActive ? (
-                              matrixDriveCopy[locale].title
-                            ) : workplaceOnScreen ? (
+                          )} hidden={driveActive}>
+                            {driveActive ? null : workplaceOnScreen ? (
                               teamSpaceChannelHeaded && room ? (
                                 notesSelfBound ? (
                                   matrixTeamSpaceCopy(locale).you

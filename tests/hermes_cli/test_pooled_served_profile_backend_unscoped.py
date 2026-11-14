@@ -10,6 +10,8 @@ restart`` under X's HERMES_HOME that exited 78 while the UI reported success.
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 
@@ -24,8 +26,8 @@ def pooled_served_process(tmp_path, monkeypatch):
         (root / "profiles" / name).mkdir(parents=True)
         (root / "profiles" / name / "config.yaml").write_text("{}\n")  # identity marker
     (root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n")
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
-    (root / "gateway_state.json").write_text(json.dumps({
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
+    (root / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
         "served_profiles": ["default", "alpha"],
         "platforms": {"api_server": {"state": "connected"}, "alpha:telegram": {"state": "connected"}}}))

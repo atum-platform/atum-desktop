@@ -825,6 +825,27 @@ class TestHealthEndpoint:
 
 class TestHealthDetailedEndpoint:
     @pytest.mark.asyncio
+    async def test_readiness_control_probe_can_answer_on_the_http_loop(self, adapter, tmp_path, monkeypatch):
+        """Readiness must not block the same event loop that owns its control socket."""
+        from gateway.control_socket import GatewayControlServer
+
+        monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+        sleep = dict(idle=True, idle_since=1, observed_at=2, next_cron_due=None, probes_complete=True)
+        server = GatewayControlServer(tmp_path, verb_handlers={"sleep-readiness": lambda params: sleep})
+        assert await server.start()
+        try:
+            with patch("gateway.status.read_runtime_status", return_value={"gateway_state": "running"}), patch(
+                "gateway.run._resolve_gateway_model", return_value="test/model"
+            ):
+                async with TestClient(TestServer(_create_app(adapter))) as client:
+                    response = await client.get("/health/detailed")
+                    assert response.status == 200
+                    body = await response.json()
+                    assert body["readiness"]["sleep"]["probes_complete"] is True
+        finally:
+            await server.stop()
+
+    @pytest.mark.asyncio
     async def test_health_detailed_returns_ok(self, adapter):
         """GET /health/detailed returns status, platform, and runtime fields."""
         adapter._running = True

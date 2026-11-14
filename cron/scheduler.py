@@ -2317,6 +2317,14 @@ def _prepare_job_prompt(
             logger.error("Job '%s': refusing to run — %s", job_id, exc)
             return (False, f"# Cron Job: {job_name}\n\nError: {exc}\n", "", str(exc)), None
 
+    from hermes_cli.turn_admission import check_turn_admission
+
+    refusal = check_turn_admission(
+        platform="cron", job_id=job_id, user_message=job.get("prompt"), stage="cron_prepare",
+    )
+    if refusal is not None:
+        return (False, "", refusal["final_response"], refusal["error"]), None
+
     managed_early, prerun_script, managed_sweep_prompt = _prepare_managed_script_gate(
         job,
         require_script_gate=require_script_gate,

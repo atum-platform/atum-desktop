@@ -179,7 +179,8 @@ class ProcessTerminationMixin:
             if pty_alive:
                 survivors.append(session.pid)
         if session.pid_scope == "host" and session.pid:
-            if self._detached_host_fate(session.pid, session.host_start_time) == "running":
+            if self._detached_host_fate(session.pid, session.host_start_time,
+                                        session.host_boot_epoch) == "running":
                 if session.pid not in survivors:
                     survivors.append(session.pid)
                 survivors.extend(

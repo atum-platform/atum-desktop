@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "大型モデル：{name}の上限に達しました（{resets}）。"
   large_notice_limit_stops: "大型モデル：{name}の上限に達しました（{resets}）。それまで実行できません。"
   large_notice_percent: "大型モデル：1メッセージあたりプランの利用量を多く消費します。大型モデルの月間上限：{percent} 使用。"
+
+turn_admission:
+  configuration_error: "設定の一部がまだ準備できていないため、今は始められません。数分後にもう一度お試しください。"
+  refused: "このリクエストはここでは許可されていないため、開始しませんでした。"

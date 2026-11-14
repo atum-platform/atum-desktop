@@ -58,7 +58,7 @@ async def test_real_whatsapp_bridge_events_run_a_turn_through_native_admission(t
     adapter.gateway_runner, runner.adapters = runner, {Platform.WHATSAPP: adapter}
     authority = await initialize_session_authority(runner, profile_id='default', instance_id='wa')
     runner._wire_adapter_handlers(adapter)
-    sent, turns = [], []
+    sent, turns, admission_sequences = [], [], []
 
     async def send(chat_id, content, **_):
         sent.append(content)
@@ -66,6 +66,9 @@ async def test_real_whatsapp_bridge_events_run_a_turn_through_native_admission(t
 
     async def turn(event, *_args, **_kwargs):
         turns.append((event.text, event.metadata))
+        # Recovery stamps the durable admission sequence after restoring native metadata.
+        admission_sequences.append(authority.db._read_one(
+            "SELECT seq FROM session_admissions WHERE status='started'")[0])
         execution_result.get()['result'] = {'final_response': 'ok', 'messages': []}
         return 'ok'
 
@@ -79,7 +82,8 @@ async def test_real_whatsapp_bridge_events_run_a_turn_through_native_admission(t
             await async_wait_until(lambda: len(sent) > index and not adapter._background_tasks,
                                    timeout=20, what=f'reply to {shape["nativeType"]}')
             assert sent[index] == 'ok', sent
-            assert turns[index] == (text, metadata), turns
+            assert turns[index] == (text, {
+                **metadata, 'crash_resume_admission_seq': admission_sequences[index]}), turns
     finally:
         authority.db.close()
 

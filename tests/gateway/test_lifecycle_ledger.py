@@ -9,6 +9,8 @@ and enriches the report with the last heartbeat's memory sample.
 """
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import sys
@@ -107,7 +109,7 @@ def test_clean_exit_then_boot_reports_nothing(tmp_path: Path) -> None:
 
 
 def test_running_sentinel_from_dead_pid_is_unclean(tmp_path: Path) -> None:
-    _write_sentinel(tmp_path, {
+    _write_sentinel(tmp_path, {**current_owner_fields(_DEAD_PID),
         "phase": "running",
         "pid": _DEAD_PID,
         "start_time": 1000.0,
@@ -121,7 +123,7 @@ def test_running_sentinel_from_dead_pid_is_unclean(tmp_path: Path) -> None:
 
 
 def test_record_startup_persists_unclean_report_and_reclaims(tmp_path: Path) -> None:
-    _write_sentinel(tmp_path, {
+    _write_sentinel(tmp_path, {**current_owner_fields(_DEAD_PID),
         "phase": "running",
         "pid": _DEAD_PID,
         "start_time": 1000.0,
@@ -150,7 +152,7 @@ def test_record_startup_carries_unclean_flags_onto_new_sentinel(
 ) -> None:
     """The unclean-death verdict must survive on the reclaimed sentinel so
     /api/status can surface "restarted after (suspected) OOM" (NS-656)."""
-    _write_sentinel(tmp_path, {
+    _write_sentinel(tmp_path, {**current_owner_fields(_DEAD_PID),
         "phase": "running",
         "pid": _DEAD_PID,
         "start_time": 1000.0,
@@ -178,7 +180,7 @@ def test_record_startup_carries_unclean_flags_onto_new_sentinel(
 
 
 def test_record_startup_clean_boot_has_no_prior_flags(tmp_path: Path) -> None:
-    _write_sentinel(tmp_path, {
+    _write_sentinel(tmp_path, {**current_owner_fields(_DEAD_PID),
         "phase": "exited",
         "pid": _DEAD_PID,
         "exit_code": 0,
@@ -199,7 +201,7 @@ def test_record_startup_clean_boot_has_no_prior_flags(tmp_path: Path) -> None:
 def test_mark_exited_leaves_pid_none_sentinel_alone(tmp_path: Path) -> None:
     """A sentinel with pid=None has unknown ownership — mark_exited must not
     clobber it with a clean-exit claim it cannot prove is its own."""
-    _write_sentinel(tmp_path, {"phase": "running", "pid": None, "start_time": 2000.0})
+    _write_sentinel(tmp_path, {**current_owner_fields(None), "phase": "running", "pid": None, "start_time": 2000.0})
     mark_exited(0, reason="graceful_shutdown", home=tmp_path)
     sentinel = _read_sentinel(tmp_path)
     assert sentinel["phase"] == "running"
@@ -239,7 +241,7 @@ def test_replace_handover_is_not_a_death_and_pid_reuse_is(tmp_path: Path, monkey
     so a ``--replace`` handover was reported as an unclean death."""
     monkeypatch.setattr("gateway.status._pid_exists", lambda pid: True)
     monkeypatch.setattr("hermes_cli.process_identity._process_create_time", lambda pid=None: 5000.0)
-    live = {"phase": "running", "pid": 4242, "start_time": 5003.7, "started_at": "x"}
+    live = {**current_owner_fields(4242), "phase": "running", "pid": 4242, "start_time": 5003.7, "started_at": "x"}
 
     _write_sentinel(tmp_path, {**live, "create_time": 5000.0})
     assert detect_unclean_exit(home=tmp_path) is None  # same incarnation still alive: handover

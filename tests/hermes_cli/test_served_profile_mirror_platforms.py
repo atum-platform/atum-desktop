@@ -8,6 +8,8 @@ restart of the shared gateway would blip.
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 
@@ -19,8 +21,8 @@ def served_root(tmp_path, monkeypatch):
     root = tmp_path / "hermes"
     (root / "profiles" / "alpha").mkdir(parents=True)
     (root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n", encoding="utf-8")
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}), encoding="utf-8")
-    (root / "gateway_state.json").write_text(json.dumps({
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}), encoding="utf-8")
+    (root / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
         "served_profiles": ["default", "alpha", "beta"],
         "platforms": {
@@ -105,7 +107,7 @@ def test_messaging_card_for_the_default_home_rekeys_by_the_profile_not_the_dirna
     root = tmp_path / ".hermes"  # the shipped default root's literal name — never equal to "default"
     root.mkdir()
     (root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n", encoding="utf-8")
-    record = {
+    record = {**current_owner_fields(os.getpid()),
         "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
         "served_profiles": ["default", "route-runner"],
         "platforms": {"telegram": {"state": "connected"}},
@@ -174,7 +176,9 @@ def test_messaging_card_keeps_a_live_own_gateway_record_over_the_multiplexer(ser
     # Two live gateways: this process is the default multiplexer; a second (fake, never signalled)
     # PID wears alpha's argv. Only the live guard sees a foreign PID, so existence is stubbed.
     own_pid = 2 ** 22 - 1
-    (alpha / "gateway_state.json").write_text(json.dumps({
+    real_start = status._get_process_start_time
+    monkeypatch.setattr(status, "_get_process_start_time", lambda pid: 123 if pid == own_pid else real_start(pid))
+    (alpha / "gateway_state.json").write_text(json.dumps({**current_owner_fields(own_pid),
         "pid": own_pid, "hermes_home": str(alpha), "gateway_state": "running",
         "platforms": {"telegram": {"state": "retrying", "error_code": "network"}}}), encoding="utf-8")
     real_pid_exists = status._pid_exists
