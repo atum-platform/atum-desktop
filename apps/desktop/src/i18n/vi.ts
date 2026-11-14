@@ -6,6 +6,7 @@ export const vi = defineLocale({
     wordRefusal:
       'Trợ lý này chưa làm việc được trong Word hoặc tài liệu liên kết. Hãy hỏi trong một cuộc trò chuyện khác, hoặc dùng tệp trong Atum Drive.',
     stopRefused: 'Chưa dừng được câu trả lời này. Có thể trợ lý đã trả lời xong.',
+    stopping: 'Đang dừng…',
     driveFull: 'Drive của bạn đã đầy; tệp được giữ trong 7 ngày.',
     title: 'Máy tính và điện thoại',
     allowMac: 'Cho phép trợ lý dùng máy Mac này',
@@ -786,7 +787,7 @@ export const vi = defineLocale({
       pinLimit: 'Chỉ ghim tối đa 5 cuộc trò chuyện',
       title: 'Trò chuyện',
       search: 'Tìm mọi thứ',
-      searchPlaceholder: 'Tìm cuộc trò chuyện, người và ứng dụng…',
+      searchPlaceholder: 'Tìm kiếm',
       searching: 'Đang tìm…',
       channels: 'Kênh và nhóm',
       messages: 'Tin nhắn',

@@ -140,6 +140,23 @@ function fixture(connected = true, hooks?: MatrixAccountHooks) {
   return { directory, store, account, read, open, clearLocalHermes, clearAppDevice }
 }
 
+it('keeps normal S1 budgets short but gives host Stop its 40-second deadline', async () => {
+  const f = fixture()
+  const timeout = vi.spyOn(AbortSignal, 'timeout')
+  try {
+    const send = vi.fn(async (_token: string, _resource: string, signal: AbortSignal) => {
+      expect(signal.aborted).toBe(false)
+      return 'received'
+    })
+    await expect(f.account.s1Request(send, new AbortController().signal)).resolves.toBe('received')
+    expect(timeout).toHaveBeenCalledWith(15_000)
+    timeout.mockClear()
+    await expect(f.account.s1Request(send, new AbortController().signal, { timeoutMs: 40_000 })).resolves.toBe('received')
+    expect(timeout).toHaveBeenCalledWith(40_000)
+    expect(timeout).not.toHaveBeenCalledWith(15_000)
+  } finally { timeout.mockRestore() }
+})
+
 const riverApp = {
   slug: 'river',
   appId: '00000000-0000-4000-8000-11e594f48195',

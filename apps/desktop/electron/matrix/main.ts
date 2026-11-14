@@ -586,7 +586,6 @@ import {
   shownCloudTrial,
   workspaceLabelFor
 } from './device/cloud-agent'
-import { stopCloudTurn } from './device/cloud-stop'
 import { deviceHubUrl } from './device/connection'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
@@ -776,6 +775,7 @@ import {
   readMatrixAgentPresentation
 } from './main-enrollment'
 import { isMatrixGoogleAgentRole, MATRIX_GOOGLE_ASSISTANT_ROLE, MatrixGoogleAssistant } from './main-google'
+import { dispatchMatrixStop } from './main-host-stop'
 import { registerMatrixLinkPreviewIpc } from './main-link-previews'
 import { mirrorTaggedConsole } from './main-log'
 import { handleMatrixModelDestinationsRequest } from './main-model-destinations'
@@ -2117,6 +2117,7 @@ let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
 const cloudAgents = new Set<string>()
+const hostRuntimeAgents = new Set<string>()
 /** Agents the create answer placed in the cloud this session (placed/pending_trust), until the
  * roster shows `answering: 'cloud'`: the platform owns them while their row still says local. */
 const placedAgents = new MatrixPlacedAgents()
@@ -3550,6 +3551,10 @@ function applyAnswering(roster: MatrixAgentDefinitionRecord[]): void {
   // A placed create that the platform retired, removed or tombstoned never reaches the switch:
   // the read drops it instead of keeping the id until sign-out.
   placedAgents.retain(roster)
+  hostRuntimeAgents.clear()
+  for (const agent of roster) {
+    if (agent.status === 'active' && agent.runtime === 'hermes') { hostRuntimeAgents.add(agent.principal) }
+  }
 
   const next = new Set(
     roster.filter(agent => agent.status === 'active' && agent.answering === 'cloud').map(agent => agent.principal)
@@ -4087,15 +4092,18 @@ async function cloudAgentRequest(request: {
   }
 
   if (request.action === 'stopTurn' && typeof request.roomId === 'string' && typeof request.eventId === 'string') {
+    const { roomId, eventId } = request
     const scope = account.appScope()
-    const agent = requireRoomAgent(request.roomId)
+    const agent = requireRoomAgent(roomId)
     const principal = cloudPrincipal(agent)
 
-    if (!isCloudAgent(agent) || !principal) {
-      throw new Error('matrix_agent_unavailable')
-    }
-
-    const outcome = await stopCloudTurn(s1Call, principal, request.roomId, request.eventId, AbortSignal.timeout(30_000))
+    const outcome = await dispatchMatrixStop({
+      principal, cloud: isCloudAgent(agent), host: Boolean(principal && hostRuntimeAgents.has(principal)),
+      ready: Boolean(scope && config.domain), roomId, eventId
+    }, {
+      s1Request: account.s1Request.bind(account), s1Call,
+      fetcher: (url, init) => session.defaultSession.fetch(url, init)
+    })
     const current = account.appScope()
 
     if (closing || !scope || current?.accountKey !== scope.accountKey || current.generation !== scope.generation) {
@@ -7436,6 +7444,7 @@ function agentViews(): MatrixAgentView[] {
             ...(isCloudAgent(each)
               ? {
                   answering: 'cloud' as const,
+                  ...(hostRuntimeAgents.has(principal) ? { runtime: 'hermes' as const } : {}),
                   ...(cloudModel ? { cloudModel } : {})
                 }
               : {}),
@@ -11535,6 +11544,8 @@ function forgetSubscriptionKey(accountKey: string | undefined) {
 }
 
 async function forgetAgents() {
+  // Not in the sign-out handler: main's tests run that callback alone, with only its own globals.
+  hostRuntimeAgents.clear()
   productDefaultPrincipal = undefined
   agentCreation = false
   agentRosterReadiness = undefined

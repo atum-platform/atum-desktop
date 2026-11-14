@@ -8,6 +8,7 @@ export const en: Translations = {
     wordRefusal:
       'This assistant cannot work in Word or a linked document yet. Ask in another chat, or use a file in Atum Drive.',
     stopRefused: "Couldn't stop this reply. It may have already finished.",
+    stopping: 'Stopping…',
     driveFull: 'Your Drive is full; the file is kept for 7 days.',
     title: 'Computers and phones',
     allowMac: 'Let assistants use this Mac',
@@ -781,7 +782,7 @@ export const en: Translations = {
       pinLimit: 'Pin up to 5 chats',
       title: 'Chats',
       search: 'Search everything',
-      searchPlaceholder: 'Search chats, people, apps…',
+      searchPlaceholder: 'Search',
       searching: 'Searching…',
       channels: 'Channels and teams',
       messages: 'Messages',

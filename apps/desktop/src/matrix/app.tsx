@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget } from './cloud-stop'
+import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -496,6 +496,7 @@ import { followTranscriptEnd } from './transcript-follow'
 import { MatrixTurnHandoffActions } from './turn-handoff'
 import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
+import { useMatrixCloudStop } from './use-cloud-stop'
 import { useShellShortcuts } from './use-shell-shortcuts'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
 import { matrixWalletCopy } from './wallet-copy'
@@ -2413,8 +2414,6 @@ function MatrixComposer({
       : undefined
 
   const [sending, setSending] = useState(false)
-  const [cloudStopRefused, setCloudStopRefused] = useState(false)
-  const [cloudStopping, setCloudStopping] = useState(false)
   // A chosen file waits in the box as a chip until Send; it goes first, as its own message.
   const [staged, setStaged] = useState<File | null>(null)
   const [fileTooLarge, setFileTooLarge] = useState(false)
@@ -3695,11 +3694,6 @@ function MatrixComposer({
     }
   }, [focusInput, threadRootId])
 
-  useEffect(() => {
-    setCloudStopRefused(false)
-    setCloudStopping(false)
-  }, [room.id])
-
   const running =
     (snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running') ||
     (room.assistant && snapshot.hermes === 'running')
@@ -3758,26 +3752,34 @@ function MatrixComposer({
   }
 
   const cloudStopTarget = liveCloudStopTarget ?? cloudStopLatch.current?.eventId
-  // A stop that was already asked for stays disabled until its target clears or moves on: the
-  // snapshot clears it, not the request resolving.
-  const cloudStopRequested = useRef<string | null>(null)
+
+  const scheduledStop = roomAgent?.runtime === 'hermes' &&
+    matrixCloudStopScheduled(contextMessages ?? snapshot.messages, roomAgent.userId)
+  const stopRoute = matrixStopRoute({
+    runtime: roomAgent?.runtime,
+    eventId: cloudStopTarget,
+    working: Boolean(agentTyping || scheduledStop),
+    scheduled: scheduledStop
+  })
+  const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
+  const showCloudStop = matrixShowCloudStop({ eventId: cloudStopTarget, cloud: Boolean(cloudAssistant),
+    runtime: roomAgent?.runtime, working: Boolean(agentTyping || scheduledStop) })
+  const cloudStop = useMatrixCloudStop({ roomId: room.id, stopKey })
 
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent
 
-    if (!cloudStopTarget || !stopTurn || cloudStopRequested.current === cloudStopTarget) {
+    if (!cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable') {
       return
     }
 
-    cloudStopRequested.current = cloudStopTarget
-    setCloudStopRefused(false)
-    setCloudStopping(true)
-    void stopTurn({ action: 'stopTurn', roomId: room.id, eventId: cloudStopTarget })
-      .catch(() => {
-        cloudStopRequested.current = null
-        setCloudStopRefused(true)
-      })
-      .finally(() => setCloudStopping(false))
+    cloudStop.stop(() =>
+      executeMatrixStop(
+        stopRoute,
+        eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
+        body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
+      )
+    )
   }
 
   // An archived channel has no box: the banner stands in its place, says why, and offers the way back to those
@@ -3921,7 +3923,7 @@ function MatrixComposer({
         enabled={!room.assistant && room.membership === 'join' && snapshot.state === 'ready'}
         roomId={room.id}
       />
-      {cloudStopRefused && (
+      {cloudStop.refused && (
         <NoticeBand
           className="mx-auto mb-2 w-[min(42rem,calc(100%-2rem))]"
           data-matrix-cloud-stop-refused
@@ -4038,15 +4040,25 @@ function MatrixComposer({
                   roomId={room.id}
                 />
               )}
-              {cloudStopTarget ? (
+              {showCloudStop ? (
                 <button
-                  aria-label={matrixActionCopy[locale].cancelHermes}
-                  className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
-                  disabled={cloudStopping || cloudStopRequested.current === cloudStopTarget}
+                  aria-busy={cloudStop.stopping || undefined}
+                  aria-label={cloudStop.stopping ? t.cloud.stopping : matrixActionCopy[locale].cancelHermes}
+                  className={cloudStop.stopping
+                    ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
+                    : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
+                  data-matrix-cloud-stopping={cloudStop.stopping || undefined}
+                  disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStop.stopping || cloudStop.requested}
                   onClick={stopCloud}
+                  title={cloudStop.stopping ? t.cloud.stopping : stopRoute.kind === 'unavailable'
+                    ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
+                    : stopRoute.kind === 'native'
+                      ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
+                      : undefined}
                   type="button"
                 >
-                  <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
+                  {cloudStop.stopping ? <span role="status">{t.cloud.stopping}</span>
+                    : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
                 </button>
               ) : running ? (
                 <button
@@ -6404,7 +6416,8 @@ function MatrixRoster({
   onToggle,
   newMessageRef,
   openRef,
-  snapshot
+  snapshot,
+  titleBarAction
 }: {
   assistantOpening: string | null
   cloudOnly: boolean
@@ -6428,6 +6441,8 @@ function MatrixRoster({
   /** ⌘N and the palette's New message open the same start sheet as the roster's "+". */
   newMessageRef?: MutableRefObject<(() => void) | null>
   snapshot: MatrixSnapshot
+  /** The title bar's bell, while this column leads the window's row. */
+  titleBarAction?: ReactNode
 }) {
   const copy = useMatrixCopy()
   const { locale, t } = useI18n()
@@ -6714,9 +6729,9 @@ function MatrixRoster({
           reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
           sidebarLabel={t.atum.chat.closeSidebar}
         />
-        {/* New chat sits in the title bar beside the sidebar toggle (Atum Kit mockups). */}
+        {/* The bell sits where New was; New is the plus beside the search (owner, 2026-11-13). */}
         <span className="flex-1" />
-        <MatrixStartChatButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'start' })} />
+        {titleBarAction}
       </div>
       <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-atum-search-actions>
         <SearchField
@@ -6727,6 +6742,7 @@ function MatrixRoster({
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
+        <MatrixStartChatButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'start' })} />
       </div>
       <MatrixRosterCreate
         creating={creating}
@@ -8148,6 +8164,25 @@ function MatrixAccountView({
     )
   }
 
+  // The one place the window asks the person to act (agent-attention.ts): a bell at the left of the
+  // title bar, with the window controls. One at a time: on the roster's top row while the roster
+  // leads the row, on the main header's otherwise (owner, 2026-11-13).
+  const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen
+
+  const attentionBell = snapshot.identity ? (
+    <MatrixAttentionIndicator
+      agentName={principal => {
+        const agent = snapshot.agents?.find(each => each.principal === principal)
+
+        return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
+      }}
+      onOpen={openAttention}
+      snapshot={snapshot}
+    />
+  ) : null
+
+  const sidebarBell = titleBarLeads ? null : attentionBell
+
   const conversationRoster = (
     <MatrixRoster
       assistantOpening={assistantOpening}
@@ -8180,6 +8215,7 @@ function MatrixAccountView({
       onToggle={toggle}
       openRef={rosterOpen}
       snapshot={snapshot}
+      titleBarAction={sidebarBell}
     />
   )
 
@@ -8201,6 +8237,7 @@ function MatrixAccountView({
       }}
       query={storeQuery}
       shelf={storeShelf}
+      titleBarAction={sidebarBell}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8218,6 +8255,7 @@ function MatrixAccountView({
       compact={compact}
       current={driveDestination}
       onSelect={setDriveDestination}
+      titleBarAction={sidebarBell}
       windowControls={
         <AtumWindowControlsSurface
           onToggleSidebar={toggle}
@@ -8411,19 +8449,6 @@ function MatrixAccountView({
                           view={profileAgent.executionPolicy}
                         />
                       )}
-                    {/* The one place the window asks the person to act; nothing while nothing
-                        needs them (agent-attention.ts). */}
-                    {snapshot.identity && (
-                      <MatrixAttentionIndicator
-                        agentName={principal => {
-                          const agent = snapshot.agents?.find(each => each.principal === principal)
-
-                          return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
-                        }}
-                        onOpen={openAttention}
-                        snapshot={snapshot}
-                      />
-                    )}
                     {conversationShellVisible && !founderDraftShown && !driveActive && !appDestination && room && (
                       <ConversationHeaderActions
                         appearance={lookAppearance}
@@ -8482,15 +8507,18 @@ function MatrixAccountView({
                   </>
                 }
                 className={conversationLook?.ground ? (lookAppearance === 'dark' ? 'ak-dark' : 'ak-light') : undefined}
-                leadsRow={compact || !sidebarShowing || workplaceOnScreen}
+                leadsRow={titleBarLeads}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
-                  <AtumWindowControlsSurface
-                    onToggleSidebar={toggle}
-                    reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
-                    showSidebarToggle={!workplaceOnScreen}
-                    sidebarLabel={sidebarToggleLabel}
-                  />
+                  <div className="flex items-center gap-2">
+                    <AtumWindowControlsSurface
+                      onToggleSidebar={toggle}
+                      reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
+                      showSidebarToggle={!workplaceOnScreen}
+                      sidebarLabel={sidebarToggleLabel}
+                    />
+                    {attentionBell}
+                  </div>
                 }
               >
                 {/* Gives way to an open search: the subtitle first, then the name; too narrow

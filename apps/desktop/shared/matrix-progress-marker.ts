@@ -19,6 +19,8 @@ export interface MatrixProgressMarker {
   revision: number
   device?: string
   heartbeat?: true
+  /** Optional host presentation extension. Scheduled turns have no owner source event. */
+  trigger?: 'cron'
 }
 
 const PHASES: readonly string[] = ['working', 'waiting', 'settled']
@@ -57,7 +59,8 @@ export function matrixProgressMarker(content: unknown): MatrixProgressMarker | u
     kind: raw.kind as MatrixProgressKind,
     revision: raw.revision as number,
     ...(raw.device !== undefined ? { device: raw.device as string } : {}),
-    ...(raw.heartbeat === true ? { heartbeat: true as const } : {})
+    ...(raw.heartbeat === true ? { heartbeat: true as const } : {}),
+    ...(raw.trigger === 'cron' ? { trigger: 'cron' as const } : {})
   }
 }
 

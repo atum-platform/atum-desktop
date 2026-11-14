@@ -269,7 +269,7 @@ describe('an assistant that needs the person', () => {
     // One indicator, naming it.
     await waitFor(() => expect(indicators().length).toBe(1))
     const indicator = screen.getByRole('button', { name: 'Needs you: Moon needs you' })
-    // The title bar keeps only the dot; the words are its name and tooltip.
+    // The title bar keeps only the bell; the words are its name and tooltip.
     expect(indicator.textContent).toBe('')
 
     // Its row says so, in amber; no other row does.
@@ -281,8 +281,9 @@ describe('an assistant that needs the person', () => {
     expect(stack()?.children.length).toBe(0)
     expect(chatNotice()).toBeNull()
 
-    // The indicator opens Moon's chat.
+    // The bell lists it; its row opens Moon's chat.
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Moon needs you/ }))
     await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: '!moon:test' }))
     emit({ ...moonNeedsYou(), roomId: '!moon:test' })
 
@@ -348,6 +349,7 @@ describe('an assistant that needs the person', () => {
     expect(stack()?.children.length).toBe(0)
 
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Moon needs you/ }))
     await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: group.id }))
     expect(bridge.command).not.toHaveBeenCalledWith({ kind: 'select', roomId: '!moon:test' })
 
@@ -481,6 +483,7 @@ describe('another device asking this one to approve it', () => {
     expect(stack()?.children.length).toBe(0)
 
     fireEvent.click(indicator)
+    fireEvent.click(await screen.findByRole('button', { name: /^Confirm new device/ }))
     expect(await screen.findByRole('dialog', { name: 'Did you just sign in on a new device?' })).toBeTruthy()
 
     emit({
@@ -540,5 +543,84 @@ describe('unmounting a dialog', () => {
     expect(unmounts().length).toBeGreaterThan(0)
     dispatched.mockRestore()
     vi.restoreAllMocks()
+  })
+})
+
+// Owner, 2026-11-13: New is a kit plus beside the roster's search, the search just says Search,
+// and the title bar's left side holds a bell whose popover lists what the header's dot used to.
+describe('the title bar bell and the roster plus', () => {
+  const header = () => window.document.querySelector<HTMLElement>('[data-atum-main-header]')!
+  const rosterHeader = () => window.document.querySelector<HTMLElement>('[data-atum-roster-header]')!
+  const searchRow = () => window.document.querySelector<HTMLElement>('[data-atum-search-actions]')!
+
+  it('puts New, a kit plus, to the right of the search field and opens the start sheet from there', async () => {
+    fixture(window6(ready))
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    const plus = within(searchRow()).getByRole('button', { name: 'New…' })
+    expect(plus.classList.contains('ak-iconbtn')).toBe(true)
+    // After the field, not before it.
+    const field = searchRow().querySelector('input')!
+    expect(field.compareDocumentPosition(plus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(rosterHeader()).queryByRole('button', { name: 'New…' })).toBeNull()
+
+    fireEvent.click(plus)
+    expect(await screen.findByRole('dialog', { name: 'Start a chat' })).toBeTruthy()
+  })
+
+  it('says only Search in the roster’s search field', async () => {
+    fixture(window6(ready))
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    expect(searchRow().querySelector('input')!.getAttribute('placeholder')).toBe('Search')
+  })
+
+  it('keeps a quiet bell in the left title bar while nothing needs the person', async () => {
+    fixture(window6(ready))
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    const bell = within(rosterHeader()).getByRole('button', { name: 'Notifications' })
+    expect(bell.querySelector('[data-matrix-attention-badge]')).toBeNull()
+    expect(indicators().length).toBe(0)
+
+    fireEvent.click(bell)
+    const list = await waitFor(() => window.document.querySelector<HTMLElement>('[data-matrix-attention-list]')!)
+    expect(list.textContent).toContain('Nothing needs you right now')
+  })
+
+  it('moves the attention mark off the conversation header into the bell, with its items and actions', async () => {
+    const { bridge } = fixture(
+      window6(name =>
+        name === 'Moon'
+          ? { phase: 'blocked', step: 'assistant', code: 'agent_reconnect_required', since: Date.now() }
+          : ready()
+      )
+    )
+
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    await waitFor(() => expect(indicators().length).toBe(1))
+    expect(header().querySelector('[data-matrix-attention]')).toBeNull()
+
+    const bell = within(rosterHeader()).getByRole('button', { name: 'Needs you: Moon needs you' })
+    expect(bell.querySelector('[data-matrix-attention-badge]')).toBeTruthy()
+
+    // The bell lists; it never acts by itself.
+    fireEvent.click(bell)
+    const list = await waitFor(() => window.document.querySelector<HTMLElement>('[data-matrix-attention-list]')!)
+    expect(bridge.command).not.toHaveBeenCalledWith({ kind: 'select', roomId: '!moon:test' })
+    expect(within(list).getByText('Notifications')).toBeTruthy()
+
+    fireEvent.click(within(list).getByRole('button', { name: /Moon needs you/ }))
+    await waitFor(() => expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: '!moon:test' }))
+  })
+
+  it('goes with the window controls into the main header when the sidebar is hidden, and stays single', async () => {
+    fixture(window6(ready))
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    fireEvent.click(within(rosterHeader()).getByRole('button', { name: 'Hide sidebar' }))
+    await waitFor(() => expect(within(header()).getByRole('button', { name: 'Notifications' })).toBeTruthy())
+    expect(screen.getAllByRole('button', { name: 'Notifications', hidden: true })).toHaveLength(1)
   })
 })
