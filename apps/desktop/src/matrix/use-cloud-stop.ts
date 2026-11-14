@@ -14,6 +14,9 @@ import {
 import { matrixUnansweredOwnerMessage } from './no-reply-banner'
 import { runMatrixCommand } from './text-document-actions'
 
+/** How long an unconfirmed Stop keeps saying "Stopping…" before it settles without a word. */
+export const MATRIX_STOP_SETTLE_MS = 15_000
+
 export interface MatrixCloudStop {
   /** The question the running cloud turn answers: Stop names it. Absent while nothing runs. */
   target?: string
@@ -53,14 +56,26 @@ export function useMatrixCloudStop({
   working: boolean
 }): MatrixCloudStop {
   const [refused, setRefused] = useState(false)
-  const [stopping, setStopping] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [unconfirmed, setUnconfirmed] = useState<string | null>(null)
   const cloudAssistant = Boolean(room && cloudRoomAgent(snapshot, room))
   const roomAgent = room ? snapshot.agents?.find(agent => agent.principal === room.agentPrincipal) : undefined
 
   useEffect(() => {
     setRefused(false)
-    setStopping(false)
+    setSending(false)
+    setUnconfirmed(null)
   }, [room?.id])
+
+  useEffect(() => {
+    if (!unconfirmed) {
+      return
+    }
+
+    const settle = window.setTimeout(() => setUnconfirmed(null), MATRIX_STOP_SETTLE_MS)
+
+    return () => window.clearTimeout(settle)
+  }, [unconfirmed])
 
   const unanswered = cloudAssistant
     ? matrixUnansweredOwnerMessage(
@@ -118,27 +133,33 @@ export function useMatrixCloudStop({
       return
     }
 
-    requestedFor.current = key
+    const sent = key
+    requestedFor.current = sent
     setRefused(false)
-    setStopping(true)
+    setUnconfirmed(null)
+    setSending(true)
     void executeMatrixStop(
       route,
       eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
       body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
     )
+      .then(result => {
+        // `/stop` is a message: a second press later is a new request, not a repeat. A Stop the
+        // agent has not confirmed keeps saying "Stopping…" until the turn's final clears it.
+        if (result === 'sent') {
+          requestedFor.current = null
+        } else if (result === 'stopping') {
+          setUnconfirmed(sent)
+        }
+      })
       .catch(() => {
         requestedFor.current = null
         setRefused(true)
       })
-      .finally(() => {
-        // `/stop` is a message: a second press later is a new request, not a repeat.
-        if (route.kind === 'native') {
-          requestedFor.current = null
-        }
-
-        setStopping(false)
-      })
+      .finally(() => setSending(false))
   }
+
+  const stopping = sending || (unconfirmed !== null && unconfirmed === key)
 
   return {
     ...(target ? { target } : {}),

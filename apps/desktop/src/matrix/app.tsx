@@ -3979,20 +3979,21 @@ function MatrixComposer({
               {cloudStop.shown ? (
                 <button
                   aria-busy={cloudStop.stopping || undefined}
-                  aria-label={cloudStop.stopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : matrixActionCopy[locale].cancelHermes}
+                  aria-label={cloudStop.stopping ? t.cloud.stopping : matrixActionCopy[locale].cancelHermes}
                   className={cloudStop.stopping
                     ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
                     : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
+                  data-matrix-cloud-stopping={cloudStop.stopping || undefined}
                   disabled={!cloudStop.ready}
                   onClick={cloudStop.stop}
-                  title={cloudStop.stopping ? (locale === 'vi' ? 'Đang dừng…' : 'Stopping…') : cloudStop.route.kind === 'unavailable'
+                  title={cloudStop.stopping ? t.cloud.stopping : cloudStop.route.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
                     : cloudStop.route.kind === 'native'
                       ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
                       : undefined}
                   type="button"
                 >
-                  {cloudStop.stopping ? <span role="status">{locale === 'vi' ? 'Đang dừng…' : 'Stopping…'}</span>
+                  {cloudStop.stopping ? <span role="status">{t.cloud.stopping}</span>
                     : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
                 </button>
               ) : running ? (

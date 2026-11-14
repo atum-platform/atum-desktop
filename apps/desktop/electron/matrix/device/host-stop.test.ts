@@ -12,7 +12,7 @@ describe('Shell host Stop', () => {
       expect(body).toEqual({ agent, requestId: expect.any(String), source: { room: '!dm:test', event: '$owner' } })
       return Response.json({ ok: true, requestId: body.requestId, cancelled: true, interrupted: true })
     })
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stop_requested' })
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stopped' })
     expect(fetcher).toHaveBeenCalledWith('https://shell.test/api/host/stop', expect.objectContaining({
       method: 'POST', credentials: 'omit', redirect: 'error',
       headers: { Authorization: 'Bearer synthetic-token', 'Content-Type': 'application/json', Origin: 'https://shell.test', 'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' }
@@ -24,6 +24,15 @@ describe('Shell host Stop', () => {
     await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
     await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  // The host always cuts the turn's tools; only the agent's own ACK says the turn has stopped.
+  it('reports a cut turn the agent has not confirmed as still stopping', async () => {
+    const fetcher = vi.fn(async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body))
+      return Response.json({ ok: true, requestId: body.requestId, cancelled: true, interrupted: false })
+    })
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stop_requested' })
   })
 
   it('refuses an unconfirmed receipt', async () => {

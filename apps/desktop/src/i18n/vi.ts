@@ -6,6 +6,7 @@ export const vi = defineLocale({
     wordRefusal:
       'Trợ lý này chưa làm việc được trong Word hoặc tài liệu liên kết. Hãy hỏi trong một cuộc trò chuyện khác, hoặc dùng tệp trong Atum Drive.',
     stopRefused: 'Chưa dừng được câu trả lời này. Có thể trợ lý đã trả lời xong.',
+    stopping: 'Đang dừng…',
     driveFull: 'Drive của bạn đã đầy; tệp được giữ trong 7 ngày.',
     title: 'Máy tính và điện thoại',
     allowMac: 'Cho phép trợ lý dùng máy Mac này',

@@ -11609,6 +11609,8 @@ function forgetSubscriptionKey(accountKey: string | undefined) {
 }
 
 async function forgetAgents() {
+  // Not in the sign-out handler: main's tests run that callback alone, with only its own globals.
+  hostRuntimeAgents.clear()
   productDefaultPrincipal = undefined
   agentCreation = false
   agentRosterReadiness = undefined
@@ -25642,7 +25644,6 @@ async function start() {
 
             agentMoves.clear()
             cloudAgents.clear()
-            hostRuntimeAgents.clear()
             placedAgents.reset()
             movingAgents.clear()
             scheduleContinuousListening()

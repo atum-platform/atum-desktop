@@ -1,4 +1,4 @@
-import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
+import type { MatrixCloudStopOutcome, MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
 const CLOUD_WORKING: ReadonlySet<MatrixLocalTurnView['state']> = new Set(['waiting', 'running', 'handed_off'])
 
@@ -77,19 +77,27 @@ export function matrixStopRoute(input: {
   return { kind: 'unavailable' }
 }
 
+/** `stopping`: the turn was cut but the agent has not confirmed it stopped; `sent`: an in-room `/stop`. */
+export type MatrixStopResult = 'stopped' | 'stopping' | 'sent'
+
 export async function executeMatrixStop(
   route: MatrixStopRoute,
-  stop: (eventId: string) => Promise<unknown>,
+  stop: (eventId: string) => Promise<MatrixCloudStopOutcome>,
   send: (body: string) => Promise<unknown>
-): Promise<void> {
+): Promise<MatrixStopResult> {
   if (route.kind === 'unavailable') {
     throw new Error('matrix_stop_unavailable')
   }
+
   if (route.kind === 'native') {
     await send('/stop')
-    return
+
+    return 'sent'
   }
-  await stop(route.eventId)
+
+  const outcome = await stop(route.eventId)
+
+  return outcome.state === 'stopped' || outcome.state === 'completed' ? 'stopped' : 'stopping'
 }
 
 /** The bound agent's latest progress line identifies a cron turn explicitly. */
