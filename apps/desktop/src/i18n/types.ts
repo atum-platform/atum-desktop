@@ -60,6 +60,8 @@ export interface Translations {
     deviceStatusUnconfirmed: string
     wordRefusal: string
     stopRefused: string
+    /** The Stop control while a stop is on its way and the turn has not confirmed it ended. */
+    stopping: string
     driveFull: string
     title: string
     /** Settings' one switch: whether assistants may use this Mac (enrolls it; 0.19.4 Q4). */

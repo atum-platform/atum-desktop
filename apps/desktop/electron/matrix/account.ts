@@ -3618,8 +3618,8 @@ export class MatrixAccount {
    * `send` gets the native bearer and the domain resource; one refresh after a 401
    * (`matrix_s1_authentication`), as for the store. A lost answer is never repeated here.
    */
-  async s1Request<T>(send: (accessToken: string, resource: string, requestSignal: AbortSignal) => Promise<T>, signal: AbortSignal): Promise<T> {
-    const deadline = AbortSignal.any([signal, AbortSignal.timeout(15_000)])
+  async s1Request<T>(send: (accessToken: string, resource: string, requestSignal: AbortSignal) => Promise<T>, signal: AbortSignal, options: { timeoutMs?: number } = {}): Promise<T> {
+    const deadline = AbortSignal.any([signal, AbortSignal.timeout(options.timeoutMs ?? 15_000)])
     deadline.throwIfAborted()
     let aborted: (() => void) | undefined
     try {

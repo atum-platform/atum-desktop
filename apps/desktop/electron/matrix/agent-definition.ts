@@ -66,6 +66,8 @@ export interface MatrixAgentDefinitionRecord extends AtumPortableAssistantRecord
   /** Where the agent answers (atum.cloud-answering/1, 0179): `cloud` once it moved to the cloud
    * brain; absent (an older platform) or `local` keeps today's path on the owner's Macs. */
   answering?: 'local' | 'cloud'
+  /** Public owner-roster capability, published only for enrolled host-runtime agents. */
+  runtime?: 'hermes'
   /** Its hire (atum.agent-hire/1): absent when free, else `active` or `paused` with the price. */
   hire?: MatrixAgentHire
 }
@@ -579,6 +581,7 @@ function parseAgentRecord(value: unknown, label?: string, allowRetired = false):
     ...(typeof row.matrixUser === 'string' ? { matrixUser: row.matrixUser } : {}),
     // A value this client does not know reads as local: the platform's fences decide anyway.
     ...(row.answering === 'cloud' || row.answering === 'local' ? { answering: row.answering } : {}),
+    ...(row.runtime === 'hermes' ? { runtime: 'hermes' as const } : {}),
     ...(parseHire(row.hire) === undefined ? {} : { hire: parseHire(row.hire) })
   }
 }

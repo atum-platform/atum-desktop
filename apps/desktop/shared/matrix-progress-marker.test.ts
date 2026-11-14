@@ -64,3 +64,9 @@ describe('the io.atum.progress marker against the vendored agent-turns/1.3 pack'
     ).toEqual(fixture('progress-heartbeat.content.json')['io.atum.progress'])
   })
 })
+
+// New-runtime cron turns have no owner source event. Absence alone cannot identify one.
+it('preserves the explicit cron trigger for native Stop', () => {
+  const base = fixture('progress-original.content.json')['io.atum.progress'] as Record<string, unknown>
+  expect(matrixProgressMarker({ 'io.atum.progress': { ...base, trigger: 'cron' } })).toEqual({ ...base, trigger: 'cron' })
+})
