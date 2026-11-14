@@ -166,6 +166,7 @@ def _capture_routing_origin() -> dict[str, Any]:
 def _persist_dispatch(record: dict[str, Any]) -> None:
     if remote := worker_ledger():
         return remote.dispatch(record)
+    from gateway.status import get_process_epoch
     now = time.time()
     try:
         from gateway.status import get_process_start_time
@@ -185,10 +186,10 @@ def _persist_dispatch(record: dict[str, Any]) -> None:
                (delegation_id, origin_session, origin_ui_session_id,
                 parent_session_id, state, dispatched_at, updated_at,
                 delivery_state, delivery_attempts, owner_pid,
-                owner_started_at, task_json, origin_session_id)
-               VALUES (?, ?, ?, ?, 'running', ?, ?, 'pending', 0, ?, ?, ?, ?)""",
+                owner_started_at, owner_boot_epoch, task_json, origin_session_id)
+               VALUES (?, ?, ?, ?, 'running', ?, ?, 'pending', 0, ?, ?, ?, ?, ?)""",
             (record["delegation_id"], record.get("session_key", ""), record.get("origin_ui_session_id", ""),
-             record.get("parent_session_id"), record["dispatched_at"], now, os.getpid(), owner_started_at,
+             record.get("parent_session_id"), record["dispatched_at"], now, os.getpid(), owner_started_at, get_process_epoch(),
              json.dumps(task_payload), record.get("origin_session_id", "")))
     _prune_durable_records()
 
@@ -265,15 +266,18 @@ def _recovered_results(task: dict[str, Any], result_json: Optional[str], error: 
     return [recorded.get(i) or {"task_index": i, "status": "unknown", "summary": None, "error": error} for i in indexes]
 
 
-def _owner_liveness() -> Optional[Callable[[Any, Any], bool]]:
-    """``alive(owner_pid, owner_started_at)`` over the shared drift-tolerant start-time comparator,
+def _owner_liveness() -> Optional[Callable[[Any, Any, Any], bool]]:
+    """``alive(owner_pid, owner_started_at, boot_epoch)`` over the shared drift-tolerant start-time comparator,
     or None when the liveness probes cannot be imported."""
     try:
         from gateway.status import _pid_exists, get_process_start_time, start_time_fingerprints_match
     except Exception:
         return None
 
-    def alive(pid, started) -> bool:
+    def alive(pid, started, boot_epoch=None) -> bool:
+        from gateway.status import process_epoch_matches
+        if not process_epoch_matches({"boot_epoch": boot_epoch}):
+            return False
         return bool(pid) and _pid_exists(int(pid)) and (
             started is None or start_time_fingerprints_match(started, get_process_start_time(int(pid)) or 0))
     return alive
@@ -290,11 +294,11 @@ def recover_abandoned_delegations() -> int:
     with _DB_LOCK, _transaction() as conn:
         rows = conn.execute("""SELECT delegation_id, origin_session, origin_ui_session_id,
                       parent_session_id, dispatched_at, owner_pid,
-                      owner_started_at, task_json, origin_session_id, result_json, state
+                      owner_started_at, owner_boot_epoch, task_json, origin_session_id, result_json, state
                FROM async_delegations WHERE state IN ('running','finalizing')""").fetchall()
         for row in rows:
-            delegation_id, session_key, origin_ui, parent_id, dispatched_at, pid, started, task_json, origin_sid, result_json, last_state = row
-            if alive(pid, started):
+            delegation_id, session_key, origin_ui, parent_id, dispatched_at, pid, started, boot_epoch, task_json, origin_sid, result_json, last_state = row
+            if alive(pid, started, boot_epoch):
                 continue
             task = json.loads(task_json or "{}")
             error = "Delegation owner exited before recording a terminal result; outcome unknown."
@@ -422,15 +426,15 @@ def sweep_orphaned_completions(target_queue, *, now: Optional[float] = None) -> 
         offered = {delegation_id for key, delegation_id in _offered if key == home}
     with _DB_LOCK, _transaction() as conn:
         rows = conn.execute("""SELECT delegation_id, event_json, completed_at, dispatched_at,
-                      owner_pid, owner_started_at, delivery_attempts
+                      owner_pid, owner_started_at, owner_boot_epoch, delivery_attempts
                FROM async_delegations
                WHERE state NOT IN ('running','finalizing') AND delivery_state='pending'
                  AND event_json IS NOT NULL AND updated_at < ?
                  AND (delivery_claim IS NULL OR delivery_claimed_at < ?)
                ORDER BY completed_at, delegation_id""", (now - _ORPHAN_STALE_S, now - _CLAIM_LEASE_S)).fetchall()
         orphans = []
-        for delegation_id, payload, completed_at, dispatched_at, pid, started, attempts in rows:
-            if delegation_id in offered or alive(pid, started):
+        for delegation_id, payload, completed_at, dispatched_at, pid, started, boot_epoch, attempts in rows:
+            if delegation_id in offered or alive(pid, started, boot_epoch):
                 continue
             if (attempts or 0) >= _MAX_DELIVERY_ATTEMPTS:
                 # Its last claimant died holding the final attempt; converge like release_completion_delivery.

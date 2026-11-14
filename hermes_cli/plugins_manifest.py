@@ -35,7 +35,7 @@ _KNOWN_MANIFEST_FIELDS: set[str] = {
     "pip_dependencies", "provides_browser_providers", "provides_web_providers",
     "manifest_version", "api_version", "requires_plugins", "python_dependencies", "config_schema",
     "license", "homepage", "tags", "capabilities", "emits", "listens", "hermes", "depends",
-    "requires_hermes", "python_runtime", "provides_locales", "requires_auth", "oauth",
+    "fail_closed_admission", "requires_hermes", "python_runtime", "provides_locales", "requires_auth", "oauth",
 }
 
 # Highest manifest schema version this Hermes understands.
@@ -354,6 +354,7 @@ class PluginManifest:
     requires_env: list[str | dict[str, Any]] = field(default_factory=list)
     provides_tools: list[str] = field(default_factory=list)
     provides_hooks: list[str] = field(default_factory=list)
+    fail_closed_admission: bool = False
     source: str = ""        # "bundled", "user", "project", or "entrypoint"
     path: Optional[str] = None
     # ``standalone`` (default; opt-in via plugins.enabled) | ``backend`` (pluggable backend for a core tool;
@@ -549,6 +550,7 @@ def parse_manifest_file(
         provides_locales, locale_metadata = parse_provides_locales(data.get("provides_locales"), key)
         return PluginManifest(
             name=name, version=str(data.get("version", "")),
+            fail_closed_admission=data.get("fail_closed_admission") is True,
             description=data.get("description", ""), author=_display_author(data.get("author", "")),
             requires_env=data.get("requires_env", []),
             provides_tools=data.get("provides_tools", []),

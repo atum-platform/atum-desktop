@@ -1286,6 +1286,14 @@ agent:
   # underneath this wrapper — this is the Hermes-level loop.
   # api_max_retries: 3
 
+  # OpenRouter rolling key allowance: retry on the same route while it is topped up.
+  # Delays are seconds; max_delay is capped at 30 and max_wait at 180.
+  # Stop cancels the wait. Unmarked credit/auth refusals keep normal handling.
+  # allowance_wait:
+  #   initial_delay: 2
+  #   max_delay: 30
+  #   max_wait: 180
+
   # Once api_max_retries AND the fallback chain are spent on a transient outage
   # (5xx, overloaded/529, connect/read timeouts) and nothing has been delivered
   # yet, Hermes waits and retries this many more cycles (jittered 15/30/60/60/60s;

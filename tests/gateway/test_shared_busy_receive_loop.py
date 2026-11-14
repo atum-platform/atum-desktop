@@ -128,6 +128,7 @@ async def test_detached_busy_completion_failure_still_tells_the_user(monkeypatch
     await _wait_for(lambda: len(adapter.sent) == 2 and not adapter._background_tasks)
     # Exactly one reply per input; the error notice may race the first turn's own delivery.
     assert 'FIRST_REPLY' in adapter.sent
-    assert sum('render exploded' in text for text in adapter.sent) == 1, adapter.sent
+    from agent.i18n import t
+    assert adapter.sent.count(t('gateway.notify.turn_error')) == 1, adapter.sent
     assert _statuses(authority) == {'one': 'terminal', 'two': 'terminal'}
     assert unhandled == []

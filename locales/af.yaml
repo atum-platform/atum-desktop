@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "Groot model: {name} bereik ({resets})."
   large_notice_limit_stops: "Groot model: {name} bereik ({resets}), dit sal nie tot dan loop nie."
   large_notice_percent: "Groot model: gebruik meer van jou plan per boodskap. Maandelikse limiet vir groot modelle: {percent} gebruik."
+
+turn_admission:
+  configuration_error: "Ek kan nou nie begin nie, want deel van my opstelling is nog nie gereed nie. Probeer asseblief oor 'n paar minute weer."
+  refused: "Hierdie versoek word nie hier toegelaat nie, so ek het dit nie begin nie."

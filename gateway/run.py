@@ -3718,6 +3718,8 @@ class GatewayRunner(
         """Persist the live in-flight agent count to ``gateway_state.json`` at every turn boundary.
         Passes ONLY ``active_agents`` so the read-merge-write keeps lifecycle state (gateway_state=None
         would clobber it). Best-effort: a failed write must never disrupt a turn."""
+        if self._active_work_count():
+            self._sleep_idle_since = None
         _write_runtime_status_quiet(active_agents=self._active_work_count())
 
     def _running_agent_ids(self) -> set:
@@ -3756,7 +3758,7 @@ class GatewayRunner(
     # Reasons set by _stop_impl() on force-interrupt; "restart_interrupted" by recover_interrupted_turns()
     # for a crash-left turn marker (no .clean_shutdown marker). All mean "killed mid-turn" -> startup
     # auto-resume.
-    _AUTO_RESUME_REASONS = frozenset({"restart_timeout", "shutdown_timeout", "restart_interrupted"})
+    _AUTO_RESUME_REASONS = frozenset({"restart_timeout", "shutdown_timeout", "restart_interrupted", "stale_interruption"})
 
     _MAX_SUPERVISED_RESTARTS = 5
     # Ran this long before crashing = HEALTHY (isolated crash, not a crash-loop); restart counter resets.
@@ -4722,7 +4724,8 @@ def _replace_target_belongs_to_other_profile(existing_pid: int) -> bool:
     try:
         from gateway.status import (
             _get_pid_path, _get_process_hermes_home, _get_process_start_time, _pid_from_record,
-            _read_pid_record, _record_looks_like_gateway, _read_process_cmdline, _same_hermes_home)
+            _read_pid_record, _record_looks_like_gateway, _read_process_cmdline, _same_hermes_home,
+            process_epoch_matches)
         our_home = _get_process_hermes_home()
 
         def refuse(msg: str, *args, level=logging.WARNING) -> bool:
@@ -4731,7 +4734,8 @@ def _replace_target_belongs_to_other_profile(existing_pid: int) -> bool:
 
         # Bound claim: the record must name THIS pid with THIS live start time, else it proves nothing.
         record = _read_pid_record(_get_pid_path())
-        if not isinstance(record, dict) or not _record_looks_like_gateway(record):
+        if (not isinstance(record, dict) or not _record_looks_like_gateway(record)
+                or not process_epoch_matches(record)):
             return refuse("no valid gateway pid record to prove ownership of PID %s.", existing_pid)
         record_pid = _pid_from_record(record)
         if record_pid != existing_pid:

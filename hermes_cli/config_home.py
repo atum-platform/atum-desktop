@@ -5,6 +5,14 @@ from pathlib import Path
 from hermes_dir_acl import make_user_dir
 
 
+# Failed initialization must remain visible even when config loading falls back.
+_initialization_failures: set[str] = set()
+
+
+def home_initialization_failed(home: Path) -> bool:
+    return str(home.resolve()) in _initialization_failures
+
+
 class HomeInitializationError(RuntimeError):
     """The home skeleton is unavailable, not an invalid YAML document."""
 
@@ -72,11 +80,15 @@ def initialize_home(home: Path, subdirs: tuple[str, ...], ensured: set[str]) -> 
                 f"Cannot initialize Hermes home {home}: {exc}. "
                 "Check storage availability and access permissions."
             ) from exc
+    except (HomeInitializationError, OSError):
+        _initialization_failures.add(str(home.resolve()))
+        raise
     finally:
         if old_umask is not None:
             os.umask(old_umask)
     # Plugin discovery rebinds the resolved home. Do not repeat chmod through
     # that spelling after the operator-owned symlink boundary has been lost.
+    _initialization_failures.discard(str(home.resolve()))
     ensured.update((str(home), str(home.resolve())))
 
 

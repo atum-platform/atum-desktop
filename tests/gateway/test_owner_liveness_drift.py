@@ -25,13 +25,13 @@ def _live_pid_with_drift(monkeypatch):
 def _delivery_ledger_alive() -> bool:
     from gateway import delivery_ledger
 
-    return delivery_ledger._owner_alive(4242, RECORDED)
+    return delivery_ledger._owner_alive(4242, RECORDED, status.get_process_epoch())
 
 
 def _api_server_run_alive() -> bool:
     from gateway.platforms import api_server_runs
 
-    return api_server_runs._owner_alive(4242, RECORDED)
+    return api_server_runs._owner_alive(4242, RECORDED, status.get_process_epoch())
 
 
 def _async_delegation_alive(monkeypatch, tmp_path) -> bool:
@@ -41,9 +41,9 @@ def _async_delegation_alive(monkeypatch, tmp_path) -> bool:
     with ad._DB_LOCK, ad._transaction() as conn:
         conn.execute(
             "INSERT INTO async_delegations (delegation_id, origin_session, state, dispatched_at, updated_at, "
-            "delivery_state, delivery_attempts, owner_pid, owner_started_at, task_json) "
-            "VALUES ('d-drift', 's', 'running', 1, 1, 'pending', 0, 4242, ?, '{}')",
-            (RECORDED,),
+            "delivery_state, delivery_attempts, owner_pid, owner_started_at, owner_boot_epoch, task_json) "
+            "VALUES ('d-drift', 's', 'running', 1, 1, 'pending', 0, 4242, ?, ?, '{}')",
+            (RECORDED, status.get_process_epoch()),
         )
     return ad.recover_abandoned_delegations() == 0
 

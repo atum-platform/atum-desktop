@@ -104,14 +104,15 @@ def begin_process(kind: str) -> None:
             for directory in (markers_dir(home), setup_markers_dir(home), latches):  # likewise pending exits/setups
                 shutil.rmtree(directory, ignore_errors=True)
             return
-        from gateway.status import get_process_start_time
+        from gateway.status import get_process_epoch, get_process_start_time
 
         home = get_hermes_home()
         directory = markers_dir(home)
         directory.mkdir(parents=True, exist_ok=True)
         pid = os.getpid()
         path = directory / f"{kind}-{pid}.json"
-        record = {"kind": kind, "pid": pid, "start_time": get_process_start_time(pid), "state": "running"}
+        record = {"kind": kind, "pid": pid, "start_time": get_process_start_time(pid),
+                  "boot_epoch": get_process_epoch(), "state": "running"}
         with _STATE_LOCK:
             _write_marker(path, record)
             _STATE.update(path=path, record=record)
@@ -129,13 +130,14 @@ def current_process_kind() -> str:
 
 
 def _claimer_alive(path: Path) -> bool:
-    from gateway.status import runtime_status_pid_is_live
+    from gateway.status import _pid_exists
 
     try:
         claimer = int(path.name.rsplit(".", 2)[-2])
     except (IndexError, ValueError):
         return False
-    return runtime_status_pid_is_live({"pid": claimer})
+    # PID-only claim filenames conservatively retain any live claimer until it exits.
+    return _pid_exists(claimer)
 
 
 def _claim(path: Path) -> Path | None:

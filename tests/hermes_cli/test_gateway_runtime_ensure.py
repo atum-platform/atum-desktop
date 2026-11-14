@@ -1,4 +1,6 @@
 """Real local-control and subprocess boundaries, never real service mutations."""
+
+from tests.runtime_identity import current_owner_fields
 import asyncio
 import json
 import os
@@ -465,7 +467,7 @@ def test_ensure_reports_a_standalone_host_reason_for_an_unserved_named_profile(t
     reason is read from the root's real gateway_state.json (path and key included)."""
     from hermes_cli import gateway_runtime as runtime
 
-    home, spawned = _standalone_host(tmp_path, monkeypatch, {
+    home, spawned = _standalone_host(tmp_path, monkeypatch, {**current_owner_fields(os.getpid()),
         "gateway_state": "running", "pid": os.getpid(), "served_profiles": [],
         "multiplex_standalone_reason": _REASON})
 
@@ -477,9 +479,9 @@ def test_ensure_reports_a_standalone_host_reason_for_an_unserved_named_profile(t
 
 @pytest.mark.parametrize("record", [
     None,  # the host has not written its state yet
-    {"gateway_state": "running", "pid": os.getpid()},  # a multiplexer: no refusal
-    {"gateway_state": "stopped", "pid": os.getpid(), "multiplex_standalone_reason": _REASON},
-    {"gateway_state": "running", "pid": 999_999_999, "multiplex_standalone_reason": _REASON},
+    {**current_owner_fields(os.getpid()), "gateway_state": "running", "pid": os.getpid()},  # a multiplexer: no refusal
+    {**current_owner_fields(os.getpid()), "gateway_state": "stopped", "pid": os.getpid(), "multiplex_standalone_reason": _REASON},
+    {**current_owner_fields(999_999_999), "gateway_state": "running", "pid": 999_999_999, "multiplex_standalone_reason": _REASON},
 ], ids=["no-state", "no-reason", "stopped", "dead-pid"])
 def test_a_reserved_root_without_a_live_refusal_is_still_awaited(tmp_path, monkeypatch, record):
     """A held root lock with no LIVE standalone refusal is a multiplexer still starting: the named
@@ -492,6 +494,23 @@ def test_a_reserved_root_without_a_live_refusal_is_still_awaited(tmp_path, monke
 
     assert (result.state, result.reason_code) == ("starting", "deadline")
     assert spawned == []
+
+
+def test_a_reservation_that_ends_without_an_owner_is_not_awaited_forever(tmp_path, monkeypatch):
+    """The root's lock is released (a retiring or failed multiplexer) and nothing took its place:
+    the wait on that reservation ends and this call starts the owner instead of running out the deadline."""
+    from hermes_cli import gateway_runtime as runtime, gateway_runtime_discovery as discovery
+
+    home, spawned = _standalone_host(tmp_path, monkeypatch, None)
+    reserved = iter(range(3))
+    root = (tmp_path / ".hermes").resolve()
+    monkeypatch.setattr(discovery, "missing_owner_state", lambda path: (
+        "starting" if Path(path).resolve() == root and next(reserved, None) is not None else "absent"))
+
+    result = runtime.ensure_gateway_runtime(home, timeout=1)
+
+    assert len(spawned) == 1
+    assert (result.state, result.reason_code) == ("starting", "deadline")
 
 
 @pytest.mark.platforms("linux", "macos")

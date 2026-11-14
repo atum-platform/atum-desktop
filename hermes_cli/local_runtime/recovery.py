@@ -22,7 +22,7 @@ def read_state() -> dict:
         return {}
 
 
-_MODERN_FIELDS = ("create_time", "executable", "owner_pid", "owner_create_time")
+_MODERN_FIELDS = ("create_time", "executable", "owner_pid", "owner_create_time", "boot_epoch")
 
 
 def is_modern(state: dict) -> bool:
@@ -51,14 +51,23 @@ def _same_birth(proc, state: dict, prefix: str = "") -> bool:
 
 
 def recorded_process(state: dict):
-    """Match a modern process incarnation, never just its reusable PID."""
+    """Match a modern process incarnation, never just its reusable PID.
+
+    The recorded instantiation witness is checked before any process probe: under runsc a fresh
+    sandbox reuses both the PID and the boot-relative start ticks, so the birth, executable and
+    parent checks below would accept a stranger as the managed router. A record that names no
+    instantiation (written before the witness existed) keeps those checks — the supervisor stamps
+    the witness on its next spawn, so the unproven population only shrinks."""
+    from gateway.status import process_epoch_conflicts
+
     try:
         pid, created = state["pid"], state["create_time"]
         owner_pid, owner_created = state["owner_pid"], state["owner_create_time"]
         exe = state["executable"]
         if (not _valid_pid(pid) or not _valid_birth(created)
                 or not _valid_pid(owner_pid) or not _valid_birth(owner_created)
-                or owner_created > created or not isinstance(exe, str) or not exe):
+                or owner_created > created or not isinstance(exe, str) or not exe
+                or process_epoch_conflicts(state)):
             return None
         proc = psutil.Process(pid)
         if (not proc.is_running() or not _same_birth(proc, state)
@@ -80,6 +89,11 @@ def recorded_process(state: dict):
 
 
 def _owner_is_dead(state: dict) -> bool:
+    from gateway.status import process_epoch_conflicts
+
+    # A record from another instantiation names an owner that certainly exited with it.
+    if process_epoch_conflicts(state):
+        return True
     try:
         pid, created = state["owner_pid"], state["owner_create_time"]
         if not _valid_pid(pid) or not _valid_birth(created):

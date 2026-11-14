@@ -11,6 +11,8 @@ identity-aware) only after the main PID is confirmed dead.
 Also asserts the takeover/reap machinery stays gated on explicit --replace.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import sys
 from pathlib import Path
@@ -106,7 +108,7 @@ class TestScopedLockTakeoverReapsChildren:
     @staticmethod
     def _owner_record(target_home: Path, *, pid: int = 4242, start_time: int = 123):
         target_home.mkdir(parents=True, exist_ok=True)
-        record = {
+        record = {**current_owner_fields(pid),
             "pid": pid,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
@@ -213,7 +215,7 @@ async def test_start_gateway_replace_reaps_old_gateway_children_posix(
     # bound record for target pid 42 in this home.
     monkeypatch.setattr(
         "gateway.status._read_pid_record",
-        lambda path=None: {
+        lambda path=None: {**current_owner_fields(42),
             "pid": 42,
             "kind": "hermes-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],

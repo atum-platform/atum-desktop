@@ -81,6 +81,7 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
     add_column_if_missing(
         conn, "executions", "handoff_started_at", "handoff_started_at REAL"
     )
+    add_column_if_missing(conn, "executions", "owner_boot_epoch", "owner_boot_epoch TEXT")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_executions_job_claimed "
         "ON executions(job_id, claimed_at DESC, id DESC)"
@@ -131,7 +132,10 @@ def _process_start_time(pid: int) -> Optional[int]:
         return None
 
 
-def _owner_is_live(pid: int, started_at: Optional[int]) -> bool:
+def _owner_is_live(pid: int, started_at: Optional[int], boot_epoch: Optional[str] = None) -> bool:
+    from gateway.status import process_epoch_matches
+    if not process_epoch_matches({"boot_epoch": boot_epoch}):
+        return False
     try:
         from gateway.status import _pid_exists
         if not _pid_exists(pid):
@@ -226,15 +230,16 @@ def create_execution(
     execution_id = str(execution_id or uuid.uuid4().hex)
     if not execution_id or ":" in execution_id or len(execution_id) > 128:
         raise ValueError("invalid cron execution id")
+    from gateway.status import get_process_epoch
     pid = os.getpid()
     with _transaction() as conn:
         conn.execute(
             """INSERT INTO executions
-               (id, job_id, source, process_id, pid, process_started_at,
+               (id, job_id, source, process_id, pid, process_started_at, owner_boot_epoch,
                 status, claimed_at, scheduled_instant)
-               VALUES (?, ?, ?, ?, ?, ?, 'claimed', ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?)""",
             (execution_id, str(job_id), str(source), _PROCESS_ID, pid,
-             _process_start_time(pid), now, canonical_instant(scheduled_instant)),
+             _process_start_time(pid), get_process_epoch(), now, canonical_instant(scheduled_instant)),
         )
         record = _fetch(conn, execution_id)
     _emit_execution_state(record)
@@ -279,17 +284,18 @@ def adopt_claimed_execution(execution_id: str) -> Optional[dict[str, Any]]:
     worker.  Adoption is the single ``claimed`` → ``running`` gate: only the
     winner may acknowledge ownership or run side effects.
     """
+    from gateway.status import get_process_epoch
     pid = os.getpid()
     process_started_at = _process_start_time(pid)
     now = _hermes_now().isoformat()
     with _transaction() as conn:
         cur = conn.execute(
             """UPDATE executions
-               SET process_id=?, pid=?, process_started_at=?,
+               SET process_id=?, pid=?, process_started_at=?, owner_boot_epoch=?,
                    status='running', started_at=?, handoff_pending=0,
                    handoff_started_at=NULL
                WHERE id=? AND status='claimed' AND handoff_pending=1""",
-            (_PROCESS_ID, pid, process_started_at, now, execution_id),
+            (_PROCESS_ID, pid, process_started_at, get_process_epoch(), now, execution_id),
         )
         if cur.rowcount != 1:
             return None
@@ -373,7 +379,7 @@ def recover_receipted_execution(execution_id, job_id, *, success, error=None, de
 
 def _recoverable_row(conn, execution_id, job_id):
     return conn.execute(
-        """SELECT status, process_id, pid, process_started_at FROM executions
+        """SELECT status, process_id, pid, process_started_at, owner_boot_epoch FROM executions
            WHERE id=? AND job_id=? AND status IN ('claimed','running','unknown')""",
         (str(execution_id), str(job_id))).fetchone()
 
@@ -383,7 +389,7 @@ def _row_owner_live(row) -> bool:
         # The in-gateway ticker fires on pool threads: a claimed/running row of THIS process is
         # still in flight here. Only an unknown row was given up by its own firer.
         return row['status'] != 'unknown'
-    return _owner_is_live(int(row['pid']), row['process_started_at'])
+    return _owner_is_live(int(row['pid']), row['process_started_at'], row['owner_boot_epoch'])
 
 
 def execution_owner_live(execution_id: str, job_id: str) -> bool:
@@ -444,7 +450,7 @@ def recover_interrupted_executions() -> int:
     stale_after_resolved = False
     with _transaction() as conn:
         rows = conn.execute(
-            """SELECT id, status, process_id, pid, process_started_at,
+            """SELECT id, status, process_id, pid, process_started_at, owner_boot_epoch,
                       handoff_pending, handoff_started_at, claimed_at, progress_at
                FROM executions
                WHERE status IN ('claimed','running')"""
@@ -453,7 +459,7 @@ def recover_interrupted_executions() -> int:
             if row["process_id"] == _PROCESS_ID:
                 continue
             reason = _OWNER_GONE_REASON
-            if _owner_is_live(int(row["pid"]), row["process_started_at"]):
+            if _owner_is_live(int(row["pid"]), row["process_started_at"], row["owner_boot_epoch"]):
                 # A live owner is normally a legitimately running job. A worker permanently
                 # deadlocked (e.g. futex_wait behind a route/proxy flip, #115692) also passes
                 # this check, so a claim SILENT for longer than the derived bound is treated
@@ -529,7 +535,7 @@ def terminalize_dead_owner(execution_id: str, *, reason: str) -> bool:
     now = _hermes_now().isoformat()
     with _transaction() as conn:
         row = conn.execute(
-            """SELECT id, status, process_id, pid, process_started_at,
+            """SELECT id, status, process_id, pid, process_started_at, owner_boot_epoch,
                       handoff_pending, handoff_started_at
                FROM executions WHERE id=?""",
             (execution_id,),
@@ -538,7 +544,7 @@ def terminalize_dead_owner(execution_id: str, *, reason: str) -> bool:
             return False
         if row["process_id"] == _PROCESS_ID:
             return False
-        if _owner_is_live(int(row["pid"]), row["process_started_at"]):
+        if _owner_is_live(int(row["pid"]), row["process_started_at"], row["owner_boot_epoch"]):
             return False
         handoff_started_at = row["handoff_started_at"]
         if (
@@ -633,7 +639,7 @@ def live_inflight_execution(job_id: str) -> Optional[dict[str, Any]]:
     record = latest_execution(job_id)
     if not record or record.get("status") not in ("claimed", "running"):
         return None
-    if not _owner_is_live(int(record["pid"]), record.get("process_started_at")):
+    if not _owner_is_live(int(record["pid"]), record.get("process_started_at"), record.get("owner_boot_epoch")):
         return None
     return record
 

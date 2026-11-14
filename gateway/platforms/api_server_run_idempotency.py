@@ -19,7 +19,7 @@ logger = logging.getLogger("gateway.platforms.api_server")
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "interrupted"})
 
 _SELECT_BY_KEY = (
-    "SELECT fingerprint, run_id, status_json, owner_pid, owner_started, updated_at "
+    "SELECT fingerprint, run_id, status_json, owner_pid, owner_started, updated_at, owner_boot_epoch "
     "FROM run_idempotency WHERE scope=? AND idempotency_key=?")
 _EXTEND_RETENTION_BY_KEY = (
     "UPDATE run_idempotency SET retention_until=MAX(retention_until, ?) "
@@ -31,6 +31,7 @@ _EXTEND_RETENTION_BY_RUN = (
 _MIGRATIONS = {
     "owner_pid": "INTEGER NOT NULL DEFAULT 0",
     "owner_started": "INTEGER NOT NULL DEFAULT 0",
+    "owner_boot_epoch": "TEXT",
     "retention_until": "REAL NOT NULL DEFAULT 0",
     "acknowledged_at": "REAL"}
 
@@ -39,10 +40,10 @@ def _encode_status(status: dict[str, Any]) -> str:
     return json.dumps(status, sort_keys=True, separators=(",", ":"))
 
 
-def _record(run_id, status_json, owner_pid, owner_started, updated_at) -> dict[str, Any]:
+def _record(run_id, status_json, owner_pid, owner_started, updated_at, owner_boot_epoch=None) -> dict[str, Any]:
     return {
         "run_id": run_id, "status": json.loads(status_json), "owner_pid": int(owner_pid or 0),
-        "owner_started": int(owner_started or 0), "updated_at": float(updated_at or 0)}
+        "owner_boot_epoch": owner_boot_epoch, "owner_started": int(owner_started or 0), "updated_at": float(updated_at or 0)}
 
 
 def _outcome(row, fingerprint):
@@ -133,6 +134,7 @@ class RunIdempotencyStore:
     def reserve(self, scope: str, key: str, fingerprint: str, run_id: str, status: dict[str, Any], *,
                 owner_pid: int = 0, owner_started: int = 0, retention_until: float = 0):
         """Atomically reserve a key; return ``(outcome, stored_record)``."""
+        from gateway.status import get_process_epoch
         now = time.time()
         retention_until = max(0.0, float(retention_until or 0))
         encoded = _encode_status(status)
@@ -147,12 +149,12 @@ class RunIdempotencyStore:
             self._conn.execute(
                 "INSERT INTO run_idempotency("
                 "scope,idempotency_key,fingerprint,run_id,status_json,"
-                "owner_pid,owner_started,retention_until,created_at,updated_at"
-                ") VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "owner_pid,owner_started,retention_until,created_at,updated_at,owner_boot_epoch"
+                ") VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                 (scope, key, fingerprint, run_id, encoded, int(owner_pid or 0), int(owner_started or 0),
-                 retention_until, now, now))
+                 retention_until, now, now, get_process_epoch()))
             self._conn.commit()
-            return "created", _record(run_id, encoded, owner_pid, owner_started, now) | {"status": status}
+            return "created", _record(run_id, encoded, owner_pid, owner_started, now, get_process_epoch()) | {"status": status}
 
     def lookup(self, scope: str, key: str, fingerprint: str, *, retention_until: float = 0):
         """Return ``missing``, ``reused`` or ``conflict`` without reserving."""
@@ -194,7 +196,7 @@ class RunIdempotencyStore:
                 self._conn.execute(_EXTEND_RETENTION_BY_RUN, (retention_until, scope, run_id))
                 self._conn.commit()
             row = self._conn.execute(
-                "SELECT status_json, owner_pid, owner_started, updated_at "
+                "SELECT status_json, owner_pid, owner_started, updated_at, owner_boot_epoch "
                 "FROM run_idempotency WHERE scope=? AND run_id=?",
                 (scope, run_id)).fetchone()
         if row is None:

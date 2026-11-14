@@ -560,8 +560,20 @@ async def recover_profile_native_sessions(runner, authority):
     """Bind one authority's queued native rows to the adapters connected now."""
     from gateway.session_authorities import owner_scope
     with owner_scope(authority):
-        pending = {row['target_session_id'] for row in authority.db._read_all(
-            "SELECT DISTINCT target_session_id FROM session_admissions WHERE status IN ('queued','unknown')")}
+        candidates = authority.db._read_all(
+            "SELECT a.* FROM session_admissions a WHERE a.status IN ('queued','unknown') "
+            "OR (a.status='terminal' AND a.outcome='failed' AND a.owner_epoch != ? "
+            "AND NOT EXISTS (SELECT 1 FROM session_admissions b "
+            "WHERE b.target_session_id=a.target_session_id AND b.status!='queued' AND b.seq>a.seq))",
+            (authority.epoch,))
+        from gateway.session_results import admission_result
+        pending = set()
+        for row in candidates:
+            if row['status'] == 'terminal':
+                saved = admission_result(authority.db, row['admission_id']) or {}
+                if not str(saved.get('result', {}).get('failure_reason', '')).startswith('session_persistence_failed:'):
+                    continue
+            pending.add(row['target_session_id'])
         bindings = [(owner, entry.origin, runner._adapter_for_source(entry.origin))
                     for entry in runner.session_store.list_sessions() if entry.origin is not None
                     for owner in [authority.logical_owner(entry.session_id)] if owner in pending]

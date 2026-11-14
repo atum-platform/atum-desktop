@@ -11,7 +11,8 @@ logger = logging.getLogger("tools.process_registry")
 
 
 class ProcessCheckpointMixin:
-    def _detached_host_fate(self, pid: Optional[int], expected_start: Optional[int]) -> str:
+    def _detached_host_fate(self, pid: Optional[int], expected_start: Optional[int],
+                            expected_epoch: Optional[str] = None) -> str:
         """Subclass supplies the live PID decision. See ProcessRegistry."""
         raise NotImplementedError
 
@@ -31,6 +32,10 @@ class ProcessCheckpointMixin:
                     # even for sessions spawned before this field existed.
                     if s.host_start_time is None and s.pid_scope == "host" and s.pid:
                         s.host_start_time = self._safe_host_start_time(s.pid)
+                    # Same for the instantiation witness: every entry this process rewrites
+                    # names the boot that recorded it, so a later sandbox cannot adopt it.
+                    if s.host_boot_epoch is None and s.pid_scope == "host" and s.pid:
+                        s.host_boot_epoch = self._process_boot_epoch()
                     entry = {"session_id": s.id, **{f: getattr(s, f) for f in _CHECKPOINT_FIELDS}}
                     # Redact inline credentials before persisting (~/.hermes/processes.json).
                     # Recovery uses command only for display (adoption re-validates the
@@ -67,7 +72,8 @@ class ProcessCheckpointMixin:
         return [entry for entry in on_disk if isinstance(entry, dict) and entry.get("session_id") not in known
                 and (log := adoptable_log(entry.get("output_log"))) and Path(log).exists()
                 and (_exit_path(log).exists() or self._detached_host_fate(
-                    entry.get("pid"), entry.get("host_start_time")) == "running")]
+                    entry.get("pid"), entry.get("host_start_time"),
+                    entry.get("host_boot_epoch")) == "running")]
 
     def recover_from_checkpoint(self) -> int:
         """On gateway startup, probe PIDs from the checkpoint file; returns how many
@@ -105,9 +111,12 @@ class ProcessCheckpointMixin:
             # Alive and still ours: re-attach. A start-time probe that cannot
             # be read is not proof the PID was reused — dropping it would leave
             # a live child unsupervised, and marking it exited would invent a
-            # completion. A positive mismatch means the number was recycled:
-            # do not adopt it and do not signal it.
-            fate = self._detached_host_fate(pid, entry.get("host_start_time"))
+            # completion. A positively different start time means the number was recycled:
+            # do not adopt it and do not signal it. An entry that names another
+            # instantiation is decided first: that boot's process is gone, and both the PID
+            # and the boot-relative tick value recur in a fresh sandbox.
+            fate = self._detached_host_fate(pid, entry.get("host_start_time"),
+                                            entry.get("host_boot_epoch"))
             # A worker spawn's output log and recorded exit outlive both the spawner and the PID,
             # so its reader decides the outcome (a recycled PID is never signalled: fate != running).
             log = adoptable_log(entry.get("output_log"))
@@ -115,9 +124,10 @@ class ProcessCheckpointMixin:
                 fate = "running"
             if fate == "reused":
                 logger.info(
-                    "Not recovering session %s: pid %d is alive but its "
-                    "start time no longer matches — PID was recycled onto "
-                    "an unrelated process; refusing to adopt or signal it.",
+                    "Not recovering session %s: pid %d is alive but its recorded "
+                    "identity no longer matches — the PID was recycled onto an "
+                    "unrelated process, or the entry belongs to another boot; "
+                    "refusing to adopt or signal it.",
                     entry.get("session_id", "?"), pid)
                 continue
             if fate != "running":

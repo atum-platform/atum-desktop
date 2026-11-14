@@ -159,7 +159,7 @@ def test_dead_delivery_owner_becomes_unknown_and_is_not_retried(
     queue.enqueue("exec-1", {"id": "job-1"}, "brief")
     assert queue.claim_next() is not None
     monkeypatch.setattr(queue, "_PROCESS_ID", "replacement-gateway")
-    monkeypatch.setattr(queue, "_owner_is_live", lambda _pid, _started: False)
+    monkeypatch.setattr(queue, "_owner_is_live", lambda _pid, _started, _epoch=None: False)
 
     assert queue.recover_abandoned() == 1
     send = Mock()

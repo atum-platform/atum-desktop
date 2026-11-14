@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "Großes Modell: {name} erreicht ({resets})."
   large_notice_limit_stops: "Großes Modell: {name} erreicht ({resets}), es läuft bis dahin nicht."
   large_notice_percent: "Großes Modell: verbraucht pro Nachricht mehr von deinem Plan. Monatslimit für große Modelle: {percent} genutzt."
+
+turn_admission:
+  configuration_error: "Ich kann gerade nicht starten, weil ein Teil meiner Einrichtung noch nicht bereit ist. Bitte versuche es in ein paar Minuten noch einmal."
+  refused: "Diese Anfrage ist hier nicht erlaubt, deshalb habe ich sie nicht gestartet."

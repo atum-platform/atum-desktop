@@ -301,3 +301,23 @@ def test_rejects_context_larger_than_shared_group_bound(tmp_path: Path) -> None:
     assert oversized_child.returncode == 0
     assert oversized_result["state"] == "failed"
     assert oversized_result["error"] == "context_too_large"
+
+
+def test_unusable_managed_dir_is_a_structured_failure(tmp_path: Path) -> None:
+    home, hermes_home, workspace = tmp_path / "shared", tmp_path / "shared" / ".hermes", tmp_path / "shared" / "workspace"
+    hermes_home.mkdir(parents=True)
+    workspace.mkdir()
+    soul = "Approved identity"
+    (hermes_home / "SOUL.md").write_text(soul)
+    (hermes_home / "managed").write_text("not a directory")
+    result, child = _run(
+        _job("http://127.0.0.1:8080/v1", soul, _context([])),
+        home=home,
+        hermes_home=hermes_home,
+        workspace=workspace,
+    )
+    assert child.returncode == 0
+    assert result["state"] == "failed"
+    assert result["error"] == "invalid_environment"
+    assert str(tmp_path) not in child.stdout
+    assert str(tmp_path) not in child.stderr
