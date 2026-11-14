@@ -481,7 +481,8 @@ def make_tool_result_message(
 
 
 # Tools whose results carry attacker-controllable content; outputs under 32 chars skip wrapping.
-_UNTRUSTED_TOOL_NAMES = frozenset({"web_extract", "web_search"})
+# Gmail, Calendar and Drive text is written by other people (agent/atum_google_injection.py).
+_UNTRUSTED_TOOL_NAMES = frozenset({"web_extract", "web_search", "atum_google", "atum_google_readonly"})
 _UNTRUSTED_TOOL_PREFIXES = ("browser_", "mcp_")
 _UNTRUSTED_WRAP_MIN_CHARS = 32
 

@@ -748,7 +748,7 @@ export const zh = defineLocale({
       pinLimit: '最多置顶5个聊天',
       title: '对话',
       search: '搜索全部内容',
-      searchPlaceholder: '搜索聊天、联系人和应用…',
+      searchPlaceholder: '搜索',
       searching: '正在搜索…',
       channels: '频道和团队',
       messages: '消息',

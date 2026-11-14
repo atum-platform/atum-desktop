@@ -669,6 +669,34 @@ class TestPauseResumeJob:
         assert resume_job(job["id"])["next_run_at"] == slot
         assert job["id"] in {j["id"] for j in get_due_jobs()}
 
+    @pytest.mark.parametrize("zone_name,now_iso,expected", [
+        ("Asia/Ho_Chi_Minh", "2026-11-13T02:00:00+00:00", "2026-11-14T08:00:00+07:00"),
+        ("America/New_York", "2026-03-07T14:00:00+00:00", "2026-03-08T08:00:00-04:00"),
+        ("America/New_York", "2026-10-31T13:00:00+00:00", "2026-11-01T08:00:00-05:00"),
+    ])
+    def test_resume_skip_missed_uses_profile_timezone(self, tmp_cron_dir, monkeypatch,
+                                                      zone_name, now_iso, expected):
+        from zoneinfo import ZoneInfo
+        now = datetime.fromisoformat(now_iso)
+        monkeypatch.setattr("cron.jobs._hermes_now", lambda: now)
+        monkeypatch.setattr("cron.jobs.get_timezone", lambda: ZoneInfo(zone_name))
+        job = create_job(prompt="daily", schedule="0 8 * * *", deliver="local")
+        pause_job(job["id"], reason="owner_pause")
+        update_job(job["id"], {"next_run_at": (now - timedelta(days=4)).isoformat()})
+        resumed = resume_job(job["id"], skip_missed=True)
+        assert resumed["next_run_at"] == expected
+        assert resumed["paused_reason"] is None
+        assert job["id"] not in {j["id"] for j in get_due_jobs()}
+
+    def test_resume_skip_missed_interval_reanchors_from_now(self, tmp_cron_dir, monkeypatch):
+        now = datetime(2026, 11, 13, 9, tzinfo=timezone(timedelta(hours=7)))
+        monkeypatch.setattr("cron.jobs._hermes_now", lambda: now)
+        job = create_job(prompt="routine", schedule="every 1h", deliver="local")
+        pause_job(job["id"], reason="owner_pause")
+        update_job(job["id"], {"next_run_at": (now - timedelta(days=4)).isoformat(),
+                               "last_run_at": (now - timedelta(days=5)).isoformat()})
+        assert resume_job(job["id"], skip_missed=True)["next_run_at"] == (now + timedelta(hours=1)).isoformat()
+
     def test_resume_recomputes_future_or_missing_slot_from_now(self, tmp_cron_dir, monkeypatch):
         """Control: a paused job whose stored slot is still ahead, or created ``--paused`` with no
         slot, resumes onto the next future occurrence as before."""

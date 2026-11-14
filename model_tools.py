@@ -791,7 +791,7 @@ def _pre_dispatch_guards(function_name: str, function_args: dict[str, Any], skip
     """
     from agent.atum_google_fence import egress_refusal
 
-    if fence_message := egress_refusal(function_name, function_args):
+    if fence_message := egress_refusal(function_name, function_args, task_id=ids.task_id):
         return function_args, (
             pre_tool_block_result(fence_message),
             "google_fence",

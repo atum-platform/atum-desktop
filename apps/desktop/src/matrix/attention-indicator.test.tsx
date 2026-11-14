@@ -123,11 +123,12 @@ describe('a device of the person’s that isn’t verified (0.20)', () => {
     )
 
     expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
   })
 })
 
 describe('an assistant whose ChatGPT sign-in ended', () => {
-  it('says so by name and opens that sign-in in one click', () => {
+  it('says so by name and opens that sign-in from its row', async () => {
     const onOpen = vi.fn()
 
     render(
@@ -155,6 +156,7 @@ describe('an assistant whose ChatGPT sign-in ended', () => {
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Needs you: Moon: connect ChatGPT' }))
+    fireEvent.click(await screen.findByRole('button', { name: /^Moon: connect ChatGPT/ }))
     expect(onOpen).toHaveBeenCalledWith({ kind: 'plan_sign_in', principal: 'moon', tone: 'warn' })
   })
 })
@@ -192,7 +194,7 @@ describe('a new sign-in on another device', () => {
 
   const signIn = { deviceId: 'PHONE', name: 'Atum for iPhone on Unknown device' }
 
-  it('is one dot, its words in a tip, and its popover answers for that device', async () => {
+  it('is one bell, its words in a tip, and its popover answers for that device', async () => {
     draw({ ...base, newSignIn: signIn })
 
     const pill = screen.getByRole('button', { name: 'Needs you: New sign-in on an iPhone' })
@@ -202,7 +204,9 @@ describe('a new sign-in on another device', () => {
     fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
     fireEvent.click(pill)
 
-    expect(await screen.findByText('New sign-in on an iPhone. Was this you?')).toBeTruthy()
+    // Under its own label in the bell's list, as in a list of several.
+    expect(await screen.findByText('New sign-in on an iPhone')).toBeTruthy()
+    expect(screen.getByText('Was this you?')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Sign it out' }))
     await waitFor(() => expect(endDeviceSession).toHaveBeenCalledExactlyOnceWith('PHONE'))
     await waitFor(() => expect(screen.getByRole('button', { name: 'It was me' }).hasAttribute('disabled')).toBe(false))
@@ -232,5 +236,50 @@ describe('a new sign-in on another device', () => {
       </I18nProvider>
     )
     expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+  })
+})
+
+// Owner, 2026-11-13: the mark is a bell in the title bar's left side, quiet with nothing to say, a
+// small badge while something needs the person, and its popover lists the same items.
+describe('the notification bell', () => {
+  it('is a quiet bell with no badge while nothing needs the person, its popover says so', async () => {
+    draw(base)
+
+    const bell = screen.getByRole('button', { name: 'Notifications' })
+    expect(bell.querySelector('[data-matrix-attention-badge]')).toBeNull()
+    expect(bell.hasAttribute('data-matrix-attention')).toBe(false)
+
+    fireEvent.click(bell)
+    expect(await screen.findByText('Nothing needs you right now')).toBeTruthy()
+  })
+
+  it('wears a badge in the item’s tone while something needs the person', () => {
+    draw({ ...base, disk: { state: 'critical', freeGb: 1 } })
+
+    const badge = screen.getByRole('button', { name: /Needs you/ }).querySelector('[data-matrix-attention-badge]')
+    expect(badge?.getAttribute('data-matrix-attention-badge')).toBe('danger')
+  })
+
+  it('lists even a single item, which acts only from its own row', async () => {
+    const onOpen = vi.fn()
+
+    render(
+      <I18nProvider configClient={null} initialLocale="vi">
+        <MatrixAttentionIndicator
+          agentName={() => 'Moon'}
+          onOpen={onOpen}
+          snapshot={{
+            ...base,
+            security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
+          }}
+        />
+      </I18nProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cần bạn: Xác nhận máy mới' }))
+    expect(onOpen).not.toHaveBeenCalled()
+    expect(await screen.findByText('Thông báo')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /^Xác nhận máy mới/ }))
+    expect(onOpen).toHaveBeenCalledWith({ kind: 'approval', tone: 'warn' })
   })
 })

@@ -9,6 +9,10 @@ import { matrixAgentAttention, type MatrixAttentionKind } from './agent-attentio
  * the action itself; never the protocol's or the runtime's names.
  */
 export interface AttentionCopy {
+  /** The title bar's bell, and its popover's heading. */
+  notifications: string
+  /** The bell's popover while nothing needs the person. */
+  nothing: string
   /** More than one item: how many. */
   count: (n: number) => string
   items: Record<Exclude<MatrixAttentionKind, 'agent' | 'plan_sign_in' | 'device_unverified' | 'new_sign_in'>, string>
@@ -42,6 +46,8 @@ export interface AttentionCopy {
 
 const copies: Record<Locale, AttentionCopy> = {
   en: {
+    notifications: 'Notifications',
+    nothing: 'Nothing needs you right now',
     count: n => `${n} things need you`,
     items: {
       approval: 'Confirm new device',
@@ -73,6 +79,8 @@ const copies: Record<Locale, AttentionCopy> = {
     composerProtons: 'Top up Protons to continue.'
   },
   vi: {
+    notifications: 'Thông báo',
+    nothing: 'Hiện không có gì cần bạn',
     count: n => `${n} việc cần bạn`,
     items: {
       approval: 'Xác nhận máy mới',
@@ -104,6 +112,8 @@ const copies: Record<Locale, AttentionCopy> = {
     composerProtons: 'Nạp Proton để tiếp tục.'
   },
   ja: {
+    notifications: '通知',
+    nothing: 'いま対応が必要なものはありません',
     count: n => `${n} 件の対応が必要です`,
     items: {
       approval: '新しいデバイスを確認',
@@ -135,6 +145,8 @@ const copies: Record<Locale, AttentionCopy> = {
     composerProtons: '続けるには、Proton をチャージしてください。'
   },
   zh: {
+    notifications: '通知',
+    nothing: '目前没有需要你处理的事项',
     count: n => `${n} 项需要你处理`,
     items: {
       approval: '确认新设备',
@@ -166,6 +178,8 @@ const copies: Record<Locale, AttentionCopy> = {
     composerProtons: '充值 Proton 以继续。'
   },
   'zh-hant': {
+    notifications: '通知',
+    nothing: '目前沒有需要你處理的事項',
     count: n => `${n} 項需要你處理`,
     items: {
       approval: '確認新裝置',

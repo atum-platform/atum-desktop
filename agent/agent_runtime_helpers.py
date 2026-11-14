@@ -2496,7 +2496,7 @@ def _pre_tool_block_message(agent, function_name, function_args, effective_task_
     the same rule ``model_tools.handle_function_call`` applies)."""
     from agent.atum_google_fence import egress_refusal
 
-    if fence_message := egress_refusal(function_name, function_args):
+    if fence_message := egress_refusal(function_name, function_args, task_id=effective_task_id):
         return fence_message, function_args
     try:
         from hermes_cli.plugins import _dispatch_pre_tool_call_hooks

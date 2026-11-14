@@ -320,6 +320,71 @@ def test_real_agent_pet_tool_reaches_completion_without_mutating_its_schema(
         db.close()
 
 
+@pytest.mark.asyncio
+async def test_native_matrix_agent_completion_uses_presentation_hooks(monkeypatch, tmp_path, localhost_provider):
+    """Real agent/provider/tool lifecycle, followed by native ledgered Matrix delivery."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from gateway.config import Platform, PlatformConfig
+    from gateway.platforms.event import MessageEvent
+    from gateway.session import SessionSource
+    from hermes_cli import plugins
+    from hermes_state import SessionDB
+    from plugins.platforms.matrix.adapter import MatrixAdapter
+    from plugins.platforms.matrix import presentation as p
+    from run_agent import AIAgent
+
+    base_url, requests, responses = localhost_provider
+    monkeypatch.setenv('ATUM_PET_INTENTS', 'reply')
+    monkeypatch.setattr('agent.title_generator.maybe_auto_title', lambda *args, **kwargs: None)
+    monkeypatch.setattr('agent.model_metadata.fetch_model_metadata', lambda *args, **kwargs: {})
+    (tmp_path / 'config.yaml').write_text('tools:\n  tool_search:\n    enabled: false\n')
+    manager = plugins.PluginManager()
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: manager._hooks.setdefault(name, []).append(fn)))
+    monkeypatch.setattr(plugins, '_delivery_manager', lambda: manager)
+    responses.extend([
+        {'content': '', 'tool_calls': [{'id': 'wave', 'type': 'function',
+            'function': {'name': 'pet', 'arguments': '{"action":"wave"}'}}]},
+        {'content': 'The native reply carries the pet intent.'},
+    ])
+    db = SessionDB(tmp_path / 'state.db')
+    a = p.adapter_class(MatrixAdapter)(PlatformConfig(enabled=True, token='fixture', extra={}))
+    a.max_message_length = 25
+    a._presentation_box = p.Outbox(tmp_path / 'presentation.sqlite3')
+    a._presentation_turns = {}
+    a._presentation_send = AsyncMock(return_value='$progress')
+    a._client = SimpleNamespace(send_message_event=AsyncMock(return_value='$answer'))
+    event = MessageEvent(text='please wave', message_id='$native', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', chat_type='dm', user_id='@owner'))
+    agent = None
+    try:
+        agent = AIAgent(api_key='test-only', provider='openai', base_url=base_url,
+            model='gpt-4.1-mini', enabled_toolsets=['pet'], platform='matrix', quiet_mode=True,
+            skip_context_files=True, skip_memory=True, skip_background_review=True,
+            session_id='native-pet', session_db=db)
+        agent.compression_enabled = False
+        schema = json.dumps(agent.tools, sort_keys=True)
+        async with a.admission_presentation_scope(event, 'session', 'admission'):
+            result = await asyncio.to_thread(agent.run_conversation, 'please wave')
+        assert result['completed'] and not result['failed'], result
+        delivered, _ = await a.send_final_ledgered(event, 'session', result['final_response'], {}, reply_to='$native')
+        assert delivered.success
+        sent = [call.args[2] for call in a._client.send_message_event.await_args_list]
+        assert len(sent) > 1
+        assert all('io.atum.pet' not in part for part in sent[:-1])
+        assert sent[-1]['io.atum.pet'] == {'v': 1, 'intents': [{'action': 'wave'}]}
+        assert json.dumps(agent.tools, sort_keys=True) == schema
+        assert len(requests) == 2
+        assert requests[0]['messages'][0] == requests[1]['messages'][0]
+    finally:
+        if agent:
+            agent.close()
+        for turn, *_ in list(a._presentation_turns.values()):
+            await turn.end()
+        a._presentation_box.db.close()
+        db.close()
+
+
 @pytest.mark.parametrize("explicit", [False, True])
 def test_config_learning_keeps_explicit_session_identity_distinct(monkeypatch, tmp_path, localhost_provider, explicit):
     from hermes_state import SessionDB

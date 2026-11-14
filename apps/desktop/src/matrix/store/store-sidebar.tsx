@@ -79,6 +79,8 @@ interface MatrixStoreSidebarProps extends MatrixStoreNavigation {
   compact?: boolean
   newChatDisabled?: boolean
   onNewChat?(): void
+  /** The title bar's bell, while this column leads the window's row. */
+  titleBarAction?: ReactNode
   windowControls?: ReactNode
 }
 
@@ -91,6 +93,7 @@ export function MatrixStoreSidebar({
   onShelfChange,
   query,
   shelf,
+  titleBarAction,
   windowControls
 }: MatrixStoreSidebarProps) {
   const { locale } = useI18n()
@@ -119,19 +122,20 @@ export function MatrixStoreSidebar({
       >
         {windowControls}
         <span className="flex-1" />
-        {onNewChat && <MatrixStartChatButton disabled={newChatDisabled} onClick={onNewChat} />}
+        {titleBarAction}
       </div>
-      <div className="px-2 pt-1 pb-2">
+      <div className="flex items-center gap-1.5 px-2 pt-1 pb-2">
         <Input
           aria-label={copy.search}
           className="min-w-0 flex-1 text-(--ak-ink) placeholder:text-(--ak-ink-3)"
-          containerClassName="ak-field ak-field--search h-8 w-full px-3"
+          containerClassName="ak-field ak-field--search h-8 min-w-0 flex-1 px-3"
           onChange={event => onQueryChange(event.target.value)}
           placeholder={copy.search}
           prefix={<SearchIcon aria-hidden className="ak-icon ak-icon--sm" />}
           type="search"
           value={query}
         />
+        {onNewChat && <MatrixStartChatButton disabled={newChatDisabled} onClick={onNewChat} />}
       </div>
       {/* Atum Kit Store board: the shelves sit on the roster panel itself, a hairline between rows,
           never inside a card of their own. */}

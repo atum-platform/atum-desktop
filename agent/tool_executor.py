@@ -681,6 +681,12 @@ def _pre_tool_block(agent, ref: _ToolCallRef):
     """Run ``pre_tool_call`` plugin hooks; returns ``(block_message, final_args)`` with any
     hook-modified args applied. Hook failures do not block, except under Atum's required guard
     marker, where they fail closed (``broken_guard_block``, as in ``handle_function_call``)."""
+    # Inline tools (memory, delegate_task, ...) never reach handle_function_call's guards, so the
+    # Google-injection refusal is applied here too (agent/atum_google_injection.py).
+    from agent.atum_google_injection import refusal as injection_refusal
+
+    if message := injection_refusal(ref.name, ref.args, ref.task_id):
+        return message, ref.args
     try:
         from hermes_cli.plugins import _dispatch_pre_tool_call_hooks
 

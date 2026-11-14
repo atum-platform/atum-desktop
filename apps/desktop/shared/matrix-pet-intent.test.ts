@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { MATRIX_PET_INTENT_PACK_SHA256, parseMatrixPetIntents, parseMatrixPetReply } from './matrix-pet-intent'
+import { MATRIX_PET_INTENT_PACK_SHA256, matrixPetReplyMixin, parseMatrixPetIntents, parseMatrixPetReply } from './matrix-pet-intent'
 
 const pack = new URL('./fixtures/pet-intent/v1/', import.meta.url)
 const contract = JSON.parse(readFileSync(new URL('contract.json', pack), 'utf8'))
@@ -45,5 +45,25 @@ describe('frozen pet intent pack', () => {
     const value = parseMatrixPetIntents({ v: 1, intents: [intent, { action: 'wave' }] })!
     intent.place = 'right'
     expect(value).toEqual([{ action: 'go', place: 'left' }, { action: 'wave' }])
+  })
+
+  it('parses only the last native final part, with playback still opt-in', () => {
+    const pet = { v: 1, intents: [{ action: 'wave' }, { action: 'go', place: 'center' }] }
+    const parts = [
+      { msgtype: 'm.text', body: 'First part', 'io.atum.turn': 'turn' },
+      { msgtype: 'm.text', body: 'Last part', 'io.atum.turn': 'turn', 'io.atum.pet': pet }
+    ]
+    expect(parts.map(parseMatrixPetReply)).toEqual([undefined, pet.intents])
+    expect(matrixPetReplyMixin(pet, true)).toEqual({})
+    expect(matrixPetReplyMixin(pet, true, true)).toEqual({ 'io.atum.pet': pet })
+    expect(matrixPetReplyMixin(pet, false, true)).toEqual({})
+    expect(parseMatrixPetReply({ msgtype: 'm.text', body: 'Cron result' })).toBeUndefined()
+  })
+
+  it('drops malformed cosmetic metadata without changing the text', () => {
+    const content = { msgtype: 'm.text', body: 'Successful answer', 'io.atum.pet': { v: 1, intents: [{ action: 'fly' }] } }
+    expect(parseMatrixPetReply(content)).toBeUndefined()
+    expect(content.body).toBe('Successful answer')
+    expect(matrixPetReplyMixin(content['io.atum.pet'], true, true)).toEqual({})
   })
 })
