@@ -265,6 +265,11 @@ def scan_google_content(text: str) -> Verdict:
     if name == DEFAULT_BACKEND:
         return Verdict(tuple(findings), DEFAULT_BACKEND)
     backend = _BACKENDS.get(name)
+    if backend is None and name == "modelarmor":
+        from agent.atum_modelarmor import scan
+
+        register_backend(name, scan)
+        backend = scan
     if backend is None:
         _warn_once(name, "Google content scanner %r is not available; using the native scan only.")
         return Verdict(tuple(findings), DEFAULT_BACKEND)
