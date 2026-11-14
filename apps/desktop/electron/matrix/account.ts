@@ -4224,7 +4224,7 @@ export class MatrixAccount {
         const response = await fetch(`${resource}/agents/${encodeURIComponent(assistantId)}/routines`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ operation: 'first_run_google', action, locale }),
+          body: JSON.stringify({ operation: 'first_learning', action, locale }),
           signal: AbortSignal.timeout(20_000),
           redirect: 'error',
           cache: 'no-store',
