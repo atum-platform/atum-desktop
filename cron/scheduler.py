@@ -3528,7 +3528,15 @@ def _run_one_job_body(
     from agent.atum_wallet import held as wallet_held, set_funded
     if job.get('deliver') != 'local' and wallet_held():
         set_funded(False)  # Also pause visible jobs created since the first refusal.
-        return True  # Intentional hold, never a daily failure delivery.
+        if job.get('execution_id'):
+            finish_execution(job['execution_id'], success=False, error='wallet_hold')
+        from cron.jobs import release_held_fire
+        claim = job.get('fire_claim') or {}
+        if claim.get('by'):
+            release_held_fire(job['id'], expected_owner=claim['by'])
+        else:
+            clear_run_claim(job['id'])
+        return True  # Intentional skip; no delivery or run count.
     fence = _FireOwnership(job, claim_lost, transport_cancel)
     fire_owner = fence.owner
     _side_effect_fence = fence.side_effect_fence

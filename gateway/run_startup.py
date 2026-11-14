@@ -814,7 +814,7 @@ class GatewayStartupMixin:
         if (last.get("role") != "assistant" or last.get("tool_calls") or not isinstance(last.get("content"), str)
                 or (coerce_epoch(last.get("timestamp")) or 0) < started):
             return None
-        if last.get('wallet_empty') is True:
+        if last.get('display_kind') == 'wallet_empty' or (last.get('display_metadata') or {}).get('wallet_empty') is True:
             from agent.atum_wallet import enabled
             if enabled():
                 return ""  # 0462 owns delivery, including recovery after a crash.

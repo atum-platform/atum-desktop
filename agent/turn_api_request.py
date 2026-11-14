@@ -106,8 +106,8 @@ def build_api_request(
         agent._memory_manager.assert_run_authority()
 
     agent._reset_stream_delivery_tracking()
-    from agent.atum_wallet import held as wallet_held
-    agent._atum_wallet_held_at_request = (agent.provider == 'openrouter' and wallet_held())
+    from agent.atum_wallet import held as wallet_held, managed_route
+    agent._atum_wallet_held_at_request = (managed_route(agent) and wallet_held())
 
     # Per-attempt first-chunk timestamp so a stale value never leaks into post_api_request.
     agent._last_api_first_chunk_at = None

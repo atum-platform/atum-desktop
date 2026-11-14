@@ -42,3 +42,18 @@ Validation: the focused `scripts/run_tests.sh` run passed 223 tests across ten
 cron, console, gateway, and Matrix presentation files. Six intended regressions
 failed before implementation (four schedule cases, CLI flag, routine marker);
 the owner-turn control passed.
+
+
+Cloud wallet recovery uses the same pause/resume store and `skip_missed=True`.
+A listener-route 402 ends silently and records `wallet_empty` in SessionDB display
+metadata; the host outbox owns the top-up notice. Recovery attempts each paused
+job independently and clears the hold even when a terminal job cannot resume.
+Skipped claimed fires finish their execution receipt and release only their own
+fire claim, without delivery or run counting. Paid answers survive hold-update
+failures. Subscription fallback metadata survives streamed responses and is sent
+as a durable Matrix notice related to the acknowledged final answer.
+
+Round-4 focused verification could not run through scripts/run_tests.sh: the
+available environment has no pytest/ruamel and the allowed dependency donors
+contain no test environment. Native Google escape and SessionDB regressions are
+included for the coordinator's dependency-complete verification. No TS edited.

@@ -6,6 +6,10 @@ single top-up notice. The supervisor's positive ledger/provider projection or a 
 request is refill proof; subscription success and an ambiguous owner-notice `none` cannot release a hold.
 """
 from pathlib import Path
+import logging
+import os
+
+logger = logging.getLogger(__name__)
 
 REASON = 'atum-wallet-empty'
 
@@ -31,31 +35,40 @@ def set_funded(funded):
         marker.touch(mode=0o600, exist_ok=True)
     elif not marker.exists():
         return
-    # Native updates serialize with the cron store. Never resume owner-paused jobs.
-    for job in jobs.load_jobs():
-        if funded:
-            if job.get('paused_reason') == REASON:
-                try:
+    # Native updates serialize with the cron store. One damaged/terminal job
+    # cannot prevent recovery of siblings or keep the durable hold latched.
+    try:
+        for job in jobs.load_jobs():
+            try:
+                if funded and job.get('paused_reason') == REASON:
                     jobs.resume_job(job['id'], skip_missed=True)
-                except ValueError:
-                    # Expired one-shots require explicit native rearming. They
-                    # stay paused; never replay them or block recurring recovery.
-                    if job['schedule'].get('kind') != 'once':
-                        raise
-        elif job.get('enabled', True) and job.get('deliver') != 'local':
-            jobs.pause_job(job['id'], reason=REASON)
-    if funded:
-        marker.unlink(missing_ok=True)
+                elif not funded and job.get('enabled', True) and job.get('deliver') != 'local':
+                    jobs.pause_job(job['id'], reason=REASON)
+            except Exception:
+                logger.warning('Wallet job transition failed; continuing recovery')
+    finally:
+        if funded:
+            marker.unlink(missing_ok=True)
+
+
+def managed_route(agent):
+    route = os.environ.get('ATUM_MODEL_BASE_URL') or os.environ.get('ATUM_S2_MODEL_URL')
+    return (bool(route) and str(getattr(agent, 'base_url', '')).rstrip('/') == route.rstrip('/')) or getattr(agent, 'provider', '') == 'openrouter'
 
 
 def refused(agent, status):
-    if status != 402 or getattr(agent, 'provider', '') != 'openrouter' or not enabled():
+    if status != 402 or not managed_route(agent) or not enabled():
         return False
-    set_funded(False)
+    try:
+        set_funded(False)
+    except Exception:
+        logger.warning("Wallet hold update failed")
     return True
 
 
 def succeeded(agent):
-    if (getattr(agent, 'provider', '') == 'openrouter'
-            and getattr(agent, '_atum_wallet_held_at_request', False) and held()):
-        set_funded(True)
+    try:
+        if (managed_route(agent) and getattr(agent, '_atum_wallet_held_at_request', False) and held()):
+            set_funded(True)
+    except Exception:
+        logger.warning('Wallet recovery update failed')

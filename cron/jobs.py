@@ -2794,6 +2794,19 @@ def claim_job_for_fire(
     return _under_fire_fence(job_id, lambda: _with_job(job_id, apply, False))
 
 
+def release_held_fire(job_id: str, *, expected_owner: str) -> bool:
+    """Release a skipped wallet fire without counting a run or clearing a successor."""
+    def apply(jobs, _i, job):
+        claim = job.get('fire_claim')
+        if not isinstance(claim, dict) or claim.get('by') != expected_owner:
+            return False
+        job.pop('fire_claim', None)
+        job.pop('run_claim', None)
+        save_jobs(jobs)
+        return True
+    return _under_fire_fence(job_id, lambda: _with_job(job_id, apply, False))
+
+
 def heartbeat_fire_claim(job_id: str, *, expected_owner: str) -> bool:
     """Refresh an active ``fire_claim`` without extending another owner's lease: an execution may
     outlive the TTL, and the owner check stops a stale runner from refreshing a recovered claim.
