@@ -362,3 +362,17 @@ def test_config_set_on_unparseable_yaml_reports_error_not_crash(tmp_path, monkey
     assert "formatting error" in (result.output or "")
     # The broken-but-recoverable file must survive untouched.
     assert config_path.read_text(encoding="utf-8") == original
+
+
+def test_cron_resume_skip_missed_cli(_isolate_hermes_home, monkeypatch):
+    from datetime import datetime, UTC, timedelta
+    from cron.jobs import create_job, pause_job, update_job, get_job, get_due_jobs
+    now = datetime(2026, 11, 13, 9, tzinfo=UTC)
+    monkeypatch.setattr("cron.jobs._hermes_now", lambda: now)
+    job = create_job(prompt="routine", schedule="every 1h", name="skip-test")
+    pause_job(job["id"], reason="owner_pause")
+    update_job(job["id"], {"next_run_at": (now - timedelta(days=3)).isoformat()})
+    result = HermesConsoleEngine().execute("cron resume skip-test --skip-missed", confirmed=True)
+    assert result.status == "ok", result
+    assert get_job(job["id"])["next_run_at"] == (now + timedelta(hours=1)).isoformat()
+    assert job["id"] not in {j["id"] for j in get_due_jobs()}
