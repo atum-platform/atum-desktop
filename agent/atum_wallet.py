@@ -3,7 +3,8 @@
 Only seeded cloud profiles opt in. A 402 never becomes a daily cron failure or
 an untrusted provider error shown to the owner. The host's 0462 outbox owns the
 single top-up notice. The supervisor's positive ledger/provider projection or a successful OpenRouter
-request is refill proof; subscription success and an ambiguous owner-notice `none` cannot release a hold.
+request is refill proof. Listener responses must carry the host managed-funded
+metadata marker and the request must start while held; subscription success and an ambiguous owner-notice `none` cannot release a hold.
 """
 from pathlib import Path
 import logging
@@ -66,8 +67,15 @@ def refused(agent, status):
     return True
 
 
-def succeeded(agent):
+def succeeded(agent, response=None):
     try:
+        route = os.environ.get('ATUM_MODEL_BASE_URL') or os.environ.get('ATUM_S2_MODEL_URL')
+        listener = bool(route) and str(getattr(agent, 'base_url', '')).rstrip('/') == route.rstrip('/')
+        metadata = getattr(response, 'metadata', None)
+        if isinstance(response, dict):
+            metadata = response.get('metadata')
+        if listener and (not isinstance(metadata, dict) or metadata.get('atum_wallet_funded') is not True):
+            return
         if (managed_route(agent) and getattr(agent, '_atum_wallet_held_at_request', False) and held()):
             set_funded(True)
     except Exception:

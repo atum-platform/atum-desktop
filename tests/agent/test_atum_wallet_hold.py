@@ -118,3 +118,22 @@ class WalletHoldTests(unittest.TestCase):
                 self.assertTrue(last['display_metadata']['wallet_empty'])
             finally:
                 reopened.close()
+
+    def test_listener_subscription_success_cannot_release_managed_hold(self):
+        from agent.atum_wallet import refused, succeeded, held
+        from types import SimpleNamespace
+        route = 'http://127.0.0.1:18793/v1'
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, HERMES_HOME=temp, ATUM_MODEL_BASE_URL=route):
+            Path(temp, 'config.yaml').write_text(json.dumps({'atum_cloud': {'model_key': True}}))
+            agent = SimpleNamespace(provider='custom', base_url=route, _atum_wallet_held_at_request=False)
+            self.assertTrue(refused(agent, 402))
+            funded = SimpleNamespace(metadata={'atum_wallet_funded': True})
+            succeeded(agent, funded)
+            self.assertTrue(held(), 'managed request started before refusal')
+            agent._atum_wallet_held_at_request = True
+            for response in (SimpleNamespace(metadata=None), SimpleNamespace(metadata={}),
+                             SimpleNamespace(metadata={'atum_wallet_funded': False})):
+                succeeded(agent, response)
+                self.assertTrue(held(), 'subscription success must preserve the hold')
+            succeeded(agent, funded)
+            self.assertFalse(held(), 'new managed success proves refill')
