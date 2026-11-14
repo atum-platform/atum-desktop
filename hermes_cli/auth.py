@@ -805,13 +805,23 @@ def _save_private_json(target: Path, data: Any, *, fsync_dir: bool = False, **du
     atomic_json_write(target, data, mode=0o600, fsync_dir=fsync_dir, **dump_kwargs)
 
 
-def _save_auth_store(auth_store: dict[str, Any], target_path: Optional[Path] = None) -> Path:
+def _save_auth_store(auth_store: dict[str, Any], target_path: Optional[Path] = None, *,
+                     _carry_recovery: bool = False) -> Path:
     """Atomically persist *auth_store* (0o600, parent tightened to 0o700) to the active store, or to
     an explicit *target_path* (e.g. the global-root write-through for rotating xAI OAuth grants)."""
     auth_file = target_path if target_path is not None else _auth_file_path()
-    auth_store["version"] = AUTH_STORE_VERSION
-    auth_store["updated_at"] = datetime.now(UTC).isoformat()
-    _save_private_json(auth_file, auth_store, fsync_dir=True)
+    with _auth_store_lock(target_path=auth_file):
+        # A pool loaded before handoff may finish saving afterwards. Never let
+        # that stale snapshot resurrect a rotating grant or erase its tombstone.
+        held = _load_auth_store(auth_file).get("chatgpt_carry", {})
+        if not _carry_recovery and held.get("state") in {"paused", "carried"}:
+            incoming = auth_store.get("chatgpt_carry", {})
+            auth_store["chatgpt_carry"] = ({"state": "carried"} if incoming.get("state") == "carried" else held)
+            auth_store.setdefault("providers", {}).pop("openai-codex", None)
+            auth_store.setdefault("credential_pool", {}).pop("openai-codex", None)
+        auth_store["version"] = AUTH_STORE_VERSION
+        auth_store["updated_at"] = datetime.now(UTC).isoformat()
+        _save_private_json(auth_file, auth_store, fsync_dir=True)
     if target_path is not None:
         # A write-through to the global root must not be masked by the mtime memo: on coarse-mtime
         # filesystems a read-after-write in the same tick would keep serving the pre-write store.
