@@ -10343,6 +10343,64 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
       expect(executionPolicy.read).not.toHaveBeenCalled()
     })
 
+    it.each([true, false])('keeps chat usable after a Store subscription lapses without calling retired writers (cloudOnly=%s)', async cloudOnly => {
+      const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
+      const home = migratedHome()
+      const agentHome: MatrixAgentHomeBridge = {
+        read: vi.fn(async () => home),
+        preflight: vi.fn(),
+        move: vi.fn(),
+        cancel: vi.fn(),
+        model: vi.fn(),
+        prepare: vi.fn()
+      }
+      const { bridge, emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, undefined, {}, cloudOnly)
+      bridge.agentHome = agentHome
+      bridge.executionPolicy = executionPolicy
+      const entitlement = {
+        id: '00000000-0000-4000-8000-4e214e0bd003',
+        itemId: 'agent/research',
+        kind: 'agent' as const,
+        state: 'active' as const,
+        assistantId: principal,
+        delivery: 'cloud' as const,
+        grantedAt: '2026-11-01T00:00:00Z',
+        subscription: {
+          state: 'active' as const,
+          renewAt: '2026-12-01T00:00:00Z',
+          priceMicroProtons: 1_000_000,
+          offerVersion: 1
+        }
+      }
+      const active: MatrixSnapshot = {
+        ...snapshot,
+        agents: snapshot.agents?.map(agent => ({ ...agent, home })),
+        store: { state: 'ready', items: [], entitlements: [entitlement], purchases: [], pending: [] }
+      }
+      emit(active)
+      const composer = await screen.findByRole('textbox', { name: COMPOSER })
+      fireEvent.change(composer, { target: { value: 'Keep this draft through renewal' } })
+
+      emit({
+        ...active,
+        store: {
+          ...active.store!,
+          entitlements: [{ ...entitlement, subscription: { ...entitlement.subscription, state: 'lapsed' } }]
+        }
+      })
+
+      expect((composer as HTMLTextAreaElement).value).toBe('Keep this draft through renewal')
+      expect(document.querySelector('[data-matrix-agent-home]')).toBeNull()
+      expect(document.querySelector('[data-matrix-execution-policy]')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+      await waitFor(() => expect(bridge.sendTurn).toHaveBeenCalledWith('!main:test', 'Keep this draft through renewal'))
+      for (const method of Object.values(agentHome)) {
+        expect(method).not.toHaveBeenCalled()
+      }
+      expect(executionPolicy.read).not.toHaveBeenCalled()
+      expect(executionPolicy.save).not.toHaveBeenCalled()
+    })
+
     it.each([
       ['the cloud alone', ['cloud'] as Array<'cloud' | typeof MAC_A>],
       ['the cloud and this one Mac', ['cloud', MAC_A] as Array<'cloud' | typeof MAC_A>]
