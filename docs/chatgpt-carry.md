@@ -52,3 +52,10 @@ The assembled desktop also types backend command arguments and the announcement
 process, and keeps the
 validated stored session identifier narrowed across attachment recovery callbacks
 so all desktop TypeScript projects can be checked.
+
+Validation of the assembled changes passed the client boundary check, all four
+TypeScript projects, lint with zero errors, focused desktop tests, and 117 Python
+tests through the canonical runner. Full UI verification remains incomplete: the
+run was stopped when available disk fell below 5 GiB, as required by the build
+resource limit. Run the full UI project, including the serial device-approval
+suite, on a host with sufficient free space before treating the train as ready.
