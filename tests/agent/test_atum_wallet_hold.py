@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from datetime import UTC
 
 
 class WalletHoldTests(unittest.TestCase):
@@ -55,7 +56,7 @@ class WalletHoldTests(unittest.TestCase):
                 expired = jobs.create_job('one-shot', '2030-01-01T00:00:00+00:00', deliver='origin')
                 owner = jobs.create_job('owner', 'every 1h', deliver='origin', paused=True, paused_reason='owner')
                 set_funded(False)
-                now = datetime(2030, 1, 3, tzinfo=timezone.utc)
+                now = datetime(2030, 1, 3, tzinfo=UTC)
                 jobs.update_job(visible['id'], {'next_run_at': (now-timedelta(days=2)).isoformat()})
                 with patch.object(jobs, '_hermes_now', lambda: now):
                     set_funded(True)  # no AIAgent, user turn or provider request
