@@ -385,7 +385,9 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
             async def send(self, *args, **kwargs):
                 return 'sent'
             async def send_final_ledgered(self, *args, **kwargs):
-                return await self.send('!room', 'Answer')
+                from gateway.platforms.base import SendResult
+                message_id = await self.send('!room', 'Answer')
+                return SendResult(success=True, message_id=message_id), self
         adapter = p.adapter_class(Base)()
         box = p.Outbox(Path(self.native_home.name) / 'midturn.sqlite3')
         turn = p.Turn(box, Server(), '!room', '$source', '@owner')

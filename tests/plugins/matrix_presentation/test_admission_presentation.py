@@ -96,7 +96,9 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
     writes, interrupts = [], []
     class Base:
         async def send_final_ledgered(self, event, *args, **kwargs):
-            return await self.send(event.source.chat_id, 'answer', reply_to=event.message_id)
+            from gateway.platforms.base import SendResult
+            message_id = await self.send(event.source.chat_id, 'answer', reply_to=event.message_id)
+            return SendResult(success=True, message_id=message_id), self
         async def send(self, room, text, **kwargs):
             return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
         async def _send_room_message(self, room, content, **kwargs):
@@ -294,7 +296,9 @@ async def test_native_execution_trigger_on_progress_and_final(tmp_path, schedule
         async def send(self, room, text, **kwargs):
             return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
         async def send_final_ledgered(self, event):
-            return await self.send(event.source.chat_id, 'answer')
+            from gateway.platforms.base import SendResult
+            message_id = await self.send(event.source.chat_id, 'answer')
+            return SendResult(success=True, message_id=message_id), self
     a = p.adapter_class(Base)()
     a._presentation_box = p.Outbox(tmp_path / 'box.sqlite3')
     a._presentation_turns = {}
