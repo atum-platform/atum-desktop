@@ -311,6 +311,7 @@ class ClientLifecycleMixin:
         return True
 
     def _ensure_primary_openai_client(self, *, reason: str) -> Any:
+        ClientLifecycleMixin._adopt_borrowed_codex_credentials(self)
         with self._openai_client_lock():
             client = getattr(self, "client", None)
             if client is not None and not self._is_openai_client_closed(client):
@@ -567,9 +568,32 @@ class ClientLifecycleMixin:
         self._sync_client_kwargs_credentials()
         return self._replace_primary_openai_client(reason=reason)
 
+    def _adopt_borrowed_codex_credentials(self, *, force: bool = False) -> Optional[bool]:
+        pool = getattr(self, "_credential_pool", None)
+        if pool is None or self.provider != "openai-codex":
+            return None
+        entry = next((e for e in pool.entries()
+                      if e.id == getattr(self, "_credential_pool_entry_id", None)), None)
+        if entry is None or not entry.borrowed:
+            return None
+        import time
+        expiry = (entry.expires_at_ms or 0) / 1000
+        margin = max(600, float(entry.extra.get("lifetime_seconds", 0)) * .2)
+        if not force and expiry - time.time() > margin:
+            return False
+        stored = pool.adopt_borrowed(entry)
+        if stored is None or stored.revision <= entry.revision:
+            return False
+        if (stored.expires_at_ms or 0) / 1000 <= time.time():
+            return False
+        return self._swap_credential(stored)
+
     def _try_refresh_codex_client_credentials(self, *, force: bool = True) -> bool:
         if self.api_mode != "codex_responses" or self.provider not in {"openai-codex", "xai-oauth"}:
             return False
+        borrowed = ClientLifecycleMixin._adopt_borrowed_codex_credentials(self, force=force)
+        if borrowed is not None:
+            return borrowed
         # No silent account swap: a non-singleton credential (manual pool entry, explicit api_key=) must not be
         # replaced by the device_code singleton's tokens — the pool's reactive recovery owns that case.
         try:

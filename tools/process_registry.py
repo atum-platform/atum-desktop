@@ -554,6 +554,7 @@ class ProcessSession:
     cwd: Optional[str] = None
     started_at: float = 0.0                     # time.time() of spawn
     host_start_time: Optional[int] = None       # kernel start ticks (/proc/<pid>/stat f22) — PID-reuse guard
+    host_boot_epoch: Optional[str] = None       # instantiation that recorded the PID (boot_id + PID-1 ticks)
     exited: bool = False
     exited_at: float = 0.0                      # time.time() of the FIRST move to finished (0 = unknown)
     exit_code: Optional[int] = None             # None while running
@@ -652,7 +653,7 @@ _WATCHER_ROUTE_KEYS = ("platform", "chat_id", "user_id", "user_name", "thread_id
 # Session fields persisted verbatim in the crash-recovery checkpoint (plus
 # ``session_id``; ``command`` is redacted and ``owner_task_id`` defaulted on write).
 _CHECKPOINT_FIELDS = (
-    "command", "pid", "pid_scope", "host_start_time", "systemd_unit", "wsl_chain", "cwd",
+    "command", "pid", "pid_scope", "host_start_time", "host_boot_epoch", "systemd_unit", "wsl_chain", "cwd",
     "started_at", "task_id", "owner_task_id", "session_key",
     *(f"watcher_{k}" for k in _WATCHER_ROUTE_KEYS), "watcher_interval",
     "parent_session_id", "notify_on_complete", "completion_output_chars", "watch_patterns",
@@ -967,6 +968,15 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         except Exception:
             return None
 
+    @staticmethod
+    def _process_boot_epoch() -> Optional[str]:
+        """This process's instantiation witness, or None where the host has none (macOS/Windows)."""
+        try:
+            from gateway.status import get_process_epoch
+            return get_process_epoch()
+        except Exception:
+            return None
+
     @classmethod
     def _host_pid_is_ours(cls, pid: Optional[int], expected_start: Optional[int]) -> bool:
         """True only if ``pid`` is alive AND still the process we spawned.
@@ -977,7 +987,8 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         return cls._is_host_pid_alive(pid) and (
             expected_start is None or cls._safe_host_start_time(pid) == expected_start)
 
-    def _detached_host_fate(self, pid: Optional[int], expected_start: Optional[int]) -> str:
+    def _detached_host_fate(self, pid: Optional[int], expected_start: Optional[int],
+                            expected_epoch: Optional[str] = None) -> str:
         """How a recovered host PID should be supervised.
 
         ``running`` — alive and still ours (start time matches, no baseline, or
@@ -985,7 +996,16 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         ``reused`` — alive, and the start time positively differs. The number
         belongs to someone else; close our entry and never signal that PID.
         ``gone`` — the PID is not alive. Prune it; no exit status was collected.
+
+        A checkpoint recorded in another instantiation is decided before either probe: its
+        process died with that boot, and a fresh sandbox reuses both the PID and the
+        boot-relative start ticks, so the start-time comparison alone would re-adopt the
+        stranger (a live number is ``reused``, never signalled).
         """
+        from gateway.status import process_epoch_conflicts
+
+        if process_epoch_conflicts({"boot_epoch": expected_epoch}):
+            return "reused" if self._is_host_pid_alive(pid) else "gone"
         if self._host_pid_is_ours(pid, expected_start):
             return "running"
         if not pid or not self._is_host_pid_alive(pid):
@@ -1005,7 +1025,7 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         """
         if session is None or session.exited or not session.detached or session.pid_scope != "host" or session.output_log:
             return session  # a log-backed adoption's reader collects the recorded exit itself
-        fate = self._detached_host_fate(session.pid, session.host_start_time)
+        fate = self._detached_host_fate(session.pid, session.host_start_time, session.host_boot_epoch)
         if fate == "running":
             return session
         if fate == "gone":
@@ -1168,6 +1188,7 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         pty_proc = _PtyProcessCls.spawn(pty_argv, cwd=session.cwd, env=pty_env, dimensions=(30, 120))
         session.pid = pty_proc.pid
         session.host_start_time = self._safe_host_start_time(session.pid)
+        session.host_boot_epoch = self._process_boot_epoch()
         session._pty = pty_proc
         self._track_started(session, self._pty_reader_loop, f"proc-pty-reader-{session.id}")
         return session
@@ -1232,6 +1253,7 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         session.process, session.output_log = proc, str(log or "")
         session.pid = proc.pid
         session.host_start_time = self._safe_host_start_time(session.pid)
+        session.host_boot_epoch = self._process_boot_epoch()
         try:
             self._track_started(session, self._log_reader_loop if log else self._reader_loop, f"proc-reader-{session.id}")
         except Exception:
@@ -1267,6 +1289,7 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
         session.process = proc
         session.pid = proc.pid
         session.host_start_time = self._safe_host_start_time(session.pid)
+        session.host_boot_epoch = self._process_boot_epoch()
         session.notify_on_complete = notify_on_complete
         if output_so_far:
             session.append_output(output_so_far)
@@ -2255,7 +2278,8 @@ class ProcessRegistry(ProcessTerminationMixin, ProcessCheckpointMixin, ProcessOu
             # If this recovered session also carries an owned systemd scope, stop that scope before
             # returning: a daemonized descendant may still be alive there even though the wrapper PID exited
             # or was recycled across the gateway restart (#70716, teknium1 review).
-            if self._detached_host_fate(session.pid, session.host_start_time) != "running":
+            if self._detached_host_fate(session.pid, session.host_start_time,
+                                        session.host_boot_epoch) != "running":
                 scope_stopped = self._stop_scope(session)
                 with session._lock:
                     output = _completion_output(session)

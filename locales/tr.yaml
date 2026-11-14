@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "Büyük model: {name} limitine ulaşıldı ({resets})."
   large_notice_limit_stops: "Büyük model: {name} limitine ulaşıldı ({resets}), o zamana kadar çalışmaz."
   large_notice_percent: "Büyük model: mesaj başına planından daha fazla kullanım harcar. Aylık büyük model limiti: {percent} kullanıldı."
+
+turn_admission:
+  configuration_error: "Kurulumumun bir kısmı hazır olmadığı için şu an başlayamıyorum. Lütfen birkaç dakika sonra tekrar deneyin."
+  refused: "Bu isteğe burada izin verilmiyor, bu yüzden başlatmadım."

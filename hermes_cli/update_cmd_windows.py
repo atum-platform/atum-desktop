@@ -57,11 +57,11 @@ def _planned_stop_markers(running_pids, profile_processes, service_gateway_pids)
 def _write_update_planned_stop_marker(profile_path: Path, pid: int) -> bool:
     """Write a planned-stop marker into a specific profile home."""
     try:
-        from gateway.status import _get_process_start_time
+        from gateway.status import _get_process_start_time, get_process_epoch
         from utils import atomic_json_write
         atomic_json_write(
             _planned_stop_marker_path(profile_path),
-            {"target_pid": pid, "target_start_time": _get_process_start_time(pid), "stopper_pid": os.getpid(),
+            {"boot_epoch": get_process_epoch(), "target_pid": pid, "target_start_time": _get_process_start_time(pid), "stopper_pid": os.getpid(),
              "written_at": datetime.now(UTC).isoformat()},
             indent=None, separators=(",", ":"),
         )

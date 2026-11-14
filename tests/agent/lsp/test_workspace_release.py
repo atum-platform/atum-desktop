@@ -76,6 +76,11 @@ def project(tmp_path: Path) -> Path:
     _git("clone", "-q", str(origin), str(repo), cwd=tmp_path)
     _git("config", "user.email", "t@example.com", cwd=repo)
     _git("config", "user.name", "t", cwd=repo)
+    # Host hooks and signing policy must not change this disposable fixture commit.
+    hooks = repo / ".git" / "fixture-hooks"
+    hooks.mkdir()
+    _git("config", "core.hooksPath", str(hooks), cwd=repo)
+    _git("config", "commit.gpgsign", "false", cwd=repo)
     _seed_project(repo)
     _git("add", "-A", cwd=repo)
     _git("commit", "-q", "-m", "init", cwd=repo)

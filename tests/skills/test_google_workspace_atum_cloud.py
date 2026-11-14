@@ -109,7 +109,7 @@ def test_the_check_script_accepts_the_file_and_names_what_the_token_lacks(home, 
     assert "gmail.modify" in out and "documents" in out
 
 
-def test_an_expired_token_is_not_refreshed_and_says_to_wait_for_the_next_turn(home, capsys):
+def test_an_expired_token_is_not_refreshed_and_routes_to_native_tool(home, capsys):
     token_path = home / "google_token.json"
     token_path.write_text(json.dumps(_managed_token(_expiry(-timedelta(minutes=5)))))
     before = token_path.read_bytes()
@@ -120,7 +120,7 @@ def test_an_expired_token_is_not_refreshed_and_says_to_wait_for_the_next_turn(ho
 
     assert exit_info.value.code == 1
     err = capsys.readouterr().err
-    assert "send another message" in err and "setup.py" in err
+    assert "atum_google" in err and "setup.py" in err
     assert ACCESS not in err
     assert token_path.read_bytes() == before
 
@@ -137,7 +137,7 @@ def test_the_gws_bridge_does_not_refresh_an_expired_managed_token_either(home, c
     with patch("urllib.request.urlopen", side_effect=AssertionError("no refresh from the sandbox")), pytest.raises(SystemExit):
         bridge.get_valid_token()
 
-    assert "send another message" in capsys.readouterr().err
+    assert "atum_google" in capsys.readouterr().err
 
     (home / "google_token.json").write_text(json.dumps(_managed_token(_expiry(timedelta(minutes=55)))))
     assert bridge.get_valid_token() == ACCESS

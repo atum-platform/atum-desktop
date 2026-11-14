@@ -786,10 +786,49 @@ def _record_argv() -> list[str]:
     return argv
 
 
+def get_process_epoch() -> Optional[str]:
+    """Reuse the native drain/host identity across container and kernel restarts."""
+    from gateway.drain_control import current_instantiation_epoch
+    return current_instantiation_epoch() or None
+
+
+def process_epoch_matches(record: dict, key: str = "boot_epoch") -> bool:
+    current = get_process_epoch()
+    # Linux legacy records cannot prove which sandbox wrote them. A fresh writer
+    # stamps the identity; other platforms retain their process-birth guard.
+    return (not record.get(key)) if current is None else record.get(key) == current
+
+
+def process_epoch_conflicts(record: dict, key: str = "boot_epoch") -> bool:
+    """True only when *record* names a DIFFERENT instantiation than this one.
+
+    The bounded half of :func:`process_epoch_matches` for the records read by durable owners that
+    are not gateway pid records — the managed local-model runtime's state file
+    (``boot_epoch``) and the background-process checkpoint (``host_boot_epoch``). A record that
+    names its boot is foreign the moment that name changes (a fresh sandbox reuses the PID and the
+    boot-relative start ticks, so the birth guards alone accept a stranger); a record written
+    before the witness existed names nothing and keeps the process-birth checks its reader
+    already had, because each of those writers stamps the witness on its next write and the
+    unproven population only shrinks.
+    """
+    return bool(record.get(key)) and not process_epoch_matches(record, key)
+
+
+def process_epoch_unproven(record: dict, key: str = "boot_epoch") -> bool:
+    """True when *record* carries no boot witness at all on a host that can supply one.
+
+    For an owner whose ONLY identity is the witness-shaped fingerprint (a Kanban worker row: pid
+    plus boot-relative start ticks) a legacy value cannot prove which instantiation wrote it — the
+    recurrence this fixes, where a fresh sandbox reuses both the pid and the tick value. Hosts
+    with no witness to read (macOS/Windows) keep their existing start-time answer.
+    """
+    return get_process_epoch() is not None and not record.get(key)
+
+
 def _build_pid_record() -> dict:
     return {
         "pid": os.getpid(), "kind": _GATEWAY_KIND, "argv": _record_argv(),
-        "start_time": _get_process_start_time(os.getpid()),
+        "start_time": _get_process_start_time(os.getpid()), "boot_epoch": get_process_epoch(),
         # Scoped locks are machine-global; the owner's home lets a cross-profile
         # --replace place its takeover marker where the target will read it.
         "hermes_home": str(_canonical_hermes_home(_get_process_hermes_home())),
@@ -885,12 +924,16 @@ def _start_times_conflict(recorded_start: Any, current_start: Any) -> bool:
     return None not in (recorded_start, current_start) and current_start != recorded_start
 
 
-def _live_pid_from_record(record: Optional[dict[str, Any]]) -> Optional[int]:
+def _live_pid_from_record(record: Optional[dict[str, Any]], *, lock_verified: bool = False) -> Optional[int]:
     """Record's PID when it is alive and passes the start-time PID-reuse guard, else None."""
     pid = _pid_from_record(record)
-    if pid is None or not _pid_exists(pid):
+    if pid is None or not process_epoch_matches(record) or not _pid_exists(pid):
         return None
-    if _start_times_conflict(record.get("start_time"), _get_process_start_time(pid)):
+    current_start = _get_process_start_time(pid)
+    recorded_start = record.get("start_time")
+    if not lock_verified and (recorded_start is None or current_start is None):
+        return None
+    if _start_times_conflict(recorded_start, current_start):
         return None
     return pid
 
@@ -1120,7 +1163,7 @@ def _prepare_runtime_status_update(
                 if not isinstance(k, str) or ":" not in k
                 or (drop_prefix is not None and not k.startswith(drop_prefix))
             }
-        payload.update({key: current_record[key] for key in ("kind", "pid", "argv", "start_time")})
+        payload.update({key: current_record[key] for key in ("kind", "pid", "argv", "start_time", "boot_epoch")})
         payload["updated_at"] = _utc_now_iso()
         payload.update(_get_code_identity_fields())
         _apply_set_fields(payload, (
@@ -1152,7 +1195,7 @@ def _prepare_runtime_status_update(
             ))
             platform_payload.update(
                 updated_at=_utc_now_iso(), writer_pid=current_record["pid"],
-                writer_start_time=current_record["start_time"])
+                writer_start_time=current_record["start_time"], writer_boot_epoch=current_record["boot_epoch"])
             payload["platforms"][platform] = platform_payload
         _runtime_status_state = payload
         return path, payload, previous_payload
@@ -1573,7 +1616,7 @@ def _acquire_scoped_lock_at(
         # on-disk record has ``start_time: null`` (older writers / psutil failure at first write) while the
         # freshly built record has a real value — the gateway then reports itself as the foreign squatter of
         # its own token (#81468).
-        if existing_pid == os.getpid():
+        if existing_pid == os.getpid() and process_epoch_matches(existing):
             _write_json_file(lock_path, record)
             return True, existing
         if not _scoped_lock_record_is_stale(existing, existing_pid):
@@ -1635,6 +1678,9 @@ def _read_live_pid_marker(path: Path, ttl_s: int) -> Optional[tuple[dict[str, An
     if not record:
         return None
     target_pid = _pid_from_record(record, "target_pid")
+    if not process_epoch_matches(record):
+        _unlink_quietly(path)
+        return None
     if target_pid is None or _marker_is_stale(record.get("written_at") or "", ttl_s):
         if record.get("accepted") is not True or not _update_pause_on_disk():
             _unlink_quietly(path)
@@ -1692,7 +1738,7 @@ def write_takeover_marker(
         if target_start_time is _UNSET:
             target_start_time = _get_process_start_time(target_pid)
         return _write_marker(_get_takeover_marker_path(marker_home), {
-            "target_pid": target_pid, "target_start_time": target_start_time,
+            "boot_epoch": get_process_epoch(), "target_pid": target_pid, "target_start_time": target_start_time,
             "target_hermes_home": str(marker_home), "replacer_pid": os.getpid(),
             "replacer_hermes_home": str(_canonical_hermes_home(_get_process_hermes_home())),
             "written_at": _utc_now_iso(),
@@ -1724,7 +1770,8 @@ def _validated_scoped_lock_gateway_owner(record: dict[str, Any]) -> Optional[tup
     """Resolve a live scoped-lock owner to a verified ``(pid, start_time, home)``. A lock file is
     only a claim: the record, the target home's PID record, and the live process must agree on
     PID, start-time, gateway identity, and home. Missing legacy metadata fails closed."""
-    if not isinstance(record, dict) or not _record_looks_like_gateway(record):
+    if (not isinstance(record, dict) or not process_epoch_matches(record)
+            or not _record_looks_like_gateway(record)):
         return None
     owner_pid = _pid_from_record(record)
     owner_start_time = record.get("start_time")
@@ -1746,7 +1793,7 @@ def _validated_scoped_lock_gateway_owner(record: dict[str, Any]) -> Optional[tup
     pid_record = _read_json_file(target_home / "gateway.pid") or {}
     pid_record_home = pid_record.get("hermes_home")
     if (
-        not _record_looks_like_gateway(pid_record)
+        not process_epoch_matches(pid_record) or not _record_looks_like_gateway(pid_record)
         or _pid_from_record(pid_record) != owner_pid
         or pid_record.get("start_time") != owner_start_time
         or not isinstance(pid_record_home, str)
@@ -1907,7 +1954,7 @@ def write_planned_stop_marker(target_pid: int) -> bool:
     so service managers revive the gateway; the CLI writes this first so a deliberate stop exits
     cleanly."""
     return _write_marker(_get_planned_stop_marker_path(), {
-        "target_pid": target_pid, "target_start_time": _get_process_start_time(target_pid),
+        "boot_epoch": get_process_epoch(), "target_pid": target_pid, "target_start_time": _get_process_start_time(target_pid),
         "stopper_pid": os.getpid(), "written_at": _utc_now_iso(),
     })
 
@@ -1993,7 +2040,7 @@ def get_running_pid(
         saw_live_pid = False
         foreign_live_pid = False
         for record in records:
-            pid = _live_pid_from_record(record)
+            pid = _live_pid_from_record(record, lock_verified=True)
             if pid is None:
                 continue
             home_ok = (
@@ -2060,7 +2107,8 @@ def get_running_pid_identity_strict(pid_path: Path) -> Optional[tuple[int, float
             raise RuntimeError("gateway process identity changed")
     except (TypeError, ValueError) as exc:
         raise RuntimeError("gateway creation time is malformed") from exc
-    if not all(_record_matches_live_gateway_pid(record, pid) for record in records):
+    if not all(process_epoch_matches(record) and _record_matches_live_gateway_pid(record, pid)
+               for record in records):
         raise RuntimeError("runtime metadata does not identify a live gateway")
     current = float(current_start)
     if not _IS_WINDOWS:

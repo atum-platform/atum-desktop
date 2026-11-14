@@ -2,6 +2,8 @@ import type { Locale } from '@/i18n'
 
 import type { MatrixDriveIssue, MatrixDriveProblem, MatrixDriveState } from '../../shared/matrix-drive'
 
+import type { DriveKindFamily, MatrixDriveGroupsCopy } from './drive-groups'
+
 export interface MatrixDriveFactsCopy {
   storageLabel: string
   storage: string
@@ -54,16 +56,23 @@ interface DriveCopy {
   refreshing: string
   reveal: string
   search: string
+  searchScope: { title: string; drive: string; searching: string }
   searchEmpty: string
   viewMode: string
   listView: string
   gridView: string
+  columnView: string
+  galleryView: string
+  /** Finder's Group By: the toolbar button, its choices, and the group titles. */
+  groups: MatrixDriveGroupsCopy & { title: string; none: string; kind: string; modified: string; size: string }
+  /** One item's kind, as the column view's preview and the gallery's caption name it. */
+  itemKinds: Record<DriveKindFamily, string>
   forward: string
   quickLook: string
   /** Finder's sidebar: Recents, the Drive's top-level folders under Favorites, the Drive under Locations. */
   browser: { recents: string; recentFiles: string; favorites: string; locations: string; drive: string }
   /** An item's sync badge, said aloud and in its tooltip. */
-  sync: { synced: string; pending: string; paused: string }
+  sync: { synced: string; pending: string; paused: string; localOnly: string; conflict: string; error: string; uploading: string }
   preview: {
     ask: string
     open: string
@@ -161,10 +170,59 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Refreshing…',
     reveal: 'Show in Finder',
     search: 'Search Drive',
+    searchScope: { title: 'Search:', drive: 'This Drive', searching: 'Searching Drive…' },
     searchEmpty: 'No files match this search.',
     viewMode: 'View',
     listView: 'List',
     gridView: 'Icons',
+    columnView: 'Columns',
+    galleryView: 'Gallery',
+    groups: {
+      title: 'Group',
+      none: 'None',
+      kind: 'Kind',
+      modified: 'Date Modified',
+      size: 'Size',
+      kinds: {
+        folder: 'Folders',
+        image: 'Images',
+        pdf: 'PDF Documents',
+        document: 'Documents',
+        text: 'Text Documents',
+        spreadsheet: 'Spreadsheets',
+        presentation: 'Presentations',
+        movie: 'Movies',
+        music: 'Music',
+        archive: 'Archives',
+        code: 'Code',
+        other: 'Other'
+      },
+      dates: { today: 'Today', yesterday: 'Yesterday', week: 'Previous 7 Days', month: 'Previous 30 Days' },
+      sizes: {
+        gb: 'More than 1 GB',
+        hundredsMb: '100 MB to 1 GB',
+        tensMb: '10 to 100 MB',
+        mb: '1 to 10 MB',
+        hundredsKb: '100 KB to 1 MB',
+        small: 'Less than 100 KB',
+        empty: 'Empty',
+        folders: 'Folders'
+      }
+    },
+    itemKinds: {
+      folder: 'Folder',
+      image: 'Image',
+      pdf: 'PDF document',
+      document: 'Document',
+      text: 'Text document',
+      spreadsheet: 'Spreadsheet',
+      presentation: 'Presentation',
+      movie: 'Movie',
+      music: 'Audio',
+      archive: 'Archive',
+      code: 'Code',
+      other: 'File'
+    },
     forward: 'Forward',
     quickLook: 'Quick Look',
     browser: {
@@ -174,7 +232,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: 'Locations',
       drive: 'Atum Drive'
     },
-    sync: { synced: 'Synced', pending: 'Waiting to sync', paused: 'Syncs when Drive is back' },
+    sync: { synced: 'Synced', pending: 'Waiting to sync', paused: 'Syncs when Drive is back', localOnly: 'Only on this Mac', conflict: 'Sync conflict', error: 'Couldn’t sync', uploading: 'Uploading' },
     preview: {
       ask: 'Ask Atum about this',
       open: 'Open',
@@ -339,10 +397,59 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: 'Đang làm mới…',
     reveal: 'Hiện trong Finder',
     search: 'Tìm trong Drive',
+    searchScope: { title: 'Tìm trong:', drive: 'Drive này', searching: 'Đang tìm trong Drive…' },
     searchEmpty: 'Không có tệp nào khớp với tìm kiếm này.',
     viewMode: 'Kiểu xem',
     listView: 'Danh sách',
     gridView: 'Biểu tượng',
+    columnView: 'Cột',
+    galleryView: 'Bộ sưu tập',
+    groups: {
+      title: 'Nhóm',
+      none: 'Không nhóm',
+      kind: 'Loại',
+      modified: 'Ngày sửa',
+      size: 'Kích thước',
+      kinds: {
+        folder: 'Thư mục',
+        image: 'Hình ảnh',
+        pdf: 'Tài liệu PDF',
+        document: 'Tài liệu',
+        text: 'Tài liệu văn bản',
+        spreadsheet: 'Bảng tính',
+        presentation: 'Bản trình bày',
+        movie: 'Phim',
+        music: 'Âm thanh',
+        archive: 'Tệp nén',
+        code: 'Mã nguồn',
+        other: 'Khác'
+      },
+      dates: { today: 'Hôm nay', yesterday: 'Hôm qua', week: '7 ngày qua', month: '30 ngày qua' },
+      sizes: {
+        gb: 'Trên 1 GB',
+        hundredsMb: '100 MB đến 1 GB',
+        tensMb: '10 đến 100 MB',
+        mb: '1 đến 10 MB',
+        hundredsKb: '100 KB đến 1 MB',
+        small: 'Dưới 100 KB',
+        empty: 'Trống',
+        folders: 'Thư mục'
+      }
+    },
+    itemKinds: {
+      folder: 'Thư mục',
+      image: 'Hình ảnh',
+      pdf: 'Tài liệu PDF',
+      document: 'Tài liệu',
+      text: 'Tài liệu văn bản',
+      spreadsheet: 'Bảng tính',
+      presentation: 'Bản trình bày',
+      movie: 'Phim',
+      music: 'Âm thanh',
+      archive: 'Tệp nén',
+      code: 'Mã nguồn',
+      other: 'Tệp'
+    },
     forward: 'Tiến tới',
     quickLook: 'Xem nhanh',
     browser: {
@@ -352,7 +459,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: 'Vị trí',
       drive: 'Atum Drive'
     },
-    sync: { synced: 'Đã đồng bộ', pending: 'Đang chờ đồng bộ', paused: 'Sẽ đồng bộ khi Drive hoạt động lại' },
+    sync: { synced: 'Đã đồng bộ', pending: 'Đang chờ đồng bộ', paused: 'Sẽ đồng bộ khi Drive hoạt động lại', localOnly: 'Chỉ trên máy Mac này', conflict: 'Xung đột đồng bộ', error: 'Không đồng bộ được', uploading: 'Đang tải lên' },
     preview: {
       ask: 'Hỏi Atum về tệp này',
       open: 'Mở',
@@ -517,10 +624,59 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '更新中…',
     reveal: 'Finder に表示',
     search: 'Drive を検索',
+    searchScope: { title: '検索範囲:', drive: 'この Drive', searching: 'Drive を検索中…' },
     searchEmpty: 'この検索に一致するファイルはありません。',
     viewMode: '表示',
     listView: 'リスト',
     gridView: 'アイコン',
+    columnView: 'カラム',
+    galleryView: 'ギャラリー',
+    groups: {
+      title: 'グループ',
+      none: 'なし',
+      kind: '種類',
+      modified: '変更日',
+      size: 'サイズ',
+      kinds: {
+        folder: 'フォルダー',
+        image: '画像',
+        pdf: 'PDF 書類',
+        document: '書類',
+        text: 'テキスト書類',
+        spreadsheet: 'スプレッドシート',
+        presentation: 'プレゼンテーション',
+        movie: 'ムービー',
+        music: 'オーディオ',
+        archive: 'アーカイブ',
+        code: 'コード',
+        other: 'その他'
+      },
+      dates: { today: '今日', yesterday: '昨日', week: '過去 7 日間', month: '過去 30 日間' },
+      sizes: {
+        gb: '1 GB 超',
+        hundredsMb: '100 MB〜1 GB',
+        tensMb: '10〜100 MB',
+        mb: '1〜10 MB',
+        hundredsKb: '100 KB〜1 MB',
+        small: '100 KB 未満',
+        empty: '空',
+        folders: 'フォルダー'
+      }
+    },
+    itemKinds: {
+      folder: 'フォルダー',
+      image: '画像',
+      pdf: 'PDF 書類',
+      document: '書類',
+      text: 'テキスト書類',
+      spreadsheet: 'スプレッドシート',
+      presentation: 'プレゼンテーション',
+      movie: 'ムービー',
+      music: 'オーディオ',
+      archive: 'アーカイブ',
+      code: 'コード',
+      other: 'ファイル'
+    },
     forward: '進む',
     quickLook: 'クイックルック',
     browser: {
@@ -530,7 +686,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '場所',
       drive: 'Atum Drive'
     },
-    sync: { synced: '同期済み', pending: '同期待ち', paused: 'Drive が再開すると同期されます' },
+    sync: { synced: '同期済み', pending: '同期待ち', paused: 'Drive が再開すると同期されます', localOnly: 'この Mac のみ', conflict: '同期の競合', error: '同期できませんでした', uploading: 'アップロード中' },
     preview: {
       ask: 'このファイルについて Atum に聞く',
       open: '開く',
@@ -703,10 +859,59 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在刷新…',
     reveal: '在 Finder 中显示',
     search: '搜索 Drive',
+    searchScope: { title: '搜索范围：', drive: '此 Drive', searching: '正在搜索 Drive…' },
     searchEmpty: '没有与此搜索匹配的文件。',
     viewMode: '视图',
     listView: '列表',
     gridView: '图标',
+    columnView: '分栏',
+    galleryView: '画廊',
+    groups: {
+      title: '分组',
+      none: '无',
+      kind: '种类',
+      modified: '修改日期',
+      size: '大小',
+      kinds: {
+        folder: '文件夹',
+        image: '图像',
+        pdf: 'PDF 文稿',
+        document: '文稿',
+        text: '文本文稿',
+        spreadsheet: '电子表格',
+        presentation: '演示文稿',
+        movie: '影片',
+        music: '音频',
+        archive: '归档',
+        code: '代码',
+        other: '其他'
+      },
+      dates: { today: '今天', yesterday: '昨天', week: '过去 7 天', month: '过去 30 天' },
+      sizes: {
+        gb: '大于 1 GB',
+        hundredsMb: '100 MB 到 1 GB',
+        tensMb: '10 到 100 MB',
+        mb: '1 到 10 MB',
+        hundredsKb: '100 KB 到 1 MB',
+        small: '小于 100 KB',
+        empty: '空',
+        folders: '文件夹'
+      }
+    },
+    itemKinds: {
+      folder: '文件夹',
+      image: '图像',
+      pdf: 'PDF 文稿',
+      document: '文稿',
+      text: '文本文稿',
+      spreadsheet: '电子表格',
+      presentation: '演示文稿',
+      movie: '影片',
+      music: '音频',
+      archive: '归档',
+      code: '代码',
+      other: '文件'
+    },
     forward: '前进',
     quickLook: '快速查看',
     browser: {
@@ -716,7 +921,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '位置',
       drive: 'Atum Drive'
     },
-    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢复后同步' },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢复后同步', localOnly: '仅在这台 Mac 上', conflict: '同步冲突', error: '无法同步', uploading: '正在上传' },
     preview: {
       ask: '向 Atum 询问此文件',
       open: '打开',
@@ -874,10 +1079,59 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
     refreshing: '正在重新整理…',
     reveal: '在 Finder 中顯示',
     search: '搜尋 Drive',
+    searchScope: { title: '搜尋範圍：', drive: '此 Drive', searching: '正在搜尋 Drive…' },
     searchEmpty: '沒有符合此搜尋的檔案。',
     viewMode: '顯示方式',
     listView: '列表',
     gridView: '圖像',
+    columnView: '直欄',
+    galleryView: '圖庫',
+    groups: {
+      title: '群組',
+      none: '無',
+      kind: '種類',
+      modified: '修改日期',
+      size: '大小',
+      kinds: {
+        folder: '資料夾',
+        image: '影像',
+        pdf: 'PDF 文件',
+        document: '文件',
+        text: '文字文件',
+        spreadsheet: '試算表',
+        presentation: '簡報',
+        movie: '影片',
+        music: '音訊',
+        archive: '封存檔',
+        code: '程式碼',
+        other: '其他'
+      },
+      dates: { today: '今天', yesterday: '昨天', week: '過去 7 天', month: '過去 30 天' },
+      sizes: {
+        gb: '大於 1 GB',
+        hundredsMb: '100 MB 至 1 GB',
+        tensMb: '10 至 100 MB',
+        mb: '1 至 10 MB',
+        hundredsKb: '100 KB 至 1 MB',
+        small: '小於 100 KB',
+        empty: '空白',
+        folders: '資料夾'
+      }
+    },
+    itemKinds: {
+      folder: '資料夾',
+      image: '影像',
+      pdf: 'PDF 文件',
+      document: '文件',
+      text: '文字文件',
+      spreadsheet: '試算表',
+      presentation: '簡報',
+      movie: '影片',
+      music: '音訊',
+      archive: '封存檔',
+      code: '程式碼',
+      other: '檔案'
+    },
     forward: '向前',
     quickLook: '快速查看',
     browser: {
@@ -887,7 +1141,7 @@ export const matrixDriveCopy: Record<Locale, DriveCopy> = {
       locations: '位置',
       drive: 'Atum Drive'
     },
-    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢復後同步' },
+    sync: { synced: '已同步', pending: '等待同步', paused: 'Drive 恢復後同步', localOnly: '僅在這部 Mac 上', conflict: '同步衝突', error: '無法同步', uploading: '正在上傳' },
     preview: {
       ask: '詢問 Atum 關於此檔案',
       open: '開啟',

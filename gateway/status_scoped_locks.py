@@ -18,7 +18,8 @@ def _scoped_lock_record_is_stale(existing: dict[str, Any], existing_pid: Optiona
     An explicitly process-owned reservation can belong to a dashboard or setup
     worker. Unknown identity stays reserved instead of guessing that it is dead.
     """
-    if existing_pid is None or not _status._pid_exists(existing_pid):
+    if (existing_pid is None or not _status.process_epoch_matches(existing)
+            or not _status._pid_exists(existing_pid)):
         return True
     recorded_start = existing.get("start_time")
     current_start = _status._get_process_start_time(existing_pid)

@@ -210,7 +210,7 @@ if barrier_dir:
     _real_owner_alive = dl._owner_alive
     _hit = []
 
-    def _gated_owner_alive(pid, started_at):
+    def _gated_owner_alive(pid, started_at, boot_epoch=None):
         # First call happens after the sweep's SELECT, before any claim UPDATE.
         if not _hit:
             _hit.append(1)
@@ -219,7 +219,7 @@ if barrier_dir:
             while (len(list(Path(barrier_dir).glob("selected-*"))) < parties
                    and time.monotonic() < end):
                 time.sleep(0.002)
-        return _real_owner_alive(pid, started_at)
+        return _real_owner_alive(pid, started_at, boot_epoch)
 
     dl._owner_alive = _gated_owner_alive
 

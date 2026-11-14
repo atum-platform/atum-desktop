@@ -208,8 +208,8 @@ def test_recovery_only_accepts_markers_the_live_consumer_accepts(cell):
                  "stopper_pid": pid, "stop_requested": [str(pid)], "stop_markers": {str(pid): str(marker_path)}}
         current = status.get_process_start_time(pid)
         assert current is not None
-        fresh = {"target_pid": pid, "stopper_pid": pid, "target_start_time": current,
-                 "written_at": datetime.now(timezone.utc).isoformat()}
+        fresh = {"boot_epoch": status.get_process_epoch(), "target_pid": pid, "stopper_pid": pid,
+                 "target_start_time": current, "written_at": datetime.now(timezone.utc).isoformat()}
         cases = {"valid": fresh,
                  "expired": {**fresh, "written_at": (datetime.now(timezone.utc) - timedelta(seconds=120)).isoformat()},
                  "wrong_incarnation": {**fresh, "target_start_time": current + 1},

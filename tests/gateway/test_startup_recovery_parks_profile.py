@@ -33,7 +33,7 @@ def _runtime(tmp_path, monkeypatch, failing):
 
     for name, home in (("default", launch), *homes.items()):
         registry.add(home, SimpleNamespace(runner=runner, profile_id=str(home), sessions={}, pending_stops={},
-                                           adopted={}, retiring=False, hosted_room_service=None,
+                                           adopted={}, retiring=False, epoch="test-owner", hosted_room_service=None,
                                            waiters={}, native_waiters=set(),
                                            db=SimpleNamespace(_read_all=lambda *_a: []),
                                            logical_owner=lambda sid: sid,

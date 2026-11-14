@@ -380,9 +380,10 @@ def _worker_alive(pid: Optional[int], started_at) -> bool:
     recorded by ``_set_worker_pid``; after a reboot (or any PID recycle) an unrelated process can own
     the number, so bare existence is never enough to extend a claim or to signal. A legacy row without
     a fingerprint keeps the existence answer: killing it is the pre-fingerprint behaviour and the row is
-    rewritten with a fingerprint on its next spawn. An UNVERIFIED spawn also keeps the existence answer
-    (a claim is never released beside a possibly-live worker) but ``_terminate_reclaimed_worker``
-    refuses to signal it."""
+    rewritten with a fingerprint on its next spawn. A bare tick value (a row written before the boot
+    witness) cannot prove its instantiation on a host that has one, so it is not liveness there. An
+    UNVERIFIED spawn also keeps the existence answer (a claim is never released beside a possibly-live
+    worker) but ``_terminate_reclaimed_worker`` refuses to signal it."""
     if not _kb._pid_alive(pid):
         return False
     if started_at == UNVERIFIED_WORKER_FINGERPRINT:
@@ -394,14 +395,20 @@ def _pid_recycled(pid: Optional[int], started_at) -> bool:
     """True when a live ``pid`` is NOT the process fingerprinted at spawn (or the fingerprint can no
     longer be read). Signalling it would hit a stranger. ``None`` fingerprint = legacy row, never
     recycled; the UNVERIFIED marker is always foreign. An integer fingerprint (rows written before the
-    boot witness was added) compares the start time only."""
+    boot witness was added) is boot-relative ticks with no instantiation name: on a host that has
+    one it cannot prove which boot wrote them — a fresh sandbox reuses both the pid and the tick
+    value — so it is foreign (released, never signalled). Hosts without a witness (macOS/Windows)
+    keep the start-time answer."""
     if started_at is None or not pid:
         return False
     if started_at == UNVERIFIED_WORKER_FINGERPRINT:
         return True
     if isinstance(started_at, str) and "|" in started_at:
         return _process_fingerprint(int(pid)) != started_at
-    from gateway.status import _start_times_agree, get_process_start_time
+    from gateway.status import _start_times_agree, get_process_start_time, process_epoch_unproven
+    # The row recorded a bare tick value and therefore no instantiation at all.
+    if process_epoch_unproven({"boot_epoch": None}):
+        return True
     current = get_process_start_time(int(pid))
     if current is None:
         return True

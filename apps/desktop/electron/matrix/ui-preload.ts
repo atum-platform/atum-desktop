@@ -64,6 +64,8 @@ const bridge: MatrixUiBridge = {
   },
   drive: {
     read: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'read' }),
+    search: (query, scope, requestId) => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'search', query, scope, requestId }),
+    cancelSearch: requestId => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'cancelSearch', requestId }),
     connect: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'connect' }),
     chooseFolder: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'chooseFolder' }),
     cancelSignIn: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'cancelSignIn' }),

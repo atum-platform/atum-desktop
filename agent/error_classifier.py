@@ -121,6 +121,7 @@ class FailoverReason(enum.Enum):
     """Why an API call failed — determines recovery strategy."""
     auth = "auth"                        # Transient auth (401/403) — refresh/rotate
     auth_permanent = "auth_permanent"    # Auth failed after refresh — abort
+    allowance_exhausted = "allowance_exhausted"  # Rolling key allowance: wait on this route
     billing = "billing"                  # 402 or confirmed credit exhaustion — rotate immediately
     rate_limit = "rate_limit"            # 429 or quota-based throttling — backoff then rotate
     upstream_rate_limit = "upstream_rate_limit"  # Aggregator's upstream model 429 — fallback model, key is healthy
@@ -956,6 +957,18 @@ def _nous_welcome_tier(c: _Ctx) -> Optional[Verdict]:
 def _provider_special_cases(c: _Ctx) -> Optional[Verdict]:
     """Highest-priority provider-specific shapes that a status code would misroute."""
     msg, status = c.msg, c.status_code
+    # OpenRouter documents this structured marker for both 402 and 403.
+    # Never infer a rolling allowance from the human-readable credit message.
+    if status in (402, 403):
+        scopes = (c.body, c.body.get("error")) if isinstance(c.body, dict) else ()
+        if any(
+            isinstance(scope, dict)
+            and isinstance(scope.get("metadata"), dict)
+            and scope["metadata"].get("limit_source") == "openrouter_key_limit"
+            for scope in scopes
+        ):
+            return _v(_R.allowance_exhausted, retryable=True,
+                      should_rotate_credential=False, should_fallback=False)
     if c.base_url and is_atum_gateway_daily_cap_refusal(c.error, c.base_url):
         return _v(_R.billing, retryable=False, should_rotate_credential=False, should_fallback=False)
     # Deterministic for this context: another provider would receive the same connector result.

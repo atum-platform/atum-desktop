@@ -45,3 +45,27 @@ def test_store_dir_pinned_to_each_profile_home(tmp_path):
         stores[profile] = path
 
     assert stores["accountant"] != stores["engineering-lead"]
+
+
+def test_identity_mount_wins_over_populated_legacy_store(tmp_path):
+    """The provisioner mounts agents/<agent>/identity at the native Matrix store target."""
+    home = tmp_path / 'private'
+    identity = tmp_path / 'identity'
+    identity.mkdir()
+    target = home / 'platforms' / 'matrix' / 'store'
+    target.parent.mkdir(parents=True)
+    target.symlink_to(identity, target_is_directory=True)
+    legacy = home / 'matrix' / 'store'
+    legacy.mkdir(parents=True)
+    (legacy / 'crypto.db').write_text('obsolete fixture')
+    token = set_hermes_home_override(str(home))
+    try:
+        adapter = _make_adapter()
+        assert adapter._resolve_store_dir() == target
+        assert adapter._crypto_db_path.parent.resolve() == identity
+        from plugins.platforms.matrix.intake import MatrixIntakeStore
+        journal = MatrixIntakeStore(adapter._store_dir / 'intake-fixture.sqlite3')
+        journal.close()
+        assert (identity / 'intake-fixture.sqlite3').is_file()
+    finally:
+        reset_hermes_home_override(token)

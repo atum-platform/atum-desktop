@@ -7,6 +7,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -26,7 +29,10 @@ import {
   Folder,
   FolderOpen,
   Info,
+  LayoutColumns,
+  LayoutGallery,
   LayoutGrid,
+  LayoutGroups,
   List,
   MoreHorizontal,
   Pause,
@@ -43,12 +49,16 @@ import type {
 } from '../../shared/matrix-drive'
 
 import { MatrixDriveBrowser, type MatrixDriveItemAction } from './drive-browser'
+import { MatrixDriveColumns } from './drive-column-view'
+import { type DriveColumn, driveColumns, type DriveColumnTarget, driveWalk } from './drive-columns'
 import { matrixDriveCopy } from './drive-copy'
 import { MatrixDriveFacts, MatrixDriveSkippedNote } from './drive-facts'
 import {
+  $matrixDriveGroupBy,
   $matrixDriveHeader,
   $matrixDriveIntent,
   $matrixDriveLayout,
+  $matrixDriveListings,
   $matrixDriveLocation,
   $matrixDrivePlaces,
   currentDrivePlace,
@@ -56,15 +66,22 @@ import {
   DRIVE_RECENT_ORDER,
   learnMatrixDrivePlaces,
   type MatrixDriveIntent,
+  type MatrixDriveLayout,
   type MatrixDriveSort,
   nextDriveSort,
   noteMatrixDriveLocation,
+  observeMatrixDriveView,
+  rememberMatrixDriveListing,
   requestMatrixDriveIntent,
+  setMatrixDriveGroupBy,
   setMatrixDriveLayout,
   sortDriveRows
 } from './drive-finder'
+import { MatrixDriveGallery } from './drive-gallery-view'
+import type { MatrixDriveGroupBy } from './drive-groups'
 import { MatrixDriveImportSheet } from './drive-import'
 import { matrixDriveImportCopy } from './drive-import-copy'
+import { useDriveSearch } from './drive-search'
 import {
   $matrixDriveTaskSelection,
   clearMatrixDriveTaskSelections,
@@ -493,7 +510,9 @@ export function MatrixDrive({
   const [importPlan, setImportPlan] = useState<Exclude<MatrixDriveImportPlan, { state: 'cancelled' }> | null>(null)
   const [importPicking, setImportPicking] = useState(false)
   const layout = useStore($matrixDriveLayout)
+  const groupBy = useStore($matrixDriveGroupBy)
   const location = useStore($matrixDriveLocation)
+  const listings = useStore($matrixDriveListings)
   const [selectedItem, setSelectedItem] = useState<{ place: string; id: string } | null>(null)
 
   const [sortChoice, setSortChoice] = useState<{ destination: MatrixDriveDestination; sort: MatrixDriveSort } | null>(
@@ -511,6 +530,8 @@ export function MatrixDrive({
     setTitleBar(actions && status ? { actions, status } : null)
   }, [])
   const [query, setQuery] = useState('')
+  const [searchScope, setSearchScope] = useState<'drive' | 'folder'>('drive')
+  const search = useDriveSearch(bridge, view, query, searchScope)
   const selection = useStore($matrixDriveTaskSelection)
   const alive = useRef(true)
   const request = useRef(0)
@@ -665,7 +686,7 @@ export function MatrixDrive({
 
     if (showsFiles) {
       learnMatrixDrivePlaces(view, locale)
-      noteMatrixDriveLocation({ type: 'view', view })
+      observeMatrixDriveView(view)
     } else {
       learnMatrixDrivePlaces(null, locale)
     }
@@ -690,6 +711,8 @@ export function MatrixDrive({
   useEffect(() => () => $matrixDriveHeader.set(null), [])
 
   const latestView = useRef(view)
+  // The columns as they stood before a walk: its in-between listings never show.
+  const steadyColumns = useRef<DriveColumn[]>([])
   const navigate = useRef<(intent: MatrixDriveIntent) => void>(() => {})
 
   // A selection belongs to the place it was made in.
@@ -701,7 +724,30 @@ export function MatrixDrive({
       return
     }
 
+    if (row.folders) {
+      // A search handle can enter a folder anywhere in Drive. Commit the learned location only
+      // after main confirms its listing, never by guessing from a clicked result.
+      noteMatrixDriveLocation({ type: 'walk' })
+      onDestinationChange?.('all')
+      void run(async () => {
+        try {
+          const next = await bridge.enter(row.id)
+          const listed = next.listingStatus === 'current' || next.listingStatus === 'partial'
+          noteMatrixDriveLocation({ type: 'arrive', path: listed ? [...row.folders!, row.name] : null })
+          setQuery('')
+
+          return next
+        } catch (error) {
+          noteMatrixDriveLocation({ type: 'arrive', path: null })
+          throw error
+        }
+      })
+
+      return
+    }
+
     noteMatrixDriveLocation({ type: 'enter', name: row.name })
+
     onDestinationChange?.('all')
     void run(() => bridge.enter(row.id))
   }
@@ -720,7 +766,7 @@ export function MatrixDrive({
         next = await bridge.back()
       }
 
-      noteMatrixDriveLocation({ type: 'view', view: next })
+      observeMatrixDriveView(next)
       const folder = name ? next.rows.find(row => row.kind === 'folder' && row.name === name) : undefined
 
       if (!folder) {
@@ -862,7 +908,7 @@ export function MatrixDrive({
 
   const atRoot = !view.canGoBack
 
-  const matchingRows = view.rows.filter(row =>
+  const matchingRows = search.enabled ? search.result?.rows ?? [] : view.rows.filter(row =>
     row.name.toLocaleLowerCase(locale).includes(query.trim().toLocaleLowerCase(locale))
   )
 
@@ -884,6 +930,101 @@ export function MatrixDrive({
     } else {
       void run(() => bridge.open(row.id))
     }
+  }
+
+  // Search shows its matches as a list, as Finder does from the column view.
+  const shownLayout: MatrixDriveLayout = query.trim() && (search.enabled || layout === 'column') ? 'list' : layout
+
+  if (!location.walking && !query.trim()) {
+    steadyColumns.current = driveColumns(location.path, shownRows, listings).map(column =>
+      column.live ? column : { ...column, rows: sortDriveRows(column.rows, sort, locale) }
+    )
+  }
+
+  const columns = steadyColumns.current
+
+  /**
+   * The column view's moves. The bridge lists one folder at a time, so another column's folder is
+   * reached step by step: up to the folder both share, then down by name. Each listing on the way is
+   * remembered for its column; then the target item is selected, or opened.
+   */
+  const walkTo = (target: DriveColumnTarget, then?: 'open') => {
+    const from = location.path
+
+    if (!from) {
+      return
+    }
+
+    const steps = driveWalk(from, target.path)
+
+    const land = (next: MatrixDriveView) => {
+      const row = target.selected ? next.rows.find(item => item.kind === 'file' && item.name === target.selected) : undefined
+
+      if (!alive.current) {
+        return
+      }
+
+      setSelectedItem(row ? { place: placeKeyOf(next), id: row.id } : null)
+
+      if (row && then === 'open') {
+        openRow(row)
+      }
+    }
+
+    if (target.path.length) {
+      onDestinationChange?.('all')
+    }
+
+    if (!steps.back && !steps.enter.length) {
+      land(latestView.current)
+
+      return
+    }
+
+    noteMatrixDriveLocation({ type: 'walk' })
+    void run(async () => {
+      let next = latestView.current
+      let at: string[] | null = [...from]
+
+      // A step main couldn't list (a kept older listing) leaves the place unknown rather than guessed.
+      const settled = (step: MatrixDriveView, place: string[]) => {
+        next = step
+
+        if (step.listingStatus !== 'stale' && step.listingStatus !== 'loading') {
+          rememberMatrixDriveListing(place, step.rows)
+
+          return place
+        }
+
+        return null
+      }
+
+      try {
+        for (let step = 0; step < steps.back && at; step++) {
+          at = settled(await bridge.back(), at.slice(0, -1))
+        }
+
+        for (const name of steps.enter) {
+          const folder = at && next.rows.find(item => item.kind === 'folder' && item.name === name)
+
+          if (!at || !folder) {
+            break
+          }
+
+          at = settled(await bridge.enter(folder.id), [...at, name])
+        }
+      } finally {
+        noteMatrixDriveLocation({ type: 'arrive', path: at })
+      }
+
+      if (at && at.length === target.path.length && at.every((name, index) => name === target.path[index])) {
+        land(next)
+      } else if (alive.current) {
+        setSelectedItem(null)
+      }
+
+      return next
+    })
   }
 
   // What the assistant may do with an item in this chat: read or edit a file, save a result into a folder.
@@ -910,6 +1051,21 @@ export function MatrixDrive({
   }
 
   const selectedActions = selectedRow ? taskActions(selectedRow) : []
+
+  const viewProps = {
+    formatDate: (at: number) => formatModified(at, locale),
+    formatSize: (bytes: number) => formatDriveSize(bytes, locale),
+    itemActions: taskActions,
+    locale,
+    onNavigate: (direction: 'back' | 'forward') => navigate.current({ kind: direction }),
+    onOpen: openRow,
+    onQuickLook: onPreview,
+    onSelect: selectItem,
+    rows: shownRows,
+    selectedId,
+    view
+  }
+
   const creating = Boolean(taskReady && selectedRow && createInFolder === selectedRow.id)
 
   // Preserve the old file-surface contract: importing is a sync operation, not an offline/local
@@ -949,8 +1105,20 @@ export function MatrixDrive({
 
   const views = [
     { id: 'icon' as const, label: copy.gridView, icon: LayoutGrid },
-    { id: 'list' as const, label: copy.listView, icon: List }
+    { id: 'list' as const, label: copy.listView, icon: List },
+    { id: 'column' as const, label: copy.columnView, icon: LayoutColumns },
+    { id: 'gallery' as const, label: copy.galleryView, icon: LayoutGallery }
   ]
+
+  const groupings: { id: MatrixDriveGroupBy; label: string }[] = [
+    { id: 'none', label: copy.groups.none },
+    { id: 'kind', label: copy.groups.kind },
+    { id: 'modified', label: copy.groups.modified },
+    { id: 'size', label: copy.groups.size }
+  ]
+
+  // Finder groups icons and lists; columns and the gallery have their own order.
+  const groupable = shownLayout === 'icon' || shownLayout === 'list'
 
   // Finder's toolbar, right side: the view switch, "…", then search at the far edge.
   const driveControls = (
@@ -970,6 +1138,30 @@ export function MatrixDrive({
           </Tip>
         ))}
       </div>
+      <DropdownMenu>
+        <Tip label={copy.groups.title}>
+          <DropdownMenuTrigger asChild disabled={!groupable}>
+            <button
+              aria-label={copy.groups.title}
+              className="ak-iconbtn disabled:pointer-events-none disabled:opacity-38"
+              data-matrix-drive-group-menu={groupBy}
+              type="button"
+            >
+              <LayoutGroups aria-hidden className="ak-icon" />
+            </button>
+          </DropdownMenuTrigger>
+        </Tip>
+        <DropdownMenuContent align="end" className="min-w-44">
+          <DropdownMenuLabel>{copy.groups.title}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup onValueChange={value => setMatrixDriveGroupBy(value as MatrixDriveGroupBy)} value={groupBy}>
+            {groupings.map(({ id, label }) => (
+              <DropdownMenuRadioItem key={id} value={id}>
+                {label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DropdownMenu>
         <Tip label={copy.more}>
           <DropdownMenuTrigger asChild>
@@ -1051,6 +1243,27 @@ export function MatrixDrive({
           {driveControls}
         </header>
       )}
+      {query.trim() && bridge.search && (
+        <div
+          className="flex items-center gap-(--ak-s3) border-b border-(--ak-line) px-(--ak-s6) py-(--ak-s2) [font:var(--ak-t-callout)] text-(--ak-ink-3)"
+          data-matrix-drive-search-scope
+        >
+          <span>{copy.searchScope.title}</span>
+          <div aria-label={copy.searchScope.title} className="ak-seg ak-seg--sm" role="group">
+            {(['drive', 'folder'] as const).map(scope => (
+              <button
+                aria-pressed={searchScope === scope}
+                className={searchScope === scope ? 'is-selected' : undefined}
+                key={scope}
+                onClick={() => setSearchScope(scope)}
+                type="button"
+              >
+                {scope === 'drive' ? copy.searchScope.drive : view.folderLabel || copy.browser.drive}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       <div
         className="flex min-h-full flex-1 flex-col px-(--ak-s6) pt-(--ak-s3) pb-(--ak-s5)"
         onClick={event => event.target === event.currentTarget && selectItem(null)}
@@ -1125,22 +1338,27 @@ export function MatrixDrive({
             )}
           </section>
         )}
-        {shownRows.length ? (
+        {search.loading ? (
+          <Loader className="m-auto size-8" label={copy.searchScope.searching} />
+        ) : search.failed ? (
+          <NoticeBand tone="notice">{copy.failed}</NoticeBand>
+        ) : shownLayout === 'column' && (shownRows.length > 0 || Boolean(location.path?.length)) ? (
+          <MatrixDriveColumns
+            {...viewProps}
+            columns={columns}
+            onPick={walkTo}
+            path={location.path}
+            rootLabel={destination === 'recents' ? copy.browser.recents : copy.browser.drive}
+          />
+        ) : shownRows.length && shownLayout === 'gallery' ? (
+          <MatrixDriveGallery {...viewProps} bridge={bridge} />
+        ) : shownRows.length ? (
           <MatrixDriveBrowser
-            formatDate={at => formatModified(at, locale)}
-            formatSize={bytes => formatDriveSize(bytes, locale)}
-            itemActions={taskActions}
-            layout={layout}
-            locale={locale}
-            onNavigate={direction => navigate.current({ kind: direction })}
-            onOpen={openRow}
-            onQuickLook={onPreview}
-            onSelect={selectItem}
+            {...viewProps}
+            groupBy={groupable ? groupBy : 'none'}
+            layout={shownLayout === 'list' ? 'list' : 'icon'}
             onSort={key => setSortChoice({ destination, sort: nextDriveSort(sort, key) })}
-            rows={shownRows}
-            selectedId={selectedId}
             sort={sort}
-            view={view}
           />
         ) : query.trim() ? (
           <EmptyState title={copy.searchEmpty} />
@@ -1181,7 +1399,7 @@ export function MatrixDrive({
         ) : (
           <EmptyState title={copy.empty} />
         )}
-        {view.truncated && (
+        {(search.enabled ? search.result?.truncated : view.truncated) && (
           <p className="mt-3 text-(length:--atum-t-caption) text-(--atum-ink-muted)">{copy.truncated}</p>
         )}
         {/* In a chat, the selected item's actions float over the bottom of the page, Finder-calm. */}

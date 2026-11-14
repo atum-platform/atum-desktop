@@ -134,7 +134,9 @@ const Layers3 = phosphorIcon('intersect')
 const Layout = phosphorIcon('layout')
 const LayoutColumns = phosphorIcon('columns')
 const LayoutDashboard = phosphorIcon('squares-four')
+const LayoutGallery = phosphorIcon('slideshow')
 const LayoutGrid = phosphorIcon('grid-four')
+const LayoutGroups = phosphorIcon('rows')
 const LayoutSidebar = phosphorIcon('sidebar-simple')
 const LayoutSidebarRight = phosphorIcon('sidebar-simple', { mirror: true })
 const Link = phosphorIcon('link')
@@ -380,7 +382,9 @@ export {
   Layout,
   LayoutColumns,
   LayoutDashboard,
+  LayoutGallery,
   LayoutGrid,
+  LayoutGroups,
   LayoutSidebar,
   LayoutSidebarRight,
   Link,

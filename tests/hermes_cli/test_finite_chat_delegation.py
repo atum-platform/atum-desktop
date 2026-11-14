@@ -122,6 +122,7 @@ def test_finite_chat_joins_parallel_children_before_final_response(tmp_path, mod
     env = {key: os.environ[key] for key in (
         "PATH", "SYSTEMROOT", "WINDIR", "COMSPEC", "TEMP", "TMP", "LOCALAPPDATA", "APPDATA",
     ) if key in os.environ}
+    (tmp_path / "managed").mkdir(exist_ok=True)
     env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), HERMES_HOME=str(home),
                HERMES_MANAGED_DIR=str(tmp_path / "managed"), TERMINAL_CWD=str(tmp_path),
                OPENAI_BASE_URL=url, OPENAI_API_KEY="local-test-only", PYTHONPATH=str(REPO_ROOT),

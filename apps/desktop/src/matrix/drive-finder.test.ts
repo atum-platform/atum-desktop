@@ -14,6 +14,8 @@ import {
   middleTruncateDriveName,
   moveDriveSelection,
   nextDriveSort,
+  parseDriveGroupBy,
+  parseDriveLayout,
   reduceDriveLocation,
   sortDriveRows,
   typeSelectDriveRow
@@ -91,6 +93,21 @@ describe('sync badges', () => {
 
   it('shows no badge on stale facts rather than a guess', () => {
     expect(driveItemSync({ modifiedAt: 900 }, { state: 'ready', lastSyncAt, factsStale: true })).toBeNull()
+  })
+
+  it('local-only takes precedence, even while offline or stale', () => {
+    expect(driveItemSync({ modifiedAt: 900, localOnly: true, syncStatus: 'error' }, { state: 'offline', factsStale: true })).toBe('localOnly')
+  })
+
+  it('uses real states only with the capability and never guesses a missing per-file fact', () => {
+    for (const syncStatus of ['conflict', 'error', 'uploading'] as const) {
+      const row = { modifiedAt: 900, syncStatus }
+      expect(driveItemSync(row, { state: 'ready', fileStatusAvailable: true })).toBe(syncStatus)
+      expect(driveItemSync(row, { state: 'ready', fileStatusAvailable: true, factsStale: true })).toBeNull()
+      expect(driveItemSync(row, { state: 'ready' })).not.toBe(syncStatus)
+    }
+
+    expect(driveItemSync({ modifiedAt: 900 }, { state: 'ready', fileStatusAvailable: true })).toBeNull()
   })
 })
 
@@ -209,5 +226,25 @@ describe('following the open folder', () => {
     learnMatrixDrivePlaces(null, 'en')
     expect($matrixDrivePlaces.get()).toEqual([])
     expect($matrixDriveLocation.get()).toEqual(DRIVE_AT_ROOT)
+  })
+})
+
+describe('kept view choices', () => {
+  it('reads all four views back and opens anything else as icons', () => {
+    for (const layout of ['icon', 'list', 'column', 'gallery'] as const) {
+      expect(parseDriveLayout(layout)).toBe(layout)
+    }
+
+    expect(parseDriveLayout(null)).toBe('icon')
+    expect(parseDriveLayout('cover-flow')).toBe('icon')
+  })
+
+  it('reads the grouping back and treats anything else as no groups', () => {
+    for (const group of ['none', 'kind', 'modified', 'size'] as const) {
+      expect(parseDriveGroupBy(group)).toBe(group)
+    }
+
+    expect(parseDriveGroupBy('tags')).toBe('none')
+    expect(parseDriveGroupBy(null)).toBe('none')
   })
 })

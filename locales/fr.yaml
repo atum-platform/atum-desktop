@@ -4288,3 +4288,7 @@ plan_usage:
   large_notice_limit: "Grand modèle : votre limite {name} est atteinte ({resets})."
   large_notice_limit_stops: "Grand modèle : votre limite {name} est atteinte ({resets}), il ne fonctionnera pas d'ici là."
   large_notice_percent: "Grand modèle : consomme davantage de votre forfait par message. Limite mensuelle des grands modèles : {percent} utilisé."
+
+turn_admission:
+  configuration_error: "Je ne peux pas commencer pour l’instant, car une partie de ma configuration n’est pas prête. Réessayez dans quelques minutes."
+  refused: "Cette demande n’est pas autorisée ici, je ne l’ai donc pas commencée."

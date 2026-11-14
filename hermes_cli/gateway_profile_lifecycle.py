@@ -191,11 +191,13 @@ def _launch_record_owns(pid: int, home) -> bool:
     environment alone cannot prove.
     """
     from gateway.status import (
-        _GATEWAY_KIND, _get_process_start_time, _pid_from_record, _read_pid_record, _same_hermes_home)
+        _GATEWAY_KIND, _get_process_start_time, _pid_from_record, _read_pid_record, _same_hermes_home,
+        process_epoch_matches)
 
     record = _read_pid_record() or {}
     started, recorded_home = record.get("start_time"), record.get("hermes_home")
-    return (record.get("kind") == _GATEWAY_KIND and _pid_from_record(record) == pid
+    return (process_epoch_matches(record)
+            and record.get("kind") == _GATEWAY_KIND and _pid_from_record(record) == pid
             and started is not None and started == _get_process_start_time(pid)
             and isinstance(recorded_home, str) and _same_hermes_home(recorded_home, home))
 

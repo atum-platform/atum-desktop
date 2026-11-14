@@ -41,6 +41,7 @@ async def _owner(tmp_path, monkeypatch):
                              _run_housekeeping_in_executor=housekeeping,
                              _run_release_in_profile_scope=lambda target, args, key: target(*args))
     runner._adapter_for_source = lambda source: runner.adapters.get(source.platform)
+    runner._delivery_adapter_for = runner._adapter_for_source
     runner._reset_session_off_loop = MethodType(GatewaySessionEndMixin._reset_session_off_loop, runner)
     authority = await initialize_session_authority(runner, profile_id=str(tmp_path), instance_id='owner')
     return store._db, authority, calls

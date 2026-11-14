@@ -531,3 +531,93 @@ def test_retained_endpoint_validates_identity(tmp_path, monkeypatch, damage):
         if proc.poll() is None:
             proc.kill()
         proc.wait(timeout=5)
+
+
+def _router_record(proc, **overrides):
+    """A modern runtime record for a real live process, as the supervisor writes it."""
+    from gateway.status import get_process_start_time
+
+    real = psutil.Process(proc.pid)
+    record = {"pid": real.pid, "create_time": real.create_time(),
+              "start_time": get_process_start_time(real.pid), "executable": real.exe(),
+              "owner_pid": os.getpid(), "owner_create_time": psutil.Process().create_time(),
+              "owner_start_time": get_process_start_time(os.getpid()),
+              "base_url": "http://127.0.0.1:59999/v1", "api_key": "test-only"}
+    record.update(overrides)
+    return record
+
+
+def _pin_instantiation(monkeypatch, epoch):
+    """Make this process's instantiation witness the given value (as a fresh sandbox would)."""
+    from gateway import drain_control
+
+    monkeypatch.setattr(drain_control, "current_instantiation_epoch", lambda: epoch)
+
+
+def test_same_pid_and_start_on_another_boot_is_not_the_recorded_router(tmp_path, monkeypatch):
+    """A record from another instantiation names a process that cannot be alive here.
+
+    runsc reuses the PID and the boot-relative start ticks in every fresh sandbox, so the
+    executable and birth checks accept a stranger; the recorded witness is what decides.
+    """
+    from hermes_cli.local_runtime import endpoint, recovery, supervisor
+
+    monkeypatch.setattr(supervisor, "runtimes_root", lambda: tmp_path)
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        record = _router_record(proc, boot_epoch="deadbeef-boot:17")
+        _pin_instantiation(monkeypatch, "cafebabe-boot:17")
+        supervisor.state_path().write_text(json.dumps(record), encoding="utf-8")
+
+        assert recovery.recorded_process(record) is None
+        assert recovery._owner_is_dead(record) is True
+        assert endpoint._state_endpoint() is None
+        assert proc.poll() is None  # the stranger is never signalled
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=5)
+
+
+def test_a_record_from_this_instantiation_is_still_the_live_router(tmp_path, monkeypatch):
+    from hermes_cli.local_runtime import endpoint, recovery, supervisor
+
+    monkeypatch.setattr(supervisor, "runtimes_root", lambda: tmp_path)
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        _pin_instantiation(monkeypatch, "cafebabe-boot:17")
+        record = _router_record(proc, boot_epoch="cafebabe-boot:17")
+        supervisor.state_path().write_text(json.dumps(record), encoding="utf-8")
+
+        assert recovery.recorded_process(record) is not None
+        assert recovery._owner_is_dead(record) is False
+        assert endpoint._state_endpoint() == {"base_url": record["base_url"], "api_key": "test-only"}
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=5)
+
+
+def test_a_record_without_the_witness_keeps_its_birth_and_executable_checks(tmp_path, monkeypatch):
+    """Records written before the boot witness existed must stay usable in this boot (a live
+    router is adopted, never re-spawned beside) while the identity checks they do carry hold."""
+    from hermes_cli.local_runtime import recovery, supervisor
+
+    monkeypatch.setattr(supervisor, "runtimes_root", lambda: tmp_path)
+    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        _pin_instantiation(monkeypatch, "cafebabe-boot:17")
+        record = _router_record(proc)
+        assert "boot_epoch" not in record
+        assert recovery.recorded_process(record) is not None
+        assert recovery._owner_is_dead(record) is False
+
+        # The bounded legacy checks still reject a reused PID and a foreign executable.
+        reused = {**record, "create_time": record["create_time"] - 10}
+        reused.pop("start_time")
+        assert recovery.recorded_process(reused) is None
+        assert recovery.recorded_process({**record, "executable": str(tmp_path / "other")}) is None
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait(timeout=5)

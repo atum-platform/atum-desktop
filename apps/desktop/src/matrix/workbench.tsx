@@ -27,6 +27,7 @@ import { useMatrixCopy } from './copy'
 import { MatrixDocumentStatus, useDocumentCopy } from './document-link'
 import { formatDriveSize } from './drive'
 import { matrixDriveCopy } from './drive-copy'
+import { $matrixDrivePdfLease } from './drive-finder'
 import { matrixAgentTyping } from './local-turns'
 import { matrixRosterAgentName } from './roster-model'
 import { MatrixTerminalPane, useMatrixTerminalRead } from './terminal'
@@ -465,6 +466,8 @@ export function MatrixWorkbench({
           void bridge.closePreview!(token).catch(() => {})
         } else {
           setLoadedDrivePreview({ scope, serial: driveRequest.serial, value })
+          // The PDF pane reopens its pages through this lease: Drive's gallery leaves it alone.
+          $matrixDrivePdfLease.set(value.kind === 'pdf')
         }
       })
       .catch(() => {
@@ -475,6 +478,7 @@ export function MatrixWorkbench({
 
     return () => {
       disposed = true
+      $matrixDrivePdfLease.set(false)
 
       if (token) {
         void bridge.closePreview!(token).catch(() => {})
