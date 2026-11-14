@@ -123,7 +123,7 @@ describe('Vietnamese-first P0 copy', () => {
     expect(vi.atum.roster).toMatchObject({
       title: 'Trò chuyện',
       search: 'Tìm mọi thứ',
-      searchPlaceholder: 'Tìm cuộc trò chuyện, người và ứng dụng…',
+      searchPlaceholder: 'Tìm kiếm',
       assistant: 'Atum',
       badgeFirstParty: 'Ứng dụng Atum',
       badgePartner: 'Ứng dụng đối tác',
