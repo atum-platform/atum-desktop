@@ -1,6 +1,7 @@
 import { type FC, useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useI18n } from '@/i18n'
 import { type ApprovalChoice, approvalChoicesFor, primaryApprovalChoice } from '@/lib/approval-response'
@@ -137,7 +138,7 @@ export const ApprovalControls: FC<ApprovalControlsProps> = ({
   }, [primary, respond, shortcuts])
 
   return (
-    <div
+    <ConsentBoundary><div
       aria-label={toolCopy.approvalTitle ?? copy.jumpToApproval}
       className={cn(surface === 'inline' ? 'mt-1 ps-5' : 'mt-2')}
       data-primary-choice={primary ?? 'none'}
@@ -219,6 +220,6 @@ export const ApprovalControls: FC<ApprovalControlsProps> = ({
           {request.command.trim()}
         </pre>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }

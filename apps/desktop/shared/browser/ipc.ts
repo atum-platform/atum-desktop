@@ -1,4 +1,5 @@
 export const CONSUMER_BROWSER_IPC = {
+  open: 'atum:consumer-browser:open',
   prepare: 'atum:consumer-browser:prepare',
   release: 'atum:consumer-browser:release',
   popup: 'atum:consumer-browser:popup',

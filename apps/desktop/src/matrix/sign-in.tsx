@@ -4,6 +4,7 @@ import { AuthFrame } from '@/app/atum/auth-frame'
 import { BrandMark } from '@/components/brand-mark'
 import { GoogleMark } from '@/components/brand/google-mark'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 import { Mail, Spinner } from '@/lib/icons'
@@ -45,7 +46,7 @@ function LegalLine() {
   const words = useSignInCopy()
 
   return (
-    <p className="text-(length:--atum-t-caption) leading-[1.5] text-pretty text-(--atum-ink-muted)" data-matrix-legal>
+    <ConsentBoundary><p className="text-(length:--atum-t-caption) leading-[1.5] text-pretty text-(--atum-ink-muted)" data-matrix-legal>
       {words.legal.split(/(\{terms\}|\{privacy\})/).map((part, index) =>
         part === '{terms}' || part === '{privacy}' ? (
           <Button
@@ -66,21 +67,21 @@ function LegalLine() {
           <Fragment key={index}>{part}</Fragment>
         )
       )}
-    </p>
+    </p></ConsentBoundary>
   )
 }
 
 /** The approved first-run board keeps one legal line and the language at the foot. */
 function SignInFooter() {
   return (
-    <div className="flex flex-col gap-2" data-matrix-auth-footer>
+    <ConsentBoundary><div className="flex flex-col gap-2" data-matrix-auth-footer>
       <LegalLine />
       <div className="flex min-h-7 items-center justify-end gap-3">
         <div className="ms-auto">
           <MatrixLanguageSettings quiet />
         </div>
       </div>
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -194,7 +195,7 @@ export function MatrixSignIn({
   )
 
   return (
-    <AuthFrame
+    <ConsentBoundary><AuthFrame
       aside={<SignInFooter />}
       // Atum Kit sign-in board: one centred column, the eclipse on a raised circle. The welcome
       // story's mark lands here.
@@ -296,6 +297,6 @@ export function MatrixSignIn({
           ) : null}
         </>
       )}
-    </AuthFrame>
+    </AuthFrame></ConsentBoundary>
   )
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  assertConsumerBrowserAddresses,
   assertPublicResolvedAddresses,
   assertSafeBrowserRequestUrl,
   assertSafeBrowserUrl,
@@ -102,4 +103,17 @@ describe('consumer browser network policy', () => {
       height: 700
     })
   })
+})
+
+it('routes MagicDNS to tailnet addresses while rejecting mixed DNS and metadata', () => {
+  expect(() => assertConsumerBrowserAddresses('workstation.tailnet.ts\u002enet', ['100.100.10\u002e20', 'fd7a:115c:a1e0::1'])).not.toThrow()
+  expect(() => assertConsumerBrowserAddresses('public.example', ['100.100.10\u002e20'])).toThrow()
+  expect(() => assertConsumerBrowserAddresses('workstation.tailnet.ts\u002enet', ['100.100.10\u002e20', '169.254.169.254'])).toThrow()
+  expect(() => assertConsumerBrowserAddresses('workstation.tailnet.ts\u002enet', ['127.0.0.1'])).toThrow()
+})
+
+it('accepts equivalent canonical spellings of the Tailscale IPv6 prefix', async () => {
+  const { assertConsumerBrowserAddresses } = await import('./policy')
+  expect(() => assertConsumerBrowserAddresses('node.example.ts\u002enet', ['fd7a:115c:a1e0::1', 'fd7a:115c:a1e0:0000:0000:0000:0000:0002'])).not.toThrow()
+  expect(() => assertConsumerBrowserAddresses('node.example.ts\u002enet', ['fd7a:115c:a1e1::1'])).toThrow()
 })

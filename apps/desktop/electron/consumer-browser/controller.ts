@@ -11,6 +11,7 @@ import {
   type ConsumerBrowserPrepareResult
 } from '../../shared/browser/ipc'
 import {
+  assertConsumerBrowserAddresses,
   assertPublicResolvedAddresses,
   assertSafeBrowserRequestUrl,
   assertSafeBrowserUrl,
@@ -147,7 +148,7 @@ export async function assertPublicBrowserDestination(raw: string): Promise<strin
 
   const parsed = new URL(url)
   const answers = await lookup(parsed.hostname, { all: true, verbatim: true })
-  assertPublicResolvedAddresses(answers.map(answer => answer.address))
+  assertConsumerBrowserAddresses(parsed.hostname, answers.map(answer => answer.address))
 
   return url
 }
@@ -157,6 +158,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
   releaseAppPartitions: () => Promise<void>
   releaseConsumerPartitions: () => Promise<void>
 } {
+  const privateOrigins = new Map<string, ReadonlySet<string>>()
   const configured = new WeakSet<Session>()
   const allowedPartitions = new Set<string>()
   const preparing = new Map<string, object>()
@@ -177,7 +179,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
     if (!egresses.has(partition)) {
       // Live only while this entry is still the partition's: release or replacement revokes in-flight dials.
       const owner = {}
-      const egress = (deps.createEgress ?? createConsumerBrowserEgress)(browserSession, () => egresses.get(partition)?.owner === owner)
+      const egress = (deps.createEgress ?? createConsumerBrowserEgress)(browserSession, () => egresses.get(partition)?.owner === owner, {}, () => privateOrigins.get(partition) ?? new Set())
       egresses.set(partition, { egress, owner })
     }
 
@@ -237,6 +239,7 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
   const clearSessionRegistration = async (partition: string, browserSession: Session): Promise<void> => {
     preparing.delete(partition)
     closeEgress(partition)
+    privateOrigins.delete(partition)
     allowedPartitions.delete(partition)
     allowedSessions.delete(browserSession)
     previewSessions.delete(browserSession)
@@ -279,7 +282,18 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
 
             assertSafeBrowserRequestUrl(parsed.href)
             const answers = await lookup(parsed.hostname, { all: true, verbatim: true })
-            assertPublicResolvedAddresses(answers.map(answer => answer.address))
+            const authorized = privateOrigins.get(partition)?.has(parsed.origin) === true
+
+            if (details.resourceType === 'mainFrame' && !authorized) {
+              privateOrigins.delete(partition)
+              await browserSession.closeAllConnections()
+            }
+
+            if (authorized && (details.resourceType === 'mainFrame' || privateOrigins.get(partition)?.has(new URL(details.referrer || 'about:blank').origin))) {
+              assertConsumerBrowserAddresses(parsed.hostname, answers.map(answer => answer.address))
+            } else {
+              assertPublicResolvedAddresses(answers.map(answer => answer.address))
+            }
           } else if (details.resourceType === 'mainFrame' && details.url !== 'about:blank') {
             throw new Error('browser_url_blocked')
           } else if (!['about:', 'blob:', 'data:'].includes(parsed.protocol)) {
@@ -434,6 +448,9 @@ export function createConsumerBrowserController(deps: ConsumerBrowserControllerD
         throw new Error('browser_request_cancelled')
       }
 
+      // Main-owned authority is replaced by an explicit tab preparation only.
+      closeEgress(input.partition)
+      privateOrigins.set(input.partition, new Set(url !== 'about:blank' && new URL(url).hostname.endsWith('.ts.net') ? [new URL(url).origin] : []))
       allowedPartitions.add(input.partition)
       const browserSession = deps.sessionFromPartition(input.partition)
       allowedSessions.add(browserSession)

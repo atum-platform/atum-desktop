@@ -39,7 +39,7 @@ import { generateSeatbeltProfile, makeBestEffortResolver, type SeatbeltRuntime }
  * ssh ProxyCommand wiring and the host's own Hermes home. Pure: given a base env and the proxy port, it
  * returns exactly what the host may see — never the agent-relevant secrets.
  */
-export function constrainedHostEnv(base: NodeJS.ProcessEnv, proxyPort: number, proxyToken: string, hostHome?: string, gitTemplate?: string): NodeJS.ProcessEnv {
+export function constrainedHostEnv(base: NodeJS.ProcessEnv, proxyPort: number, proxyToken: string, hostHome?: string, gitTemplate?: string, pythonPath = '/usr/bin/python3'): NodeJS.ProcessEnv {
   if (!/^[a-zA-Z0-9_-]{32,128}$/.test(proxyToken)) {throw new Error('device_proxy_token_invalid')}
   const proxy = `http://srt:${proxyToken}@127.0.0.1:${proxyPort}`
   const quote = (value: string) => `'${value.replace(/'/g, `'"'"'`)}'`
@@ -55,7 +55,7 @@ export function constrainedHostEnv(base: NodeJS.ProcessEnv, proxyPort: number, p
     HTTPS_PROXY: proxy,
     HTTP_PROXY: proxy,
     ALL_PROXY: proxy,
-    GIT_SSH_COMMAND: `/usr/bin/ssh -o ${quote(`ProxyCommand=${sshProxyCommand('/usr/bin/python3', proxyPort)}`)}`,
+    GIT_SSH_COMMAND: `/usr/bin/ssh -o ${quote(`ProxyCommand=${sshProxyCommand(pythonPath, proxyPort)}`)}`,
     ATUM_DEVICE_PROXY_TOKEN: proxyToken,
     GIT_CONFIG_COUNT: '1',
     GIT_CONFIG_KEY_0: 'http.proxyAuthMethod',
@@ -93,6 +93,7 @@ export interface HostSupervisorOptions {
   /** Where they are read live (the Drive root and working copies change at runtime). */
   readonly runtimeRoots: ProtectedRuntimeRoots | (() => ProtectedRuntimeRoots)
   readonly cuaDriverSocket: string
+  readonly cuaDriverPath?: string
   /** The owner's SSH agent socket, handed only to a command whose grant covers `ssh_agent`. */
   readonly sshAuthSock?: () => string | undefined
   /** Answers the host's reverse request before each mutating GUI action (the GUI broker). */
@@ -191,7 +192,8 @@ export class DeviceHostSupervisor {
 
     const child = ownedBackgroundChildren.track(this.spawn(program, args, {
       cwd: this.options.hermesRoot,
-      env: constrainedHostEnv(process.env, this.options.egressProxyPort, this.options.egressProxyToken, this.options.hostHome, gitTemplate),
+      env: { ...constrainedHostEnv(process.env, this.options.egressProxyPort, this.options.egressProxyToken, this.options.hostHome, gitTemplate, this.options.pythonPath),
+        ...(this.options.cuaDriverPath ? { HERMES_CUA_DRIVER_CMD: this.options.cuaDriverPath } : {}) },
       stdio: ['pipe', 'pipe', 'pipe'],
       detached: process.platform !== 'win32',
       windowsHide: true
@@ -604,6 +606,9 @@ function sha256File(file: string): Promise<string> {
 }
 
 export interface HostExecutorOptions {
+  readonly openBrowser?: (url: string) => Promise<void>
+  readonly computerReady?: (force?: boolean) => Promise<string | null>
+
   /** Where a command runs: the agent's task working copy (WS-5) or the owner's home. */
   readonly cwdFor?: (command: VerifiedExecute, grant: DeviceGrant) => string | Promise<string>
   /** Trusted local copy lookup, never a root supplied in Execute.args. */
@@ -683,7 +688,29 @@ export class HostDeviceExecutor implements DeviceExecutor {
           return
         }
 
+        if (command.args.action === 'open_url') {
+          const url = new URL(String(command.args.url ?? ''))
+          if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) { throw Error('browser_url_invalid') }
+          if (!this.options.openBrowser) { throw Error('atum_browser_unavailable') }
+          await this.options.openBrowser(url.href)
+          yield receipt(context.signal.aborted ? 'unknown' : 'completed', { data: { opened: true, url: url.href } })
+          return
+        }
+        const permission = await this.options.computerReady?.()
+        if (permission) {
+          yield receipt('failed_no_effect', { data: { error: permission, reason: 'needs_permission' } })
+          return
+        }
+        // Stop/approval can arrive while macOS presents its permission request.
+        if (context.signal.aborted || context.paused()) {
+          yield receipt('failed_no_effect', { data: { error: 'Computer action stopped.' } })
+          return
+        }
         out = await this.supervisor.computerUse({ grantId: command.grantId, commandId: command.commandId, args: command.args, timeoutMs: command.timeoutMs })
+
+        if (out.result && typeof out.result === 'object' && 'reason' in out.result && out.result.reason === 'needs_permission') {
+          await this.options.computerReady?.(true)
+        }
       } else if (command.tool === 'terminal' && command.needs.includes('sudo')) {
         // macOS refuses setuid binaries inside the sandbox (F6): the approved argv runs as root, outside.
         out = this.options.runSudo

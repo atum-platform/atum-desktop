@@ -83,7 +83,7 @@ it.skipIf(!process.env.ATUM_SYNC_PYTHON).each(['manual', 'off', 'interactive'])(
     rpc('device.computer_use', { commandId: `c${id + 1}`, grantId, args })
 
   try {
-    expect((await call({ action: 'focus_app', app: 'Fixture', raise_window: true })).state).toBe('completed')
+    expect(await call({ action: 'focus_app', app: 'Fixture', raise_window: true }), stderr).toMatchObject({ state: 'completed' })
 
     for (const args of [
       { action: 'click', coordinate: [10, 20] }, { action: 'type', text: 'fixture' },
@@ -123,10 +123,10 @@ it.skipIf(!process.env.ATUM_SYNC_PYTHON).each(['manual', 'off', 'interactive'])(
     expect((await call({ action: 'type', text: 'fixture' })).result.refusal).toBe('paused')
     paused = false
     own = true
-    expect((await call({ action: 'key', keys: 'cmd+a' })).result.refusal).toBe('own_app')
+    expect((await call({ action: 'key', keys: 'cmd+a' })).state).toBe('completed')
     own = false
     expect((await call({ action: 'focus_app', app: 'Keychain Access' })).result.refusal).toBe('security_ui')
-    expect(driver).toHaveLength(26)
+    expect(driver).toHaveLength(27)
 
     for (const app of ['Terminal', 'iTerm2', 'Script Editor', 'Automator', 'Shortcuts', 'Warp', 'Ghostty', 'Alacritty', 'kitty', 'WezTerm', 'Hyper', 'Tabby', 'Rio', 'Wave', 'Termius', 'Script Debugger']) {
       expect((await call({ action: 'focus_app', app, raise_window: true })).result.refusal).toBe('command_app')
@@ -136,7 +136,7 @@ it.skipIf(!process.env.ATUM_SYNC_PYTHON).each(['manual', 'off', 'interactive'])(
       expect(answer.result.refusal).toBe('command_app')
     }
 
-    expect(driver).toHaveLength(26)
+    expect(driver).toHaveLength(27)
     expect(await rpc('device.release_gui', {})).toEqual({ code: 'invalid_params' })
     expect(released).toHaveLength(0)
     await rpc('device.release_gui', { grantId: 'g1' })

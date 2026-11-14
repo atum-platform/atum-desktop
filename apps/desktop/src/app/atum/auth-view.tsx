@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AtumAccountForm } from '@/app/chat/sidebar/atum-account-form'
 import { GoogleMark } from '@/components/brand/google-mark'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 import { authFailureKind } from '@/lib/atum-auth'
@@ -130,7 +131,7 @@ export function AtumAuthView({ exiting = false }: { exiting?: boolean }) {
   const noProviders = !account.providers.google && !account.providers.password
 
   return (
-    <AuthFrame
+    <ConsentBoundary><AuthFrame
       description={expired ? t.atum.auth.expiredBody : t.dm.brandLine}
       exiting={exiting}
       footer={
@@ -247,6 +248,6 @@ export function AtumAuthView({ exiting = false }: { exiting?: boolean }) {
           )}
         </div>
       )}
-    </AuthFrame>
+    </AuthFrame></ConsentBoundary>
   )
 }

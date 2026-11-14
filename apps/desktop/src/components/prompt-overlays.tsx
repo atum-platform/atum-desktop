@@ -1,3 +1,4 @@
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 'use client'
 
 import { useStore } from '@nanostores/react'
@@ -244,10 +245,10 @@ function SecretDialog({ sessionId }: { sessionId: string | null }) {
  *  blocking prompt renders instead of silently stalling. */
 export function PromptOverlays({ sessionId }: { sessionId: string | null }) {
   return (
-    <>
+    <ConsentBoundary><>
       <PendingApprovalFallback />
       <SudoDialog sessionId={sessionId} />
       <SecretDialog sessionId={sessionId} />
-    </>
+    </></ConsentBoundary>
   )
 }

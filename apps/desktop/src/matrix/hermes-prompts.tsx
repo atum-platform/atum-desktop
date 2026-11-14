@@ -3,6 +3,7 @@ import { type FormEvent, type ReactNode, useEffect, useId, useState } from 'reac
 import { ClarifyPrompt } from '@/components/assistant-ui/clarify-presentation'
 import { ApprovalControls } from '@/components/assistant-ui/tool/approval-controls'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
@@ -22,7 +23,7 @@ function PromptDetails({ children, label }: { children: ReactNode; label: string
   const id = useId()
 
   return (
-    <div className="grid gap-1" data-matrix-prompt-details>
+    <ConsentBoundary><div className="grid gap-1" data-matrix-prompt-details>
       <button
         aria-controls={open ? id : undefined}
         aria-expanded={open}
@@ -38,7 +39,7 @@ function PromptDetails({ children, label }: { children: ReactNode; label: string
           {children}
         </div>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -72,7 +73,7 @@ function MaskedPrompt({
   }
 
   return (
-    <form
+    <ConsentBoundary><form
       className="grid gap-2"
       onSubmit={(event: FormEvent) => {
         event.preventDefault()
@@ -105,7 +106,7 @@ function MaskedPrompt({
           {t.common.cancel}
         </Button>
       </div>
-    </form>
+    </form></ConsentBoundary>
   )
 }
 
@@ -136,7 +137,7 @@ function Prompt({ prompt }: { prompt: MatrixHermesPrompt }) {
   }
 
   return (
-    <div className="min-w-0">
+    <ConsentBoundary><div className="min-w-0">
       {/* No stopwatch: a count of seconds pressures people. The last minute says it is short,
           and the end says it ended; before that the card says nothing about time. */}
       {remaining <= LAST_MINUTE_S && (
@@ -226,7 +227,7 @@ function Prompt({ prompt }: { prompt: MatrixHermesPrompt }) {
                 : t.assistant.clarify.sendFailed}
         </NoticeBand>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -361,12 +362,12 @@ export function HermesPrompts({
   )
 
   return placement === 'inline' ? (
-    <div
+    <ConsentBoundary><div
       className="mx-auto grid w-[min(var(--composer-width),calc(100%-2rem))] shrink-0 gap-2 pt-2"
       data-matrix-prompts
     >
       {content}
-    </div>
+    </div></ConsentBoundary>
   ) : (
     content
   )

@@ -2,6 +2,7 @@ import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { GoogleMark } from '@/components/brand/google-mark'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { Briefcase, Compass, Database, Folder, Globe, Messages } from '@/lib/icons'
@@ -108,9 +109,9 @@ export function MatrixKnowledgeSourceIcon({ kind, iconDataUrl }: { kind: MatrixK
 
   if (safeIconDataUrl) {
     return (
-      <span aria-hidden className="ak-appicon ak-appicon--sm">
+      <ConsentBoundary><span aria-hidden className="ak-appicon ak-appicon--sm">
         <img alt="" className="size-full object-cover" src={safeIconDataUrl} />
-      </span>
+      </span></ConsentBoundary>
     )
   }
 
@@ -321,7 +322,7 @@ export function MatrixKnowledgeSourcesSettings({
   const macs = view?.macs ?? []
 
   return (
-    <>
+    <ConsentBoundary><>
     <SettingsSection
       data-matrix-knowledge-sources
       foot={failed && view ? serviceUpdate ? copy.serviceUpdateRequired : copy.failed : undefined}
@@ -423,6 +424,6 @@ export function MatrixKnowledgeSourcesSettings({
       )}
     </SettingsSection>
     {view && <MatrixYourMacsSection macs={macs} onRetry={onRetry} permissions={permissions} />}
-    </>
+    </></ConsentBoundary>
   )
 }

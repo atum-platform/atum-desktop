@@ -769,7 +769,12 @@ class DeviceHost:
             if not isinstance(grant_id, str) or not grant_id or stopped:
                 return {"state": "failed_no_effect", "result": {"error": "GUI grant is missing or stopped", "refusal": "stopped"}}
             self._gui_sessions.add(grant_id)
-            raw = cu.handle_computer_use(args, session_id=f"atum-device-gui-{grant_id}", action_authorizer=authorize)
+            session_id = f"atum-device-gui-{grant_id}"
+            with cu._backend_for_call(session_id) as backend:
+                permissions = backend.call_tool("check_permissions", {"prompt": False}).get("structuredContent") or {}
+                if not permissions.get("accessibility") or not permissions.get("screen_recording"):
+                    return {"state": "failed_no_effect", "result": {"error": "CuaDriver needs Accessibility and Screen Recording permissions", "reason": "needs_permission"}}
+            raw = cu.handle_computer_use(args, session_id=session_id, action_authorizer=authorize)
         if isinstance(raw, str):
             try:
                 result: Any = json.loads(raw)
@@ -801,6 +806,12 @@ class DeviceHost:
         """Ask main's GUI broker about one mutating action, describing its real target window."""
         target = self._gui_target(action, args, backend)
         text = args.get("text") if isinstance(args.get("text"), str) else args.get("value")
+        coordinate = args.get("coordinate")
+        destination = None
+        if (isinstance(coordinate, (list, tuple)) and len(coordinate) == 2
+                and all(isinstance(value, (int, float)) for value in coordinate)
+                and args.get("element_index") is None and args.get("element") is None):
+            destination = {"x": coordinate[0], "y": coordinate[1]}
         keys = str(args.get("keys") or "").lower()
         pastes = action == "key" and re.search(r"(cmd|command|ctrl|control)\s*\+\s*v\b", keys) is not None
         try:
@@ -811,6 +822,8 @@ class DeviceHost:
                     "action": action,
                     "summary": summary[:300],
                     "target": target,
+                    # Resolved host destination, never copied from a claimed target identity.
+                    "destination": destination,
                     "textBytes": len(text.encode("utf-8")) if isinstance(text, str) else 0,
                     "pasteBytes": clipboard_bytes() if pastes else 0,
                 },
@@ -832,6 +845,8 @@ class DeviceHost:
             window_id = getattr(backend, "_active_window_id", None)
         except Exception:
             return target
+        if isinstance(window_id, int):
+            target["windowId"] = window_id
         if isinstance(pid, int):
             executable = process_path(pid)
             target.update({"pid": pid, "processPath": executable, "bundleId": bundle_id_of(executable)})

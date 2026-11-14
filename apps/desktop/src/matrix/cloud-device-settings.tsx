@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useI18n } from '@/i18n'
 
@@ -119,14 +120,14 @@ export function MatrixCloudDeviceSettings() {
 
   if (loading) {
     return (
-      <SettingsSection data-matrix-cloud-device-settings>
+      <ConsentBoundary><SettingsSection data-matrix-cloud-device-settings>
         <p role="status">{t.common.loading}</p>
-      </SettingsSection>
+      </SettingsSection></ConsentBoundary>
     )
   }
 
   return (
-    <SettingsSection data-matrix-cloud-device-settings>
+    <ConsentBoundary><SettingsSection data-matrix-cloud-device-settings>
       <SettingsRow
         control={
           status.active && api ? (
@@ -207,6 +208,6 @@ export function MatrixCloudDeviceSettings() {
           {words.deviceStatusUnconfirmed}
         </SettingsStatus>
       )}
-    </SettingsSection>
+    </SettingsSection></ConsentBoundary>
   )
 }

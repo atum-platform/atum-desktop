@@ -29,12 +29,15 @@ describe('constrainedHostEnv', () => {
       51515,
       proxyToken,
       '/Users/fixture/Library/Application Support/Atum/device/host-home',
-      '/trusted/git-template'
+      '/trusted/git-template',
+      '/bundled/python'
     )
 
     expect(env.HTTPS_PROXY).toBe(`http://srt:${proxyToken}@127.0.0.1:51515`)
     expect(env.ALL_PROXY).toBe(env.HTTPS_PROXY)
     expect(env.GIT_SSH_COMMAND).toContain('ProxyCommand')
+    expect(env.GIT_SSH_COMMAND).toContain('/bundled/python')
+    expect(env.GIT_SSH_COMMAND).not.toContain('/usr/bin/python3')
     expect(env.GIT_SSH_COMMAND).toMatch(/^\/usr\/bin\/ssh /)
     expect(env.GIT_SSH_COMMAND).not.toContain(proxyToken)
     expect(env.ATUM_DEVICE_PROXY_TOKEN).toBe(proxyToken)
@@ -363,6 +366,30 @@ describe('HostDeviceExecutor', () => {
     expect(sup.computerUse).toHaveBeenCalledWith({ grantId: gui.grantId, commandId: gui.commandId, args: gui.args, timeoutMs: gui.timeoutMs })
 
     expect((await collect(executor.run(gui, context(new AbortController(), true))))[0]).toMatchObject({ state: 'failed_no_effect' })
+    expect(sup.computerUse).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens a URL in Atum through the admitted computer surface without a driver or extra approval', async () => {
+    const sup = stubSupervisor()
+    const openBrowser = vi.fn(async () => {})
+    const computerReady = vi.fn(async () => 'missing permission')
+    const executor = new HostDeviceExecutor(sup as never, { artifactsDir: '/tmp', openBrowser, computerReady })
+    const gui = command({ tool: 'computer_use', args: { action: 'open_url', url: 'https://node.example.ts\u002enet:4317' } })
+    expect((await collect(executor.run(gui, context())))[0]).toMatchObject({ state: 'completed' })
+    expect(openBrowser).toHaveBeenCalledWith('https://node.example.ts\u002enet:4317/')
+    expect(computerReady).not.toHaveBeenCalled()
+    expect(sup.computerUse).not.toHaveBeenCalled()
+  })
+
+  it('recovers the real executor path after a missing permission is granted', async () => {
+    const sup = stubSupervisor()
+    let granted = false
+    const executor = new HostDeviceExecutor(sup as never, { artifactsDir: '/tmp', computerReady: async () => granted ? null : 'Allow Accessibility' })
+    const gui = command({ tool: 'computer_use', args: { action: 'click', element: 2 } })
+    expect((await collect(executor.run(gui, context())))[0]).toMatchObject({ state: 'failed_no_effect' })
+    expect(sup.computerUse).not.toHaveBeenCalled()
+    granted = true
+    expect((await collect(executor.run(gui, context())))[0]).toMatchObject({ state: 'completed' })
     expect(sup.computerUse).toHaveBeenCalledTimes(1)
   })
 

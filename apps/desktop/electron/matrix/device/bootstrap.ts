@@ -132,6 +132,10 @@ export class DeviceServiceBootstrap {
    * press anything meanwhile. The device runtime's own approvals do this themselves; an approval that starts
    * elsewhere (the browser import's Touch ID) reaches the same switch here.
    */
+  paused(): boolean {
+    return this.runtime?.service.paused() ?? false
+  }
+
   setPaused(paused: boolean): void {
     this.runtime?.service.setPaused(paused)
   }

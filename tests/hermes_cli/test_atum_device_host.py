@@ -443,7 +443,7 @@ def test_send_file_reads_inside_the_profile_and_caps_the_size(mac_host):
     {"ok": False, "code": "no_target"},
     {"ok": False, "code": "human_has_control", "error": "human owns screen"},
 ])
-def test_gui_tool_errors_report_no_effect(monkeypatch, result):
+def test_gui_tool_errors_report_no_effect(monkeypatch, result, ready_control_backend):
     from tools.computer_use import tool as cu
 
     host, _ = _host()
@@ -491,7 +491,7 @@ def test_release_gui_rpc_requires_one_grant(monkeypatch, grant_id):
 
 
 @pytest.mark.parametrize("closing", ["shutdown", "eof"])
-def test_closing_refuses_authorization_started_during_teardown(monkeypatch, closing):
+def test_closing_refuses_authorization_started_during_teardown(monkeypatch, closing, ready_control_backend):
     from tools.computer_use import tool as cu
 
     host, wire = _host()
@@ -550,7 +550,7 @@ def test_gui_dispatch_exception_is_unknown_after_input_may_have_landed(monkeypat
 
     @contextmanager
     def backend(*args, **kwargs):
-        yield object()
+        yield type("Backend", (), {"call_tool": lambda *a, **k: {"structuredContent": {"accessibility": True, "screen_recording": True}}})()
 
     def dispatch(*args, **kwargs):
         raise TimeoutError("driver timed out after posting click")
@@ -562,5 +562,41 @@ def test_gui_dispatch_exception_is_unknown_after_input_may_have_landed(monkeypat
         result = host._computer_use({"commandId": "c", "grantId": "g", "args": {"action": "click", "coordinate": [1, 2]}})
         assert result["state"] == "unknown"
         assert result["result"]["error"].startswith("click failed:")
+    finally:
+        host._pool.shutdown(wait=True)
+
+
+@pytest.fixture
+def ready_control_backend(monkeypatch):
+    from contextlib import contextmanager
+    from tools.computer_use import tool as cu
+    from types import SimpleNamespace
+
+    permissions = {"accessibility": True, "screen_recording": True}
+    backend = SimpleNamespace(call_tool=lambda name, args: {"structuredContent": permissions})
+
+    @contextmanager
+    def active(session_id):
+        yield backend
+
+    monkeypatch.setattr(cu, "_backend_for_call", active)
+    return permissions
+
+
+def test_control_backend_permissions_gate_dispatch_and_recover(monkeypatch, ready_control_backend):
+    from tools.computer_use import tool as cu
+
+    host, _ = _host()
+    monkeypatch.setattr(host_mod, "_IS_DARWIN", True)
+    calls = []
+    monkeypatch.setattr(cu, "handle_computer_use", lambda *a, **k: calls.append(k["session_id"]) or {"ok": True})
+    ready_control_backend["accessibility"] = False
+    request = {"commandId": "command", "grantId": "grant", "args": {"action": "capture"}}
+    try:
+        assert host._computer_use(request)["result"]["reason"] == "needs_permission"
+        assert calls == []
+        ready_control_backend["accessibility"] = True
+        assert host._computer_use(request)["state"] == "completed"
+        assert calls == ["atum-device-gui-grant"]
     finally:
         host._pool.shutdown(wait=True)

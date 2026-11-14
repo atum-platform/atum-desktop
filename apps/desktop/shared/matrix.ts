@@ -555,6 +555,7 @@ export interface MatrixPdfBridge {
 
 /** The Matrix UI's deliberately small, unprivileged browser capability. */
 export interface MatrixConsumerBrowserBridge {
+  onOpen?(listener: (url: string) => void): () => void
   onPopup(listener: (payload: ConsumerBrowserPopup) => void): () => void
   onNotice(listener: (payload: ConsumerBrowserNotice) => void): () => void
   prepare(input: ConsumerBrowserPrepareInput): Promise<ConsumerBrowserPrepareResult>

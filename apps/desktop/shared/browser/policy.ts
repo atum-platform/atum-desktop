@@ -209,3 +209,16 @@ export function clampBrowserBounds(
     height: Math.min(input.height, content.height - y)
   }
 }
+
+/** MagicDNS tailnet destinations are reachable through the owner's Mac.
+ * Keep DNS pinning and reject a mixed answer set or non-tailnet private address.
+ */
+export function assertConsumerBrowserAddresses(host: string, addresses: readonly string[]): void {
+  const tailnetAddress = (address: string) => {
+    const parts = address.split('.').map(Number)
+    return (isIP(address) === 4 && parts[0] === 100 && parts[1]! >= 64 && parts[1]! <= 127) ||
+      (isIP(address) === 6 && new URL(`http://[${address}]/`).hostname.startsWith('[fd7a:115c:a1e0:'))
+  }
+  if (host.toLowerCase().replace(/\.$/, '').endsWith('.ts.net') && addresses.length && addresses.every(tailnetAddress)) { return }
+  assertPublicResolvedAddresses(addresses)
+}

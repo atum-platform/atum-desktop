@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 
 import { BrowserWindow, dialog, Menu, nativeImage, Notification, Tray } from 'electron'
 
+import { registerNativeConsent } from './consent'
 import { DEVICE_APPROVAL_WAIT_MS } from './device-key'
 import type { DeviceRuntimeEnvironment } from './runtime'
 
@@ -37,10 +38,10 @@ export function devicePasswordHtml(command: string, locale?: string): string {
   const copy = words(locale)
   const nonce = randomBytes(16).toString('base64')
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'"><style>body{font:14px system-ui;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}input{width:95%;padding:8px}button{margin:16px 8px 0 0;padding:6px 16px}</style></head><body><h2>${escapeHtml(copy[0])}</h2><pre>${escapeHtml(command)}</pre><form><input type="password" autocomplete="off" maxlength="1024" autofocus aria-label="${escapeHtml(copy[0])}"><br><button type="submit">${escapeHtml(copy[1])}</button><button type="button" id="cancel">${escapeHtml(copy[2])}</button></form><script nonce="${nonce}">document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();window.answer={password:document.querySelector('input').value};document.querySelector('input').value='';});document.querySelector('#cancel').addEventListener('click',()=>{document.querySelector('input').value='';window.answer={cancel:true};});</script></body></html>`
+  return `<!doctype html><html><head><title>Atum authentication</title><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'"><style>body{font:14px system-ui;padding:20px}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:150px;overflow:auto}input{width:95%;padding:8px}button{margin:16px 8px 0 0;padding:6px 16px}</style></head><body><h2>${escapeHtml(copy[0])}</h2><pre>${escapeHtml(command)}</pre><form><input type="password" autocomplete="off" maxlength="1024" autofocus aria-label="${escapeHtml(copy[0])}"><br><button type="submit">${escapeHtml(copy[1])}</button><button type="button" id="cancel">${escapeHtml(copy[2])}</button></form><script nonce="${nonce}">document.querySelector('form').addEventListener('submit',event=>{event.preventDefault();window.answer={password:document.querySelector('input').value};document.querySelector('input').value='';});document.querySelector('#cancel').addEventListener('click',()=>{document.querySelector('input').value='';window.answer={cancel:true};});</script></body></html>`
 }
 
-export function createDeviceNativeUi(options: { locale(): string | undefined; parent(): BrowserWindow | undefined }) {
+export function createDeviceNativeUi(options: { locale(): string | undefined; parent(): BrowserWindow | undefined; withConsent?<T>(present: () => Promise<T>): Promise<T> }) {
   const cancellations = new Set<() => void>()
 
   const promptPassword: DeviceRuntimeEnvironment['promptPassword'] = command =>
@@ -63,6 +64,7 @@ export function createDeviceNativeUi(options: { locale(): string | undefined; pa
         }
       })
 
+      registerNativeConsent(window)
       let finished = false
       let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -157,7 +159,8 @@ export function createDeviceNativeUi(options: { locale(): string | undefined; pa
         signal: abort.signal
       }
 
-      const answer = parent && !parent.isDestroyed() ? await dialog.showMessageBox(parent, box) : await dialog.showMessageBox(box)
+      const present = () => parent && !parent.isDestroyed() ? dialog.showMessageBox(parent, box) : dialog.showMessageBox(box)
+      const answer = await (options.withConsent ? options.withConsent(present) : present())
 
       return answer.response === 0 ? 'always' : answer.response === 1 ? 'once' : 'deny'
     } finally {

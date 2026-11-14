@@ -362,6 +362,33 @@ function mirroredArchiveUrl(url, mirror = process.env.ATUM_BROWSER_RUNTIME_MIRRO
   return `${base}/${tail}`
 }
 
+/** Stage the existing PM-pinned macOS app before electron-builder signs nested bundles. */
+export function stageComputerDriver({ resources, arch = process.arch, download = downloadVerifiedArchive,
+  extract = (archive, destination) => run('tar', ['-xzf', archive, '-C', destination]) }) {
+  const lock = JSON.parse(readFileSync(join(desktopRoot, '../../pm/lock.json'), 'utf8'))
+  const artifact = lock.packages['cua-driver'].artifacts[`darwin-${arch}`]
+  if (!artifact) { throw Error('computer_driver_target_missing') }
+  const scratch = join(resources, '.cua-stage')
+  mkdirSync(scratch, { recursive: true })
+  try {
+    const archive = join(scratch, 'driver.tar.gz')
+    download({ ...artifact, destination: archive })
+    const unpacked = join(scratch, 'unpacked')
+    mkdirSync(unpacked)
+    extract(archive, unpacked)
+    const executable = readdirSync(unpacked, { recursive: true }).find(name =>
+      String(name).endsWith('CuaDriver.app/Contents/MacOS/cua-driver'))
+    if (!executable) { throw Error('computer_driver_bundle_missing') }
+    const bundle = dirname(dirname(dirname(join(unpacked, String(executable)))))
+    cpSync(bundle, join(resources, 'CuaDriver.app'), { recursive: true })
+    // Beside the signed bundle so its upstream seal and TCC identity remain intact.
+    cpSync(join(desktopRoot, 'third-party/licenses/app/cua-driver-LICENSE.txt'), join(resources, 'CuaDriver-LICENSE.txt'))
+    cpSync(join(desktopRoot, 'third-party/licenses/app/cua-cursor-theme-NOTICES.txt'), join(resources, 'cua-cursor-theme-NOTICES.txt'))
+  } finally {
+    rmSync(scratch, { recursive: true, force: true })
+  }
+}
+
 function downloadVerifiedArchive({ url, sha256, destination, mirror = null }) {
   run('curl', [
     '--fail',

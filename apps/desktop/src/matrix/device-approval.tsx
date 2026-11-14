@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Loader } from '@/components/ui/loader'
@@ -85,7 +86,7 @@ export function MatrixApprovalRequest({
   } as const
 
   return (
-    <div className="flex flex-col gap-3 text-start" data-matrix-approval-request={approval.state}>
+    <ConsentBoundary><div className="flex flex-col gap-3 text-start" data-matrix-approval-request={approval.state}>
       {approval.state === 'waiting' && (
         <>
           <p className="text-(--atum-ink-muted)">{copy.requestWaiting(device)}</p>
@@ -158,7 +159,7 @@ export function MatrixApprovalRequest({
           </Button>
         </p>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -205,7 +206,7 @@ export function MatrixApprovalSheet({
   const live = approval && ['asked', 'waiting', 'compare', 'unlocking'].includes(approval.state)
 
   return (
-    <Dialog onOpenChange={value => !value && !pending && close()} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={value => !value && !pending && close()} open={open}>
       <DialogContent
         className="atum-sheet max-w-[28rem]"
         data-matrix-approval-sheet={approval?.state}
@@ -332,6 +333,6 @@ export function MatrixApprovalSheet({
           )}
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

@@ -1,23 +1,10 @@
-/**
- * The GUI broker (S1 build plan §3, §4, WS-4 `device/gui-broker.ts`).
- *
- * `computer_use` for a cloud-mode agent runs Hermes's own tool inside the device host, whose CuaDriver
- * session is the host's child (not Hermes's, and never reachable from a shell command: its socket and
- * binary are denied in the Seatbelt profile). Before **every** mutating action the host asks this broker
- * (`device.gui_authorize`), describing the window the action will actually reach: CuaDriver posts each
- * event to one process, the tool's sticky target, so that process is the target.
- *
- * The broker re-checks authority (grant live, not paused) and **refuses any action aimed at system
- * security UI** — the LocalAuthentication and SecurityAgent sheets, TCC prompts, System Settings — or at
- * Atum itself, so the agent can never click or type at its own approval prompt (test 5(i)). It matches
- * on the process path and bundle ID, which are not localized (these Macs run a Vietnamese UI), with the
- * window title only as a fallback. A file-picker action, or typing, setting or pasting more than 2 KB
- * into a browser or mail app, is a protected `gui_upload` and needs the owner's approval (test 5(h),
- * Q3). Small typed sends into a logged-in app are the accepted S1 limit.
+/** Authorizes each input against live owner authority and protected authentication UI.
+ * Ordinary Atum windows are owner-controlled just like other apps.
  */
 
 /** The window a mutating action will reach, as the device host resolves it from CuaDriver. */
 export interface GuiTarget {
+  readonly windowId?: number
   readonly pid?: number
   /** The executable of the target process (`proc_pidpath`). */
   readonly processPath?: string
@@ -30,6 +17,7 @@ export interface GuiTarget {
 }
 
 export interface GuiAuthorizeRequest {
+  readonly destination?: { x: number; y: number }
   readonly commandId: string
   readonly action: string
   readonly summary?: string
@@ -40,7 +28,7 @@ export interface GuiAuthorizeRequest {
   readonly pasteBytes?: number
 }
 
-export type GuiRefusal = 'command_app' | 'no_target' | 'stopped' | 'paused' | 'security_ui' | 'own_app' | 'approval_denied' | 'approval_timeout'
+export type GuiRefusal = 'consent_ui' | 'command_app' | 'no_target' | 'stopped' | 'paused' | 'security_ui' | 'own_app' | 'approval_denied' | 'approval_timeout'
 
 export type GuiAuthorizeVerdict = { readonly allow: true } | { readonly allow: false; readonly reason: GuiRefusal }
 
@@ -81,7 +69,7 @@ const SECURITY_UI_BUNDLES: readonly RegExp[] = [
 
 /** A last resort for when the process is unknown: English and Vietnamese security-sheet titles. */
 const SECURITY_UI_TITLE =
-  /(touch id|privacy & security|security & privacy|wants to make changes|enter your password|system settings|quyền riêng tư|bảo mật|nhập mật khẩu|cài đặt hệ thống|muốn thực hiện thay đổi)/i
+  /(atum authentication|touch id|privacy & security|security & privacy|wants to make changes|enter your password|system settings|quyền riêng tư|bảo mật|nhập mật khẩu|cài đặt hệ thống|muốn thực hiện thay đổi)/i
 
 /** Requested app names (focus/launch) that are security UI, in the five product locales. */
 const SECURITY_UI_APPS =
@@ -134,7 +122,7 @@ export function isCommandAppTarget(target: GuiTarget): boolean {
   ))
 }
 
-/** True when the target is Atum itself (its chat, its Settings, its windows): never agent-driven. */
+/** Identifies Atum processes for callers that need their identity. */
 export function isOwnApp(target: GuiTarget, own: { bundlePath?: string | null; bundleId?: string | null; pids?: readonly number[] }): boolean {
   if (own.bundlePath && target.processPath?.startsWith(`${own.bundlePath}/`)) {
     return true
@@ -203,8 +191,9 @@ export function isGuiUpload(request: Pick<GuiAuthorizeRequest, 'action' | 'targe
 
 export interface GuiBrokerDeps {
   /** Authority right now, for the command this action belongs to (grant live, not paused). */
+  consentProtected?(request: GuiAuthorizeRequest): Promise<boolean>
   authority(commandId: string): { live: boolean; paused: boolean }
-  /** Atum's own bundle and processes, which the agent may not drive. */
+  /** Atum's own bundle and processes. */
   ownApp(): { bundlePath?: string | null; bundleId?: string | null; pids?: readonly number[] }
   /** One Touch ID for a protected `gui_upload`; resolves the outcome. */
   requestUploadApproval(request: GuiAuthorizeRequest): Promise<'approved' | 'approval_denied' | 'approval_timeout'>
@@ -215,7 +204,7 @@ export interface GuiBrokerDeps {
 export class GuiBroker {
   constructor(private readonly deps: GuiBrokerDeps) {}
 
-  /** Decide one mutating GUI action: authority, security UI, Atum itself, the upload gate. */
+  /** Decide one mutating GUI action: authority, security UI, the upload gate. */
   async authorize(request: GuiAuthorizeRequest): Promise<GuiAuthorizeVerdict> {
     const refuse = (reason: GuiRefusal): GuiAuthorizeVerdict => {
       this.deps.audit('gui_refused', `${request.action}:${reason}`)
@@ -243,15 +232,20 @@ export class GuiBroker {
       return refuse('command_app')
     }
 
-    if (isOwnApp(target, this.deps.ownApp())) {
-      return refuse('own_app')
-    }
-
     const appSelection = ['focus_app', 'launch_app', 'bring_to_front'].includes(request.action) && !!target.requestedApp
 
     if (!appSelection && (!Number.isSafeInteger(target.pid) || (target.pid ?? 0) <= 0)) {
       return refuse('no_target')
     }
+
+    if (await this.deps.consentProtected?.(request)) {
+      return refuse('consent_ui')
+    }
+
+    const current = this.deps.authority(request.commandId)
+
+    if (!current.live) { return refuse('stopped') }
+    if (current.paused) { return refuse('paused') }
 
     if (isGuiUpload({ ...request, target })) {
       const outcome = await this.deps.requestUploadApproval(request)

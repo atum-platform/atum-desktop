@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import {
   Dialog,
   DialogContent,
@@ -190,7 +191,7 @@ export function SharedGroupPersonaApprovalDialog({
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent aria-busy={loading || mutating} className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>
@@ -242,6 +243,6 @@ export function SharedGroupPersonaApprovalDialog({
           )}
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

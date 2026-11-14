@@ -8,7 +8,7 @@ import { lookup } from 'node:dns/promises'
 import { createServer, request as httpRequest, type IncomingHttpHeaders, type IncomingMessage, type ServerResponse } from 'node:http'
 import { connect, isIP, type Socket } from 'node:net'
 
-import { assertPublicResolvedAddresses, assertSafeBrowserRequestUrl } from '../../shared/browser/policy'
+import { assertConsumerBrowserAddresses, assertPublicResolvedAddresses, assertSafeBrowserRequestUrl } from '../../shared/browser/policy'
 
 export interface EgressSession {
   setProxy: (config: { mode: 'fixed_servers'; proxyRules: string; proxyBypassRules: string }) => Promise<void>
@@ -39,6 +39,7 @@ interface EgressPolicy {
   probes: (policy: object) => readonly string[]
   /** Also forward plain `http://` requests (a browser tab). Off for app partitions: HTTPS CONNECT only. */
   forwardHttp?: boolean
+  tailnet?: (target: URL) => boolean
 }
 
 export function createAppViewEgress(
@@ -65,7 +66,8 @@ export function createAppViewEgress(
 export function createConsumerBrowserEgress(
   session: EgressSession,
   active: () => boolean,
-  deps: EgressDeps = {}
+  deps: EgressDeps = {},
+  privateOrigins: () => ReadonlySet<string> = () => new Set()
 ): AppViewEgress {
   const token = {}
 
@@ -75,6 +77,7 @@ export function createConsumerBrowserEgress(
       current: () => (active() ? token : null),
       admit: () => true,
       probes: () => ['https://probe.invalid', 'http://probe.invalid'],
+      tailnet: target => privateOrigins().has(target.origin),
       forwardHttp: true
     },
     deps
@@ -174,7 +177,12 @@ function createPinnedEgress(session: EgressSession, egressPolicy: EgressPolicy, 
         assertSafeBrowserRequestUrl(target.href)
         const hostname = bareHost(target.hostname)
         const addresses = await resolve(hostname)
-        assertPublicResolvedAddresses(addresses)
+
+        if (egressPolicy.tailnet?.(target)) {
+          assertConsumerBrowserAddresses(target.hostname, addresses)
+        } else {
+          assertPublicResolvedAddresses(addresses)
+        }
 
         if (ended || response.destroyed || request.socket.destroyed || closed || origins() !== policy) {
           throw Error('app_egress_revoked')
@@ -278,7 +286,12 @@ function createPinnedEgress(session: EgressSession, egressPolicy: EgressPolicy, 
 
         assertSafeBrowserRequestUrl(target.href)
         const addresses = await resolve(bareHost(target.hostname))
-        assertPublicResolvedAddresses(addresses)
+
+        if (egressPolicy.tailnet?.(target)) {
+          assertConsumerBrowserAddresses(target.hostname, addresses)
+        } else {
+          assertPublicResolvedAddresses(addresses)
+        }
 
         if (!current()) {
           throw Error('app_egress_revoked')

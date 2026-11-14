@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { ExternalLink } from '@/lib/icons'
 
 import { BillingRefusalInline } from './inline-feedback'
@@ -11,7 +12,7 @@ export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void
   const resumeFlow = useResumeFlow()
 
   return (
-    <div className="@container">
+    <ConsentBoundary><div className="@container">
       <div className="grid gap-3 py-3 @2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:items-center">
         <div className="flex min-w-0 items-center gap-3">
           <TierArt name={plan.tierName} />
@@ -52,6 +53,6 @@ export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void
         </div>
       </div>
       <BillingRefusalInline refusal={resumeFlow.refusal} />
-    </div>
+    </div></ConsentBoundary>
   )
 }

@@ -606,7 +606,7 @@ describe('Matrix UI preload consumer browser bridge', () => {
     const notice = vi.fn()
 
     expect(consumerBrowser).toBeDefined()
-    expect(Object.keys(consumerBrowser!).sort()).toEqual(['onNotice', 'onPopup', 'prepare', 'release'])
+    expect(Object.keys(consumerBrowser!).sort()).toEqual(['onNotice', 'onOpen', 'onPopup', 'prepare', 'release'])
     const stopPopup = consumerBrowser!.onPopup(popup)
     const stopNotice = consumerBrowser!.onNotice(notice)
     const popupHandler = electron.on.mock.calls.find(([name]) => name === CONSUMER_BROWSER_IPC.popup)?.[1]

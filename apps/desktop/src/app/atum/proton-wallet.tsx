@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useMemo } from 'react'
 
 import { ProtonAmount } from '@/components/brand/proton-mark'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { useI18n } from '@/i18n'
 import { Spinner } from '@/lib/icons'
 import { $atumAccountScopeId } from '@/store/atum-messaging'
@@ -28,7 +29,7 @@ export function ProtonWalletSection() {
   useEffect(() => { void refreshAtumProtonWallet() }, [accountId])
 
   return (
-    <section aria-label={copy.title} className="mt-8" data-atum-proton-wallet>
+    <ConsentBoundary><section aria-label={copy.title} className="mt-8" data-atum-proton-wallet>
       <div aria-live="polite" className="mb-8">
         <p className="text-(length:--atum-t-body) text-(--atum-ink-muted)">{copy.available}</p>
         {loading && !wallet ? <Spinner className="mt-3 size-5 animate-spin text-(--atum-ink-muted)" label={t.common.loading} /> : (
@@ -50,6 +51,6 @@ export function ProtonWalletSection() {
         <p className="mt-3 text-(length:--atum-t-body) text-(--atum-ink-faint)">{copy.unavailable}</p>
       )}
       <ProtonRewardsSection />
-    </section>
+    </section></ConsentBoundary>
   )
 }

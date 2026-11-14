@@ -6,7 +6,8 @@ is unchanged.
 
 At ``register`` it wraps six built-in tools (``terminal``, ``read_file``, ``write_file``,
 ``patch``, ``search_files``, ``computer_use``) with **the original schema plus one optional
-``device`` property** (``terminal`` also gains ``needs``) and adds one tool,
+``device`` property** (``terminal`` also gains ``needs`` and ``computer_use`` gains
+``open_url`` for the Atum browser) and adds one tool,
 ``device_send_file``. The schema is fixed in code and every tool is always available, so the
 tool list is identical on every turn of every conversation and the cached prompt prefix holds.
 Which Macs are online reaches the model in the turn context, never in a schema.
@@ -94,11 +95,21 @@ def _always() -> bool:
 
 
 def device_schema(name: str, schema: dict[str, Any]) -> dict[str, Any]:
-    """The original schema plus the optional ``device`` property (and ``needs`` for terminal)."""
+    """Extend existing schemas with device routing and the desktop browser action."""
     wrapped = copy.deepcopy(schema)
     parameters = wrapped.setdefault("parameters", {"type": "object", "properties": {}})
     properties = parameters.setdefault("properties", {})
     properties["device"] = copy.deepcopy(DEVICE_PROPERTY)
+    if name == "computer_use":
+        properties["action"]["enum"].append("open_url")
+        properties["url"] = {
+            "type": "string",
+            "description": (
+                "For open_url, open this HTTP(S) URL in Atum's in-app browser on the owner Mac. "
+                "Use this when a private or Tailscale URL is unreachable from the cloud, "
+                "then capture Atum to verify page load."
+            ),
+        }
     if name == "terminal":
         properties["needs"] = copy.deepcopy(NEEDS_PROPERTY)
     return wrapped

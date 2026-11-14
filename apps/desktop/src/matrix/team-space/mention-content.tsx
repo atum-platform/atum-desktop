@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 
 import { MarkdownContent, type MarkdownHost } from '@/components/assistant-ui/markdown-surface'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 
 import type { MatrixMessage } from '../../../shared/matrix'
 import { MATRIX_MARKDOWN_HOST } from '../markdown-host'
@@ -40,5 +41,5 @@ export function TeamSpaceMentionContent({
     [rendered.labels]
   )
 
-  return <MarkdownContent host={host} isRunning={false} text={rendered.text} />
+  return <ConsentBoundary><MarkdownContent host={host} isRunning={false} text={rendered.text} /></ConsentBoundary>
 }

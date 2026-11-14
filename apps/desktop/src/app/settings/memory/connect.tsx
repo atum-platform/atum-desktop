@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { getMemoryProviderOAuthStatus, startMemoryProviderOAuth } from '@/hermes'
 import { Check, ExternalLink, Loader2 } from '@/lib/icons'
 import { notifyError } from '@/store/notifications'
@@ -127,7 +128,7 @@ export function MemoryConnect({ provider }: { provider: string }) {
   const connectLabel = connected ? (auth === 'apikey' ? 'Connect via OAuth' : 'Reconnect') : 'Connect'
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+    <ConsentBoundary><span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
       {phase === 'idle' && connected && (
         <span className="inline-flex items-center gap-1 text-muted-foreground">
           <Check className="size-3" />
@@ -157,6 +158,6 @@ export function MemoryConnect({ provider }: { provider: string }) {
         </Button>
       )}
       {phase === 'error' && detail && <span className="text-destructive">{detail}</span>}
-    </span>
+    </span></ConsentBoundary>
   )
 }

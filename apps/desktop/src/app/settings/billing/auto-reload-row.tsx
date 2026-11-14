@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
@@ -132,7 +133,7 @@ export function AutoReloadRow({
   // Read-only states (off / divergent card) keep the original ListRow shape.
   if (!editable) {
     return (
-      <ListRow
+      <ConsentBoundary><ListRow
         action={<RowValue row={row} />}
         below={
           <>
@@ -148,7 +149,7 @@ export function AutoReloadRow({
         description={row.description}
         key={row.id}
         title={row.title}
-      />
+      /></ConsentBoundary>
     )
   }
 
@@ -164,7 +165,7 @@ export function AutoReloadRow({
   // no breakpoint math that under-reserves when the two inputs stack on narrow
   // panes. The form is `invisible` + `aria-hidden` when not editing.
   return (
-    <div className="@container">
+    <ConsentBoundary><div className="@container">
       <div className="grid gap-3 py-3 @2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:items-start">
         <div className="min-w-0">
           <div className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
@@ -274,20 +275,20 @@ export function AutoReloadRow({
           )}
         </div>
       </div>
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
 // A one-line success/error note under the row — the only consumer of this shape.
 function InlineMessage({ children, kind }: { children: string; kind: 'error' | 'success' }) {
   return (
-    <div
+    <ConsentBoundary><div
       className={cn(
         'mt-2 text-[length:var(--conversation-caption-font-size)]',
         kind === 'error' ? 'text-destructive' : 'text-(--ui-text-tertiary)'
       )}
     >
       {children}
-    </div>
+    </div></ConsentBoundary>
   )
 }

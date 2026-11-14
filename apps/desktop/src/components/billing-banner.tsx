@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 
 import { StatusRow } from '@/components/chat/status-row'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { CreditCard, X } from '@/lib/icons'
@@ -34,7 +35,7 @@ export function BillingBanner({ sessionId }: { sessionId: null | string }) {
   const message = firstLine(block.message) || copy.fallbackMessage
 
   return (
-    <StatusRow
+    <ConsentBoundary><StatusRow
       leading={<CreditCard aria-hidden className="size-3 text-[var(--atum-danger,var(--destructive))]" />}
       trailing={
         <>
@@ -67,6 +68,6 @@ export function BillingBanner({ sessionId }: { sessionId: null | string }) {
         <span className="font-medium">{title}</span>
         {message && <span className="text-muted-foreground/80"> · {message}</span>}
       </span>
-    </StatusRow>
+    </StatusRow></ConsentBoundary>
   )
 }

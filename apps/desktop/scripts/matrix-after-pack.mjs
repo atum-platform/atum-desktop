@@ -6,7 +6,7 @@ import { assertRuntimeLicensePolicy, auditRuntimeLicenses } from './audit-runtim
 import { writeMatrixLocalizedName } from './matrix-app-name.mjs'
 import { assertMatrixUsageDescriptions } from './matrix-usage-descriptions.mjs'
 import { stageAtumDisclaimLauncher } from './stage-atum-disclaim-launcher.mjs'
-import { stageBundledRuntime } from './stage-bundled-runtime.mjs'
+import { stageBundledRuntime, stageComputerDriver } from './stage-bundled-runtime.mjs'
 import { stageDriveEngine } from './stage-drive-engine.mjs'
 import { stageLocalBrain } from './stage-local-brain.mjs'
 import { stageMatrixPublicConfig } from './stage-matrix-public-config.mjs'
@@ -53,6 +53,7 @@ export default async function matrixAfterPack(
   {
     stage = stageBundledRuntime,
     stageBrain = stageLocalBrain,
+    stageComputer = stageComputerDriver,
     stageDrive = stageDriveEngine,
     auditRuntime = auditRuntimeLicenses,
     assertRuntimePolicy = assertRuntimeLicensePolicy,
@@ -92,6 +93,7 @@ export default async function matrixAfterPack(
   if (manifest.hermes?.dirtyCheckoutIgnored !== false || manifest.identity?.runtimeCommit !== stamp.commit) {
     throw new Error('Candidate UI and bundled Hermes must come from the same clean commit')
   }
+  stageComputer({ resources, arch })
   const inventory = await auditRuntime({ runtimeRoot: path.join(resources, 'runtime') })
   assertRuntimePolicy(inventory)
   // Matrix deliberately does not package the legacy public config because it

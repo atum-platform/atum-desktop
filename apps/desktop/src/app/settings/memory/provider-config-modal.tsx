@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import {
   Dialog,
   DialogClose,
@@ -90,7 +91,7 @@ export function ProviderConfigModal({
   }
 
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-w-2xl dt-portal-scrollbar">
         <DialogHeader>
           <DialogTitle icon={SlidersHorizontal}>{config.label} — full configuration</DialogTitle>
@@ -154,6 +155,6 @@ export function ProviderConfigModal({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

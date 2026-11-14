@@ -92,12 +92,14 @@ import { ATUM_AGENT_PORTABILITY_SCHEMA_VERSION } from '../../shared/atum-agent-p
 import type { AtumDocumentRecoveryWriteInput } from '../../shared/atum-office/document-recovery'
 import type { MatrixBackgroundSweepSettingWrite } from '../../shared/background-sweep'
 import { isBotApiRoomForApp } from '../../shared/bot-api-room'
+import { CONSUMER_BROWSER_IPC } from '../../shared/browser/ipc'
 import {
   DEFAULT_DESKTOP_LOCALE,
   type DesktopLocale,
   desktopLocaleFor,
   isDesktopLocale
 } from '../../shared/desktop-locale'
+import { CONSENT_SELECTOR, readConsentRegions } from '../../shared/gui-consent'
 import {
   MATRIX_CHANNELS as channel,
   MATRIX_MAX_FILE_BYTES,
@@ -561,6 +563,7 @@ import {
   DeviceServiceBootstrap,
   fenceDeviceBeforeOperationLock
 } from './device/bootstrap'
+import { requestBundledPermissions } from './device/bundled-permissions'
 import { runChatGptRelayProcess } from './device/chatgpt-relay-process'
 import {
   acceptCloudTrial,
@@ -587,7 +590,9 @@ import {
   workspaceLabelFor
 } from './device/cloud-agent'
 import { stopCloudTurn } from './device/cloud-stop'
+import { createComputerReadiness } from './device/computer-readiness'
 import { deviceHubUrl } from './device/connection'
+import { createModalPause, hitsConsent, nativeConsentWindows } from './device/consent'
 import { verifyControllerSignature } from './device/device-key'
 import { type DeviceEnrollmentOwner, DeviceRegistryError } from './device/enrollment'
 import { resolveDisclaimLauncher } from './device/launcher'
@@ -2349,8 +2354,8 @@ function homeMigrationForOwner() {
 
         const result =
           ui && !ui.isDestroyed()
-            ? await dialog.showMessageBox(ui, { ...options, type: 'question' })
-            : await dialog.showMessageBox({ ...options, type: 'question' })
+            ? await protectedMessageBox(ui, { ...options, type: 'question' })
+            : await protectedMessageBox({ ...options, type: 'question' })
 
         return agent.current() ? result.response : options.cancelId
       })
@@ -2556,7 +2561,7 @@ function createDeviceIdentity(): MacDeviceIdentity {
 /** Main owns native authority; the runtime receives only live account facts and sealed storage. */
 function buildDeviceRuntime(): DeviceRuntime {
   const home = app.getPath('home')
-  const native = (deviceNativeUi ??= createDeviceNativeUi({ locale: deviceLocale, parent: () => ui }))
+  const native = (deviceNativeUi ??= createDeviceNativeUi({ locale: deviceLocale, parent: () => ui, withConsent: present => withNativeConsent(present) }))
   const rootStore = new EncryptedStore(path.join(app.getPath('userData'), 'device', 'drive-roots.json'), safeStorage)
   let knownDriveRoots: string[] = []
 
@@ -2652,13 +2657,66 @@ function buildDeviceRuntime(): DeviceRuntime {
   })
 
   const driverCandidates = [
+    path.join(process.resourcesPath, 'CuaDriver.app', 'Contents', 'MacOS', 'cua-driver'),
     path.join(home, '.local', 'bin', 'cua-driver'),
     path.join(home, '.cargo', 'bin', 'cua-driver'),
     '/opt/homebrew/bin/cua-driver',
     '/usr/local/bin/cua-driver'
   ]
 
+  const cuaDriverPath = driverCandidates.find(file => existsSync(file))
+  const permissionSetup = new AbortController()
+  app.once('before-quit', () => permissionSetup.abort())
+  // The permission host has the same signed TCC identity. The Python host also probes
+  // check_permissions on the actual per-grant control backend before dispatch.
+  let setupStatus: { accessibility?: boolean; screen_recording?: boolean } = {}
+
+  const computerReady = createComputerReadiness({
+    status: async () => setupStatus,
+    request: async () => {
+      if (!cuaDriverPath) { throw Error('computer_driver_missing_from_app') }
+      setupStatus = await withNativeConsent(() => requestBundledPermissions(path.resolve(cuaDriverPath, '../../..'), permissionSetup.signal))
+    },
+    explain: async (message, settingsUrl) => {
+      new Notification({ title: 'Atum', body: message }).show()
+      await shell.openExternal(settingsUrl)
+    }
+  })
   const device = createDeviceRuntime({
+    cuaDriverPath,
+    computerReady,
+    consentProtected: async request => {
+      const windows = BrowserWindow.getAllWindows().filter(window => !window.isDestroyed())
+
+      for (const window of windows) {
+        const id = Number(window.getMediaSourceId().split(':')[1])
+
+        if (request.target.windowId !== id) { continue }
+
+        // A separate native/auth sheet protects its whole window, including dismissal.
+        if (window.isModal() || nativeConsentWindows.has(id)) { return true }
+        const bounds = window.getContentBounds()
+        const regions = await window.webContents.executeJavaScript(
+          `(${readConsentRegions.toString()})(document, ${JSON.stringify(CONSENT_SELECTOR)})`
+        )
+        const zoom = window.webContents.getZoomFactor()
+
+        return hitsConsent(request, regions.map((region: { x: number; y: number; width: number; height: number }) => ({
+          x: bounds.x + region.x * zoom,
+          y: bounds.y + region.y * zoom,
+          width: region.width * zoom,
+          height: region.height * zoom
+        })))
+      }
+
+      // An unresolved Atum destination cannot bypass consent by omitting its window.
+      return request.target.pid === process.pid || windows.some(window => window.webContents.getOSProcessId() === request.target.pid)
+    },
+    openBrowser: async url => {
+      if (!ui || ui.isDestroyed() || !account?.identity() || account.sessionEnded() || account.signOutPending()) { throw Error('atum_browser_unavailable') }
+      ui.webContents.send(CONSUMER_BROWSER_IPC.open, url)
+      ui.show()
+    },
     // Native + Matrix proof transport is wired; coordinator enables only after U1 disclosure and installed proof.
     macSource: (args, grant, signal) => new RemoteMacSourcesService({
       enabled: remoteMacSourceReadsEnabled,
@@ -3841,7 +3899,7 @@ function moveAgentToCloud(agentRuntime: MatrixAgentRuntime): Promise<MigrationOu
         }
 
         const { response } =
-          ui && !ui.isDestroyed() ? await dialog.showMessageBox(ui, options) : await dialog.showMessageBox(options)
+          ui && !ui.isDestroyed() ? await protectedMessageBox(ui, options) : await protectedMessageBox(options)
 
         return response === 0
       },
@@ -4064,7 +4122,7 @@ async function cloudAgentRequest(request: {
       }
 
       const { response } =
-        ui && !ui.isDestroyed() ? await dialog.showMessageBox(ui, options) : await dialog.showMessageBox(options)
+        ui && !ui.isDestroyed() ? await protectedMessageBox(ui, options) : await protectedMessageBox(options)
 
       if (response !== 0 || account.identity()?.userId !== owner.userId) {
         return { status: 'cancelled' as const }
@@ -4861,7 +4919,7 @@ function subscriptionProvidersFor(authLifecycle?: MatrixSubscriptionAuthLifecycl
 
         const copy = matrixManagementConfirmationCopy(windowLocale(), 'Atum', request)
 
-        const result = await dialog.showMessageBox(ui, {
+        const result = await protectedMessageBox(ui, {
           type: 'question',
           title: copy.title,
           message: copy.title,
@@ -10486,7 +10544,7 @@ async function runHermesLocked(
 
           // Several agents' turns can ask at once: one native dialog at a time.
           const result = await oneDialogAtATime(() =>
-            dialog.showMessageBox(ui!, {
+            protectedMessageBox(ui!, {
               type: 'question',
               title: copy.consentTitle,
               message: copy.consentTitle,
@@ -13271,7 +13329,7 @@ function matrixFolderAccess(): MatrixFolderAccess {
     exists: file => existsSync(file),
     pick: async () => {
       const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'createDirectory'] }
-      const picked = ui && !ui.isDestroyed() ? await dialog.showOpenDialog(ui, options) : await dialog.showOpenDialog(options)
+      const picked = ui && !ui.isDestroyed() ? await protectedOpenDialog(ui, options) : await protectedOpenDialog(options)
 
       return picked.canceled ? null : (picked.filePaths[0] ?? null)
     },
@@ -17383,7 +17441,7 @@ async function checkForUpdatesFromMenu(locale: DesktopLocale) {
   }
 
   const choice =
-    ui && !ui.isDestroyed() ? await dialog.showMessageBox(ui, options) : await dialog.showMessageBox(options)
+    ui && !ui.isDestroyed() ? await protectedMessageBox(ui, options) : await protectedMessageBox(options)
 
   if (answer.restart && choice.response === 0) {
     void services.restart()
@@ -18441,7 +18499,7 @@ async function start() {
         return undefined
       }
 
-      const selected = await dialog.showOpenDialog(ui, {
+      const selected = await protectedOpenDialog(ui, {
         properties: ['openDirectory', 'createDirectory'],
         message: matrixDriveFolderPrompt(state.displayPreferences?.language?.value)
       })
@@ -18509,7 +18567,7 @@ async function start() {
         const locale = isDesktopLocale(language) ? language : DEFAULT_DESKTOP_LOCALE
 
         const selected = await oneDialogAtATime(() =>
-          dialog.showOpenDialog(window, {
+          protectedOpenDialog(window, {
             properties: ['openFile', 'openDirectory', 'multiSelections'],
             title: MATRIX_DRIVE_IMPORT_LABELS[locale]
           })
@@ -18694,7 +18752,7 @@ async function start() {
       }
 
       const result = await oneDialogAtATime(() =>
-        dialog.showMessageBox(ui!, {
+        protectedMessageBox(ui!, {
           type: 'question',
           title: 'Atum',
           message: copy.message[preview.action],
@@ -19387,7 +19445,7 @@ async function start() {
 
       const copy = matrixManagementConfirmationCopy(scope.context.locale, scope.context.agentName, request)
 
-      const result = await dialog.showMessageBox(ui, {
+      const result = await protectedMessageBox(ui, {
         type: 'question',
         title: copy.title,
         message: copy.title,
@@ -19542,7 +19600,7 @@ async function start() {
 
                 const copy = matrixComputerUseGrantConfirmationCopy(scope.context.locale, scope.context.agentName)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19752,7 +19810,7 @@ async function start() {
                         ? matrixPagesUpdateCopy(scope.context.locale, operation === 'update-all').update
                         : matrixPagesInstallCopy(scope.context.locale).install
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19787,7 +19845,7 @@ async function start() {
 
                 const copy = matrixAuxiliaryConfirmationCopy(scope.context.locale, scope.context.agentName, request)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19822,7 +19880,7 @@ async function start() {
 
                 const copy = matrixVoiceSettingsConfirmationCopy(scope.context.locale, scope.context.agentName, request)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19857,7 +19915,7 @@ async function start() {
 
                 const copy = matrixRuntimeConfirmationCopy(scope.context.locale, scope.context.agentName, request)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19892,7 +19950,7 @@ async function start() {
 
                 const copy = matrixToolSettingsConfirmationCopy(scope.context.locale, scope.context.agentName, request)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19929,7 +19987,7 @@ async function start() {
 
                 const copy = matrixCuratorConfirmation(scope.context.locale, scope.context.agentName, action)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -19967,7 +20025,7 @@ async function start() {
 
                 const copy = matrixDebugConfirmationCopy(scope.context.locale, scope.context.agentName, value)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -20005,7 +20063,7 @@ async function start() {
 
                 const copy = matrixMaintenanceConfirmationCopy(scope.context.locale, scope.context.agentName, action)
 
-                const result = await dialog.showMessageBox(ui, {
+                const result = await protectedMessageBox(ui, {
                   type: 'question',
                   title: copy.title,
                   message: copy.title,
@@ -20890,7 +20948,7 @@ async function start() {
               family === 'ai'
                 ? account.companyAI(value, AbortSignal.timeout(15_000))
                 : family === 'funding'
-                  ? account.companyFunding(value, AbortSignal.timeout(15_000))
+                  ? requestPresenceProtectedFunding(value)
                   : family === 'board'
                     ? account.companyBoard(value, AbortSignal.timeout(15_000))
                     : account.companyProjectBrain(value, AbortSignal.timeout(15_000))
@@ -20909,7 +20967,7 @@ async function start() {
           board: value => account.companyBoard(value, AbortSignal.timeout(15_000)),
           ai: value => account.companyAI(value, AbortSignal.timeout(15_000)),
           privateCos: requestCompanyPrivateCos,
-          funding: value => account.companyFunding(value, AbortSignal.timeout(15_000)),
+          funding: value => requestPresenceProtectedFunding(value),
           projectBrain: value => account.companyProjectBrain(value, AbortSignal.timeout(15_000)),
           channels: companyId => readCompanyChannelDirectory(account, companyId, AbortSignal.timeout(15_000)),
           sdk: value => command(value, 30_000),
@@ -20942,7 +21000,7 @@ async function start() {
               },
               current
             }, async opened => {
-              const target = await dialog.showSaveDialog(ui!, {
+              const target = await protectedSaveDialog(ui!, {
                 defaultPath: path.basename(opened.name).replace(/[\\/]|\p{Cc}/gu, '_')
               })
 
@@ -21210,7 +21268,7 @@ async function start() {
           throw new Error('matrix_pet_unavailable')
         }
 
-        const selected = await dialog.showOpenDialog(ui, {
+        const selected = await protectedOpenDialog(ui, {
           properties: ['openFile'],
           filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }]
         })
@@ -22087,7 +22145,7 @@ async function start() {
               confirm: async app => {
                 const copy = appChatCopy(request.locale)
 
-                const choice = await dialog.showMessageBox(ui!, {
+                const choice = await protectedMessageBox(ui!, {
                   type: 'question',
                   title: group ? copy.newGroup : copy.newChat,
                   message: appLocalizedCopy(app.name, request.locale ?? 'en', app.app),
@@ -22607,7 +22665,7 @@ async function start() {
             documents.remove(scope)
           } else {
             await documents.choose(scope, async () => {
-              const selected = await dialog.showOpenDialog(ui!, { properties: ['openFile'] })
+              const selected = await protectedOpenDialog(ui!, { properties: ['openFile'] })
 
               if (
                 closing ||
@@ -22903,7 +22961,7 @@ async function start() {
             ? matrixActionCopy[request.locale!]
             : matrixActionCopy.en
 
-          const decision = await dialog.showMessageBox(ui!, {
+          const decision = await protectedMessageBox(ui!, {
             type: 'question',
             title: continuous ? copy.keepListeningHermes : copy.listenHermes,
             message: continuous ? copy.keepListeningHermes : copy.listenHermes,
@@ -23526,7 +23584,7 @@ async function start() {
                 ...cost
               })
 
-              const result = await dialog.showMessageBox(ui, {
+              const result = await protectedMessageBox(ui, {
                 type: 'question',
                 title: copy.title,
                 message: copy.title,
@@ -24014,7 +24072,7 @@ async function start() {
 
             try {
               const selected = await oneDialogAtATime(() =>
-                dialog.showOpenDialog(ui!, { properties: ['openDirectory'] })
+                protectedOpenDialog(ui!, { properties: ['openDirectory'] })
               )
 
               if (selected.canceled || !selected.filePaths[0]) {
@@ -24719,7 +24777,7 @@ async function start() {
             throw new Error('matrix_company_file_cancelled')
           }
 
-          const target = await dialog.showSaveDialog(ui!, {
+          const target = await protectedSaveDialog(ui!, {
             defaultPath: path.basename(file.name).replace(/[\\/]|\p{Cc}/gu, '_')
           })
 
@@ -24877,7 +24935,7 @@ async function start() {
                 return false
               }
 
-              const result = await dialog.showMessageBox(ui, {
+              const result = await protectedMessageBox(ui, {
                 type: 'question',
                 title: copy.review,
                 message: identityLine,
@@ -25127,7 +25185,7 @@ async function start() {
             throw new Error('matrix_file_invalid')
           }
 
-          const target = await dialog.showSaveDialog(ui!, {
+          const target = await protectedSaveDialog(ui!, {
             defaultPath: path.basename(file.name).replace(/[\\/]|\p{Cc}/gu, '_')
           })
 
@@ -25689,3 +25747,27 @@ if (stagedRecovery === 'exiting') {
       })
     )
 }
+
+// All native confirmations share the existing device pause, including both answers and close.
+const withNativeConsent = createModalPause(() => deviceBootstrap?.paused() ?? false,
+  value => deviceBootstrap?.setPaused(value))
+
+const protectedMessageBox = ((...args: Parameters<typeof dialog.showMessageBox>) =>
+  withNativeConsent(() => dialog.showMessageBox(...args))) as typeof dialog.showMessageBox
+
+async function requestPresenceProtectedFunding(value: unknown) {
+  if (value && typeof value === 'object' && 'action' in value && value.action === 'funding-member-fund') {
+    const signer = deviceIdentity?.approvalSigner()
+
+    if (!signer) { throw Error('device_key_approval_unavailable') }
+    await withNativeConsent(() => signer.approve(Buffer.from(JSON.stringify(value)), 'Approve company wallet transfer'))
+  }
+
+  return account.companyFunding(value, AbortSignal.timeout(15_000))
+}
+
+const protectedOpenDialog = ((...args: Parameters<typeof dialog.showOpenDialog>) =>
+  withNativeConsent(() => dialog.showOpenDialog(...args))) as typeof dialog.showOpenDialog
+
+const protectedSaveDialog = ((...args: Parameters<typeof dialog.showSaveDialog>) =>
+  withNativeConsent(() => dialog.showSaveDialog(...args))) as typeof dialog.showSaveDialog

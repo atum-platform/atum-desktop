@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { NoticeBand } from '@/components/ui/error-state'
 import { useI18n } from '@/i18n'
 import { $approvalModes, approvalModeForProfile } from '@/store/approval-mode'
@@ -126,7 +127,7 @@ export function AccountInteractionPermissions() {
   }
 
   return (
-    <section aria-labelledby="atum-interaction-permissions-heading">
+    <ConsentBoundary><section aria-labelledby="atum-interaction-permissions-heading">
       <h3 className="text-sm font-semibold" id="atum-interaction-permissions-heading">
         {t.atum.account.interactionPermissions}
       </h3>
@@ -169,6 +170,6 @@ export function AccountInteractionPermissions() {
           ))}
         </ul>
       )}
-    </section>
+    </section></ConsentBoundary>
   )
 }

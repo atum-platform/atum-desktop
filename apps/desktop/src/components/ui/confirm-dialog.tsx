@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { ActionStatus } from '@/components/ui/action-status'
 import { Button } from '@/components/ui/button'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import {
   Dialog,
   DialogContent,
@@ -105,7 +106,7 @@ export function ConfirmDialog({
   }
 
   return (
-    <Dialog onOpenChange={value => !value && !busy && onClose()} open={open}>
+    <ConsentBoundary><Dialog onOpenChange={value => !value && !busy && onClose()} open={open}>
       <DialogContent
         className="max-w-md"
         onCloseAutoFocus={onCloseAutoFocus}
@@ -148,6 +149,6 @@ export function ConfirmDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+    </Dialog></ConsentBoundary>
   )
 }

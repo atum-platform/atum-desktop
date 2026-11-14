@@ -1,3 +1,4 @@
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 'use client'
 
 import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
@@ -75,10 +76,10 @@ export function readClarifyResult(result: unknown): ClarifyResult {
 export const ClarifyTool = (props: ToolCallMessagePartProps) => {
   // Answered → settled Q&A (ToolFallback collapsed the answer away).
   if (props.result !== undefined) {
-    return <ClarifyToolSettled {...props} />
+    return <ConsentBoundary><ClarifyToolSettled {...props} /></ConsentBoundary>
   }
 
-  return <ClarifyToolLive {...props} />
+  return <ConsentBoundary><ClarifyToolLive {...props} /></ConsentBoundary>
 }
 
 function ClarifyToolLive(props: ToolCallMessagePartProps) {
@@ -86,10 +87,10 @@ function ClarifyToolLive(props: ToolCallMessagePartProps) {
 
   // Stopped mid-prompt with no result — don't leave a dead interactive panel.
   if (!messageRunning) {
-    return <ToolFallback {...props} />
+    return <ConsentBoundary><ToolFallback {...props} /></ConsentBoundary>
   }
 
-  return <ClarifyToolPending {...props} />
+  return <ConsentBoundary><ClarifyToolPending {...props} /></ConsentBoundary>
 }
 
 function ClarifyToolSettled({ args, result }: ToolCallMessagePartProps) {
@@ -121,7 +122,7 @@ function ClarifyToolSettled({ args, result }: ToolCallMessagePartProps) {
   )
 
   return (
-    <ClarifyShell className="grid gap-1.5 px-2.5 py-2" data-clarify-settled="">
+    <ConsentBoundary><ClarifyShell className="grid gap-1.5 px-2.5 py-2" data-clarify-settled="">
       {question ? (
         <ClarifyLine icon={MessageQuestion}>
           <span className="whitespace-pre-wrap font-medium leading-(--conversation-line-height)">{question}</span>
@@ -155,7 +156,7 @@ function ClarifyToolSettled({ args, result }: ToolCallMessagePartProps) {
           <p className="px-1.5 pt-0.5 text-[0.6875rem] leading-4 text-(--ui-text-tertiary)">{copy.lateAnswerHint}</p>
         </div>
       ) : null}
-    </ClarifyShell>
+    </ClarifyShell></ConsentBoundary>
   )
 }
 
@@ -190,7 +191,7 @@ function ClarifyToolPending({ args }: ToolCallMessagePartProps) {
   )
 
   return (
-    <ClarifyPrompt
+    <ConsentBoundary><ClarifyPrompt
       choices={choices}
       onError={error => notifyError(error, copy.sendFailed)}
       onRespond={async answer => {
@@ -208,6 +209,6 @@ function ClarifyToolPending({ args }: ToolCallMessagePartProps) {
       }}
       question={question}
       ready={Boolean(matchingRequest?.requestId)}
-    />
+    /></ConsentBoundary>
   )
 }

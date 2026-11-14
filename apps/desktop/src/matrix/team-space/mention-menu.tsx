@@ -1,4 +1,5 @@
 import { AtumAssistantAvatar } from '@/app/atum/assistant-avatar'
+import { ConsentBoundary } from '@/components/ui/consent-boundary'
 import { Hash } from '@/lib/icons'
 
 import type { MatrixTeamSpaceCopy } from '../../../shared/matrix-team-space-copy'
@@ -36,7 +37,7 @@ export function TeamSpaceMentionMenu({
   }
 
   return (
-    <div className="px-1 pt-1">
+    <ConsentBoundary><div className="px-1 pt-1">
       {options.length > 0 && (
         <TeamSpaceMentionOptions copy={copy} onPick={onPick} options={options} selected={selected} />
       )}
@@ -55,7 +56,7 @@ export function TeamSpaceMentionMenu({
           </span>
         </p>
       )}
-    </div>
+    </div></ConsentBoundary>
   )
 }
 
@@ -71,7 +72,7 @@ function TeamSpaceMentionOptions({
   selected: number
 }) {
   return (
-    <div aria-label={copy.mentionPeople} data-team-space-mentions role="listbox">
+    <ConsentBoundary><div aria-label={copy.mentionPeople} data-team-space-mentions role="listbox">
       {options.map((option, index) => {
         const key =
           option.kind === 'person'
@@ -136,6 +137,6 @@ function TeamSpaceMentionOptions({
           </button>
         )
       })}
-    </div>
+    </div></ConsentBoundary>
   )
 }

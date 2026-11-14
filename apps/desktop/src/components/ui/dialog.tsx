@@ -8,6 +8,8 @@ import { X } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { AppViewOverlayHold, useAppViewOverlayHold } from '@/store/use-app-view-overlay'
 
+import { consentRegionProps } from './consent-boundary'
+
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
@@ -35,7 +37,7 @@ function DialogOverlay({ className, ...props }: React.ComponentProps<typeof Dial
         'fixed inset-0 z-[120] pointer-events-auto bg-black/22 backdrop-blur-[0.125rem] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0',
         className
       )}
-      data-slot="dialog-overlay"
+      {...consentRegionProps} data-slot="dialog-overlay"
       {...props}
     />
   )
@@ -136,7 +138,7 @@ function DialogContent({
             // it here so the banner can tuck under the body's rounded bottom edge.
             'gap-0'
           )}
-          data-slot="dialog-content"
+          {...consentRegionProps} data-slot="dialog-content"
           onOpenAutoFocus={onOpenAutoFocus}
           {...props}
         >
@@ -175,7 +177,7 @@ function DialogContent({
           widthClass,
           className
         )}
-        data-slot="dialog-content"
+        {...consentRegionProps} data-slot="dialog-content"
         onOpenAutoFocus={onOpenAutoFocus}
         {...props}
       >
