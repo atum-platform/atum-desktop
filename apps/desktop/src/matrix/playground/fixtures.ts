@@ -54,6 +54,9 @@ export const PLAYGROUND_SCENARIOS = [
   'launch-disk-full',
   'chat',
   'chat-model-picker',
+  'chat-plan-unavailable',
+  'chat-plan-fell-back',
+  'chat-google-switch',
   'chat-moon-app',
   'chat-andy-app',
   'chat-demoza-app',
@@ -135,6 +138,9 @@ export const PLAYGROUND_SCENARIO_LABELS: Record<PlaygroundScenario, string> = {
   'launch-disk-full': 'Launch: the disk is too full to save the sign-in',
   chat: 'Chat',
   'chat-model-picker': 'Chat: cloud Atum plus this Mac’s model connections',
+  'chat-plan-unavailable': 'Chat: chosen ChatGPT model while its Mac is offline, and a fallback answer',
+  'chat-plan-fell-back': 'Chat (S2): chosen ChatGPT model, carried to the cloud, whose last turn fell back',
+  'chat-google-switch': 'Chat (S2): the once-only line when Google data moved the chat to Nguyệt Thực',
   'chat-moon-app': 'Chat: linked Moon app, history and actions',
   'chat-andy-app': 'Chat: Andy app with a declared light look (side panel proof)',
   'chat-demoza-app': 'Chat: Demoza app, colour-only look, not connected yet',
@@ -1616,6 +1622,126 @@ export function scenarioSnapshot(scenario: PlaygroundScenario): MatrixSnapshot {
                       unavailable: []
                     }
                   ]
+                }
+              }
+            : agent
+        )
+      }
+    }
+
+    // Owner 2026-11-11: the chosen ChatGPT model cannot answer (its Mac is offline). The chip
+    // carries the danger glyph, the card greys ChatGPT out, and the answer the fallback gave
+    // says so in one faint line. Pair with `&subscriptions=relay-offline`.
+    case 'chat-plan-unavailable':
+
+    case 'chat-plan-fell-back':
+
+    case 'chat-google-switch': {
+      // S2 variants: the plan is carried to the cloud and answers; one turn fell back, or Google
+      // data moved the chat to Nguyệt Thực (pair with `&subscriptions=carried`).
+      const s2 = scenario !== 'chat-plan-unavailable'
+
+      const planOption = {
+        connectionRef: 'chatgpt_plan:gpt-6.1-sol',
+        source: 'chatgpt_plan' as const,
+        providerLabel: 'ChatGPT',
+        model: 'gpt-6.1-sol',
+        modelLabel: 'GPT-6.1 Sol',
+        effort: 'medium' as const,
+        efforts: ['low', 'medium', 'high'] as ('low' | 'medium' | 'high')[],
+        available: s2
+      }
+
+      const atumOption = {
+        connectionRef: 'atum:cloud',
+        source: 'atum' as const,
+        providerLabel: 'Atum',
+        effort: 'medium' as const,
+        efforts: ['low', 'medium', 'high'] as ('low' | 'medium' | 'high')[],
+        available: true
+      }
+
+      return {
+        ...ready,
+        assistantPath: 'server',
+        messages:
+          scenario === 'chat-google-switch'
+            ? [
+                ...ready.messages,
+                // The host's own body is for older clients; this client draws its own quiet line.
+                message('$google-switch', false, 'I’m continuing with Nguyệt Thực for your Google information.', 2, {
+                  notice: true,
+                  googleSwitch: { servedBy: 'nguyet-thuc' }
+                }),
+                message('$google-answer', false, 'Your 3pm with Linh moved to Thursday, so the afternoon is free.', 1, {
+                  replyTo: '$q2',
+                  resultFor: '$q2'
+                }),
+                // A repeat (a retry, a restart) never shows a second line.
+                message('$google-switch-again', false, 'I’m continuing with Nguyệt Thực for your Google information.', 1, {
+                  notice: true,
+                  googleSwitch: { servedBy: 'nguyet-thuc' }
+                })
+              ]
+            : [
+                ...ready.messages,
+                message('$plan-fallback-answer', false, 'I found three quiet guesthouses that fit the nightly budget.', 1, {
+                  replyTo: '$q2',
+                  resultFor: '$q2'
+                }),
+                message('$plan-fallback-notice', false, '', 1, {
+                  notice: true,
+                  replyTo: '$plan-fallback-answer',
+                  subscriptionFallback: { plan: 'chatgpt', reason: s2 ? 'timeout' : 'offline', servedBy: 'nguyet-thuc' }
+                })
+              ],
+        agents: agents.map(agent =>
+          agent.isDefault
+            ? {
+                ...agent,
+                answering: 'cloud' as const,
+                macRole: 'standby' as const,
+                cloudModel: {
+                  offered: ['default', 'nhat-thuc'],
+                  current: 'default',
+                  subscription: {
+                    source: 'chatgpt_plan' as const,
+                    model: 'gpt-6.1-sol',
+                    effort: 'medium' as const,
+                    displayName: 'GPT-6.1 Sol'
+                  },
+                  subscriptionState: 'connected' as const,
+                  ...(s2 ? {} : { relayPresence: 'offline' as const })
+                },
+                // The cloud home's current model is the chosen ChatGPT one (agent-home/2.5).
+                home: {
+                  lives: { kind: 'cloud' as const },
+                  move: null,
+                  targets: [],
+                  issue: null,
+                  placement: {
+                    profile: 'atum.agent-home/2.5' as const,
+                    moveAvailable: true,
+                    current: 'cloud',
+                    reachability: 'reachable' as const,
+                    currentModel: planOption,
+                    modelStatus: 'applied' as const,
+                    destinations: [
+                      {
+                        id: 'cloud',
+                        kind: 'cloud' as const,
+                        name: '',
+                        thisMac: false,
+                        eligibility: 'ready' as const,
+                        catalogRevision: 0,
+                        models: [
+                          { ...atumOption, model: 'nguyet-thuc', modelLabel: 'Nguyệt Thực 1.3' },
+                          { ...atumOption, model: 'nhat-thuc', modelLabel: 'Nhật Thực 1.1' },
+                          planOption
+                        ]
+                      }
+                    ]
+                  }
                 }
               }
             : agent

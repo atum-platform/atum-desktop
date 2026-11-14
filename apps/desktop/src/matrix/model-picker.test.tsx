@@ -19,6 +19,7 @@ import {
   matrixModelRouteId,
   type MatrixModelRouteSelection
 } from '../../shared/matrix-models'
+import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 
 import { MatrixModelPicker } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -312,6 +313,7 @@ interface PickerOptions {
   agentPrincipal?: string
   home?: MatrixAgentHomeView
   cloudOnly?: boolean
+  lastFallback?: MatrixSubscriptionFallback
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -335,6 +337,7 @@ function picker(room: MatrixRoom, options: PickerOptions = {}) {
         fail={fail}
         here={current.here}
         home={current.home}
+        lastFallback={current.lastFallback}
         local={current.local ?? !(current.managed ?? true)}
         managed={current.managed ?? true}
         onAdvanced={onAdvanced ?? undefined}
@@ -1509,4 +1512,239 @@ describe('account subscriptions in the model picker', () => {
     expect(rowIds(card)).toEqual([CHATGPT_ROUTE])
   })
 
+})
+
+describe('a plan that cannot answer now (owner 2026-11-11)', () => {
+  type Presence = 'online' | 'offline' | 'none' | undefined
+
+  const relayAccount = (presence: Presence, state: 'enabled' | 'disabled' | 'carried' = 'enabled') => ({
+    catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers: [] })),
+    status: vi.fn(async () => ({
+      scope: 'account' as const,
+      providers: [
+        {
+          id: 'openai-codex' as const,
+          connected: state === 'enabled',
+          localConnected: false,
+          models: ['gpt-5.6-luna', 'gpt-6-sol'],
+          relay: { state, thisMac: false, revision: 4, ...(presence ? { presence } : {}) }
+        },
+        { id: 'opencode-go' as const, connected: false }
+      ]
+    })),
+    startChatGpt: vi.fn(async () => ({ status: 'cancelled' as const })),
+    pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
+    cancelChatGpt: vi.fn(async () => undefined),
+    disconnectChatGpt: vi.fn(async () => undefined),
+    useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
+    connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
+    disconnectOpenCode: vi.fn(async () => undefined)
+  })
+
+  const destinations = () => ({
+    read: vi.fn(async () => undefined),
+    write: vi.fn(async () => ({ status: 'saved' as const })),
+    writeSubscription: vi.fn(async () => ({ status: 'saved' as const })),
+    cap: vi.fn(async () => ({ status: 'saved' as const }))
+  })
+
+  const atumChoice: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
+
+  const solChoice = (extra: Partial<MatrixCloudModelChoiceView> = {}): MatrixCloudModelChoiceView => ({
+    ...atumChoice,
+    subscription: { source: 'chatgpt_plan', model: 'gpt-6-sol', effort: 'medium', displayName: 'GPT-6 Sol' },
+    subscriptionState: 'connected',
+    ...extra
+  })
+
+  const tip = async (element: HTMLElement) => {
+    fireEvent.pointerMove(element, { pointerType: 'mouse' })
+
+    return (await screen.findByRole('tooltip')).textContent ?? ''
+  }
+
+  const cloudPicker = (
+    presence: Presence,
+    options: Partial<PickerOptions> & { state?: 'enabled' | 'disabled' | 'carried' } = {}
+  ) => {
+    const subscriptions = relayAccount(presence, options.state)
+    const modelDestinations = destinations()
+    const command = vi.fn(async () => ({ status: 'applied' as const }))
+
+    picker(ROOM, {
+      agentPrincipal: '00000000-0000-4000-8000-bd7662a5eeb4',
+      bridge: { command, subscriptions, modelDestinations },
+      cloud: true,
+      cloudChoice: atumChoice,
+      local: true,
+      managed: true,
+      ...options
+    })
+
+    return { command, modelDestinations, subscriptions }
+  }
+
+  it('lists ChatGPT models as choosable while its Mac is online', async () => {
+    cloudPicker('online')
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+
+    expect(rail(card, 'openai-codex').className).not.toMatch(/opacity-45/u)
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(row(card, SOL_ROUTE).disabled).toBe(false)
+    expect(row(card, SOL_ROUTE).textContent).not.toContain('offline')
+  })
+
+  it.each([
+    ['en', 'Your Mac is offline', 'Open Atum on your Mac to use ChatGPT.'],
+    ['vi', 'Máy Mac của bạn đang tắt', 'Mở Atum trên máy Mac để dùng ChatGPT.']
+  ] as const)('greys ChatGPT out while its Mac is offline (%s): one line, one action in the tip', async (locale, line, action) => {
+    const { modelDestinations } = cloudPicker('offline', { locale })
+    const card = await open(/^(Model|Mô hình): Nguyệt Thực 1\.3$/)
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+
+    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(rowIds(card)).toEqual([CHATGPT_ROUTE, SOL_ROUTE])
+
+    for (const id of [CHATGPT_ROUTE, SOL_ROUTE]) {
+      expect(row(card, id).disabled).toBe(true)
+      expect(row(card, id).textContent).toContain(line)
+    }
+
+    expect(await tip(row(card, SOL_ROUTE).parentElement!)).toContain(action)
+    fireEvent.click(row(card, SOL_ROUTE))
+    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('says no Mac serves ChatGPT yet when none is registered', async () => {
+    cloudPicker('none')
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+
+    expect(row(card, SOL_ROUTE).disabled).toBe(true)
+    expect(row(card, SOL_ROUTE).textContent).toContain('Not ready for your assistants yet')
+    expect(await tip(row(card, SOL_ROUTE).parentElement!)).toContain(
+      'Open Atum on the Mac where you signed in to ChatGPT.'
+    )
+  })
+
+  it.each([
+    ['en', 'Model: GPT-6 Sol · ChatGPT can’t answer: your Mac is offline', 'Model'],
+    ['vi', 'Mô hình: GPT-6 Sol · ChatGPT chưa trả lời được: máy Mac của bạn đang tắt', 'Mô hình']
+  ] as const)('marks the chip when the chosen ChatGPT model cannot answer (%s), and opens on what can', async (locale, name, dialog) => {
+    const { command, modelDestinations } = cloudPicker('offline', {
+      locale,
+      cloudChoice: solChoice({ relayPresence: 'offline' })
+    })
+
+    const chip = screen.getByRole('button', { name })
+    const warning = chip.querySelector<SVGElement>('[data-matrix-model-warning]')!
+
+    expect(warning).toBeTruthy()
+    expect(warning.getAttribute('style')).toContain('var(--ak-danger)')
+    expect(chip.dataset.matrixModelUnavailable).toBe('mac_offline')
+    // The person's pick stays the chip's name: nothing switches it.
+    expect(chip.textContent).toContain('GPT-6 Sol')
+
+    fireEvent.click(chip)
+    const card = await screen.findByRole('dialog', { name: dialog })
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    expect(rail(card, 'atum').getAttribute('aria-pressed')).toBe('true')
+    expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
+    expect(command).not.toHaveBeenCalled()
+    expect(modelDestinations.write).not.toHaveBeenCalled()
+    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('keeps the chip plain while the chosen plan can answer, and for an Atum pick', () => {
+    cloudPicker('online', { cloudChoice: solChoice({ relayPresence: 'online' }) })
+    const chip = screen.getByRole('button', { name: 'Model: GPT-6 Sol' })
+    expect(chip.querySelector('[data-matrix-model-warning]')).toBeNull()
+
+    cleanup()
+    cloudPicker('offline')
+    expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }).querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
+
+  it('lists ChatGPT as choosable once its sign-in is carried to the cloud (S2): no Mac needed', async () => {
+    cloudPicker(undefined, { state: 'carried' })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+
+    expect(rail(card, 'openai-codex').className).not.toMatch(/opacity-45/u)
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(row(card, SOL_ROUTE).disabled).toBe(false)
+    expect(row(card, SOL_ROUTE).textContent).not.toMatch(/offline|Not ready/u)
+  })
+
+  it.each([
+    ['en', 'Model: GPT-6 Sol · ChatGPT was offline', 'ChatGPT was offline'],
+    ['vi', 'Mô hình: GPT-6 Sol · Lúc đó ChatGPT không kết nối được', 'Lúc đó ChatGPT không kết nối được']
+  ] as const)('marks the chip when the last turn fell back (%s): the same red glyph, one line, never a cost', async (locale, name, why) => {
+    const { command, modelDestinations } = cloudPicker('online', {
+      locale,
+      cloudChoice: solChoice({ relayPresence: 'online' }),
+      lastFallback: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' }
+    })
+
+    const chip = screen.getByRole('button', { name })
+    const warning = chip.querySelector<SVGElement>('[data-matrix-model-warning]')!
+
+    expect(warning.getAttribute('style')).toContain('var(--ak-danger)')
+    expect(chip.dataset.matrixModelUnavailable).toBe('fell_back')
+    expect(chip.textContent).toContain('GPT-6 Sol')
+    const said = await tip(chip)
+    expect(said).toContain(why)
+    expect(said).not.toMatch(/Proton|\d/u)
+    expect(command).not.toHaveBeenCalled()
+    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('keeps the chip plain when the fallback was for another plan, or the chip names Atum', () => {
+    cloudPicker('online', {
+      cloudChoice: solChoice({ relayPresence: 'online' }),
+      lastFallback: { plan: 'opencode_go', reason: 'rate_limited', servedBy: 'nguyet-thuc' }
+    })
+    expect(screen.getByRole('button', { name: 'Model: GPT-6 Sol' }).querySelector('[data-matrix-model-warning]')).toBeNull()
+
+    cleanup()
+    cloudPicker('online', { lastFallback: { plan: 'chatgpt', reason: 'offline', servedBy: 'nguyet-thuc' } })
+    expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }).querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
+
+  it('marks the chip as soon as the open card’s account read says the Mac is offline', async () => {
+    cloudPicker('offline', { cloudChoice: solChoice() })
+    fireEvent.click(screen.getByRole('button', { name: 'Model: GPT-6 Sol' }))
+
+    const chip = await screen.findByRole('button', { name: 'Model: GPT-6 Sol · ChatGPT can’t answer: your Mac is offline' })
+    expect(chip.querySelector('[data-matrix-model-warning]')).toBeTruthy()
+  })
+
+  it('never marks a chip that names another model the home answers with', () => {
+    cloudPicker('offline', {
+      bridge: { agentHome: homeBridge(), subscriptions: relayAccount('offline') },
+      cloudChoice: solChoice({ relayPresence: 'offline' }),
+      home: cloudHome(CLOUD_NGUYET)
+    })
+
+    const chip = screen.getByRole('button', { name: /^Model: Nguyệt Thực/u })
+    expect(chip.querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
+
+  it('marks a lapsed OpenCode Go pick the same way', () => {
+    cloudPicker(undefined, {
+      cloudChoice: {
+        ...atumChoice,
+        subscription: { source: 'opencode_go', model: 'kimi-k3', effort: 'medium', displayName: 'Kimi K3' },
+        subscriptionState: 'revoked'
+      }
+    })
+
+    // Its name already says the fix; the danger glyph marks it like any plan that cannot answer.
+    const chip = screen.getByRole('button', { name: 'Model: Reconnect OpenCode Go' })
+    expect(chip.dataset.matrixModelUnavailable).toBe('reconnect')
+    expect(chip.querySelector('[data-matrix-model-warning]')).toBeTruthy()
+  })
 })

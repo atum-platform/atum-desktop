@@ -29,6 +29,8 @@ export interface PickerRoute {
   defaultEffort?: MatrixModelRoute['efforts'][number]
   /** Why a listed model cannot be chosen here yet, drawn on its second line. */
   reason?: string
+  /** The one fix for that reason, in the row's tooltip (the second line stays short). */
+  hint?: string
   /** An Atum-funded OpenRouter shelf model: its second line names the maker and the Proton price. */
   shelf?: MatrixShelfModelView
 }
