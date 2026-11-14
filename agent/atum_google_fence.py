@@ -23,6 +23,11 @@ to the gateway's protected route: zero data retention, never used for training
 Ordinary Hermes installs never set the variable and never enter this path. An
 unusable value keeps the fence on and refuses every route: a misconfiguration
 must never open it.
+
+Native host-authority source bindings scope newly read Google data to their own
+execution, shared by its copied worker contexts. They do not latch the whole
+gateway or another session. Legacy Desktop reads and the launch latch keep their
+existing process/home-wide protection; model-route enforcement is unchanged.
 """
 
 from __future__ import annotations
@@ -30,7 +35,9 @@ from __future__ import annotations
 import logging
 import os
 import threading
-from typing import Any, Optional
+from contextlib import contextmanager
+from contextvars import ContextVar
+from typing import Any, Callable, Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
@@ -85,6 +92,24 @@ SPEECH_MESSAGE = (
 
 _holding_lock = threading.Lock()
 _holding = False
+_execution_holding: ContextVar[tuple[Callable[[], bool], threading.Event] | None] = ContextVar(
+    "atum_google_execution_holding", default=None,
+)
+
+
+@contextmanager
+def scoped_source_holding(session_matches: Callable[[], bool]):
+    """One trusted source execution; workers share the marker, not a global latch."""
+    previous = _execution_holding.get()
+    if previous is not None and previous[0]():
+        # A nested binding for the same session cannot clear its existing fence.
+        yield
+        return
+    token = _execution_holding.set((session_matches, threading.Event()))
+    try:
+        yield
+    finally:
+        _execution_holding.reset(token)
 
 #: Memory providers that keep everything on this Mac: the built-in files and the
 #: local brain, which applies the Google fence itself (spec/awareness/v1 §4.6).
@@ -247,19 +272,25 @@ def memory_provider_allowed(name: str) -> bool:
 
 
 def holding_google() -> bool:
-    """This process may hold Google data: its home was latched at launch, or a Google
-    result has entered it since. Only a fenced launch can hold Google data."""
+    """This execution holds Google data, or its legacy process/home was latched."""
     if not fence_active():
         return False
     if os.environ.get(LATCHED_ENV, "").strip() == "1":
         return True
     with _holding_lock:
-        return _holding
+        if _holding:
+            return True
+    scoped = _execution_holding.get()
+    return scoped is not None and scoped[0]() and scoped[1].is_set()
 
 
 def mark_holding() -> None:
-    """Called before a Google result is handed to the model; sticky for the process
-    (Atum's latch keeps it for every later launch)."""
+    """Fence the source execution, or retain legacy Desktop's sticky process latch."""
+    scoped = _execution_holding.get()
+    if scoped is not None:
+        if scoped[0]():
+            scoped[1].set()
+        return
     global _holding
     with _holding_lock:
         _holding = True
@@ -305,8 +336,8 @@ def _self_profile_access(args: Any) -> bool:
 def egress_refusal(tool_name: Any, args: Any = None) -> Optional[str]:
     """The refusal a tool call gets instead of running, or None when it may run.
 
-    Only an assistant holding Google data is limited; every other process (and this
-    one before its first Google result) runs every tool as Hermes ships it.
+    Only the source execution (or legacy latched assistant) holding Google data is
+    limited; other native sessions run every tool as Hermes ships it.
     """
     if not holding_google():
         return None
@@ -343,5 +374,6 @@ __all__ = [
     "mark_holding",
     "memory_provider_allowed",
     "route_allowed",
+    "scoped_source_holding",
     "speech_allowed",
 ]

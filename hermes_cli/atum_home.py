@@ -321,20 +321,28 @@ def backup_sqlite(source: str, target: str) -> int:
         src.close()
 
 
-def snapshot_home(root: str, scratch: str, *, mcp_from_config: bool = False) -> Snapshot:
+def snapshot_home(root: str, scratch: str, *, mcp_from_config: bool = False,
+                  file_filter: Callable[[str], bool] | None = None) -> Snapshot:
     """Read the home once, consistently: databases through the backup API into ``scratch``,
     other files with a stability check. Caps are enforced as it goes. With ``mcp_from_config`` the
     agent's MCP servers are read from the live ``config.yaml`` (credentials left out) and written as
     ``MCP_SERVERS_PATH``. That path is the agent's to write, so the file found in the home is never
     exported: it is the generated one or none, and none when the config cannot be read, the
     generated file would pass a cap, or the agent's own files occupy its path (the export then
-    still succeeds, without the servers: never an archive that hydration would refuse)."""
+    still succeeds, without the servers: never an archive that hydration would refuse).
+
+    ``file_filter`` can further restrict scanned paths before any file read or SQLite
+    backup. It cannot widen the hydration allowlist and omitted paths are not added
+    to the skipped-file report. Generated MCP server data is handled separately.
+    """
     snap = Snapshot()
     total = 0
     mcp_body = _mcp_export_body(root) if mcp_from_config else None
     root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         for candidate in scan_home(root):
+            if file_filter is not None and not file_filter(candidate.path):
+                continue
             if candidate.path == MCP_SERVERS_PATH:
                 continue
             if candidate.decision != "hydrate":
@@ -439,11 +447,17 @@ def export_header(snap: Snapshot) -> dict:
     }
 
 
-def export_home(root: str, out: IO[bytes], schedules: list[dict] | None = None, *, mcp_from_config: bool = False) -> dict:
-    """Snapshot ``root`` and write its archive to ``out``. Returns the header."""
+def export_home(root: str, out: IO[bytes], schedules: list[dict] | None = None, *, mcp_from_config: bool = False,
+                file_filter: Callable[[str], bool] | None = None) -> dict:
+    """Snapshot ``root`` and write its archive to ``out``. Returns the header.
+
+    ``file_filter`` is an optional predicate on home-relative paths, applied before
+    capture by :func:`snapshot_home`. With no predicate the full allowlisted home
+    is exported as before.
+    """
     with tempfile.TemporaryDirectory(prefix="atum-home-export-") as scratch:
         os.chmod(scratch, DIR_MODE)
-        snap = snapshot_home(root, scratch, mcp_from_config=mcp_from_config)
+        snap = snapshot_home(root, scratch, mcp_from_config=mcp_from_config, file_filter=file_filter)
         snap.schedules = list(schedules or [])
         header = export_header(snap)
         write_archive(out, header, snap.files)

@@ -3102,10 +3102,12 @@ describe('isolated Matrix composition', () => {
       expect(cloudAgent).toHaveBeenCalledWith({ action: 'stopTurn', roomId: '!assistant:test', eventId: '$cloud-ask' })
     )
 
-    // The request resolved, but the turn has not stopped yet: Stop waits out the snapshot.
+    // The request resolved, but the agent has not confirmed the turn stopped: it keeps saying
+    // Stopping, never stopped, and waits out the snapshot.
     await act(async () => settleStop({ state: 'stop_requested' }))
-    expect(screen.getByRole('button', { name: 'Stop' }).hasAttribute('disabled')).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }))
+    expect(screen.getByRole('button', { name: 'Stopping…' }).hasAttribute('disabled')).toBe(true)
+    expect(screen.queryByText(/stopped/i)).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Stopping…' }))
 
     // Only Stop requests count: the access band also reads cloud status through this bridge.
     const stopCalls = () =>
@@ -3133,6 +3135,7 @@ describe('isolated Matrix composition', () => {
 
     emit({ ...cloud, messages: [question, answer] })
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Stop' })).toBeNull())
+    expect(screen.queryByRole('button', { name: 'Stopping…' })).toBeNull()
 
     emit({ ...cloud, messages: [question, answer, next] })
     const again = await screen.findByRole('button', { name: 'Stop' })

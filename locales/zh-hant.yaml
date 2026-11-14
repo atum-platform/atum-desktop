@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "大型模型：已達{name}上限（{resets}）。"
   large_notice_limit_stops: "大型模型：已達{name}上限（{resets}），在此之前無法執行。"
   large_notice_percent: "大型模型：每則訊息消耗更多方案用量。每月大型模型上限：已用 {percent}。"
+
+turn_admission:
+  configuration_error: "我的部分設定還沒準備好，暫時無法開始。請過幾分鐘再試。"
+  refused: "這裡不允許這個請求，所以我沒有開始。"

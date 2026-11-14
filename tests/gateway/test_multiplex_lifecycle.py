@@ -1,4 +1,6 @@
 """Phase 4: lifecycle guard + per-profile observability."""
+
+from tests.runtime_identity import current_owner_fields
 import pytest
 
 from gateway.config import GatewayConfig
@@ -92,7 +94,7 @@ class TestNamedProfileMultiplexerGuard:
         # process stands in for the gateway by wearing a gateway command line.
         (tmp_path / "gateway.pid").write_text(str(os.getpid()), encoding="utf-8")
         (tmp_path / "gateway_state.json").write_text(json.dumps(
-            {"pid": os.getpid(), "hermes_home": str(tmp_path), "gateway_state": "running"}))
+            {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(tmp_path), "gateway_state": "running"}))
         monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "hermes gateway run")
 
     def test_unset_allowlist_preserves_historical_guard(self, monkeypatch, tmp_path):
@@ -118,7 +120,7 @@ class TestNamedProfileMultiplexerGuard:
         )
         import json
         import os
-        (tmp_path / "gateway_state.json").write_text(json.dumps({
+        (tmp_path / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
             "pid": os.getpid(), "hermes_home": str(tmp_path), "gateway_state": "running",
             "served_profiles": ["default", "worker"]}))
 

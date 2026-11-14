@@ -152,6 +152,40 @@ def test_list_uses_exact_s1_request_and_frames_preview(monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("transport", ["desktop", "host"])
+def test_company_room_metadata_is_optional_and_preserved(monkeypatch, transport):
+    from gateway.session_context import scoped_current_session_id
+    from tools.atum_source_transport import bind_source_transport
+
+    space = {"kind": "company", "companyId": "12345678-1234-4123-8123-123456789abc", "name": "Team"}
+    response = {"rooms": [_room(), _room(id=SECOND, kind="group", space=space)], "truncated": False}
+    _host(monkeypatch, json.dumps(response))
+    with scoped_current_session_id("company-room-fixture"):
+        if transport == "host":
+            with bind_source_transport(lambda *_: response):
+                result = json.loads(atum_chats("list"))
+        else:
+            result = json.loads(atum_chats("list"))
+    assert "space" not in result["rooms"][0]
+    assert result["rooms"][1]["space"] == space
+    _assert_quoted(result["rooms"][1]["last"]["text"], room_id=SECOND, text="Are we still on for lunch?")
+
+
+@pytest.mark.parametrize("space", [
+    None, [], {},
+    {"kind": "personal", "companyId": "12345678-1234-4123-8123-123456789abc", "name": "Team"},
+    {"kind": "company", "companyId": "not-a-uuid", "name": "Team"},
+    {"kind": "company", "companyId": 1, "name": "Team"},
+    {"kind": "company", "companyId": "12345678123441238123123456789abc", "name": "Team"},
+    {"kind": "company", "companyId": "12345678-1234-4123-8123-123456789abc", "name": ""},
+    {"kind": "company", "companyId": "12345678-1234-4123-8123-123456789abc", "name": "x" * 121},
+    {"kind": "company", "companyId": "12345678-1234-4123-8123-123456789abc", "name": "Team", "extra": True},
+])
+def test_malformed_company_space_is_refused(monkeypatch, space):
+    _host(monkeypatch, json.dumps({"rooms": [_room(space=space)], "truncated": False}))
+    assert json.loads(atum_chats("list"))["error"] == "unavailable"
+
+
 def test_read_preserves_edit_redaction_and_opaque_cursor(monkeypatch):
     response = _read(
         messages=[

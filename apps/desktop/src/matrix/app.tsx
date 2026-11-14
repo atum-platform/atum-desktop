@@ -215,7 +215,7 @@ import { useChatSearchCopy } from './chat-search-copy'
 import { matrixChatTitle } from './chat-title'
 import { MatrixCheckInCard, MatrixCheckInsNotice } from './check-in-card'
 import { cloudRoomAgent, LinkedDocumentNotice, MatrixCloudAccessBand } from './cloud-status'
-import { matrixCloudStopTarget } from './cloud-stop'
+import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 import { MatrixCommandPalette, type MatrixPaletteAction } from './command-palette'
 import { CompanyAIAnswer, companyAIAnswerProjection } from './company-ai-answer'
 import {
@@ -496,6 +496,7 @@ import { followTranscriptEnd } from './transcript-follow'
 import { MatrixTurnHandoffActions } from './turn-handoff'
 import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
+import { useMatrixCloudStop } from './use-cloud-stop'
 import { useShellShortcuts } from './use-shell-shortcuts'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
 import { matrixWalletCopy } from './wallet-copy'
@@ -2413,8 +2414,6 @@ function MatrixComposer({
       : undefined
 
   const [sending, setSending] = useState(false)
-  const [cloudStopRefused, setCloudStopRefused] = useState(false)
-  const [cloudStopping, setCloudStopping] = useState(false)
   // A chosen file waits in the box as a chip until Send; it goes first, as its own message.
   const [staged, setStaged] = useState<File | null>(null)
   const [fileTooLarge, setFileTooLarge] = useState(false)
@@ -3695,11 +3694,6 @@ function MatrixComposer({
     }
   }, [focusInput, threadRootId])
 
-  useEffect(() => {
-    setCloudStopRefused(false)
-    setCloudStopping(false)
-  }, [room.id])
-
   const running =
     (snapshot.hermesActivity?.roomId === room.id && snapshot.hermesActivity.state === 'running') ||
     (room.assistant && snapshot.hermes === 'running')
@@ -3758,26 +3752,34 @@ function MatrixComposer({
   }
 
   const cloudStopTarget = liveCloudStopTarget ?? cloudStopLatch.current?.eventId
-  // A stop that was already asked for stays disabled until its target clears or moves on: the
-  // snapshot clears it, not the request resolving.
-  const cloudStopRequested = useRef<string | null>(null)
+
+  const scheduledStop = roomAgent?.runtime === 'hermes' &&
+    matrixCloudStopScheduled(contextMessages ?? snapshot.messages, roomAgent.userId)
+  const stopRoute = matrixStopRoute({
+    runtime: roomAgent?.runtime,
+    eventId: cloudStopTarget,
+    working: Boolean(agentTyping || scheduledStop),
+    scheduled: scheduledStop
+  })
+  const stopKey = stopRoute.kind === 'native' ? `native:${room.id}` : cloudStopTarget
+  const showCloudStop = matrixShowCloudStop({ eventId: cloudStopTarget, cloud: Boolean(cloudAssistant),
+    runtime: roomAgent?.runtime, working: Boolean(agentTyping || scheduledStop) })
+  const cloudStop = useMatrixCloudStop({ roomId: room.id, stopKey })
 
   const stopCloud = () => {
     const stopTurn = window.atumMatrix.cloudAgent
 
-    if (!cloudStopTarget || !stopTurn || cloudStopRequested.current === cloudStopTarget) {
+    if (!cloudStopAvailable || !stopTurn || stopRoute.kind === 'unavailable') {
       return
     }
 
-    cloudStopRequested.current = cloudStopTarget
-    setCloudStopRefused(false)
-    setCloudStopping(true)
-    void stopTurn({ action: 'stopTurn', roomId: room.id, eventId: cloudStopTarget })
-      .catch(() => {
-        cloudStopRequested.current = null
-        setCloudStopRefused(true)
-      })
-      .finally(() => setCloudStopping(false))
+    cloudStop.stop(() =>
+      executeMatrixStop(
+        stopRoute,
+        eventId => stopTurn({ action: 'stopTurn', roomId: room.id, eventId }),
+        body => runMatrixCommand({ kind: 'send', roomId: room.id, body })
+      )
+    )
   }
 
   // An archived channel has no box: the banner stands in its place, says why, and offers the way back to those
@@ -3921,7 +3923,7 @@ function MatrixComposer({
         enabled={!room.assistant && room.membership === 'join' && snapshot.state === 'ready'}
         roomId={room.id}
       />
-      {cloudStopRefused && (
+      {cloudStop.refused && (
         <NoticeBand
           className="mx-auto mb-2 w-[min(42rem,calc(100%-2rem))]"
           data-matrix-cloud-stop-refused
@@ -4038,15 +4040,25 @@ function MatrixComposer({
                   roomId={room.id}
                 />
               )}
-              {cloudStopTarget ? (
+              {showCloudStop ? (
                 <button
-                  aria-label={matrixActionCopy[locale].cancelHermes}
-                  className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
-                  disabled={cloudStopping || cloudStopRequested.current === cloudStopTarget}
+                  aria-busy={cloudStop.stopping || undefined}
+                  aria-label={cloudStop.stopping ? t.cloud.stopping : matrixActionCopy[locale].cancelHermes}
+                  className={cloudStop.stopping
+                    ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
+                    : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
+                  data-matrix-cloud-stopping={cloudStop.stopping || undefined}
+                  disabled={!cloudStopAvailable || stopRoute.kind === 'unavailable' || cloudStop.stopping || cloudStop.requested}
                   onClick={stopCloud}
+                  title={cloudStop.stopping ? t.cloud.stopping : stopRoute.kind === 'unavailable'
+                    ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
+                    : stopRoute.kind === 'native'
+                      ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
+                      : undefined}
                   type="button"
                 >
-                  <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />
+                  {cloudStop.stopping ? <span role="status">{t.cloud.stopping}</span>
+                    : <span aria-hidden className="block size-2.5 rounded-[0.1875rem] bg-current" />}
                 </button>
               ) : running ? (
                 <button

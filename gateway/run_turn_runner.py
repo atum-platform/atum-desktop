@@ -866,6 +866,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
             _last_transcript_timestamp, _prepare_resume_pending_message, build_resume_recovery_note,
         )
         ctx = self._ctx
+        recovery_reply = ctx.message  # parse human control before API-only model/recovery notes
         persist_override: Optional[Any] = ctx.persist_user_message
         from gateway.session_cli_turn import cli_turn
         api_text = cli_turn(ctx.inbound_message_id).get('api_text')
@@ -894,7 +895,26 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         mark_is_fresh = resume_pending and _is_fresh_gateway_interruption(
             getattr(entry, "last_resume_marked_at", None), window_secs=window,
         )
-        if resume_pending and (interruption_is_fresh or mark_is_fresh):
+        adapter = self._runner._delivery_adapter_for(ctx.source)
+        self._resume_policy = None
+        recovery_source = (getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_source_id')
+        tool_aware = getattr(adapter, 'tool_aware_resume', False)
+        recovering_admission = recovery_source is not None and str(recovery_source) == str(ctx.inbound_message_id)
+        legacy_resume = recovery_source is None and not ctx.inbound_message_id
+        if resume_pending and tool_aware and (recovering_admission or legacy_resume):
+            from gateway.resume_policy import choose_resume_policy
+            # Read before live-replay repair synthesizes results for dangling tool calls.
+            raw_history = ctx.history
+            db_for = getattr(self._runner.session_store, '_db_for_session_id', None)
+            if callable(db_for):
+                db = db_for(ctx.session_id)
+                if db is None:
+                    raise RuntimeError('Crash recovery requires the canonical transcript')
+                raw_history = db.get_messages_as_conversation(ctx.session_id, include_ancestors=True)
+            self._resume_policy = choose_resume_policy(
+                raw_history, source_message_id=recovery_source,
+                force_ask=resume_reason in {'stale_interruption', 'restore_backup'})
+        elif resume_pending and not tool_aware and (interruption_is_fresh or mark_is_fresh):
             # Empty message = the startup auto-resume turn; there is no NEW user message.
             ctx.message, persist_override = _prepare_resume_pending_message(
                 resume_reason, ctx.message, interactive=self._resume_note_interactive(),
@@ -908,6 +928,25 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 "below FIRST. Do NOT re-execute old tool calls from the history.]\n\n"
                 + ctx.message
             )
+        if entry is not None and (getattr(entry, 'resume_ask', None) or
+                                  (self._resume_policy is not None and self._resume_policy.ask)):
+            from gateway.resume_policy import pending_resume_policy, pending_ask_note
+            self._resume_policy = pending_resume_policy(
+                self._runner.session_store, entry, self._resume_policy,
+                (getattr(ctx, 'persist_user_display_metadata', None) or {}).get(
+                    'crash_resume_decision_text', recovery_reply),
+                can_resolve=bool(ctx.inbound_message_id)
+                and bool((getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_owner_response'))
+                and not getattr(ctx, 'scheduled_heartbeat', False)
+                and not getattr(ctx, 'persist_user_display_kind', None),
+                message_admission_seq=(getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_admission_seq'),
+                message_timestamp=(getattr(ctx, 'persist_user_display_metadata', None) or {}).get('crash_resume_received_at'))
+            self._resume_ask_note = pending_ask_note(entry)
+        else:
+            self._resume_ask_note = ''
+        if self._resume_policy is not None and self._resume_policy.note():
+            persist_override = ctx.message if ctx.message.strip() else self._resume_policy.note()
+            ctx.message = self._resume_policy.note() + self._resume_ask_note + ('\n\n' + ctx.message if ctx.message else '')
         self._prepend_pending_note("_pending_skills_reload_notes")
         if api_text is not None:
             persist_override = clean_text  # recovery wording is API-only too, never the stored row
@@ -915,7 +954,10 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         # did not fire (freshness signals disagreed, marker cleared) we must NOT hand the model a blank
         # user turn. Restricted to resume_pending sessions so caption-less image turns are untouched.
         if isinstance(ctx.message, str) and not ctx.message.strip() and resume_pending:
-            ctx.message = build_resume_recovery_note(resume_reason, "", interactive=self._resume_note_interactive())
+            if self._resume_policy is not None and not self._resume_policy.note():
+                ctx.message = 'The previous turn is complete. Acknowledge briefly without taking any action.'
+            else:
+                ctx.message = build_resume_recovery_note(resume_reason, "", interactive=self._resume_note_interactive())
         return persist_override, ctx.persist_user_timestamp
 
     def _native_image_run_message(self):
@@ -1308,6 +1350,9 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
         try:
             agent_history, observed_group_context, history_media_paths = self._load_turn_history(agent, reused_cached_agent)
             persist_msg, persist_ts = self._prepare_turn_message(agent_history)
+            from functools import partial
+            from gateway.resume_policy import recovery_tool_block
+            agent._crash_resume_tool_guard = partial(recovery_tool_block, self._resume_policy)
             compressions = getattr(getattr(agent, "context_compressor", None), "compression_count", None)
             from gateway.session_cli_turn import run_classic_cli_turn
             from gateway.session_secret_prompt import secret_prompt_scope
@@ -1316,6 +1361,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
                 result = run_classic_cli_turn(self, lambda: self._run_conversation_with_approval(
                     agent, agent_history, observed_group_context, persist_msg, persist_ts))
         finally:
+            agent._crash_resume_tool_guard = None
             if local_sinks is not None:
                 from gateway import local_viewer_events
                 local_viewer_events.restore(agent, local_sinks)

@@ -7,6 +7,7 @@ export const zh = defineLocale({
     deviceStatusUnconfirmed: '暂时无法读取这台 Mac 的状态。Atum 会自动重新检查。',
     wordRefusal: '这个助手暂时无法在 Word 或关联文档中工作。请在其他聊天中提问，或使用 Atum Drive 中的文件。',
     stopRefused: '未能停止这条回复，它可能已经完成。',
+    stopping: '正在停止…',
     driveFull: '你的 Drive 已满；文件将保留 7 天。',
     title: '电脑和手机',
     allowMac: '允许助手使用这台 Mac',

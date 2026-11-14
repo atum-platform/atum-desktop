@@ -6,6 +6,8 @@ the profile *name*. The liveness ladder must neither believe a record stamped wi
 home nor borrow the process home's record / the multiplexer's roster for it.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 
 import pytest
@@ -27,7 +29,7 @@ def fake_root(tmp_path, monkeypatch):
 
 
 def _live_record(hermes_home):
-    return {
+    return {**current_owner_fields(_LIVE_PID),
         "pid": _LIVE_PID, "kind": "hermes-gateway", "gateway_state": "running", "start_time": 1000,
         "argv": ["python", "-m", "hermes_cli.main", "-p", "eagle", "gateway", "run"],
         "hermes_home": str(hermes_home),

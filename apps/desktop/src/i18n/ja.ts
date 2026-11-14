@@ -8,6 +8,7 @@ export const ja = defineLocale({
     wordRefusal:
       'このアシスタントはまだWordやリンクした文書で作業できません。別のチャットで質問するか、Atum Driveのファイルを使ってください。',
     stopRefused: 'この返信を停止できませんでした。すでに完了している可能性があります。',
+    stopping: '停止中…',
     driveFull: 'Drive がいっぱいです。ファイルは7日間保管されます。',
     title: 'パソコンと電話',
     allowMac: 'アシスタントにこのMacの使用を許可',

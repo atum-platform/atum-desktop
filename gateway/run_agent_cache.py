@@ -545,6 +545,7 @@ class GatewayAgentCacheMixin:
             return
         state = self._peek_session_state(session_key)
         running_agent = state.turn.agent if state else None
+        stopped_event = state.turn.event if state else None
         _generation_at_interrupt = self._interrupt_running_turn(
             session_key, interrupt_reason=interrupt_reason, invalidation_reason=invalidation_reason,
         )
@@ -566,6 +567,8 @@ class GatewayAgentCacheMixin:
 
                 _invoke_hook(
                     "agent_loop_stopped",
+                    source_event_id=getattr(stopped_event, "message_id", None),
+                    admission_id=getattr(stopped_event, "_presentation_admission_id", None),
                     session_key=session_key,
                     platform=source.platform.value if source.platform else "",
                     reason=interrupt_reason,

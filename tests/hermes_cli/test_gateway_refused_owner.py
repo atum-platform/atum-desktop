@@ -6,6 +6,8 @@ reach it. Both surfaced as ``Gateway inaccessible (authorization)``, which reads
 problem. The probe facts and the host fact (``windows=True``) are passed in here, never faked; ``test_refused_owner_windows.py``
 runs the real probes on Windows CI.
 """
+
+from tests.runtime_identity import current_owner_fields
 import json
 import subprocess
 import sys
@@ -47,7 +49,7 @@ def _gateway_child(tmp_path: Path):
 
 def _record(home: Path, pid: int, **extra) -> dict:
     from gateway.status import _get_process_start_time
-    return {"pid": pid, "kind": "hermes-gateway", "argv": ["hermes", "gateway", "run"],
+    return {**current_owner_fields(pid), "pid": pid, "kind": "hermes-gateway", "argv": ["hermes", "gateway", "run"],
             "start_time": _get_process_start_time(pid), "hermes_home": str(home), **extra}
 
 
@@ -168,7 +170,7 @@ def test_a_stale_pid_file_falls_through_to_the_lock_owner(monkeypatch, tmp_path,
     home.mkdir()
     dead = subprocess.Popen([sys.executable, "-c", "pass"])
     dead.wait()
-    (home / "gateway.pid").write_text(json.dumps({"pid": dead.pid, "start_time": 1}), encoding="utf-8")
+    (home / "gateway.pid").write_text(json.dumps({**current_owner_fields(dead.pid), "pid": dead.pid, "start_time": 1}), encoding="utf-8")
     (home / "gateway.lock").write_text(json.dumps(_record(home, gateway_owner.pid)), encoding="utf-8")
     seen = _probe_recorder(monkeypatch)
     assert runtime._refused(home, windows=True).reason_code == "gateway_elevated" and seen == [gateway_owner.pid]

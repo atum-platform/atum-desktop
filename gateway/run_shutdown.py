@@ -335,12 +335,16 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
 
         def _processes_active() -> bool:
             from tools.process_registry import process_registry
-            return bool(process_registry.has_any_active() or process_registry.pending_watchers)
+            return bool(process_registry.has_any_active() or process_registry.pending_watchers
+                        or not process_registry.completion_queue.empty())
 
         for label, probe in (("async-delegation", _delegations_active), ("bg-work", _processes_active)):
-            with _log_suppressed(logging.DEBUG, f"scale-to-zero {label} check failed", exc_info=True):
+            try:
                 if probe():
                     return True
+            except Exception:
+                logger.debug("scale-to-zero %s check failed", label, exc_info=True)
+                return True
         return False
 
     @staticmethod
@@ -490,6 +494,7 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
         gateway awake).
         """
         self._last_inbound_at = time.time()
+        self._sleep_idle_since = None
         if getattr(self, "_scale_to_zero_cooldown_until", 0.0) > 0:
             self._scale_to_zero_status(self._serving_state(), "scale-to-zero: status restore failed")
             self._scale_to_zero_cooldown_until = 0.0
@@ -1025,6 +1030,12 @@ class GatewayShutdownMixin(GatewaySessionEndMixin):
 
         Called at the start of stop() while adapters are connected; send failures never block shutdown.
         """
+        from gateway.run import _load_gateway_config
+
+        gateway_cfg = _load_gateway_config().get("gateway", {})
+        if isinstance(gateway_cfg, dict) and gateway_cfg.get("shutdown_notification", True) is False:
+            return
+
         restart_source = self._restart_command_source if self._restart_requested else None
         msg = t("gateway.shutdown.notice_restart" if self._restart_requested else "gateway.shutdown.notice_shutdown")
         restart_key = None

@@ -11,6 +11,8 @@ real SIGTERM would have produced.
 See issue #33778 for the original Windows session-loss bug report.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import asyncio
 import json
 import os
@@ -32,7 +34,7 @@ def _write_self_marker(marker, *, stale: bool = False):
     past the TTL.
     """
     written_at = "2000-01-01T00:00:00+00:00" if stale else status_mod._utc_now_iso()
-    record = {
+    record = {**current_owner_fields(),
         "target_pid": os.getpid(),
         "target_start_time": status_mod._get_process_start_time(os.getpid()),
         "stopper_pid": os.getpid(),
@@ -149,7 +151,7 @@ def test_watcher_does_not_fire_for_foreign_pid_marker(tmp_path, monkeypatch):
     marker = tmp_path / ".gateway-planned-stop.json"
     # Foreign PID + a start_time that cannot match ours, freshly written
     # so the TTL does NOT remove it — the watcher must still decline.
-    record = {
+    record = {**current_owner_fields(),
         "target_pid": os.getpid() + 1,
         "target_start_time": -1,
         "stopper_pid": os.getpid() + 1,

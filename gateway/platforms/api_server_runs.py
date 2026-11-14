@@ -396,11 +396,12 @@ def _check_run_auth(self, request: web.Request, *, permission: str, _api_server)
     return None
 
 
-def _owner_alive(owner_pid: int, owner_started: int) -> bool:
+def _owner_alive(owner_pid: int, owner_started: int, boot_epoch: str | None = None) -> bool:
     """True when the recorded owner pid still exists and is the same process incarnation."""
     try:
         from gateway.status import _pid_exists, get_process_start_time, start_time_fingerprints_match
-        return owner_pid > 0 and bool(_pid_exists(owner_pid)) and (
+        from gateway.status import process_epoch_matches
+        return process_epoch_matches({"boot_epoch": boot_epoch}) and owner_pid > 0 and bool(_pid_exists(owner_pid)) and (
             not owner_started
             or start_time_fingerprints_match(owner_started, get_process_start_time(owner_pid) or 0))
     except Exception:
@@ -430,7 +431,7 @@ def _durable_run_status(self, request: web.Request, run_id: str) -> dict[str, An
         return None
     status = dict(record["status"])
     if status.get("status") not in TERMINAL_STATUSES and not _owner_alive(
-        int(record.get("owner_pid") or 0), int(record.get("owner_started") or 0)):
+        int(record.get("owner_pid") or 0), int(record.get("owner_started") or 0), record.get("owner_boot_epoch")):
         status.update(
             status="interrupted", error="The gateway restarted before this run settled.",
             last_event="run.interrupted", updated_at=time.time())

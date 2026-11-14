@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sqlite3
 from contextlib import closing
@@ -77,7 +78,8 @@ def _probe_gateway(runtime_status: dict[str, Any]) -> dict[str, Any]:
         isinstance(v, dict) and str(v.get("state") or v.get("status") or "").lower() in _CONNECTED_STATES
         for v in platforms.values()
     )
-    return _check("ok" if state in {"running", "draining"} else "degraded", state=state,
+    attention = any(isinstance(v, dict) and v.get("needs_attention") for v in platforms.values())
+    return _check("ok" if state in {"running", "draining"} and not attention else "degraded", state=state,
                   connected_platforms=connected, platforms=len(platforms))
 
 
@@ -94,16 +96,53 @@ def _probe_session_store(runtime_status: dict[str, Any], state_db_probe: dict[st
     return _check("ok" if state_db_probe.get("status") == "ok" else "unavailable")
 
 
+def _recovery_health(runtime, home):
+    """Attention never requests a process restart. Pauses follow canonical admission state."""
+    platforms = runtime.get('platforms') or {}
+    pauses, wedge, alert = [], None, None
+    unknown = None
+    if (home / 'state.db').exists():
+        try:
+            with closing(sqlite3.connect(f"file:{(home / 'state.db').as_posix()}?mode=ro", uri=True, timeout=1)) as conn:
+                unknown = dict(conn.execute(
+                    "SELECT admission_id,target_session_id FROM session_admissions WHERE status='unknown'"))
+        except sqlite3.Error:
+            pass
+    healthy = runtime.get('gateway_state') in {'running', 'draining'}
+    for key, value in platforms.items():
+        if not isinstance(value, dict):
+            continue
+        metrics = value.get('metrics') or {}
+        if metrics.get('process_healthy') is False:
+            healthy = False
+        if str(key).startswith('recovery:') and value.get('state') == 'paused':
+            aid = metrics.get('admission_id')
+            # A /discard or successful resolution removes the pause even if no status
+            # writer has run since. Do not expose admission payloads in readiness.
+            if unknown is not None and aid not in unknown:
+                continue
+            pauses.append({'code': 'restart_loop', 'since': value.get('retrying_since') or value.get('updated_at'),
+                           **({'conversation': metrics['conversation']} if metrics.get('conversation') else {})})
+        wedge = wedge or metrics.get('wedge')
+        alert = alert or metrics.get('alert')
+    return dict(process_healthy=healthy, paused_conversations=len(set(unknown.values())) if unknown is not None else len(pauses), wedge=wedge,
+                alert=pauses[0] if pauses else alert)
+
+
 def collect_runtime_readiness(
     *, configured_model: str, runtime_status: dict[str, Any] | None, active_api_runs: int = 0,
     process_completion_queue_depth: int = 0, active_delegations: int = 0,
+    open_operations: int | None = None,
 ) -> dict[str, Any]:
     """Bounded readiness diagnostics, no runtime mutation.  Even authenticated, probes
     expose status and counts only: never config values, credentials, paths, payloads."""
     home = get_hermes_home()
     runtime = runtime_status if isinstance(runtime_status, dict) else {}
     state_db_probe = _probe_state_db(home)
+    from hermes_cli.turn_admission import admission_readiness
+
     checks = {
+        "turn_admission": admission_readiness(),
         "state_db": state_db_probe,
         "session_store": _probe_session_store(runtime, state_db_probe),
         "config": _probe_config(home),
@@ -116,7 +155,37 @@ def collect_runtime_readiness(
             active_delegations=max(0, int(active_delegations)),
         ),
     }
-    return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks}
+    from hermes_cli.config_home import home_initialization_failed
+    # The container healthcheck may be a separate process, so also inspect the
+    # home permissions there. No files are created and no config fallback runs.
+    storage_paths = [home] + [home / name for name in ("sessions", "logs", "cron", "memories")
+                             if (home / name).exists() or (home / name).is_symlink()]
+    checks["home_storage"] = _check("ok" if all(
+        path.is_dir() and os.access(path, os.W_OK | os.X_OK) for path in storage_paths
+    ) else "unavailable")
+    health = _recovery_health(runtime, home)
+    platforms = runtime.get("platforms") or {}
+    if (checks["home_storage"]["status"] != "ok"
+            or home_initialization_failed(home)
+            or checks["state_db"]["status"] != "ok"
+            or checks["session_store"]["status"] != "ok"
+            or any(isinstance(v, dict) and v.get("error_code") == "adapter_unavailable"
+                   for v in platforms.values())):
+        health["process_healthy"] = False
+    from gateway.control_socket import query_gateway_control
+    import time
+    sleep = dict(idle=False, idle_since=None, observed_at=time.time(),
+                 next_cron_due=None, probes_complete=False)
+    try:
+        reply = query_gateway_control(home, 'sleep-readiness', params={'open_operations': open_operations})
+        if isinstance(reply, dict) and set(sleep) <= reply.keys():
+            sleep = reply
+    except Exception:
+        pass
+    if not health['process_healthy'] or active_api_runs or process_completion_queue_depth or active_delegations:
+        sleep.update(idle=False, idle_since=None)
+    return {"status": "ok" if all(c.get("status") == "ok" for c in checks.values()) else "degraded", "checks": checks,
+            **health, 'sleep': sleep}
 
 
 __all__ = ["collect_runtime_readiness"]

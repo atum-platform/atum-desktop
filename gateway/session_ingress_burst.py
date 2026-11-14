@@ -35,6 +35,9 @@ class _Burst:
 
 
 def _kind(adapter, event):
+    # Durable transports need one native request/receipt per Matrix event.
+    if getattr(event, '_matrix_durable_intake', False):
+        return None
     if event.message_type == MessageType.PHOTO and not event.internal:
         return 'photo'
     return 'text' if adapter._is_queue_text_debounce_candidate(event) else None

@@ -3980,3 +3980,7 @@ plan_usage:
   large_notice_limit: "Nagy modell: elérted a(z) {name} korlátot ({resets})."
   large_notice_limit_stops: "Nagy modell: elérted a(z) {name} korlátot ({resets}), így addig nem fut."
   large_notice_percent: "Nagy modell: üzenetenként többet használ a csomagodból. Nagy modellekre vonatkozó havi korlát: {percent} felhasználva."
+
+turn_admission:
+  configuration_error: "Most nem tudok elkezdeni, mert a beállításom egy része még nem áll készen. Próbáld újra néhány perc múlva."
+  refused: "Ez a kérés itt nem engedélyezett, ezért nem kezdtem el."

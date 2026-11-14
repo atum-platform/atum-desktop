@@ -545,12 +545,14 @@ class SessionEntry:
     # boundary, ``_clear_session_boundary_security_state``), so the session's launch policy applies.
     yolo: Optional[bool] = None
 
+    resume_ask: Optional[dict] = None  # durable prompt identity/actions; no expiry
+
     # Fields (de)serialized verbatim, in wire order (``from_dict`` reads them with
     # ``data.get(name, <dataclass default>)``), split around the three ISO-datetime/token keys.
     _PLAIN_FIELDS = (
         "input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens",
         "total_tokens", "last_prompt_tokens", "estimated_cost_usd", "cost_status",
-        "expiry_finalized", "suspended", "resume_pending", "resume_reason",
+        "expiry_finalized", "suspended", "resume_pending", "resume_reason", "resume_ask",
     )
     _RESET_FIELDS = (
         "is_fresh_reset", "was_auto_reset", "auto_reset_reason", "reset_had_activity",
@@ -615,6 +617,11 @@ class SessionEntry:
         # toggled": only their ON is a real toggle; False follows the launch policy, as it did then.
         plain["yolo"] = data["yolo_toggle"] if "yolo_toggle" in data else (True if data.get("yolo") is True else None)
         transport_profile = data.get("transport_profile")
+        pending = plain.get("resume_ask")
+        if pending and 'created_at' not in pending:
+            # Legacy questions have no arrival fence. Establish it at load, before
+            # fresh owner input, so older queued replies remain conversational.
+            plain['resume_ask'] = dict(pending, created_at=datetime.now().astimezone().isoformat())
         return cls(
             session_key=session_key, session_id=session_id,
             created_at=datetime.fromisoformat(data["created_at"]),
@@ -1001,7 +1008,7 @@ class SessionStore(
                 entry, snapshot_sid, checks.canonical_id if checks else None
             )
             checked = entry.session_id == snapshot_sid
-            stale_hit = checked and checks.is_stale
+            stale_hit = checked and checks.is_stale and not entry.resume_ask
             reset_reason = checks.reset_reason if checked else None
             if stale_hit:
                 # Stale routing self-heal: drop the entry and fall through to recovery (reopens

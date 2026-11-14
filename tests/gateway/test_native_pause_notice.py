@@ -21,7 +21,8 @@ import pytest
 from tests.gateway.fixtures.local_recovery_probe import Model, child_env, daemon
 from tests.gateway.test_native_telegram_startup_recovery import BotAPI, wait_for
 
-PAUSE_MARKER = 'This conversation is paused'
+# Every pause notice (and only a pause notice) leads with this mark, whatever its wording.
+PAUSE_MARKER = '⏸️'
 
 
 @pytest.mark.asyncio

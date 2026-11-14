@@ -21,7 +21,8 @@ from hermes_state_runtime import (
 
 
 def _runner():
-    return SimpleNamespace(_draining=False, session_store=SimpleNamespace())
+    return SimpleNamespace(_draining=False, session_store=SimpleNamespace(),
+                           _delivery_adapter_for=lambda source: None)
 
 
 def _source():

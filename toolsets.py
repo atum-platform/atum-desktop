@@ -236,6 +236,12 @@ TOOLSETS = {
          "atum_chats", "atum_mac", "atum_google_readonly"],
         posture=True,
     ),
+    "atum_background_readonly": _ts(
+        "Atum background reading: read-only sources, no memory writes",
+        ["read_file", "search_files", "session_search", "skills_list", "skill_view",
+         "atum_chats", "atum_mac", "atum_google_readonly"],
+        posture=True,
+    ),
     "hermes-gateway": _ts(
         "Gateway toolset - union of all messaging platform tools",
         [],

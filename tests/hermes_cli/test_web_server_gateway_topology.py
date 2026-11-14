@@ -5,6 +5,8 @@ added to ``/api/status``: profile enumeration, single vs multiplex vs multiple
 gateway detection, and per-platform port resolution.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 from pathlib import Path
 
 import pytest
@@ -103,7 +105,7 @@ class TestCollectProfileGatewayTopology:
         runtimes = {
             "default": {
                 "platforms": {
-                    "telegram": {
+                    "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "connected",
                         "writer_pid": 100,
                         "writer_start_time": 111,
@@ -112,7 +114,7 @@ class TestCollectProfileGatewayTopology:
             },
             "coder": {
                 "platforms": {
-                    "discord": {
+                    "discord": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "fatal",
                         "error_code": "duplicate_credential",
                         "writer_pid": 200,
@@ -134,14 +136,14 @@ class TestCollectProfileGatewayTopology:
         assert topo["gateway_mode"] == "multiple"
         assert topo["profile_platforms"] == {
             "default": {
-                "telegram": {
+                "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                     "state": "connected",
                     "writer_pid": 100,
                     "writer_start_time": 111,
                 }
             },
             "coder": {
-                "discord": {
+                "discord": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                     "state": "fatal",
                     "error_code": "duplicate_credential",
                     "writer_pid": 200,
@@ -165,7 +167,7 @@ class TestCollectProfileGatewayTopology:
                     # Near-boundary: written by the PRIOR process (pid 199)
                     # immediately before a fast restart. A wall-clock
                     # freshness window would admit this; identity must not.
-                    "telegram": {
+                    "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "fatal",
                         "error_code": "duplicate_credential",
                         "updated_at": "2026-08-05T10:00:00.900000+00:00",
@@ -176,13 +178,13 @@ class TestCollectProfileGatewayTopology:
                     "discord": {"state": "fatal"},
                     # Same PID recycled, different start-time fingerprint —
                     # a different process, not the live writer.
-                    "slack": {
+                    "slack": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "fatal",
                         "writer_pid": 200,
                         "writer_start_time": 110,
                     },
                     # Written by the current process — kept.
-                    "signal": {
+                    "signal": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "fatal",
                         "error_code": "duplicate_credential",
                         "writer_pid": 200,
@@ -211,8 +213,8 @@ class TestCollectProfileGatewayTopology:
         runtimes = {
             "default": {
                 "platforms": {
-                    "api_server": {"state": "connected", "writer_pid": 200, "writer_start_time": 222},
-                    "feishu": {"state": "connected", "writer_pid": 34105, "writer_start_time": 178945520374},
+                    "api_server": {"writer_boot_epoch": current_owner_fields()["boot_epoch"], "state": "connected", "writer_pid": 200, "writer_start_time": 222},
+                    "feishu": {"writer_boot_epoch": current_owner_fields()["boot_epoch"], "state": "connected", "writer_pid": 34105, "writer_start_time": 178945520374},
                 }
             },
         }
@@ -232,7 +234,7 @@ class TestCollectProfileGatewayTopology:
         runtimes = {
             "coder": {
                 "platforms": {
-                    "telegram": {
+                    "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "fatal",
                         "writer_pid": 200,
                         "writer_start_time": 222,
@@ -351,7 +353,7 @@ class TestStatusEndpointTopology:
             "gateway_state": "running",
             "served_profiles": ["default", "coder"],
             "platforms": {
-                "telegram": {"state": "connected", "writer_pid": 101, "writer_start_time": 5},
+                "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"], "state": "connected", "writer_pid": 101, "writer_start_time": 5},
                 "webhook": {"state": "connected"},
                 "coder:discord": {"state": "connected"},
             },
@@ -402,7 +404,7 @@ class TestStatusEndpointTopology:
             "gateway_state": "running",
             "served_profiles": ["default", "coder"],
             "platforms": {
-                "telegram": {"state": "connected", "writer_pid": 101, "writer_start_time": 5},
+                "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"], "state": "connected", "writer_pid": 101, "writer_start_time": 5},
                 "webhook": {"state": "connected"},
                 "coder:discord": {"state": "connected"},
             },
@@ -603,7 +605,7 @@ class TestStatusEndpointTopology:
         monkeypatch.setattr(
             status_router, "resolve_gateway_liveness",
             lambda **kwargs: GatewayLiveness(running=True, pid=4242, source="health",
-                                             health_body={"gateway_state": "running", "pid": 4242}),
+                                             health_body={**current_owner_fields(4242), "gateway_state": "running", "pid": 4242}),
         )
         calls = []
 
@@ -650,7 +652,7 @@ class TestStatusEndpointTopology:
         # The host's own record proves the live gateway, so it is read whole: folding it through
         # the default profile's projection dropped every ``<profile>:<platform>`` entry and the
         # platforms component read ok over another profile's fatal adapter.
-        data = self._status_on_the_host(monkeypatch, {
+        data = self._status_on_the_host(monkeypatch, {**current_owner_fields(4242),
             "pid": 4242, "gateway_state": "running", "served_profiles": ["default", "reviewer"],
             "platforms": {
                 "telegram": {"state": "connected"},
@@ -666,7 +668,7 @@ class TestStatusEndpointTopology:
     def test_status_on_the_host_names_the_profiles_it_serves(self, monkeypatch):
         # A restart of the host gateway blips every profile it serves, so its own unscoped
         # readout names them just as a served profile's does.
-        data = self._status_on_the_host(monkeypatch, {
+        data = self._status_on_the_host(monkeypatch, {**current_owner_fields(4242),
             "pid": 4242, "gateway_state": "running", "served_profiles": ["default", "reviewer"],
             "platforms": {"telegram": {"state": "connected"}},
         })
@@ -778,7 +780,7 @@ class TestStatusEndpointTopology:
             lambda path=None: {
                 "gateway_state": "running",
                 "platforms": {
-                    "telegram": {
+                    "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                         "state": "connected",
                         "writer_pid": 123,
                         "writer_start_time": 456,
@@ -806,7 +808,7 @@ class TestStatusEndpointTopology:
                 "profile_platforms": {
                     "default": {"telegram": {"state": "connected"}},
                     "lead-gen-outreach": {
-                        "telegram": {
+                        "telegram": {"writer_boot_epoch": current_owner_fields()["boot_epoch"],
                             "state": "fatal",
                             "error_code": "duplicate_credential",
                             "writer_pid": 789,

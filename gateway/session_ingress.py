@@ -191,24 +191,30 @@ def pause_notice(authority, ref, reason):
     if live.pause_notified:
         return None
     live.pause_notified = True
+    from agent.i18n import owner_text
     if reason == 'runtime_draining':
         # Transient: the row runs when the restarted owner drains it, so /reset would be wrong advice.
-        return '⏳ Hermes is restarting — your message is saved and will be answered when it is back.'
+        return owner_text('⏳ I’m restarting. I’ll answer as soon as I’m back.',
+                          '⏳ Mình đang khởi động lại, xong là trả lời bạn ngay.')
     if reason == 'session_busy':
         # Transient: queued behind work already running on this conversation (a worker execution).
-        return '⏳ Your message is saved and will be answered when the work running in this conversation finishes.'
+        return owner_text('⏳ I’m finishing something in this chat first. I’ll answer right after.',
+                          '⏳ Mình đang làm nốt một việc trong cuộc trò chuyện này, xong sẽ trả lời bạn ngay.')
     if reason == 'unknown_execution':
         # GW-10: the way out is in this chat. /discard acknowledges the lost turn (never replayed)
         # through the same fenced resolve_unknown as Desktop/TUI, and the saved messages then run.
         # Slack registers no native /discard (its slash cap): the umbrella `/hermes discard` reaches it.
         slack = getattr(getattr(live.source, 'platform', None), 'value', None) == 'slack'
         discard = '/hermes discard' if slack else '/discard'
-        return ('⏸️ This conversation is paused: a previous turn did not finish when Hermes restarted, '
-                f'and only you know whether to send it again. Your message is saved. Send {discard} to drop '
-                'the lost turn and continue (it is not re-run), or /reset to start a fresh conversation.')
-    cause = f'a queued message could not be re-authorized ({reason})'
-    return (f'⏸️ This conversation is paused: {cause}. Your message is saved but will not be answered here. '
-            'Send /reset to start a fresh conversation, or ask the operator to resume this one.')
+        return owner_text(
+            f'⏸️ I paused this chat because my last task stopped partway. Send {discard} to skip it '
+            'and carry on, or /reset to start fresh.',
+            f'⏸️ Mình tạm dừng cuộc trò chuyện này vì việc lúc nãy bị ngắt giữa chừng. Gửi {discard} '
+            'để bỏ qua và làm tiếp, hoặc /reset để bắt đầu lại.')
+    # The refusal code is for the log, not the chat.
+    logger.info('Conversation %s paused: queued input could not be re-authorized (%s)', ref.session_id, reason)
+    return owner_text('⏸️ I can’t answer in this chat right now. Send /reset to start fresh.',
+                      '⏸️ Mình chưa trả lời được trong cuộc trò chuyện này. Gửi /reset để bắt đầu lại nhé.')
 
 
 def row_turn_author(policy, row):
@@ -243,6 +249,40 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
+        # Keep restore/preflight identity stable; zero becomes local time only
+        # on the claimed event entering execution, never on its durable envelope.
+        # The crash-resume consent fence keeps seeing the unknown (zero) provider time.
+        if event.timestamp.timestamp() == 0:
+            from datetime import UTC, datetime
+            event.metadata['crash_resume_received_at'] = event.timestamp.isoformat()
+            event.timestamp = datetime.now(UTC)
+        restored = authority.db._read_one('SELECT value FROM state_meta WHERE key=?',
+                                          ('restore_backup:' + row['admission_id'],))
+        if restored:
+            import json
+            from gateway.resume_policy import ResumePolicy, pending_resume_policy
+            context = json.loads(restored['value'])
+            entry = authority.runner.session_store.lookup_by_session_key(live.route)
+            if entry is None:
+                raise RuntimeError('Restored admission lacks native session entry')
+            pending_resume_policy(authority.runner.session_store, entry,
+                ResumePolicy(True, ('work interrupted by backup restore at ' + context['timestamp'] +
+                    '; actions after that time may already have happened; check before repeating',), frozenset()),
+                '', can_resolve=False)
+            authority.runner.session_store.mark_resume_pending(live.route, reason='restore_backup')
+
+        if not restored and row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
+            event.metadata['crash_resume_source_id'] = str(event.message_id)
+            # Keep the native source ID for the final obligation; never replay user input.
+            # Preserve an input that never reached its first durable user row (H7).
+            recorded = authority.db._read_one(
+                "SELECT 1 FROM messages WHERE session_id=? AND role='user' "
+                "AND platform_message_id=?", (authority.physical_target(ref), event.message_id))
+            if recorded is not None:
+                event.text = ''
+            authority.runner.session_store.mark_resume_pending(
+                live.route, reason=('stale_interruption' if row['outcome'] == 'crash_resume_stale'
+                                    else 'restart_interrupted'))
     else:
         from gateway.session_ingress_media import restore_attachments
         event = MessageEvent(text=row['payload']['text'], source=live.source,
@@ -255,6 +295,7 @@ async def execute_admission(authority, ref, row):
         # turn's resolver never re-reads (and on a transient failure drops) an admitted completion.
         event.metadata['gateway_proven_session_id'] = (
             authority.physical_target(ref) if 'native_text_v1' in row['payload'] else event.metadata['gateway_session_id'])
+    event.metadata['crash_resume_admission_seq'] = row['seq']
     provenance = row['payload'].get('native_text_v1', {}).get('provenance')
     home = None
     if provenance is not None:
@@ -291,7 +332,13 @@ async def execute_admission(authority, ref, row):
                     event.text = '\n'.join(part['text'] for part in prepared['content'] if part.get('type') == 'text')
                 event.allow_gateway_control = False
                 event.internal = True  # trust comes from the private binding and preclaim, never client JSON
-            response = await authority.runner._handle_message(event)
+            # Presentation follows each native admission, including recovered rows.
+            adapter = authority.runner._adapter_for_source(event.source)
+            present = getattr(adapter, 'run_admission_presentation', None)
+            if callable(present):
+                response = await present(event, live.route, row['admission_id'], authority.runner._handle_message)
+            else:
+                response = await authority.runner._handle_message(event)
             result = captured.get('terminal_result', captured.get('result'))
             if result is None:
                 # No TurnRunner result means the handler answered without executing the turn.

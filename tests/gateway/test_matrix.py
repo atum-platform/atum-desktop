@@ -820,7 +820,7 @@ class TestMatrixAccessTokenAuth:
         mock_client.sync_store = MagicMock()
         mock_client.crypto = None
         mock_client.whoami = AsyncMock(return_value=FakeWhoamiResponse("@bot:example.org", "DEV123"))
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.query_keys = AsyncMock(return_value={
@@ -1039,7 +1039,7 @@ class TestMatrixDeviceId:
         mock_client.sync_store = MagicMock()
         mock_client.crypto = None
         mock_client.whoami = AsyncMock(return_value=MagicMock(user_id="@bot:example.org", device_id="WHOAMI_DEV"))
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.query_keys = AsyncMock(return_value={
@@ -1106,7 +1106,7 @@ class TestMatrixPasswordLoginDeviceId:
         mock_client.sync_store = MagicMock()
         mock_client.crypto = None
         mock_client.login = AsyncMock(return_value=MagicMock(device_id="STABLE_PW_DEVICE", access_token="tok"))
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.api = MagicMock()
         mock_client.api.token = ""
@@ -1490,7 +1490,7 @@ class TestMatrixDiagnostics:
         mock_client.sync_store = MagicMock()
         mock_client.crypto = None
         mock_client.whoami = AsyncMock(return_value=MagicMock(user_id="@bot:example.org", device_id="DEV123"))
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.add_dispatcher = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
@@ -1615,7 +1615,7 @@ class TestMatrixEncryptedEventHandler:
         mock_client.sync_store = MagicMock()
         mock_client.crypto = None  # Will be set during connect
         mock_client.whoami = AsyncMock(return_value=MagicMock(user_id="@bot:example.org", device_id="DEV123"))
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.query_keys = AsyncMock(return_value={
@@ -2566,7 +2566,7 @@ class TestDeviceIdNoneResolution:
         verify_resp.device_keys = {"@bot:example.org": {"RESOLVED_DEV": verify_dev}}
         mock_client.query_keys = AsyncMock(side_effect=[resolve_resp, verify_resp])
 
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.api = MagicMock()
@@ -2663,7 +2663,7 @@ class TestMatrixReconnectDisconnect:
             user_id="@bot:example.org", device_id="NEW_DEV",
         ))
         mock_client.query_keys = AsyncMock()
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.api = MagicMock()
@@ -2719,7 +2719,7 @@ class TestDeviceIdRecoveryOnReconnect:
         resolve_resp = MagicMock()
         resolve_resp.device_keys = {"@bot:example.org": {}}
         mock_client1.query_keys = AsyncMock(return_value=resolve_resp)
-        mock_client1.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client1.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client1.add_event_handler = MagicMock()
         mock_client1.handle_sync = MagicMock(return_value=[])
         mock_client1.api = MagicMock()
@@ -2768,7 +2768,7 @@ class TestDeviceIdRecoveryOnReconnect:
         verify_dev.keys = {"ed25519:DEV2": "fake_ed25519_key2"}
         verify_resp.device_keys = {"@bot:example.org": {"DEV2": verify_dev}}
         mock_client2.query_keys = AsyncMock(side_effect=[resolve_resp2, verify_resp])
-        mock_client2.sync = AsyncMock(return_value={"rooms": {"join": {"!room:server": {}}}})
+        mock_client2.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {"!room:server": {}}}})
         mock_client2.add_event_handler = MagicMock()
         mock_client2.handle_sync = MagicMock(return_value=[])
         mock_client2.api = MagicMock()
@@ -2835,8 +2835,9 @@ class TestMatrixDispatchSyncIsolation:
         adapter._client = client
 
         with caplog.at_level(logging.WARNING):
-            # Must not raise despite the failing handler.
-            await adapter._dispatch_sync({"next_batch": "s1"})
+            # Finish siblings, then fail the batch so durable intake retries it.
+            with pytest.raises(RuntimeError, match="handler boom"):
+                await adapter._dispatch_sync({"next_batch": "s1"})
 
         assert ran["ok"] is True  # the sibling handler still ran
 
@@ -2958,7 +2959,7 @@ class TestCryptoStoreResetOnDeviceChange:
         mock_client.whoami = AsyncMock(
             return_value=MagicMock(user_id="@bot:example.org", device_id="DEVICE_B")
         )
-        mock_client.sync = AsyncMock(return_value={"rooms": {"join": {}}})
+        mock_client.sync = AsyncMock(return_value={"next_batch": "s1", "rooms": {"join": {}}})
         mock_client.add_event_handler = MagicMock()
         mock_client.handle_sync = MagicMock(return_value=[])
         mock_client.query_keys = AsyncMock(return_value={"device_keys": {}})

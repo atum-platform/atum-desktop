@@ -67,7 +67,7 @@ def _dispatch(db, conn, session_id, payload, *, execution_id, worker_pid, worker
         # Exact network retries are resolved by worker_receipts before this handler.
         raise RuntimeStoreError('admission_conflict')
     import psutil
-    from gateway.status import get_process_start_time
+    from gateway.status import get_process_start_time, get_process_epoch
     try:
         from hermes_cli.process_identity import process_birth
         if process_birth(psutil.Process(worker_pid)) != worker_birth:
@@ -78,10 +78,10 @@ def _dispatch(db, conn, session_id, payload, *, execution_id, worker_pid, worker
     now = time.time()
     conn.execute('''INSERT INTO async_delegations
         (delegation_id,origin_session,origin_ui_session_id,parent_session_id,state,dispatched_at,
-         updated_at,owner_pid,owner_started_at,task_json,origin_session_id,owner_execution_id)
-        VALUES(?,?,?,?,'running',?,?,?,?,?,?,?)''',
+         updated_at,owner_pid,owner_started_at,owner_boot_epoch,task_json,origin_session_id,owner_execution_id)
+        VALUES(?,?,?,?,'running',?,?,?,?,?,?,?,?)''',
         (payload['delegation_id'], payload['session_key'], payload['origin_ui_session_id'], session_id,
-         payload['dispatched_at'], now, worker_pid, owner_started_at, json.dumps(payload['task']),
+         payload['dispatched_at'], now, worker_pid, owner_started_at, get_process_epoch(), json.dumps(payload['task']),
          payload['origin_session_id'], execution_id))
     return {'value': None}
 

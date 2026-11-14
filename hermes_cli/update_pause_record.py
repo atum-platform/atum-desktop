@@ -829,7 +829,7 @@ def _names_request(token: dict, pid: str, path: Path, ttl_s: int | None) -> bool
     """Does *path* hold this stopper's request for *pid*'s incarnation? Only an absent file or a
     valid one naming something else is ``False``; refused (a sharing violation, an AV scanner) or
     malformed is ``None``, unknown."""
-    from gateway.status import _marker_is_stale, get_process_start_time
+    from gateway.status import _marker_is_stale, get_process_start_time, process_epoch_matches
     try:
         marker = json.loads(path.read_text(encoding="utf-8-sig"))
         target, stopper = int(marker["target_pid"]), int(marker["stopper_pid"])
@@ -837,7 +837,8 @@ def _names_request(token: dict, pid: str, path: Path, ttl_s: int | None) -> bool
         return False
     except (OSError, ValueError, TypeError, KeyError):
         return None
-    if (target != int(pid) or stopper != int(token.get("stopper_pid") or 0)
+    if (not process_epoch_matches(marker)
+            or target != int(pid) or stopper != int(token.get("stopper_pid") or 0)
             or (ttl_s is not None and not marker.get("accepted")
                 and _marker_is_stale(marker.get("written_at") or "", ttl_s))):
         return False

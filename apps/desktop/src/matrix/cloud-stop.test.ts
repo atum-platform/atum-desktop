@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
 
-import { matrixCloudStopTarget } from './cloud-stop'
+import { executeMatrixStop, matrixCloudStopScheduled, matrixCloudStopTarget, matrixShowCloudStop, matrixStopRoute } from './cloud-stop'
 
 const ROOM = '!assistant:test'
 const TURN = '00000000-0000-4000-8000-31f949766961'
@@ -169,4 +169,55 @@ describe('the event a cloud Stop names', () => {
       })
     ).toBe('$older')
   })
+})
+
+// Both cloud generations share the composer, but only an explicit runtime advertisement opts in.
+describe('Stop routing', () => {
+  it('keeps unresolved legacy Stop hidden, but shows disabled unresolved Hermes Stop', () => {
+    expect(matrixShowCloudStop({ cloud: true, working: true })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: true, runtime: 'hermes', working: true })).toBe(true)
+    expect(matrixShowCloudStop({ cloud: true, runtime: 'hermes', working: false })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: false, runtime: 'hermes', working: true })).toBe(false)
+    expect(matrixShowCloudStop({ cloud: true, working: false, eventId: '$owner' })).toBe(true)
+  })
+  it('preserves the old route when the capability is absent', () => {
+    expect(matrixStopRoute({ eventId: '$owner', working: true })).toEqual({ kind: 'legacy', eventId: '$owner' })
+  })
+  it('uses host Stop for a new-runtime owner source', () => {
+    expect(matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })).toEqual({ kind: 'host', eventId: '$owner' })
+  })
+  it('uses native in-room stop for scheduled work with no owner source', async () => {
+    const send = vi.fn(async () => {})
+    const stop = vi.fn(async () => ({ state: 'stopped' as const }))
+    await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), stop, send)
+    expect(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true, eventId: '$older-owner' }).kind).toBe('native')
+    expect(send).toHaveBeenCalledWith('/stop')
+    expect(stop).not.toHaveBeenCalled()
+  })
+  it('calls a turn stopped only when the agent confirmed it', async () => {
+    const send = vi.fn(async () => {})
+    const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
+    await expect(executeMatrixStop(route, async () => ({ state: 'stopped' }), send)).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, async () => ({ state: 'completed' }), send)).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, async () => ({ state: 'stop_requested' }), send)).resolves.toBe('stopping')
+    await expect(executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), vi.fn(), send)).resolves.toBe('sent')
+  })
+  it('passes a failed Stop through as a failure', async () => {
+    const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
+    await expect(executeMatrixStop(route, async () => { throw new Error('matrix_host_stop_refused') }, vi.fn())).rejects.toThrow('matrix_host_stop_refused')
+  })
+  it('disables unresolved owner messages and idle turns', () => {
+    expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
+    expect(matrixStopRoute({ runtime: 'hermes', working: false }).kind).toBe('unavailable')
+    expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
+  })
+})
+
+it('requires the bound agent’s latest active cron marker', () => {
+  const progress = { profile: 'atum.agent-turns/1.3' as const, scope: 'owner_private' as const, phase: 'working' as const, kind: 'heartbeat' as const, revision: 1, trigger: 'cron' as const }
+  const cron = message({ sender: '@agent:test', own: false, progress })
+  expect(matrixCloudStopScheduled([cron], '@agent:test')).toBe(true)
+  expect(matrixCloudStopScheduled([cron], '@foreign:test')).toBe(false)
+  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, body: 'Done' })], '@agent:test')).toBe(false)
+  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, progress: { ...progress, phase: 'settled' } })], '@agent:test')).toBe(false)
 })

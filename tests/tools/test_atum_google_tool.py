@@ -16,12 +16,13 @@ KEY = "a" * 64
 class _Broker:
     """A loopback stand-in for Atum's broker that records what reached it."""
 
-    def __init__(self, answer=None, status=200, hang=False, raw=None):
+    def __init__(self, answer=None, status=200, hang=False, raw=None, headers=None):
         self.answer = answer if answer is not None else {"ok": True}
         self.status = status
         self.hang = hang
         #: (bytes, filename, mime type) served on the attachment route instead of JSON.
         self.raw = raw
+        self.headers = headers or {}
         self.requests = []
         broker = self
 
@@ -53,6 +54,8 @@ class _Broker:
                 self.send_response(broker.status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
+                for key, value in broker.headers.items():
+                    self.send_header(key, value)
                 self.end_headers()
                 self.wfile.write(body)
 
@@ -206,6 +209,17 @@ def test_a_refused_key_is_reported_as_unavailable(broker):
     broker(answer={"error": "not_available"}, status=401)
 
     assert "not available" in json.loads(atum_google({"action": "status"}))["error"]
+
+
+@pytest.mark.parametrize("status,code", [(429, "rate_limited"), (404, "not_found")])
+def test_broker_read_refusals_preserve_codes_and_retry_after(broker, status, code):
+    fake = broker(answer={"error": "private broker detail"}, status=status, headers={"Retry-After": "37"})
+    result = json.loads(atum_google({"action": "agenda"}))
+    assert result["code"] == code
+    assert "private broker detail" not in json.dumps(result)
+    assert len(fake.requests) == 1
+    if code == "rate_limited":
+        assert result["retryAfter"] == "37"
 
 
 def test_a_write_without_an_answer_may_already_have_happened(broker):

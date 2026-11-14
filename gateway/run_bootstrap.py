@@ -287,6 +287,7 @@ async def _start_gateway_start_control_socket(runner):
         )
         from gateway.run_plugin_rewire import reload_plugins_verb
         from gateway.run_active_work_verb import active_work_verb
+        from gateway.sleep_wake import sleep_readiness_verb
         from gateway.drain_control import RESTART_WAIT_REASON
         descriptor = runner.session_runtime_descriptor
 
@@ -360,10 +361,13 @@ async def _start_gateway_start_control_socket(runner):
                            "purge-profile-identity": purge_profile_identity_verb(runner),
                            # `hermes gateway stop/restart` refuse while this names live work.
                            "active-work": active_work_verb(runner, _main_loop),
+                           "sleep-readiness": sleep_readiness_verb(runner, _main_loop),
                            # A plugin installed/enabled by another process loads now and re-wires the
                            # live adapters' handlers (#87770); tools/prompt still wait for the next session.
                            "reload-plugins": reload_plugins_verb(runner, _main_loop)})
         _control_server.ticket_store = runner.session_ticket_store
+        from gateway.source_control import register_source_stop
+        register_source_stop(_control_server, runner, _main_loop)
         if not await _control_server.start():
             _control_server = None
         else:
@@ -758,6 +762,8 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
     # Snapshot the revision while sys.modules matches disk so a later `git pull` is detected safely.
     from gateway.code_skew import record_boot_fingerprint
     record_boot_fingerprint()
+    from gateway.fault_injection import warn_at_boot
+    warn_at_boot()
 
     # Config verdicts come before the duplicate-instance guard: `--replace` must not stop a healthy
     # gateway for a launch that cannot start.

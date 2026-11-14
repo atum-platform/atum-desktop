@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import json
 import re
+from uuid import UUID
 
 from tools import desktop_ui
 from tools.atum_source_policy import source_enabled
+from tools.atum_source_transport import (
+    source_transport, source_transport_enabled, source_transport_error, source_transport_http_error,
+)
 from tools.registry import registry, tool_error
 
 _HOST_TIMEOUT_SECONDS = 60
@@ -58,7 +62,7 @@ _MODEL_PLACEHOLDERS = {
 
 def available() -> bool:
     """True when the live Atum host bridge is present for this process."""
-    return desktop_ui.available()
+    return source_transport_enabled() or desktop_ui.available()
 
 
 def _closed_error(code: str) -> str:
@@ -145,6 +149,25 @@ def _last_ok(last: object, *, encrypted: bool) -> bool:
     )
 
 
+def _company_space_ok(space: object) -> bool:
+    if not _strict_keys(space, {"kind", "companyId", "name"}):
+        return False
+    if space["kind"] != "company" or not _bounded_string(space["name"], _MAX_LABEL_CHARS, minimum=1):
+        return False
+    raw = space["companyId"]
+    if not isinstance(raw, str) or len(raw) != 36:
+        return False
+    try:
+        identifier = UUID(raw)
+    except ValueError:
+        return False
+    # Protocol UUIDs: canonical dashed form (case-insensitive), RFC versions 1–8,
+    # or the nil/max UUIDs. UUID() alone also accepts undashed/URN forms.
+    return str(identifier) == raw.lower() and (
+        identifier.version in range(1, 9) or identifier.int in {0, (1 << 128) - 1}
+    )
+
+
 def _room_ok(room: object) -> bool:
     required = {
         "id",
@@ -158,7 +181,9 @@ def _room_ok(room: object) -> bool:
         "last",
         "encrypted",
     }
-    if not _strict_keys(room, required):
+    if not _strict_keys(room, required, {"space"}):
+        return False
+    if "space" in room and not _company_space_ok(room["space"]):
         return False
     if not _room_id_ok(room["id"]):
         return False
@@ -384,9 +409,18 @@ def atum_chats(
         if checked is not None:
             payload["limit"] = checked
 
-    receipt = desktop_ui.request(
-        "atum.chats.request", payload, timeout=_HOST_TIMEOUT_SECONDS
-    )
+    transport = source_transport()
+    if source_transport_enabled() and transport is None:
+        return tool_error("Owner chats are unavailable for this run.")
+    if transport is not None:
+        try:
+            receipt = json.dumps(transport("chats", payload), ensure_ascii=False)
+        except Exception as error:
+            return source_transport_http_error(error) or tool_error("Owner chats are unavailable for this run.")
+    else:
+        receipt = desktop_ui.request(
+            "atum.chats.request", payload, timeout=_HOST_TIMEOUT_SECONDS
+        )
     if not isinstance(receipt, str) or not receipt:
         return _closed_error("unavailable")
     if len(receipt.encode("utf-8")) > _MAX_RESPONSE_BYTES:
@@ -397,7 +431,15 @@ def atum_chats(
         return _closed_error("unavailable")
     if not isinstance(result, dict):
         return _closed_error("unavailable")
+    if transport is not None:
+        if result.get('closedAfter') is True:
+            return tool_error("Owner chats are unavailable for this run.")
+        correction = source_transport_error(result)
+        if correction is not None:
+            return correction
     if "error" in result:
+        if transport is not None:
+            return tool_error("Owner chats are unavailable for this run.")
         if (
             set(result) != {"error"}
             or not isinstance(result["error"], str)
