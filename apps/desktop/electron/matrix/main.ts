@@ -1,4 +1,3 @@
-import { ChatGptCarry, carryCustody, requestChatGptCarry } from './chatgpt-carry'
 import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, readdir, stat } from 'node:fs/promises'
@@ -477,6 +476,7 @@ import { MatrixBackgroundVerifications, MatrixLaunchSummary } from './background
 import { appBotPhotoForRenderer } from './bot-api-media'
 import { createBrowserImport } from './browser-import/compose'
 import { registerBrowserImportIpc } from './browser-import/ipc'
+import { carryCustody, ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
 import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import { type MatrixCheckInLeaseHold, MatrixCheckIns, refuseMatrixCheckIns } from './check-ins'
 import { FileCheckoutJournal, MatrixCheckoutController } from './checkout'
@@ -6918,7 +6918,7 @@ function publish(next: MatrixSnapshot) {
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
-  if (!closing && next.state === 'ready' && next.identity) void chatGptCarry?.sync()
+  if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
   for (const each of allAgents()) {
@@ -7324,17 +7324,17 @@ function cloudModelView(principal: string) {
   const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' ? choice : undefined
   const subscriptionState = subscription
     ? subscription.source === 'chatgpt_plan'
-      ? relay?.state === 'enabled' ? ('connected' as const) : relay ? ('revoked' as const) : ('unavailable' as const)
+      ? (relay?.state === 'enabled' || relay?.state === 'carried') ? ('connected' as const) : relay ? ('revoked' as const) : ('unavailable' as const)
       : connection?.state === 'connected' ? ('connected' as const) : connection ? ('revoked' as const) : ('unavailable' as const)
     : connection?.state === 'connected'
       ? ('connected' as const)
-      : relay?.state === 'enabled'
+      : (relay?.state === 'enabled' || relay?.state === 'carried')
         ? ('connected' as const)
         : connection || relay
         ? ('disconnected' as const)
         : ('unavailable' as const)
   const models = subscription?.source === 'chatgpt_plan'
-    ? relay?.state === 'enabled' ? relay.models : []
+    ? (relay?.state === 'enabled' || relay?.state === 'carried') ? relay.models : []
     : connection?.state === 'connected' ? connection.models : []
 
   if (!base && !subscription) {
@@ -7364,6 +7364,7 @@ function cloudModelView(principal: string) {
           }))
         }
       : {}),
+    ...(relay?.state === 'carried' ? { subscriptionCustody: 'carried' as const } : {}),
     subscriptionState
   }
 }
@@ -18358,16 +18359,16 @@ async function start() {
     scope: () => account.appScope(),
     home: subscriptionAuthHome,
     custody: (home, action) => {
-      if (!runtime) throw new Error('carry_unavailable')
+      if (!runtime) {throw new Error('carry_unavailable')}
       return carryCustody(runtime.python, runtime.source, home, action)
     },
     drain: async () => {
       deviceBootstrap?.configureChatGptRelay(false, [])
       // Do not use refreshSubscriptionAgents: that helper immediately restarts consumers.
-      for (const each of allAgents()) if (!each.closed) await stopHost(each.role)
+      for (const each of allAgents()) {if (!each.closed) {await stopHost(each.role)}}
       await retireSubscriptionProviders()
     },
-    carried: () => { chatGptRelay?.markCarried(); recheckAgents() },
+    carried: () => { chatGptRelay?.markCarried(); void chatGptRelay?.refresh(); recheckAgents() },
     restored: () => {
       const relay = chatGptRelay?.view()
       if (relay?.state === 'enabled' && relay.deviceServiceId === deviceIdentity?.enrollment()?.deviceServiceId) {

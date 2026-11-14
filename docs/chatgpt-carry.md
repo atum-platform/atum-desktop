@@ -32,3 +32,23 @@ These tests do not certify the cloud model-serving or Google-ingestion path.
 
 Carried relay admission is checked before interpreting any device identifier;
 tests use a non-identifier sentinel for that refusal path.
+
+
+## Desktop model availability
+
+Carried custody passes through relay status and the account subscription view with
+its cloud model descriptors. Completion retains already known descriptors while
+refreshing the cloud list; a later disabled or enabled relay response cannot
+restore local ownership. A carried cloud choice remains available even if the
+former relay Mac is offline. Before carry, an offline Mac keeps the subscription
+rows visible but unavailable with the existing single explanation per row.
+
+The protected Google route alias `google-protected` displays as Nguyệt Thực in
+the quiet switch notice. Subscription availability and switch notices show no
+cost. Coverage exercises custody completion, cloud status parsing, account
+projection and picker availability together, plus restart and stale relay reads.
+
+The assembled desktop also types backend command arguments and the announcement
+process, and keeps the
+validated stored session identifier narrowed across attachment recovery callbacks
+so all desktop TypeScript projects can be checked.

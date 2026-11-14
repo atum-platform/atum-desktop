@@ -647,17 +647,18 @@ export async function runMatrixHermesTurn(
       created = true
     }
 
-    let storedSession = session?.stored_session_id ?? session?.session_key
+    const initialStoredSession = session?.stored_session_id ?? session?.session_key
 
     if (
       typeof session?.session_id !== 'string' ||
       !session.session_id ||
-      typeof storedSession !== 'string' ||
-      !storedSession
+      typeof initialStoredSession !== 'string' ||
+      !initialStoredSession
     ) {
       throw new Error('matrix_hermes_session_invalid')
     }
 
+    let storedSession: string = initialStoredSession
     sessionId = session.session_id
 
     if (input.effects) {

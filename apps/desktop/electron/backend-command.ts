@@ -27,7 +27,7 @@ export function serveBackendArgs(profile?: string) {
  * `-m hermes_cli.main` and any `--profile <name>`). Returns a copy; if there is
  * no `serve` token the argv is returned unchanged.
  */
-export function dashboardFallbackArgs(args) {
+export function dashboardFallbackArgs(args: readonly string[]) {
   const i = args.indexOf('serve')
 
   if (i === -1) {
@@ -43,6 +43,6 @@ export function dashboardFallbackArgs(args) {
  * specifically so the substring "server" (e.g. "start_server", "web server")
  * never produces a false positive.
  */
-export function sourceDeclaresServe(dashboardPySource) {
+export function sourceDeclaresServe(dashboardPySource: unknown) {
   return /add_parser\(\s*["']serve["']/.test(String(dashboardPySource || ''))
 }

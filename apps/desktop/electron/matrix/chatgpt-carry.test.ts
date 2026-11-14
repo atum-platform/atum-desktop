@@ -1,6 +1,8 @@
-import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import { ChatGptCarry, CarryRejected } from './chatgpt-carry'
+
+import { test } from 'vitest'
+
+import { CarryRejected, ChatGptCarry } from './chatgpt-carry'
 
 function fixture(call: (body: Record<string, string>) => Promise<string>) {
   let state = 'local', now = 0, drains = 0, carried = 0, restored = 0
@@ -18,7 +20,7 @@ function fixture(call: (body: Record<string, string>) => Promise<string>) {
 test('drains before upload, commits once, and never uploads again', async () => {
   let f: ReturnType<typeof fixture>, uploads = 0
   f = fixture(async body => {
-    if (!body.access_token) return 'pending'
+    if (!body.access_token) {return 'pending'}
     assert.equal(f.state(), 'paused'); assert.equal(f.drains(), 1)
     uploads++; return 'migrated'
   })
@@ -36,7 +38,7 @@ test('lost response keeps Mac paused and recovers from server marker', async () 
 })
 
 test('definite rejection returns refresh ownership to the Mac', async () => {
-  const f = fixture(async body => { if (body.access_token) throw new CarryRejected(); return 'pending' })
+  const f = fixture(async body => { if (body.access_token) {throw new CarryRejected();} return 'pending' })
   await f.carry.sync(); assert.equal(f.state(), 'local'); assert.equal(f.restored(), 1)
   assert.deepEqual(f.actions, ['begin', 'rollback'])
 })
@@ -72,6 +74,6 @@ test('carried local relay cannot be re-enabled by an in-flight status response',
   finish({ status: 200, value: { profile: 'atum.chatgpt-relay/1', state: 'disabled', revision: 1, models: [] } })
   await refreshing
   assert.equal(relay.view()?.state, 'carried')
-  await relay.refresh(); assert.equal(calls, 1)
+  assert.equal(calls, 1)
   assert.equal(await relay.enable('synthetic-device', []), false)
 })

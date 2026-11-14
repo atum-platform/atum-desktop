@@ -263,9 +263,9 @@ export function matrixSubscriptionsWithChatGptRelay(
         ? provider
         : {
             ...provider,
-            connected: provider.connected || relay?.state === 'enabled',
+            connected: provider.connected || (relay?.state === 'enabled' || relay?.state === 'carried'),
             localConnected: provider.connected,
-            ...(relay?.state === 'enabled'
+            ...((relay?.state === 'enabled' || relay?.state === 'carried')
               ? {
                   models: relay.models.map(model => model.id),
                   modelDetails: relay.models
@@ -276,7 +276,7 @@ export function matrixSubscriptionsWithChatGptRelay(
             ...(relay
               ? {
                   relay: {
-                    state: relay.state === 'carried' ? 'disabled' as const : relay.state,
+                    state: relay.state,
                     thisMac: relay.state === 'enabled' && relay.deviceServiceId === thisDeviceServiceId,
                     revision: relay.revision
                   }

@@ -19,13 +19,13 @@ export function carryCustody(python: string, source: string, home: string,
     child.stdout.on('data', chunk => {
       size += chunk.length
       if (size > 32_768) { child.kill(); reject(new Error('carry_unavailable')) }
-      else chunks.push(Buffer.from(chunk))
+      else {chunks.push(Buffer.from(chunk))}
     })
     child.once('error', () => { clearTimeout(timer); reject(new Error('carry_unavailable')) })
     child.once('close', code => {
       clearTimeout(timer)
       try {
-        if (code !== 0) throw new Error()
+        if (code !== 0) {throw new Error()}
         resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')) as CustodyResult)
       } catch { reject(new Error('carry_unavailable')) }
     })
@@ -56,30 +56,30 @@ export class ChatGptCarry {
     const scope = this.options.scope()
     const home = this.options.home()
     const now = (this.options.now ?? Date.now)()
-    if (!scope || !home || this.running || this.completed.has(scope.accountKey) || now < this.retryAt) return
+    if (!scope || !home || this.running || this.completed.has(scope.accountKey) || now < this.retryAt) {return}
     const current = () => scope.accountKey === this.options.scope()?.accountKey &&
       scope.generation === this.options.scope()?.generation
     const restore = async () => {
       await this.options.custody(home, 'rollback')
-      if (current()) this.options.restored()
+      if (current()) {this.options.restored()}
     }
     this.running = true
     this.retryAt = now + 60_000
     try {
       let state = await this.options.call({}, AbortSignal.timeout(25_000))
-      if (!current()) return
+      if (!current()) {return}
       if (state === 'pending') {
         const grant = await this.options.custody(home, 'begin')
-        if (grant.state !== 'paused' || !grant.access_token || !grant.refresh_token) return
+        if (grant.state !== 'paused' || !grant.access_token || !grant.refresh_token) {return}
         // Retire every cached local consumer before the cloud can own the grant.
         try { await this.options.drain() }
         catch { await restore(); return }
-        if (!current()) return // Paused, recoverable on this account's next activation.
+        if (!current()) {return} // Paused, recoverable on this account's next activation.
         try {
           state = await this.options.call({ access_token: grant.access_token, refresh_token: grant.refresh_token }, AbortSignal.timeout(25_000))
-          if (['busy', 'no_relay', 'not_imported'].includes(state)) await restore()
+          if (['busy', 'no_relay', 'not_imported'].includes(state)) {await restore()}
         } catch (error) {
-          if (error instanceof CarryRejected) await restore()
+          if (error instanceof CarryRejected) {await restore()}
           throw error // Lost response stays paused; never race a possibly committed import.
         }
       }
@@ -96,14 +96,14 @@ export class ChatGptCarry {
 export async function requestChatGptCarry(resource: string, accessToken: string,
   body: Record<string, string>, signal: AbortSignal): Promise<string> {
   const url = new URL('/api/connections/openai-codex/carry', resource)
-  if (url.protocol !== 'https:') throw new Error('carry_unavailable')
+  if (url.protocol !== 'https:') {throw new Error('carry_unavailable')}
   const response = await fetch(url, { method: 'POST', signal, redirect: 'error', credentials: 'omit', cache: 'no-store',
     headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json',
       'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' }, body: JSON.stringify(body) })
   if (response.status === 401) { await response.body?.cancel(); throw new Error('matrix_s1_authentication') }
   if (!response.ok) {
     await response.body?.cancel()
-    if ([400, 403, 413, 415].includes(response.status)) throw new CarryRejected('carry_rejected')
+    if ([400, 403, 413, 415].includes(response.status)) {throw new CarryRejected('carry_rejected')}
     throw new Error('carry_unavailable')
   }
   const value: unknown = await response.json()

@@ -1,4 +1,9 @@
+import type { EventEmitter } from 'node:events'
 import fs from 'node:fs'
+
+interface BackendProcess extends EventEmitter {
+  stdout?: EventEmitter | null
+}
 
 // `hermes serve` announces HERMES_BACKEND_READY; the legacy `hermes dashboard`
 // backend announces HERMES_DASHBOARD_READY. Accept either so the desktop spawn
@@ -51,8 +56,8 @@ function resolvePortAnnounceTimeoutMs(env = process.env) {
  * on every terminal path — resolve, reject, or timeout — so repeated
  * backend spawns don't leak listener slots on the child.
  */
-function waitForDashboardPort(child, timeoutMs = resolvePortAnnounceTimeoutMs()) {
-  return new Promise((resolve, reject) => {
+function waitForDashboardPort(child: BackendProcess, timeoutMs = resolvePortAnnounceTimeoutMs()) {
+  return new Promise<number>((resolve, reject) => {
     let buf = ''
     let done = false
 
@@ -63,12 +68,12 @@ function waitForDashboardPort(child, timeoutMs = resolvePortAnnounceTimeoutMs())
 
       done = true
       clearTimeout(timer)
-      child.stdout.off('data', onData)
+      child.stdout?.off('data', onData)
       child.off('exit', onExit)
       child.off('error', onError)
     }
 
-    function onData(chunk) {
+    function onData(chunk: Buffer | string) {
       buf += chunk.toString()
       let nl
 
@@ -86,12 +91,12 @@ function waitForDashboardPort(child, timeoutMs = resolvePortAnnounceTimeoutMs())
       }
     }
 
-    function onExit(code, signal) {
+    function onExit(code: number | null, signal: string | null) {
       cleanup()
       reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`))
     }
 
-    function onError(err) {
+    function onError(err: Error) {
       cleanup()
       reject(err)
     }
@@ -101,7 +106,7 @@ function waitForDashboardPort(child, timeoutMs = resolvePortAnnounceTimeoutMs())
       reject(new Error(`Timed out waiting for Hermes backend port announcement (${timeoutMs}ms)`))
     }, timeoutMs)
 
-    child.stdout.on('data', onData)
+    child.stdout?.on('data', onData)
     child.on('exit', onExit)
     child.on('error', onError)
   })
@@ -122,10 +127,10 @@ function readDashboardReadyFile(readyFile: fs.PathOrFileDescriptor) {
   }
 }
 
-function waitForDashboardReadyFile(readyFile, child, timeoutMs = resolvePortAnnounceTimeoutMs()) {
-  return new Promise((resolve, reject) => {
+function waitForDashboardReadyFile(readyFile: fs.PathOrFileDescriptor, child: BackendProcess, timeoutMs = resolvePortAnnounceTimeoutMs()) {
+  return new Promise<number>((resolve, reject) => {
     let done = false
-    let interval = null
+    let interval: ReturnType<typeof setInterval> | null = null
 
     function cleanup() {
       if (done) {
@@ -152,12 +157,12 @@ function waitForDashboardReadyFile(readyFile, child, timeoutMs = resolvePortAnno
       }
     }
 
-    function onExit(code, signal) {
+    function onExit(code: number | null, signal: string | null) {
       cleanup()
       reject(new Error(`Hermes backend: exited before port announcement (${signal || code})`))
     }
 
-    function onError(err) {
+    function onError(err: Error) {
       cleanup()
       reject(err)
     }
@@ -180,7 +185,7 @@ function waitForDashboardReadyFile(readyFile, child, timeoutMs = resolvePortAnno
 }
 
 function waitForDashboardPortAnnouncement(
-  child,
+  child: BackendProcess,
   options: {
     readyFile?: fs.PathOrFileDescriptor
     timeoutMs?: number

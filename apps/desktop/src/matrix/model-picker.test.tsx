@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
+import { matrixSubscriptionsWithChatGptRelay } from '../../electron/matrix/account-subscription-flow'
+import { ChatGptCarry } from '../../electron/matrix/chatgpt-carry'
+import { MatrixChatGptRelay } from '../../electron/matrix/chatgpt-relay-client'
 import type {
   MatrixAgentHomeBridge,
   MatrixAgentHomeModelOption,
@@ -1668,15 +1671,32 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
     expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' }).querySelector('[data-matrix-model-warning]')).toBeNull()
   })
 
-  it('lists ChatGPT as choosable once its sign-in is carried to the cloud (S2): no Mac needed', async () => {
-    cloudPicker(undefined, { state: 'carried' })
+  it('carries custody, reads cloud models, and offers them without a Mac', async () => {
+    const scope = () => ({ accountKey: 'account', generation: 1 })
+    const models = [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol', efforts: ['medium'] as const,
+      defaultEffort: 'medium' as const, contextBudget: 128_000, outputBudget: 16_384 }]
+    const relay = new MatrixChatGptRelay({ scope, changed: () => {}, call: async () => ({
+      status: 200, value: { profile: 'atum.chatgpt-relay/1', revision: 5, state: 'carried', models }
+    }) })
+    relay.activate(scope())
+    const carry = new ChatGptCarry({ scope, home: () => '/synthetic/account',
+      call: async () => 'migrated', custody: async () => ({ state: 'carried' }),
+      drain: async () => {}, restored: () => {}, carried: () => relay.markCarried() })
+    await carry.sync()
+    await relay.refresh()
+    const subscriptions = relayAccount('offline')
+    subscriptions.status.mockImplementation(async () => matrixSubscriptionsWithChatGptRelay(
+      { scope: 'account', providers: [{ id: 'openai-codex', connected: false }, { id: 'opencode-go', connected: false }] },
+      relay.view(), undefined, true
+    ) as Awaited<ReturnType<typeof subscriptions.status>>)
+    cloudPicker('offline', { bridge: { subscriptions, modelDestinations: destinations() } })
     const card = await open('Model: Nguyệt Thực 1.3')
     await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
-
     expect(rail(card, 'openai-codex').className).not.toMatch(/opacity-45/u)
     fireEvent.click(rail(card, 'openai-codex'))
     expect(row(card, SOL_ROUTE).disabled).toBe(false)
-    expect(row(card, SOL_ROUTE).textContent).not.toMatch(/offline|Not ready/u)
+    expect(rowIds(card)).toEqual([SOL_ROUTE])
+    expect(row(card, SOL_ROUTE).textContent).not.toMatch(/offline|Not ready|Proton|cost|price/u)
   })
 
   it.each([

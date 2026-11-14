@@ -83,10 +83,10 @@ describe('the Google switch line (S2)', () => {
     expect(shown.textContent).not.toMatch(/Proton|\d/u)
   })
 
-  it('names Atum’s model generically when the alias is not one of the line-up', () => {
+  it('names the protected Google route Nguyệt Thực', () => {
     const shown = line('google-protected', 'en')
 
-    expect(shown.textContent).toBe('Switched to Atum’s model for this conversation because it now includes Google data')
-    expect(shown.dataset.matrixGoogleSwitch).toBe('atum')
+    expect(shown.textContent).toBe('Switched to Nguyệt Thực for this conversation because it now includes Google data')
+    expect(shown.dataset.matrixGoogleSwitch).toBe('nguyet-thuc')
   })
 })

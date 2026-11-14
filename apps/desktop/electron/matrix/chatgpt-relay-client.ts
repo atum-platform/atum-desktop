@@ -27,7 +27,7 @@ function record(value: unknown): value is Record<string, unknown> {
 function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
   if (!record(value) || value.profile !== MATRIX_CHATGPT_RELAY_PROFILE ||
       !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
-      !['disabled', 'enabled'].includes(String(value.state)) || !Array.isArray(value.models) || value.models.length > 64) {
+      !['disabled', 'enabled', 'carried'].includes(String(value.state)) || !Array.isArray(value.models) || value.models.length > 64) {
     return
   }
   const models: MatrixProviderConnectionModel[] = []
@@ -52,6 +52,9 @@ function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
     }
     return { revision: Number(value.revision), state: 'enabled', deviceServiceId: value.deviceServiceId,
       selectedAt: Number(value.selectedAt), models }
+  }
+  if (value.state === 'carried') {
+    return { revision: Number(value.revision), state: 'carried', models }
   }
   if (Object.keys(value).some(key => !['profile', 'revision', 'state', 'models'].includes(key)) || models.length) {
     return
@@ -95,7 +98,7 @@ export class MatrixChatGptRelay {
 
   markCarried(): void {
     this.carried = true
-    this.snapshot = { revision: this.snapshot?.revision ?? 0, state: 'carried', models: [] }
+    this.snapshot = { revision: this.snapshot?.revision ?? 0, state: 'carried', models: this.snapshot?.models ?? [] }
     this.options.changed()
   }
 
@@ -103,16 +106,16 @@ export class MatrixChatGptRelay {
 
   async refresh(): Promise<MatrixChatGptRelaySnapshot | undefined> {
     const scope = this.options.scope()
-    if (this.carried) return this.snapshot
     if (!scope) {
       return
     }
     const answer = await this.options.call('status', AbortSignal.timeout(20_000)).catch(() => undefined)
-    if (this.carried) return this.snapshot
     const next = answer?.status === 200 ? parse(answer.value) : undefined
+    if (this.carried && next?.state !== 'carried') {return this.snapshot}
     if (!next || scope.accountKey !== this.options.scope()?.accountKey || scope.generation !== this.options.scope()?.generation) {
       return
     }
+    this.carried ||= next.state === 'carried'
     this.snapshot = next; this.options.changed(); return next
   }
 

@@ -87,7 +87,7 @@ export function matrixCloudPlanAvailability(
   }
 
   if (plan.source === 'chatgpt_plan') {
-    return relayAvailability(choice.subscriptionState === 'connected' ? 'enabled' : 'disabled', choice.relayPresence)
+    return relayAvailability(choice.subscriptionCustody === 'carried' ? 'carried' : choice.subscriptionState === 'connected' ? 'enabled' : 'disabled', choice.relayPresence)
   }
 
   return choice.subscriptionState === 'connected' ? AVAILABLE : unavailable('reconnect')

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { requestMatrixChatGptRelay } from './chatgpt-relay-client'
+import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
 
 const resource = 'https://shell.test/api/matrix/v1'
 
@@ -35,4 +35,34 @@ it('lets the account refresh an expired domain bearer', async () => {
   await expect(
     requestMatrixChatGptRelay(resource, 'synthetic', 'enable', AbortSignal.timeout(1000), {})
   ).rejects.toThrow('matrix_s1_authentication')
+})
+
+
+it('accepts cloud custody after restart and refuses local relay enablement', async () => {
+  const relay = new MatrixChatGptRelay({ scope: () => ({ accountKey: 'one', generation: 1 }),
+    changed: () => {}, call: async () => ({ status: 200, value: {
+      profile: 'atum.chatgpt-relay/1', revision: 2, state: 'carried', models: [{ id: 'gpt-6-sol',
+        displayName: 'GPT-6 Sol', efforts: ['medium'], defaultEffort: 'medium',
+        contextBudget: 128_000, outputBudget: 16_384 }]
+    } }) })
+  expect((await relay.refresh())?.models.map(model => model.id)).toEqual(['gpt-6-sol'])
+  expect(relay.view()?.state).toBe('carried')
+  expect(await relay.enable('synthetic-device', [])).toBe(false)
+})
+
+it('retains known models at carry completion and replaces them with the cloud list', async () => {
+  const descriptor = (id: string) => ({ id, displayName: id, efforts: ['medium'], defaultEffort: 'medium',
+    contextBudget: 128_000, outputBudget: 16_384 })
+  let state = 'enabled'
+  const relay = new MatrixChatGptRelay({ scope: () => ({ accountKey: 'one', generation: 1 }),
+    changed: () => {}, call: async () => ({ status: 200, value: {
+      profile: 'atum.chatgpt-relay/1', revision: 2, state,
+      ...(state === 'enabled' ? { deviceServiceId: '00000000-0000-4000-8000-bd7662a5eeb4', selectedAt: 1 } : {}),
+      models: [descriptor(state === 'enabled' ? 'gpt-5.6-luna' : 'gpt-6-sol')]
+    } }) })
+  await relay.refresh()
+  relay.markCarried()
+  expect(relay.view()?.models.map(model => model.id)).toEqual(['gpt-5.6-luna'])
+  state = 'carried'
+  expect((await relay.refresh())?.models.map(model => model.id)).toEqual(['gpt-6-sol'])
 })

@@ -90,6 +90,12 @@ describe('which plan can answer a cloud assistant now', () => {
 })
 
 describe('a ChatGPT plan carried to cloud custody (S2)', () => {
+  it('keeps the composer available from its cloud snapshot before the picker reads the account', () => {
+    expect(matrixCurrentPlanAvailability({ choice: plan('chatgpt_plan', {
+      subscriptionCustody: 'carried', relayPresence: 'offline'
+    }) })).toEqual({ available: true })
+  })
+
   it('answers with no Mac, whatever presence a stale relay row still carries', () => {
     const carried = { state: 'carried' as const, thisMac: false, revision: 5 }
 
