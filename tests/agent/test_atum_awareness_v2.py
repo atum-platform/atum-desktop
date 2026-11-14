@@ -219,3 +219,73 @@ def test_factory_rejects_retired_replay_after_restart(tmp_path, monkeypatch):
         with pytest.raises(AwarenessSessionError): bind_cloud_memory(**kwargs, enabled=True)
     finally:
         db.close()
+
+
+def test_managed_google_requires_live_native_protected_route(tmp_path):
+    def marked(req, stop):
+        result = response(req, stop)
+        result['items'][0]['provenance'] = {'google': True}
+        return result
+    for admission in [None, lambda: False, lambda: 1]:
+        p = provider(tmp_path, read=marked, admit_managed_google=admission)
+        assert p.recall({'query': 'launch'})['status'] == 'unavailable'
+    live, records, retired = [True], [], []
+    p = provider(tmp_path, read=marked, record=records.append,
+                 admit_managed_google=lambda: live[0], invalid=lambda: retired.append(True))
+    prompt = p.system_prompt_block()
+    result = p.recall({'query': 'launch'})
+    assert result['items'][0]['provenance'] == {'google': True}
+    assert records and not p.local_only
+    assert p.system_prompt_block() == prompt
+    live[0] = False
+    with pytest.raises(AwarenessSessionError): p.assert_run_authority()
+    live[0] = True
+    with pytest.raises(AwarenessSessionError): p.assert_run_authority()
+    assert retired == [True]
+
+
+def test_legacy_managed_cannot_opt_into_google(tmp_path):
+    b = binding()
+    with pytest.raises(AwarenessContractError):
+        AtumAwarenessProvider(
+            AwarenessRunBinding(b['sessionId'], str(tmp_path), b['agentPrincipal'],
+                                {'class': 'private_owner'}, False, 'managed'),
+            retrieve=response, is_current=lambda: True, mark_google_derived=lambda: True,
+            invalidate_run=lambda: None, admit_managed_google=lambda: True)
+
+
+def test_factory_preserves_google_requirement_after_restart_and_compression(tmp_path, monkeypatch):
+    from agent.memory_run_lifecycle import bind_cloud_memory
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    path, b = tmp_path / 'sticky.db', binding()
+    def marked(req, stop):
+        result = response(req, stop)
+        result['items'][0]['provenance'] = {'google': True}
+        return result
+    db = SessionDB(db_path=path)
+    db.create_session(b['sessionId'], 'cli')
+    lifecycle = MemoryRunLifecycle(db)
+    kwargs = dict(binding=b, hermes_home=str(tmp_path), lifecycle=lifecycle, retrieve=marked,
+                  is_current=lambda: True, invalidate_run=lambda: None, enabled=True,
+                  admit_managed_google=lambda: True)
+    manager = bind_cloud_memory(**kwargs)['memory_manager']
+    assert json.loads(manager.handle_tool_call('atum_recall', {'query': 'launch'}))['status'] == 'ok'
+    # A repeated ID with a missing marker cannot undo retained Google history.
+    saved = db.list_meta_prefix('memory.provenance.v2.')[0][1]
+    unmarked = json.loads(saved)
+    unmarked['items'][0].pop('provenance')
+    unmarked.pop('googleDerived')
+    lifecycle.record(unmarked)
+    assert lifecycle.google_derived(b['sessionId'])
+    db.create_session('compressed-google', 'cli', parent_session_id=b['sessionId'])
+    db.close()
+    db = SessionDB(db_path=path)
+    try:
+        lifecycle = MemoryRunLifecycle(db)
+        assert lifecycle.google_derived(b['sessionId'])
+        assert lifecycle.google_derived('compressed-google')
+        assert not lifecycle.google_derived('unrelated')
+        with pytest.raises(AwarenessSessionError):
+            bind_cloud_memory(**dict(kwargs, lifecycle=lifecycle, admit_managed_google=lambda: False))
+    finally:
+        db.close()

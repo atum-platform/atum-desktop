@@ -117,7 +117,14 @@ class AtumAwarenessProvider(MemoryProvider):
         max_content_bytes: int = 16384,
         cloud_binding: dict[str, Any] | None = None,
         record_provenance: Callable[[dict[str, Any]], None] | None = None,
+        admit_managed_google: Callable[[], bool] | None = None,
+        google_derived_history: bool = False,
     ) -> None:
+        if admit_managed_google is not None and (cloud_binding is None or not callable(admit_managed_google)):
+            raise AwarenessContractError()
+        if type(google_derived_history) is not bool or (google_derived_history and cloud_binding is None):
+            raise AwarenessContractError()
+        self._admit_managed_google = admit_managed_google
         self._cloud_binding = None
         self._record_provenance = record_provenance
         if cloud_binding is not None:
@@ -175,7 +182,7 @@ class AtumAwarenessProvider(MemoryProvider):
         self._lock = threading.RLock()
         self._initialized = False
         self._invalidated = False
-        self._google_tainted = False
+        self._google_tainted = google_derived_history
         self._evidence_ids: set[str] = set()
         self._worker: threading.Thread | None = None
         self._cancelled: threading.Event | None = None
@@ -209,7 +216,7 @@ class AtumAwarenessProvider(MemoryProvider):
     @property
     def local_only(self) -> bool:
         with self._lock:
-            return self._google_tainted
+            return self._google_tainted and self._destination == "local"
 
     @property
     def recalled_evidence_ids(self) -> tuple[str, ...]:
@@ -242,6 +249,8 @@ class AtumAwarenessProvider(MemoryProvider):
                 raise AwarenessSessionError()
         try:
             current = self._is_current() is True
+            if self._google_tainted and self._destination == "managed":
+                current = current and self._admit_managed_google is not None and self._admit_managed_google() is True
         except Exception:
             current = False
         if not current:
@@ -353,11 +362,11 @@ class AtumAwarenessProvider(MemoryProvider):
             item["source"]["kind"] == "drive_file" for item in result["items"]
         ))
         if needs_taint:
-            # No marked managed bundle, and no unacknowledged taint reaches a model.
-            if self._destination != "local":
-                return unavailable
+            # Only the native v2 host can attest a durable Google latch and
+            # certified protected route. Recheck it on every later turn/publication.
             try:
-                acknowledged = self._mark_google() is True
+                acknowledged = (self._admit_managed_google is not None
+                                and self._admit_managed_google() is True) if self._destination == "managed" else self._mark_google() is True
             except Exception:
                 acknowledged = False
             if not acknowledged:
@@ -375,7 +384,7 @@ class AtumAwarenessProvider(MemoryProvider):
                 assert self._record_provenance is not None
                 self._record_provenance({"binding": copy.deepcopy(self._cloud_binding),
                                          "items": [{k: copy.deepcopy(item[k]) for k in
-                                                    ("evidenceId", "source", "digest", "lineage")}
+                                                    ("evidenceId", "source", "digest", "lineage", "provenance") if k in item}
                                                    for item in result["items"]]})
             except Exception:
                 self.invalidate()

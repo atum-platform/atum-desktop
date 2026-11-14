@@ -49,6 +49,20 @@ class MemoryRunLifecycle:
     def assert_current(self, session_id):
         assert_session_current(self.db, session_id)
 
+    def google_derived(self, session_id):
+        """Retained and compressed history keeps its protected-route requirement."""
+        seen = set()
+        while session_id and session_id not in seen:
+            seen.add(session_id)
+            for _, value in self.db.list_meta_prefix(PROVENANCE + session_id + "."):
+                receipt = json.loads(value)
+                if receipt.get("googleDerived") is True or any(
+                        item.get("provenance", {}).get("google") is True for item in receipt["items"]):
+                    return True
+            row = self.db._read_one("SELECT parent_session_id FROM sessions WHERE id=?", (session_id,))
+            session_id = row[0] if row else None
+        return False
+
     def record(self, provenance):
         from agent.atum_awareness_v2 import validate_binding
         binding = validate_binding(provenance['binding'])
@@ -61,8 +75,13 @@ class MemoryRunLifecycle:
             key = PROVENANCE + sid + '.' + binding['runId']
             saved = conn.execute('SELECT value FROM state_meta WHERE key=?', (key,)).fetchone()
             merged = json.loads(value)
+            merged['googleDerived'] = any(item.get('provenance', {}).get('google') is True
+                                          for item in merged['items'])
             if saved:
                 previous = json.loads(saved[0])
+                merged['googleDerived'] = merged['googleDerived'] or previous.get('googleDerived') is True
+                merged['googleDerived'] = merged['googleDerived'] or any(
+                    item.get('provenance', {}).get('google') is True for item in previous['items'])
                 if previous['binding'] != binding:
                     raise AwarenessSessionError()
                 by_id = {row['evidenceId']: row for row in previous['items']}
@@ -149,7 +168,7 @@ def cleanup_native_entries(store, inventory):
 
 
 def bind_cloud_memory(*, binding, hermes_home, lifecycle, retrieve, is_current, invalidate_run,
-                      enabled=False, existing_manager=None, agent_context='primary'):
+                      enabled=False, existing_manager=None, agent_context='primary', admit_managed_google=None):
     """Native construction port; activation requires explicit enablement.
 
     The controller owns external retirement before home restoration, authority and publication
@@ -176,7 +195,9 @@ def bind_cloud_memory(*, binding, hermes_home, lifecycle, retrieve, is_current, 
         AwarenessRunBinding(sid, hermes_home, frozen['agentPrincipal'],
                             {'class': frozen['audience']['class']}, False, 'managed'),
         cloud_binding=frozen, retrieve=retrieve, is_current=current,
-        invalidate_run=invalidate, mark_google_derived=lambda: False, record_provenance=lifecycle.record)
+        invalidate_run=invalidate, mark_google_derived=lambda: False, record_provenance=lifecycle.record,
+        admit_managed_google=admit_managed_google,
+        google_derived_history=lifecycle.google_derived(sid))
     return compose_managed_memory(existing_manager, provider=provider, enabled=True,
                                   session_id=sid, hermes_home=hermes_home, agent_context=agent_context)
 
