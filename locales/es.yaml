@@ -3963,3 +3963,7 @@ plan_usage:
   large_notice_limit: "Modelo grande: alcanzaste tu límite {name} ({resets})."
   large_notice_limit_stops: "Modelo grande: alcanzaste tu límite {name} ({resets}), así que no se ejecutará hasta entonces."
   large_notice_percent: "Modelo grande: usa más del uso de tu plan por mensaje. Límite mensual de modelos grandes: {percent} usado."
+
+turn_admission:
+  configuration_error: "Ahora no puedo empezar porque parte de mi configuración no está lista. Inténtalo de nuevo en unos minutos."
+  refused: "Esta solicitud no está permitida aquí, así que no la empecé."

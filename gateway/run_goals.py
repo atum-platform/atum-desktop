@@ -352,6 +352,8 @@ class GatewayGoalsMixin:
         self, *, agent_result: Any, source: Any, is_internal: bool, event: Any = None,
     ) -> None:
         """Run goal and loop bookkeeping after an agent turn returns."""
+        if getattr(event, "_gateway_turn_refusal", None):
+            return
         from gateway.session_authorities import active_authority
         from gateway.session_viewer_automation import viewer_driven
         if viewer_driven(active_authority(self), getattr(source, "chat_id", None)):

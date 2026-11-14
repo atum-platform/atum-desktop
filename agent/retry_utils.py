@@ -193,3 +193,18 @@ def provider_retry_after_seconds(error: Any) -> Optional[float]:
             nested = body.get("error")
             value = parse_retry_after_seconds((nested if isinstance(nested, dict) else body).get("retry_after"))
     return value if value is not None and value > 0 else None
+
+
+def allowance_wait_policy(config: Any) -> tuple[float, float, float]:
+    """Config.yaml agent.allowance_wait: finite delays and a hard three-minute window."""
+    import math
+
+    config = config if isinstance(config, dict) else {}
+    def seconds(key: str, default: float, ceiling: float) -> float:
+        try:
+            value = float(config.get(key, default))
+        except (TypeError, ValueError):
+            return default
+        return min(value, ceiling) if math.isfinite(value) and value >= 0.2 else default
+    cap = seconds("max_delay", 30.0, 30.0)
+    return min(seconds("initial_delay", 2.0, 30.0), cap), cap, seconds("max_wait", 180.0, 180.0)

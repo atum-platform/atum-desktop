@@ -3608,6 +3608,7 @@
           "properties": {
             "toolset": {
               "enum": [
+                "atum_background_readonly",
                 "atum_first_learning",
                 "bot_room",
                 "browser",

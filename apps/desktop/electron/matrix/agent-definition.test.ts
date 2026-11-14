@@ -195,6 +195,12 @@ describe('Matrix agent-definition client', () => {
     )
   })
 
+  it.each(['controller', 'future', 42, undefined])('ignores unsupported roster runtime %s', async runtime => {
+    vi.stubGlobal('fetch', vi.fn(async () => json([record({ runtime })])))
+    const roster = await listMatrixAgentDefinitions(resource, grant, AbortSignal.timeout(1000))
+    expect(roster[0].runtime).toBeUndefined()
+  })
+
   it('accepts an older roster without presentation and rejects partial or unknown marks', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => json([record()])))
     await expect(listMatrixAgentDefinitions(resource, grant, AbortSignal.timeout(1000))).resolves.toEqual([
@@ -250,7 +256,7 @@ describe('Matrix agent-definition client', () => {
       'fetch',
       vi.fn(async () =>
         json([
-          record({ answering: 'cloud', answeringChangedAt: 1791100800000 }),
+          record({ answering: 'cloud', runtime: 'hermes', answeringChangedAt: 1791100800000 }),
           record({ id: OTHER_ASSISTANT, principal: OTHER_PRINCIPAL, is_default: false, answering: 'local' })
         ])
       )
@@ -258,6 +264,7 @@ describe('Matrix agent-definition client', () => {
 
     const roster = await listMatrixAgentDefinitions(resource, grant, new AbortController().signal)
     expect(roster.map(agent => agent.answering)).toEqual(['cloud', 'local'])
+    expect(roster.map(agent => agent.runtime)).toEqual(['hermes', undefined])
 
     // An older platform says nothing, and a value this client does not know never reads as cloud.
     vi.stubGlobal(

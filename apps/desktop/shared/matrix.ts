@@ -954,6 +954,8 @@ export interface MatrixAgentView {
   /** S1 compatibility route: typed questions enter through the cloud handoff. H-F may also keep
    * this Mac ready as a policy-backed failover destination; `executionPolicy` is that authority. */
   answering?: 'cloud'
+  /** Owner-roster capability for the Shell host Stop route. */
+  runtime?: 'hermes'
   /** The platform's model-choice offer for this cloud agent (`atum.model-choice/1.1`), absent
    * when no offer was reachable. Presentation only: the server refuses an ineligible write. */
   cloudModel?: MatrixCloudModelChoiceView

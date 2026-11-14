@@ -9,6 +9,8 @@ seams (the shape ``test_gateway_migrate_multiplex.py`` uses).
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 import shutil
@@ -167,8 +169,8 @@ def test_live_record_outranks_the_raw_flag_for_other_processes(fleet, monkeypatc
     root, _services, _pids = fleet
     from gateway import status
     monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "hermes gateway run")
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
-    record = {"pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running", "served_profiles": []}
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
+    record = {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running", "served_profiles": []}
     (root / "gateway_state.json").write_text(json.dumps(record))
     assert mode.default_gateway_multiplexes(root) is False
     record["served_profiles"] = ["default", "coder", "ops"]
@@ -256,7 +258,7 @@ def test_recorded_standalone_warning_lines_suppressed_for_dead_or_stale_record(t
     monkeypatch.setattr(mode, "unserved_profiles", lambda: ["other_profile"])
 
     # 1. Stopped gateway
-    state_file.write_text(json.dumps({
+    state_file.write_text(json.dumps({**current_owner_fields(os.getpid()),
         "gateway_state": "stopped",
         "pid": os.getpid(),
         "updated_at": datetime.now(UTC).isoformat(),
@@ -265,7 +267,7 @@ def test_recorded_standalone_warning_lines_suppressed_for_dead_or_stale_record(t
     assert mode.recorded_standalone_warning_lines() == []
 
     # 2. Dead PID
-    state_file.write_text(json.dumps({
+    state_file.write_text(json.dumps({**current_owner_fields(999999999),
         "gateway_state": "running",
         "pid": 999999999,
         "updated_at": datetime.now(UTC).isoformat(),
@@ -276,7 +278,7 @@ def test_recorded_standalone_warning_lines_suppressed_for_dead_or_stale_record(t
 
     # 3. Stale heartbeat but LIVE PID: a paused/wedged standalone gateway still warns (the
     # heartbeat is a health signal, not liveness).
-    state_file.write_text(json.dumps({
+    state_file.write_text(json.dumps({**current_owner_fields(os.getpid()),
         "gateway_state": "running",
         "pid": os.getpid(),
         "updated_at": "2020-01-01T00:00:00Z",
@@ -286,7 +288,7 @@ def test_recorded_standalone_warning_lines_suppressed_for_dead_or_stale_record(t
     assert any("wedged reason" in line for line in mode.recorded_standalone_warning_lines())
 
     # 4. Live and fresh record emits warning
-    state_file.write_text(json.dumps({
+    state_file.write_text(json.dumps({**current_owner_fields(os.getpid()),
         "gateway_state": "running",
         "pid": os.getpid(),
         "updated_at": datetime.now(UTC).isoformat(),

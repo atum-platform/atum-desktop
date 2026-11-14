@@ -122,9 +122,10 @@ class TestDetectDangerousRm:
 
     @pytest.mark.require_symlinks
     def test_symlinked_temp_dir_only_exempts_canonical_target(self, tmp_path):
-        real_temp = tmp_path / "real-temp"
+        # macOS exposes /var through /private/var; test our own symlink only.
+        real_temp = tmp_path.resolve() / "real-temp"
         real_temp.mkdir()
-        linked_temp = tmp_path / "linked-temp"
+        linked_temp = tmp_path.resolve() / "linked-temp"
         linked_temp.symlink_to(real_temp, target_is_directory=True)
         basename = "hermes-verify-example.py"
 

@@ -5,6 +5,8 @@ management, export/import, renaming, alias collision checks, profile isolation,
 and shell completion generation.
 """
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import io
 import os
@@ -1687,7 +1689,7 @@ class TestEdgeCases:
         live_pid = os.getpid()
         (default_home / "gateway_state.json").write_text(
             json.dumps(
-                {
+                {**current_owner_fields(live_pid),
                     "pid": live_pid,
                     "kind": "hermes-gateway",
                     "argv": ["hermes", "gateway", "run"],
@@ -1723,7 +1725,7 @@ class TestEdgeCases:
         default_home.mkdir(parents=True, exist_ok=True)
         (default_home / "gateway_state.json").write_text(
             json.dumps(
-                {
+                {**current_owner_fields(os.getpid()),
                     "pid": os.getpid(),
                     "kind": "hermes-gateway",
                     "argv": ["hermes", "gateway", "run"],
@@ -1755,7 +1757,7 @@ class TestEdgeCases:
         coder_home.mkdir(parents=True, exist_ok=True)
         (coder_home / "gateway_state.json").write_text(
             json.dumps(
-                {
+                {**current_owner_fields(139),
                     "pid": 139,
                     "kind": "hermes-gateway",
                     "argv": ["hermes", "gateway", "run"],
@@ -1787,7 +1789,7 @@ class TestEdgeCases:
         coder_home.mkdir(parents=True, exist_ok=True)
         (coder_home / "gateway_state.json").write_text(
             json.dumps(
-                {
+                {**current_owner_fields(139),
                     "pid": 139,
                     "kind": "hermes-gateway",
                     "argv": ["hermes", "gateway", "run"],

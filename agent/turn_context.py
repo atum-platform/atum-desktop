@@ -585,7 +585,7 @@ def _bind_turn_identity(
     effective_task_id = task_id or str(uuid.uuid4())
     agent._current_task_id = effective_task_id
     agent._process_owner_task_ids = {*getattr(agent, "_process_owner_task_ids", ()), effective_task_id}
-    turn_id = str(getattr(agent, "_relay_pending_turn_id", "") or "") or (
+    turn_id = str(getattr(agent, "_admission_turn_id", "") or getattr(agent, "_relay_pending_turn_id", "") or "") or (
         f"{agent.session_id or 'session'}:{effective_task_id}:{uuid.uuid4().hex[:8]}"
     )
     agent._relay_pending_turn_id = None

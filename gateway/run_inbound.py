@@ -200,6 +200,9 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
             and not is_internal
             and not getattr(event, "_hermes_startup_restore_replay", False)
             and not executing_admission.get()
+            # The Matrix journal retains this input until its native commit callback.
+            # Parking it here creates a second, process-local replay owner.
+            and not getattr(event, "_matrix_durable_intake", False)
         ):
             self._queue_startup_restore_event(event)
             return None
@@ -1210,6 +1213,7 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # The message handler entered the routed profile's scope; its authority owns this turn.
         from gateway.session_authorities import active_authority
         authority = active_authority(self)
+        from gateway.session_ingress_context import transport_control
         if authority is not None and not event.get_command() and not is_internal:
             from gateway.session_ingress import admit_message, executing_admission
             if not executing_admission.get():
@@ -1220,11 +1224,17 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
                 # A bare "yes"/"no" to a blocking dangerous-command approval answers it (#46866):
                 # never an interrupt (read as deny) nor a queued turn (auto-deny deadlock).
                 # A turn a slash command produced (``/queue yes``) is never live typing.
-                if self._is_session_running(_quick_key) and not getattr(event, "_fifo_only", False) and (
-                        await self._route_plaintext_approval_while_busy(event, _quick_key)
-                        or await self._hm_busy_preempt(event, source, _quick_key)):
+                # Journal-owned Matrix backlog is also queued input. Each source must
+                # reach its own admission without interrupting or steering an earlier one.
+                if (not getattr(event, "_matrix_backlog", False)
+                        and self._is_session_running(_quick_key)
+                        and not getattr(event, "_fifo_only", False)) and (
+                        await transport_control(event, lambda: self._route_plaintext_approval_while_busy(event, _quick_key))
+                        or await transport_control(event, lambda: self._hm_busy_preempt(event, source, _quick_key))):
                     return True, None
-                _consumed, _consumer_reply = await self._hm_post_admission_consume(event, source, _quick_key)
+                _consumed, _consumer_reply = await transport_control(
+                    event, lambda: self._hm_post_admission_consume(event, source, _quick_key),
+                    consumed=lambda result: result[0])
                 if _consumed:
                     return True, _consumer_reply
                 if getattr(event, "_fifo_only", False) and event._stop_epoch != self._route_stop_epoch(_quick_key):
@@ -1259,12 +1269,25 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # calls handle_message directly, so a teardown on the relay's inbound
         # handler left those turns muted.
 
+        if getattr(event, '_matrix_durable_intake', False) and not event.get_command():
+            from gateway.session_authorities import active_authority
+            authority = active_authority(self)
+            if authority is None:
+                raise RuntimeError('Matrix durable intake has no routed session authority')
+            receipt = await authority.native_transport_receipt(event)
+            if receipt is not None:
+                event._on_transport_commit(receipt)
+                return None  # native recovery/delivery already owns this request
+
         _paused_notice = self._hm_estop_gate(event, source, is_internal)
         if _paused_notice is not None:
             return _paused_notice
 
         _quick_key = self._session_key_for_source(source)
-        _reply = None if is_internal else await self._hm_pending_reply_intercepts(event, source, _quick_key)
+        from gateway.session_ingress_context import transport_control
+        _reply = None if is_internal else await transport_control(
+            event, lambda: self._hm_pending_reply_intercepts(event, source, _quick_key),
+            consumed=lambda result: result is not None)
         if _reply is not None:
             return _reply
 
@@ -1657,6 +1680,20 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         follow-up paths so attribution, image enrichment, STT, document notes, reply context and
         @ references behave the same. Side effect: buffers per-session native image paths when the
         model supports native vision; the caller consumes that buffer at ``run_conversation``."""
+        from hermes_cli.turn_admission import check_turn_admission
+
+        refusal = await asyncio.to_thread(
+            check_turn_admission, platform=source.platform.value,
+            session_id=session_key, user_message=event.text, stage="gateway_media",
+        )
+        if refusal is not None:
+            from gateway.session_results import execution_result
+
+            captured = execution_result.get()
+            if captured is not None:
+                captured["result"] = refusal
+            event._gateway_turn_refusal = refusal["final_response"]
+            return None
         rehome_inbound_media(event)  # before any consumer (vision, STT, document notes) reads media_urls
         _pending_stt_prepared = hasattr(event, "_gateway_pending_stt_text")
         message_text = (event._gateway_pending_stt_text if _pending_stt_prepared else event.text) or ""

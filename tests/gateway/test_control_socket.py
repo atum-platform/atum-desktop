@@ -1,5 +1,7 @@
 """Tests for the gateway control socket (#92091 migration step 1)."""
 
+from tests.runtime_identity import current_owner_fields
+
 import asyncio
 import json
 import socket
@@ -289,7 +291,7 @@ def test_default_identify_payload_shape(home: Path, monkeypatch):
 # ---------------------------------------------------------------------------
 
 def _fake_identity(pid: int, sha: str):
-    return {
+    return {**current_owner_fields(pid),
         "protocol": 1,
         "pid": pid,
         "code_sha": sha,
@@ -317,7 +319,7 @@ def test_collect_fleet_versions_prefers_socket(tmp_path: Path, monkeypatch):
     )
     # stale state file that would report a WRONG pid — socket must win
     (home / "gateway_state.json").write_text(
-        json.dumps({"pid": 1, "code_sha": "stalefile", "kind": "hermes-gateway"})
+        json.dumps({**current_owner_fields(1), "pid": 1, "code_sha": "stalefile", "kind": "hermes-gateway"})
     )
     monkeypatch.setattr(
         "gateway.control_socket.identify_gateway",
@@ -362,7 +364,7 @@ def test_collect_fleet_versions_falls_back_to_state_file(tmp_path: Path, monkeyp
     )
     (home / "gateway_state.json").write_text(
         json.dumps(
-            {
+            {**current_owner_fields(os.getpid()),
                 "pid": os.getpid(),  # a live pid so _pid_exists passes
                 "code_sha": "OLDSHA",
                 "kind": "hermes-gateway",

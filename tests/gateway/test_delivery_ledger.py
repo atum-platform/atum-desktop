@@ -5,7 +5,7 @@ id stability, and the startup redelivery sweep's contract:
 - pending rows redeliver plainly (send never started, no dup risk)
 - attempting/failed rows carry the recovered-reply marker (honest
   at-least-once; ambiguity is labeled, never silently resent)
-- rows owned by a LIVE process are never claimed
+- unexpired rows owned by a LIVE process are never claimed
 - poison rows abandon at the attempts cap / stale cutoff
 """
 
@@ -17,7 +17,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from gateway import delivery_ledger as dl
+from gateway import delivery_ledger as dl, status
 
 
 @pytest.fixture(autouse=True)
@@ -775,14 +775,14 @@ class TestOwnerAlivePidProbe:
 
         self._no_start_time(monkeypatch)
         monkeypatch.setattr(status, "_pid_exists", lambda pid: True)
-        assert dl._owner_alive(12345, 999) is True
+        assert dl._owner_alive(12345, 999, status.get_process_epoch()) is True
 
     def test_dead_when_pid_gone(self, monkeypatch):
         from gateway import status
 
         self._no_start_time(monkeypatch)
         monkeypatch.setattr(status, "_pid_exists", lambda pid: False)
-        assert dl._owner_alive(12345, 999) is False
+        assert dl._owner_alive(12345, 999, status.get_process_epoch()) is False
 
     def test_raw_os_kill_probe_never_used(self, monkeypatch):
         """Regression guard: the probe must not touch os.kill when
@@ -795,7 +795,7 @@ class TestOwnerAlivePidProbe:
         monkeypatch.setattr(
             dl.os, "kill", lambda *a, **k: (_ for _ in ()).throw(AssertionError("raw os.kill probe used"))
         )
-        assert dl._owner_alive(4242, 999) is True
+        assert dl._owner_alive(4242, 999, status.get_process_epoch()) is True
         assert calls == [4242]
 
     def test_probe_exception_means_dead(self, monkeypatch):
@@ -807,4 +807,4 @@ class TestOwnerAlivePidProbe:
             raise RuntimeError("probe blew up")
 
         monkeypatch.setattr(status, "_pid_exists", boom)
-        assert dl._owner_alive(12345, 999) is False
+        assert dl._owner_alive(12345, 999, status.get_process_epoch()) is False

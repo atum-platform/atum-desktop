@@ -10,6 +10,8 @@ dashboard ``/api/gateway/start`` twin (``multiplexed_profile_refusal``) applies 
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import argparse
 import contextlib
 import io
@@ -88,9 +90,9 @@ def test_named_profile_install_and_start_refuse_without_force_when_no_multiplexe
 
     # Control: a live multiplexer serving the profile still prints the served-by form.
     use("coder")
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
     (root / "gateway_state.json").write_text(json.dumps(
-        {"pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
+        {**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running",
          "served_profiles": ["default", "coder"]}))
     from gateway import status
     real_cmdline = status._read_process_cmdline

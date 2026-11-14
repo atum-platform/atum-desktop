@@ -68,7 +68,7 @@ def _within_install(home: Path, root: Path) -> bool:
 
 
 def _verified_owner(control: Path, payload: dict) -> tuple[int, Any] | str:
-    from gateway.status import _GATEWAY_KIND, _pid_exists, get_process_start_time, start_time_fingerprints_match
+    from gateway.status import _GATEWAY_KIND, _pid_exists, get_process_start_time, start_time_fingerprints_match, process_epoch_matches
     protocol = payload.get("runtime_protocol")
     if type(protocol) is int and protocol > 1:
         return "owner_newer"
@@ -76,7 +76,8 @@ def _verified_owner(control: Path, payload: dict) -> tuple[int, Any] | str:
         return "foreign_install"
     pid, recorded = payload.get("pid"), payload.get("start_time")
     if (payload.get("kind") != _GATEWAY_KIND or type(pid) is not int or pid <= 1
-            or pid in {os.getpid(), os.getppid()} or recorded is None or not _pid_exists(pid)):
+            or pid in {os.getpid(), os.getppid()} or recorded is None or not _pid_exists(pid)
+            or not process_epoch_matches(payload)):
         return "owner_unverified"
     current = get_process_start_time(pid)
     try:
@@ -90,9 +91,9 @@ def _verified_owner(control: Path, payload: dict) -> tuple[int, Any] | str:
 def _write_planned_stop(control: Path, pid: int, start_time: Any) -> None:
     """The marker ``hermes gateway stop`` writes, in the OWNER's home (it reads its own), so the old
     gateway exits as a planned stop: clean exit, ``stopped`` persisted, no supervisor revival."""
-    from gateway.status import _PLANNED_STOP_MARKER_FILENAME, _utc_now_iso, _write_marker
+    from gateway.status import _PLANNED_STOP_MARKER_FILENAME, _utc_now_iso, _write_marker, get_process_epoch
     _write_marker(control / _PLANNED_STOP_MARKER_FILENAME, {
-        "target_pid": pid, "target_start_time": start_time,
+        "boot_epoch": get_process_epoch(), "target_pid": pid, "target_start_time": start_time,
         "stopper_pid": os.getpid(), "written_at": _utc_now_iso(),
     })
 

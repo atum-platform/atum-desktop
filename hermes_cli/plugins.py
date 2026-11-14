@@ -135,7 +135,7 @@ VALID_HOOKS: set[str] = {
     # pre_gateway_dispatch: once per incoming MessageEvent, after the internal-event guard, BEFORE
     # auth/pairing and dispatch. Kwargs: event, gateway, session_store. Return {"action": "skip",
     # "reason"} -> drop; {"action": "rewrite", "text"} -> replace event.text; "allow"/None -> normal.
-    "pre_gateway_dispatch", "post_gateway_admission",  # post_*: fail-open consume, gateway/run_inbound_consumer.py
+    "pre_turn_admission", "pre_gateway_dispatch", "post_gateway_admission",  # post_*: fail-open consume, gateway/run_inbound_consumer.py
     # agent_loop_stopped: an agent turn was interrupted mid-run (/stop, or the running-agent
     # fast-path of /new; see gateway/run.py::_interrupt_and_clear_session). Kwargs: session_key,
     # platform, reason, invalidation_reason. Return values are ignored.
@@ -943,9 +943,22 @@ class PluginContext:
                 logger.warning("Plugin '%s' locale file %s skipped: %s", self.manifest.name, file, exc)
         return handles
 
-    def register_hook(self, hook_name: str, callback: Callable) -> PluginRegistration:
+    def register_hook(self, hook_name: str, callback: Callable, *, fail_closed: bool = False) -> PluginRegistration:
         """Register a lifecycle hook callback (unknown names warn but are still stored)."""
-        return self._track_callback("hook", hook_name, callback, self._manager._hooks, VALID_HOOKS)
+        if not fail_closed:
+            return self._track_callback("hook", hook_name, callback, self._manager._hooks, VALID_HOOKS)
+        if hook_name != "pre_turn_admission":
+            raise ValueError("fail_closed is supported only for pre_turn_admission")
+        self._manager._admission_required.add(self.plugin_id)
+        callbacks = self._manager._admission_callbacks.setdefault(self.plugin_id, [])
+        callbacks.append(callback)
+        self._manager._hooks.setdefault(hook_name, []).append(callback)
+
+        def release():
+            self._manager._remove_callback(self._manager._hooks, hook_name, callback)
+            self._manager._remove_callback(self._manager._admission_callbacks, self.plugin_id, callback)
+
+        return self._track("hook", hook_name, release)
 
     def register_middleware(self, kind: str, callback: Callable) -> PluginRegistration:
         """Register behavior-changing middleware (request kinds rewrite the payload, execution kinds
@@ -1139,6 +1152,8 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
         # (matcher, callback, plugin_name), platform handler factories (lowercase platform -> list).
         self._plugins: dict[str, LoadedPlugin] = {}
         self._hooks: dict[str, list[Callable]] = {}
+        self._admission_required: set[str] = set()
+        self._admission_callbacks: dict[str, list[Callable]] = {}
         # Fallback hooks registered by a memory provider before general discovery.
         self._memory_hook_registrations: dict[tuple[str, str], list[PluginRegistration]] = {}
         self._middleware: dict[str, list[Callable]] = {}
@@ -1399,6 +1414,11 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
         """Route one winning manifest per :func:`gate_manifest`: load now, defer, or record as
         skipped (introspection-only placeholder). Returns True only for plugins that go through the
         dependency-ordered load pass."""
+        if manifest.fail_closed_admission and (
+            {manifest_key(manifest), manifest.name} & (enabled or set())
+            or manifest.source == "bundled" and manifest.kind in {"backend", "platform"}
+        ):
+            self._admission_required.add(manifest_key(manifest))
         verdict = gate_manifest(manifest, disabled, enabled)
         if verdict.action == "load":
             return True

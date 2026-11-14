@@ -936,10 +936,11 @@ def test_legacy_gateway_holding_the_store_without_a_lock_is_not_written(tmp_path
 
 _MULTIPLEXER_LOCK = r'''
 import fcntl, json, os, sys, time
+from gateway.status import get_process_epoch, get_process_start_time
 fh = open(sys.argv[1], "a+")
 fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 fh.seek(0); fh.truncate()
-json.dump({"pid": os.getpid(), "kind": "hermes-gateway", "hermes_home": sys.argv[2]}, fh); fh.flush()
+json.dump({"pid": os.getpid(), "kind": "hermes-gateway", "hermes_home": sys.argv[2], "boot_epoch": get_process_epoch(), "start_time": get_process_start_time(os.getpid())}, fh); fh.flush()
 print("held", flush=True)
 time.sleep(60)
 '''

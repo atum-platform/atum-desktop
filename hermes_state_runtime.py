@@ -1003,3 +1003,44 @@ def apply_worker_receipt(db, *, epoch, execution_id, session_id, generation, seq
             compact_terminal_receipts(conn, execution_id)
         return result
     return db._execute_write(write, patience_s=db._TRANSCRIPT_WRITE_PATIENCE_S)
+
+
+def requeue_interrupted_session_input(db, *, epoch, admission_id, pause=False):
+    """Opt-in gateway recovery of one lost native turn, retaining its admission identity.
+
+    The outcome marks a recovery turn, not a replay of the original user input. A newer
+    epoch or any unresolved worker forbids takeover; normal claim allocates a new generation.
+    """
+    def write(conn):
+        _epoch(conn, epoch)
+        row = _admission(conn, admission_id)
+        if row['owner_epoch'] == epoch:
+            return False
+        if row['status'] != 'unknown':
+            if (row['status'] != 'terminal' or row['outcome'] != 'failed'
+                    or 'native_text_v1' not in json.loads(row['payload_json'])):
+                return False
+            from hermes_state_terminal import RESULT_PREFIX, load_result
+            saved = conn.execute('SELECT value FROM state_meta WHERE key=?',
+                                 (RESULT_PREFIX + admission_id,)).fetchone()
+            result = load_result(saved[0]).get('result', {}) if saved else {}
+            if not str(result.get('failure_reason', '')).startswith('session_persistence_failed:'):
+                return False
+            # Do not revive an obsolete failure after later owner work was executed.
+            latest = conn.execute('SELECT admission_id FROM session_admissions WHERE target_session_id=? AND status!=\'queued\' '
+                                  'ORDER BY seq DESC LIMIT 1', (row['target_session_id'],)).fetchone()
+            if latest is None or latest[0] != admission_id:
+                return False
+        from hermes_state_runtime_workers import worker_states
+        if worker_states(conn, row['target_session_id']):
+            return False
+        if pause:
+            return conn.execute("UPDATE session_admissions SET status='unknown' WHERE admission_id=? AND status=?",
+                                (admission_id, row['status'])).rowcount == 1
+        import time
+        stamp = conn.execute("SELECT MAX(timestamp) FROM messages WHERE session_id=? AND active=1",
+                             (row['target_session_id'],)).fetchone()[0]
+        outcome = 'crash_resume_stale' if stamp is not None and time.time() - stamp > 3600 else 'crash_resume'
+        return conn.execute("UPDATE session_admissions SET status='queued', outcome=? "
+                            "WHERE admission_id=? AND status=?", (outcome, admission_id, row['status'])).rowcount == 1
+    return db._execute_write(write)

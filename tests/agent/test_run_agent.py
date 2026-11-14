@@ -4026,7 +4026,8 @@ class TestRunConversation:
         assert result["interrupted"] is True
         mock_persist.assert_called()
 
-    def test_empty_response_retry_backoff_status(self, agent, monkeypatch):
+    @pytest.mark.parametrize("clock_start", [0.0, float(1 << 31)], ids=["zero-clock", "epoch-clock"])
+    def test_empty_response_retry_backoff_status(self, agent, monkeypatch, clock_start):
         """Empty response retry wait updates the agent's status with wait time and sleeps."""
         self._setup_agent(agent)
         agent.base_url = "http://127.0.0.1:1234/v1"
@@ -4045,7 +4046,7 @@ class TestRunConversation:
         # a no-op sleep alone busy-spins 7.5 wall-clock seconds. Advance a fake
         # clock by each sleep amount instead (established pattern:
         # test_session_activity_persist.py patches run_agent.time.time).
-        clock = {"t": time.time()}
+        clock = {"t": clock_start}
         monkeypatch.setattr(_conv_loop.time, "time", lambda: clock["t"])
 
         sleep_calls = []
@@ -4070,7 +4071,12 @@ class TestRunConversation:
         assert result["completed"] is True
         assert result["final_response"] == "Final ok response."
 
-        assert sum(sleep_calls) >= 7.5
+        # Native backoff waits for its deadline, clamping the final slice so a
+        # capped allowance wait does not request an extra 200 ms. Adding small
+        # slices to an epoch-sized float can round differently from summing the
+        # requested sleeps; the observed deadline, not that sum, is the contract.
+        assert sleep_calls and all(0 < secs <= 0.2 for secs in sleep_calls)
+        assert clock["t"] == clock_start + 7.5
 
 
     def test_partial_stream_recovery_on_empty_stub(self, agent):

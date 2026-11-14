@@ -235,8 +235,18 @@ def test_a_server_literally_named_mcp_prefix_keeps_its_own_name(tmp_path):
     assert 'mcp-foo' in policy.toolsets and 'foo' not in policy.toolsets, policy.toolsets
 
 
-def test_an_unusable_server_spec_never_echoes_its_values(tmp_path):
+def test_an_unusable_server_spec_never_echoes_its_values(tmp_path, monkeypatch):
     """pydantic's message carries ``input_value=``, and a server's argv may hold a credential."""
+    from pydantic import BaseModel
+    from gateway import session_local_mcp
+
+    # Exercise real pydantic error redaction independently of the optional ACP install.
+    class Server(BaseModel):
+        name: str
+        command: str
+        args: list[str]
+
+    monkeypatch.setattr(session_local_mcp, '_server_models', lambda: {'stdio': Server})
     spec = {'type': 'stdio', 'name': 'x', 'command': 'srv', 'args': '--token=SECRETSECRET', 'env': []}
     refusal = _refusal({'cwd': str(tmp_path), 'source': 'acp', 'editor': {'mcp_servers': [spec]}})
     assert refusal.field == 'editor.mcp_servers' and 'args' in refusal.detail
@@ -250,3 +260,18 @@ def test_a_bypass_launch_never_reads_profile_plugin_state(tmp_path, monkeypatch)
     policy = build_policy({'source': 'cli', 'cwd': str(tmp_path), 'ignore_user_config': True, 'model': 'fixture',
                            'toolsets': ['terminal']}, dict(_CFG))
     assert 'terminal' in policy.toolsets
+
+
+def test_editor_requests_without_optional_acp_are_total(tmp_path, monkeypatch):
+    import sys
+
+    # A gateway can receive editor requests even when no ACP client extra is installed.
+    monkeypatch.setitem(sys.modules, 'acp.schema', None)
+    policy = build_policy({'cwd': str(tmp_path), 'source': 'acp',
+                           'editor': {'mcp_servers': []}}, dict(_CFG))
+    assert policy.edit_approval_policy == 'ask'
+    refusal = _refusal({'cwd': str(tmp_path), 'source': 'acp',
+                        'editor': {'mcp_servers': [{'name': 'srv', 'command': 'srv', 'args': []}]}})
+    assert refusal.reason == 'invalid_params'
+    assert refusal.field == 'editor.mcp_servers'
+    assert 'optional ACP dependency' in refusal.detail

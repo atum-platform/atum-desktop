@@ -8,6 +8,8 @@ A gateway of another install (a home that resolves outside this install's root) 
 """
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import os
 from pathlib import Path
 from types import SimpleNamespace
@@ -100,7 +102,7 @@ def test_a_refused_replacement_is_reported_with_its_reason(home, monkeypatch):
 
 def _owner_payload(home: Path, pid: int, start_time):
     # MAIN's identify: no runtime_protocol, kind/pid/start_time/hermes_home from its pid record.
-    return {"protocol": 1, "kind": "hermes-gateway", "pid": pid, "start_time": start_time,
+    return {**current_owner_fields(pid), "protocol": 1, "kind": "hermes-gateway", "pid": pid, "start_time": start_time,
             "hermes_home": str(home), "supervisor": "manual"}
 
 

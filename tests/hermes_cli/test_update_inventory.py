@@ -1,5 +1,7 @@
 """Tests for hermes_cli.update_inventory — the plan phase (#91277 Phase 2)."""
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 from pathlib import Path
 
@@ -9,7 +11,7 @@ import hermes_cli.update_inventory as ui
 
 def _write_state(home: Path, pid: int, sha: str | None = None, version: str | None = None,
                  gateway_state: str = "running"):
-    record = {"pid": pid, "gateway_state": gateway_state}
+    record = {**current_owner_fields(pid), "pid": pid, "gateway_state": gateway_state}
     if sha:
         record["code_sha"] = sha
     if version:
@@ -19,6 +21,7 @@ def _write_state(home: Path, pid: int, sha: str | None = None, version: str | No
 @pytest.fixture()
 def fleet(monkeypatch, tmp_path):
     """Two profiles with live gateways: default (systemd) + work (manual)."""
+    monkeypatch.setattr("gateway.status._get_process_start_time", lambda pid: pid * 10)
     default_home = tmp_path / "home"
     work_home = tmp_path / "home" / "profiles" / "work"
     work_home.mkdir(parents=True)

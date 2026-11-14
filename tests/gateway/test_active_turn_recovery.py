@@ -341,6 +341,7 @@ async def test_clean_shutdown_marker_is_not_consumed_when_discard_fails(tmp_path
     marker = tmp_path / ".clean_shutdown"
     marker.write_text("clean", encoding="utf-8")
     runner = object.__new__(GatewayRunner)
+    runner._ledger_crash_left_replies = AsyncMock(return_value=0)
     async_store = MagicMock()
     async_store.discard_active_turn_markers = AsyncMock(
         side_effect=OSError("state store unavailable")
@@ -363,6 +364,7 @@ async def test_clean_shutdown_marker_is_unlinked_after_durable_discard(tmp_path)
     marker = tmp_path / ".clean_shutdown"
     marker.write_text("clean", encoding="utf-8")
     runner = object.__new__(GatewayRunner)
+    runner._ledger_crash_left_replies = AsyncMock(return_value=0)
     async_store = MagicMock()
     async_store.discard_active_turn_markers = AsyncMock(return_value=2)
 

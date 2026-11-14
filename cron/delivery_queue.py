@@ -130,6 +130,7 @@ def _initialize_schema(conn: sqlite3.Connection) -> None:
              finished_at TEXT
            )"""
     )
+    add_column_if_missing(conn, "deliveries", "owner_boot_epoch", "owner_boot_epoch TEXT")
     add_column_if_missing(
         conn, "deliveries", "for_failure",
         "for_failure INTEGER NOT NULL DEFAULT 0",
@@ -228,6 +229,7 @@ def get_status(execution_id: str) -> Optional[dict]:
 def claim_next() -> Optional[dict]:
     """Atomically claim one pending send before touching the transport."""
     pid = os.getpid()
+    from gateway.status import get_process_epoch
     started = _process_start_time(pid)
     with _transaction() as conn:
         # created_at carries a DST-varying offset: order by instant, not text.
@@ -239,9 +241,9 @@ def claim_next() -> Optional[dict]:
             return None
         cur = conn.execute(
             """UPDATE deliveries SET status='delivering', owner_process_id=?,
-               owner_pid=?, owner_started_at=?
+               owner_pid=?, owner_started_at=?, owner_boot_epoch=?
                WHERE execution_id=? AND status='pending'""",
-            (_PROCESS_ID, pid, started, row["execution_id"]),
+            (_PROCESS_ID, pid, started, get_process_epoch(), row["execution_id"]),
         )
         if cur.rowcount != 1:
             return None
@@ -288,7 +290,7 @@ def recover_abandoned() -> int:
     fenced: list[tuple[Optional[str], str]] = []
     with _transaction() as conn:
         rows = conn.execute(
-            "SELECT execution_id, job_json, owner_process_id, owner_pid, owner_started_at "
+            "SELECT execution_id, job_json, owner_process_id, owner_pid, owner_started_at, owner_boot_epoch "
             "FROM deliveries WHERE status='delivering'"
         ).fetchall()
         for row in rows:
@@ -297,7 +299,7 @@ def recover_abandoned() -> int:
                 with _lock:
                     if row["execution_id"] in _ACTIVE_DELIVERIES:
                         continue
-            elif _owner_is_live(int(row["owner_pid"]), row["owner_started_at"]):
+            elif _owner_is_live(int(row["owner_pid"]), row["owner_started_at"], row["owner_boot_epoch"]):
                 continue
             error = (
                 "Gateway finished delivery but could not persist its outcome; "

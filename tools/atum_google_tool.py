@@ -6,7 +6,8 @@ tasks use the controller broker. This tool forwards one closed request with the
 capability Atum gave this process at launch. It never sees a Google token, and
 neither requests nor answers are logged.
 
-The tool exists only in an assistant launched with ``ATUM_GOOGLE_TOOLS_URL`` and
+The tool uses an execution-bound host transport when the native plugin installs
+one. Legacy launchers supply ``ATUM_GOOGLE_TOOLS_URL`` and
 ``ATUM_GOOGLE_TOOLS_TOKEN``. Desktop combines that task-local broker capability
 with its Google fence. The cloud controller binds the capability to the current
 turn and sandbox address while retaining the Google access token itself. These
@@ -29,6 +30,9 @@ from typing import Any, Dict, Optional, Tuple
 from agent.atum_google_fence import broker_origin, mark_holding
 from agent.atum_google_injection import WARNING, WARNING_KEY, screen_attachment, screen_result
 from tools.atum_source_policy import source_enabled
+from tools.atum_source_transport import (
+    source_transport, source_transport_enabled, source_transport_error, source_transport_http_error,
+)
 from tools.registry import registry, tool_error
 
 URL_ENV = "ATUM_GOOGLE_TOOLS_URL"
@@ -66,9 +70,9 @@ _WRITES = frozenset({"send_email", "create_event", "update_event"})
 #: Reversible mailbox changes: no owner dialog, but never from a scheduled or background run.
 _MAILBOX_CHANGES = frozenset({"mailbox", "create_label", "create_draft", "update_draft"})
 #: Refused in a scheduled or background run before any network call. A download writes a file into the
-#: workspace and hands untrusted bytes to an unattended agent, and a send reaches other people (with the
-#: owner's files, when attached), so each needs the owner's turn too.
-_OWNER_TURN_ONLY = _MAILBOX_CHANGES | {"download_attachment", "send_email"}
+#: workspace and hands untrusted bytes to an unattended agent. Sends and calendar
+#: changes also require the owner's turn, even if a host would ask for confirmation.
+_OWNER_TURN_ONLY = _MAILBOX_CHANGES | _WRITES | {"download_attachment"}
 _READONLY_ACTIONS = (
     "status", "agenda", "waiting", "search_mail", "read_thread", "search_drive", "read_file"
 )
@@ -127,8 +131,8 @@ def _broker() -> Optional[Tuple[str, str]]:
 
 
 def available() -> bool:
-    """Whether Atum launched this assistant with a valid task-local Google broker."""
-    return _broker() is not None
+    """Static host capability or legacy process broker, never a per-turn binding."""
+    return source_transport_enabled() or _broker() is not None
 
 
 _available = available
@@ -140,10 +144,12 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
+    transport = source_transport()
+    if source_transport_enabled() and transport is None:
+        return tool_error("Google is unavailable for this run.")
     broker = _broker()
-    if broker is None:
+    if transport is None and broker is None:
         return tool_error("Google is not available to this assistant.")
-    base, token = broker
 
     action = str((args or {}).get("action") or "").strip()
     if action not in _ACTIONS:
@@ -153,8 +159,8 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
         # A schedule or delegated worker only reads: the broker enforces the same on the cloud.
         return json.dumps({
             "error": "owner_turn_required",
-            "hint": "Sending, mailbox changes, drafts and attachment downloads are made only while the owner is "
-                    "talking to you, not in a scheduled or background run. Report what you would do instead.",
+            "hint": "Google changes and downloads need the owner's turn, not a scheduled/background run; "
+                    "report what you would do.",
         })
 
     payload: Dict[str, Any] = {"action": action}
@@ -163,6 +169,38 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
         if value is not None and value != "" and value != [] and value != {}:
             payload[key] = value
 
+    if transport is not None:
+        # G4 keeps access/refresh custody in the host's existing Google broker.
+        def unconfirmed():
+            if action in _WRITES:
+                return tool_error(
+                    "Google did not confirm this change. Ask the owner to check before retrying.",
+                    code="outcome_unknown",
+                )
+            return tool_error("Google is unavailable for this run.")
+
+        try:
+            result = transport("google", payload)
+            if not isinstance(result, dict) or result.get("closedAfter") is True:
+                return unconfirmed()
+            correction = source_transport_error(result)
+            if correction is not None:
+                return correction
+            if ("error" in result or result.get('code') == 'outcome_unknown'
+                    or result.get('ok') is False or result.get('success') is False):
+                return unconfirmed()
+            body = json.dumps(result, ensure_ascii=False)
+            if len(body.encode("utf-8")) > _MAX_RESPONSE_BYTES:
+                return unconfirmed()
+        except Exception as error:
+            correction = source_transport_http_error(error)
+            if correction is not None and action not in _WRITES:
+                return correction
+            return unconfirmed()
+        mark_holding()
+        return body
+
+    base, token = broker
     if action == "download_attachment":
         return _download_attachment(base, token, payload, task_id)
 
@@ -189,7 +227,10 @@ def atum_google(args: Dict[str, Any], task_id: Optional[str] = None) -> str:
             else _WRITE_TIMEOUT_SECONDS if action in _WRITES else _READ_TIMEOUT_SECONDS,
         ) as response:
             body = response.read(_MAX_RESPONSE_BYTES + 1)
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as error:
+        correction = source_transport_http_error(error)
+        if correction is not None and action not in _WRITES:
+            return correction
         return tool_error("Google is not available to this assistant.")
     except (OSError, ValueError):
         if action in _WRITES:

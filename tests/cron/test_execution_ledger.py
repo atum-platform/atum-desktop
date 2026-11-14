@@ -57,7 +57,7 @@ def test_fresh_external_handoff_is_not_recovered_before_worker_adopts(
     assert executions.mark_execution_handoff_pending(record["id"]) is not None
 
     monkeypatch.setattr(executions, "_PROCESS_ID", "replacement-gateway")
-    monkeypatch.setattr(executions, "_owner_is_live", lambda _pid, _started: False)
+    monkeypatch.setattr(executions, "_owner_is_live", lambda _pid, _started, _epoch=None: False)
 
     assert executions.recover_interrupted_executions() == 0
     assert executions.get_execution(record["id"])["status"] == "claimed"
@@ -72,7 +72,7 @@ def test_stale_external_handoff_is_recovered_unknown(monkeypatch, tmp_path):
     pending = executions.mark_execution_handoff_pending(record["id"])
 
     monkeypatch.setattr(executions, "_PROCESS_ID", "replacement-gateway")
-    monkeypatch.setattr(executions, "_owner_is_live", lambda _pid, _started: False)
+    monkeypatch.setattr(executions, "_owner_is_live", lambda _pid, _started, _epoch=None: False)
     monkeypatch.setattr(
         executions.time,
         "time",
@@ -101,7 +101,7 @@ def test_recovery_does_not_overwrite_concurrent_worker_adoption(monkeypatch, tmp
         + 1,
     )
 
-    def adopt_while_liveness_is_checked(_pid, _started_at):
+    def adopt_while_liveness_is_checked(_pid, _started_at, _epoch=None):
         monkeypatch.setattr(executions, "_PROCESS_ID", "external-worker")
         monkeypatch.setattr(executions.os, "getpid", lambda: 4242)
         monkeypatch.setattr(executions, "_process_start_time", lambda _pid: 9876)

@@ -465,9 +465,11 @@ class GatewayStartupMixin:
             if adapter is None:
                 continue
             content = row["content"]
-            if row.get("needs_marker"):
+            if row.get("needs_marker") and row["platform"] != "matrix":
                 content = row.get("marker", RECOVERED_MARKER) + content
             metadata = {"thread_id": row["thread_id"]} if row.get("thread_id") else None
+            if row["platform"] == "matrix":
+                metadata = dict(metadata or {}, delivery_obligation_id=row["obligation_id"])
             try:
                 result = await adapter.send(chat_id=row["chat_id"], content=content, metadata=metadata)
             except Exception as send_err:
@@ -736,6 +738,7 @@ class GatewayStartupMixin:
     async def _consume_clean_shutdown_marker(self, marker_path) -> int:
         """Discard orphan turn markers before consuming a clean-exit receipt. Raises (fail closed):
         continuing with the old receipt would let a later unclean exit masquerade as clean."""
+        await self._ledger_crash_left_replies(2**62)
         discarded = await self.async_session_store.discard_active_turn_markers()
         marker_path.unlink()
         return discarded
@@ -752,7 +755,7 @@ class GatewayStartupMixin:
         with _log_suppressed(logging.WARNING, "Crash-left reply recovery on startup failed: %s"):
             ledgered = await self._ledger_crash_left_replies(max_age)
         with _log_suppressed(logging.WARNING, "Exact active-turn recovery on startup failed: %s"):
-            resumed = await self.async_session_store.recover_interrupted_turns(max_age_seconds=max_age)
+            resumed = await self.async_session_store.recover_interrupted_turns(max_age_seconds=max_age, stale_to_ask=True)
         return resumed, ledgered
 
     async def _ledger_crash_left_replies(self, max_age_seconds: int) -> int:
@@ -776,8 +779,10 @@ class GatewayStartupMixin:
             started = started_at.timestamp()  # aware UTC marker; a pre-upgrade naive one reads as local
             if started < cutoff:
                 continue
-            text = self._crash_left_reply(await self.async_session_store.load_transcript(session_id),
-                                          started, origin)
+            history = await self.async_session_store.load_transcript(session_id)
+            text = self._crash_left_reply(history, started, origin)
+            source_id = next((m.get('platform_message_id') or m.get('message_id') or (m.get('display_metadata') or {}).get('inbound_message_id')
+                              for m in reversed(history) if m.get('role') == 'user'), None)
             if text is None or (text and not ledger_on):
                 continue  # no final reply to deliver: the turn resumes
             if text:
@@ -785,7 +790,7 @@ class GatewayStartupMixin:
                     record_crash_left_reply,
                     obligation_id=compute_obligation_id(key, f"crash:{token}", text), session_key=key,
                     platform=str(getattr(origin.platform, "value", origin.platform)), chat_id=origin.chat_id,
-                    thread_id=origin.thread_id, content=text, since=started, adapter_profile=profile)
+                    thread_id=origin.thread_id, content=text, since=started, adapter_profile=profile, source_event_id=source_id)
             if await self.async_session_store.clear_turn_active(key, token) and text:
                 ledgered += 1
         return ledgered
@@ -1297,7 +1302,8 @@ class GatewayStartupMixin:
         for _t in _pending_tasks:
             _t.cancel()
         await asyncio.gather(*_pending_tasks, return_exceptions=True)
-        # Then tear down adapters whose connect succeeded — never registered, so stop() won't reach them.
+        # Then tear down adapters whose connect succeeded; defensive disconnect also withdraws
+        # their early native-admission binding (aggregation has not run yet).
         _connected_ok = [
             _t for _t in _task_map
             if _t not in _pending_tasks and not _t.cancelled() and _t.exception() is None and _t.result()[3] == "ok"

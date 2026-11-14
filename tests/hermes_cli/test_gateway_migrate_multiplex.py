@@ -8,6 +8,8 @@ fingerprint and port-binding predicates, so the tests assert verdict → effect,
 
 from __future__ import annotations
 
+from tests.runtime_identity import current_owner_fields
+
 import json
 import os
 from pathlib import Path
@@ -70,10 +72,10 @@ def fleet(tmp_path, monkeypatch):
         elif verb == "enable":
             state.enabled.add((name, kind, system))
         elif verb in ("start", "restart") and name == "default":
-            (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
+            (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
             runtime_path = root / "gateway_state.json"
             runtime = json.loads(runtime_path.read_text()) if runtime_path.exists() else {}
-            runtime.update({"pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running"})
+            runtime.update({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root), "gateway_state": "running"})
             # Multiplex startup records ownership; standalone startup historically preserved the
             # old key, which is the stale-state half of #109473's rollback failure.
             if _config_flag(root):
@@ -111,7 +113,7 @@ def fleet(tmp_path, monkeypatch):
 
 def _fake_spawn(state, home: Path) -> bool:
     root = state.root
-    (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}))
+    (root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(root)}))
     return True
 
 
@@ -576,8 +578,8 @@ def test_explicit_migrate_with_no_standalone_secondaries_still_flips_flag_and_re
 
     def _detached(home):  # no service manager anywhere -> detached start writes the served record
         fleet.services["default-detached"] = True
-        (fleet.root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(fleet.root)}))
-        (fleet.root / "gateway_state.json").write_text(json.dumps({
+        (fleet.root / "gateway.pid").write_text(json.dumps({**current_owner_fields(os.getpid()), "pid": os.getpid(), "hermes_home": str(fleet.root)}))
+        (fleet.root / "gateway_state.json").write_text(json.dumps({**current_owner_fields(os.getpid()),
             "pid": os.getpid(), "hermes_home": str(fleet.root), "gateway_state": "running",
             "served_profiles": ["default", "coder", "ops"]}))
         return True

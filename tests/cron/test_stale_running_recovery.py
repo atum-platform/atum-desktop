@@ -24,7 +24,7 @@ from cron.executions import _hermes_now, _transaction, recover_interrupted_execu
 def _ledger(monkeypatch, tmp_path):
     monkeypatch.setattr(executions_mod, "EXECUTIONS_FILE", tmp_path / "cron" / "executions.db")
     # The owner is alive for every row in this module; the bound alone decides.
-    monkeypatch.setattr(executions_mod, "_owner_is_live", lambda pid, started_at: True)
+    monkeypatch.setattr(executions_mod, "_owner_is_live", lambda pid, started_at, boot_epoch=None: True)
 
 
 def _seed_running(job_id: str, *, age_seconds: float, pid: int = 99999) -> str:
@@ -111,7 +111,7 @@ def test_progress_stamped_during_the_sweep_keeps_the_run(monkeypatch):
     bound = executions_mod._live_owner_stale_after_seconds()
     eid = _seed_running("job-resumed", age_seconds=bound + 3600)
 
-    def owner_resumes(pid, started_at):
+    def owner_resumes(pid, started_at, boot_epoch=None):
         # The external worker process (touch_execution_progress there) commits a fresh stamp
         # while this sweep is probing its liveness.
         worker = sqlite3.connect(executions_mod.EXECUTIONS_FILE)
