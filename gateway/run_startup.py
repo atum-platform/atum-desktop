@@ -814,6 +814,10 @@ class GatewayStartupMixin:
         if (last.get("role") != "assistant" or last.get("tool_calls") or not isinstance(last.get("content"), str)
                 or (coerce_epoch(last.get("timestamp")) or 0) < started):
             return None
+        if last.get('display_kind') == 'wallet_empty' or (last.get('display_metadata') or {}).get('wallet_empty') is True:
+            from agent.atum_wallet import enabled
+            if enabled():
+                return ""  # 0462 owns delivery, including recovery after a crash.
         prompt = next((m for m in reversed(visible) if m.get("role") == "user"), {})
         if is_machinery_display_kind(prompt.get("display_kind")):
             try:  # the owning profile's display policy, as the adapter reads it at delivery

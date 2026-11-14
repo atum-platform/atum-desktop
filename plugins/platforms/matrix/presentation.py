@@ -146,7 +146,9 @@ class Outbox:
             if txn not in txns:
                 continue
             body = json.loads(content)
-            if target:
+            if body.get('io.atum.presentation', {}).get('code') == 'subscription_fallback':
+                await self.effect(port, room, body, txn)
+            elif target:
                 await self.effect(port, room, body, txn, target)
             elif resolve is not None and 'io.atum.progress' in body and 'm.new_content' not in body:
                 created, boots, abandoned = self.db.execute(
@@ -204,6 +206,7 @@ class Turn:
         self.revision = -1
         self.last_progress = self.last_interim = float('-inf')
         self.interims = []
+        self.subscription_fallback = None
         self.ended = False
         self.frame = None
         self.pending = None
@@ -513,7 +516,22 @@ def adapter_class(base):
             token = _current.set(turn)
             final_token = _final_delivery.set(True)
             try:
-                return await super().send_final_ledgered(*args, **kwargs)
+                result, delivery_adapter = await super().send_final_ledgered(*args, **kwargs)
+                if turn and turn.subscription_fallback and not turn.stopped and result.success and result.message_id:
+                    content = {
+                        'msgtype': 'm.notice', 'body': '',
+                        'm.relates_to': {'m.in_reply_to': {'event_id': result.message_id}},
+                        'io.atum.presentation': {'version': 1, 'code': 'subscription_fallback',
+                                                 'args': turn.subscription_fallback},
+                    }
+                    try:
+                        await turn.box.effect(turn.port, turn.room, content,
+                                              transaction(turn.source, 'subscription-fallback-' + result.message_id))
+                    except Exception:
+                        # Durable intent survives for native outbox recovery. The
+                        # final answer's acknowledged delivery remains successful.
+                        logger.warning('Matrix fallback notice delivery deferred')
+                return result, delivery_adapter
             finally:
                 try:
                     if turn:
@@ -669,6 +687,22 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
+    def model_response(platform='', response=None, **_):
+        turn = _current.get()
+        if not turn or turn.ended or platform != 'matrix' or not isinstance(response, dict):
+            return
+        # Only the final main-agent completion owns the notice. Tool iterations
+        # and helpers must not leave fallback state on a later native answer.
+        if response.get('finish_reason') != 'stop' or response.get('assistant_message', {}).get('tool_calls'):
+            return
+        metadata = response.get('metadata')
+        value = metadata.get('subscription_fallback') if isinstance(metadata, dict) else None
+        valid = (isinstance(value, dict) and set(value) == {'plan', 'reason', 'servedBy'}
+                 and value['plan'] in {'chatgpt', 'opencode_go'}
+                 and value['reason'] == 'offline' and value['servedBy'] == 'nguyet-thuc')
+        turn.subscription_fallback = dict(value) if valid else None
+    ctx.register_hook('post_api_request', model_response)
+
     def begin_pet(platform='', turn_id='', parent_session_id='', **_):
         turn = _current.get()
         if (turn and turn.pet_eligible and not turn.stopped and not turn.ended and platform == 'matrix'

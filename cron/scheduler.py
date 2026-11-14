@@ -2433,6 +2433,8 @@ class _CronRunScope:
         from gateway.session_context import set_session_vars, _VAR_MAP
         from tools.terminal_tool import record_session_cwd
 
+        self._learning = job.get("seed_key") == "first-learning"
+        self._memory_target_token = None
         self._var_map = _VAR_MAP
         # Resolve workdir BEFORE set_session_vars so it owns the _SESSION_CWD set/clear.
         self.workdir = _resolve_job_workdir(job, job_id)
@@ -2470,6 +2472,9 @@ class _CronRunScope:
         # Scope cron approval policy; exit() RESETS via token (pinning "" would suppress the legacy
         # os.environ fallback used by standalone entrypoints/tests).
         self._cron_session_token = self._cron_session_var.set("1")
+        if self._learning:
+            from tools.memory_tool import _user_target_only
+            self._memory_target_token = _user_target_only.set(True)
         # Mark NOT the kanban worker: a worker's cronjob(action="run") lands here with
         # HERMES_KANBAN_TASK in env, and an unrelated job could close the worker's task. Must be a
         # ContextVar, NOT an os.environ clear (env is shared with the worker heartbeat and
@@ -2483,6 +2488,9 @@ class _CronRunScope:
         from gateway.session_context import clear_session_vars
         from tools.terminal_tool import clear_session_cwd
 
+        if self._memory_target_token is not None:
+            from tools.memory_tool import _user_target_only
+            _user_target_only.reset(self._memory_target_token)
         clear_session_cwd(self.task_id)
         clear_session_vars(self._ctx_tokens)  # also clears _SESSION_CWD
         if self._cron_session_token is not None:
@@ -2587,6 +2595,19 @@ def _construct_cron_agent(
 ):
     from cron.check_ins import ANSWER_MAX_TOKENS
 
+    learning = job.get("seed_key") == "first-learning"
+    progress_count = 0
+    def progress(text, **kwargs):
+        nonlocal progress_count
+        if progress_count >= 3 or not isinstance(text, str) or not text.strip():
+            return
+        progress_count += 1
+        line = " ".join(text.split())[:180]
+        # Same execution and route; queue key is distinct from the final result.
+        error = _deliver_result(dict(job, _delivery_part=f"progress-{progress_count}"), line)
+        if error:
+            logger.warning("First-learning progress delivery failed: %s", error)
+
     runtime = setup.runtime
     pr = _cfg.get("provider_routing") or {}
     return AIAgent(
@@ -2612,6 +2633,7 @@ def _construct_cron_agent(
         enabled_toolsets=[] if native_sweep or check_in else _resolve_cron_enabled_toolsets(job, _cfg),
         disabled_toolsets=_resolve_cron_disabled_toolsets(_cfg),
         quiet_mode=True,
+        interim_assistant_callback=progress if learning else None,
         # Project context files only with a configured workdir; SOUL.md always.
         skip_context_files=True if check_in else not bool(workdir),
         load_soul_identity=True,
@@ -2791,6 +2813,8 @@ def run_job(
             logger.error("Job %s: native_sweep_model_failed", job_id)
             return False, "", "", "native_sweep_model_failed"
         final_response = _final_response_from_result(result, job_id, job_name, AIAgent)
+        if job.get("seed_key") == "first-learning":
+            final_response = " ".join(final_response.split())[:180]
         if check_in is not None:
             final_response = _check_ins.finish(check_in, final_response)
         if (setup.fallback_notice and final_response.strip() and not _is_cron_silence_response(final_response)
@@ -3501,6 +3525,18 @@ def _run_one_job_body(
     native_sweep_gate: Optional[str] = None, native_claimed: bool = False,
     execution_token: Optional[object] = None,
 ) -> bool:
+    from agent.atum_wallet import held as wallet_held, set_funded
+    if job.get('deliver') != 'local' and wallet_held():
+        set_funded(False)  # Also pause visible jobs created since the first refusal.
+        if job.get('execution_id'):
+            finish_execution(job['execution_id'], success=False, error='wallet_hold')
+        from cron.jobs import release_held_fire
+        claim = job.get('fire_claim') or {}
+        if claim.get('by'):
+            release_held_fire(job['id'], expected_owner=claim['by'])
+        else:
+            clear_run_claim(job['id'])
+        return True  # Intentional skip; no delivery or run count.
     fence = _FireOwnership(job, claim_lost, transport_cancel)
     fire_owner = fence.owner
     _side_effect_fence = fence.side_effect_fence

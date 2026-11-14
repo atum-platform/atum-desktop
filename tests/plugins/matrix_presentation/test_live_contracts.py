@@ -66,7 +66,9 @@ async def test_completion_real_client_http_boundary(tmp_path, cleanup_fails):
         async def send(self, chat_id, content, **kwargs):
             return await self._send_room_message(chat_id, {'msgtype': 'm.text', 'body': content}, txn_id='final')
         async def send_final_ledgered(self, event):
-            return await self.send(event.source.chat_id, 'answer')
+            from gateway.platforms.base import SendResult
+            message_id = await self.send(event.source.chat_id, 'answer')
+            return SendResult(success=True, message_id=message_id), self
     a = p.adapter_class(Base)()
     a._client = client
     a._presentation_box = p.Outbox(tmp_path / 'outbox.db')

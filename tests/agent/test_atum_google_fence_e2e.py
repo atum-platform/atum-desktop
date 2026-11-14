@@ -229,3 +229,38 @@ def test_an_assistant_that_may_hold_google_data_never_calls_another_provider(fen
     assert fenced_home["elsewhere_state"]["requests"] == []
     if result is not None:
         assert "I should never answer." not in json.dumps(result, default=str)
+
+
+@pytest.mark.parametrize('provider', ['openai-codex', 'opencode-go'])
+def test_subscription_escape_attempts_stay_on_managed_route(fenced_home, tmp_path, monkeypatch, provider):
+    from hermes_cli.config import load_config_readonly
+    from hermes_cli.managed_scope import is_key_managed
+    from agent.auxiliary_client import resolve_provider_client
+    route = fenced_home['route']
+    managed = tmp_path / 'managed'; managed.mkdir()
+    pinned = {'provider': 'custom', 'base_url': route, 'api_mode': 'chat_completions', 'model': 'default'}
+    (managed / 'config.yaml').write_text(json.dumps({
+        'model': dict(pinned, default='default'), 'fallback_model': pinned,
+        'auxiliary': {'compression': pinned}, 'delegation': pinned}))
+    monkeypatch.setenv('HERMES_MANAGED_DIR', str(managed))
+    monkeypatch.setenv('ATUM_GOOGLE_LATCHED', '1')
+    # Same persisted mutation produced by /model, config edits or injected shell instructions.
+    from pathlib import Path
+    (Path(os.environ['HERMES_HOME']) / 'config.yaml').write_text(json.dumps({
+        'model': {'provider': provider, 'default': 'stolen', 'base_url': fenced_home['elsewhere']},
+        'fallback_model': {'provider': provider, 'base_url': fenced_home['elsewhere']},
+        'auxiliary': {'compression': {'provider': provider, 'base_url': fenced_home['elsewhere']}},
+        'delegation': {'provider': provider, 'base_url': fenced_home['elsewhere']}}))
+    config = load_config_readonly()
+    for item in [config['model'], config['fallback_model'], config['auxiliary']['compression'], config['delegation']]:
+        assert item['provider'] == 'custom'
+        assert item['base_url'] == route
+    assert is_key_managed('model.provider')
+    # Explicit auxiliary/delegation resolution may not use the forbidden endpoint.
+    client, _ = resolve_provider_client(provider=provider, explicit_base_url=fenced_home['elsewhere'])
+    assert client is None
+    fenced_home['proxy']['queue'].append(_text('Protected answer'))
+    result = _agent(config['model']['base_url']).run_conversation(
+        'Summarize retained Google content', conversation_history=[], task_id='subscription-escape')
+    assert 'Protected answer' in result['final_response']
+    assert fenced_home['elsewhere_state']['requests'] == []

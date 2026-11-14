@@ -1408,6 +1408,7 @@ class TurnRunner(GatewayTurnProgressMixin, GatewaySessionAgentMixin):
             "failed": result.get("failed", False), "failure_reason": result.get("failure_reason"),
             # Usage-window limit (agent/plan_limits.py): the gateway offers the plan's model as a button.
             "usage_limit": result.get("usage_limit"),
+            "wallet_empty": result.get("wallet_empty", False),
             "partial": result.get("partial", False), "completed": result.get("completed"),
             "interrupted": result.get("interrupted", False), "interrupt_message": result.get("interrupt_message"),
             "error": result.get("error"),

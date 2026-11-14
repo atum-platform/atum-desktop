@@ -124,6 +124,8 @@ def normalize_model_response(
 ) -> ResponseIntakeVerdict:
     """Normalize ``response`` into ``assistant_message`` (str content, never dict/list) and run
     the post-response hooks and continuation guards, in the original order."""
+    from agent.atum_wallet import succeeded as wallet_succeeded
+    wallet_succeeded(agent, response)
     assistant_message = normalize_response_for_agent(agent, response)
     finish_reason = assistant_message.finish_reason
 

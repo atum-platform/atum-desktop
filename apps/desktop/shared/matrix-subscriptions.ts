@@ -1,5 +1,8 @@
 import type { MatrixModelRoute } from './matrix-models'
 
+/** The relay Mac that serves a ChatGPT plan to cloud assistants: online, offline, or none registered. */
+export type MatrixRelayPresence = 'online' | 'offline' | 'none'
+
 /**
  * The two subscriptions Settings › Connections offers (2026-10-27 owner ask). A subscription
  * belongs to the Atum account on this Mac, not to one agent: ChatGPT's sign-in lives in the
@@ -52,8 +55,12 @@ export interface MatrixSubscriptionProviderStatus {
   revision?: number
   /** Whether this row came from the account-wide platform or the pre-R1 local key. */
   source?: 'platform' | 'local'
-  /** ChatGPT only: the account's selected relay Mac. No credential or network address. */
-  relay?: { state: 'disabled' | 'enabled'; thisMac: boolean; revision: number }
+  /** ChatGPT only: the account's selected relay Mac. No credential or network address.
+   * `presence` is the relay Mac's liveness as `atum.chatgpt-relay` `relayPresence` states it
+   * (`unregistered` reads `none`); absent from a platform that does not send it yet. Only
+   * `shared/matrix-subscription-availability.ts` decides what it means for a pick.
+   * `carried`: the plan's sign-in moved to cloud custody (S2), so the cloud serves it with no Mac. */
+  relay?: { state: 'disabled' | 'enabled' | 'carried'; thisMac: boolean; revision: number; presence?: MatrixRelayPresence }
 }
 
 /** The account's subscriptions, read once for every assistant of that account. */

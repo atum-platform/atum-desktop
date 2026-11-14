@@ -487,6 +487,19 @@ def _codex_refresh_failure_error(response: httpx.Response) -> AuthError:
 def refresh_codex_oauth_pure(
     access_token: str, refresh_token: str, *, timeout_seconds: float = 20.0) -> dict[str, Any]:
     """Refresh Codex OAuth tokens without mutating Hermes auth state."""
+    from hermes_cli.auth import _auth_store_lock, _load_auth_store, _auth_file_path, ACCOUNT_AUTH_HOME_ENV
+    account_home = os.environ.get(ACCOUNT_AUTH_HOME_ENV, "").strip()
+    target = Path(account_home).expanduser() / "auth.json" if account_home else _auth_file_path()
+    # Same lock as the carry transaction. An already-running refresh finishes
+    # before begin snapshots its rotated pair; cached pool entries cannot rotate
+    # the paused/carried chain after begin has committed.
+    with _auth_store_lock(target_path=target):
+        if _load_auth_store(target).get("chatgpt_carry", {}).get("state") in {"paused", "carried"}:
+            raise _codex_err("ChatGPT sign-in is held by the cloud.", "codex_carried", relogin=False)
+        return _refresh_codex_owned(access_token, refresh_token, timeout_seconds=timeout_seconds)
+
+
+def _refresh_codex_owned(access_token, refresh_token, *, timeout_seconds):
     from hermes_cli.auth import _nonempty_str, _utc_now_z
     del access_token  # Access token is only used by callers to decide whether to refresh.
     if not _nonempty_str(refresh_token):

@@ -7,7 +7,7 @@ export const MATRIX_CHATGPT_RELAY_PROFILE = 'atum.chatgpt-relay/1' as const
 
 export interface MatrixChatGptRelaySnapshot {
   revision: number
-  state: 'disabled' | 'enabled'
+  state: 'disabled' | 'enabled' | 'carried'
   deviceServiceId?: string
   selectedAt?: number
   models: readonly MatrixProviderConnectionModel[]
@@ -27,7 +27,7 @@ function record(value: unknown): value is Record<string, unknown> {
 function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
   if (!record(value) || value.profile !== MATRIX_CHATGPT_RELAY_PROFILE ||
       !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 ||
-      !['disabled', 'enabled'].includes(String(value.state)) || !Array.isArray(value.models) || value.models.length > 64) {
+      !['disabled', 'enabled', 'carried'].includes(String(value.state)) || !Array.isArray(value.models) || value.models.length > 64) {
     return
   }
   const models: MatrixProviderConnectionModel[] = []
@@ -52,6 +52,9 @@ function parse(value: unknown): MatrixChatGptRelaySnapshot | undefined {
     }
     return { revision: Number(value.revision), state: 'enabled', deviceServiceId: value.deviceServiceId,
       selectedAt: Number(value.selectedAt), models }
+  }
+  if (value.state === 'carried') {
+    return { revision: Number(value.revision), state: 'carried', models }
   }
   if (Object.keys(value).some(key => !['profile', 'revision', 'state', 'models'].includes(key)) || models.length) {
     return
@@ -82,6 +85,7 @@ export async function requestMatrixChatGptRelay(resource: string, accessToken: s
 export class MatrixChatGptRelay {
   private owner: Scope | null = null
   private snapshot?: MatrixChatGptRelaySnapshot
+  private carried = false
 
   constructor(private readonly options: { scope(): Scope | null; call(action: Action, signal: AbortSignal, body?: unknown): Promise<Answer>; changed(): void }) {}
 
@@ -89,7 +93,13 @@ export class MatrixChatGptRelay {
     if (owner?.accountKey === this.owner?.accountKey && owner?.generation === this.owner?.generation) {
       return
     }
-    this.owner = owner; this.snapshot = undefined
+    this.owner = owner; this.snapshot = undefined; this.carried = false
+  }
+
+  markCarried(): void {
+    this.carried = true
+    this.snapshot = { revision: this.snapshot?.revision ?? 0, state: 'carried', models: this.snapshot?.models ?? [] }
+    this.options.changed()
   }
 
   view() { return this.snapshot }
@@ -101,14 +111,16 @@ export class MatrixChatGptRelay {
     }
     const answer = await this.options.call('status', AbortSignal.timeout(20_000)).catch(() => undefined)
     const next = answer?.status === 200 ? parse(answer.value) : undefined
+    if (this.carried && next?.state !== 'carried') {return this.snapshot}
     if (!next || scope.accountKey !== this.options.scope()?.accountKey || scope.generation !== this.options.scope()?.generation) {
       return
     }
+    this.carried ||= next.state === 'carried'
     this.snapshot = next; this.options.changed(); return next
   }
 
   async enable(deviceServiceId: string, models: readonly MatrixProviderConnectionModel[]): Promise<boolean> {
-    if (!this.options.scope() || !UUID.test(deviceServiceId) || models.length < 1) {
+    if (this.carried || !this.options.scope() || !UUID.test(deviceServiceId) || models.length < 1) {
       return false
     }
     const answer = await this.options.call('enable', AbortSignal.timeout(20_000), {

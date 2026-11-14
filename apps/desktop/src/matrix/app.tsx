@@ -144,6 +144,7 @@ import type { MatrixPageId } from '../../shared/matrix-pages'
 import type { MatrixProfileTarget } from '../../shared/matrix-profile'
 import type { MatrixSavedMessagesSnapshot } from '../../shared/matrix-saved-messages'
 import { isMatrixVerificationPending } from '../../shared/matrix-security'
+import { matrixFoldSubscriptionFallbacks, matrixLatestAnswerFallback } from '../../shared/matrix-subscription-fallback'
 import { matrixTeamSpaceCopy } from '../../shared/matrix-team-space-copy'
 import {
   isMatrixTransientLine,
@@ -431,6 +432,7 @@ import { matrixStartupBlocking, MatrixStartupScreen } from './startup-screen'
 import { MatrixStoreSidebar, useMatrixStoreNavigation } from './store/store-sidebar'
 import { $matrixStoreDraft, MatrixStoreDraftSeed } from './store/store-try'
 import { $matrixStoreHubRequest, $matrixStoreShelfRequest, matrixInAppTopUp, openMatrixTopUp } from './store/top-up'
+import { GoogleSwitchLine, SubscriptionFallbackLine } from './subscription-fallback-line'
 import { useMatrixSurfaces } from './surface-sources'
 import {
   ArchivedChannelBanner,
@@ -693,9 +695,18 @@ function MatrixMembershipRow({ line }: { line: MatrixMembershipLine }) {
 function MatrixMessageBubble() {
   const history = useAuiState(state => state.message.metadata.custom?.appHistory) as MatrixAppHistoryEntry | undefined
   const membership = useAuiState(state => state.message.metadata.custom?.membership) as MatrixMembershipLine | undefined
+  const matrix = useAuiState(state => state.message.metadata.custom?.matrix) as MatrixMessage | undefined
 
   if (membership) {
     return <MatrixMembershipRow line={membership} />
+  }
+
+  if (matrix?.googleSwitch && !matrix.redacted) {
+    return (
+      <MessagePrimitive.Root data-slot="aui_system-message-root">
+        <GoogleSwitchLine switched={matrix.googleSwitch} timestamp={matrix.timestamp} />
+      </MessagePrimitive.Root>
+    )
   }
 
   return history ? <AppHistoryMessageBubble entry={history} /> : <MatrixEventMessageBubble />
@@ -1523,6 +1534,9 @@ function MatrixEventMessageBubble() {
             {flat ? chat.edited : mobileChatCopy[locale].edited}
           </span>
         </Tip>
+      )}
+      {message.answeredByFallback && !message.redacted && (
+        <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -3959,6 +3973,10 @@ function MatrixComposer({
                     fail={fail}
                     here={pickerHere}
                     home={roomAgent?.home}
+                    lastFallback={matrixLatestAnswerFallback(
+                      contextMessages ?? snapshot.messages,
+                      roomAgent?.userId ?? snapshot.assistant?.userId
+                    )}
                     local={pickerLocal}
                     managed={pickerManaged}
                     onAdvanced={onModelSettings}
@@ -5385,7 +5403,12 @@ function Conversation({
     const line = lineAgent ? matrixLiveWorkingLine(visible, lineAgents, lineAgent) : undefined
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
-    const transcriptMessages = visible.filter(message => !isMatrixTransientLine(message, lineAgents))
+    // A fallback notice (agent-turns/1.7) is never a row: it marks the answer it replies to.
+    // The Google switch line (S2) shows once, as one quiet line, and only from an agent.
+    const transcriptMessages = matrixFoldSubscriptionFallbacks(
+      visible.filter(message => !isMatrixTransientLine(message, lineAgents)),
+      lineAgents
+    )
 
     // Your message shows the moment you press Send, until its local turn or event takes over.
     const { entries, matched } = mergeOutgoingEchoes(

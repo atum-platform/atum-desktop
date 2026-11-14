@@ -79,7 +79,11 @@ export interface MatrixCloudModelChoiceView {
    * The account connection behind a subscription choice. `revoked` means the choice survived
    * but its key is gone: the picker must offer Reconnect, never silently use Atum.
    */
+  subscriptionCustody?: 'carried'
   subscriptionState?: 'connected' | 'revoked' | 'disconnected' | 'unavailable'
+  /** The ChatGPT relay Mac's presence (`atum.chatgpt-relay` `relayPresence`), when the platform
+   * sends it. Read only through `shared/matrix-subscription-availability.ts`. */
+  relayPresence?: 'online' | 'offline' | 'none'
 }
 
 /** One OpenCode Go model offered to a cloud agent by the account connection. */
@@ -92,7 +96,7 @@ export interface MatrixCloudSubscriptionModel {
 
 /** A server alias as one of the picker's own models; `default` is Nguyệt Thực. */
 export function matrixCloudModelAlias(alias: unknown): MatrixModelId | undefined {
-  return alias === 'default' ? MATRIX_DEFAULT_MODEL : parseMatrixModel(alias)
+  return alias === 'default' || alias === 'google-protected' ? MATRIX_DEFAULT_MODEL : parseMatrixModel(alias)
 }
 
 /**

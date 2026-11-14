@@ -35,6 +35,9 @@ logger = logging.getLogger(__name__)
 _memory_surface_flags: ContextVar[Optional[tuple[bool, bool]]] = ContextVar("memory_surface_flags", default=None)
 
 
+_user_target_only: ContextVar[bool] = ContextVar("memory_user_target_only", default=False)
+
+
 def get_memory_dir() -> Path:
     """Profile-scoped memories dir, resolved per call (HERMES_HOME may switch after import)."""
     return get_hermes_home() / "memories"
@@ -322,6 +325,8 @@ def _memory_target_error(
     store: MemoryStore, target: str | None, operations: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any] | None:
     """Validate one explicit store before writing, staging, or replaying a batch."""
+    if _user_target_only.get() and target != "user":
+        return {"success": False, "error": "First learning may write only target=user."}
     if target is None:
         FAILURE_CLASS.set("invalid_args")
         return {"success": False, "error": (

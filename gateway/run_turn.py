@@ -1788,7 +1788,7 @@ class GatewayTurnMixin(GatewayTurnPrepareMixin, GatewayTurnHygieneMixin, Gateway
         self, turn_ctx: TurnContext, adapter: Any, response: Any, result: Any, stream_task: Any,
     ) -> None:
         """Deliver the first response before a queued follow-up runs, unless streaming already did."""
-        if turn_ctx.mute_notification_reply:
+        if turn_ctx.mute_notification_reply or (isinstance(result, dict) and result.get("wallet_empty")):
             return
         session_key = turn_ctx.session_key
         _sc = turn_ctx.stream_consumer_holder[0]
