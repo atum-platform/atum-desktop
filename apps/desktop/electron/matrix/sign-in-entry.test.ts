@@ -1,16 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { MATRIX_GOOGLE_PROVIDER, matrixEmailSignIn, matrixEmailSignInState, matrixSignInEntry } from './sign-in-entry'
+import { matrixEmailSignIn, matrixEmailSignInState, matrixSignInEntry } from './sign-in-entry'
+
+const googleProvider = '01J00000000000000000000005'
+const appleProvider = '01J0000000000000000000000A'
 
 const issuer = 'https://auth.example'
 const grant = '01K6ZQ3W4X5Y6Z7A8B9C0D1E2F'
 const authorize = `${issuer}/authorize?client_id=matrix&state=s&code_challenge=c`
+const chooser = `${issuer}/login?kind=continue_authorization_grant&id=${grant}`
+
+function providerHop(provider: string) {
+  return `${issuer}/upstream/authorize/${provider}?kind=continue_authorization_grant&id=${grant}`
+}
 
 /** A stand-in for MAS 1.24: `/authorize` → its page with the grant, then the page itself. */
 function mas({
   page = '/login',
   passwords = true,
-  providers = [MATRIX_GOOGLE_PROVIDER]
+  providers = [googleProvider]
 }: { page?: string; passwords?: boolean; providers?: string[] } = {}) {
   const pageUrl = `${page}?kind=continue_authorization_grant&id=${grant}`
 
@@ -22,7 +30,7 @@ function mas({
       return new Response(null, { status: 303, headers: { location: pageUrl } })
     }
 
-    if (!passwords) {
+    if (!passwords && providers.length === 1) {
       // Passwords off and one provider: MAS goes straight on to it.
       return new Response(null, {
         status: 303,
@@ -34,11 +42,11 @@ function mas({
     const links = providers
       .map(
         id =>
-          `<a href="&#x2f;upstream&#x2f;authorize&#x2f;${id}?kind=continue_authorization_grant&amp;id=${grant}">Google</a>`
+          `<a href="&#x2f;upstream&#x2f;authorize&#x2f;${id}?kind=continue_authorization_grant&amp;id=${grant}">Provider</a>`
       )
       .join('')
 
-    return new Response(`<form><input name="password" type="password"></form>${links}`, {
+    return new Response(`${passwords ? '<form><input name="password" type="password"></form>' : ''}${links}`, {
       status: 200,
       headers: { 'content-type': 'text/html' }
     })
@@ -49,7 +57,7 @@ describe('where the browser opens for each way in', () => {
   it("sends Google straight to Google's account picker by continuing MAS's own grant", async () => {
     const fetch = mas()
     const url = new URL(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch }))
-    expect(url.origin + url.pathname).toBe(`${issuer}/upstream/authorize/${MATRIX_GOOGLE_PROVIDER}`)
+    expect(url.origin + url.pathname).toBe(`${issuer}/upstream/authorize/${googleProvider}`)
     expect(url.searchParams.get('kind')).toBe('continue_authorization_grant')
     expect(url.searchParams.get('id')).toBe(grant)
     // The authorization MAS checks is the app's own: PKCE and state are unchanged.
@@ -59,65 +67,124 @@ describe('where the browser opens for each way in', () => {
   it("builds Google's hop from the grant even though MAS's page escapes its links (passwords on)", async () => {
     const fetch = mas({ passwords: true })
     expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch })).toBe(
-      `${issuer}/upstream/authorize/${MATRIX_GOOGLE_PROVIDER}?kind=continue_authorization_grant&id=${grant}`
+      `${issuer}/upstream/authorize/${googleProvider}?kind=continue_authorization_grant&id=${grant}`
     )
-
   })
 
-  it('builds Google’s hop without checking the page only for a provider this server was seen to offer', async () => {
-    const confirmed = new Set<string>()
+  it('does not reuse a previous provider offer when the page check fails', async () => {
+    await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: mas() })
 
-    // The page check failing (offline for a moment) before this run ever saw the server's
-    // providers: the plain authorization URL, never a hop to a provider it may not have.
     const flaky = vi.fn(async (input: string) =>
       new URL(input).pathname === '/authorize'
-        ? new Response(null, { status: 303, headers: { location: `/login?kind=continue_authorization_grant&id=${grant}` } })
+        ? new Response(null, { status: 303, headers: { location: chooser } })
         : Promise.reject(new TypeError('fetch failed'))
     )
 
-    expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: flaky, confirmed })).toBe(
-      authorize
+    expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: flaky })).toBe(authorize)
+  })
+
+  it('uses the sole provider MAS offers, without a pinned deployment ID', async () => {
+    const provider = '01J00000000000000000000009'
+
+    for (const passwords of [true, false]) {
+      expect(
+        await matrixSignInEntry({
+          authorizationUrl: authorize,
+          method: 'google',
+          fetch: mas({ providers: [provider], passwords })
+        })
+      ).toBe(providerHop(provider))
+    }
+  })
+
+  it.each([true, false])('opens MAS’s two-provider chooser (passwords: %s)', async passwords => {
+    for (const providers of [
+      [appleProvider, googleProvider],
+      [googleProvider, appleProvider]
+    ]) {
+      expect(
+        await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: mas({ providers, passwords }) })
+      ).toBe(chooser)
+    }
+  })
+
+  it('uses a hint only for the sole provider currently offered', async () => {
+    for (const provider of [undefined, googleProvider]) {
+      expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', provider, fetch: mas() })).toBe(
+        providerHop(googleProvider)
+      )
+    }
+
+    for (const provider of [appleProvider, 'not-a-provider']) {
+      expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', provider, fetch: mas() })).toBe(
+        chooser
+      )
+    }
+
+    expect(
+      await matrixSignInEntry({
+        authorizationUrl: authorize,
+        method: 'google',
+        provider: googleProvider,
+        fetch: mas({ passwords: false, providers: [appleProvider, googleProvider] })
+      })
+    ).toBe(chooser)
+  })
+
+  it('reads plain and escaped links, ignores foreign/invalid links, and deduplicates provider IDs', async () => {
+    const href = `/upstream/authorize/${googleProvider}`
+
+    const fetch = vi.fn(async (input: string) =>
+      input === authorize
+        ? new Response(null, { status: 303, headers: { location: chooser } })
+        : new Response(
+            [
+              `<a href="${href}">Google</a>`,
+              `<a href='${href.replaceAll('/', '&#47;')}'>Google again</a>`,
+              `<a href="https://other.example/upstream/authorize/${appleProvider}">Foreign</a>`,
+              `<a href="https://user:noreply@auth.example/upstream/authorize/${appleProvider}">Credentials</a>`,
+              '<a href="/upstream/authorize/not-a-provider">Invalid</a>'
+            ].join('')
+          )
     )
 
-    // Once the server's page named Google (or MAS went there by itself), the same failure goes
-    // straight to Google's hop.
-    await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: mas(), confirmed })
-    expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: flaky, confirmed })).toBe(
-      `${issuer}/upstream/authorize/${MATRIX_GOOGLE_PROVIDER}?kind=continue_authorization_grant&id=${grant}`
+    expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch })).toBe(
+      providerHop(googleProvider)
+    )
+  })
+
+  it.each([200, 500])('leaves an unrecognised page to MAS (HTTP %s)', async status => {
+    const fetch = vi.fn(async (input: string) =>
+      input === authorize
+        ? new Response(null, { status: 303, headers: { location: chooser } })
+        : new Response(`Unrecognised page mentioning ${googleProvider}`, { status })
     )
 
-    const redirected = new Set<string>()
-    await matrixSignInEntry({
-      authorizationUrl: authorize,
-      method: 'google',
-      fetch: mas({ passwords: false }),
-      confirmed: redirected
-    })
-    expect(
-      await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: flaky, confirmed: redirected })
-    ).toContain(`/upstream/authorize/${MATRIX_GOOGLE_PROVIDER}?`)
-
-    // Another server's offer confirms nothing here.
-    const elsewhere = new Set([`https://other.example ${MATRIX_GOOGLE_PROVIDER}`])
-    expect(
-      await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: flaky, confirmed: elsewhere })
-    ).toBe(authorize)
+    expect(await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch })).toBe(chooser)
   })
 
   it('opens the password registration form for a new account when the server takes them', async () => {
     const fetch = mas({ page: '/register' })
     expect(
-      await matrixSignInEntry({ authorizationUrl: `${authorize}&prompt=create`, method: 'create', registration: true, fetch })
+      await matrixSignInEntry({
+        authorizationUrl: `${authorize}&prompt=create`,
+        method: 'create',
+        registration: true,
+        fetch
+      })
     ).toBe(`${issuer}/register/password?kind=continue_authorization_grant&id=${grant}`)
     // One question to MAS: the grant; its chooser of ways is never opened or asked.
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
   it('follows MAS when it would go to Google by itself (passwords off)', async () => {
-    const url = await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: mas({ passwords: false }) })
-    expect(url).toBe(
-      `${issuer}/upstream/authorize/${MATRIX_GOOGLE_PROVIDER}?kind=continue_authorization_grant&id=${grant}`
-    )
+    const url = await matrixSignInEntry({
+      authorizationUrl: authorize,
+      method: 'google',
+      fetch: mas({ passwords: false })
+    })
+
+    expect(url).toBe(`${issuer}/upstream/authorize/${googleProvider}?kind=continue_authorization_grant&id=${grant}`)
   })
 
   it("opens MAS's sign-in page for email, and its registration page for a new account", async () => {
@@ -141,15 +208,21 @@ describe('where the browser opens for each way in', () => {
     }
   })
 
-  it("never opens a broken link: anything unexpected opens MAS's own page", async () => {
-    // Google is not on the page (another provider set): MAS's page, which lists what exists.
+  it.each(['email', 'create'] as const)('keeps %s usable on a provider-only chooser', async method => {
     expect(
       await matrixSignInEntry({
         authorizationUrl: authorize,
-        method: 'google',
-        fetch: mas({ providers: ['01J00000000000000000000009'] })
+        method,
+        fetch: mas({ passwords: false, providers: [appleProvider, googleProvider] })
       })
-    ).toBe(`${issuer}/login?kind=continue_authorization_grant&id=${grant}`)
+    ).toBe(chooser)
+  })
+
+  it("never opens a broken link: anything unexpected opens MAS's own page", async () => {
+    // No provider links: the server's page is the authority.
+    expect(
+      await matrixSignInEntry({ authorizationUrl: authorize, method: 'google', fetch: mas({ providers: [] }) })
+    ).toBe(chooser)
 
     // Offline, or a redirect that is not MAS's grant page: the plain authorization URL.
     const offline = vi.fn(async () => {
@@ -194,6 +267,25 @@ describe('whether the server takes email sign-in, for the sign-in window', () =>
     )
   })
 
+  it.each([true, false])('detects password availability on the two-provider chooser (%s)', async passwords => {
+    expect(
+      await matrixEmailSignIn({
+        authorizationUrl: authorize,
+        fetch: mas({ passwords, providers: [appleProvider, googleProvider] })
+      })
+    ).toBe(passwords ? 'available' : 'unavailable')
+  })
+
+  it('keeps an unrecognised successful page unknown', async () => {
+    const fetch = vi.fn(async (input: string) =>
+      input === authorize
+        ? new Response(null, { status: 303, headers: { location: chooser } })
+        : new Response('<p>Unexpected page</p>')
+    )
+
+    expect(await matrixEmailSignIn({ authorizationUrl: authorize, fetch })).toBe('unknown')
+  })
+
   it('is unknown offline or for anything it does not recognise, so the window keeps both ways', async () => {
     const offline = vi.fn(async () => {
       throw new TypeError('fetch failed')
@@ -201,7 +293,10 @@ describe('whether the server takes email sign-in, for the sign-in window', () =>
 
     expect(await matrixEmailSignIn({ authorizationUrl: authorize, fetch: offline })).toBe('unknown')
 
-    const elsewhere = vi.fn(async () => new Response(null, { status: 303, headers: { location: 'https://evil.example/' } }))
+    const elsewhere = vi.fn(
+      async () => new Response(null, { status: 303, headers: { location: 'https://evil.example/' } })
+    )
+
     expect(await matrixEmailSignIn({ authorizationUrl: authorize, fetch: elsewhere })).toBe('unknown')
 
     const broken = vi.fn(async (input: string) =>

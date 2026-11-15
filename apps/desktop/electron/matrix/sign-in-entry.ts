@@ -1,19 +1,9 @@
 import type { MatrixEmailSignIn, MatrixSignInMethod } from '../../shared/matrix'
 
-/**
- * Google's upstream provider in MAS (atum-platform `deploy/chat/signup.py` and
- * `google-config.py` pin this ID).
- */
-export const MATRIX_GOOGLE_PROVIDER = '01J00000000000000000000005'
-
 /** MAS's IDs are ULIDs (Crockford base 32). */
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/
 
 const PROBE_MS = 8_000
-
-/** `issuer provider` pairs this run saw MAS offer (its own redirect to the provider, or its
- * page naming it): Google's hop is built blind only for a provider confirmed this way. */
-const confirmedProviders = new Set<string>()
 
 type Fetch = (input: string, init: RequestInit) => Promise<Response>
 
@@ -42,54 +32,56 @@ function grantStep(issuer: string, path: string, grant: string): string {
   return url.href
 }
 
+/** Provider IDs from MAS's own links, including Minijinja's escaped slashes. */
+function offeredProviders(html: string, page: URL): string[] {
+  const providers = new Set<string>()
+
+  for (const link of html.matchAll(/<a\b[^>]*\shref\s*=\s*(["'])(.*?)\1/gi)) {
+    const href = link[2].replace(/&#(?:x2f|47);/gi, '/').replace(/&amp;/g, '&')
+
+    try {
+      const url = new URL(href, page)
+      const provider = url.pathname.match(/^\/upstream\/authorize\/([^/]+)$/)?.[1]
+
+      if (url.origin === page.origin && !url.username && !url.password && provider && ULID.test(provider)) {
+        providers.add(provider)
+      }
+    } catch {
+      // An unfamiliar link leaves selection to MAS.
+    }
+  }
+
+  return [...providers]
+}
+
 /**
- * Where the browser opens for a way in, so nobody sees a page they did not ask for
- * (atum-platform  A2; proven on MAS
- * 1.24 by the signup proof's case 11):
- *
- * - MAS's `/authorize` creates the grant and redirects to its sign-in page (or, with
- *   `prompt=create`, its registration page) carrying the grant's ID. The grant is not tied
- *   to a browser, so asking from here is safe, and PKCE, state and the loopback callback
- *   still guard the result.
- * - **Google** continues that grant at MAS's Google hop, built from the grant's ID, so Google's
- *   account picker is the first page whether MAS's sign-in page would redirect there (passwords
- *   off: then MAS's own redirect is followed) or show itself (passwords on). MAS's page escapes
- *   its links (`&#x2f;`), so the hop is never read from its HTML; the page only has to name the
- *   provider at all, else (a server without Google) MAS's own page opens.
- * - **Email** opens MAS's own sign-in page for the grant. When MAS has no passwords it goes
- *   straight on to its only provider; then this refuses with `matrix_password_unavailable`
- *   rather than send someone who chose email to Google.
- * - **Create** opens MAS's password registration form for the grant when the server takes new
- *   accounts by email (`registration`: discovery lists `prompt=create`, MAS discovery.rs:142-148),
- *   not its chooser of ways (Google is its own button here); otherwise its registration page,
- *   refused like email when it goes straight on to a provider.
- *
- * Anything unexpected (offline, another MAS version) opens the plain authorization URL: MAS's
- * own page, never a broken link. So does Google when MAS's page can't be checked, unless this
- * run already saw this server offer that provider (`confirmed`): the pinned ID is production's,
- * and a hop to a provider the server lacks is a broken page.
+ * Continue MAS's own grant without pinning a deployment's upstream provider ID.
+ * A sole offered provider can be opened directly; multiple providers always open MAS's
+ * chooser. An optional hint is used only if it matches that sole provider.
+ * Email/create keep MAS's page, refusing only its automatic hop to a sole provider when
+ * passwords are off. A provider-only chooser remains usable for an in-flight email attempt.
+ * Password registration still uses discovery's explicit registration capability.
+ * An unreadable or unexpected page leaves provider selection to MAS;
+ * no previous provider offer is cached, since MAS's provider list can change between attempts.
  */
 export async function matrixSignInEntry({
   authorizationUrl,
   method,
   registration = false,
-  provider = MATRIX_GOOGLE_PROVIDER,
+  provider,
   fetch: request = (input, init) => fetch(input, init),
-  timeoutMs = PROBE_MS,
-  confirmed = confirmedProviders
+  timeoutMs = PROBE_MS
 }: {
   authorizationUrl: string
   method: MatrixSignInMethod
   /** The server takes new accounts by email (discovery's `prompt_values_supported` has `create`). */
   registration?: boolean
+  /** Optional upstream hint; it never overrides MAS's multi-provider chooser. */
   provider?: string
   fetch?: Fetch
   timeoutMs?: number
-  /** The providers seen offered by each server (`issuer provider`); this run's by default. */
-  confirmed?: Set<string>
 }): Promise<string> {
   const issuer = new URL(authorizationUrl).origin
-  const known = `${issuer} ${provider}`
 
   const probe = (url: string) =>
     request(url, {
@@ -116,25 +108,16 @@ export async function matrixSignInEntry({
     return grantStep(issuer, '/register/password', grant)
   }
 
-  const google = ULID.test(provider) ? grantStep(issuer, `/upstream/authorize/${provider}`, grant) : undefined
   let shown: Response
 
   try {
     shown = await probe(page.href)
   } catch {
-    if (method !== 'google') {
-      return page.href
-    }
-
-    return google && confirmed.has(known) ? google : authorizationUrl
+    return method === 'google' ? authorizationUrl : page.href
   }
 
   const onward = redirectTo(shown, page.href, issuer)
   const straightToProvider = onward?.pathname.startsWith('/upstream/authorize/') ?? false
-
-  if (onward?.pathname === `/upstream/authorize/${provider}`) {
-    confirmed.add(known)
-  }
 
   if (method !== 'google') {
     if (straightToProvider) {
@@ -149,18 +132,13 @@ export async function matrixSignInEntry({
     return onward!.href
   }
 
-  if (!google) {
-    return page.href
-  }
-
-  // MAS shows its own page: Google's hop, unless the page plainly has no Google at all.
   const html = shown.ok ? await shown.text().catch(() => undefined) : undefined
+  const providers = html === undefined ? [] : offeredProviders(html, page)
+  const sole = providers.length === 1 ? providers[0] : undefined
 
-  if (html?.includes(provider)) {
-    confirmed.add(known)
-  }
-
-  return html !== undefined && !html.includes(provider) ? page.href : google
+  return sole && (provider === undefined || provider === sole)
+    ? grantStep(issuer, `/upstream/authorize/${sole}`, grant)
+    : page.href
 }
 
 /**
@@ -168,9 +146,9 @@ export async function matrixSignInEntry({
  * the sign-in window opens so the window offers only ways in that work. It is the same two
  * steps as an email sign-in above, on a throwaway authorization of the app's own (MAS keeps
  * an unused grant only until it expires; nothing signs in): MAS's own page for the grant
- * either shows (`available`) or goes straight on to its only provider because passwords are
- * off (`unavailable`). Anything else, offline included, is `unknown`, and the window keeps
- * both ways (the sign-in itself still refuses an email sign-in the server can't take).
+ * either has a password input (`available`), goes straight on to its only provider, or shows
+ * a provider-only chooser (`unavailable`). Anything else, offline included, is `unknown`,
+ * and the window keeps both ways. In-flight email attempts can still open MAS's chooser.
  */
 export async function matrixEmailSignIn({
   authorizationUrl,
@@ -207,7 +185,17 @@ export async function matrixEmailSignIn({
       return 'unavailable'
     }
 
-    return shown.ok ? 'available' : 'unknown'
+    const html = shown.ok ? await shown.text() : undefined
+
+    if (html === undefined) {
+      return 'unknown'
+    }
+
+    if (/<input\b[^>]*\stype\s*=\s*(?:"password"|'password'|password(?=[\s>]))/i.test(html)) {
+      return 'available'
+    }
+
+    return offeredProviders(html, page).length ? 'unavailable' : 'unknown'
   } catch {
     return 'unknown'
   }
