@@ -15,3 +15,8 @@ Atum-owned code is all rights reserved. No licence is granted beyond the
 viewing and forking rights required by GitHub's terms for public repositories.
 Inherited Hermes MIT and every other third-party licence remain in force,
 with their notices preserved.
+
+Vietnamese core and TUI catalogs adapt hermes-lang-vi by 5ac (MIT,
+Copyright 2026 5ac), including inherited Hermes strings (Copyright 2025 Nous
+Research). See LICENSES/hermes-lang-vi-MIT.txt and locales/README.md for the
+source revision, adaptation details and preserved licence text.

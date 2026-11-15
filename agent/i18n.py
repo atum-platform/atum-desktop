@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 # live set including overlay and pack languages.
 SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "en", "zh", "zh-hant", "ja", "de", "es", "fr", "tr", "uk",
-    "af", "ko", "it", "ga", "pt", "ru", "hu", "ar",
+    "af", "ko", "it", "ga", "pt", "ru", "hu", "ar", "vi",
 )
 DEFAULT_LANGUAGE = "en"
 
@@ -59,6 +59,7 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "pt-pt": "pt", "pt-br": "pt", "brazilian": "pt", "brasileiro": "pt",
     "russian": "ru", "русский": "ru", "ru-ru": "ru",
     "hungarian": "hu", "magyar": "hu", "hu-hu": "hu",
+    "vietnamese": "vi", "tiếng việt": "vi", "tieng viet": "vi", "vi-vn": "vi",
     "arabic": "ar", "العربية": "ar",
     "ar-sa": "ar", "ar-eg": "ar", "ar-ae": "ar", "ar-ma": "ar", "ar-dz": "ar",
 }
@@ -259,7 +260,8 @@ def owner_text(en: str, vi: str) -> str:
     """Pick a hand-written owner notice: Vietnamese when the profile asks for it, else English.
 
     Short owner-facing notices are written by hand in the two owner languages. The configured
-    language is read as given, so Vietnamese works before any full ``vi`` catalog exists.
+    language is read directly rather than through catalog lookup, so these notices need no
+    ``locales/vi.yaml`` key.
     """
     from agent.secret_scope import UnscopedSecretError, get_secret
     try:
