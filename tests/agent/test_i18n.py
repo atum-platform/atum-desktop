@@ -192,3 +192,26 @@ def test_owner_text_follows_the_configured_owner_language(monkeypatch, tmp_path)
         assert i18n.owner_text("en", "vi") == "vi"
     finally:
         i18n.reset_language_cache()
+
+
+@pytest.mark.parametrize("value", ["vi", "vi-VN", "vi_VN", "Vietnamese", "Tiếng Việt", "Tieng Viet"])
+def test_vietnamese_config_to_catalog_and_picker(value, monkeypatch, tmp_path):
+    """The real config setter accepts Vietnamese and the renderer and picker agree on its id."""
+    from hermes_cli.config import set_config_value
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.delenv("HERMES_LANGUAGE", raising=False)
+    monkeypatch.delenv("HERMES_BUNDLED_LOCALES", raising=False)
+    i18n.reset_language_cache()
+    try:
+        set_config_value("display.language", value)
+        assert i18n.get_language() == "vi"
+        vi = _flatten(_load_raw("vi"))
+        assert i18n.t("approval.dangerous_header", description="example") == (
+            vi["approval.dangerous_header"].format(description="example")
+        )
+        assert i18n.t("approval.denied") != i18n.t("approval.denied", lang="en")
+        option = next(row for row in i18n.language_options() if row["id"] == "vi")
+        assert option == {"id": "vi", "endonym": "Tiếng Việt", "rtl": False, "source": "bundled"}
+    finally:
+        i18n.reset_language_cache()

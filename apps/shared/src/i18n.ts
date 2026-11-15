@@ -183,6 +183,7 @@ export const LOCALE_ENDONYMS = {
   ru: 'Русский',
   tr: 'Türkçe',
   uk: 'Українська',
+  vi: 'Tiếng Việt',
   zh: '简体中文',
   'zh-hant': '繁體中文'
 } as const satisfies Record<string, string>
