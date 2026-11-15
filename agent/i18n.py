@@ -260,7 +260,8 @@ def owner_text(en: str, vi: str) -> str:
     """Pick a hand-written owner notice: Vietnamese when the profile asks for it, else English.
 
     Short owner-facing notices are written by hand in the two owner languages. The configured
-    language is read as given, so Vietnamese works before any full ``vi`` catalog exists.
+    language is read directly rather than through catalog lookup, so these notices need no
+    ``locales/vi.yaml`` key.
     """
     from agent.secret_scope import UnscopedSecretError, get_secret
     try:

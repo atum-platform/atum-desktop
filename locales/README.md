@@ -1,4 +1,11 @@
-# Bundled Vietnamese locale
+# Locales
+
+This directory holds the bundled message catalogs. `en.yaml` is the source of
+truth for core keys; each `<lang>.yaml` is a core catalog and each
+`<lang>.tui.yaml` is a TUI catalog whose keys follow `_keys.tui.json`. Missing
+keys fall back to English.
+
+## Vietnamese (`vi`)
 
 Set `display.language` to `vi` with `hermes config set display.language vi`.
 `vi-VN`, `vi_VN`, `Vietnamese`, `Tiếng Việt`, and `Tieng Viet` resolve to the same
@@ -7,7 +14,7 @@ The core and TUI catalogs use the existing Hermes loader, including its overlay,
 plugin-pack, and English fallback precedence. Desktop-specific translations are
 separate from these catalogs.
 
-## Attribution and adaptation
+### Attribution and adaptation
 
 Upstream Hermes main did not bundle Vietnamese when checked. Pending
 [Hermes PR #78626](https://github.com/NousResearch/hermes-agent/pull/78626)
@@ -26,7 +33,19 @@ was adopted instead:
   Parser-sensitive menu choices, format fields, commands, and identifiers remain
   unchanged. No plugin installation or alternate translation runtime is needed.
 
-## Maintenance and verification
+### Voice and terms
+
+- The agent speaks as **mình** and calls the user **bạn**. Keep **tôi** only where
+  the user is the speaker (sample prompts, "Tôi đã thêm rồi" buttons).
+- Prose terms: session → **phiên**, model → **mô hình**, host → **máy chủ**.
+  Never translate slash commands (`/model`, `/new`), CLI subcommands
+  (`hermes sessions list`), config keys, product names or code.
+- Approval nouns are lowercase (`lệnh`, `đoạn mã`, `thao tác`) and never start a
+  sentence. Typed approval words append Vietnamese to the English list
+  (`approval.inputs.*`); replies match a whole message, so each word must belong
+  to exactly one choice.
+
+### Maintenance and verification
 
 Core keys must match `en.yaml`, including format placeholders. TUI keys must match
 `_keys.tui.json`; positional placeholders follow English function argument order.
