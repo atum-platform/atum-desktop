@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 import threading
+from agent.approval_input import normalize_approval_input
 from tools import approval_context as _ctx, approval_gateway_wait as _gw
 from tools.approval_human_wait import activity_heartbeat, human_wait_window
 from tools.interrupt import is_interrupted
@@ -86,7 +87,7 @@ def _read_choice(prompt: str, timeout_seconds: int) -> str | None:
 
     def get_input():
         try:
-            result["choice"] = input(prompt).strip().lower()
+            result["choice"] = normalize_approval_input(input(prompt))
         except (EOFError, OSError):
             result["choice"] = ""
 
@@ -164,9 +165,12 @@ def _ask_human(command: str, description: str, timeout_seconds: int, allow_perma
             print("\n" + t("approval.timeout", **_ctx.approval_timeout_notice_kwargs()))
             return "timeout"  # distinct from deny: the user never answered
         if once_only:
-            decision = {**dict.fromkeys(t("approval.smart_deny_once_inputs").split(","), "once"),
-                        **dict.fromkeys(t("approval.smart_deny_deny_inputs").split(","), "deny"),
-                        }.get(choice, "deny")
+            decision = {
+                **{normalize_approval_input(word): "once"
+                   for word in t("approval.smart_deny_once_inputs").split(",")},
+                **{normalize_approval_input(word): "deny"
+                   for word in t("approval.smart_deny_deny_inputs").split(",")},
+            }.get(choice, "deny")
         else:
             decision = _CLI_CHOICE_ALIASES.get(choice, "deny")
             if decision == "always" and not allow_permanent:

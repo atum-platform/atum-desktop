@@ -16,6 +16,7 @@ import functools
 import json
 import os
 import time
+from agent.approval_input import normalize_approval_input
 from agent.i18n import DEFAULT_LANGUAGE, t
 from agent.session_activity import format_iteration_progress
 from gateway.config import Platform
@@ -33,14 +34,14 @@ if TYPE_CHECKING:  # string annotations only; never imported at runtime (cycle)
 def approval_input_words(input_key: str) -> tuple[str, ...]:
     """Typed-reply synonyms for ``approval.inputs.<input_key>`` (comma-lists): the English words
     ALWAYS match, plus the active language's list, so a Polish pack can add "tak" without losing
-    "yes". Lower-cased, de-duplicated, order preserved (English first)."""
+    "yes". NFC-normalized, lower-cased, de-duplicated, order preserved (English first)."""
     seen: dict[str, None] = {}
     key = f"approval.inputs.{input_key}"
     for raw in (t(key, lang=DEFAULT_LANGUAGE), t(key)):
         if raw == key:  # catalog miss: t() echoes the key
             continue
         for word in raw.split(","):
-            word = word.strip().lower()
+            word = normalize_approval_input(word)
             if word:
                 seen.setdefault(word, None)
     return tuple(seen)
@@ -631,7 +632,7 @@ class GatewayBusySessionMixin:
             # The busy-handler path does not auto-send that return, so we deliver it ourselves (mirroring
             # the draining-case send above).
             if event.allow_gateway_control and has_blocking_approval(session_key):
-                _raw_text = (event.text or "").strip().lower()
+                _raw_text = normalize_approval_input(event.text or "")
                 _match = self._plaintext_approval_words().get(_raw_text)
                 if _match is not None:
                     _verb, _normalized_args = _match
