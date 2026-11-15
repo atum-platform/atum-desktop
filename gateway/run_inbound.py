@@ -19,6 +19,7 @@ import time
 from contextlib import suppress
 from pathlib import Path
 
+from agent.approval_input import normalize_approval_input
 from agent.i18n import t
 from gateway.config import Platform
 from gateway.platforms.base import EphemeralReply
@@ -469,7 +470,7 @@ class GatewayInboundMixin(GatewayInboundHooksMixin, GatewayInboundTranscriptionM
         # Accept bang-prefixed replies (`!always`, `!cancel`) verbatim: Slack/Matrix show the `!`
         # prefix (typed `/` is blocked in Slack threads) and adapters only rewrite
         # `!<known-command>` — confirm keywords aren't commands, so the `!` survives to here.
-        _norm_reply = (event.text or "").strip().lstrip("!/").lower()
+        _norm_reply = normalize_approval_input(event.text or "").lstrip("!/")
         _confirm_choice = (
             self._SLASH_CONFIRM_CMD_CHOICES.get(event.get_command())
             or self._slash_confirm_text_choices().get(_norm_reply)
