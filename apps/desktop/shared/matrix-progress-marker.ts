@@ -4,6 +4,8 @@
  * read the same shape. Presentation only: it confers no execution authority.
  */
 import type { MatrixProgressFrame, MatrixProgressKind, MatrixProgressPhase } from './matrix-progress-kernel'
+import type { MatrixToolActivityKind } from './matrix-status-line-copy'
+import { MATRIX_PRESENTATION_KEY } from './matrix-subscription-fallback'
 
 export const MATRIX_PROGRESS_PROFILE = 'atum.agent-turns/1.3'
 
@@ -75,4 +77,73 @@ export function matrixProgressMarkerOf(frame: MatrixProgressFrame): MatrixProgre
     ...(frame.device ? { device: frame.device } : {}),
     ...(frame.heartbeat ? { heartbeat: true as const } : {})
   }
+}
+
+/**
+ * What the working line says, as a code a viewer words in its own language (agent-turns/1.5 A12,
+ * A13), the same shape as the descriptor of `feat/localized-agent-status`. Never a tool name,
+ * argument or result, and never text the agent or a person wrote: the todo item text stays in
+ * `body`. `approval_wait` is the cloud agent's wait on the owner's approval card (additive).
+ */
+export type MatrixProgressPresentation =
+  | { version: 1; code: 'tool_activity'; args: { activity: MatrixToolActivityKind } }
+  | { version: 1; code: 'heartbeat'; args: { elapsed_minutes: number } }
+  | { version: 1; code: 'approval_wait'; args: Record<string, never> }
+
+const TOOL_ACTIVITIES: readonly MatrixToolActivityKind[] = ['web', 'read', 'write', 'run', 'delegate', 'look', 'draw']
+
+const count = (min: number, max: number) => (value: unknown) =>
+  Number.isInteger(value) && (value as number) >= min && (value as number) <= max
+
+/** Each code: the marker kind and phase it pairs with, and its exact arguments (no other key). */
+const PRESENTATION: Record<
+  MatrixProgressPresentation['code'],
+  { kind: MatrixProgressKind; phase: MatrixProgressPhase; args: Record<string, (value: unknown) => boolean> }
+> = {
+  tool_activity: {
+    kind: 'todo',
+    phase: 'working',
+    args: { activity: value => TOOL_ACTIVITIES.includes(value as MatrixToolActivityKind) }
+  },
+  heartbeat: { kind: 'heartbeat', phase: 'working', args: { elapsed_minutes: count(1, 1440) } },
+  approval_wait: { kind: 'device', phase: 'waiting', args: {} }
+}
+
+function plainObject(value: unknown): Record<string, unknown> | undefined {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+/**
+ * The descriptor of a working line's content (`io.atum.presentation`), checked against the line's
+ * own marker, or nothing: an absent one, a version or code this build does not know, any argument
+ * missing, extra or out of range, or a code on a line of another kind or phase. Nothing is never an
+ * error; the viewer shows `body` (empty when the publisher had nothing of the agent's to say).
+ */
+export function matrixProgressPresentation(
+  content: unknown,
+  marker: { kind: string; phase: string }
+): MatrixProgressPresentation | undefined {
+  const raw = plainObject(plainObject(content)?.[MATRIX_PRESENTATION_KEY])
+  const args = plainObject(raw?.args)
+
+  if (!raw || !args || raw.version !== 1 || typeof raw.code !== 'string' || !Object.hasOwn(PRESENTATION, raw.code)) {
+    return undefined
+  }
+
+  const rule = PRESENTATION[raw.code as MatrixProgressPresentation['code']]
+  const names = Object.keys(rule.args)
+
+  if (
+    Object.keys(raw).some(key => !['version', 'code', 'args'].includes(key)) ||
+    rule.kind !== marker.kind ||
+    rule.phase !== marker.phase ||
+    Object.keys(args).length !== names.length ||
+    !names.every(name => Object.hasOwn(args, name) && rule.args[name]!(args[name]))
+  ) {
+    return undefined
+  }
+
+  return { version: 1, code: raw.code, args: { ...args } } as MatrixProgressPresentation
 }
