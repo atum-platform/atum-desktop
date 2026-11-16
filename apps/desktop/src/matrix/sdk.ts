@@ -694,6 +694,7 @@ export async function startMatrixSdk(
   const recoveryKeys = recoveryKeyCache()
   let security: ReturnType<typeof matrixSecurity> | undefined
   const { refreshToken: refreshHandle, ...connection } = configuration
+
   const hostRefresh = matrixHostRefresh({
     baseUrl: configuration.baseUrl,
     accessToken: configuration.accessToken,

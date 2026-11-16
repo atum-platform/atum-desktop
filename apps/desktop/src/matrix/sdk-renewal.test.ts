@@ -63,6 +63,7 @@ async function fixture(refresh: (handle: string) => Promise<MatrixRefreshResult>
     'fetch',
     vi.fn(async () => Response.json({ errcode: 'M_UNKNOWN_TOKEN' }, { status: 401 }))
   )
+
   const sdk = await startMatrixSdk(
     {
       baseUrl: 'https://matrix.test',
@@ -83,6 +84,7 @@ async function fixture(refresh: (handle: string) => Promise<MatrixRefreshResult>
     'fetch',
     vi.fn(async () => Response.json({ errcode: 'M_UNKNOWN_TOKEN' }, { status: 401 }))
   )
+
   return {
     client,
     sdk,
@@ -164,6 +166,7 @@ async function realClient(refresh: (handle: string) => Promise<MatrixRefreshResu
     const token = String(
       new Headers(init?.headers ?? (_url instanceof Request ? _url.headers : undefined)).get('authorization') ?? ''
     ).replace('Bearer ', '')
+
     seen.push(token)
 
     return token === 'new-token'
