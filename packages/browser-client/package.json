@@ -14,8 +14,8 @@
     "serve": "node serve.mjs"
   },
   "dependencies": {
-    "@matrix-org/matrix-sdk-crypto-wasm": "18.8.0",
-    "matrix-js-sdk": "42.4.0",
+    "@matrix-org/matrix-sdk-crypto-wasm": "18.9.2",
+    "matrix-js-sdk": "45.1.0",
     "openid-client": "6.8.8"
   },
   "devDependencies": {
