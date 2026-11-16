@@ -1,18 +1,20 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { MatrixGoogleConnectionBridge, MatrixGoogleConnectionResult } from '../../shared/matrix-google-connections'
-import type { MatrixGoogleWriteDecisionInput } from '../../shared/matrix-google-write-proposal'
+import type { MatrixGoogleWriteActionInput } from '../../shared/matrix-google-write-proposal'
+import { GOOGLE_WRITE_IDS, googleWriteEmail, googleWriteEntry } from '../../shared/matrix-google-write-proposal.test-support'
 
 import {
   createMatrixGoogleConnectionIpcHandler,
   createMatrixGoogleWriteIpcHandler,
   type MatrixGoogleConnectionBoundaryOwner,
   type MatrixGoogleFenceHost,
-  matrixGoogleWriteDecider,
+  matrixGoogleWriteProposals,
   publishMatrixGoogleFence,
   requestMatrixGoogleAccountConnect,
   requestMatrixGoogleAccountStatus,
-  requestMatrixGoogleWriteDecision,
+  requestMatrixGoogleWriteAction,
+  requestMatrixGoogleWriteProposals,
   sameMatrixGoogleConnectionOwner
 } from './google-connection-boundary'
 
@@ -301,15 +303,13 @@ describe('account Google OAuth handoff', () => {
   })
 })
 
-describe('Google write decision transport', () => {
+describe('Google write proposal transport', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  const GOOGLE_WRITE_IDS = { first: '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b', second: '7a2d3b4c-5e6f-4a71-9b8c-ad1e2f3a4b5c' }
-
-  const digest = `sha256:${'c'.repeat(64)}`
-  const approve: MatrixGoogleWriteDecisionInput = { proposalId: GOOGLE_WRITE_IDS.first, digest, decision: 'approve' }
-  const decline: MatrixGoogleWriteDecisionInput = { ...approve, decision: 'decline' }
-  const profile = 'atum.google-write-confirmation/1'
+  const BASE = 'https://api.test'
+  const PATH = `${BASE}/api/connections/google/proposals`
+  const digest = 'c'.repeat(64)
+  const approve: MatrixGoogleWriteActionInput = { proposalId: GOOGLE_WRITE_IDS.first, digest, action: 'approve' }
 
   const answering = (status: number, body: unknown, type = 'application/json') => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
@@ -319,139 +319,173 @@ describe('Google write decision transport', () => {
     return fetch
   }
 
-  it('posts only the decision and the rendered digest, with the owner bearer, contract and a fixed idempotency key', async () => {
-    const fetch = answering(200, { profile, proposalId: approve.proposalId, state: 'done' })
+  const sent = (fetch: ReturnType<typeof answering>, call = 0) => {
+    const [url, init] = fetch.mock.calls[call]!
 
-    await expect(requestMatrixGoogleWriteDecision('https://api.test', 'owner-bearer', approve, AbortSignal.timeout(1000)))
-      .resolves.toBe('done')
+    return { url: String(url), init, headers: new Headers(init?.headers) }
+  }
 
-    const [url, init] = fetch.mock.calls[0]!
-    const headers = new Headers(init?.headers)
+  it('lists the pending proposals with the owner bearer and the host bridge contract, dropping malformed entries', async () => {
+    const good = await googleWriteEntry()
+    const fetch = answering(200, { proposals: [good, { ...good, proposalId: GOOGLE_WRITE_IDS.second, status: 'confirmed' }] })
 
-    expect(url).toBe(`https://api.test/google/proposals/${approve.proposalId}/decision`)
-    expect(init?.method).toBe('POST')
-    expect(init?.redirect).toBe('error')
-    expect(headers.get('authorization')).toBe('Bearer owner-bearer')
-    expect(headers.get('x-atum-google-write-contract')).toBe(profile)
-    expect(headers.get('idempotency-key')).toBe(`${approve.proposalId}:approve`)
-    expect(JSON.parse(init?.body as string)).toEqual({ decision: 'approve', digest })
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({
+      state: 'ok',
+      proposals: [{ proposalId: good.proposalId, agent: good.agent, room: good.room, digest: good.digest, draft: googleWriteEmail() }]
+    })
+
+    const request = sent(fetch)
+
+    expect(request.url).toBe(PATH)
+    expect(request.init?.method ?? 'GET').toBe('GET')
+    expect(request.init?.redirect).toBe('error')
+    expect(request.init?.credentials).toBe('omit')
+    expect(request.headers.get('authorization')).toBe('Bearer owner-bearer')
+    expect(request.headers.get('x-atum-host-bridge-contract')).toBe('atum.s2.host-bridge/1.0.0')
+  })
+
+  it.each(['delivered', 'approve', 'decline'] as const)('posts %s with exactly the rendered digest to its own path', async action => {
+    const status = { delivered: 'delivered', approve: 'confirmed', decline: 'declined' }[action]
+    const fetch = answering(200, { proposalId: approve.proposalId, digest, status })
+
+    await expect(requestMatrixGoogleWriteAction(BASE, 'owner-bearer', { ...approve, action }, AbortSignal.timeout(1000)))
+      .resolves.toEqual({ state: 'ok', status })
+
+    const request = sent(fetch)
+
+    expect(request.url).toBe(`${PATH}/${approve.proposalId}/${action}`)
+    expect(request.init?.method).toBe('POST')
+    expect(request.headers.get('authorization')).toBe('Bearer owner-bearer')
+    expect(request.headers.get('x-atum-host-bridge-contract')).toBe('atum.s2.host-bridge/1.0.0')
+    expect(JSON.parse(request.init?.body as string)).toEqual({ digest })
   })
 
   it.each([
-    ['approve', 202, { state: 'approved' }, 'approved'],
-    ['decline', 200, { state: 'declined' }, 'declined'],
-    ['approve', 409, { error: 'digest_mismatch' }, 'changed'],
-    ['approve', 409, { error: 'superseded' }, 'superseded'],
-    ['approve', 409, { error: 'already_decided' }, 'answered'],
-    ['approve', 410, { error: 'expired' }, 'expired'],
-    ['decline', 404, { error: 'not_found' }, 'expired'],
-    ['approve', 422, { error: 'write_failed' }, 'failed'],
-    ['decline', 422, { error: 'write_failed' }, 'retry'],
-    ['decline', 200, { state: 'done' }, 'retry'],
-    ['approve', 200, { state: 'declined' }, 'retry'],
-    ['approve', 200, { state: 'approved' }, 'retry'],
-    ['approve', 202, { state: 'done' }, 'retry'],
-    ['approve', 200, { state: 'done', receipt: 'r' }, 'retry'],
-    ['approve', 409, { error: 'conflict' }, 'retry'],
-    ['approve', 403, { error: 'owner_required' }, 'retry'],
-    ['approve', 503, { error: 'unavailable' }, 'retry']
-  ] as const)('maps %s answered %s %j to %s', async (decision, status, body, expected) => {
-    answering(status, { profile, proposalId: approve.proposalId, ...body })
+    [400, { state: 'refused' }, 'refused'],
+    [403, { state: 'refused' }, 'refused'],
+    [409, { state: 'refused' }, 'refused'],
+    [503, { state: 'unavailable' }, 'unavailable'],
+    [500, 'oops', 'unavailable'],
+    [200, { proposalId: GOOGLE_WRITE_IDS.second, digest, status: 'confirmed' }, 'unavailable'],
+    [200, { proposalId: GOOGLE_WRITE_IDS.first, digest: 'd'.repeat(64), status: 'confirmed' }, 'unavailable'],
+    [200, { proposalId: GOOGLE_WRITE_IDS.first, digest, status: 'declined' }, 'unavailable'],
+    [200, { proposalId: GOOGLE_WRITE_IDS.first, digest, status: 'sent' }, 'unavailable'],
+    [200, { proposalId: GOOGLE_WRITE_IDS.first, digest, status: 'confirmed', receipt: 'r' }, 'unavailable'],
+    [200, '{"status":', 'unavailable']
+  ] as const)('maps an approval answered %s %j to %s, never to confirmed', async (status, body, expected) => {
+    answering(status, body)
 
-    await expect(requestMatrixGoogleWriteDecision('https://api.test', 'owner-bearer', decision === 'approve' ? approve : decline,
-      AbortSignal.timeout(1000))).resolves.toBe(expected)
+    await expect(requestMatrixGoogleWriteAction(BASE, 'owner-bearer', approve, AbortSignal.timeout(1000)))
+      .resolves.toEqual({ state: expected })
   })
 
-  it.each([
-    ['another proposal', { profile, proposalId: GOOGLE_WRITE_IDS.second, state: 'done' }, 'application/json'],
-    ['another profile', { profile: 'atum.google-connection/1', proposalId: GOOGLE_WRITE_IDS.first, state: 'done' }, 'application/json'],
-    ['a page', '<html>done</html>', 'text/html'],
-    ['broken JSON', '{"state":', 'application/json']
-  ])('never reads an answer for %s as approved', async (_name, body, type) => {
-    answering(200, body, type)
-
-    await expect(requestMatrixGoogleWriteDecision('https://api.test', 'owner-bearer', approve, AbortSignal.timeout(1000)))
-      .resolves.toBe('retry')
+  it('maps a list refusal and an unreadable list to their states', async () => {
+    answering(409, { state: 'refused' })
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({ state: 'refused' })
+    answering(503, { state: 'unavailable' })
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({ state: 'unavailable' })
+    answering(200, { proposals: 'none' })
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({ state: 'unavailable' })
+    answering(200, '<html></html>', 'text/html')
+    await expect(requestMatrixGoogleWriteProposals(BASE, 'owner-bearer', AbortSignal.timeout(1000))).resolves.toEqual({ state: 'unavailable' })
   })
 
-  it('asks the account to refresh its bearer on 401', async () => {
-    answering(401, { error: 'unauthorized' })
-
-    await expect(requestMatrixGoogleWriteDecision('https://api.test', 'owner-bearer', approve, AbortSignal.timeout(1000)))
+  it('asks the account to refresh its bearer on 401 and never talks to a plain-http domain', async () => {
+    answering(401, { state: 'refused' })
+    await expect(requestMatrixGoogleWriteAction(BASE, 'owner-bearer', approve, AbortSignal.timeout(1000)))
       .rejects.toThrow('matrix_s1_authentication')
+
+    const fetch = answering(200, { proposals: [] })
+    await expect(requestMatrixGoogleWriteProposals('http://api.test', 'owner-bearer', AbortSignal.timeout(1000))).rejects.toThrow()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('goes through the owner seam: one refresh after a 401 resends the same decision under the same key', async () => {
+  function ownerAccount(answers: Response[]) {
     const fetch = vi.fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(new Response('{}', { status: 401, headers: { 'content-type': 'application/json' } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ profile, proposalId: approve.proposalId, state: 'done' }),
-        { status: 200, headers: { 'content-type': 'application/json' } }))
+
+    for (const answer of answers) {
+      fetch.mockResolvedValueOnce(answer)
+    }
+
     vi.stubGlobal('fetch', fetch)
     const scope = { accountKey: ACCOUNT_A, generation: 1 }
-    const options: unknown[] = []
     const account = {
       appScope: () => scope,
       // MatrixAccount.s1Request's contract: the native bearer, the domain base, one refresh after a 401.
-      async s1Request<T>(send: (token: string, resource: string, signal: AbortSignal) => Promise<T>, signal: AbortSignal,
-        option?: { timeoutMs?: number }): Promise<T> {
-        options.push(option)
-
+      async s1Request<T>(send: (token: string, resource: string, signal: AbortSignal) => Promise<T>, signal: AbortSignal): Promise<T> {
         try {
-          return await send('owner-bearer-1', 'https://api.test', signal)
+          return await send('owner-bearer-1', BASE, signal)
         } catch (error) {
           if ((error as Error).message !== 'matrix_s1_authentication') { throw error }
 
-          return send('owner-bearer-2', 'https://api.test', signal)
+          return send('owner-bearer-2', BASE, signal)
         }
       }
     }
 
-    await expect(matrixGoogleWriteDecider(account)(approve)).resolves.toBe('done')
+    return { fetch, account }
+  }
 
-    expect(options).toEqual([{ timeoutMs: 120_000 }])
-    const sent = fetch.mock.calls.map(([, init]) => new Headers(init?.headers))
-    expect(sent.map(headers => headers.get('authorization'))).toEqual(['Bearer owner-bearer-1', 'Bearer owner-bearer-2'])
-    expect(sent.map(headers => headers.get('idempotency-key'))).toEqual([`${approve.proposalId}:approve`, `${approve.proposalId}:approve`])
+  const reply = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+
+  it('goes through the owner seam: one refresh after a 401, then refused if Shell still refuses the owner', async () => {
+    const refreshed = ownerAccount([reply(401, { state: 'refused' }), reply(200, { proposalId: approve.proposalId, digest, status: 'confirmed' })])
+
+    await expect(matrixGoogleWriteProposals(refreshed.account).act(approve)).resolves.toEqual({ state: 'ok', status: 'confirmed' })
+    expect(refreshed.fetch.mock.calls.map(([, init]) => new Headers(init?.headers).get('authorization')))
+      .toEqual(['Bearer owner-bearer-1', 'Bearer owner-bearer-2'])
+
+    const refused = ownerAccount([reply(401, { state: 'refused' }), reply(401, { state: 'refused' })])
+
+    await expect(matrixGoogleWriteProposals(refused.account).list()).resolves.toEqual({ state: 'refused' })
   })
 
-  it('answers retry when the request fails or the account changed while it ran', async () => {
+  it('answers unavailable when the request fails or the account changed while it ran', async () => {
     let scope = { accountKey: ACCOUNT_A, generation: 1 }
     const failing = { appScope: () => scope, s1Request: async () => { throw new Error('matrix_s1_cancelled') } }
 
-    await expect(matrixGoogleWriteDecider(failing)(approve)).resolves.toBe('retry')
+    await expect(matrixGoogleWriteProposals(failing).act(approve)).resolves.toEqual({ state: 'unavailable' })
 
     const switching = {
       appScope: () => scope,
       async s1Request<T>(): Promise<T> {
         scope = { accountKey: ACCOUNT_B, generation: 1 }
 
-        return 'done' as T
+        return { state: 'ok', status: 'confirmed' } as T
       }
     }
 
-    await expect(matrixGoogleWriteDecider(switching)(approve)).resolves.toBe('retry')
+    await expect(matrixGoogleWriteProposals(switching).act(approve)).resolves.toEqual({ state: 'unavailable' })
   })
 
-  it('checks the window before reading its input, and passes on only a closed decision', async () => {
-    const decide = vi.fn(async () => 'declined' as const)
+  it('checks the window before reading its input, and passes on only the list or one closed action', async () => {
+    const bridge = {
+      list: vi.fn(async () => ({ state: 'ok' as const, proposals: [] })),
+      act: vi.fn(async () => ({ state: 'ok' as const, status: 'declined' as const }))
+    }
     const denied = createMatrixGoogleWriteIpcHandler({
       assertSender: () => { throw new Error('matrix_ipc_denied') },
-      decide: () => decide
+      proposals: () => bridge
     })
     const input = new Proxy({}, { get: () => { throw new Error('input was read') }, ownKeys: () => { throw new Error('input was read') } })
 
     await expect(denied({ sender: 'foreign' }, input)).rejects.toThrow('matrix_ipc_denied')
 
-    const handler = createMatrixGoogleWriteIpcHandler({ assertSender: () => {}, decide: () => decide })
+    const handler = createMatrixGoogleWriteIpcHandler({ assertSender: () => {}, proposals: () => bridge })
+    const decline = { ...approve, action: 'decline' }
 
-    await expect(handler({}, { ...decline, draft: { to: ['privacy@example.org'] } })).resolves.toBe('retry')
-    await expect(handler({}, { ...decline, decision: 'send' })).resolves.toBe('retry')
-    expect(decide).not.toHaveBeenCalled()
-    await expect(handler({}, decline)).resolves.toBe('declined')
-    expect(decide).toHaveBeenCalledWith(decline)
+    await expect(handler({}, { kind: 'action', input: { ...decline, draft: { to: ['info@example.org'] } } })).resolves.toEqual({ state: 'unavailable' })
+    await expect(handler({}, { kind: 'action', input: { ...decline, action: 'send' } })).resolves.toEqual({ state: 'unavailable' })
+    await expect(handler({}, { kind: 'list', room: '!personal:example.org' })).resolves.toEqual({ state: 'unavailable' })
+    expect(bridge.act).not.toHaveBeenCalled()
+    expect(bridge.list).not.toHaveBeenCalled()
+    await expect(handler({}, { kind: 'action', input: decline })).resolves.toEqual({ state: 'ok', status: 'declined' })
+    expect(bridge.act).toHaveBeenCalledWith(decline)
+    await expect(handler({}, { kind: 'list' })).resolves.toEqual({ state: 'ok', proposals: [] })
 
-    const signedOut = createMatrixGoogleWriteIpcHandler({ assertSender: () => {}, decide: () => undefined })
+    const signedOut = createMatrixGoogleWriteIpcHandler({ assertSender: () => {}, proposals: () => undefined })
 
-    await expect(signedOut({}, approve)).resolves.toBe('retry')
+    await expect(signedOut({}, { kind: 'list' })).resolves.toEqual({ state: 'unavailable' })
   })
 })

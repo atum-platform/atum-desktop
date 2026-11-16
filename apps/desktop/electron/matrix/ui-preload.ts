@@ -114,7 +114,8 @@ const bridge: MatrixUiBridge = {
     disconnect: groupId => ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'disconnect', groupId }),
     setSourcePreferences: preferences =>
       ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'preferences', preferences }),
-    decideWrite: input => ipcRenderer.invoke(MATRIX_GOOGLE_WRITE_IPC, input)
+    writeProposals: () => ipcRenderer.invoke(MATRIX_GOOGLE_WRITE_IPC, { kind: 'list' }),
+    writeProposalAction: input => ipcRenderer.invoke(MATRIX_GOOGLE_WRITE_IPC, { kind: 'action', input })
   },
   aliases: {
     pending: () => ipcRenderer.invoke(channel.ui, { kind: 'alias-pending' }),

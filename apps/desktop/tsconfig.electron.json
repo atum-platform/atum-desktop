@@ -150,6 +150,7 @@
     "shared/matrix-google-connections.ts",
     "shared/matrix-google-write-copy.ts",
     "shared/matrix-google-write-proposal.ts",
+    "shared/matrix-google-write-proposal.test-support.ts",
     "shared/matrix-google-tool-request.ts",
     "shared/matrix-google-tools.ts",
     "shared/pet.ts",

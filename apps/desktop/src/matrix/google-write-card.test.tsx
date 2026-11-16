@@ -1,348 +1,328 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { EventType, MatrixEvent } from 'matrix-js-sdk'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider, type Locale } from '@/i18n'
 
 import type { MatrixUiBridge } from '../../shared/matrix'
 import {
-  MATRIX_GOOGLE_WRITE_OUTCOME_TYPE,
-  MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE,
-  matrixFoldGoogleWriteProposals,
-  type MatrixGoogleWriteAnswer,
-  type MatrixGoogleWriteDecisionInput,
-  matrixGoogleWriteDigest,
+  type MatrixGoogleWriteActionAnswer,
+  type MatrixGoogleWriteActionInput,
   type MatrixGoogleWriteDraft,
-  type MatrixGoogleWriteProposal,
-  type MatrixGoogleWriteStanding,
-  parseMatrixGoogleWriteProposal
+  type MatrixGoogleWriteListAnswer,
+  parseMatrixGoogleWriteProposalList
 } from '../../shared/matrix-google-write-proposal'
 import {
   GOOGLE_WRITE_IDS,
+  GOOGLE_WRITE_OTHER_ROOM,
+  GOOGLE_WRITE_ROOM,
   googleWriteEmail,
-  googleWriteEventFields,
-  googleWriteProposalContent
+  googleWriteEntry,
+  googleWriteEvent
 } from '../../shared/matrix-google-write-proposal.test-support'
 
-import { MatrixGoogleWriteCard, resetMatrixGoogleWriteAnswers } from './google-write-card'
-import { matrixMessage } from './message'
+import { MatrixGoogleWriteProposals, resetMatrixGoogleWriteAnswers } from './google-write-card'
 
-const AGENT = '@agent:test'
-const OWNER = '@owner:test'
 const ZONE = 'Asia/Ho_Chi_Minh'
-const BEFORE_EXPIRY = () => Date.UTC(2027, 2, 1)
+const STATUS = { delivered: 'delivered', approve: 'confirmed', decline: 'declined' } as const
+
+beforeEach(() => {
+  vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
+})
 
 afterEach(() => {
   cleanup()
   resetMatrixGoogleWriteAnswers()
+  vi.restoreAllMocks()
   delete (window as { atumMatrix?: unknown }).atumMatrix
 })
 
-function bridge(decideWrite: (input: MatrixGoogleWriteDecisionInput) => Promise<unknown>) {
-  const spy = vi.fn(decideWrite)
-
-  window.atumMatrix = { googleConnections: { decideWrite: spy } } as unknown as MatrixUiBridge
-
-  return spy
+/** The list as main hands it over: Shell's body, read by the same strict reader. */
+function listed(...entries: unknown[]): MatrixGoogleWriteListAnswer {
+  return { state: 'ok', proposals: parseMatrixGoogleWriteProposalList({ proposals: entries }) ?? [] }
 }
 
-async function proposalOf(draft: MatrixGoogleWriteDraft = googleWriteEmail(), change: Record<string, unknown> = {}) {
-  return parseMatrixGoogleWriteProposal(await googleWriteProposalContent(draft, change))!
-}
-
-function show(
-  proposal: MatrixGoogleWriteProposal,
-  { locale = 'en', standing = 'open', now = BEFORE_EXPIRY }: { locale?: Locale; standing?: MatrixGoogleWriteStanding; now?: () => number } = {}
+function bridge(
+  lists: MatrixGoogleWriteListAnswer[],
+  answer: (input: MatrixGoogleWriteActionInput) => Promise<MatrixGoogleWriteActionAnswer> = async input => ({
+    state: 'ok',
+    status: STATUS[input.action]
+  })
 ) {
-  const wrap = (node: ReactNode) => (
+  const queue = [...lists]
+  const writeProposals = vi.fn(async () => (queue.length > 1 ? queue.shift()! : queue[0]!))
+  const writeProposalAction = vi.fn(answer)
+
+  window.atumMatrix = { googleConnections: { writeProposals, writeProposalAction } } as unknown as MatrixUiBridge
+
+  const decisions = () => writeProposalAction.mock.calls.map(([input]) => input).filter(input => input.action !== 'delivered')
+  const deliveries = () => writeProposalAction.mock.calls.map(([input]) => input).filter(input => input.action === 'delivered')
+
+  return { writeProposals, writeProposalAction, decisions, deliveries }
+}
+
+function show({ locale = 'en', roomId = GOOGLE_WRITE_ROOM, activity = '$one' }: { locale?: Locale; roomId?: string; activity?: string } = {}) {
+  const onWaiting = vi.fn()
+  const wrap = (next: string): ReactNode => (
     <I18nProvider configClient={null} initialLocale={locale}>
-      {node}
+      <MatrixGoogleWriteProposals activity={next} onWaiting={onWaiting} roomId={roomId} timeZone={ZONE} />
     </I18nProvider>
   )
+  const view = render(wrap(activity))
 
-  const card = (next: MatrixGoogleWriteStanding) => wrap(<MatrixGoogleWriteCard now={now} proposal={proposal} standing={next} timeZone={ZONE} />)
-  const view = render(card(standing))
-
-  return { ...view, restand: (next: MatrixGoogleWriteStanding) => view.rerender(card(next)) }
+  return { ...view, onWaiting, activity: (next: string) => view.rerender(wrap(next)) }
 }
 
-const approveButton = (name = 'Send') => screen.findByRole('button', { name })
-const enabled = async (name = 'Send') => waitFor(() => expect(screen.getByRole('button', { name })).toHaveProperty('disabled', false))
+const card = (name = 'Send this email?') => screen.findByRole('region', { name })
+const enabled = async (name = 'Approve') =>
+  waitFor(() => expect(screen.getByRole('button', { name })).toHaveProperty('disabled', false))
 
-describe('Google write card', () => {
-  it('shows the whole email draft and its two actions in English', async () => {
-    bridge(async () => 'done')
-    show(await proposalOf())
+async function entry(draft: MatrixGoogleWriteDraft = googleWriteEmail(), change: Record<string, unknown> = {}) {
+  return googleWriteEntry(draft, change)
+}
 
-    const card = screen.getByRole('region', { name: 'Send this email?' })
+describe('Google write cards', () => {
+  it('shows the email draft as data, with Approve and Decline, in English', async () => {
+    bridge([listed(await entry())])
+    show()
 
-    for (const text of [
-      'hello@example.com',
-      'contact@example.com, info@example.org',
-      'support@example.com',
-      'help@example.org',
-      'Quote for the spring order',
-      'quote-spring.pdf'
-    ]) {
-      expect(within(card).getByText(text)).toBeTruthy()
+    const region = await card()
+
+    for (const text of ['contact@example.com', 'support@example.com', 'Quote for the spring order', 'To', 'Cc', 'Subject']) {
+      expect(within(region).getByText(text)).toBeTruthy()
     }
 
+    expect(within(region).getByText(/quote-spring\.pdf · 48(\.2)? kB/u)).toBeTruthy()
     // The body exactly, line breaks and all, as plain text.
-    expect(card.querySelector('[data-matrix-google-write-text]')?.textContent).toBe(googleWriteEmail().body)
-    expect(within(card).getByText('Bcc')).toBeTruthy()
+    expect(region.querySelector('[data-matrix-google-write-text]')?.textContent).toBe(googleWriteEmail().body)
     await enabled()
     expect(screen.getByRole('button', { name: 'Decline' })).toHaveProperty('disabled', false)
   })
 
-  it('speaks Vietnamese', async () => {
-    bridge(async () => 'declined')
-    show(await proposalOf(), { locale: 'vi' })
-
-    expect(screen.getByRole('region', { name: 'Gửi email này?' })).toBeTruthy()
-    expect(screen.getByText('Tiêu đề')).toBeTruthy()
-    await enabled('Gửi')
-    fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
-    expect(await screen.findByText('Đã từ chối. Không có gì thay đổi.')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
-  })
-
-  it('approves with the proposal and the digest of the draft it rendered', async () => {
-    const decide = bridge(async () => 'done')
-    const proposal = await proposalOf()
-
-    show(proposal)
-    await enabled()
-    fireEvent.click(await approveButton())
-
-    expect(await screen.findByText('Sent.')).toBeTruthy()
-    expect(decide).toHaveBeenCalledTimes(1)
-    expect(decide).toHaveBeenCalledWith({
-      proposalId: GOOGLE_WRITE_IDS.first,
-      digest: await matrixGoogleWriteDigest(googleWriteEmail()),
-      decision: 'approve'
+  it('shows a forward with its quote and a calendar event in the owner’s time zone', async () => {
+    const forward = googleWriteEmail({
+      subject: 'Fwd: Spring order',
+      quote: 'From: hello@example.com\n\nSee below.',
+      forwarded: { messageId: 'msg-a1', from: 'hello@example.com', date: 'Tue, 2 Mar 2027', subject: 'Spring order', quotePreview: 'See below.', quoteLength: 36 }
     })
-    expect(decide.mock.calls[0]![0].digest).toBe(proposal.digest)
-  })
 
-  it('declines with the same proposal and digest', async () => {
-    const decide = bridge(async () => 'declined')
-    const proposal = await proposalOf()
-
-    show(proposal)
-    await enabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Decline' }))
-
-    expect(await screen.findByText('Declined. Nothing changed.')).toBeTruthy()
-    expect(decide).toHaveBeenCalledWith({ proposalId: proposal.proposalId, digest: proposal.digest, decision: 'decline' })
-  })
-
-  it('sends once however fast the presses, and shows the wait', async () => {
-    let finish!: (value: MatrixGoogleWriteAnswer) => void
-    const decide = bridge(() => new Promise(resolve => { finish = resolve }))
-
-    show(await proposalOf())
-    await enabled()
-    const send = await approveButton()
-
-    fireEvent.click(send)
-    fireEvent.click(send)
-    fireEvent.click(screen.getByRole('button', { name: 'Decline' }))
-
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Approving…' })).toHaveProperty('disabled', true))
-    expect(screen.getByRole('region').getAttribute('aria-busy')).toBe('true')
-    expect(decide).toHaveBeenCalledTimes(1)
-
-    finish('approved')
-    expect(await screen.findByText('Approved. It could not be confirmed yet, so check Google before asking again.')).toBeTruthy()
-    expect(decide).toHaveBeenCalledTimes(1)
-  })
-
-  it.each([
-    ['changed', 'This draft changed after it was shown, so it was not sent. Ask for a fresh one.'],
-    ['superseded', 'A newer request replaced this one. Nothing changed.'],
-    ['expired', 'This request expired. Nothing changed.'],
-    ['answered', 'This request was already answered.'],
-    ['failed', 'This did not go through. Nothing changed. You can ask again.']
-  ] as const)('shows Shell’s %s answer as that state, never as sent', async (answer, line) => {
-    bridge(async () => answer)
-    show(await proposalOf())
-    await enabled()
-    fireEvent.click(await approveButton())
-
-    expect(await screen.findByText(line)).toBeTruthy()
-    expect(screen.queryByText('Sent.')).toBeNull()
-    expect(screen.queryByRole('button')).toBeNull()
-  })
-
-  it.each([
-    ['a lost answer', async () => 'retry'],
-    ['an unknown answer', async () => 'sent'],
-    ['a failed request', async () => { throw new Error('ipc') }]
-  ])('stays open and calm after %s', async (_name, answer) => {
-    const decide = bridge(answer)
-
-    show(await proposalOf())
-    await enabled()
-    fireEvent.click(await approveButton())
-
-    expect(await screen.findByText('Could not reach Atum. Try again.')).toBeTruthy()
-    expect(screen.queryByText('Sent.')).toBeNull()
-    await enabled()
-
-    decide.mockImplementation(async () => 'done')
-    fireEvent.click(await approveButton())
-    expect(await screen.findByText('Sent.')).toBeTruthy()
-    expect(decide).toHaveBeenCalledTimes(2)
-  })
-
-  it('never offers a draft whose digest is not the proposal’s', async () => {
-    const decide = bridge(async () => 'done')
-
-    show(await proposalOf(googleWriteEmail(), { digest: await matrixGoogleWriteDigest(googleWriteEmail({ bcc: [] })) }))
-
-    expect(await screen.findByText('This draft changed after it was shown, so it was not sent. Ask for a fresh one.')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
-    expect(decide).not.toHaveBeenCalled()
-  })
-
-  it('closes when the proposal expires', async () => {
-    const decide = bridge(async () => 'done')
-
-    show(await proposalOf(), { now: () => Date.UTC(2027, 2, 6) })
-
-    expect(screen.getByText('This request expired. Nothing changed.')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
-    expect(decide).not.toHaveBeenCalled()
-  })
-
-  it('follows the agent’s outcome and a newer proposal', async () => {
-    bridge(async () => 'done')
-    const { restand } = show(await proposalOf())
-
-    await enabled()
-    restand('superseded')
-    expect(screen.getByText('A newer request replaced this one. Nothing changed.')).toBeTruthy()
-    expect(screen.queryByRole('button')).toBeNull()
-
-    restand('done')
-    expect(screen.getByText('Sent.')).toBeTruthy()
-  })
-
-  it('shows an event in the owner’s time zone and adds it', async () => {
-    const decide = bridge(async () => 'done')
-    const event = googleWriteEventFields({ start: { dateTime: '2027-03-04T02:30:00Z', timeZone: 'UTC' }, end: { dateTime: '2027-03-04T03:00:00Z', timeZone: 'UTC' } })
-
-    show(await proposalOf({ kind: 'create_event', calendar: 'Work', event }))
-
-    const time = new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short', timeZone: ZONE })
-
-    expect(screen.getByRole('region', { name: 'Add this event to your calendar?' })).toBeTruthy()
-    expect(screen.getByText(time.format(Date.parse('2027-03-04T02:30:00Z')))).toBeTruthy()
-    expect(screen.getByText(time.format(Date.parse('2027-03-04T03:00:00Z')))).toBeTruthy()
-    // The event's own zone differs from the owner's, so it is named.
-    expect(screen.getByText('UTC')).toBeTruthy()
-    expect(screen.getByText('contact@example.com')).toBeTruthy()
-    expect(screen.getByText('Bring the price list.')).toBeTruthy()
-    await enabled('Add event')
-    fireEvent.click(screen.getByRole('button', { name: 'Add event' }))
-    expect(await screen.findByText('Added to your calendar.')).toBeTruthy()
-    expect(decide.mock.calls[0]![0].decision).toBe('approve')
-  })
-
-  it('shows what an event change replaces, in Vietnamese', async () => {
-    bridge(async () => 'done')
-    show(
-      await proposalOf({
-        kind: 'update_event',
-        calendar: 'Công việc',
-        current: googleWriteEventFields(),
-        next: googleWriteEventFields({ location: 'Phòng 3' })
-      }),
-      { locale: 'vi' }
-    )
-
-    expect(screen.getByRole('region', { name: 'Lưu thay đổi này vào lịch?' })).toBeTruthy()
-    expect(screen.getByText(/Hiện tại:\s*Room 2/u)).toBeTruthy()
-    expect(screen.getByText(/Sau khi đổi:\s*Phòng 3/u)).toBeTruthy()
-    await enabled('Lưu thay đổi')
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu thay đổi' }))
-    expect(await screen.findByText('Đã lưu thay đổi vào lịch.')).toBeTruthy()
-  })
-})
-
-describe('Google write proposals in the agent’s chat', () => {
-  function timelineEvent(type: string, content: Record<string, unknown>, sender = AGENT, id = '$proposal') {
-    return new MatrixEvent({ type, room_id: '!room:test', event_id: id, sender, origin_server_ts: 1, content })
-  }
-
-  const project = (events: MatrixEvent[]) =>
-    matrixFoldGoogleWriteProposals(
-      events.flatMap(event => matrixMessage(event, OWNER, new Set()) ?? []),
-      new Set([AGENT])
-    )
-
-  it('replaces the older card with the newer one', async () => {
-    const lines = project([
-      timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, await googleWriteProposalContent(), AGENT, '$one'),
-      timelineEvent(
-        MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE,
-        await googleWriteProposalContent(googleWriteEmail({ subject: 'Updated quote' }), { proposalId: GOOGLE_WRITE_IDS.second }),
-        AGENT,
-        '$two'
+    bridge([
+      listed(
+        await entry(forward),
+        await entry(googleWriteEvent(), { proposalId: GOOGLE_WRITE_IDS.second, agent: GOOGLE_WRITE_IDS.otherAgent })
       )
     ])
+    show()
 
-    bridge(async () => 'done')
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        {lines.map(line => (
-          <MatrixGoogleWriteCard
-            key={line.id}
-            now={BEFORE_EXPIRY}
-            proposal={line.googleWrite!.proposal}
-            standing={line.googleWrite!.standing}
-            timeZone={ZONE}
-          />
-        ))}
-      </I18nProvider>
+    const email = await card()
+
+    expect(within(email).getByText('Quoted message')).toBeTruthy()
+    expect(within(email).getByText('hello@example.com · Spring order')).toBeTruthy()
+    expect([...email.querySelectorAll('[data-matrix-google-write-text]')].map(node => node.textContent)).toEqual([forward.body, forward.quote])
+
+    const event = await card('Add this event to your calendar?')
+
+    expect(within(event).getByText('Supplier call')).toBeTruthy()
+    expect(within(event).getByText('Room 2')).toBeTruthy()
+    expect(within(event).getByText(/9:30\s?AM/u)).toBeTruthy()
+    expect(within(event).getByText('Bring the price list.')).toBeTruthy()
+  })
+
+  it('speaks Vietnamese, and a decline settles to one calm line', async () => {
+    const calls = bridge([listed(await entry())])
+    show({ locale: 'vi' })
+
+    expect(await card('Gửi email này?')).toBeTruthy()
+    await enabled('Duyệt')
+    fireEvent.click(screen.getByRole('button', { name: 'Từ chối' }))
+
+    expect(await screen.findByText('Đã từ chối. Trợ lý sẽ không thực hiện việc này.')).toBeTruthy()
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(calls.decisions()).toEqual([{ proposalId: GOOGLE_WRITE_IDS.first, digest: (await entry()).digest, action: 'decline' }])
+  })
+
+  it('lists with the bridge only, and shows only this chat’s proposals', async () => {
+    const calls = bridge([listed(await entry(), await entry(googleWriteEvent(), { proposalId: GOOGLE_WRITE_IDS.second, room: GOOGLE_WRITE_OTHER_ROOM }))])
+    show()
+
+    await card()
+    expect(calls.writeProposals).toHaveBeenCalledWith()
+    expect(screen.queryByRole('region', { name: 'Add this event to your calendar?' })).toBeNull()
+  })
+
+  it('approves with the digest of the rendered draft and says it is approved, never sent', async () => {
+    const calls = bridge([listed(await entry())])
+    show()
+
+    await enabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+
+    expect(await screen.findByText('Approved. Your assistant will carry it out.')).toBeTruthy()
+    expect(screen.queryByText(/sent/iu)).toBeNull()
+    expect(calls.decisions()).toEqual([{ proposalId: GOOGLE_WRITE_IDS.first, digest: (await entry()).digest, action: 'approve' }])
+  })
+
+  it('never sends a second decision once one was accepted, however the presses and refreshes go', async () => {
+    let release: (answer: MatrixGoogleWriteActionAnswer) => void = () => {}
+    const calls = bridge([listed(await entry())], input =>
+      input.action === 'approve' ? new Promise(resolve => (release = resolve)) : Promise.resolve({ state: 'ok', status: STATUS[input.action] })
     )
+    const view = show()
 
-    const [older, newer] = screen.getAllByRole('region')
+    await enabled()
+    const approve = screen.getByRole('button', { name: 'Approve' })
 
-    expect(within(older!).getByText('A newer request replaced this one. Nothing changed.')).toBeTruthy()
-    expect(within(older!).queryByRole('button')).toBeNull()
-    await waitFor(() => expect(within(newer!).getByRole('button', { name: 'Send' })).toHaveProperty('disabled', false))
-    expect(within(newer!).getByText('Updated quote')).toBeTruthy()
+    fireEvent.click(approve)
+    fireEvent.click(approve)
+    fireEvent.click(screen.getByRole('button', { name: 'Decline' }))
+    expect(await screen.findByText('Approving…')).toBeTruthy()
+
+    await act(async () => release({ state: 'ok', status: 'confirmed' }))
+    expect(await screen.findByText('Approved. Your assistant will carry it out.')).toBeTruthy()
+
+    // Still listed for a moment (or listed again): the answer stands and nothing more is sent.
+    view.activity('$two')
+    await waitFor(() => expect(calls.writeProposals.mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(screen.getByText('Approved. Your assistant will carry it out.')).toBeTruthy()
+    expect(calls.decisions()).toHaveLength(1)
   })
 
-  it('settles a card by the agent’s outcome event, which shows nothing itself', async () => {
-    const lines = project([
-      timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, await googleWriteProposalContent()),
-      timelineEvent(MATRIX_GOOGLE_WRITE_OUTCOME_TYPE, { version: 1, proposalId: GOOGLE_WRITE_IDS.first, state: 'declined' }, AGENT, '$outcome')
+  it('shows a refusal as a closed card, never as approved', async () => {
+    bridge([listed(await entry())], async input => (input.action === 'delivered' ? { state: 'ok', status: 'delivered' } : { state: 'refused' }))
+    show()
+
+    await enabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+
+    expect(await screen.findByText('This request is no longer waiting for you.')).toBeTruthy()
+    expect(screen.queryByText(/Approved/u)).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('keeps the actions after Atum could not be reached, and a retry can still be accepted', async () => {
+    let state: 'unavailable' | 'ok' = 'unavailable'
+    const calls = bridge([listed(await entry())], async input =>
+      input.action === 'delivered' ? { state: 'ok', status: 'delivered' } : state === 'ok' ? { state: 'ok', status: 'confirmed' } : { state: 'unavailable' }
+    )
+    show()
+
+    await enabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    expect(await screen.findByText('Couldn’t reach Atum. Try again.')).toBeTruthy()
+    expect(screen.queryByText(/Approved/u)).toBeNull()
+    await enabled()
+
+    state = 'ok'
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }))
+    expect(await screen.findByText('Approved. Your assistant will carry it out.')).toBeTruthy()
+    expect(calls.decisions()).toHaveLength(2)
+  })
+
+  it('never offers Approve for a draft whose digest is not the proposal’s, and reports no delivery', async () => {
+    const calls = bridge([listed(await entry(googleWriteEmail(), { digest: 'c'.repeat(64) }))])
+    show()
+
+    expect(await screen.findByText(/doesn’t match what your assistant proposed/u)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    await new Promise(resolve => setTimeout(resolve, 1_200))
+    expect(calls.writeProposalAction).not.toHaveBeenCalled()
+  })
+
+  it('reports delivery once, only after the card was on screen in a focused window', async () => {
+    const calls = bridge([listed(await entry())])
+    const view = show()
+
+    await card()
+    expect(calls.deliveries()).toEqual([])
+    await waitFor(() => expect(calls.deliveries()).toHaveLength(1), { timeout: 2_500 })
+    expect(calls.deliveries()[0]).toEqual({ proposalId: GOOGLE_WRITE_IDS.first, digest: (await entry()).digest, action: 'delivered' })
+
+    // Re-rendering, refreshing and remounting the same proposal never report it again.
+    view.activity('$two')
+    await waitFor(() => expect(calls.writeProposals.mock.calls.length).toBeGreaterThanOrEqual(2))
+    view.unmount()
+    show()
+    await card()
+    await new Promise(resolve => setTimeout(resolve, 1_200))
+    expect(calls.deliveries()).toHaveLength(1)
+  })
+
+  it('reports no delivery while the window is not focused', async () => {
+    vi.spyOn(window.document, 'hasFocus').mockReturnValue(false)
+    const calls = bridge([listed(await entry())])
+    show()
+
+    await card()
+    await new Promise(resolve => setTimeout(resolve, 1_300))
+    expect(calls.deliveries()).toEqual([])
+  })
+
+  it('reads the list again on this chat’s activity and settles an older card as superseded by the newer one', async () => {
+    const newer = googleWriteEmail({ subject: 'Revised quote' })
+    const calls = bridge([listed(await entry()), listed(await entry(newer, { proposalId: GOOGLE_WRITE_IDS.second }))])
+    const view = show()
+
+    await enabled()
+    expect(calls.writeProposals).toHaveBeenCalledTimes(1)
+
+    view.activity('$two')
+    await waitFor(() => expect(calls.writeProposals).toHaveBeenCalledTimes(2))
+
+    expect(await screen.findByText('A newer request replaced this one.')).toBeTruthy()
+    const open = screen.getAllByRole('region', { name: 'Send this email?' })
+
+    expect(open).toHaveLength(2)
+    expect(within(open[0]!).getByText('Quote for the spring order')).toBeTruthy()
+    expect(within(open[0]!).queryByRole('button')).toBeNull()
+    expect(within(open[1]!).getByText('Revised quote')).toBeTruthy()
+    expect(within(open[1]!).getByRole('button', { name: 'Approve' })).toBeTruthy()
+  })
+
+  it('reads the list again when the window regains focus, and a card that left the list closes', async () => {
+    const calls = bridge([listed(await entry()), listed()])
+    const view = show()
+
+    await enabled()
+    expect(view.onWaiting).toHaveBeenLastCalledWith(true)
+    act(() => {
+      window.dispatchEvent(new Event('focus'))
+    })
+    await waitFor(() => expect(calls.writeProposals).toHaveBeenCalledTimes(2))
+
+    expect(await screen.findByText('This request is no longer waiting for you.')).toBeTruthy()
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(view.onWaiting).toHaveBeenLastCalledWith(false)
+  })
+
+  it('keeps what is shown when the list cannot be read', async () => {
+    bridge([listed(await entry()), { state: 'unavailable' }])
+    const view = show()
+
+    await enabled()
+    view.activity('$two')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeTruthy()
+  })
+
+  it('renders nothing for malformed list entries', async () => {
+    const calls = bridge([
+      listed(
+        { ...(await entry()), draft: { ...googleWriteEmail(), sendAt: 'later' } },
+        { ...(await entry(googleWriteEvent())), status: 'confirmed' },
+        'not a proposal'
+      )
     ])
+    const view = show()
 
-    expect(lines.map(line => [line.id, line.googleWrite?.standing])).toEqual([['$proposal', 'declined']])
+    await waitFor(() => expect(calls.writeProposals).toHaveBeenCalled())
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(view.container.querySelector('[data-matrix-google-write-cards]')).toBeNull()
   })
 
-  it('shows nothing for a malformed, foreign, own or chat-message copy of a proposal', async () => {
-    const content = await googleWriteProposalContent()
+  it('shows nothing and asks nothing without the bridge', async () => {
+    const view = show()
 
-    expect(
-      project([
-        timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, { ...content, version: 2 }, AGENT, '$v2'),
-        timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, { ...content, draft: { kind: 'send_fax' } }, AGENT, '$kind'),
-        timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, content, '@stranger:test', '$stranger'),
-        timelineEvent(MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE, content, OWNER, '$own'),
-        timelineEvent(MATRIX_GOOGLE_WRITE_OUTCOME_TYPE, { version: 1, proposalId: 'x', state: 'done' }, AGENT, '$outcome'),
-        timelineEvent('io.atum.google.write_proposal.v2', content, AGENT, '$unknown')
-      ])
-    ).toEqual([])
-
-    // The proposal shape inside an ordinary message is only that message, never a card.
-    const message = project([timelineEvent(EventType.RoomMessage, { msgtype: 'm.notice', body: '', ...content }, AGENT, '$text')])
-
-    expect(message).toHaveLength(1)
-    expect(message[0]!.googleWrite).toBeUndefined()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(view.container.innerHTML).toBe('')
   })
 })

@@ -65,8 +65,7 @@ export function matrixUnansweredOwnerMessage(
       !message.failed &&
       !message.redacted &&
       !message.decryptionFailed &&
-      // A Google write card is the agent's answer: it waits on the owner now.
-      (!message.notice || Boolean(message.googleWrite)) &&
+      !message.notice &&
       // An interim remark (agent-turns/1.4) is the agent talking mid-turn, never the answer.
       !message.interim
     ) {

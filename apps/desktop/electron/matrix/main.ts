@@ -660,7 +660,7 @@ import {
   matrixFounderView
 } from './founder-chat'
 import { ensureMatrixFullHermes } from './full-hermes'
-import { createMatrixGoogleConnectionIpcHandler, createMatrixGoogleWriteIpcHandler, matrixGoogleWriteDecider, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
+import { createMatrixGoogleConnectionIpcHandler, createMatrixGoogleWriteIpcHandler, matrixGoogleWriteProposals, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
 import { type MatrixGoogleConnectionOwner, MatrixGoogleConnections } from './google-connections'
 import {
   MatrixGoogleFenceNotices,
@@ -19088,12 +19088,13 @@ async function start() {
       }
     })
   )
-  // A Google write card's Approve or Decline, sent with the owner's bearer (never the renderer's).
+  // Google write cards: the pending list and each card's delivered/approve/decline, sent with the
+  // owner's bearer (never the renderer's). Nothing is posted into any room.
   ipcMain.handle(
     MATRIX_GOOGLE_WRITE_IPC,
     createMatrixGoogleWriteIpcHandler({
       assertSender: (event: Electron.IpcMainInvokeEvent) => requireMatrixCaller(event, ui?.webContents, UI_URL),
-      decide: () => (config.domain && state.identity ? matrixGoogleWriteDecider(account) : undefined)
+      proposals: () => (config.domain && state.identity ? matrixGoogleWriteProposals(account) : undefined)
     })
   )
 

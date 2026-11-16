@@ -5,194 +5,128 @@ import { describe, expect, it } from 'vitest'
 import { canonicalJson } from '../../../packages/device-protocol/canonical'
 
 import {
-  matrixFoldGoogleWriteProposals,
   matrixGoogleWriteDigest,
-  type MatrixGoogleWriteProposal,
-  parseMatrixGoogleWriteDecisionInput,
-  parseMatrixGoogleWriteOutcome,
-  parseMatrixGoogleWriteProposal
+  matrixGoogleWriteKind,
+  parseMatrixGoogleWriteActionInput,
+  parseMatrixGoogleWriteProposalList
 } from './matrix-google-write-proposal'
 import {
   GOOGLE_WRITE_IDS,
+  GOOGLE_WRITE_ROOM,
   googleWriteEmail,
-  googleWriteEventFields,
-  googleWriteProposalContent
+  googleWriteEntry,
+  googleWriteEvent
 } from './matrix-google-write-proposal.test-support'
 
-const AGENT = '@agent:test'
-const OWNER = '@owner:test'
+const list = (...proposals: unknown[]) => parseMatrixGoogleWriteProposalList({ proposals })
 
-describe('Google write proposal reader', () => {
-  it('reads a proposal and digests exactly the draft it returns, as the platform canonical JSON', async () => {
-    const content = await googleWriteProposalContent()
-    const proposal = parseMatrixGoogleWriteProposal(content)!
+describe('Google write pending list reader', () => {
+  it('reads an email and a calendar proposal and digests exactly the drafts it returns, as Shell does', async () => {
+    const email = googleWriteEmail()
+    const event = googleWriteEvent()
+    const entries = [
+      await googleWriteEntry(email),
+      await googleWriteEntry(event, { proposalId: GOOGLE_WRITE_IDS.second, room: '!work:example.org' })
+    ]
+    const proposals = list(...entries)!
 
-    expect(proposal).toEqual({
-      proposalId: GOOGLE_WRITE_IDS.first,
-      digest: content.digest,
-      expiresAt: content.expiresAt,
-      draft: googleWriteEmail()
-    })
-    expect(proposal.digest).toBe(`sha256:${createHash('sha256').update(canonicalJson(googleWriteEmail())).digest('hex')}`)
-    expect(await matrixGoogleWriteDigest(proposal.draft)).toBe(proposal.digest)
-  })
+    expect(proposals).toEqual([
+      { proposalId: GOOGLE_WRITE_IDS.first, agent: GOOGLE_WRITE_IDS.agent, room: GOOGLE_WRITE_ROOM, digest: entries[0]!.digest, draft: email },
+      { proposalId: GOOGLE_WRITE_IDS.second, agent: GOOGLE_WRITE_IDS.agent, room: '!work:example.org', digest: entries[1]!.digest, draft: event }
+    ])
+    expect(proposals.map(proposal => matrixGoogleWriteKind(proposal.draft))).toEqual(['send_email', 'create_event'])
 
-  it('changes the digest when any shown field changes', async () => {
-    const base = await matrixGoogleWriteDigest(googleWriteEmail())
+    // The platform's formula: lowercase hex SHA-256 of the UTF-8 canonical JSON of the draft.
+    for (const proposal of proposals) {
+      const expected = createHash('sha256').update(canonicalJson(proposal.draft)).digest('hex')
 
-    for (const change of [
-      { bcc: [] },
-      { body: 'Hi Lan,\n\nThe quote is attached.\n\nThanks!' },
-      { attachments: [] },
-      { inReplyTo: true },
-      { to: ['contact@example.com'] }
-    ]) {
-      expect(await matrixGoogleWriteDigest(googleWriteEmail(change))).not.toBe(base)
+      expect(proposal.digest).toBe(expected)
+      expect(await matrixGoogleWriteDigest(proposal.draft)).toBe(expected)
     }
   })
 
-  it('reads every kind of draft', async () => {
-    const drafts = [
-      { kind: 'create_event', calendar: 'Work', event: googleWriteEventFields() },
-      {
-        kind: 'update_event',
-        calendar: 'Work',
-        current: googleWriteEventFields(),
-        next: googleWriteEventFields({ start: { date: '2027-03-05' }, end: { date: '2027-03-06' } })
+  it('reads a reply and a forward with their quote, threading and file metadata', async () => {
+    const forward = googleWriteEmail({
+      to: ['info@example.org'],
+      cc: undefined,
+      subject: 'Fwd: Spring order',
+      quote: '---------- Forwarded message ---------\nFrom: hello@example.com\n\nSee below.',
+      forwarded: {
+        messageId: 'msg-a1',
+        from: 'hello@example.com',
+        date: 'Tue, 2 Mar 2027 09:00:00 +0700',
+        subject: 'Spring order',
+        quotePreview: 'See below.',
+        quoteLength: 72,
+        truncated: true
       },
-      { kind: 'drive_change', action: 'update', name: 'Price list', folder: 'Shared/Sales', content: 'Row 2: 120' }
-    ] as const
+      attachments: [{ filename: 'order.csv', mimeType: 'text/csv', size: 912, sha256: 'e'.repeat(64) }]
+    })
+    const reply = googleWriteEmail({ threadId: 'thread-b2', inReplyTo: '<info@example.org>', references: ['<info@example.org>'] })
 
-    for (const draft of drafts) {
-      expect(parseMatrixGoogleWriteProposal(await googleWriteProposalContent(draft))?.draft).toEqual(draft)
-    }
+    delete forward.cc
+
+    expect(list(await googleWriteEntry(forward))?.[0]?.draft).toEqual(forward)
+    expect(list(await googleWriteEntry(reply))?.[0]?.draft).toEqual(reply)
+    expect(list(await googleWriteEntry(googleWriteEvent({ action: 'update_event', eventId: 'evt-c3' })))).toHaveLength(1)
   })
 
   it.each([
-    ['an extra top-level key', { body: 'Approve?' }],
-    ['a newer version', { version: 2 }],
-    ['a malformed proposal id', { proposalId: 'proposal-one' }],
-    ['a malformed digest', { digest: 'sha256:abc' }],
-    ['no expiry', { expiresAt: 'tomorrow' }],
-    ['an unknown kind', { draft: { kind: 'delete_event', calendar: 'Work' } }],
-    ['an unshown draft field', { draft: { ...googleWriteEmail(), replyAll: true } }],
-    ['an email without recipients', { draft: googleWriteEmail({ to: [] }) }],
-    ['a malformed recipient', { draft: googleWriteEmail({ cc: ['Lan <contact@example.com>'] }) }],
-    ['a subject on two lines', { draft: googleWriteEmail({ subject: 'Quote\nBcc: privacy@example.org' }) }],
-    ['a lone surrogate', { draft: googleWriteEmail({ body: 'Hi \uD800' }) }],
-    [
-      'an event mixing an all-day start with a timed end',
-      { draft: { kind: 'create_event', calendar: 'Work', event: googleWriteEventFields({ start: { date: '2027-03-04' } }) } }
-    ],
-    [
-      'an impossible date',
-      {
-        draft: {
-          kind: 'create_event',
-          calendar: 'Work',
-          event: googleWriteEventFields({ start: { date: '2027-02-30' }, end: { date: '2027-03-01' } })
-        }
-      }
-    ]
-  ])('reads nothing from %s', async (_name, change) => {
-    expect(parseMatrixGoogleWriteProposal(await googleWriteProposalContent(googleWriteEmail(), change))).toBeUndefined()
+    ['an extra entry field', { extra: true }],
+    ['an operation id that is not the proposal id', { operationId: GOOGLE_WRITE_IDS.second }],
+    ['a prefixed digest', { digest: `sha256:${'a'.repeat(64)}` }],
+    ['an uppercase digest', { digest: 'A'.repeat(64) }],
+    ['a status other than awaiting_owner', { status: 'confirmed' }],
+    ['a room that is not a room id', { room: 'personal' }],
+    ['an agent that is not an id', { agent: '@agent:example.org' }],
+    ['an email draft with an unknown field', { draft: { ...googleWriteEmail(), sendAt: 'later' } }],
+    ['an email draft without its quote', { draft: (({ quote: _quote, ...rest }) => rest)(googleWriteEmail()) }],
+    ['an email draft with no recipient', { draft: googleWriteEmail({ to: [], cc: [] }) }],
+    ['an email draft with a display-name recipient', { draft: googleWriteEmail({ to: ['Support <support@example.com>'] }) }],
+    ['an attachment carrying bytes', { draft: googleWriteEmail({ attachments: [{ filename: 'a.pdf', mimeType: 'application/pdf', size: 3, data: 'AAA' } as never] }) }],
+    ['a calendar draft with an operation id', { draft: { ...googleWriteEvent(), operationId: GOOGLE_WRITE_IDS.first } }],
+    ['a calendar draft with a local time', { draft: googleWriteEvent({ start: '2027-03-04T09:30:00' }) }],
+    ['an update without its event id', { draft: googleWriteEvent({ action: 'update_event' }) }],
+    ['a create naming an event id', { draft: googleWriteEvent({ eventId: 'evt-c3' }) }],
+    ['a Drive write', { draft: { action: 'create_file', sourceId: 'google:drive:YQ', title: 'Notes' } }],
+    ['a lone surrogate', { draft: googleWriteEmail({ body: 'broken \uD800 text' }) }]
+  ])('drops %s and keeps the rest of the list', async (_name, change) => {
+    const bad = await googleWriteEntry(googleWriteEmail(), change)
+    const good = await googleWriteEntry(googleWriteEvent(), { proposalId: GOOGLE_WRITE_IDS.second, agent: GOOGLE_WRITE_IDS.otherAgent })
+
+    expect(list(bad, good)?.map(proposal => proposal.proposalId)).toEqual([GOOGLE_WRITE_IDS.second])
   })
 
-  it('reads an outcome only in its closed shape', () => {
-    expect(parseMatrixGoogleWriteOutcome({ version: 1, proposalId: GOOGLE_WRITE_IDS.first, state: 'done' })).toEqual({
-      proposalId: GOOGLE_WRITE_IDS.first,
-      state: 'done'
-    })
-    expect(
-      parseMatrixGoogleWriteOutcome({
-        version: 1,
-        proposalId: GOOGLE_WRITE_IDS.first,
-        state: 'declined',
-        'm.relates_to': { rel_type: 'm.reference', event_id: '$proposal' }
-      })
-    ).toEqual({ proposalId: GOOGLE_WRITE_IDS.first, state: 'declined' })
-    expect(parseMatrixGoogleWriteOutcome({ version: 1, proposalId: GOOGLE_WRITE_IDS.first, state: 'sent' })).toBeUndefined()
-    expect(
-      parseMatrixGoogleWriteOutcome({ version: 1, proposalId: GOOGLE_WRITE_IDS.first, state: 'done', body: 'Sent' })
-    ).toBeUndefined()
+  it('keeps one proposal per agent and room', async () => {
+    const first = await googleWriteEntry(googleWriteEmail())
+    const second = await googleWriteEntry(googleWriteEvent(), { proposalId: GOOGLE_WRITE_IDS.second })
+    const elsewhere = await googleWriteEntry(googleWriteEvent(), { proposalId: GOOGLE_WRITE_IDS.third, agent: GOOGLE_WRITE_IDS.otherAgent })
+
+    expect(list(first, second, elsewhere)?.map(proposal => proposal.proposalId)).toEqual([GOOGLE_WRITE_IDS.first, GOOGLE_WRITE_IDS.third])
   })
 
-  it('reads a decision request only with a proposal, a digest and approve or decline', () => {
-    const digest = `sha256:${'a'.repeat(64)}`
-
-    expect(parseMatrixGoogleWriteDecisionInput({ proposalId: GOOGLE_WRITE_IDS.first, digest, decision: 'approve' })).toEqual({
-      proposalId: GOOGLE_WRITE_IDS.first,
-      digest,
-      decision: 'approve'
-    })
-    expect(parseMatrixGoogleWriteDecisionInput({ proposalId: GOOGLE_WRITE_IDS.first, digest, decision: 'send' })).toBeUndefined()
-    expect(
-      parseMatrixGoogleWriteDecisionInput({ proposalId: GOOGLE_WRITE_IDS.first, digest, decision: 'approve', draft: {} })
-    ).toBeUndefined()
+  it('reads an empty list and refuses a body that is not the list', () => {
+    expect(list()).toEqual([])
+    expect(parseMatrixGoogleWriteProposalList({ proposals: [], next: 'x' })).toBeUndefined()
+    expect(parseMatrixGoogleWriteProposalList([])).toBeUndefined()
+    expect(parseMatrixGoogleWriteProposalList({ state: 'refused' })).toBeUndefined()
   })
 })
 
-describe('Google write proposals in a transcript', () => {
-  const proposal = (proposalId: string): MatrixGoogleWriteProposal => ({
-    proposalId,
-    digest: `sha256:${'b'.repeat(64)}`,
-    expiresAt: 1,
-    draft: googleWriteEmail()
+describe('Google write action input', () => {
+  const input = { proposalId: GOOGLE_WRITE_IDS.first, digest: 'c'.repeat(64), action: 'approve' }
+
+  it.each(['delivered', 'approve', 'decline'])('passes on exactly %s with its proposal and digest', action => {
+    expect(parseMatrixGoogleWriteActionInput({ ...input, action })).toEqual({ ...input, action })
   })
 
-  const card = (id: string, proposalId: string, sender = AGENT) => ({
-    id,
-    sender,
-    own: sender === OWNER,
-    googleWrite: { proposal: proposal(proposalId), standing: 'open' as const }
-  })
-
-  const outcome = (id: string, proposalId: string, state: 'done' | 'declined', sender = AGENT) => ({
-    id,
-    sender,
-    own: sender === OWNER,
-    googleWriteOutcome: { proposalId, state }
-  })
-
-  const standings = (lines: ReturnType<typeof matrixFoldGoogleWriteProposals>) =>
-    lines.map(line => [line.id, line.googleWrite?.standing ?? 'line'])
-
-  it('keeps one open card per agent: a newer proposal supersedes the older one', () => {
-    const folded = matrixFoldGoogleWriteProposals(
-      [card('$a', GOOGLE_WRITE_IDS.first), { id: '$text', sender: AGENT, own: false }, card('$b', GOOGLE_WRITE_IDS.second)],
-      new Set([AGENT])
-    )
-
-    expect(standings(folded)).toEqual([
-      ['$a', 'superseded'],
-      ['$text', 'line'],
-      ['$b', 'open']
-    ])
-  })
-
-  it('settles a proposal by its agent outcome, which is never a row', () => {
-    const folded = matrixFoldGoogleWriteProposals(
-      [
-        card('$a', GOOGLE_WRITE_IDS.first),
-        outcome('$o', GOOGLE_WRITE_IDS.first, 'done'),
-        card('$b', GOOGLE_WRITE_IDS.second),
-        outcome('$p', GOOGLE_WRITE_IDS.second, 'declined', '@stranger:test')
-      ],
-      new Set([AGENT])
-    )
-
-    expect(standings(folded)).toEqual([
-      ['$a', 'done'],
-      ['$b', 'open']
-    ])
-  })
-
-  it('shows nothing for a proposal from anyone but a room agent', () => {
-    const folded = matrixFoldGoogleWriteProposals(
-      [card('$a', GOOGLE_WRITE_IDS.first, '@stranger:test'), card('$b', GOOGLE_WRITE_IDS.second, OWNER)],
-      new Set([AGENT])
-    )
-
-    expect(folded).toEqual([])
+  it.each([
+    ['another action', { ...input, action: 'send' }],
+    ['a draft alongside', { ...input, draft: {} }],
+    ['an agent alongside', { ...input, agent: GOOGLE_WRITE_IDS.agent }],
+    ['a prefixed digest', { ...input, digest: `sha256:${'c'.repeat(64)}` }],
+    ['a non-id proposal', { ...input, proposalId: '../approve' }]
+  ])('refuses %s', (_name, value) => {
+    expect(parseMatrixGoogleWriteActionInput(value)).toBeUndefined()
   })
 })

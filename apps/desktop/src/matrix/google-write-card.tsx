@@ -1,24 +1,29 @@
-import { type ReactNode, useEffect, useState, useSyncExternalStore } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { type Locale, useI18n } from '@/i18n'
-import { Calendar, FileText, type IconComponent, Mail } from '@/lib/icons'
+import { Calendar, type IconComponent, Mail } from '@/lib/icons'
 
 import {
-  type MatrixGoogleWriteAnswer,
-  type MatrixGoogleWriteDecision,
+  MATRIX_GOOGLE_WRITE_STATUS,
+  type MatrixGoogleWriteActionAnswer,
+  type MatrixGoogleWriteAttachment,
   matrixGoogleWriteDigest,
   type MatrixGoogleWriteDraft,
-  type MatrixGoogleWriteEventFields,
+  type MatrixGoogleWriteEmail,
+  type MatrixGoogleWriteEvent,
+  type MatrixGoogleWriteKind,
+  matrixGoogleWriteKind,
   type MatrixGoogleWriteProposal,
-  type MatrixGoogleWriteStanding,
-  type MatrixGoogleWriteWhen
+  matrixGoogleWriteSlot
 } from '../../shared/matrix-google-write-proposal'
 
 import { matrixGoogleWriteCardCopy, type MatrixGoogleWriteCardCopy } from './google-write-card-copy'
+import { useNoticePresented } from './notice-presented'
 
-type Kind = keyof MatrixGoogleWriteCardCopy['done']
+/** Where a card stands in the pending list: still listed, replaced by a newer one, or gone. */
+export type MatrixGoogleWriteStanding = 'open' | 'superseded' | 'closed'
 
 /** What the card shows. Only `pending` offers the two actions. */
 export type MatrixGoogleWriteCardView =
@@ -26,22 +31,33 @@ export type MatrixGoogleWriteCardView =
   | 'pending'
   | 'approving'
   | 'declining'
-  | Exclude<MatrixGoogleWriteAnswer, 'retry'>
+  | 'approved'
+  | 'declined'
+  | 'superseded'
+  | 'closed'
+  | 'changed'
 
-type Local = { phase: 'sending'; decision: MatrixGoogleWriteDecision } | { phase: 'answered'; answer: MatrixGoogleWriteAnswer }
+type Settled = Exclude<MatrixGoogleWriteCardView, 'checking' | 'pending' | 'approving' | 'declining'>
 
-const ANSWERS = new Set<string>(['done', 'approved', 'declined', 'superseded', 'expired', 'changed', 'answered', 'failed', 'retry'])
+type Decision = 'approve' | 'decline'
+
+type Local =
+  | { phase: 'sending'; decision: Decision }
+  | { phase: 'answered'; decision: Decision; state: MatrixGoogleWriteActionAnswer['state'] }
 
 /**
- * This window's own answers, by proposal: a card that scrolls out of view and back, or a second
- * card for the same proposal, reads the same answer, and a decision already in flight is never
- * sent again (one request per press, however fast the presses).
+ * This window's own answers and delivery reports, by proposal: a card that scrolls out of view and
+ * back, or a remounted chat, reads the same answer; a decision is never sent twice once Shell
+ * accepted one, and never while one is in flight; delivery is reported once per proposal.
  */
 const answers = new Map<string, Local>()
+const delivered = new Set<string>()
 const listeners = new Set<() => void>()
+let version = 0
 
 function remember(proposalId: string, local: Local) {
   answers.set(proposalId, local)
+  version += 1
 
   for (const listener of listeners) {
     listener()
@@ -56,51 +72,32 @@ function subscribe(listener: () => void) {
   }
 }
 
-/** Test seam: forget this window's answers. */
+/** Test seam: forget this window's answers and delivery reports. */
 export function resetMatrixGoogleWriteAnswers() {
   answers.clear()
+  delivered.clear()
 }
 
-function kindOf(draft: MatrixGoogleWriteDraft): Kind {
-  return draft.kind === 'drive_change' ? (draft.action === 'create' ? 'drive_create' : 'drive_update') : draft.kind
-}
-
-const ICONS: Record<Kind, IconComponent> = {
+const ICONS: Record<MatrixGoogleWriteKind, IconComponent> = {
   send_email: Mail,
   create_event: Calendar,
-  update_event: Calendar,
-  drive_create: FileText,
-  drive_update: FileText
+  update_event: Calendar
 }
 
 /** The one line that names what a settled card was about. */
 function summary(draft: MatrixGoogleWriteDraft): string {
-  switch (draft.kind) {
-    case 'send_email':
-      return draft.subject || draft.to.join(', ')
-    case 'create_event':
-      return draft.event.title
-    case 'update_event':
-      return draft.next.title
-    case 'drive_change':
-      return draft.name
-  }
+  return 'action' in draft ? draft.title : draft.subject
 }
 
-const DAY_MS = 86_400_000
+/** Only Shell's own answer for this exact action reads as accepted. */
+function answerOf(value: unknown, decision: Decision): MatrixGoogleWriteActionAnswer['state'] {
+  const row = value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
 
-/**
- * An instant in the owner's time zone; an all-day date as that calendar date. Google's all-day end
- * is the day after the last one, so the end shows the last day itself.
- */
-function shownWhen(value: MatrixGoogleWriteWhen, locale: Locale, timeZone: string, copy: MatrixGoogleWriteCardCopy, end = false) {
-  if ('date' in value) {
-    const day = Date.parse(`${value.date}T00:00:00Z`) - (end ? DAY_MS : 0)
-
-    return `${new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(day)} · ${copy.labels.allDay}`
+  if (row.state === 'ok' && row.status === MATRIX_GOOGLE_WRITE_STATUS[decision]) {
+    return 'ok'
   }
 
-  return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(Date.parse(value.dateTime))
+  return row.state === 'refused' ? 'refused' : 'unavailable'
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -112,132 +109,76 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-function Text({ value }: { value: string }) {
+function Text({ value, muted = false }: { value: string; muted?: boolean }) {
   // Exactly as written: line breaks kept, never markdown, long text scrolls inside the card.
   return (
-    <div className="max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm text-(--atum-ink)" data-matrix-google-write-text>
+    <div
+      className={`max-h-72 overflow-y-auto whitespace-pre-wrap break-words text-sm ${muted ? 'text-(--atum-ink-soft)' : 'text-(--atum-ink)'}`}
+      data-matrix-google-write-text
+    >
       {value}
     </div>
   )
 }
 
-function eventZones(fields: MatrixGoogleWriteEventFields, timeZone: string): string | undefined {
-  const zones = [fields.start, fields.end].flatMap(when => ('timeZone' in when && when.timeZone !== timeZone ? [when.timeZone] : []))
+const GRID = 'grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm'
 
-  return zones.length ? [...new Set(zones)].join(', ') : undefined
+function fileSize(bytes: number, locale: Locale): string {
+  const [unit, scale] = bytes >= 1_000_000 ? (['megabyte', 1_000_000] as const) : bytes >= 1_000 ? (['kilobyte', 1_000] as const) : (['byte', 1] as const)
+
+  return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: 1 }).format(bytes / scale)
 }
 
-function EventRows({ fields, locale, timeZone, copy }: { fields: MatrixGoogleWriteEventFields; locale: Locale; timeZone: string; copy: MatrixGoogleWriteCardCopy }) {
-  const zones = eventZones(fields, timeZone)
-
-  return (
-    <>
-      <Row label={copy.labels.title}>{fields.title}</Row>
-      <Row label={copy.labels.start}>{shownWhen(fields.start, locale, timeZone, copy)}</Row>
-      <Row label={copy.labels.end}>{shownWhen(fields.end, locale, timeZone, copy, true)}</Row>
-      {zones && <Row label={copy.labels.timeZone}>{zones}</Row>}
-      {fields.location && <Row label={copy.labels.location}>{fields.location}</Row>}
-      {fields.attendees.length > 0 && <Row label={copy.labels.guests}>{fields.attendees.join(', ')}</Row>}
-    </>
-  )
+function files(list: readonly MatrixGoogleWriteAttachment[], locale: Locale): string {
+  return list.map(file => `${file.filename} · ${fileSize(file.size, locale)}`).join(', ')
 }
 
-function sameWhen(left: MatrixGoogleWriteWhen, right: MatrixGoogleWriteWhen) {
-  return JSON.stringify(left) === JSON.stringify(right)
-}
-
-function Draft({ draft, locale, timeZone, copy }: { draft: MatrixGoogleWriteDraft; locale: Locale; timeZone: string; copy: MatrixGoogleWriteCardCopy }) {
+function Email({ draft, locale, copy }: { draft: MatrixGoogleWriteEmail; locale: Locale; copy: MatrixGoogleWriteCardCopy }) {
   const labels = copy.labels
-  const grid = 'grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm'
-
-  if (draft.kind === 'send_email') {
-    return (
-      <>
-        <dl className={grid}>
-          <Row label={labels.from}>{draft.from}</Row>
-          <Row label={labels.to}>{draft.to.join(', ')}</Row>
-          {draft.cc.length > 0 && <Row label={labels.cc}>{draft.cc.join(', ')}</Row>}
-          {draft.bcc.length > 0 && <Row label={labels.bcc}>{draft.bcc.join(', ')}</Row>}
-          <Row label={labels.subject}>{draft.subject}</Row>
-          {draft.attachments.length > 0 && (
-            <Row label={labels.attachments}>{draft.attachments.map(file => file.name).join(', ')}</Row>
-          )}
-        </dl>
-        {draft.inReplyTo && <p className="text-xs text-(--atum-ink-muted)">{labels.inReplyTo}</p>}
-        <Text value={draft.body} />
-      </>
-    )
-  }
-
-  if (draft.kind === 'create_event') {
-    return (
-      <>
-        <dl className={grid}>
-          <Row label={labels.calendar}>{draft.calendar}</Row>
-          <EventRows copy={copy} fields={draft.event} locale={locale} timeZone={timeZone} />
-        </dl>
-        {draft.event.notes && <Text value={draft.event.notes} />}
-      </>
-    )
-  }
-
-  if (draft.kind === 'update_event') {
-    const { current, next } = draft
-    const change = (label: string, before: string, after: string) => (
-      <Row label={label}>
-        <span className="block text-(--atum-ink-muted)">
-          {labels.current} {before}
-        </span>
-        <span className="block">
-          {labels.after} {after}
-        </span>
-      </Row>
-    )
-
-    return (
-      <dl className={grid}>
-        <Row label={labels.calendar}>{draft.calendar}</Row>
-        {current.title === next.title ? <Row label={labels.title}>{next.title}</Row> : change(labels.title, current.title, next.title)}
-        {!sameWhen(current.start, next.start) &&
-          change(labels.start, shownWhen(current.start, locale, timeZone, copy), shownWhen(next.start, locale, timeZone, copy))}
-        {!sameWhen(current.end, next.end) &&
-          change(labels.end, shownWhen(current.end, locale, timeZone, copy, true), shownWhen(next.end, locale, timeZone, copy, true))}
-        {(eventZones(current, timeZone) ?? '') !== (eventZones(next, timeZone) ?? '') &&
-          change(labels.timeZone, eventZones(current, timeZone) ?? timeZone, eventZones(next, timeZone) ?? timeZone)}
-        {current.location !== next.location && change(labels.location, current.location, next.location)}
-        {current.attendees.join(', ') !== next.attendees.join(', ') &&
-          change(labels.guests, current.attendees.join(', '), next.attendees.join(', '))}
-        {current.notes !== next.notes && change(labels.notes, current.notes, next.notes)}
-      </dl>
-    )
-  }
 
   return (
     <>
-      <dl className={grid}>
-        <Row label={labels.file}>{draft.name}</Row>
-        {draft.folder && <Row label={labels.folder}>{draft.folder}</Row>}
+      <dl className={GRID}>
+        {draft.to.length > 0 && <Row label={labels.to}>{draft.to.join(', ')}</Row>}
+        {draft.cc && draft.cc.length > 0 && <Row label={labels.cc}>{draft.cc.join(', ')}</Row>}
+        {draft.bcc && draft.bcc.length > 0 && <Row label={labels.bcc}>{draft.bcc.join(', ')}</Row>}
+        <Row label={labels.subject}>{draft.subject}</Row>
+        {draft.forwarded && (
+          <Row label={labels.forwarded}>
+            {[draft.forwarded.from, draft.forwarded.subject].filter(Boolean).join(' · ')}
+          </Row>
+        )}
+        {draft.attachments.length > 0 && <Row label={labels.attachments}>{files(draft.attachments, locale)}</Row>}
       </dl>
-      <Text value={draft.content} />
+      {(draft.inReplyTo || draft.threadId) && <p className="text-xs text-(--atum-ink-muted)">{labels.inReplyTo}</p>}
+      <Text value={draft.body} />
+      {draft.quote && (
+        <div className="grid gap-1 border-s-2 border-(--atum-line) ps-3">
+          <p className="text-xs text-(--atum-ink-muted)">{labels.quote}</p>
+          <Text muted value={draft.quote} />
+          {draft.forwarded?.truncated && <p className="text-xs text-(--atum-ink-muted)">{labels.truncated}</p>}
+        </div>
+      )}
     </>
   )
 }
 
-function useNow(until: number, now: () => number): boolean {
-  const [passed, setPassed] = useState(() => now() >= until)
+function Event({ draft, locale, timeZone, copy }: { draft: MatrixGoogleWriteEvent; locale: Locale; timeZone: string; copy: MatrixGoogleWriteCardCopy }) {
+  const labels = copy.labels
+  const when = (value: string) =>
+    new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(Date.parse(value))
 
-  useEffect(() => {
-    if (passed) {
-      return
-    }
-
-    // Timers cap near 24.8 days; a later expiry is checked again when that one fires.
-    const timer = setTimeout(() => setPassed(now() >= until), Math.min(Math.max(until - now(), 0), 2_147_483_647))
-
-    return () => clearTimeout(timer)
-  }, [passed, until, now])
-
-  return passed
+  return (
+    <>
+      <dl className={GRID}>
+        <Row label={labels.title}>{draft.title}</Row>
+        <Row label={labels.start}>{when(draft.start)}</Row>
+        <Row label={labels.end}>{when(draft.end)}</Row>
+        {draft.location && <Row label={labels.location}>{draft.location}</Row>}
+      </dl>
+      {draft.description && <Text value={draft.description} />}
+    </>
+  )
 }
 
 function useDigest(draft: MatrixGoogleWriteDraft): string | null | undefined {
@@ -266,63 +207,83 @@ function useDigest(draft: MatrixGoogleWriteDraft): string | null | undefined {
 }
 
 /**
- * The owner's Google write confirmation in the agent's chat (docs/google-write-confirmation.md).
- * It renders the proposal's whole draft, offers one primary action and Decline, and sends Shell the
- * digest of the draft it rendered; a draft whose digest is not the proposal's is never offered.
+ * One Google write proposal as a native card in its agent's chat (docs/google-write-confirmation.md).
+ * It renders the draft, recomputes its digest and offers Approve and Decline only when that digest
+ * is the proposal's. Once shown on screen in a focused window it reports delivery, once. Approve
+ * confirms; the assistant then carries the request out, so the card never says it was sent.
  * Settled, it folds to one line naming the request and how it ended.
  */
 export function MatrixGoogleWriteCard({
   proposal,
   standing,
   timeZone,
-  now = Date.now
+  onAnswered
 }: {
   proposal: MatrixGoogleWriteProposal
   standing: MatrixGoogleWriteStanding
   /** The owner's time zone; the system's when absent. */
   timeZone?: string
-  now?: () => number
+  /** After Shell answered a decision (accepted or not), so the list can be read again. */
+  onAnswered?: () => void
 }) {
   const { locale } = useI18n()
   const copy = matrixGoogleWriteCardCopy(locale)
   const zone = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const id = proposal.proposalId
   const local = useSyncExternalStore(subscribe, () => answers.get(id))
-  const expired = useNow(proposal.expiresAt, now)
   const digest = useDigest(proposal.draft)
-  const kind = kindOf(proposal.draft)
+  const kind = matrixGoogleWriteKind(proposal.draft)
+  const surface = useRef<HTMLElement>(null)
 
-  const answer = local?.phase === 'answered' && local.answer !== 'retry' ? local.answer : undefined
+  const accepted = local?.phase === 'answered' && local.state === 'ok' ? local.decision : undefined
 
-  // The agent's outcome first, then this window's answer; a newer card, the clock and the
-  // digest only ever close a card. Nothing here reads as approved unless Shell said so.
-  const view: MatrixGoogleWriteCardView =
-    standing !== 'open' && standing !== 'superseded'
-      ? standing
-      : answer
-        ? answer
-        : local?.phase === 'sending'
-          ? local.decision === 'approve' ? 'approving' : 'declining'
-          : standing === 'superseded'
-            ? 'superseded'
-            : expired
-              ? 'expired'
-              : digest === undefined
-                ? 'checking'
-                : digest !== proposal.digest
-                  ? 'changed'
-                  : 'pending'
+  // Shell's acceptance first, then a request in flight; the list and Shell's refusal only ever
+  // close a card. Nothing here reads as approved unless Shell said so.
+  const view: MatrixGoogleWriteCardView = accepted
+    ? accepted === 'approve' ? 'approved' : 'declined'
+    : local?.phase === 'sending'
+      ? local.decision === 'approve' ? 'approving' : 'declining'
+      : standing !== 'open'
+        ? standing
+        : local?.phase === 'answered' && local.state === 'refused'
+          ? 'closed'
+          : digest === undefined
+            ? 'checking'
+            : digest !== proposal.digest
+              ? 'changed'
+              : 'pending'
 
-  const decide = (decision: MatrixGoogleWriteDecision) => {
-    // One request per proposal at a time, and only for the draft this card rendered.
-    if (view !== 'pending' || answers.get(id)?.phase === 'sending' || digest !== proposal.digest) {
+  useNoticePresented(
+    view === 'pending',
+    () => {
+      const send = window.atumMatrix?.googleConnections?.writeProposalAction
+
+      // Once per proposal, and only for the draft this card verified and showed.
+      if (!send || delivered.has(id) || digest !== proposal.digest) {
+        return
+      }
+
+      delivered.add(id)
+      void Promise.resolve()
+        .then(() => send({ proposalId: id, digest, action: 'delivered' }))
+        .catch(() => undefined)
+    },
+    surface
+  )
+
+  const decide = (decision: Decision) => {
+    const current = answers.get(id)
+
+    // One request at a time, none after Shell accepted one, and only for the draft this card rendered.
+    if (view !== 'pending' || current?.phase === 'sending' || (current?.phase === 'answered' && current.state !== 'unavailable') ||
+        digest !== proposal.digest) {
       return
     }
 
-    const send = window.atumMatrix?.googleConnections?.decideWrite
+    const send = window.atumMatrix?.googleConnections?.writeProposalAction
 
     if (!send) {
-      remember(id, { phase: 'answered', answer: 'retry' })
+      remember(id, { phase: 'answered', decision, state: 'unavailable' })
 
       return
     }
@@ -330,17 +291,17 @@ export function MatrixGoogleWriteCard({
     remember(id, { phase: 'sending', decision })
 
     void Promise.resolve()
-      .then(() => send({ proposalId: id, digest, decision }))
+      .then(() => send({ proposalId: id, digest, action: decision }))
       .then(
-        value => (typeof value === 'string' && ANSWERS.has(value) ? value : 'retry'),
-        () => 'retry' as const
+        value => answerOf(value, decision),
+        () => 'unavailable' as const
       )
-      .then(value => {
-        // An approval's answers never close a Decline, nor the reverse.
-        const fits =
-          decision === 'approve' ? value !== 'declined' : value !== 'done' && value !== 'approved' && value !== 'failed'
+      .then(state => {
+        remember(id, { phase: 'answered', decision, state })
 
-        remember(id, { phase: 'answered', answer: fits ? value : 'retry' })
+        if (state !== 'unavailable') {
+          onAnswered?.()
+        }
       })
   }
 
@@ -349,22 +310,7 @@ export function MatrixGoogleWriteCard({
   const sending = view === 'approving' || view === 'declining'
 
   if (!open) {
-    const line =
-      view === 'done'
-        ? copy.done[kind]
-        : view === 'approved'
-          ? copy.approved
-          : view === 'declined'
-            ? copy.declined
-            : view === 'superseded'
-              ? copy.superseded
-              : view === 'expired'
-                ? copy.expired
-                : view === 'changed'
-                  ? copy.changed
-                  : view === 'answered'
-                    ? copy.answered
-                    : copy.failed
+    const line = copy[view as Settled]
 
     return (
       <section
@@ -376,7 +322,7 @@ export function MatrixGoogleWriteCard({
           <Icon aria-hidden className="size-4 shrink-0" />
           <span className="min-w-0 truncate">{summary(proposal.draft)}</span>
         </p>
-        <p className={`text-xs ${view === 'failed' ? 'text-(--atum-danger)' : 'text-(--atum-ink-muted)'}`} role="status">
+        <p className="text-xs text-(--atum-ink-muted)" role="status">
           {line}
         </p>
       </section>
@@ -389,12 +335,17 @@ export function MatrixGoogleWriteCard({
       aria-label={copy.question[kind]}
       className="grid max-w-[34rem] gap-3 rounded-(--atum-r-card) bg-(--atum-card) p-4 shadow-(--atum-glass-edge)"
       data-matrix-google-write={view}
+      ref={surface}
     >
       <p className="flex min-w-0 items-center gap-2 font-medium text-(--atum-ink)">
         <Icon aria-hidden className="size-4 shrink-0" />
         <span>{copy.question[kind]}</span>
       </p>
-      <Draft copy={copy} draft={proposal.draft} locale={locale} timeZone={zone} />
+      {'action' in proposal.draft ? (
+        <Event copy={copy} draft={proposal.draft} locale={locale} timeZone={zone} />
+      ) : (
+        <Email copy={copy} draft={proposal.draft} locale={locale} />
+      )}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Button disabled={view !== 'pending'} onClick={() => decide('approve')} size="sm" type="button">
           {view === 'approving' ? (
@@ -403,18 +354,171 @@ export function MatrixGoogleWriteCard({
               {copy.approving}
             </>
           ) : (
-            copy.approve[kind]
+            copy.approve
           )}
         </Button>
         <Button disabled={view !== 'pending'} onClick={() => decide('decline')} size="sm" type="button" variant="text">
           {view === 'declining' ? copy.declining : copy.decline}
         </Button>
       </div>
-      {local?.phase === 'answered' && local.answer === 'retry' && view === 'pending' && (
+      {local?.phase === 'answered' && local.state === 'unavailable' && view === 'pending' && (
         <p className="text-xs text-(--atum-ink-muted)" role="status">
           {copy.retry}
         </p>
       )}
     </section>
+  )
+}
+
+interface Shown {
+  proposal: MatrixGoogleWriteProposal
+  standing: MatrixGoogleWriteStanding
+}
+
+/** Settled cards kept in view (as one line each) until the chat is left. */
+const SETTLED_KEPT = 3
+
+/** The next cards for `roomId` from a fresh pending list, given the ones already shown. */
+export function matrixGoogleWriteCards(
+  previous: readonly Shown[],
+  proposals: readonly MatrixGoogleWriteProposal[],
+  roomId: string
+): Shown[] {
+  const current = proposals.filter(proposal => proposal.room === roomId)
+  const listed = new Set(current.map(proposal => proposal.proposalId))
+  const slots = new Set(current.map(matrixGoogleWriteSlot))
+
+  // A card no longer listed is settled: replaced when its agent has a newer one here, else gone.
+  const settled = previous
+    .filter(shown => !listed.has(shown.proposal.proposalId))
+    .map(shown =>
+      shown.standing !== 'open'
+        ? shown
+        : { ...shown, standing: slots.has(matrixGoogleWriteSlot(shown.proposal)) ? ('superseded' as const) : ('closed' as const) }
+    )
+    .slice(-SETTLED_KEPT)
+
+  const fresh = current.map(
+    proposal =>
+      previous.find(shown => shown.standing === 'open' && shown.proposal.proposalId === proposal.proposalId) ?? {
+        proposal,
+        standing: 'open' as const
+      }
+  )
+
+  return [...settled, ...fresh]
+}
+
+/**
+ * The agent chat's Google write cards, read from the owner's pending list (never from the room:
+ * nothing about a proposal is posted there). The list is read when the chat opens, when the window
+ * regains focus, whenever `activity` changes (a new event in this chat) and after Shell answers a
+ * decision. A failed read keeps what is shown.
+ */
+export function MatrixGoogleWriteProposals({
+  roomId,
+  activity,
+  timeZone,
+  onWaiting
+}: {
+  roomId: string
+  /** Changes with this chat's newest event. */
+  activity?: string
+  timeZone?: string
+  /** Whether a card here waits on the owner. */
+  onWaiting?: (waiting: boolean) => void
+}) {
+  const [shown, setShown] = useState<Shown[]>([])
+  const reading = useRef<{ busy: boolean; again: boolean; live: boolean }>({ busy: false, again: false, live: true })
+  // Re-read this window's answers whenever one changes.
+  useSyncExternalStore(subscribe, () => version)
+
+  const refresh = useCallback(() => {
+    const list = window.atumMatrix?.googleConnections?.writeProposals
+    const state = reading.current
+
+    if (!list) {
+      return
+    }
+
+    if (state.busy) {
+      state.again = true
+
+      return
+    }
+
+    state.busy = true
+    void Promise.resolve()
+      .then(() => list())
+      .then(
+        answer => answer,
+        () => undefined
+      )
+      .then(answer => {
+        state.busy = false
+
+        if (!state.live) {
+          return
+        }
+
+        if (answer?.state === 'ok' && Array.isArray(answer.proposals)) {
+          setShown(previous => matrixGoogleWriteCards(previous, answer.proposals, roomId))
+        }
+
+        if (state.again) {
+          state.again = false
+          refresh()
+        }
+      })
+  }, [roomId])
+
+  useEffect(() => {
+    const state = reading.current
+
+    state.live = true
+
+    return () => {
+      state.live = false
+    }
+  }, [])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh, activity])
+
+  useEffect(() => {
+    window.addEventListener('focus', refresh)
+
+    return () => window.removeEventListener('focus', refresh)
+  }, [refresh])
+
+  const waiting = shown.some(item => {
+    const answer = answers.get(item.proposal.proposalId)
+
+    return item.standing === 'open' && !(answer?.phase === 'answered' && answer.state !== 'unavailable')
+  })
+
+  useEffect(() => {
+    onWaiting?.(waiting)
+  }, [onWaiting, waiting])
+
+  useEffect(() => () => onWaiting?.(false), [onWaiting])
+
+  if (!shown.length) {
+    return null
+  }
+
+  return (
+    <div className="grid gap-2 px-4 pb-2" data-matrix-google-write-cards>
+      {shown.map(item => (
+        <MatrixGoogleWriteCard
+          key={item.proposal.proposalId}
+          onAnswered={refresh}
+          proposal={item.proposal}
+          standing={item.standing}
+          timeZone={timeZone}
+        />
+      ))}
+    </div>
   )
 }

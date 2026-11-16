@@ -53,28 +53,6 @@ describe('unanswered owner messages', () => {
     ).toBeNull()
   })
 
-  it('counts the agent\u2019s Google write card as its answer', () => {
-    const card = message({
-      id: '$card',
-      own: false,
-      sender: AGENT,
-      body: '',
-      notice: true,
-      timestamp: START + 1_000,
-      googleWrite: {
-        proposal: {
-          proposalId: '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b',
-          digest: `sha256:${'e'.repeat(64)}`,
-          expiresAt: START + 86_400_000,
-          draft: { kind: 'drive_change', action: 'create', name: 'Notes', folder: '', content: 'Hello' }
-        },
-        standing: 'open'
-      }
-    })
-
-    expect(matrixUnansweredOwnerMessage([message(), card], new Set([AGENT]))).toBeNull()
-  })
-
   it('never counts the agent\u2019s progress line as an answer, even one that names the owner event', () => {
     const owner = message()
 

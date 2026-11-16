@@ -9,10 +9,15 @@ import type {
 } from '../../shared/matrix-google-connections'
 import { type MatrixGoogleFence, parseMatrixGoogleFence } from '../../shared/matrix-google-fence'
 import {
-  MATRIX_GOOGLE_WRITE_PROFILE,
-  type MatrixGoogleWriteAnswer,
-  type MatrixGoogleWriteDecisionInput,
-  parseMatrixGoogleWriteDecisionInput
+  MATRIX_GOOGLE_HOST_BRIDGE_CONTRACT,
+  MATRIX_GOOGLE_HOST_BRIDGE_HEADER,
+  MATRIX_GOOGLE_PROPOSALS_PATH,
+  MATRIX_GOOGLE_WRITE_STATUS,
+  type MatrixGoogleWriteActionAnswer,
+  type MatrixGoogleWriteActionInput,
+  type MatrixGoogleWriteListAnswer,
+  parseMatrixGoogleWriteActionInput,
+  parseMatrixGoogleWriteProposalList
 } from '../../shared/matrix-google-write-proposal'
 
 import { readDomainJson } from './domain'
@@ -147,22 +152,40 @@ export function createMatrixGoogleConnectionIpcHandler<Event>(
   }
 }
 
+/** What main does for the Google write cards, through the owner's bearer (`matrixGoogleWriteProposals`). */
+export interface MatrixGoogleWriteProposalsBridge {
+  list(): Promise<MatrixGoogleWriteListAnswer>
+  act(input: MatrixGoogleWriteActionInput): Promise<MatrixGoogleWriteActionAnswer>
+}
+
+const writeUnavailable = { state: 'unavailable' } as const
+
 /**
- * Main-process handler for a Google write card's answer (`MATRIX_GOOGLE_WRITE_IPC`). Sender authority
- * is established before the input is read; only the proposal, the digest of what the card rendered,
- * and approve or decline cross. Anything else, or no bridge, is `retry`: never approved.
+ * Main-process handler for the Google write cards (`MATRIX_GOOGLE_WRITE_IPC`). Sender authority is
+ * established before the input is read; only `list`, or one action with the proposal and the
+ * digest of what the card rendered, crosses. Anything else, or no bridge, is unavailable.
  */
 export function createMatrixGoogleWriteIpcHandler<Event>(options: {
   assertSender(event: Event): void
-  decide(): ((input: MatrixGoogleWriteDecisionInput) => Promise<MatrixGoogleWriteAnswer>) | undefined
-}): (event: Event, input: unknown) => Promise<MatrixGoogleWriteAnswer> {
+  proposals(): MatrixGoogleWriteProposalsBridge | undefined
+}): (event: Event, input: unknown) => Promise<MatrixGoogleWriteListAnswer | MatrixGoogleWriteActionAnswer> {
   return async (event, input) => {
     options.assertSender(event)
 
-    const decision = parseMatrixGoogleWriteDecisionInput(input)
-    const decide = options.decide()
+    const row = record(input)
+    const proposals = options.proposals()
 
-    return decision && decide ? decide(decision) : 'retry'
+    if (!row || !proposals) {
+      return writeUnavailable
+    }
+
+    if (row.kind === 'list' && exactKeys(row, ['kind'])) {
+      return proposals.list()
+    }
+
+    const action = row.kind === 'action' && exactKeys(row, ['kind', 'input']) ? parseMatrixGoogleWriteActionInput(row.input) : undefined
+
+    return action ? proposals.act(action) : writeUnavailable
   }
 }
 
@@ -277,82 +300,104 @@ export async function requestMatrixGoogleAccountConnect(resource: string, access
   return url.href
 }
 
+/** A pending list carries whole drafts (bodies, a forward's full quote); this bounds it. */
+const WRITE_LIST_BYTES = 4 * 1024 * 1024
 const WRITE_ANSWER_BYTES = 4 * 1024
 
+function proposalsUrl(resource: string, ...path: string[]): URL {
+  const url = new URL([MATRIX_GOOGLE_PROPOSALS_PATH, ...path.map(part => encodeURIComponent(part))].join('/'), resource)
+
+  if (url.protocol !== 'https:') {
+    throw new Error('matrix_google_unavailable')
+  }
+
+  return url
+}
+
+function proposalHeaders(accessToken: string, body: boolean): Record<string, string> {
+  return {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: 'application/json',
+    ...(body ? { 'Content-Type': 'application/json' } : {}),
+    [MATRIX_GOOGLE_HOST_BRIDGE_HEADER]: MATRIX_GOOGLE_HOST_BRIDGE_CONTRACT
+  }
+}
+
 /**
- * The owner's answer to one Google write proposal (atum.google-write-confirmation/1), sent with the
- * owner's bearer through `account.s1Request`. The idempotency key is fixed per proposal and decision,
- * so a retry after a lost answer returns Shell's saved answer and never writes twice. Only a positive,
- * well-formed answer for this exact proposal is `done`/`approved`/`declined`; every refusal keeps its
- * own state, and anything else is `retry`, never approved.
+ * Shell's failure states. A 401 asks the account to refresh its bearer once (it is `refused` after
+ * that); 400/403/409 are `refused`; anything else Shell did not positively answer is `unavailable`.
  */
-export async function requestMatrixGoogleWriteDecision(
-  resource: string,
-  accessToken: string,
-  input: MatrixGoogleWriteDecisionInput,
-  signal: AbortSignal
-): Promise<MatrixGoogleWriteAnswer> {
-  const response = await fetch(`${resource}/google/proposals/${encodeURIComponent(input.proposalId)}/decision`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-Atum-Google-Write-Contract': MATRIX_GOOGLE_WRITE_PROFILE,
-      'Idempotency-Key': `${input.proposalId}:${input.decision}`
-    },
-    body: JSON.stringify({ decision: input.decision, digest: input.digest }),
-    cache: 'no-store', credentials: 'omit', redirect: 'error', signal
-  })
+async function writeFailure(response: Response): Promise<MatrixGoogleWriteActionAnswer & { state: 'refused' | 'unavailable' }> {
+  await response.body?.cancel()
 
   if (response.status === 401) {
-    await response.body?.cancel()
     throw new Error('matrix_s1_authentication')
   }
 
-  if (!response.headers.get('content-type')?.startsWith('application/json')) {
-    await response.body?.cancel()
+  return [400, 403, 409].includes(response.status) ? { state: 'refused' } : writeUnavailable
+}
 
-    return 'retry'
+function json(response: Response): boolean {
+  return response.status === 200 && Boolean(response.headers.get('content-type')?.startsWith('application/json'))
+}
+
+/** The owner's pending, unexpired proposals (`GET /api/connections/google/proposals`). */
+export async function requestMatrixGoogleWriteProposals(
+  resource: string,
+  accessToken: string,
+  signal: AbortSignal
+): Promise<MatrixGoogleWriteListAnswer> {
+  const response = await fetch(proposalsUrl(resource), {
+    headers: proposalHeaders(accessToken, false),
+    cache: 'no-store', credentials: 'omit', redirect: 'error', signal
+  })
+
+  if (!json(response)) {
+    return writeFailure(response)
   }
-
-  let value: Record<string, unknown> | null
 
   try {
-    value = record(await readDomainJson(response, WRITE_ANSWER_BYTES))
+    const proposals = parseMatrixGoogleWriteProposalList(await readDomainJson(response, WRITE_LIST_BYTES))
+
+    return proposals ? { state: 'ok', proposals } : writeUnavailable
   } catch {
-    return 'retry'
+    return writeUnavailable
+  }
+}
+
+/**
+ * One card action (`POST …/{proposalId}/delivered|approve|decline` with exactly `{digest}`). Only
+ * HTTP 200 naming this proposal, this digest and the action's own status is `ok`; an approval is
+ * `confirmed`, never sent: the assistant's repeated call carries it out.
+ */
+export async function requestMatrixGoogleWriteAction(
+  resource: string,
+  accessToken: string,
+  input: MatrixGoogleWriteActionInput,
+  signal: AbortSignal
+): Promise<MatrixGoogleWriteActionAnswer> {
+  const response = await fetch(proposalsUrl(resource, input.proposalId, input.action), {
+    method: 'POST',
+    headers: proposalHeaders(accessToken, true),
+    body: JSON.stringify({ digest: input.digest }),
+    cache: 'no-store', credentials: 'omit', redirect: 'error', signal
+  })
+
+  if (!json(response)) {
+    return writeFailure(response)
   }
 
-  if (!value || value.profile !== MATRIX_GOOGLE_WRITE_PROFILE || value.proposalId !== input.proposalId) {
-    return 'retry'
-  }
+  const status = MATRIX_GOOGLE_WRITE_STATUS[input.action]
 
-  const { status } = response
-  const approve = input.decision === 'approve'
+  try {
+    const value = record(await readDomainJson(response, WRITE_ANSWER_BYTES))
 
-  if (exactKeys(value, ['profile', 'proposalId', 'state'])) {
-    if (status === 200 && approve && value.state === 'done') { return 'done' }
-    if (status === 202 && approve && value.state === 'approved') { return 'approved' }
-    if (status === 200 && !approve && value.state === 'declined') { return 'declined' }
-
-    return 'retry'
-  }
-
-  if (!exactKeys(value, ['profile', 'proposalId', 'error'])) {
-    return 'retry'
-  }
-
-  const refusal = `${status} ${String(value.error)}`
-
-  switch (refusal) {
-    case '409 digest_mismatch': return 'changed'
-    case '409 superseded': return 'superseded'
-    case '409 already_decided': return 'answered'
-    case '410 expired':
-    case '404 not_found': return 'expired'
-    case '422 write_failed': return approve ? 'failed' : 'retry'
-    default: return 'retry'
+    return value && exactKeys(value, ['proposalId', 'digest', 'status']) && value.proposalId === input.proposalId &&
+      value.digest === input.digest && value.status === status
+      ? { state: 'ok', status }
+      : writeUnavailable
+  } catch {
+    return writeUnavailable
   }
 }
 
@@ -367,28 +412,30 @@ export interface MatrixGoogleWriteAccount {
 }
 
 /**
- * The card's decision through the owner's native bearer (`account.s1Request`: one refresh after a
- * 401, the same idempotency key on the resend). Shell may take its 110-second dispatch to answer an
- * approval. A lost answer, a failure or an answer that arrives for another account's window is
- * `retry`; the card's retry carries the same key, so Shell returns its saved answer.
+ * The cards' requests through the owner's native bearer (`account.s1Request`: one refresh after a
+ * 401). A second 401 is `refused`; a lost answer, a failure, or an answer that arrives after the
+ * account changed is `unavailable`, never confirmed.
  */
-export function matrixGoogleWriteDecider(account: MatrixGoogleWriteAccount) {
-  return async (input: MatrixGoogleWriteDecisionInput): Promise<MatrixGoogleWriteAnswer> => {
+export function matrixGoogleWriteProposals(account: MatrixGoogleWriteAccount): MatrixGoogleWriteProposalsBridge {
+  async function owned<T extends { state: string }>(
+    send: (accessToken: string, resource: string, signal: AbortSignal) => Promise<T>
+  ): Promise<T | MatrixGoogleWriteActionAnswer & { state: 'refused' | 'unavailable' }> {
     const owner = account.appScope()
 
     try {
-      const answer = await account.s1Request(
-        (token, resource, requestSignal) => requestMatrixGoogleWriteDecision(resource, token, input, requestSignal),
-        AbortSignal.timeout(125_000),
-        { timeoutMs: 120_000 }
-      )
+      const answer = await account.s1Request(send, AbortSignal.timeout(20_000))
       const current = account.appScope()
 
       return owner && current?.accountKey === owner.accountKey && current.generation === owner.generation
         ? answer
-        : 'retry'
-    } catch {
-      return 'retry'
+        : writeUnavailable
+    } catch (error) {
+      return error instanceof Error && error.message === 'matrix_s1_authentication' ? { state: 'refused' } : writeUnavailable
     }
+  }
+
+  return {
+    list: () => owned((token, resource, signal) => requestMatrixGoogleWriteProposals(resource, token, signal)),
+    act: input => owned((token, resource, signal) => requestMatrixGoogleWriteAction(resource, token, input, signal))
   }
 }

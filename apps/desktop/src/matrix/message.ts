@@ -28,12 +28,6 @@ import {
   matrixCompanyPrivateCosRoomBinding
 } from '../../shared/matrix-company-private-cos-claim'
 import { matrixDecryptionReason } from '../../shared/matrix-decryption-reason'
-import {
-  MATRIX_GOOGLE_WRITE_OUTCOME_TYPE,
-  MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE,
-  parseMatrixGoogleWriteOutcome,
-  parseMatrixGoogleWriteProposal
-} from '../../shared/matrix-google-write-proposal'
 import { matrixInterimMarker } from '../../shared/matrix-interim-marker'
 import { parseMatrixPetReply } from '../../shared/matrix-pet-intent'
 import { matrixProgressMarker, matrixProgressPresentation } from '../../shared/matrix-progress-marker'
@@ -439,42 +433,6 @@ export function matrixMessage(
   }
 
   const failed = event.isDecryptionFailure()
-
-  // A Google write proposal or its outcome (atum.google-write-confirmation/1) is its own event type:
-  // a client without this reader drops it above and below, so nothing there can approve it. Read only
-  // from someone else, as first sent; the transcript fold keeps only a room agent's.
-  const writeType = failed ? undefined : event.getType()
-
-  if (writeType === MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE || writeType === MATRIX_GOOGLE_WRITE_OUTCOME_TYPE) {
-    const sender = event.getSender() ?? ''
-    const proposal = writeType === MATRIX_GOOGLE_WRITE_PROPOSAL_TYPE
-      ? parseMatrixGoogleWriteProposal(event.getOriginalContent())
-      : undefined
-    const outcome = writeType === MATRIX_GOOGLE_WRITE_OUTCOME_TYPE
-      ? parseMatrixGoogleWriteOutcome(event.getOriginalContent())
-      : undefined
-
-    if (sender === ownUserId || (!proposal && !outcome)) {
-      return null
-    }
-
-    return {
-      id: event.getId() ?? '',
-      sender,
-      body: '',
-      timestamp: event.getTs(),
-      own: false,
-      encrypted: event.isEncrypted(),
-      decryptionFailed: false,
-      pending: false,
-      failed: false,
-      attachment: false,
-      // Never an answer: it marks nothing answered.
-      notice: true,
-      ...(proposal ? { googleWrite: { proposal, standing: 'open' as const } } : {}),
-      ...(outcome ? { googleWriteOutcome: outcome } : {})
-    }
-  }
 
   if (event.getType() !== EventType.RoomMessage && !failed) {
     return null

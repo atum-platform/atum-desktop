@@ -1,177 +1,157 @@
 # Google write confirmation card
 
-A Google write (sending an email, adding or changing a calendar event, or changing a Drive
-file) goes ahead only when the owner presses Approve on a card in the desktop. The card shows
-Shell's canonical draft. A typed reply in the chat authorises nothing. Nobody posts canned
-chat text for any of this: the desktop supplies all of the card's wording as UI copy, in the
+When the assistant wants to send an email or add or change a calendar event, Shell keeps the
+exact draft as a pending proposal. The desktop shows it as a native card in that agent's chat,
+and the owner approves or declines it there. The card reads its proposals from Shell's owner
+endpoints, never from the conversation: neither Shell, the agent, nor the desktop posts drafts
+or canned text into the room for any of this. All of the card's wording is UI copy in the
 owner's app language. English is the default, Vietnamese is provided, and other locales fall
-back to English. The field names reuse the five-locale table that the main-process write
-dialog already uses (`apps/desktop/shared/matrix-google-write-copy.ts`).
+back to English. The question and field names reuse the five-locale table that the
+main-process write dialog already uses (`apps/desktop/shared/matrix-google-write-copy.ts`).
 
-The contract is `atum.google-write-confirmation/1`.
+The desktop builds to Shell's "native proposal cards and owner endpoint contract" for the
+Google MCP (`send_email`, `create_event`, `update_event`). That contract ships behind Shell's
+Google MCP flag, which is off by default. While it is off, the list endpoint answers
+`503 {"state":"unavailable"}` and the desktop shows no card.
 
-## Proposal event
+## Endpoints
 
-The room's agent posts a timeline event (not a state event) of type
-`io.atum.google.write_proposal`. It has no `msgtype` and no `body`:
+Main sends every request through `account.s1Request`, using the owner's MAS bearer and one
+refresh after a 401. The renderer never receives the bearer or the URL. Every request carries:
 
-```json
-{
-  "version": 1,
-  "proposalId": "<lowercase UUID>",
-  "digest": "sha256:<64 lowercase hex>",
-  "expiresAt": 1772668800000,
-  "draft": { "kind": "send_email", "...": "..." }
-}
+```http
+Authorization: Bearer <owner token>
+X-Atum-Host-Bridge-Contract: atum.s2.host-bridge/1.0.0
 ```
 
-Keys must match exactly. Any unknown key, at the top level or inside the draft, makes the
-whole event unreadable, and the card does not show it. `expiresAt` is in epoch milliseconds.
+The paths are on the domain's own HTTPS origin. Main refuses a plain-HTTP domain.
 
-The draft is one of the following:
-
-| kind | exact keys |
-| --- | --- |
-| `send_email` | `kind, from, to[], cc[], bcc[], subject, body, attachments[{name}], inReplyTo` |
-| `create_event` | `kind, calendar, event` |
-| `update_event` | `kind, calendar, current, next` |
-| `drive_change` | `kind, action ("create" or "update"), name, folder, content` |
-
-An event (`event`, `current` and `next`) has the keys `title, start, end, location, notes,
-attendees[]`. `start` and `end` use Google Calendar's own shape. A timed event uses
-`{dateTime, timeZone}`, where `dateTime` is RFC 3339 with an offset. An all-day event uses
-`{date}`, and its `end` is exclusive, as in Google. Both ends must be the same form.
-
-Further limits:
-
-- Addresses are bare `local@domain` strings.
-- Subjects, titles, names and locations are a single line.
-- Text fields are plain text, up to 60,000 characters.
-- `to` must have at least one entry.
-- Each list holds at most 100 entries.
-- The whole event must fit in Matrix's 64 KiB event limit.
-
-**Digest.** The digest is `sha256:` followed by the lowercase hex SHA-256 of the UTF-8
-canonical JSON of `draft`. The canonical JSON is the platform's `canonicalJson`: NFC strings
-and keys, keys sorted by UTF-16 code unit, no whitespace, and safe integers only. Its port is
-`packages/device-protocol/canonical.ts`. The desktop recomputes the digest from the draft it
-parsed and rendered. When the result differs from `digest`, the card never offers Approve. It
-shows the "changed" state instead.
-
-Only a proposal from a room agent becomes a card. The newest proposal from each agent in a
-room is the one open card. Every earlier proposal from that agent shows as superseded.
-
-## Outcome event
-
-After every terminal transition, the agent posts `io.atum.google.write_outcome`:
-
-```json
-{
-  "version": 1,
-  "proposalId": "<uuid>",
-  "state": "done | approved | declined | superseded | expired | failed",
-  "m.relates_to": { "rel_type": "m.reference", "event_id": "<proposal event>" }
-}
-```
-
-`m.relates_to` is optional. The desktop matches the outcome to the proposal by sender and
-`proposalId`. The outcome never appears as a row in the chat, and it settles the card on
-every device. `approved` means the owner approved and Shell dispatched the write, but Shell
-could not confirm the result (dispatched or `outcome_unknown`). The desktop also applies two
-local rules: a newer proposal supersedes an older one, and a card expires at `expiresAt`.
-
-## Decision endpoint
-
-```
-POST {domain resource}/google/proposals/{proposalId}/decision
-Authorization: Bearer <MAS owner access token>
-Content-Type: application/json
-Accept: application/json
-X-Atum-Google-Write-Contract: atum.google-write-confirmation/1
-Idempotency-Key: <proposalId>:<approve|decline>
-
-{ "decision": "approve" | "decline", "digest": "sha256:<hex of the rendered draft>" }
-```
-
-The Electron main process sends this request through `account.s1Request`, which uses the
-owner's native bearer and refreshes it once after a 401. The renderer never holds the bearer.
-The idempotency key is fixed for a given proposal and decision. A retry after a lost answer,
-whether it comes after a refresh, after a restart, or from another device, therefore gets
-Shell's saved answer and never causes a second write.
-
-Every response is `application/json` and carries `profile` and `proposalId`, which echo the
-request:
-
-| HTTP | body | card state |
+| request | body | success (HTTP 200) |
 | --- | --- | --- |
-| 200 | `{state: "done"}` (approve) | done |
-| 202 | `{state: "approved"}` (approve) | approved, not confirmed. Never retried. |
-| 200 | `{state: "declined"}` (decline) | declined |
-| 409 | `{error: "digest_mismatch"}` | changed |
-| 409 | `{error: "superseded"}` | superseded |
-| 409 | `{error: "already_decided"}` | answered |
-| 410 | `{error: "expired"}` | expired |
-| 404 | `{error: "not_found"}` | expired |
-| 422 | `{error: "write_failed"}` (approve) | failed |
-| 401 | (any) | the bearer is refreshed once, then retry |
-| anything else | | retry |
+| `GET /api/connections/google/proposals` | none | `{"proposals":[…]}` |
+| `POST /api/connections/google/proposals/{proposalId}/delivered` | `{"digest":"<hex>"}` | `{"proposalId","digest","status":"delivered"}` |
+| `POST /api/connections/google/proposals/{proposalId}/approve` | `{"digest":"<hex>"}` | `{"proposalId","digest","status":"confirmed"}` |
+| `POST /api/connections/google/proposals/{proposalId}/decline` | `{"digest":"<hex>"}` | `{"proposalId","digest","status":"declined"}` |
 
-The desktop handles any other answer as retry: another status code, another body shape, a
-mismatched profile or proposal, a positive answer to the other decision, or a network failure
-or timeout. A retry leaves the card open, shows one calm line, and re-sends with the same key.
-No path leads to an approved state unless Shell answered positively for that exact proposal
-and decision. The main process allows 120 seconds for an answer, which covers Shell's
-110-second dispatch.
+Failures are `{"state":"refused"}` (HTTP 400, 401, 403 or 409) or `{"state":"unavailable"}`
+(HTTP 503). Main reduces every answer to one of three states and passes only that state to
+the window:
+
+- `ok`: HTTP 200, exactly the three keys, naming this proposal, this digest, and the status
+  for this action.
+- `refused`: HTTP 400, 403 or 409, or a 401 that persists after the one refresh.
+- `unavailable`: everything else. That includes a 503, any other status, a malformed or
+  mismatched 200, a network failure or timeout, and an answer that arrives after the account
+  changed.
+
+Nothing reads as approved unless Shell returned `confirmed` for that exact proposal and digest.
+
+## Pending list
+
+Each entry has exactly these keys:
+
+```json
+{
+  "proposalId": "<uuid>",
+  "operationId": "<same uuid>",
+  "agent": "<server-bound agent uuid>",
+  "room": "!room:example.org",
+  "draft": {},
+  "digest": "<64 lowercase hex>",
+  "status": "awaiting_owner"
+}
+```
+
+The reader is strict (`apps/desktop/shared/matrix-google-write-proposal.ts`). A malformed
+entry is dropped on its own and the rest of the list still shows. An entry is malformed when
+it has an unknown key, an `operationId` that differs from its `proposalId`, a status other
+than `awaiting_owner`, or a draft the card cannot show faithfully. Only one entry per agent
+and room is kept. The desktop shows a room's entries only in the chat whose Matrix room id
+equals `room`.
+
+Drafts are untrusted display data. They are rendered as plain text and never as markdown.
+
+- **Email** (it carries no `action`). The draft has `to`, an optional `cc` and `bcc`,
+  `subject`, `body`, `quote` (the full forwarded original, or an empty string), `references`,
+  an optional `threadId` and `inReplyTo`, and an optional `forwarded` object (`messageId`,
+  `from`, `date`, `subject`, `quotePreview`, `quoteLength`, and optionally `truncated: true`).
+  It also has `attachments`, each with `filename`, `mimeType`, `size` and an optional `sha256`,
+  and never the file bytes. Every recipient is a bare address, and there is at least one.
+- **Calendar.** The draft has `action` (`create_event` or `update_event`), `sourceId`,
+  `title`, `start`, `end`, an optional `location` and `description`, and an `eventId` that is
+  present exactly for `update_event`. `start` and `end` are RFC 3339 instants with an explicit
+  offset.
+
+## Digest
+
+`digest` is the lowercase hexadecimal SHA-256 of the UTF-8 `canonicalJson(draft)`. The
+desktop recomputes it from the parsed draft with the same canonical JSON as the platform
+protocol package, `packages/device-protocol/canonical.ts`, which is a byte-for-byte port with
+vendored fixture tests. The card offers Approve only once the recomputed digest equals the
+proposal's. On a mismatch it shows the `changed` line, offers no action, and reports no
+delivery.
+
+## Card lifecycle
+
+- **Reading.** The window reads the list when an agent chat opens, when the window regains
+  focus, when a new event arrives in that chat, and after Shell answers a decision. If a read
+  fails, the cards already shown stay as they are.
+- **Delivered.** A verified, pending card reports `delivered` once per proposal. It does so
+  only after the card has been on screen for a full second in a focused, foreground window
+  (`useNoticePresented`, the same rule as other presented notices). It never reports on fetch,
+  on re-render, or for a draft that did not verify.
+- **Approve and Decline.** These share one single-use decision. The window sends at most one
+  request at a time, and none after Shell accepted one. After an `unavailable` answer the
+  actions stay and a retry is allowed. Shell refuses a replay, so a lost answer that was in fact
+  accepted then closes the card rather than approving it twice.
+- **Approve sends nothing.** Shell records `confirmed`, and the assistant's unchanged repeated
+  call carries the request out. So the approved card says it is approved and that the assistant
+  will carry it out. It never says sent, added or saved. The list includes only pending
+  proposals, so no later outcome is shown on the card.
+- **Supersede.** Shell keeps one pending proposal per agent and room. When a fresh list no
+  longer includes a shown card and its agent has a newer proposal in that room, the old card
+  settles as superseded and the newer card opens. A card that leaves the list for any other
+  reason (expiry, a decision on another device) settles as closed.
+- **No reply band.** While a card in the chat waits on the owner, the "no reply yet" band is
+  suppressed, because the assistant has handed the turn to the owner.
 
 ## Card states
 
 | state | English | Vietnamese |
 | --- | --- | --- |
-| pending (email) | Send this email? · **Send** · Decline | Gửi email này? · **Gửi** · Từ chối |
-| pending (new event) | Add this event to your calendar? · **Add event** | Thêm sự kiện này vào lịch? · **Thêm sự kiện** |
-| pending (event change) | Save these changes to your calendar? · **Save changes** | Lưu thay đổi này vào lịch? · **Lưu thay đổi** |
-| pending (Drive) | Create this file in Drive? · **Create file** / Save these changes in Drive? · **Save changes** | Tạo tệp này trong Drive? · **Tạo tệp** / Lưu thay đổi này trong Drive? · **Lưu thay đổi** |
+| pending (email) | Send this email? · **Approve** · Decline | Gửi email này? · **Duyệt** · Từ chối |
+| pending (new event) | Add this event to your calendar? · **Approve** · Decline | Thêm sự kiện này vào lịch? · **Duyệt** · Từ chối |
+| pending (event change) | Save these changes to your calendar? · **Approve** · Decline | Lưu thay đổi này vào lịch? · **Duyệt** · Từ chối |
 | approving / declining | Approving… / Declining… (buttons disabled) | Đang duyệt… / Đang từ chối… |
-| done | Sent. · Added to your calendar. · Changes saved to your calendar. · Created in Drive. · Changes saved in Drive. | Đã gửi. · Đã thêm vào lịch. · Đã lưu thay đổi vào lịch. · Đã tạo trong Drive. · Đã lưu thay đổi trong Drive. |
-| approved | Approved. It could not be confirmed yet, so check Google before asking again. | Đã duyệt. Chưa xác nhận được kết quả, hãy kiểm tra trên Google trước khi nhờ lại. |
-| declined | Declined. Nothing changed. | Đã từ chối. Không có gì thay đổi. |
-| superseded | A newer request replaced this one. Nothing changed. | Một yêu cầu mới hơn đã thay thế yêu cầu này. Không có gì thay đổi. |
-| expired | This request expired. Nothing changed. | Yêu cầu này đã hết hạn. Không có gì thay đổi. |
-| changed | This draft changed after it was shown, so it was not sent. Ask for a fresh one. | Bản nháp đã thay đổi sau khi hiển thị nên chưa được gửi. Hãy nhờ soạn lại. |
-| answered | This request was already answered. | Yêu cầu này đã được trả lời. |
-| failed | This did not go through. Nothing changed. You can ask again. | Chưa thực hiện được. Không có gì thay đổi. Bạn có thể nhờ lại. |
-| retry (still open) | Could not reach Atum. Try again. | Không kết nối được với Atum. Hãy thử lại. |
+| approved | Approved. Your assistant will carry it out. | Đã duyệt. Trợ lý sẽ thực hiện việc này. |
+| declined | Declined. Your assistant won’t do this. | Đã từ chối. Trợ lý sẽ không thực hiện việc này. |
+| superseded | A newer request replaced this one. | Một yêu cầu mới hơn đã thay thế yêu cầu này. |
+| closed (refused, or no longer listed) | This request is no longer waiting for you. | Yêu cầu này không còn chờ bạn nữa. |
+| changed (digest mismatch) | This draft doesn’t match what your assistant proposed, so it can’t be approved here. Ask for a fresh one. | Bản nháp này không khớp với đề xuất của trợ lý nên không thể duyệt ở đây. Hãy nhờ soạn lại. |
+| unavailable (still open) | Couldn’t reach Atum. Try again. | Không kết nối được với Atum. Hãy thử lại. |
 
-An open card shows the whole draft:
+An open card shows:
 
-- For an email: the sender, recipients (To, Cc and Bcc), subject, whether it replies inside
-  an existing conversation, the body exactly as written (plain text with line breaks kept),
-  and the attachments by name.
-- For an event: its times in the owner's time zone, with the event's own zone named when it
-  differs, plus location, guests and notes.
-- For an event change: what each field is now and what it will become.
-- For a Drive change: the file, its folder, and the content to be written.
+- For an email: To, Cc, Bcc, the subject, the forwarded original's sender and subject, and
+  the attachments by name and size. If it replies inside an existing conversation, it says so.
+  It then shows the body exactly as written and the quoted original beneath it.
+- For an event: the title, the start and end in the owner's time zone, the location, and the
+  description.
 
-Once a card is settled, it folds down to one line naming the request, with its end state
-underneath. The card never shows a cost.
-
-## Older desktops
-
-Older desktops project only `m.room.message` events (`apps/desktop/src/matrix/message.ts`).
-A proposal on its own event type is therefore dropped there: nothing is shown, no raw JSON
-appears, and nothing can be approved. Other Matrix clients hide unknown event types. The
-write happens only from a desktop that renders the card.
+The card leaves out only opaque identifiers (`sourceId`, `eventId`, `threadId`, `references`
+and the forwarded `messageId`), which have no meaning to the owner. A settled card folds down
+to one line naming the request, with its state underneath. The card never shows a cost.
 
 ## Code
 
-- `apps/desktop/shared/matrix-google-write-proposal.ts`: the strict reader, the digest and
-  the transcript fold.
-- `apps/desktop/src/matrix/message.ts`: projects the proposal and outcome events.
-- `apps/desktop/src/matrix/app.tsx`: runs the fold beside `matrixFoldSubscriptionFallbacks`.
-- `apps/desktop/src/matrix/google-write-card.tsx` and `google-write-card-copy.ts`: the card
-  and its copy.
+- `apps/desktop/shared/matrix-google-write-proposal.ts`: the strict list and draft reader,
+  the digest, and the action input reader.
 - `apps/desktop/electron/matrix/google-connection-boundary.ts`:
-  `requestMatrixGoogleWriteDecision`, `matrixGoogleWriteDecider` and
-  `createMatrixGoogleWriteIpcHandler`. The handler is on the channel
-  `matrix:google-connections:decide-write` and checks the sender, as the Google connection
-  request does.
+  `requestMatrixGoogleWriteProposals`, `requestMatrixGoogleWriteAction`,
+  `matrixGoogleWriteProposals` (the `s1Request` seam) and `createMatrixGoogleWriteIpcHandler`.
+  The handler is on the channel `matrix:google-connections:write-proposals`, with requests
+  `{kind:"list"}` and `{kind:"action",input:{proposalId,digest,action}}`. It checks the
+  sender before it reads the input.
+- `apps/desktop/src/matrix/google-write-card.tsx` and `google-write-card-copy.ts`: the card,
+  the per-chat card list (`MatrixGoogleWriteProposals`, mounted above the composer in
+  `app.tsx`) and the copy.

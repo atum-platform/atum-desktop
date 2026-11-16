@@ -134,7 +134,6 @@ import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-compa
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixDisplayMode } from '../../shared/matrix-display-preferences'
 import { type MatrixDraftTarget, matrixDraftText } from '../../shared/matrix-drafts'
-import { matrixFoldGoogleWriteProposals } from '../../shared/matrix-google-write-proposal'
 import { matrixMessageLink, validMatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import {
   MATRIX_NOTES_SELF_ROOM_TYPE,
@@ -319,7 +318,7 @@ import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
 import { MatrixGoogleConnectNudge } from './google-connection-settings'
-import { MatrixGoogleWriteCard } from './google-write-card'
+import { MatrixGoogleWriteProposals } from './google-write-card'
 import { AssistantGreeting } from './greeting'
 import {
   groupAssistantMode,
@@ -701,14 +700,6 @@ function MatrixMessageBubble() {
 
   if (membership) {
     return <MatrixMembershipRow line={membership} />
-  }
-
-  if (matrix?.googleWrite && !matrix.redacted) {
-    return (
-      <MessagePrimitive.Root data-slot="aui_system-message-root">
-        <MatrixGoogleWriteCard proposal={matrix.googleWrite.proposal} standing={matrix.googleWrite.standing} />
-      </MessagePrimitive.Root>
-    )
   }
 
   if (matrix?.googleSwitch && !matrix.redacted) {
@@ -5415,12 +5406,8 @@ function Conversation({
     // live line a legacy build left behind does not become a second status row.
     // A fallback notice (agent-turns/1.7) is never a row: it marks the answer it replies to.
     // The Google switch line (S2) shows once, as one quiet line, and only from an agent.
-    // A Google write proposal is a card only from an agent, its latest per agent open (one at a time).
-    const transcriptMessages = matrixFoldGoogleWriteProposals(
-      matrixFoldSubscriptionFallbacks(
-        visible.filter(message => !isMatrixTransientLine(message, lineAgents)),
-        lineAgents
-      ),
+    const transcriptMessages = matrixFoldSubscriptionFallbacks(
+      visible.filter(message => !isMatrixTransientLine(message, lineAgents)),
       lineAgents
     )
 
@@ -5562,6 +5549,8 @@ function Conversation({
 
   const cloudAgent = room ? cloudRoomAgent(snapshot, room) : undefined
   const cloudAgentPrincipal = cloudAgent?.principal
+  // A Google write card waiting on the owner is the agent's turn handed over: no "no reply" band.
+  const [googleWriteWaiting, setGoogleWriteWaiting] = useState(false)
 
   const readServiceStatus = useCallback(() => {
     if (!cloudAgentPrincipal || !window.atumMatrix.cloudAgent) {
@@ -5665,7 +5654,7 @@ function Conversation({
               agentPrincipal={cloudAgent.principal}
               assistantName={assistantName}
               locale={locale}
-              message={unansweredMessage}
+              message={googleWriteWaiting ? null : unansweredMessage}
               onResend={composer?.ready ? body => composer.resend(body) : undefined}
               readStatus={window.atumMatrix.cloudAgent ? readServiceStatus : undefined}
               typing={Boolean(agentTyping)}
@@ -5890,6 +5879,16 @@ function Conversation({
               {(defaultAssistantChat || firstRunHere) && <MatrixFolderAccessRecovery snapshot={snapshot} />}
               {defaultAssistantChat && snapshot.firstRunWelcome === 'dismissed' && !firstRunSkippedHere && (
                 <MatrixGoogleConnectNudge access={snapshot.googleAssistant} scope={snapshot.identity?.userId} />
+              )}
+              {/* The owner's pending Google writes for this agent chat, read from Shell's list (never
+                from the room) and refreshed on this chat's activity. */}
+              {(room.assistant || cloudAgent) && (
+                <MatrixGoogleWriteProposals
+                  activity={snapshot.messages.at(-1)?.id}
+                  key={room.id}
+                  onWaiting={setGoogleWriteWaiting}
+                  roomId={room.id}
+                />
               )}
               {/* Cloud assistants read this Mac's sources: said once, above the box, never in the way.
                 The first-run card says it for a new account. */}
