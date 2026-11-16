@@ -950,7 +950,8 @@ export function MatrixAgentDesk({
     running,
     ...(prompts ? { prompts } : {}),
     ...(cloudStop.target ? { stopTarget: cloudStop.target } : {}),
-    terminalOpen: Boolean(snapshot.terminals?.some(tab => tab.open))
+    terminalOpen: Boolean(snapshot.terminals?.some(tab => tab.open)),
+    locale
   })
 
   const devices = matrixAgentDeskDevices(macs ?? [], now)

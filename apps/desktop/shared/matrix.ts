@@ -100,7 +100,7 @@ import type { MatrixPetDisplayBridge } from './matrix-pet-display'
 import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matrix-pet-intent'
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
-import type { MatrixProgressMarker } from './matrix-progress-marker'
+import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -435,6 +435,10 @@ export interface MatrixMessage {
    * it is gone (`matrixHideEndedTransientLines`); never marked edited. It is not an answer: it
    * marks nothing answered and is never a roster preview. */
   progress?: MatrixProgressMarker | MatrixCompanyProgressMarker
+  /** The working line's descriptor (agent-turns/1.5 `io.atum.presentation`), present only when it is
+   * exactly the contract's shape and pairs with `progress`. The renderer words it in the reader's
+   * current language; `body` holds only the agent's own words (often none). */
+  presentation?: MatrixProgressPresentation
   /** The agent's fallback notice (agent-turns/1.7 `subscription_fallback`): never a row of its own
    * (`matrixFoldSubscriptionFallbacks` hides it and marks the answer it replies to). */
   subscriptionFallback?: MatrixSubscriptionFallback

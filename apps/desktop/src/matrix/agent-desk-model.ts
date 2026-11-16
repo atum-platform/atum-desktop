@@ -7,6 +7,7 @@ import type {
   MatrixSnapshot
 } from '../../shared/matrix'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
+import { matrixProgressLineText } from '../../shared/matrix-status-line-copy'
 import { matrixWorkingLine } from '../../shared/matrix-transient-lines'
 
 import { matrixAgentTyping } from './local-turns'
@@ -96,6 +97,8 @@ export interface MatrixAgentDeskNowInput {
   stopTarget?: string
   /** A reach-down shell of this room is open on this Mac. */
   terminalOpen?: boolean
+  /** The reader's language: a line's descriptor (agent-turns/1.5) is worded in it. */
+  locale?: Parameters<typeof matrixProgressLineText>[3]
 }
 
 const WORKING_TURN: ReadonlySet<MatrixLocalTurnView['state']> = new Set(['waiting', 'running', 'handed_off'])
@@ -143,7 +146,11 @@ export function matrixAgentDeskNow(input: MatrixAgentDeskNowInput): MatrixAgentD
   }
 
   // A heartbeat only says how long it has been: the head already does.
-  const parts = matrixProgressLineParts(line?.progress?.kind === 'heartbeat' ? undefined : line?.body)
+  const text = line && input.locale
+    ? matrixProgressLineText(line.body, line.progress, line.presentation, input.locale)
+    : line?.body
+
+  const parts = matrixProgressLineParts(line?.progress?.kind === 'heartbeat' ? undefined : text)
   const words = { ...(parts.current ? { line: parts.current } : {}), steps: parts.steps }
 
   // The native turn is waiting on the owner (presentation `pre_approval_request`): its own words.

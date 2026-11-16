@@ -1,3 +1,5 @@
+import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
+
 interface MatrixStatusLineCopy {
   /** A turn's one status line, while it waits on the person at this Mac: typing and the read
    * receipt say it is working the rest of the time. */
@@ -80,4 +82,54 @@ export function matrixToolActivity(locale: keyof typeof matrixToolActivityCopy, 
   const kind = matrixToolActivityKind(name)
 
   return kind ? matrixToolActivityCopy[locale][kind] : undefined
+}
+
+type Locale = keyof typeof matrixToolActivityCopy
+
+/** The cloud agent's wait on the owner's approval card (`approval_wait`): the card is the ask; this
+ * only says the turn waits for it. */
+export const matrixApprovalWaitCopy: Record<Locale, string> = {
+  en: 'Waiting for your OK…',
+  vi: 'Đang chờ bạn đồng ý…',
+  ja: 'あなたの承認を待っています…',
+  zh: '正在等待你的确认…',
+  'zh-hant': '正在等待你的確認…'
+}
+
+/** The line's first row in the viewer's language, from the descriptor alone. */
+function presentationHeader(presentation: MatrixProgressPresentation, locale: Locale): string {
+  switch (presentation.code) {
+    case 'tool_activity':
+      return matrixToolActivityCopy[locale][presentation.args.activity]
+
+    case 'heartbeat':
+      return matrixProgressCopy[locale].heartbeat(presentation.args.elapsed_minutes)
+
+    case 'approval_wait':
+      return matrixApprovalWaitCopy[locale]
+  }
+}
+
+const STEP_ROW = /^[✓✔•◦]/u
+
+/**
+ * What one working line shows to this viewer (agent-turns/1.5): with a descriptor already checked
+ * against the line's marker (`matrixProgressPresentation`), its first row in the viewer's current
+ * language and the checklist rows of `body` exactly as the agent wrote them; without one, `body`
+ * itself, which is empty when the agent had nothing of its own to say: then nothing is shown and
+ * the typing indicator alone says it is working.
+ */
+export function matrixProgressLineText(
+  body: string,
+  marker: Pick<MatrixProgressMarker, 'kind'> | undefined,
+  presentation: MatrixProgressPresentation | undefined,
+  locale: Locale
+): string {
+  if (!marker || !presentation) {
+    return body
+  }
+
+  const steps = body.split('\n').map(row => row.trim()).filter(row => STEP_ROW.test(row))
+
+  return [presentationHeader(presentation, locale), ...steps].join('\n')
 }
