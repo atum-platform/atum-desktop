@@ -35,6 +35,8 @@ import { agentStatus } from './agent-roster'
 import { AppBotSettings } from './app-bots/settings'
 import { openAssistantCard } from './assistant-card/store'
 import { MatrixBrowserImportSettings } from './browser-import-settings'
+import { useChatGptTrainingCopy } from './chatgpt-training-copy'
+import { ChatGptTrainingSettings } from './chatgpt-training-settings'
 import { MatrixCloudDeviceSettings } from './cloud-device-settings'
 import { useMatrixCopy } from './copy'
 import { $matrixFeedbackOpen, MatrixDesktopSettings } from './desktop-settings'
@@ -417,15 +419,21 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
  * and the compact native flows they share. The status is the Atum account's, never one agent's. */
 function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
   const copy = useMatrixSettingsCopy()
+  const training = useChatGptTrainingCopy()
   const { bridge, reload, retryCloud, status, view } = useMatrixSubscriptions(scopeKey)
   const [dialog, setDialog] = useState<{ provider: MatrixSubscriptionProvider; kind: 'connect' | 'manage' } | null>(null)
   const [choosing, setChoosing] = useState(false)
   const { provider, state } = view
   const chatgpt = provider === 'openai-codex'
   // One line per state (subscription-view.ts). A connected OpenCode Go plan keeps its name.
+  const relay = chatgpt ? subscriptionProviderStatus(status, 'openai-codex')?.relay : undefined
   const help = chatgpt
     ? state === 'ready'
-      ? `ChatGPT · ${copy.chatgptReady}`
+      ? relay?.state === 'enabled'
+        ? relay.thisMac
+          ? training.connectedThisMac
+          : training.connectedAnotherMac
+        : `ChatGPT · ${copy.chatgptReady}`
       : (matrixChatGptStateLine(copy, state) ?? copy.subscriptionHelp)
     : matrixSubscriptionProviderLabel(provider)
 
@@ -474,6 +482,7 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
         tip={state === 'cloud_setting_up' || state === 'cloud_failed' ? copy.chatgptCloudTip : undefined}
         title={copy.yourSubscription}
       />
+      {chatgpt && state === 'ready' && <ChatGptTrainingSettings bridge={bridge} scopeKey={scopeKey} />}
       <SubscriptionChooser
         onChoose={candidate => {
           setChoosing(false)
