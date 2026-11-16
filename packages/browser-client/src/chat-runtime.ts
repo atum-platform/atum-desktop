@@ -1,6 +1,6 @@
+import { matrixHostRefresh } from '../../../apps/desktop/shared/matrix-host-refresh'
 import { ClientEvent, MatrixClient } from 'matrix-js-sdk/lib/client'
 import { EventType } from 'matrix-js-sdk/lib/@types/event'
-import { TokenRefreshLogoutError } from 'matrix-js-sdk/lib/http-api/errors'
 import type { Logger } from 'matrix-js-sdk/lib/logger'
 import { EventStatus, type MatrixEvent } from 'matrix-js-sdk/lib/models/event'
 import { Direction } from 'matrix-js-sdk/lib/models/event-timeline'
@@ -81,7 +81,7 @@ function messageProjection(event: MatrixEvent, userId: string): BrowserChatMessa
   }
 
   const content = shownContent(event)
-  const transactionId = own ? event.getTxnId() ?? event.getUnsigned().transaction_id : undefined
+  const transactionId = own ? (event.getTxnId() ?? event.getUnsigned().transaction_id) : undefined
   const msgtype = content.msgtype
   const attachment = ['m.audio', 'm.file', 'm.image', 'm.video'].includes(String(msgtype))
 
@@ -174,49 +174,42 @@ export function startChatRuntime(device: BoundDevice, publish: (value: BrowserCh
   const ready = (async () => {
     const configuration = device.configuration()
     identity = { userId: configuration.userId, deviceId: configuration.deviceId }
-    const { storageKey: _unusedStorageKey, ...connection } = configuration
+    const { storageKey: _unusedStorageKey, refreshToken: refreshHandle, ...connection } = configuration
     store = new IndexedDBStore({
       indexedDB,
       localStorage,
       dbName: `sync-${encodeURIComponent(configuration.userId)}-${encodeURIComponent(configuration.deviceId)}`
     })
-    let refreshing: Promise<Awaited<ReturnType<BoundDevice['refresh']>>> | undefined
     // Construct the pinned SDK's plain client directly. The package's browser
     // entrypoint installs a legacy crypto store even when crypto is never
     // initialized; this host has no encrypted-room surface.
+    const hostRefresh = matrixHostRefresh({
+      baseUrl: configuration.baseUrl,
+      accessToken: configuration.accessToken,
+      handle: refreshHandle,
+      refresh: handle => device.refresh(handle),
+      apply: token => client!.setAccessToken(token),
+      active: () => !stopped,
+      fetcher: (input, init) => boundedFetch(input, init)
+    })
+    const boundedFetch: typeof fetch = (input, init) => {
+      const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
+      return fetch(input, {
+        ...init,
+        redirect: 'error',
+        signal: AbortSignal.any([
+          network.signal,
+          ...(init?.signal ? [init.signal] : input instanceof Request ? [input.signal] : []),
+          ...(!url.pathname.endsWith('/sync') ? [AbortSignal.timeout(30_000)] : [])
+        ])
+      })
+    }
     client = new MatrixClient({
       ...connection,
       store,
       disableVoip: true,
       logger: quietLogger,
-      fetchFn: (input, init) => {
-        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url)
-        const sync = url.pathname.endsWith('/sync')
-        return fetch(input, {
-          ...init,
-          redirect: 'error',
-          signal: AbortSignal.any([
-            network.signal,
-            ...(init?.signal ? [init.signal] : []),
-            ...(!sync ? [AbortSignal.timeout(30_000)] : [])
-          ])
-        })
-      },
-      tokenRefreshFunction: configuration.refreshToken
-        ? async handle => {
-            const result = await (refreshing ??= device.refresh(handle).finally(() => {
-              refreshing = undefined
-            }))
-            if (result.ok)
-              return {
-                accessToken: result.accessToken,
-                refreshToken: result.refreshToken,
-                ...(result.expiresAt ? { expiry: new Date(result.expiresAt) } : {})
-              }
-            if (result.reauthenticate) throw new TokenRefreshLogoutError(new Error('matrix_signed_out'))
-            throw new Error('matrix_refresh_unavailable')
-          }
-        : undefined
+      fetchFn: hostRefresh.fetcher
     })
     profiles = createBrowserOwnProfile(
       client,
@@ -299,10 +292,7 @@ export function startChatRuntime(device: BoundDevice, publish: (value: BrowserCh
             .getEvents()
             .find(event => event.getTxnId() === matrixTransactionId)
         const existing = transactionEvent()
-        if (
-          existing?.getId()?.startsWith('$') &&
-          (existing.status === EventStatus.SENT || existing.status === null)
-        )
+        if (existing?.getId()?.startsWith('$') && (existing.status === EventStatus.SENT || existing.status === null))
           return existing.getId()!
         if (existing?.status === EventStatus.NOT_SENT) return (await sdk.resendEvent(existing, room)).event_id
         if (existing) throw new Error('matrix_send_in_progress')

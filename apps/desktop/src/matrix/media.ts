@@ -85,7 +85,7 @@ export function boundedMatrixFetch(fetcher: typeof fetch = fetch): typeof fetch 
       ...(media || read || moderation
         ? {
             signal: AbortSignal.any([
-              ...(init?.signal ? [init.signal] : []),
+              ...(init?.signal ? [init.signal] : input instanceof Request ? [input.signal] : []),
               AbortSignal.timeout(media ? MATRIX_MEDIA_TIMEOUT_MS : 10000)
             ])
           }

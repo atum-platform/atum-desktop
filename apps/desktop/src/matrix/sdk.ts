@@ -16,7 +16,6 @@ import {
   RoomMemberEvent,
   RoomStateEvent,
   ThreadEvent,
-  TokenRefreshLogoutError,
   UserEvent
 } from 'matrix-js-sdk'
 import { EventShieldReason } from 'matrix-js-sdk/lib/crypto-api/index'
@@ -69,6 +68,7 @@ import { MATRIX_COMPANY_FILE } from '../../shared/matrix-company-files'
 import type { MatrixGoogleFenceObservation } from '../../shared/matrix-google-fence'
 import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_GROUP_AGENT_LIMIT } from '../../shared/matrix-group-room'
+import { matrixHostRefresh } from '../../shared/matrix-host-refresh'
 import { MATRIX_MODEL_ACCOUNT_DATA, matrixModelChoiceContent, parseMatrixModel } from '../../shared/matrix-models'
 import { MATRIX_NOTES_SELF_ROOM_TYPE } from '../../shared/matrix-notes-self'
 import { createMatrixSyncHealth, matrixSyncTokenRefused } from '../../shared/matrix-sync-health'
@@ -693,41 +693,24 @@ export async function startMatrixSdk(
 
   const recoveryKeys = recoveryKeyCache()
   let security: ReturnType<typeof matrixSecurity> | undefined
-  // One question to the host at a time: a refused token and the host's own renewal notice
-  // (`renewed`) arriving together share the host's one answer.
-  let refreshing: Promise<MatrixRefreshResult> | undefined
-
-  const refreshOnce = (handle: string) =>
-    (refreshing ??= refresh(handle).finally(() => {
-      refreshing = undefined
-    }))
+  const { refreshToken: refreshHandle, ...connection } = configuration
+  const hostRefresh = matrixHostRefresh({
+    baseUrl: configuration.baseUrl,
+    accessToken: configuration.accessToken,
+    handle: refreshHandle,
+    refresh,
+    apply: token => client.setAccessToken(token),
+    active: () => !stopped,
+    fetcher: boundedMatrixFetch()
+  })
 
   const client = createClient({
-    ...configuration,
+    ...connection,
     store,
     logger: quietLogger,
     cryptoCallbacks: recoveryKeys.callbacks,
     verificationMethods: ['m.sas.v1'],
-    fetchFn: boundedMatrixFetch(),
-    tokenRefreshFunction: configuration.refreshToken
-      ? async handle => {
-          const result = await refreshOnce(handle)
-
-          if (result.ok) {
-            return {
-              accessToken: result.accessToken,
-              refreshToken: result.refreshToken,
-              ...(result.expiresAt ? { expiry: new Date(result.expiresAt) } : {})
-            }
-          }
-
-          if (result.reauthenticate) {
-            throw new TokenRefreshLogoutError(new Error('matrix_signed_out'))
-          }
-
-          throw new Error('matrix_refresh_unavailable')
-        }
-      : undefined
+    fetchFn: hostRefresh.fetcher
   })
 
   const earlierConversations = watchEarlierConversations(client, offerInvocation)
@@ -5126,7 +5109,7 @@ export async function startMatrixSdk(
         return false
       }
 
-      const result = await refreshOnce(client.getRefreshToken() ?? configuration.refreshToken)
+      const result = await hostRefresh.renew()
 
       if (!result.ok || stopped) {
         return false
