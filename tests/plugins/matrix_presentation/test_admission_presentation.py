@@ -57,6 +57,8 @@ async def test_native_connect_pending_and_downtime(tmp_path):
         # get past the real connect/intake/background-task readiness dependency.
         async with a.admission_presentation_scope(event, a._event_session_key(event), event.message_id):
             answered.append(event.message_id)
+            # Admission itself posts nothing; one real step opens this turn's line.
+            await p._current.get().progress('Reading…')
             await p._current.get().end()
     a._message_handler = handler
     async def dispatch(data):
@@ -157,9 +159,11 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
         finals = [w for w in writes if w.get('io.atum.turn')]
         assert len(finals) == 1
         assert finals[0]['io.atum.turn'] == turn.marker
-        assert writes.index(finals[0]) < len(writes) - 1  # cleanup follows delivery
-        assert sum('io.atum.progress' in w and 'm.new_content' not in w for w in writes) == 1
-        assert any(w.get('io.atum.interim') for w in writes)
+        # No status line at admission: typing says the agent is working, so the
+        # only writes are the agent's own remark, kept, and then its answer.
+        assert not any('io.atum.progress' in w for w in writes)
+        assert [w['body'] for w in writes] == ['checking', 'answer']
+        assert writes[0].get('io.atum.interim') is True
         assert not turn.stopped
     finally:
         p._current.reset(token)
@@ -313,6 +317,7 @@ async def test_native_execution_trigger_on_progress_and_final(tmp_path, schedule
     token = enter_cron_execution({'id': 'routine'}, 'native-fire', {'source': 'builtin'}) if scheduled else None
     try:
         async with a.admission_presentation_scope(event, 'route', 'admission'):
+            await p._current.get().progress('Reading…')
             await a.send_final_ledgered(event)
         marker = writes[0]['io.atum.progress']
         final = next(w for w in writes if w.get('body') == 'answer')
@@ -343,3 +348,91 @@ async def test_cron_delivery_without_owner_admission_has_native_trigger():
     assert writes[0]['io.atum.trigger'] == 'cron'
     assert isinstance(writes[0]['io.atum.turn'], str)
     assert 'io.atum.trigger' not in writes[1]
+
+
+def _presentation_adapter(tmp_path, writes):
+    class Base:
+        async def _send_room_message(self, room, content, **kwargs):
+            writes.append(content)
+            return '$final'
+        async def send(self, room, text, **kwargs):
+            return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
+        async def send_final_ledgered(self, event):
+            from gateway.platforms.base import SendResult
+            message_id = await self.send(event.source.chat_id, 'Here is the answer.')
+            return SendResult(success=True, message_id=message_id), self
+    a = p.adapter_class(Base)()
+    a._presentation_box = p.Outbox(tmp_path / 'box.sqlite3')
+    a._presentation_turns = {}
+    async def port(room, content, txn, target):
+        writes.append({'redacts': target} if target else content)
+        return '$' + txn
+    a._presentation_send = port
+    event = MessageEvent(text='hello', message_id='$source', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', chat_type='dm', user_id='@owner'))
+    return a, event
+
+
+async def _settle():
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('language,reading', [('en', 'Reading…'), ('vi', 'Đang đọc…')])
+async def test_turn_speaks_only_through_the_agent_and_its_real_steps(tmp_path, monkeypatch, language, reading):
+    """Legacy parity: no status line at admission, no opener in the agent's place,
+    a line only for a real step, and the agent's first own remark at once."""
+    monkeypatch.setenv('HERMES_LANGUAGE', language)
+    hooks, writes = {}, []
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    a, event = _presentation_adapter(tmp_path, writes)
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            assert writes == []  # read receipt + native typing only
+            await turn.heartbeat()  # a turn without a line has nothing to keep alive
+            for tool in ('todo', 'memory', 'clarify'):  # categories without words
+                hooks['pre_tool_call'](tool_name=tool)
+            await _settle()
+            assert writes == []
+            hooks['pre_tool_call'](tool_name='read_file')
+            await _settle()
+            assert [w['body'] for w in writes] == [reading]
+            assert 'io.atum.progress' in writes[0] and writes[0]['msgtype'] == 'm.notice'
+            assert not any(w.get('io.atum.interim') for w in writes)  # no fixed opener
+            await a.send('!room', 'Let me read the notes first.', metadata={'_interim_send': True})
+            remarks = [w for w in writes if w.get('io.atum.interim')]
+            assert [w['body'] for w in remarks] == ['Let me read the notes first.']
+            await a.send_final_ledgered(event)
+        assert [w['body'] for w in writes if w.get('io.atum.turn')] == ['Here is the answer.']
+        assert writes[-1] == {'redacts': turn.root}  # the line goes once the answer is out
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_quiet_turn_sends_only_the_answer(tmp_path):
+    writes = []
+    a, event = _presentation_adapter(tmp_path, writes)
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            await a.send_final_ledgered(event)
+        assert [w.get('body') for w in writes] == ['Here is the answer.']
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.parametrize('tool,words', [
+    ('web_search', ('Looking it up on the web…', 'Đang tra cứu trên web…')),
+    ('browser_navigate', ('Looking it up on the web…', 'Đang tra cứu trên web…')),
+    ('search_files', ('Reading…', 'Đang đọc…')),
+    ('patch', ('Editing files…', 'Đang sửa tệp…')),
+    ('execute_code', ('Running a task…', 'Đang chạy tác vụ…')),
+    ('delegate_task', ('Getting a helper on it…', 'Đang nhờ trợ lý phụ…')),
+    ('vision_analyze', ('Looking at the image…', 'Đang xem hình…')),
+    ('image_generate', ('Drawing…', 'Đang vẽ…')),
+    ('todo', None), ('memory', None), ('read_files', None), ('', None), (None, None),
+])
+def test_tool_activity_words_follow_desktop_categories(tool, words):
+    assert p.tool_activity_words(tool) == words

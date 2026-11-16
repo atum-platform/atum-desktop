@@ -59,6 +59,26 @@ def interim_decision(private, redacted, first, sinceLastMs, duplicatesAnswer):
     return 'publish' if first or sinceLastMs >= 20000 else 'hold'
 
 
+# A started tool's category, from its name alone (never arguments or results), in the
+# desktop's own activity-line words. A tool outside these categories adds no line;
+# typing keeps saying the agent is working.
+_TOOL_ACTIVITY = (
+    (r'(web_|browser_).*', ('Looking it up on the web…', 'Đang tra cứu trên web…')),
+    (r'read_file|search_files|session_search', ('Reading…', 'Đang đọc…')),
+    (r'write_file|patch', ('Editing files…', 'Đang sửa tệp…')),
+    (r'terminal|execute_code', ('Running a task…', 'Đang chạy tác vụ…')),
+    (r'delegate_task', ('Getting a helper on it…', 'Đang nhờ trợ lý phụ…')),
+    (r'vision_analyze', ('Looking at the image…', 'Đang xem hình…')),
+    (r'image_generate', ('Drawing…', 'Đang vẽ…')),
+)
+
+
+def tool_activity_words(name):
+    """(English, Vietnamese) for a started tool, or None when its category has no words."""
+    return next((words for pattern, words in _TOOL_ACTIVITY
+                 if isinstance(name, str) and re.fullmatch(pattern, name)), None)
+
+
 def repeats(remark, answer):
     def words(text):
         return ' '.join(''.join(' ' if unicodedata.category(c).startswith('P') else c
@@ -456,7 +476,7 @@ def adapter_class(base):
             response = None
             async with self.admission_presentation_scope(event, session_key, admission_id):
                 try:
-                    # Root publication can yield while waking. Stop must win that gap too.
+                    # Entering the scope can yield while waking. Stop must win that gap too.
                     if self._cancelled_before_execution(event):
                         return None
                     response = await execute(event)
@@ -490,12 +510,10 @@ def adapter_class(base):
             from tools.pet_tool import bind_turn_callback, reset_turn_callback
             pet_token = bind_turn_callback(turn.queue_pet if turn and turn.pet_eligible else None)
             try:
-                if turn:
-                    try:
-                        from agent.i18n import owner_text
-                        await turn.progress(owner_text('Working…', 'Đang làm…'))
-                    except Exception:
-                        logger.warning('Matrix presentation root deferred', exc_info=True)
+                # No status line at admission: the native read receipt and the typing
+                # indicator (BasePlatformAdapter._keep_typing, m.typing) say the agent is
+                # working. The transient line appears only for a real step: a tool
+                # category, the todo list or a wait.
                 yield
             finally:
                 if turn:
@@ -720,26 +738,18 @@ def register_hooks(ctx):
 
     def tool_activity(tool_name='', **_):
         turn = _current.get()
-        if turn and not turn.ended:
+        words = tool_activity_words(tool_name)
+        if turn and not turn.ended and words:
             # Names only, never arguments/results. Schedule on the owning event loop.
-            # Same words as the desktop's own activity line (matrix-status-line-copy.ts).
+            # The plugin never speaks in the agent's place: no opener, only the line.
             from agent.i18n import owner_text
-            text = owner_text(*{'terminal': ('Running a task…', 'Đang chạy tác vụ…'),
-                                'read_file': ('Reading…', 'Đang đọc…'),
-                                'web_search': ('Looking it up on the web…', 'Đang tra cứu trên web…'),
-                                'todo': ('Planning the next steps…', 'Đang lên các bước tiếp theo…'),
-                                }.get(tool_name, ('Working on it…', 'Đang xử lý…')))
-            ack = owner_text("I'll take a look.", 'Mình xem ngay nhé.')
             def done(future):
                 try:
                     future.result()
                 except Exception:
                     logger.warning('Matrix presentation activity could not be published')
-            async def publish():
-                if not turn.interims:
-                    await turn.interim(ack, redacted=True)
-                await turn.progress(text)
-            asyncio.run_coroutine_threadsafe(publish(), turn.loop).add_done_callback(done)
+            asyncio.run_coroutine_threadsafe(turn.progress(owner_text(*words)),
+                                             turn.loop).add_done_callback(done)
     def stopped(session_key='', platform='', source_event_id=None, admission_id=None, **_):
         turn = _active.get(session_key) if platform == 'matrix' else None
         if turn and source_event_id == turn.source and admission_id == turn.admission_id:

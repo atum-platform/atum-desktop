@@ -78,6 +78,7 @@ async def test_completion_real_client_http_boundary(tmp_path, cleanup_fails):
     try:
         async with a.admission_presentation_scope(event, 'session', 'admission'):
             turn = p._current.get()
+            await turn.progress('Reading…')  # admission posts nothing; a real step opens the line
             root = turn.root
             result = await a.send_final_ledgered(event)
         assert result
