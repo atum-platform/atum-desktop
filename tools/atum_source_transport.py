@@ -72,6 +72,8 @@ def source_transport_error(result: dict) -> str | None:
         'rate_limited': 'Rate limited.',
     }
     code = result.get('code') or result.get('error')
+    if code == 'invalid_request' and isinstance(result.get('detail'), str):
+        return tool_error(result['detail'], code=code)
     if result.get('confirmationRequired') is True:
         code = 'confirmationRequired'
     if not isinstance(code, str) or code not in messages:
