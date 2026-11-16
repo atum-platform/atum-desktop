@@ -67,6 +67,19 @@ and `packages` for the upstream APIs and their call sites.
   directory. Previously a direct invocation silently rebuilt nothing. Native
   staging uses the existing scripts and official Electron headers.
 
+- Refresh the `.npmrc` `min-release-age-exclude[]=electron` rationale: 45.3.2 is
+  younger than the repository's 14-day minimum release age, and the newest 45.x old
+  enough (45.2.1, 2026-10-31) predates the 44.10.1 security backports it would
+  replace. The exclusion is dated for removal on 2026-11-27.
+
+## Follow-up
+
+- Migrate the synchronous `safeStorage` call sites listed above to the async API
+  before adopting Electron 46, which removes the synchronous methods.
+- Normal-keychain local startup timed out on the build host; the likely cause is the
+  macOS Keychain access prompt for a newly built, differently signed binary. Confirm
+  on a signed candidate before the next desktop release.
+
 ## Verification
 
 Verification uses host Node 24.21.0 / npm 11.19.0 on macOS arm64. All commands
