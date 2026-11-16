@@ -113,3 +113,42 @@ class TestMissedWindowCatchUp:
         S.tick(verbose=False, sync=True)
         assert slot_env["fires"]() == 1
         assert "pending_slot" not in J.get_job(slot_env["job_id"])
+
+
+@pytest.mark.parametrize("catch_up", [True, False])
+def test_stale_check_in_gate_refusal_consumes_slot(slot_env, monkeypatch, catch_up):
+    """No desktop gate on a cloud host is a declined poll, not a crashed dispatch."""
+    from cron import check_ins
+    from cron.occurrences import pending_slot_stamp
+    from hermes_cli import config
+    S, J, E = slot_env["S"], slot_env["J"], slot_env["E"]
+    now = J._hermes_now()
+    stale = (now - timedelta(days=28)).isoformat()
+    records = J.load_jobs()
+    job = records[0]
+    job.update(id=check_ins.CHECK_IN_JOB_ID, name="Check-ins", no_agent=False,
+               schedule=J.parse_schedule("every 15m"), next_run_at=(now + timedelta(minutes=15)).isoformat(),
+               pending_slot=pending_slot_stamp(stale, now - timedelta(days=28)))
+    J.save_jobs(records)
+    monkeypatch.setattr(config, "load_config", lambda: {"cron": {"catch_up_missed": catch_up}})
+    gates = []
+    monkeypatch.setattr(check_ins, "ask_gate", lambda job: gates.append(job["id"]))
+    S.tick(verbose=False, sync=True)
+    stored = J.get_job(check_ins.CHECK_IN_JOB_ID)
+    assert "pending_slot" not in stored
+    assert stored["last_run_at"] is None
+    assert E.latest_execution(check_ins.CHECK_IN_JOB_ID) is None
+    assert J._ensure_aware(J.datetime.fromisoformat(stored["next_run_at"])) > now
+    S.tick(verbose=False, sync=True)
+    assert gates == ([check_ins.CHECK_IN_JOB_ID] if catch_up else [])
+
+
+def test_declined_slot_cannot_clear_newer_pending_occurrence(slot_env):
+    from cron.occurrences import pending_slot_stamp
+    J = slot_env["J"]
+    now = J._hermes_now()
+    records = J.load_jobs()
+    records[0]["pending_slot"] = pending_slot_stamp(now.isoformat(), now)
+    J.save_jobs(records)
+    assert not J.discard_unclaimed_slot(records[0]["id"], slot_env["slot"])
+    assert J.get_job(records[0]["id"])["pending_slot"]["scheduled_at"] == now.isoformat()
