@@ -734,6 +734,6 @@ describe('the real Google policy composed with the real broker', () => {
 
 
 it('passes an omitted thread mailbox to the existing default-source resolver', () => {
-  expect(matrixGoogleUtilityInput({ action: 'read_thread', threadId: 't1' }))
+  expect(matrixGoogleUtilityInput({ action: 'read_thread', threadId: 't1' }, new Date(0)))
     .toEqual({ read: { kind: 'email', action: 'thread', id: 't1' } })
 })
