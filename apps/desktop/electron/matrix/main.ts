@@ -288,13 +288,15 @@ import { createWordLiveMacAdapter } from '../word-live-mac'
 import { MatrixAccount } from './account'
 import { matrixAccountLogLine } from './account-events'
 import {
+  disconnectMatrixSubscriptionChatGpt,
   finishMatrixSubscriptionChatGptPoll,
   matrixSubscriptionAccountAvailable,
   MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionHostExecutor,
   matrixSubscriptionHostHome,
   matrixSubscriptionPlanSignInGate,
-  matrixSubscriptionsWithChatGptRelay
+  matrixSubscriptionsWithChatGptRelay,
+  retireMatrixChatGptRelayForSignIn
 } from './account-subscription-flow'
 import {
   forgetSubscriptionChatGpt,
@@ -479,6 +481,11 @@ import { createBrowserImport } from './browser-import/compose'
 import { registerBrowserImportIpc } from './browser-import/ipc'
 import { carryCustody, ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
 import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
+import {
+  FileChatGptTrainingRevokeJournal,
+  MatrixChatGptTrainingConfirmation,
+  requestMatrixChatGptTraining
+} from './chatgpt-training-confirmation'
 import { type MatrixCheckInLeaseHold, MatrixCheckIns, refuseMatrixCheckIns } from './check-ins'
 import { FileCheckoutJournal, MatrixCheckoutController } from './checkout'
 import { registerMatrixClipboard } from './clipboard'
@@ -2132,6 +2139,7 @@ let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
 let chatGptCarry: ChatGptCarry | undefined
 let chatGptRelay: MatrixChatGptRelay | undefined
+let chatGptTraining: MatrixChatGptTrainingConfirmation | undefined
 let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
@@ -5016,7 +5024,7 @@ async function chatGptRelayModels() {
 
 /** Select/clear this enrolled Mac as the account relay. Disable fences the local handler first,
  * then revokes platform grants; enable publishes safe model metadata before opening locally. */
-async function configureThisMacAsChatGptRelay(enabled: boolean): Promise<boolean> {
+async function configureThisMacAsChatGptRelay(enabled: boolean, fresh = false): Promise<boolean> {
   if (!enabled) {
     deviceBootstrap?.configureChatGptRelay(false)
 
@@ -5036,7 +5044,12 @@ async function configureThisMacAsChatGptRelay(enabled: boolean): Promise<boolean
 
   const models = await chatGptRelayModels()
 
-  if (!(await chatGptRelay.enable(deviceServiceId, models))) {
+  // A fresh session (a new ChatGPT sign-in) fences this Mac's handler until the new one is up.
+  if (fresh) {
+    deviceBootstrap.configureChatGptRelay(false)
+  }
+
+  if (!(await chatGptRelay.enable(deviceServiceId, models, { fresh }))) {
     return false
   }
 
@@ -5102,7 +5115,7 @@ function repairChatGptSubscription(
   stopSubscriptionFollowUpRepair()
 
   const repair = new MatrixSubscriptionFollowUpRepair({
-    registerRelay: () => configureThisMacAsChatGptRelay(true),
+    registerRelay: input => configureThisMacAsChatGptRelay(true, input?.fresh === true),
     refresh: () => refreshSubscriptionAgents(),
     outcome: (stage, status) => diagnostics.followUp(stage, status),
     current: () => {
@@ -6974,6 +6987,7 @@ function publish(next: MatrixSnapshot) {
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -18635,6 +18649,24 @@ async function start() {
       })
     : undefined
 
+  chatGptTraining = config.domain
+    ? new MatrixChatGptTrainingConfirmation({
+        scope: () => account.appScope(),
+        // A pending revocation's key, per account, so a restart resumes it with the same key.
+        journal: new FileChatGptTrainingRevokeJournal(path.join(app.getPath('userData'), 'chatgpt-training')),
+        call: (method, signal, init) => account.s1Request(
+          (accessToken, resource) => requestMatrixChatGptTraining(resource, accessToken, method, signal, init), signal),
+        // Google connected now, or the owner's Google fence was ever set (a latched assistant
+        // stays latched after Google is disconnected). Server-side latches remain authoritative.
+        required: () => {
+          const accountKey = account.appScope()?.accountKey
+
+          return Object.values(googleConnections?.services() ?? {}).some(Boolean) ||
+            Boolean(accountKey && googleFenceNotices?.seen(accountKey))
+        }
+      })
+    : undefined
+
   cloudModelChoices = config.domain
     ? new MatrixCloudModelChoices({
         scope: () => account.appScope(),
@@ -21003,6 +21035,8 @@ async function start() {
         persona?: unknown
         hireConfirmed?: unknown
         assistantId?: unknown
+        /** `subscriptionChatGptTrainingConfirm`: the relay connection the card read. */
+        connectionId?: unknown
         principal?: unknown
         agentPrincipal?: unknown
         /** `agentDesk`: which read of the agent's cloud home, and its folder for `files`. */
@@ -23586,6 +23620,21 @@ async function start() {
         const { scope } = subscriptionProvidersFor(authLifecycle)
 
         try {
+          // A relay this Mac still serves belongs to the account signed in before: end it first.
+          await retireMatrixChatGptRelayForSignIn({
+            relayOnThisMac: () => {
+              const relay = chatGptRelay?.view()
+              const me = deviceIdentity?.enrollment()?.deviceServiceId
+
+              return relay?.state === 'enabled' && Boolean(me) && relay.deviceServiceId === me
+            },
+            disableRelay: () => {
+              stopSubscriptionFollowUpRepair()
+
+              return configureThisMacAsChatGptRelay(false)
+            }
+          })
+
           const consent = (await scope.request({
             path: '/api/provider-settings/oauth/acknowledge',
             method: 'POST',
@@ -23641,7 +23690,8 @@ async function start() {
         })) as MatrixProviderOAuthResult
 
         const outcome = await finishMatrixSubscriptionChatGptPoll(result, {
-          complete: () => repairChatGptSubscription(providers.diagnostics.current).run()
+          // A new sign-in, so a new relay session: a confirmation never carries to another account.
+          complete: () => repairChatGptSubscription(providers.diagnostics.current).renew()
         })
 
         if (outcome.status !== 'pending') {
@@ -23674,27 +23724,29 @@ async function start() {
         const { scope } = subscriptionProvidersFor()
 
         try {
-          stopSubscriptionFollowUpRepair()
-          await configureThisMacAsChatGptRelay(false).catch(() => false)
-
-          await scope
-            .request({
-              path: '/api/provider-settings/oauth/disconnect',
-              method: 'POST',
-              body: { provider: 'openai-codex' }
-            })
-            .catch(() => undefined)
-
-          forgetSubscriptionChatGpt({ config: runtime!, owner, sharedCodex: sharedCodexHere() })
-          chatGptLocalModels = undefined
-          // Hermes's DELETE above is the native disconnect. If it did not land, Hermes's own locked
-          // clear_provider_auth drops the grant from the account home (never another provider's
-          // rows): once before the assistants stop, so a restart cannot borrow it, and once after,
-          // so a refresh a stopping assistant was finishing cannot write it back.
-          const accountHome = matrixSubscriptionHostHome(runtime!, owner, accountKey)
-          await clearMatrixAccountChatGpt(runtime!, accountHome).catch(() => undefined)
-          await refreshSubscriptionAgents(true)
-          await clearMatrixAccountChatGpt(runtime!, accountHome)
+          await disconnectMatrixSubscriptionChatGpt({
+            stopRepair: stopSubscriptionFollowUpRepair,
+            disableRelay: () => configureThisMacAsChatGptRelay(false),
+            disconnect: async () => {
+              await scope.request({
+                path: '/api/provider-settings/oauth/disconnect',
+                method: 'POST',
+                body: { provider: 'openai-codex' }
+              })
+            },
+            forget: async () => {
+              forgetSubscriptionChatGpt({ config: runtime!, owner, sharedCodex: sharedCodexHere() })
+              chatGptLocalModels = undefined
+              // Hermes's DELETE above is the native disconnect. If it did not land, Hermes's own locked
+              // clear_provider_auth drops the grant from the account home (never another provider's
+              // rows): once before the assistants stop, so a restart cannot borrow it, and once after,
+              // so a refresh a stopping assistant was finishing cannot write it back.
+              const accountHome = matrixSubscriptionHostHome(runtime!, owner, accountKey)
+              await clearMatrixAccountChatGpt(runtime!, accountHome).catch(() => undefined)
+              await refreshSubscriptionAgents(true)
+              await clearMatrixAccountChatGpt(runtime!, accountHome)
+            }
+          })
         } finally {
           await retireSubscriptionProviders()
         }
@@ -23724,6 +23776,24 @@ async function start() {
         } finally {
           await retireSubscriptionProviders()
         }
+      }
+
+      // The one-time ChatGPT-with-Google confirmation (Shell training-confirmation r3). Main only
+      // forwards the person's explicit Confirm and Revoke; the server owns the record.
+      if (request?.kind === 'subscriptionChatGptTraining') {
+        if (!chatGptTraining) {
+          throw new Error('matrix_subscriptions_unavailable')
+        }
+
+        return chatGptTraining.read()
+      }
+
+      if (request?.kind === 'subscriptionChatGptTrainingConfirm') {
+        return chatGptTraining ? chatGptTraining.confirm(request.connectionId) : { status: 'unavailable' as const }
+      }
+
+      if (request?.kind === 'subscriptionChatGptTrainingRevoke') {
+        return chatGptTraining ? chatGptTraining.revoke() : { status: 'unavailable' as const }
       }
 
       if (request?.kind === 'subscriptionOpenCodeSave') {

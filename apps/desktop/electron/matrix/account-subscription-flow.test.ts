@@ -4,12 +4,14 @@ import type { MatrixSubscriptionsStatus } from '../../shared/matrix-subscription
 
 import {
   completeMatrixSubscriptionChatGptFollowUp,
+  disconnectMatrixSubscriptionChatGpt,
   finishMatrixSubscriptionChatGptPoll,
   matrixSubscriptionAccountAvailable,
   MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionHostHome,
   matrixSubscriptionPlanSignInGate,
   matrixSubscriptionsWithChatGptRelay,
+  retireMatrixChatGptRelayForSignIn,
   updateMatrixSubscriptionSignIn
 } from './account-subscription-flow'
 import { matrixHermesHome } from './hermes-runtime'
@@ -235,5 +237,78 @@ describe('the account ChatGPT connection state machine', () => {
     expect(updateMatrixSubscriptionSignIn(host, false)).toBe(true)
     expect(matrixSubscriptionPlanSignInGate({ ...host, planSignIn: true })).toBe('required')
     expect(matrixSubscriptionPlanSignInGate({ ...host, planSignIn: false })).toBeUndefined()
+  })
+})
+
+describe('relay identity around ChatGPT sign-in and disconnect', () => {
+  it('disables the relay before the native disconnect and before the credential is forgotten', async () => {
+    const order: string[] = []
+
+    await disconnectMatrixSubscriptionChatGpt({
+      stopRepair: () => order.push('stop-repair'),
+      disableRelay: async () => (order.push('disable-relay'), true),
+      disconnect: async () => void order.push('disconnect'),
+      forget: async () => void order.push('forget')
+    })
+
+    expect(order).toEqual(['stop-repair', 'disable-relay', 'disconnect', 'forget'])
+  })
+
+  it('still disconnects when the relay cannot be disabled (the next sign-in starts a fresh session)', async () => {
+    const order: string[] = []
+
+    await disconnectMatrixSubscriptionChatGpt({
+      stopRepair: () => order.push('stop-repair'),
+      disableRelay: async () => {
+        order.push('disable-relay')
+        throw new Error('offline')
+      },
+      disconnect: async () => {
+        order.push('disconnect')
+        throw new Error('offline')
+      },
+      forget: async () => void order.push('forget')
+    })
+
+    expect(order).toEqual(['stop-repair', 'disable-relay', 'disconnect', 'forget'])
+  })
+
+  it('ends a relay this Mac still serves before a new sign-in, and leaves another Mac alone', async () => {
+    const disableRelay = vi.fn(async () => true)
+
+    await retireMatrixChatGptRelayForSignIn({ relayOnThisMac: () => true, disableRelay })
+    await retireMatrixChatGptRelayForSignIn({ relayOnThisMac: () => false, disableRelay })
+
+    expect(disableRelay).toHaveBeenCalledOnce()
+  })
+
+  it('publishes a fresh session after a new sign-in, keeps it fresh across retries, then republishes normally', async () => {
+    const register = vi.fn<(input?: { fresh: boolean }) => Promise<boolean>>()
+      .mockResolvedValueOnce(false)
+      .mockResolvedValue(true)
+    const scheduled: Array<() => void> = []
+
+    const repair = new MatrixSubscriptionFollowUpRepair({
+      registerRelay: register,
+      refresh: async () => {},
+      current: () => true,
+      retryDelays: [1],
+      schedule: run => {
+        scheduled.push(run)
+
+        return () => {}
+      }
+    })
+
+    expect(await repair.renew()).toEqual({ relay: 'unavailable', refresh: 'ok' })
+    await Promise.resolve()
+    scheduled.shift()?.()
+    await vi.waitFor(() => expect(register).toHaveBeenCalledTimes(2))
+    // The retry lands; a later ordinary republication (start-up, model refresh) is not fresh.
+    await repair.run()
+    await Promise.resolve()
+    await repair.run()
+
+    expect(register.mock.calls).toEqual([[{ fresh: true }], [{ fresh: true }], []])
   })
 })

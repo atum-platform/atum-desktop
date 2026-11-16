@@ -136,6 +136,11 @@ export class MatrixGoogleFenceNotices {
     private readonly owner: () => MatrixGoogleFenceOwner | null
   ) {}
 
+  /** Whether this account's owner fence was ever observed set: its assistants have touched Google. */
+  seen(accountKey: string): boolean {
+    return this.earliest.has(accountKey)
+  }
+
   observe(value: unknown): Promise<void> {
     const owner = this.owner()
 

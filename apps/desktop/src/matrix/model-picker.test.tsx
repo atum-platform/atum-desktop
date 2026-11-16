@@ -11,6 +11,7 @@ import type {
   MatrixAgentHomeModelOption,
   MatrixAgentHomeView,
   MatrixRoom,
+  MatrixSubscriptionsBridge,
   MatrixUiBridge
 } from '../../shared/matrix'
 import {
@@ -23,6 +24,7 @@ import {
   type MatrixModelRouteSelection
 } from '../../shared/matrix-models'
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
+import type { MatrixChatGptTrainingStatus } from '../../shared/matrix-subscriptions'
 
 import { MatrixModelPicker } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
@@ -1766,5 +1768,189 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
     const chip = screen.getByRole('button', { name: 'Model: Reconnect OpenCode Go' })
     expect(chip.dataset.matrixModelUnavailable).toBe('reconnect')
     expect(chip.querySelector('[data-matrix-model-warning]')).toBeTruthy()
+  })
+})
+
+describe('ChatGPT with Google data: the one-time confirmation inside the picker (owner 2026-11-16)', () => {
+  const CONNECTION = '0a1b2c3d-0000-4000-8000-00000000000a'
+  const AGENT = '00000000-0000-4000-8000-bd7662a5eeb4'
+
+  const training = (value: Partial<MatrixChatGptTrainingStatus> = {}): MatrixChatGptTrainingStatus => ({
+    required: true,
+    current: false,
+    connectionId: CONNECTION,
+    confirmedAt: null,
+    ...value
+  })
+
+  const setup = (
+    status: MatrixChatGptTrainingStatus,
+    confirm: MatrixSubscriptionsBridge['confirmChatGptTraining'] = vi.fn(async () => ({
+      status: 'confirmed' as const,
+      training: training({ current: true, confirmedAt: 1 })
+    })),
+    locale: 'en' | 'vi' = 'en'
+  ) => {
+    const providers = [
+      {
+        id: 'openai-codex' as const,
+        connected: true,
+        models: ['gpt-5.6-luna', 'gpt-6-sol'],
+        relay: { state: 'enabled' as const, thisMac: true, revision: 1, presence: 'online' as const }
+      },
+      { id: 'opencode-go' as const, connected: false }
+    ]
+    const subscriptions = {
+      catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers })),
+      status: vi.fn(async () => ({ scope: 'account' as const, providers })),
+      startChatGpt: vi.fn(async () => ({ status: 'cancelled' as const })),
+      pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
+      cancelChatGpt: vi.fn(async () => undefined),
+      disconnectChatGpt: vi.fn(async () => undefined),
+      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
+      connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
+      disconnectOpenCode: vi.fn(async () => undefined),
+      chatGptTraining: vi.fn<() => Promise<MatrixChatGptTrainingStatus>>(async () => status),
+      confirmChatGptTraining: confirm,
+      revokeChatGptTraining: vi.fn(async () => ({ status: 'unavailable' as const }))
+    }
+    const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
+
+    picker(ROOM, {
+      agentPrincipal: AGENT,
+      bridge: {
+        subscriptions,
+        modelDestinations: {
+          read: vi.fn(async () => undefined),
+          write: vi.fn(async () => ({ status: 'saved' as const })),
+          writeSubscription,
+          cap: vi.fn(async () => ({ status: 'saved' as const }))
+        }
+      },
+      cloud: true,
+      cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' },
+      local: true,
+      locale,
+      managed: true
+    })
+
+    return { confirm, subscriptions, writeSubscription }
+  }
+
+  const pickSol = async (name: string | RegExp = 'Model: Nguyệt Thực 1.3') => {
+    const card = await open(name)
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+    fireEvent.click(row(card, SOL_ROUTE))
+
+    return card
+  }
+
+  it('asks inside the same card, with Confirm disabled until the box is ticked, then saves the pick', async () => {
+    const { confirm, writeSubscription } = setup(training())
+    const card = await pickSol()
+
+    const step = await waitFor(() => card.querySelector<HTMLElement>('[data-matrix-chatgpt-training]')!)
+    // One card, one focus: the list column is replaced, no second dialog or picker opens.
+    expect(screen.getAllByRole('dialog')).toHaveLength(1)
+    expect(card.querySelector('[data-matrix-model-list]')).toBeNull()
+    expect(step.textContent).toContain(
+      'I turned off ‘Improve the model for everyone’ in ChatGPT → Settings → Data controls.'
+    )
+    expect(step.textContent).toContain(
+      'This lets this assistant use your ChatGPT plan with Google data. Keep it off. If you turn it back on, revoke this confirmation in Connections.'
+    )
+    expect(step.textContent).toContain('Send this assistant’s Google data to OpenAI to answer your requests.')
+
+    const box = within(step).getByRole('checkbox')
+    const primary = within(step).getByRole('button', { name: 'Confirm and use ChatGPT' })
+    expect(box.getAttribute('aria-checked')).toBe('false')
+    expect(document.activeElement).toBe(box)
+    expect((primary as HTMLButtonElement).disabled).toBe(true)
+
+    fireEvent.click(primary)
+    expect(confirm).not.toHaveBeenCalled()
+
+    fireEvent.click(box)
+    expect((primary as HTMLButtonElement).disabled).toBe(false)
+    fireEvent.click(primary)
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith(CONNECTION))
+    await waitFor(() => expect(writeSubscription).toHaveBeenCalledWith(AGENT, 'chatgpt_plan', 'gpt-6-sol', 'medium'))
+    expect(card.querySelector('[data-matrix-chatgpt-training]')).toBeNull()
+  })
+
+  it('Keep protected model returns to the list and leaves the saved model as it is', async () => {
+    const { confirm, writeSubscription } = setup(training())
+    const card = await pickSol()
+
+    const step = await waitFor(() => card.querySelector<HTMLElement>('[data-matrix-chatgpt-training]')!)
+    fireEvent.click(within(step).getByRole('button', { name: 'Keep protected model' }))
+
+    expect(card.querySelector('[data-matrix-chatgpt-training]')).toBeNull()
+    expect(card.querySelector('[data-matrix-model-list]')).toBeTruthy()
+    expect(confirm).not.toHaveBeenCalled()
+    expect(writeSubscription).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Model: Nguyệt Thực 1.3' })).toBeTruthy()
+  })
+
+  it.each([
+    ['already confirmed for this wording', training({ current: true, confirmedAt: 1 })],
+    ['an account whose assistants never touch Google', training({ required: false })]
+  ])('does not ask when %s', async (_name, status) => {
+    const { confirm, writeSubscription } = setup(status)
+    const card = await pickSol()
+
+    await waitFor(() => expect(writeSubscription).toHaveBeenCalledWith(AGENT, 'chatgpt_plan', 'gpt-6-sol', 'medium'))
+    expect(card.querySelector('[data-matrix-chatgpt-training]')).toBeNull()
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('a changed relay connection re-reads, unticks and asks again for the new one; a failure stays calm', async () => {
+    const NEXT = '0a1b2c3d-0000-4000-8000-00000000000b'
+    const confirm = vi.fn<NonNullable<MatrixSubscriptionsBridge['confirmChatGptTraining']>>()
+      .mockResolvedValueOnce({ status: 'stale' })
+      .mockResolvedValueOnce({ status: 'unavailable' })
+    const { subscriptions, writeSubscription } = setup(training(), confirm)
+    const card = await pickSol()
+
+    const step = await waitFor(() => card.querySelector<HTMLElement>('[data-matrix-chatgpt-training]')!)
+    subscriptions.chatGptTraining.mockResolvedValue(training({ connectionId: NEXT }))
+    fireEvent.click(within(step).getByRole('checkbox'))
+    fireEvent.click(within(step).getByRole('button', { name: 'Confirm and use ChatGPT' }))
+
+    await waitFor(() => expect(step.querySelector('[data-matrix-chatgpt-training-notice="stale"]')).toBeTruthy())
+    expect(within(step).getByRole('checkbox').getAttribute('aria-checked')).toBe('false')
+
+    fireEvent.click(within(step).getByRole('checkbox'))
+    fireEvent.click(within(step).getByRole('button', { name: 'Confirm and use ChatGPT' }))
+    await waitFor(() => expect(confirm).toHaveBeenLastCalledWith(NEXT))
+    await waitFor(() => expect(step.querySelector('[data-matrix-chatgpt-training-notice="failed"]')).toBeTruthy())
+    expect(step.textContent).toContain('Your model hasn’t changed.')
+    expect(writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('a failed read asks for nothing and offers the existing retry, never a silent pick', async () => {
+    const { writeSubscription, subscriptions } = setup(training())
+    subscriptions.chatGptTraining.mockRejectedValue(new Error('offline'))
+    const card = await pickSol()
+
+    await waitFor(() => expect(card.querySelector('[data-matrix-model-retry]')).toBeTruthy())
+    expect(card.querySelector('[data-matrix-chatgpt-training]')).toBeNull()
+    expect(writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it('reads the exact Vietnamese wording', async () => {
+    setup(training(), undefined, 'vi')
+    const card = await pickSol(/^Mô hình: Nguyệt Thực 1\.3$/)
+
+    const step = await waitFor(() => card.querySelector<HTMLElement>('[data-matrix-chatgpt-training]')!)
+    expect(step.textContent).toContain('Tôi đã tắt ‘Improve the model for everyone’ trong ChatGPT → Settings → Data controls.')
+    expect(step.textContent).toContain(
+      'Việc này cho phép trợ lý dùng gói ChatGPT của bạn với dữ liệu Google. Hãy giữ cài đặt này ở trạng thái tắt. Nếu bật lại, hãy thu hồi xác nhận trong Kết nối.'
+    )
+    expect(step.textContent).toContain('Gửi dữ liệu Google của trợ lý này đến OpenAI để trả lời yêu cầu của bạn.')
+    expect(within(step).getByRole('button', { name: 'Xác nhận và dùng ChatGPT' })).toBeTruthy()
+    expect(within(step).getByRole('button', { name: 'Giữ mô hình được bảo vệ' })).toBeTruthy()
   })
 })

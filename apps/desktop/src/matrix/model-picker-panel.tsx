@@ -108,6 +108,9 @@ export interface ModelPickerPanelProps {
   children: ReactNode
   /** Pinned under the list: thinking level, a refused pick, a notice. */
   footer?: ReactNode
+  /** One step the chosen row asks for (ChatGPT's one-time confirmation): it takes the list
+   * column's place in the same card, so the card keeps one focus and never opens a second one. */
+  takeover?: ReactNode
 }
 
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
@@ -122,7 +125,8 @@ export function ModelPickerPanel({
   searchRef,
   keys,
   children,
-  footer
+  footer,
+  takeover
 }: ModelPickerPanelProps) {
   const words = useModelPickerCopy()
 
@@ -130,6 +134,11 @@ export function ModelPickerPanel({
     <div className="flex h-full min-h-0 min-w-0" data-matrix-model-panel>
       <ModelPickerFilter filter={filter} onChange={onFilterChange} onConnect={onConnect} sources={sources} />
 
+      {takeover ? (
+        <div className="flex min-w-0 flex-1 flex-col" data-matrix-model-takeover>
+          {takeover}
+        </div>
+      ) : (
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="shrink-0 px-3" data-matrix-model-search onKeyDown={keys.searchKeyDown}>
           <SearchField
@@ -157,6 +166,7 @@ export function ModelPickerPanel({
 
         {footer}
       </div>
+      )}
     </div>
   )
 }

@@ -849,7 +849,10 @@ describe('Settings › Connections', () => {
     await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce())
     await act(async () => finishPublish?.())
     await waitFor(() => expect(bridge.status).toHaveBeenCalledTimes(2))
-    await waitFor(() => expect(row().getByText('ChatGPT · Ready for all your assistants')).toBeTruthy())
+    // Once this Mac serves the plan, the row says so in the owner's words (2026-11-16).
+    await waitFor(() =>
+      expect(row().getByText('Connected to your ChatGPT plan · used through this Mac')).toBeTruthy()
+    )
     expect(row().queryByText(/Setting up/)).toBeNull()
   })
 

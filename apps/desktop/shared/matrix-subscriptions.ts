@@ -107,3 +107,36 @@ export interface MatrixSubscriptionRoute extends MatrixModelRoute {
   /** Both subscription kinds wear the small "Plan" badge. */
   subscription: true
 }
+
+/** The ChatGPT-with-Google confirmation wording this build shows (Shell training-confirmation r3). */
+export const MATRIX_CHATGPT_TRAINING_WORDING = 'chatgpt-google-v1'
+export const MATRIX_CHATGPT_TRANSFER_WORDING = 'chatgpt-google-transfer-v1'
+
+/**
+ * The account's one-time "training is off" confirmation for using a ChatGPT plan with Google data.
+ * Server-owned: `current` is true only for this build's wording and the account's current relay
+ * connection. `required` says the account's assistants touch Google (connected now, or the owner's
+ * Google fence was ever set), so choosing ChatGPT for them asks once. Never a credential.
+ */
+export interface MatrixChatGptTrainingStatus {
+  required: boolean
+  current: boolean
+  /** The current relay connection a confirmation binds to; null while no relay is enabled. */
+  connectionId: string | null
+  /** When the current confirmation was made (ms since epoch), else null. */
+  confirmedAt: number | null
+  /** A revocation is still draining live calls; the next Revoke retries it. */
+  revoking?: true
+}
+
+export type MatrixChatGptTrainingConfirmResult =
+  | { status: 'confirmed'; training: MatrixChatGptTrainingStatus }
+  /** The relay connection changed under the card: read again, then ask again. */
+  | { status: 'stale' }
+  | { status: 'unavailable' }
+
+export type MatrixChatGptTrainingRevokeResult =
+  | { status: 'revoked'; training: MatrixChatGptTrainingStatus }
+  /** Live calls are still finishing; admissions are already fenced. Revoke again to finish. */
+  | { status: 'pending' }
+  | { status: 'unavailable' }
