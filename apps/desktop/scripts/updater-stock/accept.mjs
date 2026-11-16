@@ -152,7 +152,7 @@ function builderConfig(stage, output) {
     appId,
     productName: appName,
     executableName: appName,
-    electronVersion: '44.10.1',
+    electronVersion: '45.3.2',
     directories: { app: stage, output },
     files: ['main.mjs', 'package.json'],
     npmRebuild: false,

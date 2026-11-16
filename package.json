@@ -98,7 +98,7 @@
   },
   "allowScripts": {
     "@sentry/cli@3.7.0": true,
-    "electron@44.10.1": true,
+    "electron@45.3.2": true,
     "unicode-animations": false,
     "esbuild@0.28.1": true,
     "node-pty@1.1.0": true,

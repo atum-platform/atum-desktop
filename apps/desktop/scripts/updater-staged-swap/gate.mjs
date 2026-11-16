@@ -63,7 +63,7 @@ for (const version of ['90.0.0', '90.0.1']) {
   const config = path.join(work, `builder-${version}.json`)
   writeFileSync(config, JSON.stringify({
     appId: `com.atum.updater-test.${run}`, productName: `AtumUpdaterTest-${run}`,
-    electronVersion: '44.10.1', electronDist: path.join(repository, 'node_modules/electron/dist'),
+    electronVersion: '45.3.2', electronDist: path.join(repository, 'node_modules/electron/dist'),
     directories: { app: stage, output: path.join(work, version === '90.0.0' ? 'old' : 'new') },
     files: ['main.cjs','package.json'], npmRebuild: false, asar: true,
     mac: { identity, hardenedRuntime: true, notarize: false, entitlements: path.join(desktop,'electron/entitlements.mac.plist'), entitlementsInherit: path.join(desktop,'electron/entitlements.mac.inherit.plist'), target: 'dir' }

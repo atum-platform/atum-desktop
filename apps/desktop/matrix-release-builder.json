@@ -3,7 +3,7 @@
   "productName": "Atum",
   "executableName": "Atum Matrix Candidate",
   "copyright": "© 2026 Anka Ventures Vietnam Company Limited",
-  "electronVersion": "44.10.1",
+  "electronVersion": "45.3.2",
   "extends": null,
   "directories": {
     "app": "dist-matrix",
