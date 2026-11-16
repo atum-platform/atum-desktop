@@ -141,21 +141,29 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertIs(self.turn.interim_timer, timer)
         self.assertFalse(timer.cancelling())
 
-    async def test_heartbeat_wire_shape_and_wait_preservation(self):
-        await self.turn.progress('Reading')
+    async def test_heartbeat_is_a_code_with_minutes_and_preserves_a_wait(self):
+        await self.turn.progress(presentation=p.descriptor('tool_activity', activity='read'))
         self.now = 180
         await self.turn.heartbeat()
         edit = self.server.requests[-1][1]
-        self.assertEqual(edit['m.new_content']['body'], 'Still working · 3 min')
+        # No words of the extension's own: the reader's app says "still working".
+        self.assertEqual((edit['body'], edit['m.new_content']['body']), ('', ''))
+        heartbeat = {'version': 1, 'code': 'heartbeat', 'args': {'elapsed_minutes': 3}}
+        self.assertEqual(edit['io.atum.presentation'], heartbeat)
+        self.assertEqual(edit['m.new_content']['io.atum.presentation'], heartbeat)
         self.assertEqual(edit['io.atum.progress']['kind'], 'heartbeat')
         self.assertIs(edit['io.atum.progress']['heartbeat'], True)
-        self.now = 183
-        await self.turn.progress('Waiting for your approval', kind='device', phase='waiting')
+        self.now = 360
+        await self.turn.heartbeat()  # counted from the last real step, not the last heartbeat
+        self.assertEqual(self.server.requests[-1][1]['io.atum.presentation']['args'], {'elapsed_minutes': 6})
         self.now = 363
+        await self.turn.wait_for_approval()
+        self.now = 543
         await self.turn.heartbeat()
-        marker = self.server.requests[-1][1]['io.atum.progress']
-        self.assertEqual(marker['phase'], 'waiting')
-        self.assertNotIn('heartbeat', marker)
+        edit = self.server.requests[-1][1]
+        self.assertEqual(edit['io.atum.progress']['phase'], 'waiting')
+        self.assertNotIn('heartbeat', edit['io.atum.progress'])
+        self.assertEqual(edit['io.atum.presentation']['code'], 'approval_wait')
 
     async def test_edit_body_bounded_and_sanitized(self):
         await self.turn.progress('Start')
