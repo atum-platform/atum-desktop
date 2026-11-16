@@ -117,7 +117,7 @@ export function matrixGoogleUtilityInput(
       }
 
     case 'read_thread':
-      return { read: { kind: 'email', action: 'thread', sources: [request.sourceId], id: request.threadId } }
+      return { read: { kind: 'email', action: 'thread', ...(request.sourceId ? { sources: [request.sourceId] } : {}), id: request.threadId } }
 
     case 'read_message':
       return {
