@@ -168,7 +168,7 @@ import {
   matrixFirstLearningStarting
 } from '../../shared/matrix-first-learning'
 import { matrixFirstRunPlace } from '../../shared/matrix-first-run-place'
-import { MATRIX_GOOGLE_CONNECTION_IPC } from '../../shared/matrix-google-connections'
+import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_GOOGLE_PROTECTED_MODEL } from '../../shared/matrix-google-tools'
 import { matrixGroupAudience, matrixGroupMode } from '../../shared/matrix-group-room'
 import { formatMatrixHandleDiagnostic } from '../../shared/matrix-handle-diagnostic'
@@ -660,7 +660,7 @@ import {
   matrixFounderView
 } from './founder-chat'
 import { ensureMatrixFullHermes } from './full-hermes'
-import { createMatrixGoogleConnectionIpcHandler, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
+import { createMatrixGoogleConnectionIpcHandler, createMatrixGoogleWriteIpcHandler, matrixGoogleWriteDecider, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
 import { type MatrixGoogleConnectionOwner, MatrixGoogleConnections } from './google-connections'
 import {
   MatrixGoogleFenceNotices,
@@ -19086,6 +19086,14 @@ async function start() {
       firstRunConnected: async context => {
         await firstRun.start({ locale: context.locale, ending: 'done' })
       }
+    })
+  )
+  // A Google write card's Approve or Decline, sent with the owner's bearer (never the renderer's).
+  ipcMain.handle(
+    MATRIX_GOOGLE_WRITE_IPC,
+    createMatrixGoogleWriteIpcHandler({
+      assertSender: (event: Electron.IpcMainInvokeEvent) => requireMatrixCaller(event, ui?.webContents, UI_URL),
+      decide: () => (config.domain && state.identity ? matrixGoogleWriteDecider(account) : undefined)
     })
   )
 

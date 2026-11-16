@@ -72,6 +72,11 @@ import type {
 } from './matrix-founder'
 import type { MatrixGoogleConnectionBridge } from './matrix-google-connections'
 import type { MatrixGoogleAssistantAccess } from './matrix-google-tools'
+import type {
+  MatrixGoogleWriteOutcome,
+  MatrixGoogleWriteProposal,
+  MatrixGoogleWriteStanding
+} from './matrix-google-write-proposal'
 import type { MatrixHermesActivitySnapshot } from './matrix-hermes-activity'
 import type { MatrixInviteLinkBridge } from './matrix-invite-link'
 import type { MatrixLinkPreviewBridge } from './matrix-link-preview'
@@ -447,6 +452,12 @@ export interface MatrixMessage {
   /** The agent's once-per-conversation Google switch line (S2 `google_route_switched`): one quiet
    * line, shown the first time only (`matrixFoldSubscriptionFallbacks`). */
   googleSwitch?: MatrixGoogleRouteSwitch
+  /** A room agent's Google write proposal (`io.atum.google.write_proposal`): one confirmation card.
+   * `standing` comes from the transcript fold (`matrixFoldGoogleWriteProposals`); display only, the
+   * owner's Approve on the card is the only authority and Shell checks it. */
+  googleWrite?: { proposal: MatrixGoogleWriteProposal; standing: MatrixGoogleWriteStanding }
+  /** The agent's outcome for a proposal (`io.atum.google.write_outcome`): never a row of its own. */
+  googleWriteOutcome?: MatrixGoogleWriteOutcome
   /** An interim remark of the agent (agent-turns/1.4 `io.atum.interim`): a real message, never the
    * answer. It marks nothing answered and does not stop the no-reply banner. */
   interim?: true

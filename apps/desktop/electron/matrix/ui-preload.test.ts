@@ -296,6 +296,12 @@ describe('Matrix UI preload consumer browser bridge', () => {
       ['matrix:google-connections:request', { kind: 'status' }]
     ])
   })
+  it('sends a Google write card answer on its own channel, exactly as given', async () => {
+    electron.invoke.mockClear()
+    const input = { proposalId: '6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b', digest: `sha256:${'d'.repeat(64)}`, decision: 'approve' as const }
+    await bridge().googleConnections!.decideWrite!(input)
+    expect(electron.invoke.mock.calls).toEqual([['matrix:google-connections:decide-write', input]])
+  })
   it('exposes named wallet reads without a principal, URL, credential or purchase method', async () => {
     electron.invoke.mockClear()
     const wallet = bridge().wallet!

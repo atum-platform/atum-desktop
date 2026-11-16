@@ -134,6 +134,7 @@ import type { MatrixCompanyMessageSearchResult } from '../../shared/matrix-compa
 import { matrixMessageBackupAvailable, matrixMessageDecryptionReason } from '../../shared/matrix-decryption-reason'
 import { matrixDisplayMode } from '../../shared/matrix-display-preferences'
 import { type MatrixDraftTarget, matrixDraftText } from '../../shared/matrix-drafts'
+import { matrixFoldGoogleWriteProposals } from '../../shared/matrix-google-write-proposal'
 import { matrixMessageLink, validMatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import {
   MATRIX_NOTES_SELF_ROOM_TYPE,
@@ -318,6 +319,7 @@ import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
 import { MatrixGoogleConnectNudge } from './google-connection-settings'
+import { MatrixGoogleWriteCard } from './google-write-card'
 import { AssistantGreeting } from './greeting'
 import {
   groupAssistantMode,
@@ -699,6 +701,14 @@ function MatrixMessageBubble() {
 
   if (membership) {
     return <MatrixMembershipRow line={membership} />
+  }
+
+  if (matrix?.googleWrite && !matrix.redacted) {
+    return (
+      <MessagePrimitive.Root data-slot="aui_system-message-root">
+        <MatrixGoogleWriteCard proposal={matrix.googleWrite.proposal} standing={matrix.googleWrite.standing} />
+      </MessagePrimitive.Root>
+    )
   }
 
   if (matrix?.googleSwitch && !matrix.redacted) {
@@ -5405,8 +5415,12 @@ function Conversation({
     // live line a legacy build left behind does not become a second status row.
     // A fallback notice (agent-turns/1.7) is never a row: it marks the answer it replies to.
     // The Google switch line (S2) shows once, as one quiet line, and only from an agent.
-    const transcriptMessages = matrixFoldSubscriptionFallbacks(
-      visible.filter(message => !isMatrixTransientLine(message, lineAgents)),
+    // A Google write proposal is a card only from an agent, its latest per agent open (one at a time).
+    const transcriptMessages = matrixFoldGoogleWriteProposals(
+      matrixFoldSubscriptionFallbacks(
+        visible.filter(message => !isMatrixTransientLine(message, lineAgents)),
+        lineAgents
+      ),
       lineAgents
     )
 

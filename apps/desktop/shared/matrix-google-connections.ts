@@ -4,6 +4,7 @@
  * references and filesystem locations never cross into the renderer.
  */
 import type { DesktopLocale } from './desktop-locale'
+import type { MatrixGoogleWriteAnswer, MatrixGoogleWriteDecisionInput } from './matrix-google-write-proposal'
 
 export type MatrixGoogleConnectionKind = 'email' | 'calendar' | 'drive'
 export type MatrixGoogleConnectionState = 'connected' | 'reconnect'
@@ -60,10 +61,15 @@ export interface MatrixGoogleConnectionContext {
 }
 
 export const MATRIX_GOOGLE_CONNECTION_IPC = 'matrix:google-connections:request'
+/** A Google write card's Approve or Decline (its own channel: its answer is not a connection status). */
+export const MATRIX_GOOGLE_WRITE_IPC = 'matrix:google-connections:decide-write'
 
 export interface MatrixGoogleConnectionBridge {
   status(context?: MatrixGoogleConnectionContext): Promise<MatrixGoogleConnectionResult>
   connect(grant: MatrixGoogleConnectionGrant, context?: MatrixGoogleConnectionContext): Promise<MatrixGoogleConnectionResult>
   disconnect(groupId: string): Promise<MatrixGoogleConnectionResult>
   setSourcePreferences(preferences: ReadonlyArray<{ id: string; enabled: boolean }>): Promise<MatrixGoogleConnectionResult>
+  /** The owner's answer on a Google write card, sent by main to Shell with the owner's bearer
+   * (atum.google-write-confirmation/1, `MATRIX_GOOGLE_WRITE_IPC`). Absent on a build without it. */
+  decideWrite?(input: MatrixGoogleWriteDecisionInput): Promise<MatrixGoogleWriteAnswer>
 }
