@@ -4582,6 +4582,9 @@ def _submit_with_guard(job: dict, pool: concurrent.futures.ThreadPoolExecutor, p
                 return None
         check_in_gate = ask_gate(job)
         if check_in_gate is None:
+            from cron.jobs import discard_unclaimed_slot
+            if discard_unclaimed_slot(job_id, job.get("_scheduled_instant")):
+                logger.info("Job '%s': check-in gate declined occurrence; keeping next poll", job_label)
             return None
     registration_owner = object()
     if not try_register_running_job(job_id, owner=registration_owner):
