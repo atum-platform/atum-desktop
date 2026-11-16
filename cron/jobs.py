@@ -2574,6 +2574,28 @@ def _write_missed_oneshot_diagnostic(job: dict[str, Any], next_run: str) -> None
         "missed-oneshot")
 
 
+def discard_unclaimed_slot(job_id: str, instant: str) -> bool:
+    """Consume a declined dispatch without recording an execution or touching another slot.
+
+    The tick already advanced the schedule. A polling gate's no-run answer settles that
+    occurrence; retaining pending_slot would restore it as a crashed dispatch forever.
+    """
+    from cron.occurrences import scheduled_instant
+
+    def apply(jobs, _i, job):
+        pending = job.get("pending_slot")
+        expected = scheduled_instant(instant)
+        if (expected is None or not isinstance(pending, dict)
+                or scheduled_instant(pending.get("scheduled_at")) != expected
+                or job.get("fire_claim")):
+            return False
+        job.pop("pending_slot", None)
+        save_jobs(jobs)
+        return True
+
+    return _with_job(job_id, apply, False)
+
+
 def claim_dispatch(job_id: str) -> bool:
     """Atomically claim a finite one-shot dispatch BEFORE execution: ``repeat.completed`` is bumped
     and persisted under the jobs lock so a tick dying mid-execution cannot lose the dispatch
