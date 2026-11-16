@@ -50,6 +50,20 @@ the transport principal, and derive the sender from that principal. Do not map a
 caller-supplied authentication flag into this argument. Do not expose this Python
 entry point directly as an unauthenticated endpoint.
 
+What the owner sees during a turn matches the desktop controller. Admission posts nothing:
+the native read receipt and the native typing indicator (`m.typing`, refreshed for the whole
+turn by the base adapter) say the agent is working. The extension never speaks in the agent's
+place. It sends no fixed opener, and the only chat messages are the agent's own redacted
+remarks (`io.atum.interim`): the first goes out at once, later ones at most one every 20 s, and
+a remark that repeats the answer is taken back. The transient line appears only for a real
+step: a started tool's category (web, read, write, run, delegate, look, draw; any other tool
+adds no line), the todo list, or an approval wait. After about three minutes without a new step
+the line reads "Still working · N min". Desktop clients show the line in the typing row, not as
+a chat bubble. The gateway's own long-running heartbeat and retry notices are separate native
+features. Keep them off for this surface with `display.platforms.matrix.long_running_notifications: false`
+and `display.platforms.matrix.suppress_warning_notifications: true`, and turn the 👀/✅ reactions
+off with `platforms.matrix.reactions: false`.
+
 Activity labels and the short owner notices (intake paused, unreadable message, chat paused)
 are written in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi`
 (or `HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English. The words match the
