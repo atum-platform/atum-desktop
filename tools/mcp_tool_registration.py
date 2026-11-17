@@ -362,13 +362,20 @@ def _google_source_handler(handler: Callable, action: str) -> Callable:
         from agent.atum_google_injection import WARNING, screen_result
 
         result = handler(args, **kwargs)
-        payload = json.loads(result) if isinstance(result, str) else result
-        if isinstance(payload, dict) and "error" not in payload:
+        try:
+            payload = json.loads(result) if isinstance(result, str) else result
+        except ValueError:
+            payload = {"result": result}
+        # Fail closed: any Google-sourced answer that is not an object (a list, a bare string, text
+        # that is not JSON) still carries Google data, so it is wrapped, latched and screened.
+        if not isinstance(payload, dict):
+            payload = {"result": payload}
+        if "error" not in payload:
             mark_holding()
             if screen_result(payload, action, kwargs.get("task_id")) and payload.get("_multimodal") is True:
                 payload["content"].append({"type": "text", "text": WARNING})
                 payload["text_summary"] = payload.get("text_summary", "") + "\n" + WARNING
-        return json.dumps(payload, ensure_ascii=False) if isinstance(result, str) else result
+        return json.dumps(payload, ensure_ascii=False) if isinstance(result, str) else payload
     return screened
 
 
