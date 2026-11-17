@@ -66,15 +66,19 @@ agent-turns/1.3 progress notice with an empty `body` and the agent-turns/1.5 des
 | A started tool in a category (web, read, write, run, delegate, look, draw; any other tool adds no line) | `todo`/`working` | `tool_activity {activity}` |
 | About three minutes without a new step | `heartbeat`/`working` (`heartbeat: true`) | `heartbeat {elapsed_minutes}` (since the last real step) |
 | Waiting for the owner's approval card | `device`/`waiting` | `approval_wait {}` |
+| A `video_generate` call refused for want of the owner's video consent (`error_type: video_consent_required`) | `device`/`waiting` | `video_consent_required {}` |
 | The todo list | `todo`/`working` | none: `body` is the agent's own items |
 
 An answered approval returns the line to the step before it (A8); nothing says "continuing".
 The desktop words each code in the reader's current language (`apps/desktop/shared/matrix-status-line-copy.ts`)
 and shows the line in the typing row, not as a chat bubble. A desktop that does not know a code
 shows `body`, which is empty, so it shows only the typing indicator: never raw JSON and never a
-fixed English line. `approval_wait` and the empty `body` are additive to the frozen
-agent-turns/1.5 shape (whose `body` has a one-character minimum); the next contract minor should
-record both. The approval card itself is the gateway's existing UI and is unchanged.
+fixed English line. `approval_wait`, `video_consent_required` and the empty `body` are additive to
+the frozen agent-turns/1.5 shape (whose `body` has a one-character minimum); the next contract minor
+should record them. The approval card itself is the gateway's existing UI and is unchanged. For
+`video_consent_required` the desktop also shows its one-time consent card in the conversation
+(`docs/video-generation-consent.md`); only the tool result's closed `error_type` is read, never its
+error text or prompt.
 
 The gateway's own status text (compression, retry and allowance waits) reaches
 `send_or_update_status` during a turn and is dropped there: it never enters the conversation.

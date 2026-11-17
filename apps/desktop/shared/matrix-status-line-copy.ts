@@ -96,6 +96,16 @@ export const matrixApprovalWaitCopy: Record<Locale, string> = {
   'zh-hant': '正在等待你的確認…'
 }
 
+/** The agent's video step waits on the owner's one-time consent (`video_consent_required`): the
+ * card in the conversation is the ask; this only says the turn waits for it. */
+export const matrixVideoConsentWaitCopy: Record<Locale, string> = {
+  en: 'Waiting for you to allow video…',
+  vi: 'Đang chờ bạn cho phép tạo video…',
+  ja: '動画の作成の許可を待っています…',
+  zh: '正在等待你允许生成视频…',
+  'zh-hant': '正在等待你允許生成影片…'
+}
+
 /** The line's first row in the viewer's language, from the descriptor alone. */
 function presentationHeader(presentation: MatrixProgressPresentation, locale: Locale): string {
   switch (presentation.code) {
@@ -107,6 +117,9 @@ function presentationHeader(presentation: MatrixProgressPresentation, locale: Lo
 
     case 'approval_wait':
       return matrixApprovalWaitCopy[locale]
+
+    case 'video_consent_required':
+      return matrixVideoConsentWaitCopy[locale]
   }
 }
 

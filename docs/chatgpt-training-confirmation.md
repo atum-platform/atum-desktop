@@ -23,7 +23,9 @@ uses (`electron/matrix/chatgpt-carry.ts`). Every request sends
   draining, so the desktop retries with the same key after a short backoff. Only
   `200 {current:false}` ends the revocation.
 
-Client: `electron/matrix/chatgpt-training-confirmation.ts`. IPC kinds:
+Client: `electron/matrix/chatgpt-training-confirmation.ts`. Its transport, revoke journal
+and revocation loop are shared with the video-generation consent in
+`electron/matrix/owner-consent.ts` (`docs/video-generation-consent.md`). IPC kinds:
 `subscriptionChatGptTraining`, `subscriptionChatGptTrainingConfirm` and
 `subscriptionChatGptTrainingRevoke` (`MatrixSubscriptionsBridge.chatGptTraining`,
 `confirmChatGptTraining` and `revokeChatGptTraining`).

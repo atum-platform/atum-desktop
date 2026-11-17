@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import { matrixProgressMarker, matrixProgressMarkerOf, matrixProgressPresentation } from './matrix-progress-marker'
+import { matrixProgressLineText } from './matrix-status-line-copy'
 
 const fixtures = join(__dirname, '../../../packages/device-protocol/fixtures/agent-turns/fixtures')
 const fixture = (name: string) => JSON.parse(readFileSync(join(fixtures, name), 'utf8')) as Record<string, unknown>
@@ -98,6 +99,17 @@ describe('the io.atum.presentation descriptor against the vendored agent-turns/1
 
       expect(matrixProgressPresentation(content, matrixProgressMarker(content)!), name).toEqual(content['io.atum.presentation'])
     }
+  })
+
+  it('pairs the video consent ask only with a waiting device line, with no arguments', () => {
+    const ask = { 'io.atum.presentation': { version: 1, code: 'video_consent_required', args: {} } }
+
+    expect(matrixProgressPresentation(ask, { kind: 'device', phase: 'waiting' })).toEqual(ask['io.atum.presentation'])
+    expect(matrixProgressPresentation(ask, { kind: 'todo', phase: 'working' })).toBeUndefined()
+    expect(matrixProgressPresentation({ 'io.atum.presentation': { version: 1, code: 'video_consent_required', args: { model: 'x' } } },
+      { kind: 'device', phase: 'waiting' })).toBeUndefined()
+    expect(matrixProgressLineText('', { kind: 'device' }, ask['io.atum.presentation'] as never, 'vi'))
+      .toBe('Đang chờ bạn cho phép tạo video…')
   })
 
   it('pairs the approval wait only with a waiting device line', () => {

@@ -464,6 +464,44 @@ async def test_approval_wait_is_a_code_and_an_answer_returns_the_line(tmp_path, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('language', ['en', 'vi'])
+async def test_a_video_step_refused_for_consent_is_a_code_and_never_words(tmp_path, monkeypatch, language):
+    """The host refuses video until the owner's one-time consent: the line carries only the
+    `video_consent_required` code (the desktop shows its consent card); no words enter the room."""
+    monkeypatch.setenv('HERMES_LANGUAGE', language)
+    hooks, writes = {}, []
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    a, event = _presentation_adapter(tmp_path, writes)
+    clock = [0.0]
+    refused = json.dumps({'success': False, 'video': None, 'error': 'video consent required',
+                          'error_type': 'video_consent_required', 'provider': 'openrouter'})
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            turn.clock = lambda: clock[0]
+            # Other refusals, other tools and a success add nothing.
+            hooks['post_tool_call'](tool_name='video_generate', result=json.dumps(
+                {'success': False, 'error_type': 'api_error'}))
+            hooks['post_tool_call'](tool_name='image_generate', result=refused)
+            hooks['post_tool_call'](tool_name='video_generate', result={'success': True, 'error_type': 'video_consent_required'})
+            hooks['post_tool_call'](tool_name='video_generate', result='not json')
+            await _settle()
+            assert writes == []
+            hooks['post_tool_call'](tool_name='video_generate', args={'prompt': 'a cat'}, result=refused, status='error')
+            await _settle()
+            line = _line(writes[-1])
+            assert line['io.atum.progress']['kind'] == 'device'
+            assert line['io.atum.progress']['phase'] == 'waiting'
+            assert line['io.atum.presentation'] == {'version': 1, 'code': 'video_consent_required', 'args': {}}
+            assert line['body'] == ''
+            await a.send_final_ledgered(event)
+        assert set(_extension_words(writes)) == {''}
+        assert not any('cat' in json.dumps(w) or 'consent' in w.get('body', '') for w in writes)
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
 async def test_approval_wait_before_any_step_returns_to_an_empty_working_line(tmp_path):
     hooks, writes = {}, []
     p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))

@@ -60,7 +60,7 @@ describe('requestMatrixChatGptTraining', () => {
     await expect(requestMatrixChatGptTraining(resource, 'synthetic', 'GET', AbortSignal.timeout(1000)))
       .rejects.toThrow('matrix_s1_authentication')
     await expect(requestMatrixChatGptTraining('http://shell.test', 'synthetic', 'GET', AbortSignal.timeout(1000)))
-      .rejects.toThrow('matrix_chatgpt_training_unavailable')
+      .rejects.toThrow('matrix_owner_consent_unavailable')
   })
 })
 
@@ -333,7 +333,7 @@ describe('the pending revocation key survives a restart', () => {
 
       restarted.write(OWNER, null)
       expect(restarted.read(OWNER)).toBeNull()
-      expect(() => restarted.write('../escape', KEY_1)).toThrow('matrix_chatgpt_training_invalid')
+      expect(() => restarted.write('../escape', KEY_1)).toThrow('matrix_owner_consent_invalid')
     } finally {
       fs.rmSync(root, { recursive: true, force: true })
     }
