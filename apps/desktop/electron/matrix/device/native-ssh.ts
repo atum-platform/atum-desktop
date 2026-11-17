@@ -75,7 +75,7 @@ export class NativeMacSsh {
   private id?: string
   private enrolled?: string
   private diskAccessHint: 'unoffered' | 'pending' | 'acknowledged' = 'unoffered'
-  private hintDeviceId?: string
+  private hintEnrollmentKey?: string
   private disconnected = false
   private accountScope?: string
   constructor(
@@ -83,14 +83,19 @@ export class NativeMacSsh {
       enrollment(): DeviceEnrollmentRecord | null
       call(body: NativeSshRequest): Promise<unknown>
       system: NativeSshSystem
+      settings: {
+        getItem(key: string): string | null
+        setItem(key: string, value: string): void
+      }
     }
   ) {}
   status(): NativeSshView {
     return {
       ...this.view,
-      status: this.view.status === 'connected' && this.diskAccessHint === 'pending'
-        ? 'needs_full_disk_access_hint'
-        : this.view.status
+      status:
+        this.view.status === 'connected' && this.diskAccessHint === 'pending'
+          ? 'needs_full_disk_access_hint'
+          : this.view.status
     }
   }
   private serial<T>(fn: () => Promise<T>): Promise<T> {
@@ -118,14 +123,29 @@ export class NativeMacSsh {
     }).then(() => this.start(true))
   }
   fullDiskAccessHint(): NativeSshView {
-    this.diskAccessHint = 'pending'
+    if (this.diskAccessHint !== 'acknowledged') {
+      this.diskAccessHint = 'pending'
+    }
     return this.status()
   }
   /** Called only after the explicit Open Settings action succeeds. */
   acknowledgeFullDiskAccessHint(): void {
-    if (this.diskAccessHint === 'pending') {
+    const record = this.deps.enrollment()
+    if (
+      this.diskAccessHint === 'pending' &&
+      record?.state === 'active' &&
+      this.hintEnrollmentKey === this.enrollmentHintKey(record)
+    ) {
+      try {
+        this.deps.settings.setItem(this.hintEnrollmentKey, 'acknowledged')
+      } catch {
+        throw new Error('native_ssh_hint_save_failed')
+      }
       this.diskAccessHint = 'acknowledged'
     }
+  }
+  private enrollmentHintKey(record: DeviceEnrollmentRecord): string {
+    return `native-ssh:full-disk-access-hint:${record.deviceServiceId}:${record.enrollmentEpoch}`
   }
   refresh(): Promise<void> {
     return this.serial(async () => {
@@ -145,9 +165,10 @@ export class NativeMacSsh {
         if (this.id && this.id !== record.deviceServiceId) await this.cleanup()
         this.id = record.deviceServiceId
 
-        if (this.hintDeviceId !== this.id) {
-          this.hintDeviceId = this.id
-          this.diskAccessHint = 'unoffered'
+        const hintKey = this.enrollmentHintKey(record)
+        if (this.hintEnrollmentKey !== hintKey) {
+          this.hintEnrollmentKey = hintKey
+          this.diskAccessHint = this.deps.settings.getItem(hintKey) === 'acknowledged' ? 'acknowledged' : 'unoffered'
         }
 
         const ready = await this.deps.system.ready()
@@ -210,7 +231,7 @@ export class NativeMacSsh {
           this.enrolled = epoch
 
           // Remote users' TCC permission is unknown to this process. Offer the
-          // Settings reminder once per device in this app session.
+          // Settings reminder until acknowledged for this device enrollment.
           if (this.diskAccessHint === 'unoffered') {
             this.diskAccessHint = 'pending'
           }

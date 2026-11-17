@@ -17969,7 +17969,8 @@ async function start() {
     nativeMacSsh = new NativeMacSsh({
       enrollment: () => deviceIdentity?.enrollment() ?? null,
       call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
-      system: createNativeSshSystem()
+      system: createNativeSshSystem(),
+      settings: outcomeStore
     })
     ipcMain.handle(MATRIX_NATIVE_MAC_IPC.ssh, async (event, action: unknown) => {
       requireMatrixCaller(event, ui?.webContents, UI_URL)

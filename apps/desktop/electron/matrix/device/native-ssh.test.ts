@@ -18,7 +18,17 @@ const enrolled = packFixture('native-enroll-response')
 const revoked = packFixture('native-revoke-response')
 const host = `${enrollment.deviceServiceId}.mac.atumplatform.com`
 const secret = 'test-only-token'
-function fixture() {
+function mockSettings() {
+  const values = new Map<string, string>()
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      values.set(key, value)
+    })
+  }
+}
+function fixture(settings = mockSettings()) {
+  let record = { ...enrollment, state: 'active' } as unknown as DeviceEnrollmentRecord
   let saved: string | null = null
   let running = false
   let disk = 'ssh-ed25519 user-owned-line\n'
@@ -47,15 +57,27 @@ function fixture() {
     expect(init.headers.Authorization).toBe('Bearer owner-fixture-session')
     const body = JSON.parse(init.body)
     const answer = {
-      ssh_prepare: { deviceServiceId: enrollment.deviceServiceId, host, tunnelToken: secret },
+      ssh_prepare: {
+        deviceServiceId: record.deviceServiceId,
+        host: `${record.deviceServiceId}.mac.atumplatform.com`,
+        tunnelToken: secret
+      },
       ssh_authorized_keys: authorized,
-      ssh_enroll: { ...enrolled, nativeSsh: { ...enrolled.nativeSsh, host } },
+      ssh_enroll: {
+        ...enrolled,
+        deviceServiceId: record.deviceServiceId,
+        nativeSsh: {
+          ...enrolled.nativeSsh,
+          host: `${record.deviceServiceId}.mac.atumplatform.com`,
+          epoch: record.enrollmentEpoch
+        }
+      },
       ssh_revoke: revoked
     }[body.operation as string]
     return Response.json(answer)
   })
   const service = new NativeMacSsh({
-    enrollment: () => ({ ...enrollment, state: 'active' }) as unknown as DeviceEnrollmentRecord,
+    enrollment: () => record,
     call: request =>
       requestS1(
         'https://example.com/api/matrix/v1',
@@ -64,9 +86,20 @@ function fixture() {
         AbortSignal.timeout(1000),
         http
       ),
-    system
+    system,
+    settings
   })
-  return { service, system, http, disk: () => disk, saved: () => saved }
+  return {
+    service,
+    system,
+    http,
+    settings,
+    setEnrollment: (next: DeviceEnrollmentRecord) => {
+      record = next
+    },
+    disk: () => disk,
+    saved: () => saved
+  }
 }
 const homes: string[] = []
 afterEach(async () => {
@@ -124,15 +157,77 @@ describe('native SSH owner route', () => {
     await f.service.refresh()
     expect(f.service.status().status).toBe('needs_full_disk_access_hint')
   })
-  it('keeps acknowledgement across reconnect and permits a later explicit permission-failure hint', async () => {
+  it('keeps acknowledgement across reconnect and explicit hint requests', async () => {
     const f = fixture()
     await f.service.refresh()
     f.service.acknowledgeFullDiskAccessHint()
     await f.service.disconnect()
     await f.service.refresh()
     expect(f.service.status().status).toBe('connected')
-    expect(f.service.fullDiskAccessHint().status).toBe('needs_full_disk_access_hint')
+    expect(f.service.fullDiskAccessHint().status).toBe('connected')
     await f.service.refresh()
+    expect(f.service.status().status).toBe('connected')
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.service.status().status).toBe('connected')
+  })
+  it('restores acknowledgement from local settings after an app restart', async () => {
+    const settings = mockSettings()
+    const first = fixture(settings)
+    await first.service.refresh()
+    first.service.acknowledgeFullDiskAccessHint()
+    expect(settings.setItem).toHaveBeenCalledExactlyOnceWith(
+      `native-ssh:full-disk-access-hint:${enrollment.deviceServiceId}:${enrollment.enrollmentEpoch}`,
+      'acknowledged'
+    )
+    const restarted = fixture(settings)
+    await restarted.service.refresh()
+    expect(restarted.service.status().status).toBe('connected')
+    expect(restarted.service.fullDiskAccessHint().status).toBe('connected')
+  })
+  it('offers an unacknowledged hint again after restart', async () => {
+    const settings = mockSettings()
+    await fixture(settings).service.refresh()
+    const restarted = fixture(settings)
+    await restarted.service.refresh()
+    expect(restarted.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(settings.setItem).not.toHaveBeenCalled()
+  })
+  it('offers a fresh hint for a new enrollment epoch or device and remembers each separately', async () => {
+    const f = fixture()
+    const original = { ...enrollment, state: 'active' } as unknown as DeviceEnrollmentRecord
+    await f.service.refresh()
+    f.service.acknowledgeFullDiskAccessHint()
+    f.setEnrollment({ ...original, enrollmentEpoch: original.enrollmentEpoch + 1 })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    f.service.acknowledgeFullDiskAccessHint()
+    f.setEnrollment({ ...original, deviceServiceId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    f.setEnrollment(original)
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('connected')
+  })
+  it('does not acknowledge a different enrollment if it changes while Settings opens', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.setEnrollment({
+      ...enrollment,
+      state: 'active',
+      enrollmentEpoch: enrollment.enrollmentEpoch + 1
+    } as unknown as DeviceEnrollmentRecord)
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.settings.setItem).not.toHaveBeenCalled()
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  })
+  it('keeps the reminder pending if the settings write fails and can retry', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.settings.setItem.mockImplementationOnce(() => {
+      throw new Error(secret)
+    })
+    expect(() => f.service.acknowledgeFullDiskAccessHint()).toThrow('native_ssh_hint_save_failed')
     expect(f.service.status().status).toBe('needs_full_disk_access_hint')
     f.service.acknowledgeFullDiskAccessHint()
     expect(f.service.status().status).toBe('connected')

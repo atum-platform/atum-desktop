@@ -24,16 +24,20 @@ an administrator prompt through osascript. The UI must present that as an explic
 user choice. If macOS refuses systemsetup (including a privacy restriction), guide
 the person to System Settings > General > Sharing > Remote Login. Enable Remote
 Login for the intended login user. Remote users' Full Disk Access is unknown to
-the app. After the first successful `ssh_enroll` for a device in each app session,
-a healthy route reports `needs_full_disk_access_hint`. The reminder stays pending
-through minute refreshes, retries and reconnects until `open_settings` successfully
-opens the Sharing pane. Opening Settings acknowledges the reminder. It does not
-verify that the person enabled **Allow full disk access for remote users**.
-Acknowledgement lasts for this service instance and device. Restarting the app or
-switching devices offers the reminder again after enrollment. Operational errors,
-Remote Login being off and tunnel outages take priority while the reminder stays
-pending. An explicit `full_disk_access_hint` can re-arm it after a permission
-failure. The app's own Full Disk Access grants no evidence about remote users.
+the app. After the first successful `ssh_enroll` for a device enrollment, a healthy
+route reports `needs_full_disk_access_hint` until acknowledged. The reminder stays
+pending through minute refreshes, retries and reconnects until `open_settings`
+successfully opens the Sharing pane. Opening Settings persists the acknowledgement
+in the desktop's existing local encrypted `outcomes.json` settings store under
+`native-ssh:full-disk-access-hint:<deviceServiceId>:<enrollmentEpoch>`. Restarts,
+reconnects and device switches retain each enrollment's acknowledgement. A new
+enrollment epoch (re-enrollment) offers a fresh reminder. Explicit
+`full_disk_access_hint` requests also respect an existing acknowledgement.
+Opening Settings does not verify that the person enabled **Allow full disk access
+for remote users**. Operational errors, Remote Login being off and tunnel outages
+take priority while the reminder stays pending. A failed settings write leaves the
+hint pending and returns a fixed error code so it can be retried. The app's own
+Full Disk Access grants no evidence about remote users.
 
 Read-only investigation on macOS 26.6.2 (2026-11-17) found no reliable unprivileged
 signal. `/Library/Preferences/com.apple.RemoteManagement.plist` was absent and its
@@ -43,7 +47,7 @@ and `-help` returned the administrator-access message, even with exit code zero.
 flag. A read-only query of the system TCC database for sshd entries failed with
 "authorization denied". No sudo or system changes were used. A local file probe
 would test this process's TCC identity, and the agents' private SSH keys are
-unavailable locally. The session-scoped reminder uses the observable successful
+unavailable locally. The enrollment-scoped reminder uses the observable successful
 enrollment event and avoids guessing permission from these unavailable signals.
 
 The installed development helper (2025.11.1) confirms `--token-file` support in
@@ -79,8 +83,9 @@ This does not terminate already established system sshd sessions. Remote Login
 itself remains on because the app must not change the user's other SSH access.
 
 Behavior tests use a mocked system adapter and fake minute timers to cover the
-enrollment trigger, sticky refresh, acknowledgement, reconnect, explicit re-arming,
-and recovery from Remote Login, tunnel and setup failures.
+enrollment trigger, sticky refresh, persisted acknowledgement across service restarts,
+per-device and per-epoch isolation, reconnect, explicit hint suppression after
+acknowledgement, failed writes and recovery from Remote Login, tunnel and setup failures.
 
 Verification: run native-ssh.test.ts and cloud-agent.test.ts, desktop typecheck,
 and scripts/public_guard.py against origin/main and the committed HEAD. Real
@@ -99,8 +104,8 @@ connected → the row's quiet Ready. The service now offers the Full Disk Access
 reminder after successful enrollment and keeps it pending through periodic refresh.
 The `open_settings` handler acknowledges only after `shell.openExternal` resolves,
 so a failed Settings launch leaves the reminder pending. The explicit
-`full_disk_access_hint` action remains available to re-arm it for a future SSH
-permission-failure integration.
+`full_disk_access_hint` action can offer an unacknowledged reminder and preserves
+the stored acknowledgement for the current enrollment.
 
 Command approvals: native Hermes on Matrix posts its approval as one message (a fenced command, a
 reason line, the untranslated `!approve` / `!deny` hints) and seeds its own ✅ / ❌ reactions. The window
@@ -122,3 +127,12 @@ Deny reacts ❌. Hermes still accepts a typed `!approve`; Touch ID is the window
 8. Answered: one line ("Approved" / "Denied"); no seeded ✅ and older than 15 s: "No longer waiting".
 9. Hide the message's reaction chips while it is a card, so a tap cannot approve without Face ID.
 10. The cloud computer never prompts; every card here is about the owner's Mac.
+
+## Local follow-up, 2026-11-17
+
+Owner request — persist the Full Disk Access hint acknowledgement per Mac enrollment
+in the existing desktop settings store. Implemented locally with mocked-store behavior
+tests. Native SSH and cloud-agent Vitest suites pass (87 tests), and full desktop
+typecheck passes. Supplementary focused ESLint still reports the same 20 errors
+present at the starting commit in these two files. Installed-app acceptance remains
+with the coordinating release lane.
