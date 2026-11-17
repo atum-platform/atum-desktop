@@ -93,7 +93,7 @@ def perform_api_call(
     def _perform_api_call(next_api_kwargs):
         from agent.atum_google_fence import assert_route
 
-        assert_route(agent.base_url, agent.api_mode)
+        assert_route(agent.base_url, agent.api_mode, client=getattr(agent, "client", None))
         if agent.api_mode == "codex_responses":
             next_api_kwargs = agent._get_transport().preflight_kwargs(
                 next_api_kwargs, allow_stream=False, is_github_responses=agent._is_copilot_url(),

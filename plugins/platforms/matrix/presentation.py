@@ -737,7 +737,7 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
-    def model_response(platform='', response=None, **_):
+    def model_response(platform='', response=None, provider=None, model=None, **_):
         turn = _current.get()
         if not turn or turn.ended or platform != 'matrix' or not isinstance(response, dict):
             return
@@ -747,6 +747,18 @@ def register_hooks(ctx):
             return
         metadata = response.get('metadata')
         value = metadata.get('subscription_fallback') if isinstance(metadata, dict) else None
+        # The API worker's copied ContextVars do not flow back to this hook.
+        # Read the staged selection and Hermes's actual completed route here.
+        if value is None and provider == 'openrouter' and model == 'openai/gpt-6-luna':
+            try:
+                from agent.atum_google_fence import native_selection
+                selected = native_selection()
+            except (ValueError, TypeError, RuntimeError):
+                selected = {}
+            if (selected.get('provider') in {'openai-codex', 'opencode-go'}
+                    and not selected.get('google_latched') and not selected.get('native_protected')):
+                value = dict(plan='chatgpt' if selected['provider'] == 'openai-codex' else 'opencode_go',
+                             reason='offline', servedBy='nguyet-thuc')
         valid = (isinstance(value, dict) and set(value) == {'plan', 'reason', 'servedBy'}
                  and value['plan'] in {'chatgpt', 'opencode_go'}
                  and value['reason'] == 'offline' and value['servedBy'] == 'nguyet-thuc')

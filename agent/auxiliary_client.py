@@ -2303,6 +2303,17 @@ def _warn_paid_lane_once(model: str) -> None:
     )
 
 
+def _openrouter_profile_client(**kwargs):
+    from providers import get_provider_profile
+    if _aux_probe_active():
+        return _AuxProbeClientStub(api_key=kwargs['api_key'], base_url=kwargs['base_url'])
+    kwargs = {**_openai_http_client_kwargs(kwargs['base_url']), **kwargs}
+    kwargs.setdefault('max_retries', 0)
+    profile = get_provider_profile('openrouter')
+    client = profile.create_client(**kwargs) if profile is not None else None
+    return client if client is not None else _create_openai_client(**kwargs)
+
+
 def _try_openrouter(explicit_api_key: Optional[str | Callable[[], str]] = None, model: str | None = None,
                     explicit_base_url: Optional[str] = None) -> tuple[Optional[OpenAI], Optional[str]]:
     free_only, cfg_model = _aux_openrouter_settings()
@@ -2326,7 +2337,7 @@ def _try_openrouter(explicit_api_key: Optional[str | Callable[[], str]] = None, 
         if or_key:
             base_url = override_url or _pool_runtime_base_url(entry, OPENROUTER_BASE_URL) or OPENROUTER_BASE_URL
             logger.debug("Auxiliary client: OpenRouter via pool")
-            return _create_openai_client(
+            return _openrouter_profile_client(
                 api_key=or_key, base_url=base_url, default_headers=build_or_headers()
             ), or_model
         # Exhausted pool: fall through to OPENROUTER_API_KEY rather than fail.
@@ -2337,7 +2348,7 @@ def _try_openrouter(explicit_api_key: Optional[str | Callable[[], str]] = None, 
             "openrouter", ttl=60, reason=_describe_openrouter_unavailable(or_model), level=logging.DEBUG)
         return None, None
     logger.debug("Auxiliary client: OpenRouter")
-    return _create_openai_client(
+    return _openrouter_profile_client(
         api_key=or_key, base_url=override_url or OPENROUTER_BASE_URL, default_headers=build_or_headers()
     ), or_model
 
@@ -2633,6 +2644,8 @@ def _relay_sync_completion(
     client: Any, kwargs: dict[str, Any], *, provider: str | None = None,
     api_mode: str | None = None, create: Callable[[dict[str, Any]], Any] | None = None,
 ) -> Any:
+    from agent.atum_google_fence import assert_route
+    assert_route(getattr(client, "base_url", None), api_mode, client=client)
     from agent.auxiliary_wire import prepare_chat_messages, relay_chat_metadata
 
     kwargs = prepare_chat_messages(client, kwargs)
@@ -2672,6 +2685,8 @@ async def _relay_async_completion(
     client: Any, kwargs: dict[str, Any], *, provider: str | None = None,
     api_mode: str | None = None, create: Callable[[dict[str, Any]], Any] | None = None,
 ) -> Any:
+    from agent.atum_google_fence import assert_route
+    assert_route(getattr(client, "base_url", None), api_mode, client=client)
     from agent.auxiliary_wire import prepare_chat_messages, relay_chat_metadata
 
     kwargs = prepare_chat_messages(client, kwargs)
@@ -2701,6 +2716,8 @@ async def _relay_async_completion(
 def _relay_sync_stream(
     client: Any, kwargs: dict[str, Any], *, provider: str | None = None, api_mode: str | None = None
 ) -> Any:
+    from agent.atum_google_fence import assert_route
+    assert_route(getattr(client, "base_url", None), api_mode, client=client)
     from agent.auxiliary_wire import prepare_chat_messages, relay_chat_metadata
 
     kwargs = prepare_chat_messages(client, kwargs)
@@ -4752,7 +4769,17 @@ def _to_async_client(sync_client, model: str, is_vision: bool = False):
     # Hermes owns the auxiliary retry/timeout budget; disable SDK-internal retries.
     # See #54465.
     async_kwargs.setdefault("max_retries", 0)
-    return AsyncOpenAI(**async_kwargs), model
+    client = AsyncOpenAI(**async_kwargs)
+    guard_provider = getattr(sync_client, "_atum_native_guard_provider", None)
+    if guard_provider:
+        # The native profile admits every physical attempt, including async vision.
+        hooks = tuple(sync_client._client.event_hooks.get("request", ()))
+        async def admit(request):
+            for hook in hooks:
+                hook(request)
+        client._client.event_hooks["request"].append(admit)
+        client._atum_native_guard_provider = guard_provider
+    return client, model
 
 
 def _normalize_resolved_model(model_name: Optional[str], provider: str) -> Optional[str]:
@@ -5431,11 +5458,13 @@ def resolve_provider_client(
     client for ``responses.stream()`` callers. ``api_mode`` forces "codex_responses"/"chat_completions"/
     "anthropic_messages" instead of auto-detect. Returns (client, resolved_model) or (None, None)."""
     from agent.workspace_route_guard import protected_auxiliary_client
-    from agent.atum_google_fence import fence_active, route_allowed
+    from agent.atum_google_fence import fence_active, route_allowed, native_protected
 
     if protected := protected_auxiliary_client(async_mode=async_mode):
         return protected
-    if fence_active() and explicit_base_url and not route_allowed(
+    if native_protected() and _normalize_aux_provider(provider) not in {"openrouter", "auto"}:
+        return None, None
+    if (fence_active() or native_protected()) and explicit_base_url and not route_allowed(
         explicit_base_url, api_mode
     ):
         return None, None
@@ -6686,6 +6715,8 @@ def _project_provider_profile(
                 or _contains_profile_reasoning_fields(top_level)
             )
     except Exception as exc:
+        if provider_norm == "openrouter":
+            raise
         logger.debug("_build_call_kwargs: provider profile projection failed for %s: %s", provider, exc)
     return _ProfileProjection(body, reasoning_extra, top_level, handles_reasoning, messages_wire)
 
