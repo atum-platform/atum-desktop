@@ -23,10 +23,28 @@ the login account comes from the process user. Only `enable_remote_login` invoke
 an administrator prompt through osascript. The UI must present that as an explicit
 user choice. If macOS refuses systemsetup (including a privacy restriction), guide
 the person to System Settings > General > Sharing > Remote Login. Enable Remote
-Login for the intended login user. The app cannot inspect or grant the Remote
-Login pane's **Allow full disk access for remote users** option: the UI can request
-`full_disk_access_hint` after an SSH permission failure and offer `open_settings`.
-No permission is inferred from the desktop application's own Full Disk Access.
+Login for the intended login user. Remote users' Full Disk Access is unknown to
+the app. After the first successful `ssh_enroll` for a device in each app session,
+a healthy route reports `needs_full_disk_access_hint`. The reminder stays pending
+through minute refreshes, retries and reconnects until `open_settings` successfully
+opens the Sharing pane. Opening Settings acknowledges the reminder. It does not
+verify that the person enabled **Allow full disk access for remote users**.
+Acknowledgement lasts for this service instance and device. Restarting the app or
+switching devices offers the reminder again after enrollment. Operational errors,
+Remote Login being off and tunnel outages take priority while the reminder stays
+pending. An explicit `full_disk_access_hint` can re-arm it after a permission
+failure. The app's own Full Disk Access grants no evidence about remote users.
+
+Read-only investigation on macOS 26.6.2 (2026-11-17) found no reliable unprivileged
+signal. `/Library/Preferences/com.apple.RemoteManagement.plist` was absent and its
+`RemoteLoginFullDiskAccess` preference did not exist. `systemsetup -getremotelogin`
+and `-help` returned the administrator-access message, even with exit code zero.
+`launchctl print system/com.openssh.sshd` succeeded but exposed no disk-access/TCC
+flag. A read-only query of the system TCC database for sshd entries failed with
+"authorization denied". No sudo or system changes were used. A local file probe
+would test this process's TCC identity, and the agents' private SSH keys are
+unavailable locally. The session-scoped reminder uses the observable successful
+enrollment event and avoids guessing permission from these unavailable signals.
 
 The installed development helper (2025.11.1) confirms `--token-file` support in
 `/opt/homebrew/bin/cloudflared tunnel run --help`; it is not a public-user
@@ -60,6 +78,10 @@ a failed revoke remains an error for retry, while local access is withdrawn.
 This does not terminate already established system sshd sessions. Remote Login
 itself remains on because the app must not change the user's other SSH access.
 
+Behavior tests use a mocked system adapter and fake minute timers to cover the
+enrollment trigger, sticky refresh, acknowledgement, reconnect, explicit re-arming,
+and recovery from Remote Login, tunnel and setup failures.
+
 Verification: run native-ssh.test.ts and cloud-agent.test.ts, desktop typecheck,
 and scripts/public_guard.py against origin/main and the committed HEAD. Real
 macOS administrator prompts, Keychain access policy, cloudflared first-run startup,
@@ -73,8 +95,12 @@ this lane intentionally performs no production or real-home operations.
 Settings › Connections › Your Macs gives this Mac's row native reach's one line and action, after the
 row's own fix: `needs_remote_login` → Allow… (the administrator prompt), then Open Settings if that
 fails; `needs_full_disk_access_hint` → Open Settings; `error` and a repeated `tunnel_down` → Try again;
-connected → the row's quiet Ready. Nothing calls `full_disk_access_hint` yet and the next minute's
-refresh replaces it, so the hint needs a sticky trigger from the SSH permission failure.
+connected → the row's quiet Ready. The service now offers the Full Disk Access
+reminder after successful enrollment and keeps it pending through periodic refresh.
+The `open_settings` handler acknowledges only after `shell.openExternal` resolves,
+so a failed Settings launch leaves the reminder pending. The explicit
+`full_disk_access_hint` action remains available to re-arm it for a future SSH
+permission-failure integration.
 
 Command approvals: native Hermes on Matrix posts its approval as one message (a fenced command, a
 reason line, the untranslated `!approve` / `!deny` hints) and seeds its own ✅ / ❌ reactions. The window

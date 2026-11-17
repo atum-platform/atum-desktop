@@ -74,6 +74,8 @@ export class NativeMacSsh {
   private timer?: ReturnType<typeof setInterval>
   private id?: string
   private enrolled?: string
+  private diskAccessHint: 'unoffered' | 'pending' | 'acknowledged' = 'unoffered'
+  private hintDeviceId?: string
   private disconnected = false
   private accountScope?: string
   constructor(
@@ -84,7 +86,12 @@ export class NativeMacSsh {
     }
   ) {}
   status(): NativeSshView {
-    return { ...this.view }
+    return {
+      ...this.view,
+      status: this.view.status === 'connected' && this.diskAccessHint === 'pending'
+        ? 'needs_full_disk_access_hint'
+        : this.view.status
+    }
   }
   private serial<T>(fn: () => Promise<T>): Promise<T> {
     const result = this.chain.then(fn)
@@ -111,8 +118,14 @@ export class NativeMacSsh {
     }).then(() => this.start(true))
   }
   fullDiskAccessHint(): NativeSshView {
-    this.view = { status: 'needs_full_disk_access_hint', settingsUrl: REMOTE_LOGIN_SETTINGS }
+    this.diskAccessHint = 'pending'
     return this.status()
+  }
+  /** Called only after the explicit Open Settings action succeeds. */
+  acknowledgeFullDiskAccessHint(): void {
+    if (this.diskAccessHint === 'pending') {
+      this.diskAccessHint = 'acknowledged'
+    }
   }
   refresh(): Promise<void> {
     return this.serial(async () => {
@@ -131,6 +144,12 @@ export class NativeMacSsh {
           throw new Error('invalid_device')
         if (this.id && this.id !== record.deviceServiceId) await this.cleanup()
         this.id = record.deviceServiceId
+
+        if (this.hintDeviceId !== this.id) {
+          this.hintDeviceId = this.id
+          this.diskAccessHint = 'unoffered'
+        }
+
         const ready = await this.deps.system.ready()
         if (!ready.remoteLogin) {
           await this.deps.system.keys([])
@@ -189,6 +208,12 @@ export class NativeMacSsh {
           )
             throw new Error('invalid_enroll')
           this.enrolled = epoch
+
+          // Remote users' TCC permission is unknown to this process. Offer the
+          // Settings reminder once per device in this app session.
+          if (this.diskAccessHint === 'unoffered') {
+            this.diskAccessHint = 'pending'
+          }
         }
         this.view = {
           status: (await this.deps.system.healthy()) ? 'connected' : 'tunnel_down',

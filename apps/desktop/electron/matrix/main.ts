@@ -17982,7 +17982,10 @@ async function start() {
         case 'enable_remote_login': await nativeMacSsh!.enableRemoteLogin(); break
         case 'disconnect': await nativeMacSsh!.disconnect(); break
         case 'full_disk_access_hint': return nativeMacSsh!.fullDiskAccessHint()
-        case 'open_settings': await shell.openExternal(REMOTE_LOGIN_SETTINGS); break
+        case 'open_settings':
+          await shell.openExternal(REMOTE_LOGIN_SETTINGS)
+          nativeMacSsh!.acknowledgeFullDiskAccessHint()
+          break
         default: throw new Error('invalid_native_ssh_action')
       }
       return nativeMacSsh!.status()
