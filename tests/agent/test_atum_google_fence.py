@@ -1,9 +1,8 @@
 """Atum's Google fence: an assistant that may hold Google data calls only its protected route.
 
 Each forbidden route out (another provider for the main loop, a helper model, a
-fallback client, an external memory provider, a tool that hands content to an
-outside service) must refuse before anything is sent, and an ordinary install (no
-fence variable) must be untouched.
+fallback client, an external memory provider) must refuse before anything is sent.
+An ordinary install (no fence variable) must be untouched.
 """
 
 from types import SimpleNamespace
@@ -195,7 +194,7 @@ LOCAL = [
 ]
 
 
-def test_every_tool_runs_until_the_process_holds_google_data(fenced):
+def test_every_tool_runs_before_the_process_holds_google_data(fenced):
     # Google tools are offered from launch; nothing is limited before the first result.
     assert not fence.holding_google()
     for name in EGRESS + LOCAL:
@@ -210,10 +209,8 @@ def test_an_ordinary_install_never_holds_google_data(unfenced, monkeypatch):
     assert fence.egress_refusal("web_search") is None
 
 
-def test_holding_google_data_refuses_every_route_to_an_outside_service(holding):
-    for name in EGRESS:
-        assert fence.egress_refusal(name) == fence.EGRESS_MESSAGE, name
-    for name in LOCAL:
+def test_holding_google_data_allows_every_tool(holding):
+    for name in EGRESS + LOCAL:
         assert fence.egress_refusal(name) is None, name
 
 
@@ -254,25 +251,25 @@ def test_holding_google_data_keeps_self_profile_and_roster_access(holding, opera
         },
     ],
 )
-def test_holding_google_data_still_refuses_sibling_profile_access(holding, args):
-    assert fence.egress_refusal("atum_agents", args) == fence.EGRESS_MESSAGE
+def test_holding_google_data_allows_sibling_profile_access(holding, args):
+    assert fence.egress_refusal("atum_agents", args) is None
 
 
 @pytest.mark.parametrize("operation", ["start", "list", "read", "stop", "steer"])
-def test_holding_google_data_still_refuses_agent_tasks(holding, operation):
+def test_holding_google_data_allows_agent_tasks(holding, operation):
     assert fence.egress_refusal(
         "atum_agent_tasks", {"operation": operation}
-    ) == fence.EGRESS_MESSAGE
+    ) is None
 
 
 def test_the_first_google_result_latches_the_process(fenced):
     fence.mark_holding()
 
     assert fence.holding_google()
-    assert fence.egress_refusal("web_search") == fence.EGRESS_MESSAGE
+    assert fence.egress_refusal("web_search") is None
 
 
-def test_every_mcp_servers_tools_are_refused(holding, monkeypatch):
+def test_every_mcp_servers_tools_are_allowed(holding, monkeypatch):
     from tools.registry import registry
 
     monkeypatch.setattr(
@@ -281,71 +278,63 @@ def test_every_mcp_servers_tools_are_refused(holding, monkeypatch):
         lambda name: {"mcp_notes_create": "mcp-notes", "word_document": "word_document"}.get(name),
     )
 
-    assert fence.egress_refusal("mcp_notes_create") == fence.EGRESS_MESSAGE
+    assert fence.egress_refusal("mcp_notes_create") is None
     assert fence.egress_refusal("word_document") is None
 
 
-def test_the_refusal_is_decided_before_any_plugin_hook_sees_the_arguments(holding, monkeypatch):
+def test_holding_google_data_allows_tools_through_plugin_hooks(holding, monkeypatch):
     from hermes_cli import plugins
 
     seen = []
     monkeypatch.setattr(plugins, "invoke_hook", lambda name, **kwargs: seen.append(kwargs) or [])
-
-    message = plugins.resolve_pre_tool_block("web_search", {"query": "Lan's quote from Gmail"})
-
-    assert message == fence.EGRESS_MESSAGE
-    assert seen == []
-
-    sibling = {
-        "operation": "update",
-        "target": "00000000-0000-4000-8000-bd7662a5eeb4",
-        "soul": "Lan's quote from Gmail",
-    }
-    assert plugins.resolve_pre_tool_block("atum_agents", sibling) == fence.EGRESS_MESSAGE
-    assert seen == []
-
-    malformed = {"operation": [], "target": "", "soul": "Lan's quote from Gmail"}
-    assert plugins.resolve_pre_tool_block("atum_agents", malformed) == fence.EGRESS_MESSAGE
-    assert seen == []
-
-    own_read = {"operation": "read"}
-    assert plugins.resolve_pre_tool_block("atum_agents", own_read) is None
-    assert len(seen) == 1
-    assert seen[0]["args"] == own_read
-
-    # A local tool still goes through the hooks as Hermes ships it.
-    assert plugins.resolve_pre_tool_block("read_file", {"path": "notes.md"}) is None
-    assert seen and seen[-1]["tool_name"] == "read_file"
+    for name in EGRESS + LOCAL:
+        assert plugins.resolve_pre_tool_block(name, {}) is None
+        assert seen[-1]["tool_name"] == name
 
 
-def test_a_refused_tool_never_runs(holding, monkeypatch):
+@pytest.mark.parametrize("name", EGRESS + ["mcp_notes_create"])
+def test_tools_run_while_holding_google_data(holding, monkeypatch, name):
     import model_tools
 
-    def dispatched(*_args, **_kwargs):
-        raise AssertionError("an egress tool ran in an assistant holding Google data")
+    seen = []
+    def dispatch(tool, args, **kwargs):
+        seen.append((tool, args))
+        return '{"ok": true}'
 
-    monkeypatch.setattr(model_tools.registry, "dispatch", dispatched)
+    monkeypatch.setattr(model_tools.registry, "dispatch", dispatch)
+    args = {"query": "owner-directed request"}
+    result = model_tools.handle_function_call(name, args)
 
-    result = model_tools.handle_function_call("browser_navigate", {"url": "https://example.com/?q=private"})
-
-    assert fence.EGRESS_MESSAGE in result
-
-
-def test_reading_aloud_uses_only_a_speech_engine_on_this_mac(holding, monkeypatch):
-    import tools.tts_tool as tts_tool
-
-    monkeypatch.setattr(tts_tool, "_load_tts_config", lambda: {})
-    monkeypatch.setattr(tts_tool, "_get_provider", lambda cfg: "edge")
-    assert not fence.speech_allowed()
-    assert fence.egress_refusal("text_to_speech") == fence.EGRESS_MESSAGE
-
-    monkeypatch.setattr(tts_tool, "_get_provider", lambda cfg: "piper")
-    assert fence.speech_allowed()
-    assert fence.egress_refusal("text_to_speech") is None
+    assert seen == [(name, args)]
+    assert '"ok": true' in result
 
 
-def test_reading_aloud_is_untouched_until_google_data_is_held(fenced, monkeypatch):
-    import tools.tts_tool as tts_tool
+@pytest.mark.parametrize("name", EGRESS + ["mcp_notes_create"])
+def test_injection_tainted_turn_still_refuses_egress(holding, monkeypatch, name):
+    from agent import atum_google_injection as injection
+    import model_tools
 
-    monkeypatch.setattr(tts_tool, "_get_provider", lambda cfg: "edge")
-    assert fence.speech_allowed()
+    monkeypatch.setattr(
+        model_tools.registry, "get_toolset_for_tool",
+        lambda tool: "mcp-notes" if tool == "mcp_notes_create" else None,
+    )
+    injection.taint_turn("tainted")
+    try:
+        assert fence.egress_refusal(name, {}, "tainted") == injection.REFUSAL
+        assert fence.egress_refusal(name, {}, "clean") is None
+    finally:
+        injection.clear_turn("tainted")
+
+
+@pytest.mark.parametrize("name", EGRESS + LOCAL)
+def test_agent_guard_allows_tools_while_holding_google_data(holding, monkeypatch, name):
+    from agent.agent_runtime_helpers import _pre_tool_block_message
+    from hermes_cli import plugins
+
+    monkeypatch.setattr(plugins, "invoke_hook", lambda *args, **kwargs: [])
+    agent = SimpleNamespace(session_id="s", _current_turn_id="turn", _current_api_request_id="")
+    args = {"query": "owner-directed request"}
+    message, forwarded_args = _pre_tool_block_message(agent, name, args, "clean", "call", [])
+
+    assert message is None
+    assert forwarded_args == args

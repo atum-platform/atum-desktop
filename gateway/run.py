@@ -2013,6 +2013,7 @@ def _bridge_terminal_config_to_env(_terminal_cfg: dict) -> None:
         "ssh_user": "TERMINAL_SSH_USER",
         "ssh_port": "TERMINAL_SSH_PORT",
         "ssh_key": "TERMINAL_SSH_KEY",
+        "ssh_sync_files": "TERMINAL_SSH_SYNC_FILES",
         "container_cpu": "TERMINAL_CONTAINER_CPU",
         "container_memory": "TERMINAL_CONTAINER_MEMORY",
         "container_disk": "TERMINAL_CONTAINER_DISK",
@@ -3758,7 +3759,7 @@ class GatewayRunner(
     # Reasons set by _stop_impl() on force-interrupt; "restart_interrupted" by recover_interrupted_turns()
     # for a crash-left turn marker (no .clean_shutdown marker). All mean "killed mid-turn" -> startup
     # auto-resume.
-    _AUTO_RESUME_REASONS = frozenset({"restart_timeout", "shutdown_timeout", "restart_interrupted", "stale_interruption"})
+    _AUTO_RESUME_REASONS = frozenset({"restart_timeout", "shutdown_timeout", "restart_interrupted"})
 
     _MAX_SUPERVISED_RESTARTS = 5
     # Ran this long before crashing = HEALTHY (isolated crash, not a crash-loop); restart counter resets.

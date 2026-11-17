@@ -4,7 +4,7 @@ import json
 import os
 import shlex
 import subprocess
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -296,6 +296,52 @@ def _mock_ssh_runtime(monkeypatch, tmp_path):
     hooks["sync_factory"] = MagicMock(return_value=MagicMock())
     monkeypatch.setattr(ssh_env, "FileSyncManager", hooks["sync_factory"])
     return hooks
+
+
+class TestSSHFileSyncConfig:
+    @pytest.mark.parametrize("setting", [None, True, False], ids=["unset", "enabled", "disabled"])
+    @pytest.mark.parametrize("scoped", [False, True], ids=["standalone", "profile"])
+    def test_config_controls_sync_lifecycle(self, monkeypatch, _mock_ssh_runtime, setting, scoped):
+        from contextlib import nullcontext
+
+        from hermes_constants import get_hermes_home
+        from tools import terminal_tool
+        from tools.terminal_scope import install_and_reset_profile_terminal_scope
+        from tools.terminal_tool_lifecycle import _create_configured_env
+
+        home = get_hermes_home()
+        home.mkdir(parents=True, exist_ok=True)
+        config_yaml = "terminal:\n  backend: ssh\n  ssh_host: example.test\n  ssh_user: alice\n"
+        if setting is not None:
+            config_yaml += f"  ssh_sync_files: {str(setting).lower()}\n"
+        (home / "config.yaml").write_text(config_yaml, encoding="utf-8")
+        monkeypatch.delenv("TERMINAL_SSH_SYNC_FILES", raising=False)
+        monkeypatch.setattr(terminal_tool, "_terminal_config_bridge_attempted", False)
+        monkeypatch.setattr(ssh_env.subprocess, "run", MagicMock(
+            return_value=subprocess.CompletedProcess([], 0)))
+        scope = install_and_reset_profile_terminal_scope(home) if scoped else nullcontext()
+        with scope:
+            config = terminal_tool._get_env_config()
+            env = _create_configured_env(config, "ssh", image="", cwd="~", timeout=30,
+                                         task_id="ssh-sync-config", host_cwd=None)
+            env._before_execute()
+            env.cleanup()
+
+        hooks = _mock_ssh_runtime
+        if setting is False:
+            assert env._sync_manager is None
+            hooks["_ensure_remote_dirs"].assert_not_called()
+            hooks["sync_factory"].assert_not_called()
+            hooks["sync_factory"].return_value.sync.assert_not_called()
+            hooks["sync_factory"].return_value.sync_back.assert_not_called()
+        else:
+            hooks["_ensure_remote_dirs"].assert_called_once_with()
+            hooks["sync_factory"].assert_called_once()
+            manager = hooks["sync_factory"].return_value
+            assert env._sync_manager is manager
+            assert manager.sync.call_args_list == [call(force=True), call()]
+            manager.sync_back.assert_called_once_with()
+        hooks["init_session"].assert_called_once_with()
 
 
 class TestSSHProbeOnly:

@@ -11,14 +11,10 @@ to the gateway's protected route: zero data retention, never used for training
   compression and vision, delegated children, fallbacks) must go to exactly that
   address with the OpenAI chat format, and external memory providers do not
   start. Anything else is refused before a request is built;
-- once the process holds Google data (``ATUM_GOOGLE_LATCHED`` at launch, or the
-  first Google result in this process, ``mark_holding``), the tools that hand
-  what they are given to a service outside that route answer with a refusal
-  instead of running (``egress_refusal``): the open web and its search and scrape
-  providers, other AI models, other platforms and rooms, other agents, and every
-  MCP server. Its own Atum profile/roster remains available through targetless
-  list/read/update calls. The tool list itself never changes, so prompt caching
-  holds.
+- holding Google data does not restrict tool use, including cloud or local
+  speech. A turn whose Google content looked like a prompt injection still
+  limits tools through ``agent.atum_google_injection.refusal``, including the
+  owner-chats policy mapping. The tool list stays unchanged for prompt caching.
 
 Ordinary Hermes installs never set the variable and never enter this path. An
 unusable value keeps the fence on and refuses every route: a misconfiguration
@@ -47,11 +43,7 @@ MODEL_BASE_ENV = "ATUM_MODEL_BASE_URL"
 #: Set by Atum when the assistant's home already holds Google data (its latch).
 LATCHED_ENV = "ATUM_GOOGLE_LATCHED"
 
-#: Tools that hand what they are given to a service outside Atum's protected route.
-#: Each is listed for one reason: the open web and its search and scrape providers
-#: (web_*, x_search, every browser_* tool), other AI models (image_generate,
-#: text_to_speech), other platforms and rooms (send_message), and other agents (the
-#: kanban board's writes). Every MCP server's tools are refused too (toolset mcp-*).
+#: Egress tools limited by the prompt-injection policy on a tainted turn.
 EGRESS_TOOLS = frozenset(
     {
         "web_search",
@@ -73,22 +65,7 @@ EGRESS_TOOLS = frozenset(
         "kanban_heartbeat",
     }
 )
-# ``atum_agents`` stays in the block set: only the targetless self/roster
-# operations admitted by ``_self_profile_access`` may bypass it.
 EGRESS_PREFIXES = ("browser_",)
-#: Speech engines that run on this Mac: reading aloud with one sends nothing anywhere.
-LOCAL_SPEECH_PROVIDERS = frozenset({"neutts", "kittentts", "piper"})
-
-EGRESS_MESSAGE = (
-    "Not available here: this assistant holds the owner's Gmail, Calendar or Drive "
-    "information, which stays with Atum's protected model. Do the task without this "
-    "tool, or tell the owner plainly that it needs a tool this assistant can't use "
-    "(another agent of theirs can)."
-)
-SPEECH_MESSAGE = (
-    "Reading aloud is off for this assistant: it holds your Gmail, Calendar or Drive "
-    "information, which stays with Atum's protected model."
-)
 
 _holding_lock = threading.Lock()
 _holding = False
@@ -306,40 +283,11 @@ def _mcp_tool(tool_name: str) -> bool:
     return isinstance(toolset, str) and toolset.startswith("mcp-")
 
 
-def _speech_is_local() -> bool:
-    try:
-        from tools.tts_tool import _get_provider, _load_tts_config
-
-        return _get_provider(_load_tts_config()) in LOCAL_SPEECH_PROVIDERS
-    except Exception:
-        return False
-
-
-def speech_allowed() -> bool:
-    """Reading text aloud (the tool, or the desktop's voice mode) sends it to the
-    configured speech engine; an assistant holding Google data uses only one on this Mac."""
-    return not holding_google() or _speech_is_local()
-
-
-def _self_profile_access(args: Any) -> bool:
-    """Whether an ``atum_agents`` call stays on the current agent's profile/roster.
-
-    The host treats an omitted target as self. An explicit principal may name a
-    sibling, so the fence never tries to infer identity from it.
-    """
-    if not isinstance(args, dict) or args.get("target") not in (None, ""):
-        return False
-    operation = args.get("operation")
-    return isinstance(operation, str) and operation in {"list", "read", "update"}
-
-
 def egress_refusal(tool_name: Any, args: Any = None, task_id: Any = None) -> Optional[str]:
     """The refusal a tool call gets instead of running, or None when it may run.
 
-    Only the source execution (or legacy latched assistant) holding Google data is
-    limited; other native sessions run every tool as Hermes ships it. A turn that
-    read Google content which looked like an injection is limited further, whether or not
-    this process is fenced (``agent/atum_google_injection.py``).
+    Holding Google data does not restrict tools. The prompt-injection policy
+    still limits a turn whose Google content looked like an injection.
     """
     from agent.atum_google_injection import refusal as injection_refusal
 
@@ -352,34 +300,18 @@ def egress_refusal(tool_name: Any, args: Any = None, task_id: Any = None) -> Opt
     policy_name = "atum_chats" if source == "owner_chats" else tool_name
     if message := injection_refusal(policy_name, args, task_id):
         return message
-    if not holding_google():
-        return None
-    name = str(tool_name or "")
-    if name == "text_to_speech":
-        return None if speech_allowed() else EGRESS_MESSAGE
-    if name == "atum_agents" and _self_profile_access(args):
-        return None
-    if (
-        name in EGRESS_TOOLS
-        or name.startswith(EGRESS_PREFIXES)
-        or (_mcp_tool(name) and source not in ("google", "owner_chats"))
-    ):
-        return EGRESS_MESSAGE
     return None
 
 
 __all__ = [
-    "EGRESS_MESSAGE",
     "EGRESS_PREFIXES",
     "EGRESS_TOOLS",
     "GoogleFenceRouteRequired",
     "LATCHED_ENV",
     "LOCAL_MEMORY_PROVIDERS",
-    "LOCAL_SPEECH_PROVIDERS",
     "MESSAGE",
     "MODEL_BASE_ENV",
     "ROUTE_ENV",
-    "SPEECH_MESSAGE",
     "assert_route",
     "broker_origin",
     "client_allowed",
@@ -392,5 +324,4 @@ __all__ = [
     "memory_provider_allowed",
     "route_allowed",
     "scoped_source_holding",
-    "speech_allowed",
 ]

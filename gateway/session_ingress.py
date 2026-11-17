@@ -249,40 +249,9 @@ async def execute_admission(authority, ref, row):
     authority.native_waiters.discard(row['admission_id'])
     if 'native_text_v1' in row['payload']:
         event = restore_native(row['payload'], authority.runner)
-        # Keep restore/preflight identity stable; zero becomes local time only
-        # on the claimed event entering execution, never on its durable envelope.
-        # The crash-resume consent fence keeps seeing the unknown (zero) provider time.
         if event.timestamp.timestamp() == 0:
             from datetime import UTC, datetime
-            event.metadata['crash_resume_received_at'] = event.timestamp.isoformat()
             event.timestamp = datetime.now(UTC)
-        restored = authority.db._read_one('SELECT value FROM state_meta WHERE key=?',
-                                          ('restore_backup:' + row['admission_id'],))
-        if restored:
-            import json
-            from gateway.resume_policy import ResumePolicy, pending_resume_policy
-            context = json.loads(restored['value'])
-            entry = authority.runner.session_store.lookup_by_session_key(live.route)
-            if entry is None:
-                raise RuntimeError('Restored admission lacks native session entry')
-            pending_resume_policy(authority.runner.session_store, entry,
-                ResumePolicy(True, ('work interrupted by backup restore at ' + context['timestamp'] +
-                    '; actions after that time may already have happened; check before repeating',), frozenset()),
-                '', can_resolve=False)
-            authority.runner.session_store.mark_resume_pending(live.route, reason='restore_backup')
-
-        if not restored and row.get('outcome') in {'crash_resume', 'crash_resume_stale'}:
-            event.metadata['crash_resume_source_id'] = str(event.message_id)
-            # Keep the native source ID for the final obligation; never replay user input.
-            # Preserve an input that never reached its first durable user row (H7).
-            recorded = authority.db._read_one(
-                "SELECT 1 FROM messages WHERE session_id=? AND role='user' "
-                "AND platform_message_id=?", (authority.physical_target(ref), event.message_id))
-            if recorded is not None:
-                event.text = ''
-            authority.runner.session_store.mark_resume_pending(
-                live.route, reason=('stale_interruption' if row['outcome'] == 'crash_resume_stale'
-                                    else 'restart_interrupted'))
     else:
         from gateway.session_ingress_media import restore_attachments
         event = MessageEvent(text=row['payload']['text'], source=live.source,
@@ -295,7 +264,6 @@ async def execute_admission(authority, ref, row):
         # turn's resolver never re-reads (and on a transient failure drops) an admitted completion.
         event.metadata['gateway_proven_session_id'] = (
             authority.physical_target(ref) if 'native_text_v1' in row['payload'] else event.metadata['gateway_session_id'])
-    event.metadata['crash_resume_admission_seq'] = row['seq']
     provenance = row['payload'].get('native_text_v1', {}).get('provenance')
     home = None
     if provenance is not None:

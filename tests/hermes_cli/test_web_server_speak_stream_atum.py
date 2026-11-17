@@ -61,8 +61,9 @@ def test_split_text_hard_splits_oversized_sentence():
     assert sum(len(piece) for piece in pieces) == 100
 
 
-def test_google_data_never_leaves_through_an_outside_speech_engine(
-    stream_client, monkeypatch
+@pytest.mark.parametrize("provider", ["edge", "piper"])
+def test_holding_google_data_allows_cloud_and_local_speech(
+    stream_client, monkeypatch, tmp_path, provider
 ):
     from agent import atum_google_fence
 
@@ -73,22 +74,32 @@ def test_google_data_never_leaves_through_an_outside_speech_engine(
     streamer = _FakeStreamer()
     _patch_provider(monkeypatch, streamer)
 
+    monkeypatch.setattr("tools.tts_tool._get_provider", lambda cfg: provider)
+    text = "Lan is waiting on the quote."
     with stream_client.websocket_connect(_url()) as conn:
-        assert conn.receive_json() == {"type": "fallback"}
-    assert streamer.requests == []
+        conn.send_json({"text": text, "done": True})
+        assert conn.receive_json() == {"type": "start", "sample_rate": 24000, "channels": 1}
+        assert conn.receive_bytes() == b"\x01\x02"
+        assert conn.receive_json() == {"type": "end"}
+    assert streamer.requests == [text]
 
-    # The fallback POST refuses too, saying why; nothing reaches the engine.
     import tools.tts_tool as tts_tool
 
     spoken = []
-    monkeypatch.setattr(
-        tts_tool, "text_to_speech_tool", lambda text: spoken.append(text)
-    )
+    audio = tmp_path / "speech.mp3"
+    audio.write_bytes(b"fake audio")
+
+    def synthesize(text):
+        spoken.append(text)
+        return {"success": True, "file_path": str(audio), "provider": provider}
+
+    monkeypatch.setattr(tts_tool, "text_to_speech_tool", synthesize)
     response = stream_client.post(
         "/api/audio/speak",
-        json={"text": "Lan is waiting on the quote"},
+        json={"text": text},
         headers={web_server._SESSION_HEADER_NAME: web_server._SESSION_TOKEN},
     )
-    assert response.status_code == 403
-    assert response.json()["detail"] == atum_google_fence.SPEECH_MESSAGE
-    assert spoken == []
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert response.json()["provider"] == provider
+    assert spoken == [text]

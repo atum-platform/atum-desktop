@@ -809,7 +809,6 @@ def _matrix_identity_store_dir() -> Path:
 
 class MatrixAdapter(BasePlatformAdapter):
     """Gateway adapter for Matrix (any homeserver)."""
-    tool_aware_resume = True
     serial_receive_loop = True  # _sync_loop reads the next sync only after this sync's handlers return
     supports_code_blocks = True  # Matrix renders fenced code blocks (HTML/markdown)
     splits_long_messages = True  # send() chunks via truncate_message(max_message_length)
@@ -2576,10 +2575,6 @@ class MatrixAdapter(BasePlatformAdapter):
         def accepted(receipt):
             from gateway.fault_injection import hit
             hit("H3a")
-            context = store.get('restore')
-            if context and [event.source.chat_id, event.message_id] in context.get('reread', []):
-                from gateway.backup_restore import mark_restore_ask
-                mark_restore_ask(authority.db, receipt.admission_id, context)
             store.mark(event.message_id, "native", receipt.admission_id, room_id=event.source.chat_id)
             hit("H3")
             if not committed.done():
