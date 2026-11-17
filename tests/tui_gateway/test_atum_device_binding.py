@@ -129,7 +129,7 @@ def test_the_plugin_reaches_the_controller_through_the_real_bridge(monkeypatch):
     def from_turn():
         tokens = set_session_vars(session_key="durable", source="matrix", ui_session_id="live")
         try:
-            return terminal({"command": "ls ~/Downloads"})
+            return terminal({"command": "ls ~/Downloads", "device": "MacBook Pro"})
         finally:
             clear_session_vars(tokens)
 
@@ -138,7 +138,7 @@ def test_the_plugin_reaches_the_controller_through_the_real_bridge(monkeypatch):
         assert emitted.wait(2)
         frame = frames[0]
         sid, payload = frame["params"]["session_id"], frame["params"]
-        assert payload["device"] is None and payload["args"] == {"command": "ls ~/Downloads"}
+        assert payload["device"] == "MacBook Pro" and payload["args"] == {"command": "ls ~/Downloads"}
         assert sid == "live"
         server_requests.resolve_response({"id": frame["id"], "result": {
             "value": json.dumps({"status": "cloud", "message": "Runs in the cloud."})}})

@@ -11,7 +11,8 @@ At ``register`` it wraps six built-in tools (``terminal``, ``read_file``, ``writ
 tool list is identical on every turn of every conversation and the cached prompt prefix holds.
 Which Macs are online reaches the model in the turn context, never in a schema.
 
-A call goes to the controller as a Hermes reverse request (``atum.device.request`` through the
+A call without ``device`` (or ``device="cloud"``) runs the original tool on this computer, as stock
+Hermes does. A call naming a Mac goes to the controller as a Hermes reverse request (``atum.device.request`` through the
 desktop UI bridge, answered by ``atum.device.respond``). The controller resolves the target and
 answers:
 
@@ -45,8 +46,8 @@ PROTECTED_CAPABILITIES = [
 DEVICE_PROPERTY = {
     "type": "string",
     "description": (
-        "Where to run. Omit: the device this message came from (the cloud when it came from a "
-        "phone or a schedule). Or a device name from the turn context, or \"cloud\". "
+        "Where to run. Omit to run on your own computer (the cloud). Name a Mac from the turn "
+        "context to run it there, or \"cloud\". "
         "\"list\" shows the owner's Macs, which are on, and what works on each; nothing runs."
     ),
 }
@@ -215,6 +216,17 @@ def wrap(name: str, original: Callable[..., Any]) -> Callable[..., Any]:
             return _list(name)
         device = device.strip() if isinstance(device, str) and device.strip() else None
         needs = args.pop("needs", None) if name == "terminal" else None
+        # A command that names Mac-only capabilities (needs) still targets the owner's Mac.
+        if (device is None and not needs) or (device is not None and device.lower() == "cloud"):
+            # The agent's own computer is the default, as in stock Hermes: a Mac is reached only
+            # when the call names it. Routing unnamed calls to the Mac a message came from made
+            # every file read depend on the Mac connection. computer_use drives this computer's
+            # own desktop.
+            result = original(args, **kwargs)
+            if inspect.iscoroutine(result):
+                from model_tools import _run_async
+                result = _run_async(result)
+            return result
         if needs is not None and (not isinstance(needs, list) or any(n not in PROTECTED_CAPABILITIES for n in needs)):
             return json.dumps({"error": "needs names something Atum does not protect.", "status": "refused"})
         if name == "terminal" and device != "cloud":

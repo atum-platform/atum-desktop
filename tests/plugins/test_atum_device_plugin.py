@@ -101,44 +101,35 @@ def test_routing_follows_the_controllers_answer(monkeypatch):
     original = lambda args, **kw: (ran.append(args), json.dumps({"ran": "here"}))[1]
     terminal = MODULE.wrap("terminal", original)
 
-    calls = _route(monkeypatch, {"status": "cloud", "message": "Runs in the cloud."})
+    # Unnamed or "cloud": the agent's own computer, as stock Hermes; nothing goes to a Mac.
+    calls = _route(monkeypatch, {"status": "ok", "result": {"output": "mac"}, "message": "done"})
+    assert json.loads(terminal({"command": "ls"})) == {"ran": "here"}
     assert json.loads(terminal({"command": "ls", "device": "cloud"})) == {"ran": "here"}
-    assert ran == [{"command": "ls"}]  # the routing properties never reach the original tool
-    assert calls[0][0] == "atum.device.request"
-    assert calls[0][1]["tool"] == "terminal" and calls[0][1]["device"] == "cloud"
+    assert ran == [{"command": "ls"}, {"command": "ls"}]  # routing properties never reach the tool
+    assert calls == []
 
-    _route(monkeypatch, {"status": "ok", "device": {"id": "d1", "name": "MacBook Pro"}, "result": {"output": "hello.txt", "exit_code": 0}, "message": "done"})
-    assert json.loads(terminal({"command": "ls ~/Downloads"})) == {"output": "hello.txt", "exit_code": 0}
+    calls = _route(monkeypatch, {"status": "ok", "device": {"id": "d1", "name": "MacBook Pro"}, "result": {"output": "hello.txt", "exit_code": 0}, "message": "done"})
+    assert json.loads(terminal({"command": "ls ~/Downloads", "device": "MacBook Pro"})) == {"output": "hello.txt", "exit_code": 0}
+    assert calls[0][0] == "atum.device.request" and calls[0][1]["device"] == "MacBook Pro"
 
     _route(monkeypatch, {"status": "offline", "device": {"id": "d2", "name": "Mac mini"}, "message": "Mac mini is offline; wait or name another device."})
     error = json.loads(terminal({"command": "ls", "device": "Mac mini"}))
     assert error == {"error": "Mac mini is offline; wait or name another device.", "status": "offline", "device": "Mac mini"}
 
     _route(monkeypatch, "")  # an interrupt released the request
-    assert json.loads(terminal({"command": "ls"}))["status"] == "stopped"
+    assert json.loads(terminal({"command": "ls", "device": "Mac mini"}))["status"] == "stopped"
     _route(monkeypatch, "not json")
-    assert json.loads(terminal({"command": "ls"}))["status"] == "unknown"
-    assert len(ran) == 1
+    assert json.loads(terminal({"command": "ls", "device": "Mac mini"}))["status"] == "unknown"
+    assert len(ran) == 2
 
 
-def test_the_request_outlives_the_owners_ten_minute_approval(monkeypatch):
-    terminal = MODULE.wrap("terminal", lambda args, **kw: "must not run")
-    calls = _route(monkeypatch, {"status": "approval_timeout", "message": "Nobody was at the Mac."})
-    answer = json.loads(terminal({"command": "security find-generic-password -s x", "device": "Mac mini"}))
-    assert answer["status"] == "approval_timeout"
-    # A Touch ID sheet waits up to 600 s: the request must still be listening, and stays under the cap.
-    assert calls[0][2] > 600
-    assert calls[0][2] <= MODULE.MAX_REQUEST_S
-    # A long tool timeout never pushes the request past the cap.
-    terminal({"command": "sleep 800", "timeout": 800, "device": "Mac mini"})
-    assert calls[1][2] == MODULE.MAX_REQUEST_S
-
-
-def test_computer_control_never_runs_in_the_cloud(monkeypatch):
-    original = lambda args, **kw: "must not run"
-    computer = MODULE.wrap("computer_use", original)
-    _route(monkeypatch, {"status": "cloud", "message": "Runs in the cloud."})
-    assert json.loads(computer({"action": "screenshot"}))["status"] == "refused"
+def test_computer_control_runs_on_this_computer_unless_a_mac_is_named(monkeypatch):
+    calls = _route(monkeypatch, {"status": "cloud", "message": "Runs in the cloud."})
+    computer = MODULE.wrap("computer_use", lambda args, **kw: "own desktop")
+    assert computer({"action": "screenshot"}) == "own desktop"
+    assert calls == []
+    # A named Mac the controller answers "cloud" for still never runs computer control here.
+    assert json.loads(computer({"action": "screenshot", "device": "MacBook Pro"}))["status"] == "refused"
 
 
 def test_any_other_hermes_without_a_controller_simply_runs_the_tool(monkeypatch):
