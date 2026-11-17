@@ -220,12 +220,37 @@ def native_selection() -> dict:
 
 def native_protected() -> bool:
     selected = native_selection()
-    return bool(selected.get("native_protected") or selected.get("google_latched")) and selected.get("model") != "google-protected"
+    return selected.get("native_protected") is True and selected.get("model") != "google-protected"
+
+
+def relay_latched() -> bool:
+    """Host-certified ChatGPT selection; request admission remains the host's job."""
+    selected = native_selection()
+    relay = selected.get("chatgpt_relay")
+    confirmation = selected.get("chatgpt_google")
+    return (selected.get("google_latched") is True
+            and selected.get("provider") == "openai-codex"
+            and not selected.get("native_protected")
+            and isinstance(relay, dict) and isinstance(confirmation, dict)
+            and isinstance(relay.get("connection_id"), str) and bool(relay["connection_id"])
+            and type(relay.get("revision")) is int and relay["revision"] >= 0
+            and confirmation.get("current") is True
+            and confirmation.get("wording_version") == "chatgpt-google-v1"
+            and confirmation.get("connection_id") == relay["connection_id"]
+            and type(confirmation.get("revision")) is int and confirmation["revision"] >= 0)
 
 
 def route_allowed(base_url: Any, api_mode: Optional[str] = None) -> bool:
     if native_protected():
         return str(base_url).rstrip("/") == "https://openrouter.ai/api/v1" and api_mode in (None, "", "chat_completions")
+    if native_selection().get("google_latched"):
+        if not relay_latched() or api_mode not in (None, "", "chat_completions"):
+            return False
+        # Text helpers use the authenticated host relay. Media uses the guarded
+        # OpenRouter profile; the host admits its protected media selection.
+        return (str(base_url).rstrip("/") == "https://openrouter.ai/api/v1"
+                or bool(_http_v1(os.environ.get(MODEL_BASE_ENV)))
+                and _http_v1(base_url) == _http_v1(os.environ.get(MODEL_BASE_ENV)))
     route = fence_route()
     if route is None:
         return True
@@ -253,6 +278,16 @@ def client_allowed(client: Any) -> bool:
             return route_allowed(client.base_url)
         return (getattr(client, "_atum_native_guard_provider", None) == "openrouter"
                 and route_allowed(getattr(client, "base_url", None)))
+    if native_selection().get("google_latched"):
+        if not relay_latched() or client is None:
+            return False
+        base_url = getattr(client, "base_url", None)
+        if not route_allowed(base_url):
+            return False
+        if str(base_url).rstrip("/") == "https://openrouter.ai/api/v1":
+            return (type(client).__name__ == "_AuxProbeClientStub"
+                    or getattr(client, "_atum_native_guard_provider", None) == "openrouter")
+        return True
     route = fence_route()
     if route is None or client is None:
         return True
