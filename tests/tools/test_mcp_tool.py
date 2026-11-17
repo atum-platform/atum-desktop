@@ -3182,14 +3182,13 @@ class TestAtumSourceFence:
         return mcp_prefixed_tool_name("fixture", "read")
 
     @pytest.mark.parametrize("lazy", [False, True])
-    @pytest.mark.parametrize("source,allowed", [
-        ("google", True), ("owner_chats", True), (None, False), ("invalid", False), (["google"], False)])
-    def test_holding_uses_only_valid_operator_marker(self, monkeypatch, source, allowed, lazy):
+    @pytest.mark.parametrize("source", ["google", "owner_chats", None, "invalid", ["google"]])
+    def test_holding_allows_every_mcp_source(self, monkeypatch, source, lazy):
         from agent import atum_google_fence as fence
 
         name = self.register(monkeypatch, source, lazy=lazy)
         monkeypatch.setenv(fence.LATCHED_ENV, "1")
-        assert (fence.egress_refusal(name) is None) is allowed
+        assert fence.egress_refusal(name) is None
 
     @pytest.mark.parametrize("latched", [False, True])
     @pytest.mark.parametrize("lazy", [False, True])
@@ -3209,7 +3208,8 @@ class TestAtumSourceFence:
         assert fence.holding_google()
         assert injection.turn_tainted("source-turn")
         self.registry.register("external", "mcp-external", {}, lambda args: "{}")
-        assert fence.egress_refusal("external", task_id="later-turn") == fence.EGRESS_MESSAGE
+        assert fence.egress_refusal("external", task_id="source-turn") == injection.REFUSAL
+        assert fence.egress_refusal("external", task_id="later-turn") is None
 
     def test_owner_chats_mirrors_native_even_after_injection(self, monkeypatch):
         from agent import atum_google_fence as fence, atum_google_injection as injection
@@ -3229,7 +3229,7 @@ class TestAtumSourceFence:
         name = self.register(monkeypatch, None, lazy=True, text='{"atum_source": "google"}')
         assert self.registry.get_entry(name).atum_source is None
         monkeypatch.setenv(fence.LATCHED_ENV, "1")
-        assert fence.egress_refusal(name) == fence.EGRESS_MESSAGE
+        assert fence.egress_refusal(name) is None
         self.registry.dispatch(name, {})
         monkeypatch.delenv(fence.LATCHED_ENV)
         assert not fence.holding_google()
@@ -3243,13 +3243,17 @@ class TestAtumSourceFence:
         with session_tool_scope("editor-session:first"):
             marked = self.register(monkeypatch, "google", lazy=True)
             assert fence.egress_refusal(marked) is None
+            assert self.registry.get_entry(marked).atum_source == "google"
         with session_tool_scope("editor-session:second"):
             unmarked = self.register(monkeypatch, None, lazy=True)
-            assert fence.egress_refusal(unmarked) == fence.EGRESS_MESSAGE
+            assert fence.egress_refusal(unmarked) is None
+            assert self.registry.get_entry(unmarked).atum_source is None
         with session_tool_scope("editor-session:first"):
             assert fence.egress_refusal(marked) is None
+            assert self.registry.get_entry(marked).atum_source == "google"
             self.register(monkeypatch, None, lazy=True)
-            assert fence.egress_refusal(marked) == fence.EGRESS_MESSAGE
+            assert fence.egress_refusal(marked) is None
+            assert self.registry.get_entry(marked).atum_source is None
 
     def test_portable_server_cannot_self_declare_first_party(self, monkeypatch):
         from hermes_cli.plugins import get_plugin_manager
