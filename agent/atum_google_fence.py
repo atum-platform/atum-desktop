@@ -248,6 +248,9 @@ def assert_route(base_url: Any, api_mode: Optional[str] = None, *, client: Any =
 def client_allowed(client: Any) -> bool:
     """A resolved helper client may be used only when it targets the protected route."""
     if native_protected():
+        if type(client).__name__ == "_AuxProbeClientStub":
+            # Availability probes carry only base_url (any other attribute raises by design).
+            return route_allowed(client.base_url)
         return (getattr(client, "_atum_native_guard_provider", None) == "openrouter"
                 and route_allowed(getattr(client, "base_url", None)))
     route = fence_route()
