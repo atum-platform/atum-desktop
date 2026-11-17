@@ -645,14 +645,7 @@ class SessionAuthority:
                 self._require_admission_open()
                 self.sessions.setdefault(sid, LiveSession(source, route))
                 if any(row['status'] == 'unknown' for row in rows):
-                    from gateway.resume_policy import recover_unknown_admission
-                    if not await recover_unknown_admission(
-                            self, SessionRef(self.profile_id, sid), self.sessions[sid], rows):
-                        raise RuntimeStoreError('unknown_execution')
-                else:
-                    from gateway.resume_policy import recover_failed_native_admission
-                    await recover_failed_native_admission(
-                        self, SessionRef(self.profile_id, sid), self.sessions[sid], rows)
+                    raise RuntimeStoreError('unknown_execution')
                 self._schedule(SessionRef(self.profile_id, sid))
                 results[sid] = 'ready'
             except RuntimeStoreError as exc:
@@ -1034,9 +1027,6 @@ class SessionAuthority:
         async with live.claim_gate, live.mutation_lock:
             pending = list_session_admissions(self.db, session_id=ref.session_id)
             if any(row['status'] == 'unknown' for row in pending):
-                from gateway.resume_policy import recover_unknown_admission
-                if await recover_unknown_admission(self, ref, live, pending):
-                    return False, None
                 raise RuntimeStoreError('unknown_execution')
             first = next((row for row in pending if row['status'] == 'queued'), None)
             from gateway.config import Platform
