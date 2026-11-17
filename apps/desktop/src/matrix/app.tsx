@@ -318,6 +318,7 @@ import { FounderHeaderIdentity } from './founder/header-identity'
 import { FounderIntroCard } from './founder/intro-card'
 import { isFounderRoom } from './founder/roster-founder'
 import { MatrixGoogleConnectNudge } from './google-connection-settings'
+import { MatrixGoogleWriteProposals } from './google-write-card'
 import { AssistantGreeting } from './greeting'
 import {
   groupAssistantMode,
@@ -5548,6 +5549,8 @@ function Conversation({
 
   const cloudAgent = room ? cloudRoomAgent(snapshot, room) : undefined
   const cloudAgentPrincipal = cloudAgent?.principal
+  // A Google write card waiting on the owner is the agent's turn handed over: no "no reply" band.
+  const [googleWriteWaiting, setGoogleWriteWaiting] = useState(false)
 
   const readServiceStatus = useCallback(() => {
     if (!cloudAgentPrincipal || !window.atumMatrix.cloudAgent) {
@@ -5651,7 +5654,7 @@ function Conversation({
               agentPrincipal={cloudAgent.principal}
               assistantName={assistantName}
               locale={locale}
-              message={unansweredMessage}
+              message={googleWriteWaiting ? null : unansweredMessage}
               onResend={composer?.ready ? body => composer.resend(body) : undefined}
               readStatus={window.atumMatrix.cloudAgent ? readServiceStatus : undefined}
               typing={Boolean(agentTyping)}
@@ -5876,6 +5879,16 @@ function Conversation({
               {(defaultAssistantChat || firstRunHere) && <MatrixFolderAccessRecovery snapshot={snapshot} />}
               {defaultAssistantChat && snapshot.firstRunWelcome === 'dismissed' && !firstRunSkippedHere && (
                 <MatrixGoogleConnectNudge access={snapshot.googleAssistant} scope={snapshot.identity?.userId} />
+              )}
+              {/* The owner's pending Google writes for this agent chat, read from Shell's list (never
+                from the room) and refreshed on this chat's activity. */}
+              {(room.assistant || cloudAgent) && (
+                <MatrixGoogleWriteProposals
+                  activity={snapshot.messages.at(-1)?.id}
+                  key={room.id}
+                  onWaiting={setGoogleWriteWaiting}
+                  roomId={room.id}
+                />
               )}
               {/* Cloud assistants read this Mac's sources: said once, above the box, never in the way.
                 The first-run card says it for a new account. */}
