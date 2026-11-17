@@ -291,7 +291,7 @@ def test_an_assistant_holding_google_data_still_delivers_its_results(running_loo
 
     # Another platform is attempted instead of refused.
     telegram = dict(JOB, deliver="telegram:12345")
-    with patch("tools.send_message_tool._send_to_platform") as standalone:
+    with patch("tools.send_message_tool._send_to_platform"):
         error = _deliver_result(telegram, "Lan is waiting on the quote", adapters={}, loop=running_loop)
     assert "holds Google data" not in (error or "")
 
