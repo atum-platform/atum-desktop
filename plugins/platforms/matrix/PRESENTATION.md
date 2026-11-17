@@ -12,7 +12,7 @@ factory. It adds no tools, prompts, conversation messages, or model calls.
 completion contributes its bounded list only after forced egress redaction. Native gateway interim sends pass through Hermes's
 forced egress redactor. Only private DM background turns get presentation.
 
-Wire contracts: `atum.agent-turns/1.3` progress marker, `/1.4` interim and
+Wire contracts: `atum.agent-turns/1.3` progress marker and `/1.4`
 transient removal; `io.atum.turn` is a lowercase UUID v4 string. The final answer
 uses native Matrix delivery; the durable-intake lane's `txn_id` and delivery
 obligation remain authoritative. This module neither ingests nor acknowledges
@@ -54,8 +54,11 @@ What the owner sees during a turn matches the desktop controller. Admission post
 the native read receipt and the native typing indicator (`m.typing`, refreshed for the whole
 turn by the base adapter) say the agent is working. The extension never speaks in the agent's
 place and posts no words of its own, in any language. The only text it sends is the agent's:
-its redacted remarks (`io.atum.interim`; the first goes out at once, later ones at most one every
-20 s, and a remark that repeats the answer is taken back) and its redacted todo items.
+its redacted remarks and its redacted todo items. Native interim assistant messages pass
+immediately through the native Matrix sender, preserving reply/thread metadata and delivery
+receipts. Each remark remains a separate ordinary message, including repeated remarks and
+remarks repeated in the final answer. Content length and formatting follow native Matrix
+behavior. The Stop dispatch lock suppresses later remarks from stopped or ended turns.
 
 The transient line appears only for a real step and says it as a code, never as prose. It is the
 agent-turns/1.3 progress notice with an empty `body` and the agent-turns/1.5 descriptor
@@ -92,4 +95,4 @@ in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi
 `HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English.
 
 Offline tests (no homeserver or model calls):
-`python3 -m unittest discover -s tests/plugins/matrix_presentation -v`.
+`scripts/run_tests.sh tests/plugins/matrix_presentation`.

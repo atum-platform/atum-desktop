@@ -41,22 +41,90 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.box.db.close()
         self.tmp.cleanup()
 
-    def test_frozen_interim_policy_vectors(self):
-        vectors = json.loads((Path(__file__).parent / 'fixtures/interim-policy.vectors.json').read_text())['vectors']
-        for vector in vectors:
-            args = {k: v for k, v in vector.items() if k not in ('name', 'decision')}
-            self.assertEqual(p.interim_decision(**args), vector['decision'], vector['name'])
-
     async def test_frozen_content_vectors(self):
         fixtures = Path(__file__).parent / 'fixtures'
         original = json.loads((fixtures / 'progress-original.content.json').read_text())
         self.turn.source = original['m.relates_to']['m.in_reply_to']['event_id']
         await self.turn.progress(original['body'], kind=original['io.atum.progress']['kind'])
         self.assertEqual(self.server.requests[0][1], original)
-        interim = json.loads((fixtures / 'interim-message.content.json').read_text())
-        await self.turn.interim(interim['body'], redacted=True)
-        published = self.server.requests[1][1]
-        self.assertEqual(published, {**interim, 'm.relates_to': {'m.in_reply_to': {'event_id': self.turn.source}}})
+
+    async def test_native_interims_are_immediate_separate_and_survive_final(self):
+        from gateway.platforms.base import SendResult
+        calls = []
+        receipt = SendResult(success=True, message_id='$native')
+        class Base:
+            async def send(self, room, content, reply_to=None, metadata=None):
+                calls.append((room, content, reply_to, metadata))
+                return receipt
+        adapter = p.adapter_class(Base)()
+        token = p._current.set(self.turn)
+        text = '  Checking the calendar. ' * 100
+        metadata = {'_interim_send': True, 'thread_id': '$thread'}
+        try:
+            for index in range(3):
+                result = await adapter.send(self.turn.room, text, reply_to='$reply', metadata=metadata)
+                self.assertIs(result, receipt)
+                self.assertEqual(len(calls), index + 1)
+                self.assertEqual(calls[-1], (self.turn.room, text, '$reply', metadata))
+                self.assertIs(calls[-1][3], metadata)
+            final_token = p._final_delivery.set(True)
+            try:
+                result = await adapter.send(self.turn.room, text, reply_to='$reply')
+            finally:
+                p._final_delivery.reset(final_token)
+            self.assertIs(result, receipt)
+            self.assertEqual(calls[-1], (self.turn.room, text, '$reply', None))
+            self.assertEqual(len(calls), 4)
+            self.assertTrue(self.turn.ended)
+            self.assertEqual(self.server.requests, [])  # no interim cleanup writes
+            await adapter.send(self.turn.room, 'Late', metadata=metadata)
+            self.assertEqual(len(calls), 4)
+        finally:
+            p._current.reset(token)
+
+    async def test_native_interim_redaction_and_failure_are_preserved(self):
+        from gateway.platforms.base import SendResult
+        from unittest.mock import patch, AsyncMock
+        failure = SendResult(success=False, error='transport unavailable')
+        class Base:
+            send = AsyncMock(return_value=failure)
+        adapter = p.adapter_class(Base)()
+        token = p._current.set(self.turn)
+        try:
+            with patch('agent.redact.redact_for_egress', return_value='scrubbed') as redact:
+                result = await adapter.send(self.turn.room, 'sensitive', metadata={'_interim_send': True})
+                redact.assert_called_once_with('sensitive')
+                self.assertIs(result, failure)
+                self.assertEqual(Base.send.await_args.args[1], 'scrubbed')
+            with patch('agent.redact.redact_for_egress', side_effect=RuntimeError('redaction unavailable')):
+                with self.assertRaises(RuntimeError):
+                    await adapter.send(self.turn.room, 'sensitive', metadata={'_interim_send': True})
+            self.assertEqual(Base.send.await_count, 1)
+        finally:
+            p._current.reset(token)
+
+    async def test_authenticated_stop_suppresses_queued_and_later_interims(self):
+        from unittest.mock import AsyncMock
+        from types import SimpleNamespace
+        class Base:
+            send = AsyncMock()
+        adapter = p.adapter_class(Base)()
+        adapter._presentation_turns = {(self.turn.room, self.turn.source): (self.turn, 'session', 'origin')}
+        adapter.gateway_runner = SimpleNamespace(_interrupt_and_clear_session=AsyncMock())
+        token = p._current.set(self.turn)
+        await self.turn.delivery_lock.acquire()
+        try:
+            stop = asyncio.create_task(adapter.stop_presentation_turn(
+                self.turn.room, self.turn.source, self.turn.sender, authenticated=True))
+            interim = asyncio.create_task(adapter.send(self.turn.room, 'Queued', metadata={'_interim_send': True}))
+            await asyncio.sleep(0)
+            self.turn.delivery_lock.release()
+            self.assertTrue(await stop)
+            self.assertTrue((await interim).success)
+            self.assertTrue((await adapter.send(self.turn.room, 'Late', metadata={'_interim_send': True})).success)
+            Base.send.assert_not_awaited()
+        finally:
+            p._current.reset(token)
 
     async def test_queued_turns_redact_each_root_once_and_keep_finals(self):
         turns = [self.turn, *[p.Turn(self.box, self.server, self.turn.room,
@@ -133,14 +201,6 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         finally:
             await resumed.end()
 
-    async def test_identical_held_interim_keeps_one_timer(self):
-        await self.turn.interim('First', redacted=True)
-        await self.turn.interim('Next', redacted=True)
-        timer = self.turn.interim_timer
-        await self.turn.interim('Next', redacted=True)
-        self.assertIs(self.turn.interim_timer, timer)
-        self.assertFalse(timer.cancelling())
-
     async def test_heartbeat_is_a_code_with_minutes_and_preserves_a_wait(self):
         await self.turn.progress(presentation=p.descriptor('tool_activity', activity='read'))
         self.now = 180
@@ -216,10 +276,6 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         finally:
             migrated.db.close()
 
-    async def test_unredacted_interim_dropped(self):
-        await self.turn.interim('private secret')
-        self.assertEqual(self.server.requests, [])
-
     async def test_original_edit_and_redaction_contract(self):
         await self.turn.progress('Reading a file')
         original = self.server.requests[0][1]
@@ -237,24 +293,12 @@ class Contracts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.server.requests[-1][3], '$0')
         self.assertEqual(self.server.requests[-1][2], 'atum-cr-0')
 
-    async def test_interim_is_not_answer_and_repetition_removed(self):
-        await self.turn.interim('I will check the calendar.', redacted=True)
-        content = self.server.requests[0][1]
-        self.assertEqual(content['io.atum.interim'], True)
-        self.assertEqual(content['msgtype'], 'm.text')
-        self.assertNotIn('io.atum.turn', content)
-        await self.turn.end('I will check the calendar. Here are the results.')
-        self.assertEqual(self.server.requests[-1][3], '$0')
-
     async def test_end_drops_held_activity_and_late_events(self):
         await self.turn.progress('First')
         await self.turn.progress('Held')
-        await self.turn.interim('One', redacted=True)
-        await self.turn.interim('Held remark', redacted=True)
         await self.turn.end()
         count = len(self.server.requests)
         await self.turn.progress('Too late')
-        await self.turn.interim('Too late', redacted=True)
         self.assertEqual(count, len(self.server.requests))
         self.assertTrue(self.turn.progress_timer.cancelled() or self.turn.progress_timer.cancelling())
 
@@ -530,6 +574,17 @@ class NativeMatrixIntegration(unittest.IsolatedAsyncioTestCase):
                 await turn.progress('Reading a file')
                 await adapter.send_or_update_status(turn.room, 'compression', 'Continuing after compression')
                 self.assertFalse(turn.ended)
+                remark = 'Checking the calendar. ' * 60
+                for _ in range(2):
+                    interim = await adapter.send(turn.room, remark, reply_to=turn.source,
+                                                 metadata={'_interim_send': True})
+                    self.assertTrue(interim.success)
+                    wire = server.requests[-1][1]
+                    self.assertEqual(wire['body'], remark)
+                    self.assertEqual(wire['m.relates_to']['m.in_reply_to']['event_id'], turn.source)
+                    self.assertNotIn('io.atum.interim', wire)
+                    self.assertNotIn('io.atum.turn', wire)
+                    self.assertFalse(turn.ended)
                 final_token = p._final_delivery.set(True)
                 try:
                     result = await adapter.send(turn.room, 'Here is the answer.', reply_to=turn.source)
