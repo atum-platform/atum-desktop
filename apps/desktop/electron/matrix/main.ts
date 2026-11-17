@@ -714,6 +714,8 @@ import {
   prepareMatrixHermesModel
 } from './hermes-setup'
 import { matrixHostEndsTurns, matrixHostLiveness, matrixHostsTakeNewClaims, matrixLeaseHostAction } from './host-health'
+import { NativeMacSsh, REMOTE_LOGIN_SETTINGS } from './device/native-ssh'
+import { createNativeSshSystem } from './device/native-ssh-system'
 import { MatrixICloudKeychain, matrixKeychainHelper } from './icloud-keychain'
 import { MatrixInviteLinkBroker } from './invite-link-broker'
 import {
@@ -1465,6 +1467,7 @@ function reconcileDeviceControl(force = false): Promise<void> {
       deviceControlOwner = presence.state === 'enrolled' ? undefined : identity
 
       if (presence.state === 'enrolled') {
+        void nativeMacSsh?.start()
         executionDeviceNames.invalidate()
         executionPolicies?.refreshAll()
         scheduleExecutionPolicyReconcile()
@@ -2129,6 +2132,7 @@ let founderChat: ReturnType<typeof createMatrixFounderChat> | undefined
 // ------------------------------------------------------------------------------------------------
 
 let deviceIdentity: MacDeviceIdentity | undefined
+let nativeMacSsh: NativeMacSsh | undefined
 let deviceBootstrap: DeviceServiceBootstrap | undefined
 let deviceNativeUi: ReturnType<typeof createDeviceNativeUi> | undefined
 let deviceWorkspace: DriveWorkspaceCopies | undefined
@@ -17473,6 +17477,7 @@ function endChatSession(): Promise<void> {
     ownerDeviceRepair = undefined
     deviceControlOwner = undefined
     matrixDeviceStopFence?.('sign_out')
+    await nativeMacSsh?.disconnect().catch(() => console.warn('[Device] native SSH revoke pending after session end'))
     deviceIdentity?.signOut('sign_out')
     executionDeviceNames.invalidate()
     scheduleContinuousListening()
@@ -17958,6 +17963,27 @@ async function start() {
   appBotTrustStore = new EncryptedStore(path.join(app.getPath('userData'), 'app-bot-trust.json'), safeStorage)
   // S1 WS-3b: this Mac's device service and the owner side of cloud enrollments.
   deviceIdentity = createDeviceIdentity()
+  if (process.platform === 'darwin') {
+    nativeMacSsh = new NativeMacSsh({
+      enrollment: () => deviceIdentity?.enrollment() ?? null,
+      call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
+      system: createNativeSshSystem()
+    })
+    ipcMain.handle('matrix:native-ssh', async (event, action: unknown) => {
+      requireMatrixCaller(event, ui?.webContents, UI_URL)
+      if (!account.identity() || account.sessionEnded() || account.signOutPending()) throw new Error('signed_out')
+      switch (action) {
+        case 'status': return nativeMacSsh!.status()
+        case 'connect': await nativeMacSsh!.start(true); break
+        case 'enable_remote_login': await nativeMacSsh!.enableRemoteLogin(); break
+        case 'disconnect': await nativeMacSsh!.disconnect(); break
+        case 'full_disk_access_hint': return nativeMacSsh!.fullDiskAccessHint()
+        case 'open_settings': await shell.openExternal(REMOTE_LOGIN_SETTINGS); break
+        default: throw new Error('invalid_native_ssh_action')
+      }
+      return nativeMacSsh!.status()
+    })
+  }
   cloudEnrollments = createCloudEnrollments()
   // Which Mac an agent lives on (atum.agent-home/2.1). Inert for a signed-out account, for an agent the
   // platform has not placed under the model, and against a platform that has no such routes.
@@ -25721,6 +25747,7 @@ async function start() {
             matrixDeviceStopFence?.('sign_out')
             // S1 WS-3b: the device fence comes first and is synchronous: the account epoch moves on
             // and the hub connection closes with a signed Stop (WS-4's stop.ts joins it here).
+            await nativeMacSsh?.disconnect()
             deviceIdentity?.signOut('sign_out')
             await ownPresence.offline()
             executionDeviceNames.invalidate()
