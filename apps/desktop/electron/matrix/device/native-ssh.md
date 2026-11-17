@@ -65,3 +65,34 @@ and scripts/public_guard.py against origin/main and the committed HEAD. Real
 macOS administrator prompts, Keychain access policy, cloudflared first-run startup,
 Cloudflare ingress and native Hermes SSH/file access need coordinator acceptance;
 this lane intentionally performs no production or real-home operations.
+
+## Window (renderer)
+
+`atumMatrix.nativeMac` (ui-preload, `shared/matrix-native-mac.ts`) is the Matrix window's bridge to
+`matrix:native-ssh`; the `hermesDesktop.nativeSsh` entry in `preload.ts` is not loaded in that window.
+Settings › Connections › Your Macs gives this Mac's row native reach's one line and action, after the
+row's own fix: `needs_remote_login` → Allow… (the administrator prompt), then Open Settings if that
+fails; `needs_full_disk_access_hint` → Open Settings; `error` and a repeated `tunnel_down` → Try again;
+connected → the row's quiet Ready. Nothing calls `full_disk_access_hint` yet and the next minute's
+refresh replaces it, so the hint needs a sticky trigger from the SSH permission failure.
+
+Command approvals: native Hermes on Matrix posts its approval as one message (a fenced command, a
+reason line, the untranslated `!approve` / `!deny` hints) and seeds its own ✅ / ❌ reactions. The window
+draws an owner's agent's such message as one card (`src/matrix/native-command-approval.tsx`). Approve
+asks `matrix:native-command-confirm` (the device approval key's Touch ID or Mac password over
+domain-separated bytes, else Electron's Touch ID; nothing is remembered), then reacts ✅ on that event;
+Deny reacts ❌. Hermes still accepts a typed `!approve`; Touch ID is the window's step, not Hermes's.
+
+## Phone (Face ID) spec, for the atum-mobile lane
+
+1. Detect: a message from one of the owner's agents whose body has one ``` fenced block and contains
+   `` `!approve `` and `` `!deny` ``. The command is the fence's content; the reason is the next line after `: `.
+2. Waiting while the sender itself reacted ✅; answered when the owner reacted ✅ (approved) or ❌/❎ (denied).
+3. Card: terminal glyph, "Run this on your Mac?", the command on one line (tap shows all of it and "Why it asks: …").
+4. Buttons: Approve (primary) and Deny (plain). No other text. Copy: `shared/matrix-native-mac-copy.ts` `approval`.
+5. Approve: LocalAuthentication `.deviceOwnerAuthentication`, reason = `sheetReason(command cut to 80)`.
+6. On success send `m.reaction` `m.annotation` key `✅` relating to that exact event id. Cancelled: send nothing.
+7. Deny sends key `❌` on that event, without Face ID. Never type `!approve` (it answers the newest prompt).
+8. Answered: one line ("Approved" / "Denied"); no seeded ✅ and older than 15 s: "No longer waiting".
+9. Hide the message's reaction chips while it is a card, so a tap cannot approve without Face ID.
+10. The cloud computer never prompts; every card here is about the owner's Mac.

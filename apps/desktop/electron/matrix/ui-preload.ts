@@ -34,6 +34,7 @@ import { MATRIX_LINK_PREVIEW_IPC } from '../../shared/matrix-link-preview'
 import { MATRIX_MAC_SOURCES_IPC } from '../../shared/matrix-mac-sources'
 import { MATRIX_MESSAGE_LINK_IPC, type MatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
+import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
 import { MATRIX_PAGES_IPC, type MatrixPagesState } from '../../shared/matrix-pages'
 import { MATRIX_PERMISSIONS_IPC } from '../../shared/matrix-permissions'
 import type {
@@ -223,6 +224,10 @@ const bridge: MatrixUiBridge = {
         clearInterval(timer)
       }
     }
+  },
+  nativeMac: {
+    ssh: action => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.ssh, action),
+    confirmCommand: command => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.confirmCommand, command)
   },
   macSources: {
     read: () => ipcRenderer.invoke(MATRIX_MAC_SOURCES_IPC.read),

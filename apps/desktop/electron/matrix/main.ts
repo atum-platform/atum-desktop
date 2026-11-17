@@ -202,6 +202,7 @@ import {
   parseMatrixModelRouteId
 } from '../../shared/matrix-models'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
+import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
 import type { MatrixNoticeEdit } from '../../shared/matrix-notice-edit'
 import { MATRIX_PAGE_IDS, matrixPagesHubAllowed } from '../../shared/matrix-pages'
 import {
@@ -611,6 +612,9 @@ import {
 import { DesktopHomeMigration, type MigrationLocalAgent } from './device/migration-client'
 import { confirmMigrationReport } from './device/migration-confirmation'
 import { MigrationWriterHolds } from './device/migration-hold'
+import { confirmNativeCommand } from './device/native-command-confirm'
+import { NativeMacSsh, REMOTE_LOGIN_SETTINGS } from './device/native-ssh'
+import { createNativeSshSystem } from './device/native-ssh-system'
 import { createDeviceNativeUi } from './device/native-ui'
 import { appBundleOf } from './device/protected-paths'
 import { createDeviceRuntime, type DeviceRuntime } from './device/runtime'
@@ -714,8 +718,6 @@ import {
   prepareMatrixHermesModel
 } from './hermes-setup'
 import { matrixHostEndsTurns, matrixHostLiveness, matrixHostsTakeNewClaims, matrixLeaseHostAction } from './host-health'
-import { NativeMacSsh, REMOTE_LOGIN_SETTINGS } from './device/native-ssh'
-import { createNativeSshSystem } from './device/native-ssh-system'
 import { MatrixICloudKeychain, matrixKeychainHelper } from './icloud-keychain'
 import { MatrixInviteLinkBroker } from './invite-link-broker'
 import {
@@ -17969,9 +17971,11 @@ async function start() {
       call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
       system: createNativeSshSystem()
     })
-    ipcMain.handle('matrix:native-ssh', async (event, action: unknown) => {
+    ipcMain.handle(MATRIX_NATIVE_MAC_IPC.ssh, async (event, action: unknown) => {
       requireMatrixCaller(event, ui?.webContents, UI_URL)
-      if (!account.identity() || account.sessionEnded() || account.signOutPending()) throw new Error('signed_out')
+      if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
+        throw new Error('signed_out')
+      }
       switch (action) {
         case 'status': return nativeMacSsh!.status()
         case 'connect': await nativeMacSsh!.start(true); break
@@ -17982,6 +17986,22 @@ async function start() {
         default: throw new Error('invalid_native_ssh_action')
       }
       return nativeMacSsh!.status()
+    })
+    // A command approval in a chat (Hermes's own answer is the window's reaction): one fresh Touch ID first.
+    ipcMain.handle(MATRIX_NATIVE_MAC_IPC.confirmCommand, (event, command: unknown) => {
+      requireMatrixCaller(event, ui?.webContents, UI_URL)
+      if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
+        throw new Error('signed_out')
+      }
+      return confirmNativeCommand(command, {
+        signer: () => deviceIdentity?.browserImportDevice()?.signer ?? null,
+        touchId: {
+          can: () => systemPreferences.canPromptTouchID(),
+          prompt: reason => systemPreferences.promptTouchID(reason)
+        },
+        locale: deviceLocale,
+        setPaused: paused => deviceBootstrap?.setPaused(paused)
+      })
     })
   }
   cloudEnrollments = createCloudEnrollments()

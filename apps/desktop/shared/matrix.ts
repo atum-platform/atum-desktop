@@ -89,6 +89,7 @@ import type {
   MatrixModelRouteTarget
 } from './matrix-models'
 import type { MatrixNativeAppsBridge } from './matrix-native-apps'
+import type { MatrixNativeMacBridge } from './matrix-native-mac'
 import type { MatrixNotesSelfSnapshot } from './matrix-notes-self'
 import type { MatrixNotificationPolicy, MatrixNotificationPolicyChange } from './matrix-notification-policy'
 import type { MatrixOwnerLocationBridge } from './matrix-owner-location'
@@ -2134,6 +2135,8 @@ export interface MatrixUiBridge {
   nativeApps?: MatrixNativeAppsBridge
   /** Passive permissions of this running app on this device; no agent authority. */
   permissions?: MatrixPermissionsBridge
+  /** Native Hermes reaching this Mac (Remote Login + tunnel) and the Touch ID before a command approval. */
+  nativeMac?: MatrixNativeMacBridge
   /** Per-account live source switches; every read remains main/tool-handler enforced. */
   macSources?: MatrixMacSourcesBridge
   /** Current-assistant descriptor projection; main owns both account and assistant selection. */
