@@ -63,7 +63,9 @@ installed-app acceptance work. Tests use temporary homes and mocked process call
 
 ### ChatGPT relay forced command
 
-Relay keys are separate from shell keys. An `ssh_authorized_keys` row with
+The desktop requests `{"operation":"ssh_authorized_keys","purposes":true}`.
+The plain operation returns only shell rows in the legacy three-field shape.
+Unknown purposes are refused before installation. An `ssh_authorized_keys` row with
 `purpose: "relay"` binds its existing `agentId` to the current signed-in owner
 principal and this Mac's enrollment epoch. Missing purpose and `"shell"` retain
 the terminal restrictions. Full reconciliation replaces both purposes; a removed

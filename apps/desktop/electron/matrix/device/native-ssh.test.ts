@@ -397,3 +397,26 @@ it('rejects a public key shared between shell and relay purposes', async () => {
   expect(f.service.relayBindings()).toEqual([])
   expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
 })
+
+
+it('opts into purpose rows while accepting legacy three-field shell rows', async () => {
+  const f = fixture()
+  await f.service.refresh()
+  const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
+  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', purposes: true })
+  expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
+  expect(f.service.relayBindings()).toEqual([])
+})
+
+it('refuses unknown purposes before installing authorized keys', async () => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
+    ? Response.json([{ ...authorized[0], purpose: 'unknown' }])
+    : original(url, init))
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.system.keys).toHaveBeenCalledWith([])
+  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  expect(f.service.relayBindings()).toEqual([])
+})

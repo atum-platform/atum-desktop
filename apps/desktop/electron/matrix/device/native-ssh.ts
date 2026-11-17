@@ -21,7 +21,7 @@ export type NativeSshRequest =
       hostKey: string
     }
   | { operation: 'ssh_revoke'; deviceServiceId: string }
-  | { operation: 'ssh_authorized_keys' }
+  | { operation: 'ssh_authorized_keys'; purposes: true }
 export interface NativeSshSystem {
   ready(): Promise<{ remoteLogin: boolean; user: string; hostKey: string }>
   enableRemoteLogin(): Promise<void>
@@ -258,7 +258,7 @@ export class NativeMacSsh {
           await this.deps.system.saveToken(this.id, prepared.tunnelToken)
         }
 
-        const rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
+        const rows = await this.deps.call({ operation: 'ssh_authorized_keys', purposes: true })
 
         if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey) && (row.purpose === undefined || row.purpose === 'shell' || row.purpose === 'relay'))) {
           throw new Error('invalid_keys')
