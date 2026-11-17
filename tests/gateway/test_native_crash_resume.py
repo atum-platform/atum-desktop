@@ -1,5 +1,6 @@
 """Native recovery accepts fresh owner work and ignores retired Ask state."""
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 from types import SimpleNamespace
 
 import pytest
@@ -75,3 +76,59 @@ def test_native_startup_skips_auto_resume_after_restart_chain(tmp_path, monkeypa
     assert runner._resume_pending_candidates() is None
     assert entry.resume_pending
     runner.session_store._db.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('age_seconds, expected_turns', [(7200, 0), (60, 1)])
+async def test_unclean_boot_only_resumes_fresh_active_turns(
+    tmp_path, monkeypatch, age_seconds, expected_turns,
+):
+    from gateway.session import SessionStore
+    from tests.gateway.restart_test_helpers import RestartTestAdapter
+    from tests.waiting import async_wait_until
+
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path))
+    monkeypatch.setenv('HERMES_AGENT_TIMEOUT', '1800')
+    runner = GatewayRunner(GatewayConfig(sessions_dir=tmp_path / 'sessions'))
+    adapter = RestartTestAdapter()
+    runner.adapters = {Platform.TELEGRAM: adapter}
+    adapter.set_message_handler(runner._handle_message)
+    monkeypatch.setattr(runner, '_is_user_authorized_for_source', lambda source: True)
+    model_turn = AsyncMock(return_value='Resumed answer')
+    monkeypatch.setattr(runner, '_handle_message_with_agent', model_turn)
+    adapter._keep_typing = AsyncMock()
+    adapter._stop_typing_refresh = AsyncMock()
+    source = SessionSource(Platform.TELEGRAM, '123', user_id='owner')
+    entry = runner.session_store.get_or_create_session(source)
+    runner.session_store.mark_turn_active(entry.session_key)
+    with runner.session_store._lock:
+        runner.session_store._set_turn_marker_locked(
+            entry.session_key, entry, entry.active_turn_token,
+            datetime.now(UTC) - timedelta(seconds=age_seconds),
+        )
+    # Re-open the persisted routing state as a new process would on unclean boot.
+    runner.session_store._db.close()
+    runner.session_store = SessionStore(
+        sessions_dir=tmp_path / 'sessions', config=runner.config,
+    )
+    try:
+        assert await runner._recover_unclean_sessions() == (expected_turns, 0)
+        entry = runner.session_store._entries[entry.session_key]
+        assert entry.active_turn_token is None
+        assert entry.active_turn_started_at is None
+        assert entry.resume_pending == bool(expected_turns)
+        assert entry.resume_reason == ('restart_interrupted' if expected_turns else None)
+        assert runner._schedule_resume_pending_sessions() == expected_turns
+        if expected_turns:
+            await async_wait_until(
+                lambda: model_turn.await_count == 1 and not runner._running_agents
+                and 'Resumed answer' in adapter.sent,
+                timeout=5, interval=0.01, what='the fresh interrupted turn to finish',
+            )
+        assert model_turn.await_count == expected_turns
+        if expected_turns:
+            assert 'Resumed answer' in adapter.sent
+        else:
+            assert adapter.sent == []  # no answer or restored notice
+    finally:
+        runner.session_store._db.close()
