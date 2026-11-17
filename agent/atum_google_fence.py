@@ -343,7 +343,14 @@ def egress_refusal(tool_name: Any, args: Any = None, task_id: Any = None) -> Opt
     """
     from agent.atum_google_injection import refusal as injection_refusal
 
-    if message := injection_refusal(tool_name, args, task_id):
+    # Resolve only registration-owned metadata, including profile/session overlays.
+    from tools.registry import registry
+
+    entry = registry.get_entry(str(tool_name or ""))
+    source = entry.atum_source if entry and entry.toolset.startswith("mcp-") else None
+    # Owner chats have the same policy as the native tool, including on a tainted turn.
+    policy_name = "atum_chats" if source == "owner_chats" else tool_name
+    if message := injection_refusal(policy_name, args, task_id):
         return message
     if not holding_google():
         return None
@@ -352,7 +359,11 @@ def egress_refusal(tool_name: Any, args: Any = None, task_id: Any = None) -> Opt
         return None if speech_allowed() else EGRESS_MESSAGE
     if name == "atum_agents" and _self_profile_access(args):
         return None
-    if name in EGRESS_TOOLS or name.startswith(EGRESS_PREFIXES) or _mcp_tool(name):
+    if (
+        name in EGRESS_TOOLS
+        or name.startswith(EGRESS_PREFIXES)
+        or (_mcp_tool(name) and source not in ("google", "owner_chats"))
+    ):
         return EGRESS_MESSAGE
     return None
 
