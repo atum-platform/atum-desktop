@@ -276,9 +276,13 @@ def guard_auxiliary_resolution(resolve):
 
     @wraps(resolve)
     def guarded(*args, **kwargs):
+        from agent.atum_google_fence import fence_resolved_client
         result = resolve(*args, **kwargs)
         # Ordinary resolution returns (client, model); vision adds provider.
         client, _model = result[-2:]
+        admitted = fence_resolved_client((client, _model))
+        if admitted[0] is None and client is not None:
+            return (*result[:-2], None, None)
         if os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") != "1" or client is None:
             return result
         completions = client.chat.completions
