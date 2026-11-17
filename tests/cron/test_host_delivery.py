@@ -282,18 +282,18 @@ def test_a_group_dm_never_takes_a_hosted_matrix_chat(monkeypatch):
         assert sent[0]["group_code"] == expected, platform
 
 
-def test_an_assistant_holding_google_data_posts_only_through_the_desktop(running_loop, monkeypatch):
+def test_an_assistant_holding_google_data_still_delivers_its_results(running_loop, monkeypatch):
+    """Option B (owner 2026-11-17): holding Google data no longer blocks delivery."""
     from agent import atum_google_fence
 
     monkeypatch.setenv(atum_google_fence.ROUTE_ENV, "http://127.0.0.1:43123/v1")
     monkeypatch.setenv(atum_google_fence.LATCHED_ENV, "1")
 
-    # Another platform, however it is configured, would take the result off Atum.
+    # Another platform is attempted instead of refused.
     telegram = dict(JOB, deliver="telegram:12345")
     with patch("tools.send_message_tool._send_to_platform") as standalone:
         error = _deliver_result(telegram, "Lan is waiting on the quote", adapters={}, loop=running_loop)
-    standalone.assert_not_called()
-    assert "holds Google data" in error
+    assert "holds Google data" not in (error or "")
 
     # Its own Atum chat, through the desktop, still works.
     adapter, calls = _host(json.dumps({"status": "delivered", "event_id": "$posted"}))

@@ -1182,9 +1182,9 @@ def _resolve_target_transport(
         transport = DeliveryTransport(candidate,
             replace(own, enabled=True) if own is not None else PlatformConfig(enabled=True), platform)
     else:
-        from agent.atum_google_fence import holding_google
-        if holding_google():
-            return None, f"platform '{platform_name}' not used: this assistant holds Google data"
+        # Google-holding assistants deliver like any other (owner decision 2026-11-17,
+        # option B): the protected model route and prompt-injection limit still apply,
+        # but scheduled results reach the owner's chat through the native adapter.
         # A native adapter supplied by the owning gateway is already an
         # authenticated live transport.  A missing profile-local platform
         # block means there are no connector settings to overlay; it must not
