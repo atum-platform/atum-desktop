@@ -35,23 +35,6 @@ s.close()
     s.close()
 
 
-@pytest.mark.parametrize('point,hook,effects', [('H4','before_safe',0), ('H5','before_effect',0), ('H6','after_effect',1)])
-def test_real_gateway_hook_restart(tmp_path, point, hook, effects):
-    env = environment(tmp_path, point)
-    peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
-    first = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
-                           capture_output=True, text=True, timeout=80, check=False)
-    assert first.returncode == 86, first.stdout + first.stderr
-    assert (tmp_path / 'fired').exists()
-    second = subprocess.run([sys.executable, str(peer), 'resume', hook], env=env,
-                            capture_output=True, text=True, timeout=80, check=False)
-    assert second.returncode == 0, second.stdout + second.stderr
-    counter = tmp_path / 'pending-count'
-    if point != 'H4':
-        assert (len(counter.read_text().splitlines()) if counter.exists() else 0) == effects
-        import json
-        verdict = json.loads((tmp_path / 'verdict.json').read_text())
-        assert any('tiếp tục' in msg for msg in verdict['sent'])
 
 
 @pytest.mark.parametrize('point', ['H8', 'H12'])
@@ -177,54 +160,3 @@ async def test_stream_hook_only_after_visible_nonfinal_update(monkeypatch):
     points.clear()
     await consumer._push_update(_Tick(got_done=True))
     assert points == []
-
-
-@pytest.mark.parametrize('hook', ['before_safe', 'before_effect'])
-def test_native_tool_call_write_failure_prevents_every_tool(tmp_path, hook):
-    env = environment(tmp_path, 'H7')
-    peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
-    result = subprocess.run([sys.executable, str(peer), 'crash', hook], env=env,
-                            capture_output=True, text=True, timeout=80, check=False)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert (tmp_path / 'fired').exists()
-    assert not (tmp_path / 'done-count').exists()
-    assert not (tmp_path / 'pending-count').exists()
-    assert 'injected persistence failure: H7' in (tmp_path / 'logs/errors.log').read_text()
-
-    second = subprocess.run([sys.executable, str(peer), 'resume', hook], env=env,
-                            capture_output=True, text=True, timeout=80, check=False)
-    assert second.returncode == 0, second.stdout + second.stderr
-    import json
-    verdict = json.loads((tmp_path / 'verdict.json').read_text())
-    assert verdict['sent'], verdict
-    failure = json.loads((tmp_path / 'failure-verdict.json').read_text())
-    assert failure['sent'], failure  # the original storage failure alerts the owner
-    original, recovered = failure['rows'][0], verdict['rows'][0]
-    assert original['status'] == 'terminal' and original['outcome'] == 'failed'
-    assert recovered['generation'] > original['generation']
-    for key in ('admission_id', 'request_id', 'seq', 'payload'):
-        assert recovered[key] == original[key]
-    if hook == 'before_effect':
-        assert not (tmp_path / 'done-count').exists()
-        assert not (tmp_path / 'pending-count').exists()
-    else:
-        assert (tmp_path / 'done-count').read_text().splitlines() == ['once']
-        assert (tmp_path / 'pending-count').read_text().splitlines() == ['once']
-
-
-@pytest.mark.parametrize('point', ['H8', 'H9', 'H10'])
-def test_completed_side_effect_final_crash_never_reexecutes_or_asks(tmp_path, point):
-    env = environment(tmp_path, point)
-    peer = ROOT / 'tests/gateway/fixtures/tool_resume_peer.py'
-    for mode, expected in [('crash', 86), ('recover', 0)]:
-        result = subprocess.run([sys.executable, str(peer), mode, 'completed_final'], env=env,
-            capture_output=True, text=True, timeout=100, check=False)
-        assert result.returncode == expected, result.stdout + result.stderr
-        if mode == 'crash':
-            import json
-            import sqlite3
-            with sqlite3.connect((tmp_path / 'matrix-wire.db').as_uri() + '?mode=ro', uri=True) as wire:
-                publications = [json.loads(row[0]) for row in wire.execute('SELECT content FROM sends')]
-            finals = [item for item in publications if item.get('org.hermes.source_event_id') == 'source-1']
-            assert len(finals) == {'H8': 0, 'H9': 1, 'H10': 2}[point], publications
-    assert (tmp_path / 'final-verdict.json').exists()

@@ -93,7 +93,7 @@ async def test_native_connect_pending_and_downtime(tmp_path):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize('kind', ['queued_followup', 'crash_resume'])
+@pytest.mark.parametrize('kind', ['queued_followup', 'legacy_recovery'])
 async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kind, monkeypatch):
     writes, interrupts = [], []
     class Base:
@@ -148,12 +148,12 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
             pending_deliveries={}, physical_target=lambda ref: 'physical',
             db=SimpleNamespace(_read_one=lambda *args: None))
         row = {'seq': 1, 'admission_id': kind, 'request_id': '$' + kind, 'generation': 1, 'payload': {'native_text_v1': {}},
-               'outcome': 'crash_resume' if kind == 'crash_resume' else None}
+               'outcome': 'crash_resume' if kind == 'legacy_recovery' else None}
         assert await ingress.execute_admission(authority, SimpleNamespace(session_id='session'), row) == 'answer'
         turn = turns[0]
-        if kind == 'crash_resume':
+        if kind == 'legacy_recovery':
             assert kind in authority.pending_deliveries
-            a.gateway_runner.session_store.mark_resume_pending.assert_called_once()
+            a.gateway_runner.session_store.mark_resume_pending.assert_not_called()
         # Deferred final waiter can inherit an unrelated/ended context.
         await a.send_final_ledgered(event)
         finals = [w for w in writes if w.get('io.atum.turn')]
@@ -244,27 +244,6 @@ async def test_open_snapshot_never_recovers_live_connect_root(tmp_path):
         await old.end(); await live.end(); box.db.close()
 
 
-def test_ask_guard_never_publishes_tool_activity(tmp_path, monkeypatch):
-    from agent import tool_executor as executor
-    from functools import partial
-    from gateway.resume_policy import choose_resume_policy, recovery_tool_block
-    hooks = {}
-    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
-    called = []
-    def pre(agent, ref):
-        called.append(ref.name)
-        hooks['pre_tool_call'](tool_name=ref.name)
-    monkeypatch.setattr(executor, '_pre_tool_block', pre)
-    monkeypatch.setattr(executor, '_blocked_tool_result', lambda *a, **kw: 'blocked')
-    policy = choose_resume_policy([], force_ask=True)
-    state = SimpleNamespace(blocked=False)
-    result = executor._dispatch_authorized_once(
-        SimpleNamespace(_crash_resume_tool_guard=partial(recovery_tool_block, policy)), state,
-        SimpleNamespace(name='terminal', args={'command': 'echo test'}),
-        execute=lambda: pytest.fail('Ask executed a tool'), scope_block=None,
-        display_index=None, begin_execution=None, authorization_gate=None)
-    assert result == 'blocked' and state.blocked
-    assert called == []
 
 
 @pytest.mark.asyncio

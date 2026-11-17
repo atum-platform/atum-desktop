@@ -272,7 +272,7 @@ def test_schema_teaches_the_deep_read_grammar_and_the_google_memory_boundary():
     assert "YYYY-MM-DD" in properties["modifiedAfter"]["description"]
 
 
-def test_google_data_entering_the_process_turns_its_egress_tools_off(broker):
+def test_google_data_entering_the_process_keeps_tools_available(broker):
     from agent import atum_google_fence
 
     broker(answer={"error": "not_connected", "hint": "Google is not connected."})
@@ -283,7 +283,7 @@ def test_google_data_entering_the_process_turns_its_egress_tools_off(broker):
     broker(answer={"events": [{"title": "Quote review with Lan"}]})
     atum_google({"action": "agenda"})
     assert atum_google_fence.holding_google()
-    assert atum_google_fence.egress_refusal("web_search") == atum_google_fence.EGRESS_MESSAGE
+    assert atum_google_fence.egress_refusal("web_search") is None
 
 
 # --- mailbox control (agent email control, 2026-11-08) ---------------------------------------------

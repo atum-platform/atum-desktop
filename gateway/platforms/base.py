@@ -1895,7 +1895,6 @@ class BasePlatformAdapter(ABC):
     # ``getattr(adapter, "interactive_resume", True)`` — no per-platform branching at the call site.
     interactive_resume: bool = True
     # Opt into per-turn crash classification using the canonical tool/result rows.
-    tool_aware_resume: bool = False
     # Port-binding adapter that answers ``/p/<profile>/...`` for every served profile on the default
     # listener under ``gateway.multiplex_profiles``. Declared per adapter (not in a central list) so
     # ``hermes gateway migrate`` can tell "URL changes" from "this profile would be skipped" as new

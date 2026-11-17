@@ -302,14 +302,6 @@ async def speak_text(payload: TTSSpeakRequest, profile: Optional[str] = None):
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
 
-    # Atum's Google fence is an edge policy, not part of upstream's TTS
-    # machinery. Re-apply it at the extracted audio router seam and resolve
-    # the selected profile's TTS provider inside that profile's config scope.
-    from agent.atum_google_fence import SPEECH_MESSAGE, speech_allowed
-
-    if not await _run_config_scoped(profile, speech_allowed):
-        raise HTTPException(status_code=403, detail=SPEECH_MESSAGE)
-
     # _config_profile_scope raises 400/404 for a bad profile — pass it
     # through instead of masking it as a 500 synthesis failure.
     with http_failure("Desktop voice TTS failed", 500, "Speech synthesis failed"):
@@ -631,22 +623,6 @@ async def speak_stream_ws(ws: WebSocket) -> None:
     # chain + API keys must resolve from the requesting profile's config, not
     # the dashboard's own — at resolve time AND in the synthesis thread.
     profile = (ws.query_params.get("profile") or "").strip() or None
-
-    from agent.atum_google_fence import speech_allowed
-
-    try:
-        speech_is_allowed = await _run_config_scoped(profile, speech_allowed)
-    except Exception:
-        # Profile/config resolution must fail closed at this egress boundary.
-        _log.exception("speak-stream Google fence resolution failed")
-        speech_is_allowed = False
-    if not speech_is_allowed:
-        # The POST endpoint carries the human-readable refusal. The desktop
-        # already treats this frame as "do not stream" and never sends text.
-        with contextlib.suppress(Exception):
-            await ws.send_json({"type": "fallback"})
-            await ws.close()
-        return
 
     loop = asyncio.get_running_loop()
 
