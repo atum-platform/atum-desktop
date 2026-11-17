@@ -1,7 +1,8 @@
+import { DEVICE_CONNECTION } from './connection'
 import type { DeviceFrameVerdict, DeviceSessionFacts } from './service'
 
-export const CHATGPT_RELAY_REQUEST_MAX_BYTES = 800_000
-export const CHATGPT_RELAY_RESPONSE_MAX_BYTES = 800_000
+export const CHATGPT_RELAY_REQUEST_MAX_BYTES = DEVICE_CONNECTION.maxFrameBytes
+export const CHATGPT_RELAY_RESPONSE_MAX_BYTES = DEVICE_CONNECTION.maxFrameBytes
 export const CHATGPT_RELAY_CAPABILITY_MAX_MS = 60_000
 export const CHATGPT_RELAY_CLOCK_SKEW_MS = 30_000
 

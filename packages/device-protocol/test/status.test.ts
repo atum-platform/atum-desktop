@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { deviceServiceViolations, DEVICE_HUB_MAX_PAYLOAD_BYTES, type Receipt } from "../messages";
 import { fitReceipt, frameBodyBytes, FRAME_BODY_MAX_BYTES, statusReceipts, withoutOutput } from "../status";
 
-// A reconnect's Status must fit the hub's 1 MiB frame and must never leave a command out (an
+// A reconnect's Status must fit the hub's frame bound and must never leave a command out (an
 // omitted command counts as never received, and would be retried).
 
 const hash = () => randomBytes(32).toString("base64url");
@@ -32,7 +32,8 @@ describe("statusReceipts", () => {
   });
 
   it("trims the largest results until the frame fits, never dropping a command, and sends each whole afterwards", () => {
-    const receipts = [small(), big(), big(), small("started"), big(), big()];
+    const largeCount = Math.ceil(DEVICE_HUB_MAX_PAYLOAD_BYTES / frameBodyBytes(big())) + 1;
+    const receipts = [small(), big(), big(), small("started"), ...Array.from({ length: largeCount }, () => big())];
     expect(frameBodyBytes({ receipts })).toBeGreaterThan(DEVICE_HUB_MAX_PAYLOAD_BYTES);
     const ledger = new Map(receipts.map((receipt) => [receipt.commandId, receipt]));
     const plan = statusReceipts(receipts.map((receipt) => receipt.commandId), ledger);
@@ -51,7 +52,7 @@ describe("statusReceipts", () => {
     expect(plan.status.receipts[0]).toEqual(receipts[0]);
     expect(plan.status.receipts[3]).toEqual(receipts[3]);
     expect(plan.followUps.length).toBeGreaterThan(0);
-    expect(plan.followUps.length).toBeLessThan(4);
+    expect(plan.followUps.length).toBeLessThan(largeCount + 2);
     for (const followUp of plan.followUps) {
       expect(receipts).toContain(followUp);
       expect(frameBodyBytes(followUp)).toBeLessThanOrEqual(FRAME_BODY_MAX_BYTES);

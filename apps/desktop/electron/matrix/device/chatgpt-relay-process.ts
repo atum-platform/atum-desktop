@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { CHATGPT_RELAY_RESPONSE_MAX_BYTES } from './chatgpt-relay'
 
 import { ownedBackgroundChildren } from '../../owned-background-children'
 
@@ -9,7 +10,7 @@ import type {
   ChatGptRelayStage
 } from './chatgpt-relay'
 
-const OUTPUT_MAX = 800_000
+const OUTPUT_MAX = CHATGPT_RELAY_RESPONSE_MAX_BYTES
 const STAGES = new Set<ChatGptRelayStage>(['provider_call', 'response_encode'])
 const CODES = new Set<ChatGptRelayProcessCode>([
   'provider_call_failed', 'response_not_serializable', 'response_too_large'

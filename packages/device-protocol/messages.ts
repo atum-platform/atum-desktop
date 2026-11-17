@@ -54,7 +54,16 @@ export const DEVICE_SERVICE_TIMINGS = {
   dedupeDays: 7, grantMaxMs: 1_800_000, preauthMs: 10_000,
 } as const;
 export const DEVICE_HUB_URL = "wss://devices.atumplatform.com/v1" as const;
-export const DEVICE_HUB_MAX_PAYLOAD_BYTES = 1_048_576;
+// ws buffers complete frames: bound per-connection memory while allowing full 200k-token JSON requests.
+export const DEVICE_HUB_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
+// Keep the historical platform fixture immutable. The live bridge no longer uses
+// its old 800 KB cap; validate relay bytes against the actual hub transport bound.
+const relayWirePack = structuredClone(CHATGPT_RELAY_PACK);
+for (const field of ['maxResponseBytes', 'requestBytes', 'requestJson']) {
+  relayWirePack.types.relay_request.required![field].max = DEVICE_HUB_MAX_PAYLOAD_BYTES;
+}
+relayWirePack.types.relay_response.optional!.responseJson.max = DEVICE_HUB_MAX_PAYLOAD_BYTES;
+
 
 /** The signed envelope every frame travels in. `kid` is the signer; `sig` is over the signed bytes. */
 export interface Envelope<T extends DeviceMessageType = DeviceMessageType, B = unknown> {
@@ -245,7 +254,7 @@ export function frameViolations(value: unknown): Violation[] {
     const { sourceProtocol: _protocol, sources: _sources, ...core } = value.body;
     validationValue = { ...value, body: core };
   }
-  const violations = messageViolations(source ? DEVICE_SERVICE_1_2_PACK : relay ? CHATGPT_RELAY_PACK : extension ? DEVICE_WORKSPACE_PACK : DEVICE_SERVICE_PACK,
+  const violations = messageViolations(source ? DEVICE_SERVICE_1_2_PACK : relay ? relayWirePack : extension ? DEVICE_WORKSPACE_PACK : DEVICE_SERVICE_PACK,
     `frame.${value.type}`, validationValue);
   if (value.type === "Execute" && source && isObject(value.body)) {
     check({ ref: "mac_source_args" }, value.body.args, "$.body.args", DEVICE_SERVICE_1_2_PACK.types, violations);
@@ -272,7 +281,7 @@ export function parseEnvelope(value: unknown, direction?: Exclude<FrameDirection
   return value as unknown as Envelope;
 }
 
-/** Strict-JSON parse and validate one text frame (at most the hub's 1 MiB payload). */
+/** Strict-JSON parse and validate one text frame (at most the hub's payload bound). */
 export function parseFrame(text: string, direction?: Exclude<FrameDirection, "device_local">): Envelope {
   if (typeof text !== "string" || Buffer.byteLength(text, "utf8") > DEVICE_HUB_MAX_PAYLOAD_BYTES) {
     throw new DeviceProtocolError("device_frame_too_large");
