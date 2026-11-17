@@ -355,8 +355,26 @@ def _resolve_name_collisions(name: str, candidates: list[_Candidate]) -> list[_C
     return [c for c in unique if c.registry_name not in ambiguous and (c.registry_name, c.origin) not in shadowed]
 
 
+def _google_source_handler(handler: Callable, action: str) -> Callable:
+    """Apply the native Google result policy in the caller's execution/turn context."""
+    def screened(args, **kwargs):
+        from agent.atum_google_fence import mark_holding
+        from agent.atum_google_injection import WARNING, screen_result
+
+        result = handler(args, **kwargs)
+        payload = json.loads(result) if isinstance(result, str) else result
+        if isinstance(payload, dict) and "error" not in payload:
+            mark_holding()
+            if screen_result(payload, action, kwargs.get("task_id")) and payload.get("_multimodal") is True:
+                payload["content"].append({"type": "text", "text": WARNING})
+                payload["text_summary"] = payload.get("text_summary", "") + "\n" + WARNING
+        return json.dumps(payload, ensure_ascii=False) if isinstance(result, str) else result
+    return screened
+
+
 def _register_candidates(name: str, candidates: list[_Candidate], *, check_fn: Callable,
-                         scope: Callable[[], Optional[str]], lazy: bool, key=None, execution_timeout=None) -> list[str]:
+                         scope: Callable[[], Optional[str]], lazy: bool, key=None, execution_timeout=None,
+                         atum_source=None) -> list[str]:
     """Register candidates under toolset ``mcp-{name}``; returns the names that landed. The
     ownership pre-check is advisory (servers connect in parallel): ``registry.register()`` is
     the atomic gate and its verdict is re-read after every call. *key* is the connection whose
@@ -382,9 +400,11 @@ def _register_candidates(name: str, candidates: list[_Candidate], *, check_fn: C
                                "preserve built-in", name, c.origin, c.registry_name, existing_toolset)
             continue
         registry.register(
-            name=c.registry_name, toolset=toolset_name, schema=c.schema, handler=c.handler, check_fn=check_fn,
+            name=c.registry_name, toolset=toolset_name, schema=c.schema,
+            handler=_google_source_handler(c.handler, c.registry_name) if atum_source == "google" else c.handler,
+            check_fn=check_fn,
             is_async=False, description=c.schema.get("description") or "", scope=scope_value,
-            execution_timeout=execution_timeout)
+            execution_timeout=execution_timeout, atum_source=atum_source)
         if registry.get_toolset_for_tool(c.registry_name) == toolset_name:
             _track_mcp_tool_server(c.registry_name, name)
             if scope_value is not None:
@@ -452,7 +472,7 @@ def _register_server_tools(name: str, server: "MCPServerTask", config: dict) -> 
     registered = _register_candidates(
         name, _resolve_name_collisions(name, candidates),
         check_fn=_make_check_fn(name), scope=lambda: _core._server_registry_scope(key), lazy=False, key=key,
-        execution_timeout=config.get("timeout"))
+        execution_timeout=config.get("timeout"), atum_source=config.get("atum_source"))
     if registered and not (_core._server_registry_scope(key) or '').startswith('editor-session:'):
         _write_schema_cache(name, server, config, should_register)
     return registered
@@ -472,7 +492,7 @@ def _connection_identity(config: dict) -> tuple:
 
     return (config_fingerprint(config), _frozen(config.get("env")), _frozen(config.get("headers")),
             _auth_type(config), _frozen(config.get("client_cert")), _frozen(config.get("client_key")),
-            config.get("ssl_verify", True), bool(config.get("strict_redirect_headers")))
+            config.get("ssl_verify", True), bool(config.get("strict_redirect_headers")), config.get("atum_source"))
 
 
 def _auth_type(config: dict) -> str:
@@ -618,7 +638,7 @@ def _register_connected_into_current_scope(servers: dict) -> int:
         names = _register_candidates(
             name, _resolve_name_collisions(name, candidates),
             check_fn=_make_check_fn(name), scope=lambda: scope, lazy=False, key=key,
-            execution_timeout=config.get("timeout"))
+            execution_timeout=config.get("timeout"), atum_source=config.get("atum_source"))
         if names:
             registered_servers += 1
             with _core._lock:
@@ -643,7 +663,7 @@ def _register_from_cache_sync(name: str, config: dict, entry: dict) -> list[str]
     candidates += _utility_candidates(name, utility_tools_from_cache_entry(entry), tool_timeout)
     registered = _register_candidates(
         name, candidates, check_fn=_make_check_fn(name), scope=_core._mcp_registry_scope, lazy=True,
-        execution_timeout=config.get("timeout"))
+        execution_timeout=config.get("timeout"), atum_source=config.get("atum_source"))
     if registered:
         with _core._lock:
             key = _server_key(name)

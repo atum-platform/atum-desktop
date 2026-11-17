@@ -682,7 +682,7 @@ def _portable_mcp_servers(safe_servers: dict[str, dict], rejected: frozenset[str
                 else:
                     logger.warning("Portable MCP server '%s' conflicts with native config; skipping", name)
             else:
-                safe_servers[name] = dict(cfg)
+                safe_servers[name] = {k: v for k, v in cfg.items() if k != "atum_source"}
     except Exception:
         logger.debug("Failed to load portable MCP servers", exc_info=True)
 
@@ -709,6 +709,9 @@ def _load_mcp_config() -> dict[str, dict]:
         for name, cfg in kept.items():
             interpolated = _interpolate_env_vars(cfg)
             if isinstance(interpolated, dict):
+                # Only exact operator-config values grant a first-party exemption.
+                if interpolated.get("atum_source") not in ("google", "owner_chats"):
+                    interpolated.pop("atum_source", None)
                 _warn_hidden_whitespace(name, interpolated)
                 safe_servers[name] = interpolated
         # A same-name package must not revive a server whose native budget was rejected (a mistyped
