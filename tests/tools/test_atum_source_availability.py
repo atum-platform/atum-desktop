@@ -32,3 +32,27 @@ def test_host_tool_catalog_stays_fixed_without_an_active_binding(monkeypatch, bo
     assert google.available() and chats.available()
     assert 'available' in json.loads(google.atum_google({'action': 'agenda'}))['error']
     assert json.loads(chats.atum_chats('list'))['error'] == 'Owner chats are unavailable for this run.'
+
+
+def test_actionable_request_detail_is_preserved():
+    import json
+    from tools.atum_source_transport import source_transport_error
+    detail = 'read_thread: threadId is required.'
+    result = json.loads(source_transport_error({'error': 'invalid_request', 'detail': detail}))
+    assert result['error'] == detail
+    assert result['code'] == 'invalid_request'
+
+
+def test_google_request_error_does_not_poison_next_call():
+    from tools.atum_source_transport import _transport
+    from tools.atum_google_tool import atum_google
+    from agent.atum_google_fence import scoped_source_holding
+    detail = 'read_thread: threadId is required.'
+    replies = iter([{'error': 'invalid_request', 'detail': detail}, {'threads': []}])
+    token = _transport.set(lambda *args: next(replies))
+    try:
+        with scoped_source_holding(lambda: True):
+            assert json.loads(atum_google({'action': 'read_thread'}))['error'] == detail
+            assert json.loads(atum_google({'action': 'read_thread', 'threadId': 't'})) == {'threads': []}
+    finally:
+        _transport.reset(token)

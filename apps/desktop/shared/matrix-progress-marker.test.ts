@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
-import { matrixProgressMarker, matrixProgressMarkerOf } from './matrix-progress-marker'
+import { matrixProgressMarker, matrixProgressMarkerOf, matrixProgressPresentation } from './matrix-progress-marker'
 
 const fixtures = join(__dirname, '../../../packages/device-protocol/fixtures/agent-turns/fixtures')
 const fixture = (name: string) => JSON.parse(readFileSync(join(fixtures, name), 'utf8')) as Record<string, unknown>
@@ -69,4 +69,43 @@ describe('the io.atum.progress marker against the vendored agent-turns/1.3 pack'
 it('preserves the explicit cron trigger for native Stop', () => {
   const base = fixture('progress-original.content.json')['io.atum.progress'] as Record<string, unknown>
   expect(matrixProgressMarker({ 'io.atum.progress': { ...base, trigger: 'cron' } })).toEqual({ ...base, trigger: 'cron' })
+})
+
+describe('the io.atum.presentation descriptor against the vendored agent-turns/1.6 pack', () => {
+  const pack = join(__dirname, '../contracts/atum-agent-turns-v1.6/fixtures')
+
+  const vectors = (
+    JSON.parse(readFileSync(join(pack, 'presentation-descriptor.vectors.json'), 'utf8')) as {
+      vectors: { name: string; kind: string; phase: string; descriptor: unknown; decision: 'render' | 'fallback' }[]
+    }
+  ).vectors
+
+  // The codes this build words. A code it does not word is "show body" (A12), never an error.
+  const worded = new Set(['tool_activity', 'heartbeat'])
+
+  it('renders exactly the vectors the contract renders, for every code it words, and falls back otherwise', () => {
+    for (const vector of vectors) {
+      const code = (vector.descriptor as { code?: string }).code ?? ''
+      const read = matrixProgressPresentation({ 'io.atum.presentation': vector.descriptor }, vector)
+
+      expect(Boolean(read), vector.name).toBe(vector.decision === 'render' && worded.has(code))
+    }
+  })
+
+  it('reads the descriptor of the pack’s tool-activity and heartbeat lines', () => {
+    for (const name of ['progress-presentation-tool-activity', 'progress-presentation-heartbeat']) {
+      const content = JSON.parse(readFileSync(join(pack, `${name}.content.json`), 'utf8')) as Record<string, unknown>
+
+      expect(matrixProgressPresentation(content, matrixProgressMarker(content)!), name).toEqual(content['io.atum.presentation'])
+    }
+  })
+
+  it('pairs the approval wait only with a waiting device line', () => {
+    const wait = { 'io.atum.presentation': { version: 1, code: 'approval_wait', args: {} } }
+
+    expect(matrixProgressPresentation(wait, { kind: 'device', phase: 'waiting' })).toEqual(wait['io.atum.presentation'])
+    expect(matrixProgressPresentation(wait, { kind: 'todo', phase: 'working' })).toBeUndefined()
+    expect(matrixProgressPresentation({ 'io.atum.presentation': { version: 1, code: 'approval_wait', args: { prompt: 'x' } } },
+      { kind: 'device', phase: 'waiting' })).toBeUndefined()
+  })
 })

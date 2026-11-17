@@ -50,10 +50,46 @@ the transport principal, and derive the sender from that principal. Do not map a
 caller-supplied authentication flag into this argument. Do not expose this Python
 entry point directly as an unauthenticated endpoint.
 
-Activity labels and the short owner notices (intake paused, unreadable message, chat paused)
-are written in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi`
-(or `HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English. The words match the
-desktop's own activity line.
+What the owner sees during a turn matches the desktop controller. Admission posts nothing:
+the native read receipt and the native typing indicator (`m.typing`, refreshed for the whole
+turn by the base adapter) say the agent is working. The extension never speaks in the agent's
+place and posts no words of its own, in any language. The only text it sends is the agent's:
+its redacted remarks (`io.atum.interim`; the first goes out at once, later ones at most one every
+20 s, and a remark that repeats the answer is taken back) and its redacted todo items.
+
+The transient line appears only for a real step and says it as a code, never as prose. It is the
+agent-turns/1.3 progress notice with an empty `body` and the agent-turns/1.5 descriptor
+`io.atum.presentation: {version: 1, code, args}`:
+
+| Step | Marker `kind`/`phase` | Descriptor |
+| --- | --- | --- |
+| A started tool in a category (web, read, write, run, delegate, look, draw; any other tool adds no line) | `todo`/`working` | `tool_activity {activity}` |
+| About three minutes without a new step | `heartbeat`/`working` (`heartbeat: true`) | `heartbeat {elapsed_minutes}` (since the last real step) |
+| Waiting for the owner's approval card | `device`/`waiting` | `approval_wait {}` |
+| The todo list | `todo`/`working` | none: `body` is the agent's own items |
+
+An answered approval returns the line to the step before it (A8); nothing says "continuing".
+The desktop words each code in the reader's current language (`apps/desktop/shared/matrix-status-line-copy.ts`)
+and shows the line in the typing row, not as a chat bubble. A desktop that does not know a code
+shows `body`, which is empty, so it shows only the typing indicator: never raw JSON and never a
+fixed English line. `approval_wait` and the empty `body` are additive to the frozen
+agent-turns/1.5 shape (whose `body` has a one-character minimum); the next contract minor should
+record both. The approval card itself is the gateway's existing UI and is unchanged.
+
+The gateway's own status text (compression, retry and allowance waits) reaches
+`send_or_update_status` during a turn and is dropped there: it never enters the conversation.
+A fallback answer and a protected Google route switch are facts for the owner, carried as
+structured notices the desktop draws in its own words: the `subscription_fallback` notice (empty
+`body`, replying to the answer) comes from the `post_api_request` response metadata, and the
+`google_route_switched` notice is the Atum host's. The gateway's own long-running heartbeat and
+retry notices are separate native features. Keep them off for this surface with
+`display.platforms.matrix.long_running_notifications: false` and
+`display.platforms.matrix.suppress_warning_notifications: true`, and turn the 👀/✅ reactions off
+with `platforms.matrix.reactions: false`.
+
+The short owner notices sent when no turn can run (intake paused, unreadable message) are written
+in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi` (or
+`HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English.
 
 Offline tests (no homeserver or model calls):
 `python3 -m unittest discover -s tests/plugins/matrix_presentation -v`.

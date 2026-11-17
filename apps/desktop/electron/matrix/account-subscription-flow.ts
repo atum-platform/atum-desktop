@@ -73,7 +73,8 @@ export interface MatrixSubscriptionFollowUpResult {
 }
 
 interface MatrixSubscriptionFollowUpOptions {
-  registerRelay(): Promise<boolean>
+  /** `fresh`: a new ChatGPT sign-in just landed, so the relay must start a new session. */
+  registerRelay(input?: { fresh: boolean }): Promise<boolean>
   refresh(): Promise<void>
   outcome?(stage: MatrixSubscriptionFollowUpStage, status: MatrixSubscriptionFollowUpStatus): void
 }
@@ -102,9 +103,10 @@ export async function completeMatrixSubscriptionChatGptFollowUp(
 }
 
 async function completeMatrixSubscriptionRelayPublication(
-  options: MatrixSubscriptionFollowUpOptions
+  options: MatrixSubscriptionFollowUpOptions,
+  fresh = false
 ): Promise<MatrixSubscriptionFollowUpStatus> {
-  const status = await options.registerRelay()
+  const status = await (fresh ? options.registerRelay({ fresh: true }) : options.registerRelay())
     .then<MatrixSubscriptionFollowUpStatus>(registered => registered ? 'ok' : 'unavailable')
     .catch(error => matrixSubscriptionRequestStatus(error))
   reportMatrixSubscriptionFollowUp(options.outcome, 'relay_publication', status)
@@ -138,6 +140,8 @@ export class MatrixSubscriptionFollowUpRepair {
   private relayReady = false
   private retry = 0
   private stopped = false
+  /** A new sign-in's relay session is still owed; it survives retries until one publication lands. */
+  private fresh = false
 
   constructor(
     private readonly options: MatrixSubscriptionFollowUpOptions & {
@@ -161,8 +165,11 @@ export class MatrixSubscriptionFollowUpRepair {
     const attempt = (async () => {
       const relay = this.relayReady
         ? 'ok' as const
-        : await completeMatrixSubscriptionRelayPublication(this.options)
+        : await completeMatrixSubscriptionRelayPublication(this.options, this.fresh)
       this.relayReady ||= relay === 'ok'
+      if (relay === 'ok') {
+        this.fresh = false
+      }
       const refresh = this.refreshReady
         ? 'ok' as const
         : await completeMatrixSubscriptionAgentRefresh(this.options)
@@ -203,6 +210,17 @@ export class MatrixSubscriptionFollowUpRepair {
     return attempt
   }
 
+  /** A new ChatGPT sign-in: the next publication (and its retries) is a fresh relay session. */
+  async renew(): Promise<MatrixSubscriptionFollowUpResult> {
+    if (this.flight) {
+      await this.flight.catch(() => undefined)
+    }
+
+    this.fresh = true
+    this.relayReady = false
+    return this.run()
+  }
+
   stop(): void {
     this.stopped = true
     this.relayReady = false
@@ -210,6 +228,37 @@ export class MatrixSubscriptionFollowUpRepair {
     this.cancelScheduled?.()
     this.cancelScheduled = undefined
   }
+}
+
+/**
+ * Before a new ChatGPT sign-in: a relay this Mac still serves belongs to the account signed
+ * in before, so it is disabled before the new account can be saved (contract: disable before an
+ * account replacement). Best effort: the fresh publication after sign-in disables it again.
+ */
+export async function retireMatrixChatGptRelayForSignIn(steps: {
+  relayOnThisMac(): boolean
+  disableRelay(): Promise<boolean>
+}): Promise<void> {
+  if (steps.relayOnThisMac()) {
+    await steps.disableRelay().catch(() => false)
+  }
+}
+
+/**
+ * Disconnect ChatGPT. The relay is disabled first, while this Mac still holds the account, so the
+ * platform fences calls and ends the session before the credential is gone; a later sign-in then
+ * starts a new relay connection. A failed disable never keeps the person connected.
+ */
+export async function disconnectMatrixSubscriptionChatGpt(steps: {
+  stopRepair(): void
+  disableRelay(): Promise<boolean>
+  disconnect(): Promise<void>
+  forget(): Promise<void>
+}): Promise<void> {
+  steps.stopRepair()
+  await steps.disableRelay().catch(() => false)
+  await steps.disconnect().catch(() => undefined)
+  await steps.forget()
 }
 
 /** OAuth is connected once Hermes has durably saved the account plan. Relay publication and

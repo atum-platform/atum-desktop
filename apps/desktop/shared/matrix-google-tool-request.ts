@@ -51,7 +51,7 @@ export type MatrixGoogleToolRequest =
   | { action: 'agenda'; when: MatrixGoogleAgendaWhen }
   | { action: 'waiting' }
   | { action: 'search_mail'; query: string; sourceId?: string; pageToken?: string }
-  | { action: 'read_thread'; sourceId: string; threadId: string }
+  | { action: 'read_thread'; sourceId?: string; threadId: string }
   | { action: 'search_drive'; query?: string; sort?: MatrixGoogleDriveSort; modifiedAfter?: string }
   | { action: 'read_file'; sourceId: string; fileId: string }
   | ({
@@ -318,8 +318,8 @@ export function parseMatrixGoogleToolRequest(value: unknown): MatrixGoogleToolRe
         ...(row.pageToken ? { pageToken: row.pageToken as string } : {})
       }
     case 'read_thread':
-      return text(row.sourceId, 500) && text(row.threadId, 200)
-        ? { action, sourceId: row.sourceId, threadId: row.threadId } : null
+      return (row.sourceId === undefined || text(row.sourceId, 500)) && text(row.threadId, 200)
+        ? { action, ...(row.sourceId === undefined ? {} : { sourceId: row.sourceId as string }), threadId: row.threadId } : null
     case 'search_drive':
       if (!optionalText(row.query, 500) ||
           (row.sort !== undefined && row.sort !== 'modified' && row.sort !== 'viewed') ||

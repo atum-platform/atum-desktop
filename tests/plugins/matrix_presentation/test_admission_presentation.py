@@ -57,6 +57,8 @@ async def test_native_connect_pending_and_downtime(tmp_path):
         # get past the real connect/intake/background-task readiness dependency.
         async with a.admission_presentation_scope(event, a._event_session_key(event), event.message_id):
             answered.append(event.message_id)
+            # Admission itself posts nothing; one real step opens this turn's line.
+            await p._current.get().progress('Reading…')
             await p._current.get().end()
     a._message_handler = handler
     async def dispatch(data):
@@ -157,9 +159,11 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
         finals = [w for w in writes if w.get('io.atum.turn')]
         assert len(finals) == 1
         assert finals[0]['io.atum.turn'] == turn.marker
-        assert writes.index(finals[0]) < len(writes) - 1  # cleanup follows delivery
-        assert sum('io.atum.progress' in w and 'm.new_content' not in w for w in writes) == 1
-        assert any(w.get('io.atum.interim') for w in writes)
+        # No status line at admission: typing says the agent is working, so the
+        # only writes are the agent's own remark, kept, and then its answer.
+        assert not any('io.atum.progress' in w for w in writes)
+        assert [w['body'] for w in writes] == ['checking', 'answer']
+        assert writes[0].get('io.atum.interim') is True
         assert not turn.stopped
     finally:
         p._current.reset(token)
@@ -313,6 +317,7 @@ async def test_native_execution_trigger_on_progress_and_final(tmp_path, schedule
     token = enter_cron_execution({'id': 'routine'}, 'native-fire', {'source': 'builtin'}) if scheduled else None
     try:
         async with a.admission_presentation_scope(event, 'route', 'admission'):
+            await p._current.get().progress('Reading…')
             await a.send_final_ledgered(event)
         marker = writes[0]['io.atum.progress']
         final = next(w for w in writes if w.get('body') == 'answer')
@@ -343,3 +348,178 @@ async def test_cron_delivery_without_owner_admission_has_native_trigger():
     assert writes[0]['io.atum.trigger'] == 'cron'
     assert isinstance(writes[0]['io.atum.turn'], str)
     assert 'io.atum.trigger' not in writes[1]
+
+
+def _presentation_adapter(tmp_path, writes):
+    class Base:
+        async def _send_room_message(self, room, content, **kwargs):
+            writes.append(content)
+            return '$final'
+        async def send(self, room, text, **kwargs):
+            return await self._send_room_message(room, {'msgtype': 'm.text', 'body': text})
+        async def send_final_ledgered(self, event):
+            from gateway.platforms.base import SendResult
+            message_id = await self.send(event.source.chat_id, 'Here is the answer.')
+            return SendResult(success=True, message_id=message_id), self
+    a = p.adapter_class(Base)()
+    a._presentation_box = p.Outbox(tmp_path / 'box.sqlite3')
+    a._presentation_turns = {}
+    async def port(room, content, txn, target):
+        writes.append({'redacts': target} if target else content)
+        return '$' + txn
+    a._presentation_send = port
+    event = MessageEvent(text='hello', message_id='$source', source=SessionSource(
+        platform=Platform.MATRIX, chat_id='!room', chat_type='dm', user_id='@owner'))
+    return a, event
+
+
+async def _settle():
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+
+def _extension_words(writes):
+    """Every body the extension sent: everything but the agent's remarks and its answer."""
+    return [w['body'] for w in writes
+            if 'body' in w and not w.get('io.atum.interim') and not w.get('io.atum.turn')]
+
+
+def _line(write):
+    return write.get('m.new_content', write)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('language', ['en', 'vi'])
+async def test_turn_speaks_only_through_the_agent_and_its_real_steps(tmp_path, monkeypatch, language):
+    """No status line at admission, no opener in the agent's place, and a line only for a
+    real step, as a category code with no words, the same in every owner language."""
+    monkeypatch.setenv('HERMES_LANGUAGE', language)
+    hooks, writes = {}, []
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    a, event = _presentation_adapter(tmp_path, writes)
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            assert writes == []  # read receipt + native typing only
+            await turn.heartbeat()  # a turn without a line has nothing to keep alive
+            for tool in ('todo', 'memory', 'clarify'):  # tools outside the categories
+                hooks['pre_tool_call'](tool_name=tool)
+            await _settle()
+            assert writes == []
+            hooks['pre_tool_call'](tool_name='read_file')
+            await _settle()
+            assert len(writes) == 1 and writes[0]['msgtype'] == 'm.notice'
+            assert writes[0]['io.atum.progress']['phase'] == 'working'
+            assert writes[0]['io.atum.presentation'] == {
+                'version': 1, 'code': 'tool_activity', 'args': {'activity': 'read'}}
+            assert not any(w.get('io.atum.interim') for w in writes)  # no fixed opener
+            await a.send('!room', 'Let me read the notes first.', metadata={'_interim_send': True})
+            remarks = [w for w in writes if w.get('io.atum.interim')]
+            assert [w['body'] for w in remarks] == ['Let me read the notes first.']
+            await a.send_final_ledgered(event)
+        assert [w['body'] for w in writes if w.get('io.atum.turn')] == ['Here is the answer.']
+        assert _extension_words(writes) == ['']
+        assert writes[-1] == {'redacts': turn.root}  # the line goes once the answer is out
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('language', ['en', 'vi'])
+async def test_approval_wait_is_a_code_and_an_answer_returns_the_line(tmp_path, monkeypatch, language):
+    """The approval card is the gateway's own UI. The line only says, as a code, that the turn
+    waits for it; once answered the line is the step before it again, never "continuing"."""
+    monkeypatch.setenv('HERMES_LANGUAGE', language)
+    hooks, writes = {}, []
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    a, event = _presentation_adapter(tmp_path, writes)
+    clock = [0.0]
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            turn.clock = lambda: clock[0]
+            hooks['pre_tool_call'](tool_name='terminal')
+            await _settle()
+            clock[0] = 5
+            hooks['pre_approval_request'](command='rm -rf build', description='dangerous')
+            await _settle()
+            wait = _line(writes[-1])
+            assert wait['io.atum.progress']['phase'] == 'waiting'
+            assert wait['io.atum.presentation'] == {'version': 1, 'code': 'approval_wait', 'args': {}}
+            clock[0] = 10
+            hooks['post_approval_response'](choice='once')
+            await _settle()
+            back = _line(writes[-1])
+            assert back['io.atum.progress']['phase'] == 'working'
+            assert back['io.atum.presentation'] == {
+                'version': 1, 'code': 'tool_activity', 'args': {'activity': 'run'}}
+            clock[0] = 15
+            hooks['post_approval_response'](choice='once')  # no wait open: nothing to return to
+            await _settle()
+            assert len(writes) == 3
+            await a.send_final_ledgered(event)
+        assert set(_extension_words(writes)) == {''}
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_approval_wait_before_any_step_returns_to_an_empty_working_line(tmp_path):
+    hooks, writes = {}, []
+    p.register_hooks(SimpleNamespace(register_hook=lambda name, fn: hooks.update({name: fn})))
+    a, event = _presentation_adapter(tmp_path, writes)
+    clock = [0.0]
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            turn.clock = lambda: clock[0]
+            hooks['pre_approval_request']()
+            await _settle()
+            clock[0] = 5
+            hooks['post_approval_response']()
+            await _settle()
+            back = _line(writes[-1])
+            assert (back['body'], back['io.atum.progress']['phase']) == ('', 'working')
+            assert 'io.atum.presentation' not in back
+            await a.send_final_ledgered(event)
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_gateway_status_text_never_enters_the_conversation(tmp_path):
+    writes = []
+    a, event = _presentation_adapter(tmp_path, writes)
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            turn = p._current.get()
+            result = await a.send_or_update_status('!room', 'lifecycle', 'Waiting a moment before I continue…')
+            assert result.success and writes == [] and not turn.ended
+            await a.send_final_ledgered(event)
+        assert [w.get('body') for w in writes] == ['Here is the answer.']
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_quiet_turn_sends_only_the_answer(tmp_path):
+    writes = []
+    a, event = _presentation_adapter(tmp_path, writes)
+    try:
+        async with a.admission_presentation_scope(event, 'route', 'admission'):
+            await a.send_final_ledgered(event)
+        assert [w.get('body') for w in writes] == ['Here is the answer.']
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.parametrize('tool,activity', [
+    ('web_search', 'web'), ('browser_navigate', 'web'), ('read_file', 'read'), ('search_files', 'read'),
+    ('session_search', 'read'), ('write_file', 'write'), ('patch', 'write'), ('terminal', 'run'),
+    ('execute_code', 'run'), ('delegate_task', 'delegate'), ('vision_analyze', 'look'),
+    ('image_generate', 'draw'),
+    ('todo', None), ('memory', None), ('read_files', None), ('', None), (None, None),
+])
+def test_tool_activity_follows_desktop_categories(tool, activity):
+    # Same categories as the desktop's matrixToolActivityKind (matrix-status-line-copy.ts).
+    assert p.tool_activity(tool) == activity

@@ -100,7 +100,7 @@ import type { MatrixPetDisplayBridge } from './matrix-pet-display'
 import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matrix-pet-intent'
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
-import type { MatrixProgressMarker } from './matrix-progress-marker'
+import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -109,6 +109,9 @@ import type { MatrixStoreBridge, MatrixStoreSnapshot } from './matrix-store'
 import type { MatrixStoreRunLedger } from './matrix-store-runs'
 import type { MatrixGoogleRouteSwitch, MatrixSubscriptionFallback } from './matrix-subscription-fallback'
 import type {
+  MatrixChatGptTrainingConfirmResult,
+  MatrixChatGptTrainingRevokeResult,
+  MatrixChatGptTrainingStatus,
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
@@ -432,6 +435,10 @@ export interface MatrixMessage {
    * it is gone (`matrixHideEndedTransientLines`); never marked edited. It is not an answer: it
    * marks nothing answered and is never a roster preview. */
   progress?: MatrixProgressMarker | MatrixCompanyProgressMarker
+  /** The working line's descriptor (agent-turns/1.5 `io.atum.presentation`), present only when it is
+   * exactly the contract's shape and pairs with `progress`. The renderer words it in the reader's
+   * current language; `body` holds only the agent's own words (often none). */
+  presentation?: MatrixProgressPresentation
   /** The agent's fallback notice (agent-turns/1.7 `subscription_fallback`): never a row of its own
    * (`matrixFoldSubscriptionFallbacks` hides it and marks the answer it replies to). */
   subscriptionFallback?: MatrixSubscriptionFallback
@@ -2079,6 +2086,11 @@ export interface MatrixSubscriptionsBridge {
   cancelChatGpt(session: string): Promise<void>
   disconnectChatGpt(): Promise<void>
   useThisMacForChatGpt(enabled: boolean): Promise<MatrixSubscriptionRelayResult>
+  /** The account's one-time ChatGPT-with-Google training-off confirmation (absent on older main). */
+  chatGptTraining?(): Promise<MatrixChatGptTrainingStatus>
+  /** Only after the person ticked the box and pressed Confirm, for the connection the card read. */
+  confirmChatGptTraining?(connectionId: string): Promise<MatrixChatGptTrainingConfirmResult>
+  revokeChatGptTraining?(): Promise<MatrixChatGptTrainingRevokeResult>
   /** The account-wide OpenCode Go connection: the key is sent once and never read back. */
   connectOpenCode(value: string): Promise<MatrixSubscriptionKeyResult>
   disconnectOpenCode(): Promise<void>

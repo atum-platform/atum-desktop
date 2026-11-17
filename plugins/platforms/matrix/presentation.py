@@ -59,6 +59,32 @@ def interim_decision(private, redacted, first, sinceLastMs, duplicatesAnswer):
     return 'publish' if first or sinceLastMs >= 20000 else 'hold'
 
 
+# A started tool's category (agent-turns/1.5 A13 `tool_activity`), from its name alone,
+# never its arguments or results. The line carries the code, never words: the reader's
+# app says it in its own language. A tool outside these categories adds no line; typing
+# keeps saying the agent is working.
+_TOOL_ACTIVITY = (
+    (r'(web_|browser_).*', 'web'),
+    (r'read_file|search_files|session_search', 'read'),
+    (r'write_file|patch', 'write'),
+    (r'terminal|execute_code', 'run'),
+    (r'delegate_task', 'delegate'),
+    (r'vision_analyze', 'look'),
+    (r'image_generate', 'draw'),
+)
+
+
+def tool_activity(name):
+    """The started tool's activity category, or None when it has none."""
+    return next((activity for pattern, activity in _TOOL_ACTIVITY
+                 if isinstance(name, str) and re.fullmatch(pattern, name)), None)
+
+
+def descriptor(code, **args):
+    """A closed `io.atum.presentation` descriptor: a code and bounded arguments, never prose."""
+    return {'version': 1, 'code': code, 'args': args}
+
+
 def repeats(remark, answer):
     def words(text):
         return ' '.join(''.join(' ' if unicodedata.category(c).startswith('P') else c
@@ -209,6 +235,9 @@ class Turn:
         self.subscription_fallback = None
         self.ended = False
         self.frame = None
+        # The last step before a wait: an answered wait returns the line to it (A8).
+        self.step = None
+        self.last_step = float('-inf')
         self.pending = None
         self.progress_timer = self.interim_timer = self.heartbeat_task = None
         self.marker = turn_id(room, source)
@@ -228,26 +257,33 @@ class Turn:
         return self.pet_callback(command)
 
 
-    async def progress(self, text, *, kind='todo', phase='working'):
+    async def progress(self, text='', *, kind='todo', phase='working', presentation=None):
+        """Publish the turn's one transient line.
+
+        `text` is only ever the agent's own words (its redacted todo items). What the
+        extension itself knows about the step travels as `presentation`, a closed
+        descriptor the reader's app words in its own language; the body stays empty.
+        """
         try:
-            await self._progress(text, kind=kind, phase=phase)
+            await self._progress(text, kind=kind, phase=phase, presentation=presentation)
         finally:
             if self.ended:
                 await self.end()
 
-    async def _progress(self, text, *, kind='todo', phase='working'):
+    async def _progress(self, text, *, kind='todo', phase='working', presentation=None):
         async with self.lock:
             if self.ended or self.revision >= 47:
                 return
             if self.clock() - self.last_progress < 3:
-                self.pending = (text, kind, phase)
+                self.pending = (text, kind, phase, presentation)
                 if self.progress_timer is None:
                     async def flush():
                         await asyncio.sleep(max(0, 3 - (self.clock() - self.last_progress)))
                         self.progress_timer = None
                         pending, self.pending = self.pending, None
                         if pending:
-                            await self.progress(pending[0], kind=pending[1], phase=pending[2])
+                            await self.progress(pending[0], kind=pending[1], phase=pending[2],
+                                                presentation=pending[3])
                     self.progress_timer = asyncio.create_task(flush())
                 return
             self.revision += 1
@@ -261,10 +297,15 @@ class Turn:
                           unicodedata.normalize('NFC', text)).strip()[:1000]
             body = {'msgtype': 'm.notice', 'body': text, 'io.atum.progress': marker,
                     'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
+            if presentation:
+                body['io.atum.presentation'] = presentation
             if self.root:
-                body = {'msgtype': 'm.notice', 'body': ('* ' + text)[:1000],
+                # An empty line stays empty in the edit fallback too: never a bare "* ".
+                body = {'msgtype': 'm.notice', 'body': ('* ' + text)[:1000] if text else '',
                         'io.atum.progress': marker, 'm.new_content': body,
                         'm.relates_to': {'rel_type': 'm.replace', 'event_id': self.root}}
+                if presentation:
+                    body['io.atum.presentation'] = presentation
             txn = f'atum-ne-{self.revision}-{event_suffix(self.root)}' if self.root else transaction(f'{self.room}\0{self.source}\0{self.attempt}', 'progress')
             if not self.root:
                 self.root_txn = txn
@@ -275,7 +316,10 @@ class Turn:
                 self.box.db.execute('INSERT OR REPLACE INTO roots VALUES (?,?,?)', (self.room, self.source, event))
                 self.box.db.commit()
             self.last_progress = self.clock()
-            self.frame = (text, kind, phase)
+            self.frame = (text, kind, phase, presentation)
+            if phase == 'working' and kind != 'heartbeat':
+                self.step = self.frame
+                self.last_step = self.last_progress
             if not self.ended and self.heartbeat_task is None:
                 async def heartbeat():
                     while not self.ended:
@@ -286,14 +330,24 @@ class Turn:
 
     async def heartbeat(self):
         if self.frame and self.clock() - self.last_progress >= 180:
-            text, kind, phase = self.frame
+            text, kind, phase, presentation = self.frame
             if phase == 'working':
-                minutes = max(1, int((self.clock() - self.last_progress) / 60))
-                from agent.i18n import owner_text
-                await self.progress(owner_text(f'Still working · {minutes} min', f'Vẫn đang làm · {minutes} phút'),
-                                    kind='heartbeat')
+                # Minutes since the last real step, as a number the reader's app words.
+                minutes = min(1440, max(1, int((self.clock() - self.last_step) / 60)))
+                await self.progress(kind='heartbeat',
+                                    presentation=descriptor('heartbeat', elapsed_minutes=minutes))
             else:
-                await self.progress(text, kind=kind, phase=phase)
+                await self.progress(text, kind=kind, phase=phase, presentation=presentation)
+
+    async def wait_for_approval(self):
+        """The turn waits on the owner's approval card: a code on the line, no words."""
+        await self.progress(kind='device', phase='waiting', presentation=descriptor('approval_wait'))
+
+    async def resume(self):
+        """An answered wait returns the line to the step before it (A8), never "continuing"."""
+        if self.frame and self.frame[2] == 'waiting':
+            text, kind, phase, presentation = self.step or ('', 'todo', 'working', None)
+            await self.progress(text, kind=kind, phase=phase, presentation=presentation)
 
     async def interim(self, text, *, redacted=False):
         try:
@@ -456,7 +510,7 @@ def adapter_class(base):
             response = None
             async with self.admission_presentation_scope(event, session_key, admission_id):
                 try:
-                    # Root publication can yield while waking. Stop must win that gap too.
+                    # Entering the scope can yield while waking. Stop must win that gap too.
                     if self._cancelled_before_execution(event):
                         return None
                     response = await execute(event)
@@ -490,12 +544,10 @@ def adapter_class(base):
             from tools.pet_tool import bind_turn_callback, reset_turn_callback
             pet_token = bind_turn_callback(turn.queue_pet if turn and turn.pet_eligible else None)
             try:
-                if turn:
-                    try:
-                        from agent.i18n import owner_text
-                        await turn.progress(owner_text('Working…', 'Đang làm…'))
-                    except Exception:
-                        logger.warning('Matrix presentation root deferred', exc_info=True)
+                # No status line at admission: the native read receipt and the typing
+                # indicator (BasePlatformAdapter._keep_typing, m.typing) say the agent is
+                # working. The transient line appears only for a real step: a tool
+                # category, the todo list or a wait.
                 yield
             finally:
                 if turn:
@@ -616,12 +668,10 @@ def adapter_class(base):
             # must never settle a turn or acquire the final-answer marker.
             turn = _current.get()
             if turn and not turn.ended and chat_id == turn.room:
-                from agent.redact import redact_for_egress
+                # The gateway's own status text (compression, retry and allowance waits)
+                # never enters the conversation: the line carries only codes and the agent's
+                # words, and typing keeps saying the agent is working.
                 from gateway.platforms.base import SendResult
-                try:
-                    await turn.progress(redact_for_egress(content))
-                except Exception:
-                    logger.warning('Matrix presentation status could not be published', exc_info=True)
                 return SendResult(success=True, message_id=turn.root)
             return await super().send(chat_id, content, metadata=metadata)
 
@@ -718,28 +768,20 @@ def register_hooks(ctx):
                 success=completed is True and not failed and not turn.stopped)
             turn.pet_callback = None
 
-    def tool_activity(tool_name='', **_):
+    def started_tool(tool_name='', **_):
         turn = _current.get()
-        if turn and not turn.ended:
+        activity = tool_activity(tool_name)
+        if turn and not turn.ended and activity:
             # Names only, never arguments/results. Schedule on the owning event loop.
-            # Same words as the desktop's own activity line (matrix-status-line-copy.ts).
-            from agent.i18n import owner_text
-            text = owner_text(*{'terminal': ('Running a task…', 'Đang chạy tác vụ…'),
-                                'read_file': ('Reading…', 'Đang đọc…'),
-                                'web_search': ('Looking it up on the web…', 'Đang tra cứu trên web…'),
-                                'todo': ('Planning the next steps…', 'Đang lên các bước tiếp theo…'),
-                                }.get(tool_name, ('Working on it…', 'Đang xử lý…')))
-            ack = owner_text("I'll take a look.", 'Mình xem ngay nhé.')
+            # The plugin never speaks in the agent's place: only a category code.
             def done(future):
                 try:
                     future.result()
                 except Exception:
                     logger.warning('Matrix presentation activity could not be published')
-            async def publish():
-                if not turn.interims:
-                    await turn.interim(ack, redacted=True)
-                await turn.progress(text)
-            asyncio.run_coroutine_threadsafe(publish(), turn.loop).add_done_callback(done)
+            asyncio.run_coroutine_threadsafe(
+                turn.progress(presentation=descriptor('tool_activity', activity=activity)),
+                turn.loop).add_done_callback(done)
     def stopped(session_key='', platform='', source_event_id=None, admission_id=None, **_):
         turn = _active.get(session_key) if platform == 'matrix' else None
         if turn and source_event_id == turn.source and admission_id == turn.admission_id:
@@ -761,15 +803,12 @@ def register_hooks(ctx):
     def waiting(**_):
         turn = _current.get()
         if turn:
-            from agent.i18n import owner_text
-            asyncio.run_coroutine_threadsafe(turn.progress(owner_text('Waiting for your OK…', 'Đang chờ bạn đồng ý…'),
-                                                           kind='device', phase='waiting'), turn.loop)
+            asyncio.run_coroutine_threadsafe(turn.wait_for_approval(), turn.loop)
     def resumed(**_):
         turn = _current.get()
         if turn:
-            from agent.i18n import owner_text
-            asyncio.run_coroutine_threadsafe(turn.progress(owner_text('Continuing…', 'Đang làm tiếp…')), turn.loop)
-    ctx.register_hook('pre_tool_call', tool_activity)
+            asyncio.run_coroutine_threadsafe(turn.resume(), turn.loop)
+    ctx.register_hook('pre_tool_call', started_tool)
     ctx.register_hook('post_tool_call', todos)
     ctx.register_hook('pre_approval_request', waiting)
     ctx.register_hook('post_approval_response', resumed)

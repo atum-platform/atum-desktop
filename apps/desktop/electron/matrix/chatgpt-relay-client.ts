@@ -119,8 +119,17 @@ export class MatrixChatGptRelay {
     this.snapshot = next; this.options.changed(); return next
   }
 
-  async enable(deviceServiceId: string, models: readonly MatrixProviderConnectionModel[]): Promise<boolean> {
+  /** Publish this Mac as the relay. Same-device republication (start-up, model refresh) keeps the
+   * platform's relay connection and so any training confirmation bound to it. `fresh` is for a new
+   * ChatGPT sign-in: the old session is disabled first, so the platform starts a new connection
+   * and a confirmation made for the previous account is never inherited. */
+  async enable(deviceServiceId: string, models: readonly MatrixProviderConnectionModel[],
+    options: { fresh?: boolean } = {}): Promise<boolean> {
     if (this.carried || !this.options.scope() || !UUID.test(deviceServiceId) || models.length < 1) {
+      return false
+    }
+    // A fresh session reads the relay first (never a stale cached state) and must see it disabled.
+    if (options.fresh && (!(await this.refresh()) || !(await this.disable()))) {
       return false
     }
     const answer = await this.options.call('enable', AbortSignal.timeout(20_000), {

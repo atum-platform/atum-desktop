@@ -1,3 +1,4 @@
+import { parseMatrixGoogleToolRequest } from './matrix-google-tool-request'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -69,3 +70,14 @@ describe('Google for the default assistant (shared contract)', () => {
     expect(isMatrixGoogleToolAction(undefined)).toBe(false)
   })
 })
+
+ it('reads a thread without a source, while validating every explicit source', () => {
+   expect(parseMatrixGoogleToolRequest({ action: 'read_thread', threadId: 'thread-1' }))
+     .toEqual({ action: 'read_thread', threadId: 'thread-1' })
+   expect(parseMatrixGoogleToolRequest({ action: 'read_thread', threadId: 'thread-1', sourceId: 'google:gmail' }))
+     .toEqual({ action: 'read_thread', threadId: 'thread-1', sourceId: 'google:gmail' })
+   for (const sourceId of ['', null, 7, 'x'.repeat(501)]) {
+     expect(parseMatrixGoogleToolRequest({ action: 'read_thread', threadId: 'thread-1', sourceId })).toBeNull()
+   }
+   expect(parseMatrixGoogleToolRequest({ action: 'read_thread' })).toBeNull()
+ })

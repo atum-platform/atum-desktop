@@ -53,6 +53,7 @@ import {
 } from '../../shared/matrix-subscription-availability'
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import {
+  type MatrixChatGptTrainingStatus,
   type MatrixSubscriptionCatalog,
   matrixSubscriptionProviderLabel,
   type MatrixSubscriptionProviderStatus,
@@ -60,6 +61,7 @@ import {
   parseMatrixSubscriptionProvider
 } from '../../shared/matrix-subscriptions'
 
+import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { MatrixModelEffortSlider } from './model-effort-slider'
 import { useModelPickerCopy } from './model-picker-copy'
 import { type PickerFilterSource } from './model-picker-filter'
@@ -398,6 +400,13 @@ export function MatrixModelPicker({
   const [catalog, setCatalog] = useState<ConnectedCatalog>({ status: 'idle' })
   const [subscriptions, setSubscriptions] = useState<SubscriptionCatalog>({ status: 'idle' })
   const [accountSubscriptions, setAccountSubscriptions] = useState<MatrixSubscriptionsStatus | null>(null)
+  // The account's one-time ChatGPT-with-Google confirmation, read with the account subscriptions,
+  // and the ChatGPT pick waiting on it (shown in place of the list until confirmed or kept).
+  const [training, setTraining] = useState<MatrixChatGptTrainingStatus | null>(null)
+  const [confirming, setConfirming] = useState<{ picked: PickerRoute; training: MatrixChatGptTrainingStatus } | null>(
+    null
+  )
+  const trainingRead = useRef(0)
   const [filterTouched, setFilterTouched] = useState(false)
   // The chooser opened from the rail, with the account state as the card last read it (the card
   // closes first, and a closed card drops its reads).
@@ -1091,6 +1100,7 @@ export function MatrixModelPicker({
 
       if (cloudSubscriptions) {
         void loadAccountSubscriptions()
+        void loadTraining().catch(() => undefined)
       } else {
         void loadSubscriptions()
       }
@@ -1100,6 +1110,9 @@ export function MatrixModelPicker({
       setCatalog({ status: 'idle' })
       setSubscriptions({ status: 'idle' })
       setAccountSubscriptions(null)
+      trainingRead.current += 1
+      setTraining(null)
+      setConfirming(null)
       setFilterTouched(false)
       setProblem(undefined)
       setEffortNotice(undefined)
@@ -1207,6 +1220,26 @@ export function MatrixModelPicker({
         return undefined
       }
     )
+  }
+
+  /** The confirmation state, read once per open card; a failed read never counts as confirmed. */
+  const loadTraining = (): Promise<MatrixChatGptTrainingStatus> => {
+    const read = subscriptionsService?.chatGptTraining
+
+    if (!read) {
+      return Promise.reject(new Error('matrix_chatgpt_training_unavailable'))
+    }
+
+    const token = ++trainingRead.current
+    const roomAtRequest = room.id
+
+    return read().then(value => {
+      if (shown.current && trainingRead.current === token && roomAtRequest === currentRoom.current) {
+        setTraining(value)
+      }
+
+      return value
+    })
   }
 
   const rememberRecent = (routeId: string) => {
@@ -1415,59 +1448,104 @@ export function MatrixModelPicker({
     // A cloud agent's OpenCode Go pick is the owner's per-destination choice
     // (`atum.model-choice/1.4`), not a Mac profile switch and not the managed 1.1 offer.
     if (cloud && !macAnswers && (picked.route.provider === 'opencode-go' || picked.route.provider === 'openai-codex')) {
-      const write = window.atumMatrix.modelDestinations?.writeSubscription
+      // ChatGPT for an account whose assistants touch Google asks once, inside this card; until
+      // the person confirms, nothing is written and the saved model stays as it is.
+      if (picked.route.provider === 'openai-codex' && subscriptionsService?.chatGptTraining) {
+        const decide = (status: MatrixChatGptTrainingStatus) => {
+          if (status.required && !status.current) {
+            setRetryPick(null)
+            setConfirming({ picked, training: status })
+          } else {
+            writeCloudSubscription(picked)
+          }
+        }
 
-      if (!write || !agentPrincipal) {
-        setRetryPick(picked)
+        if (training) {
+          decide(training)
+
+          return
+        }
+
+        const context = beginSelection()
+
+        loadTraining().then(
+          status => {
+            if (context.current()) {
+              decide(status)
+            }
+          },
+          () => {
+            if (context.current()) {
+              setRetryPick(picked)
+            }
+          }
+        )
 
         return
       }
 
-      const effort =
-        picked.defaultEffort && picked.route.efforts.includes(picked.defaultEffort)
-          ? picked.defaultEffort
-          : (picked.route.efforts[0] ?? 'medium')
-
-      const context = beginSelection()
-      setProblem(undefined)
-      setEffortNotice(undefined)
-      setRetryPick(null)
-      setPendingCloudSubscription({ route: picked.route, saved: false })
-
-      void write(
-        agentPrincipal,
-        picked.route.provider === 'openai-codex' ? 'chatgpt_plan' : 'opencode_go',
-        picked.route.model,
-        effort
-      ).then(
-        result => {
-          if (!context.current()) {
-            return
-          }
-
-          if (result?.status !== 'saved') {
-            setPendingCloudSubscription(null)
-            setRetryPick(picked)
-
-            return
-          }
-
-          setPendingCloudSubscription({ route: picked.route, saved: true })
-          rememberRecent(picked.route.id)
-        },
-        () => {
-          if (!context.current()) {
-            return
-          }
-
-          setPendingCloudSubscription(null)
-          setRetryPick(picked)
-        }
-      )
+      writeCloudSubscription(picked)
 
       return
     }
 
+    chooseLocalRoute(picked)
+  }
+
+  /** The cloud plan write itself (`atum.model-choice/1.4`), once nothing else is asked. */
+  const writeCloudSubscription = (picked: PickerRoute) => {
+    const write = window.atumMatrix.modelDestinations?.writeSubscription
+
+    if (!write || !agentPrincipal) {
+      setRetryPick(picked)
+
+      return
+    }
+
+    const effort =
+      picked.defaultEffort && picked.route.efforts.includes(picked.defaultEffort)
+        ? picked.defaultEffort
+        : (picked.route.efforts[0] ?? 'medium')
+
+    const context = beginSelection()
+    setProblem(undefined)
+    setEffortNotice(undefined)
+    setRetryPick(null)
+    setPendingCloudSubscription({ route: picked.route, saved: false })
+
+    void write(
+      agentPrincipal,
+      picked.route.provider === 'openai-codex' ? 'chatgpt_plan' : 'opencode_go',
+      picked.route.model,
+      effort
+    ).then(
+      result => {
+        if (!context.current()) {
+          return
+        }
+
+        if (result?.status !== 'saved') {
+          setPendingCloudSubscription(null)
+          setRetryPick(picked)
+
+          return
+        }
+
+        setPendingCloudSubscription({ route: picked.route, saved: true })
+        rememberRecent(picked.route.id)
+      },
+      () => {
+        if (!context.current()) {
+          return
+        }
+
+        setPendingCloudSubscription(null)
+        setRetryPick(picked)
+      }
+    )
+  }
+
+  const chooseLocalRoute = (picked: PickerRoute) => {
     const homeOption = homeOptionByRoute.get(picked.route.id)
 
     if (homeMode && homeOption && homeBridge && agentPrincipal) {
@@ -1592,6 +1670,9 @@ export function MatrixModelPicker({
     setCatalog({ status: 'idle' })
     setSubscriptions({ status: 'idle' })
     setAccountSubscriptions(null)
+    trainingRead.current += 1
+    setTraining(null)
+    setConfirming(null)
     setFilterTouched(false)
     setProblem(undefined)
     setEffortNotice(undefined)
@@ -2009,11 +2090,27 @@ export function MatrixModelPicker({
           onFilterChange={next => {
             setFilterTouched(true)
             setFilter(next)
+            setConfirming(null)
           }}
           onQueryChange={setQuery}
           query={query}
           searchRef={search}
           sources={filterSources}
+          takeover={
+            confirming && subscriptionsService ? (
+              <ChatGptTrainingConfirm
+                bridge={subscriptionsService}
+                onConfirmed={next => {
+                  const { picked } = confirming
+                  setTraining(next)
+                  setConfirming(null)
+                  writeCloudSubscription(picked)
+                }}
+                onKeep={() => setConfirming(null)}
+                training={confirming.training}
+              />
+            ) : undefined
+          }
         >
           {managed || listable || atumRoutes.length ? (
             <>

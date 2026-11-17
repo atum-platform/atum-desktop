@@ -37,6 +37,9 @@ import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
 import { MATRIX_PAGES_IPC, type MatrixPagesState } from '../../shared/matrix-pages'
 import { MATRIX_PERMISSIONS_IPC } from '../../shared/matrix-permissions'
 import type {
+  MatrixChatGptTrainingConfirmResult,
+  MatrixChatGptTrainingRevokeResult,
+  MatrixChatGptTrainingStatus,
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
@@ -182,6 +185,12 @@ const bridge: MatrixUiBridge = {
     },
     useThisMacForChatGpt: enabled =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptRelay', enabled }) as Promise<MatrixSubscriptionRelayResult>,
+    chatGptTraining: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTraining' }) as Promise<MatrixChatGptTrainingStatus>,
+    confirmChatGptTraining: connectionId =>
+      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingConfirm', connectionId }) as Promise<MatrixChatGptTrainingConfirmResult>,
+    revokeChatGptTraining: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingRevoke' }) as Promise<MatrixChatGptTrainingRevokeResult>,
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {
