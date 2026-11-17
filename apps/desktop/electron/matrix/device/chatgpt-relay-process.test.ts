@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { ChatGptRelayProcessError, runChatGptRelayProcess } from './chatgpt-relay-process'
+import { DEVICE_CONNECTION } from './connection'
 
 const directories: string[] = []
 
@@ -52,6 +53,35 @@ raise SystemExit(4)
       stage: 'response_encode', code: 'response_not_serializable', exit: 4
     })
     expect((error as Error).message).toBe('chatgpt_relay_unavailable')
+  })
+
+  it('carries the advertised bound through subprocess stdin and stdout', async () => {
+    const bound = DEVICE_CONNECTION.maxFrameBytes
+    const source = helper(`
+import json, sys
+raw = sys.stdin.buffer.read()
+assert len(raw) == ${bound}
+value = json.loads(raw)
+response = json.dumps({"content": value["request"]["content"]}, separators=(",", ":"))
+sys.stdout.write(response + " " * (${bound} - len(response)))
+`)
+    const call = input(source)
+    const request = { content: '' }
+    const overhead = Buffer.byteLength(JSON.stringify({ model: call.model, effort: call.effort, request }))
+    request.content = 'x'.repeat(bound - overhead)
+    const answer = await runChatGptRelayProcess({ ...call, request })
+    expect(answer.response.content).toBe(request.content)
+  })
+
+  it('rejects subprocess stdout beyond the advertised bound', async () => {
+    const source = helper(`
+import sys
+sys.stdin.buffer.read()
+sys.stdout.write(" " * (${DEVICE_CONNECTION.maxFrameBytes} + 1))
+`)
+    await expect(runChatGptRelayProcess(input(source))).rejects.toMatchObject({
+      diagnostic: { stage: 'response_encode', code: 'response_too_large', exit: -1 }
+    })
   })
 
   it('marks a valid child answer as successfully encoded', async () => {

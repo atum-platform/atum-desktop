@@ -1,0 +1,9 @@
+{
+  "field": "Hello.body.chatGptRelayMaxBytes",
+  "upgraded": { "chatGptRelayMaxBytes": 16777216 },
+  "legacy": {},
+  "invalid": [0, -1, 1.5, "16777216", null],
+  "legacyRequestMaxBytes": 800000,
+  "legacyResponseMaxBytes": 800000,
+  "legacySignedFrameMaxBytes": 1048576
+}

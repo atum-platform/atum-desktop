@@ -1,3 +1,4 @@
+import { DEVICE_HUB_MAX_PAYLOAD_BYTES } from "../messages";
 import { describe, expect, it } from "vitest";
 
 import { CLOUD_ANSWERING_PACK, DEVICE_FLEET_PACK, DEVICE_SERVICE_1_2_PACK, DEVICE_SERVICE_PACK } from "../contract-packs";
@@ -67,7 +68,7 @@ describe("wire frames parse exactly as the contract declares", () => {
     const text = JSON.stringify(hello);
     expect(() => parseFrame(text.replace('"v":1', '"v":1,"v":1'))).toThrow("json_duplicate_key");
     expect(() => parseFrame(text.replace('"policyVersion":1', '"policyVersion":1.5'))).toThrow("json_not_integer");
-    expect(() => parseFrame(`${text}${" ".repeat(1_048_577)}`)).toThrow("device_frame_too_large");
+    expect(() => parseFrame(`${text}${" ".repeat(DEVICE_HUB_MAX_PAYLOAD_BYTES + 1)}`)).toThrow("device_frame_too_large");
     expect(() => parseFrame("{}")).toThrow(DeviceProtocolError);
   });
 });

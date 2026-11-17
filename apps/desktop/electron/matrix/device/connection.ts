@@ -35,7 +35,7 @@
 import { randomBytes } from 'node:crypto'
 
 import { parseFrame } from '../../../../../packages/device-protocol'
-import { helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
+import { DEVICE_HUB_MAX_PAYLOAD_BYTES, helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
 import { encodeMigrationChunk, type MigrationChunkHeader } from '../../../../../packages/device-protocol/migration-chunk'
 
 import {
@@ -71,7 +71,8 @@ export const DEVICE_CONNECTION = {
    * need a Secure Enclave signature, which a locked Mac cannot give.
    */
   grantSilenceMs: 30_000,
-  maxFrameBytes: 1_048_576,
+  // Match DeviceHub: bound complete-frame buffering while allowing full-context relay.
+  maxFrameBytes: DEVICE_HUB_MAX_PAYLOAD_BYTES,
   receiptsPerFlush: 32,
   /** A StatusQuery names at most this many commands (`status_max_commands`). */
   statusMaxCommands: 256,
@@ -85,7 +86,7 @@ export const DEVICE_CONNECTION = {
 /** Room left in a frame for the envelope around a body (`v`, `type`, `kid`, `sig`, punctuation). */
 export const DEVICE_ENVELOPE_HEADROOM_BYTES = 4096
 
-/** The largest body (UTF-8 JSON) a device text frame carries and still fits the hub's 1 MiB. */
+/** The largest body (UTF-8 JSON) a device text frame carries and still fits the hub's 16 MiB. */
 export const DEVICE_FRAME_BODY_MAX_BYTES = DEVICE_CONNECTION.maxFrameBytes - DEVICE_ENVELOPE_HEADROOM_BYTES
 
 const frameBodyBytes = (body: unknown): number => Buffer.byteLength(JSON.stringify(body), 'utf8')
@@ -150,7 +151,7 @@ export function deviceStatusPlan(
 /**
  * The binary frames that carry one artifact of a Receipt (`device_send_file`): big-endian
  * `u16 headerLength || utf8(canonicalJson({commandId, name, offset, size})) || bytes`, each within
- * the hub's 1 MiB. Chunks are unsigned; the controller accepts the bytes only when their size and
+ * the hub's 16 MiB. Chunks are unsigned; the controller accepts the bytes only when their size and
  * SHA-256 equal the artifact this Mac signs in the Receipt that follows them. An empty file has no
  * chunks.
  */
@@ -902,6 +903,7 @@ export class DeviceConnection {
     attempt.sourceOffered = facts.sourceProtocol === 1 && Boolean(helloSourceStatus(facts)) && !this.helloFallback?.source
 
     const body = {
+      chatGptRelayMaxBytes: DEVICE_CONNECTION.maxFrameBytes,
       ...(attempt.workspaceOffered && facts.workspaceProtocol === 1 ? { workspaceProtocol: 1 as const } : {}),
       ...(attempt.sourceOffered ? { sourceProtocol: 1 as const, sources: facts.sources } : {}),
       deviceServiceId: attempt.record.deviceServiceId,
