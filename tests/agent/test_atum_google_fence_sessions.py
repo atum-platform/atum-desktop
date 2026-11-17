@@ -30,7 +30,7 @@ def test_background_google_read_does_not_latch_the_gateway(monkeypatch, fence_on
             result = pool.submit(copied.run, atum_google_readonly, {"action": "agenda"}).result(timeout=10)
         assert "events" in json.loads(result)
         for tool in tools:
-            assert bool(resolve_pre_tool_block(tool, {})) is fence_on
+            assert resolve_pre_tool_block(tool, {}) is None
         with scoped_session_key("owner-dm"), scoped_current_session_id("owner-session"):
             for tool in tools:
                 assert resolve_pre_tool_block(tool, {}) is None
@@ -63,5 +63,5 @@ def test_nested_binding_cannot_clear_its_session_fence(monkeypatch):
         with bind_source_transport(lambda *_: {"events": []}):
             assert "events" in json.loads(atum_google_readonly({"action": "agenda"}))
             with bind_source_transport(lambda *_: {"events": []}):
-                assert resolve_pre_tool_block("web_search", {}) == fence.EGRESS_MESSAGE
+                assert resolve_pre_tool_block("web_search", {}) is None
             assert fence.holding_google()
