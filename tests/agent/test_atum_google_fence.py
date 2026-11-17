@@ -338,3 +338,14 @@ def test_agent_guard_allows_tools_while_holding_google_data(holding, monkeypatch
 
     assert message is None
     assert forwarded_args == args
+
+
+def test_native_protected_availability_probe_stub_is_judged_by_base_url(monkeypatch):
+    # Hermes's availability probes resolve a stub that raises on any attribute but
+    # api_key/base_url; the native client check must not crash the probe.
+    from agent import atum_google_fence as fence
+    from agent.auxiliary_client import _AuxProbeClientStub
+
+    monkeypatch.setattr(fence, "native_protected", lambda: True)
+    assert fence.client_allowed(_AuxProbeClientStub(base_url="https://openrouter.ai/api/v1")) is True
+    assert fence.client_allowed(_AuxProbeClientStub(base_url="https://api.anthropic.com/v1")) is False
