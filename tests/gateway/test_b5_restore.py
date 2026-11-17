@@ -49,7 +49,7 @@ def test_older_journal_reuses_native_receipt(pair, status):
     db, store, row, epoch = pair
     db._execute_write(lambda c: c.execute(
         'UPDATE session_admissions SET status=?,owner_epoch=?,generation=1', (status, epoch)))
-    result = reconcile(db, store, {'generation': 7, 'timestamp': 'T'})
+    reconcile(db, store, {'generation': 7, 'timestamp': 'T'})
     assert store.state('$event') == 'native'
     assert store.db.execute('SELECT receipt,room_id FROM intake_events').fetchone() == (row['admission_id'], '!room')
 
