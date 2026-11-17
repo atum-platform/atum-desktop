@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
+import { DEVICE_HUB_MAX_PAYLOAD_BYTES, parseFrame } from '../../../../../packages/device-protocol/messages'
 import { decodeMigrationChunk } from '../../../../../packages/device-protocol/migration-chunk'
 
+import { CHATGPT_RELAY_REQUEST_MAX_BYTES, CHATGPT_RELAY_RESPONSE_MAX_BYTES } from './chatgpt-relay'
 import {
   DEVICE_CONNECTION,
   DEVICE_FRAME_BODY_MAX_BYTES,
@@ -407,7 +409,7 @@ describe('the device hub connection', () => {
     expect(
       verifyDeviceSignature(h.signer.identity.public.spki, deviceSignedBytes('Hello', hello.body), hello.sig)
     ).toBe(true)
-    expect(Object.keys(hello.body).sort()).toEqual(Object.keys(fixture('hello.frame.json').body).sort())
+    expect(Object.keys(hello.body).sort()).toEqual([...Object.keys(fixture('hello.frame.json').body), 'chatGptRelayMaxBytes'].sort())
     expect(hello.body).toMatchObject({
       deviceServiceId: h.record.deviceServiceId,
       enrollmentEpoch: 3,
@@ -416,6 +418,16 @@ describe('the device hub connection', () => {
       matrixDeviceId: 'MACBOOKQ7ZK'
     })
     expect(hello.body.connectionNonce).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    const negotiation = JSON.parse(readFileSync(join(packs, 'chatgpt-relay-negotiation.json'), 'utf8'))
+    expect(hello.body).toMatchObject(negotiation.upgraded)
+    expect(hello.body.chatGptRelayMaxBytes).toBe(Math.min(
+      DEVICE_HUB_MAX_PAYLOAD_BYTES, DEVICE_CONNECTION.maxFrameBytes,
+      CHATGPT_RELAY_REQUEST_MAX_BYTES, CHATGPT_RELAY_RESPONSE_MAX_BYTES
+    ))
+    expect(parseFrame(JSON.stringify({ v: 1, ...hello }), 'device_to_controller').body).toEqual(hello.body)
+    const changed = { ...hello.body, chatGptRelayMaxBytes: Number(hello.body.chatGptRelayMaxBytes) - 1 }
+    expect(verifyDeviceSignature(h.signer.identity.public.spki, deviceSignedBytes('Hello', changed), hello.sig)).toBe(false)
+    expect(deviceMessageHash('Hello', changed)).not.toBe(deviceMessageHash('Hello', hello.body))
 
     // Proof answers this Challenge for this Hello.
     const proof = socket.last('Proof')!
@@ -1023,7 +1035,8 @@ function chunk(frame: Uint8Array) {
 describe('what the Mac sends back on the connection', () => {
   it("answers a reconnect's StatusQuery with every receipt in one frame, and the trimmed ones whole after", async () => {
     const ids = [randomUUID(), randomUUID(), randomUUID()]
-    const ledger = [receipt(ids[0]!, 600_000), receipt(ids[1]!, 10), receipt(ids[2]!, 700_000)]
+    const ledger = [receipt(ids[0]!, Math.floor(DEVICE_FRAME_BODY_MAX_BYTES * 0.45)), receipt(ids[1]!, 10),
+      receipt(ids[2]!, Math.floor(DEVICE_FRAME_BODY_MAX_BYTES * 0.6))]
 
     const h = harness({
       sink: {
@@ -1043,7 +1056,7 @@ describe('what the Mac sends back on the connection', () => {
     const status = socket.last('Status')!
     const raw = JSON.stringify(status)
 
-    // Never a receipt fewer (an omitted command counts as never received), and within the hub's 1 MiB.
+    // Every receipt remains represented within the hub's frame bound.
     expect((status.body.receipts as { commandId: string }[]).map(each => each.commandId)).toEqual(ids)
     expect(Buffer.byteLength(raw, 'utf8')).toBeLessThanOrEqual(DEVICE_CONNECTION.maxFrameBytes)
     // The largest lost its output to fit; the others travel whole.

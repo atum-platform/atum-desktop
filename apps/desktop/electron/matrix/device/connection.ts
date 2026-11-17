@@ -35,7 +35,7 @@
 import { randomBytes } from 'node:crypto'
 
 import { parseFrame } from '../../../../../packages/device-protocol'
-import { helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
+import { DEVICE_HUB_MAX_PAYLOAD_BYTES, helloSourceStatus, type MacSourceStatus } from '../../../../../packages/device-protocol/messages'
 import { encodeMigrationChunk, type MigrationChunkHeader } from '../../../../../packages/device-protocol/migration-chunk'
 
 import {
@@ -72,7 +72,7 @@ export const DEVICE_CONNECTION = {
    */
   grantSilenceMs: 30_000,
   // Match DeviceHub: bound complete-frame buffering while allowing full-context relay.
-  maxFrameBytes: 16 * 1024 * 1024,
+  maxFrameBytes: DEVICE_HUB_MAX_PAYLOAD_BYTES,
   receiptsPerFlush: 32,
   /** A StatusQuery names at most this many commands (`status_max_commands`). */
   statusMaxCommands: 256,
@@ -903,6 +903,7 @@ export class DeviceConnection {
     attempt.sourceOffered = facts.sourceProtocol === 1 && Boolean(helloSourceStatus(facts)) && !this.helloFallback?.source
 
     const body = {
+      chatGptRelayMaxBytes: DEVICE_CONNECTION.maxFrameBytes,
       ...(attempt.workspaceOffered && facts.workspaceProtocol === 1 ? { workspaceProtocol: 1 as const } : {}),
       ...(attempt.sourceOffered ? { sourceProtocol: 1 as const, sources: facts.sources } : {}),
       deviceServiceId: attempt.record.deviceServiceId,

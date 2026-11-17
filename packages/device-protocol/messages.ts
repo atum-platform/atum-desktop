@@ -86,6 +86,8 @@ export function helloSourceStatus(hello: unknown): MacSourceStatus | undefined {
 }
 
 export interface Hello {
+  /** Transport bound only. Signed and challenge-bound, with no authority grant. */
+  chatGptRelayMaxBytes?: number;
   sourceProtocol?: 1;
   sources?: MacSourceStatus;
   workspaceProtocol?: 1;
@@ -254,8 +256,16 @@ export function frameViolations(value: unknown): Violation[] {
     const { sourceProtocol: _protocol, sources: _sources, ...core } = value.body;
     validationValue = { ...value, body: core };
   }
+  if (value.type === "Hello" && isObject(validationValue.body) && "chatGptRelayMaxBytes" in validationValue.body) {
+    const { chatGptRelayMaxBytes: _relayMax, ...core } = validationValue.body;
+    validationValue = { ...validationValue, body: core };
+  }
   const violations = messageViolations(source ? DEVICE_SERVICE_1_2_PACK : relay ? relayWirePack : extension ? DEVICE_WORKSPACE_PACK : DEVICE_SERVICE_PACK,
     `frame.${value.type}`, validationValue);
+  if (value.type === "Hello" && isObject(value.body) && "chatGptRelayMaxBytes" in value.body) {
+    check({ type: "integer", min: 1 }, value.body.chatGptRelayMaxBytes,
+      "$.body.chatGptRelayMaxBytes", {}, violations);
+  }
   if (value.type === "Execute" && source && isObject(value.body)) {
     check({ ref: "mac_source_args" }, value.body.args, "$.body.args", DEVICE_SERVICE_1_2_PACK.types, violations);
   }
