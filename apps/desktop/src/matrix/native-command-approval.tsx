@@ -19,10 +19,7 @@ import { matrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
 export const NATIVE_APPROVE_KEY = '✅'
 export const NATIVE_DENY_KEY = '❌'
 const DENY_KEYS = new Set(['❌', '❎'])
-/** How long a fresh prompt may wait for the gateway to seed its reactions before it reads as closed. */
-const SEEDING_MS = 15_000
-
-export type MatrixNativeApprovalState = 'waiting' | 'arriving' | 'approved' | 'denied' | 'closed'
+export type MatrixNativeApprovalState = 'waiting' | 'approved' | 'denied' | 'closed'
 
 export interface MatrixNativeApproval {
   command: string
@@ -35,7 +32,7 @@ export interface MatrixNativeApproval {
  * The approval this message is, or null. Language-free markers only: the gateway's typed commands
  * (never translated), one fenced block, and the answers its own sender seeded.
  */
-export function matrixNativeApproval(message: MatrixMessage, now = Date.now()): MatrixNativeApproval | null {
+export function matrixNativeApproval(message: MatrixMessage): MatrixNativeApproval | null {
   if (message.own || message.redacted || message.attachment || !message.id.startsWith('$')) {
     return null
   }
@@ -66,14 +63,12 @@ export function matrixNativeApproval(message: MatrixMessage, now = Date.now()): 
       ? 'denied'
       : seeded
         ? 'waiting'
-        : now - message.timestamp < SEEDING_MS
-          ? 'arriving'
-          : 'closed'
+        : 'closed'
 
   return { command, ...(reason ? { reason } : {}), state }
 }
 
-type Phase = 'idle' | 'confirming' | 'sending' | 'failed' | 'unavailable'
+type Phase = 'idle' | 'approving' | 'denying' | 'failed' | 'unavailable'
 
 /**
  * The card (Atum Kit Ask): what will run and where, the command on one line (all of it and the
@@ -101,9 +96,19 @@ export function MatrixNativeApprovalCard({
   const state = answered ?? approval.state
 
   const answer = async (key: string, result: 'approved' | 'denied') => {
-    setPhase('sending')
+    setPhase(result === 'approved' ? 'approving' : 'denying')
 
     try {
+      if (result === 'approved') {
+        const presence = await bridge?.confirmCommand(approval.command)
+
+        if (presence !== 'confirmed') {
+          setPhase(presence === 'declined' ? 'idle' : 'unavailable')
+
+          return
+        }
+      }
+
       await send({ kind: 'react', roomId, eventId, key, reacted: true })
       setAnswered(result)
       setPhase('idle')
@@ -112,31 +117,8 @@ export function MatrixNativeApprovalCard({
     }
   }
 
-  const approve = async () => {
-    if (!bridge) {
-      setPhase('unavailable')
-
-      return
-    }
-
-    setPhase('confirming')
-    let presence: Awaited<ReturnType<MatrixNativeMacBridge['confirmCommand']>>
-
-    try {
-      presence = await bridge.confirmCommand(approval.command)
-    } catch {
-      presence = 'unavailable'
-    }
-
-    if (presence === 'confirmed') {
-      await answer(NATIVE_APPROVE_KEY, 'approved')
-    } else {
-      setPhase(presence === 'unavailable' ? 'unavailable' : 'idle')
-    }
-  }
-
-  const busy = phase === 'confirming' || phase === 'sending'
-  const asking = state === 'waiting' || state === 'arriving'
+  const busy = phase === 'approving' || phase === 'denying'
+  const asking = state === 'waiting'
 
   return (
     <section aria-label={copy.label} className="ak-ask w-full" data-matrix-native-approval={state}>
@@ -189,9 +171,13 @@ export function MatrixNativeApprovalCard({
             {copy.denied}
           </span>
         ) : state === 'closed' ? (
-          <span className="ak-ask-line" role="status">{copy.closed}</span>
-        ) : phase === 'confirming' ? (
-          <span className="ak-ask-line" role="status">{copy.confirming}</span>
+          <span className="ak-ask-line" role="status">
+            {copy.closed}
+          </span>
+        ) : phase === 'approving' ? (
+          <span className="ak-ask-line" role="status">
+            {copy.confirming}
+          </span>
         ) : (
           <>
             {phase !== 'unavailable' && (
@@ -199,7 +185,7 @@ export function MatrixNativeApprovalCard({
                 className="ak-btn ak-btn--primary ak-btn--sm"
                 data-matrix-native-approval-approve
                 disabled={busy || state !== 'waiting'}
-                onClick={() => void approve()}
+                onClick={() => void answer(NATIVE_APPROVE_KEY, 'approved')}
                 size="sm"
               >
                 {copy.approve}
@@ -219,7 +205,11 @@ export function MatrixNativeApprovalCard({
         )}
       </div>
       {asking && (phase === 'failed' || phase === 'unavailable') && (
-        <p className="ps-11 [font:var(--ak-t-callout)] text-(--ak-ink-3)" data-matrix-native-approval-note role="status">
+        <p
+          className="ps-11 [font:var(--ak-t-callout)] text-(--ak-ink-3)"
+          data-matrix-native-approval-note
+          role="status"
+        >
           {phase === 'failed' ? copy.sendFailed : copy.unavailable}
         </p>
       )}

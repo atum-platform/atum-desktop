@@ -1,25 +1,28 @@
 import { readFileSync } from 'node:fs'
-import { mkdtemp, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { requestS1 } from './cloud-agent'
 import type { DeviceEnrollmentRecord } from './enrollment'
-
 import { managedKeys, NativeMacSsh, type NativeSshSystem } from './native-ssh'
 import { createNativeSshSystem } from './native-ssh-system'
 
 const packFixture = (name: string) =>
   JSON.parse(readFileSync(new URL(`./native-ssh-fixtures/${name}.json`, import.meta.url), 'utf8'))
+
 const authorized = packFixture('native-authorized-positive')
 const enrollment = packFixture('native-enroll-request')
 const enrolled = packFixture('native-enroll-response')
 const revoked = packFixture('native-revoke-response')
 const host = `${enrollment.deviceServiceId}.mac.atumplatform.com`
 const secret = 'test-only-token'
+
 function mockSettings() {
   const values = new Map<string, string>()
+
   return {
     getItem: vi.fn((key: string) => values.get(key) ?? null),
     setItem: vi.fn((key: string, value: string) => {
@@ -27,11 +30,12 @@ function mockSettings() {
     })
   }
 }
+
 function fixture(settings = mockSettings()) {
   let record = { ...enrollment, state: 'active' } as unknown as DeviceEnrollmentRecord
   let saved: string | null = null
-  let running = false
   let disk = 'ssh-ed25519 user-owned-line\n'
+
   const system: NativeSshSystem = {
     ready: vi.fn(async () => ({ remoteLogin: true, user: enrollment.user, hostKey: enrollment.hostKey })),
     enableRemoteLogin: vi.fn(async () => {}),
@@ -42,20 +46,17 @@ function fixture(settings = mockSettings()) {
     removeToken: vi.fn(async () => {
       saved = null
     }),
-    start: vi.fn(async () => {
-      running = true
-    }),
-    stop: vi.fn(async () => {
-      running = false
-    }),
-    healthy: vi.fn(async () => running),
+    start: vi.fn(async () => {}),
+    stop: vi.fn(async () => {}),
     keys: vi.fn(async keys => {
       disk = managedKeys(disk, keys)
     })
   }
+
   const http = vi.fn(async (_url: any, init: any) => {
     expect(init.headers.Authorization).toBe('Bearer owner-fixture-session')
     const body = JSON.parse(init.body)
+
     const answer = {
       ssh_prepare: {
         deviceServiceId: record.deviceServiceId,
@@ -74,8 +75,10 @@ function fixture(settings = mockSettings()) {
       },
       ssh_revoke: revoked
     }[body.operation as string]
+
     return Response.json(answer)
   })
+
   const service = new NativeMacSsh({
     enrollment: () => record,
     call: request =>
@@ -89,6 +92,7 @@ function fixture(settings = mockSettings()) {
     system,
     settings
   })
+
   return {
     service,
     system,
@@ -101,6 +105,7 @@ function fixture(settings = mockSettings()) {
     saved: () => saved
   }
 }
+
 const homes: string[] = []
 afterEach(async () => {
   await Promise.all(homes.splice(0).map(home => rm(home, { recursive: true, force: true })))
@@ -142,10 +147,6 @@ describe('native SSH owner route', () => {
   it('preserves the pending hint through failures and shows operational problems first', async () => {
     const f = fixture()
     await f.service.refresh()
-    vi.mocked(f.system.healthy).mockResolvedValue(false)
-    await f.service.refresh()
-    expect(f.service.status().status).toBe('tunnel_down')
-    vi.mocked(f.system.healthy).mockResolvedValue(true)
     vi.mocked(f.system.ready).mockResolvedValueOnce({ remoteLogin: false, user: 'owner', hostKey: '' })
     await f.service.refresh()
     expect(f.service.status().status).toBe('needs_remote_login')
@@ -303,23 +304,26 @@ it('real temp filesystem keeps modes and user lines; mocked launchctl writes no 
   await mkdir(path.join(home, '.ssh'))
   await writeFile(path.join(home, '.ssh/authorized_keys'), '# user\n')
   const run = vi.fn(async () => ({ stdout: '', stderr: '' })) as any
+
   const system = createNativeSshSystem({
     home,
     run,
-    helper: async () => '/test/cloudflared',
-    metricsPort: async () => 24193
+    helper: async () => '/test/cloudflared'
   })
+
   await system.keys([authorized[0].publicKey])
   await system.start(enrollment.deviceServiceId)
+  run.mockClear()
+  await system.start(enrollment.deviceServiceId)
+  expect(run.mock.calls).toHaveLength(1)
+  expect(run.mock.calls[0][1]).toEqual(['print', expect.stringContaining('com.atum.desktop.native-ssh')])
   const keyFile = path.join(home, '.ssh/authorized_keys')
   expect((await stat(keyFile)).mode & 0o777).toBe(0o600)
   expect((await stat(path.join(home, '.ssh'))).mode & 0o777).toBe(0o700)
   const root = path.join(home, 'Library/Application Support/Atum/native-ssh')
-  const wrapper = await readFile(path.join(root, 'run.sh'), 'utf8')
-  expect(wrapper).toContain('find-generic-password')
-  expect(wrapper).toContain('--token-file /dev/stdin')
-  expect(wrapper).not.toContain(secret)
   const plist = await readFile(path.join(home, 'Library/LaunchAgents/com.atum.desktop.native-ssh.plist'), 'utf8')
+  expect(plist).toContain('--token-file')
+  expect(plist).toContain('<key>KeepAlive</key><true/>')
   expect(plist).not.toContain(secret)
   expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
   await system.keys([])
@@ -330,22 +334,17 @@ it('real temp filesystem keeps modes and user lines; mocked launchctl writes no 
   expect(run.mock.calls.some((call: any[]) => call[0] === '/usr/bin/osascript')).toBe(true)
 })
 
-it('writes the Keychain password through stdin only, never argv or disk', async () => {
-  const { EventEmitter } = await import('node:events')
+it('protects the token file and removes it on revoke without putting it in argv', async () => {
   const home = await mkdtemp(path.join(tmpdir(), 'atum-native-secret-'))
   homes.push(home)
-  const stdin = { on: vi.fn(), end: vi.fn() }
-  const launch = vi.fn(() => {
-    const child = Object.assign(new EventEmitter(), { stdin, kill: vi.fn() })
-    queueMicrotask(() => child.emit('close', 0))
-    return child
-  })
-  const run = vi.fn(async () => ({ stdout: secret, stderr: '' }))
-  const system = createNativeSshSystem({ home, run: run as any, spawnKeychain: launch as any })
+  const run = vi.fn(async () => ({ stdout: '', stderr: '' }))
+  const system = createNativeSshSystem({ home, run: run as any })
   await system.saveToken(enrollment.deviceServiceId, secret)
-  expect(stdin.end).toHaveBeenCalledWith(expect.stringContaining(secret))
-  expect(JSON.stringify(launch.mock.calls)).not.toContain(secret)
+  expect(await system.token(enrollment.deviceServiceId)).toBe(secret)
+  const file = path.join(home, 'Library/Application Support/Atum/native-ssh', `${enrollment.deviceServiceId}.token`)
+  expect((await stat(file)).mode & 0o777).toBe(0o600)
+  expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700)
+  await system.removeToken(enrollment.deviceServiceId)
+  expect(await system.token(enrollment.deviceServiceId)).toBeNull()
   expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
-  const { readdir } = await import('node:fs/promises')
-  expect(await readdir(home)).toEqual([])
 })

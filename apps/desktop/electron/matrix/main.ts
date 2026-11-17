@@ -6994,6 +6994,7 @@ function publish(next: MatrixSnapshot) {
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -17965,6 +17966,7 @@ async function start() {
   appBotTrustStore = new EncryptedStore(path.join(app.getPath('userData'), 'app-bot-trust.json'), safeStorage)
   // S1 WS-3b: this Mac's device service and the owner side of cloud enrollments.
   deviceIdentity = createDeviceIdentity()
+
   if (process.platform === 'darwin') {
     nativeMacSsh = new NativeMacSsh({
       enrollment: () => deviceIdentity?.enrollment() ?? null,
@@ -17974,40 +17976,61 @@ async function start() {
     })
     ipcMain.handle(MATRIX_NATIVE_MAC_IPC.ssh, async (event, action: unknown) => {
       requireMatrixCaller(event, ui?.webContents, UI_URL)
+
       if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
         throw new Error('signed_out')
       }
+
       switch (action) {
-        case 'status': return nativeMacSsh!.status()
-        case 'connect': await nativeMacSsh!.start(true); break
-        case 'enable_remote_login': await nativeMacSsh!.enableRemoteLogin(); break
-        case 'disconnect': await nativeMacSsh!.disconnect(); break
+        case 'status':
+          return nativeMacSsh!.status()
+
+        case 'connect':
+          await nativeMacSsh!.start(true)
+
+          break
+
+        case 'enable_remote_login':
+          await nativeMacSsh!.enableRemoteLogin()
+
+          break
+
+        case 'disconnect':
+          await nativeMacSsh!.disconnect()
+
+          break
+
         case 'full_disk_access_hint': return nativeMacSsh!.fullDiskAccessHint()
+
         case 'open_settings':
           await shell.openExternal(REMOTE_LOGIN_SETTINGS)
           nativeMacSsh!.acknowledgeFullDiskAccessHint()
+
           break
+
         default: throw new Error('invalid_native_ssh_action')
       }
+
       return nativeMacSsh!.status()
     })
     // A command approval in a chat (Hermes's own answer is the window's reaction): one fresh Touch ID first.
     ipcMain.handle(MATRIX_NATIVE_MAC_IPC.confirmCommand, (event, command: unknown) => {
       requireMatrixCaller(event, ui?.webContents, UI_URL)
+
       if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
         throw new Error('signed_out')
       }
+
       return confirmNativeCommand(command, {
-        signer: () => deviceIdentity?.browserImportDevice()?.signer ?? null,
         touchId: {
           can: () => systemPreferences.canPromptTouchID(),
           prompt: reason => systemPreferences.promptTouchID(reason)
         },
-        locale: deviceLocale,
-        setPaused: paused => deviceBootstrap?.setPaused(paused)
+        locale: deviceLocale
       })
     })
   }
+
   cloudEnrollments = createCloudEnrollments()
   // Which Mac an agent lives on (atum.agent-home/2.1). Inert for a signed-out account, for an agent the
   // platform has not placed under the model, and against a platform that has no such routes.
@@ -18670,10 +18693,12 @@ async function start() {
     home: subscriptionAuthHome,
     custody: (home, action) => {
       if (!runtime) {throw new Error('carry_unavailable')}
+
       return carryCustody(runtime.python, runtime.source, home, action)
     },
     drain: async () => {
       deviceBootstrap?.configureChatGptRelay(false, [])
+
       // Do not use refreshSubscriptionAgents: that helper immediately restarts consumers.
       for (const each of allAgents()) {if (!each.closed) {await stopHost(each.role)}}
       await retireSubscriptionProviders()
@@ -18681,9 +18706,11 @@ async function start() {
     carried: () => { chatGptRelay?.markCarried(); void chatGptRelay?.refresh(); recheckAgents() },
     restored: () => {
       const relay = chatGptRelay?.view()
+
       if (relay?.state === 'enabled' && relay.deviceServiceId === deviceIdentity?.enrollment()?.deviceServiceId) {
         deviceBootstrap?.configureChatGptRelay(true, relay.models.map(model => model.id))
       }
+
       recheckAgents()
     },
     call: (body, signal) => account.s1Request(

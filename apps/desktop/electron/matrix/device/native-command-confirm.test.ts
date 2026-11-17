@@ -2,83 +2,46 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { matrixNativeCommandSheetText } from '../../../shared/matrix-native-mac'
 
-import { DeviceKeyError } from './device-key'
 import { confirmNativeCommand, type NativeCommandConfirmDeps } from './native-command-confirm'
 
 function deps(overrides: Partial<NativeCommandConfirmDeps> = {}) {
-  const approve = vi.fn(async (_bytes: Uint8Array, _reason: string) => ({ kid: 'k', sig: 's' }))
   const prompt = vi.fn(async () => undefined)
-  const setPaused = vi.fn()
+  const password = vi.fn(async () => undefined)
 
   return {
-    approve,
     prompt,
-    setPaused,
-    value: {
-      signer: () => ({ approve }),
-      touchId: { can: () => true, prompt },
-      locale: () => 'en',
-      setPaused,
-      ...overrides
-    } satisfies NativeCommandConfirmDeps
+    password,
+    value: { touchId: { can: () => true, prompt }, password, locale: () => 'en', ...overrides }
   }
 }
 
-describe('Touch ID before a native command approval', () => {
-  it("asks with the device approval key, naming the command, and pauses the Mac's GUI meanwhile", async () => {
+describe('fresh native presence', () => {
+  it('prompts Touch ID on every approval with the command and no fallback after cancellation', async () => {
     const run = deps()
-
-    await expect(confirmNativeCommand('rm -rf ~/old', run.value)).resolves.toBe('confirmed')
-
-    const [bytes, reason] = run.approve.mock.calls[0] as unknown as [Uint8Array, string]
-    expect(Buffer.from(bytes).toString('latin1').startsWith('atum.native-command-confirm/1\0')).toBe(true)
-    expect(reason).toContain('“rm -rf ~/old”')
-    expect(run.prompt).not.toHaveBeenCalled()
-    expect(run.setPaused.mock.calls).toEqual([[true], [false]])
-  })
-
-  it('a cancelled or timed-out sheet is a no, never a second prompt', async () => {
-    const run = deps()
-    run.approve.mockRejectedValueOnce(new DeviceKeyError('approval_denied'))
-
-    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('declined')
-    expect(run.prompt).not.toHaveBeenCalled()
-    expect(run.setPaused).toHaveBeenLastCalledWith(false)
-  })
-
-  it("falls back to Electron's Touch ID only when the Mac has no approval key", async () => {
-    const run = deps()
-    run.approve.mockRejectedValueOnce(new DeviceKeyError('approval_unavailable'))
-
     await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('confirmed')
-    expect(run.prompt).toHaveBeenCalledTimes(1)
-
-    const unenrolled = deps({ signer: () => null })
-    unenrolled.prompt.mockRejectedValueOnce(new Error('cancelled'))
-    await expect(confirmNativeCommand('ls', unenrolled.value)).resolves.toBe('declined')
+    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('confirmed')
+    expect(run.prompt).toHaveBeenCalledTimes(2)
+    expect(run.prompt).toHaveBeenCalledWith(expect.stringContaining('“ls”'))
+    run.prompt.mockRejectedValueOnce(new Error('cancelled'))
+    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('declined')
+    expect(run.password).not.toHaveBeenCalled()
   })
-
-  it('is unavailable where nothing can ask', async () => {
-    const run = deps({ signer: () => null, touchId: { can: () => false, prompt: vi.fn() } })
-
-    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('unavailable')
+  it('uses the native password presence check only without Touch ID', async () => {
+    const run = deps({ touchId: { can: () => false, prompt: vi.fn() } })
+    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('confirmed')
+    expect(run.password).toHaveBeenCalledOnce()
+    run.password.mockRejectedValueOnce(new Error('cancelled'))
+    await expect(confirmNativeCommand('ls', run.value)).resolves.toBe('declined')
   })
-
-  it('refuses anything but a bounded command', async () => {
-    const run = deps()
-
-    await expect(confirmNativeCommand('', run.value)).rejects.toThrow('invalid_native_command')
-    await expect(confirmNativeCommand({ command: 'ls' }, run.value)).rejects.toThrow('invalid_native_command')
-    await expect(confirmNativeCommand('x'.repeat(16_001), run.value)).rejects.toThrow('invalid_native_command')
-    expect(run.approve).not.toHaveBeenCalled()
-  })
-
-  it('speaks the owner’s language on the sheet', async () => {
+  it('bounds IPC and speaks the owner’s language', async () => {
     const run = deps({ locale: () => 'vi' })
 
-    await confirmNativeCommand('ls', run.value)
+    for (const command of ['', {}, 'x'.repeat(16_001)]) {
+      await expect(confirmNativeCommand(command, run.value)).rejects.toThrow('invalid_native_command')
+    }
 
-    expect(run.approve.mock.calls[0]?.[1]).toContain('trên máy Mac này')
+    await confirmNativeCommand('ls', run.value)
+    expect(run.prompt).toHaveBeenCalledWith(expect.stringContaining('trên máy Mac này'))
   })
 })
 

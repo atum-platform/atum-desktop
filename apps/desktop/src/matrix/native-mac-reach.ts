@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import type { MatrixNativeMacBridge, MatrixNativeSshAction, MatrixNativeSshView } from '../../shared/matrix-native-mac'
 import type { MatrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
@@ -15,14 +15,15 @@ export interface MatrixNativeMacLine {
 
 export interface MatrixNativeMacFacts {
   view?: MatrixNativeSshView
-  /** A tunnel-down read that is not the service's first word (it starts down until its first refresh). */
-  settled: boolean
   /** The administrator prompt did not turn Remote Login on: the way left is System Settings. */
   manual: boolean
 }
 
 /** The one line and action, or null when nothing needs the owner. */
-export function matrixNativeMacLine(facts: MatrixNativeMacFacts, copy: MatrixNativeMacCopy): MatrixNativeMacLine | null {
+export function matrixNativeMacLine(
+  facts: MatrixNativeMacFacts,
+  copy: MatrixNativeMacCopy
+): MatrixNativeMacLine | null {
   const words = copy.mac
 
   switch (facts.view?.status) {
@@ -35,7 +36,7 @@ export function matrixNativeMacLine(facts: MatrixNativeMacFacts, copy: MatrixNat
       return { help: words.fullDisk, action: { label: words.openSettings, run: 'open_settings' } }
 
     case 'tunnel_down':
-      return facts.settled ? { help: words.unreachable, action: { label: words.tryAgain, run: 'connect' } } : null
+      return { help: words.unreachable, action: { label: words.tryAgain, run: 'connect' } }
 
     case 'error':
       return { help: words.unreachable, action: { label: words.tryAgain, run: 'connect' } }
@@ -45,51 +46,17 @@ export function matrixNativeMacLine(facts: MatrixNativeMacFacts, copy: MatrixNat
   }
 }
 
-/** How often an open Connections page re-reads the state (main refreshes every minute). */
-const READ_MS = 15_000
-
-/** This Mac's native reach while `active`; nothing at all where main offers none (another OS, signed out). */
+/** Read the setup result on entry, after actions and when the window regains focus. */
 export function useMatrixNativeMac(
   active: boolean,
   bridge: MatrixNativeMacBridge | undefined = window.atumMatrix?.nativeMac
 ): MatrixNativeMacFacts & { busy: boolean; run(action: MatrixNativeSshAction): void } {
-  const [view, setView] = useState<MatrixNativeSshView>()
-  const [settled, setSettled] = useState(false)
-  const [manual, setManual] = useState(false)
+  const [result, setResult] = useState<MatrixNativeMacFacts>({ manual: false })
   const [busy, setBusy] = useState(false)
-  const reads = useRef(0)
-
-  useEffect(() => {
-    if (!active || !bridge) {
-      return
-    }
-
-    let live = true
-
-    const read = () =>
-      void bridge.ssh('status').then(
-        next => {
-          if (live) {
-            reads.current += 1
-            setView(next)
-            setSettled(reads.current > 1)
-          }
-        },
-        () => undefined
-      )
-
-    read()
-    const timer = setInterval(read, READ_MS)
-
-    return () => {
-      live = false
-      clearInterval(timer)
-    }
-  }, [active, bridge])
 
   const run = useCallback(
-    function run(action: MatrixNativeSshAction): void {
-      if (!bridge) {
+    (action: MatrixNativeSshAction) => {
+      if (!active || !bridge) {
         return
       }
 
@@ -97,30 +64,36 @@ export function useMatrixNativeMac(
       void bridge
         .ssh(action)
         .then(
-          next => {
-            setView(next)
-            // An explicit action's answer is the state after a real refresh.
-            setSettled(true)
-
-            if (action === 'enable_remote_login' && next.status === 'needs_remote_login') {
-              setManual(true)
-            }
-
-            // Back from System Settings, check again at once rather than at the next minute.
-            if (action === 'open_settings') {
-              window.addEventListener('focus', () => run('connect'), { once: true })
-            }
-          },
-          () => {
-            if (action === 'enable_remote_login') {
-              setManual(true)
-            }
-          }
+          view => setResult({ view, manual: action === 'enable_remote_login' && view.status === 'needs_remote_login' }),
+          () => setResult(previous => ({ ...previous, manual: action === 'enable_remote_login' }))
         )
         .finally(() => setBusy(false))
     },
-    [bridge]
+    [active, bridge]
   )
 
-  return { view, settled, manual, busy, run }
+  useEffect(() => {
+    if (!active || !bridge) {
+      return
+    }
+
+    let live = true
+    void bridge.ssh('status').then(
+      view => {
+        if (live) {
+          setResult({ view, manual: false })
+        }
+      },
+      () => undefined
+    )
+    const refresh = () => run('connect')
+    window.addEventListener('focus', refresh)
+
+    return () => {
+      live = false
+      window.removeEventListener('focus', refresh)
+    }
+  }, [active, bridge, run])
+
+  return { ...result, busy, run }
 }

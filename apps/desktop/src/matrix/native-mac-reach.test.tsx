@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
@@ -94,22 +94,14 @@ describe("this Mac's native reach in Your Macs", () => {
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('open_settings'))
   })
 
-  it('says nothing for the first tunnel-down read, then one line and Try again once it holds', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true })
+  it('offers Try again for a failed setup result and refreshes on focus', async () => {
     const { ssh, value } = bridge({ status: view('tunnel_down'), connect: view('connected') })
     renderMacs(value)
-
-    await waitFor(() => expect(thisRow().getAttribute('data-matrix-mac-native')).toBe('tunnel_down'))
-    expect(within(thisRow()).queryByRole('button')).toBeNull()
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(15_000)
-    })
-
     fireEvent.click(await within(thisRow()).findByRole('button', { name: words.tryAgain }))
-    expect(within(thisRow()).getByText(words.unreachable)).toBeTruthy()
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
     await waitFor(() => expect(within(thisRow()).queryByRole('button')).toBeNull())
+    fireEvent.focus(window)
+    await waitFor(() => expect(ssh.mock.calls.filter(([action]) => action === 'connect')).toHaveLength(2))
   })
 
   it("leaves a fix of this Mac's own first, and other Macs untouched", async () => {

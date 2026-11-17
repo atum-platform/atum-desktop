@@ -1,15 +1,14 @@
+import type { MatrixNativeSshView as NativeSshView } from '../../../shared/matrix-native-mac'
+
 /** Native Hermes SSH route. No device frames or tool schemas are involved. */
 import type { DeviceEnrollmentRecord } from './enrollment'
 
 export const REMOTE_LOGIN_SETTINGS =
   'x-apple.systempreferences:com.apple.Sharing-Settings.extension?Services_RemoteLogin'
-export type NativeSshStatus =
-  'connected' | 'needs_remote_login' | 'needs_full_disk_access_hint' | 'tunnel_down' | 'error'
-export interface NativeSshView {
-  status: NativeSshStatus
-  settingsUrl: string
-  reason?: string
-}
+export type {
+  MatrixNativeSshStatus as NativeSshStatus,
+  MatrixNativeSshView as NativeSshView
+} from '../../../shared/matrix-native-mac'
 export type NativeSshRequest =
   | { operation: 'ssh_prepare'; deviceServiceId: string }
   | {
@@ -30,12 +29,16 @@ export interface NativeSshSystem {
   removeToken(id: string): Promise<void>
   start(id: string): Promise<void>
   stop(): Promise<void>
-  healthy(): Promise<boolean>
   keys(keys: string[]): Promise<void>
 }
+
 export function sshPublicKey(value: unknown): value is string {
-  if (typeof value !== 'string' || !/^ssh-ed25519 [A-Za-z0-9+/]{68}$/.test(value)) return false
+  if (typeof value !== 'string' || !/^ssh-ed25519 [A-Za-z0-9+/]{68}$/.test(value)) {
+    return false
+  }
+
   const bytes = Buffer.from(value.slice(12), 'base64')
+
   return (
     bytes.length === 51 &&
     bytes.readUInt32BE(0) === 11 &&
@@ -43,13 +46,19 @@ export function sshPublicKey(value: unknown): value is string {
     bytes.readUInt32BE(15) === 32
   )
 }
+
 const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
+
 /** Preserve all bytes outside the block; refuse ambiguous/corrupt markers. */
 export function managedKeys(current: string, keys: string[]): string {
-  if (!keys.every(sshPublicKey)) throw new Error('invalid_ssh_key')
+  if (!keys.every(sshPublicKey)) {
+    throw new Error('invalid_ssh_key')
+  }
+
   const begin = current.indexOf(BEGIN),
     end = current.indexOf(END)
+
   if (
     begin < 0 !== end < 0 ||
     (begin >= 0 &&
@@ -57,14 +66,24 @@ export function managedKeys(current: string, keys: string[]): string {
         current.indexOf(BEGIN, begin + 1) >= 0 ||
         current.indexOf(END, end + 1) >= 0 ||
         (begin > 0 && current[begin - 1] !== '\n')))
-  )
+  ) {
     throw new Error('invalid_ssh_block')
+  }
+
   const block = keys.length
     ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${key}`).join('\n')}\n${END}\n`
     : ''
-  if (begin < 0) return current + (block && current && !current.endsWith('\n') ? '\n' : '') + block
+
+  if (begin < 0) {
+    return current + (block && current && !current.endsWith('\n') ? '\n' : '') + block
+  }
+
   const tail = end + END.length
-  if (current[tail] && current[tail] !== '\n') throw new Error('invalid_ssh_block')
+
+  if (current[tail] && current[tail] !== '\n') {
+    throw new Error('invalid_ssh_block')
+  }
+
   return current.slice(0, begin) + block + current.slice(tail + (current[tail] === '\n' ? 1 : 0))
 }
 
@@ -74,7 +93,6 @@ export class NativeMacSsh {
   private timer?: ReturnType<typeof setInterval>
   private id?: string
   private enrolled?: string
-  private diskAccessHint: 'unoffered' | 'pending' | 'acknowledged' = 'unoffered'
   private hintEnrollmentKey?: string
   private disconnected = false
   private accountScope?: string
@@ -90,30 +108,42 @@ export class NativeMacSsh {
     }
   ) {}
   status(): NativeSshView {
+    const acknowledged = this.hintEnrollmentKey && this.deps.settings.getItem(this.hintEnrollmentKey) === 'acknowledged'
+
     return {
       ...this.view,
-      status:
-        this.view.status === 'connected' && this.diskAccessHint === 'pending'
-          ? 'needs_full_disk_access_hint'
-          : this.view.status
+      status: this.view.status === 'connected' && !acknowledged ? 'needs_full_disk_access_hint' : this.view.status
     }
   }
   private serial<T>(fn: () => Promise<T>): Promise<T> {
     const result = this.chain.then(fn)
     this.chain = result.catch(() => undefined)
+
     return result
   }
   start(explicit = false): Promise<void> {
     const record = this.deps.enrollment()
     const scope = record ? `${record.ownerUserId}:${record.matrixDeviceId}` : undefined
-    if (scope && this.accountScope && scope !== this.accountScope) this.disconnected = false
+
+    if (scope && this.accountScope && scope !== this.accountScope) {
+      this.disconnected = false
+    }
+
     this.accountScope = scope ?? this.accountScope
-    if (explicit) this.disconnected = false
-    if (this.disconnected) return Promise.resolve()
+
+    if (explicit) {
+      this.disconnected = false
+    }
+
+    if (this.disconnected) {
+      return Promise.resolve()
+    }
+
     this.timer ??= setInterval(() => {
       void this.refresh()
     }, 60_000)
     this.timer.unref?.()
+
     return this.refresh()
   }
   /** Only an explicit UI action may invoke the macOS administrator prompt. */
@@ -123,16 +153,14 @@ export class NativeMacSsh {
     }).then(() => this.start(true))
   }
   fullDiskAccessHint(): NativeSshView {
-    if (this.diskAccessHint !== 'acknowledged') {
-      this.diskAccessHint = 'pending'
-    }
     return this.status()
   }
-  /** Called only after the explicit Open Settings action succeeds. */
+  /** Acknowledge only the enrollment whose successful setup offered the reminder. */
   acknowledgeFullDiskAccessHint(): void {
     const record = this.deps.enrollment()
+
     if (
-      this.diskAccessHint === 'pending' &&
+      this.view.status === 'connected' &&
       record?.state === 'active' &&
       this.hintEnrollmentKey === this.enrollmentHintKey(record)
     ) {
@@ -141,7 +169,6 @@ export class NativeMacSsh {
       } catch {
         throw new Error('native_ssh_hint_save_failed')
       }
-      this.diskAccessHint = 'acknowledged'
     }
   }
   private enrollmentHintKey(record: DeviceEnrollmentRecord): string {
@@ -151,93 +178,90 @@ export class NativeMacSsh {
     return this.serial(async () => {
       try {
         const record = this.deps.enrollment()
+
         if (!record || record.state !== 'active') {
-          if (this.id) await this.cleanup()
-          else {
+          if (this.id) {
+            await this.cleanup()
+          } else {
             await this.deps.system.keys([])
             await this.deps.system.stop()
           }
+
           this.view = { status: 'error', settingsUrl: REMOTE_LOGIN_SETTINGS }
+
           return
         }
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(record.deviceServiceId))
-          throw new Error('invalid_device')
-        if (this.id && this.id !== record.deviceServiceId) await this.cleanup()
-        this.id = record.deviceServiceId
 
-        const hintKey = this.enrollmentHintKey(record)
-        if (this.hintEnrollmentKey !== hintKey) {
-          this.hintEnrollmentKey = hintKey
-          this.diskAccessHint = this.deps.settings.getItem(hintKey) === 'acknowledged' ? 'acknowledged' : 'unoffered'
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(record.deviceServiceId)) {
+          throw new Error('invalid_device')
         }
 
+        if (this.id && this.id !== record.deviceServiceId) {
+          await this.cleanup()
+        }
+
+        this.id = record.deviceServiceId
+
         const ready = await this.deps.system.ready()
+
         if (!ready.remoteLogin) {
           await this.deps.system.keys([])
           await this.deps.system.stop()
           this.enrolled = undefined
           this.view = { status: 'needs_remote_login', settingsUrl: REMOTE_LOGIN_SETTINGS }
+
           return
         }
-        if (!/^[a-z_][a-z0-9_-]{0,31}$/.test(ready.user) || !sshPublicKey(ready.hostKey))
+
+        if (!/^[a-z_][a-z0-9_-]{0,31}$/.test(ready.user) || !sshPublicKey(ready.hostKey)) {
           throw new Error('invalid_host')
+        }
+
         const host = `${this.id}.mac.atumplatform.com`
+
         if (!(await this.deps.system.token(this.id))) {
           const prepared = (await this.deps.call({ operation: 'ssh_prepare', deviceServiceId: this.id })) as Record<
             string,
             unknown
           >
+
           if (
             prepared.deviceServiceId !== this.id ||
             prepared.host !== host ||
             typeof prepared.tunnelToken !== 'string' ||
             !/^[A-Za-z0-9+/_=.-]{1,16384}$/.test(prepared.tunnelToken)
-          )
+          ) {
             throw new Error('invalid_prepare')
+          }
+
           await this.deps.system.saveToken(this.id, prepared.tunnelToken)
         }
+
         const rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
-        if (
-          !Array.isArray(rows) ||
-          !rows.every(
-            row =>
-              row &&
-              typeof row.agentId === 'string' &&
-              Number.isSafeInteger(row.updatedAt) &&
-              sshPublicKey(row.publicKey)
-          )
-        )
+
+        if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey))) {
           throw new Error('invalid_keys')
+        }
+
         await this.deps.system.keys(rows.map(row => row.publicKey))
-        if (!(await this.deps.system.healthy())) await this.deps.system.start(this.id)
+        await this.deps.system.start(this.id)
         const epoch = `${this.id}:${record.enrollmentEpoch}:${ready.user}:${ready.hostKey}`
+
         if (this.enrolled !== epoch) {
-          const response = (await this.deps.call({
+          await this.deps.call({
             operation: 'ssh_enroll',
             deviceServiceId: this.id,
             enrollmentEpoch: record.enrollmentEpoch,
             host,
             user: ready.user,
             hostKey: ready.hostKey
-          })) as Record<string, any>
-          if (
-            response.deviceServiceId !== this.id ||
-            response.nativeSsh?.host !== host ||
-            response.nativeSsh?.user !== ready.user ||
-            response.nativeSsh?.epoch !== record.enrollmentEpoch ||
-            response.nativeSsh?.knownHost !== ready.hostKey
-          )
-            throw new Error('invalid_enroll')
+          })
           this.enrolled = epoch
-
-          // Remote users' TCC permission is unknown to this process. Offer the
-          // Settings reminder until acknowledged for this device enrollment.
-          if (this.diskAccessHint === 'unoffered') {
-            this.diskAccessHint = 'pending'
-          }
         }
+
+        this.hintEnrollmentKey = this.enrollmentHintKey(record)
         this.view = {
-          status: (await this.deps.system.healthy()) ? 'connected' : 'tunnel_down',
+          status: 'connected',
           settingsUrl: REMOTE_LOGIN_SETTINGS
         }
       } catch {
@@ -256,16 +280,23 @@ export class NativeMacSsh {
       this.deps.system.keys([]),
       this.id ? this.deps.system.removeToken(this.id) : Promise.resolve()
     ])
+
     this.enrolled = undefined
-    if (results.some(result => result.status === 'rejected')) throw new Error('native_ssh_cleanup_pending')
+
+    if (results.some(result => result.status === 'rejected')) {
+      throw new Error('native_ssh_cleanup_pending')
+    }
+
     this.id = undefined
   }
   disconnect(): Promise<void> {
     this.disconnected = true
     clearInterval(this.timer)
     this.timer = undefined
+
     return this.serial(async () => {
       this.id ??= this.deps.enrollment()?.deviceServiceId
+
       try {
         await this.cleanup()
         this.view = { status: 'tunnel_down', settingsUrl: REMOTE_LOGIN_SETTINGS }

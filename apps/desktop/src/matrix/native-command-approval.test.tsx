@@ -63,7 +63,7 @@ afterEach(cleanup)
 
 describe('reading a native Hermes approval from its Matrix message', () => {
   it('finds the command and reason and waits while the gateway has seeded its answers', () => {
-    expect(matrixNativeApproval(message(), NOW + 1_000)).toEqual({
+    expect(matrixNativeApproval(message())).toEqual({
       command: COMMAND,
       reason: 'recursive delete',
       state: 'waiting'
@@ -76,29 +76,33 @@ describe('reading a native Hermes approval from its Matrix message', () => {
       'Trả lời `!approve` để chạy một lần, hoặc `!deny` để hủy.'
     )
 
-    expect(matrixNativeApproval(message({ body: vietnamese }), NOW)?.reason).toBe('recursive delete')
+    expect(matrixNativeApproval(message({ body: vietnamese }))?.reason).toBe('recursive delete')
   })
 
   it('answered by you is approved or denied, from any of your devices', () => {
-    const approved = [...seeded, { key: NATIVE_APPROVE_KEY, count: 2, own: true, senders: [AGENT, '@owner:test.invalid'] }]
+    const approved = [
+      ...seeded,
+      { key: NATIVE_APPROVE_KEY, count: 2, own: true, senders: [AGENT, '@owner:test.invalid'] }
+    ]
+
     const denied = [{ key: '❎', count: 1, own: true, senders: ['@owner:test.invalid'] }]
 
-    expect(matrixNativeApproval(message({ reactions: approved }), NOW)?.state).toBe('approved')
-    expect(matrixNativeApproval(message({ reactions: denied }), NOW)?.state).toBe('denied')
+    expect(matrixNativeApproval(message({ reactions: approved }))?.state).toBe('approved')
+    expect(matrixNativeApproval(message({ reactions: denied }))?.state).toBe('denied')
   })
 
-  it('without its seeded answers it is arriving when fresh and closed later', () => {
-    expect(matrixNativeApproval(message({ reactions: undefined }), NOW + 2_000)?.state).toBe('arriving')
-    expect(matrixNativeApproval(message({ reactions: undefined }), NOW + 60_000)?.state).toBe('closed')
+  it('without its seeded answers it is closed', () => {
+    expect(matrixNativeApproval(message({ reactions: undefined }))?.state).toBe('closed')
+    expect(matrixNativeApproval(message({ reactions: undefined }))?.state).toBe('closed')
   })
 
   it('ignores your own messages, plain code and answers someone else seeded', () => {
-    expect(matrixNativeApproval(message({ own: true }), NOW)).toBeNull()
-    expect(matrixNativeApproval(message({ body: '```\nls\n```' }), NOW)).toBeNull()
-    expect(matrixNativeApproval(message({ body: 'Reply `!approve` or `!deny`.' }), NOW)).toBeNull()
+    expect(matrixNativeApproval(message({ own: true }))).toBeNull()
+    expect(matrixNativeApproval(message({ body: '```\nls\n```' }))).toBeNull()
+    expect(matrixNativeApproval(message({ body: 'Reply `!approve` or `!deny`.' }))).toBeNull()
 
     const foreign = [{ key: NATIVE_APPROVE_KEY, count: 1, own: false, senders: ['@someone:test.invalid'] }]
-    expect(matrixNativeApproval(message({ reactions: foreign }), NOW + 60_000)?.state).toBe('closed')
+    expect(matrixNativeApproval(message({ reactions: foreign }))?.state).toBe('closed')
   })
 })
 
@@ -120,7 +124,13 @@ function renderCard(
 
   render(
     <I18nProvider configClient={null} initialLocale="en">
-      <MatrixNativeApprovalCard approval={approval} bridge={bridge} eventId="$approval" roomId="!room:test" send={send} />
+      <MatrixNativeApprovalCard
+        approval={approval}
+        bridge={bridge}
+        eventId="$approval"
+        roomId="!room:test"
+        send={send}
+      />
     </I18nProvider>
   )
 
@@ -202,13 +212,9 @@ describe('the approval card', () => {
     expect((screen.getByRole('button', { name: words.deny }) as HTMLButtonElement).disabled).toBe(false)
   })
 
-  it('an answered, arriving or closed prompt offers nothing to press', () => {
+  it('an answered or closed prompt offers nothing to press', () => {
     renderCard({ ...waiting, state: 'closed' })
     expect(screen.getByRole('status').textContent).toBe(words.closed)
     expect(screen.queryByRole('button', { name: words.approve })).toBeNull()
-    cleanup()
-
-    renderCard({ ...waiting, state: 'arriving' })
-    expect((screen.getByRole('button', { name: words.approve }) as HTMLButtonElement).disabled).toBe(true)
   })
 })
