@@ -502,6 +502,8 @@ import { MatrixAgentWorking } from './typing-indicator'
 import { MatrixUndecryptableMessage } from './undecryptable-message'
 import { useMatrixCloudStop } from './use-cloud-stop'
 import { useShellShortcuts } from './use-shell-shortcuts'
+import { useVideoConsentAsk } from './video-consent-ask'
+import { VideoConsentCard } from './video-consent-card'
 import { MatrixVoiceDictation, useMatrixReadAloud } from './voice'
 import { matrixWalletCopy } from './wallet-copy'
 import { useMatrixWalletHistory } from './wallet-ui'
@@ -5539,6 +5541,21 @@ function Conversation({
 
   useEffect(() => dropOutgoingEchoes(matchedEchoes), [matchedEchoes])
 
+  // The agent's video step needs the owner's one-time consent: the card sits under the working
+  // line and outlives it, until allowed or put away (video-consent-ask.ts).
+  const videoConsentAsk = useVideoConsentAsk(room?.id, workingLine)
+  const videoConsentBridge = window.atumMatrix.subscriptions?.videoConsent ? window.atumMatrix.subscriptions : undefined
+
+  const withVideoConsent = (working: ReactNode) =>
+    videoConsentAsk.asking && videoConsentBridge ? (
+      <>
+        {working}
+        <VideoConsentCard bridge={videoConsentBridge} onDismiss={videoConsentAsk.close} onSettled={videoConsentAsk.close} />
+      </>
+    ) : (
+      working
+    )
+
   const transcript = useExternalStoreRuntime({
     messages,
     convertMessage: (message: (typeof messages)[number]) => message,
@@ -5807,7 +5824,7 @@ function Conversation({
                   ) : undefined
                 }
                 loadEarlier={loadEarlier}
-                loadingIndicator={
+                loadingIndicator={withVideoConsent(
                   firstLearningProgress ? (
                     <MatrixFirstLearningTiles progress={firstLearningProgress} />
                   ) : agentTyping || workingLine ? (
@@ -5827,7 +5844,7 @@ function Conversation({
                       watchLabel={matrixAgentDeskText(locale).watch}
                     />
                   ) : undefined
-                }
+                )}
                 revealMessageId={
                   historyReveal?.roomId === room.id
                     ? historyReveal.eventId

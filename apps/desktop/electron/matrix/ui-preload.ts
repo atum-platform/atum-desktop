@@ -47,6 +47,11 @@ import type {
   MatrixSubscriptionSignIn,
   MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
+import type {
+  MatrixVideoConsentAllowResult,
+  MatrixVideoConsentRevokeResult,
+  MatrixVideoConsentStatus
+} from '../../shared/matrix-video-consent'
 import { MATRIX_VOICE_IPC } from '../../shared/matrix-voice'
 import { MATRIX_WINDOW_CHANNELS, type MatrixWindowFacts } from '../../shared/matrix-window'
 
@@ -193,6 +198,11 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingConfirm', connectionId }) as Promise<MatrixChatGptTrainingConfirmResult>,
     revokeChatGptTraining: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingRevoke' }) as Promise<MatrixChatGptTrainingRevokeResult>,
+    videoConsent: () => ipcRenderer.invoke(channel.ui, { kind: 'videoConsent' }) as Promise<MatrixVideoConsentStatus>,
+    allowVideoConsent: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'videoConsentAllow' }) as Promise<MatrixVideoConsentAllowResult>,
+    revokeVideoConsent: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'videoConsentRevoke' }) as Promise<MatrixVideoConsentRevokeResult>,
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {

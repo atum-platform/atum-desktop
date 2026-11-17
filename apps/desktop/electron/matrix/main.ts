@@ -825,6 +825,7 @@ import {
   operatorMoveDirectory,
   operatorMoveTicker
 } from './operator-move'
+import { FileOwnerConsentRevokeJournal } from './owner-consent'
 import { MatrixOwnerDeviceRepair, matrixOwnerRepairError, matrixOwnerRepairPreservesWork } from './owner-device-repair'
 import {
   forgetMatrixOwnerKey,
@@ -959,6 +960,7 @@ import { MATRIX_TURN_STOPPED } from './turn-failure'
 import { MatrixHermesTurnLock } from './turn-lock'
 import { matrixRoomLogHash, MatrixUndecryptableLog } from './undecryptable-log'
 import { MatrixUnverifiedDevices } from './unverified-devices'
+import { MatrixVideoGenerationConsent, requestMatrixVideoConsent } from './video-generation-consent'
 import { parseMatrixVoiceRequest } from './voice'
 import { bindMatrixVoice, matrixVoiceFramePermission, type MatrixVoiceSource } from './voice-binding'
 import { MatrixWalletController, matrixWalletCursor } from './wallet'
@@ -2140,6 +2142,7 @@ let providerConnections: MatrixProviderConnections | undefined
 let chatGptCarry: ChatGptCarry | undefined
 let chatGptRelay: MatrixChatGptRelay | undefined
 let chatGptTraining: MatrixChatGptTrainingConfirmation | undefined
+let videoConsent: MatrixVideoGenerationConsent | undefined
 let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
@@ -6988,6 +6991,7 @@ function publish(next: MatrixSnapshot) {
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -18667,6 +18671,16 @@ async function start() {
       })
     : undefined
 
+  videoConsent = config.domain
+    ? new MatrixVideoGenerationConsent({
+        scope: () => account.appScope(),
+        // A pending turn-off's key, per account, so a restart resumes it with the same key.
+        journal: new FileOwnerConsentRevokeJournal(path.join(app.getPath('userData'), 'video-consent')),
+        call: (method, signal, init) => account.s1Request(
+          (accessToken, resource) => requestMatrixVideoConsent(resource, accessToken, method, signal, init), signal)
+      })
+    : undefined
+
   cloudModelChoices = config.domain
     ? new MatrixCloudModelChoices({
         scope: () => account.appScope(),
@@ -23803,6 +23817,24 @@ async function start() {
 
       if (request?.kind === 'subscriptionChatGptTrainingRevoke') {
         return chatGptTraining ? chatGptTraining.revoke() : { status: 'unavailable' as const }
+      }
+
+      // The one-time video-generation consent (Shell video-generation/consent). Main only forwards
+      // the person's explicit Allow and Turn off; the server owns the record and its locale.
+      if (request?.kind === 'videoConsent') {
+        if (!videoConsent) {
+          throw new Error('matrix_subscriptions_unavailable')
+        }
+
+        return videoConsent.read()
+      }
+
+      if (request?.kind === 'videoConsentAllow') {
+        return videoConsent ? videoConsent.allow() : { status: 'unavailable' as const }
+      }
+
+      if (request?.kind === 'videoConsentRevoke') {
+        return videoConsent ? videoConsent.revoke() : { status: 'unavailable' as const }
       }
 
       if (request?.kind === 'subscriptionOpenCodeSave') {
