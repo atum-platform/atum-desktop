@@ -14,6 +14,12 @@ export default async function beforePack(context) {
   const arch = { 1: 'x64', 3: 'arm64' }[context.arch]
   if (!arch) throw new Error('cloudflared_unsupported_arch')
   const root = context.packager.appDir
+  // Build the fixed stdio adapter with the target's SDK; no runtime interpreter needed.
+  execFileSync('/usr/bin/xcrun', ['swiftc', '-O', '-target',
+    `${arch === 'x64' ? 'x86_64' : 'arm64'}-apple-macosx13.0`,
+    new URL('../native/chatgpt-relay.swift', import.meta.url).pathname,
+    '-o', path.join(root, 'atum-chatgpt-relay')])
+  await chmod(path.join(root, 'atum-chatgpt-relay'), 0o755)
   const stage = await mkdtemp(path.join(root, '.cloudflared-'))
   try {
     const response = await fetch(

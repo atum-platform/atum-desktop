@@ -60,3 +60,41 @@ and the two renderer adapters. Packaging tests cover digest rejection and target
 staging. The helper can be compiled without invoking a system prompt. Real
 launchd installation, live tunnel reachability and native authentication remain
 installed-app acceptance work. Tests use temporary homes and mocked process calls.
+
+### ChatGPT relay forced command
+
+Relay keys are separate from shell keys. An `ssh_authorized_keys` row with
+`purpose: "relay"` binds its existing `agentId` to the current signed-in owner
+principal and this Mac's enrollment epoch. Missing purpose and `"shell"` retain
+the terminal restrictions. Full reconciliation replaces both purposes; a removed
+relay row immediately leaves the live binding list and cancels its socket calls.
+Sign-out clears both purposes through the existing disconnect path.
+
+Packaging compiles `native/chatgpt-relay.swift` into `atum-chatgpt-relay` beside
+cloudflared in `app.asar.unpacked`. Its forced command takes only owner UUID,
+agent UUID and enrollment epoch. It never reads `SSH_ORIGINAL_COMMAND`, accepts
+no socket path, and locates the account home via `getpwuid`. It sends one JSON
+envelope after stdin EOF, then reads one response through EOF. Both wire
+directions are capped at 800,000 bytes; there is a 65-second I/O deadline and a
+70-second hard process deadline.
+
+The running desktop serves `~/.atum-chatgpt-relay/relay.sock` (0600) in a directory
+owned by the account (0700). Unsafe directories, symlinks and non-socket files
+are refused. The existing saved relay enablement, live account authority,
+owner/agent/model checks, relay revision authorization, expiry, replay fence and
+account-local Hermes process apply to both transports. SSH replaces only the
+device-session admission check with the reconciled owner/agent/enrollment-epoch
+binding; `connectionId` remains a syntactically valid legacy envelope field.
+No token crosses the socket or SSH. The existing cloud training-confirmation
+admission remains required; this adapter creates or resets no confirmation.
+
+No app or disabled relay means no listening socket. Before submission the helper
+returns `{state:"refused",status:503,code:"unavailable",retryable:true}`. Once a
+write starts, loss/timeout/oversize fails without retry permission. Host code must
+map pre-submission unavailable to its existing fallback and never replay an
+ambiguous submitted call. Host/platform wiring and installed-Mac qualification
+are separate steps; the device-hub path remains until that parity is verified.
+
+Validation uses mocked filesystem/socket tests plus a compiled Swift helper and
+real Unix sockets under a temporary home, with fake inference. No real SSH keys,
+LaunchAgents, settings or provider calls are needed.

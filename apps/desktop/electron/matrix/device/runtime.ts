@@ -27,7 +27,8 @@ import {
 } from './approvals'
 import { type AuditWriter, FileAuditWriter } from './audit'
 import { deviceMessageHash } from './canonical'
-import { type ChatGptRelayCall, ChatGptRelayHandler, type ChatGptRelayRequestBody } from './chatgpt-relay'
+import { type ChatGptRelayCall, ChatGptRelayHandler, type ChatGptRelayRequestBody, type RelaySshBinding } from './chatgpt-relay'
+import { ChatGptRelaySocket, relaySocketPath } from './chatgpt-relay-socket'
 import type {
   DeviceArtifact,
   DeviceExecutor,
@@ -96,6 +97,7 @@ export interface DeviceRuntimeEnvironment {
   deviceServiceId(): string | null
   macSource?: DeviceServiceDeps['macSource']
   chatGptRelay?: {
+    sshBindings?(): readonly RelaySshBinding[]
     authority(): { ownerPrincipal: string; agentPrincipals: readonly string[]; deviceServiceId: string } | null
     call(input: { model: string; effort: 'low' | 'medium' | 'high'; request: Record<string, unknown> },
       signal: AbortSignal): Promise<ChatGptRelayCall>
@@ -181,6 +183,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   const relayKey = 'chatgpt-relay-v1'
   let relayEnabled = false
   let relayModels: string[] = []
+
   try {
     const saved = JSON.parse(env.store.getItem(relayKey) ?? 'null') as { enabled?: unknown; models?: unknown } | null
     relayEnabled = saved?.enabled === true
@@ -191,9 +194,11 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
     relayEnabled = false
     relayModels = []
   }
+
   const relay = env.chatGptRelay ? new ChatGptRelayHandler({
     authority: () => {
       const base = env.chatGptRelay?.authority()
+
       return base ? { ...base, enabled: relayEnabled, models: relayModels } : null
     },
     call: (input, signal) => env.chatGptRelay!.call(input, signal),
@@ -202,12 +207,26 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       : undefined,
     log: line => env.log(line)
   }) : undefined
+
+  const relaySocket = relay && env.platform === 'darwin' && env.chatGptRelay?.sshBindings
+    ? new ChatGptRelaySocket(relaySocketPath(env.home), relay, () => env.chatGptRelay!.sshBindings!()) : undefined
+
+  let relaySocketTimer: ReturnType<typeof setInterval> | undefined
+
+  const syncRelaySocket = () => {
+    void relaySocket?.setEnabled(Boolean(ready && relayEnabled && env.chatGptRelay?.authority()))
+      .catch(() => env.log('[ChatGPT relay] local socket unavailable'))
+  }
+
   const tasksRoot = path.join(env.home, 'Atum Tasks')
   const savedKey = () => 'device-workspace-saved:' + env.deviceServiceId() + ':' + (env.accountEpoch?.() ?? 0)
+
   const savedCopies = (key = savedKey()): Record<string, { digest: string; resultHash: string }> => {
     try {
       const value = JSON.parse(env.store.getItem(key) ?? '{}')
+
       if (!value || typeof value !== 'object' || Array.isArray(value)) {return {}}
+
       return Object.fromEntries(Object.entries(value).filter(([copy, receipt]: [string, any]) =>
         copy.startsWith(tasksRoot + path.sep) && /^[0-9a-f]{64}$/.test(receipt?.digest)
           && /^[A-Za-z0-9_-]{43}$/.test(receipt?.resultHash))) as Record<string, { digest: string; resultHash: string }>
@@ -246,11 +265,13 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   let started: Promise<void> | undefined
   let ready = false
   let conflictTimer: ReturnType<typeof setInterval> | undefined
+
   const scanConflicts = () => {
     if (ready && env.identity()?.signedIn) {
       void env.conflictCopies?.scan().catch(() => env.log('[Device] conflict scan retained for retry'))
     }
   }
+
   /** A stop's teardown in flight; a start waits for it so it never returns a memo the stop is tearing down. */
   let stopping: Promise<void> | undefined
 
@@ -379,6 +400,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       service, copies: env.workspaceCopies,
       quiesce: async () => {
         egress.closeAll()
+
         if (!supervisor) {throw Error('device_host_quiescence_unavailable')}
         await supervisor.quiesce()
       },
@@ -389,8 +411,10 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       saved: async (copy, digest, result) => {
         const key = savedKey()
         const generation = service.workspaceGeneration()
+
         if (await workspaceCopyDigest(copy) !== digest || key !== savedKey()
           || generation !== service.workspaceGeneration()) {return}
+
         const records = savedCopies(key)
         records[copy] = { digest, resultHash: result.resultHash }
         env.store.setItem(key, JSON.stringify(Object.fromEntries(Object.entries(records).slice(-4000))))
@@ -461,6 +485,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
         if (pruneKey !== savedKey() || pruneGeneration !== service.workspaceGeneration()) {return}
         const archive = path.join(env.home, 'Atum Tasks Archive')
         mkdirSync(archive, { recursive: true, mode: 0o700 })
+
         if (realpathSync.native(archive) !== archive) {throw Error('workspace_archive_symlink')}
         await rename(copy, path.join(archive, path.basename(copy) + '-' + randomUUID()))
         const records = savedCopies(pruneKey)
@@ -545,6 +570,13 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       }
     })
     ready = true
+
+    if (relaySocket && !relaySocketTimer) {
+      syncRelaySocket()
+      relaySocketTimer = setInterval(syncRelaySocket, 1_000)
+      relaySocketTimer.unref?.()
+    }
+
     if (env.conflictCopies && !conflictTimer) {
       conflictTimer = setInterval(scanConflicts, 5 * 60_000)
       conflictTimer.unref?.()
@@ -581,6 +613,9 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
     },
 
     fence(reason) {
+      clearInterval(relaySocketTimer)
+      relaySocketTimer = undefined
+      void relaySocket?.setEnabled(false)
       sudoPasswords.forget()
       // The synchronous half runs inside `stop` before it returns.
       void service.stop(reason).catch(() => env.log('[Device] fence tail failed'))
@@ -599,6 +634,7 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
 
       const run = (async () => {
         await previous?.catch(() => undefined)
+        await relaySocket?.setEnabled(false)
         // A start still in flight finishes first, so its host is the one stopped here.
         await starting?.catch(() => undefined)
         indicator.dispose()
@@ -646,7 +682,9 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
       relayModels = enabled
         ? [...new Set(models)].filter(model => /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(model)).slice(0, 64)
         : []
+      syncRelaySocket()
       env.store.setItem(relayKey, JSON.stringify({ enabled: relayEnabled, models: relayModels }))
+
       if (!enabled) {
         relay?.disable()
       }

@@ -18,7 +18,7 @@
   "files": ["**/*", "!**/*.map", "!node_modules{,/**/*}"],
   "npmRebuild": false,
   "asar": true,
-  "asarUnpack": ["atum-app-window", "atum-device-key", "cloudflared"],
+  "asarUnpack": ["atum-app-window", "atum-device-key", "cloudflared", "atum-chatgpt-relay"],
   "beforePack": "scripts/stage-cloudflared.mjs",
   "afterPack": "scripts/matrix-after-pack.mjs",
   "mac": {

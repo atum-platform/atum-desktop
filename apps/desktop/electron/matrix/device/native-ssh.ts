@@ -1,5 +1,6 @@
 import type { MatrixNativeSshView as NativeSshView } from '../../../shared/matrix-native-mac'
 
+import type { RelaySshBinding } from './chatgpt-relay'
 /** Native Hermes SSH route. No device frames or tool schemas are involved. */
 import type { DeviceEnrollmentRecord } from './enrollment'
 
@@ -29,7 +30,7 @@ export interface NativeSshSystem {
   removeToken(id: string): Promise<void>
   start(id: string): Promise<void>
   stop(): Promise<void>
-  keys(keys: string[]): Promise<void>
+  keys(keys: (string | RelayAuthorizedKey)[]): Promise<void>
 }
 
 export function sshPublicKey(value: unknown): value is string {
@@ -47,12 +48,27 @@ export function sshPublicKey(value: unknown): value is string {
   )
 }
 
+export interface RelayAuthorizedKey extends RelaySshBinding {
+  publicKey: string
+  purpose: 'relay'
+}
+const UUID = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/
+
+export function relayKeyLine(row: RelayAuthorizedKey, helper: string): string {
+  if (!sshPublicKey(row.publicKey) || !UUID.test(row.ownerPrincipal) || !UUID.test(row.agentPrincipal) ||
+      !Number.isSafeInteger(row.connectionEpoch) || row.connectionEpoch < 1 || !/^\/[A-Za-z0-9_./ -]+$/.test(helper)) {
+    throw new Error('invalid_relay_key')
+  }
+
+  return `command="'${helper}' ${row.ownerPrincipal} ${row.agentPrincipal} ${row.connectionEpoch}",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty,no-user-rc ${row.publicKey}`
+}
+
 const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
 
 /** Preserve all bytes outside the block; refuse ambiguous/corrupt markers. */
-export function managedKeys(current: string, keys: string[]): string {
-  if (!keys.every(sshPublicKey)) {
+export function managedKeys(current: string, keys: (string | RelayAuthorizedKey)[], helper = ''): string {
+  if (!keys.every(key => typeof key === 'string' ? sshPublicKey(key) : key.purpose === 'relay')) {
     throw new Error('invalid_ssh_key')
   }
 
@@ -71,7 +87,7 @@ export function managedKeys(current: string, keys: string[]): string {
   }
 
   const block = keys.length
-    ? `${BEGIN}\n${[...new Set(keys)].map(key => `no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${key}`).join('\n')}\n${END}\n`
+    ? `${BEGIN}\n${[...new Set(keys)].map(key => typeof key === 'string' ? `no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${key}` : relayKeyLine(key, helper)).join('\n')}\n${END}\n`
     : ''
 
   if (begin < 0) {
@@ -88,6 +104,8 @@ export function managedKeys(current: string, keys: string[]): string {
 }
 
 export class NativeMacSsh {
+  private bindings: RelaySshBinding[] = []
+  relayBindings(): readonly RelaySshBinding[] { return this.bindings }
   private view: NativeSshView = { status: 'tunnel_down', settingsUrl: REMOTE_LOGIN_SETTINGS }
   private chain: Promise<unknown> = Promise.resolve()
   private timer?: ReturnType<typeof setInterval>
@@ -98,6 +116,7 @@ export class NativeMacSsh {
   private accountScope?: string
   constructor(
     private readonly deps: {
+      ownerPrincipal?(): string | undefined
       enrollment(): DeviceEnrollmentRecord | null
       call(body: NativeSshRequest): Promise<unknown>
       system: NativeSshSystem
@@ -183,6 +202,7 @@ export class NativeMacSsh {
           if (this.id) {
             await this.cleanup()
           } else {
+            this.bindings = []
             await this.deps.system.keys([])
             await this.deps.system.stop()
           }
@@ -205,6 +225,7 @@ export class NativeMacSsh {
         const ready = await this.deps.system.ready()
 
         if (!ready.remoteLogin) {
+          this.bindings = []
           await this.deps.system.keys([])
           await this.deps.system.stop()
           this.enrolled = undefined
@@ -239,11 +260,25 @@ export class NativeMacSsh {
 
         const rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
 
-        if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey))) {
+        if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey) && (row.purpose === undefined || row.purpose === 'shell' || row.purpose === 'relay'))) {
           throw new Error('invalid_keys')
         }
 
-        await this.deps.system.keys(rows.map(row => row.publicKey))
+        if (rows.some(row => row.purpose === 'relay' && rows.some(other =>
+            other.publicKey === row.publicKey && other.purpose !== 'relay'))) {
+          throw new Error('relay_shell_key_collision')
+        }
+
+        const keys = rows.map(row => row.purpose === 'relay' ? {
+          purpose: 'relay' as const, publicKey: row.publicKey,
+          ownerPrincipal: this.deps.ownerPrincipal?.() ?? '', agentPrincipal: row.agentId,
+          connectionEpoch: record.enrollmentEpoch
+        } : row.publicKey)
+
+        // Validate before replacing either purpose's block.
+        for (const key of keys) { if (typeof key !== 'string') { relayKeyLine(key, '/validate') } }
+        await this.deps.system.keys(keys)
+        this.bindings = keys.filter((key): key is RelayAuthorizedKey => typeof key !== 'string')
         await this.deps.system.start(this.id)
         const epoch = `${this.id}:${record.enrollmentEpoch}:${ready.user}:${ready.hostKey}`
 
@@ -266,6 +301,7 @@ export class NativeMacSsh {
         }
       } catch {
         // Never propagate HTTP/process errors: they may contain credentials.
+        this.bindings = []
         await this.deps.system.keys([]).catch(() => undefined)
         await this.deps.system.stop().catch(() => undefined)
         this.enrolled = undefined
@@ -274,6 +310,8 @@ export class NativeMacSsh {
     })
   }
   private async cleanup(): Promise<void> {
+    this.bindings = []
+
     const results = await Promise.allSettled([
       this.id ? this.deps.call({ operation: 'ssh_revoke', deviceServiceId: this.id }) : Promise.resolve(),
       this.deps.system.stop(),

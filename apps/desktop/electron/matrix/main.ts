@@ -2758,6 +2758,7 @@ function buildDeviceRuntime(): DeviceRuntime {
     approvalKey: () => deviceIdentity?.approvalKey() ?? null,
     deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId ?? null,
     chatGptRelay: {
+      sshBindings: () => nativeMacSsh?.relayBindings() ?? [],
       authority: () => {
         const ownerPrincipal = account?.enrollment().identity?.principal
         const deviceServiceId = deviceIdentity?.enrollment()?.deviceServiceId
@@ -17969,6 +17970,7 @@ async function start() {
 
   if (process.platform === 'darwin') {
     nativeMacSsh = new NativeMacSsh({
+      ownerPrincipal: () => account?.enrollment().identity?.principal,
       enrollment: () => deviceIdentity?.enrollment() ?? null,
       call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
       system: createNativeSshSystem(),
