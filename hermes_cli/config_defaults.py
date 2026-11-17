@@ -306,6 +306,9 @@ DEFAULT_CONFIG = {
 
     "terminal": {
         "backend": "local",
+        # SSH: sync agent files into the remote login home's .hermes and back on cleanup.
+        # Set terminal.ssh_sync_files: false for hosts with an independent Hermes home.
+        "ssh_sync_files": True,
         "modal_mode": "auto",
         # Remote-backend connection-class failures (SSH host unreachable, Docker daemon down):
         # "warn" = structured degraded tool result with reason + retry hint; "fail" = raise error +
