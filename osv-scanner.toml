@@ -41,3 +41,7 @@ reason = "Public snapshot 912b0299: plugins/platforms/feishu/adapter.py bounds w
 [[IgnoredVulns]]
 id = "PYSEC-2026-3577"
 reason = "Fixed in this tree by upstream NousResearch/hermes-agent PR #69860 (2ca38e5df434): agent/conversation_compression.py _fold_todo_snapshot folds the todo snapshot into the trailing real user turn (_is_real_user_message) instead of appending a synthetic user message; covered by tests/agent/test_compression_rotation_state.py."
+
+[[IgnoredVulns]]
+id = "GHSA-fc5q-39xc-vjpf"
+reason = "picomatch 4.0.7 is a build/test-tooling dependency only (fdir, tinyglobby, vite, vitest); it is not bundled into the desktop app or used by the agent runtime, and patterns are developer-authored config, not user input. No fixed version published as of 2026-11-17; revisit on the next dependency bump."

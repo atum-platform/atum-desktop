@@ -28,7 +28,7 @@ _current = ContextVar("matrix_presentation_turn", default=None)
 
 def transaction(source, kind, sequence=0):
     digest = hashlib.sha256(f"{source}\0{kind}\0{sequence}".encode()).hexdigest()
-    return f"atum-{'ci' if kind == 'interim' else 'cp'}-{digest}"
+    return f"atum-cp-{digest}"
 
 
 def event_suffix(event):
@@ -51,12 +51,6 @@ def source_turn_marker(content):
 
 def turn_id(room, source):
     return str(uuid.UUID(bytes=hashlib.sha256(f"{room}\0{source}".encode()).digest()[:16], version=4))
-
-
-def interim_decision(private, redacted, first, sinceLastMs, duplicatesAnswer):
-    if not private or not redacted or duplicatesAnswer:
-        return 'drop'
-    return 'publish' if first or sinceLastMs >= 20000 else 'hold'
 
 
 # A started tool's category (agent-turns/1.5 A13 `tool_activity`), from its name alone,
@@ -97,14 +91,6 @@ def video_consent_required(tool_name, result):
 def descriptor(code, **args):
     """A closed `io.atum.presentation` descriptor: a code and bounded arguments, never prose."""
     return {'version': 1, 'code': code, 'args': args}
-
-
-def repeats(remark, answer):
-    def words(text):
-        return ' '.join(''.join(' ' if unicodedata.category(c).startswith('P') else c
-                                for c in unicodedata.normalize('NFC', text).lower()).split())
-    a, b = words(remark), words(answer)
-    return bool(a and b and (a == b or (len(a) >= 12 and a in b)))
 
 
 class Outbox:
@@ -238,14 +224,11 @@ class Turn:
         self.stopped = False
         self.execution_finished = False
         self.admission_id = None
-        self.held_interim = None
         self.root = None
         self.root_txn = None
         self.root_content = None
-        self.answer = ''
         self.revision = -1
-        self.last_progress = self.last_interim = float('-inf')
-        self.interims = []
+        self.last_progress = float('-inf')
         self.subscription_fallback = None
         self.ended = False
         self.frame = None
@@ -253,7 +236,7 @@ class Turn:
         self.step = None
         self.last_step = float('-inf')
         self.pending = None
-        self.progress_timer = self.interim_timer = self.heartbeat_task = None
+        self.progress_timer = self.heartbeat_task = None
         self.marker = turn_id(room, source)
         from tui_gateway.pet_intents import PetIntentBuffer
         self.pet_buffer = PetIntentBuffer()
@@ -363,55 +346,19 @@ class Turn:
             text, kind, phase, presentation = self.step or ('', 'todo', 'working', None)
             await self.progress(text, kind=kind, phase=phase, presentation=presentation)
 
-    async def interim(self, text, *, redacted=False):
-        try:
-            await self._interim(text, redacted=redacted)
-        finally:
-            if self.ended:
-                await self.end()
-
-    async def _interim(self, text, *, redacted=False):
-        text = text.strip()[:1000]
-        async with self.lock:
-            if self.ended or text == self.held_interim or not redacted or not text.strip() or any(t == text for _, t in self.interims):
-                return
-            if interim_decision(True, redacted, not self.interims, (self.clock() - self.last_interim) * 1000, False) == 'hold':
-                self.held_interim = text
-                if self.interim_timer:
-                    return
-                async def flush():
-                    await asyncio.sleep(max(0, 20 - (self.clock() - self.last_interim)))
-                    self.interim_timer = None
-                    held, self.held_interim = self.held_interim, None
-                    if held:
-                        await self.interim(held, redacted=True)
-                self.interim_timer = asyncio.create_task(flush())
-                return
-            self.held_interim = None
-            if self.interim_timer:
-                self.interim_timer.cancel()
-                self.interim_timer = None
-            body = {'msgtype': 'm.text', 'body': text[:1000], 'io.atum.interim': True,
-                    'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
-            event = await self.box.effect(self.port, self.room, body, transaction(f'{self.room}\0{self.source}\0{self.attempt}', 'interim', len(self.interims)))
-            self.interims.append((event, text[:1000]))
-            self.last_interim = self.clock()
-
     async def end(self, answer=''):
         # Record settlement before waiting for an in-flight presentation receipt.
         # Its publisher owns the lock and applies cleanup when the event id arrives,
         # even if the final-delivery waiter has already been cancelled or returned.
         self.ended = True
-        self.answer = answer or self.answer
-        for task in (self.progress_timer, self.interim_timer, self.heartbeat_task):
+        for task in (self.progress_timer, self.heartbeat_task):
             if task and task is not asyncio.current_task():
                 task.cancel()
-        self.pending = self.held_interim = None
+        self.pending = None
         if self.lock.locked():
             return
         async with self.lock:
-            targets = ([self.root] if self.root else []) + [
-                event for event, text in self.interims if repeats(text, self.answer)]
+            targets = [self.root] if self.root else []
             for event in targets:
                 try:
                     await self.box.remove(self.port, self.room, self.source, event)
@@ -614,8 +561,13 @@ def adapter_class(base):
                 from gateway.platforms.base import SendResult
                 if (metadata or {}).get('_interim_send'):
                     from agent.redact import redact_for_egress
-                    await turn.interim(redact_for_egress(content), redacted=True)
-                    return SendResult(success=True)
+                    # Native commentary owns timing, formatting and delivery receipts.
+                    # Keep remote egress redaction and the shared Stop boundary.
+                    async with turn.delivery_lock:
+                        if turn.stopped or turn.ended:
+                            return SendResult(success=True)
+                        return await super().send(chat_id, redact_for_egress(content),
+                                                  reply_to=reply_to, metadata=metadata)
                 if _final_delivery.get() or (metadata or {}).get('delivery_obligation_id'):
                     async with turn.delivery_lock:
                         if turn.stopped:
@@ -751,7 +703,7 @@ def adapter_class(base):
 
 
 def register_hooks(ctx):
-    def model_response(platform='', response=None, **_):
+    def model_response(platform='', response=None, provider=None, model=None, **_):
         turn = _current.get()
         if not turn or turn.ended or platform != 'matrix' or not isinstance(response, dict):
             return
@@ -761,6 +713,18 @@ def register_hooks(ctx):
             return
         metadata = response.get('metadata')
         value = metadata.get('subscription_fallback') if isinstance(metadata, dict) else None
+        # The API worker's copied ContextVars do not flow back to this hook.
+        # Read the staged selection and Hermes's actual completed route here.
+        if value is None and provider == 'openrouter' and model == 'openai/gpt-6-luna':
+            try:
+                from agent.atum_google_fence import native_selection
+                selected = native_selection()
+            except (ValueError, TypeError, RuntimeError):
+                selected = {}
+            if (selected.get('provider') in {'openai-codex', 'opencode-go'}
+                    and not selected.get('google_latched') and not selected.get('native_protected')):
+                value = dict(plan='chatgpt' if selected['provider'] == 'openai-codex' else 'opencode_go',
+                             reason='offline', servedBy='nguyet-thuc')
         valid = (isinstance(value, dict) and set(value) == {'plan', 'reason', 'servedBy'}
                  and value['plan'] in {'chatgpt', 'opencode_go'}
                  and value['reason'] == 'offline' and value['servedBy'] == 'nguyet-thuc')

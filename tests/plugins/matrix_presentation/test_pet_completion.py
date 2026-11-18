@@ -66,6 +66,9 @@ async def test_native_hooks_last_final_part_only(tmp_path, monkeypatch, hooks, k
                 turn.pet_intents = [{'action': 'fly'}]
             # An interim/status send cannot carry pet intents even after completion.
             await a.send('!room', 'Checking', metadata={'_interim_send': True})
+            interim = [call.args[2] for call in a._client.send_message_event.await_args_list]
+            assert interim == [{'msgtype': 'm.text', 'body': 'Checking'}]
+            a._client.send_message_event.reset_mock()
             if turn and kind == 'stopped':
                 turn.stopped = True
             token = p._final_delivery.set(True)

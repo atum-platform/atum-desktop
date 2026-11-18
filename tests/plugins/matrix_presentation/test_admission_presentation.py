@@ -163,7 +163,7 @@ async def test_each_admission_owns_progress_interim_stop_and_final(tmp_path, kin
         # only writes are the agent's own remark, kept, and then its answer.
         assert not any('io.atum.progress' in w for w in writes)
         assert [w['body'] for w in writes] == ['checking', 'answer']
-        assert writes[0].get('io.atum.interim') is True
+        assert 'io.atum.interim' not in writes[0]
         assert not turn.stopped
     finally:
         p._current.reset(token)
@@ -360,7 +360,7 @@ async def _settle():
 def _extension_words(writes):
     """Every body the extension sent: everything but the agent's remarks and its answer."""
     return [w['body'] for w in writes
-            if 'body' in w and not w.get('io.atum.interim') and not w.get('io.atum.turn')]
+            if 'io.atum.progress' in w]
 
 
 def _line(write):
@@ -393,8 +393,9 @@ async def test_turn_speaks_only_through_the_agent_and_its_real_steps(tmp_path, m
                 'version': 1, 'code': 'tool_activity', 'args': {'activity': 'read'}}
             assert not any(w.get('io.atum.interim') for w in writes)  # no fixed opener
             await a.send('!room', 'Let me read the notes first.', metadata={'_interim_send': True})
-            remarks = [w for w in writes if w.get('io.atum.interim')]
+            remarks = [w for w in writes if w.get('msgtype') == 'm.text']
             assert [w['body'] for w in remarks] == ['Let me read the notes first.']
+            assert all('io.atum.interim' not in w and 'io.atum.turn' not in w for w in remarks)
             await a.send_final_ledgered(event)
         assert [w['body'] for w in writes if w.get('io.atum.turn')] == ['Here is the answer.']
         assert _extension_words(writes) == ['']

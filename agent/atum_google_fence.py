@@ -203,7 +203,29 @@ def fence_route() -> Optional[str]:
     return _protected_v1(os.environ.get(ROUTE_ENV)) or ""
 
 
+def native_selection() -> dict:
+    """Read the host-owned selection at decision time, including atomic stage writes."""
+    import json
+    from hermes_cli.managed_scope import get_managed_dir, load_managed_config
+    managed = load_managed_config() or {}
+    if os.environ.get("ATUM_NATIVE_MODEL_CONFIG") and not managed and (get_managed_dir() is not None or os.environ.get("HERMES_MANAGED_DIR")):
+        raise GoogleFenceRouteRequired()
+    selected = managed.get("atum_native_selection")
+    if selected is None:
+        selected = json.loads(os.environ.get("ATUM_NATIVE_MODEL_CONFIG", "{}"))
+    if not isinstance(selected, dict):
+        raise GoogleFenceRouteRequired()
+    return selected
+
+
+def native_protected() -> bool:
+    selected = native_selection()
+    return bool(selected.get("native_protected") or selected.get("google_latched")) and selected.get("model") != "google-protected"
+
+
 def route_allowed(base_url: Any, api_mode: Optional[str] = None) -> bool:
+    if native_protected():
+        return str(base_url).rstrip("/") == "https://openrouter.ai/api/v1" and api_mode in (None, "", "chat_completions")
     route = fence_route()
     if route is None:
         return True
@@ -214,14 +236,23 @@ def route_allowed(base_url: Any, api_mode: Optional[str] = None) -> bool:
     return _protected_v1(base_url) == route
 
 
-def assert_route(base_url: Any, api_mode: Optional[str] = None) -> None:
+_UNRESOLVED_CLIENT = object()
+
+
+def assert_route(base_url: Any, api_mode: Optional[str] = None, *, client: Any = _UNRESOLVED_CLIENT) -> None:
     """Raise before any request is built when a call would leave the protected route."""
-    if not route_allowed(base_url, api_mode):
+    if not route_allowed(base_url, api_mode) or (client is not _UNRESOLVED_CLIENT and not client_allowed(client)):
         raise GoogleFenceRouteRequired()
 
 
 def client_allowed(client: Any) -> bool:
     """A resolved helper client may be used only when it targets the protected route."""
+    if native_protected():
+        if type(client).__name__ == "_AuxProbeClientStub":
+            # Availability probes carry only base_url (any other attribute raises by design).
+            return route_allowed(client.base_url)
+        return (getattr(client, "_atum_native_guard_provider", None) == "openrouter"
+                and route_allowed(getattr(client, "base_url", None)))
     route = fence_route()
     if route is None or client is None:
         return True
