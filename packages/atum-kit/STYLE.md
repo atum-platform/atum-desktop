@@ -266,13 +266,21 @@ exceptions.
   2026-10-28): flat runs, edge to edge, for people and assistants alike. A
   36 px round face, the bold name and the time open a run; later lines show
   their time on hover; your own messages sit on the left with everyone's.
-- **Answer actions** (copy, good, bad, retry) are small quiet icon buttons
-  under the assistant's run: always visible under the latest answer, on hover
-  or focus under earlier ones (2026-10-29, delegated design decision).
-- **Delivery** shows only under your last message: "Sent" in caption ink-3,
-  replaced by the reader's 14 px face once read (in a group, up to three faces
-  and +N). Earlier messages carry no mark
-  (2026-10-29, delegated design decision).
+- **Answers act like any message** (owner, 2026-11-18): no row under them.
+  React, Reply, Forward and "…" float on hover or focus; Copy and Retry live
+  in the "…", which right-click also opens.
+- **Every bubble shows its time inside, bottom right**, as in Telegram (owner,
+  2026-11-18): caption size, tabular figures, faint ink (your strong bubble's
+  own ink, quietened). "edited" sits before it; on yours the sending clock or
+  the tick sits after it. The bubble's last line keeps room for it, so text
+  never runs under the time; a code block, table or card gives it its own row.
+  A file shows it on the size line. Team space keeps Slack's header and
+  hover-gutter times.
+- **Delivery**: one tick beside the time of your newest message once the server
+  has it ("Sent" for screen readers), two ticks once read. The reader's 14 px
+  face still sits under the message their receipt names (in a group, up to
+  three faces and +N). Earlier messages carry no mark
+  (2026-10-29, ticks 2026-11-18).
 - **Files** in a chat are plain cards: hairline, `--ak-r-xl`, a sunk tile
   with the file's shape glyph, name in body-strong, and one line in callout:
   "{Kind} · saved to Drive" or "{Kind} · {size}". One trailing action: Open

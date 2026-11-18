@@ -5144,12 +5144,8 @@ describe('isolated Matrix composition', () => {
     })
 
     expect(view.container.querySelector('[data-matrix-report-message]')).toBeNull()
-    // R9 puts the four answer actions below the answer; read-aloud and message-specific actions stay in "…".
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
-    expect(within(actions).getByRole('button', { name: 'Copy' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Good answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Bad answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Retry' })).toBeTruthy()
+    // No row under the answer (owner 11-18): Copy and Retry live in "…" with the rest.
+    expect(view.container.querySelector('[data-matrix-answer-actions]')).toBeNull()
     const toolbar = view.container.querySelector<HTMLElement>(
       '[data-matrix-message-id="$answer"] [data-matrix-message-toolbar]'
     )!
@@ -11309,50 +11305,85 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(send().disabled).toBe(false)
   })
 
+  it('puts every bubble\'s time inside it, bottom right, with room kept on its last line (Telegram, owner 11-18)', async () => {
+    const at = Date.UTC(2026, 10, 18, 4, 51)
+    const snapshot: MatrixSnapshot = {
+      ...ready,
+      messages: [
+        message('$q', { body: 'Plan a trip', timestamp: at }),
+        message('$q2', { body: 'Two nights,\nnot three', timestamp: at + 1, sent: true }),
+        message('$a1', { own: false, sender: '@atum:test', body: 'On it.', timestamp: at + 2 }),
+        message('$a2', { own: false, sender: '@atum:test', body: 'Here is a **plan**.\n\n- Day 1\n- Day 2', timestamp: at + 3 }),
+        message('$f', { own: false, sender: '@atum:test', body: 'plan.pdf', attachment: true, attachmentSize: 2048, timestamp: at + 4 }),
+        message('$p', { body: 'Thanks', pending: true, timestamp: at + 5 })
+      ]
+    }
+    const { emit, view } = await openChat(snapshot)
+    const root = (id: string) => view.container.querySelector<HTMLElement>(`[data-matrix-message-id="${id}"]`)!
+    const corner = (id: string) => root(id).querySelector<HTMLElement>('[data-matrix-bubble-meta]')
+
+    // Every bubble of a run has its own time, not only the last one, and nothing under it.
+    for (const id of ['$q', '$q2', '$a1', '$a2']) {
+      expect(corner(id)?.querySelector('time')?.getAttribute('dateTime')).toBeTruthy()
+      expect(corner(id)?.parentElement?.classList.contains('matrix-bubble-timed')).toBe(true)
+    }
+    expect(view.container.querySelector('[data-matrix-run-time]')).toBeNull()
+    // The text's last line keeps room as wide as the corner (a CSS spacer sized by --matrix-meta-room).
+    expect(root('$q2').querySelector<HTMLElement>('.composer-human-message')?.dataset.matrixMetaFlow).toBe('plain')
+    expect(root('$q2').querySelector('.composer-human-message > p')).toBeTruthy()
+    expect(root('$q2').querySelector<HTMLElement>('.composer-human-message')?.style.getPropertyValue('--matrix-meta-room')).toMatch(/^calc\(/)
+    expect(root('$a2').querySelector('.matrix-chat-bubble')?.getAttribute('data-matrix-meta-flow')).toBe('markdown')
+    // Only your newest message carries a Sent tick (the receipts tests cover Sent and Seen).
+    expect(corner('$q')?.querySelector('[data-matrix-sent], [data-matrix-read-tick]')).toBeNull()
+    expect(corner('$q2')?.querySelector('[data-matrix-sent], [data-matrix-read-tick]')).toBeNull()
+    // Still sending: the clock sits in the corner, named for screen readers.
+    expect(within(corner('$p')!).getByRole('status', { name: 'Sending' })).toBeTruthy()
+    // Once the server has it, the same corner says Sent.
+    emit({ ...snapshot, messages: snapshot.messages.map(m => (m.id === '$p' ? { ...m, pending: false, sent: true } : m)) })
+    await waitFor(() => expect(within(corner('$p')!).getByText('Sent')).toBeTruthy())
+    expect(corner('$p')?.querySelector('[data-matrix-sending]')).toBeNull()
+    // A file shows its time on the size line, never over the Save button.
+    expect(root('$f').querySelector('[data-matrix-file-card] [data-matrix-bubble-meta] time')).toBeTruthy()
+  })
+
   const answerToolbar = (container: HTMLElement) =>
     container.querySelector<HTMLElement>('[data-matrix-message-id="$a"] [data-matrix-message-toolbar]')!
 
   const openAnswerMenu = (container: HTMLElement) =>
     fireEvent.keyDown(answerToolbar(container).querySelector('[data-matrix-answer-menu]')!, { key: 'Enter' })
 
-  it("shows R9's small answer-action row and retains the message toolbar for reply and overflow", async () => {
-    const { bridge, view } = await openChat()
+  it('draws an answer like a normal chat message: no row under it, the toolbar on hover (owner 11-18)', async () => {
+    const { view } = await openChat()
     const toolbar = answerToolbar(view.container)
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
+    const answer = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$a"]')!
 
+    expect(view.container.querySelector('[data-matrix-answer-actions]')).toBeNull()
+    expect(within(answer).queryByRole('button', { name: 'Good answer' })).toBeNull()
+    expect(within(answer).queryByRole('button', { name: 'Bad answer' })).toBeNull()
+    // Its time sits inside its bubble, bottom right, as a person's does (Telegram, owner 11-18).
+    expect(answer.querySelector('.matrix-chat-bubble > [data-matrix-bubble-meta] time')).toBeTruthy()
+    expect(answer.querySelector('[data-matrix-run-time]')).toBeNull()
     expect(toolbar.dataset.matrixMessageToolbar).toBe('corner')
     expect(toolbar.classList.contains('opacity-0')).toBe(true)
     expect(toolbar.classList.contains('group-hover/message:opacity-100')).toBe(true)
     expect(toolbar.classList.contains('focus-within:opacity-100')).toBe(true)
-    expect(toolbar.classList.contains('absolute')).toBe(true)
-    expect(actions.dataset.latest).toBe('true')
-    expect(actions.classList.contains('opacity-0')).toBe(false)
-    expect(within(actions).getByRole('button', { name: 'Copy' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Good answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Bad answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Retry' })).toBeTruthy()
-    fireEvent.click(within(actions).getByRole('button', { name: 'Good answer' }))
-    await waitFor(() =>
-      expect(bridge.command).toHaveBeenCalledWith({
-        kind: 'react', roomId: assistantRoom.id, eventId: '$a', key: '👍', reacted: true
-      })
-    )
     expect(within(toolbar).getByRole('button', { name: 'Reply' }).tabIndex).toBe(0)
     expect(within(toolbar).queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(within(toolbar).queryByRole('button', { name: 'Copy' })).toBeNull()
   })
 
-  it("asks an answer's question again and copies it from the R9 row", async () => {
+  it("asks an answer's question again and copies it from the answer's menu", async () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     const { bridge, view } = await openChat()
 
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
-    fireEvent.click(within(actions).getByRole('button', { name: 'Retry' }))
+    openAnswerMenu(view.container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Retry' }))
     await waitFor(() =>
       expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Đà Lạt')
     )
-    fireEvent.click(within(actions).getByRole('button', { name: 'Copy' }))
+    openAnswerMenu(view.container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('Here is a **plan**.'))
     expect(bridge.command).not.toHaveBeenCalled()
   })
@@ -11382,7 +11413,8 @@ describe("Home's chat (launch night, second wave)", () => {
     const answer = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$a"]')!
     const own = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$q"]')!
 
-    expect(fireEvent.contextMenu(answer.querySelector('.matrix-chat-bubble')!)).toBe(false)
+    expect(fireEvent.contextMenu(answer.querySelector('.matrix-chat-bubble')!, { clientX: 120, clientY: 80 })).toBe(false)
+    expect((await screen.findByRole('menu')).hasAttribute('data-matrix-message-context-menu')).toBe(true)
     expect(await screen.findByRole('menuitem', { name: 'Copy' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: 'Retry' })).toBeTruthy()
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })
@@ -13051,6 +13083,9 @@ describe("Home's chat (launch night, second wave)", () => {
       })
       await waitFor(() => expect(root('$new').querySelector('[data-matrix-seen]')).toBeTruthy())
       expect(within(root('$new')).queryByText('Sent')).toBeNull()
+      // Inside the bubble, beside its time: the double tick (drawn only; the face says Seen).
+      expect(root('$new').querySelector('[data-matrix-bubble-meta] [data-matrix-read-tick]')).toBeTruthy()
+      expect(root('$old').querySelector('[data-matrix-bubble-meta] [data-matrix-read-tick]')).toBeNull()
       expect(root('$old').querySelector('[data-matrix-seen]')).toBeNull()
       expect(screen.queryByText(/Seen by/)).toBeNull()
       // One reader: their face, never a count.

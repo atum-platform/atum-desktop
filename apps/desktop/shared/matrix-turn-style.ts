@@ -24,11 +24,19 @@ export const MATRIX_TURN_STYLE =
  * these values; a new Mac home and every cloud sandbox write them out so a raw-config reader or a
  * future default can never silence the owner's progress. They shape events, not the system prompt or
  * the tool list, so they are not part of a conversation's configuration digest.
+ *
+ * `platforms.matrix.tool_progress: 'off'` keeps Hermes's messaging gateway from posting its own
+ * tool-status lines ("📚 Reading skill …") into the Matrix chat as messages. The Matrix gateway falls
+ * back to the global `display.tool_progress` above, which is meant for the desktop's `tool.start`
+ * events (tui_gateway reads only the global key). In the chat the owner sees the agent's own remarks
+ * (`interim_assistant_messages`), the typing row's working line (the Atum presentation extension's
+ * codes, plugins/platforms/matrix/PRESENTATION.md) and the answer, never a tool log.
  */
 export const MATRIX_NARRATION_DISPLAY = {
   tool_progress: 'all',
   interim_assistant_messages: true,
-  show_commentary: true
+  show_commentary: true,
+  platforms: { matrix: { tool_progress: 'off' } }
 } as const
 
 /**

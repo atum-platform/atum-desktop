@@ -389,19 +389,11 @@ describe('Atum Team Space — R8 company chrome contract', () => {
 })
 
 describe('Atum chat — adjudicated everyday-message contracts', () => {
-  const chat = readFileSync(resolve(ATUM_DIR, '../../matrix/app.tsx'), 'utf8')
   const actions = readFileSync(resolve(ATUM_DIR, '../../matrix/message-actions.tsx'), 'utf8')
   const greeting = readFileSync(resolve(ATUM_DIR, '../../matrix/greeting.tsx'), 'utf8')
   const starter = readFileSync(resolve(ATUM_DIR, '../../matrix/starter-notice.tsx'), 'utf8')
   const working = readFileSync(resolve(ATUM_DIR, '../../matrix/typing-indicator.tsx'), 'utf8')
   const undecryptable = readFileSync(resolve(ATUM_DIR, '../../matrix/undecryptable-message.tsx'), 'utf8')
-
-  it('implements R9 as four small kit actions under an answer', () => {
-    expect(chat).toContain('data-matrix-answer-actions')
-    expect(chat.match(/className="ak-iconbtn ak-iconbtn--sm"/gu)?.length).toBeGreaterThanOrEqual(3)
-    expect(chat).toContain('appearance="icon" buttonSize="icon-sm" className="ak-iconbtn ak-iconbtn--sm"')
-    expect(chat).toContain("latest ? '' : 'opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100'")
-  })
 
   it('keeps failure, working and greeting states on kit anatomy', () => {
     expect(actions).toContain('copy.notSentOffline')

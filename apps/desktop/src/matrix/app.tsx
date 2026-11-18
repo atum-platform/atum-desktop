@@ -14,7 +14,6 @@ import { useStore } from '@nanostores/react'
 import {
   type ChangeEvent,
   createContext,
-  type MouseEvent,
   type MutableRefObject,
   type ReactNode,
   useCallback,
@@ -40,7 +39,6 @@ import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { CopyButton } from '@/components/ui/copy-button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -71,16 +69,13 @@ import {
   Clock,
   DeviceMobile,
   Files,
+  Forward,
   Hash,
   LayoutSidebarRight,
   Messages,
   MoreHorizontal,
   Pencil,
   Plus,
-  Refresh,
-  Share,
-  ThumbsDown,
-  ThumbsUp,
   X
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -101,7 +96,6 @@ import {
   type MatrixMembershipLine,
   type MatrixMessage,
   matrixMessageTooLong,
-  type MatrixReaction,
   type MatrixRoom,
   type MatrixSnapshot,
   type MatrixThread,
@@ -365,6 +359,7 @@ import {
   MatrixFailedSend,
   MatrixFileCard,
   MatrixFileSave,
+  MatrixMessageContextMenu,
   MatrixMessageMenu,
   type MatrixMessageSavedAction,
   MatrixMessageToolbar,
@@ -424,7 +419,7 @@ import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
 import { $matrixDeviceToShow, VerificationPrompt } from './security-panel'
-import { MatrixSendState } from './send-state'
+import { MatrixReceiptTick, matrixReceiptTick, MatrixSendState } from './send-state'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 import { MatrixSignIn } from './sign-in'
 import { MatrixStartChatButton } from './start-chat'
@@ -785,8 +780,6 @@ function MatrixEventMessageBubble() {
   const [result, setResult] = useState<MatrixInvocationResult | null>(null)
   const [reported, setReported] = useState(false)
   const [pinning, setPinning] = useState(false)
-  // The "…" menu is also opened by right-clicking the message.
-  const [menuOpen, setMenuOpen] = useState(false)
   const [savedOverride, setSavedOverride] = useState<boolean | null>(null)
   const [savedPending, setSavedPending] = useState(false)
   const [toCardFailed, setToCardFailed] = useState(false)
@@ -1079,10 +1072,8 @@ function MatrixEventMessageBubble() {
         onEdit={actionable && text && ready ? () => action.composer?.editMessage(message) : undefined}
         onFindAnswer={action.recover && action.room.assistant && !local && !answered ? recovery.recover : undefined}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
         onRetry={retryOwn}
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         retryDisabled={retryOwnDisabled}
@@ -1099,7 +1090,6 @@ function MatrixEventMessageBubble() {
         label={menuLabel}
         link={stableMessageLink}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
         onReport={reason =>
           window.atumMatrix
@@ -1112,7 +1102,6 @@ function MatrixEventMessageBubble() {
             })
             .then(() => setReported(true))
         }
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         reported={reported}
@@ -1126,9 +1115,7 @@ function MatrixEventMessageBubble() {
         label={menuLabel}
         link={stableMessageLink}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         saved={savedAction}
@@ -1142,23 +1129,6 @@ function MatrixEventMessageBubble() {
   const answer = Boolean(
     agent && !status && !message.interim && action && settled && (text || message.attachment) && !(message.checkIn && ownAssistant)
   )
-
-  // Right-click opens the message's "…" menu, as in Element. A selection, a link or a field
-  // keeps the browser's own menu.
-  const onContextMenu = (event: MouseEvent<HTMLElement>) => {
-    const target = event.target instanceof Element ? event.target : null
-
-    if (
-      !(ownMenu || reportMenu || answer) ||
-      !window.getSelection()?.isCollapsed ||
-      target?.closest('a, button, input, textarea, [contenteditable="true"]')
-    ) {
-      return
-    }
-
-    event.preventDefault()
-    setMenuOpen(true)
-  }
 
   // In a group the sender's face sits beside the last bubble of their run, level with its bottom
   // Preserve user-visible identity, state and recovery behavior across connection changes.
@@ -1176,7 +1146,6 @@ function MatrixEventMessageBubble() {
     />
   ) : undefined
   const timeEligible = settled && !status && !message.progress && !(message.checkIn && ownAssistant)
-  const hoverTime = !flat && timeEligible && runEnd === false && !answer ? timestamp : undefined
   const personEdited = Boolean(message.edited && !agent && !botApp)
   const editTime = personEdited && message.editedAt !== undefined
     ? chat.editedAt(
@@ -1185,6 +1154,45 @@ function MatrixEventMessageBubble() {
           : matrixClock(message.editedAt, locale)
       )
     : undefined
+
+  // Every bubble carries its own time in its bottom-right corner, as in Telegram: "edited" before
+  // it and, on yours, the sending clock or the Sent/Seen tick after it. Team Space keeps Slack's
+  // header and gutter times.
+  const sending = Boolean(message.own && message.pending && !local)
+  const ownTick = message.own && settled ? matrixReceiptTick(message, message.id === action?.latestOwnId) : undefined
+  const editedLabel = mobileChatCopy[locale].edited
+  const bubbleMeta = !flat && time && (timeEligible || (sending && !status)) ? (
+    <span className="matrix-bubble-meta" data-matrix-bubble-meta>
+      {personEdited && (
+        <Tip label={editTime}>
+          <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{editedLabel}</span>
+        </Tip>
+      )}
+      <MatrixTimestamp full={fullTime} timestamp={message.timestamp} value={time} />
+      {sending ? (
+        // The words are for screen readers; the clock says it to everyone else.
+        <span aria-label={copy.pending} className="inline-flex items-center" data-matrix-sending role="status">
+          <Clock aria-hidden className="size-3" />
+        </span>
+      ) : ownTick ? (
+        <MatrixReceiptTick tick={ownTick} />
+      ) : null}
+    </span>
+  ) : undefined
+  // The room the corner keeps free on the bubble's last line, in the corner's own type size
+  // (`ch` there): its characters, an icon, and a little air. It never needs to be exact, only
+  // never narrower than the corner, so the last word never runs under it.
+  const bubbleMetaRoom = `calc(${time.length + (personEdited ? editedLabel.length + 1 : 0)}ch + ${
+    sending || ownTick ? '1.125rem' : '0rem'
+  } + 0.75rem)`
+  // How the bubble's text makes room for the corner (styles.css): your plain text's paragraph and
+  // markdown's last paragraph or list item end in an invisible spacer; anything else gives the
+  // corner its own row.
+  const bubbleMetaFlow: 'plain' | 'markdown' | 'row' = message.own && !flat
+    ? 'plain'
+    : botApi || (companyAgent && companyAnswer)
+      ? 'row'
+      : 'markdown'
 
   // Slack's line shows who replied (in the order they first did), not the root's author unless they
   // answered in the thread too. The Chief of Staff wears its channel face; your agents their roster one.
@@ -1210,7 +1218,9 @@ function MatrixEventMessageBubble() {
     return null
   }
 
+  // Right-click opens the message's options at the pointer, as in every chat app.
   return (
+    <MatrixMessageContextMenu disabled={!(ownMenu || reportMenu || answer)}>
     <MessagePrimitive.Root
       className={flat
         ? `group/message relative flex flex-col items-stretch gap-1 ps-[3.75rem] pe-5 hover:bg-(--atum-row-hover) ${mentioned ? 'bg-(--atum-row-hover)' : ''} ${
@@ -1225,7 +1235,6 @@ function MatrixEventMessageBubble() {
       data-matrix-run-end={!message.own && runEnd !== false ? true : undefined}
       data-slot={message.own ? 'aui_user-message-root' : 'aui_assistant-message-root'}
       data-team-space-run-start={flat && flatRunStart ? true : undefined}
-      onContextMenu={onContextMenu}
     >
       {message.id === action?.firstUnreadId && !dayStart && (
         <TeamSpaceNewMessagesDivider flat={flat} onJump={() => jumpToMessage(message.id)} />
@@ -1313,12 +1322,15 @@ function MatrixEventMessageBubble() {
         >
           {message.forwarded && (
             <p className="mb-1 flex items-center gap-1 text-xs text-(--atum-ink-muted)" data-matrix-forwarded>
-              <Share aria-hidden className="size-3.5" />
+              <Forward aria-hidden className="size-3.5" />
               {chat.forwarded}
             </p>
           )}
           {message.redacted ? (
-            <MatrixDeletedMessage />
+            <>
+              <MatrixDeletedMessage />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
+            </>
           ) : botApi?.photo && botApp ? (
             <>
               <MatrixBotApiPhotoView
@@ -1333,12 +1345,14 @@ function MatrixEventMessageBubble() {
                 roomId={action!.room.id}
               />
               <MatrixBotApiKeyboard keyboard={botApi.keyboard} />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
           ) : message.attachment && !message.decryptionFailed ? (
             <MatrixFileCard
               action={
                 settled ? <MatrixFileSave name={message.body} onSave={() => eventCommand('download')} /> : undefined
               }
+              meta={bubbleMeta}
               name={message.body}
               size={message.attachmentSize}
             />
@@ -1346,14 +1360,17 @@ function MatrixEventMessageBubble() {
             <>
             <div
               className={
-                flat && !status
+                (flat && !status
                   ? 'matrix-flat-message whitespace-pre-wrap break-words'
                   : message.own
                     ? `composer-human-message whitespace-pre-wrap break-words${previewLink ? ' ms-auto w-fit max-w-full' : ''}`
                     : status || (message.checkIn && ownAssistant)
                       ? 'py-1'
-                      : `matrix-chat-bubble whitespace-pre-wrap break-words${previewLink ? ' w-fit max-w-full' : ''}`
+                      : `matrix-chat-bubble whitespace-pre-wrap break-words${previewLink ? ' w-fit max-w-full' : ''}`) +
+                (bubbleMeta ? ' matrix-bubble-timed' : '')
               }
+              data-matrix-meta-flow={bubbleMeta ? bubbleMetaFlow : undefined}
+              style={bubbleMeta ? ({ '--matrix-meta-room': bubbleMetaRoom } as React.CSSProperties) : undefined}
             >
               {quote && (
                 <MatrixReplyQuote
@@ -1491,6 +1508,7 @@ function MatrixEventMessageBubble() {
                   }}
                 />
               )}
+              {bubbleMeta}
             </div>
             {previewLink && action && (
               <MatrixLinkPreviewCard
@@ -1513,7 +1531,6 @@ function MatrixEventMessageBubble() {
             placement="inline"
             react={picker('end')}
             threadLabel={threadCopy.replyInThread}
-            time={hoverTime}
           />
         )}
       </div>
@@ -1528,10 +1545,9 @@ function MatrixEventMessageBubble() {
           placement="corner"
           react={picker('end')}
           threadLabel={threadCopy.replyInThread}
-          time={hoverTime}
         />
       )}
-      {personEdited && !message.redacted && (flat || runEnd === false) && (
+      {personEdited && !message.redacted && (flat || !bubbleMeta) && (
         <Tip label={editTime}>
           <span className={`text-xs text-(--atum-ink-faint) ${underText}`} data-matrix-edited tabIndex={editTime ? 0 : undefined}>
             {flat ? chat.edited : mobileChatCopy[locale].edited}
@@ -1664,7 +1680,7 @@ function MatrixEventMessageBubble() {
       )}
       {/* Sending: a small clock under your message, as in any messaging app (the words are
           for screen readers). */}
-      {message.pending && !local && (
+      {message.pending && !local && !bubbleMeta && (
         <span
           aria-label={copy.pending}
           className="inline-flex text-(--atum-ink-faint)"
@@ -1690,30 +1706,10 @@ function MatrixEventMessageBubble() {
         <MatrixSendState
           agents={action?.agents}
           assistantChat={Boolean(action?.room.assistant)}
-          edited={personEdited && runEnd !== false ? (
-            <Tip label={editTime}>
-              <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{mobileChatCopy[locale].edited}</span>
-            </Tip>
-          ) : undefined}
-          latest={message.id === action?.latestOwnId}
           members={action?.members}
           message={message}
           people={people}
-          time={!flat && timeEligible && runEnd !== false ? timestamp : undefined}
         />
-      )}
-      {!message.own && !flat && timeEligible && runEnd !== false && !answer && timestamp && (
-        <span className={`inline-flex items-center gap-1 text-xs text-(--atum-ink-faint) ${underText}`} data-matrix-run-time>
-          {timestamp}
-          {personEdited && (
-            <>
-              <span aria-hidden>·</span>
-              <Tip label={editTime}>
-                <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{mobileChatCopy[locale].edited}</span>
-              </Tip>
-            </>
-          )}
-        </span>
       )}
       {result && (
         <p
@@ -1750,25 +1746,19 @@ function MatrixEventMessageBubble() {
       <ResultRecoveryOutcome recovery={recovery} />
       {answer && action && (
         <MatrixAnswerToolbar
-          alignClass={underText}
           fail={action.fail}
           key={`${action.ownerUserId}:${action.ownerDeviceId}:${action.room.id}:${message.id}`}
-          latest={message.id === action.latestAnswerId}
           link={stableMessageLink}
           menuLabel={menuLabel}
           messageId={message.id}
           onForward={onForward}
-          onOpenChange={setMenuOpen}
-          onPin={onPin}
-          onReact={actionable ? react : undefined}
+            onPin={onPin}
           onReply={onReply}
           onRetry={ownAssistant && question?.body ? () => action.composer?.resend(question.body) : undefined}
           onThread={onThread}
-          open={menuOpen}
-          pinned={pinned}
+            pinned={pinned}
           pinning={pinning}
           react={picker('end')}
-          reactions={message.reactions}
           readAloud={ownAssistant && Boolean(text)}
           retryDisabled={!ready}
           roomId={action.room.id}
@@ -1776,32 +1766,27 @@ function MatrixEventMessageBubble() {
           spoken={message.body}
           text={text}
           threadLabel={threadCopy.replyInThread}
-          time={timestamp}
         />
       )}
       {flat && threadReplies !== undefined && threadReplies > 0 && <TeamSpaceRepliesDivider count={threadReplies} />}
     </MessagePrimitive.Root>
+    </MatrixMessageContextMenu>
   )
 }
 
-/** R9's answer row (Copy, good, bad, Retry) plus the ordinary Reply/"…" toolbar. Read-aloud
- * state lives here because closing its menu must not stop the audio. */
+/** An answer's hover toolbar (React, Reply, Forward, "…"), the same as any message's: no row
+ * under the bubble, as in a normal chat. Read-aloud state lives here because closing its menu
+ * must not stop the audio. */
 function MatrixAnswerToolbar({
-  alignClass,
   fail,
-  latest,
   link,
   menuLabel,
   messageId,
-  onOpenChange,
   onForward,
-  onReact,
   onPin,
   onReply,
   onRetry,
   onThread,
-  open,
-  reactions,
   pinned,
   pinning,
   react,
@@ -1814,21 +1799,15 @@ function MatrixAnswerToolbar({
   time,
   threadLabel
 }: {
-  alignClass: string
   fail(): void
-  latest: boolean
   link?: string
   menuLabel: string
   messageId: string
-  onOpenChange(open: boolean): void
   onForward?: () => void
-  onReact?: (key: string, reacted: boolean) => void
   onPin?: () => void
   onReply?: () => void
   onRetry?: () => void
   onThread?: () => void
-  open: boolean
-  reactions?: readonly MatrixReaction[]
   pinned: boolean
   pinning: boolean
   react?: ReactNode
@@ -1839,63 +1818,15 @@ function MatrixAnswerToolbar({
   saved?: MatrixMessageSavedAction
   spoken: string
   text: string
+  /** A middle answer's own time, shown in the toolbar as a person's message shows it. */
   time?: ReactNode
   threadLabel: string
 }) {
   const reading = useMatrixReadAloud({ fail, messageId, roomId, text: spoken })
   const canRead = readAloud && reading.available
-  const reacted = (key: string) => Boolean(reactions?.some(reaction => reaction.key === key && reaction.own))
-  const chat = useChatCopy()
 
   return (
     <>
-      <div
-        className={`${alignClass} mt-(--ak-s1) flex items-center gap-(--ak-s1) text-(--ak-ink-4)`}
-        data-latest={latest || undefined}
-        data-matrix-answer-actions
-      >
-        {time}
-        <span className={`flex items-center gap-(--ak-s1) transition-opacity motion-reduce:transition-none ${
-          latest ? '' : 'opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100'
-        }`}>
-          <CopyButton appearance="icon" buttonSize="icon-sm" className="ak-iconbtn ak-iconbtn--sm" haptic={false} iconClassName="ak-icon ak-icon--sm" text={text} />
-          <Tip label={chat.goodAnswer}>
-          <button
-            aria-label={chat.goodAnswer}
-            aria-pressed={reacted('👍')}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onReact}
-            onClick={() => onReact?.('👍', !reacted('👍'))}
-            type="button"
-          >
-            <ThumbsUp aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-          <Tip label={chat.badAnswer}>
-          <button
-            aria-label={chat.badAnswer}
-            aria-pressed={reacted('👎')}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onReact}
-            onClick={() => onReact?.('👎', !reacted('👎'))}
-            type="button"
-          >
-            <ThumbsDown aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-          <Tip label={chat.retry}>
-          <button
-            aria-label={chat.retry}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onRetry || retryDisabled}
-            onClick={onRetry}
-            type="button"
-          >
-            <Refresh aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-        </span>
-      </div>
       <MatrixMessageToolbar
         menu={
           <MatrixMessageMenu
@@ -1903,10 +1834,8 @@ function MatrixAnswerToolbar({
             label={menuLabel}
             link={link}
             onForward={onForward}
-            onOpenChange={onOpenChange}
             onPin={onPin}
             onRetry={onRetry}
-            open={open}
             pinned={pinned}
             pinning={pinning}
             readAloud={
@@ -1932,6 +1861,7 @@ function MatrixAnswerToolbar({
         react={react}
         reading={canRead && reading.owned}
         threadLabel={threadLabel}
+        time={time}
       />
       {canRead && reading.failed && (
         <NoticeBand role="status" tone="failure">

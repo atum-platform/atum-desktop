@@ -4,7 +4,12 @@ Opt in on the Matrix plugin with `plugins.entries.platforms/matrix.settings.atum
 Use `display.platforms.matrix.tool_progress: off` and `display.platforms.matrix.streaming: false` for this surface;
 `display.interim_assistant_messages: true` enables the native commentary callback.
 The extension owns the transient activity line; native gateway text progress must
-be disabled to avoid publishing a second activity surface.
+be disabled to avoid publishing a second activity surface. A global
+`display.tool_progress` (the desktop's `tool.start` events need it on) is also read by
+the Matrix gateway when no per-platform value is set, which posts lines such as
+"📚 Reading skill …" into the chat as messages; the desktop's narration settings
+(`apps/desktop/shared/matrix-turn-style.ts`, `MATRIX_NARRATION_DISPLAY`) therefore
+write `display.platforms.matrix.tool_progress: off` beside it.
 
 This is a Matrix platform extension, selected by its existing `register_platform`
 factory. It adds no tools, prompts, conversation messages, or model calls.
