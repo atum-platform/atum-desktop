@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  matrixCloudManagedSelection,
   MatrixCloudModelChoices,
   type MatrixCloudModelResponse,
   matrixCloudModelView,
@@ -65,7 +66,7 @@ describe('the cloud model-choice offer', () => {
     const offer = parseMatrixCloudModelOffer(snapshot(), PRINCIPAL)
 
     expect(offer).toMatchObject({ revision: 3, policyDigest: DIGEST, current: 'nguyet-thuc', effort: 'medium' })
-    expect(matrixCloudModelView(offer!)).toEqual({
+    expect(matrixCloudModelView(offer!)).toMatchObject({
       offered: ['nguyet-thuc', 'nhat-thuc'],
       current: 'nguyet-thuc'
     })
@@ -129,7 +130,7 @@ describe('the OpenRouter shelf in the offer', () => {
   it('lists no shelf model while the platform keeps the rows inactive (prod after 0431)', () => {
     const view = matrixCloudModelView(parseMatrixCloudModelOffer(shelfSnapshot(false), PRINCIPAL)!)
 
-    expect(view).toEqual({ offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' })
+    expect(view).toMatchObject({ offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' })
     expect(view.shelf).toBeUndefined()
   })
 
@@ -239,7 +240,7 @@ describe('the cached offer', () => {
     const reachable = choices(async () => ({ status: 200, value: snapshot({ offered: ['nguyet-thuc'] }) }))
     reachable.refresh(PRINCIPAL)
     await settled(reachable)
-    expect(reachable.view(PRINCIPAL)).toEqual({ offered: ['nguyet-thuc'], current: 'nguyet-thuc' })
+    expect(reachable.view(PRINCIPAL)).toMatchObject({ offered: ['nguyet-thuc'], current: 'nguyet-thuc' })
 
     const absent = choices(async () => ({ status: 404, value: null }))
     absent.refresh(PRINCIPAL)
@@ -261,7 +262,7 @@ describe('the cached offer', () => {
     await settled(model)
 
     expect(await model.write(PRINCIPAL, 'nhat-thuc')).toBe(true)
-    expect(model.view(PRINCIPAL)).toEqual({ offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nhat-thuc' })
+    expect(model.view(PRINCIPAL)).toMatchObject({ offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nhat-thuc' })
 
     expect(await model.write(PRINCIPAL, 'nguyet-thuc')).toBe(false)
     expect(model.view(PRINCIPAL)).toBeUndefined()
@@ -449,4 +450,46 @@ describe('a pick racing the periodic offer read (owner 2026-11-11: “it keeps s
     expect(writes).toMatchObject([{ policyDigest: DIGEST }, { policyDigest: NEW_DIGEST, expectedRevision: 7 }])
     expect(model.view(PRINCIPAL)?.current).toBe('nhat-thuc')
   })
+})
+
+describe('managed cloud effort', () => {
+  it.each(['nguyet-thuc', 'nhat-thuc'] as const)('projects and persists the exact selected level for %s', async model => {
+    let stored = snapshot({ current: model })
+    const call = vi.fn(async (_agent, action, _signal, body) => {
+      if (action === 'write') {
+        stored = { ...stored, revision: stored.revision + 1, choice: body.choice }
+      }
+      return { status: 200, value: stored }
+    })
+    const scope = { accountKey: 'owner', generation: 1 }
+    const cache = new MatrixCloudModelChoices({ scope: () => scope, call, changed: vi.fn() })
+    cache.activate(scope)
+    await cache.reload(PRINCIPAL)
+    expect(cache.view(PRINCIPAL)?.models?.find(row => row.alias === model)?.efforts).toEqual(['low', 'medium', 'high'])
+    expect(await cache.write(PRINCIPAL, model, 'high')).toBe(true)
+    expect(call.mock.calls.find(args => args[1] === 'write')?.[3].choice).toEqual({ v: 2, source: 'atum', model, effort: 'high' })
+    await cache.reload(PRINCIPAL)
+    expect(cache.view(PRINCIPAL)).toMatchObject({ current: model, effort: 'high' })
+    const offer = cache.offer(PRINCIPAL)!
+    expect(matrixCloudModelWrite({ ...offer, models: offer.models.map(row => ({ ...row, efforts: ['medium'] })) }, model, undefined, 'high')).toBeNull()
+  })
+})
+
+it('resolves effort-only against the cloud choice and refuses unadvertised levels', () => {
+  const offer = parseMatrixCloudModelOffer(snapshot({ current: 'nhat-thuc' }), PRINCIPAL)!
+  expect(matrixCloudManagedSelection(offer, { effort: 'low' })).toEqual({ model: 'nhat-thuc', effort: 'low' })
+  expect(matrixCloudManagedSelection(undefined, { effort: 'high' })).toBeUndefined()
+  expect(matrixCloudManagedSelection({ ...offer, current: undefined }, { effort: 'high' })).toBeUndefined()
+  expect(matrixCloudManagedSelection({ ...offer, models: offer.models.map(row => ({ ...row, efforts: ['medium'] })) }, { effort: 'high' })).toBeUndefined()
+})
+
+it('sends the selected effort on the real owner HTTP write route', async () => {
+  const offer = parseMatrixCloudModelOffer(snapshot(), PRINCIPAL)!
+  const body = matrixCloudModelWrite(offer, 'nguyet-thuc', undefined, 'low')!
+  const fetcher = vi.fn(async () => new Response(JSON.stringify(snapshot()), { headers: { 'content-type': 'application/json' } }))
+  vi.stubGlobal('fetch', fetcher)
+  await requestMatrixCloudModelChoice('https://platform.example', 'test-token', PRINCIPAL, 'write', new AbortController().signal, body)
+  const [url, init] = fetcher.mock.calls[0] as unknown as [string, RequestInit]
+  expect(url).toBe(`https://platform.example/agents/${PRINCIPAL}/model-choice`)
+  expect(JSON.parse(init.body as string).choice).toEqual({ v: 2, source: 'atum', model: 'nguyet-thuc', effort: 'low' })
 })

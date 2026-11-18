@@ -68,6 +68,47 @@ import { usePinnedMessagesCopy } from './team-space/pinned-copy'
 /** The quick reactions, in Element X's order. A reaction from another app shows as it is. */
 export const MATRIX_QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'] as const
 
+/** React from inside a message's options menu: the same quick reactions, the same toggle. */
+export interface MatrixMessageReactAction {
+  reactions: readonly MatrixReaction[]
+  onReact(key: string, reacted: boolean): void
+}
+
+/**
+ * The quick reactions as one row inside a message's options (the "…" menu and the
+ * right-click menu alike). The hover toolbar keeps its own popover; this row calls the
+ * same toggle, so the two surfaces never drift apart.
+ */
+function MatrixReactRow({ onReact, reactions, surface }: MatrixMessageReactAction & { surface: MatrixMessageMenuSurface }) {
+  const { Item } = MENU_SURFACES[surface]
+  const copy = useChatCopy()
+  const mine = new Set(reactions.filter(reaction => reaction.own).map(reaction => reaction.key))
+
+  return (
+    <div
+      aria-label={copy.react}
+      className="flex items-center gap-0.5 px-1 py-1"
+      data-matrix-message-reactions
+      role="group"
+    >
+      {MATRIX_QUICK_REACTIONS.map(key => (
+        <Item
+          aria-checked={mine.has(key)}
+          aria-label={copy.reactWith(key)}
+          className="grid size-8 place-items-center rounded-(--atum-r-control) text-lg leading-none transition-transform duration-100 hover:scale-110 hover:bg-(--atum-hover) aria-checked:bg-(--atum-pressed) disabled:cursor-default disabled:opacity-45 disabled:hover:scale-100 motion-reduce:transition-none motion-reduce:hover:scale-100"
+          data-matrix-menu-reaction={key}
+          key={key}
+          onSelect={() => onReact(key, !mine.has(key))}
+          role="menuitemcheckbox"
+          textValue=""
+        >
+          <span aria-hidden>{key}</span>
+        </Item>
+      ))}
+    </div>
+  )
+}
+
 /** React: the quick reactions in a small popover. Each one toggles yours. `align`: the side
  * of the trigger the row lines up with (the end inside a message's toolbar, so it stays in the
  * transcript's column). */
@@ -345,6 +386,8 @@ interface MatrixMessageMenuItemsProps {
   onRetry?: () => void
   pinned?: boolean
   pinning?: boolean
+  /** React from inside the options: the same toggle the hover toolbar's picker calls. */
+  react?: MatrixMessageReactAction
   readAloud?: MatrixMessageReadAloud
   reported?: boolean
   retryDisabled?: boolean
@@ -367,6 +410,7 @@ function MatrixMessageMenuItems({
   onRetry,
   pinned,
   pinning,
+  react,
   readAloud,
   reported,
   retryDisabled,
@@ -382,6 +426,12 @@ function MatrixMessageMenuItems({
 
   return (
     <>
+      {react && (
+        <>
+          <MatrixReactRow onReact={react.onReact} reactions={react.reactions} surface={surface} />
+          <Separator />
+        </>
+      )}
       {text && <CopyButton appearance={copyAppearance} haptic={false} text={text} />}
       {onForward && (
         <Item data-matrix-forward-item onSelect={onForward}>
@@ -483,6 +533,7 @@ export function MatrixMessageMenu({
   const inContextMenu = useContext(ContextMenuScope)
   const [confirming, setConfirming] = useState<'delete' | 'report' | null>(null)
   const { link, onEdit, onFindAnswer, onForward, onPin, onRetry, readAloud, saved, text, toCard } = items
+  const { react } = items
 
   if (
     !text &&
@@ -496,7 +547,8 @@ export function MatrixMessageMenu({
     !onPin &&
     !readAloud &&
     !saved &&
-    !toCard
+    !toCard &&
+    !react
   ) {
     return null
   }

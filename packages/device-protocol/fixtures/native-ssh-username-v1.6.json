@@ -1,0 +1,83 @@
+{
+  "source_contract": "atum.device-service/1.6",
+  "source_commit": "97a03e82c982e4ad208c5f07074353fbac6a272b",
+  "source_pinned_sha256": "725b9a90c0de53db15e7ed11b1153130735c3a7d4ae32acafef0b292c20eda3e",
+  "schema": {
+    "anyOf": [
+      {
+        "type": "string",
+        "min": 1,
+        "max": 32,
+        "pattern": "^[a-z_][a-z0-9_-]{0,31}$(?![\\s\\S])"
+      },
+      {
+        "type": "string",
+        "min": 1,
+        "max": 32,
+        "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,31}$"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "user": "NM",
+      "accept": true
+    },
+    {
+      "user": "Mac_User-9",
+      "accept": true
+    },
+    {
+      "user": "nm",
+      "accept": true
+    },
+    {
+      "user": "_NM",
+      "accept": true
+    },
+    {
+      "user": "Nmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+      "accept": true
+    },
+    {
+      "user": "",
+      "accept": false
+    },
+    {
+      "user": "Nmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmm",
+      "accept": false
+    },
+    {
+      "user": "9NM",
+      "accept": false
+    },
+    {
+      "user": "-NM",
+      "accept": false
+    },
+    {
+      "user": "N M",
+      "accept": false
+    },
+    {
+      "user": "N/M",
+      "accept": false
+    },
+    {
+      "user": "N.M",
+      "accept": false
+    },
+    {
+      "user": "N\u039c",
+      "accept": false
+    },
+    {
+      "user": "NM\n",
+      "accept": false
+    },
+    {
+      "user": "NM;id",
+      "accept": false
+    }
+  ]
+}

@@ -246,7 +246,8 @@ export class NativeMacSsh {
           return
         }
 
-        if (!/^[a-z_][a-z0-9_-]{0,31}$/.test(ready.user) || !sshPublicKey(ready.hostKey)) {
+        // macOS login names can contain uppercase ASCII. Preserve OS spelling.
+        if (!/^[A-Za-z_][A-Za-z0-9_-]{0,31}$(?![\s\S])/.test(ready.user) || !sshPublicKey(ready.hostKey)) {
           throw new Error('invalid_host')
         }
 

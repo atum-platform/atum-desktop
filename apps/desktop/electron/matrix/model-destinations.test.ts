@@ -1072,3 +1072,10 @@ describe('a pick racing the periodic read (owner 2026-11-11: “it keeps switchi
     expect(stuck.subject.snapshot(PRINCIPAL)?.revision).toBe(9)
   })
 })
+
+it('applies an explicit managed effort even when the destination model is unchanged', () => {
+  const saved = snapshot()
+  saved.choices = [{ destination: 'cloud', source: 'atum', model: 'nguyet-thuc', effort: 'medium' }]
+  expect(matrixModelDestinationWrite(saved, 'cloud', 'nguyet-thuc', REQUEST, 'high')?.choice)
+    .toEqual({ destination: 'cloud', source: 'atum', model: 'nguyet-thuc', effort: 'high' })
+})

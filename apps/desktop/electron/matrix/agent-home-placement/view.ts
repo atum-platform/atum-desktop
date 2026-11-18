@@ -187,7 +187,7 @@ export function ownerHomeViewFor(
   me: string | null,
   /** The cloud destination's SAVED choice: an Atum alias, or a plan model. Never a recommendation
    * standing in for a plan choice, or an Atum row reads as already chosen and a click does nothing. */
-  cloudModel?: MatrixModelId | MatrixShelfModelId | CloudHomeSavedPlanChoice,
+  cloudModel?: MatrixModelId | MatrixShelfModelId | CloudHomeSavedPlanChoice | { source: 'atum'; model: string; effort: string },
   cloudOffers?: readonly CloudHomeOffer[],
   supersededDeviceIds: readonly string[] = []
 ): MatrixAgentHomeView {
@@ -255,7 +255,12 @@ export function ownerHomeViewFor(
             source: connection.source,
             connectionRef: connection.connectionRef,
             model: model.model,
-            effort: model.defaultEffort
+            effort: state.modelApplication?.choice.destination === `mac:${device.deviceServiceId}` &&
+              state.modelApplication.choice.connectionRef === connection.connectionRef &&
+              state.modelApplication.choice.model === model.model &&
+              model.efforts.includes(state.modelApplication.choice.effort)
+              ? state.modelApplication.choice.effort
+              : model.defaultEffort
           } as PlacementModelChoiceV25,
           connection.providerLabel,
           destinationModelLabel(model, connection.source),
@@ -277,13 +282,20 @@ export function ownerHomeViewFor(
       models
     }
   })
-  const destinations: MatrixAgentHomeDestinationView[] = [cloudDestination(cloudOffers), ...macs]
+  const cloud = cloudDestination(cloudOffers)
+  if (typeof cloudModel === 'object' && cloudModel.source === 'atum') {
+    cloud.models = cloud.models.map(row => {
+      const saved = row.efforts.find(level => level === cloudModel.effort)
+      return row.model === cloudModel.model && saved ? { ...row, effort: saved } : row
+    })
+  }
+  const destinations: MatrixAgentHomeDestinationView[] = [cloud, ...macs]
   const current = snapshot.placement.location.kind === 'cloud' ? 'cloud' : snapshot.placement.location.deviceServiceId
   const projection = state.modelApplication
   const currentDestination = destinations.find(destination => destination.id === current)
   const cloudChoice: MatrixAgentHomeModelOption | undefined =
-    typeof cloudModel === 'string'
-      ? cloudDestination(cloudOffers).models.find(model => model.model === cloudModel)
+    typeof cloudModel === 'string' || cloudModel?.source === 'atum'
+      ? cloud.models.find(model => model.model === (typeof cloudModel === 'string' ? cloudModel : cloudModel.model))
       : cloudModel
         ? {
             connectionRef: `${cloudModel.source}:${cloudModel.model}`,

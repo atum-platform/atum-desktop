@@ -13,7 +13,7 @@ import { MATRIX_SHELF_PROVIDER } from '../../shared/matrix-shelf-models'
 import { useModelPickerCopy } from './model-picker-copy'
 import type { PickerFilterSource } from './model-picker-filter'
 import { ModelPickerList } from './model-picker-list'
-import { MODEL_PICKER_CARD, ModelPickerPanel, useModelPickerKeys } from './model-picker-panel'
+import { MODEL_PICKER_CARD_COMPACT, ModelPickerPanel, useModelPickerKeys } from './model-picker-panel'
 import {
   matrixModelFavoriteToggle,
   type MatrixModelPickerPreferences,
@@ -210,7 +210,7 @@ export function ModelPickerPopover({
       <PopoverContent
         align="start"
         aria-label={label}
-        className={cn(MODEL_PICKER_CARD, contentClassName)}
+        className={cn(MODEL_PICKER_CARD_COMPACT, contentClassName)}
         onKeyDown={keys.shortcutKeyDown}
         // A card opened by a click focuses itself (DESIGN.md), never the search field or a row.
         onOpenAutoFocus={event => {
