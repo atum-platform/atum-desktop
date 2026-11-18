@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider } from '@/i18n'
 import { AudioLines } from '@/lib/icons'
 
-import { MatrixMessageMenu, MatrixMessageToolbar } from './message-actions'
+import { MatrixMessageContextMenu, MatrixMessageMenu, MatrixMessageToolbar } from './message-actions'
 
 afterEach(() => {
   cleanup()
@@ -122,5 +122,90 @@ describe('message toolbar', () => {
     rerender(<MatrixMessageToolbar menu={<span />} placement="corner" reading />)
     expect(toolbar().hasAttribute('data-reading')).toBe(true)
     expect(toolbar().classList.contains('opacity-100')).toBe(true)
+  })
+})
+
+describe('message options at the pointer', () => {
+  const message = (props: Partial<Parameters<typeof MatrixMessageMenu>[0]> = {}) => (
+    <I18nProvider configClient={null} initialLocale="en">
+      <MatrixMessageContextMenu>
+        <div data-testid="message">
+          <p>The answer</p>
+          <a href="https://example.org">a link</a>
+          <MatrixMessageToolbar
+            menu={<MatrixMessageMenu kind="answer" label="Message actions" text="The answer" {...props} />}
+            onForward={props.onForward}
+            placement="corner"
+          />
+        </div>
+      </MatrixMessageContextMenu>
+    </I18nProvider>
+  )
+
+  // Radix places the menu's wrapper with a translate from the anchor it was given.
+  const menuOffset = async () => {
+    const content = await screen.findByRole('menu')
+    const wrapper = content.closest<HTMLElement>('[data-radix-popper-content-wrapper]')!
+
+    await waitFor(() => expect(wrapper.style.transform).toMatch(/translate\(/u))
+
+    const [, x, y] = /translate\((-?[\d.]+)px, (-?[\d.]+)px\)/u.exec(wrapper.style.transform)!
+
+    return { x: Number(x), y: Number(y) }
+  }
+
+  it('opens the same options where the message was right-clicked, not at the "…"', async () => {
+    render(message({ onRetry: vi.fn() }))
+
+    expect(fireEvent.contextMenu(screen.getByText('The answer'), { button: 2, clientX: 140, clientY: 260 })).toBe(false)
+    const menu = await screen.findByRole('menu')
+    expect(menu.hasAttribute('data-matrix-message-context-menu')).toBe(true)
+    expect(within(menu).getByRole('menuitem', { name: 'Copy' })).toBeTruthy()
+    expect(within(menu).getByRole('menuitem', { name: 'Retry' })).toBeTruthy()
+
+    const { x, y } = await menuOffset()
+    // At the pointer (Radix sets it a couple of pixels to the side), never at the toolbar's corner.
+    expect(Math.abs(x - 140)).toBeLessThanOrEqual(4)
+    expect(Math.abs(y - 260)).toBeLessThanOrEqual(4)
+  })
+
+  it('keeps the "…" opening its own menu, anchored to itself', async () => {
+    render(message())
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Message actions' }), { key: 'Enter' })
+    const menu = await screen.findByRole('menu')
+    expect(menu.hasAttribute('data-matrix-message-context-menu')).toBe(false)
+    expect(within(menu).getByRole('menuitem', { name: 'Copy' })).toBeTruthy()
+  })
+
+  it('opens the options from the keyboard (Shift+F10) on the focused message', async () => {
+    render(message())
+
+    const more = screen.getByRole('button', { name: 'Message actions' })
+    more.focus()
+    fireEvent.keyDown(more, { key: 'F10', shiftKey: true })
+    const menu = await screen.findByRole('menu')
+    expect(menu.hasAttribute('data-matrix-message-context-menu')).toBe(true)
+  })
+
+  it('leaves a link its own browser menu', () => {
+    render(message())
+
+    expect(fireEvent.contextMenu(screen.getByText('a link'))).toBe(true)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('forwards with the forward arrow, in the toolbar and in the menu', async () => {
+    const onForward = vi.fn()
+    render(message({ onForward }))
+
+    const toolbarForward = screen.getByRole('button', { name: 'Forward' })
+    expect(toolbarForward.querySelector('svg')!.classList.contains('atum-icon-share-fat')).toBe(true)
+
+    fireEvent.contextMenu(screen.getByText('The answer'), { clientX: 10, clientY: 10 })
+    const item = await screen.findByRole('menuitem', { name: 'Forward' })
+    expect(item.querySelector('svg')!.classList.contains('atum-icon-share-fat')).toBe(true)
+    fireEvent.click(item)
+    expect(onForward).toHaveBeenCalledOnce()
   })
 })

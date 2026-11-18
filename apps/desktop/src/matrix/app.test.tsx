@@ -5144,12 +5144,8 @@ describe('isolated Matrix composition', () => {
     })
 
     expect(view.container.querySelector('[data-matrix-report-message]')).toBeNull()
-    // R9 puts the four answer actions below the answer; read-aloud and message-specific actions stay in "…".
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
-    expect(within(actions).getByRole('button', { name: 'Copy' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Good answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Bad answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Retry' })).toBeTruthy()
+    // No row under the answer (owner 11-18): Copy and Retry live in "…" with the rest.
+    expect(view.container.querySelector('[data-matrix-answer-actions]')).toBeNull()
     const toolbar = view.container.querySelector<HTMLElement>(
       '[data-matrix-message-id="$answer"] [data-matrix-message-toolbar]'
     )!
@@ -11315,44 +11311,37 @@ describe("Home's chat (launch night, second wave)", () => {
   const openAnswerMenu = (container: HTMLElement) =>
     fireEvent.keyDown(answerToolbar(container).querySelector('[data-matrix-answer-menu]')!, { key: 'Enter' })
 
-  it("shows R9's small answer-action row and retains the message toolbar for reply and overflow", async () => {
-    const { bridge, view } = await openChat()
+  it('draws an answer like a normal chat message: no row under it, the toolbar on hover (owner 11-18)', async () => {
+    const { view } = await openChat()
     const toolbar = answerToolbar(view.container)
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
+    const answer = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$a"]')!
 
+    expect(view.container.querySelector('[data-matrix-answer-actions]')).toBeNull()
+    expect(within(answer).queryByRole('button', { name: 'Good answer' })).toBeNull()
+    expect(within(answer).queryByRole('button', { name: 'Bad answer' })).toBeNull()
+    // Its time sits under it quietly, as a person's does.
+    expect(answer.querySelector('[data-matrix-run-time]')).toBeTruthy()
     expect(toolbar.dataset.matrixMessageToolbar).toBe('corner')
     expect(toolbar.classList.contains('opacity-0')).toBe(true)
     expect(toolbar.classList.contains('group-hover/message:opacity-100')).toBe(true)
     expect(toolbar.classList.contains('focus-within:opacity-100')).toBe(true)
-    expect(toolbar.classList.contains('absolute')).toBe(true)
-    expect(actions.dataset.latest).toBe('true')
-    expect(actions.classList.contains('opacity-0')).toBe(false)
-    expect(within(actions).getByRole('button', { name: 'Copy' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Good answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Bad answer' })).toBeTruthy()
-    expect(within(actions).getByRole('button', { name: 'Retry' })).toBeTruthy()
-    fireEvent.click(within(actions).getByRole('button', { name: 'Good answer' }))
-    await waitFor(() =>
-      expect(bridge.command).toHaveBeenCalledWith({
-        kind: 'react', roomId: assistantRoom.id, eventId: '$a', key: '👍', reacted: true
-      })
-    )
     expect(within(toolbar).getByRole('button', { name: 'Reply' }).tabIndex).toBe(0)
     expect(within(toolbar).queryByRole('button', { name: 'Retry' })).toBeNull()
     expect(within(toolbar).queryByRole('button', { name: 'Copy' })).toBeNull()
   })
 
-  it("asks an answer's question again and copies it from the R9 row", async () => {
+  it("asks an answer's question again and copies it from the answer's menu", async () => {
     const writeText = vi.fn(async () => {})
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
     const { bridge, view } = await openChat()
 
-    const actions = view.container.querySelector<HTMLElement>('[data-matrix-answer-actions]')!
-    fireEvent.click(within(actions).getByRole('button', { name: 'Retry' }))
+    openAnswerMenu(view.container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Retry' }))
     await waitFor(() =>
       expect(bridge.sendTurn).toHaveBeenCalledExactlyOnceWith('!assistant:test', 'Plan a trip to Đà Lạt')
     )
-    fireEvent.click(within(actions).getByRole('button', { name: 'Copy' }))
+    openAnswerMenu(view.container)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Copy' }))
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('Here is a **plan**.'))
     expect(bridge.command).not.toHaveBeenCalled()
   })
@@ -11382,7 +11371,8 @@ describe("Home's chat (launch night, second wave)", () => {
     const answer = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$a"]')!
     const own = view.container.querySelector<HTMLElement>('[data-matrix-message-id="$q"]')!
 
-    expect(fireEvent.contextMenu(answer.querySelector('.matrix-chat-bubble')!)).toBe(false)
+    expect(fireEvent.contextMenu(answer.querySelector('.matrix-chat-bubble')!, { clientX: 120, clientY: 80 })).toBe(false)
+    expect((await screen.findByRole('menu')).hasAttribute('data-matrix-message-context-menu')).toBe(true)
     expect(await screen.findByRole('menuitem', { name: 'Copy' })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: 'Retry' })).toBeTruthy()
     fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' })

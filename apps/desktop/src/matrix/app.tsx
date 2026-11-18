@@ -14,7 +14,6 @@ import { useStore } from '@nanostores/react'
 import {
   type ChangeEvent,
   createContext,
-  type MouseEvent,
   type MutableRefObject,
   type ReactNode,
   useCallback,
@@ -40,7 +39,6 @@ import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { CopyButton } from '@/components/ui/copy-button'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -71,16 +69,13 @@ import {
   Clock,
   DeviceMobile,
   Files,
+  Forward,
   Hash,
   LayoutSidebarRight,
   Messages,
   MoreHorizontal,
   Pencil,
   Plus,
-  Refresh,
-  Share,
-  ThumbsDown,
-  ThumbsUp,
   X
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -101,7 +96,6 @@ import {
   type MatrixMembershipLine,
   type MatrixMessage,
   matrixMessageTooLong,
-  type MatrixReaction,
   type MatrixRoom,
   type MatrixSnapshot,
   type MatrixThread,
@@ -364,6 +358,7 @@ import {
   MatrixFailedSend,
   MatrixFileCard,
   MatrixFileSave,
+  MatrixMessageContextMenu,
   MatrixMessageMenu,
   type MatrixMessageSavedAction,
   MatrixMessageToolbar,
@@ -782,8 +777,6 @@ function MatrixEventMessageBubble() {
   const [result, setResult] = useState<MatrixInvocationResult | null>(null)
   const [reported, setReported] = useState(false)
   const [pinning, setPinning] = useState(false)
-  // The "…" menu is also opened by right-clicking the message.
-  const [menuOpen, setMenuOpen] = useState(false)
   const [savedOverride, setSavedOverride] = useState<boolean | null>(null)
   const [savedPending, setSavedPending] = useState(false)
   const [toCardFailed, setToCardFailed] = useState(false)
@@ -1076,10 +1069,8 @@ function MatrixEventMessageBubble() {
         onEdit={actionable && text && ready ? () => action.composer?.editMessage(message) : undefined}
         onFindAnswer={action.recover && action.room.assistant && !local && !answered ? recovery.recover : undefined}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
         onRetry={retryOwn}
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         retryDisabled={retryOwnDisabled}
@@ -1096,7 +1087,6 @@ function MatrixEventMessageBubble() {
         label={menuLabel}
         link={stableMessageLink}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
         onReport={reason =>
           window.atumMatrix
@@ -1109,7 +1099,6 @@ function MatrixEventMessageBubble() {
             })
             .then(() => setReported(true))
         }
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         reported={reported}
@@ -1123,9 +1112,7 @@ function MatrixEventMessageBubble() {
         label={menuLabel}
         link={stableMessageLink}
         onForward={onForward}
-        onOpenChange={setMenuOpen}
         onPin={onPin}
-        open={menuOpen}
         pinned={pinned}
         pinning={pinning}
         saved={savedAction}
@@ -1139,23 +1126,6 @@ function MatrixEventMessageBubble() {
   const answer = Boolean(
     agent && !status && !message.interim && action && settled && (text || message.attachment) && !(message.checkIn && ownAssistant)
   )
-
-  // Right-click opens the message's "…" menu, as in Element. A selection, a link or a field
-  // keeps the browser's own menu.
-  const onContextMenu = (event: MouseEvent<HTMLElement>) => {
-    const target = event.target instanceof Element ? event.target : null
-
-    if (
-      !(ownMenu || reportMenu || answer) ||
-      !window.getSelection()?.isCollapsed ||
-      target?.closest('a, button, input, textarea, [contenteditable="true"]')
-    ) {
-      return
-    }
-
-    event.preventDefault()
-    setMenuOpen(true)
-  }
 
   // In a group the sender's face sits beside the last bubble of their run, level with its bottom
   // Preserve user-visible identity, state and recovery behavior across connection changes.
@@ -1173,7 +1143,7 @@ function MatrixEventMessageBubble() {
     />
   ) : undefined
   const timeEligible = settled && !status && !message.progress && !(message.checkIn && ownAssistant)
-  const hoverTime = !flat && timeEligible && runEnd === false && !answer ? timestamp : undefined
+  const hoverTime = !flat && timeEligible && runEnd === false ? timestamp : undefined
   const personEdited = Boolean(message.edited && !agent && !botApp)
   const editTime = personEdited && message.editedAt !== undefined
     ? chat.editedAt(
@@ -1207,7 +1177,9 @@ function MatrixEventMessageBubble() {
     return null
   }
 
+  // Right-click opens the message's options at the pointer, as in every chat app.
   return (
+    <MatrixMessageContextMenu disabled={!(ownMenu || reportMenu || answer)}>
     <MessagePrimitive.Root
       className={flat
         ? `group/message relative flex flex-col items-stretch gap-1 ps-[3.75rem] pe-5 hover:bg-(--atum-row-hover) ${mentioned ? 'bg-(--atum-row-hover)' : ''} ${
@@ -1222,7 +1194,6 @@ function MatrixEventMessageBubble() {
       data-matrix-run-end={!message.own && runEnd !== false ? true : undefined}
       data-slot={message.own ? 'aui_user-message-root' : 'aui_assistant-message-root'}
       data-team-space-run-start={flat && flatRunStart ? true : undefined}
-      onContextMenu={onContextMenu}
     >
       {message.id === action?.firstUnreadId && !dayStart && (
         <TeamSpaceNewMessagesDivider flat={flat} onJump={() => jumpToMessage(message.id)} />
@@ -1310,7 +1281,7 @@ function MatrixEventMessageBubble() {
         >
           {message.forwarded && (
             <p className="mb-1 flex items-center gap-1 text-xs text-(--atum-ink-muted)" data-matrix-forwarded>
-              <Share aria-hidden className="size-3.5" />
+              <Forward aria-hidden className="size-3.5" />
               {chat.forwarded}
             </p>
           )}
@@ -1699,7 +1670,7 @@ function MatrixEventMessageBubble() {
           time={!flat && timeEligible && runEnd !== false ? timestamp : undefined}
         />
       )}
-      {!message.own && !flat && timeEligible && runEnd !== false && !answer && timestamp && (
+      {!message.own && !flat && timeEligible && runEnd !== false && timestamp && (
         <span className={`inline-flex items-center gap-1 text-xs text-(--atum-ink-faint) ${underText}`} data-matrix-run-time>
           {timestamp}
           {personEdited && (
@@ -1747,25 +1718,19 @@ function MatrixEventMessageBubble() {
       <ResultRecoveryOutcome recovery={recovery} />
       {answer && action && (
         <MatrixAnswerToolbar
-          alignClass={underText}
           fail={action.fail}
           key={`${action.ownerUserId}:${action.ownerDeviceId}:${action.room.id}:${message.id}`}
-          latest={message.id === action.latestAnswerId}
           link={stableMessageLink}
           menuLabel={menuLabel}
           messageId={message.id}
           onForward={onForward}
-          onOpenChange={setMenuOpen}
-          onPin={onPin}
-          onReact={actionable ? react : undefined}
+            onPin={onPin}
           onReply={onReply}
           onRetry={ownAssistant && question?.body ? () => action.composer?.resend(question.body) : undefined}
           onThread={onThread}
-          open={menuOpen}
-          pinned={pinned}
+            pinned={pinned}
           pinning={pinning}
           react={picker('end')}
-          reactions={message.reactions}
           readAloud={ownAssistant && Boolean(text)}
           retryDisabled={!ready}
           roomId={action.room.id}
@@ -1773,32 +1738,28 @@ function MatrixEventMessageBubble() {
           spoken={message.body}
           text={text}
           threadLabel={threadCopy.replyInThread}
-          time={timestamp}
+          time={hoverTime}
         />
       )}
       {flat && threadReplies !== undefined && threadReplies > 0 && <TeamSpaceRepliesDivider count={threadReplies} />}
     </MessagePrimitive.Root>
+    </MatrixMessageContextMenu>
   )
 }
 
-/** R9's answer row (Copy, good, bad, Retry) plus the ordinary Reply/"…" toolbar. Read-aloud
- * state lives here because closing its menu must not stop the audio. */
+/** An answer's hover toolbar (React, Reply, Forward, "…"), the same as any message's: no row
+ * under the bubble, as in a normal chat. Read-aloud state lives here because closing its menu
+ * must not stop the audio. */
 function MatrixAnswerToolbar({
-  alignClass,
   fail,
-  latest,
   link,
   menuLabel,
   messageId,
-  onOpenChange,
   onForward,
-  onReact,
   onPin,
   onReply,
   onRetry,
   onThread,
-  open,
-  reactions,
   pinned,
   pinning,
   react,
@@ -1811,21 +1772,15 @@ function MatrixAnswerToolbar({
   time,
   threadLabel
 }: {
-  alignClass: string
   fail(): void
-  latest: boolean
   link?: string
   menuLabel: string
   messageId: string
-  onOpenChange(open: boolean): void
   onForward?: () => void
-  onReact?: (key: string, reacted: boolean) => void
   onPin?: () => void
   onReply?: () => void
   onRetry?: () => void
   onThread?: () => void
-  open: boolean
-  reactions?: readonly MatrixReaction[]
   pinned: boolean
   pinning: boolean
   react?: ReactNode
@@ -1836,63 +1791,15 @@ function MatrixAnswerToolbar({
   saved?: MatrixMessageSavedAction
   spoken: string
   text: string
+  /** A middle answer's own time, shown in the toolbar as a person's message shows it. */
   time?: ReactNode
   threadLabel: string
 }) {
   const reading = useMatrixReadAloud({ fail, messageId, roomId, text: spoken })
   const canRead = readAloud && reading.available
-  const reacted = (key: string) => Boolean(reactions?.some(reaction => reaction.key === key && reaction.own))
-  const chat = useChatCopy()
 
   return (
     <>
-      <div
-        className={`${alignClass} mt-(--ak-s1) flex items-center gap-(--ak-s1) text-(--ak-ink-4)`}
-        data-latest={latest || undefined}
-        data-matrix-answer-actions
-      >
-        {time}
-        <span className={`flex items-center gap-(--ak-s1) transition-opacity motion-reduce:transition-none ${
-          latest ? '' : 'opacity-0 group-hover/message:opacity-100 group-focus-within/message:opacity-100'
-        }`}>
-          <CopyButton appearance="icon" buttonSize="icon-sm" className="ak-iconbtn ak-iconbtn--sm" haptic={false} iconClassName="ak-icon ak-icon--sm" text={text} />
-          <Tip label={chat.goodAnswer}>
-          <button
-            aria-label={chat.goodAnswer}
-            aria-pressed={reacted('👍')}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onReact}
-            onClick={() => onReact?.('👍', !reacted('👍'))}
-            type="button"
-          >
-            <ThumbsUp aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-          <Tip label={chat.badAnswer}>
-          <button
-            aria-label={chat.badAnswer}
-            aria-pressed={reacted('👎')}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onReact}
-            onClick={() => onReact?.('👎', !reacted('👎'))}
-            type="button"
-          >
-            <ThumbsDown aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-          <Tip label={chat.retry}>
-          <button
-            aria-label={chat.retry}
-            className="ak-iconbtn ak-iconbtn--sm"
-            disabled={!onRetry || retryDisabled}
-            onClick={onRetry}
-            type="button"
-          >
-            <Refresh aria-hidden className="ak-icon ak-icon--sm" />
-          </button>
-          </Tip>
-        </span>
-      </div>
       <MatrixMessageToolbar
         menu={
           <MatrixMessageMenu
@@ -1900,10 +1807,8 @@ function MatrixAnswerToolbar({
             label={menuLabel}
             link={link}
             onForward={onForward}
-            onOpenChange={onOpenChange}
             onPin={onPin}
             onRetry={onRetry}
-            open={open}
             pinned={pinned}
             pinning={pinning}
             readAloud={
@@ -1929,6 +1834,7 @@ function MatrixAnswerToolbar({
         react={react}
         reading={canRead && reading.owned}
         threadLabel={threadLabel}
+        time={time}
       />
       {canRead && reading.failed && (
         <NoticeBand role="status" tone="failure">
