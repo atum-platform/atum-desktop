@@ -10,6 +10,15 @@
     "licenseFiles": ["app/hermes-agent-LICENSE.txt"],
     "includes": [
       {
+        "id": "cloudflared",
+        "name": "Cloudflare Tunnel",
+        "version": "2026.11.0",
+        "license": "Apache-2.0",
+        "source": "https://github.com/cloudflare/cloudflared/tree/2026.11.0",
+        "notes": ["The macOS app bundles the pinned cloudflared helper for its per-user launchd SSH tunnel."],
+        "licenseFiles": ["texts/Apache-2.0.txt"]
+      },
+      {
         "id": "block-buzz-app-team-space-sidebar",
         "name": "Block Buzz channel sidebar UI adapted for Atum Team Space",
         "version": "commit c2210b45bb6f539f1d236d18b284c16566e70602",

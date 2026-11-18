@@ -63,6 +63,12 @@ export interface ChatGptRelayCall {
   diagnostic: ChatGptRelayDiagnostic
 }
 
+export interface RelaySshBinding {
+  ownerPrincipal: string
+  agentPrincipal: string
+  connectionEpoch: number
+}
+
 export interface ChatGptRelayHandlerDeps {
   authority(): ChatGptRelayAuthority | null
   call(input: { model: string; effort: 'low' | 'medium' | 'high'; request: Record<string, unknown> }, signal: AbortSignal): Promise<ChatGptRelayCall>
@@ -76,6 +82,7 @@ function object(value: unknown): value is Record<string, unknown> {
 }
 
 const RELAY_STAGES = new Set<ChatGptRelayStage>(['provider_call', 'response_encode'])
+
 const RELAY_PROCESS_CODES = new Set<ChatGptRelayProcessCode>([
   'ok', 'provider_call_failed', 'response_not_serializable', 'response_too_large',
   'response_invalid', 'process_unavailable', 'stopped'
@@ -95,7 +102,9 @@ export function chatGptRelayDiagnostic(value: unknown): ChatGptRelayDiagnostic |
 
 function parse(value: Record<string, unknown>): ChatGptRelayRequestBody | null {
   let request: unknown
+
   try { request = typeof value.requestJson === 'string' ? JSON.parse(value.requestJson) : null } catch { request = null }
+
   if (!UUID.test(String(value.capabilityId)) || !UUID.test(String(value.ownerPrincipal)) ||
       !UUID.test(String(value.agentPrincipal)) || !UUID.test(String(value.invocationId)) ||
       !MODEL.test(String(value.model)) || !['low', 'medium', 'high'].includes(String(value.effort)) ||
@@ -112,7 +121,9 @@ function parse(value: Record<string, unknown>): ChatGptRelayRequestBody | null {
       Buffer.byteLength(String(value.requestJson), 'utf8') !== value.requestBytes) {
     return null
   }
+
   const { requestJson: _requestJson, ...wire } = value
+
   return { ...wire, request } as unknown as ChatGptRelayRequestBody
 }
 
@@ -133,20 +144,35 @@ export class ChatGptRelayHandler {
   }
 
   async handle(body: Record<string, unknown>, session: DeviceSessionFacts, verdict: DeviceFrameVerdict): Promise<ChatGptRelayResponseBody> {
+    return this.execute(body, { session, verdict })
+  }
+
+  handleSsh(body: Record<string, unknown>, binding: RelaySshBinding, signal: AbortSignal): Promise<ChatGptRelayResponseBody> {
+    return this.execute(body, { binding, signal })
+  }
+
+  private async execute(body: Record<string, unknown>, admission:
+    { session: DeviceSessionFacts; verdict: DeviceFrameVerdict } | { binding: RelaySshBinding; signal: AbortSignal }): Promise<ChatGptRelayResponseBody> {
     const started = this.deps.now?.() ?? Date.now()
+
     const id = typeof body.capabilityId === 'string' && UUID.test(body.capabilityId)
       ? body.capabilityId : NIL_ID
+
     const invocation = typeof body.invocationId === 'string' && UUID.test(body.invocationId)
       ? body.invocationId : NIL_ID
+
     const line = (state: 'completed' | 'refused', stage: ChatGptRelayStage | 'admission', code: string, exit: number) => {
       this.deps.log?.(`[ChatGPT relay] invocation=${invocation} state=${state} stage=${stage} code=${code} exit=${exit} ms=${Math.max(0, (this.deps.now?.() ?? Date.now()) - started)}`)
     }
+
     const refuse = (code: ChatGptRelayRefusal, status = code === 'request_too_large' ? 413 : 403,
       diagnostic?: ChatGptRelayDiagnostic): ChatGptRelayResponseBody => {
       line('refused', diagnostic?.stage ?? 'admission', diagnostic?.code ?? code, diagnostic?.exit ?? -1)
+
       return { capabilityId: id, state: 'refused', status, code }
     }
-    if (verdict !== 'ok') {
+
+    if ('verdict' in admission && admission.verdict !== 'ok') {
       return refuse('invalid_request')
     }
 
@@ -154,6 +180,7 @@ export class ChatGptRelayHandler {
         (typeof body.requestJson === 'string' && Buffer.byteLength(body.requestJson, 'utf8') > CHATGPT_RELAY_REQUEST_MAX_BYTES)) {
       return refuse('request_too_large', 413)
     }
+
     const request = parse(body)
 
     if (!request) {
@@ -183,13 +210,19 @@ export class ChatGptRelayHandler {
       return refuse('expired')
     }
 
-    if (request.deviceServiceId !== session.deviceServiceId) {
+    if ('session' in admission && request.deviceServiceId !== admission.session.deviceServiceId) {
       return refuse('wrong_device')
     }
 
-    if (request.connectionId !== session.connectionId || request.connectionEpoch !== session.connectionEpoch) {
+    if ('session' in admission && (request.connectionId !== admission.session.connectionId || request.connectionEpoch !== admission.session.connectionEpoch)) {
       return refuse('stale_connection')
     }
+
+    if ('binding' in admission && (request.ownerPrincipal !== admission.binding.ownerPrincipal ||
+        request.agentPrincipal !== admission.binding.agentPrincipal || request.connectionEpoch !== admission.binding.connectionEpoch)) {
+      return refuse('stale_connection')
+    }
+
     const authority = this.deps.authority()
 
     if (!authority || !authority.enabled) {
@@ -213,22 +246,38 @@ export class ChatGptRelayHandler {
     }
 
     const actualRequestBytes = Buffer.byteLength(JSON.stringify(request.request), 'utf8')
+
     if (actualRequestBytes !== request.requestBytes || actualRequestBytes > CHATGPT_RELAY_REQUEST_MAX_BYTES) {
       return refuse('request_too_large', 413)
     }
+
     if (request.request.model !== request.model || request.request.stream === true || !Array.isArray(request.request.messages)) {
       return refuse('invalid_request', 400)
     }
+
     const controller = new AbortController()
+    const abort = () => controller.abort(new Error('relay_disconnected'))
+
+    if ('signal' in admission) {
+      admission.signal.addEventListener('abort', abort, { once: true })
+
+      if (admission.signal.aborted) { abort() }
+    }
+
     this.inflight.set(request.capabilityId, controller)
+
     const expiry = setTimeout(() => controller.abort(new Error('relay_expired')),
       Math.max(0, request.expiresAt - (this.deps.now?.() ?? Date.now())))
+
     expiry.unref?.()
     let authorityCheck: ReturnType<typeof setInterval> | undefined
+
     try {
       if (this.deps.authorize && !(await this.deps.authorize(request, controller.signal))) {
         return refuse('relay_disabled')
       }
+
+      if (controller.signal.aborted) { return refuse('stopped', 409) }
       let checking = false
       authorityCheck = this.deps.authorize ? setInterval(() => {
         if (checking || controller.signal.aborted) {
@@ -253,18 +302,22 @@ export class ChatGptRelayHandler {
       }
 
       const bytes = Buffer.byteLength(JSON.stringify(answer.response), 'utf8')
+
       if (bytes > request.maxResponseBytes || bytes > CHATGPT_RELAY_RESPONSE_MAX_BYTES) {
         return refuse('response_too_large', 502, {
           stage: 'response_encode', code: 'response_too_large', exit: answer.diagnostic.exit
         })
       }
+
       line('completed', answer.diagnostic.stage, answer.diagnostic.code, answer.diagnostic.exit)
+
       return { capabilityId: request.capabilityId, state: 'completed', status: 200,
         responseJson: JSON.stringify(answer.response) }
     } catch (error) {
       const diagnostic = chatGptRelayDiagnostic(error) ?? {
         stage: 'provider_call', code: controller.signal.aborted ? 'stopped' : 'process_unavailable', exit: -1
       }
+
       return refuse(controller.signal.aborted ? 'stopped' : 'chatgpt_unavailable',
         controller.signal.aborted ? 409 : 502, diagnostic)
     } finally {
@@ -272,6 +325,7 @@ export class ChatGptRelayHandler {
         clearInterval(authorityCheck)
       }
 
+      if ('signal' in admission) { admission.signal.removeEventListener('abort', abort) }
       clearTimeout(expiry)
       this.inflight.delete(request.capabilityId)
     }

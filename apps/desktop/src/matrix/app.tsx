@@ -372,6 +372,7 @@ import { matrixClock, matrixDateTime, matrixFullTime, matrixNewDay } from './mes
 import { mobileChatCopy, useMobileCopy } from './mobile-copy'
 import { MatrixMobileSetup } from './mobile-setup'
 import { MatrixModelPicker } from './model-picker'
+import { matrixNativeApproval, MatrixNativeApprovalCard } from './native-command-approval'
 import { MatrixNoReplyBanner, matrixUnansweredOwnerMessage } from './no-reply-banner'
 import { MatrixNotificationLevelMenu } from './notification-level-menu'
 import {
@@ -894,6 +895,8 @@ function MatrixEventMessageBubble() {
     action.room.membership === 'join' &&
     (message.encrypted || !action.room.encrypted)
   )
+  // Native Hermes asking before it runs a command on your Mac: its own prompt, drawn as one card.
+  const nativeApproval = agent && actionable && !flat ? matrixNativeApproval(message) : null
   const stableMessageLinkTarget = actionable && action?.room.companyChannel
     ? {
         companyId: action.room.companyChannel.companyId,
@@ -1331,6 +1334,8 @@ function MatrixEventMessageBubble() {
               <MatrixDeletedMessage />
               {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
+          ) : nativeApproval && action ? (
+            <MatrixNativeApprovalCard approval={nativeApproval} eventId={message.id} roomId={action.room.id} />
           ) : botApi?.photo && botApp ? (
             <>
               <MatrixBotApiPhotoView
@@ -1570,7 +1575,8 @@ function MatrixEventMessageBubble() {
           <PinnedMessageMarker />
         </span>
       )}
-      {message.reactions && message.reactions.length > 0 && !message.redacted && !flat && (
+      {/* An approval's answers are its card's buttons (Approve asks for Touch ID), never bare chips. */}
+      {message.reactions && message.reactions.length > 0 && !message.redacted && !flat && !nativeApproval && (
         <div className={underText}>
           <MatrixReactionChips disabled={!actionable} nameOf={nameOf} onToggle={react} reactions={message.reactions} />
         </div>

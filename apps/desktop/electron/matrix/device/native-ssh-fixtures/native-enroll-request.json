@@ -1,0 +1,8 @@
+{
+  "operation": "ssh_enroll",
+  "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+  "enrollmentEpoch": 3,
+  "host": "mac-0123456789abcdef0123456789abcdef.atumplatform.com",
+  "user": "owner",
+  "hostKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH"
+}

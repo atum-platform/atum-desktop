@@ -1,0 +1,9 @@
+{
+  "deviceServiceId": "b5a0c3d2-7e61-4f0a-9c3b-2d4e6f8a0b1c",
+  "nativeSsh": {
+    "host": "mac-0123456789abcdef0123456789abcdef.atumplatform.com",
+    "user": "owner",
+    "knownHost": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcH",
+    "epoch": 3
+  }
+}

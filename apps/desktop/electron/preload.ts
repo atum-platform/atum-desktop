@@ -22,6 +22,9 @@ import {
 const managedFilesystemAuthority = process.argv.includes('--atum-managed-filesystem-authority')
 
 contextBridge.exposeInMainWorld('hermesDesktop', {
+  nativeSsh: {
+    request: (action: 'status' | 'connect' | 'disconnect' | 'enable_remote_login' | 'full_disk_access_hint' | 'open_settings') => ipcRenderer.invoke('matrix:native-ssh', action)
+  },
   utilities: {
     status: () => ipcRenderer.invoke(UTILITY_IPC.status),
     connect: input => ipcRenderer.invoke(UTILITY_IPC.connect, input),

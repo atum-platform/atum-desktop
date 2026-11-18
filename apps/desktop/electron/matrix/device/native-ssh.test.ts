@@ -1,0 +1,560 @@
+import { readFileSync } from 'node:fs'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { requestS1 } from './cloud-agent'
+import type { DeviceEnrollmentRecord } from './enrollment'
+import { managedKeys, NativeMacSsh, type NativeSshSystem } from './native-ssh'
+import { createNativeSshSystem } from './native-ssh-system'
+
+const packFixture = (name: string) =>
+  JSON.parse(readFileSync(new URL(`./native-ssh-fixtures/${name}.json`, import.meta.url), 'utf8'))
+
+const authorized = packFixture('native-authorized-positive')
+const enrollment = packFixture('native-enroll-request')
+const enrolled = packFixture('native-enroll-response')
+const revoked = packFixture('native-revoke-response')
+const host = enrollment.host
+const secret = 'test-only-token'
+
+function mockSettings() {
+  const values = new Map<string, string>()
+
+  return {
+    getItem: vi.fn((key: string) => values.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      values.set(key, value)
+    })
+  }
+}
+
+function fixture(settings = mockSettings(), initialToken: string | null = null) {
+  let record = { ...enrollment, ownerUserId: '@owner:example.com', matrixDeviceId: 'MAC-FIXTURE', state: 'active' } as unknown as DeviceEnrollmentRecord
+  let saved: string | null = initialToken
+  let disk = 'ssh-ed25519 user-owned-line\n'
+
+  const system: NativeSshSystem = {
+    ready: vi.fn(async () => ({ remoteLogin: true, user: enrollment.user, hostKey: enrollment.hostKey })),
+    enableRemoteLogin: vi.fn(async () => {}),
+    token: vi.fn(async () => saved),
+    saveToken: vi.fn(async (_id, token) => {
+      saved = token
+    }),
+    removeToken: vi.fn(async () => {
+      saved = null
+    }),
+    start: vi.fn(async () => {}),
+    stop: vi.fn(async () => {}),
+    keys: vi.fn(async keys => {
+      disk = managedKeys(disk, keys, '/test/atum-chatgpt-relay')
+    })
+  }
+
+  const http = vi.fn(async (_url: any, init: any) => {
+    expect(init.headers.Authorization).toBe('Bearer owner-fixture-session')
+    const body = JSON.parse(init.body)
+
+    const answer = {
+      ssh_prepare: {
+        deviceServiceId: record.deviceServiceId,
+        host,
+        tunnelToken: secret
+      },
+      ssh_authorized_keys: authorized,
+      ssh_enroll: {
+        ...enrolled,
+        deviceServiceId: record.deviceServiceId,
+        nativeSsh: {
+          ...enrolled.nativeSsh,
+          host,
+          epoch: record.enrollmentEpoch
+        }
+      },
+      ssh_revoke: revoked
+    }[body.operation as string]
+
+    return Response.json(answer)
+  })
+
+  const service = new NativeMacSsh({
+    enrollment: () => record,
+    ownerPrincipal: () => enrollment.deviceServiceId,
+    call: request =>
+      requestS1(
+        'https://example.com/api/matrix/v1',
+        { kind: 'native-ssh', request },
+        'owner-fixture-session',
+        AbortSignal.timeout(1000),
+        http
+      ),
+    system,
+    settings
+  })
+
+  return {
+    service,
+    system,
+    http,
+    settings,
+    setEnrollment: (next: DeviceEnrollmentRecord) => {
+      record = { ...record, ...next }
+    },
+    disk: () => disk,
+    saved: () => saved
+  }
+}
+
+const routeKey = `native-ssh:route:@owner:example.com:MAC-FIXTURE:${enrollment.deviceServiceId}`
+const requests = (f: ReturnType<typeof fixture>) => f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
+
+it('reuses the prepared canonical route and credential after process restart and epoch rotation', async () => {
+  const settings = mockSettings()
+  const first = fixture(settings)
+  await first.service.refresh()
+  const restarted = fixture(settings, first.saved())
+  await restarted.service.refresh()
+  expect(requests(restarted).some(row => row.operation === 'ssh_prepare')).toBe(false)
+  expect(requests(restarted).find(row => row.operation === 'ssh_enroll')).toMatchObject({ host, hostKey: enrollment.hostKey })
+  restarted.setEnrollment({ ...enrollment, state: 'active', enrollmentEpoch: enrollment.enrollmentEpoch + 1 } as DeviceEnrollmentRecord)
+  await restarted.service.refresh()
+  expect(requests(restarted).filter(row => row.operation === 'ssh_enroll').map(row => row.enrollmentEpoch)).toEqual([3, 4])
+  expect(requests(restarted).some(row => row.operation === 'ssh_prepare')).toBe(false)
+  expect(restarted.system.saveToken).not.toHaveBeenCalled()
+})
+
+it('retains a legacy token without blind prepare rotation; explicit revoke/reconnect recovers', async () => {
+  const f = fixture(mockSettings(), secret)
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.http).not.toHaveBeenCalled()
+  expect(f.saved() === secret).toBe(true)
+  expect(f.system.start).not.toHaveBeenCalled()
+  await f.service.disconnect()
+  await f.service.start(true)
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  expect(requests(f).map(row => row.operation)).toEqual(['ssh_revoke', 'ssh_prepare', 'ssh_authorized_keys', 'ssh_enroll'])
+  await f.service.disconnect()
+})
+
+it('clears route metadata on revoke and prepares a fresh canonical route on reconnect', async () => {
+  const f = fixture()
+  await f.service.refresh()
+  await f.service.disconnect()
+  // The fixture enrollment only supplies the signed-in scope fields it needs.
+  expect([...f.settings.setItem.mock.calls].at(-1)?.[1]).toBe('null')
+  const nextHost = 'mac-fedcba9876543210fedcba9876543210.atumplatform.com'
+  const original = f.http.getMockImplementation()!
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_prepare'
+    ? Response.json({ deviceServiceId: enrollment.deviceServiceId, host: nextHost, tunnelToken: secret }) : original(url, init))
+  await f.service.refresh()
+  expect(requests(f).filter(row => row.operation === 'ssh_enroll').at(-1)).toMatchObject({ host: nextHost })
+})
+
+it.each([null, {}, { deviceServiceId: 'foreign', host }, ...[
+  'a.mac.atumplatform.com', 'mac-0123456789abcdef0123456789abcdef.atumplatform.com.evil.test',
+  'mac-0123456789abcdef0123456789abcdef.atumplatform.com\n',
+  'https://mac-0123456789abcdef0123456789abcdef.atumplatform.com',
+  'mac-label.atumplatform.com', '127.0.0.1',
+].map(host => ({ deviceServiceId: enrollment.deviceServiceId, host }))])('rejects malformed or foreign prepare response %# before saving or launching', async response => {
+  const f = fixture()
+  f.http.mockImplementationOnce(async () => Response.json(response && { ...response, tunnelToken: secret }))
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.system.saveToken).not.toHaveBeenCalled()
+  expect(f.system.start).not.toHaveBeenCalled()
+  expect(requests(f).some(row => row.operation === 'ssh_enroll')).toBe(false)
+})
+
+it('does not reuse metadata for another owner or a different credential', async () => {
+  const settings = mockSettings()
+  const first = fixture(settings)
+  await first.service.refresh()
+  const foreign = fixture(settings, first.saved())
+  foreign.setEnrollment({ ...enrollment, ownerUserId: '@foreign:example.com', state: 'active' } as DeviceEnrollmentRecord)
+  await foreign.service.refresh()
+  expect(foreign.http).not.toHaveBeenCalled()
+  const rotated = fixture(settings, 'another-test-credential')
+  await rotated.service.refresh()
+  expect(rotated.http).not.toHaveBeenCalled()
+  expect(rotated.system.removeToken).not.toHaveBeenCalled()
+})
+
+const homes: string[] = []
+afterEach(async () => {
+  await Promise.all(homes.splice(0).map(home => rm(home, { recursive: true, force: true })))
+})
+describe('native SSH owner route', () => {
+  it('prepares once, refreshes authorized keys, enrolls with the existing epoch and no secret in HTTP after prepare', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(f.system.saveToken).toHaveBeenCalledWith(enrollment.deviceServiceId, secret)
+    const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
+    expect(requests.filter(body => body.operation === 'ssh_prepare')).toHaveLength(1)
+    expect(requests.find(body => body.operation === 'ssh_enroll')).toEqual({ ...enrollment, host })
+    expect(JSON.stringify(requests)).not.toContain(secret)
+    expect(JSON.stringify(f.service.status())).not.toContain(secret)
+  })
+  it('keeps the enrollment hint through minute refreshes until Settings is acknowledged', async () => {
+    vi.useFakeTimers()
+    const f = fixture()
+
+    try {
+      await f.service.start()
+      expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+      await vi.advanceTimersByTimeAsync(120_000)
+      expect(f.system.keys).toHaveBeenCalledTimes(3)
+      await f.service.refresh()
+      expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+      f.service.acknowledgeFullDiskAccessHint()
+      expect(f.service.status().status).toBe('connected')
+      await vi.advanceTimersByTimeAsync(60_000)
+      await f.service.refresh()
+      expect(f.service.status().status).toBe('connected')
+    } finally {
+      await f.service.disconnect()
+      vi.useRealTimers()
+    }
+  })
+  it('preserves the pending hint through failures and shows operational problems first', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    vi.mocked(f.system.ready).mockResolvedValueOnce({ remoteLogin: false, user: 'owner', hostKey: '' })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_remote_login')
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    vi.mocked(f.system.ready).mockRejectedValueOnce(new Error('unavailable'))
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('error')
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  })
+  it('keeps acknowledgement across reconnect and explicit hint requests', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.service.acknowledgeFullDiskAccessHint()
+    await f.service.disconnect()
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('connected')
+    expect(f.service.fullDiskAccessHint().status).toBe('connected')
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('connected')
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.service.status().status).toBe('connected')
+  })
+  it('restores acknowledgement from local settings after an app restart', async () => {
+    const settings = mockSettings()
+    const first = fixture(settings)
+    await first.service.refresh()
+    first.service.acknowledgeFullDiskAccessHint()
+    expect(settings.setItem).toHaveBeenCalledWith(
+      `native-ssh:full-disk-access-hint:${enrollment.deviceServiceId}:${enrollment.enrollmentEpoch}`,
+      'acknowledged'
+    )
+    const restarted = fixture(settings)
+    await restarted.service.refresh()
+    expect(restarted.service.status().status).toBe('connected')
+    expect(restarted.service.fullDiskAccessHint().status).toBe('connected')
+  })
+  it('offers an unacknowledged hint again after restart', async () => {
+    const settings = mockSettings()
+    await fixture(settings).service.refresh()
+    const restarted = fixture(settings)
+    await restarted.service.refresh()
+    expect(restarted.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(settings.setItem.mock.calls.some(([key]) => key.includes('full-disk-access-hint'))).toBe(false)
+  })
+  it('offers a fresh hint for a new enrollment epoch or device and remembers each separately', async () => {
+    const f = fixture()
+    const original = { ...enrollment, state: 'active' } as unknown as DeviceEnrollmentRecord
+    await f.service.refresh()
+    f.service.acknowledgeFullDiskAccessHint()
+    f.setEnrollment({ ...original, enrollmentEpoch: original.enrollmentEpoch + 1 })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    f.service.acknowledgeFullDiskAccessHint()
+    f.setEnrollment({ ...original, deviceServiceId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee' })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    f.setEnrollment(original)
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('connected')
+  })
+  it('does not acknowledge a different enrollment if it changes while Settings opens', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.setEnrollment({
+      ...enrollment,
+      state: 'active',
+      enrollmentEpoch: enrollment.enrollmentEpoch + 1
+    } as unknown as DeviceEnrollmentRecord)
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.settings.setItem.mock.calls.some(([key]) => key.includes('full-disk-access-hint'))).toBe(false)
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  })
+  it('keeps the reminder pending if the settings write fails and can retry', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.settings.setItem.mockImplementationOnce(() => {
+      throw new Error(secret)
+    })
+    expect(() => f.service.acknowledgeFullDiskAccessHint()).toThrow('native_ssh_hint_save_failed')
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.service.status().status).toBe('connected')
+  })
+  it('offers the reminder only after a successful enrollment', async () => {
+    const f = fixture()
+    f.http.mockImplementationOnce(async () => Response.json({}))
+    await f.service.refresh()
+    f.service.acknowledgeFullDiskAccessHint()
+    expect(f.service.status().status).toBe('error')
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  })
+  it('does not prepare or enroll with Remote Login off; enabling requires the explicit action', async () => {
+    const f = fixture()
+    vi.mocked(f.system.ready).mockResolvedValue({ remoteLogin: false, user: 'owner', hostKey: '' })
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('needs_remote_login')
+    expect(f.http).not.toHaveBeenCalled()
+    expect(f.system.enableRemoteLogin).not.toHaveBeenCalled()
+    await f.service.enableRemoteLogin()
+    expect(f.system.enableRemoteLogin).toHaveBeenCalledOnce()
+    await f.service.disconnect()
+  })
+  it('revoke removes keys, token and agent; automatic reconciliation respects disconnect', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    await f.service.disconnect()
+    await f.service.start()
+    expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+    expect(f.saved()).toBeNull()
+    expect(f.system.stop).toHaveBeenCalled()
+    expect(f.http.mock.calls.some(([, init]) => JSON.parse(init.body).operation === 'ssh_revoke')).toBe(true)
+    expect(f.system.start).toHaveBeenCalledOnce()
+  })
+  it('cleans local access even when remote revoke fails', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.http.mockRejectedValue(new Error('offline'))
+    await expect(f.service.disconnect()).rejects.toThrow('cleanup_pending')
+    expect(f.saved()).toBeNull()
+    expect(f.service.status().status).toBe('error')
+    expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  })
+  it('refuses malformed key responses and removes previous access without exposing errors', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.http.mockRejectedValue(new Error(secret))
+    await f.service.refresh()
+    expect(f.service.status().status).toBe('error')
+    expect(f.disk()).not.toContain(authorized[0].publicKey)
+    expect(JSON.stringify(f.service.status())).not.toContain(secret)
+  })
+})
+it('managed block refresh/removal preserves surrounding user bytes', () => {
+  const original = '# own key\nuser-key\n'
+  const first = managedKeys(original, [authorized[0].publicKey]) + '# after\n'
+  expect(first).toContain('no-agent-forwarding,no-port-forwarding,no-X11-forwarding ssh-ed25519')
+  expect(managedKeys(first, [])).toBe(original + '# after\n')
+  const rotated = authorized[0].publicKey.slice(0, -1) + 'I'
+  const updated = managedKeys(first, [rotated])
+  expect(updated).toContain(rotated)
+  expect(updated).not.toContain(authorized[0].publicKey)
+  expect(managedKeys(updated, [])).toBe(original + '# after\n')
+  expect(managedKeys(managedKeys(original, [authorized[0].publicKey]), [authorized[0].publicKey])).toBe(
+    managedKeys(original, [authorized[0].publicKey])
+  )
+  expect(() => managedKeys('# BEGIN ATUM MANAGED SSH KEYS\n', [])).toThrow()
+})
+it('real temp filesystem keeps modes and user lines; mocked launchctl writes no token', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'atum-native-ssh-'))
+  homes.push(home)
+  await mkdir(path.join(home, '.ssh'))
+  await writeFile(path.join(home, '.ssh/authorized_keys'), '# user\n')
+  const run = vi.fn(async () => ({ stdout: '', stderr: '' })) as any
+
+  const system = createNativeSshSystem({
+    home,
+    run,
+    helper: async () => '/test/cloudflared'
+  })
+
+  await system.keys([authorized[0].publicKey])
+  await system.start(enrollment.deviceServiceId)
+  run.mockClear()
+  await system.start(enrollment.deviceServiceId)
+  expect(run.mock.calls).toHaveLength(1)
+  expect(run.mock.calls[0][1]).toEqual(['print', expect.stringContaining('com.atum.desktop.native-ssh')])
+  const keyFile = path.join(home, '.ssh/authorized_keys')
+  expect((await stat(keyFile)).mode & 0o777).toBe(0o600)
+  expect((await stat(path.join(home, '.ssh'))).mode & 0o777).toBe(0o700)
+  const root = path.join(home, 'Library/Application Support/Atum/native-ssh')
+  const plist = await readFile(path.join(home, 'Library/LaunchAgents/com.atum.desktop.native-ssh.plist'), 'utf8')
+  expect(plist).toContain('--token-file')
+  expect(plist).toContain('<key>KeepAlive</key><true/>')
+  expect(plist).not.toContain(secret)
+  expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
+  await system.keys([])
+  await system.stop()
+  expect(await readFile(keyFile, 'utf8')).toBe('# user\n')
+  await expect(stat(path.join(root, 'run.sh'))).rejects.toThrow()
+  await system.enableRemoteLogin()
+  expect(run.mock.calls.some((call: any[]) => call[0] === '/usr/bin/osascript')).toBe(true)
+})
+
+it('protects the token file and removes it on revoke without putting it in argv', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'atum-native-secret-'))
+  homes.push(home)
+  const run = vi.fn(async () => ({ stdout: '', stderr: '' }))
+  const system = createNativeSshSystem({ home, run: run as any })
+  await system.saveToken(enrollment.deviceServiceId, secret)
+  expect(await system.token(enrollment.deviceServiceId)).toBe(secret)
+  const file = path.join(home, 'Library/Application Support/Atum/native-ssh', `${enrollment.deviceServiceId}.token`)
+  expect((await stat(file)).mode & 0o777).toBe(0o600)
+  expect((await stat(path.dirname(file))).mode & 0o777).toBe(0o700)
+  await system.removeToken(enrollment.deviceServiceId)
+  expect(await system.token(enrollment.deviceServiceId)).toBeNull()
+  expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
+})
+
+it('relay purpose has a forced fixed command and cannot acquire shell privileges; removing it preserves shell rows', () => {
+  const key = authorized[0].publicKey
+
+  const relay = { purpose: 'relay' as const, publicKey: key, ownerPrincipal: enrollment.deviceServiceId,
+    agentPrincipal: authorized[0].agentId, connectionEpoch: 4 }
+
+  const helper = '/Applications/Atum App.app/Contents/Resources/app.asar.unpacked/atum-chatgpt-relay'
+  const shell = managedKeys('', [key], helper)
+  const both = managedKeys('', [key, relay], helper)
+  expect(both).toContain(`command="'${helper}' ${relay.ownerPrincipal} ${relay.agentPrincipal} 4",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty,no-user-rc ${key}`)
+  expect(managedKeys(both, [key], helper)).toBe(shell)
+  expect(() => managedKeys('', [{ ...relay, agentPrincipal: 'bad;command' }], helper)).toThrow()
+})
+
+
+it('reconciles relay and shell purposes independently and clears relay admission on sign-out', async () => {
+  const f = fixture()
+  let rows = [{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], publicKey: authorized[0].publicKey.slice(0, -1) + 'I', purpose: 'relay' }]
+  const original = f.http.getMockImplementation()!
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
+    ? Response.json(rows) : original(url, init))
+  await f.service.refresh()
+  expect(f.service.relayBindings()).toEqual([{ purpose: 'relay', publicKey: rows[1].publicKey,
+    ownerPrincipal: enrollment.deviceServiceId, agentPrincipal: authorized[0].agentId,
+    connectionEpoch: enrollment.enrollmentEpoch }])
+  expect(f.disk()).toContain('no-pty,no-user-rc')
+  rows = [rows[0]]
+  await f.service.refresh()
+  expect(f.service.relayBindings()).toEqual([])
+  expect(f.disk()).not.toContain('no-pty')
+  expect(f.disk()).toContain(authorized[0].publicKey)
+  await f.service.disconnect()
+  expect(f.service.relayBindings()).toEqual([])
+  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+})
+
+it('rejects a public key shared between shell and relay purposes', async () => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
+    ? Response.json([{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], purpose: 'relay' }])
+    : original(url, init))
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.service.relayBindings()).toEqual([])
+  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+})
+
+
+it('opts into purpose rows while accepting legacy three-field shell rows', async () => {
+  const f = fixture()
+  await f.service.refresh()
+  const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
+  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', purposes: true })
+  expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
+  expect(f.service.relayBindings()).toEqual([])
+})
+
+it('refuses unknown purposes before installing authorized keys', async () => {
+  const f = fixture()
+  const original = f.http.getMockImplementation()!
+  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
+    ? Response.json([{ ...authorized[0], purpose: 'unknown' }])
+    : original(url, init))
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.system.keys).toHaveBeenCalledWith([])
+  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  expect(f.service.relayBindings()).toEqual([])
+})
+
+it.each([
+  null, {},
+  { deviceServiceId: 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee', host, tunnelToken: secret },
+  ...['a.mac.atumplatform.com', 'mac-0123456789abcdef0123456789abcdef.attacker.com',
+    `${host}.attacker.com`, `${host}\n`, `ssh://${host}`, `${host}:22`,
+    'mac-0123456789abcdef0123456789abcdef.atumplatform.com/path',
+    'mac-not-an-opaque-label.atumplatform.com'].map(host => ({ deviceServiceId: enrollment.deviceServiceId, host, tunnelToken: secret }))
+])('refuses malformed or foreign prepare metadata before saving or enrolling %#', async prepared => {
+  const f = fixture()
+  f.http.mockImplementationOnce(async () => Response.json(prepared))
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.system.saveToken).not.toHaveBeenCalled()
+  expect(f.system.start).not.toHaveBeenCalled()
+  expect(requests(f).map(row => row.operation)).toEqual(['ssh_prepare'])
+})
+
+it('fails closed on a replaced credential or corrupted persisted route without rotating', async () => {
+  const settings = mockSettings()
+  const first = fixture(settings)
+  await first.service.refresh()
+  const replaced = fixture(settings, 'different-test-credential')
+  await replaced.service.refresh()
+  expect(replaced.http).not.toHaveBeenCalled()
+  expect(replaced.service.status().reason).toBe('native_ssh_route_recovery_required')
+  settings.setItem(routeKey, '{')
+  const corrupt = fixture(settings, first.saved())
+  await corrupt.service.refresh()
+  expect(corrupt.http).not.toHaveBeenCalled()
+  expect(corrupt.system.removeToken).not.toHaveBeenCalled()
+})
+
+it('does not reuse another owner or Matrix device route and clears metadata on enrollment revoke', async () => {
+  const settings = mockSettings()
+  const first = fixture(settings)
+  await first.service.refresh()
+
+  for (const scope of [{ ownerUserId: '@foreign:example.com' }, { matrixDeviceId: 'OTHER-MAC' }]) {
+    const other = fixture(settings, first.saved())
+    other.setEnrollment({ ...enrollment, state: 'active', ...scope } as DeviceEnrollmentRecord)
+    await other.service.refresh()
+    expect(other.http).not.toHaveBeenCalled()
+    expect(other.system.start).not.toHaveBeenCalled()
+  }
+
+  first.setEnrollment({ ...enrollment, state: 'revoked' } as DeviceEnrollmentRecord)
+  await first.service.refresh()
+  expect(first.saved()).toBeNull()
+  expect(settings.getItem(routeKey)).toBe('null')
+  expect(first.disk()).toBe('ssh-ed25519 user-owned-line\n')
+})
+
+it('preserves a token after metadata persistence failure and never blindly prepares on retry', async () => {
+  const f = fixture()
+  f.settings.setItem.mockImplementationOnce(() => { throw new Error('storage unavailable') })
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.saved() !== null).toBe(true)
+  await f.service.refresh()
+  expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(1)
+  expect(f.system.start).not.toHaveBeenCalled()
+})

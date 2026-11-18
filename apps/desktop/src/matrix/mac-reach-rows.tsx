@@ -7,9 +7,12 @@ import { cn } from '@/lib/utils'
 
 import type { MatrixAgentSourcesBridge, MatrixReachMac } from '../../shared/matrix-agent-sources'
 import { matrixKnowledgeSourcesCopy, type MatrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-sources-copy'
+import type { MatrixNativeMacBridge } from '../../shared/matrix-native-mac'
+import { matrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
 import type { MatrixPermission, MatrixPermissionsBridge } from '../../shared/matrix-permissions'
 
 import { matrixDeviceLastSeen } from './device-last-seen'
+import { matrixNativeMacLine, useMatrixNativeMac } from './native-mac-reach'
 import { SettingsRow, SettingsSection, SettingsStatus } from './settings-row'
 
 type MacState = MatrixReachMac['state']
@@ -139,20 +142,26 @@ function ThisMacTag({ copy }: { copy: MatrixKnowledgeSourcesCopy }) {
  * Settings › Connections › Your Macs (U1 §4.1): one row per Mac on the account, each with its
  * state and at most one action, the one this Mac can take. On another Mac the same row shows
  * that Mac's own button; that is where the fix happens.
+ *
+ * This Mac's row also carries native Hermes reaching it (files and Terminal): when the row has
+ * nothing of its own to fix and that setup needs the owner, its one line and action take the row.
  */
 export function MatrixYourMacsSection({
   macs,
+  nativeMac = window.atumMatrix?.nativeMac,
   now,
   onRetry = () => void window.atumMatrix?.retry?.().catch(() => undefined),
   permissions
 }: {
   macs: readonly MatrixReachMac[]
+  nativeMac?: MatrixNativeMacBridge
   now?: number
   onRetry?: () => void
   permissions?: MatrixPermissionsBridge
 }) {
   const { locale } = useI18n()
   const copy = matrixKnowledgeSourcesCopy[locale]
+  const native = useMatrixNativeMac(macs.some(mac => mac.thisMac), nativeMac)
 
   if (macs.length === 0) {
     return null
@@ -164,11 +173,23 @@ export function MatrixYourMacsSection({
         const line = matrixMacRowLine(mac, copy, locale, now)
         const action = line.action
         const pane = action?.kind === 'settings' && permissions ? action.pane : undefined
+        // One focus per row: this Mac's own fix comes first, then native reach.
+        const reach = mac.thisMac && !action ? matrixNativeMacLine(native, matrixNativeMacCopy[locale]) : null
 
         return (
           <SettingsRow
             control={
-              pane && permissions ? (
+              reach ? (
+                <Button
+                  data-matrix-mac-action={`native-${reach.action.run}`}
+                  disabled={native.busy}
+                  onClick={() => native.run(reach.action.run)}
+                  size="sm"
+                  variant="secondary"
+                >
+                  {reach.action.label}
+                </Button>
+              ) : pane && permissions ? (
                 <Button
                   data-matrix-mac-action="settings"
                   onClick={() => void permissions.openSettings(pane).catch(() => undefined)}
@@ -188,8 +209,9 @@ export function MatrixYourMacsSection({
               )
             }
             data-matrix-mac={mac.thisMac ? 'this' : 'other'}
+            data-matrix-mac-native={mac.thisMac ? (native.view?.status ?? undefined) : undefined}
             data-matrix-mac-row={mac.state}
-            help={line.help}
+            help={reach?.help ?? line.help}
             key={mac.id}
             lead={<MacGlyph />}
             title={
