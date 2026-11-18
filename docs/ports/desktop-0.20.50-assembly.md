@@ -16,3 +16,5 @@ Preserve native-backed UI and integrations. Do not fold the independent Electron
 - Integrate native in-channel cron (80cf1a4e0b); focused combined verification follows.
 - Integrate cloud check-in guard (988d40954f); focused combined verification follows.
 - Integrate native SSH and canonical hostname f52f945f5; resolve chat conflict preserving deleted-message metadata and native approval cards, retain video-consent activation. Align Unix socket and compiled Swift helper complete-envelope bound with existing 16 MiB relay contract; real helper/socket test now sends and receives payloads exceeding old 800 KB limit.
+- Restore Atum-owned app icon and image assets from #35 (57bdc29f), preserving original commits and license provenance. No third-party branding substitutions.
+- Combined checks: 79 relay/native SSH tests pass, including compiled Swift helper and >800KB bidirectional payload; 19 native approval/Mac UI tests pass, 51 supporting chat/setup/display tests pass; renderer and Electron TypeScript pass. Selected ESLint: 0 errors, existing style warnings retained. Full app test result follows.
