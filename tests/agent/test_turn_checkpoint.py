@@ -350,3 +350,44 @@ def test_fresh_request_rewrites_require_confirmed_non_dispatch(managed_home, mon
         assert checkpoint.value["phase"] == "pending"
     finally:
         agent.close()
+
+
+def test_saved_tool_response_resumes_into_next_iteration_with_frozen_clock(managed_home, monkeypatch):
+    home, db = managed_home
+    first = _agent(home, db)
+    first._atum_submission_identity = 'native-saved-tool'
+    first._request_checkpoint = RequestCheckpoint(db, 'native-saved-tool', {'owner': 'one'})
+    monkeypatch.setattr(first, '_interruptible_api_call', lambda request: (_ for _ in ()).throw(ProcessDied()))
+    try:
+        with pytest.raises(ProcessDied):
+            first.run_conversation('Read note.txt.', task_id='test-conversation')
+        snapshot = first._request_checkpoint.value['payload']
+        second = _agent(home, db)
+        second._atum_submission_identity = 'native-saved-tool'
+        second._request_checkpoint = RequestCheckpoint(db, 'native-saved-tool', {'owner': 'one'}, recover=True)
+        second._request_resume = second._request_checkpoint.value['payload']
+        retrieved, dispatched = [], []
+        def retrieve(request_id, request):
+            retrieved.append(request_id)
+            if len(retrieved) == 1:
+                assert request == snapshot['request']
+                assert second._request_checkpoint.value['phase'] == 'pending'
+                return _response(tool=True)
+            return None
+        second._request_recovery_response = retrieve
+        def final(request):
+            dispatched.append(request)
+            assert second._request_checkpoint.value['phase'] == 'pending'
+            assert any(message['role'] == 'tool' for message in request['messages'])
+            return _response()
+        monkeypatch.setattr(second, '_interruptible_api_call', final)
+        try:
+            result = second.run_conversation('ignored input', task_id='test-conversation')
+            assert result['completed'] and not result.get('failed')
+            assert second._current_turn_timestamp == snapshot['agent']['_current_turn_timestamp']
+            assert len(dispatched) == 1 and len(retrieved) == 2
+            assert sum(message['role'] == 'tool' for message in result['messages']) == 1
+        finally:
+            second.close()
+    finally:
+        first.close()

@@ -140,3 +140,23 @@ def test_process_death_resumes_only_before_consumption(tmp_path, consumed):
         if child.is_alive():
             child.terminate()
         child.join(10)
+
+
+def test_native_pending_reclaims_repeat_until_consumption(tmp_path):
+    from hermes_state import SessionDB
+    from agent.request_checkpoint import RequestCheckpoint, CheckpointUnavailable
+    import pytest
+    db = SessionDB(tmp_path / 'state.db')
+    try:
+        first = RequestCheckpoint(db, 'native', {'owner': 'same'})
+        first.pending({'request': 'saved'})
+        for attempt in range(3):
+            resumed = RequestCheckpoint(db, 'native', {'owner': 'same'}, recover=True, recovery_limit=None)
+            assert resumed.value['recoveries'] == attempt + 1
+            with pytest.raises(CheckpointUnavailable):
+                first.consume()
+        resumed.consume()
+        with pytest.raises(CheckpointUnavailable):
+            RequestCheckpoint(db, 'native', {'owner': 'same'}, recover=True, recovery_limit=None)
+    finally:
+        db.close()

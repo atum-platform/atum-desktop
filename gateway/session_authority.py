@@ -630,6 +630,12 @@ class SessionAuthority:
                 source, route = await check_native_route(self.runner, native[-1]['payload'], target,
                                                     available_source, adapter)
                 for row in rows:
+                    if row['status'] == 'unknown' and 'native_text_v1' in row['payload']:
+                        await check_native_route(self.runner, row['payload'], target, available_source, adapter)
+                        from gateway.turn_recovery import recover_unknown
+                        await asyncio.to_thread(recover_unknown, self.db, row, self.epoch)
+                rows = list_session_admissions(self.db, session_id=sid, pending_only=False)
+                for row in rows:
                     if row['status'] != 'queued':
                         continue
                     if 'native_text_v1' in row['payload']:
@@ -1168,6 +1174,7 @@ class SessionAuthority:
         """Run the claimed admission: ``(response, outcome)``. The executing stamp clears the moment
         execution returns; a lost managed worker settles an automation turn (``settled_unknown``) or pauses
         the FIFO and re-raises ManagedExecutionUnknown."""
+        from gateway.turn_recovery import NativeContinuationPending
         from gateway.session_finite import execute_finite_admission
         from gateway.session_managed_worker import ManagedExecutionUnknown
         review = getattr(live.review, '_background_review_run', None)
@@ -1182,7 +1189,10 @@ class SessionAuthority:
             finally:
                 with live.event_stream.lock:
                     self.executing.pop(ref.session_id, None)
-        except ManagedExecutionUnknown:
+        except (NativeContinuationPending, ManagedExecutionUnknown) as exc:
+            if isinstance(exc, NativeContinuationPending):
+                from hermes_state_runtime import fence_session_input
+                await asyncio.to_thread(fence_session_input, self.db, epoch=self.epoch, row=row)
             with live.event_stream.lock:
                 live.event_stream.execution = {}
             self.pending_stops.pop(ref.session_id, None)
@@ -1195,7 +1205,7 @@ class SessionAuthority:
             if await settle_unattended_unknown(self, ref):
                 return None, 'settled_unknown'
             self._pause(ref, 'unknown_execution')
-            raise
+            raise ManagedExecutionUnknown() from exc
         except Exception:
             import logging
             logging.getLogger(__name__).exception('Admitted turn %s failed', row['admission_id'])
