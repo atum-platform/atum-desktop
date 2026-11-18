@@ -811,6 +811,8 @@ class MatrixAdapter(BasePlatformAdapter):
     """Gateway adapter for Matrix (any homeserver)."""
     serial_receive_loop = True  # _sync_loop reads the next sync only after this sync's handlers return
     supports_code_blocks = True  # Matrix renders fenced code blocks (HTML/markdown)
+    # Flat room sends and inbound room sessions share the scheduler's continuation key.
+    supports_inchannel_continuable = True
     splits_long_messages = True  # send() chunks via truncate_message(max_message_length)
     typed_command_prefix = "!"  # clients reserve typed "/" for local commands; "!command" always reaches Hermes
     # Class-level defaults keep object.__new__-built test instances working.
@@ -2656,7 +2658,13 @@ class MatrixAdapter(BasePlatformAdapter):
                 body = self._strip_mention(body)
         # Real thread roots are preserved above; synthetic roots (this event) follow policy: DM
         # @mention threads / DM auto-thread, or room auto-thread unless session_scope pins the room.
-        if not thread_id:
+        # In-channel cron seeds the flat room session. Keep plain replies on that same key,
+        # while explicit m.thread replies continue through the existing thread path.
+        in_channel = (
+            str(self.config.extra.get("cron_continuable_surface") or "").strip().lower()
+            == "in_channel"
+        )
+        if not thread_id and not in_channel:
             if is_dm:
                 synthetic = (self._dm_mention_threads and is_mentioned) or self._dm_auto_thread
             else:
