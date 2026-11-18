@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
+import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
 import { matrixSubscriptionsWithChatGptRelay } from '../../electron/matrix/account-subscription-flow'
+import { ownerHomeViewFor } from '../../electron/matrix/agent-home-placement/view'
 import { ChatGptCarry } from '../../electron/matrix/chatgpt-carry'
 import { MatrixChatGptRelay } from '../../electron/matrix/chatgpt-relay-client'
 import type {
@@ -1046,8 +1048,12 @@ describe('the thinking column only where a level can be chosen', () => {
     await waitFor(() => expect(model).toHaveBeenCalledTimes(2))
     expect(high().disabled).toBe(true)
     expect(view.command).not.toHaveBeenCalled()
-    const applied = { ...multi, effort: 'high' as const }
-    view.rerender(ROOM, { home: cloudHome(applied) })
+    const refreshedHome = ownerHomeViewFor(cloudHome(multi), {
+      snapshot: ownerSnapshotFixture as Parameters<typeof ownerHomeViewFor>[1]['snapshot'], catalogs: {}
+    }, null, null, { source: 'atum', model: multi.model, effort: 'high' }, [
+      { alias: multi.model, efforts: multi.efforts, defaultEffort: 'medium', eligible: true }
+    ])
+    view.rerender(ROOM, { home: refreshedHome })
     await waitFor(() => expect(high().disabled).toBe(false))
     expect(high().getAttribute('aria-checked')).toBe('true')
   })

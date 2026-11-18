@@ -115,6 +115,14 @@ describe('the cloud models the sheet offers', () => {
     expect(models.every(model => model.connectionRef === 'conn_atummanaged000001' && model.source === 'atum')).toBe(true)
   })
 
+  it('projects saved effort into the selected cloud row without losing its advertised levels', () => {
+    const view = ownerHomeViewFor(base, state(), names, ME, { source: 'atum', model: 'nguyet-thuc', effort: 'high' },
+      [{ alias: 'nguyet-thuc', efforts: ['low', 'medium', 'high'], defaultEffort: 'medium', eligible: true }])
+    const placement = view.placement!
+    expect(placement.currentModel).toEqual(placement.destinations[0]!.models[0])
+    expect(placement.currentModel).toMatchObject({ effort: 'high', efforts: ['low', 'medium', 'high'] })
+  })
+
   it('names the SAVED cloud choice as current: a plan model as itself, never the recommended Atum alias', () => {
     const current = (cloudModel: Parameters<typeof ownerHomeViewFor>[4]) =>
       ownerHomeViewFor(base, state(), names, ME, cloudModel).placement!.currentModel
@@ -245,6 +253,21 @@ describe('this Mac as a place to move to', () => {
 
   it('says only that a model must be connected when this Mac is set up but offers none', () => {
     expect(here(owner(notSetUp, { catalogs: { [ME]: aCatalog([]) } })).setUp).toBe('connect')
+  })
+
+  it('retains all catalog levels after a non-default Mac effort is applied', () => {
+    const applied = readPackV25Json<NonNullable<AgentHomeOwnerState['modelApplication']>>('fixtures/model-choice.projection.applied.json')
+    applied.choice.effort = 'high'
+    const catalog = aCatalog([{
+      connectionRef: applied.choice.connectionRef, source: applied.choice.source, providerLabel: 'ChatGPT',
+      state: 'available', models: [{ model: applied.choice.model, modelLabel: 'Test model',
+        efforts: ['low', 'medium', 'high'], defaultEffort: 'medium' }]
+    }])
+    const state = owner({ eligibility: 'ready' }, { catalogs: { [MINI]: catalog }, modelApplication: applied },
+      { placement: { ...snapshot().placement, location: { kind: 'mac', deviceServiceId: MINI } } })
+    const placement = ownerHomeViewFor(base, state, names, ME).placement!
+    expect(placement.currentModel).toEqual(placement.destinations.find(row => row.id === MINI)!.models[0])
+    expect(placement.currentModel).toMatchObject({ effort: 'high', efforts: ['low', 'medium', 'high'] })
   })
 
   it("shows Atum's managed model by its product name even though the wire label is ASCII", () => {

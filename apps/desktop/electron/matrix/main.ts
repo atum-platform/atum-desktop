@@ -3013,6 +3013,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   // the current model as itself, so an Atum row is not mistaken for the one already chosen.
   const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
 
+  const savedCloud = modelDestinations?.snapshot(principal)?.choices.find(choice => choice.destination === 'cloud')
   const cloudModel = cloudDestinationChoice?.external
     ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
       ? {
@@ -3023,7 +3024,9 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
           effort: cloudDestinationChoice.external.effort
         }
       : undefined
-    : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
+    : savedCloud?.source === 'atum'
+      ? { ...savedCloud, model: cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current ?? savedCloud.model }
+      : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
 
   return base && owner
     ? ownerHomeViewFor(

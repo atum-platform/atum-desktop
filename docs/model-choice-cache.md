@@ -57,3 +57,5 @@ main-model-destinations, model-picker, model-picker-popover, design-contract)
 pass: 851 tests. Renderer and Electron TypeScript checks and ESLint on the four
 changed TypeScript files pass. No Electron packaging or native build is needed
 for this change. Installed-app acceptance remains a separate release step.
+
+When a placed home refreshes, the selected row combines the saved effort with the levels offered for that model. This keeps the selected level visible after a successful write and lets the user change it again.
