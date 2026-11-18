@@ -6,18 +6,21 @@ import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerFilter, type PickerFilterSource } from './model-picker-filter'
 import type { PickerFilter } from './model-picker-sections'
 
-/** The card's popover classes: one size for every model picker in Atum. */
+/** The card's popover classes: one size for every model picker in Atum, T3 Code's proportions
+ * (the rail, the list, and room for the thinking column beside it). */
 export const MODEL_PICKER_CARD =
-  'h-[22.5rem] max-h-[min(80vh,22.5rem)] w-[23rem] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
+  'h-[22.5rem] max-h-[min(80vh,22.5rem)] w-[34rem] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
 
 /**
- * The card's keyboard: arrows/Home/End move between rows, `/` jumps to search, `f` stars the
- * focused row, the search's arrows reach the list, and ⌘1…⌘9 pick the visible rows. Every model
- * picker uses this one set, so the behaviour is the same wherever a model is chosen.
+ * The card's keyboard: arrows/Home/End move between rows, `/` jumps to search, typing on the card
+ * starts a search, `f` stars the focused row, the search's arrows reach the list, right arrow
+ * reaches the thinking column (left comes back), Enter picks, and ⌘1…⌘9 pick the visible rows.
+ * Every model picker uses this one set, so the behaviour is the same wherever a model is chosen.
  */
 export function useModelPickerKeys(
   list: RefObject<HTMLDivElement | null>,
-  search: RefObject<HTMLInputElement | null>
+  search: RefObject<HTMLInputElement | null>,
+  onType?: (text: string) => void
 ) {
   // Flat rows in the order the person sees them; the rail owns grouping.
   const stops = () => Array.from(list.current?.querySelectorAll<HTMLElement>('[data-matrix-model-route]') ?? [])
@@ -36,8 +39,31 @@ export function useModelPickerKeys(
     event.preventDefault()
   }
 
+  // The thinking column beside the list, when the current model has levels to choose from.
+  const column = () => list.current?.closest('[data-matrix-model-panel]')?.querySelector<HTMLElement>('[data-matrix-model-effort-column]')
+
+  const toColumn = (event: ReactKeyboardEvent) => {
+    const target =
+      column()?.querySelector<HTMLElement>('[data-matrix-model-effort-level][tabindex="0"]:not(:disabled)') ??
+      column()?.querySelector<HTMLElement>('[data-matrix-model-effort-level]:not(:disabled)')
+
+    if (target) {
+      event.preventDefault()
+      target.focus()
+    }
+  }
+
+  /** Back from the column: the current row, else the first that can be chosen. */
+  const toList = () =>
+    (
+      list.current?.querySelector<HTMLElement>('[data-matrix-model-route][aria-current="true"]:not(:disabled)') ??
+      list.current?.querySelector<HTMLElement>('[data-matrix-model-route]:not(:disabled)')
+    )?.focus()
+
   const listKeyDown = (event: ReactKeyboardEvent) => {
-    if (event.key === 'ArrowDown') {
+    if (event.key === 'ArrowRight') {
+      toColumn(event)
+    } else if (event.key === 'ArrowDown') {
       moveRow(event, 'next')
     } else if (event.key === 'ArrowUp') {
       moveRow(event, 'previous')
@@ -77,6 +103,26 @@ export function useModelPickerKeys(
   }
 
   const shortcutKeyDown = (event: ReactKeyboardEvent) => {
+    // Typing while the card itself has focus (as it does when a click opens it) starts a search.
+    if (
+      event.target === event.currentTarget &&
+      event.key.length === 1 &&
+      event.key !== ' ' &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey
+    ) {
+      event.preventDefault()
+
+      if (event.key !== '/') {
+        onType?.(event.key)
+      }
+
+      search.current?.focus()
+
+      return
+    }
+
     if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || !/^[1-9]$/u.test(event.key)) {
       return
     }
@@ -90,7 +136,7 @@ export function useModelPickerKeys(
     }
   }
 
-  return { listKeyDown, searchKeyDown, shortcutKeyDown }
+  return { listKeyDown, searchKeyDown, shortcutKeyDown, toList }
 }
 
 export interface ModelPickerPanelProps {
@@ -106,8 +152,10 @@ export interface ModelPickerPanelProps {
   keys: ReturnType<typeof useModelPickerKeys>
   /** The list column's rows (the ModelPickerList and any recovery rows under it). */
   children: ReactNode
-  /** Pinned under the list: thinking level, a refused pick, a notice. */
+  /** Pinned under the list: a refused pick, a notice. */
   footer?: ReactNode
+  /** Beside the list, on the right: the current model's thinking column. */
+  aside?: ReactNode
   /** One step the chosen row asks for (ChatGPT's one-time confirmation): it takes the list
    * column's place in the same card, so the card keeps one focus and never opens a second one. */
   takeover?: ReactNode
@@ -126,6 +174,7 @@ export function ModelPickerPanel({
   keys,
   children,
   footer,
+  aside,
   takeover
 }: ModelPickerPanelProps) {
   const words = useModelPickerCopy()
@@ -167,6 +216,7 @@ export function ModelPickerPanel({
         {footer}
       </div>
       )}
+      {!takeover && aside}
     </div>
   )
 }

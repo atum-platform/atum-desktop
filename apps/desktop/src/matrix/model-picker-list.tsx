@@ -2,6 +2,7 @@ import { type MouseEvent as ReactMouseEvent } from 'react'
 
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { RowButton } from '@/components/ui/row-button'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -85,67 +86,75 @@ function PickerRowView({
     .filter(Boolean)
     .join(', ')
 
+  // One line, as in T3 Code's picker (ModelListRow): the provider's mark before the name names the
+  // provider, so no second line repeats it. What remains to say fits after the name, muted: why the
+  // row waits, Atum's own description, or an OpenRouter model's price.
+  const trailing = picked.reason ?? (atum ? facts.join(' · ') : undefined)
+  // A row that cannot be chosen shows no shortcut for it.
+  const hint = unavailable ? undefined : shortcut
+
   return (
-    <Tip label={shortcut ? `${tooltip} · ⌘${shortcut}` : tooltip} side="left">
+    <Tip label={tooltip} side="left">
       <li
         className={cn(
-          'group/model-row relative flex min-h-11 items-center rounded-[var(--atum-r-row)]',
+          'group/model-row relative flex min-h-10 items-center rounded-[var(--atum-r-row)]',
           current && 'bg-(--atum-hover)'
         )}
       >
         <RowButton
           aria-current={current ? 'true' : undefined}
           aria-disabled={unavailable || undefined}
-          aria-keyshortcuts={shortcut ? `Meta+${shortcut}` : undefined}
+          aria-keyshortcuts={hint ? `Meta+${hint}` : undefined}
           aria-label={label}
-          // Room for the star only: shortcuts live in the tooltip (STYLE.md §12).
-          className={cn(PICKER_ROW, 'flex-1 pr-9')}
+          // Room on the right for the star and the shortcut, which sit over the row.
+          className={cn(PICKER_ROW, 'min-h-10 flex-1', hint ? 'pr-16' : 'pr-9')}
           data-matrix-model-route={route.id}
           disabled={busy || unavailable}
           onClick={onChoose}
           tabIndex={roving && !unavailable ? 0 : -1}
         >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate font-medium leading-tight text-(--atum-ink)">{name}</span>
-            <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-1 gap-y-0.5 text-(length:--atum-t-caption) leading-tight text-(--atum-ink-muted)">
-              {atum ? (
-                <span className="flex min-w-0 items-center gap-x-1" data-matrix-model-atum-meta>
-                  <BrandMark className="size-4 rounded-[0.25rem]" inset />
-                  <span className="min-w-0 truncate">{facts.join(' · ')}</span>
-                </span>
-              ) : shelf ? (
-                // The list is already OpenRouter's: the line names the maker and the price, and a
-                // model that costs more than Nhật Thực says so (a label, never a confirmation).
-                <>
-                  <ProviderMark provider={shelfMakerMark(shelf)} size="xs" />
-                  <span className="min-w-0 truncate" data-matrix-model-shelf-price>
-                    {`${shelf.maker.label} · ${price}`}
-                  </span>
-                  {shelf.costly && (
-                    <span
-                      className="shrink-0 rounded-[0.25rem] bg-(--atum-warn)/12 px-1 font-medium text-(--atum-warn)"
-                      data-matrix-model-shelf-costly
-                    >
-                      {words.shelfCostly}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <>
-                  <ProviderMark provider={{ id: route.provider, label: route.providerLabel }} size="xs" />
-                  {picked.reason ? (
-                    // One line beside the provider's mark: why it waits ("Not ready for cloud assistants yet").
-                    <span className="min-w-0 flex-1 truncate" data-matrix-model-reason>
-                      {picked.reason}
-                    </span>
-                  ) : (
-                    (picked.subscription || route.providerLabel !== name) && (
-                      <span className="truncate">{route.providerLabel}</span>
-                    )
-                  )}
-                </>
-              )}
+          {atum ? (
+            <BrandMark className="size-4 rounded-[0.25rem]" data-matrix-model-mark="atum" inset />
+          ) : (
+            <ProviderMark
+              provider={shelf ? shelfMakerMark(shelf) : { id: route.provider, label: route.providerLabel }}
+              size="sm"
+            />
+          )}
+          <span className="flex min-w-0 flex-1 items-baseline gap-2">
+            <span className="min-w-0 shrink truncate leading-tight text-(--atum-ink)" data-matrix-model-name>
+              {name}
             </span>
+            {shelf ? (
+              // The list is already OpenRouter's and the mark names the maker: the price follows the
+              // name, and a model that costs more than Nhật Thực says so (a label, never a confirmation).
+              <>
+                <span
+                  className="shrink-0 text-(length:--atum-t-caption) text-(--atum-ink-muted)"
+                  data-matrix-model-shelf-price
+                >
+                  {price}
+                </span>
+                {shelf.costly && (
+                  <span
+                    className="shrink-0 self-center rounded-[0.25rem] bg-(--atum-warn)/12 px-1 text-(length:--atum-t-caption) font-medium text-(--atum-warn)"
+                    data-matrix-model-shelf-costly
+                  >
+                    {words.shelfCostly}
+                  </span>
+                )}
+              </>
+            ) : (
+              trailing && (
+                <span
+                  className="min-w-0 flex-1 truncate text-(length:--atum-t-caption) text-(--atum-ink-muted)"
+                  data-matrix-model-atum-meta={atum && !picked.reason ? true : undefined}
+                  data-matrix-model-reason={picked.reason ? true : undefined}
+                >
+                  {trailing}
+                </span>
+              )
+            )}
           </span>
           {/* The saved choice carries a check (the shade alone reads as hover or focus). */}
           {current && (
@@ -158,26 +167,36 @@ function PickerRowView({
           )}
         </RowButton>
 
-        {starrable && (
-          <Tip label={favorite ? words.unfavorite : words.favorite}>
-            <Button
-              aria-label={`${favorite ? words.unfavorite : words.favorite}: ${route.name}`}
-              aria-pressed={favorite}
-              className={cn(
-                'absolute top-1/2 right-0.5 shrink-0 -translate-y-1/2 text-(--atum-ink-faint) hover:text-(--atum-ink)',
-                favorite && 'text-(--atum-mark-amber) hover:text-(--atum-mark-amber)'
-              )}
-              data-matrix-model-favorite={favorite ? 'true' : 'false'}
-              disabled={busy}
-              onClick={onStar}
-              size="icon-sm"
-              type="button"
-              variant="ghost"
-            >
-              <Star aria-hidden className={cn('size-3.5', favorite && 'fill-current')} />
-            </Button>
-          </Tip>
-        )}
+        <span className="pointer-events-none absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-1">
+          {starrable && (
+            <Tip label={favorite ? words.unfavorite : words.favorite}>
+              <Button
+                aria-label={`${favorite ? words.unfavorite : words.favorite}: ${route.name}`}
+                aria-pressed={favorite}
+                className={cn(
+                  'pointer-events-auto shrink-0 text-(--atum-ink-faint) hover:text-(--atum-ink)',
+                  // An unstarred row's star waits for the pointer or focus, as in T3 Code.
+                  !favorite &&
+                    'opacity-0 group-hover/model-row:opacity-100 group-focus-within/model-row:opacity-100 focus-visible:opacity-100',
+                  favorite && 'text-(--atum-mark-amber) hover:text-(--atum-mark-amber)'
+                )}
+                data-matrix-model-favorite={favorite ? 'true' : 'false'}
+                disabled={busy}
+                onClick={onStar}
+                size="icon-sm"
+                type="button"
+                variant="ghost"
+              >
+                <Star aria-hidden className={cn('size-3.5', favorite && 'fill-current')} />
+              </Button>
+            </Tip>
+          )}
+          {hint && (
+            <Kbd aria-hidden data-matrix-model-shortcut size="sm" variant="ghost">
+              {`⌘${hint}`}
+            </Kbd>
+          )}
+        </span>
       </li>
     </Tip>
   )

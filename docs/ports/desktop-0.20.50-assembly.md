@@ -9,3 +9,4 @@ Preserve native-backed UI and integrations. Do not fold the independent Electron
 ## Integration record
 
 - Merge current public main into the existing release outcome; preserve consent card and relay capacity changes.
+- Integrate provider picker and transcript marker (a5914602f); focused combined verification follows.
