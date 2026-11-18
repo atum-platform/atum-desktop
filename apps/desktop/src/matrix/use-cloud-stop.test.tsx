@@ -8,14 +8,13 @@ import type { MatrixStopResult } from './cloud-stop'
 
 const state = vi.hoisted(() => ({
   target: undefined as string | undefined,
-  scheduled: false,
+  scheduled: undefined as { schedule: { job: string; execution: string } } | undefined,
   unanswered: { id: '$owner' } as { id: string } | null,
   run: undefined as undefined | (() => Promise<unknown>)
 }))
 
 vi.mock('./cloud-status', () => ({ cloudRoomAgent: () => ({}) }))
 vi.mock('./no-reply-banner', () => ({ matrixUnansweredOwnerMessage: () => state.unanswered }))
-vi.mock('./text-document-actions', () => ({ runMatrixCommand: vi.fn() }))
 vi.mock('./cloud-stop', async importOriginal => ({
   ...(await importOriginal<typeof CloudStop>()),
   matrixCloudStopTarget: () => state.target,
@@ -61,7 +60,7 @@ function press(view: ReturnType<typeof mount>, request: ReturnType<typeof deferr
 
 beforeEach(() => {
   state.target = undefined
-  state.scheduled = false
+  state.scheduled = undefined
   state.unanswered = { id: '$owner' }
   state.run = undefined
   ;(window as unknown as { atumMatrix: unknown }).atumMatrix = { cloudAgent: vi.fn() }
@@ -130,14 +129,35 @@ describe('what the Stop control says after an owner Stop', () => {
     expect(run).toHaveBeenCalledTimes(1)
   })
 
-  it('lets an in-room /stop be sent again', async () => {
-    state.scheduled = true
+  it('allows another attempt when the schedule interruption remains unconfirmed', async () => {
+    vi.useFakeTimers()
+    state.scheduled = { schedule: { job: 'routine', execution: 'fire-a' } }
     const view = mount(undefined)
-    expect(view.result.current.route.kind).toBe('native')
     const request = deferred()
     press(view, request)
-    await act(async () => request.settle('sent'))
-    expect(view.result.current).toMatchObject({ stopping: false, refused: false, requested: false })
+    await act(async () => request.settle('stopping'))
+    expect(view.result.current).toMatchObject({ stopping: true, stopped: false, ready: false })
+    act(() => vi.advanceTimersByTime(MATRIX_STOP_SETTLE_MS))
+    expect(view.result.current).toMatchObject({ stopping: false, stopped: false, ready: true })
+    const retry = deferred()
+    press(view, retry)
+    await act(async () => retry.settle('stopped'))
+    expect(view.result.current).toMatchObject({ stopped: true, requested: true, ready: false })
+  })
+
+  it('scopes an interrupted receipt to its exact run even when the job is the same', async () => {
+    state.scheduled = { schedule: { job: 'routine', execution: 'fire-a' } }
+    const view = mount(undefined)
+    const first = deferred()
+    press(view, first)
+    state.scheduled = { schedule: { job: 'routine', execution: 'fire-b' } }
+    view.rerender({ messages: [], room, snapshot, working: true })
+    await act(async () => first.settle('stopped'))
+    expect(view.result.current).toMatchObject({ stopping: false, stopped: false, ready: true })
+    const second = deferred()
+    press(view, second)
+    await act(async () => second.settle('settled'))
+    expect(view.result.current).toMatchObject({ stopped: false, requested: true, ready: false })
   })
 
   it('forgets a Stopping state when the chat changes', async () => {

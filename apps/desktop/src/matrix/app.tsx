@@ -3828,14 +3828,14 @@ function MatrixComposer({
         enabled={!room.assistant && room.membership === 'join' && snapshot.state === 'ready'}
         roomId={room.id}
       />
-      {cloudStop.refused && (
+      {(cloudStop.refused || cloudStop.stopped) && (
         <NoticeBand
           className="mx-auto mb-2 w-[min(42rem,calc(100%-2rem))]"
-          data-matrix-cloud-stop-refused
+          data-matrix-cloud-stop-refused={cloudStop.refused || undefined}
           role="status"
           tone="notice"
         >
-          {t.cloud.stopRefused}
+          {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
         </NoticeBand>
       )}
       <ComposerPrimitive.Root
@@ -3961,9 +3961,7 @@ function MatrixComposer({
                   onClick={cloudStop.stop}
                   title={cloudStop.stopping ? t.cloud.stopping : cloudStop.route.kind === 'unavailable'
                     ? (locale === 'vi' ? 'Chưa xác định được lượt cần dừng' : 'Stop target unavailable')
-                    : cloudStop.route.kind === 'native'
-                      ? (locale === 'vi' ? 'Gửi /stop trong cuộc trò chuyện này' : 'Send /stop in this chat')
-                      : undefined}
+                    : undefined}
                   type="button"
                 >
                   {cloudStop.stopping ? <span role="status">{t.cloud.stopping}</span>

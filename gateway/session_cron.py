@@ -4,6 +4,7 @@ Public callers name a persisted job, never supply agent policy or arbitrary jobs
 The ordinary admission ledger owns execution; the scheduler owns final delivery.
 """
 import asyncio
+from contextlib import nullcontext
 from contextvars import ContextVar
 from dataclasses import asdict, replace
 import json
@@ -12,7 +13,7 @@ from pathlib import Path
 import threading
 
 from gateway.session_contract import Principal, SessionRef
-from hermes_state_keys import CRON_PRINCIPAL_ID, cron_request_id
+from hermes_state_keys import CRON_PRINCIPAL_ID, cron_request_id, cron_run_from_request
 from hermes_state_runtime import RuntimeStoreError, admit_session_input, get_session_admission
 
 _execution: ContextVar[tuple | None] = ContextVar('cron_owner_execution', default=None)
@@ -115,7 +116,7 @@ CRON_SESSION_READ_ONLY_SURFACE = {'layer': 'gateway', 'code': 'cron_session_read
 # Run-side verdicts run_job stamps on the job dict for the firing scheduler's bookkeeping tail
 # (cron/quota_hold.py parks past a closed usage window; cron/unreachable_retry.py re-runs a
 # never-reached model). They cross the authority boundary inside the cron result.
-RUN_JOB_FLAGS = ('_model_unreachable', '_quota_hold_seconds')
+RUN_JOB_FLAGS = ('_model_unreachable', '_quota_hold_seconds', '_owner_interrupted')
 
 
 async def operation(authority, name, params, actor=None):
@@ -216,17 +217,37 @@ def scheduler_execution_id(job_id, request_id):
     return request_id.removeprefix(cron_request_id(job_id, ''))
 
 
-def _run_identified(run_job, job, execution_id, **kwargs):
+async def _run_identified(authority, row, run_job, job, execution_id, *, extra_prompt, cancel_event):
     """``run_job`` inside this fire's cron identity (``ctx.current_cron_execution()``).
 
     The scheduler binds it in the FIRING thread, but the owner executes on its own loop, whose
-    context never saw that binding; re-bind it here from the same ledger row, in the profile scope
-    the caller entered (so the row and the profile name are this profile's)."""
+    context need not carry that binding. Read the same ledger in the owning profile and bind
+    before entering presentation, so the agent and its hook workers inherit the same scope."""
     from cron.execution_identity import enter_cron_execution, exit_cron_execution
     from cron.executions import get_execution
-    token = enter_cron_execution(job, execution_id, get_execution(execution_id) or {})
+
+    record = await asyncio.to_thread(get_execution, execution_id)
+    if record is None or record['job_id'] != job['id']:
+        record = {}
+    token = enter_cron_execution(job, execution_id, record)
     try:
-        return run_job(job, execution_id=execution_id, **kwargs)
+        scope = nullcontext()
+        if (record.get('status') == 'running' and record.get('scheduled_instant')
+                and row.get('status') == 'started' and row['principal_id'] == CRON_PRINCIPAL_ID
+                and cron_run_from_request(row['request_id'], job['id']) == (job['id'], execution_id)
+                and not cancel_event.is_set()):
+            from gateway.config import Platform
+            runner = getattr(authority, 'runner', None)
+            registry = getattr(runner, 'session_authorities', None)
+            name = registry.profile_name(authority) if registry is not None else None
+            adapters = (getattr(runner, 'adapters', {}) if name is None
+                        else getattr(runner, '_profile_adapters', {}).get(name, {}))
+            present = getattr(adapters.get(Platform.MATRIX), 'scheduled_presentation_scope', None)
+            if present is not None:
+                scope = present(job, cancel_event)
+        async with scope:
+            return await asyncio.to_thread(run_job, job, execution_id=execution_id,
+                                           extra_prompt=extra_prompt, cancel_event=cancel_event)
     finally:
         exit_cron_execution(token)
 
@@ -252,19 +273,22 @@ async def execute(authority, ref, row, policy):
     execution_id = scheduler_execution_id(data['cron_job']['id'], row['request_id'])
     # The frozen snapshot predates the fire's ledger row; the run's progress stamps need its id.
     job = dict(data['cron_job'], execution_id=execution_id)
+    job.pop('_owner_interrupted', None)
     token = bind_execution(authority, ref.session_id, job['id'], execution_id)
     try:
         db_path = await asyncio.to_thread(Path(authority.db.db_path).resolve)
         with _profile_runtime_scope(db_path.parent):
-            result = await asyncio.to_thread(_run_identified, run_job, job, execution_id,
-                                             extra_prompt=data['extra_prompt'], cancel_event=cancel)
+            result = await _run_identified(authority, row, run_job, job, execution_id,
+                                           extra_prompt=data['extra_prompt'], cancel_event=cancel)
         # run_job stamps run-side verdicts on ITS job copy (quota hold, unreachable model); the
         # firing scheduler's bookkeeping reads them off its own dict, so they ride the result.
         flags = {key: job[key] for key in RUN_JOB_FLAGS if key in job}
+        interrupted = not result[0] and flags.get('_owner_interrupted') is True
         authority.pending_results[row['admission_id']] = {
             'result': {'final_response': result[2], 'cron_result': list(result), 'cron_job_flags': flags,
-                       'failed': not result[0], 'completed': result[0]}, 'usage': {}}
-        if not result[0]:
+                       'failed': not result[0] and not interrupted, 'completed': result[0],
+                       'interrupted': interrupted}, 'usage': {}}
+        if not result[0] and not interrupted:
             raise RuntimeError(result[3] or 'cron execution failed')
         return result[2]
     finally:

@@ -12,6 +12,7 @@ import type { MatrixAgentView, MatrixMessage, MatrixRoom, MatrixSnapshot } from 
 import type { MatrixHostAgentControl, MatrixHostDeskFiles, MatrixHostDeskSchedule } from '../../shared/matrix-agent-desk'
 import { matrixAgentDeskText } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
+import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 import type { MatrixDeviceBridge } from '../../shared/matrix-device'
 import { matrixKnowledgeSourcesCopy } from '../../shared/matrix-knowledge-sources-copy'
 
@@ -182,8 +183,8 @@ export interface MatrixAgentDeskStop {
 
 /**
  * Stop for the desk, on the existing paths only: the composer's own cloud Stop (one hook: the
- * Shell host Stop route for a Hermes-runtime agent's owner turn, native `/stop` for its
- * scheduled turn, `stopTurn` on the old cloud path), a Mac-run agent's own cancel, and, while it
+ * Shell host Stop route for a Hermes-runtime agent's owner or scheduled turn,
+ * `stopTurn` on the old cloud path), a Mac-run agent's own cancel, and, while it
  * is using this Mac, the device host's Stop (Settings › Device) when that host says it is in use.
  * Nothing is decided here; each path's owner refuses what it will not do.
  */
@@ -983,9 +984,9 @@ export function MatrixAgentDesk({
             snapshot={snapshot}
             stop={stop}
           />
-          {cloudStop.refused && (
+          {(cloudStop.refused || cloudStop.stopped) && (
             <NoticeBand role="status" tone="notice">
-              {t.cloud.stopRefused}
+              {cloudStop.stopped ? matrixAgentStatusText('stopped', locale) : t.cloud.stopRefused}
             </NoticeBand>
           )}
         </div>

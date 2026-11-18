@@ -11,6 +11,24 @@ The job and execution identify the exact `cron-owner` admission through
 Cancellation uses native `cron.cancel`, including its claim-before-execute latch.
 The cron watchdog uses the same `request_hard_interrupt` helper as native turn
 Stop, so explicit cancellation can abort compression as well as normal work.
+When the watchdog observes cancellation, the owner settles that admission as
+interrupted and the scheduler suppresses the routine failure notice.
+
+With Matrix presentation enabled, a running native agent occurrence can publish
+an empty transient `m.notice` as soon as the cron admission starts. Its
+`io.atum.progress` marker carries `trigger: "cron"` and
+`schedule: {job, execution}` on the original and every edit. The gateway checks
+that the admission's exact request matches a running scheduler row with a
+scheduled instant. The notice has no reply target because the execution starts
+without an incoming Matrix message.
+
+Progress requires one unthreaded Matrix delivery destination and the profile's
+connected presentation adapter. The adapter verifies invite-only joins,
+non-public history, and exactly two joined members, the bot and an authorized
+owner. It uses the home or job origin's owner when available and otherwise
+requires an explicitly allowlisted peer. A run's own settlement removes its
+notice. An answer from another run can arrive while this notice remains
+active. Concurrent occurrences of the same job have distinct Stop targets.
 
 Responses contain `accepted`, `state`, and `receipt`. Only terminal observations
 return `accepted: true`: `state: interrupted` for a cancelled/interrupted admission,

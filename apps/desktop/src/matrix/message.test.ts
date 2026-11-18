@@ -658,6 +658,35 @@ it('projects the agent’s progress line for a render hook, never marked edited,
   expect(matrixMessage(event(content, '@owner:test'), '@owner:test', new Set())?.progress).toBeUndefined()
 })
 
+it('retains the native schedule identity across progress edits without allowing an edit to replace it', () => {
+  const schedule = { job: 'same-job', execution: 'existing-fire' }
+  const content = {
+    msgtype: 'm.notice',
+    body: 'Working',
+    'io.atum.progress': {
+      profile: 'atum.agent-turns/1.3', scope: 'owner_private', phase: 'working', kind: 'todo', revision: 0,
+      trigger: 'cron', schedule
+    }
+  }
+  const root = event(content, '@assistant:test')
+  const progress = () => matrixMessage(root, '@owner:test', new Set())?.progress
+  expect(progress()).toMatchObject({ schedule })
+  function replace(execution: string, revision: number) {
+    const inner = { ...content, 'io.atum.progress': {
+      ...content['io.atum.progress'], revision, schedule: { ...schedule, execution }
+    } }
+    root.makeReplaced(event({
+      ...inner, 'm.new_content': inner,
+      'm.relates_to': { rel_type: 'm.replace', event_id: '$event' }
+    }, '@assistant:test'))
+  }
+  replace(schedule.execution, 1)
+  expect(progress()).toMatchObject({ schedule, revision: 1 })
+  replace('other-fire', 2)
+  expect(progress()).toMatchObject({ trigger: 'cron', revision: 2 })
+  expect(progress()).not.toHaveProperty('schedule')
+})
+
 it('projects the agent\u2019s interim remark as a real message that is not the answer, and never a stranger\u2019s', () => {
   const content = { msgtype: 'm.text', body: 'Để mình xem video này rồi tóm tắt nhé.', 'io.atum.interim': true }
   const remark = matrixMessage(event(content, '@assistant:test'), '@owner:test', new Set())!

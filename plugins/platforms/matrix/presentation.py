@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 from contextvars import ContextVar
 from contextlib import asynccontextmanager
+from functools import partial
 import hashlib
 import json
 import logging
@@ -204,7 +205,8 @@ class Outbox:
                     SELECT 1 FROM effects r WHERE r.target=e.event AND r.event IS NOT NULL)''').fetchall():
             body = json.loads(content)
             if txn in txns and 'io.atum.progress' in body and 'm.new_content' not in body:
-                await self.remove(port, room, body['m.relates_to']['m.in_reply_to']['event_id'], event)
+                source = body.get('m.relates_to', {}).get('m.in_reply_to', {}).get('event_id')
+                await self.remove(port, room, source, event)
         self.collect()
 
     async def remove(self, port, room, source, event):
@@ -214,7 +216,8 @@ class Outbox:
 
 
 class Turn:
-    def __init__(self, box, port, room, source, sender, clock=time.monotonic):
+    def __init__(self, box, port, room, source, sender, clock=time.monotonic, *,
+                 occurrence=None, authorize=None):
         self.box, self.port, self.room, self.source, self.sender = box, port, room, source, sender
         self.clock = clock
         self.loop = asyncio.get_running_loop()
@@ -246,6 +249,8 @@ class Turn:
         self.pet_eligible = False
         from cron.execution_identity import current_cron_execution
         self.trigger = 'cron' if current_cron_execution() is not None else None
+        self.occurrence = occurrence
+        self.authorize = authorize
 
     def queue_pet(self, command):
         from agent.delegation_context import is_delegated_child_context
@@ -283,17 +288,25 @@ class Turn:
                                                 presentation=pending[3])
                     self.progress_timer = asyncio.create_task(flush())
                 return
+            if self.authorize is not None and not await self.authorize():
+                self.ended = True
+            if self.ended:  # The run can also end during the room-state check.
+                return
             self.revision += 1
             marker = dict(profile='atum.agent-turns/1.3', scope='owner_private',
                           phase=phase, kind=kind, revision=self.revision)
             if self.trigger:
                 marker['trigger'] = self.trigger
+            if self.occurrence is not None:
+                marker['schedule'] = dict(job=self.occurrence.job_id,
+                                          execution=self.occurrence.execution_id)
             if kind == 'heartbeat':
                 marker['heartbeat'] = True
             text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '',
                           unicodedata.normalize('NFC', text)).strip()[:1000]
-            body = {'msgtype': 'm.notice', 'body': text, 'io.atum.progress': marker,
-                    'm.relates_to': {'m.in_reply_to': {'event_id': self.source}}}
+            body = {'msgtype': 'm.notice', 'body': text, 'io.atum.progress': marker}
+            if self.occurrence is None:
+                body['m.relates_to'] = {'m.in_reply_to': {'event_id': self.source}}
             if presentation:
                 body['io.atum.presentation'] = presentation
             if self.root:
@@ -452,6 +465,74 @@ def adapter_class(base):
                 return await super()._process_message_background(event, session_key)
             finally:
                 _current.reset(token)
+
+        async def _scheduled_room_is_private(self, room, owner):
+            from mautrix.types import EventType, RoomID
+
+            client = self._client
+            if client is None:
+                return False
+            try:
+                async with asyncio.timeout(5):
+                    members, join_rule, history = await asyncio.gather(
+                        client.get_joined_members(RoomID(room)),
+                        self._get_room_state_value(room, EventType.ROOM_JOIN_RULES, 'join_rule'),
+                        self._get_room_state_value(room, EventType.ROOM_HISTORY_VISIBILITY,
+                                                   'history_visibility'),
+                    )
+                peers = set(members) - {str(client.mxid)}
+                if len(members) != 2 or len(peers) != 1:
+                    return False
+                peer = next(iter(peers))
+                return (client is self._client and join_rule == 'invite'
+                        and history in {'invited', 'joined', 'shared'}
+                        and (peer == owner if owner else peer in self._allowed_user_ids)
+                        and self._is_authorized_user(peer, room))
+            except Exception:
+                logger.debug('Could not verify private Matrix schedule progress destination', exc_info=True)
+                return False
+
+        @asynccontextmanager
+        async def scheduled_presentation_scope(self, job, cancel_event):
+            from cron.execution_identity import current_cron_execution
+            from cron.scheduler_delivery import _resolve_delivery_targets, _resolve_origin
+            from hermes_state_keys import cron_request_id
+
+            occurrence = current_cron_execution()
+            box = getattr(self, '_presentation_box', None)
+            room = None
+            if (box is not None and occurrence is not None and occurrence.scheduled_instant
+                    and (occurrence.job_id, occurrence.execution_id) == (job['id'], job['execution_id'])):
+                try:
+                    targets = await asyncio.to_thread(_resolve_delivery_targets, job)
+                    matrix = [target for target in targets if target['platform'].lower() == 'matrix']
+                    if len(matrix) == 1 and not matrix[0].get('thread_id'):
+                        room = matrix[0]['chat_id']
+                except Exception:
+                    logger.debug('Could not resolve Matrix schedule progress destination', exc_info=True)
+            if not room or cancel_event.is_set():
+                yield
+                return
+
+            home = self.config.home_channel
+            origin = _resolve_origin(job) or {}
+            owner = home.user_id if home and home.chat_id == room else None
+            if not owner and origin.get('platform') == 'matrix' and origin.get('chat_id') == room:
+                owner = origin.get('user_id')
+            turn = Turn(box, self._presentation_send, room,
+                        cron_request_id(occurrence.job_id, occurrence.execution_id), owner,
+                        occurrence=occurrence, authorize=partial(self._scheduled_room_is_private, room, owner))
+            token = _current.set(turn)
+            try:
+                # The source-less notice makes Stop available even during the first model call.
+                # Use the adapter loop while the scheduler proceeds to its worker thread.
+                asyncio.create_task(turn.progress()).add_done_callback(_progress_sent)
+                yield
+            finally:
+                try:
+                    await turn.end()
+                finally:
+                    _current.reset(token)
 
         def _cancelled_before_execution(self, event):
             if not self._presentation_box.cancelled(event.source.chat_id, event.message_id, event.source.user_id):
@@ -649,7 +730,8 @@ def adapter_class(base):
                 msg_content = {'io.atum.turn': turn.marker, **msg_content}
                 if turn.trigger:
                     msg_content['io.atum.trigger'] = turn.trigger
-            elif turn is None and msg_content.get('msgtype') == 'm.text' and 'm.new_content' not in msg_content:
+            elif ((turn is None or turn.occurrence is not None) and msg_content.get('msgtype') == 'm.text'
+                    and 'm.new_content' not in msg_content):
                 # Cron's scheduler owns result delivery separately from owner-message
                 # admissions. Its native execution context spans that delivery too.
                 from cron.execution_identity import current_cron_execution
@@ -702,6 +784,20 @@ def adapter_class(base):
     return PresentationMatrixAdapter
 
 
+def _progress_sent(future):
+    if not future.cancelled() and future.exception() is not None:
+        logger.warning('Matrix presentation activity could not be published')
+
+
+def _progress_turn():
+    turn = _current.get()
+    if turn is not None and turn.occurrence is not None:
+        from cron.execution_identity import current_cron_execution
+        if current_cron_execution() != turn.occurrence:
+            return None
+    return turn
+
+
 def register_hooks(ctx):
     def model_response(platform='', response=None, provider=None, model=None, **_):
         turn = _current.get()
@@ -747,26 +843,21 @@ def register_hooks(ctx):
             turn.pet_callback = None
 
     def started_tool(tool_name='', **_):
-        turn = _current.get()
+        turn = _progress_turn()
         activity = tool_activity(tool_name)
         if turn and not turn.ended and activity:
             # Names only, never arguments/results. Schedule on the owning event loop.
             # The plugin never speaks in the agent's place: only a category code.
-            def done(future):
-                try:
-                    future.result()
-                except Exception:
-                    logger.warning('Matrix presentation activity could not be published')
             asyncio.run_coroutine_threadsafe(
                 turn.progress(presentation=descriptor('tool_activity', activity=activity)),
-                turn.loop).add_done_callback(done)
+                turn.loop).add_done_callback(_progress_sent)
     def stopped(session_key='', platform='', source_event_id=None, admission_id=None, **_):
         turn = _active.get(session_key) if platform == 'matrix' else None
         if turn and source_event_id == turn.source and admission_id == turn.admission_id:
             turn.stopped = True
             asyncio.run_coroutine_threadsafe(turn.end(), turn.loop)
     def finished_tool(tool_name='', args=None, status=None, result=None, **_):
-        turn = _current.get()
+        turn = _progress_turn()
         if turn and not turn.ended and video_consent_required(tool_name, result):
             # The host refused the video step for want of the owner's one-time consent. A code on
             # the line, never words: the owner's app shows its consent card (presentation only).
@@ -786,11 +877,11 @@ def register_hooks(ctx):
                 if lines:
                     asyncio.run_coroutine_threadsafe(turn.progress('\n'.join(lines)), turn.loop)
     def waiting(**_):
-        turn = _current.get()
+        turn = _progress_turn()
         if turn:
             asyncio.run_coroutine_threadsafe(turn.wait_for_approval(), turn.loop)
     def resumed(**_):
-        turn = _current.get()
+        turn = _progress_turn()
         if turn:
             asyncio.run_coroutine_threadsafe(turn.resume(), turn.loop)
     ctx.register_hook('pre_tool_call', started_tool)
