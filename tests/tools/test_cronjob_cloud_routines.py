@@ -340,7 +340,7 @@ class TestHomeJobsAndHostFailures:
         assert cronjob(action="remove", job_id=old["id"])["success"] is True
         assert host.mutations() == []
 
-    def test_the_check_in_marker_guard_keeps_owning_the_stored_check_in_job(self, host, monkeypatch):
+    def test_the_check_in_marker_guard_still_owns_edits_to_the_stored_check_in_job(self, host, monkeypatch):
         from cron import jobs as cron_jobs
         from cron.check_ins import _job_record
 
@@ -348,8 +348,8 @@ class TestHomeJobsAndHostFailures:
         cron_jobs.save_jobs([_job_record()])
         seen = []
         monkeypatch.setattr("cron.check_ins.manage_from_tool", lambda action: seen.append(action) or {"success": True, "via": "app"})
-        result = cronjob(action="pause", job_id=_job_record()["id"])
-        assert result == {"success": True, "via": "app"} and seen == ["pause"] and host.mutations() == []
+        result = cronjob(action="update", job_id=_job_record()["id"], prompt="Changed")
+        assert result == {"success": True, "via": "app"} and seen == ["update"] and host.mutations() == []
 
     def test_no_requester_is_an_honest_error_not_a_silent_local_job(self, monkeypatch):
         monkeypatch.setenv("ATUM_TASK_WORKSPACE", "/task/workspace")

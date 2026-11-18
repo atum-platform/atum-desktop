@@ -14,3 +14,4 @@ Preserve native-backed UI and integrations. Do not fold the independent Electron
 - Integrate runtime install retention (c96ec9e534); focused combined verification follows.
 - Integrate certified relay protection (3006c72f); focused combined verification follows.
 - Integrate native in-channel cron (80cf1a4e0b); focused combined verification follows.
+- Integrate cloud check-in guard (988d40954f); focused combined verification follows.
