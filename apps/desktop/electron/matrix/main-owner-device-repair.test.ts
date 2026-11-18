@@ -59,6 +59,8 @@ function mainCode(name: string, context: Record<string, unknown>, ipc = false) {
     compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext }
   }).outputText
   const sandbox = {
+    // Optional Mac service is absent in these Electron-free lifecycle fixtures.
+    nativeMacSsh: undefined,
     ...context,
     logNotesSelfOpenFailures,
     Error,
