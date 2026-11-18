@@ -175,7 +175,12 @@ describe('Hermes-owned setup', () => {
     await applyMatrixFullHermes(f.connection, signal())
     const sent = (f.api.mock.calls[0]![1] as { config: { display?: unknown } }).config
     // Hermes defaults to these; a new home states them so no default can silence the owner's progress.
-    expect(sent.display).toEqual({ tool_progress: 'all', interim_assistant_messages: true, show_commentary: true })
+    expect(sent.display).toEqual({
+      tool_progress: 'all',
+      interim_assistant_messages: true,
+      show_commentary: true,
+      platforms: { matrix: { tool_progress: 'off' } }
+    })
     expect(sent.display).toEqual(MATRIX_NARRATION_DISPLAY)
     // Part of what the launch-time model check writes, so a build that changes it checks the profile once.
     expect(MATRIX_MODEL_CHECK_WRITES.full.display).toEqual(MATRIX_NARRATION_DISPLAY)

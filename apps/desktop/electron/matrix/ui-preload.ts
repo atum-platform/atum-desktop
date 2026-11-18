@@ -28,12 +28,13 @@ import { MATRIX_CLIPBOARD_IPC } from '../../shared/matrix-clipboard'
 import type { MatrixCompanyDesktopRequest } from '../../shared/matrix-company-desktop'
 import { MATRIX_DRIVE_IPC, type MatrixDriveView } from '../../shared/matrix-drive'
 import { MATRIX_FOLDER_ACCESS_IPC } from '../../shared/matrix-folder-access'
-import { MATRIX_GOOGLE_CONNECTION_IPC } from '../../shared/matrix-google-connections'
+import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_INVITE_LINK_IPC } from '../../shared/matrix-invite-link'
 import { MATRIX_LINK_PREVIEW_IPC } from '../../shared/matrix-link-preview'
 import { MATRIX_MAC_SOURCES_IPC } from '../../shared/matrix-mac-sources'
 import { MATRIX_MESSAGE_LINK_IPC, type MatrixMessageLinkTarget } from '../../shared/matrix-message-link'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
+import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
 import { MATRIX_PAGES_IPC, type MatrixPagesState } from '../../shared/matrix-pages'
 import { MATRIX_PERMISSIONS_IPC } from '../../shared/matrix-permissions'
 import type {
@@ -47,6 +48,11 @@ import type {
   MatrixSubscriptionSignIn,
   MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
+import type {
+  MatrixVideoConsentAllowResult,
+  MatrixVideoConsentRevokeResult,
+  MatrixVideoConsentStatus
+} from '../../shared/matrix-video-consent'
 import { MATRIX_VOICE_IPC } from '../../shared/matrix-voice'
 import { MATRIX_WINDOW_CHANNELS, type MatrixWindowFacts } from '../../shared/matrix-window'
 
@@ -113,7 +119,9 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'connect', grant, ...(context ? { context } : {}) }),
     disconnect: groupId => ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'disconnect', groupId }),
     setSourcePreferences: preferences =>
-      ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'preferences', preferences })
+      ipcRenderer.invoke(MATRIX_GOOGLE_CONNECTION_IPC, { kind: 'preferences', preferences }),
+    writeProposals: () => ipcRenderer.invoke(MATRIX_GOOGLE_WRITE_IPC, { kind: 'list' }),
+    writeProposalAction: input => ipcRenderer.invoke(MATRIX_GOOGLE_WRITE_IPC, { kind: 'action', input })
   },
   aliases: {
     pending: () => ipcRenderer.invoke(channel.ui, { kind: 'alias-pending' }),
@@ -191,6 +199,11 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingConfirm', connectionId }) as Promise<MatrixChatGptTrainingConfirmResult>,
     revokeChatGptTraining: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTrainingRevoke' }) as Promise<MatrixChatGptTrainingRevokeResult>,
+    videoConsent: () => ipcRenderer.invoke(channel.ui, { kind: 'videoConsent' }) as Promise<MatrixVideoConsentStatus>,
+    allowVideoConsent: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'videoConsentAllow' }) as Promise<MatrixVideoConsentAllowResult>,
+    revokeVideoConsent: () =>
+      ipcRenderer.invoke(channel.ui, { kind: 'videoConsentRevoke' }) as Promise<MatrixVideoConsentRevokeResult>,
     connectOpenCode: value =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionOpenCodeSave', value }) as Promise<MatrixSubscriptionKeyResult>,
     disconnectOpenCode: async () => {
@@ -223,6 +236,10 @@ const bridge: MatrixUiBridge = {
         clearInterval(timer)
       }
     }
+  },
+  nativeMac: {
+    ssh: action => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.ssh, action),
+    confirmCommand: command => ipcRenderer.invoke(MATRIX_NATIVE_MAC_IPC.confirmCommand, command)
   },
   macSources: {
     read: () => ipcRenderer.invoke(MATRIX_MAC_SOURCES_IPC.read),

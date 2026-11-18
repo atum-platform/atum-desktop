@@ -66,4 +66,9 @@ describe('the settings that carry the agent’s words to the owner', () => {
     expect(MATRIX_NARRATION_DISPLAY.interim_assistant_messages).toBe(true)
     expect(MATRIX_NARRATION_DISPLAY.show_commentary).toBe(true)
   })
+  it('keep Hermes tool-status lines out of the Matrix chat, where only the agent speaks', () => {
+    // The messaging gateway resolves display.platforms.matrix.tool_progress before the global key.
+    expect(MATRIX_NARRATION_DISPLAY.platforms.matrix.tool_progress).toBe('off')
+    expect(MATRIX_NARRATION_DISPLAY.tool_progress).not.toBe(MATRIX_NARRATION_DISPLAY.platforms.matrix.tool_progress)
+  })
 })

@@ -1,7 +1,23 @@
-import { type ComponentType, type ReactNode, useState } from 'react'
+import {
+  type ComponentType,
+  createContext,
+  type KeyboardEvent,
+  type MouseEvent,
+  type ReactElement,
+  type ReactNode,
+  useContext,
+  useState
+} from 'react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger
+} from '@/components/ui/context-menu'
 import { CopyButton } from '@/components/ui/copy-button'
 import {
   DropdownMenu,
@@ -21,6 +37,7 @@ import {
   Download,
   File,
   Flag,
+  Forward,
   Info,
   Messages,
   MoodSmile,
@@ -30,7 +47,6 @@ import {
   PinOff,
   Refresh,
   Search,
-  Share,
   Trash2
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -44,8 +60,8 @@ import { usePinnedMessagesCopy } from './team-space/pinned-copy'
 
 /**
  * The quiet controls around a message (launch night): the floating toolbar every message shows
- * on hover or focus (React, Reply, and a "…" with Copy, Read aloud, Retry, Edit, Delete or
- * Report), reactions under a message, a send that failed and a received file. Matrix's own features, Element X's simplicity. Presentation only: every action is the
+ * on hover or focus (React, Reply, Forward, and a "…" with Copy, Read aloud, Retry, Edit, Delete
+ * or Report; a right-click opens the same list at the pointer), reactions under a message, a send that failed and a received file. Matrix's own features, Element X's simplicity. Presentation only: every action is the
  * caller's existing path.
  */
 
@@ -158,8 +174,15 @@ function ForwardButton({ onForward }: { onForward(): void }) {
 
   return (
     <Tip label={copy.forward}>
-      <Button aria-label={copy.forward} data-matrix-forward onClick={onForward} size="icon-sm" type="button" variant="ghost">
-        <Share aria-hidden />
+      <Button
+        aria-label={copy.forward}
+        data-matrix-forward
+        onClick={onForward}
+        size="icon-sm"
+        type="button"
+        variant="ghost"
+      >
+        <Forward aria-hidden />
       </Button>
     </Tip>
   )
@@ -242,54 +265,84 @@ export interface MatrixMessageToCardAction {
   onSelect(): void
 }
 
+/** The two surfaces a message's options open on: the "…" dropdown, and the context menu at the
+ * pointer. Both draw the one item list below, so they never drift apart. */
+const MENU_SURFACES = {
+  dropdown: { copy: 'menu-item', Item: DropdownMenuItem, Separator: DropdownMenuSeparator },
+  context: { copy: 'context-menu-item', Item: ContextMenuItem, Separator: ContextMenuSeparator }
+} as const
+
+type MatrixMessageMenuSurface = keyof typeof MENU_SURFACES
+
+/** Set by `MatrixMessageContextMenu`: a menu inside it also answers a right-click there. */
+const ContextMenuScope = createContext(false)
+
+/** Keys that open a context menu from the keyboard (macOS has no menu key, and Chromium does
+ * not turn Shift+F10 into a contextmenu event there). */
+function contextMenuKey(event: KeyboardEvent<HTMLElement>): boolean {
+  return event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)
+}
+
 /**
- * The "…" of a message: Copy, Edit and Delete for yours (and Retry, Find the answer in your
- * assistant's chat), Copy and Report for someone else's, Copy, Read aloud and Retry for an
- * answer. Delete and Report each ask first. Right-clicking the message opens it too (`open`).
+ * Right-click (or Shift+F10 / the menu key on the focused message) opens the message's options
+ * where the pointer is, as every chat app does: Radix's ContextMenu anchors to the pointer. A
+ * text selection, a link or a field keeps the browser's own menu. The items come from the
+ * `MatrixMessageMenu` the message already renders inside `children`.
  */
-export function MatrixMessageMenu({
-  link,
-  deleteNote,
-  findDisabled,
-  kind,
-  label,
-  onDelete,
-  onEdit,
-  onFindAnswer,
-  onForward,
-  onOpenChange,
-  onPin,
-  onReport,
-  onRetry,
-  open,
-  pinned,
-  pinning,
-  readAloud,
-  reported,
-  retryDisabled,
-  saved,
-  text,
-  toCard
-}: {
-  /** Said in Delete's confirmation, after what deleting does (your assistant may remember). */
-  deleteNote?: string
-  findDisabled?: boolean
-  kind: 'answer' | 'own' | 'report'
-  label: string
-  /** Stable Team space identifier link. Absent outside company channels. */
+export function MatrixMessageContextMenu({ children, disabled }: { children: ReactElement; disabled?: boolean }) {
+  // Something drawn in a portal (an open menu, a dialog) is not the message: its right-click
+  // must not reopen the menu at a new point.
+  const keepNative = (event: MouseEvent<HTMLElement>) => {
+    const target = event.target instanceof Element ? event.target : null
+
+    if (
+      !target ||
+      !event.currentTarget.contains(target) ||
+      !window.getSelection()?.isCollapsed ||
+      target.closest('a, input, textarea, [contenteditable="true"]')
+    ) {
+      event.stopPropagation()
+    }
+  }
+
+  // From the keyboard the menu opens at the focused control, inside the message.
+  const openFromKeyboard = (event: KeyboardEvent<HTMLElement>) => {
+    if (!contextMenuKey(event) || !(event.target instanceof HTMLElement)) {
+      return
+    }
+
+    event.preventDefault()
+    const rect = event.target.getBoundingClientRect()
+
+    event.target.dispatchEvent(
+      new window.MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: rect.left,
+        clientY: rect.bottom
+      })
+    )
+  }
+
+  return (
+    <ContextMenu>
+      <ContextMenuScope.Provider value={!disabled}>
+        <ContextMenuTrigger asChild disabled={disabled} onContextMenuCapture={keepNative} onKeyDown={openFromKeyboard}>
+          {children}
+        </ContextMenuTrigger>
+      </ContextMenuScope.Provider>
+    </ContextMenu>
+  )
+}
+
+interface MatrixMessageMenuItemsProps {
   link?: string
-  /** Rejects when the message could not be deleted; the dialog says so and stays open. */
-  onDelete?: () => Promise<void>
+  findDisabled?: boolean
   onEdit?: () => void
   onFindAnswer?: () => void
   onForward?: () => void
-  onOpenChange?: (open: boolean) => void
   onPin?: () => void
-  /** Rejects when the report could not be sent; the dialog says so and stays open. `reason`:
-   * the person's own optional words. */
-  onReport?: (reason?: string) => Promise<void>
   onRetry?: () => void
-  open?: boolean
   pinned?: boolean
   pinning?: boolean
   readAloud?: MatrixMessageReadAloud
@@ -298,14 +351,160 @@ export function MatrixMessageMenu({
   saved?: MatrixMessageSavedAction
   text: string
   toCard?: MatrixMessageToCardAction
-}) {
+  confirmDelete?: () => void
+  confirmReport?: () => void
+}
+
+function MatrixMessageMenuItems({
+  confirmDelete,
+  confirmReport,
+  findDisabled,
+  link,
+  onEdit,
+  onFindAnswer,
+  onForward,
+  onPin,
+  onRetry,
+  pinned,
+  pinning,
+  readAloud,
+  reported,
+  retryDisabled,
+  saved,
+  surface,
+  text,
+  toCard
+}: MatrixMessageMenuItemsProps & { surface: MatrixMessageMenuSurface }) {
   const copy = useChatCopy()
   const messageLink = useMessageLinkCopy()
   const pinnedCopy = usePinnedMessagesCopy()
-  const [confirming, setConfirming] = useState<'delete' | 'report' | null>(null)
+  const { copy: copyAppearance, Item, Separator } = MENU_SURFACES[surface]
 
-  if (!text && !link && !onEdit && !onDelete && !onReport && !onRetry && !onFindAnswer && !onForward && !onPin && !readAloud && !saved && !toCard) {
+  return (
+    <>
+      {text && <CopyButton appearance={copyAppearance} haptic={false} text={text} />}
+      {onForward && (
+        <Item data-matrix-forward-item onSelect={onForward}>
+          <Forward aria-hidden />
+          {copy.forward}
+        </Item>
+      )}
+      {link && <CopyButton appearance={copyAppearance} haptic={false} label={messageLink.copyLink} text={link} />}
+      {saved && (
+        <Item disabled={saved.busy} onSelect={saved.onSelect}>
+          {saved.active ? <BookmarkFilled aria-hidden /> : <Bookmark aria-hidden />}
+          {saved.label}
+        </Item>
+      )}
+      {toCard && (
+        <Item data-matrix-turn-into-task disabled={toCard.busy} onSelect={toCard.onSelect}>
+          <Checklist aria-hidden />
+          {toCard.label}
+        </Item>
+      )}
+      {onPin && (
+        <Item disabled={pinning} onSelect={onPin}>
+          {pinned ? <PinOff aria-hidden /> : <Pin aria-hidden />}
+          {pinned ? pinnedCopy.unpinMessage : pinnedCopy.pinMessage}
+        </Item>
+      )}
+      {readAloud && (
+        <Item disabled={readAloud.busy} onSelect={readAloud.onSelect}>
+          <readAloud.Icon aria-hidden className={readAloud.preparing ? 'animate-spin' : undefined} />
+          {readAloud.label}
+        </Item>
+      )}
+      {onEdit && (
+        <Item onSelect={onEdit}>
+          <Pencil aria-hidden />
+          {copy.edit}
+        </Item>
+      )}
+      {onRetry && (
+        <Item disabled={retryDisabled} onSelect={onRetry}>
+          <Refresh aria-hidden />
+          {copy.retry}
+        </Item>
+      )}
+      {onFindAnswer && (
+        <Item disabled={findDisabled} onSelect={onFindAnswer}>
+          <Search aria-hidden />
+          {copy.findAnswer}
+        </Item>
+      )}
+      {confirmReport && (
+        <Item disabled={reported} onSelect={confirmReport}>
+          <Flag aria-hidden />
+          {copy.report}
+        </Item>
+      )}
+      {confirmDelete && (
+        <>
+          <Separator />
+          <Item onSelect={confirmDelete} variant="destructive">
+            <Trash2 aria-hidden />
+            {copy.delete}
+          </Item>
+        </>
+      )}
+    </>
+  )
+}
+
+/**
+ * The "…" of a message: Copy, Edit and Delete for yours (and Retry, Find the answer in your
+ * assistant's chat), Copy and Report for someone else's, Copy, Read aloud and Retry for an
+ * answer. Delete and Report each ask first. Inside `MatrixMessageContextMenu` the same items
+ * also open at the pointer on a right-click.
+ */
+export function MatrixMessageMenu({
+  deleteNote,
+  kind,
+  label,
+  onDelete,
+  onOpenChange,
+  onReport,
+  open,
+  ...items
+}: Omit<MatrixMessageMenuItemsProps, 'confirmDelete' | 'confirmReport'> & {
+  /** Said in Delete's confirmation, after what deleting does (your assistant may remember). */
+  deleteNote?: string
+  kind: 'answer' | 'own' | 'report'
+  label: string
+  /** Rejects when the message could not be deleted; the dialog says so and stays open. */
+  onDelete?: () => Promise<void>
+  onOpenChange?: (open: boolean) => void
+  /** Rejects when the report could not be sent; the dialog says so and stays open. `reason`:
+   * the person's own optional words. */
+  onReport?: (reason?: string) => Promise<void>
+  open?: boolean
+}) {
+  const copy = useChatCopy()
+  const inContextMenu = useContext(ContextMenuScope)
+  const [confirming, setConfirming] = useState<'delete' | 'report' | null>(null)
+  const { link, onEdit, onFindAnswer, onForward, onPin, onRetry, readAloud, saved, text, toCard } = items
+
+  if (
+    !text &&
+    !link &&
+    !onEdit &&
+    !onDelete &&
+    !onReport &&
+    !onRetry &&
+    !onFindAnswer &&
+    !onForward &&
+    !onPin &&
+    !readAloud &&
+    !saved &&
+    !toCard
+  ) {
     return null
+  }
+
+  const menuItems = {
+    ...items,
+    confirmDelete: onDelete ? () => setConfirming('delete') : undefined,
+    confirmReport: onReport ? () => setConfirming('report') : undefined
   }
 
   return (
@@ -326,73 +525,14 @@ export function MatrixMessageMenu({
           </DropdownMenuTrigger>
         </Tip>
         <DropdownMenuContent align="end" className="min-w-44">
-          {text && <CopyButton appearance="menu-item" haptic={false} text={text} />}
-          {onForward && (
-            <DropdownMenuItem onSelect={onForward}>
-              <Share aria-hidden />
-              {copy.forward}
-            </DropdownMenuItem>
-          )}
-          {link && <CopyButton appearance="menu-item" haptic={false} label={messageLink.copyLink} text={link} />}
-          {saved && (
-            <DropdownMenuItem disabled={saved.busy} onSelect={saved.onSelect}>
-              {saved.active ? <BookmarkFilled aria-hidden /> : <Bookmark aria-hidden />}
-              {saved.label}
-            </DropdownMenuItem>
-          )}
-          {toCard && (
-            <DropdownMenuItem data-matrix-turn-into-task disabled={toCard.busy} onSelect={toCard.onSelect}>
-              <Checklist aria-hidden />
-              {toCard.label}
-            </DropdownMenuItem>
-          )}
-          {onPin && (
-            <DropdownMenuItem disabled={pinning} onSelect={onPin}>
-              {pinned ? <PinOff aria-hidden /> : <Pin aria-hidden />}
-              {pinned ? pinnedCopy.unpinMessage : pinnedCopy.pinMessage}
-            </DropdownMenuItem>
-          )}
-          {readAloud && (
-            <DropdownMenuItem disabled={readAloud.busy} onSelect={readAloud.onSelect}>
-              <readAloud.Icon aria-hidden className={readAloud.preparing ? 'animate-spin' : undefined} />
-              {readAloud.label}
-            </DropdownMenuItem>
-          )}
-          {onEdit && (
-            <DropdownMenuItem onSelect={onEdit}>
-              <Pencil aria-hidden />
-              {copy.edit}
-            </DropdownMenuItem>
-          )}
-          {onRetry && (
-            <DropdownMenuItem disabled={retryDisabled} onSelect={onRetry}>
-              <Refresh aria-hidden />
-              {copy.retry}
-            </DropdownMenuItem>
-          )}
-          {onFindAnswer && (
-            <DropdownMenuItem disabled={findDisabled} onSelect={onFindAnswer}>
-              <Search aria-hidden />
-              {copy.findAnswer}
-            </DropdownMenuItem>
-          )}
-          {onReport && (
-            <DropdownMenuItem disabled={reported} onSelect={() => setConfirming('report')}>
-              <Flag aria-hidden />
-              {copy.report}
-            </DropdownMenuItem>
-          )}
-          {onDelete && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setConfirming('delete')} variant="destructive">
-                <Trash2 aria-hidden />
-                {copy.delete}
-              </DropdownMenuItem>
-            </>
-          )}
+          <MatrixMessageMenuItems {...menuItems} surface="dropdown" />
         </DropdownMenuContent>
       </DropdownMenu>
+      {inContextMenu && (
+        <ContextMenuContent className="min-w-44" data-matrix-message-context-menu>
+          <MatrixMessageMenuItems {...menuItems} surface="context" />
+        </ContextMenuContent>
+      )}
       {onDelete && (
         <ConfirmDialog
           cancelLabel={copy.cancel}
@@ -473,10 +613,7 @@ export function MatrixDeletedMessage() {
   const copy = useChatCopy()
 
   return (
-    <p
-      className="flex items-center gap-1.5 py-1 text-sm text-(--atum-ink-muted) italic"
-      data-matrix-message-deleted
-    >
+    <p className="flex items-center gap-1.5 py-1 text-sm text-(--atum-ink-muted) italic" data-matrix-message-deleted>
       <Trash2 aria-hidden className="size-3.5 shrink-0" />
       <span>{copy.messageDeleted}</span>
     </p>
@@ -484,17 +621,15 @@ export function MatrixDeletedMessage() {
 }
 
 /** A message that didn't send: one quiet line and one immediate retry. Delete stays in "…". */
-export function MatrixFailedSend({
-  disabled,
-  onRetry
-}: {
-  disabled?: boolean
-  onRetry(): void
-}) {
+export function MatrixFailedSend({ disabled, onRetry }: { disabled?: boolean; onRetry(): void }) {
   const copy = useChatCopy()
 
   return (
-    <div className="flex items-center gap-(--ak-s2) [font:var(--ak-t-caption)] text-(--ak-ink-3)" data-matrix-send-failed role="status">
+    <div
+      className="flex items-center gap-(--ak-s2) [font:var(--ak-t-caption)] text-(--ak-ink-3)"
+      data-matrix-send-failed
+      role="status"
+    >
       <Info aria-hidden className="ak-icon ak-icon--sm text-(--ak-ink-4)" />
       <span>{copy.notSentOffline}</span>
       <button className="ak-btn ak-btn--plain ak-btn--sm" disabled={disabled} onClick={onRetry} type="button">
@@ -521,10 +656,13 @@ export function matrixFileSize(bytes: number, locale: string): string {
 /** A file: its name and size on a card, and Save (received) or Remove (staged). */
 export function MatrixFileCard({
   action,
+  meta,
   name,
   size
 }: {
   action?: ReactNode
+  /** The message's time (and your tick), on the size line's far end, as Telegram draws a file. */
+  meta?: ReactNode
   name: string
   size?: number
 }) {
@@ -540,9 +678,10 @@ export function MatrixFileCard({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-(length:--atum-t-control) font-semibold text-(--atum-ink)">{name}</span>
-        {size !== undefined && (
-          <span className="block text-(length:--atum-t-label) text-(--atum-ink-muted)">
-            {matrixFileSize(size, locale)}
+        {(size !== undefined || meta) && (
+          <span className="flex items-center gap-2 text-(length:--atum-t-label) text-(--atum-ink-muted)">
+            {size !== undefined && <span className="truncate">{matrixFileSize(size, locale)}</span>}
+            {meta && <span className="ms-auto shrink-0">{meta}</span>}
           </span>
         )}
       </span>

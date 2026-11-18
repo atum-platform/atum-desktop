@@ -74,6 +74,20 @@ def tool_activity(name):
                  if isinstance(name, str) and re.fullmatch(pattern, name)), None)
 
 
+def video_consent_required(tool_name, result):
+    """Whether a finished `video_generate` call was refused for want of the owner's video consent:
+    the host's selection or key refusal surfaces as the tool's `error_type` (docs/video-generation-consent.md).
+    Only that closed code is read, never the error text, prompt or anything else of the result."""
+    if tool_name != 'video_generate':
+        return False
+    if isinstance(result, str):
+        try:
+            result = json.loads(result)
+        except ValueError:
+            return False
+    return isinstance(result, dict) and result.get('success') is False and result.get('error_type') == 'video_consent_required'
+
+
 def descriptor(code, **args):
     """A closed `io.atum.presentation` descriptor: a code and bounded arguments, never prose."""
     return {'version': 1, 'code': code, 'args': args}
@@ -751,8 +765,15 @@ def register_hooks(ctx):
         if turn and source_event_id == turn.source and admission_id == turn.admission_id:
             turn.stopped = True
             asyncio.run_coroutine_threadsafe(turn.end(), turn.loop)
-    def todos(tool_name='', args=None, status=None, **_):
+    def finished_tool(tool_name='', args=None, status=None, result=None, **_):
         turn = _current.get()
+        if turn and not turn.ended and video_consent_required(tool_name, result):
+            # The host refused the video step for want of the owner's one-time consent. A code on
+            # the line, never words: the owner's app shows its consent card (presentation only).
+            asyncio.run_coroutine_threadsafe(
+                turn.progress(kind='device', phase='waiting', presentation=descriptor('video_consent_required')),
+                turn.loop)
+            return
         if turn and tool_name == 'todo' and status not in ('cancelled', 'error', 'blocked') and isinstance(args, dict):
             from agent.redact import redact_for_egress
             items = args.get('todos')
@@ -773,7 +794,7 @@ def register_hooks(ctx):
         if turn:
             asyncio.run_coroutine_threadsafe(turn.resume(), turn.loop)
     ctx.register_hook('pre_tool_call', started_tool)
-    ctx.register_hook('post_tool_call', todos)
+    ctx.register_hook('post_tool_call', finished_tool)
     ctx.register_hook('pre_approval_request', waiting)
     ctx.register_hook('post_approval_response', resumed)
     ctx.register_hook('agent_loop_stopped', stopped)

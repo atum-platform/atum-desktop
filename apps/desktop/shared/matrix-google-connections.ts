@@ -4,6 +4,11 @@
  * references and filesystem locations never cross into the renderer.
  */
 import type { DesktopLocale } from './desktop-locale'
+import type {
+  MatrixGoogleWriteActionAnswer,
+  MatrixGoogleWriteActionInput,
+  MatrixGoogleWriteListAnswer
+} from './matrix-google-write-proposal'
 
 export type MatrixGoogleConnectionKind = 'email' | 'calendar' | 'drive'
 export type MatrixGoogleConnectionState = 'connected' | 'reconnect'
@@ -60,10 +65,18 @@ export interface MatrixGoogleConnectionContext {
 }
 
 export const MATRIX_GOOGLE_CONNECTION_IPC = 'matrix:google-connections:request'
+/** Google write cards: the owner's pending proposals and the card's delivered/approve/decline
+ * (its own channel: its answers are not a connection status). */
+export const MATRIX_GOOGLE_WRITE_IPC = 'matrix:google-connections:write-proposals'
 
 export interface MatrixGoogleConnectionBridge {
   status(context?: MatrixGoogleConnectionContext): Promise<MatrixGoogleConnectionResult>
   connect(grant: MatrixGoogleConnectionGrant, context?: MatrixGoogleConnectionContext): Promise<MatrixGoogleConnectionResult>
   disconnect(groupId: string): Promise<MatrixGoogleConnectionResult>
   setSourcePreferences(preferences: ReadonlyArray<{ id: string; enabled: boolean }>): Promise<MatrixGoogleConnectionResult>
+  /** The owner's pending Google write proposals, read by main with the owner's bearer
+   * (docs/google-write-confirmation.md, `MATRIX_GOOGLE_WRITE_IPC`). Absent on a build without it. */
+  writeProposals?(): Promise<MatrixGoogleWriteListAnswer>
+  /** A card's delivered report, Approve or Decline, with the digest of the draft it rendered. */
+  writeProposalAction?(input: MatrixGoogleWriteActionInput): Promise<MatrixGoogleWriteActionAnswer>
 }

@@ -67,8 +67,10 @@ import {
   SubscriptionConnectDialog,
   SubscriptionManageDialog,
   subscriptionProviderStatus,
-  useMatrixSubscriptions
+  useMatrixSubscriptions,
+  useSubscriptionsBridge
 } from './subscriptions'
+import { VideoConsentSettings } from './video-consent-settings'
 import { wholeProtons } from './wallet-ui'
 import { workplacePageText } from './workplace'
 import { workplaceDeveloperPages } from './workplace-nav'
@@ -519,6 +521,7 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
 /** Account Connections: subscriptions first, then the sources every assistant may use. */
 function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   const copy = useMatrixSettingsCopy()
+  const subscriptionsBridge = useSubscriptionsBridge()
 
   return (
     <div data-matrix-settings-destination="connections">
@@ -527,6 +530,10 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
         />
       </SettingsSection>
+      <VideoConsentSettings
+        bridge={subscriptionsBridge}
+        scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
+      />
       <MatrixKnowledgeSourcesSettings
         // Account-wide: the open chat or assistant never remounts (or re-fences) these switches.
         key={`knowledge-sources:${snapshot.petScope ?? snapshot.identity?.userId ?? 'none'}`}

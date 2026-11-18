@@ -5458,13 +5458,16 @@ def resolve_provider_client(
     client for ``responses.stream()`` callers. ``api_mode`` forces "codex_responses"/"chat_completions"/
     "anthropic_messages" instead of auto-detect. Returns (client, resolved_model) or (None, None)."""
     from agent.workspace_route_guard import protected_auxiliary_client
-    from agent.atum_google_fence import fence_active, route_allowed, native_protected
+    from agent.atum_google_fence import fence_active, route_allowed, native_protected, native_selection, relay_latched
 
     if protected := protected_auxiliary_client(async_mode=async_mode):
         return protected
     if native_protected() and _normalize_aux_provider(provider) not in {"openrouter", "auto"}:
         return None, None
-    if (fence_active() or native_protected()) and explicit_base_url and not route_allowed(
+    if native_selection().get("google_latched") and not native_protected():
+        if not relay_latched() or _normalize_aux_provider(provider) not in {"atum-cloud", "openrouter", "auto"}:
+            return None, None
+    if (fence_active() or native_protected() or native_selection().get("google_latched")) and explicit_base_url and not route_allowed(
         explicit_base_url, api_mode
     ):
         return None, None

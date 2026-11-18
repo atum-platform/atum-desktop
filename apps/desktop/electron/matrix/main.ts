@@ -168,7 +168,7 @@ import {
   matrixFirstLearningStarting
 } from '../../shared/matrix-first-learning'
 import { matrixFirstRunPlace } from '../../shared/matrix-first-run-place'
-import { MATRIX_GOOGLE_CONNECTION_IPC } from '../../shared/matrix-google-connections'
+import { MATRIX_GOOGLE_CONNECTION_IPC, MATRIX_GOOGLE_WRITE_IPC } from '../../shared/matrix-google-connections'
 import { MATRIX_GOOGLE_PROTECTED_MODEL } from '../../shared/matrix-google-tools'
 import { matrixGroupAudience, matrixGroupMode } from '../../shared/matrix-group-room'
 import { formatMatrixHandleDiagnostic } from '../../shared/matrix-handle-diagnostic'
@@ -202,6 +202,7 @@ import {
   parseMatrixModelRouteId
 } from '../../shared/matrix-models'
 import { MATRIX_NATIVE_APPS } from '../../shared/matrix-native-apps'
+import { MATRIX_NATIVE_MAC_IPC } from '../../shared/matrix-native-mac'
 import type { MatrixNoticeEdit } from '../../shared/matrix-notice-edit'
 import { MATRIX_PAGE_IDS, matrixPagesHubAllowed } from '../../shared/matrix-pages'
 import {
@@ -611,6 +612,9 @@ import {
 import { DesktopHomeMigration, type MigrationLocalAgent } from './device/migration-client'
 import { confirmMigrationReport } from './device/migration-confirmation'
 import { MigrationWriterHolds } from './device/migration-hold'
+import { confirmNativeCommand } from './device/native-command-confirm'
+import { NativeMacSsh, REMOTE_LOGIN_SETTINGS } from './device/native-ssh'
+import { createNativeSshSystem } from './device/native-ssh-system'
 import { createDeviceNativeUi } from './device/native-ui'
 import { appBundleOf } from './device/protected-paths'
 import { createDeviceRuntime, type DeviceRuntime } from './device/runtime'
@@ -660,7 +664,7 @@ import {
   matrixFounderView
 } from './founder-chat'
 import { ensureMatrixFullHermes } from './full-hermes'
-import { createMatrixGoogleConnectionIpcHandler, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
+import { createMatrixGoogleConnectionIpcHandler, createMatrixGoogleWriteIpcHandler, matrixGoogleWriteProposals, publishMatrixGoogleFence, requestMatrixGoogleAccountConnect, requestMatrixGoogleAccountStatus } from './google-connection-boundary'
 import { type MatrixGoogleConnectionOwner, MatrixGoogleConnections } from './google-connections'
 import {
   MatrixGoogleFenceNotices,
@@ -825,6 +829,7 @@ import {
   operatorMoveDirectory,
   operatorMoveTicker
 } from './operator-move'
+import { FileOwnerConsentRevokeJournal } from './owner-consent'
 import { MatrixOwnerDeviceRepair, matrixOwnerRepairError, matrixOwnerRepairPreservesWork } from './owner-device-repair'
 import {
   forgetMatrixOwnerKey,
@@ -959,6 +964,7 @@ import { MATRIX_TURN_STOPPED } from './turn-failure'
 import { MatrixHermesTurnLock } from './turn-lock'
 import { matrixRoomLogHash, MatrixUndecryptableLog } from './undecryptable-log'
 import { MatrixUnverifiedDevices } from './unverified-devices'
+import { MatrixVideoGenerationConsent, requestMatrixVideoConsent } from './video-generation-consent'
 import { parseMatrixVoiceRequest } from './voice'
 import { bindMatrixVoice, matrixVoiceFramePermission, type MatrixVoiceSource } from './voice-binding'
 import { MatrixWalletController, matrixWalletCursor } from './wallet'
@@ -1465,6 +1471,7 @@ function reconcileDeviceControl(force = false): Promise<void> {
       deviceControlOwner = presence.state === 'enrolled' ? undefined : identity
 
       if (presence.state === 'enrolled') {
+        void nativeMacSsh?.start()
         executionDeviceNames.invalidate()
         executionPolicies?.refreshAll()
         scheduleExecutionPolicyReconcile()
@@ -2129,6 +2136,7 @@ let founderChat: ReturnType<typeof createMatrixFounderChat> | undefined
 // ------------------------------------------------------------------------------------------------
 
 let deviceIdentity: MacDeviceIdentity | undefined
+let nativeMacSsh: NativeMacSsh | undefined
 let deviceBootstrap: DeviceServiceBootstrap | undefined
 let deviceNativeUi: ReturnType<typeof createDeviceNativeUi> | undefined
 let deviceWorkspace: DriveWorkspaceCopies | undefined
@@ -2140,6 +2148,7 @@ let providerConnections: MatrixProviderConnections | undefined
 let chatGptCarry: ChatGptCarry | undefined
 let chatGptRelay: MatrixChatGptRelay | undefined
 let chatGptTraining: MatrixChatGptTrainingConfirmation | undefined
+let videoConsent: MatrixVideoGenerationConsent | undefined
 let modelDestinations: MatrixModelDestinations | undefined
 let cloudHomeReader: MatrixCloudHomeReader | undefined
 /** The agents the roster says answer in the cloud, by principal (atum.cloud-answering/1). */
@@ -2752,6 +2761,7 @@ function buildDeviceRuntime(): DeviceRuntime {
     approvalKey: () => deviceIdentity?.approvalKey() ?? null,
     deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId ?? null,
     chatGptRelay: {
+      sshBindings: () => nativeMacSsh?.relayBindings() ?? [],
       authority: () => {
         const ownerPrincipal = account?.enrollment().identity?.principal
         const deviceServiceId = deviceIdentity?.enrollment()?.deviceServiceId
@@ -6988,6 +6998,7 @@ function publish(next: MatrixSnapshot) {
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -17473,6 +17484,7 @@ function endChatSession(): Promise<void> {
     ownerDeviceRepair = undefined
     deviceControlOwner = undefined
     matrixDeviceStopFence?.('sign_out')
+    await nativeMacSsh?.disconnect().catch(() => console.warn('[Device] native SSH revoke pending after session end'))
     deviceIdentity?.signOut('sign_out')
     executionDeviceNames.invalidate()
     scheduleContinuousListening()
@@ -17958,6 +17970,72 @@ async function start() {
   appBotTrustStore = new EncryptedStore(path.join(app.getPath('userData'), 'app-bot-trust.json'), safeStorage)
   // S1 WS-3b: this Mac's device service and the owner side of cloud enrollments.
   deviceIdentity = createDeviceIdentity()
+
+  if (process.platform === 'darwin') {
+    nativeMacSsh = new NativeMacSsh({
+      ownerPrincipal: () => account?.enrollment().identity?.principal,
+      enrollment: () => deviceIdentity?.enrollment() ?? null,
+      call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
+      system: createNativeSshSystem(),
+      settings: outcomeStore
+    })
+    ipcMain.handle(MATRIX_NATIVE_MAC_IPC.ssh, async (event, action: unknown) => {
+      requireMatrixCaller(event, ui?.webContents, UI_URL)
+
+      if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
+        throw new Error('signed_out')
+      }
+
+      switch (action) {
+        case 'status':
+          return nativeMacSsh!.status()
+
+        case 'connect':
+          await nativeMacSsh!.start(true)
+
+          break
+
+        case 'enable_remote_login':
+          await nativeMacSsh!.enableRemoteLogin()
+
+          break
+
+        case 'disconnect':
+          await nativeMacSsh!.disconnect()
+
+          break
+
+        case 'full_disk_access_hint': return nativeMacSsh!.fullDiskAccessHint()
+
+        case 'open_settings':
+          await shell.openExternal(REMOTE_LOGIN_SETTINGS)
+          nativeMacSsh!.acknowledgeFullDiskAccessHint()
+
+          break
+
+        default: throw new Error('invalid_native_ssh_action')
+      }
+
+      return nativeMacSsh!.status()
+    })
+    // A command approval in a chat (Hermes's own answer is the window's reaction): one fresh Touch ID first.
+    ipcMain.handle(MATRIX_NATIVE_MAC_IPC.confirmCommand, (event, command: unknown) => {
+      requireMatrixCaller(event, ui?.webContents, UI_URL)
+
+      if (!account.identity() || account.sessionEnded() || account.signOutPending()) {
+        throw new Error('signed_out')
+      }
+
+      return confirmNativeCommand(command, {
+        touchId: {
+          can: () => systemPreferences.canPromptTouchID(),
+          prompt: reason => systemPreferences.promptTouchID(reason)
+        },
+        locale: deviceLocale
+      })
+    })
+  }
+
   cloudEnrollments = createCloudEnrollments()
   // Which Mac an agent lives on (atum.agent-home/2.1). Inert for a signed-out account, for an agent the
   // platform has not placed under the model, and against a platform that has no such routes.
@@ -18620,10 +18698,12 @@ async function start() {
     home: subscriptionAuthHome,
     custody: (home, action) => {
       if (!runtime) {throw new Error('carry_unavailable')}
+
       return carryCustody(runtime.python, runtime.source, home, action)
     },
     drain: async () => {
       deviceBootstrap?.configureChatGptRelay(false, [])
+
       // Do not use refreshSubscriptionAgents: that helper immediately restarts consumers.
       for (const each of allAgents()) {if (!each.closed) {await stopHost(each.role)}}
       await retireSubscriptionProviders()
@@ -18631,9 +18711,11 @@ async function start() {
     carried: () => { chatGptRelay?.markCarried(); void chatGptRelay?.refresh(); recheckAgents() },
     restored: () => {
       const relay = chatGptRelay?.view()
+
       if (relay?.state === 'enabled' && relay.deviceServiceId === deviceIdentity?.enrollment()?.deviceServiceId) {
         deviceBootstrap?.configureChatGptRelay(true, relay.models.map(model => model.id))
       }
+
       recheckAgents()
     },
     call: (body, signal) => account.s1Request(
@@ -18664,6 +18746,16 @@ async function start() {
           return Object.values(googleConnections?.services() ?? {}).some(Boolean) ||
             Boolean(accountKey && googleFenceNotices?.seen(accountKey))
         }
+      })
+    : undefined
+
+  videoConsent = config.domain
+    ? new MatrixVideoGenerationConsent({
+        scope: () => account.appScope(),
+        // A pending turn-off's key, per account, so a restart resumes it with the same key.
+        journal: new FileOwnerConsentRevokeJournal(path.join(app.getPath('userData'), 'video-consent')),
+        call: (method, signal, init) => account.s1Request(
+          (accessToken, resource) => requestMatrixVideoConsent(resource, accessToken, method, signal, init), signal)
       })
     : undefined
 
@@ -19086,6 +19178,15 @@ async function start() {
       firstRunConnected: async context => {
         await firstRun.start({ locale: context.locale, ending: 'done' })
       }
+    })
+  )
+  // Google write cards: the pending list and each card's delivered/approve/decline, sent with the
+  // owner's bearer (never the renderer's). Nothing is posted into any room.
+  ipcMain.handle(
+    MATRIX_GOOGLE_WRITE_IPC,
+    createMatrixGoogleWriteIpcHandler({
+      assertSender: (event: Electron.IpcMainInvokeEvent) => requireMatrixCaller(event, ui?.webContents, UI_URL),
+      proposals: () => (config.domain && state.identity ? matrixGoogleWriteProposals(account) : undefined)
     })
   )
 
@@ -23796,6 +23897,24 @@ async function start() {
         return chatGptTraining ? chatGptTraining.revoke() : { status: 'unavailable' as const }
       }
 
+      // The one-time video-generation consent (Shell video-generation/consent). Main only forwards
+      // the person's explicit Allow and Turn off; the server owns the record and its locale.
+      if (request?.kind === 'videoConsent') {
+        if (!videoConsent) {
+          throw new Error('matrix_subscriptions_unavailable')
+        }
+
+        return videoConsent.read()
+      }
+
+      if (request?.kind === 'videoConsentAllow') {
+        return videoConsent ? videoConsent.allow() : { status: 'unavailable' as const }
+      }
+
+      if (request?.kind === 'videoConsentRevoke') {
+        return videoConsent ? videoConsent.revoke() : { status: 'unavailable' as const }
+      }
+
       if (request?.kind === 'subscriptionOpenCodeSave') {
         const value = subscriptionKey(request.value)
         const keys = subscriptionKeys()
@@ -25721,6 +25840,7 @@ async function start() {
             matrixDeviceStopFence?.('sign_out')
             // S1 WS-3b: the device fence comes first and is synchronous: the account epoch moves on
             // and the hub connection closes with a signed Stop (WS-4's stop.ts joins it here).
+            await nativeMacSsh?.disconnect()
             deviceIdentity?.signOut('sign_out')
             await ownPresence.offline()
             executionDeviceNames.invalidate()

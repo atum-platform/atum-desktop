@@ -89,6 +89,7 @@ import type {
   MatrixModelRouteTarget
 } from './matrix-models'
 import type { MatrixNativeAppsBridge } from './matrix-native-apps'
+import type { MatrixNativeMacBridge } from './matrix-native-mac'
 import type { MatrixNotesSelfSnapshot } from './matrix-notes-self'
 import type { MatrixNotificationPolicy, MatrixNotificationPolicyChange } from './matrix-notification-policy'
 import type { MatrixOwnerLocationBridge } from './matrix-owner-location'
@@ -121,6 +122,11 @@ import type {
 } from './matrix-subscriptions'
 import type { MatrixTaskFilesPromise } from './matrix-task-files'
 import type { MatrixTerminalBridge, MatrixTerminalReadRequest, MatrixTerminalTab } from './matrix-terminal'
+import type {
+  MatrixVideoConsentAllowResult,
+  MatrixVideoConsentRevokeResult,
+  MatrixVideoConsentStatus
+} from './matrix-video-consent'
 import type { MatrixVoiceBridge } from './matrix-voice'
 import type { MatrixWalletBridge, MatrixWalletState } from './matrix-wallet'
 import type { MatrixWindowAppearance, MatrixWindowFacts, MatrixWindowMode } from './matrix-window'
@@ -2091,6 +2097,12 @@ export interface MatrixSubscriptionsBridge {
   /** Only after the person ticked the box and pressed Confirm, for the connection the card read. */
   confirmChatGptTraining?(connectionId: string): Promise<MatrixChatGptTrainingConfirmResult>
   revokeChatGptTraining?(): Promise<MatrixChatGptTrainingRevokeResult>
+  /** The account's one-time video-generation consent; a failed read throws, never "not consented". */
+  videoConsent?(): Promise<MatrixVideoConsentStatus>
+  /** Only after the person ticked the box and pressed Allow video. */
+  allowVideoConsent?(): Promise<MatrixVideoConsentAllowResult>
+  /** Turn off: one saved Idempotency-Key until the platform confirms. */
+  revokeVideoConsent?(): Promise<MatrixVideoConsentRevokeResult>
   /** The account-wide OpenCode Go connection: the key is sent once and never read back. */
   connectOpenCode(value: string): Promise<MatrixSubscriptionKeyResult>
   disconnectOpenCode(): Promise<void>
@@ -2134,6 +2146,8 @@ export interface MatrixUiBridge {
   nativeApps?: MatrixNativeAppsBridge
   /** Passive permissions of this running app on this device; no agent authority. */
   permissions?: MatrixPermissionsBridge
+  /** Native Hermes reaching this Mac (Remote Login + tunnel) and the Touch ID before a command approval. */
+  nativeMac?: MatrixNativeMacBridge
   /** Per-account live source switches; every read remains main/tool-handler enforced. */
   macSources?: MatrixMacSourcesBridge
   /** Current-assistant descriptor projection; main owns both account and assistant selection. */

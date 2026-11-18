@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -124,6 +125,7 @@ interface BundledRuntimeDeps {
   directoryExists?: (candidate: string) => boolean
   readFile?: (candidate: string) => string
   executableFile?: (candidate: string) => boolean
+  cleanupRuntime?: typeof cleanupVerifiedBundledRuntime
   probeRuntime?: (python: string, options: { env: NodeJS.ProcessEnv }) => boolean
 }
 
@@ -285,7 +287,8 @@ function resolveBundledHermesRuntime(options: ResolveBundledRuntimeOptions) {
         return false
       }
     },
-    probeRuntime
+    probeRuntime,
+    cleanupRuntime
   } = options
 
   if (!usesBundledHermesRuntime({ isPackaged, platform })) {
@@ -375,6 +378,8 @@ function resolveBundledHermesRuntime(options: ResolveBundledRuntimeOptions) {
     return reject('runtime launch probe failed')
   }
 
+  cleanupRuntime?.(layout.python, layout.sourceRoot, hermesHome)
+
   return {
     kind: 'python',
     label: `bundled Hermes ${manifest.identity?.runtimeCommit?.slice(0, 12)} (Python ${manifest.python?.version})`,
@@ -392,11 +397,23 @@ function resolveBundledHermesRuntime(options: ResolveBundledRuntimeOptions) {
   }
 }
 
+/** Called only after the bundle identity and import probe pass. PM owns retention and leases. */
+function cleanupVerifiedBundledRuntime(python: string, source: string, home: string): void {
+  spawnSync(python, ['-I', '-B', '-c',
+    'import sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); from pm.desktop_runtime import cleanup_desktop_installs; cleanup_desktop_installs(Path(sys.argv[1]), verified_bundle=True)',
+    source], {
+    env: { ...process.env, HERMES_HOME: home, PYTHON_DOTENV_DISABLED: '1' },
+    timeout: 5_000,
+    stdio: 'ignore'
+  })
+}
+
 export {
   BUNDLED_PYTHON_VERSION,
   BUNDLED_RUNTIME_SCHEMA_VERSION,
   BundledRuntimeIdentityError,
   bundledRuntimeLayout,
+  cleanupVerifiedBundledRuntime,
   readBundledRuntimeManifest,
   requiresImmutableBundledRuntime,
   resolveBundledHermesRuntime,

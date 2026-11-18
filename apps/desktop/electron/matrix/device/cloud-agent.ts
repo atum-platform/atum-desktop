@@ -60,6 +60,7 @@ import {
 } from './enrollment'
 import { DeviceEpochs } from './epochs'
 import type { ApprovalKeyRef } from './grants-store'
+import type { NativeSshRequest } from './native-ssh'
 import { DeviceOrigin, type OriginReceiptBody } from './origin'
 
 export type MatrixAnswering = 'local' | 'cloud'
@@ -70,6 +71,7 @@ export const MATRIX_CLOUD_AGENT_UNSUPPORTED = 'matrix_cloud_agent_unsupported'
 // ------------------------------------------------------------------ S1 owner routes
 
 export type S1Resource =
+  | { kind: 'native-ssh'; request: NativeSshRequest }
   | { kind: 'controller-keys' }
   | { kind: 'device-services' }
   | { kind: 'source-authority'; agentPrincipal: string; gate: string; expectedRevision: number | null }
@@ -108,6 +110,9 @@ export function s1Route(resource: S1Resource): {
   bearer: boolean
 } {
   switch (resource.kind) {
+    case 'native-ssh':
+      return { method: 'POST', path: '/device-services', body: resource.request, bearer: true }
+
     case 'controller-keys':
       return { method: 'GET', path: '/cloud/controller-keys', bearer: false }
 

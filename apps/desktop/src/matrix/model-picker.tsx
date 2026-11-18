@@ -62,8 +62,8 @@ import {
 } from '../../shared/matrix-subscriptions'
 
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
-import { MatrixModelEffortSlider } from './model-effort-slider'
 import { useModelPickerCopy } from './model-picker-copy'
+import { ModelPickerEffortColumn, pickerEffortChoice } from './model-picker-effort-column'
 import { type PickerFilterSource } from './model-picker-filter'
 import { ModelPickerList, shelfPrice } from './model-picker-list'
 import { MODEL_PICKER_CARD, ModelPickerPanel, useModelPickerKeys } from './model-picker-panel'
@@ -390,6 +390,8 @@ export function MatrixModelPicker({
   )
 
   const [pendingEffort, setPendingEffort] = usePendingPick<MatrixEffort>(room.effort)
+  // A cloud plan's thinking level, saved with its model (`atum.model-choice/1.4`), held until sync.
+  const [pendingPlanEffort, setPendingPlanEffort] = usePendingPick<MatrixEffort>(cloudSubscription?.effort)
   const [pendingConnected, setPendingConnected] = useState<{ route: MatrixModelRoute; saved: boolean } | null>(null)
   const [pendingCloudSubscription, setPendingCloudSubscription] = useState<{
     route: MatrixModelRoute
@@ -1029,6 +1031,40 @@ export function MatrixModelPicker({
   const effortIssue =
     localMode && exactRoute ? matrixModelEffortReconciliation(exactRoute.efforts, chosenEffort) : { supported: true }
 
+  // The thinking column: the current model's levels, where a level can be saved for it. A cloud
+  // plan model (ChatGPT, OpenCode Go) saves its level with the plan choice; a model connected on
+  // this Mac saves it per conversation. Atum's own models take one level, so they get no column.
+  const currentPlan = cloudSubscriptions && !atumPickHeld
+    ? cloudSubscriptionRoutes.find(({ route }) => isCurrent(route))
+    : undefined
+
+  const planEffortChoice = currentPlan
+    ? pickerEffortChoice({
+        efforts: currentPlan.route.efforts,
+        defaultEffort: currentPlan.defaultEffort,
+        value:
+          pendingPlanEffort?.value ??
+          (!pendingCloudSubscription && cloudSubscription?.model === currentPlan.route.model
+            ? cloudSubscription.effort
+            : undefined)
+      })
+    : undefined
+
+  const localEffortChoice =
+    !currentPlan && !managed && !homeMode ? pickerEffortChoice({ efforts, value: chosenEffort }) : undefined
+
+  // The column belongs to the model you have now, so it shows only on that model's own list;
+  // browsing another provider's list (e.g. Atum's) must not show the current model's levels.
+  const effortOnCurrentList = !filter.favoritesOnly && filter.source !== undefined && filter.source === currentProvider
+
+  const effortColumn = !effortOnCurrentList
+    ? undefined
+    : planEffortChoice && currentPlan
+    ? { model: currentPlan.route.name, choice: planEffortChoice, plan: currentPlan }
+    : localEffortChoice
+      ? { model: offered?.displayName ?? '', choice: localEffortChoice }
+      : undefined
+
   const displayRoute = localRows ? (pendingConnected?.route ?? exactRoute) : undefined
 
   const homeDisplayRoute = homeMode
@@ -1121,6 +1157,7 @@ export function MatrixModelPicker({
       setPendingHome(null)
       setPendingModel(null)
       setPendingEffort(null)
+      setPendingPlanEffort(null)
       setRetryPick(null)
       setQuery('')
       setFilter({ favoritesOnly: false, source: initialSource })
@@ -1545,6 +1582,46 @@ export function MatrixModelPicker({
     )
   }
 
+  /** A new thinking level for the cloud plan model that answers now: the same plan write, same model. */
+  const chooseCloudPlanEffort = (plan: PickerRoute, level: MatrixEffort) => {
+    const write = window.atumMatrix.modelDestinations?.writeSubscription
+
+    if (!write || !agentPrincipal || switching || pendingPlanEffort?.saved === false) {
+      return
+    }
+
+    const context = beginSelection()
+    setPendingPlanEffort({ value: level, saved: false })
+
+    void write(
+      agentPrincipal,
+      plan.route.provider === 'openai-codex' ? 'chatgpt_plan' : 'opencode_go',
+      plan.route.model,
+      level
+    ).then(
+      result => {
+        if (!context.current()) {
+          return
+        }
+
+        if (result?.status !== 'saved') {
+          setPendingPlanEffort(null)
+          fail()
+
+          return
+        }
+
+        setPendingPlanEffort({ value: level, saved: true })
+      },
+      () => {
+        if (context.current()) {
+          setPendingPlanEffort(null)
+          fail()
+        }
+      }
+    )
+  }
+
   const chooseLocalRoute = (picked: PickerRoute) => {
     const homeOption = homeOptionByRoute.get(picked.route.id)
 
@@ -1681,10 +1758,11 @@ export function MatrixModelPicker({
     setPendingHome(null)
     setPendingModel(null)
     setPendingEffort(null)
+    setPendingPlanEffort(null)
     setRetryPick(null)
     setQuery('')
     setFilter({ favoritesOnly: false, source: initialSourceRef.current })
-  }, [room.id, scope, setPendingEffort, setPendingModel])
+  }, [room.id, scope, setPendingEffort, setPendingModel, setPendingPlanEffort])
 
   // Reconcile a refreshed projection in place. Changing provider/home can change which rows are
   // valid, but it is still the same host and must not dismiss the shared picker.
@@ -1707,10 +1785,11 @@ export function MatrixModelPicker({
     setPendingHome(null)
     setPendingModel(null)
     setPendingEffort(null)
+    setPendingPlanEffort(null)
     setRetryPick(null)
     setQuery('')
     setFilter({ favoritesOnly: false, source: initialSource })
-  }, [initialSource, macAnswers, scope, setPendingEffort, setPendingModel])
+  }, [initialSource, macAnswers, scope, setPendingEffort, setPendingModel, setPendingPlanEffort])
 
   useEffect(
     () => () => {
@@ -1790,7 +1869,7 @@ export function MatrixModelPicker({
     onSubscriptions?.()
   }
 
-  const keys = useModelPickerKeys(list, search)
+  const keys = useModelPickerKeys(list, search, text => setQuery(previous => previous + text))
 
   const disconnectedForView =
     filter.source === undefined ? disconnectedAccounts : disconnectedAccounts.filter(each => each.id === filter.source)
@@ -2001,40 +2080,50 @@ export function MatrixModelPicker({
         tabIndex={-1}
       >
         <ModelPickerPanel
+          aside={
+            effortColumn ? (
+              <ModelPickerEffortColumn
+                choice={effortColumn.choice}
+                // A plan model that cannot answer now (its Mac is offline) shows its levels, read only.
+                disabled={
+                  switching ||
+                  effortSaving ||
+                  pendingPlanEffort?.saved === false ||
+                  (effortColumn.plan ? !effortColumn.plan.route.ready : false)
+                }
+                model={effortColumn.model}
+                onChange={level =>
+                  effortColumn.plan ? chooseCloudPlanEffort(effortColumn.plan, level) : chooseEffort(level)
+                }
+                onLeave={keys.toList}
+              />
+            ) : undefined
+          }
           filter={shownFilter}
           footer={
             <>
-              {!managed && !homeMode && (efforts.length > 0 || (!effortIssue.supported && chosenEffort)) && (
-                <div className="shrink-0 border-t border-(--atum-line) px-2 py-1.5" data-matrix-model-effort>
-                  {efforts.length > 0 && (
-                    <MatrixModelEffortSlider
-                      capability={offered}
-                      disabled={switching}
-                      managed={false}
-                      onChange={next => chooseEffort(next)}
-                      value={chosenEffort}
-                    />
-                  )}
-                  {!effortIssue.supported && chosenEffort && (
-                    <div className="mt-1" data-matrix-model-effort-unsupported role="status">
-                      <p className="text-(length:--atum-t-caption) leading-snug text-(--atum-ink-muted)">
-                        {efforts.length
-                          ? words.effortUnsupported(words.efforts[chosenEffort])
-                          : words.effortNoLevels(words.efforts[chosenEffort])}
-                      </p>
-                      {effortIssue.suggested && (
-                        <Button
-                          className="mt-1"
-                          disabled={effortSaving || switching}
-                          onClick={() => chooseEffort(effortIssue.suggested!)}
-                          size="sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          {words.useEffort(words.efforts[effortIssue.suggested])}
-                        </Button>
-                      )}
-                    </div>
+              {!managed && !homeMode && !effortIssue.supported && chosenEffort && (
+                <div
+                  className="shrink-0 border-t border-(--atum-line) px-2 py-1.5"
+                  data-matrix-model-effort-unsupported
+                  role="status"
+                >
+                  <p className="text-(length:--atum-t-caption) leading-snug text-(--atum-ink-muted)">
+                    {efforts.length
+                      ? words.effortUnsupported(words.efforts[chosenEffort])
+                      : words.effortNoLevels(words.efforts[chosenEffort])}
+                  </p>
+                  {effortIssue.suggested && (
+                    <Button
+                      className="mt-1"
+                      disabled={effortSaving || switching}
+                      onClick={() => chooseEffort(effortIssue.suggested!)}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {words.useEffort(words.efforts[effortIssue.suggested])}
+                    </Button>
                   )}
                 </div>
               )}

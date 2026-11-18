@@ -515,6 +515,9 @@ def activate_dependencies(project_root: Path) -> None:
     if prefix:
         os.environ["PATH"] = os.pathsep.join([*prefix, os.environ.get("PATH", "")])
 
+    from pm.desktop_runtime import cleanup_desktop_installs
+    cleanup_desktop_installs(project_root)
+
 
 def activation_environment(project_root: Path, *, base_env: dict[str, str] | None = None) -> dict[str, str]:
     """Read the installed PM environment; do not provision or switch imports."""

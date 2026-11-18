@@ -84,11 +84,14 @@ export function matrixProgressMarkerOf(frame: MatrixProgressFrame): MatrixProgre
  * A13), the same shape as the descriptor of `feat/localized-agent-status`. Never a tool name,
  * argument or result, and never text the agent or a person wrote: the todo item text stays in
  * `body`. `approval_wait` is the cloud agent's wait on the owner's approval card (additive).
+ * `video_consent_required` says the agent's video step needs the owner's one-time consent: the
+ * conversation shows the consent card (video-consent-ask.ts); additive, no arguments.
  */
 export type MatrixProgressPresentation =
   | { version: 1; code: 'tool_activity'; args: { activity: MatrixToolActivityKind } }
   | { version: 1; code: 'heartbeat'; args: { elapsed_minutes: number } }
   | { version: 1; code: 'approval_wait'; args: Record<string, never> }
+  | { version: 1; code: 'video_consent_required'; args: Record<string, never> }
 
 const TOOL_ACTIVITIES: readonly MatrixToolActivityKind[] = ['web', 'read', 'write', 'run', 'delegate', 'look', 'draw']
 
@@ -106,7 +109,8 @@ const PRESENTATION: Record<
     args: { activity: value => TOOL_ACTIVITIES.includes(value as MatrixToolActivityKind) }
   },
   heartbeat: { kind: 'heartbeat', phase: 'working', args: { elapsed_minutes: count(1, 1440) } },
-  approval_wait: { kind: 'device', phase: 'waiting', args: {} }
+  approval_wait: { kind: 'device', phase: 'waiting', args: {} },
+  video_consent_required: { kind: 'device', phase: 'waiting', args: {} }
 }
 
 function plainObject(value: unknown): Record<string, unknown> | undefined {

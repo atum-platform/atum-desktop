@@ -3,7 +3,7 @@ import { readFileSync, statSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { BUNDLED_PYTHON_VERSION, bundledRuntimeLayout, resolveBundledHermesRuntime } from '../bundled-runtime'
+import { BUNDLED_PYTHON_VERSION, bundledRuntimeLayout, cleanupVerifiedBundledRuntime, resolveBundledHermesRuntime } from '../bundled-runtime'
 import { resolveSharedAuthDirEnv } from '../hermes-home'
 
 import { type MatrixHermesRuntimeConfig, readMatrixHermesRuntime } from './hermes-runtime'
@@ -53,6 +53,7 @@ export function selectMatrixHermesRuntime(options: {
     currentEnv: {},
     expectedProductCommit: stamp.commit,
     expectedProductDirty: stamp.dirty,
+    cleanupRuntime: cleanupVerifiedBundledRuntime,
     // Isolated import probe: only this bundle is added, with no user-site,
     // working-directory, dotenv or provider configuration fallback.
     probeRuntime: python =>

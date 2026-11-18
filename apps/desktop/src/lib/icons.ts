@@ -46,6 +46,8 @@ const Check = phosphorIcon('check')
 const CheckCircle2 = phosphorIcon('check-circle')
 const CheckIcon = phosphorIcon('check')
 const Checklist = phosphorIcon('list-checks')
+// Read, as the double tick in every chat app.
+const Checks = phosphorIcon('checks')
 const ChevronDown = phosphorIcon('caret-down')
 const ChevronDownIcon = phosphorIcon('caret-down')
 const ChevronUpDown = phosphorIcon('caret-up-down')
@@ -108,6 +110,8 @@ const FolderOpen = phosphorIcon('folder-open')
 const FolderPlus = phosphorIcon('folder-simple-plus')
 const Folders = phosphorIcon('folders')
 const FolderShare = phosphorIcon('folder-simple-user')
+// The forward arrow every chat app uses.
+const Forward = phosphorIcon('share-fat')
 const Gift = phosphorIcon('gift')
 const GitBranch = phosphorIcon('git-branch')
 const GitBranchIcon = phosphorIcon('git-branch')
@@ -294,6 +298,7 @@ export {
   CheckCircle2,
   CheckIcon,
   Checklist,
+  Checks,
   ChevronDown,
   ChevronDownIcon,
   ChevronLeft,
@@ -356,6 +361,7 @@ export {
   FolderPlus,
   Folders,
   FolderShare,
+  Forward,
   Gift,
   GitBranch,
   GitBranchIcon,

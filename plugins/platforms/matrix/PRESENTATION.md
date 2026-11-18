@@ -4,7 +4,12 @@ Opt in on the Matrix plugin with `plugins.entries.platforms/matrix.settings.atum
 Use `display.platforms.matrix.tool_progress: off` and `display.platforms.matrix.streaming: false` for this surface;
 `display.interim_assistant_messages: true` enables the native commentary callback.
 The extension owns the transient activity line; native gateway text progress must
-be disabled to avoid publishing a second activity surface.
+be disabled to avoid publishing a second activity surface. A global
+`display.tool_progress` (the desktop's `tool.start` events need it on) is also read by
+the Matrix gateway when no per-platform value is set, which posts lines such as
+"📚 Reading skill …" into the chat as messages; the desktop's narration settings
+(`apps/desktop/shared/matrix-turn-style.ts`, `MATRIX_NARRATION_DISPLAY`) therefore
+write `display.platforms.matrix.tool_progress: off` beside it.
 
 This is a Matrix platform extension, selected by its existing `register_platform`
 factory. It adds no tools, prompts, conversation messages, or model calls.
@@ -69,15 +74,19 @@ agent-turns/1.3 progress notice with an empty `body` and the agent-turns/1.5 des
 | A started tool in a category (web, read, write, run, delegate, look, draw; any other tool adds no line) | `todo`/`working` | `tool_activity {activity}` |
 | About three minutes without a new step | `heartbeat`/`working` (`heartbeat: true`) | `heartbeat {elapsed_minutes}` (since the last real step) |
 | Waiting for the owner's approval card | `device`/`waiting` | `approval_wait {}` |
+| A `video_generate` call refused for want of the owner's video consent (`error_type: video_consent_required`) | `device`/`waiting` | `video_consent_required {}` |
 | The todo list | `todo`/`working` | none: `body` is the agent's own items |
 
 An answered approval returns the line to the step before it (A8); nothing says "continuing".
 The desktop words each code in the reader's current language (`apps/desktop/shared/matrix-status-line-copy.ts`)
 and shows the line in the typing row, not as a chat bubble. A desktop that does not know a code
 shows `body`, which is empty, so it shows only the typing indicator: never raw JSON and never a
-fixed English line. `approval_wait` and the empty `body` are additive to the frozen
-agent-turns/1.5 shape (whose `body` has a one-character minimum); the next contract minor should
-record both. The approval card itself is the gateway's existing UI and is unchanged.
+fixed English line. `approval_wait`, `video_consent_required` and the empty `body` are additive to
+the frozen agent-turns/1.5 shape (whose `body` has a one-character minimum); the next contract minor
+should record them. The approval card itself is the gateway's existing UI and is unchanged. For
+`video_consent_required` the desktop also shows its one-time consent card in the conversation
+(`docs/video-generation-consent.md`); only the tool result's closed `error_type` is read, never its
+error text or prompt.
 
 The gateway's own status text (compression, retry and allowance waits) reaches
 `send_or_update_status` during a turn and is dropped there: it never enters the conversation.

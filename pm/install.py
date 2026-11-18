@@ -783,6 +783,8 @@ def _commit_selection(package, facts: Facts, change, *, enabled: list[str], stam
         if change is not None:
             finish_publication(paths.repo_root())
         receipt.record_venv_rebuild(not current, "already in sync" if current else "")
+        from pm.desktop_runtime import cleanup_desktop_installs
+        cleanup_desktop_installs(package.project_root())
     except BaseException:
         recover_publication(paths.repo_root())
         raise

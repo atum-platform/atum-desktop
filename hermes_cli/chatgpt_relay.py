@@ -17,8 +17,9 @@ from typing import Any
 from agent.auxiliary_client import call_llm
 from agent.history_commentary import _commentary_items, visible_commentary
 
-MAX_INPUT = 800_000
-MAX_OUTPUT = 800_000
+# Mirrors the DeviceHub complete-frame buffering bound (16 MiB).
+MAX_INPUT = 16 * 1024 ** 2
+MAX_OUTPUT = MAX_INPUT
 ALLOWED_EXTRA = {
     "tool_choice", "top_p", "stop", "parallel_tool_calls", "response_format", "seed",
     "frequency_penalty", "presence_penalty",

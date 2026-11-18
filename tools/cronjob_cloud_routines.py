@@ -282,6 +282,17 @@ def maybe_dispatch(
 
     from cron.jobs import AmbiguousJobReference, resolve_job_ref
 
+    # A migrated desktop ticker is local debris, never a platform routine. Let
+    # native cron stop it even when the cloud's routines host is unavailable.
+    if (action or "").strip().lower() in {"remove", "pause"}:
+        from cron.check_ins import is_check_in_job
+
+        try:
+            if is_check_in_job(resolve_job_ref(str(arguments.get("job_id") or ""))):
+                return None
+        except AmbiguousJobReference:
+            pass  # Preserve the normal routine/local ambiguity resolution below.
+
     def has_home_job(ref: str) -> bool:
         try:
             return resolve_job_ref(ref) is not None

@@ -147,8 +147,11 @@ describe('the OpenRouter shelf in the model picker', () => {
     fireEvent.click(rail(card, RAIL)!)
     expect(rowIds(card)).toEqual([OPUS_ROUTE, GLM_ROUTE])
     expect(row(card, OPUS_ROUTE).textContent).toContain('Claude Opus 5.5')
-    expect(row(card, OPUS_ROUTE).textContent).toContain('Anthropic · 162,000 / 810,000 Protons')
-    expect(row(card, GLM_ROUTE).textContent).toContain('Z.ai · 1,357 / 3,362 Protons')
+    // The maker's mark names the maker; the price follows the name on the same line.
+    expect(row(card, OPUS_ROUTE).querySelector('[data-matrix-model-shelf-price]')?.textContent).toBe('162,000 / 810,000 Protons')
+    expect(row(card, OPUS_ROUTE).querySelector('[data-provider-mark="claude"]')).toBeTruthy()
+    expect(row(card, OPUS_ROUTE).getAttribute('aria-label')).toContain('Anthropic')
+    expect(row(card, GLM_ROUTE).querySelector('[data-matrix-model-shelf-price]')?.textContent).toBe('1,357 / 3,362 Protons')
   })
 
   it('labels a model that costs more than Nhật Thực, with no confirmation step', async () => {
@@ -206,7 +209,7 @@ describe('the OpenRouter shelf in the model picker', () => {
     const card = await open(/^Mô hình: Nguyệt Thực/)
 
     fireEvent.click(rail(card, RAIL)!)
-    expect(row(card, OPUS_ROUTE).textContent).toContain('Anthropic · 162.000 / 810.000 Proton')
+    expect(row(card, OPUS_ROUTE).querySelector('[data-matrix-model-shelf-price]')?.textContent).toBe('162.000 / 810.000 Proton')
     expect(row(card, OPUS_ROUTE).querySelector('[data-matrix-model-shelf-costly]')?.textContent).toBe('Giá cao')
   })
 })

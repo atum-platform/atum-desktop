@@ -50,6 +50,23 @@
             ]
           },
           {
+            "id": "t3code-model-picker",
+            "name": "T3 Code model picker UI adapted for the Atum model picker",
+            "version": "commit 65accaf23cc51563e385f4d3ad84a97eecd95ca0",
+            "license": "MIT",
+            "copyright": [
+              "Copyright (c) 2026 T3 Tools Inc."
+            ],
+            "source": "https://github.com/pingdotgg/t3code/tree/65accaf23cc51563e385f4d3ad84a97eecd95ca0",
+            "notes": [
+              "Atum adapts the one-line model row of apps/web/src/components/chat/ModelListRow.tsx (provider mark before the name, hover star, shortcut hint) and the effort column of apps/web/src/components/chat/ComposerModelEffort.tsx (ColumnRow, EffortRows, moveBetweenRows) into apps/desktop/src/matrix/model-picker-list.tsx and model-picker-effort-column.tsx, on Atum primitives, tokens and model-choice contracts."
+            ],
+            "licenseFiles": [
+              "texts/MIT.txt",
+              "app/t3code-LICENSE.txt"
+            ]
+          },
+          {
             "id": "simple-icons-model-picker-provider-marks",
             "name": "Simple Icons provider marks bundled in the Atum model picker",
             "version": "commit 90646e4bf7f3b89df6c37e65baf3e7bc759a517c",

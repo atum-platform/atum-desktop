@@ -282,8 +282,9 @@ describe('Team Space unread boundary', () => {
   })
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
-  // ("New messages" over "Today"). They share one line: the day pill and the unread pill, centred.
-  it('joins the unread pill to the day line when both start at the same message', () => {
+  // ("New messages" over "Today"), then two pills side by side (owner 2026-11-18). Now one line
+  // with one pill: the unread marker, the day kept in the line's accessible name.
+  it('shows only the unread pill when the first unread message starts the day', () => {
     const jump = vi.fn()
     render(
       <I18nProvider configClient={null} initialLocale="en">
@@ -298,8 +299,9 @@ describe('Team Space unread boundary', () => {
     expect(line.hasAttribute('data-divider-emphasis')).toBe(true)
     expect(line.getAttribute('aria-label')).toBe('Today, New messages')
     const pills = line.querySelectorAll(':scope > .atum-divider-pill')
-    expect(pills).toHaveLength(2)
-    expect(pills[0].hasAttribute('data-divider-plain')).toBe(true)
+    expect(pills).toHaveLength(1)
+    expect(pills[0].textContent).toBe('New messages')
+    expect(screen.queryByText('Today')).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'New messages' }))
     expect(jump).toHaveBeenCalledOnce()
   })

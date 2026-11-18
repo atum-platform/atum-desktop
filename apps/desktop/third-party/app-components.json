@@ -10,6 +10,15 @@
     "licenseFiles": ["app/hermes-agent-LICENSE.txt"],
     "includes": [
       {
+        "id": "cloudflared",
+        "name": "Cloudflare Tunnel",
+        "version": "2026.11.0",
+        "license": "Apache-2.0",
+        "source": "https://github.com/cloudflare/cloudflared/tree/2026.11.0",
+        "notes": ["The macOS app bundles the pinned cloudflared helper for its per-user launchd SSH tunnel."],
+        "licenseFiles": ["texts/Apache-2.0.txt"]
+      },
+      {
         "id": "block-buzz-app-team-space-sidebar",
         "name": "Block Buzz channel sidebar UI adapted for Atum Team Space",
         "version": "commit c2210b45bb6f539f1d236d18b284c16566e70602",
@@ -30,6 +39,18 @@
           "Atum adapts browse/src/cookie-import-browser.ts (Chrome profile discovery, the Keychain Safe Storage key, PBKDF2 and AES-128-CBC cookie decryption, the Chromium epoch and SameSite mapping) and the cookie rows and key of browse/test/cookie-import-browser.test.ts into apps/desktop/electron/matrix/browser-import, replacing Bun SQLite and process calls with Electron Node (node:sqlite and execFile). Copyright (c) 2026 Garry Tan."
         ],
         "licenseFiles": ["texts/MIT.txt", "app/gstack-LICENSE.txt"]
+      },
+      {
+        "id": "t3code-model-picker",
+        "name": "T3 Code model picker UI adapted for the Atum model picker",
+        "version": "commit 65accaf23cc51563e385f4d3ad84a97eecd95ca0",
+        "license": "MIT",
+        "copyright": ["Copyright (c) 2026 T3 Tools Inc."],
+        "source": "https://github.com/pingdotgg/t3code/tree/65accaf23cc51563e385f4d3ad84a97eecd95ca0",
+        "notes": [
+          "Atum adapts the one-line model row of apps/web/src/components/chat/ModelListRow.tsx (provider mark before the name, hover star, shortcut hint) and the effort column of apps/web/src/components/chat/ComposerModelEffort.tsx (ColumnRow, EffortRows, moveBetweenRows) into apps/desktop/src/matrix/model-picker-list.tsx and model-picker-effort-column.tsx, on Atum primitives, tokens and model-choice contracts."
+        ],
+        "licenseFiles": ["texts/MIT.txt", "app/t3code-LICENSE.txt"]
       },
       {
         "id": "simple-icons-model-picker-provider-marks",

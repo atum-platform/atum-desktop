@@ -13,13 +13,17 @@ const CONNECTION = '00000000-0000-4000-8000-f1d11edf5c5c'
 const INVOCATION = '00000000-0000-4000-8000-fbfe405ca65f'
 const CAPABILITY = '00000000-0000-4000-8000-a9703d75e616'
 const now = 1_793_148_000_000
+
 const session = { connectionId: CONNECTION, connectionEpoch: 7, localGeneration: 1,
   deviceServiceId: DEVICE, enrollmentEpoch: 1, accountEpoch: 1 }
+
 const request = { model: 'gpt-5.6-luna', messages: [{ role: 'user', content: 'private prompt' }], stream: false }
+
 const body = (overrides: Record<string, unknown> = {}) => {
   const selected = (overrides.request as Record<string, unknown> | undefined) ?? request
   const { request: _request, ...rest } = overrides
   const requestJson = JSON.stringify(selected)
+
   return { capabilityId: CAPABILITY, ownerPrincipal: OWNER, agentPrincipal: AGENT,
     invocationId: INVOCATION, model: 'gpt-5.6-luna', effort: 'medium', relayRevision: 1,
     deviceServiceId: DEVICE, connectionId: CONNECTION, connectionEpoch: 7, issuedAt: now,
@@ -29,9 +33,11 @@ const body = (overrides: Record<string, unknown> = {}) => {
 
 function fixture() {
   const log: string[] = []
+
   const call = vi.fn(async () => ({ status: 200 as const, response: { id: 'answer', object: 'chat.completion',
     model: 'gpt-5.6-luna', choices: [{ index: 0, message: { role: 'assistant', content: 'private answer' }, finish_reason: 'stop' }] },
     diagnostic: { stage: 'response_encode' as const, code: 'ok' as const, exit: 0 } }))
+
   const subject = new ChatGptRelayHandler({
     authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
       enabled: true, models: ['gpt-5.6-luna'] }),
@@ -39,6 +45,7 @@ function fixture() {
     now: () => now,
     log: line => log.push(line)
   })
+
   return { subject, call, log }
 }
 
@@ -84,6 +91,7 @@ describe('ChatGptRelayHandler', () => {
 
   it('rechecks the platform relay revision before touching ChatGPT', async () => {
     const call = vi.fn()
+
     const subject = new ChatGptRelayHandler({
       authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
         enabled: true, models: ['gpt-5.6-luna'] }),
@@ -91,6 +99,7 @@ describe('ChatGptRelayHandler', () => {
       call,
       now: () => now
     })
+
     await expect(subject.handle(body(), session, 'ok')).resolves.toMatchObject({ state: 'refused', code: 'relay_disabled' })
     expect(call).not.toHaveBeenCalled()
   })
@@ -98,6 +107,7 @@ describe('ChatGptRelayHandler', () => {
   it('aborts an in-flight call when transfer changes the platform relay revision', async () => {
     vi.useFakeTimers()
     const authorize = vi.fn().mockResolvedValueOnce(true).mockResolvedValue(false)
+
     const subject = new ChatGptRelayHandler({
       authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
         enabled: true, models: ['gpt-5.6-luna'] }),
@@ -106,6 +116,7 @@ describe('ChatGptRelayHandler', () => {
         signal.addEventListener('abort', () => reject(new Error('stopped')), { once: true })),
       now: () => now
     })
+
     const pending = subject.handle(body(), session, 'ok')
     await vi.advanceTimersByTimeAsync(1_001)
     await expect(pending).resolves.toMatchObject({ state: 'refused', code: 'stopped' })
@@ -117,6 +128,7 @@ describe('ChatGptRelayHandler', () => {
     let started!: () => void
     const began = new Promise<void>(resolve => { started = resolve })
     const log: string[] = []
+
     const subject = new ChatGptRelayHandler({
       authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
         enabled: true, models: ['gpt-5.6-luna'] }),
@@ -127,6 +139,7 @@ describe('ChatGptRelayHandler', () => {
       now: () => now,
       log: line => log.push(line)
     })
+
     const pending = subject.handle(body(), session, 'ok')
     await began
     subject.disable()
@@ -139,9 +152,11 @@ describe('ChatGptRelayHandler', () => {
 
   it('carries a closed child stage and code into the one refusal log line', async () => {
     const log: string[] = []
+
     const failure = Object.assign(new Error('raw child words must not be logged'), {
       diagnostic: { stage: 'response_encode', code: 'response_not_serializable', exit: 4 }
     })
+
     const subject = new ChatGptRelayHandler({
       authority: () => ({ ownerPrincipal: OWNER, agentPrincipals: [AGENT], deviceServiceId: DEVICE,
         enabled: true, models: ['gpt-5.6-luna'] }),
@@ -158,4 +173,19 @@ describe('ChatGptRelayHandler', () => {
     ])
     expect(log[0]).not.toContain('raw child words')
   })
+})
+
+it('SSH admission uses the fixed binding without inventing device-frame proof, and shares replay state', async () => {
+  const f = fixture()
+  const binding = { ownerPrincipal: OWNER, agentPrincipal: AGENT, connectionEpoch: 7 }
+  await expect(f.subject.handleSsh(body(), binding, new AbortController().signal)).resolves.toMatchObject({ state: 'completed' })
+  await expect(f.subject.handle(body(), session, 'ok')).resolves.toMatchObject({ code: 'replayed' })
+  expect(f.call).toHaveBeenCalledOnce()
+})
+it.each(['ownerPrincipal', 'agentPrincipal', 'connectionEpoch'])('SSH rejects a conflicting %s binding', async key => {
+  const f = fixture()
+  const binding = { ownerPrincipal: OWNER, agentPrincipal: AGENT, connectionEpoch: 7 }
+  await expect(f.subject.handleSsh(body({ [key]: key === 'connectionEpoch' ? 8 : DEVICE }), binding,
+    new AbortController().signal)).resolves.toMatchObject({ state: 'refused' })
+  expect(f.call).not.toHaveBeenCalled()
 })

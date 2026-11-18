@@ -260,9 +260,9 @@ private func cmdSignEnrollment(_ dir: KeyDir, _ rest: [String]) {
     }
 }
 
-private func cmdApprove(_ dir: KeyDir, _ rest: [String]) {
+private func cmdApprove(_ dir: KeyDir, _ rest: [String], presenceOnly: Bool = false) {
     guard rest.count >= 2 else { fail("usage: approve <digestB64u> <reason> [--keydir DIR]") }
-    let value = digest(rest[0])
+    let value: PrecomputedSHA256? = presenceOnly ? nil : digest(rest[0])
     let reason = rest[1...].joined(separator: " ")
     guard !reason.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, reason.count <= 600 else {
         fail("reason_invalid")
@@ -276,6 +276,11 @@ private func cmdApprove(_ dir: KeyDir, _ rest: [String]) {
     // a Touch ID the owner gave moments earlier for something else. With a reuse window, an
     // agent could ride an unrelated unlock to get a protected action approved.
     context.touchIDAuthenticationAllowableReuseDuration = 0
+
+    if presenceOnly {
+        _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: nil)
+        guard context.biometryType == .none else { fail("presence_unavailable") }
+    }
 
     var policyError: NSError?
     // .deviceOwnerAuthentication: Touch ID where present, otherwise the macOS password dialog
@@ -305,6 +310,13 @@ private func cmdApprove(_ dir: KeyDir, _ rest: [String]) {
         }
     }
 
+    if presenceOnly {
+        context.invalidate()
+        emit(["ok": true])
+        return
+    }
+
+    guard let value else { fail("digest_required") }
     do {
         let approval = try load(dir.approvalBlob)
         let signature = try approval.signature(for: value)
@@ -328,6 +340,7 @@ case "public": cmdPublic(keyDir)
 case "sign-identity": cmdSignIdentity(keyDir, rest)
 case "sign-enrollment": cmdSignEnrollment(keyDir, rest)
 case "approve": cmdApprove(keyDir, rest)
+case "presence": cmdApprove(keyDir, [""] + rest, presenceOnly: true)
 case "delete": cmdDelete(keyDir)
 default: fail("unknown_command: \(command)")
 }
