@@ -69,7 +69,7 @@ def read_checkpoint(db: AtomicMetadata, execution_id: str) -> dict | None:
 class RequestCheckpoint:
     """One fenced writer. Create fresh or reclaim one exact pending request."""
 
-    def __init__(self, db: AtomicMetadata, execution_id: str, scope: dict, *, recover: bool = False):
+    def __init__(self, db: AtomicMetadata, execution_id: str, scope: dict, *, recover: bool = False, recovery_limit: int | None = 1):
         self.db = db
         self.key = checkpoint_key(execution_id)
         self.value = {"version": VERSION, "execution_id": execution_id,
@@ -78,10 +78,10 @@ class RequestCheckpoint:
             previous = read_checkpoint(db, execution_id)
             if (previous is None or previous["phase"] != "pending"
                     or previous["scope"] != scope or not isinstance(previous.get("payload"), dict)
-                    or previous.get("recoveries", 0) != 0):
+                    or (recovery_limit is not None and previous.get("recoveries", 0) >= recovery_limit)):
                 raise CheckpointUnavailable("task_checkpoint_not_recoverable")
             # The returned payload is frozen JSON, never a shared runtime object.
-            self.value = {**previous, "owner": self.value["owner"], "recoveries": 1}
+            self.value = {**previous, "owner": self.value["owner"], "recoveries": previous.get("recoveries", 0) + 1}
             self.raw = _encode(self.value)
             if not db.compare_meta(self.key, _encode(previous), self.raw):
                 raise CheckpointSuperseded("task_checkpoint_superseded")

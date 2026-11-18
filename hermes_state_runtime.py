@@ -1003,3 +1003,41 @@ def apply_worker_receipt(db, *, epoch, execution_id, session_id, generation, seq
             compact_terminal_receipts(conn, execution_id)
         return result
     return db._execute_write(write, patience_s=db._TRANSCRIPT_WRITE_PATIENCE_S)
+
+
+def fence_session_input(db, *, epoch, row):
+    """Retain an interrupted request without manufacturing a terminal answer."""
+    def write(conn):
+        _epoch(conn, epoch)
+        conn.execute("UPDATE session_admissions SET status='unknown' WHERE admission_id=? "
+                     "AND status='started' AND generation=? AND owner_epoch=?",
+                     (row['admission_id'], row['generation'], epoch))
+    db._execute_write(write)
+
+
+def requeue_checkpointed_input(db, *, epoch, row, checkpoint_key, checkpoint_raw):
+    """Reclaim only the exact pending checkpoint authenticated by a provider adapter.
+
+    The callback must retrieve existing work without submission. A consuming
+    checkpoint, changed generation, stop or another epoch keeps the FIFO fenced.
+    """
+    def write(conn):
+        _epoch(conn, epoch)
+        current = _admission(conn, row['admission_id'])
+        session = _session(conn, current['target_session_id'])
+        saved = conn.execute('SELECT value FROM state_meta WHERE key=?', (checkpoint_key,)).fetchone()
+        if (current['status'] != 'unknown' or current['generation'] != row['generation']
+                or current['owner_epoch'] != row['owner_epoch']
+                or session['runtime_generation'] != row['generation']
+                or saved is None or saved[0] != checkpoint_raw):
+            return False
+        from agent.request_checkpoint import checkpoint_key as native_key
+        execution = 'native.admission:' + row['admission_id']
+        checkpoint = json.loads(checkpoint_raw)
+        if checkpoint_key != native_key(execution) or checkpoint.get('execution_id') != execution:
+            return False
+        if checkpoint.get('phase') != 'pending':
+            return False
+        conn.execute("UPDATE session_admissions SET status='queued' WHERE admission_id=?", (row['admission_id'],))
+        return True
+    return db._execute_write(write)

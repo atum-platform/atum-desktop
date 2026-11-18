@@ -960,6 +960,17 @@ class PluginContext:
 
         return self._track("hook", hook_name, release)
 
+    def register_native_turn_recovery(self, provider: str, adapter) -> PluginRegistration:
+        """Lease this profile's provider adapter for admitted native continuation.
+
+        bind_turn restores exact loop state. recover authenticates an existing
+        result and returns a pending checkpoint proof, with zero submission.
+        """
+        mapping = getattr(self._manager, '_native_turn_recovery', None)
+        if mapping is None:
+            mapping = self._manager._native_turn_recovery = {}
+        return self._track_mapping_entry('native_turn_recovery', provider, mapping, adapter)
+
     def register_middleware(self, kind: str, callback: Callable) -> PluginRegistration:
         """Register behavior-changing middleware (request kinds rewrite the payload, execution kinds
         wrap the callback). Unknown kinds warn but are stored."""

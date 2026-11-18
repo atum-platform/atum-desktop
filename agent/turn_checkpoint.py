@@ -20,6 +20,7 @@ from agent.turn_context import TurnContext, prepare_turn_resources
 # Only state read by the loop after a dispatch boundary. Keep this list explicit:
 # new runtime capabilities are resolved by construction, never loaded from disk.
 AGENT_FIELDS = (
+    "_current_turn_timestamp", "_run_budget_started_at",
     "_persist_user_message_idx", "_persist_user_message_override", "_persist_user_message_timestamp",
     "_persist_api_content", "_invalid_tool_retries", "_invalid_json_retries", "_empty_content_retries",
     "_incomplete_scratchpad_retries", "_codex_incomplete_retries", "_thinking_prefill_retries",
@@ -228,7 +229,10 @@ def checkpointed_call(agent, request, snapshot, perform, *, replace_unstarted=Fa
         if callback is not None:
             setattr(agent, name, fenced(callback))
     try:
-        response = perform(request)
+        retrieve = getattr(agent, '_request_recovery_response', None)
+        response = retrieve(payload['request_id'], payload['request']) if retrieve is not None else None
+        if response is None:
+            response = perform(request)
         consume()
     finally:
         for name, callback in callbacks.items():

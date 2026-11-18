@@ -284,6 +284,8 @@ async def execute_admission(authority, ref, row):
     api_token = api_execution.set(None)
     captured = {}
     result_token = execution_result.set(captured)
+    from gateway.turn_recovery import current_admission
+    recovery_token = current_admission.set(row)
     token = executing_admission.set(True)
     # This drain, not the handler's unwind, releases the turn's crash marker (see below).
     event._turn_marker_handoff = True
@@ -343,6 +345,7 @@ async def execute_admission(authority, ref, row):
     finally:
         if not handed:
             await _release_turn_marker(authority, event)
+        current_admission.reset(recovery_token)
         executing_admission.reset(token)
         execution_result.reset(result_token)
         api_execution.reset(api_token)
