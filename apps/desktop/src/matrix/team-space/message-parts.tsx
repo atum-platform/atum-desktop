@@ -36,9 +36,10 @@ function DividerLine({ children, className, flat, ...props }: DividerLineProps) 
 const dividerPill = 'atum-divider-pill relative rounded-full px-3 py-0.5 text-xs font-semibold'
 
 /** Slack's day line: a hairline across the column with the day in a pill at its centre. When the
- * first unread message is also the day's first, the unread line joins it: one line, the day pill
- * and the "New messages" pill side by side at the centre, never two stacked lines (owner
- * 2026-11-07). The line then takes the unread line's emphasis; the day pill keeps its own look. */
+ * first unread message is also the day's first, the line shows one marker only: the "New messages"
+ * pill, never two lines (owner 2026-11-07) and never two pills side by side (owner 2026-11-18).
+ * Unread is the news; the day stays in the line's accessible name and the pill's tooltip, and its
+ * own pill returns once the room is read. */
 export function TeamSpaceDayDivider({
   flat = true,
   onJumpToNew,
@@ -67,16 +68,13 @@ export function TeamSpaceDayDivider({
   return (
     <DividerLine
       aria-label={`${label}, ${newLabel}`}
-      className="mt-2 mb-1 gap-2"
+      className="mt-2 mb-1"
       data-divider-emphasis
       data-team-space-day
       data-team-space-new-messages
       flat={flat}
     >
-      <span aria-hidden className={dividerPill} data-divider-plain>
-        {label}
-      </span>
-      <button className={dividerPill} onClick={onJumpToNew} type="button">
+      <button className={dividerPill} onClick={onJumpToNew} title={label} type="button">
         {newLabel}
       </button>
     </DividerLine>
