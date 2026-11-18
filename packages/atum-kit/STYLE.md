@@ -311,8 +311,11 @@ exceptions.
 - In the two-column picker, Atum's own models carry the same lines as the
   simple menu ("Suggested · Good for everyday tasks", "Good for hard tasks",
   "The most powerful model · Coming soon"), never route words such as Cloud or
-  Default. Keyboard shortcuts live in the tooltip
-  (2026-10-29, delegated design decision).
+  Default. Rows are one line, T3 Code's shape (owner, 2026-11-18): the
+  provider's mark before the name instead of a provider line under it, the
+  description after the name, muted, and the ⌘1–⌘9 hint on the row. A
+  thinking column sits on the right only when the current model has levels to
+  choose from.
 
 ## 13. Controls and patterns
 

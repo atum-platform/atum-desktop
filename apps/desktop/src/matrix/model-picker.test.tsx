@@ -439,7 +439,7 @@ describe('the T3-layout conversation model picker', () => {
     expect(row(card, THAI_CUC_ROUTE).textContent).toMatch(/Mô hình quyền năng nhất · Sắp có/)
   })
 
-  it('keeps the two-column picker, with its rail, search and tooltip shortcuts, once more than Atum is connected', async () => {
+  it('keeps the rail and search, and shows each row’s shortcut beside it, once more than Atum is connected', async () => {
     picker(ROOM, { managed: false, connected: CHATGPT, bridge: plan() })
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
 
@@ -449,7 +449,12 @@ describe('the T3-layout conversation model picker', () => {
     expect(card.querySelector('[data-matrix-model-connect]')).toBeTruthy()
     expect(search(card)).toBeTruthy()
     expect(rows(card).map(each => each.getAttribute('aria-keyshortcuts'))).toEqual(['Meta+1', 'Meta+2', 'Meta+3'])
-    expect(card.querySelector('[data-matrix-model-shortcut]')).toBeNull()
+    // As in T3 Code, the shortcut sits on the row itself.
+    expect(rows(card).map(each => each.parentElement?.querySelector('[data-matrix-model-shortcut]')?.textContent)).toEqual([
+      '⌘1',
+      '⌘2',
+      '⌘3'
+    ])
 
     const searchRegion = card.querySelector('[data-matrix-model-search]')!
     const list = card.querySelector('[data-matrix-model-list]')!
@@ -484,7 +489,7 @@ describe('the T3-layout conversation model picker', () => {
     expect(screen.getByRole('dialog', { name: 'Model' })).toBe(card)
   })
 
-  it('keeps the Atum mark on the same line as its meta text when the description wraps', async () => {
+  it('draws Atum’s mark before the name and its description after it, on one line', async () => {
     picker(ROOM, { managed: true, connected: CHATGPT, bridge: plan(), local: true })
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
     await waitFor(() => expect(rail(card, 'atum')).toBeTruthy())
@@ -492,13 +497,14 @@ describe('the T3-layout conversation model picker', () => {
     expect(rail(card, 'openai-codex').getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(rail(card, 'atum'))
     expect(selected(card)).toHaveLength(0)
-    const meta = row(card, NHAT_THUC_ROUTE).querySelector<HTMLElement>('[data-matrix-model-atum-meta]')!
+    const nhat = row(card, NHAT_THUC_ROUTE)
+    const meta = nhat.querySelector<HTMLElement>('[data-matrix-model-atum-meta]')!
+    const name = nhat.querySelector<HTMLElement>('[data-matrix-model-name]')!
 
-    // The mark and the copy are one nowrap unit, so a long description wraps its text instead of
-    // pushing the mark onto a line of its own.
-    expect(meta.className).toContain('flex')
-    expect(meta.className).not.toContain('flex-wrap')
-    expect(meta.querySelector('[data-brand-mark]')).toBeTruthy()
+    // The mark comes first, then the name, then the description: one line, no second row.
+    expect(nhat.firstElementChild?.getAttribute('data-matrix-model-mark')).toBe('atum')
+    expect(name.compareDocumentPosition(meta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(meta.parentElement).toBe(name.parentElement)
     expect(meta.textContent).toBe('Good for hard tasks')
     expect(meta.textContent).not.toMatch(/Atum|Cloud|Default/u)
   })
@@ -838,8 +844,8 @@ describe('the T3-layout conversation model picker', () => {
     expect(card.querySelector('[data-matrix-model-connect]')).toBeTruthy()
   })
 
-  it('keeps the existing thinking-level behavior without moving search back to the footer', async () => {
-    picker(
+  it('shows the current model’s thinking levels in a column beside the list and saves a new one', async () => {
+    const { command } = picker(
       { ...ROOM, effort: 'high' },
       {
         managed: false,
@@ -849,9 +855,46 @@ describe('the T3-layout conversation model picker', () => {
     )
     const card = await open('Model: ChatGPT · GPT-5.6 Luna · Thorough')
 
-    await waitFor(() => expect(within(card).getByRole('slider', { name: 'Thinking' })).toBeTruthy())
+    const levels = await waitFor(() => within(card).getByRole('radiogroup', { name: /^Thinking: / }))
+    const radios = within(levels).getAllByRole('radio')
+    expect(radios.map(each => each.getAttribute('data-matrix-model-effort-level'))).toEqual(['low', 'medium', 'high'])
+    expect(within(levels).getByRole('radio', { checked: true }).textContent).toContain('Thorough')
+    // The model's default carries its word when it is not the saved one.
+    expect(within(levels).getByRole('radio', { name: /Balanced/ }).textContent).toContain('Default')
     expect(card.querySelector('[data-matrix-model-search]')).toBeTruthy()
-    expect(card.querySelector('[data-matrix-model-bar]')).toBeNull()
+
+    fireEvent.click(within(levels).getByRole('radio', { name: /Quick/ }))
+    await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'setModel', roomId: ROOM.id, effort: 'low' }))
+  })
+
+  it('moves between the list and the thinking column with the arrow keys', async () => {
+    picker({ ...ROOM, effort: 'high' }, { managed: false, connected: CHATGPT, bridge: plan() })
+    const card = await open('Model: ChatGPT · GPT-5.6 Luna · Thorough')
+    await waitFor(() => expect(rows(card)).toHaveLength(3))
+
+    row(card, GPT6_ROUTE).focus()
+    fireEvent.keyDown(row(card, GPT6_ROUTE), { key: 'ArrowRight' })
+    const high = card.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!
+    expect(window.document.activeElement).toBe(high)
+
+    fireEvent.keyDown(high, { key: 'ArrowUp' })
+    expect(window.document.activeElement?.getAttribute('data-matrix-model-effort-level')).toBe('medium')
+
+    // Left goes back to the model that answers now.
+    fireEvent.keyDown(window.document.activeElement!, { key: 'ArrowLeft' })
+    expect(window.document.activeElement).toBe(row(card, CHATGPT_ROUTE))
+  })
+
+  it('starts a search when the person types on the opened card', async () => {
+    picker(ROOM, { managed: false, connected: CHATGPT, bridge: plan() })
+    const card = await open('Model: ChatGPT · GPT-5.6 Luna')
+    await waitFor(() => expect(rows(card)).toHaveLength(3))
+
+    card.focus()
+    fireEvent.keyDown(card, { key: 's' })
+    expect((search(card) as HTMLInputElement).value).toBe('s')
+    expect(window.document.activeElement).toBe(search(card))
+    expect(rowIds(card)).toEqual([SOL_ROUTE])
   })
 
   it('keeps the current name and Connect affordance on an older build without a native catalog', async () => {
@@ -912,6 +955,19 @@ describe('the T3-layout conversation model picker', () => {
     await waitFor(() => expect(rail(card, 'favorites')).toBeTruthy())
     fireEvent.click(rail(card, 'favorites'))
     expect(rowIds(card)).toEqual([GPT6_ROUTE])
+  })
+})
+
+describe('the thinking column only where a level can be chosen', () => {
+  it('has no thinking column and no speed toggle for Atum’s own models, which take one level', async () => {
+    picker(ROOM, { managed: true })
+    const card = await open('Model: Nguyệt Thực 1.3')
+
+    expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
+    expect(card.querySelector('[data-matrix-model-effort-column]')).toBeNull()
+    expect(within(card).queryByRole('radiogroup')).toBeNull()
+    // No backend accepts a speed (fast/standard) choice yet, so there is no control for one.
+    expect(within(card).queryByText(/^(Fast|Standard)$/u)).toBeNull()
   })
 })
 
@@ -1134,7 +1190,11 @@ describe('account subscriptions in the model picker', () => {
 
     const chatgpt = row(card, CHATGPT_ROUTE)
     expect(chatgpt.disabled).toBe(false)
-    expect(chatgpt.textContent).toBe('GPT-5.6 LunaChatGPT')
+    // The logo names the provider, so the row is the model's name alone (the provider stays in its
+    // accessible name).
+    expect(chatgpt.textContent).toBe('GPT-5.6 Luna')
+    expect(chatgpt.querySelector('[data-provider-mark="openai"]')).toBeTruthy()
+    expect(chatgpt.getAttribute('aria-label')).toContain('ChatGPT')
     expect(rows(card).some(each => each.textContent?.includes('OpenCode Go'))).toBe(false)
   })
 
@@ -1452,7 +1512,8 @@ describe('account subscriptions in the model picker', () => {
     await waitFor(() => expect(rowIds(card)).toContain(GLM_CLOUD_ROUTE))
 
     expect(row(card, GLM_CLOUD_ROUTE).textContent).toContain('GLM-5.2')
-    expect(row(card, GLM_CLOUD_ROUTE).textContent).toContain('OpenCode Go')
+    expect(row(card, GLM_CLOUD_ROUTE).querySelector('[data-provider-mark="opencode"]')).toBeTruthy()
+    expect(row(card, GLM_CLOUD_ROUTE).getAttribute('aria-label')).toContain('OpenCode Go')
     expect(within(card).queryByText('Reconnect OpenCode Go')).toBeNull()
 
     fireEvent.click(row(card, KIMI_CLOUD_ROUTE))
@@ -1517,6 +1578,85 @@ describe('account subscriptions in the model picker', () => {
     expect(rowIds(card)).toEqual([CHATGPT_ROUTE])
   })
 
+  const cloudPlanBridge = (subscriptions: ReturnType<typeof subscriptionsBridge>) => {
+    const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
+    const command = vi.fn(async () => ({ status: 'applied' as const }))
+
+    return {
+      writeSubscription,
+      command,
+      bridge: {
+        command,
+        subscriptions,
+        modelDestinations: {
+          read: vi.fn(async () => undefined),
+          write: vi.fn(async () => ({ status: 'saved' as const })),
+          writeSubscription,
+          cap: vi.fn(async () => ({ status: 'saved' as const }))
+        }
+      }
+    }
+  }
+
+  it('gives the cloud ChatGPT model a thinking column and saves a level with the same plan choice', async () => {
+    const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+    const { bridge, writeSubscription, command } = cloudPlanBridge(subscriptionsBridge({ chatgpt: ['gpt-6-sol'] }))
+
+    const chatgptSaved: MatrixCloudModelChoiceView = {
+      offered: ['nguyet-thuc', 'nhat-thuc'],
+      current: 'nguyet-thuc',
+      subscription: { source: 'chatgpt_plan', model: 'gpt-6-sol', effort: 'medium', displayName: 'GPT-6 Sol' },
+      subscriptionState: 'connected'
+    }
+
+    picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: chatgptSaved, local: true, managed: true })
+    const card = await open(/^Model: GPT-6 Sol/)
+    await waitFor(() => expect(row(card, SOL_ROUTE)).toBeTruthy())
+
+    const levels = await waitFor(() => within(card).getByRole('radiogroup', { name: 'Thinking: GPT-6 Sol' }))
+    expect(within(levels).getByRole('radio', { checked: true }).textContent).toContain('Balanced')
+
+    fireEvent.click(within(levels).getByRole('radio', { name: /Thorough/ }))
+    await waitFor(() =>
+      expect(writeSubscription).toHaveBeenCalledWith(agentPrincipal, 'chatgpt_plan', 'gpt-6-sol', 'high')
+    )
+    // The level is the plan's, not a conversation setting.
+    expect(command).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(within(levels).getByRole('radio', { checked: true }).textContent).toContain('Thorough')
+    )
+
+    // On Atum's list the same column still speaks for the model that answers now.
+    fireEvent.click(rail(card, 'atum'))
+    expect(within(card).getByRole('radiogroup', { name: 'Thinking: GPT-6 Sol' })).toBeTruthy()
+  })
+
+  it('keeps each provider’s list apart: one model id under ChatGPT and OpenCode Go is two choices', async () => {
+    const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+    const { bridge, writeSubscription, command } = cloudPlanBridge(
+      subscriptionsBridge({ chatgpt: ['gpt-6-sol'], opencode: ['gpt-6-sol'] })
+    )
+    const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
+
+    picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'opencode-go')).toBeTruthy())
+
+    const opencodeSol = matrixModelRouteId('opencode-go', 'gpt-6-sol')
+    expect(opencodeSol).not.toBe(SOL_ROUTE)
+
+    // Each rail lists only its own provider's row, whatever the model is called.
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(rowIds(card)).toEqual([SOL_ROUTE])
+    fireEvent.click(rail(card, 'opencode-go'))
+    expect(rowIds(card)).toEqual([opencodeSol])
+
+    fireEvent.click(row(card, opencodeSol))
+    await waitFor(() => expect(writeSubscription).toHaveBeenCalledTimes(1))
+    expect(writeSubscription).toHaveBeenCalledWith(agentPrincipal, 'opencode_go', 'gpt-6-sol', expect.any(String))
+    // Never read as Atum's model of the same name.
+    expect(command).not.toHaveBeenCalled()
+  })
 })
 
 describe('a plan that cannot answer now (owner 2026-11-11)', () => {
@@ -1588,6 +1728,17 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
 
     return { command, modelDestinations, subscriptions }
   }
+
+  it('shows the saved ChatGPT model’s thinking levels read only while its Mac is offline', async () => {
+    const { modelDestinations } = cloudPicker('offline', { cloudChoice: solChoice() })
+    const card = await open(/^Model: GPT-6 Sol/)
+
+    const levels = await waitFor(() => within(card).getByRole('radiogroup', { name: 'Thinking: GPT-6 Sol' }))
+    const radios = within(levels).getAllByRole('radio') as HTMLButtonElement[]
+    expect(radios.every(each => each.disabled)).toBe(true)
+    fireEvent.click(within(levels).getByRole('radio', { name: /Thorough/ }))
+    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+  })
 
   it('lists ChatGPT models as choosable while its Mac is online', async () => {
     cloudPicker('online')
