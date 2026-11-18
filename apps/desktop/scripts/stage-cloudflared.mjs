@@ -13,7 +13,7 @@ export default async function beforePack(context) {
   if (context.electronPlatformName !== 'darwin') return
   const arch = { 1: 'x64', 3: 'arm64' }[context.arch]
   if (!arch) throw new Error('cloudflared_unsupported_arch')
-  const root = context.packager.appDir
+  const root = context.packager.info.appDir
   // Build the fixed stdio adapter with the target's SDK; no runtime interpreter needed.
   execFileSync('/usr/bin/xcrun', ['swiftc', '-O', '-target',
     `${arch === 'x64' ? 'x86_64' : 'arm64'}-apple-macosx13.0`,
