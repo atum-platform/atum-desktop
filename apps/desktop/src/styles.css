@@ -3733,6 +3733,68 @@ body:has(.atum-shell) [data-slot='sheet-overlay'] {
   background: var(--ak-surface, var(--atum-card));
 }
 
+/* A bubble's time sits inside it, bottom right, as in Telegram (owner 2026-11-18): "edited", the
+   time and your Sent/Seen tick in the small faint type. The last line of text ends in an
+   invisible spacer as wide as the corner (--matrix-meta-room, set per message in the corner's own
+   type size), so a line that fits keeps the time beside it and a line that does not wraps and
+   leaves the time a line of its own: the text never runs under it. */
+.atum-shell .matrix-bubble-timed,
+.atum-pet-chat .matrix-bubble-timed {
+  position: relative;
+}
+
+.atum-shell .matrix-bubble-meta,
+.atum-pet-chat .matrix-bubble-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1875rem;
+  color: var(--atum-ink-faint);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.atum-shell .matrix-bubble-timed > .matrix-bubble-meta,
+.atum-pet-chat .matrix-bubble-timed > .matrix-bubble-meta {
+  position: absolute;
+  inset-inline-end: 0.75rem;
+  bottom: 0.4375rem;
+}
+
+/* On your own strong bubble the corner takes the bubble's ink, quietened. */
+.atum-shell .composer-human-message .matrix-bubble-meta,
+.atum-pet-chat .composer-human-message .matrix-bubble-meta {
+  color: currentColor;
+  opacity: 0.66;
+}
+
+.atum-shell [data-matrix-meta-flow='plain'] > p:last-of-type::after,
+.atum-shell [data-matrix-meta-flow='markdown'] .aui-md > :last-child > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+.atum-shell [data-matrix-meta-flow='markdown'] .aui-md > :last-child > :is(ul, ol):last-child > li:last-child::after,
+.atum-pet-chat [data-matrix-meta-flow='plain'] > p:last-of-type::after,
+.atum-pet-chat [data-matrix-meta-flow='markdown'] .aui-md > :last-child > :is(p, h1, h2, h3, h4, h5, h6):last-child::after,
+.atum-pet-chat [data-matrix-meta-flow='markdown'] .aui-md > :last-child > :is(ul, ol):last-child > li:last-child::after {
+  content: '';
+  display: inline-block;
+  width: var(--matrix-meta-room);
+  height: 1px;
+  font-size: 0.6875rem;
+  vertical-align: baseline;
+}
+
+/* Markdown that ends in a code block, a table or a quote, a bot's text, a Chief of Staff answer
+   card, or your message without a text paragraph: the corner gets its own row under it. */
+.atum-shell [data-matrix-meta-flow='row'],
+.atum-shell [data-matrix-meta-flow='plain']:not(:has(> p)),
+.atum-pet-chat [data-matrix-meta-flow='plain']:not(:has(> p)),
+.atum-shell [data-matrix-meta-flow='markdown']:not(:has(.aui-md > :last-child > :is(p, h1, h2, h3, h4, h5, h6, ul, ol):last-child)),
+.atum-pet-chat [data-matrix-meta-flow='row'],
+.atum-pet-chat [data-matrix-meta-flow='markdown']:not(:has(.aui-md > :last-child > :is(p, h1, h2, h3, h4, h5, h6, ul, ol):last-child)) {
+  padding-bottom: 1.5rem;
+}
+
 /* The typing bubble is the same bubble, closer to the dots it carries. */
 .atum-shell .matrix-chat-bubble-small,
 .atum-pet-chat .matrix-chat-bubble-small {

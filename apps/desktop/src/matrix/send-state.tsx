@@ -1,7 +1,5 @@
-import type { ReactNode } from 'react'
-
 import { Tip } from '@/components/ui/tooltip'
-import { Check } from '@/lib/icons'
+import { Check, Checks } from '@/lib/icons'
 
 import type { MatrixAgentView, MatrixMember, MatrixMessage } from '../../shared/matrix'
 
@@ -13,40 +11,37 @@ import { type MatrixPeopleContext, matrixPersonLine } from './person-name'
 const SEEN_AVATARS = 3
 
 /**
- * Where your message is, in one quiet line under it: Sent (one tick) under the newest message
- * nobody has read, then the readers' own avatars under the message each public read receipt
- * names, at most three plus a count. In your assistant's chat the agent's face is the
- * acknowledgement. Display only: an assistant's receipt never says what its turn is doing.
+ * Who has read your message, in one quiet line under it: the readers' own avatars under the
+ * message each public read receipt names, at most three plus a count. In your assistant's chat the
+ * agent's face is the acknowledgement. The time and the Sent/Seen tick sit inside the bubble
+ * (`MatrixReceiptTick`). Display only: an assistant's receipt never says what its turn is doing.
  */
 export function MatrixSendState({
   agents,
   assistantChat,
-  edited,
-  latest,
   members,
   message,
-  people,
-  time
+  people
 }: {
   agents?: readonly MatrixAgentView[]
   assistantChat: boolean
-  edited?: ReactNode
-  latest: boolean
   members?: readonly MatrixMember[]
   message: MatrixMessage
   people: MatrixPeopleContext
-  /** The run-ending timestamp shares this one line with Sent or the readers. */
-  time?: ReactNode
 }) {
   const chat = useChatCopy()
   const readers = message.readBy ?? []
 
-  if (readers.length) {
-    const shown = readers.slice(0, SEEN_AVATARS)
-    const extra = readers.length - shown.length
-    const names = readers.map(reader => matrixPersonLine(reader, people)).join(', ')
+  if (!readers.length) {
+    return null
+  }
 
-    const seen = (
+  const shown = readers.slice(0, SEEN_AVATARS)
+  const extra = readers.length - shown.length
+  const names = readers.map(reader => matrixPersonLine(reader, people)).join(', ')
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-(--atum-ink-faint)">
       <Tip label={names}>
         <span
           aria-label={assistantChat ? chat.seen : chat.seenBy(readers.length)}
@@ -79,37 +74,36 @@ export function MatrixSendState({
           )}
         </span>
       </Tip>
-    )
-
-    return <span className="inline-flex items-center gap-1 text-xs text-(--atum-ink-faint)">
-      {time}
-      {(time || edited) && <span aria-hidden>·</span>}
-      {edited}
-      {edited && <span aria-hidden>·</span>}
-      {seen}
     </span>
+  )
+}
+
+/** Whether your message shows a tick in its bubble: two once someone has read it (the readers'
+ * faces under it name who), one on your newest message once the server has it, else none. */
+export function matrixReceiptTick(message: MatrixMessage, latest: boolean): 'seen' | 'sent' | undefined {
+  if (message.readBy?.length) {
+    return 'seen'
   }
 
-  if (latest && message.sent) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-(--atum-ink-faint)" role="status">
-        {time}
-        {(time || edited) && <span aria-hidden>·</span>}
-        {edited}
-        {edited && <span aria-hidden>·</span>}
-        <span className="inline-flex items-center gap-1 text-(--atum-ink-muted)" data-matrix-sent>
-          <Check aria-hidden className="size-3" />
-          {chat.sent}
-        </span>
-      </span>
-    )
-  }
+  return latest && message.sent ? 'sent' : undefined
+}
 
-  return time || edited ? (
-    <span className="inline-flex items-center gap-1 text-xs text-(--atum-ink-faint)">
-      {time}
-      {time && edited && <span aria-hidden>·</span>}
-      {edited}
+/**
+ * The tick beside your message's time, inside the bubble, as in Telegram. Seen is drawn only:
+ * the faces under the message already say it to a screen reader. Sent is announced once, the
+ * way the old line under the message was.
+ */
+export function MatrixReceiptTick({ tick }: { tick: 'seen' | 'sent' }) {
+  const chat = useChatCopy()
+
+  return tick === 'seen' ? (
+    <span className="inline-flex items-center" data-matrix-read-tick>
+      <Checks aria-hidden className="size-3.5" />
     </span>
-  ) : null
+  ) : (
+    <span className="inline-flex items-center" data-matrix-sent role="status">
+      <Check aria-hidden className="size-3.5" />
+      <span className="sr-only">{chat.sent}</span>
+    </span>
+  )
 }

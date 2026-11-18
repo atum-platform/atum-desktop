@@ -654,7 +654,18 @@ export function matrixFileSize(bytes: number, locale: string): string {
 }
 
 /** A file: its name and size on a card, and Save (received) or Remove (staged). */
-export function MatrixFileCard({ action, name, size }: { action?: ReactNode; name: string; size?: number }) {
+export function MatrixFileCard({
+  action,
+  meta,
+  name,
+  size
+}: {
+  action?: ReactNode
+  /** The message's time (and your tick), on the size line's far end, as Telegram draws a file. */
+  meta?: ReactNode
+  name: string
+  size?: number
+}) {
   const { locale } = useI18n()
 
   return (
@@ -667,9 +678,10 @@ export function MatrixFileCard({ action, name, size }: { action?: ReactNode; nam
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-(length:--atum-t-control) font-semibold text-(--atum-ink)">{name}</span>
-        {size !== undefined && (
-          <span className="block text-(length:--atum-t-label) text-(--atum-ink-muted)">
-            {matrixFileSize(size, locale)}
+        {(size !== undefined || meta) && (
+          <span className="flex items-center gap-2 text-(length:--atum-t-label) text-(--atum-ink-muted)">
+            {size !== undefined && <span className="truncate">{matrixFileSize(size, locale)}</span>}
+            {meta && <span className="ms-auto shrink-0">{meta}</span>}
           </span>
         )}
       </span>

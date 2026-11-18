@@ -418,7 +418,7 @@ import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
 import { $matrixDeviceToShow, VerificationPrompt } from './security-panel'
-import { MatrixSendState } from './send-state'
+import { MatrixReceiptTick, matrixReceiptTick, MatrixSendState } from './send-state'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 import { MatrixSignIn } from './sign-in'
 import { MatrixStartChatButton } from './start-chat'
@@ -1143,7 +1143,6 @@ function MatrixEventMessageBubble() {
     />
   ) : undefined
   const timeEligible = settled && !status && !message.progress && !(message.checkIn && ownAssistant)
-  const hoverTime = !flat && timeEligible && runEnd === false ? timestamp : undefined
   const personEdited = Boolean(message.edited && !agent && !botApp)
   const editTime = personEdited && message.editedAt !== undefined
     ? chat.editedAt(
@@ -1152,6 +1151,45 @@ function MatrixEventMessageBubble() {
           : matrixClock(message.editedAt, locale)
       )
     : undefined
+
+  // Every bubble carries its own time in its bottom-right corner, as in Telegram: "edited" before
+  // it and, on yours, the sending clock or the Sent/Seen tick after it. Team Space keeps Slack's
+  // header and gutter times.
+  const sending = Boolean(message.own && message.pending && !local)
+  const ownTick = message.own && settled ? matrixReceiptTick(message, message.id === action?.latestOwnId) : undefined
+  const editedLabel = mobileChatCopy[locale].edited
+  const bubbleMeta = !flat && time && (timeEligible || (sending && !status)) ? (
+    <span className="matrix-bubble-meta" data-matrix-bubble-meta>
+      {personEdited && (
+        <Tip label={editTime}>
+          <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{editedLabel}</span>
+        </Tip>
+      )}
+      <MatrixTimestamp full={fullTime} timestamp={message.timestamp} value={time} />
+      {sending ? (
+        // The words are for screen readers; the clock says it to everyone else.
+        <span aria-label={copy.pending} className="inline-flex items-center" data-matrix-sending role="status">
+          <Clock aria-hidden className="size-3" />
+        </span>
+      ) : ownTick ? (
+        <MatrixReceiptTick tick={ownTick} />
+      ) : null}
+    </span>
+  ) : undefined
+  // The room the corner keeps free on the bubble's last line, in the corner's own type size
+  // (`ch` there): its characters, an icon, and a little air. It never needs to be exact, only
+  // never narrower than the corner, so the last word never runs under it.
+  const bubbleMetaRoom = `calc(${time.length + (personEdited ? editedLabel.length + 1 : 0)}ch + ${
+    sending || ownTick ? '1.125rem' : '0rem'
+  } + 0.75rem)`
+  // How the bubble's text makes room for the corner (styles.css): your plain text's paragraph and
+  // markdown's last paragraph or list item end in an invisible spacer; anything else gives the
+  // corner its own row.
+  const bubbleMetaFlow: 'plain' | 'markdown' | 'row' = message.own && !flat
+    ? 'plain'
+    : botApi || (companyAgent && companyAnswer)
+      ? 'row'
+      : 'markdown'
 
   // Slack's line shows who replied (in the order they first did), not the root's author unless they
   // answered in the thread too. The Chief of Staff wears its channel face; your agents their roster one.
@@ -1286,7 +1324,10 @@ function MatrixEventMessageBubble() {
             </p>
           )}
           {message.redacted ? (
-            <MatrixDeletedMessage />
+            <>
+              <MatrixDeletedMessage />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
+            </>
           ) : botApi?.photo && botApp ? (
             <>
               <MatrixBotApiPhotoView
@@ -1301,12 +1342,14 @@ function MatrixEventMessageBubble() {
                 roomId={action!.room.id}
               />
               <MatrixBotApiKeyboard keyboard={botApi.keyboard} />
+              {bubbleMeta && <div className="flex justify-end" data-matrix-meta-after>{bubbleMeta}</div>}
             </>
           ) : message.attachment && !message.decryptionFailed ? (
             <MatrixFileCard
               action={
                 settled ? <MatrixFileSave name={message.body} onSave={() => eventCommand('download')} /> : undefined
               }
+              meta={bubbleMeta}
               name={message.body}
               size={message.attachmentSize}
             />
@@ -1314,14 +1357,17 @@ function MatrixEventMessageBubble() {
             <>
             <div
               className={
-                flat && !status
+                (flat && !status
                   ? 'matrix-flat-message whitespace-pre-wrap break-words'
                   : message.own
                     ? `composer-human-message whitespace-pre-wrap break-words${previewLink ? ' ms-auto w-fit max-w-full' : ''}`
                     : status || (message.checkIn && ownAssistant)
                       ? 'py-1'
-                      : `matrix-chat-bubble whitespace-pre-wrap break-words${previewLink ? ' w-fit max-w-full' : ''}`
+                      : `matrix-chat-bubble whitespace-pre-wrap break-words${previewLink ? ' w-fit max-w-full' : ''}`) +
+                (bubbleMeta ? ' matrix-bubble-timed' : '')
               }
+              data-matrix-meta-flow={bubbleMeta ? bubbleMetaFlow : undefined}
+              style={bubbleMeta ? ({ '--matrix-meta-room': bubbleMetaRoom } as React.CSSProperties) : undefined}
             >
               {quote && (
                 <MatrixReplyQuote
@@ -1459,6 +1505,7 @@ function MatrixEventMessageBubble() {
                   }}
                 />
               )}
+              {bubbleMeta}
             </div>
             {previewLink && action && (
               <MatrixLinkPreviewCard
@@ -1481,7 +1528,6 @@ function MatrixEventMessageBubble() {
             placement="inline"
             react={picker('end')}
             threadLabel={threadCopy.replyInThread}
-            time={hoverTime}
           />
         )}
       </div>
@@ -1496,10 +1542,9 @@ function MatrixEventMessageBubble() {
           placement="corner"
           react={picker('end')}
           threadLabel={threadCopy.replyInThread}
-          time={hoverTime}
         />
       )}
-      {personEdited && !message.redacted && (flat || runEnd === false) && (
+      {personEdited && !message.redacted && (flat || !bubbleMeta) && (
         <Tip label={editTime}>
           <span className={`text-xs text-(--atum-ink-faint) ${underText}`} data-matrix-edited tabIndex={editTime ? 0 : undefined}>
             {flat ? chat.edited : mobileChatCopy[locale].edited}
@@ -1632,7 +1677,7 @@ function MatrixEventMessageBubble() {
       )}
       {/* Sending: a small clock under your message, as in any messaging app (the words are
           for screen readers). */}
-      {message.pending && !local && (
+      {message.pending && !local && !bubbleMeta && (
         <span
           aria-label={copy.pending}
           className="inline-flex text-(--atum-ink-faint)"
@@ -1658,30 +1703,10 @@ function MatrixEventMessageBubble() {
         <MatrixSendState
           agents={action?.agents}
           assistantChat={Boolean(action?.room.assistant)}
-          edited={personEdited && runEnd !== false ? (
-            <Tip label={editTime}>
-              <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{mobileChatCopy[locale].edited}</span>
-            </Tip>
-          ) : undefined}
-          latest={message.id === action?.latestOwnId}
           members={action?.members}
           message={message}
           people={people}
-          time={!flat && timeEligible && runEnd !== false ? timestamp : undefined}
         />
-      )}
-      {!message.own && !flat && timeEligible && runEnd !== false && timestamp && (
-        <span className={`inline-flex items-center gap-1 text-xs text-(--atum-ink-faint) ${underText}`} data-matrix-run-time>
-          {timestamp}
-          {personEdited && (
-            <>
-              <span aria-hidden>·</span>
-              <Tip label={editTime}>
-                <span data-matrix-edited tabIndex={editTime ? 0 : undefined}>{mobileChatCopy[locale].edited}</span>
-              </Tip>
-            </>
-          )}
-        </span>
       )}
       {result && (
         <p
@@ -1738,7 +1763,6 @@ function MatrixEventMessageBubble() {
           spoken={message.body}
           text={text}
           threadLabel={threadCopy.replyInThread}
-          time={hoverTime}
         />
       )}
       {flat && threadReplies !== undefined && threadReplies > 0 && <TeamSpaceRepliesDivider count={threadReplies} />}
