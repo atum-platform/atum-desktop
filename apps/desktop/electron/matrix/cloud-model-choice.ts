@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto'
 
-import type { MatrixCloudModelChoiceView, MatrixModelId } from '../../shared/matrix-models'
+import {
+  matrixCloudModelAlias,
+  type MatrixCloudModelChoiceView,
+  type MatrixEffort,
+  type MatrixModelId,
+  parseMatrixEffort
+} from '../../shared/matrix-models'
 import {
   type MatrixShelfModelId,
   type MatrixShelfModelView,
-  matrixShelfModelView
+  matrixShelfModelView,
+  parseMatrixShelfModel
 } from '../../shared/matrix-shelf-models'
 
 import { readDomainJson } from './domain'
@@ -203,8 +210,34 @@ export function matrixCloudModelView(offer: MatrixCloudModelOffer): MatrixCloudM
   return {
     offered: offer.models.filter(row => row.eligible).map(row => row.alias),
     ...(offer.current ? { current: offer.current } : {}),
+    ...(parseMatrixEffort(offer.effort) ? { effort: parseMatrixEffort(offer.effort) } : {}),
+    models: offer.models.filter(row => row.eligible).map(row => ({
+      alias: row.alias,
+      efforts: row.efforts.flatMap(level => parseMatrixEffort(level) ? [parseMatrixEffort(level)!] : []),
+      ...(parseMatrixEffort(row.defaultEffort) ? { defaultEffort: parseMatrixEffort(row.defaultEffort) } : {})
+    })),
     ...(shelf.length ? { shelf } : {})
   }
+}
+
+/** Resolve standard cloud setModel, including effort-only, from the server's choice. */
+export function matrixCloudManagedSelection(
+  offer: MatrixCloudModelOffer | undefined,
+  input: { model?: MatrixModelId | MatrixShelfModelId; effort?: MatrixEffort }
+): { model: MatrixModelId | MatrixShelfModelId; effort?: MatrixEffort } | undefined {
+  const model = input.model ?? (input.effort
+    ? matrixCloudModelAlias(offer?.current) ?? parseMatrixShelfModel(offer?.current)
+    : undefined)
+
+  const row = offer?.models.find(row => row.alias === model && row.eligible)
+
+  if (!model || (input.effort && !row?.efforts.includes(input.effort))) {
+    return undefined
+  }
+
+  const effort = input.effort ?? (parseMatrixShelfModel(model) ? parseMatrixEffort(row?.defaultEffort) : undefined)
+
+  return { model, ...(effort ? { effort } : {}) }
 }
 
 /** The write body for one alias: preserve the server's level when the destination takes it,
@@ -212,15 +245,16 @@ export function matrixCloudModelView(offer: MatrixCloudModelOffer): MatrixCloudM
 export function matrixCloudModelWrite(
   offer: MatrixCloudModelOffer,
   model: MatrixModelId | MatrixShelfModelId,
-  requestId = randomUUID()
+  requestId = randomUUID(),
+  requestedEffort?: MatrixEffort
 ): MatrixCloudModelWriteRequest | null {
   const destination = offer.models.find(row => row.alias === model)
 
-  if (!destination || !destination.eligible) {
+  if (!destination || !destination.eligible || (requestedEffort && !destination.efforts.includes(requestedEffort))) {
     return null
   }
 
-  const choiceEffort = offer.effort && destination.efforts.includes(offer.effort) ? offer.effort : destination.defaultEffort
+  const choiceEffort = requestedEffort ?? (offer.effort && destination.efforts.includes(offer.effort) ? offer.effort : destination.defaultEffort)
 
   return {
     profile: MATRIX_CLOUD_MODEL_PROFILE,
@@ -417,12 +451,12 @@ export class MatrixCloudModelChoices {
    * server, or a fence still old after one re-read): the caller keeps the row it had. A successful
    * write adopts the server's own snapshot, so the checked row is what the server stores.
    */
-  async write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean> {
+  async write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId, effort?: MatrixEffort): Promise<boolean> {
     const scopeCurrent = this.scopeCurrent()
     const intent = (this.intents.get(agentPrincipal) ?? 0) + 1
     this.intents.set(agentPrincipal, intent)
     const current = () => scopeCurrent() && this.intents.get(agentPrincipal) === intent
-    const first = await this.send(agentPrincipal, model, current)
+    const first = await this.send(agentPrincipal, model, current, effort)
 
     if (first !== 'stale') {
       return first
@@ -436,16 +470,16 @@ export class MatrixCloudModelChoices {
 
     await this.read(agentPrincipal, current)
 
-    return current() && (await this.send(agentPrincipal, model, current)) === true
+    return current() && (await this.send(agentPrincipal, model, current, effort)) === true
   }
 
-  private async send(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId, current: () => boolean): Promise<boolean | 'stale'> {
+  private async send(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId, current: () => boolean, effort?: MatrixEffort): Promise<boolean | 'stale'> {
     if (!current()) {
       return false
     }
 
     const offer = this.offer(agentPrincipal)
-    const body = offer ? matrixCloudModelWrite(offer, model) : null
+    const body = offer ? matrixCloudModelWrite(offer, model, randomUUID(), effort) : null
 
     if (!body) {
       return false

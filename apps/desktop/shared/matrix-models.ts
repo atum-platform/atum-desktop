@@ -69,6 +69,9 @@ export interface MatrixCloudModelChoiceView {
   offered: readonly string[]
   /** The alias the server says this agent runs now. */
   current?: string
+  /** Saved managed effort and exact per-alias levels from the cloud offer. */
+  effort?: MatrixEffort
+  models?: readonly { alias: string; efforts: readonly MatrixEffort[]; defaultEffort?: MatrixEffort }[]
   /** The eligible OpenRouter shelf models, in the server's order, with their Proton prices. */
   shelf?: readonly MatrixShelfModelView[]
   /** The OpenCode Go model this cloud agent runs (the account subscription), when one is chosen. */

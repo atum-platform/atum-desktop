@@ -511,6 +511,7 @@ import {
   requestCloudHome
 } from './cloud-home-read'
 import {
+  matrixCloudManagedSelection,
   MatrixCloudModelChoices,
   requestMatrixCloudModelChoice
 } from './cloud-model-choice'
@@ -3012,6 +3013,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   // the current model as itself, so an Atum row is not mistaken for the one already chosen.
   const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
 
+  const savedCloud = modelDestinations?.snapshot(principal)?.choices.find(choice => choice.destination === 'cloud')
   const cloudModel = cloudDestinationChoice?.external
     ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
       ? {
@@ -3022,7 +3024,9 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
           effort: cloudDestinationChoice.external.effort
         }
       : undefined
-    : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
+    : savedCloud?.source === 'atum'
+      ? { ...savedCloud, model: cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current ?? savedCloud.model }
+      : (cloudDestinationChoice?.shelf ?? cloudDestinationChoice?.current)
 
   return base && owner
     ? ownerHomeViewFor(
@@ -7432,6 +7436,8 @@ function cloudModelView(principal: string) {
   return {
     offered: base?.offered ?? [],
     ...(base?.current ? { current: base.current } : {}),
+    ...(base?.effort ? { effort: base.effort } : {}),
+    ...(base?.models ? { models: base.models } : {}),
     ...(subscription
       ? {
           subscription: {
@@ -25127,21 +25133,16 @@ async function start() {
             // The destination record first: it replaces a saved plan choice (ChatGPT), where the
             // 1.1 offer path would refuse or leave the plan in place (writeMatrixCloudAtumChoice).
             // An OpenRouter shelf model keeps its own default level from the offer.
-            const shelfEffort =
-              input.model && parseMatrixShelfModel(input.model) && cloudPrincipalId
-                ? cloudModelChoices?.offer(cloudPrincipalId)?.models.find(row => row.alias === input.model)?.defaultEffort
-                : undefined
+            const offer = cloudPrincipalId ? cloudModelChoices?.offer(cloudPrincipalId) : undefined
+            const selection = matrixCloudManagedSelection(offer, input)
 
-            const applied =
-              input.model && !input.effort && cloudPrincipalId
-                ? await writeMatrixCloudAtumChoice(cloudPrincipalId, input.model, {
-                    ...(modelDestinations ? { destinations: modelDestinations } : {}),
-                    ...(cloudModelChoices ? { legacy: cloudModelChoices } : {}),
-                    ...(shelfEffort === 'low' || shelfEffort === 'medium' || shelfEffort === 'high'
-                      ? { effort: shelfEffort }
-                      : {})
-                  })
-                : false
+            const applied = selection && cloudPrincipalId
+              ? await writeMatrixCloudAtumChoice(cloudPrincipalId, selection.model, {
+                  ...(modelDestinations ? { destinations: modelDestinations } : {}),
+                  ...(cloudModelChoices ? { legacy: cloudModelChoices } : {}),
+                  ...(selection.effort ? { effort: selection.effort } : {})
+                })
+              : false
 
             return { status: applied ? ('applied' as const) : ('refused' as const) }
           }

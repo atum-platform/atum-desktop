@@ -12,6 +12,14 @@ export const MODEL_PICKER_CARD =
   'h-[22.5rem] max-h-[min(80vh,22.5rem)] w-[34rem] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
 
 /**
+ * The same card without the thinking column beside the list (an Atum-only lineup, or any
+ * card whose current model takes fewer than two savable levels): narrower and no taller
+ * than its rows, so the empty column's width never ships as empty air.
+ */
+export const MODEL_PICKER_CARD_COMPACT =
+  'flex h-auto max-h-[min(80vh,22.5rem)] flex-col w-[24rem] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
+
+/**
  * The card's keyboard: arrows/Home/End move between rows, `/` jumps to search, typing on the card
  * starts a search, `f` stars the focused row, the search's arrows reach the list, right arrow
  * reaches the thinking column (left comes back), Enter picks, and ⌘1…⌘9 pick the visible rows.
@@ -184,11 +192,11 @@ export function ModelPickerPanel({
       <ModelPickerFilter filter={filter} onChange={onFilterChange} onConnect={onConnect} sources={sources} />
 
       {takeover ? (
-        <div className="flex min-w-0 flex-1 flex-col" data-matrix-model-takeover>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-matrix-model-takeover>
           {takeover}
         </div>
       ) : (
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="shrink-0 px-3" data-matrix-model-search onKeyDown={keys.searchKeyDown}>
           <SearchField
             aria-label={words.searchPlaceholder}

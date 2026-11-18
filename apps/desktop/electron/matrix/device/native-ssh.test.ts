@@ -125,6 +125,60 @@ it('reuses the prepared canonical route and credential after process restart and
   expect(restarted.system.saveToken).not.toHaveBeenCalled()
 })
 
+it.each(['NM', 'Nm_User-01', 'owner', '_service', 'N' + 'm'.repeat(31)])(
+  'preserves the exact safe OS login %s through enrollment, refresh and restart', async user => {
+    const settings = mockSettings()
+    const first = fixture(settings)
+    vi.mocked(first.system.ready).mockResolvedValue({ remoteLogin: true, user, hostKey: enrollment.hostKey })
+    await first.service.refresh()
+    await first.service.refresh()
+    expect(first.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(requests(first).filter(row => row.operation === 'ssh_enroll')).toEqual([{ ...enrollment, host, user }])
+
+    const restarted = fixture(settings, first.saved())
+    vi.mocked(restarted.system.ready).mockResolvedValue({ remoteLogin: true, user, hostKey: enrollment.hostKey })
+    await restarted.service.refresh()
+    expect(requests(restarted).map(row => row.operation)).toEqual(['ssh_authorized_keys', 'ssh_enroll'])
+    expect(requests(restarted).find(row => row.operation === 'ssh_enroll')).toEqual({ ...enrollment, host, user })
+    expect(restarted.system.saveToken).not.toHaveBeenCalled()
+  }
+)
+
+it('re-enrolls when OS login spelling changes without preparing another route', async () => {
+  const f = fixture()
+  vi.mocked(f.system.ready).mockResolvedValue({ remoteLogin: true, user: 'NM', hostKey: enrollment.hostKey })
+  await f.service.refresh()
+  vi.mocked(f.system.ready).mockResolvedValue({ remoteLogin: true, user: 'nm', hostKey: enrollment.hostKey })
+  await f.service.refresh()
+  expect(requests(f).filter(row => row.operation === 'ssh_enroll').map(row => row.user)).toEqual(['NM', 'nm'])
+  expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(1)
+})
+
+it.each([
+  '', 'N'.repeat(33), '-NM', '1NM', ' NM', 'NM ', 'NM\n', 'owner\n', 'NM\r\n',
+  'NM\0', 'NM\t', 'N M', 'NM@host', 'NM/other', 'NM:other', 'NM;id',
+  'NM$(id)', 'NM`id`', 'NM"', "NM'", 'NM\\other', 'NΜ',
+])('rejects unsafe OS login %j before prepare or enrollment', async user => {
+  const f = fixture()
+  vi.mocked(f.system.ready).mockResolvedValue({ remoteLogin: true, user, hostKey: enrollment.hostKey })
+  await f.service.refresh()
+  expect(f.service.status()).toMatchObject({ status: 'error', reason: 'native_ssh_setup_failed' })
+  expect(f.http).not.toHaveBeenCalled()
+  expect(f.system.saveToken).not.toHaveBeenCalled()
+  expect(f.system.start).not.toHaveBeenCalled()
+  expect(f.system.keys).toHaveBeenCalledWith([])
+  expect(f.system.stop).toHaveBeenCalled()
+})
+
+it('still refuses an invalid host key with the uppercase OS login', async () => {
+  const f = fixture()
+  vi.mocked(f.system.ready).mockResolvedValue({ remoteLogin: true, user: 'NM', hostKey: 'invalid' })
+  await f.service.refresh()
+  expect(f.service.status().status).toBe('error')
+  expect(f.http).not.toHaveBeenCalled()
+  expect(f.system.start).not.toHaveBeenCalled()
+})
+
 it('retains a legacy token without blind prepare rotation; explicit revoke/reconnect recovers', async () => {
   const f = fixture(mockSettings(), secret)
   await f.service.refresh()

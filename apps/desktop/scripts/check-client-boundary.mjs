@@ -1,4 +1,5 @@
 /** Enforce the public client closure, including tests, scripts, config and fixture reads. */
+import {execFileSync} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -66,21 +67,7 @@ console.log('Client boundary passed: desktop/shared and client package import cl
 // Compile with a virtual filesystem that makes private packages unreadable/nonexistent.
 // No worktree directories are renamed or removed; no build artifacts are emitted.
 if (process.argv.includes('--typecheck-without-controller')) {
-  const host = ts.createCompilerHost({})
-  for (const method of ['fileExists', 'directoryExists', 'readFile', 'getDirectories']) {
-    const original = host[method]?.bind(host)
-    if (original) host[method] = file => privatePath(path.resolve(file)) ? (method === 'readFile' ? undefined : method === 'getDirectories' ? [] : false) : original(file)
-  }
   for (const config of ['tsconfig.json', 'tsconfig.electron.json']) {
-    const configFile = path.join(root, 'apps/desktop', config)
-    const parsed = ts.getParsedCommandLineOfConfigFile(configFile, {noEmit: true, incremental: false, composite: false}, {...ts.sys, ...host, onUnRecoverableConfigFileDiagnostic: d => { throw new Error(ts.flattenDiagnosticMessageText(d.messageText, '\n')) }})
-    const program = ts.createProgram(parsed.fileNames, parsed.options, host)
-    const diagnostics = [...parsed.errors, ...ts.getPreEmitDiagnostics(program)]
-    const leaked = program.getSourceFiles().filter(source => privatePath(source.fileName))
-    if (diagnostics.length || leaked.length) {
-      console.error(ts.formatDiagnosticsWithColorAndContext(diagnostics, {getCurrentDirectory: () => root, getCanonicalFileName: f => f, getNewLine: () => '\n'}))
-      throw new Error(`${config}: private-absent compilation failed; ${leaked.length} private sources`)
-    }
-    console.log(`${config}: PASS with both private server packages inaccessible (${program.getSourceFiles().length} source files, zero private sources).`)
+    execFileSync(process.execPath, [fileURLToPath(new URL('./typecheck-client-boundary.mjs', import.meta.url)), config], {stdio: 'inherit'})
   }
 }

@@ -7,6 +7,7 @@ import type { PlacementConnectionAuth } from './connection-auth'
 import type { PlacementConnectionPlatform } from './connection-platform'
 import type { AgentHomeOwnerMovePreflightV25, AgentHomeOwnerMoveProgressV25 } from './contract-v25'
 import { AgentHomeOwnerController, cloudHomeChoices, cloudHomeOptions, waitingForHomeMac } from './owner-controller'
+import { type AgentHomeOwnerIpcDeps, handleAgentHomeOwnerRequest } from './owner-ipc'
 import { readPackV25Json } from './pack-v25.fixture'
 
 const AGENT = '00000000-0000-4000-8000-bd7662a5eeb4'
@@ -216,6 +217,46 @@ describe('a retry is the same operation', () => {
     expect(b!.cancelId).toBe(a!.cancelId)
     expect(b!.idempotencyKey).toBe(a!.idempotencyKey)
     expect(b!.meta.requestId).toBe(a!.meta.requestId)
+  })
+
+  it.each(['low', 'high'] as const)('validates cloud effort at owner IPC and persists %s with placement guards', async effort => {
+    const platform = {
+      readOwner: fake(async () => ({ ok: true, value: snapshot() })),
+      readCatalog: fake(async () => ({ ok: false, kind: 'unsupported', status: 404 })),
+      readModelApplication: fake(async () => ({ ok: false, kind: 'unsupported', status: 404 })),
+      writeModelChoice: fake(async () => ({ ok: true, value: {} }))
+    }
+    const { owner, calls } = fixture(platform)
+    const deps = {
+      owner, now: () => T0,
+      cloudOffers: () => [{ alias: 'nguyet-thuc', efforts: ['low', 'medium', 'high'], defaultEffort: 'medium', eligible: true }],
+      cloudChoiceRevision: async () => 3,
+      kick: vi.fn(), publish: vi.fn()
+    } as unknown as AgentHomeOwnerIpcDeps
+    const model = { connectionRef: 'conn_atummanaged000001', model: 'nguyet-thuc', effort }
+    await expect(handleAgentHomeOwnerRequest({ action: 'model', model }, AGENT, deps)).resolves.toEqual({ status: 'saved' })
+    expect(calls.at(-1)?.message).toBe('owner.home.model-choice.write')
+    expect(platform.writeModelChoice.mock.calls[0]![1]).toMatchObject({
+      agentPrincipal: AGENT, currentHome: { kind: 'cloud' },
+      expectedHomeId: snapshot().placement.homeId, expectedHomeEpoch: 4,
+      expectedChoiceRevision: 3, expectedActiveMoveId: null,
+      idempotencyKey: expect.any(String),
+      choice: { ...model, destination: 'cloud', source: 'atum' }
+    })
+    for (const invalid of [
+      { ...model, effort: 'max' }, { ...model, effort: 'ultra' },
+      { ...model, connectionRef: 'conn_other' }, { ...model, model: 'missing' }
+    ]) {
+      await expect(handleAgentHomeOwnerRequest({ action: 'model', model: invalid }, AGENT, deps))
+        .resolves.toEqual({ status: 'refused', reason: 'connection_unavailable' })
+    }
+    deps.cloudOffers = () => [{ alias: 'nguyet-thuc', efforts: ['medium'], eligible: true }]
+    await expect(handleAgentHomeOwnerRequest({ action: 'model', model }, AGENT, deps))
+      .resolves.toEqual({ status: 'refused', reason: 'connection_unavailable' })
+    deps.cloudOffers = () => [{ alias: 'nguyet-thuc', efforts: ['low'], eligible: false }]
+    await expect(handleAgentHomeOwnerRequest({ action: 'model', model }, AGENT, deps))
+      .resolves.toEqual({ status: 'refused', reason: 'connection_unavailable' })
+    expect(platform.writeModelChoice).toHaveBeenCalledOnce()
   })
 
   it('a model change whose answer never came is sent again with the same ids, and says why when refused', async () => {

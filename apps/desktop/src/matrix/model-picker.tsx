@@ -66,7 +66,12 @@ import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerEffortColumn, pickerEffortChoice } from './model-picker-effort-column'
 import { type PickerFilterSource } from './model-picker-filter'
 import { ModelPickerList, shelfPrice } from './model-picker-list'
-import { MODEL_PICKER_CARD, ModelPickerPanel, useModelPickerKeys } from './model-picker-panel'
+import {
+  MODEL_PICKER_CARD,
+  MODEL_PICKER_CARD_COMPACT,
+  ModelPickerPanel,
+  useModelPickerKeys
+} from './model-picker-panel'
 import { matrixHomeModelProvider as homeProvider } from './model-picker-popover'
 import {
   matrixModelEffortReconciliation,
@@ -389,7 +394,8 @@ export function MatrixModelPicker({
     cloud ? (cloudSubscription ? undefined : cloudCurrent) : (room.model ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
   )
 
-  const [pendingEffort, setPendingEffort] = usePendingPick<MatrixEffort>(room.effort)
+  const savedEffort = managed && cloud && here !== 'this_mac' ? cloudChoice?.effort : room.effort
+  const [pendingEffort, setPendingEffort] = usePendingPick<MatrixEffort>(savedEffort)
   // A cloud plan's thinking level, saved with its model (`atum.model-choice/1.4`), held until sync.
   const [pendingPlanEffort, setPendingPlanEffort] = usePendingPick<MatrixEffort>(cloudSubscription?.effort)
   const [pendingConnected, setPendingConnected] = useState<{ route: MatrixModelRoute; saved: boolean } | null>(null)
@@ -446,7 +452,7 @@ export function MatrixModelPicker({
     ? (pendingModel?.value ?? cloudCurrent ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
     : (pendingModel?.value ?? room.model ?? destinationDefault ?? MATRIX_DEFAULT_MODEL)
 
-  const chosenEffort = pendingEffort?.value ?? room.effort
+  const chosenEffort = pendingEffort?.value ?? savedEffort
   const placement = home?.placement
   const currentDestination = placement?.destinations.find(destination => destination.id === placement.current)
   const homeBridge = agentHome ?? window.atumMatrix.agentHome
@@ -608,7 +614,9 @@ export function MatrixModelPicker({
               ? homeOption.efforts.filter(
                   (effort): effort is MatrixEffort => effort === 'low' || effort === 'medium' || effort === 'high'
                 )
-              : [],
+              : cloud
+                ? [...(cloudChoice?.models?.find(row => matrixCloudModelAlias(row.alias) === model)?.efforts ?? [])]
+                : [],
             current: homeMode
               ? Boolean(homeOption && sameHomeModel(homeOption, currentHomeOption))
               : model === managedCurrent,
@@ -1033,7 +1041,10 @@ export function MatrixModelPicker({
 
   // The thinking column: the current model's levels, where a level can be saved for it. A cloud
   // plan model (ChatGPT, OpenCode Go) saves its level with the plan choice; a model connected on
-  // this Mac saves it per conversation. Atum's own models take one level, so they get no column.
+  // this Mac saves it per conversation; a placed home (including Atum's own models) saves it with
+  // the home's current model, through the owner-authoritative placement path. A model whose
+  // choice advertises fewer than two savable levels gets no column: never a control that does
+  // nothing. Standard managed cloud rows use the server offer too.
   const currentPlan = cloudSubscriptions && !atumPickHeld
     ? cloudSubscriptionRoutes.find(({ route }) => isCurrent(route))
     : undefined
@@ -1050,8 +1061,26 @@ export function MatrixModelPicker({
       })
     : undefined
 
+  const managedEffortRoute = !homeMode && managed && cloud && !currentPlan && !savedCloudPlan
+    ? atumRoutes.find(({ route }) => route.model === managedCurrent)?.route
+    : undefined
+  const managedEffortChoice = managedEffortRoute
+    ? pickerEffortChoice({
+        efforts: managedEffortRoute.efforts,
+        value: chosenEffort,
+        defaultEffort: cloudChoice?.models?.find(row => row.alias === managedCurrent)?.defaultEffort
+      })
+    : undefined
+
   const localEffortChoice =
     !currentPlan && !managed && !homeMode ? pickerEffortChoice({ efforts, value: chosenEffort }) : undefined
+
+  // A placed home names its own levels on its current model (the platform's advertisement, as
+  // validated by the placement write); only those levels are ever offered.
+  const homeEffortChoice =
+    homeMode && !currentPlan && currentHomeOption
+      ? pickerEffortChoice({ efforts: currentHomeOption.efforts, value: parseMatrixEffort(currentHomeOption.effort) })
+      : undefined
 
   // The column belongs to the model you have now, so it shows only on that model's own list;
   // browsing another provider's list (e.g. Atum's) must not show the current model's levels.
@@ -1060,10 +1089,14 @@ export function MatrixModelPicker({
   const effortColumn = !effortOnCurrentList
     ? undefined
     : planEffortChoice && currentPlan
-    ? { model: currentPlan.route.name, choice: planEffortChoice, plan: currentPlan }
-    : localEffortChoice
-      ? { model: offered?.displayName ?? '', choice: localEffortChoice }
-      : undefined
+      ? { model: currentPlan.route.name, choice: planEffortChoice, plan: currentPlan }
+      : managedEffortChoice && managedEffortRoute
+        ? { model: managedEffortRoute.name, choice: managedEffortChoice }
+        : localEffortChoice
+          ? { model: offered?.displayName ?? '', choice: localEffortChoice }
+          : homeEffortChoice && currentHomeOption
+            ? { model: currentHomeOption.modelLabel, choice: homeEffortChoice, home: true as const }
+            : undefined
 
   const displayRoute = localRows ? (pendingConnected?.route ?? exactRoute) : undefined
 
@@ -1622,6 +1655,60 @@ export function MatrixModelPicker({
     )
   }
 
+  /**
+   * A new thinking level for the placed home's current model: the same model with the new level,
+   * through the owner-authoritative placement path. Main refuses a level the home's catalog does
+   * not advertise for that model, and the pending pick clears when the projection carries it.
+   */
+  const chooseHomeEffort = (level: MatrixEffort) => {
+    if (
+      !homeMode ||
+      !homeBridge ||
+      !agentPrincipal ||
+      !currentHomeOption ||
+      switching ||
+      effortSaving ||
+      pendingPlanEffort?.saved === false
+    ) {
+      return
+    }
+
+    const advertised = currentHomeOption.efforts.filter(
+      (each): each is MatrixEffort => each === 'low' || each === 'medium' || each === 'high'
+    )
+
+    if (!advertised.includes(level) || currentHomeOption.effort === level) {
+      return
+    }
+
+    const context = beginSelection()
+    const nextOption = { ...currentHomeOption, effort: level }
+    setPendingHome({ option: nextOption, route: homeRouteFor(nextOption), saved: false })
+
+    void homeBridge.model(agentPrincipal, nextOption).then(
+      result => {
+        if (!context.current()) {
+          return
+        }
+
+        if (result.status !== 'saved') {
+          setPendingHome(null)
+          fail()
+
+          return
+        }
+
+        setPendingHome({ option: nextOption, route: homeRouteFor(nextOption), saved: true })
+      },
+      () => {
+        if (context.current()) {
+          setPendingHome(null)
+          fail()
+        }
+      }
+    )
+  }
+
   const chooseLocalRoute = (picked: PickerRoute) => {
     const homeOption = homeOptionByRoute.get(picked.route.id)
 
@@ -2067,7 +2154,7 @@ export function MatrixModelPicker({
       <PopoverContent
         align="end"
         aria-label={copy.modelPicker}
-        className={cn(MODEL_PICKER_CARD, contentClassName)}
+        className={cn(effortColumn ? MODEL_PICKER_CARD : MODEL_PICKER_CARD_COMPACT, contentClassName)}
         onKeyDown={keys.shortcutKeyDown}
         // A card opened by a click focuses itself (DESIGN.md), never the search field or a row.
         onOpenAutoFocus={event => {
@@ -2089,11 +2176,16 @@ export function MatrixModelPicker({
                   switching ||
                   effortSaving ||
                   pendingPlanEffort?.saved === false ||
+                  pendingHome?.saved === false ||
                   (effortColumn.plan ? !effortColumn.plan.route.ready : false)
                 }
                 model={effortColumn.model}
                 onChange={level =>
-                  effortColumn.plan ? chooseCloudPlanEffort(effortColumn.plan, level) : chooseEffort(level)
+                  effortColumn.plan
+                    ? chooseCloudPlanEffort(effortColumn.plan, level)
+                    : 'home' in effortColumn
+                      ? chooseHomeEffort(level)
+                      : chooseEffort(level)
                 }
                 onLeave={keys.toList}
               />

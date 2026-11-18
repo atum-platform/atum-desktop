@@ -361,6 +361,7 @@ import {
   MatrixFileSave,
   MatrixMessageContextMenu,
   MatrixMessageMenu,
+  type MatrixMessageReactAction,
   type MatrixMessageSavedAction,
   MatrixMessageToolbar,
   MatrixReactionChips,
@@ -970,6 +971,13 @@ function MatrixEventMessageBubble() {
   const picker = (align: 'end' | 'start') =>
     actionable ? <MatrixReactionPicker align={align} onReact={react} reactions={message.reactions} /> : undefined
 
+  // The same toggle inside the message's options (the "…" menu and the right-click menu alike):
+  // the native Matrix reaction command, only while the message can take one. Absent otherwise,
+  // never a second write path.
+  const reactAction: MatrixMessageReactAction | undefined = actionable
+    ? { reactions: message.reactions ?? [], onReact: react }
+    : undefined
+
   const onReply = actionable && action?.composer?.replies ? () => action.composer?.reply(message) : undefined
   const threadSummary = action?.threads?.find(thread => thread.root.id === message.id)
 
@@ -1079,6 +1087,7 @@ function MatrixEventMessageBubble() {
         onRetry={retryOwn}
         pinned={pinned}
         pinning={pinning}
+        react={reactAction}
         retryDisabled={retryOwnDisabled}
         saved={savedAction}
         text={text}
@@ -1107,6 +1116,7 @@ function MatrixEventMessageBubble() {
         }
         pinned={pinned}
         pinning={pinning}
+        react={reactAction}
         reported={reported}
         saved={savedAction}
         text={text}
@@ -1121,6 +1131,7 @@ function MatrixEventMessageBubble() {
         onPin={onPin}
         pinned={pinned}
         pinning={pinning}
+        react={reactAction}
         saved={savedAction}
         text={text}
         toCard={toCard}
@@ -1765,6 +1776,7 @@ function MatrixEventMessageBubble() {
             pinned={pinned}
           pinning={pinning}
           react={picker('end')}
+          reactAction={reactAction}
           readAloud={ownAssistant && Boolean(text)}
           retryDisabled={!ready}
           roomId={action.room.id}
@@ -1796,6 +1808,7 @@ function MatrixAnswerToolbar({
   pinned,
   pinning,
   react,
+  reactAction,
   readAloud,
   retryDisabled,
   roomId,
@@ -1817,6 +1830,8 @@ function MatrixAnswerToolbar({
   pinned: boolean
   pinning: boolean
   react?: ReactNode
+  /** The same toggle inside the answer's "…" menu; absent while the answer cannot take one. */
+  reactAction?: MatrixMessageReactAction
   /** Your own assistant's answers can be read aloud; another agent's cannot. */
   readAloud: boolean
   retryDisabled: boolean
@@ -1844,6 +1859,7 @@ function MatrixAnswerToolbar({
             onRetry={onRetry}
             pinned={pinned}
             pinning={pinning}
+            react={reactAction}
             readAloud={
               canRead
                 ? {

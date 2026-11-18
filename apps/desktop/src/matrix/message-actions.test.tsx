@@ -209,3 +209,117 @@ describe('message options at the pointer', () => {
     expect(onForward).toHaveBeenCalledOnce()
   })
 })
+
+describe('reactions inside the message options', () => {
+  const reactions = [
+    { key: '👍', count: 2, own: false, senders: ['@a:test', '@b:test'] },
+    { key: '❤️', count: 1, own: true, senders: ['@you:test'] }
+  ]
+
+  const openDropdown = () => {
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Message actions' }), { key: 'Enter' })
+
+    return screen.findByRole('menu')
+  }
+
+  it('reacts from the "…" menu with the same toggle the hover picker calls', async () => {
+    const onReact = vi.fn()
+    render(menu({ react: { reactions: [...reactions], onReact } }))
+
+    const dropdown = await openDropdown()
+    const row = within(dropdown).getByRole('group', { name: 'React' })
+    expect(row.querySelectorAll('[role=menuitemcheckbox]')).toHaveLength(6)
+
+    const mine = within(row).getByRole('menuitemcheckbox', { name: 'React with ❤️' })
+    expect(mine.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(mine)
+    expect(onReact).toHaveBeenCalledExactlyOnceWith('❤️', false)
+
+    expect(screen.queryByRole('menu')).toBeNull()
+    const reopened = await openDropdown()
+    fireEvent.click(within(reopened).getByRole('menuitemcheckbox', { name: 'React with 😂' }))
+    expect(onReact).toHaveBeenCalledTimes(2)
+    expect(onReact).toHaveBeenLastCalledWith('😂', true)
+  })
+
+  it('reacts from the right-click menu with the same row, above Copy', async () => {
+    const onReact = vi.fn()
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixMessageContextMenu>
+          <div data-testid="message">
+            <p>The answer</p>
+            <MatrixMessageToolbar
+              menu={
+                <MatrixMessageMenu
+                  kind="answer"
+                  label="Message actions"
+                  react={{ reactions: [...reactions], onReact }}
+                  text="The answer"
+                />
+              }
+              placement="corner"
+            />
+          </div>
+        </MatrixMessageContextMenu>
+      </I18nProvider>
+    )
+
+    expect(fireEvent.contextMenu(screen.getByText('The answer'), { button: 2, clientX: 140, clientY: 260 })).toBe(false)
+    const context = await screen.findByRole('menu')
+    expect(context.hasAttribute('data-matrix-message-context-menu')).toBe(true)
+
+    const row = within(context).getByRole('group', { name: 'React' })
+    expect(
+      row.compareDocumentPosition(within(context).getByRole('menuitem', { name: 'Copy' })) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    fireEvent.click(within(row).getByRole('menuitemcheckbox', { name: 'React with 👍' }))
+    expect(onReact).toHaveBeenCalledExactlyOnceWith('👍', true)
+  })
+
+  it.each([['dropdown', 'Enter'], ['dropdown', ' '], ['context', 'Enter'], ['context', ' ']] as const)('traverses reactions and toggles once in the %s menu with %s', async (surface, key) => {
+    const onReact = vi.fn()
+    const content = menu({ react: { reactions, onReact } })
+    render(surface === 'context' ? <MatrixMessageContextMenu><div>{content}</div></MatrixMessageContextMenu> : content)
+    const trigger = screen.getByRole('button', { name: 'Message actions' })
+    trigger.focus()
+    fireEvent.keyDown(trigger, surface === 'context' ? { key: 'F10', shiftKey: true } : { key: 'Enter' })
+    const opened = await screen.findByRole('menu')
+    const items = within(opened).getAllByRole('menuitemcheckbox')
+    await waitFor(() => expect(window.document.activeElement).toBe(items[0]))
+    expect(fireEvent.keyDown(items[0]!, { key: 'Tab' })).toBe(false)
+    for (const item of items.slice(1)) {
+      fireEvent.keyDown(window.document.activeElement!, { key: 'ArrowDown' })
+      await waitFor(() => expect(window.document.activeElement).toBe(item))
+    }
+    for (const item of items.slice(0, -1).reverse()) {
+      fireEvent.keyDown(window.document.activeElement!, { key: 'ArrowUp' })
+      await waitFor(() => expect(window.document.activeElement).toBe(item))
+    }
+    fireEvent.keyDown(items[0]!, { key: 'ArrowDown' })
+    await waitFor(() => expect(window.document.activeElement).toBe(items[1]))
+    fireEvent.keyDown(items[1]!, { key })
+    expect(onReact).toHaveBeenCalledExactlyOnceWith('❤️', false)
+    await waitFor(() => expect(screen.queryByRole('menu')).toBeNull())
+  })
+
+  it('updates the checked reaction from the caller projection without sending another toggle', async () => {
+    const onReact = vi.fn()
+    const view = render(menu({ react: { reactions, onReact } }))
+    await openDropdown()
+    expect(screen.getByRole('menuitemcheckbox', { name: 'React with ❤️' }).getAttribute('aria-checked')).toBe('true')
+    view.rerender(menu({ react: { reactions: reactions.map(reaction => ({ ...reaction, own: false })), onReact } }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'React with ❤️' }).getAttribute('aria-checked')).toBe('false')
+    expect(onReact).not.toHaveBeenCalled()
+  })
+
+  it('shows no reaction row when the message cannot take one', async () => {
+    render(menu())
+
+    const dropdown = await openDropdown()
+    expect(within(dropdown).queryByRole('group', { name: 'React' })).toBeNull()
+
+
+  })
+})
