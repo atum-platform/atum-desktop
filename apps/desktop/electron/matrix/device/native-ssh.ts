@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto'
+
 import type { MatrixNativeSshView as NativeSshView } from '../../../shared/matrix-native-mac'
 
 import type { RelaySshBinding } from './chatgpt-relay'
@@ -63,6 +65,13 @@ export function relayKeyLine(row: RelayAuthorizedKey, helper: string): string {
   return `command="'${helper}' ${row.ownerPrincipal} ${row.agentPrincipal} ${row.connectionEpoch}",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty,no-user-rc ${row.publicKey}`
 }
 
+// Platform default: prefix + opaque registry label + suffix; never derive from UUID.
+export function nativeSshHost(value: unknown): value is string {
+  return typeof value === 'string' && /^mac-[a-f0-9]{32}\.atumplatform\.com$(?![\s\S])/.test(value)
+}
+
+const tokenDigest = (token: string) => createHash('sha256').update(token).digest('hex')
+
 const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
 
@@ -110,6 +119,7 @@ export class NativeMacSsh {
   private chain: Promise<unknown> = Promise.resolve()
   private timer?: ReturnType<typeof setInterval>
   private id?: string
+  private routeKey?: string
   private enrolled?: string
   private hintEnrollmentKey?: string
   private disconnected = false
@@ -195,6 +205,8 @@ export class NativeMacSsh {
   }
   refresh(): Promise<void> {
     return this.serial(async () => {
+      let recoveryRequired = false
+
       try {
         const record = this.deps.enrollment()
 
@@ -238,24 +250,40 @@ export class NativeMacSsh {
           throw new Error('invalid_host')
         }
 
-        const host = `${this.id}.mac.atumplatform.com`
+        // Bind persisted metadata to both the account/device scope and exact token.
+        const routeKey = `native-ssh:route:${record.ownerUserId}:${record.matrixDeviceId}:${this.id}`
+        this.routeKey = routeKey
+        const token = await this.deps.system.token(this.id)
+        let host: string
 
-        if (!(await this.deps.system.token(this.id))) {
-          const prepared = (await this.deps.call({ operation: 'ssh_prepare', deviceServiceId: this.id })) as Record<
-            string,
-            unknown
-          >
+        if (token) {
+          recoveryRequired = true
+          const route = JSON.parse(this.deps.settings.getItem(routeKey) ?? 'null')
+
+          if (!route || !nativeSshHost(route.host) || route.tokenDigest !== tokenDigest(token)) {
+            // prepare rotates a connector; it is not a metadata GET. Retain the
+            // credential for explicit disconnect/reconnect recovery instead.
+            throw new Error('native_ssh_route_recovery_required')
+          }
+
+          recoveryRequired = false
+          host = route.host
+        } else {
+          const prepared = await this.deps.call({ operation: 'ssh_prepare', deviceServiceId: this.id }) as Record<string, unknown>
 
           if (
+            !prepared ||
             prepared.deviceServiceId !== this.id ||
-            prepared.host !== host ||
+            !nativeSshHost(prepared.host) ||
             typeof prepared.tunnelToken !== 'string' ||
-            !/^[A-Za-z0-9+/_=.-]{1,16384}$/.test(prepared.tunnelToken)
+            !/^[A-Za-z0-9+/_=.-]{1,16384}$(?![\s\S])/.test(prepared.tunnelToken)
           ) {
             throw new Error('invalid_prepare')
           }
 
+          host = prepared.host
           await this.deps.system.saveToken(this.id, prepared.tunnelToken)
+          this.deps.settings.setItem(routeKey, JSON.stringify({ host, tokenDigest: tokenDigest(prepared.tunnelToken) }))
         }
 
         const rows = await this.deps.call({ operation: 'ssh_authorized_keys', purposes: true })
@@ -280,7 +308,7 @@ export class NativeMacSsh {
         await this.deps.system.keys(keys)
         this.bindings = keys.filter((key): key is RelayAuthorizedKey => typeof key !== 'string')
         await this.deps.system.start(this.id)
-        const epoch = `${this.id}:${record.enrollmentEpoch}:${ready.user}:${ready.hostKey}`
+        const epoch = `${this.id}:${record.enrollmentEpoch}:${host}:${ready.user}:${ready.hostKey}`
 
         if (this.enrolled !== epoch) {
           await this.deps.call({
@@ -305,7 +333,7 @@ export class NativeMacSsh {
         await this.deps.system.keys([]).catch(() => undefined)
         await this.deps.system.stop().catch(() => undefined)
         this.enrolled = undefined
-        this.view = { status: 'error', reason: 'native_ssh_setup_failed', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = { status: 'error', reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed', settingsUrl: REMOTE_LOGIN_SETTINGS }
       }
     })
   }
@@ -316,6 +344,14 @@ export class NativeMacSsh {
       this.id ? this.deps.call({ operation: 'ssh_revoke', deviceServiceId: this.id }) : Promise.resolve(),
       this.deps.system.stop(),
       this.deps.system.keys([]),
+      Promise.resolve().then(() => {
+        const record = this.deps.enrollment()
+        const key = this.routeKey ?? (record && `native-ssh:route:${record.ownerUserId}:${record.matrixDeviceId}:${this.id}`)
+
+        if (key) {
+          this.deps.settings.setItem(key, 'null')
+        }
+      }),
       this.id ? this.deps.system.removeToken(this.id) : Promise.resolve()
     ])
 
@@ -325,6 +361,7 @@ export class NativeMacSsh {
       throw new Error('native_ssh_cleanup_pending')
     }
 
+    this.routeKey = undefined
     this.id = undefined
   }
   disconnect(): Promise<void> {
