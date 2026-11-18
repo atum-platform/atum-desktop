@@ -119,7 +119,7 @@ import { shouldLatchBackendStartFailure } from './backend-start-failure'
 import { detectRemoteDisplay, isWindowsBinaryPathInWsl, isWslEnvironment } from './bootstrap-platform'
 import { runBootstrap } from './bootstrap-runner'
 import { resolveBundledPetsDir } from './bundled-pets'
-import { requiresImmutableBundledRuntime, resolveBundledHermesRuntime } from './bundled-runtime'
+import { cleanupVerifiedBundledRuntime, requiresImmutableBundledRuntime, resolveBundledHermesRuntime } from './bundled-runtime'
 import { readClipboardImage, writeClipboardImage } from './clipboard-images'
 import { applyConnectionChange, resolveTerminalConnection } from './connection-apply'
 import {
@@ -3909,6 +3909,7 @@ function resolveHermesBackend(backendArgs) {
     currentEnv: process.env,
     expectedProductCommit: INSTALL_STAMP?.commit,
     expectedProductDirty: INSTALL_STAMP?.dirty,
+    cleanupRuntime: cleanupVerifiedBundledRuntime,
     probeRuntime: (python, options) => canImportHermesCli(python, options)
   })
 

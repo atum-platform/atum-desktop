@@ -18,6 +18,11 @@ from hermes_constants import get_default_hermes_root, project_venv_dir
 
 
 def install_key(project_root: Path) -> str:
+    from pm.desktop_runtime import bundle_key
+
+    bundled = bundle_key(Path(project_root))
+    if bundled is not None:
+        return bundled
     canonical = str(Path(project_root).resolve())
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
@@ -514,6 +519,9 @@ def activate_dependencies(project_root: Path) -> None:
     prefix = [str(path) for path in directories if path.is_dir()]
     if prefix:
         os.environ["PATH"] = os.pathsep.join([*prefix, os.environ.get("PATH", "")])
+
+    from pm.desktop_runtime import cleanup_desktop_installs
+    cleanup_desktop_installs(project_root)
 
 
 def activation_environment(project_root: Path, *, base_env: dict[str, str] | None = None) -> dict[str, str]:
