@@ -45,6 +45,20 @@ describe('what a pick in the window means', () => {
     expect(ownerHomeChoice(state(), MINI, selected, undefined, now ?? T0)).toBeNull()
   })
 
+  it('accepts each advertised Mac effort and rejects an unoffered supported level', () => {
+    const home = state()
+    const fresh = home.catalogs[MINI]!
+    if (fresh.freshness !== 'fresh') {throw new Error('expected fresh catalog')}
+    const connection = fresh.connections[0]!
+    if (connection.state !== 'available') {throw new Error('expected available connection')}
+    const model = connection.models[0]!
+    for (const effort of model.efforts) {
+      expect(ownerHomeChoice(home, MINI, pick({ effort }), undefined, T0)?.choice.effort).toBe(effort)
+    }
+    model.efforts = ['medium']
+    expect(ownerHomeChoice(home, MINI, pick({ effort: 'low' }), undefined, T0)).toBeNull()
+  })
+
   it('is nothing for a Mac that is not ready or not on the list', () => {
     const away = { ...snapshot(), eligibleDevices: [{ ...snapshot().eligibleDevices[0]!, eligibility: 'unavailable' as const, reason: 'catalog_unavailable' as const }] }
 

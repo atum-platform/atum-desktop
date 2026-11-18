@@ -474,6 +474,7 @@ export function parseMatrixModelDestinationsWrite(
 /**
  * One destination's write body. A model change keeps the standard effort (`recommended`,
  * medium today); choosing the model already stored keeps that destination's own effort.
+ * An explicit selected effort takes priority in either case.
  * The server still refuses an alias dispatch does not offer.
  */
 export function matrixModelDestinationWrite(
@@ -481,7 +482,7 @@ export function matrixModelDestinationWrite(
   destination: 'cloud' | `mac:${string}`,
   model: MatrixModelId | MatrixShelfModelId,
   requestId = randomUUID(),
-  /** A shelf model's own default level; Atum's line-up keeps the standard effort. */
+  /** Explicit selected level, or a shelf model's default from the offer. */
   modelEffort?: MatrixManagedEffort
 ): MatrixModelDestinationsWriteRequest | undefined {
   // An OpenRouter shelf alias is a cloud choice only: the gateway refuses it from a Mac.
@@ -498,11 +499,9 @@ export function matrixModelDestinationWrite(
   const current = snapshot.choices.find(choice => choice.destination === destination)
 
   const effort =
-    current?.source === 'atum' && current.model === model
+    modelEffort ?? (current?.source === 'atum' && current.model === model
       ? current.effort
-      : shelf && modelEffort
-        ? modelEffort
-        : snapshot.recommended.effort
+      : snapshot.recommended.effort)
 
   return parseMatrixModelDestinationsWrite({
     profile: MATRIX_MODEL_DESTINATIONS_PROFILE,
@@ -790,17 +789,17 @@ export async function writeMatrixCloudAtumChoice(
   options: {
     destinations?: Pick<MatrixModelDestinations, 'view' | 'read' | 'write'>
     legacy?: {
-      write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId): Promise<boolean>
+      write(agentPrincipal: string, model: MatrixModelId | MatrixShelfModelId, effort?: MatrixManagedEffort): Promise<boolean>
       reload(agentPrincipal: string): Promise<void>
     }
-    /** A shelf model's default level from the offer. */
+    /** Selected level validated against the offer, or the shelf default. */
     effort?: MatrixManagedEffort
   }
 ): Promise<boolean> {
   const { destinations, legacy, effort } = options
 
   if (!destinations) {
-    return legacy ? legacy.write(agentPrincipal, model) : false
+    return legacy ? (effort ? legacy.write(agentPrincipal, model, effort) : legacy.write(agentPrincipal, model)) : false
   }
 
   // The first read (when nothing is cached yet) happens inside write(), under the same

@@ -21,12 +21,30 @@ response is older than the held snapshot still reports server success, but does
 not replace the snapshot, emit a change notification, or reset its refresh clock.
 Reads started before an adopted write remain fenced by the existing write count.
 
-The cloud picker currently has no effort-only control: model capabilities for
-the effort slider are populated only in local mode (`model-picker.tsx`), and the
-slider is gated to unmanaged, non-home mode. The cloud `setModel` effort-only
-restriction is therefore unchanged.
+## Managed cloud conversation effort (2026-11-18)
 
-## Verification
+Standard Matrix conversation picks now project eligible per-alias levels and
+saved effort from the cloud offer, through main’s subscription-enriched
+cloudModelView projection. Nguyệt Thực and Nhật Thực expose only the
+advertised conversation levels (low/medium/high). No offer, one level, or no
+levels keeps the compact card. The Mac fallback remains medium-only; no
+max/xhigh support is invented.
+
+The column reads cloud saved effort rather than stale room account data. An
+effort click uses the existing setModel command. Main resolves effort-only
+commands against the current server alias and refuses unadvertised levels.
+Explicit effort overrides the destination's saved effort even when its model
+is unchanged. Legacy writes also carry the effort through fenced retries.
+Accepted writes refresh the server offer; refused writes undo the optimistic
+pick. Persistence remains the owner's server choice, not room account data.
+
+Reused infrastructure: model-picker's effort column and pending picks,
+cloud-model-choice's parser/cache, model-destinations' fenced writes and legacy
+reload. No new protocol, core model tool or dependency.
+
+The desktop submits the selected effort with the owner model choice and refreshes the offer after the server acknowledges it.
+
+## Previous cache-ordering verification
 
 Ten controlled-promise/fake-timer regressions cover obsolete retries, superseded
 successful responses, sign-in generation changes (including delayed device-name

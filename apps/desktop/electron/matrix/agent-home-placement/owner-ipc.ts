@@ -76,10 +76,16 @@ export function ownerHomeChoice(
     const choice = cloudHomeChoices(cloudOffers).find(
       each =>
         each.connectionRef === row.connectionRef &&
-        each.model === row.model &&
-        each.effort === row.effort
+        each.model === row.model
     )
-    return choice ? { target: { kind: 'cloud' }, choice, catalogRevision: 0 } : null
+    if (!choice || row.effort === 'max') {return null}
+    const efforts = cloudOffers?.find(offer => offer.alias === choice.model)?.efforts ?? [choice.effort]
+    if (!efforts.includes(row.effort as string)) {return null}
+    return {
+      target: { kind: 'cloud' },
+      choice: { ...choice, effort: row.effort as 'low' | 'medium' | 'high' },
+      catalogRevision: 0
+    }
   }
 
   if (typeof target !== 'string') {return null}

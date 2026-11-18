@@ -198,3 +198,7 @@ Local validation for B1 (2026-11-18):
   existing package warnings. Left the adjacent shared transport file unchanged.
 - `git diff --check`: passed. No packaging, live SSH/launchd, native prompt,
   DNS/Access, cloud deployment, provider call, PR/CI or push performed.
+
+## macOS login names
+
+Enrollment preserves the spelling of the short account name, including uppercase letters. The first character must be an ASCII letter or underscore. Subsequent characters can also include digits or hyphens, up to 32 characters total. Deploy compatible server-side enrollment validation before releasing the client.

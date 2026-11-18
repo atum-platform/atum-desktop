@@ -184,7 +184,7 @@ function deferred<T>() {
 }
 
 const CLOUD_NGUYET: MatrixAgentHomeModelOption = {
-  connectionRef: 'conn-atum',
+  connectionRef: 'conn_atummanaged000001',
   source: 'atum',
   providerLabel: 'Atum',
   model: 'nguyet-thuc',
@@ -969,6 +969,89 @@ describe('the thinking column only where a level can be chosen', () => {
     // No backend accepts a speed (fast/standard) choice yet, so there is no control for one.
     expect(within(card).queryByText(/^(Fast|Standard)$/u)).toBeNull()
   })
+
+  it('keeps the managed card compact while the home advertises one level', async () => {
+    picker(ROOM, {
+      agentPrincipal: 'agent-luna',
+      home: cloudHome(),
+      managed: true,
+      cloud: true,
+      local: true,
+      here: 'cloud',
+      bridge: { agentHome: homeBridge() }
+    })
+    const card = await open('Model: Nguyệt Thực 1.3')
+
+    expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
+    expect(card.querySelector('[data-matrix-model-effort-column]')).toBeNull()
+    expect(card.className).toContain('w-[24rem]')
+    expect(card.className).not.toContain('w-[34rem]')
+  })
+
+  it('offers a placed home’s advertised levels and saves the new one through the placement path', async () => {
+    const multi = { ...CLOUD_NGUYET, efforts: ['low', 'medium', 'high'] as const }
+    const home = cloudHome(multi)
+    home.placement!.destinations = home.placement!.destinations.map(destination => ({
+      ...destination,
+      models: destination.models.map(model => (model.model === 'nguyet-thuc' ? multi : model))
+    }))
+    const model = vi.fn(async () => ({ status: 'saved' as const }))
+    picker(ROOM, {
+      agentPrincipal: 'agent-luna',
+      home,
+      managed: true,
+      cloud: true,
+      local: true,
+      here: 'cloud',
+      bridge: { agentHome: homeBridge(model) }
+    })
+    const card = await open('Model: Nguyệt Thực 1.3')
+
+    const column = card.querySelector('[data-matrix-model-effort-column]')!
+    expect(
+      [...column.querySelectorAll('[data-matrix-model-effort-level]')].map(each =>
+        each.getAttribute('data-matrix-model-effort-level')
+      )
+    ).toEqual(['low', 'medium', 'high'])
+    expect(card.className).toContain('w-[34rem]')
+
+    fireEvent.click(column.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
+    await waitFor(() =>
+      expect(model).toHaveBeenCalledWith(
+        'agent-luna',
+        expect.objectContaining({ model: 'nguyet-thuc', effort: 'high' })
+      )
+    )
+  })
+  it('clears a refused home effort and waits for the saved effort projection independently of conversation effort', async () => {
+    const multi = { ...CLOUD_NGUYET, efforts: ['low', 'medium', 'high'] as const }
+    const home = cloudHome(multi)
+    home.placement!.destinations = home.placement!.destinations.map(destination => ({
+      ...destination, models: destination.models.map(option => option.model === multi.model ? multi : option)
+    }))
+    const model = vi.fn().mockResolvedValueOnce({ status: 'refused', reason: 'connection_unavailable' })
+      .mockResolvedValue({ status: 'saved' })
+    const view = picker(ROOM, {
+      agentPrincipal: 'agent-luna', home, managed: true, cloud: true, local: true, here: 'cloud',
+      cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
+        models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] },
+      bridge: { agentHome: homeBridge(model) }
+    })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    const high = () => card.querySelector<HTMLButtonElement>('[data-matrix-model-effort-level="high"]')!
+    fireEvent.click(high())
+    await waitFor(() => expect(view.fail).toHaveBeenCalledOnce())
+    expect(high().disabled).toBe(false)
+    fireEvent.click(high())
+    await waitFor(() => expect(model).toHaveBeenCalledTimes(2))
+    expect(high().disabled).toBe(true)
+    expect(view.command).not.toHaveBeenCalled()
+    const applied = { ...multi, effort: 'high' as const }
+    view.rerender(ROOM, { home: cloudHome(applied) })
+    await waitFor(() => expect(high().disabled).toBe(false))
+    expect(high().getAttribute('aria-checked')).toBe('true')
+  })
+
 })
 
 describe('account subscriptions in the model picker', () => {
@@ -2106,4 +2189,33 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
     expect(within(step).getByRole('button', { name: 'Xác nhận và dùng ChatGPT' })).toBeTruthy()
     expect(within(step).getByRole('button', { name: 'Giữ mô hình được bảo vệ' })).toBeTruthy()
   })
+})
+
+describe('standard managed cloud conversation effort', () => {
+  it.each(['nguyet-thuc', 'nhat-thuc'] as const)('uses the cloud offer and saves effort without a placed home: %s', async model => {
+    const { command } = picker({ ...ROOM, effort: 'low' }, {
+      managed: true, cloud: true, here: 'cloud',
+      cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: model, effort: 'medium',
+        models: [{ alias: model, efforts: ['low', 'medium', 'high'], defaultEffort: 'medium' }] }
+    })
+    const card = await open(model === 'nguyet-thuc' ? 'Model: Nguyệt Thực 1.3' : 'Model: Nhật Thực 1.1')
+    const column = card.querySelector('[data-matrix-model-effort-column]')!
+    expect(column).not.toBeNull()
+    expect(column.querySelector('[data-matrix-model-effort-level="medium"]')?.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(column.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
+    await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'setModel', roomId: ROOM.id, effort: 'high' }))
+    expect(column.querySelector('[data-matrix-model-effort-level="high"]')?.getAttribute('aria-checked')).toBe('true')
+  })
+})
+
+it('undoes a refused managed cloud effort write', async () => {
+  const command = vi.fn(async () => ({ status: 'refused' }))
+  picker(ROOM, { managed: true, cloud: true, here: 'cloud', bridge: { command },
+    cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
+      models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] } })
+  const card = await open('Model: Nguyệt Thực 1.3')
+  fireEvent.click(card.querySelector<HTMLElement>('[data-matrix-model-effort-level="high"]')!)
+  await waitFor(() => expect(command).toHaveBeenCalled())
+  await waitFor(() => expect(card.querySelector('[data-matrix-model-effort-level="low"]')?.getAttribute('aria-checked')).toBe('true'))
+  expect(card.querySelector('[data-matrix-model-effort-level="medium"]')).toBeNull()
 })
