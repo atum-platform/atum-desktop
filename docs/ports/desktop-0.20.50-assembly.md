@@ -12,3 +12,4 @@ Preserve native-backed UI and integrations. Do not fold the independent Electron
 - Integrate provider picker and transcript marker (a5914602f); focused combined verification follows.
 - Integrate chat actions, in-bubble times and Matrix display (1b035c601); focused combined verification follows.
 - Integrate runtime install retention (c96ec9e534); focused combined verification follows.
+- Integrate certified relay protection (3006c72f); focused combined verification follows.
