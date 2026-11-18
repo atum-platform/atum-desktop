@@ -19,7 +19,7 @@ def test_recovery_proof_cannot_override_native_fences(tmp_path, monkeypatch, ref
         epoch = begin_runtime_epoch(db, instance_id='first')
         admitted = admit_session_input(db, epoch=epoch, principal_id='owner', session_id='conversation',
             request_id='event', payload={'text': 'read', 'native_text_v1': {'source': {'platform': 'matrix'}}})
-        started = claim_session_input(db, epoch=epoch, session_id='conversation')
+        claim_session_input(db, epoch=epoch, session_id='conversation')
         checkpoint = RequestCheckpoint(db, 'native.admission:' + admitted['admission_id'], {'owner': 'one'})
         checkpoint.pending({'request_id': 'invocation'})
         proof = dict(checkpoint_key=checkpoint.key, checkpoint_raw=checkpoint.raw)
@@ -68,7 +68,7 @@ def test_recovered_admission_cannot_run_on_a_changed_provider(tmp_path, monkeypa
     row = {'admission_id': 'original'}
     checkpoint = RequestCheckpoint(db, 'native.admission:original', {'owner': 'one'})
     checkpoint.pending({'request_id': 'saved'})
-    monkeypatch.setattr('gateway.turn_recovery.adapters', lambda: {})
+    monkeypatch.setattr('gateway.turn_recovery.adapters', dict)
     token = current_admission.set(row)
     try:
         with pytest.raises(NativeContinuationPending):
