@@ -1945,6 +1945,10 @@ def _raise_inactivity_timeout(agent, job_name: str, limit_s: float) -> None:
         f"— last activity: {_last_desc}")
 
 
+class _CronRunCancelled(RuntimeError):
+    """The watchdog observed this run's trusted cancellation signal."""
+
+
 def _run_agent_with_watchdog(
     agent, prompt: str, job: dict, job_id: str, job_name: str, task_id: str, cancel_event,
     worker_state: Optional[dict] = None,
@@ -1973,7 +1977,7 @@ def _run_agent_with_watchdog(
         if agent is not None:
             request_hard_interrupt(agent, "Cron fire cancelled or claim ownership was lost",
                                    tool_reason="cron cancellation")
-        raise RuntimeError(f"Cron job '{job_name}' lost its durable fire claim ownership")
+        raise _CronRunCancelled(f"Cron job '{job_name}' lost its durable fire claim ownership")
 
     def _heartbeat_run_claim_if_due():
         nonlocal _last_claim_heartbeat
@@ -2846,6 +2850,10 @@ def run_job(
         return True, output, final_response, None
 
     except Exception as e:
+        if owner_execution is not None and isinstance(e, _CronRunCancelled):
+            # In the canonical owner this signal is scoped to the exact admission.
+            job["_owner_interrupted"] = True
+            return False, "", "", "Scheduled execution interrupted"
         if native_sweep_gate is not None:
             logger.error("Job %s: native_sweep_execution_failed", job_id)
             return False, "", "", "native_sweep_execution_failed"
@@ -3324,7 +3332,7 @@ def _save_compose_deliver(
             "(tool subprocess was killed mid-flight)."
         )
 
-    if not d.success and not d.deliver_failures:
+    if not d.success and (not d.deliver_failures or job.get("_owner_interrupted")):
         # Preserve state, recovery and failure handling across interrupted operations.
         deliver_content = ""
         _silent_alert = False

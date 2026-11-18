@@ -224,8 +224,13 @@ export function matrixHideEndedTransientLines<T extends Line>(
         ) {
           continue
         }
-      } else if (ended.has(message.sender)) {
-        continue
+      } else {
+        // Each exact schedule line has its own redaction. Another execution can answer first.
+        const exactSchedule = message.progress && 'schedule' in message.progress && message.progress.schedule
+
+        if (!exactSchedule && ended.has(message.sender)) {
+          continue
+        }
       }
     } else if (!message.interim && !message.pending && !message.failed && !message.decryptionFailed) {
       ended.add(message.sender)

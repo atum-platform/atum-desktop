@@ -50,6 +50,16 @@ describe('hiding working lines whose turn has ended (agent-turns/1.4 A7)', () =>
     expect(bodies(matrixHideEndedTransientLines(answered, agents))).toEqual(['Q', 'A'])
   })
 
+  it('keeps the other running occurrence when the same agent finishes a schedule', () => {
+    const running = message({ notice: true, progress: {
+      ...marker(), trigger: 'cron', schedule: { job: 'daily', execution: 'still-running' }
+    } })
+    const cleared = message({ notice: true, redacted: true, transientRemoved: true })
+    const answer = message({ body: 'The other occurrence finished.' })
+    expect(matrixWorkingLine([running, cleared, answer], agents)).toBe(running)
+    expect(matrixWorkingLine([{ ...running, redacted: true }, cleared, answer], agents)).toBeUndefined()
+  })
+
   it('an interim remark is a real message that does not end the turn', () => {
     const turn = [owner('Q'), message({ body: 'Để mình xem.', interim: true }), line('Đang đọc…')]
     expect(bodies(matrixHideEndedTransientLines(turn, agents))).toEqual(['Q', 'Để mình xem.', 'Đang đọc…'])

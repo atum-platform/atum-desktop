@@ -15,7 +15,10 @@ This is a Matrix platform extension, selected by its existing `register_platform
 factory. It adds no tools, prompts, conversation messages, or model calls.
 `pre_tool_call` contributes only a fixed tool category; general argument/result bodies never enter presentation. The native todo
 completion contributes its bounded list only after forced egress redaction. Native gateway interim sends pass through Hermes's
-forced egress redactor. Only private DM background turns get presentation.
+forced egress redactor. Personal presentation is limited to private direct messages.
+A verified native scheduled occurrence can open its own progress notice in an
+owner DM. Its lifecycle and exact Stop target are described in
+[Schedule source Stop](../../../docs/schedule-source-stop.md).
 
 Wire contracts: `atum.agent-turns/1.3` progress marker and `/1.4`
 transient removal; `io.atum.turn` is a lowercase UUID v4 string. The final answer
@@ -65,7 +68,7 @@ receipts. Each remark remains a separate ordinary message, including repeated re
 remarks repeated in the final answer. Content length and formatting follow native Matrix
 behavior. The Stop dispatch lock suppresses later remarks from stopped or ended turns.
 
-The transient line appears only for a real step and says it as a code, never as prose. It is the
+In an owner-initiated turn, the transient line appears only for a real step and says it as a code, never as prose. It is the
 agent-turns/1.3 progress notice with an empty `body` and the agent-turns/1.5 descriptor
 `io.atum.presentation: {version: 1, code, args}`:
 

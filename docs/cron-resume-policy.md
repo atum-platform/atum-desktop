@@ -24,10 +24,12 @@ it has no owner-message admission; its turn UUID is stable for the room and
 execution. Owner turns omit these trigger fields. Incoming message metadata is
 not a source of routine identity.
 
-This change adds metadata to existing presentation/delivery paths. It does not
-create a progress notice for the separate native cron execution lane, which does
-not enter the Matrix owner-admission presentation scope. Live routine progress
-requires a further integration at that execution seam.
+The native cron owner opens a transient Matrix notice while a scheduled agent
+execution is running. The original and its edits carry
+`io.atum.progress.schedule: { job, execution }` from the matching running
+execution ledger row. Desktop uses this pair to stop the exact occurrence.
+Manual runs and admissions without a matching scheduled ledger row omit this
+pair. See [Schedule source Stop](schedule-source-stop.md) for routing and cleanup.
 
 No native turn context currently identifies the enrolled computer a terminal
 call is acting on. SSH host settings and Matrix encryption device IDs do not
