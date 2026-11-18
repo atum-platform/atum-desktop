@@ -29,7 +29,7 @@ it('stages a pinned executable into the app directory and rejects corrupt archiv
     // The real archive extraction is synchronous.
     requireFs.writeFileSync(path.join(args[3], 'cloudflared'), bytes)
   })
-  await beforePack({ electronPlatformName: 'darwin', arch: 3, packager: { appDir } })
+  await beforePack({ electronPlatformName: 'darwin', arch: 3, packager: { info: { appDir } } })
   expect((await stat(path.join(appDir, 'cloudflared'))).mode & 0o777).toBe(0o755)
   expect((await readFile(path.join(appDir, 'cloudflared'))).readUInt32LE(4)).toBe(0x100000c)
   // Every executable staged by beforePack must remain addressable outside ASAR.
@@ -41,5 +41,5 @@ it('stages a pinned executable into the app directory and rejects corrupt archiv
     }
   }
   digest.mockReturnValue('invalid')
-  await expect(beforePack({ electronPlatformName: 'darwin', arch: 3, packager: { appDir } })).rejects.toThrow('digest')
+  await expect(beforePack({ electronPlatformName: 'darwin', arch: 3, packager: { info: { appDir } } })).rejects.toThrow('digest')
 })
