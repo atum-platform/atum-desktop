@@ -11,9 +11,10 @@ The state dir records the checkout it belongs to in ``inputs/.project-root`` (wr
 checkout is gone: a data root shared with a container (``-v ~/.hermes:/opt/data``) or an
 unmounted volume records paths this process cannot see. So a dir is an orphan only when its
 checkout sat where this process can see that it was deleted -- under the data root that owns
-``installs/`` (scratch clones, the runtime checkout) or directly in a ``.worktrees/`` dir that
-still exists. Removal still fails closed on anything a live process could hold: the install
-lock, or a dependency / PM runtime generation lease.
+``installs/`` (scratch clones, the runtime checkout) or its immediate parent is
+visible. This includes user-managed worktrees outside the data root. Removal still
+fails closed on anything a live process could hold, through the install lock and
+dependency / PM runtime generation leases.
 """
 
 from __future__ import annotations
@@ -28,9 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 def _provably_deleted(root: Path, data_root: Path) -> bool:
-    if root.exists():
+    if not root.is_absolute():
         return False
-    return root.is_relative_to(data_root) or (root.parent.name == ".worktrees" and root.parent.is_dir())
+    try:
+        root.stat()
+        return False
+    except FileNotFoundError:
+        # A visible parent proves the checkout entry is gone, regardless of
+        # the user's chosen worktree folder name. Missing mount/ancestor and
+        # permission failures remain inconclusive.
+        return root.is_relative_to(data_root) or root.parent.is_dir()
+    except OSError:
+        return False
 
 
 def orphan_install_states(installs: Path) -> list[Path]:
@@ -41,25 +51,30 @@ def orphan_install_states(installs: Path) -> list[Path]:
     orphans: list[Path] = []
     for state in sorted(installs.iterdir()):
         record = state / "inputs" / ".project-root"
-        if not state.is_dir() or not record.is_file():
+        if state.is_symlink() or not state.is_dir() or not record.is_file():
             continue
         try:
             root = record.read_text(encoding="utf-8-sig").strip()
         except OSError:
+            continue
+        # Desktop rollback state is governed by its own current/previous
+        # marker, including a bundle moved away during an application update.
+        from pm.desktop_runtime import _desktop_state
+        if _desktop_state(state):
             continue
         if root and _provably_deleted(Path(root), data_root):
             orphans.append(state)
     return orphans
 
 
-def _held(state: Path) -> bool:
+def _held(state: Path, *, check_install_lock: bool = True) -> bool:
     """True while a process may still be using this state dir: the install lock is taken or a
     generation lease is held. Any lock we cannot even open counts as held."""
     from hermes_cli.runtime_state import leases_held
     from pm.filesystem import lock_fd
 
     lock = state / ".install.lock"
-    if lock.exists():
+    if check_install_lock and lock.exists():
         try:
             fd = os.open(lock, os.O_RDWR)
         except OSError:
@@ -77,28 +92,54 @@ def _held(state: Path) -> bool:
     return False
 
 
+@contextlib.contextmanager
+def unheld_install_state(state: Path):
+    """Keep writers excluded until deletion completes, and check native reader leases."""
+    from pm.filesystem import lock_fd
+
+    with contextlib.ExitStack() as locks:
+        install = locks.enter_context((state / ".install.lock").open("a+b"))
+        if not lock_fd(install.fileno(), wait=False):
+            yield False
+            return
+        runtime = state / "pm-runtime"
+        if runtime.is_dir():
+            prepare = locks.enter_context((runtime / ".prepare.lock").open("a+b"))
+            if not lock_fd(prepare.fileno(), wait=False):
+                yield False
+                return
+        yield not _held(state, check_install_lock=False)
+
+
 def collect_orphan_install_states(installs: Path) -> list[Path]:
     """Remove every unheld orphan state dir under *installs*; returns what was removed."""
     removed: list[Path] = []
     for state in orphan_install_states(installs):
-        if _held(state):
-            logger.debug("orphan install state %s is still held; skipped", state.name)
-            continue
-        # The record goes last, and only once everything else is gone: the startup prune runs on
-        # a daemon thread and a removal can fail part-way (an open file on Windows, a read-only
-        # dir), and a dir that lost its record first would never be recognised again.
-        for child in state.iterdir():
-            if child.name == "inputs":
-                continue
-            if child.is_dir() and not child.is_symlink():
-                shutil.rmtree(child, ignore_errors=True)
-            else:
-                with contextlib.suppress(OSError):
-                    child.unlink()
-        if any(child.name != "inputs" for child in state.iterdir()):
-            logger.debug("orphan install state %s only partly removed; retried next pass", state.name)
-            continue
-        shutil.rmtree(state, ignore_errors=True)
-        if not state.exists():
-            removed.append(state)
+        try:
+            with unheld_install_state(state) as unheld:
+                if not unheld:
+                    logger.debug("orphan install state %s is still held; skipped", state.name)
+                    continue
+                # A source can reappear while this collector waits for its lock.
+                if state not in orphan_install_states(installs):
+                    continue
+                # Preserve provenance for retries after partial removal.
+                for child in state.iterdir():
+                    if child.name in ("inputs", ".install.lock", "pm-runtime"):
+                        continue
+                    if child.is_dir() and not child.is_symlink():
+                        shutil.rmtree(child, ignore_errors=True)
+                    else:
+                        with contextlib.suppress(OSError):
+                            child.unlink()
+                runtime = state / "pm-runtime"
+                if runtime.is_dir():
+                    shutil.rmtree(runtime, ignore_errors=True)
+                if any(child.name not in ("inputs", ".install.lock") for child in state.iterdir()):
+                    continue
+                shutil.rmtree(state, ignore_errors=True)
+                if not state.exists():
+                    removed.append(state)
+        except OSError:
+            logger.debug("orphan install state %s cleanup skipped", state.name, exc_info=True)
     return removed

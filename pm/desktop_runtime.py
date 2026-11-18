@@ -1,13 +1,10 @@
 """Identity and bounded retention for the desktop's bundled dependency overrides.
 
-The bundle can be probed from an update staging directory before it moves to
-Applications. Its immutable inputs, rather than that temporary path, own PM state.
-Developer checkouts retain their existing per-checkout isolation.
+Per-checkout identity remains in pm.environments. Desktop retention runs only
+once the bundle or its dependency override has passed verification.
 """
 from __future__ import annotations
 
-from contextlib import ExitStack
-import hashlib
 import json
 import logging
 import os
@@ -16,29 +13,16 @@ import re
 import shutil
 
 
-def bundle_key(project: Path) -> str | None:
+def _is_bundled_project(project: Path) -> bool:
     project = project.resolve()
-    # uv's installed console scripts can enter the core source snapshot. That
-    # snapshot belongs to its enclosing install, rather than another checkout.
-    if project.name == "workspace" and project.parent.parent.name == "environments":
-        state = project.parent.parent.parent
-        if state.parent.name == "installs" and _desktop_state(state):
-            return state.name
     if project.name != "hermes-agent" or project.parent.name != "runtime":
-        return None
+        return False
     try:
         manifest = json.loads((project.parent / "runtime-manifest.json").read_bytes())
-        tree = manifest["identity"]["runtimeTree"]
-        if manifest["schemaVersion"] != 3 or not re.fullmatch(r"[a-f0-9]{40}", tree):
-            return None
-        digest = hashlib.sha256(b"desktop-runtime-v1\0")
-        digest.update(json.dumps({"tree": tree, "python": manifest["python"],
-                                  "target": manifest["target"]}, sort_keys=True).encode())
-        for name in ("uv.lock", "pyproject.toml", "pm/lock.json"):
-            digest.update(name.encode() + b"\0" + (project / name).read_bytes() + b"\0")
-        return digest.hexdigest()[:16]
+        return (manifest["schemaVersion"] == 3
+                and re.fullmatch(r"[a-f0-9]{40}", manifest["identity"]["runtimeTree"]) is not None)
     except (OSError, ValueError, KeyError, TypeError):
-        return None
+        return False
 
 
 def _desktop_state(state: Path) -> bool:
@@ -67,9 +51,9 @@ def _collect_desktop_installs(project: Path, *, verified_bundle: bool) -> list[P
     from pm.environments import install_state_dir, installs_root, selected_venv
     from pm.filesystem import durable_write_bytes, lock_fd
     from pm.install import venv_is_current
-    from hermes_cli.runtime_state import leases_held
+    from pm.install_states import unheld_install_state
 
-    if bundle_key(project) is None:
+    if not _is_bundled_project(project):
         return []
     current = install_state_dir(project)
     if (current / "facts.json").exists() or not verified_bundle:
@@ -113,19 +97,13 @@ def _collect_desktop_installs(project: Path, *, verified_bundle: bool) -> list[P
             continue
         # Keep the native install lock through deletion, so a boot cannot select
         # this state's environment between the lease check and removal.
-        with ExitStack() as locks:
-            install_lock = locks.enter_context((state / ".install.lock").open("a+b"))
-            if not lock_fd(install_lock.fileno(), wait=False):
+        with unheld_install_state(state) as unheld:
+            if not unheld:
                 continue
             runtime = state / "pm-runtime"
-            if runtime.is_dir():
-                prepare_lock = locks.enter_context((runtime / ".prepare.lock").open("a+b"))
-                if not lock_fd(prepare_lock.fileno(), wait=False):
-                    continue
             generations = [*(state / "environments").glob("*"),
                            *(state / "pm-runtime" / "generations").glob("*")]
-            if any(generation.is_symlink() or not (generation / ".lease-managed").is_file()
-                   or leases_held(generation) for generation in generations if generation.is_dir()):
+            if any(generation.is_symlink() or not (generation / ".lease-managed").is_file() for generation in generations if generation.is_dir()):
                 continue
             # Preserve provenance until last for retry after interrupted deletion.
             for child in state.iterdir():
@@ -146,7 +124,7 @@ def collect_desktop_installs(project: Path, *, verified_bundle: bool = False) ->
     from pm.environments import installs_root
     from pm.filesystem import lock_fd
 
-    if bundle_key(project) is None or not installs_root().is_dir():
+    if not _is_bundled_project(project) or not installs_root().is_dir():
         return []
     fd = os.open(installs_root() / ".desktop-retention.lock", os.O_CREAT | os.O_RDWR, 0o600)
     try:
@@ -157,6 +135,9 @@ def collect_desktop_installs(project: Path, *, verified_bundle: bool = False) ->
 
 def cleanup_desktop_installs(project: Path, *, verified_bundle: bool = False) -> None:
     try:
+        from pm.environments import installs_root
+        from pm.install_states import collect_orphan_install_states
+        collect_orphan_install_states(installs_root())
         collect_desktop_installs(project, verified_bundle=verified_bundle)
     except (OSError, ValueError, RuntimeError) as exc:
         logging.getLogger(__name__).warning("desktop dependency cleanup skipped: %s", exc)

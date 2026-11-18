@@ -18,11 +18,6 @@ from hermes_constants import get_default_hermes_root, project_venv_dir
 
 
 def install_key(project_root: Path) -> str:
-    from pm.desktop_runtime import bundle_key
-
-    bundled = bundle_key(Path(project_root))
-    if bundled is not None:
-        return bundled
     canonical = str(Path(project_root).resolve())
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
