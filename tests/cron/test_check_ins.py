@@ -100,6 +100,59 @@ def test_a_removed_job_is_not_seeded_again_unless_the_person_turns_check_ins_on(
     assert get_job(CHECK_IN_JOB_ID) is not None
 
 
+@pytest.fixture
+def cloud(monkeypatch):
+    monkeypatch.setenv("ATUM_TASK_WORKSPACE", "/task/workspace")
+    monkeypatch.setenv("ATUM_TASK_DEADLINE_MS", "4102444800000")
+
+
+def test_cloud_never_seeds_a_desktop_ticker_even_when_forced(home, cloud):
+    from cron.jobs import load_jobs
+
+    for force in (False, True):
+        assert check_ins.ensure_job(force=force) == {"job_id": None, "state": "unavailable"}
+    assert load_jobs() == []
+
+
+@pytest.mark.parametrize("action", ["remove", "pause"])
+@pytest.mark.parametrize("reference", [CHECK_IN_JOB_ID, "Check-ins"])
+def test_cloud_can_stop_an_imported_desktop_ticker_without_any_host(home, monkeypatch, action, reference):
+    from cron.jobs import get_job
+    from hermes_cli.cron import _cron_api
+
+    # A portable home can arrive with the old Mac job, but not its seeded marker.
+    check_ins.ensure_job()
+    (home / "cron" / check_ins._SEED_MARKER).unlink()
+    monkeypatch.setenv("ATUM_TASK_WORKSPACE", "/task/workspace")
+    monkeypatch.setenv("ATUM_TASK_DEADLINE_MS", "4102444800000")
+
+    with patch.object(check_ins, "_host_request", side_effect=AssertionError("no desktop gate")) as gate, \
+         patch("tools.desktop_ui.request", side_effect=AssertionError("no routines host")) as routines:
+        result = _cron_api(action=action, job_id=reference)
+        assert result["success"] is True, result
+        for force in (False, True):
+            check_ins.ensure_job(force=force)
+        gate.assert_not_called()
+        routines.assert_not_called()
+
+    job = get_job(CHECK_IN_JOB_ID)
+    if action == "remove":
+        assert job is None
+    else:
+        assert job["enabled"] is False and job["state"] == "paused"
+
+
+@pytest.mark.parametrize("handed", [False, True])
+def test_cloud_never_asks_the_desktop_gate(home, cloud, handed):
+    job = {"id": CHECK_IN_JOB_ID}
+    if handed:
+        job["_check_in_gate"] = _gate()
+    with patch.object(check_ins, "_host_request") as host:
+        assert check_ins.ask_gate(job) is None
+        assert check_ins.prepare(job).skip is True
+    host.assert_not_called()
+
+
 # ---------------------------------------------------------------------------
 # The assistant's own cron tool: the owner's setting in the app decides
 # ---------------------------------------------------------------------------

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
 from hermes_constants import get_hermes_home
+from hermes_cli.atum_home import in_cloud_sandbox
 
 logger = logging.getLogger(__name__)
 
@@ -143,9 +144,13 @@ def ensure_job(force: bool = False) -> Dict[str, Any]:
     Idempotent: a present job is left alone. A home that had the job and lost it is not
     seeded again unless ``force``. The desktop app passes ``force`` while check-ins are on:
     the owner's setting is the one control, so a missing ticker comes back. The assistant's
-    own cron tool never removes it (``manage_from_tool`` turns check-ins off instead).
+    own cron tool turns check-ins off through the app instead. Cloud tasks have no
+    desktop gate and must never seed this ticker, even from an explicit ensure RPC.
     """
     from cron.jobs import _jobs_lock, get_job, load_jobs, save_jobs
+
+    if in_cloud_sandbox():
+        return {"job_id": None, "state": "unavailable"}
 
     if get_job(CHECK_IN_JOB_ID):
         return {"job_id": CHECK_IN_JOB_ID, "state": "present"}
@@ -264,6 +269,9 @@ def _host_request(event: str, payload: dict, timeout: float) -> str:
 def ask_gate(job: dict, request: Optional[Callable[[str, dict, float], str]] = None) -> Optional[Gate]:
     """Ask the app whether this tick runs. No app (a plain ``hermes`` backend), no answer
     in time, or a refusal: no run."""
+    if in_cloud_sandbox():
+        return None
+
     try:
         raw = (request or _host_request)(GATE_EVENT, {"job_id": str(job.get("id") or "")}, GATE_TIMEOUT_SECONDS)
     except Exception:
@@ -661,6 +669,9 @@ def prepare(job: dict, request: Optional[Callable[[str, dict, float], str]] = No
     over (``_check_in_gate``); any other caller (a manual run, an external provider) asks
     here. A manual run the app has not claimed does not run.
     """
+    if in_cloud_sandbox():
+        return PreparedRun(skip=True, reason="no_desktop_gate")
+
     handed = job.get("_check_in_gate")
     gate = handed if isinstance(handed, Gate) else ask_gate(job, request)
 

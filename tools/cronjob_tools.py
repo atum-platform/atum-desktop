@@ -1066,8 +1066,9 @@ def cronjob(
             return error
         if normalized in {"remove", "pause", "resume", "update"}:
             from cron.check_ins import is_check_in_job, manage_from_tool
+            from hermes_cli.atum_home import in_cloud_sandbox
 
-            if is_check_in_job(job):
+            if is_check_in_job(job) and not (in_cloud_sandbox() and normalized in {"remove", "pause"}):
                 return _dumps(manage_from_tool(normalized))
         handler = _JOB_ACTIONS.get(normalized)
         if handler is None:
