@@ -1053,7 +1053,13 @@ export function MatrixModelPicker({
   const localEffortChoice =
     !currentPlan && !managed && !homeMode ? pickerEffortChoice({ efforts, value: chosenEffort }) : undefined
 
-  const effortColumn = planEffortChoice && currentPlan
+  // The column belongs to the model you have now, so it shows only on that model's own list;
+  // browsing another provider's list (e.g. Atum's) must not show the current model's levels.
+  const effortOnCurrentList = !filter.favoritesOnly && filter.source !== undefined && filter.source === currentProvider
+
+  const effortColumn = !effortOnCurrentList
+    ? undefined
+    : planEffortChoice && currentPlan
     ? { model: currentPlan.route.name, choice: planEffortChoice, plan: currentPlan }
     : localEffortChoice
       ? { model: offered?.displayName ?? '', choice: localEffortChoice }

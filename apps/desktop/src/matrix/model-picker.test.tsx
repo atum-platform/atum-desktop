@@ -1626,8 +1626,10 @@ describe('account subscriptions in the model picker', () => {
       expect(within(levels).getByRole('radio', { checked: true }).textContent).toContain('Thorough')
     )
 
-    // On Atum's list the same column still speaks for the model that answers now.
+    // The column belongs to the current model's own list: Atum's list must not show GPT-6 Sol's levels.
     fireEvent.click(rail(card, 'atum'))
+    expect(within(card).queryByRole('radiogroup', { name: /^Thinking:/ })).toBeNull()
+    fireEvent.click(rail(card, 'openai-codex'))
     expect(within(card).getByRole('radiogroup', { name: 'Thinking: GPT-6 Sol' })).toBeTruthy()
   })
 
