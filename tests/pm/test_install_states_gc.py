@@ -37,14 +37,18 @@ def test_startup_prune_reclaims_only_provably_deleted_checkouts(tmp_path, monkey
     # A data root shared across a mount boundary records checkouts this process cannot see:
     # a host install from inside a container, a container install from the host.
     host_install = _state(installs, "eeee", tmp_path / "other-host-home" / ".hermes" / "hermes-agent")
-    container_install = _state(installs, "ffff", tmp_path / "opt-hermes")
+    # A missing checkout under a visible parent is now collected even outside
+    # the default .worktrees layout (public worker and custom checkout roots).
+    custom_parent = tmp_path / "worker-checkouts"
+    custom_parent.mkdir()
+    gone_custom = _state(installs, "ffff", custom_parent / "gone-worker")
 
-    assert orphan_install_states(installs) == [gone_scratch, gone_worktree]
+    assert orphan_install_states(installs) == [gone_scratch, gone_worktree, gone_custom]
     monkeypatch.setattr(pm.environments, "installs_root", lambda: installs)
     # No tree under .worktrees/ is old enough to prune: the reclaim must still run.
     _prune_stale_worktrees(str(repo))
-    assert not gone_scratch.exists() and not gone_worktree.exists()
-    assert all(p.is_dir() for p in (live, unknown, host_install, container_install))
+    assert not gone_scratch.exists() and not gone_worktree.exists() and not gone_custom.exists()
+    assert all(p.is_dir() for p in (live, unknown, host_install))
 
 
 def test_held_orphan_is_kept(tmp_path):

@@ -11,3 +11,4 @@ Preserve native-backed UI and integrations. Do not fold the independent Electron
 - Merge current public main into the existing release outcome; preserve consent card and relay capacity changes.
 - Integrate provider picker and transcript marker (a5914602f); focused combined verification follows.
 - Integrate chat actions, in-bubble times and Matrix display (1b035c601); focused combined verification follows.
+- Integrate runtime install retention (c96ec9e534); focused combined verification follows.

@@ -355,3 +355,29 @@ test('runtime layout remains relocatable under the Electron resources directory'
     )
   )
 })
+
+test('retention runs only after the packaged identity and import probe succeed', () => {
+  const calls: string[] = []
+
+  const options = {
+    isPackaged: true,
+    platform: 'darwin',
+    arch: 'arm64',
+    resourcesPath: '/fixture/Atum.app/Contents/Resources',
+    hermesHome: '/fixture/home',
+    expectedProductCommit: COMMIT,
+    expectedProductDirty: false,
+    fileExists: () => true,
+    directoryExists: () => true,
+    executableFile: () => true,
+    readFile: () => manifest(),
+    cleanupRuntime: () => { calls.push('cleanup') }
+  }
+
+  assert.throws(() => resolveBundledHermesRuntime({ ...options, probeRuntime: () => false }))
+  assert.deepEqual(calls, [])
+  assert.ok(resolveBundledHermesRuntime({ ...options, probeRuntime: () => { calls.push('probe');
+
+ return true } }))
+  assert.deepEqual(calls, ['probe', 'cleanup'])
+})
