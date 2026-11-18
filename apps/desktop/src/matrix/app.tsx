@@ -1087,11 +1087,11 @@ function MatrixEventMessageBubble() {
         onRetry={retryOwn}
         pinned={pinned}
         pinning={pinning}
+        react={reactAction}
         retryDisabled={retryOwnDisabled}
         saved={savedAction}
         text={text}
         toCard={toCard}
-        react={reactAction}
       />
     ) : undefined
 
@@ -1103,7 +1103,6 @@ function MatrixEventMessageBubble() {
         link={stableMessageLink}
         onForward={onForward}
         onPin={onPin}
-        react={reactAction}
         onReport={reason =>
           window.atumMatrix
             .command({
@@ -1117,6 +1116,7 @@ function MatrixEventMessageBubble() {
         }
         pinned={pinned}
         pinning={pinning}
+        react={reactAction}
         reported={reported}
         saved={savedAction}
         text={text}
@@ -1859,6 +1859,7 @@ function MatrixAnswerToolbar({
             onRetry={onRetry}
             pinned={pinned}
             pinning={pinning}
+            react={reactAction}
             readAloud={
               canRead
                 ? {
@@ -1871,7 +1872,6 @@ function MatrixAnswerToolbar({
                 : undefined
             }
             retryDisabled={retryDisabled}
-            react={reactAction}
             saved={saved}
             text={text}
           />
