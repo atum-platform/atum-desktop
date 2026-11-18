@@ -60,6 +60,7 @@ import {
 } from './enrollment'
 import { DeviceEpochs } from './epochs'
 import type { ApprovalKeyRef } from './grants-store'
+import type { NativeSshRequest } from './native-ssh'
 import { DeviceOrigin, type OriginReceiptBody } from './origin'
 
 export type MatrixAnswering = 'local' | 'cloud'
@@ -70,7 +71,7 @@ export const MATRIX_CLOUD_AGENT_UNSUPPORTED = 'matrix_cloud_agent_unsupported'
 // ------------------------------------------------------------------ S1 owner routes
 
 export type S1Resource =
-  | { kind: 'native-ssh'; request: import('./native-ssh').NativeSshRequest }
+  | { kind: 'native-ssh'; request: NativeSshRequest }
   | { kind: 'controller-keys' }
   | { kind: 'device-services' }
   | { kind: 'source-authority'; agentPrincipal: string; gate: string; expectedRevision: number | null }
