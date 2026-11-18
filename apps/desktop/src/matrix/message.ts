@@ -543,6 +543,13 @@ export function matrixMessage(
         ? company?.stream === 'progress' ? company.progress : undefined
         : matrixProgressMarker(content)
       : undefined
+  if (progress && 'schedule' in progress && progress.schedule && edited) {
+    const originalSchedule = matrixProgressMarker(original)?.schedule
+    if (originalSchedule?.job !== progress.schedule.job || originalSchedule.execution !== progress.schedule.execution) {
+      delete progress.schedule
+    }
+  }
+
   // Its descriptor (agent-turns/1.5 A12), a sibling of the marker in the same latest content.
   const presentation = progress ? matrixProgressPresentation(content, progress) : undefined
 

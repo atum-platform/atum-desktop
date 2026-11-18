@@ -101,7 +101,7 @@ import type { MatrixPetDisplayBridge } from './matrix-pet-display'
 import type { MatrixPetIntentEnvelope, MatrixPetIntentProjection } from './matrix-pet-intent'
 import type { MatrixPresenceSnapshot, MatrixStatusInput } from './matrix-presence'
 import type { MatrixProfileMetadata, MatrixProfilesBridge, MatrixProfileSdkCommand } from './matrix-profile'
-import type { MatrixProgressMarker, MatrixProgressPresentation } from './matrix-progress-marker'
+import type { MatrixProgressMarker, MatrixProgressPresentation, MatrixScheduleIdentity } from './matrix-progress-marker'
 import type { MatrixRoomSharedSection } from './matrix-room-shared'
 import type { MatrixSavedMessagesSnapshot } from './matrix-saved-messages'
 import type { MatrixNativeSecurityCommand, MatrixSecurity, MatrixSecurityCommand } from './matrix-security'
@@ -1053,7 +1053,7 @@ export type MatrixCloudAgentRequest =
   | { action: 'status' }
   | { action: 'serviceStatus'; principal: string }
   | { action: 'moveToCloud'; principal: string }
-  | { action: 'stopTurn'; roomId: string; eventId: string }
+  | MatrixCloudStopRequest
   | { action: 'readerStatus' }
   | { action: 'readerEnroll' }
   | { action: 'trialOffer' }
@@ -1092,8 +1092,12 @@ export interface MatrixCloudTrialAccepted {
   status: 'preparing' | 'active' | 'cancelled'
 }
 
+export type MatrixCloudStopRequest =
+  | { action: 'stopTurn'; roomId: string; eventId: string }
+  | { action: 'stopSchedule'; roomId: string; schedule: MatrixScheduleIdentity }
+
 export interface MatrixCloudStopOutcome {
-  state: 'stopped' | 'stop_requested' | 'completed'
+  state: 'stopped' | 'stop_requested' | 'completed' | 'finished'
 }
 
 export interface MatrixCloudAgentStatus {
@@ -2268,7 +2272,7 @@ export interface MatrixUiBridge {
   cloudAgent?(request: { action: 'status' }): Promise<MatrixCloudAgentStatus>
   cloudAgent?(request: { action: 'serviceStatus'; principal: string }): Promise<MatrixAgentServiceStatus>
   cloudAgent?(request: { action: 'moveToCloud'; principal: string }): Promise<MatrixCloudMoveOutcome>
-  cloudAgent?(request: { action: 'stopTurn'; roomId: string; eventId: string }): Promise<MatrixCloudStopOutcome>
+  cloudAgent?(request: MatrixCloudStopRequest): Promise<MatrixCloudStopOutcome>
   cloudAgent?(request: { action: 'readerStatus' | 'readerEnroll' }): Promise<MatrixOwnerReaderStatus>
   cloudAgent?(request: { action: 'trialOffer' }): Promise<MatrixCloudTrialOffer | null>
   cloudAgent?(request: { action: 'cloudAccess' }): Promise<MatrixCloudAccess>

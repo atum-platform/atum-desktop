@@ -3959,6 +3959,7 @@ async function cloudAgentRequest(request: {
   principal?: unknown
   roomId?: unknown
   eventId?: unknown
+  schedule?: unknown
   offerVersion?: unknown
   disclosureVersion?: unknown
 }): Promise<
@@ -4158,15 +4159,18 @@ async function cloudAgentRequest(request: {
     }
   }
 
-  if (request.action === 'stopTurn' && typeof request.roomId === 'string' && typeof request.eventId === 'string') {
-    const { roomId, eventId } = request
+  if ((request.action === 'stopTurn' || request.action === 'stopSchedule') && typeof request.roomId === 'string') {
+    const { roomId } = request
     const scope = account.appScope()
     const agent = requireRoomAgent(roomId)
     const principal = cloudPrincipal(agent)
 
     const outcome = await dispatchMatrixStop({
       principal, cloud: isCloudAgent(agent), host: Boolean(principal && hostRuntimeAgents.has(principal)),
-      ready: Boolean(scope && config.domain), roomId, eventId
+      ready: Boolean(scope && config.domain),
+      request: request.action === 'stopSchedule'
+        ? { action: 'stopSchedule', roomId, schedule: request.schedule }
+        : { action: 'stopTurn', roomId, eventId: request.eventId }
     }, {
       s1Request: account.s1Request.bind(account), s1Call,
       fetcher: (url, init) => session.defaultSession.fetch(url, init)

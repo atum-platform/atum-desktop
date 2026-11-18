@@ -1,4 +1,6 @@
-import type { MatrixCloudStopOutcome, MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
+import type { MatrixCloudStopOutcome, MatrixCloudStopRequest, MatrixLocalTurnView, MatrixMessage } from '../../shared/matrix'
+import type { MatrixProgressMarker, MatrixScheduleIdentity } from '../../shared/matrix-progress-marker'
+import { matrixWorkingLine } from '../../shared/matrix-transient-lines'
 
 const CLOUD_WORKING: ReadonlySet<MatrixLocalTurnView['state']> = new Set(['waiting', 'running', 'handed_off'])
 
@@ -48,7 +50,7 @@ export function matrixCloudStopTarget(input: {
 
 export type MatrixStopRoute =
   | { kind: 'host' | 'legacy'; eventId: string }
-  | { kind: 'native' }
+  | { kind: 'schedule'; schedule: MatrixScheduleIdentity }
   | { kind: 'unavailable' }
 
 /** Legacy agents hide Stop without a source; only Hermes advertises an unresolved target. */
@@ -66,10 +68,10 @@ export function matrixStopRoute(input: {
   runtime?: 'hermes'
   eventId?: string
   working: boolean
-  scheduled?: boolean
+  scheduled?: Pick<MatrixProgressMarker, 'schedule'>
 }): MatrixStopRoute {
   if (input.runtime === 'hermes' && input.working && input.scheduled) {
-    return { kind: 'native' }
+    return input.scheduled.schedule ? { kind: 'schedule', schedule: input.scheduled.schedule } : { kind: 'unavailable' }
   }
   if (input.eventId) {
     return { kind: input.runtime === 'hermes' ? 'host' : 'legacy', eventId: input.eventId }
@@ -77,34 +79,46 @@ export function matrixStopRoute(input: {
   return { kind: 'unavailable' }
 }
 
-/** `stopping`: the turn was cut but the agent has not confirmed it stopped; `sent`: an in-room `/stop`. */
-export type MatrixStopResult = 'stopped' | 'stopping' | 'sent'
+export type MatrixStopResult = 'stopped' | 'stopping' | 'settled'
 
 export async function executeMatrixStop(
   route: MatrixStopRoute,
-  stop: (eventId: string) => Promise<MatrixCloudStopOutcome>,
-  send: (body: string) => Promise<unknown>
+  roomId: string,
+  stop: (request: MatrixCloudStopRequest) => Promise<MatrixCloudStopOutcome>
 ): Promise<MatrixStopResult> {
   if (route.kind === 'unavailable') {
     throw new Error('matrix_stop_unavailable')
   }
 
-  if (route.kind === 'native') {
-    await send('/stop')
+  if (route.kind === 'schedule') {
+    const outcome = await stop({ action: 'stopSchedule', roomId, schedule: route.schedule })
 
-    return 'sent'
+    if (outcome.state === 'stopped') { return 'stopped' }
+    if (outcome.state === 'finished') { return 'settled' }
+    if (outcome.state === 'stop_requested') { return 'stopping' }
+    throw new Error('matrix_host_stop_unconfirmed')
   }
 
-  const outcome = await stop(route.eventId)
+  const outcome = await stop({ action: 'stopTurn', roomId, eventId: route.eventId })
 
   return outcome.state === 'stopped' || outcome.state === 'completed' ? 'stopped' : 'stopping'
 }
 
-/** The bound agent's latest progress line identifies a cron turn explicitly. */
-export function matrixCloudStopScheduled(messages: readonly MatrixMessage[], agentId: string | undefined): boolean {
-  const progress = messages.findLast(message =>
-    message.sender === agentId && !message.own && !message.redacted &&
-    (message.progress || (!message.notice && !message.interim))
-  )?.progress
-  return Boolean(progress && 'trigger' in progress && progress.trigger === 'cron' && progress.phase !== 'settled')
+/** Read the native tuple only from the bound agent's active progress line. */
+export function matrixCloudStopScheduled(
+  messages: readonly MatrixMessage[],
+  agentId: string | undefined
+): Pick<MatrixProgressMarker, 'schedule'> | undefined {
+  if (!agentId) { return undefined }
+
+  const line = matrixWorkingLine(messages, new Set([agentId]), agentId)
+  const progress = line?.progress
+
+  if (!line || !progress || !('trigger' in progress) || progress.trigger !== 'cron') {
+    return undefined
+  }
+
+  const confirmed = line.id.startsWith('$') && !line.decryptionFailed && !line.pending && !line.failed
+
+  return { schedule: confirmed ? progress.schedule : undefined }
 }

@@ -13,6 +13,27 @@ export const MATRIX_PROGRESS_KEY = 'io.atum.progress'
 
 export type { MatrixProgressKind, MatrixProgressPhase }
 
+export interface MatrixScheduleIdentity {
+  job: string
+  execution: string
+}
+
+/** Opaque native identifiers. In particular, an execution ID is not a Matrix turn UUID. */
+export function matrixScheduleIdentity(value: unknown): MatrixScheduleIdentity | undefined {
+  const source = plainObject(value)
+  if (!source || Object.keys(source).length !== 2) {
+    return undefined
+  }
+
+  const { job, execution } = source
+  if (typeof job !== 'string' || !job.trim() || job.length > 512 ||
+      typeof execution !== 'string' || !execution.trim() || execution.length > 512 || execution.includes(':')) {
+    return undefined
+  }
+
+  return { job, execution }
+}
+
 export interface MatrixProgressMarker {
   profile: typeof MATRIX_PROGRESS_PROFILE
   scope: 'owner_private'
@@ -23,6 +44,8 @@ export interface MatrixProgressMarker {
   heartbeat?: true
   /** Optional host presentation extension. Scheduled turns have no owner source event. */
   trigger?: 'cron'
+  /** Exact native execution carried on the original cron notice and its edits. */
+  schedule?: MatrixScheduleIdentity
 }
 
 const PHASES: readonly string[] = ['working', 'waiting', 'settled']
@@ -54,6 +77,8 @@ export function matrixProgressMarker(content: unknown): MatrixProgressMarker | u
     return undefined
   }
 
+  const schedule = raw.trigger === 'cron' ? matrixScheduleIdentity(raw.schedule) : undefined
+
   return {
     profile: MATRIX_PROGRESS_PROFILE,
     scope: 'owner_private',
@@ -62,7 +87,8 @@ export function matrixProgressMarker(content: unknown): MatrixProgressMarker | u
     revision: raw.revision as number,
     ...(raw.device !== undefined ? { device: raw.device as string } : {}),
     ...(raw.heartbeat === true ? { heartbeat: true as const } : {}),
-    ...(raw.trigger === 'cron' ? { trigger: 'cron' as const } : {})
+    ...(raw.trigger === 'cron' ? { trigger: 'cron' as const } : {}),
+    ...(schedule ? { schedule } : {})
   }
 }
 

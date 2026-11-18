@@ -553,6 +553,7 @@ const bridge: MatrixUiBridge = {
         ? { principal: request.principal }
         : {}),
       ...(request.action === 'stopTurn' ? { roomId: request.roomId, eventId: request.eventId } : {}),
+      ...(request.action === 'stopSchedule' ? { roomId: request.roomId, schedule: request.schedule } : {}),
       ...(request.action === 'trialAccept'
         ? { offerVersion: request.offerVersion, disclosureVersion: request.disclosureVersion }
         : {})

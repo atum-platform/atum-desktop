@@ -12,6 +12,7 @@ import type {
 } from '../../shared/matrix'
 import { matrixAgentDeskCopy } from '../../shared/matrix-agent-desk-copy'
 import type { MatrixReachMac } from '../../shared/matrix-agent-sources'
+import { matrixAgentStatusText } from '../../shared/matrix-agent-status-copy'
 
 import { MATRIX_AGENT_CONTROL_RETRY_MS } from './agent-desk'
 import {
@@ -70,7 +71,7 @@ function progressLine(
   body: string,
   kind: 'todo' | 'device' | 'heartbeat' = 'todo',
   device?: string,
-  extra: { phase?: 'working' | 'waiting'; trigger?: 'cron' } = {}
+  extra: { phase?: 'working' | 'waiting'; trigger?: 'cron'; schedule?: { job: string; execution: string } } = {}
 ): MatrixMessage {
   return message({
     id: '$line',
@@ -85,7 +86,8 @@ function progressLine(
       kind,
       revision: 1,
       ...(device ? { device } : {}),
-      ...(extra.trigger ? { trigger: extra.trigger } : {})
+      ...(extra.trigger ? { trigger: extra.trigger } : {}),
+      ...(extra.schedule ? { schedule: extra.schedule } : {})
     }
   })
 }
@@ -539,9 +541,10 @@ describe('the agent tab on native Hermes in the cloud', () => {
     expect(stopTurn).toHaveBeenCalledWith({ action: 'stopTurn', roomId: ROOM, eventId: '$ask' })
   })
 
-  it('stops a scheduled turn with the native /stop command in this chat', async () => {
+  it('shows the existing Stopped status after an exact schedule Stop is confirmed', async () => {
     const command = window.atumMatrix.command as ReturnType<typeof vi.fn>
-    render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron' })] }))
+    const schedule = { job: 'routine', execution: 'fire' }
+    render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron', schedule })] }))
 
     const desk = screen.getByRole('region', { name: en.desk('Luna') })
     expect(within(desk).getByRole('status').textContent?.startsWith(en.routine)).toBe(true)
@@ -550,8 +553,27 @@ describe('the agent tab on native Hermes in the cloud', () => {
       fireEvent.click(within(desk).getByRole('button', { name: en.stop }))
     })
 
-    expect(command).toHaveBeenCalledWith({ kind: 'send', roomId: ROOM, body: '/stop' })
-    expect(stopTurn).not.toHaveBeenCalled()
+    expect(stopTurn).toHaveBeenCalledWith({ action: 'stopSchedule', roomId: ROOM, schedule })
+    expect(within(desk).getByText(matrixAgentStatusText('stopped', 'en'))).toBeTruthy()
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'send', body: '/stop' }))
+  })
+
+  it('disables routine Stop for a cron progress event without the native tuple', () => {
+    render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron' })] }))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const stop = within(desk).getByRole('button', { name: en.stop }) as HTMLButtonElement
+    expect(stop.disabled).toBe(true)
+  })
+
+  it('shows the existing refusal without success when Shell denies the schedule Stop', async () => {
+    stopTurn.mockRejectedValueOnce(new Error('matrix_host_stop_refused'))
+    const schedule = { job: 'routine', execution: 'fire' }
+    render(panel({ ...hermesBase(), messages: [progressLine('Reading…', 'todo', undefined, { trigger: 'cron', schedule })] }))
+    const desk = screen.getByRole('region', { name: en.desk('Luna') })
+    const stop = within(desk).getByRole('button', { name: en.stop }) as HTMLButtonElement
+    await act(async () => fireEvent.click(stop))
+    expect(within(desk).queryByText(matrixAgentStatusText('stopped', 'en'))).toBeNull()
+    expect(stop.disabled).toBe(false)
   })
 
   it('offers Stop while the native turn waits for your OK', () => {

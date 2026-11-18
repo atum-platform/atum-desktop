@@ -75,6 +75,15 @@ describe('Matrix UI preload window appearance', () => {
       ['matrix:ui', { kind: 'cloudAgent', action: 'stopTurn', roomId: '!room:test', eventId: '$event' }]
     ])
   })
+  it('forwards the exact scheduled Stop without renderer-supplied authority', async () => {
+    electron.invoke.mockClear()
+    const schedule = { job: 'same-job', execution: 'fire-a' }
+    const input = { action: 'stopSchedule' as const, roomId: '!room:test', schedule, principal: 'other', requestId: 'renderer' }
+    await bridge().cloudAgent!(input)
+    expect(electron.invoke.mock.calls).toEqual([
+      ['matrix:ui', { kind: 'cloudAgent', action: 'stopSchedule', roomId: '!room:test', schedule }]
+    ])
+  })
   it('forwards only the trial versions shown; native reads the owner, the offer route and the request ID', async () => {
     electron.invoke.mockClear()
     const input = {

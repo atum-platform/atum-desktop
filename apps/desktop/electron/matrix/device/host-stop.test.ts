@@ -4,15 +4,18 @@ import { requestHostStop } from './host-stop'
 
 const agent = '00000000-0000-4000-8000-159badba71cd'
 const signal = new AbortController().signal
+const turn = { room: '!dm:test', event: '$owner' }
+const requestId = '00000000-0000-4000-8000-212ac6e5d0d3'
+const schedule = { kind: 'schedule', job: 'same-job', execution: 'fire-a' } as const
 
 describe('Shell host Stop', () => {
   it('sends the exact source with owner bearer, CSRF origin and contract header', async () => {
     const fetcher = vi.fn(async (_url: Parameters<typeof fetch>[0], init?: RequestInit) => {
       const body = JSON.parse(String(init?.body))
-      expect(body).toEqual({ agent, requestId: expect.any(String), source: { room: '!dm:test', event: '$owner' } })
+      expect(body).toEqual({ agent, requestId, source: turn })
       return Response.json({ ok: true, requestId: body.requestId, cancelled: true, interrupted: true })
     })
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stopped' })
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, turn, requestId, signal, fetcher)).resolves.toEqual({ state: 'stopped' })
     expect(fetcher).toHaveBeenCalledWith('https://shell.test/api/host/stop', expect.objectContaining({
       method: 'POST', credentials: 'omit', redirect: 'error',
       headers: { Authorization: 'Bearer synthetic-token', 'Content-Type': 'application/json', Origin: 'https://shell.test', 'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' }
@@ -21,8 +24,8 @@ describe('Shell host Stop', () => {
 
   it.each([401, 403, 409, 503])('reduces typed refusal %s to a short safe error and permits another attempt', async status => {
     const fetcher = vi.fn(async () => Response.json({ state: 'refused', detail: 'private\n'.repeat(100) }, { status }))
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, turn, requestId, signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, turn, requestId, signal, fetcher)).rejects.toThrow(status === 401 ? 'matrix_s1_authentication' : 'matrix_host_stop_refused')
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
@@ -32,10 +35,40 @@ describe('Shell host Stop', () => {
       const body = JSON.parse(String(init?.body))
       return Response.json({ ok: true, requestId: body.requestId, cancelled: true, interrupted: false })
     })
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, fetcher)).resolves.toEqual({ state: 'stop_requested' })
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, turn, requestId, signal, fetcher)).resolves.toEqual({ state: 'stop_requested' })
   })
 
   it('refuses an unconfirmed receipt', async () => {
-    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, '!dm:test', '$owner', signal, async () => Response.json({ ok: true }))).rejects.toThrow('matrix_host_stop_unconfirmed')
+    await expect(requestHostStop('https://shell.test/api/matrix/v1', 'synthetic-token', agent, turn, requestId, signal, async () => Response.json({ ok: true }))).rejects.toThrow('matrix_host_stop_unconfirmed')
+  })
+  it.each([
+    ['interrupted', true, 'stopped'],
+    ['finished', false, 'finished'],
+    ['pending', false, 'stop_requested'],
+    ['unknown', false, 'stop_requested']
+  ] as const)('maps schedule receipt %s without overclaiming interruption', async (state, interrupted, expected) => {
+    const fetcher: typeof fetch = async (_url, init) => {
+      expect(JSON.parse(String(init?.body))).toEqual({ agent, requestId, source: schedule })
+      expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer synthetic-token')
+      return Response.json({ ok: true, requestId, state, cancelled: interrupted, interrupted })
+    }
+    await expect(requestHostStop('https://shell.test', 'synthetic-token', agent, schedule, requestId, signal, fetcher))
+      .resolves.toEqual({ state: expected })
+  })
+
+  it.each([
+    [{ requestId: 'another-stop' }, 200, 'matrix_host_stop_unconfirmed'],
+    [{ state: 'finished' }, 200, 'matrix_host_stop_unconfirmed'],
+    [{ state: undefined }, 200, 'matrix_host_stop_unconfirmed'],
+    [{ interrupted: false }, 200, 'matrix_host_stop_unconfirmed'],
+    [{}, 202, 'matrix_host_stop_unconfirmed'],
+    [{}, 401, 'matrix_s1_authentication'],
+    [{}, 403, 'matrix_host_stop_refused'],
+    [{ ok: false, state: 'unavailable' }, 503, 'matrix_host_stop_refused']
+  ] as const)('rejects unmatched, malformed or denied schedule receipts (%o, %i)', async (patch, status, error) => {
+    const fetcher: typeof fetch = async () =>
+      Response.json({ ok: true, requestId, state: 'interrupted', cancelled: true, interrupted: true, ...patch }, { status })
+    await expect(requestHostStop('https://shell.test', 'synthetic-token', agent, schedule, requestId, signal, fetcher))
+      .rejects.toThrow(error)
   })
 })

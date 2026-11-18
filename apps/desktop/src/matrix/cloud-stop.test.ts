@@ -186,25 +186,27 @@ describe('Stop routing', () => {
   it('uses host Stop for a new-runtime owner source', () => {
     expect(matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })).toEqual({ kind: 'host', eventId: '$owner' })
   })
-  it('uses native in-room stop for scheduled work with no owner source', async () => {
-    const send = vi.fn(async () => {})
+  it('uses the exact schedule source even with an older owner question', async () => {
+    const schedule = { job: 'job', execution: 'fire' }
     const stop = vi.fn(async () => ({ state: 'stopped' as const }))
-    await executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), stop, send)
-    expect(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true, eventId: '$older-owner' }).kind).toBe('native')
-    expect(send).toHaveBeenCalledWith('/stop')
-    expect(stop).not.toHaveBeenCalled()
+    const route = matrixStopRoute({ runtime: 'hermes', working: true, scheduled: { schedule }, eventId: '$older-owner' })
+    await expect(executeMatrixStop(route, '!room:test', stop)).resolves.toBe('stopped')
+    expect(stop).toHaveBeenCalledWith({ action: 'stopSchedule', roomId: '!room:test', schedule })
   })
-  it('calls a turn stopped only when the agent confirmed it', async () => {
-    const send = vi.fn(async () => {})
+  it('never redirects a schedule without exact IDs to the older manual turn', () => {
+    expect(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: {}, eventId: '$older-owner' }).kind).toBe('unavailable')
+  })
+  it('calls a manual turn stopped only when the agent confirmed it', async () => {
     const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
-    await expect(executeMatrixStop(route, async () => ({ state: 'stopped' }), send)).resolves.toBe('stopped')
-    await expect(executeMatrixStop(route, async () => ({ state: 'completed' }), send)).resolves.toBe('stopped')
-    await expect(executeMatrixStop(route, async () => ({ state: 'stop_requested' }), send)).resolves.toBe('stopping')
-    await expect(executeMatrixStop(matrixStopRoute({ runtime: 'hermes', working: true, scheduled: true }), vi.fn(), send)).resolves.toBe('sent')
+    await expect(executeMatrixStop(route, '!room:test', async () => ({ state: 'stopped' }))).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, '!room:test', async () => ({ state: 'completed' }))).resolves.toBe('stopped')
+    await expect(executeMatrixStop(route, '!room:test', async () => ({ state: 'stop_requested' }))).resolves.toBe('stopping')
   })
   it('passes a failed Stop through as a failure', async () => {
     const route = matrixStopRoute({ runtime: 'hermes', eventId: '$owner', working: true })
-    await expect(executeMatrixStop(route, async () => { throw new Error('matrix_host_stop_refused') }, vi.fn())).rejects.toThrow('matrix_host_stop_refused')
+    await expect(executeMatrixStop(route, '!room:test', async () => {
+      throw new Error('matrix_host_stop_refused')
+    })).rejects.toThrow('matrix_host_stop_refused')
   })
   it('disables unresolved owner messages and idle turns', () => {
     expect(matrixStopRoute({ runtime: 'hermes', working: true }).kind).toBe('unavailable')
@@ -213,11 +215,16 @@ describe('Stop routing', () => {
   })
 })
 
-it('requires the bound agent’s latest active cron marker', () => {
-  const progress = { profile: 'atum.agent-turns/1.3' as const, scope: 'owner_private' as const, phase: 'working' as const, kind: 'heartbeat' as const, revision: 1, trigger: 'cron' as const }
-  const cron = message({ sender: '@agent:test', own: false, progress })
-  expect(matrixCloudStopScheduled([cron], '@agent:test')).toBe(true)
-  expect(matrixCloudStopScheduled([cron], '@foreign:test')).toBe(false)
-  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, body: 'Done' })], '@agent:test')).toBe(false)
-  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, progress: { ...progress, phase: 'settled' } })], '@agent:test')).toBe(false)
+it('only reads the native tuple from the bound agent’s current cron progress', () => {
+  const schedule = { job: 'same-job', execution: 'fire-b' }
+  const progress = { profile: 'atum.agent-turns/1.3' as const, scope: 'owner_private' as const, phase: 'working' as const, kind: 'heartbeat' as const, revision: 1, trigger: 'cron' as const, schedule }
+  const cron = message({ id: '$second', sender: '@agent:test', own: false, notice: true, progress })
+  const older = message({ ...cron, id: '$first', progress: { ...progress, schedule: { ...schedule, execution: 'fire-a' } } })
+  const unidentified = message({ ...cron, progress: { ...progress, schedule: undefined } })
+
+  expect(matrixCloudStopScheduled([older, cron], '@agent:test')).toEqual({ schedule })
+  expect(matrixCloudStopScheduled([older, unidentified], '@agent:test')?.schedule).toBeUndefined()
+  expect(matrixCloudStopScheduled([cron], '@foreign:test')).toBeUndefined()
+  expect(matrixCloudStopScheduled([cron, message({ sender: '@agent:test', own: false, body: 'Done' })], '@agent:test')).toBeUndefined()
+  expect(matrixCloudStopScheduled([message({ ...cron, progress: { ...progress, phase: 'settled' } })], '@agent:test')).toBeUndefined()
 })
