@@ -8,7 +8,10 @@ const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
 export async function rebuildNodePty({ arch = process.arch } = {}) {
   await rebuild({
-    buildPath: projectRoot, // where node_modules lives
+    buildPath: projectRoot,
+    // npm workspaces hoist node-pty above apps/, which has no package.json.
+    // Keep rebuild's ancestor search open through the repository root.
+    projectRootPath: resolve(projectRoot, '../..'),
     electronVersion: packageJson.devDependencies.electron.replace('^', ''),
     arch,
     onlyModules: ['node-pty'],
