@@ -878,6 +878,15 @@ export class MatrixPagesProvidersScope {
     const released = this.sessions.delete(handle)
 
     try {
+      if (result.status === 'error' && result.error_code === 'discarded_carried') {
+        // Approved upstream, refused by the account's auth store (its ChatGPT connection is in
+        // cloud custody). Not a retryable fault: the window says what that means instead of
+        // "couldn't connect".
+        console.warn(`[Matrix] plan sign-in discarded: matrix_plan_sign_in_discarded provider=${binding.provider}`)
+
+        return { status: 'error', reason: 'discarded_carried' }
+      }
+
       if (result.status !== 'approved') {
         return { status: result.status as MatrixProviderOAuthResult['status'] }
       }

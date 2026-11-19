@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { CarryRejected, ChatGptCarry } from './chatgpt-carry'
+import { CarryRejected, ChatGptCarry, chatGptSignInHeldInCloud } from './chatgpt-carry'
 
 function fixture(call: (body: Record<string, string>) => Promise<string>) {
   let state = 'local', now = 0, drains = 0, carried = 0, restored = 0
@@ -76,4 +76,33 @@ test('carried local relay cannot be re-enabled by an in-flight status response',
   assert.equal(relay.view()?.state, 'carried')
   assert.equal(calls, 1)
   assert.equal(await relay.enable('synthetic-device', []), false)
+})
+
+test('the durable carry state reads the same route with an empty body', async () => {
+  const bodies: Record<string, string>[] = []
+  const carry = new ChatGptCarry({ scope: () => ({ accountKey: 'one', generation: 1 }), home: () => '/synthetic',
+    call: async body => { bodies.push(body); return 'migrated' },
+    custody: async () => ({ state: 'local' }), drain: async () => {}, carried: () => {}, restored: () => {} })
+
+  assert.equal(await carry.status(), 'migrated')
+  assert.deepEqual(bodies, [{}])
+})
+
+test('an unreadable carry state answers nothing, so a sign-in keeps its normal path', async () => {
+  const carry = new ChatGptCarry({ scope: () => ({ accountKey: 'one', generation: 1 }), home: () => '/synthetic',
+    call: async () => { throw Error('offline') },
+    custody: async () => ({ state: 'local' }), drain: async () => {}, carried: () => {}, restored: () => {} })
+
+  assert.equal(await carry.status(), undefined)
+})
+
+test('only a cloud-owned ChatGPT connection holds a sign-in', () => {
+  assert.equal(chatGptSignInHeldInCloud('migrated'), true)
+  assert.equal(chatGptSignInHeldInCloud('cloud_connection_exists'), true)
+
+  for (const state of ['pending', 'no_relay', 'local', 'unavailable', '']) {
+    assert.equal(chatGptSignInHeldInCloud(state), false)
+  }
+
+  assert.equal(chatGptSignInHeldInCloud(undefined), false)
 })

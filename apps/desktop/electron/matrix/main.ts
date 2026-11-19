@@ -480,7 +480,7 @@ import { MatrixBackgroundVerifications, MatrixLaunchSummary } from './background
 import { appBotPhotoForRenderer } from './bot-api-media'
 import { createBrowserImport } from './browser-import/compose'
 import { registerBrowserImportIpc } from './browser-import/ipc'
-import { carryCustody, ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
+import { carryCustody, ChatGptCarry, chatGptSignInHeldInCloud, requestChatGptCarry } from './chatgpt-carry'
 import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import {
   FileChatGptTrainingRevokeJournal,
@@ -23713,6 +23713,20 @@ async function start() {
 
       if (request?.kind === 'subscriptionChatGptStart') {
         const subscription = requireSubscriptionAccount()
+
+        // A carried account cannot keep a sign-in taken here: its ChatGPT connection lives in cloud
+        // custody and Hermes' carry tombstone discards the grant. Read the durable state (the same
+        // owner route the carry flow uses) before anything opens, and say so instead of spending a
+        // code on a flow that can only be thrown away. An unreadable state falls back to what this
+        // process already derived, and otherwise changes nothing.
+        const carriedState = await chatGptCarry?.status()
+
+        if (
+          chatGptSignInHeldInCloud(carriedState) ||
+          (carriedState === undefined && chatGptRelay?.view()?.state === 'carried')
+        ) {
+          return { status: 'carried' as const }
+        }
 
         const localConnected = matrixSubscriptionsStatus({
           accountAuthHome: matrixSubscriptionHostHome(runtime!, subscription.owner, subscription.accountKey),

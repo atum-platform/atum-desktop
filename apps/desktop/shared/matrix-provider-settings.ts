@@ -60,6 +60,10 @@ export interface MatrixProviderOAuthSession {
 
 export interface MatrixProviderOAuthResult {
   status: 'pending' | 'approved' | 'denied' | 'expired' | 'error' | 'cancelled'
+  /** A closed error class Hermes names, when it has one. `discarded_carried`: the sign-in was
+   * approved upstream but the account's auth store refused it (its ChatGPT connection is in cloud
+   * custody), so retrying here cannot help until that connection is reset. */
+  reason?: 'discarded_carried'
 }
 
 export interface MatrixProviderSettingsClient {

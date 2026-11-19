@@ -141,6 +141,8 @@ type ChatGptState =
   | { kind: 'starting' }
   | { kind: 'waiting'; signIn: MatrixSubscriptionSignIn }
   | { kind: 'failed' }
+  /** No sign-in can be kept here: this account's ChatGPT connection is held in cloud custody. */
+  | { kind: 'carried' }
 
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
 export const MATRIX_CONNECTABLE_SERVICES: readonly MatrixSubscriptionProvider[] = MATRIX_SUBSCRIPTION_PROVIDERS
@@ -303,6 +305,12 @@ export function SubscriptionConnectDialog({
         return
       }
 
+      if (result.status === 'carried') {
+        setChatgpt({ kind: 'carried' })
+
+        return
+      }
+
       if (result.status === 'cancelled') {
         closeRef.current()
 
@@ -394,6 +402,15 @@ export function SubscriptionConnectDialog({
         if (result.status === 'failed') {
           session.current = null
           setChatgpt({ kind: 'failed' })
+
+          return
+        }
+
+        if (result.status === 'carried') {
+          // Approved upstream and refused by the account's store: the same words as a sign-in that
+          // never started, because the same thing is true and retrying cannot change it.
+          session.current = null
+          setChatgpt({ kind: 'carried' })
 
           return
         }
@@ -489,6 +506,20 @@ export function SubscriptionConnectDialog({
                     ))}
                   </ol>
                 </details>
+                <Button onClick={onClose} size="sm" variant="ghost">
+                  {copy.cancel}
+                </Button>
+              </>
+            )}
+            {chatgpt.kind === 'carried' && (
+              <>
+                <p
+                  className="text-sm text-(--ui-text-secondary)"
+                  data-matrix-subscription-carried
+                  role="status"
+                >
+                  {copy.chatgptCarried}
+                </p>
                 <Button onClick={onClose} size="sm" variant="ghost">
                   {copy.cancel}
                 </Button>
