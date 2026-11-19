@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 
-import type { MatrixNativeSshView as NativeSshView } from '../../../shared/matrix-native-mac'
+import type { MatrixNativeSshView as NativeSshView, MatrixNativeSshSetupStep as SetupStep } from '../../../shared/matrix-native-mac'
 
 /** Native Hermes SSH route. No device frames or tool schemas are involved. */
-import type { DeviceEnrollmentRecord } from './enrollment'
+import { type DeviceEnrollmentRecord, DeviceRegistryError } from './enrollment'
 
 export const REMOTE_LOGIN_SETTINGS =
   'x-apple.systempreferences:com.apple.Sharing-Settings.extension?Services_RemoteLogin'
@@ -55,6 +55,46 @@ export function nativeSshHost(value: unknown): value is string {
 }
 
 const tokenDigest = (token: string) => createHash('sha256').update(token).digest('hex')
+
+const OS_CODES = new Set(['EACCES', 'EEXIST', 'EIO', 'ENOENT', 'ENOSPC', 'ENOTDIR', 'EPERM', 'EROFS', 'ETIMEDOUT'])
+
+const SETUP_CODES = new Set([
+  'invalid_device',
+  'invalid_host',
+  'invalid_keys',
+  'invalid_prepare',
+  'invalid_ssh_block',
+  'invalid_ssh_key',
+  'matrix_s1_authentication',
+  'native_ssh_cleanup_pending',
+  'native_ssh_file_failed',
+  'native_ssh_route_recovery_required',
+  'native_ssh_symlink',
+  'tunnel_stop_failed'
+])
+
+const REGISTRY_REASONS = new Set(['invalid', 'mac_route_unavailable'])
+
+/** Allow fixed codes only. Even a short error message or registry reason can contain a secret. */
+function nativeSshFailureCode(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return 'unknown'
+  }
+
+  if (error instanceof DeviceRegistryError && (error.status === 0 || (Number.isInteger(error.status) && error.status >= 100 && error.status <= 599))) {
+    const reason = error.reason && REGISTRY_REASONS.has(error.reason) ? `_${error.reason}` : ''
+
+    return `device_registry_${error.status}${reason}`
+  }
+
+  const code = (error as NodeJS.ErrnoException).code
+
+  if (code && OS_CODES.has(code)) {
+    return code
+  }
+
+  return SETUP_CODES.has(error.message) ? error.message : 'unknown'
+}
 
 const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
@@ -108,17 +148,27 @@ export class NativeMacSsh {
   private accountScope?: string
   constructor(
     private readonly deps: {
-      ownerPrincipal?(): string | undefined
       enrollment(): DeviceEnrollmentRecord | null
       call(body: NativeSshRequest): Promise<unknown>
+      setPlanFactsEnabled?(deviceServiceId: string, enabled: boolean): Promise<void>
       system: NativeSshSystem
       settings: {
         getItem(key: string): string | null
         setItem(key: string, value: string): void
       }
+      /** The main log; overridden only in tests. */
+      log?(line: string): void
     }
   ) {}
+  private log(line: string): void {
+    if (this.deps.log) {
+      this.deps.log(line)
+    } else {
+      console.warn(`[Matrix] ${line}`)
+    }
+  }
   status(): NativeSshView {
+    this.syncAccountScope(this.deps.enrollment())
     const acknowledged = this.hintEnrollmentKey && this.deps.settings.getItem(this.hintEnrollmentKey) === 'acknowledged'
 
     return {
@@ -132,35 +182,74 @@ export class NativeMacSsh {
 
     return result
   }
-  start(explicit = false): Promise<void> {
-    const record = this.deps.enrollment()
-    const scope = record ? `${record.ownerUserId}:${record.matrixDeviceId}` : undefined
-
-    if (scope && this.accountScope && scope !== this.accountScope) {
-      this.disconnected = false
+  private syncAccountScope(record: DeviceEnrollmentRecord | null): void {
+    if (!record) {
+      return
     }
 
-    this.accountScope = scope ?? this.accountScope
+    const scope = `${record.ownerUserId}:${record.matrixDeviceId}`
 
-    if (explicit) {
-      this.disconnected = false
+    if (scope !== this.accountScope) {
+      const saved = this.deps.settings.getItem(this.disconnectKey(scope))
+
+      this.accountScope = scope
+      this.disconnected = saved === 'off' || saved === 'cleanup_pending'
+
+      if (saved === 'cleanup_pending') {
+        this.view = this.cleanupPendingView()
+      } else if (this.disconnected || this.view.status === 'not_connected' || this.view.reason === 'native_ssh_cleanup_pending') {
+        this.view = { status: this.disconnected ? 'not_connected' : 'tunnel_down', settingsUrl: REMOTE_LOGIN_SETTINGS }
+      }
     }
+  }
+  private disconnectKey(scope: string): string {
+    return `native-ssh:connection:${scope}`
+  }
+  async start(explicit = false): Promise<void> {
+    await this.serial(async () => {
+      const record = this.deps.enrollment()
 
-    if (this.disconnected) {
-      return Promise.resolve()
-    }
+      this.syncAccountScope(record)
 
-    this.timer ??= setInterval(() => {
-      void this.refresh()
-    }, 60_000)
-    this.timer.unref?.()
+      if (explicit && this.disconnected) {
+        if (this.view.reason === 'native_ssh_cleanup_pending') {
+          return
+        }
+
+        if (record && this.accountScope) {
+          const key = this.disconnectKey(this.accountScope)
+
+          if (this.deps.settings.getItem(key) === 'off') {
+            try {
+              await this.deps.setPlanFactsEnabled?.(record.deviceServiceId, true)
+              this.deps.settings.setItem(key, 'on')
+            } catch {
+              throw new Error('native_ssh_reconnect_pending')
+            }
+          }
+        }
+
+        this.disconnected = false
+      }
+
+      if (!this.disconnected) {
+        this.timer ??= setInterval(() => {
+          void this.refresh()
+        }, 60_000)
+        this.timer.unref?.()
+      }
+    })
 
     return this.refresh()
   }
   /** Only an explicit UI action may invoke the macOS administrator prompt. */
   enableRemoteLogin(): Promise<void> {
     return this.serial(async () => {
-      await this.deps.system.enableRemoteLogin()
+      try {
+        await this.deps.system.enableRemoteLogin()
+      } catch {
+        throw new Error('native_ssh_remote_login_failed')
+      }
     }).then(() => this.start(true))
   }
   fullDiskAccessHint(): NativeSshView {
@@ -188,9 +277,20 @@ export class NativeMacSsh {
   refresh(): Promise<void> {
     return this.serial(async () => {
       let recoveryRequired = false
+      let step: SetupStep = 'prepare'
 
       try {
         const record = this.deps.enrollment()
+
+        this.syncAccountScope(record)
+
+        if (this.disconnected) {
+          if (this.id && record && this.id !== record.deviceServiceId) {
+            await this.cleanup()
+          }
+
+          return
+        }
 
         if (!record || record.state !== 'active') {
           if (this.id) {
@@ -267,6 +367,7 @@ export class NativeMacSsh {
           this.deps.settings.setItem(routeKey, JSON.stringify({ host, tokenDigest: tokenDigest(prepared.tunnelToken) }))
         }
 
+        step = 'authorized_keys'
         const rows = await this.deps.call({ operation: 'ssh_authorized_keys', purposes: true })
 
         // The SSH ChatGPT relay is gone (self-work plan §12): a `relay` key is never installed, and a list that carries one is not
@@ -277,11 +378,14 @@ export class NativeMacSsh {
 
         const keys = rows.map(row => row.publicKey)
 
+        step = 'write_keys'
         await this.deps.system.keys(keys)
+        step = 'start_tunnel'
         await this.deps.system.start(this.id)
         const epoch = `${this.id}:${record.enrollmentEpoch}:${host}:${ready.user}:${ready.hostKey}`
 
         if (this.enrolled !== epoch) {
+          step = 'enroll'
           await this.deps.call({
             operation: 'ssh_enroll',
             deviceServiceId: this.id,
@@ -298,12 +402,21 @@ export class NativeMacSsh {
           status: 'connected',
           settingsUrl: REMOTE_LOGIN_SETTINGS
         }
-      } catch {
+      } catch (error) {
         // Never propagate HTTP/process errors: they may contain credentials.
+        const code = recoveryRequired ? 'native_ssh_route_recovery_required' : nativeSshFailureCode(error)
+
+        this.log(`native-ssh setup failed at ${step}: ${code}`)
         await this.deps.system.keys([]).catch(() => undefined)
         await this.deps.system.stop().catch(() => undefined)
         this.enrolled = undefined
-        this.view = { status: 'error', reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = {
+          status: 'error',
+          reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed',
+          step,
+          code,
+          settingsUrl: REMOTE_LOGIN_SETTINGS
+        }
       }
     })
   }
@@ -333,19 +446,52 @@ export class NativeMacSsh {
     this.routeKey = undefined
     this.id = undefined
   }
-  disconnect(): Promise<void> {
-    this.disconnected = true
-    clearInterval(this.timer)
-    this.timer = undefined
-
+  private cleanupPendingView(): NativeSshView {
+    return {
+      status: 'error',
+      reason: 'native_ssh_cleanup_pending',
+      code: 'native_ssh_cleanup_pending',
+      settingsUrl: REMOTE_LOGIN_SETTINGS
+    }
+  }
+  disconnect({ accountConnection = false } = {}): Promise<void> {
     return this.serial(async () => {
-      this.id ??= this.deps.enrollment()?.deviceServiceId
+      const record = this.deps.enrollment()
+
+      this.syncAccountScope(record)
+      this.disconnected = true
+      clearInterval(this.timer)
+      this.timer = undefined
+      this.id ??= record?.deviceServiceId
 
       try {
-        await this.cleanup()
-        this.view = { status: 'tunnel_down', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        const key = accountConnection && this.accountScope ? this.disconnectKey(this.accountScope) : undefined
+
+        const results = await Promise.allSettled([
+          Promise.resolve().then(() => {
+            if (key) {
+              this.deps.settings.setItem(key, 'cleanup_pending')
+            }
+          }),
+          Promise.resolve().then(() => this.cleanup()),
+          Promise.resolve().then(() => {
+            if (accountConnection && record) {
+              return this.deps.setPlanFactsEnabled?.(record.deviceServiceId, false)
+            }
+          })
+        ])
+
+        if (results.some(result => result.status === 'rejected')) {
+          throw new Error('native_ssh_cleanup_pending')
+        }
+
+        if (key) {
+          this.deps.settings.setItem(key, 'off')
+        }
+
+        this.view = { status: 'not_connected', settingsUrl: REMOTE_LOGIN_SETTINGS }
       } catch {
-        this.view = { status: 'error', reason: 'native_ssh_cleanup_pending', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = this.cleanupPendingView()
         throw new Error('native_ssh_cleanup_pending')
       }
     })

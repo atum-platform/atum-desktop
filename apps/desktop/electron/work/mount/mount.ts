@@ -1,4 +1,6 @@
-import type { GateServiceState, WorkGateService } from '../gate'
+import { existsSync } from 'node:fs'
+
+import { type GateServiceState, workGatePaths, type WorkGateService } from '../gate'
 import type { WorkSession } from '../session'
 
 import type { WorkMountAccount } from './gate-factory'
@@ -294,6 +296,44 @@ export class WorkMount {
     await this.wantServer()
     this.requireService().setPlanSwitch(on)
     this.changed()
+  }
+
+  /** Withdraw an existing fact even if Work has not started this run. */
+  setMacPlanFactsEnabled(deviceServiceId: string, enabled: boolean): Promise<void> {
+    const account = this.deps.account()
+
+    return this.serial(async () => {
+      const current = this.deps.account()
+
+      if (!account || current?.key !== account.key || current.generation !== account.generation || this.closed) {
+        return
+      }
+
+      const gate = this.gate
+
+      if (gate?.account.generation === account.generation && gate.account.key === account.key) {
+        await gate.service.setPlanFactsEnabled(deviceServiceId, enabled)
+        this.changed()
+
+        return
+      }
+
+      if (!existsSync(workGatePaths(account).ledger)) {
+        return
+      }
+
+      const offline = this.deps.createGate(account)
+
+      if (!offline) {
+        throw new Error('work_gate_unavailable')
+      }
+
+      try {
+        await offline.setPlanFactsEnabled(deviceServiceId, enabled)
+      } finally {
+        await offline.close()
+      }
+    })
   }
 
   private requireService(): WorkGateService {

@@ -30,6 +30,7 @@ export interface PlanFactOptions {
 export type PlanFactState = 'connected' | 'disconnected'
 
 const KEY = 'plan_fact'
+const REPORTING_KEY = 'plan_fact_reporting'
 
 export class PlanFact {
   private readonly now: () => number
@@ -89,6 +90,24 @@ export class PlanFact {
     return this.tick()
   }
 
+  reportingEnabled(): boolean {
+    return this.options.ledger.meta(REPORTING_KEY) !== 'off'
+  }
+
+  /** A device disconnect stays in effect across ticks and Work restarts. */
+  async setReportingEnabled(enabled: boolean): Promise<void> {
+    this.options.ledger.setMeta(REPORTING_KEY, enabled ? 'on' : 'off')
+
+    // Reconcile through tick so any in-flight connected report settles before the withdrawal.
+    if (!enabled) {
+      await this.tick()
+
+      if (this.reported()?.state === 'connected') {
+        throw new Error('work_plan_fact_cleanup_pending')
+      }
+    }
+  }
+
   /** The last flush before this Mac stops serving the account: `disconnected`, within the caller's bound. Never throws. */
   async final(): Promise<void> {
     this.seen = 'unknown'
@@ -96,6 +115,16 @@ export class PlanFact {
   }
 
   private async check(): Promise<void> {
+    if (!this.reportingEnabled()) {
+      this.seen = 'disconnected'
+
+      if (this.reported()?.state === 'connected') {
+        await this.send('disconnected').catch(() => undefined)
+      }
+
+      return
+    }
+
     const state = await this.options.status().catch((): 'unknown' => 'unknown')
 
     if (state === 'unknown') {
