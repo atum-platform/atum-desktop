@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
+from hermes_constants import socket_safe_tmpdir
 from tools.environments.base import BaseEnvironment, EnvironmentConnectionError
 from tools.environments.base_output import _popen_bash
 from tools.environments.file_sync import (
@@ -24,6 +25,29 @@ logger = logging.getLogger(__name__)
 # fail the connection outright ('getsockname failed: Not a socket'). Skip multiplexing there.
 # Skip multiplexing there; each command pays a fresh connection but the backend works. See #73927.
 _SSH_MULTIPLEX = os.name != "nt"
+
+# AF_UNIX path budget for the ControlMaster socket: macOS sun_path is 104 bytes with the NUL (103 usable),
+# and SSH appends ``.XXXXXXXXXXXXXXXX`` (17 bytes) in ControlMaster mode.
+_SSH_CONTROL_SUFFIX = 17
+_MAX_SUN_PATH = 103
+_SOCKET_NAME_LEN = len("0123456789abcdef.sock")
+
+
+def _control_dir() -> Path:
+    """Directory for the ControlMaster sockets: ``<tmp>/hermes-ssh``, unless that cannot fit the AF_UNIX
+    path budget. A deep Hermes home (every Atum cloud agent: TMPDIR is ``<home>/cache/scratch`` under
+    ``/computer/agents/<uuid>/private``) overflows it and SSH refuses with "ControlPath too long"; then
+    the native socket-safe temp root is used, in a private per-user directory."""
+    base = Path(tempfile.gettempdir())
+    usual = base / "hermes-ssh"
+    if len(str(usual)) + 1 + _SOCKET_NAME_LEN + _SSH_CONTROL_SUFFIX <= _MAX_SUN_PATH:
+        usual.mkdir(parents=True, exist_ok=True)
+        return usual
+    owner = os.getuid() if hasattr(os, "getuid") else 0
+    short = Path(socket_safe_tmpdir()) / f"hermes-ssh-{owner}"
+    short.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return short
+
 
 # Module-level binding: tests patch ``ssh._load_hermes_env_vars`` to fake the .env file.
 _load_hermes_env_vars = load_hermes_env_vars
@@ -61,8 +85,7 @@ class SSHEnvironment(BaseEnvironment):
                  probe_only: bool = False, sync_files: bool = True, persistent: bool = True):
         super().__init__(cwd=cwd, timeout=timeout, persist_env=persistent)
         self.host, self.user, self.port, self.key_path = host, user, port, key_path
-        self.control_dir = Path(tempfile.gettempdir()) / "hermes-ssh"
-        self.control_dir.mkdir(parents=True, exist_ok=True)
+        self.control_dir = _control_dir()
         # Short, deterministic socket name: the path must stay under macOS's 104-byte sun_path
         # limit (raw user@host:port + SSH's 16-byte suffix under a deep $TMPDIR exceeds it), and
         # stability across reconnects keeps ControlMaster reuse working. A probe gets its own
