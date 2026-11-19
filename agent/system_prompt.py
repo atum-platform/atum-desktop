@@ -109,8 +109,10 @@ def atum_place_part(agent: Any) -> str:
     mac = atum_mac_name()
     if mac is not None:
         return _pb.atum_mac_place(mac, word_tool="word_document" in tools)
-    if "device_send_file" in tools or atum_instructions_enabled(agent):
+    if "device_send_file" in tools:
         return _pb.ATUM_CLOUD_PLACE
+    if atum_instructions_enabled(agent):
+        return _pb.ATUM_CLOUD_PLACE_NATIVE
     return ""
 
 
