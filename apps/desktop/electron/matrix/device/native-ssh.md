@@ -202,3 +202,28 @@ Local validation for B1 (2026-11-18):
 ## macOS login names
 
 Enrollment preserves the spelling of the short account name, including uppercase letters. The first character must be an ASCII letter or underscore. Subsequent characters can also include digits or hyphens, up to 32 characters total. Deploy compatible server-side enrollment validation before releasing the client.
+
+## Setup step reasons and Disconnect — 2026-11-19
+
+Owner report: `ssh_prepare` succeeds (token saved, route `prepared`) but no LaunchAgent is
+written and `ssh_enroll` never fires, with only `native_ssh_setup_failed` to go on.
+
+Setup now records the step it is in — `prepare`, `authorized_keys`, `write_keys`,
+`start_tunnel`, `enroll` — and, when it fails, one safe code: an HTTP status number, an OS
+error code (`EACCES`, `ENOENT`, …) or one of our own lowercase codes. The view carries both
+(`step`, `code`) beside the existing `reason`; the main log gets
+`native-ssh setup failed at <step>: <code>`. Message text that does not match those shapes,
+URLs, response bodies and credentials never leave the catch block. `recoveryRequired`
+behaviour is unchanged.
+
+Settings › Connections › Your Macs now says why setup stopped in one line: known codes in
+plain words, anything else names the step. The failed row offers Try again (with a working
+state) and one quiet Disconnect this Mac, which runs the existing cleanup (remote revoke,
+launchd bootout and plist removal, managed-key removal, token and route-metadata deletion)
+and then shows the not-connected row with Connect. Reconnecting after a disconnect is
+explicit: window focus no longer triggers it.
+
+Focused tests cover one failing step per stage (fake HTTP/process deps) with the reported
+step and code, no credential or process text in the view or the log, and Disconnect
+clearing the token and route metadata before a fresh prepare. No live route, launchd or
+installed-app acceptance is claimed here.
