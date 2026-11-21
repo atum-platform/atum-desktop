@@ -39,6 +39,17 @@ const SETTLEMENT_RETENTION_MS = WORK_SETTLEMENT_RETENTION_DAYS * 86_400_000
 const REJECTED_BACKOFF_BASE_MS = 30_000
 const REJECTED_BACKOFF_CAP_MS = 6 * 3_600_000
 
+// What the Mac believes about the platform's route is a cache. A rotation with no agent announced, or a platform rollback and
+// re-apply, close the route there without any change reaching this Mac, so the cache is re-read from the platform now and then
+// (an idempotent `route_opened`, whose reply names the state the platform holds) and dropped the moment a grant is refused for it.
+const ROUTE_CONFIRM_MS = 5 * 60_000
+// A grant refused for a reason the route cannot fix (an agent that is not eligible) must not make every cycle enroll again.
+const ROUTE_RECOVERY_BACKOFF_BASE_MS = 30_000
+const ROUTE_RECOVERY_BACKOFF_CAP_MS = 15 * 60_000
+
+/** The platform's answers to a carry that name the route or its enrollment: closed route (403), no route (404), stale enrollment (409). */
+const routeRefusal = (error: unknown): boolean => [403, 404, 409].includes((error as { status?: number } | null)?.status ?? 0)
+
 /** A 4xx that says "I will not take this one" (as opposed to signed out, rate limited, or a server that is down). */
 const definiteRefusal = (error: unknown): boolean => [400, 409, 410, 412, 422].includes((error as { status?: number } | null)?.status ?? 0)
 
@@ -94,6 +105,9 @@ export class WorkSync {
   private running: Promise<TickResult> | undefined
   private settlementFailures = 0
   private settlementRetryAt = 0
+  private routeConfirmedAt = 0
+  private routeRecoveries = 0
+  private routeRecoveryAt = 0
 
   constructor(private readonly options: WorkSyncOptions) {
     this.now = options.now ?? Date.now
@@ -226,13 +240,25 @@ export class WorkSync {
     const { gate, ledger } = this.options
     const intentOpen = gate.workGrantAccepted() && gate.routeOpen() && ledger.meta('switch_on') !== '0'
 
-    if (!intentOpen || ledger.platformRoute() === 'open') {
+    if (!intentOpen) {
+      return
+    }
+
+    const waiting = ledger.pending('mac_event').some(row => eventKind(row.payload) === 'route_opened')
+
+    if (ledger.platformRoute() === 'open') {
+      // Believed open: ask again now and then. The reply to this event is the platform's own word; `closed` sends the next cycle
+      // through the enrollment below.
+      if (!waiting && this.now() - this.routeConfirmedAt >= ROUTE_CONFIRM_MS) {
+        this.routeConfirmedAt = this.now()
+        ledger.enqueueMacEvent({ kind: 'route_opened', routeEpoch: ledger.routeEpoch() })
+      }
+
       return
     }
 
     await this.enroll()
-
-    const waiting = ledger.pending('mac_event').some(row => eventKind(row.payload) === 'route_opened')
+    this.routeConfirmedAt = this.now()
 
     if (!waiting) {
       ledger.enqueueMacEvent({ kind: 'route_opened', routeEpoch: ledger.routeEpoch() })
@@ -388,9 +414,22 @@ export class WorkSync {
           expiresAt: minted.expiresAt
         })
         ledger.markGrantCarried(minted.hash)
-      } catch {
+        this.routeRecoveries = 0
+      } catch (error) {
         // an uncarried grant is unusable: drop it and mint again on the next pull
         ledger.killGrant(minted.hash)
+
+        if (routeRefusal(error) && this.now() >= this.routeRecoveryAt) {
+          // The platform says the route is closed or bound to an older enrollment while this Mac thinks it is open: forget what it
+          // last confirmed, so the next cycle enrolls again and reopens before anything else is carried. Bounded: repeated refusals
+          // that enrolling does not cure are retried on a growing delay, not every cycle.
+          this.routeRecoveryAt = this.now() + Math.min(ROUTE_RECOVERY_BACKOFF_CAP_MS, ROUTE_RECOVERY_BACKOFF_BASE_MS * 2 ** Math.min(this.routeRecoveries, 20))
+          this.routeRecoveries++
+          ledger.setPlatformRoute('unknown')
+          this.options.log?.('route_confirmation_dropped', { status: (error as { status?: number }).status ?? 0 })
+
+          return
+        }
       }
     }
   }

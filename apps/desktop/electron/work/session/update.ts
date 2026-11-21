@@ -206,9 +206,14 @@ export class UpdateDriver {
         return refusal
       }
 
-      const current = deps.currentPin()
+      const running = deps.currentPin()
+      // The committed runtime and the binary this build ships are different things on an installed upgrade: durable state names
+      // the older committed version, `currentPin()` already returns the newly shipped binary. Only when they are the same version
+      // is the previous binary available to start again.
+      const committed = this.readState()?.pin ?? running.version
+      const previous = running.version === committed ? running : undefined
 
-      return await deps.coordinator.exclusive(() => this.run(current, target))
+      return await deps.coordinator.exclusive(() => this.run({ fromVersion: committed, previous }, target))
     } finally {
       this.running = false
     }
@@ -256,7 +261,7 @@ export class UpdateDriver {
     })
   }
 
-  private async run(current: PinRef, target: PinRef): Promise<UpdateOutcome> {
+  private async run(current: { fromVersion: string; previous: PinRef | undefined }, target: PinRef): Promise<UpdateOutcome> {
     const { deps } = this
     const { coordinator, paths } = deps
     const log = (event: string) => deps.log?.(redactPairingSecrets(event))
@@ -270,7 +275,7 @@ export class UpdateDriver {
     // 2. Snapshot the stopped home. The manifest is written last; the marker
     //    moves to `pending` only once the snapshot is durable.
     const snapshotId = randomUUID()
-    this.takeSnapshot(snapshotId, current.version, target.version)
+    this.takeSnapshot(snapshotId, current.fromVersion, target.version)
     coordinator.markers.advance('pending', snapshotId)
     log('update_snapshot_taken')
 
@@ -288,7 +293,7 @@ export class UpdateDriver {
           childVersion: target.version,
           update: {
             id: snapshotId,
-            fromVersion: current.version,
+            fromVersion: current.fromVersion,
             targetVersion: target.version,
             dbPath: paths.database,
             status: 'pending'
@@ -305,7 +310,7 @@ export class UpdateDriver {
     } catch (error) {
       log('update_trial_failed')
 
-      return this.rollback(host, current, redactPairingSecrets(error instanceof Error ? error.message : 'trial_failed'))
+      return this.rollback(host, current.previous, redactPairingSecrets(error instanceof Error ? error.message : 'trial_failed'))
     }
 
     // 4. Commit. The record that makes a downgrade impossible is written
@@ -320,11 +325,14 @@ export class UpdateDriver {
   }
 
   /**
-   * Restore, reset, and start the previous pin. The trial server is stopped
-   * first (awaited), the snapshot is repeated from the top if this is itself
-   * interrupted, and the reset runs on the stopped, restored home.
+   * Restore, reset, and start the previous pin when this build still has it. The trial server is stopped first (awaited), the
+   * snapshot is repeated from the top if this is itself interrupted, and the reset runs on the stopped, restored home.
+   *
+   * With no previous binary (an installed upgrade replaced it), nothing is started: the restored home stays stopped and the
+   * next start tries the update again. Starting the failed new binary here would run the very migration that just failed on the
+   * restored database, in the window before the caller could stop it.
    */
-  private async rollback(failed: PinHost, current: PinRef, reason: string): Promise<UpdateOutcome> {
+  private async rollback(failed: PinHost, previous: PinRef | undefined, reason: string): Promise<UpdateOutcome> {
     const { deps } = this
     const { coordinator } = deps
     const marker = coordinator.markers.read()
@@ -337,12 +345,16 @@ export class UpdateDriver {
     await coordinator.finish()
     deps.log?.('update_rolled_back')
 
-    const previous = deps.hostFor(current)
+    if (!previous) {
+      return { outcome: 'rolled_back', reason, host: failed }
+    }
+
+    const host = deps.hostFor(previous)
 
     try {
-      return { outcome: 'rolled_back', reason, host: previous, incarnation: await previous.start({ continuation: false, resources: current.resources }) }
+      return { outcome: 'rolled_back', reason, host, incarnation: await host.start({ continuation: false, resources: previous.resources }) }
     } catch {
-      return { outcome: 'rolled_back', reason, host: previous }
+      return { outcome: 'rolled_back', reason, host }
     }
   }
 

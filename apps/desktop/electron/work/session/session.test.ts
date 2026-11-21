@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync } from 'node:fs'
+
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { partitionFor, type WorkSessionAccount } from './paths'
@@ -316,6 +318,48 @@ describe('update through the session', () => {
     expect(host.starts).toBe(1) // the old binary never ran again, and the new one never started outside the driver
     expect(incarnation.home).toBe(home.paths.home)
     expect(home.accepts(before)).toBe(false) // the update reset the home first
+    expect(session.held()).toBe(false)
+  })
+
+  it('an installed upgrade whose trial fails ends stopped: the restored database is untouched and no binary starts after the restore', async () => {
+    const { entry, events } = lab()
+    const { account, home, host } = entry('A')
+    const v2 = new FakeHost(home, events, '0.1.12')
+    let shipped = { version: '0.1.11', resources: '/p1' }
+
+    const session = new WorkSession({
+      account: () => account,
+      host,
+      authTools: () => ({ cli: home.cli(), grants: home.grants() }),
+      clearPartition: async () => undefined,
+      homeRunning: () => home.running,
+      // The previous binary is not part of the new build: only the shipped pin has a host that is not the old one.
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => false, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      pairing: { timeoutMs: 120, pollMs: 15 }
+    })
+
+    writeFileSync(`${home.paths.database}-wal`, 'wal-before')
+    await session.start() // the home last committed 0.1.11
+    await host.stop()
+
+    // The app was replaced by a build that ships 0.1.12, whose migration fails (and would fail again on a second start).
+    shipped = { version: '0.1.12', resources: '/p2' }
+
+    v2.migrate = h => {
+      writeFileSync(`${h.paths.database}-wal`, 'wal-after-migration')
+
+      throw new Error('migration_failed')
+    }
+
+    events.length = 0
+    await expect(session.start()).rejects.toMatchObject({ code: 'work_update_rolled_back' })
+
+    // exactly one start of the new binary, the failed trial; nothing after the restore
+    expect(events.filter(event => event.startsWith('start:'))).toEqual(['start:0.1.12:nocont:trial'])
+    expect(events.at(-1)).toBe('stop:0.1.12')
+    expect(readFileSync(`${home.paths.database}-wal`, 'utf8')).toBe('wal-before')
+    expect(home.running).toBe(false)
+    expect(host.starts).toBe(1)
     expect(session.held()).toBe(false)
   })
 

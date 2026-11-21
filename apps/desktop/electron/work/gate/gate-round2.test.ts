@@ -337,6 +337,113 @@ describe('3. recovery from a key rotation is explicit', () => {
   })
 })
 
+describe('3b. a cached open route cannot block recovery (round 3)', () => {
+  const enrolls = (log: string[]) => log.filter(entry => entry === 'enroll').length
+
+  it('a key rotated while no agent was announced: the grant of a later addition is refused, the confirmation is dropped, the Mac enrolls, reopens and carries within a bounded number of cycles', async () => {
+    h = makeHarness()
+    const { model, platform } = modelPlatform()
+    const sync = syncFor(platform)
+
+    model.entitled = []
+    await sync.tick() // nobody is announced: the route is enrolled and confirmed open
+    expect(h.ledger.platformRoute()).toBe('open')
+    expect(enrolls(model.log)).toBe(1)
+
+    // the rotation closes the route there and emits NO agent removal; the Mac still believes it open
+    model.staleEnrollment = true
+    model.routeState = 'closed'
+    model.entitled = [LUNA]
+    model.pages.push(page({ fromSeq: 0, headSeq: 1, entitled: [LUNA], changes: [change(1, 'agent_added', LUNA)] }))
+
+    let cycles = 0
+
+    while (!model.grants.has(LUNA) && cycles < 4) {
+      await sync.tick()
+      cycles++
+    }
+
+    expect(model.grants.has(LUNA)).toBe(true)
+    expect(cycles).toBeLessThanOrEqual(3)
+    expect(enrolls(model.log)).toBe(2)
+    expect(model.routeState).toBe('open')
+    expect(h.ledger.platformRoute()).toBe('open')
+    expect(model.log.lastIndexOf('enroll')).toBeLessThan(model.log.lastIndexOf('carry'))
+  })
+
+  it('a refusal that enrolling does not cure is retried on a growing delay, not on every cycle', async () => {
+    h = makeHarness()
+    const { model, platform } = modelPlatform()
+    const sync = syncFor(platform)
+    const carry = platform.carryGrant.bind(platform)
+
+    // an agent the platform will never accept (not eligible): 403 whatever the route says
+    platform.carryGrant = async input => {
+      await carry(input).catch(() => undefined)
+      throw Object.assign(new Error('403'), { status: 403 })
+    }
+
+    for (let i = 0; i < 6; i++) {
+      await sync.tick()
+    }
+
+    expect(enrolls(model.log)).toBeLessThanOrEqual(2)
+
+    h.clock.advance(60_000)
+
+    for (let i = 0; i < 4; i++) {
+      await sync.tick()
+    }
+
+    expect(enrolls(model.log)).toBeLessThanOrEqual(4)
+  })
+
+  it('a platform rolled back and applied again (route closed and re-bound, no change sent, grants already carried) is found again by the periodic confirmation', async () => {
+    h = makeHarness()
+    const { model, platform } = modelPlatform()
+    const sync = syncFor(platform)
+
+    await sync.tick()
+    expect(model.grants.size).toBe(2)
+    expect(h.ledger.platformRoute()).toBe('open')
+    const before = enrolls(model.log)
+
+    model.routeState = 'closed' as 'open' | 'closed'
+    model.staleEnrollment = true
+
+    // nothing to carry (both grants are live), so only the confirmation can notice
+    h.clock.advance(6 * 60_000)
+
+    for (let i = 0; i < 3 && model.routeState !== 'open'; i++) {
+      await sync.tick()
+    }
+
+    expect(model.routeState).toBe('open')
+    expect(h.ledger.platformRoute()).toBe('open')
+    expect(enrolls(model.log)).toBe(before + 1)
+    expect(h.ledger.pending('mac_event')).toHaveLength(0)
+  })
+
+  it('a route that is still open is not disturbed: the confirmation is one event every five minutes, not one a cycle', async () => {
+    h = makeHarness()
+    const { model, platform } = modelPlatform()
+    const sync = syncFor(platform)
+
+    await sync.tick()
+    const opened = () => model.log.filter(entry => entry === 'event:route_opened').length
+    const first = opened()
+
+    await sync.tick()
+    await sync.tick()
+    expect(opened()).toBe(first)
+
+    h.clock.advance(6 * 60_000)
+    await sync.tick()
+    expect(opened()).toBe(first + 1)
+    expect(enrolls(model.log)).toBe(1)
+  })
+})
+
 describe('4. events keep a strict order, and grants wait for the events', () => {
   it('two events in one millisecond, a clock set back and a restart never give an earlier event a later-or-equal time', () => {
     h = makeHarness()

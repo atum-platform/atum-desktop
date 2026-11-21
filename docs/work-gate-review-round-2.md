@@ -34,3 +34,25 @@ increasing value (hybrid clock). `WorkPlatform.macEvent` now resolves with the p
 ## Verification
 
 Desktop: `vitest run electron/work electron/matrix/main-work.test.ts` (with `ATUM_WORK_T3_BIN` set to the pinned `t3`) 547 passed; `npm run typecheck` clean; ESLint clean on the touched files; `scripts/public_guard.py --base origin/main --head HEAD` rc=0 (exit code read directly, never piped). The three suites that need `.venv/bin/python` (`mac-job-runner`, `mac-job-startup`, `conversation/jobs`) fail on this Mac with or without these changes. Not run: `process.integration.test.ts` (needs the bundled Python runtime).
+
+# Round 3 · 2026-11-21
+
+A re-check of round 2 closed findings 1–4, 7, 9 and 10 and raised two new blocking issues. Both are fixed; local only (nothing pushed, no CI run).
+
+| # | Issue | Fix | Test | Fails on `ec5a7b62` |
+|---|---|---|---|---|
+| A | An installed-update rollback started the failed new pin again. On an installed upgrade `currentPin()` is the newly shipped binary while durable state names the older committed version, so the driver used the NEW pin as both current and target; after the restore it started that binary with no trial context | `UpdateDriver` keeps the committed version (`fromVersion`, from durable state) apart from the previous binary (`previous`, set only when the running pin IS the committed version). A rollback with no previous binary restores, resets and returns stopped (`rolled_back`, host = the stopped trial host, no incarnation): nothing is started. The recovery marker and snapshot are cleared only after the restore and reset finish, as before | `session.test.ts` "an installed upgrade whose trial fails ends stopped…" | yes |
+| B | A cached platform-open state could block recovery forever (rotation with no agent announced, platform rollback and re-apply) | Two signals, both from answers the platform already gives. (1) A grant carry refused with 403/404/409 (`route_closed`, not enrolled, `stale_enrollment`) drops the cached confirmation (`platform_route` → `unknown`); the next cycle enrolls again, queues `route_opened`, flushes, then carries. Repeats are on a growing delay (30 s, doubling, 15 min cap) so a refusal that enrolling cannot cure does not enroll every cycle; a successful carry resets it. (2) While consent and the switch say open, a confirmation `route_opened` is queued every 5 minutes (and on the first cycle after a start); its reply names the state the platform holds, and `closed` sends the next cycle through the enrollment. Needed because a caught-up Mac with live grants has nothing to carry | `gate-round2.test.ts` §3b (4 tests) | scenarios: yes (3 of 4; the fourth, the growing delay, is a guard that also passes before) |
+
+No platform change and no wire change: `route_opened` is the existing idempotent event; the carry statuses are the ones `work-route.test.ts` pins on the platform.
+
+## Decisions and open points (round 3)
+
+- After a trial that rolled back with no previous binary, Work is stopped and the next start tries the update again (unchanged from round 2; now also true of the driver itself, not only the caller's stop).
+- The platform's `reason` text is not read: the Mac acts on the status only (the client throws status-only errors by design). A 403 or 409 that has another cause (not eligible, stale generation) costs at most one enroll + `route_opened` per backoff step.
+- The 5-minute confirmation is the bound for the rollback and re-apply case with no carry to make; the carry refusal is the fast path (next cycle).
+- No wall clock is involved in the confirmation but `now()`, which tests drive.
+
+## Verification (round 3)
+
+`vitest run electron/work electron/matrix/main-work.test.ts` with `ATUM_WORK_T3_BIN` set to the pinned t3: 459 passed, 1 skipped (`process.integration.test.ts`, needs the bundled Python runtime); `npm run typecheck` clean; ESLint clean on the four touched files; `scripts/public_guard.py --base origin/main --head HEAD` exit code read directly (see the commit). The test count differs from round 2's 547 because that run covered a wider path set; the same command on `ec5a7b62` gives 454 passed, 1 skipped.
