@@ -1,7 +1,10 @@
 import { EventEmitter } from 'node:events'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { workSessionPaths } from '../session/paths'
 
@@ -136,5 +139,42 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
     expect([...handlers.keys()]).toEqual([WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
+  })
+})
+
+describe('Work off marker', () => {
+  const roots: string[] = []
+
+  afterEach(() => {
+    for (const root of roots.splice(0)) {
+      rmSync(root, { force: true, recursive: true })
+    }
+  })
+
+  function hostFor(root: string | undefined) {
+    return new WorkHost({
+      resources: '/bundled',
+      account: () => (root ? { key: 'owner', generation: 1, root } : undefined),
+      openProtons: async () => undefined,
+      accessState: async () => ({ state: 'unavailable' }),
+      gatewayEnvironment: () => ({}),
+      revokeCredentials: () => undefined
+    })
+  }
+
+  it('reads the owner\'s switch: on by default, off after setEnabled(false), on again after setEnabled(true)', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'wh-'))
+    roots.push(root)
+    const host = hostFor(root)
+
+    expect(host.enabled()).toBe(true)
+    await host.setEnabled(false)
+    expect(host.enabled()).toBe(false)
+    await host.setEnabled(true)
+    expect(host.enabled()).toBe(true)
+  })
+
+  it('is off with no signed-in account', () => {
+    expect(hostFor(undefined).enabled()).toBe(false)
   })
 })

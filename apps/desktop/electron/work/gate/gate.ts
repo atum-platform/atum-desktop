@@ -892,6 +892,33 @@ export class WorkGate {
     }
   }
 
+  /**
+   * Main's check before it restarts the session server on its own (`restartWhenIdle`): true only when T3 answered
+   * through main's own owner session, the list fits one page, and no thread in it has a run in flight or a status this
+   * code does not know. Anything else is "not idle": a restart that is declined is retried, one that interrupts the
+   * person's own run is not recoverable.
+   */
+  async ownerRunsIdle(): Promise<boolean> {
+    try {
+      const session = await this.options.sessions.owner()
+      const reply = await this.options.t3.list(session.token, { limit: 200 })
+
+      if (reply.transport !== 'ok' || reply.isError || reply.data?.nextCursor) {
+        return false
+      }
+
+      const raw = reply.data?.threads ?? reply.data?.items ?? []
+
+      return Array.isArray(raw) && raw.every(item => {
+        const status = (item as { status?: unknown } | null)?.status
+
+        return typeof status === 'string' && THREAD_STATUS.has(status) && !BUSY_RUN(status)
+      })
+    } catch {
+      return false
+    }
+  }
+
   // ---- grants and the switch
   /**
    * The Mac mints the grant: 32 random bytes, kept only as a hash; one live grant per agent. The bearer goes to the

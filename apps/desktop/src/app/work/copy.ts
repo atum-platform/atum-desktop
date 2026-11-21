@@ -25,6 +25,8 @@ export interface WorkWords {
   stopping(name: string): string
   pillWorking(names: string[]): string
   anAssistant: string
+  /** Settings: one row to turn Work on or off on this Mac. */
+  settings: { title: string; help: string; failed: string }
 }
 
 const en: WorkWords = {
@@ -65,7 +67,12 @@ const en: WorkWords = {
   stopping: name => `Stopping ${name}’s work…`,
   pillWorking: names =>
     names.length === 1 ? `${names[0]} is working` : `${names.length} assistants working`,
-  anAssistant: 'An assistant'
+  anAssistant: 'An assistant',
+  settings: {
+    title: 'Work on this Mac',
+    help: 'Turn off to stop all Work on this Mac.',
+    failed: 'Could not change Work just now.'
+  }
 }
 
 const vi: WorkWords = {
@@ -105,7 +112,12 @@ const vi: WorkWords = {
   working: (name, count) => `${name} đang làm ${count} việc`,
   stopping: name => `Đang dừng việc của ${name}…`,
   pillWorking: names => (names.length === 1 ? `${names[0]} đang làm việc` : `${names.length} trợ lý đang làm việc`),
-  anAssistant: 'Một trợ lý'
+  anAssistant: 'Một trợ lý',
+  settings: {
+    title: 'Work trên máy Mac này',
+    help: 'Tắt để dừng mọi việc Work trên máy Mac này.',
+    failed: 'Chưa đổi được Work lúc này.'
+  }
 }
 
 const words: Record<'en' | 'vi', WorkWords> = { en, vi }

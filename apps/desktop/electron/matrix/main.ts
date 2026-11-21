@@ -802,6 +802,7 @@ import {
   registerMatrixMemberAvatarIpc,
   registerMatrixProfilesIpc
 } from './main-profiles'
+import { createMatrixWork, type MatrixWork } from './main-work'
 import { matrixManagedAgentPrincipal, MatrixManagedModel } from './managed-model'
 import { dispatchMatrixCommand } from './message-dispatch'
 import { MatrixMessageLinkBroker } from './message-link-broker'
@@ -2060,6 +2061,8 @@ let stagedRecoveryFailed = false
 let updateHandoff: UpdateHandoff | null = null
 let previousRestart: UpdateHandoffResult | null = null
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
+/** Self-work slice A: the Work page, its server and the assistants' route, for the signed-in account (main-work.ts). */
+let work: MatrixWork | undefined
 let appLoadHost: Host | undefined
 let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
@@ -6991,6 +6994,8 @@ function publish(next: MatrixSnapshot) {
   companyStore?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   store?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   officialAccounts?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  // Work binds to the account once the window is ready; it is torn down by sign-out, never by a transient state.
+  if (!closing && next.state === 'ready' && next.identity) {void work?.activate()}
   // The account may just have changed: the shared Mac names are scoped to it.
   syncExecutionDeviceNamesScope()
   // Company-channel confirmations belong to one signed-in session: a new session (or quit) voids them.
@@ -11019,6 +11024,18 @@ const sdkRendererRecovery = new MatrixSdkRendererRecovery<MatrixHostRole>({
   retrying: (role, attempt) =>
     console.warn(`[Matrix] ${role === 'human' ? 'chat' : 'agent'} engine restart attempt=${attempt}`)
 })
+
+/** The sign-in ended: Work's route is cut, its stops settled and its server stopped. Bounded, and never throws. */
+async function retireWork() {
+  if (!work) {
+    return
+  }
+
+  await Promise.race([
+    work.retire().catch(() => console.warn('[Matrix] work_retire_failed')),
+    new Promise<void>(resolve => setTimeout(resolve, 60_000).unref())
+  ])
+}
 
 async function stopSdk() {
   petOverlays?.clear()
@@ -17512,6 +17529,7 @@ function endChatSession(): Promise<void> {
     }
 
     publish(matrixSessionEndedSnapshot(state))
+    await retireWork()
     await stopSdk().catch(() => console.warn('[Matrix] chat engine cleanup failed after the session ended'))
     await deviceStop?.catch(() => console.warn('[Device] service cleanup failed'))
   })().finally(() => {
@@ -19369,6 +19387,8 @@ async function start() {
           // A stopped or retired agent's leftover key completes nothing.
           .filter(({ agent }) => agent === undefined || (agents.has(agent) && !agents.get(agent)!.closed))
           .map(({ key, agent }) => [key, agent === undefined ? 'agent' : `agent:${agent}`] as const),
+        // Work's own gateways present one key; the proxy attributes it to no agent.
+        ...(work?.modelKeys() ?? []),
         ...Array.from(matrixPetHatchKeys.entries())
           .filter(([, run]) => !run.abort.signal.aborted && run.accountKey === account.appScope()?.accountKey)
           .map(([key, run]) => [key, run.role] as const)
@@ -20660,6 +20680,61 @@ async function start() {
       appViews.dispose()
       matrixApps = undefined
     }
+  }
+
+  // Self-work slice A: Work (the owner's own server view and the assistants' route) for the signed-in account.
+  // Everything it needs from this window is a port here; `main-work.ts` holds no account logic of its own.
+  if (config.domain) {
+    const domain = config.domain
+    const ownerPrincipal = () => {
+      try {
+        return account.enrollment().identity?.principal
+      } catch {
+        return undefined
+      }
+    }
+
+    work = createMatrixWork({
+      userData: app.getPath('userData'),
+      home: app.getPath('home'),
+      resources: process.resourcesPath,
+      workPreload: path.join(assets, 'matrix-work-preload.js'),
+      safeStorage,
+      ui: () => ui,
+      ipcMain,
+      requireUi: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
+      zoomFactor: () => ui?.webContents.getZoomFactor() ?? 1,
+      sessionFromPartition: partition => session.fromPartition(partition),
+      model: {
+        baseUrl: () => managedModel?.baseUrl,
+        probe: (role, signal) =>
+          managedModel?.probe(role, signal) ?? Promise.resolve({ ok: false as const, code: 'setup_required' as const })
+      },
+      scope: () => account.appScope(),
+      ownerPrincipal,
+      deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
+      deviceServicesEndpoint: () => `${domain.resource}/device-services`,
+      bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      ownerHost: () => {
+        const owner = hosts.get('human')
+
+        return owner && !closing
+          ? { userId: owner.identity.userId, command: command => owner.queue.command(command) }
+          : undefined
+      },
+      agentMatrixUser: async principal => {
+        const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
+          each => each.principal === principal && each.status === 'active'
+        )
+
+        return agent?.matrixUser ?? null
+      },
+      agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
+      openProtons: () => shell.openExternal(`${domain.resource}/payments/protons`),
+      publish: (channel, projection) => ui?.webContents.send(channel, projection),
+      closing: () => closing,
+      log: line => console.warn(line)
+    })
   }
 
   // Preserve the dedicated-session clearing policy across Electron 44, never
@@ -25936,6 +26011,9 @@ async function start() {
               // cleanup failure must never prevent Matrix credential revocation.
               console.warn('[Matrix] Ephemeral browser cleanup failed during sign-out')
             })
+            // Work first, while its server still runs: the assistants' route is cut and what they started is
+            // stopped before the account is revoked. A slow server must not hold the sign-out for ever.
+            await retireWork()
             await account.signOut(async (identity, agentIdentity, others) => {
               await stopSdk()
 
@@ -26003,6 +26081,7 @@ async function start() {
         if (request.kind === 'signOut') {
           // Vault read/write can fail before closeDevice is reached. Local SDK
           // access still closes; never let its next snapshot undo pending logout.
+          await retireWork()
           await stopSdk()
           await forgetAgents()
         }
@@ -26211,6 +26290,8 @@ if (stagedRecovery === 'exiting') {
 
         const driveStop = timedStop('drive', () => drive?.dispose())
         closing = true
+        // Quitting is not a revocation: Work's gate closes without a cutoff, then its server stops.
+        const workStop = timedStop('work', () => work?.quit())
         ownPresence.stop()
         backgroundSweeps?.stop()
         agentHome?.service.stop()
@@ -26242,7 +26323,7 @@ if (stagedRecovery === 'exiting') {
         // Credential/SDK shutdown starts beside lease release, never behind it.
         try {
           await Promise.allSettled([
-            release, clearNativeApps, brainStop, driveStop, deviceStop,
+            release, clearNativeApps, brainStop, driveStop, deviceStop, workStop,
             timedStop('sdk', () => account ? account.close(stopSdk) : stopSdk()),
             matrixConsumerBrowser.releaseConsumerPartitions()
           ])

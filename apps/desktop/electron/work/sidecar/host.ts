@@ -135,6 +135,13 @@ export class WorkHost {
     return this.closing
   }
 
+  /** Whether Work may run for the signed-in account: false with no account, or while its Work-off marker exists (§8.5). */
+  enabled(): boolean {
+    const account = this.options.account()
+
+    return account !== undefined && !existsSync(disabledMarker(account))
+  }
+
   async setEnabled(enabled: boolean): Promise<void> {
     const account = this.options.account()
 

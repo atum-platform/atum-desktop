@@ -6973,6 +6973,7 @@ function MatrixAccountView({
 }) {
   const work = useStore($work)
   const workActive = useStore($workActive)
+  const [attentionOpen, setAttentionOpen] = useState(false)
 
   // Work's projection from main: the rail shows Work only while there is one for this account.
   useEffect(() => {
@@ -8178,6 +8179,7 @@ function MatrixAccountView({
         return agent ? matrixRosterAgentName(agent, shell.assistantName) : shell.assistantName
       }}
       onOpen={openAttention}
+      onOpenChange={setAttentionOpen}
       snapshot={snapshot}
     />
   ) : null
@@ -8413,6 +8415,8 @@ function MatrixAccountView({
                 obstructed={
                   overlaid ||
                   drawerOpen ||
+                  // The attention list drops over the page; the native view would cover it.
+                  attentionOpen ||
                   anyAgentPrompts(snapshot) ||
                   isMatrixVerificationPending(snapshot.security?.verification)
                 }

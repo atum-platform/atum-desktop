@@ -36,6 +36,8 @@ export interface WorkSurfaceOptions {
   publish(projection: MatrixWorkProjection | null): void
   /** Stable codes only: never a URL, a token or a path. */
   log?(line: string): void
+  /** The owner's Work switch (§8.5): off runs the cutoff and stops the server, on lets it start again. */
+  setWork?(on: boolean): Promise<void>
 }
 
 const PROTONS: Record<WorkAccess, MatrixWorkProjection['protons']> = {
@@ -59,6 +61,8 @@ export class WorkSurface {
   private rect: MatrixWorkRect | null = null
   private protons: MatrixWorkProjection['protons'] = 'unknown'
   private generation = 0
+  /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
+  private holds = 0
 
   constructor(private readonly options: WorkSurfaceOptions) {}
 
@@ -102,6 +106,10 @@ export class WorkSurface {
   async show(rect: MatrixWorkRect): Promise<void> {
     this.rect = rect
 
+    if (this.holds > 0) {
+      return
+    }
+
     if (this.phase === 'ready') {
       this.handle?.place(rect)
 
@@ -118,8 +126,30 @@ export class WorkSurface {
     this.handle?.place(null)
   }
 
+  /**
+   * Run `work` (a restart of the session server) with the view closed, then paint it again if the page is still
+   * showing. Whatever asks for a view meanwhile (a resize, "Try again") waits: a second open would start a second
+   * server beside the one being restarted.
+   */
+  async suspend<T>(work: () => Promise<T>): Promise<T> {
+    this.holds++
+    this.closeView()
+    this.phase = 'idle'
+    this.publish()
+
+    try {
+      return await work()
+    } finally {
+      this.holds--
+
+      if (this.holds === 0 && this.rect && this.parts?.enabled()) {
+        void this.open()
+      }
+    }
+  }
+
   async retry(): Promise<void> {
-    if (this.phase !== 'unavailable') {
+    if (this.holds > 0 || this.phase !== 'unavailable') {
       return
     }
 
@@ -162,6 +192,28 @@ export class WorkSurface {
     await this.bindRoute()
   }
 
+  /**
+   * Settings: Work off or on for this account on this Mac. Off first stops what is painted, then main's cutoff and
+   * server stop run; on only clears the marker, and the page opens the view again the next time it is shown.
+   */
+  async setWork(on: boolean): Promise<void> {
+    if (!this.parts) {
+      return
+    }
+
+    if (!on) {
+      this.closeView()
+      this.phase = 'idle'
+      this.protons = 'unknown'
+    }
+
+    try {
+      await this.options.setWork?.(on)
+    } finally {
+      this.publish()
+    }
+  }
+
   private async bindRoute(): Promise<void> {
     try {
       await this.parts?.gate?.openRoute()
@@ -183,6 +235,10 @@ export class WorkSurface {
 
   private open(): Promise<void> {
     const parts = this.parts
+
+    if (this.holds > 0) {
+      return Promise.resolve()
+    }
 
     if (!parts || !parts.enabled()) {
       this.publish()
@@ -236,9 +292,9 @@ export class WorkSurface {
     this.phase = 'ready'
     outcome.view.onClosed(() => {
       if (this.handle === handle && generation === this.generation) {
-        // Crashed or closed underneath us: the next show opens it again.
+        // Crashed or closed underneath us: say so, with "Try again". A view that dies at once must not reopen in a loop.
         this.handle = undefined
-        this.phase = 'idle'
+        this.phase = 'unavailable'
         this.publish()
       }
     })

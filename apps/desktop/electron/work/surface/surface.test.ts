@@ -105,9 +105,18 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
     closeRoute: vi.fn(async () => void calls.push('close'))
   }
 
-  const parts: WorkSurfaceParts = { session, enabled: () => true, gate, readAccess: async () => 'allowed', ...overrides }
+  const enabledNow = { value: true }
+  const parts: WorkSurfaceParts = { session, enabled: () => enabledNow.value, gate, readAccess: async () => 'allowed', ...overrides }
   const log = vi.fn()
-  const surface = new WorkSurface({ createView, publish: value => void published.push(value), log })
+  const surface = new WorkSurface({
+    createView,
+    publish: value => void published.push(value),
+    log,
+    setWork: async on => {
+      calls.push(`work:${on}`)
+      enabledNow.value = on
+    }
+  })
 
   return {
     surface,
@@ -207,6 +216,65 @@ describe('WorkSurface', () => {
     expect(session.openOwnerView).toHaveBeenCalledTimes(2)
   })
 
+  it('a view that dies underneath the page says so and waits for "Try again"', async () => {
+    const { last, parts, session, surface } = harness()
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    // the view's own close (a crash) reaches the surface as the port's onClosed
+    const view = (await session.openOwnerView.mock.results[0]!.value).view as unknown as { close(): void }
+    view.close()
+    expect(last()?.view).toBe('unavailable')
+    expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+
+    await surface.retry()
+    expect(session.openOwnerView).toHaveBeenCalledTimes(2)
+    expect(last()?.view).toBe('ready')
+  })
+
+  it('a restart of the server runs with the view closed, nothing opens beside it, and the page gets its view back', async () => {
+    const { closed, last, parts, session, surface } = harness()
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+
+    let finish!: () => void
+    const running = new Promise<void>(resolve => (finish = resolve))
+
+    const restarting = surface.suspend(async () => {
+      expect(closed).toEqual(['v1'])
+      expect(last()?.view).toBe('starting')
+      // a resize and a retry while the server restarts open nothing
+      await surface.show({ ...RECT, width: 800 })
+      await surface.retry()
+      expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+      await running
+
+      return 'restarted'
+    })
+
+    finish()
+    expect(await restarting).toBe('restarted')
+    await Promise.resolve()
+    expect(session.openOwnerView).toHaveBeenCalledTimes(2)
+  })
+
+  it('a restart that fails still lets the page open its view again, and a hidden page opens nothing', async () => {
+    const { parts, session, surface } = harness()
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    await expect(surface.suspend(async () => Promise.reject(new Error('restart_failed')))).rejects.toThrow('restart_failed')
+    await Promise.resolve()
+    expect(session.openOwnerView).toHaveBeenCalledTimes(2)
+
+    await surface.hide()
+    await surface.suspend(async () => undefined)
+    await Promise.resolve()
+    expect(session.openOwnerView).toHaveBeenCalledTimes(2)
+  })
+
   it('starts nothing while Work is off on this Mac', async () => {
     const { last, parts, session, surface } = harness({ enabled: () => false })
 
@@ -279,6 +347,54 @@ describe('WorkSurface', () => {
     expect(calls.slice(2)).toEqual(['switch:true', 'open'])
   })
 
+  it('Work off: the view leaves the window first, then the switch runs; Work on opens nothing until shown', async () => {
+    const { calls, closed, last, placed, published, surface, parts, session } = harness()
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    expect(last()?.view).toBe('ready')
+
+    await surface.setWork(false)
+    expect(closed).toEqual(['v1'])
+    expect(placed.at(-1)).toBeNull()
+    expect(calls).toContain('work:false')
+    expect(last()?.view).toBe('off')
+
+    await surface.setWork(true)
+    expect(calls.at(-1)).toBe('work:true')
+    // on again: the page shows the quiet "starting" state and no view exists until the page asks for one
+    expect(last()?.view).toBe('starting')
+    expect(session.openOwnerView).toHaveBeenCalledTimes(1)
+
+    await surface.show(RECT)
+    expect(session.openOwnerView).toHaveBeenCalledTimes(2)
+    expect(last()?.view).toBe('ready')
+    expect(published.length).toBeGreaterThan(0)
+  })
+
+  it('Work off still publishes when the switch fails, and does nothing without an account', async () => {
+    const { calls, last, surface, parts } = harness()
+
+    await surface.setWork(false)
+    expect(calls).toEqual([])
+
+    surface.attach(parts)
+    const failing = new WorkSurface({
+      createView: () => {
+        throw new Error('unused')
+      },
+      publish: () => {},
+      setWork: async () => {
+        throw new Error('work_off_failed')
+      }
+    })
+
+    failing.attach(parts)
+    await expect(failing.setWork(false)).rejects.toThrow('work_off_failed')
+    expect(failing.projection()?.view).toBe('starting')
+    expect(last()).not.toBeUndefined()
+  })
+
   it('keeps a failed bind as the gate’s state and logs only its code', async () => {
     const { gate, last, log, parts, setGate, surface } = harness()
 
@@ -303,6 +419,7 @@ describe('registerMatrixWorkIpc', () => {
       retry: vi.fn(async () => {}),
       allowAssistants: vi.fn(async () => {}),
       setAssistants: vi.fn(async () => {}),
+      setWork: vi.fn(async () => {}),
       reconnectAssistants: vi.fn(async () => {})
     }
 
@@ -329,6 +446,8 @@ describe('registerMatrixWorkIpc', () => {
     await call({ kind: 'show', rect: RECT })
     await call({ kind: 'setAssistants', on: false })
     await call({ kind: 'allowAssistants' })
+    await call({ kind: 'setWork', on: true })
+    expect(surface.setWork).toHaveBeenCalledWith(true)
     expect(surface.show).toHaveBeenCalledWith(RECT)
     expect(surface.setAssistants).toHaveBeenCalledWith(false)
     expect(surface.allowAssistants).toHaveBeenCalledTimes(1)
@@ -339,6 +458,8 @@ describe('registerMatrixWorkIpc', () => {
       { kind: 'launch' },
       { kind: 'read', extra: 1 },
       { kind: 'setAssistants', on: 'yes' },
+      { kind: 'setWork', on: 1 },
+      { kind: 'setWork' },
       { kind: 'show', rect: { ...RECT, x: -1 } },
       { kind: 'show', rect: { ...RECT, url: 'http://127.0.0.1' } },
       { kind: 'show', rect: { ...RECT, width: Number.POSITIVE_INFINITY } }

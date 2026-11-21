@@ -70,6 +70,8 @@ export type MatrixWorkRequest =
   | { kind: 'retry' }
   | { kind: 'allowAssistants' }
   | { kind: 'setAssistants'; on: boolean }
+  /** Settings: Work itself on or off for this account on this Mac (§8.5). */
+  | { kind: 'setWork'; on: boolean }
   | { kind: 'reconnectAssistants' }
 
 export interface MatrixWorkBridge {
@@ -84,6 +86,8 @@ export interface MatrixWorkBridge {
   /** Accept the enrollment text once (D9) and let assistants start work here. */
   allowAssistants(): Promise<void>
   setAssistants(on: boolean): Promise<void>
+  /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
+  setWork(on: boolean): Promise<void>
   /** After `unreachable`: bind the route again. */
   reconnectAssistants(): Promise<void>
   subscribe(listener: (projection: MatrixWorkProjection | null) => void): () => void
@@ -111,6 +115,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
       return keys.length === 1 ? { kind: row.kind } : null
     case 'setAssistants':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setAssistants', on: row.on } : null
+    case 'setWork':
+      return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null
     case 'show': {
       const rect = row.rect as Record<string, unknown> | null
 

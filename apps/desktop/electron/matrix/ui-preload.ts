@@ -105,6 +105,7 @@ const bridge: MatrixUiBridge = {
     retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
     allowAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'allowAssistants' }),
     setAssistants: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setAssistants', on }),
+    setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
     reconnectAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'reconnectAssistants' }),
     subscribe: listener => {
       const receive = (_event: Electron.IpcRendererEvent, projection: MatrixWorkProjection | null) => listener(projection)

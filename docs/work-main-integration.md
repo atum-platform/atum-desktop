@@ -32,11 +32,34 @@ account retires finishes into nothing (epoch fence).
   owner-event source.
 - `mount.ts`: the lifecycle above.
 
+## The Matrix composition (`electron/matrix/main-work.ts`, `work-lifecycle.ts`)
+
+The installed app is the Matrix composition. It builds the app-wide Work objects once (`WorkHost`, `WorkSession`,
+`WorkMount`, `WorkSurface`, the window's IPC) and binds them to the signed-in account through `MatrixWorkLifecycle`.
+
+| Event | What runs |
+|---|---|
+| Window `ready` (`publish`) | `work.activate()`: the account is the Matrix account's scope + the owner principal + this Mac's device-service id (none of them yet: no Work entry). `prepare` checks the build has `work-runtime/t3` and `matrix-work-preload.js`, and the model proxy is up; otherwise nothing is drawn. Then `surface.attach(parts)` and `mount.setSurface('on')` (the local gate: the platform declares no `work` surface id yet) |
+| A different account or generation | the old one is retired first (page detached, then `mount.retire`), then the new one bound |
+| Sign-out, session ended | `retireWork()` before `account.signOut` / `stopSdk`: page detached, gate cutoff and stops settled while the server runs, server stopped, partition cleared, auth reset. Bounded at 60 s; never throws |
+| Quit | `work.quit()`: gate closed without a cutoff, server stopped |
+| Settings › This Mac | one row: **Work on this Mac** (`setWork` → `mount.workOff()` / `workOn()`); the per-Mac **Assistants can start work here** row beside it when the Mac has the route |
+
+Model path. Work's Hermes gateways present a key minted in `main-work.ts` to the Matrix managed-model loopback
+(`managed-model.ts`; role `work`, listed through `work.modelKeys()` in its `keys()`), which adds the person's domain
+bearer; the gateway holds and settles Protons. The retired desktop proxy and broker are not in the Matrix bundle (its
+build refuses `electron/atum-messaging/`). The balance read is the proxy's free probe (`out_of_protons` is "empty").
+"Add Protons" inside the view, and the title-bar button, open `${resource}/payments/protons`.
+
+`restartWhenIdle` restarts the session server only when the owner's own threads are all at rest
+(`WorkGate.ownerRunsIdle`, read through main's owner session); the page's view closes for the restart
+(`WorkSurface.suspend`) and returns after it.
+
 ## Open
 
-- The Matrix composition must construct `WorkMount` with `createWorkGateService` (the public main passes
-  `createGate: () => undefined`, so only the owner's own Work exists there).
 - Stop reports (`StopReport`) stay queued in the gate ledger because the platform has no settlement operation yet;
   `state().gate.undeliveredReports` counts them. Contract amendment needed: `work.mac.settlements`
   (see the lane G report).
-- `restartWhenIdle` is not wired: a lost launch's owed stop waits for a restart main makes anyway.
+- The release build must bundle `electron/work/sidecar/preload.ts` as `matrix-work-preload.js` (private
+  `build-matrix-candidate.mjs`) and pass `ATUM_WORK_ARCHIVE` to `matrix-after-pack.mjs`; without either, Work is not drawn.
+- The Work billing join (`work/billing.sqlite`) belonged to the retired proxy; Matrix meters each call at the gateway.

@@ -27,9 +27,37 @@ const dependencies = () => ({
   writeNotices: vi.fn(() => ({})),
   assertNotices: vi.fn(() => ({})),
   stageDisclaimLauncher: vi.fn(),
+  stageWork: vi.fn(async () => {}),
   applyFuses: vi.fn(async () => {})
 })
 describe('Matrix-only runtime staging', () => {
+  it('stages the pinned Work archive beside the runtime when one is supplied, and nothing when it is not', async () => {
+    const withArchive = dependencies()
+    await matrixAfterPack(context, { ...withArchive, environment: { ATUM_WORK_ARCHIVE: '/archives/atum-work.tar.gz' } })
+    expect(withArchive.stageWork).toHaveBeenCalledWith({
+      resources: '/fixture/output/Atum Matrix Candidate.app/Contents/Resources',
+      platform: 'darwin',
+      arch: 'arm64',
+      archive: '/archives/atum-work.tar.gz'
+    })
+    // After the Hermes runtime it drives and before the notice that covers what was staged.
+    expect(withArchive.stageWork.mock.invocationCallOrder[0]).toBeGreaterThan(withArchive.stage.mock.invocationCallOrder[0])
+    expect(withArchive.stageWork.mock.invocationCallOrder[0]).toBeLessThan(withArchive.writeNotices.mock.invocationCallOrder[0])
+
+    const without = dependencies()
+    await matrixAfterPack(context, { ...without, environment: {} })
+    expect(without.stageWork).toHaveBeenCalledWith(expect.objectContaining({ archive: undefined }))
+  })
+
+  it('refuses the bundle when the Work archive does not match its pin, before anything is signed', async () => {
+    const deps = dependencies()
+    deps.stageWork.mockRejectedValue(new Error('Work archive does not match the pinned SHA-256'))
+    await expect(matrixAfterPack(context, { ...deps, environment: { ATUM_WORK_ARCHIVE: '/tampered.tar.gz' } })).rejects.toThrow(
+      'Work archive does not match the pinned SHA-256'
+    )
+    expect(deps.applyFuses).not.toHaveBeenCalled()
+  })
+
   it('reuses the existing stager inside this bundle and binds it to the actual ASAR stamp', async () => {
     const deps = dependencies()
     await matrixAfterPack(context, deps)
