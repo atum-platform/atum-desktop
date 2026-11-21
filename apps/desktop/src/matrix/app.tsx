@@ -523,6 +523,9 @@ declare global {
   }
 }
 
+/** The working line's Watch stays hidden until a cloud agent's screen can be watched (owner 2026-11-21). */
+const DESK_WATCH_SHOWN: boolean = false
+
 const initial: MatrixSnapshot = {
   state: 'signed_out',
   identity: null,
@@ -8302,7 +8305,7 @@ function MatrixAccountView({
 
           setThreadView(next)
         }}
-        onWatchDesk={deskEligible && !workspaceOpen ? watchDesk : undefined}
+        onWatchDesk={DESK_WATCH_SHOWN && deskEligible && !workspaceOpen ? watchDesk : undefined}
         pinsOpen={pinsOpen}
         settled={settled}
         snapshot={roomView}
