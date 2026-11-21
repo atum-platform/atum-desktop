@@ -2,8 +2,8 @@
 
 Runs from ``settle_unrecovered_error`` once ``max_retries`` is spent AND the fallback chain has
 nothing left to move to (fallback stays first). While the provider is only *temporarily* away
-(5xx, overloaded/529, connect/read timeouts) and no answer text has reached the user yet, the
-turn parks with a visible countdown instead of ending in "API failed after N retries", then
+(5xx, overloaded/529, upstream rate limits, connect/read timeouts) and no answer text has reached
+the user yet, the turn parks with a countdown instead of ending in "API failed after N retries", then
 re-enters the ordinary retry loop. Cycles: ``agent.auto_recovery_cycles`` (default 5) with a
 jittered 15/30/60/60/60 s schedule; a provider ``Retry-After`` wins up to 120 s. Non-retryable
 classes (auth, format, content policy, billing, entitlement) never enter, and an interrupt
@@ -20,10 +20,11 @@ from agent.error_classifier import FailoverReason
 
 logger = logging.getLogger("agent.conversation_loop")
 
-# Transient transport verdicts: the provider is expected back. Everything else (auth, format,
-# content policy, billing, entitlement, overflow, model-not-found ...) is deterministic for this
-# request and stays out.
-_LADDER_REASONS = frozenset({FailoverReason.overloaded, FailoverReason.server_error, FailoverReason.timeout})
+# Transient upstream verdicts. Account/plan rate limits can outlast the entire ladder.
+_LADDER_REASONS = frozenset({
+    FailoverReason.overloaded, FailoverReason.server_error, FailoverReason.timeout,
+    FailoverReason.upstream_rate_limit,
+})
 
 _LADDER_BASE_DELAY_S = 15.0
 _LADDER_CAP_S = 60.0

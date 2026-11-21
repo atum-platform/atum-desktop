@@ -438,19 +438,27 @@ def _core_closed_turn(tmp_path, monkeypatch, *, principal='person', earlier_fail
 
 
 @pytest.mark.parametrize('principal', ['person', 'cron-owner'])
-def test_restart_notice_replaces_the_core_failed_turn_boundary_of_the_same_turn(tmp_path, monkeypatch, principal):
+@pytest.mark.parametrize('atum', [False, True])
+def test_restart_notice_replaces_the_core_failed_turn_boundary_of_the_same_turn(tmp_path, monkeypatch, principal, atum):
     """#134889 GW-21 review (GW-A): the agent's own closer already ended this turn with
     "Send it again"; settlement replaces that boundary with the restart notice in its own write,
     so the transcript holds one Hermes boundary, and an automation row never keeps resend advice."""
     from agent.turn_failure_copy import AUTOMATION_INTERRUPTED_NOTICE, FAILED_TURN_NOTICE
     from gateway.session_settlement_recovery import commit_and_publish
+    (tmp_path / 'config.yaml').write_text(f'agent: {{atum_instructions: {str(atum).lower()}}}\n')
     db, authority, live, ref, row, result = _core_closed_turn(tmp_path, monkeypatch, principal=principal)
     with db:
-        assert _notices(db) == [FAILED_TURN_NOTICE]  # the real core closer wrote it
+        if atum:
+            assert _notices(db) == ["I couldn't finish that. Send it again and I'll try once more."]
+            assert db.get_messages('s')[-1]['api_content'] == FAILED_TURN_NOTICE
+        else:
+            assert _notices(db) == [FAILED_TURN_NOTICE]
         commit_and_publish(authority, live, ref, row, '', 'interrupted', {'result': result}, {})
         expected = RESTART_INTERRUPT_NOTICE if principal == 'person' else AUTOMATION_INTERRUPTED_NOTICE
         assert _notices(db) == [expected]
-        assert [m['role'] for m in db.get_messages('s')] == ['user', 'assistant']
+        messages = db.get_messages('s')
+        assert [m['role'] for m in messages] == ['user', 'assistant']
+        assert messages[-1].get('api_content') is None
 
 
 def test_an_earlier_turns_failed_boundary_is_kept_and_the_restart_notice_appended(tmp_path, monkeypatch):

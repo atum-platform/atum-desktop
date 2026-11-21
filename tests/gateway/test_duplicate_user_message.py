@@ -21,7 +21,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from agent.turn_failure_copy import FAILED_TURN_NOTICE, PARTIAL_FAILED_TURN_NOTICE
+from agent.turn_failure_copy import FAILED_TURN_DISPLAY_KIND, FAILED_TURN_NOTICE, PARTIAL_FAILED_TURN_NOTICE
 import gateway.run as gateway_run
 from gateway.config import GatewayConfig, Platform
 from gateway.platforms.event import MessageEvent
@@ -212,10 +212,18 @@ async def test_boundary_keyed_on_durable_tail_when_user_row_is_deduped(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("atum, has_agent", [(False, False), (True, False), (True, True)])
 async def test_failed_turn_with_tool_activity_does_not_recommend_blind_retry(
-    monkeypatch, tmp_path
+    monkeypatch, tmp_path, atum, has_agent
 ):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    config_flag = str(atum and not has_agent).lower()
+    (tmp_path / "config.yaml").write_text(f"agent: {{atum_instructions: {config_flag}}}\n")
     runner = _bootstrap(monkeypatch, tmp_path)
+    if has_agent:
+        runner._session_state("agent:main:telegram:group:-1001:12345").turn.agent = types.SimpleNamespace(
+            _atum_instructions=atum,
+        )
     runner._run_agent = AsyncMock(
         return_value={
             "failed": True,
@@ -250,8 +258,16 @@ async def test_failed_turn_with_tool_activity_does_not_recommend_blind_retry(
         if len(call.args) >= 2 and call.args[1].get("role") == "assistant"
     ]
     assert len(assistant_rows) == 1
-    assert assistant_rows[0]["content"] == PARTIAL_FAILED_TURN_NOTICE
-    assert PARTIAL_FAILED_TURN_NOTICE in response
+    boundary = assistant_rows[0]
+    expected = (
+        "I stopped partway, so some of it may already be done. "
+        "Ask me to carry on and I'll check what's finished first."
+        if atum else PARTIAL_FAILED_TURN_NOTICE
+    )
+    assert boundary["content"] == expected
+    assert boundary["display_kind"] == FAILED_TURN_DISPLAY_KIND
+    assert boundary.get("api_content") == (PARTIAL_FAILED_TURN_NOTICE if atum else None)
+    assert response.endswith(expected)
     assert "not processed" not in response
     assert "Send it again" not in response
 

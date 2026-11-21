@@ -115,6 +115,35 @@ def test_max_retries_exhausted_chat_text_has_next_step_and_no_mechanism_lead():
     assert result["failure_retryable"] is True
 
 
+@pytest.mark.parametrize("atum", [False, True])
+def test_exhausted_openrouter_turn_uses_chat_copy_for_its_embedder(atum):
+    agent = _Agent()
+    agent._atum_instructions = atum
+    detail = "openai/fixture is temporarily rate-limited upstream. https://example.test/byok"
+    error = _Http(429, detail)
+    error.body = {"error": {"message": "Provider returned error", "code": 429}}
+    classified = classify_api_error(error, provider=agent.provider, model=agent.model)
+    result = max_retries_exhausted_result(
+        agent, error, classified, attempts=3, is_rate_limited=True, error_msg=str(error).lower(),
+        api_kwargs=None, api_messages=[], messages=[], conversation_history=None, api_call_count=1,
+        approx_tokens=10, provider=agent.provider, base_url=agent.base_url, model=agent.model,
+    )
+
+    text = result["final_response"]
+    if atum:
+        assert text == ("I couldn't reach my model just now, so I stopped before finishing. "
+                        "Send it again in a minute and I'll pick it up.")
+        assert all(token not in text for token in ("/retry", "hermes", "Provider said:", "OpenRouter", "https://"))
+    else:
+        assert text == (
+            "OpenRouter rate-limited every one of 3 attempts — it looks temporarily unavailable. "
+            "Wait a minute and send /retry, or switch models with /model. To avoid this in future, "
+            "add a backup provider with `hermes fallback add`.\n\nProvider said: " + detail
+        )
+    assert result["error"] == detail
+    assert result["failure_reason"] == "upstream_rate_limit"
+
+
 def test_exhausted_plan_quota_429_names_the_reset_window_not_wait_a_minute():
     """The real usage-limit envelope: ``_summarize_api_error`` reduces the body to ``HTTP 429: The
     usage limit has been reached``, so the reset must travel through the classifier, not the text (#89401)."""
