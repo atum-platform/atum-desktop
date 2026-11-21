@@ -1,4 +1,12 @@
-import { type WorkEnrollmentFacts, WorkEnrollmentFactsSchema, type WorkSyncChange, WorkSyncPageSchema } from './contract'
+import {
+  WORK_SETTLEMENT_REPORTS_MAX,
+  WORK_SETTLEMENT_RETENTION_DAYS,
+  type WorkEnrollmentFacts,
+  WorkEnrollmentFactsSchema,
+  WorkStopReportSchema,
+  type WorkSyncChange,
+  WorkSyncPageSchema
+} from './contract'
 import type { WorkGate } from './gate'
 import type { GateLedger } from './ledger'
 import type { StopReport, WorkPlatform } from './ports'
@@ -20,6 +28,12 @@ export interface WorkSyncOptions {
   socketPath(): string
   log?(event: string, fields?: Record<string, string | number | boolean | null>): void
 }
+
+// Settlement delivery retries: the first retry waits one base step, then doubles, capped. In memory on purpose: a restart
+// retries at once, and nothing is lost either way (a report is cleared only on the platform's acknowledgement).
+const SETTLEMENT_BACKOFF_BASE_MS = 30_000
+const SETTLEMENT_BACKOFF_CAP_MS = 15 * 60_000
+const SETTLEMENT_RETENTION_MS = WORK_SETTLEMENT_RETENTION_DAYS * 86_400_000
 
 export type TickResult = 'ok' | 'offline' | 'regressed' | 'gap' | 'invalid' | 'not_enrolled'
 
@@ -46,6 +60,8 @@ export class WorkSync {
   private readonly now: () => number
   private timer: ReturnType<typeof setInterval> | undefined
   private running: Promise<TickResult> | undefined
+  private settlementFailures = 0
+  private settlementRetryAt = 0
 
   constructor(private readonly options: WorkSyncOptions) {
     this.now = options.now ?? Date.now
@@ -313,22 +329,100 @@ export class WorkSync {
       }
     }
 
-    const reports = ledger.pending('stop_report')
+    await this.flushSettlements()
+  }
 
-    if (reports.length === 0 || !platform.reportSettlements) {
+  /**
+   * Stop reports (contract 1.1 `work.mac.settlements`): in the order queued, at most 64 a call, each cleared only when the
+   * platform acknowledges its batch. A failure backs off (30 s, doubling, 15 min at most) and keeps everything queued. A
+   * platform 400 isolates the bad row: the batch is retried one report at a time, the accepted ones are cleared and the
+   * refused one stays (an old platform that does not know the operation also answers 400, so nothing is thrown away on that
+   * word alone). A report that cannot be sent from here (it fails the contract, or is past the platform's retention) is
+   * dropped with a log line: nothing can ever acknowledge it.
+   */
+  private async flushSettlements(): Promise<void> {
+    const { ledger, platform, accountId, deviceServiceId } = this.options
+    const send = platform.reportSettlements?.bind(platform)
+
+    if (!send || this.now() < this.settlementRetryAt) {
       return
     }
 
-    try {
-      await platform.reportSettlements(reports.map(row => JSON.parse(row.payload) as StopReport))
+    const routeEpoch = ledger.routeEpoch()
+    const sendable: { id: number; report: StopReport }[] = []
 
-      for (const row of reports) {
+    for (const row of ledger.pending('stop_report')) {
+      const parsed = (() => {
+        try {
+          return WorkStopReportSchema.safeParse(JSON.parse(row.payload))
+        } catch {
+          return undefined
+        }
+      })()
+
+      if (!parsed?.success || parsed.data.routeEpochAtAdmit > routeEpoch || this.now() - row.createdAt > SETTLEMENT_RETENTION_MS) {
         ledger.delivered(row.id)
+        this.options.log?.('stop_report_dropped', { id: row.id, reason: parsed?.success ? 'unsendable' : 'invalid' })
+
+        continue
       }
-    } catch {
-      for (const row of reports) {
-        ledger.attempted(row.id)
+
+      if (sendable.length < WORK_SETTLEMENT_REPORTS_MAX) {
+        sendable.push({ id: row.id, report: parsed.data })
       }
     }
+
+    if (sendable.length === 0) {
+      return
+    }
+
+    const deliver = async (batch: typeof sendable): Promise<'ok' | 'refused' | 'failed'> => {
+      try {
+        await send({ deviceServiceId, accountId, routeEpoch, reports: batch.map(item => item.report) })
+
+        for (const item of batch) {
+          ledger.delivered(item.id)
+        }
+
+        return 'ok'
+      } catch (error) {
+        for (const item of batch) {
+          ledger.attempted(item.id)
+        }
+
+        return (error as { status?: number }).status === 400 ? 'refused' : 'failed'
+      }
+    }
+
+    let outcome = await deliver(sendable)
+
+    if (outcome === 'refused' && sendable.length > 1) {
+      outcome = 'ok'
+
+      for (const item of sendable) {
+        const one = await deliver([item])
+
+        if (one === 'failed') {
+          outcome = 'failed'
+
+          break
+        }
+
+        if (one === 'refused') {
+          outcome = 'refused'
+        }
+      }
+    }
+
+    if (outcome === 'ok') {
+      this.settlementFailures = 0
+      this.settlementRetryAt = 0
+
+      return
+    }
+
+    this.settlementFailures++
+    this.settlementRetryAt = this.now() + Math.min(SETTLEMENT_BACKOFF_CAP_MS, SETTLEMENT_BACKOFF_BASE_MS * 2 ** (this.settlementFailures - 1))
+    this.options.log?.('stop_report_retry', { failures: this.settlementFailures, pending: ledger.pending('stop_report').length })
   }
 }

@@ -20,6 +20,9 @@ interface FakePlatform extends WorkPlatform {
   events: { kind: string; agentPrincipal?: string }[]
   carried: { agentPrincipal: string; grant: string; agentGeneration: number }[]
   reports: StopReport[]
+  settlementCalls: { deviceServiceId: string; accountId: string; routeEpoch: number; reports: StopReport[] }[]
+  /** What the next settlement calls do: an error with a status, or nothing (accepted). Consumed one per call. */
+  settlementFailures: ({ status?: number } | null)[]
   offline: boolean
   failCarry: boolean
 }
@@ -32,6 +35,8 @@ function platform(withReports = false): FakePlatform {
     events: [],
     carried: [],
     reports: [],
+    settlementCalls: [],
+    settlementFailures: [],
     offline: false,
     failCarry: false,
     async enroll() {
@@ -62,8 +67,16 @@ function platform(withReports = false): FakePlatform {
   }
 
   if (withReports) {
-    fake.reportSettlements = async reports => {
-      fake.reports.push(...reports)
+    fake.reportSettlements = async input => {
+      fake.settlementCalls.push(input)
+
+      const failure = fake.settlementFailures.shift()
+
+      if (failure) {
+        throw Object.assign(new Error('settlements'), failure)
+      }
+
+      fake.reports.push(...input.reports)
     }
   }
 
@@ -329,5 +342,212 @@ describe('R4-1: how the helper learns a confirmed stop after its credential is d
 
     expect(grant).toMatchObject({ ok: true })
     expect(await h.gate.request((grant as { ctx: ReturnType<Harness['ctx']> }).ctx, { requestId: REQ_1, action: 'status' })).toMatchObject({ class: 'revoked', scope: 'agent' })
+  })
+})
+
+describe('settlement delivery (contract 1.1 work.mac.settlements)', () => {
+  const REQ = (n: number) => `settlereq${String(n).padStart(13, '0')}`
+
+  const report = (n: number, over: Partial<StopReport> = {}): StopReport => ({
+    agentPrincipal: LUNA,
+    requestId: REQ(n),
+    routeEpochAtAdmit: 1,
+    agentGenerationAtAdmit: 1,
+    scope: 'agent',
+    outcome: 'stopped',
+    revocationId: 3,
+    settledAt: 1_795_000_000_000,
+    ...over
+  })
+
+  const queue = (...reports: StopReport[]) => reports.map(item => h.ledger.enqueue('stop_report', item))
+
+  it('delivers through the new operation with the Mac, account and current epoch, in order, and clears only on the acknowledgement', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1), report(2, { scope: 'route', outcome: 'never_sent' }))
+    await syncFor(fake).flush()
+
+    expect(fake.settlementCalls).toEqual([{ deviceServiceId: DEVICE, accountId: ACCOUNT, routeEpoch: h.ledger.routeEpoch(), reports: [report(1), report(2, { scope: 'route', outcome: 'never_sent' })] }])
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+    expect(h.gate.state().undeliveredReports).toBe(0)
+  })
+
+  it('never sends a thread or any text: the batch is the contract\'s report and nothing else', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    await h.gate.launch(h.ctx(LUNA), h.args(REQ_1, EVENT_A))
+    h.gate.revoke({ scope: 'agent', principal: LUNA, reason: 'agent_removed_owner' })
+    await h.gate.scheduleSettle()
+    await syncFor(fake).flush()
+
+    const sent = JSON.stringify(fake.settlementCalls)
+
+    expect(sent).not.toContain('mcp:launch')
+    expect(sent).not.toContain('threadId')
+    expect(Object.keys(fake.settlementCalls[0]?.reports[0] ?? {}).sort()).toEqual(
+      ['agentGenerationAtAdmit', 'agentPrincipal', 'outcome', 'requestId', 'revocationId', 'routeEpochAtAdmit', 'scope', 'settledAt']
+    )
+  })
+
+  it('sends at most 64 a call, the next batch on the same flush cycle after the first is acknowledged', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(...Array.from({ length: 70 }, (_, index) => report(index + 1)))
+    await syncFor(fake).flush()
+
+    expect(fake.settlementCalls.map(call => call.reports.length)).toEqual([64])
+    expect(h.ledger.pending('stop_report')).toHaveLength(6)
+
+    await syncFor(fake).flush()
+    expect(fake.settlementCalls.map(call => call.reports.length)).toEqual([64, 6])
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+    expect(fake.reports.map(item => item.requestId)).toEqual(Array.from({ length: 70 }, (_, index) => REQ(index + 1)))
+  })
+
+  it('a failure keeps every report queued and backs off: 30 s, then 60 s, doubling, capped at 15 minutes', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+    const sync = syncFor(fake)
+
+    queue(report(1))
+    fake.settlementFailures.push({ status: 503 }, { status: 503 }, { status: 503 })
+
+    await sync.flush()
+    expect(h.ledger.pending('stop_report')).toHaveLength(1)
+    expect(fake.settlementCalls).toHaveLength(1)
+
+    h.clock.advance(29_000)
+    await sync.flush()
+    expect(fake.settlementCalls).toHaveLength(1) // still inside the first back-off
+
+    h.clock.advance(1_000)
+    await sync.flush()
+    expect(fake.settlementCalls).toHaveLength(2)
+
+    h.clock.advance(59_000)
+    await sync.flush()
+    expect(fake.settlementCalls).toHaveLength(2) // the second wait is 60 s
+
+    h.clock.advance(1_000)
+    await sync.flush()
+    expect(fake.settlementCalls).toHaveLength(3)
+
+    h.clock.advance(120_000)
+    await sync.flush() // succeeds
+    expect(fake.settlementCalls).toHaveLength(4)
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+
+    // the failure count resets: the next failure waits the base step again
+    queue(report(2))
+    fake.settlementFailures.push({ status: 500 })
+    await sync.flush()
+    h.clock.advance(30_000)
+    await sync.flush()
+    expect(fake.settlementCalls).toHaveLength(6)
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+  })
+
+  it('a network failure (no status) backs off the same way and loses nothing', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+    const sync = syncFor(fake)
+
+    queue(report(1))
+    fake.settlementFailures.push({})
+    await sync.flush()
+    expect(h.ledger.pending('stop_report')).toHaveLength(1)
+    h.clock.advance(30_000)
+    await sync.flush()
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+  })
+
+  it('survives a restart: the queue is durable, and a fresh sync retries at once', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1))
+    fake.settlementFailures.push({ status: 503 })
+    await syncFor(fake).flush()
+    expect(h.ledger.pending('stop_report')).toHaveLength(1)
+
+    await syncFor(fake).flush() // a new WorkSync (a restarted app) has no back-off memory
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+  })
+
+  it('a platform 400 isolates the refused report: the rest are cleared, the refused one stays queued', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1), report(2), report(3))
+    fake.settlementFailures.push({ status: 400 }, null, { status: 400 }) // the batch, then report 1 ok, report 2 refused (report 3 ok)
+    await syncFor(fake).flush()
+
+    expect(fake.reports.map(item => item.requestId)).toEqual([REQ(1), REQ(3)])
+    expect(h.ledger.pending('stop_report').map(row => (JSON.parse(row.payload) as StopReport).requestId)).toEqual([REQ(2)])
+  })
+
+  it('an old platform that answers 400 to everything loses nothing: every report stays queued', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1), report(2))
+    fake.settlementFailures.push({ status: 400 }, { status: 400 }, { status: 400 })
+    await syncFor(fake).flush()
+
+    expect(h.ledger.pending('stop_report')).toHaveLength(2)
+    expect(h.gate.state().undeliveredReports).toBe(2)
+  })
+
+  it('a report that cannot be sent from here is dropped with a log line; one the platform may still take is kept', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+    const logged: string[] = []
+    const sync = new WorkSync({ gate: h.gate, ledger: h.ledger, platform: fake, accountId: ACCOUNT, deviceServiceId: DEVICE, now: h.clock.now, socketPath: () => '/tmp/g.sock', log: event => void logged.push(event) })
+
+    h.ledger.enqueue('stop_report', { requestId: 'short', outcome: 'completed' }) // fails the contract
+    h.ledger.enqueue('stop_report', { ...report(1), threadId: 'mcp:launch:x' }) // content: an unknown field is refused, not trimmed
+    queue(report(2, { routeEpochAtAdmit: h.ledger.routeEpoch() + 1 })) // admitted above this Mac's current epoch
+    queue(report(3))
+    await sync.flush()
+
+    expect(fake.reports.map(item => item.requestId)).toEqual([REQ(3)])
+    expect(h.ledger.pending('stop_report')).toHaveLength(0)
+    expect(logged.filter(event => event === 'stop_report_dropped')).toHaveLength(3)
+  })
+
+  it('a report older than the platform\'s retention is dropped, a recent one is not', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1))
+    h.clock.advance(31 * 86_400_000)
+    queue(report(2))
+    await syncFor(fake).flush()
+
+    expect(fake.reports.map(item => item.requestId)).toEqual([REQ(2)])
+  })
+
+  it('without the operation (a stand-in platform) reports stay queued and nothing is thrown', async () => {
+    h = makeHarness()
+    const fake = platform(false)
+
+    queue(report(1))
+    await expect(syncFor(fake).flush()).resolves.toBeUndefined()
+    expect(h.ledger.pending('stop_report')).toHaveLength(1)
+  })
+
+  it('tick() delivers the queue as part of its cycle, after the grants', async () => {
+    h = makeHarness()
+    const fake = platform(true)
+
+    queue(report(1))
+    await syncFor(fake).tick()
+
+    expect(fake.reports.map(item => item.requestId)).toEqual([REQ(1)])
+    expect(fake.carried.length).toBeGreaterThan(0)
   })
 })

@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { z } from 'zod'
 
-// Client mirror of the Work route contract `atum.work-route/1`
-// (atum-platform spec/work-route/v1 and packages/protocol/src/work-route.ts).
+// Client mirror of the Work route contract `atum.work-route/1`, with its additive 1.1 settlement amendment
+// (atum-platform spec/work-route/v1, v1.1 and packages/protocol/src/work-route.ts).
 // Lane G builds only on fields declared there; its fixtures are the oracle.
 // Decision D20 (owner, 2026-11-21): one Atum service token at the edge, the
 // Mac's grant tells agents apart. Values marked provisional in the contract
@@ -23,6 +23,9 @@ export const WORK_LIST_MAX_THREADS = 100
 export const WORK_GRANT_RANDOM_BYTES = 32
 export const WORK_THREAD_ID_PREFIX = 'mcp:launch:'
 export const WORK_SOCKET_PATH_MAX_BYTES = 100
+// 1.1 settlement reports: at most 64 per call; the platform keeps a report 30 days.
+export const WORK_SETTLEMENT_REPORTS_MAX = 64
+export const WORK_SETTLEMENT_RETENTION_DAYS = 30
 
 export const WORK_PROVISIONAL = {
   launchDeadlineSeconds: 120,
@@ -344,3 +347,26 @@ export function workParamsHash(projectId: string, task: string, ownerEvent: stri
 export function workExpectedThreadId(t3SessionId: string, requestId: string): string {
   return `${WORK_THREAD_ID_PREFIX}${sha256Hex(JSON.stringify([`client:${t3SessionId}`, requestId]))}`
 }
+
+// ----- atum.work-route/1.1: settlement reports. Content-free: no thread, text, owner event or call; the request id is
+// the one correlation the platform learns.
+export const WorkStopReportSchema = z
+  .object({
+    agentPrincipal: uuid,
+    requestId: WorkRequestIdSchema,
+    routeEpochAtAdmit: positive,
+    agentGenerationAtAdmit: positive,
+    scope: z.enum(['route', 'agent']),
+    outcome: z.enum(['stopped', 'never_sent', 'nothing_started']),
+    revocationId: positive,
+    settledAt: safe
+  })
+  .strict()
+
+export const WorkSettlementsReplySchema = z
+  .object({
+    deviceServiceId: uuid,
+    accepted: z.number().int().min(0).max(WORK_SETTLEMENT_REPORTS_MAX),
+    ignored: z.number().int().min(0).max(WORK_SETTLEMENT_REPORTS_MAX)
+  })
+  .strict()
