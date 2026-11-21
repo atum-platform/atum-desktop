@@ -36,6 +36,9 @@ import {
   AtumWindowControlsSurface
 } from '@/app/atum/shell-surface'
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
+import { workCopy } from '@/app/work/copy'
+import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
+import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -6968,6 +6971,16 @@ function MatrixAccountView({
   /** The launch screen is over the window: nothing behind it is reachable or shown natively. */
   startupActive?: boolean
 }) {
+  const work = useStore($work)
+  const workActive = useStore($workActive)
+
+  // Work's projection from main: the rail shows Work only while there is one for this account.
+  useEffect(() => {
+    loadWorkEnrollmentDeferred()
+
+    return connectWorkBridge(window.atumMatrix.work)
+  }, [])
+
   const copy = useMatrixCopy()
   const launch = useLaunchCopy()
   const conversation = useConversationCopy()
@@ -7843,6 +7856,27 @@ function MatrixAccountView({
   const workplaceOnRail = railSurfaceState('teamSpace', surfaces) === 'on'
   // Workplace as the rail's place (not a page opened from Settings, which is a side trip).
   const workplaceOnScreen = workplaceActive && workplaceOnRail && !settingsTrip
+  // Self-work slice A: Work, right below Chats, while main reports it for this account on this Mac.
+  const workOnScreen = workActive && workOnRail(work)
+  const workRoomId = useRef(room?.id)
+
+  // Opening another conversation from anywhere (the palette, a notification) leaves Work for it; Work going
+  // away (sign-out, another account) closes the page.
+  useEffect(() => {
+    const previous = workRoomId.current
+    workRoomId.current = room?.id
+
+    // The first conversation picked at start is not a choice to leave Work.
+    if (previous && room?.id && previous !== room.id) {
+      setWorkActive(false)
+    }
+  }, [room?.id])
+  useEffect(() => {
+    // Null, not "not read yet": main said this account has no Work here.
+    if (work === null) {
+      setWorkActive(false)
+    }
+  }, [work])
 
   // The window header follows the transcript: over Workplace it names the company channel only while the
   // workspace says that channel is what is on screen, and names Workplace for an overview or another company.
@@ -8134,7 +8168,7 @@ function MatrixAccountView({
   // The one place the window asks the person to act (agent-attention.ts): a bell at the left of the
   // title bar, with the window controls. One at a time: on the roster's top row while the roster
   // leads the row, on the main header's otherwise (owner, 2026-11-13).
-  const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen
+  const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen || workOnScreen
 
   const attentionBell = snapshot.identity ? (
     <MatrixAttentionIndicator
@@ -8351,7 +8385,7 @@ function MatrixAccountView({
         }
       >
         {/* The first stop for the keyboard: straight to the message box (launch night). */}
-        {room && !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && (
+        {room && !founderDraftShown && conversationShellVisible && !driveActive && !appDestination && !workOnScreen && (
           <a
             className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-1/2 focus:z-[300] focus:-translate-x-1/2 focus:rounded-(--atum-r-button) focus:bg-(--atum-ink) focus:px-3 focus:py-1.5 focus:text-(length:--atum-t-control) focus:text-(--atum-on-accent)"
             data-matrix-skip-link
@@ -8366,7 +8400,38 @@ function MatrixAccountView({
         )}
         <AtumShellFrame
           compact={compact}
-          main={() => (
+          main={() =>
+            workOnScreen && work && window.atumMatrix.work ? (
+              <WorkScreen
+                agentName={principal => {
+                  const agent = snapshot.agents?.find(each => each.principal === principal)
+
+                  return agent ? matrixRosterAgentName(agent, shell.assistantName) : undefined
+                }}
+                bridge={window.atumMatrix.work}
+                leadsRow={titleBarLeads}
+                obstructed={
+                  overlaid ||
+                  drawerOpen ||
+                  anyAgentPrompts(snapshot) ||
+                  isMatrixVerificationPending(snapshot.security?.verification)
+                }
+                onAddProtons={openTopUp}
+                projection={work}
+                reserveOverlay={facts.overlayWidth > 0}
+                windowControls={
+                  <div className="flex items-center gap-2">
+                    <AtumWindowControlsSurface
+                      onToggleSidebar={toggle}
+                      reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
+                      showSidebarToggle={false}
+                      sidebarLabel={sidebarToggleLabel}
+                    />
+                    {attentionBell}
+                  </div>
+                }
+              />
+            ) : (
             <section
               // On an app's ground the content card takes the kit theme of the ground's tone
               // (FlowAppLook: a dark ground gets the kit's dark glass and controls); the title band
@@ -8976,7 +9041,9 @@ function MatrixAccountView({
               <AtumNavSwitchSurface
                 ariaLabel={shell.navigation}
                 destination={
-                  driveActive
+                  workOnScreen
+                    ? 'work'
+                    : driveActive
                     ? 'drive'
                     : workplaceOnScreen
                       ? 'workplace'
@@ -8993,6 +9060,7 @@ function MatrixAccountView({
                 driveLabel={shell.drive}
                 homeLabel={shell.home}
                 onDestinationChange={(destination: AtumShellDestination) => {
+                  setWorkActive(destination === 'work')
                   setSettingsTrip(undefined)
                   setWorkplacePage(undefined)
                   setDriveActive(destination === 'drive')
@@ -9012,6 +9080,7 @@ function MatrixAccountView({
                 surfaceCopy={t.surfaces}
                 surfaces={surfaces}
                 tray
+                workLabel={workOnRail(work) ? workCopy(locale).rail : undefined}
                 workplaceAvailable={workplaceOnRail}
                 workplaceBadge={workplaceBadge}
                 workplaceLabel={shell.workplace}
@@ -9049,8 +9118,8 @@ function MatrixAccountView({
           roster={driveActive ? driveRoster : roster}
           rosterDrawerCloseLabel={copy.cancel}
           rosterDrawerLabel={storeOpen ? shell.discover : t.atum.roster.title}
-          rosterDrawerOpen={drawerOpen && !workplaceOnScreen}
-          sidebarShowing={sidebarShowing && !workplaceOnScreen}
+          rosterDrawerOpen={drawerOpen && !workplaceOnScreen && !workOnScreen}
+          sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>
               {infoShown && conversationInfo && room && (
@@ -9138,7 +9207,7 @@ function MatrixAccountView({
             </>
           )}
           workspaceInSplit={workspaceOpen && !workspaceOverFrame}
-          workspaceOpen={workspaceOpen}
+          workspaceOpen={workspaceOpen && !workOnScreen}
           workspaceOverFrame={workspaceOverFrame}
           workspacePercent={workspacePercent}
         />

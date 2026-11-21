@@ -3,11 +3,11 @@ import { Fragment, type ReactNode } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { ATUM_TITLEBAR_LIGHTS_CONTENT_RESERVATION } from '@/lib/atum-shell-geometry'
-import { Briefcase, Compass, Folder, LayoutSidebar, MessageCircle } from '@/lib/icons'
+import { Briefcase, Compass, Folder, LayoutSidebar, MessageCircle, Terminal } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { type SurfaceId, type SurfaceSet, type SurfaceState } from '@/store/surfaces'
 
-export type AtumShellDestination = 'chat' | 'discover' | 'workplace' | 'drive'
+export type AtumShellDestination = 'chat' | 'discover' | 'workplace' | 'drive' | 'work'
 
 export interface AtumMainHeaderSurfaceProps extends React.ComponentProps<'div'> {
   actions?: ReactNode
@@ -128,6 +128,11 @@ export interface AtumNavSwitchSurfaceProps {
   workplaceAvailable?: boolean
   /** Something waits in Workplace: a count of mentions, else a dot. `label` names it for assistive tech. */
   workplaceBadge?: { mentions: number; label: string }
+  /**
+   * Self-work slice A: Work, drawn right below Chats when present. Not a platform surface id yet (§9.1):
+   * the shell passes it only while main reports Work for this account on this Mac.
+   */
+  workLabel?: string
   onDestinationChange(destination: AtumShellDestination): void
   tray?: boolean
 }
@@ -162,6 +167,7 @@ export function AtumNavSwitchSurface({
   surfaces,
   tray = false,
   workplaceAvailable = false,
+  workLabel,
   workplaceBadge,
   workplaceLabel,
   workplaceSoonLabel
@@ -280,6 +286,22 @@ export function AtumNavSwitchSurface({
           <Fragment key={id}>
             {id === 'teamSpace' && <span aria-hidden className="atum-nav-divider" />}
             {item(id, state)}
+            {id === 'home' && workLabel && (
+              <Tip label={workLabel} side="right" sideOffset={8}>
+                <button
+                  aria-current={destination === 'work' ? 'page' : undefined}
+                  aria-label={workLabel}
+                  className="atum-nav-item relative"
+                  data-atum-nav-work
+                  data-icon-only
+                  data-surface-state="on"
+                  onClick={() => onDestinationChange('work')}
+                  type="button"
+                >
+                  <Terminal aria-hidden className={cn('size-4', destination === 'work' && 'fill-current')} />
+                </button>
+              </Tip>
+            )}
           </Fragment>
         )
       })}

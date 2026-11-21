@@ -131,6 +131,7 @@ import type { MatrixVoiceBridge } from './matrix-voice'
 import type { MatrixWalletBridge, MatrixWalletState } from './matrix-wallet'
 import type { MatrixWindowAppearance, MatrixWindowFacts, MatrixWindowMode } from './matrix-window'
 import type { MatrixWindowFailureDiagnostic } from './matrix-window-failure'
+import type { MatrixWorkBridge } from './matrix-work'
 import type { MatrixWebPreviewOffer } from './matrix-workbench-preview'
 import type { GroupRecentTarget } from './room-participation/recent'
 import type { GroupChainPublication, GroupPolicyChange, GroupRuntimeCommand } from './room-participation/runtime'
@@ -2119,6 +2120,8 @@ export interface MatrixUiBridge {
   /** The owner's own coarse location and its one switch (0333). */
   ownerLocation?: MatrixOwnerLocationBridge
   drive?: MatrixDriveBridge
+  /** Self-work slice A: the owner's Work view and "Assistants can start work here" (shared/matrix-work.ts). */
+  work?: MatrixWorkBridge
   companies?: MatrixCompanyBridge
   /**
    * Release B Company Desktop adapter (`src/matrix/company-desktop-adapter.ts`),
