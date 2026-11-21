@@ -63,6 +63,21 @@ configuration afresh every turn once the controller picks up this constant.
   enabled revision having been published before its slot, not on a chat notice,
   and no owner-visible line is sent.
 
+## Roster preview and Watch (2026-11-21)
+
+- An assistant's working line is redacted by its own sender with the reason
+  `Turn ended` (`MATRIX_TRANSIENT_REDACTION_REASON`) when the turn settles. The
+  transcript already treated that as transient (`removedWorkingLine` in
+  `src/matrix/message.ts`); the roster preview (`src/matrix/room-preview.ts`)
+  read it as a deletion, so every assistant row said "Message deleted". The
+  preview now skips it and shows the message before it. Any other deletion
+  still previews as "Message deleted".
+- The working line's Watch button is hidden (`DESK_WATCH_SHOWN = false` in
+  `src/matrix/app.tsx`) until a cloud agent's screen can be watched. The desk
+  panel and its wiring stay; flip the constant to bring Watch back.
+- Verified: `npx vitest run src/matrix/room-preview.test.ts` (17 pass, one new),
+  `npx tsc -p . --noEmit` clean.
+
 ## Verification (2026-11-18)
 
 - `npx tsc --noEmit -p tsconfig.json` and `-p tsconfig.electron.json`: clean.

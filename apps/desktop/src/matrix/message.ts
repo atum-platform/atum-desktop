@@ -186,7 +186,7 @@ type Shown = { content: Record<string, unknown>; edited: boolean; editedAt?: num
  * Reads the redaction itself (`redacted_because`, or a local one still sending), which keeps its
  * reason after the line's content and markers are gone.
  */
-function removedWorkingLine(event: MatrixEvent): boolean {
+export function removedWorkingLine(event: MatrixEvent): boolean {
   const local = event.localRedactionEvent()
   const remote = event.getRedactionEvent()
 

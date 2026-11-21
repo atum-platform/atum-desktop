@@ -4,7 +4,7 @@ import { MATRIX_ROOM_PREVIEW_MAX, type MatrixRoomPreview } from '../../shared/ma
 import { matrixCompanyPresentationClaimed } from '../../shared/matrix-company-presentation'
 import { matrixProgressMarker } from '../../shared/matrix-progress-marker'
 
-import { companyPresentationOf, shownContent } from './message'
+import { companyPresentationOf, removedWorkingLine, shownContent } from './message'
 import { isOpaqueMatrixId, matrixPersonName } from './person-name'
 import { matrixRoomTimelineEvents } from './threads'
 
@@ -115,7 +115,9 @@ function previewOf(
   const base = { own, ...(name ? { sender: name } : {}), at: event.getTs() }
 
   if (event.isRedacted() || event.localRedactionEvent()) {
-    return { ...base, kind: 'deleted' }
+    // An agent's working line, cleared when its turn ended, was never a message: the row keeps
+    // the message before it, as the transcript does.
+    return removedWorkingLine(event) ? null : { ...base, kind: 'deleted' }
   }
 
   // Not decrypted (yet): Element says "Waiting for this message"; the row says the same.
