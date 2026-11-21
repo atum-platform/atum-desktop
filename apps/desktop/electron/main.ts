@@ -12493,7 +12493,8 @@ app.whenReady().then(async () => {
       return { ...proxy, ...broker }
     },
     revokeCredentials: () => atumFilesystemActionBroker?.revokeBackendCredential('work-sidecar'),
-    accessState: async () => await atumManagedModelProxy?.accessState() ?? { state: 'unavailable' }
+    accessState: async () => await atumManagedModelProxy?.accessState() ?? { state: 'unavailable' },
+    openProtons: () => shell.openExternal('https://account.atumplatform.com/payments/protons')
   })
   atumWorkHost.registerOwnerPreload()
 

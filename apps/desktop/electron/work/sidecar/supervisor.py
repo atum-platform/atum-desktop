@@ -28,9 +28,10 @@ class Children:
         self.leaders = []
         self.seen = {}
 
-    def start(self, argv, env, cwd, stdout=subprocess.DEVNULL):
+    def start(self, argv, env, cwd, stdout=subprocess.DEVNULL, pass_fds=()):
         child = subprocess.Popen(argv, cwd=cwd, env=env, start_new_session=True,
-                                 stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL)
+                                 stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL,
+                                 pass_fds=pass_fds)
         self.leaders.append(child)
         return child
 
@@ -92,7 +93,7 @@ def wait_for_gateway(home, gateway, children):
     raise RuntimeError("gateway_timeout")
 
 
-def run(spec, children):
+def run(spec, children, channel):
     # A per-child file descriptor / core dump bound. The supervisor applies
     # the process-count and RSS budgets to the entire owned tree separately.
     for limit, soft in [(resource.RLIMIT_CORE, 0), (resource.RLIMIT_NOFILE, 2048)]:
@@ -102,10 +103,18 @@ def run(spec, children):
         child = children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
                                 "hermes_cli.main", "gateway", "run"], env, spec["cwd"])
         wait_for_gateway(env["HERMES_HOME"], child, children)
-    sidecar = children.start(
-        [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
-        spec["environment"], spec["cwd"], subprocess.PIPE,
-    )
+    env = spec["environment"]
+    if channel:
+        env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    try:
+        sidecar = children.start(
+            [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
+            env, spec["cwd"], subprocess.PIPE,
+            (int(channel["NODE_CHANNEL_FD"]),) if channel else (),
+        )
+    finally:
+        if channel:
+            os.close(int(channel["NODE_CHANNEL_FD"]))
     publish("spawned", pid=sidecar.pid)
     assert sidecar.stdout is not None
     line_buffer = b""
@@ -133,6 +142,12 @@ def run(spec, children):
 
 def main():
     spec = json.loads(sys.stdin.buffer.readline(262144))
+    # Electron created the Node IPC channel. Only the T3 trial inherits it.
+    # Its native messages travel directly over that channel.
+    channel = {name: os.environ.pop(name) for name in
+               ("NODE_CHANNEL_FD", "NODE_CHANNEL_SERIALIZATION_MODE") if name in os.environ}
+    if bool(channel) != bool(spec.get("trial")):
+        raise RuntimeError("work_trial_channel_missing")
     children = Children()
     with Path(spec["lock"]).open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -157,15 +172,28 @@ def main():
                 path.write_text(yaml.safe_dump(config), encoding="utf-8")
                 path.chmod(0o600)
             settings.update(spec["settings"])
-            if not settings["continueThreadsAfterServerUpdate"]:
-                for override in settings.get("projectSettingsOverrides", {}).values():
-                    if "continueThreadsAfterServerUpdate" in override:
-                        override["continueThreadsAfterServerUpdate"] = False
+            settings["textGenerators"] = {}
+            for override in settings.get("projectSettingsOverrides", {}).values():
+                override.pop("textGenerationModelSelection", None)
+                override.pop("providerInstances", None)
+                if not settings["continueThreadsAfterServerUpdate"] and "continueThreadsAfterServerUpdate" in override:
+                    override["continueThreadsAfterServerUpdate"] = False
             temp = Path(spec["settingsPath"] + ".work-next")
             temp.write_text(json.dumps(settings), encoding="utf-8")
             os.chmod(temp, 0o600)
             temp.replace(spec["settingsPath"])
-            run(spec, children)
+            theme_marker = Path(spec["settingsPath"]).with_name(".atum-theme-installed")
+            if not theme_marker.exists():
+                theme = Path(spec["executable"]).with_name("atum.json")
+                child = children.start(
+                    [spec["executable"], "theme", "set", str(theme)], spec["environment"], spec["cwd"],
+                )
+                child.wait(timeout=15)
+                children.leaders.remove(child)
+                if child.returncode:
+                    raise RuntimeError("work_theme_failed")
+                theme_marker.touch(mode=0o600)
+            run(spec, children, channel)
         finally:
             children.stop()
 
