@@ -1193,7 +1193,7 @@ export class WorkGate {
         agents: [...new Set(owed.filter(row => row.stopScope === 'agent').map(row => row.principal))]
       },
       continuation: false,
-      undeliveredReports: this.ledger.pending().length
+      undeliveredReports: this.ledger.pending('stop_report').length
     }
   }
 }
