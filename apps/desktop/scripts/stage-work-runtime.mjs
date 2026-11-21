@@ -8,7 +8,7 @@ import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)
 const { work } = require('../runtime-tools.json')
-const supervisor = fileURLToPath(new URL('../electron/work/sidecar/supervisor.py', import.meta.url))
+const sidecar = fileURLToPath(new URL('../electron/work/sidecar', import.meta.url))
 
 export async function stageWorkRuntime({ resources, platform, arch, archive }) {
   if (!archive || platform !== 'darwin' || arch !== 'arm64') {
@@ -33,7 +33,7 @@ export async function stageWorkRuntime({ resources, platform, arch, archive }) {
     await Promise.all(['t3', 'LICENSE', 'licenses', 'client/index.html', 'node_modules', 'resource-monitor']
       .map(path => access(join(scratch, path))))
     execFileSync('/usr/bin/lipo', ['-verify_arch', 'arm64', join(scratch, 't3')])
-    await copyFile(supervisor, join(scratch, 'supervisor.py'))
+    await Promise.all(['supervisor.py', 'atum.json'].map(file => copyFile(join(sidecar, file), join(scratch, file))))
     await rename(scratch, target)
   } finally {
     await rm(scratch, { force: true, recursive: true })

@@ -1,14 +1,17 @@
 import { existsSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { ipcMain, type WebContents } from 'electron'
+import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
 import type { ManagedModelAccessSnapshot } from '../../../src/lib/atum-managed-model-access'
+import type { WorkSessionPaths } from '../session/paths'
+import type { PinHost } from '../session/update'
 
 import { recordWorkBillingUnit, type WorkBillingUnit } from './billing'
-import { type WorkIncarnation, WorkSidecar, type WorkStartOptions } from './process'
+import { type WorkIncarnation, workRuntimeEnvironment, WorkSidecar, type WorkStartOptions } from './process'
 
 export const WORK_ACCESS_CHANNEL = 'atum:work:read-model-access'
+export const WORK_OPEN_PROTONS_CHANNEL = 'atum:work:open-protons'
 export type WorkAccess = 'allowed' | 'empty' | 'unavailable'
 
 interface Account {
@@ -23,11 +26,13 @@ interface WorkHostOptions {
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
   accessState(): Promise<ManagedModelAccessSnapshot>
+  openProtons(): Promise<void>
 }
 
 interface WorkBinding {
   account: Account
   process: WorkSidecar
+  resources: string
 }
 
 function sameAccount(a: Account, b?: Account): boolean {
@@ -57,11 +62,18 @@ export class WorkHost {
       throw new Error('work_account_teardown_required')
     }
 
+    const resources = input.resources ?? this.options.resources
+
+    if (this.binding && this.binding.resources !== resources) {
+      throw new Error('work_pin_teardown_required')
+    }
+
     this.binding ??= {
       account,
+      resources,
       process: new WorkSidecar({
-        ...this.options,
         account,
+        resources,
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN
@@ -83,6 +95,23 @@ export class WorkHost {
     })
 
     return incarnation
+  }
+
+  /** Bind a pin for WorkSession restarts while sharing the same owner IPC handlers. */
+  forResources(resources: string): PinHost {
+    return {
+      current: () => this.binding?.resources === resources ? this.current() : undefined,
+      start: input => this.start({ ...input, resources }),
+      stop: () => this.binding?.resources === resources ? this.stop() : Promise.resolve(),
+      bindOwnerView: (incarnation, contents) => this.bindOwnerView(incarnation, contents)
+    }
+  }
+
+  authTools(paths: WorkSessionPaths, resources = this.binding?.resources ?? this.options.resources) {
+    return {
+      executable: join(resources, 'work-runtime', 't3'),
+      environment: workRuntimeEnvironment(paths.work, resources)
+    }
   }
 
   stop(): Promise<void> {
@@ -190,26 +219,45 @@ export class WorkHost {
 
   registerOwnerPreload(): void {
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
-      const view = this.view
-      const frame = event.senderFrame
+      const view = this.ownerCaller(event)
 
-      if (!view || view.contents !== event.sender || !frame || frame.parent !== null) {
-        return 'unavailable'
-      }
-
-      try {
-        if (new URL(frame.url).origin !== view.incarnation.origin) {
-          return 'unavailable'
-        }
-      } catch {
+      if (!view) {
         return 'unavailable'
       }
 
       const access = await this.readModelAccess(view.incarnation)
 
-      return this.view === view && !frame.detached && frame.parent === null &&
-        frame.url.startsWith(view.incarnation.origin + '/') ? access : 'unavailable'
+      return this.ownerCaller(event) === view ? access : 'unavailable'
     })
+    ipcMain.handle(WORK_OPEN_PROTONS_CHANNEL, async event => {
+      if (!this.ownerCaller(event)) {
+        return false
+      }
+
+      try {
+        await this.options.openProtons()
+
+        return true
+      } catch {
+        return false
+      }
+    })
+  }
+
+  private ownerCaller(event: IpcMainInvokeEvent) {
+    const view = this.view
+    const frame = event.senderFrame
+
+    if (!view || view.contents !== event.sender || this.current() !== view.incarnation ||
+      !frame || frame.detached || frame.parent !== null) {
+      return undefined
+    }
+
+    try {
+      return new URL(frame.url).origin === view.incarnation.origin ? view : undefined
+    } catch {
+      return undefined
+    }
   }
 }
 

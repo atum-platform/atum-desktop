@@ -15,7 +15,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import type { WebContents } from 'electron'
 import semver from 'semver'
 
-import type { WorkIncarnation } from '../sidecar/process'
+import type { WorkIncarnation, WorkStartOptions } from '../sidecar/process'
 
 import { readJson, writeFileDurably } from './files'
 import type { WorkSessionPaths } from './paths'
@@ -58,9 +58,7 @@ export interface TrialHandle {
   commit(): Promise<void>
 }
 
-export interface UpdateIncarnation extends WorkIncarnation {
-  trial?: TrialHandle
-}
+export type UpdateIncarnation = WorkIncarnation
 
 /**
  * One pin's host. `WorkHost` satisfies it. Without `trial` on the incarnation the
@@ -69,7 +67,7 @@ export interface UpdateIncarnation extends WorkIncarnation {
  */
 export interface PinHost {
   current(): WorkIncarnation | undefined
-  start(options: { continuation: boolean; trial?: TrialContext }): Promise<UpdateIncarnation>
+  start(options: WorkStartOptions): Promise<UpdateIncarnation>
   stop(): Promise<void>
   bindOwnerView(incarnation: WorkIncarnation, contents: WebContents): () => void
 }
@@ -256,6 +254,7 @@ export class UpdateDriver {
     try {
       incarnation = await host.start({
         continuation: false,
+        resources: target.resources,
         trial: {
           protocol: 4,
           childVersion: target.version,
@@ -313,7 +312,7 @@ export class UpdateDriver {
     const previous = deps.hostFor(current)
 
     try {
-      return { outcome: 'rolled_back', reason, host: previous, incarnation: await previous.start({ continuation: false }) }
+      return { outcome: 'rolled_back', reason, host: previous, incarnation: await previous.start({ continuation: false, resources: current.resources }) }
     } catch {
       return { outcome: 'rolled_back', reason, host: previous }
     }
