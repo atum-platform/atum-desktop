@@ -48,6 +48,8 @@ export interface AssistantCardCopy {
   /** The expanded editor's one line: how to save and how to put it back. */
   fieldKeys: string
   footnote: string
+  longPersona: string
+  personaConflict: string
   pet: string
   petChoose: string
   skills: string
@@ -225,6 +227,8 @@ const en: AssistantCardCopy = {
   expandField: label => `Edit ${label} in a larger window`,
   fieldKeys: '⌘Return saves · Esc puts it back · Closing saves too',
   footnote: 'Changes apply from your next message.',
+  longPersona: 'Your agent may only load part of these instructions.',
+  personaConflict: 'This field changed while you were editing. Showing the latest version.',
   pet: 'Pet',
   petChoose: 'Choose',
   skills: 'Skills',
@@ -378,6 +382,8 @@ const vi: AssistantCardCopy = {
   expandField: label => `Sửa ${label} trong cửa sổ lớn`,
   fieldKeys: '⌘Return để lưu · Esc để hoàn tác · Đóng cũng lưu',
   footnote: 'Thay đổi áp dụng từ tin nhắn tiếp theo.',
+  longPersona: 'Trợ lý có thể chỉ đọc một phần hướng dẫn này.',
+  personaConflict: 'Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.',
   pet: 'Thú cưng',
   petChoose: 'Chọn',
   skills: 'Kỹ năng',
@@ -531,6 +537,8 @@ const ja: AssistantCardCopy = {
   expandField: label => `「${label}」を大きなウィンドウで編集`,
   fieldKeys: '⌘Return で保存 · Esc で元に戻す · 閉じても保存',
   footnote: '変更は次のメッセージから適用されます。',
+  longPersona: 'エージェントが読み込むのは、この指示の一部だけになることがあります。',
+  personaConflict: '編集中にこの項目が変更されました。最新の内容を表示しています。',
   pet: 'ペット',
   petChoose: '選ぶ',
   skills: 'スキル',
@@ -684,6 +692,8 @@ const zh: AssistantCardCopy = {
   expandField: label => `在更大的窗口中编辑“${label}”`,
   fieldKeys: '⌘Return 保存 · Esc 撤回 · 关闭也会保存',
   footnote: '更改将从下一条消息开始生效。',
+  longPersona: '助手可能只会加载部分指令。',
+  personaConflict: '此项在编辑时发生了更改。已显示最新版本。',
   pet: '宠物',
   petChoose: '选择',
   skills: '技能',
@@ -837,6 +847,8 @@ const zhHant: AssistantCardCopy = {
   expandField: label => `在更大的視窗中編輯「${label}」`,
   fieldKeys: '⌘Return 儲存 · Esc 復原 · 關閉也會儲存',
   footnote: '變更將從下一則訊息開始生效。',
+  longPersona: '助理可能只會載入部分指令。',
+  personaConflict: '此欄在編輯時發生變更。已顯示最新版本。',
   pet: '寵物',
   petChoose: '選擇',
   skills: '技能',

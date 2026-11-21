@@ -136,6 +136,7 @@ describe('assistant persona', () => {
   it('shows the primary’s built-in persona as the same two fields any other assistant has', () => {
     const nameLine =
       'You are Sample Agent, the person’s own assistant in the Atum app. If they give you another name, use it from then on and remember it.'
+
     const stored = `${nameLine}\n\nYou can do real work for them.\n\nBe warm, brief and capable.`
     const parsed = parsePersona(stored, { primary: true })
 
@@ -158,6 +159,7 @@ describe('assistant persona', () => {
   it('keeps the primary’s name line when only “what it does” changes, and drops an emptied body', () => {
     const nameLine =
       'You are Sample Agent, the person’s own assistant in the Atum app. If they want to call you something else, tell them they can change your picture and how you work from your card, and that your name stays Sample Agent.'
+
     const stored = `# Sample Agent\n\n${nameLine}\n\nYou can do real work for them.`
     const parsed = parsePersona(stored, { primary: true })
 
@@ -175,6 +177,26 @@ describe('assistant persona', () => {
       instructions: 'My own words.\n\n## Rules\n\nShort answers.'
     })
     expect(parsePersona('Be brief.', { primary: true }).kind).toBe('custom')
+  })
+
+  it.each([
+    { soul: TEMPLATE, primary: false, field: 'what' },
+    { soul: SAMPLE_AGENT_WITH_PERSONALITY, primary: false, field: 'instructions' },
+    {
+      soul: '# Lan\n\nYou are Lan, the person’s own assistant in the Atum app. If they give you another name, use it from then on and remember it.',
+      primary: true,
+      field: 'what'
+    }
+  ] as const)('round-trips multiline headings in both fields ($field, primary=$primary)', ({ soul, primary, field }) => {
+    const instructions = 'Paragraph one.\n\n## Rules\n\nAsk before sending.\n\n## Who you are\n\nRoles for the team.'
+    const who = 'Be warm.\n\n## Voice\n\nUse short sentences.\n\n## What you do\n\nA heading inside personality.'
+    const stored = renderPersona(parsePersona(soul, { primary }), { name: 'Lan', [field]: instructions, who })
+    const parsed = parsePersona(stored, { primary })
+
+    expect(parsed[field]).toBe(instructions)
+    expect(parsed.who).toBe(who)
+    const revised = renderPersona(parsed, { name: 'Lan', who: 'Keep it brief.' })
+    expect(parsePersona(revised, { primary })[field]).toBe(instructions)
   })
 
   it('renames only the heading line', () => {

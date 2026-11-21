@@ -10,9 +10,9 @@ import type { ParsedPersona } from '../../../shared/matrix-assistant-persona'
 import { useAssistantCardCopy } from './copy'
 
 export interface PersonaChange {
-  who?: string
-  what?: string
-  instructions?: string
+  field: 'who' | 'what' | 'instructions'
+  before: string
+  after: string
 }
 
 /**
@@ -27,14 +27,16 @@ export function PersonaFields({
   name,
   note,
   onSave,
-  persona
+  persona,
+  rejected
 }: {
   disabled: boolean
   name: string
   /** The saved / failed line under the field that saved last. */
-  note?: { field: keyof PersonaChange; node: ReactNode }
+  note?: { field: PersonaChange['field']; node: ReactNode }
   onSave(change: PersonaChange): void
   persona: ParsedPersona
+  rejected?: { field?: PersonaChange['field'] }
 }) {
   const copy = useAssistantCardCopy()
   const custom = persona.kind === 'custom'
@@ -46,15 +48,16 @@ export function PersonaFields({
         disabled={disabled}
         label={copy.purposeLabel(name)}
         note={note?.field === mainField ? note.node : undefined}
-        onSave={value => onSave(custom ? { instructions: value } : { what: value })}
+        onSave={(before, after) => onSave({ field: mainField, before, after })}
         placeholder={copy.purposePlaceholder}
+        rejected={rejected?.field === mainField ? rejected : undefined}
         rows={8}
         value={custom ? persona.instructions : persona.what}
       />
       <PersonalityRow
         disabled={disabled}
         note={note?.field === 'who' ? note.node : undefined}
-        onSave={value => onSave({ who: value })}
+        onSave={(before, after) => onSave({ field: 'who', before, after })}
         value={persona.who}
       />
     </div>
@@ -76,14 +79,16 @@ function AutoField({
   note,
   onSave,
   placeholder,
+  rejected,
   rows,
   value
 }: {
   disabled: boolean
   label: string
   note?: ReactNode
-  onSave(value: string): void
+  onSave(before: string, after: string): void
   placeholder?: string
+  rejected?: object
   rows: number
   value: string
 }) {
@@ -109,25 +114,30 @@ function AutoField({
 
   // A newer saved value (another device, an Undo) shows unless the person is typing.
   useEffect(() => {
-    committed.current = value
-
-    if (!focused.current) {
+    if (!focused.current && !expandedLive.current) {
+      committed.current = value
       setDraft(value)
-
-      if (!expandedLive.current) {
-        setExpandedDraft(value)
-      }
+      setExpandedDraft(value)
     }
   }, [value])
+
+  useEffect(() => {
+    if (rejected && !focused.current && !expandedLive.current) {
+      committed.current = value
+      setDraft(value)
+    }
+  }, [rejected, value])
 
   // The card closed (Xong, a click outside) while the field still held unsaved typing.
   useEffect(
     () => () => {
       const pending = latest.current
 
-      if (pending.draft.trim() !== committed.current.trim()) {
+      const before = committed.current
+
+      if (pending.draft.trim() !== before.trim()) {
         committed.current = pending.draft
-        pending.onSave(pending.draft)
+        pending.onSave(before, pending.draft)
       }
     },
     []
@@ -154,9 +164,11 @@ function AutoField({
   }, [expanded])
 
   const commit = (text: string) => {
-    if (text.trim() !== committed.current.trim()) {
+    const before = committed.current
+
+    if (text.trim() !== before.trim()) {
       committed.current = text
-      onSave(text)
+      onSave(before, text)
     }
   }
 
@@ -172,6 +184,9 @@ function AutoField({
     if (save) {
       setDraft(expandedDraft)
       commit(expandedDraft)
+    } else {
+      committed.current = value
+      setDraft(value)
     }
   }
 
@@ -228,8 +243,9 @@ function AutoField({
             event.preventDefault()
             event.stopPropagation()
             cancelled.current = true
-            setDraft(committed.current)
-            latest.current = { draft: committed.current, onSave }
+            committed.current = value
+            setDraft(value)
+            latest.current = { draft: value, onSave }
             event.currentTarget.blur()
           }
         }}
@@ -255,7 +271,7 @@ function AutoField({
             // One step back: the expanded editor saves on close, Esc means "put it back".
             event.preventDefault()
             expandedCancelled.current = true
-            setExpanded(false)
+            closeExpanded(false)
           }}
         >
           <div className="flex items-center justify-between gap-2">
@@ -299,7 +315,7 @@ function PersonalityRow({
 }: {
   disabled: boolean
   note?: ReactNode
-  onSave(value: string): void
+  onSave(before: string, after: string): void
   value: string
 }) {
   const copy = useAssistantCardCopy()
@@ -308,17 +324,20 @@ function PersonalityRow({
   const field = useRef<HTMLTextAreaElement>(null)
   const cancelled = useRef(false)
   const id = useId()
-  const latest = useRef({ open, draft, value, onSave })
+  const editBase = useRef(value)
+  const latest = useRef({ open, draft, onSave })
 
-  latest.current = { open, draft, value, onSave }
+  latest.current = { open, draft, onSave }
 
   // The card closed while the row was open: what was typed is kept, as leaving it would.
   useEffect(
     () => () => {
       const pending = latest.current
 
-      if (pending.open && !cancelled.current && pending.draft.trim() !== pending.value.trim()) {
-        pending.onSave(pending.draft)
+      const before = editBase.current
+
+      if (pending.open && !cancelled.current && pending.draft.trim() !== before.trim()) {
+        pending.onSave(before, pending.draft)
       }
     },
     []
@@ -341,8 +360,8 @@ function PersonalityRow({
     setOpen(false)
     latest.current = { ...latest.current, open: false }
 
-    if (draft.trim() !== value.trim()) {
-      onSave(draft)
+    if (draft.trim() !== editBase.current.trim()) {
+      onSave(editBase.current, draft)
     }
   }
 
@@ -356,6 +375,7 @@ function PersonalityRow({
           disabled={disabled}
           onClick={() => {
             cancelled.current = false
+            editBase.current = value
             setDraft(value)
             setOpen(true)
           }}

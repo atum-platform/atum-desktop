@@ -1292,7 +1292,16 @@ def build_environment_hints() -> str:
 RUNTIME_ENVIRONMENT_HEADING = "# Hermes runtime environment"
 RUNTIME_ENVIRONMENT_END = "<!-- End Hermes runtime environment -->"
 
-CONTEXT_FILE_MAX_CHARS = 20_000
+# Shared with the desktop assistant card's warning when the runtime budget is unknown.
+def _default_context_file_max_chars() -> int:
+    try:
+        path = Path(__file__).resolve().parents[1] / "hermes_cli" / "data" / "context-file-limits.json"
+        return int(json.loads(path.read_text(encoding="utf-8-sig"))["defaultMaxChars"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 20_000
+
+
+CONTEXT_FILE_MAX_CHARS = _default_context_file_max_chars()
 CONTEXT_TRUNCATE_HEAD_RATIO = 0.7
 CONTEXT_TRUNCATE_TAIL_RATIO = 0.2
 
