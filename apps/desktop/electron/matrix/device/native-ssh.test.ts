@@ -31,7 +31,7 @@ function mockSettings() {
   }
 }
 
-function fixture(settings = mockSettings(), initialToken: string | null = null) {
+function fixture(settings = mockSettings(), initialToken: string | null = null, log = vi.fn()) {
   let record = { ...enrollment, ownerUserId: '@owner:example.com', matrixDeviceId: 'MAC-FIXTURE', state: 'active' } as unknown as DeviceEnrollmentRecord
   let saved: string | null = initialToken
   let disk = 'ssh-ed25519 user-owned-line\n'
@@ -91,7 +91,8 @@ function fixture(settings = mockSettings(), initialToken: string | null = null) 
         http
       ),
     system,
-    settings
+    settings,
+    log
   })
 
   return {
@@ -99,6 +100,7 @@ function fixture(settings = mockSettings(), initialToken: string | null = null) 
     system,
     http,
     settings,
+    log,
     setEnrollment: (next: DeviceEnrollmentRecord) => {
       record = { ...record, ...next }
     },
@@ -611,4 +613,122 @@ it('preserves a token after metadata persistence failure and never blindly prepa
   await f.service.refresh()
   expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(1)
   expect(f.system.start).not.toHaveBeenCalled()
+})
+
+/** Answer one owner operation differently, leaving the rest of the fixture in place. */
+function answer(f: ReturnType<typeof fixture>, operation: string, response: () => Response) {
+  const original = f.http.getMockImplementation()!
+
+  f.http.mockImplementation(async (url, init) =>
+    JSON.parse(init.body).operation === operation ? response() : original(url, init)
+  )
+}
+
+describe('native SSH setup failures name the step and a safe code', () => {
+  it('names prepare and the refused status when the account will not prepare the route', async () => {
+    const f = fixture()
+    f.http.mockImplementationOnce(async () => Response.json({ details: { reason: 'mac_route_unavailable' } }, { status: 503 }))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({
+      status: 'error',
+      reason: 'native_ssh_setup_failed',
+      step: 'prepare',
+      code: 'device_registry_503_mac_route_unavailable'
+    })
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup failed at prepare: device_registry_503_mac_route_unavailable')
+    expect(f.system.start).not.toHaveBeenCalled()
+  })
+
+  it('names authorized_keys when the account refuses the key list for the purposes request', async () => {
+    const f = fixture()
+    answer(f, 'ssh_authorized_keys', () => Response.json({ details: { reason: 'invalid' } }, { status: 400 }))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ step: 'authorized_keys', code: 'device_registry_400_invalid' })
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup failed at authorized_keys: device_registry_400_invalid')
+    expect(f.system.start).not.toHaveBeenCalled()
+    expect(requests(f).some(row => row.operation === 'ssh_enroll')).toBe(false)
+  })
+
+  it('names authorized_keys and the session code when the owner session is no longer authorised', async () => {
+    const f = fixture()
+    answer(f, 'ssh_authorized_keys', () => new Response('', { status: 401 }))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ step: 'authorized_keys', code: 'matrix_s1_authentication' })
+    expect(f.system.start).not.toHaveBeenCalled()
+    expect(requests(f).some(row => row.operation === 'ssh_enroll')).toBe(false)
+  })
+
+  it('names write_keys when the SSH files cannot be written', async () => {
+    const f = fixture()
+    vi.mocked(f.system.keys).mockRejectedValueOnce(new Error('native_ssh_file_failed'))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ step: 'write_keys', code: 'native_ssh_file_failed' })
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup failed at write_keys: native_ssh_file_failed')
+    expect(f.system.start).not.toHaveBeenCalled()
+    expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  })
+
+  it('names start_tunnel and the OS error code when launchd setup fails', async () => {
+    const f = fixture()
+    vi.mocked(f.system.start).mockRejectedValueOnce(Object.assign(new Error(`launchctl ${host}`), { code: 'EACCES' }))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ step: 'start_tunnel', code: 'EACCES' })
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup failed at start_tunnel: EACCES')
+    expect(requests(f).some(row => row.operation === 'ssh_enroll')).toBe(false)
+  })
+
+  it('names enroll and the refused status when registration is refused', async () => {
+    const f = fixture()
+    answer(f, 'ssh_enroll', () => new Response('', { status: 500 }))
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ step: 'enroll', code: 'device_registry_500' })
+    expect(f.log).toHaveBeenCalledWith('native-ssh setup failed at enroll: device_registry_500')
+    // The failure still clears managed keys and stops the tunnel it just started.
+    expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+    expect(f.system.stop).toHaveBeenCalled()
+  })
+
+  it.each([
+    [() => Object.assign(new Error(secret), { code: secret }), 'unknown'],
+    [() => new Error(`GET https://${host}?token=${secret}`), 'unknown'],
+    [() => Object.assign(new Error('failed'), { code: secret }), 'failed']
+  ])('keeps credentials and process text out of the view and the log %#', async (thrown, code) => {
+    const f = fixture()
+    vi.mocked(f.system.start).mockRejectedValueOnce(thrown())
+    await f.service.refresh()
+    expect(f.service.status()).toMatchObject({ status: 'error', step: 'start_tunnel', code })
+    expect(JSON.stringify(f.service.status())).not.toContain(secret)
+    expect(JSON.stringify(f.log.mock.calls)).not.toContain(secret)
+    expect(JSON.stringify(f.log.mock.calls)).not.toContain(host)
+  })
+})
+
+describe('disconnect leaves this Mac ready to connect from scratch', () => {
+  it('clears the token, the route metadata and the managed keys, then prepares a fresh route', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    expect(f.saved()).toBe(secret)
+    await f.service.disconnect()
+    expect(f.service.status()).toMatchObject({ status: 'not_connected' })
+    expect(f.saved()).toBeNull()
+    expect(f.settings.getItem(routeKey)).toBe('null')
+    expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+    expect(f.system.start).toHaveBeenCalledOnce()
+
+    await f.service.start(true)
+    expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+    expect(requests(f).filter(row => row.operation === 'ssh_prepare')).toHaveLength(2)
+    expect(f.saved()).toBe(secret)
+    await f.service.disconnect()
+  })
+
+  it('keeps the reason when cleaning up is still pending, and can be retried', async () => {
+    const f = fixture()
+    await f.service.refresh()
+    f.http.mockRejectedValueOnce(new Error(secret))
+    await expect(f.service.disconnect()).rejects.toThrow('native_ssh_cleanup_pending')
+    expect(f.service.status()).toMatchObject({ status: 'error', reason: 'native_ssh_cleanup_pending', code: 'native_ssh_cleanup_pending' })
+    await f.service.disconnect()
+    expect(f.service.status()).toMatchObject({ status: 'not_connected' })
+  })
 })

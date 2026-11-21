@@ -15,7 +15,17 @@ export type MatrixNativeSshStatus =
   | 'needs_remote_login'
   | 'needs_full_disk_access_hint'
   | 'tunnel_down'
+  /** The owner disconnected this Mac; Connect sets it up again from scratch. */
+  | 'not_connected'
   | 'error'
+
+/** Where setup stopped. Fixed step names only, never text from a process or the account. */
+export type MatrixNativeSshSetupStep =
+  | 'prepare'
+  | 'authorized_keys'
+  | 'write_keys'
+  | 'start_tunnel'
+  | 'enroll'
 
 export type MatrixNativeSshAction =
   | 'status'
@@ -30,6 +40,10 @@ export interface MatrixNativeSshView {
   status: MatrixNativeSshStatus
   settingsUrl: string
   reason?: string
+  /** The setup step that failed, so the window can say where it stopped. */
+  step?: MatrixNativeSshSetupStep
+  /** A safe code for the failed step: our own code, an OS error code or an HTTP status number. */
+  code?: string
 }
 
 /** `confirmed`: the owner is present and said yes; `declined`: they cancelled the sheet. */

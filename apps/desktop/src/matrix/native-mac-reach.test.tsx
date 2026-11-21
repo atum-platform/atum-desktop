@@ -104,6 +104,67 @@ describe("this Mac's native reach in Your Macs", () => {
     await waitFor(() => expect(ssh.mock.calls.filter(([action]) => action === 'connect')).toHaveLength(2))
   })
 
+  it('says in plain words why setup stopped, naming the step when the code is unknown', async () => {
+    const refused = bridge({ status: { ...view('error'), step: 'start_tunnel', code: 'EACCES' } })
+    renderMacs(refused.value)
+    expect(await within(thisRow()).findByText(words.failure.files)).toBeTruthy()
+  })
+
+  it('names the step for a code it does not know, and offers the reset beside Try again', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'start_tunnel', code: 'ETIMEDOUT' } })
+    renderMacs(value)
+    const line = await within(thisRow()).findByText(words.failure.atStep(words.failure.steps.start_tunnel, 'ETIMEDOUT'))
+    expect(line).toBeTruthy()
+    expect(within(thisRow()).getByRole('button', { name: words.tryAgain })).toBeTruthy()
+    expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy()
+  })
+
+  it('says the key list was refused in plain words, without the internal code', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'authorized_keys', code: 'device_registry_400_invalid' } })
+    renderMacs(value)
+    expect(await within(thisRow()).findByText(words.failure.details)).toBeTruthy()
+  })
+
+  it('explains a saved route that needs a reset', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'prepare', code: 'native_ssh_route_recovery_required' } })
+    renderMacs(value)
+    expect(await within(thisRow()).findByText(words.failure.recovery)).toBeTruthy()
+  })
+
+  it('disconnects this Mac in one action and returns the row to Connect from scratch', async () => {
+    const { ssh, value } = bridge({
+      status: { ...view('error'), step: 'prepare', code: 'native_ssh_setup_failed' },
+      disconnect: view('not_connected'),
+      connect: view('connected')
+    })
+
+    renderMacs(value)
+
+    fireEvent.click(await within(thisRow()).findByRole('button', { name: words.disconnect }))
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('disconnect'))
+    expect(await within(thisRow()).findByText(words.notConnected)).toBeTruthy()
+    // Regaining focus never reconnects a Mac the owner just disconnected.
+    fireEvent.focus(window)
+    expect(ssh).not.toHaveBeenCalledWith('connect')
+
+    fireEvent.click(within(thisRow()).getByRole('button', { name: words.connect }))
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
+    await waitFor(() => expect(within(thisRow()).queryByRole('button')).toBeNull())
+  })
+
+  it('shows Try again working while it retries, and the new reason afterwards', async () => {
+    const ssh = vi.fn(async (action: string) =>
+      action === 'status' ? view('error') : new Promise<MatrixNativeSshView>(() => undefined)
+    )
+
+    renderMacs({ ssh, confirmCommand: vi.fn() } as unknown as MatrixNativeMacBridge)
+
+    const retry = await within(thisRow()).findByRole('button', { name: words.tryAgain })
+    fireEvent.click(retry)
+    const working = await within(thisRow()).findByRole('button', { name: words.working })
+    expect(working.hasAttribute('disabled')).toBe(true)
+  })
+
   it("leaves a fix of this Mac's own first, and other Macs untouched", async () => {
     const { value } = bridge({ status: view('error') })
     renderMacs(value, [{ ...THIS_MAC, state: 'not_connected' }, OTHER_MAC])

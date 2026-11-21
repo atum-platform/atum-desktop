@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { MatrixNativeSshView as NativeSshView } from '../../../shared/matrix-native-mac'
+import type { MatrixNativeSshView as NativeSshView, MatrixNativeSshSetupStep as SetupStep } from '../../../shared/matrix-native-mac'
 
 import type { RelaySshBinding } from './chatgpt-relay'
 /** Native Hermes SSH route. No device frames or tool schemas are involved. */
@@ -72,6 +72,30 @@ export function nativeSshHost(value: unknown): value is string {
 
 const tokenDigest = (token: string) => createHash('sha256').update(token).digest('hex')
 
+// Only shapes that can never be a credential: an OS/HTTP code, or our own lowercase code.
+const OS_CODE = /^[A-Z][A-Z0-9_]{1,23}$/
+const OWN_CODE = /^[a-z][a-z0-9_]{2,63}$/
+
+/** The one error detail allowed out of setup: an OS code, one of our codes or an HTTP status. */
+function nativeSshFailureCode(error: unknown): string {
+  if (typeof error !== 'object' || error === null) {
+    return 'unknown'
+  }
+
+  const { code, message, status } = error as { code?: unknown; message?: unknown; status?: unknown }
+
+  if (typeof code === 'number' ? Number.isSafeInteger(code) && code > 0 : typeof code === 'string' && OS_CODE.test(code)) {
+    return String(code)
+  }
+
+  // Our own errors: fixed lowercase codes, including `device_registry_<status>[_<reason>]`.
+  if (typeof message === 'string' && OWN_CODE.test(message)) {
+    return message
+  }
+
+  return typeof status === 'number' && Number.isSafeInteger(status) && status >= 0 ? String(status) : 'unknown'
+}
+
 const BEGIN = '# BEGIN ATUM MANAGED SSH KEYS'
 const END = '# END ATUM MANAGED SSH KEYS'
 
@@ -134,8 +158,13 @@ export class NativeMacSsh {
         getItem(key: string): string | null
         setItem(key: string, value: string): void
       }
+      /** The main log; overridden only in tests. */
+      log?(line: string): void
     }
   ) {}
+  private log(line: string): void {
+    ;(this.deps.log ?? (reason => console.warn(`[Matrix] ${reason}`)))(line)
+  }
   status(): NativeSshView {
     const acknowledged = this.hintEnrollmentKey && this.deps.settings.getItem(this.hintEnrollmentKey) === 'acknowledged'
 
@@ -206,6 +235,7 @@ export class NativeMacSsh {
   refresh(): Promise<void> {
     return this.serial(async () => {
       let recoveryRequired = false
+      let step: SetupStep = 'prepare'
 
       try {
         const record = this.deps.enrollment()
@@ -287,6 +317,7 @@ export class NativeMacSsh {
           this.deps.settings.setItem(routeKey, JSON.stringify({ host, tokenDigest: tokenDigest(prepared.tunnelToken) }))
         }
 
+        step = 'authorized_keys'
         const rows = await this.deps.call({ operation: 'ssh_authorized_keys', purposes: true })
 
         if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey) && (row.purpose === undefined || row.purpose === 'shell' || row.purpose === 'relay'))) {
@@ -306,12 +337,15 @@ export class NativeMacSsh {
 
         // Validate before replacing either purpose's block.
         for (const key of keys) { if (typeof key !== 'string') { relayKeyLine(key, '/validate') } }
+        step = 'write_keys'
         await this.deps.system.keys(keys)
         this.bindings = keys.filter((key): key is RelayAuthorizedKey => typeof key !== 'string')
+        step = 'start_tunnel'
         await this.deps.system.start(this.id)
         const epoch = `${this.id}:${record.enrollmentEpoch}:${host}:${ready.user}:${ready.hostKey}`
 
         if (this.enrolled !== epoch) {
+          step = 'enroll'
           await this.deps.call({
             operation: 'ssh_enroll',
             deviceServiceId: this.id,
@@ -328,13 +362,22 @@ export class NativeMacSsh {
           status: 'connected',
           settingsUrl: REMOTE_LOGIN_SETTINGS
         }
-      } catch {
+      } catch (error) {
         // Never propagate HTTP/process errors: they may contain credentials.
+        const code = nativeSshFailureCode(error)
+
+        this.log(`native-ssh setup failed at ${step}: ${code}`)
         this.bindings = []
         await this.deps.system.keys([]).catch(() => undefined)
         await this.deps.system.stop().catch(() => undefined)
         this.enrolled = undefined
-        this.view = { status: 'error', reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = {
+          status: 'error',
+          reason: recoveryRequired ? 'native_ssh_route_recovery_required' : 'native_ssh_setup_failed',
+          step,
+          code,
+          settingsUrl: REMOTE_LOGIN_SETTINGS
+        }
       }
     })
   }
@@ -375,9 +418,14 @@ export class NativeMacSsh {
 
       try {
         await this.cleanup()
-        this.view = { status: 'tunnel_down', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = { status: 'not_connected', settingsUrl: REMOTE_LOGIN_SETTINGS }
       } catch {
-        this.view = { status: 'error', reason: 'native_ssh_cleanup_pending', settingsUrl: REMOTE_LOGIN_SETTINGS }
+        this.view = {
+          status: 'error',
+          reason: 'native_ssh_cleanup_pending',
+          code: 'native_ssh_cleanup_pending',
+          settingsUrl: REMOTE_LOGIN_SETTINGS
+        }
         throw new Error('native_ssh_cleanup_pending')
       }
     })
