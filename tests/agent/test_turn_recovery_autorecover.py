@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from agent.error_classifier import classify_api_error
+from agent.error_classifier import FailoverReason, classify_api_error
 from agent.turn_api_error import settle_unrecovered_error
-from agent.turn_recovery_autorecover import ladder_wait_seconds
+from agent.turn_recovery_autorecover import ladder_eligible, ladder_wait_seconds
 from agent.turn_retry_state import TurnRetryState
 
 
@@ -97,6 +97,28 @@ def test_transient_exhaustion_without_fallback_enters_ladder_and_retries(status,
     assert agent.statuses == agent.waits and len(agent.statuses) == 1
     line = agent.statuses[0]
     assert "(cycle 1/5)" in line
+
+
+def test_only_the_upstream_429_enters_the_ladder():
+    agent = _Agent()
+    agent.provider = "openrouter"
+    upstream = _Err(429, "Provider returned error", {"Retry-After": "25"})
+    upstream.body = {"error": {"message": str(upstream), "code": 429, "metadata": {
+        "raw": 'The model is temporarily rate-limited upstream. Please retry shortly.',
+    }}}
+    plan = _Err(429, "The usage limit has been reached")
+    plan.body = {"error": {"message": str(plan), "type": "usage_limit_reached", "resets_in_seconds": 30995}}
+
+    upstream_verdict = classify_api_error(upstream, provider=agent.provider)
+    plan_verdict = classify_api_error(plan, provider=agent.provider)
+    assert upstream_verdict.reason is FailoverReason.upstream_rate_limit
+    assert plan_verdict.reason is FailoverReason.rate_limit
+    assert ladder_eligible(agent, upstream_verdict)
+    assert not ladder_eligible(agent, plan_verdict)
+
+    result, retry = _settle(agent, upstream)
+    assert (result.action, result.retry_count, retry.auto_recovery_cycles_used) == ("continue", 0, 1)
+    assert "25s (cycle 1/5)" in agent.statuses[-1]
 
 
 def test_ladder_is_bounded_and_yields_to_fallback_and_shuns_nonretryable():

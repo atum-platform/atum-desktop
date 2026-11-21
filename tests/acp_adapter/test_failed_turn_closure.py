@@ -86,10 +86,16 @@ class _RecordingConn:
 
 
 @pytest.fixture
-def acp(tmp_path, monkeypatch):
+def atum():
+    return False
+
+
+@pytest.fixture
+def acp(tmp_path, monkeypatch, atum):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_DISABLE_PLUGINS", "1")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1,localhost")
+    (tmp_path / "config.yaml").write_text(json.dumps({"agent": {"atum_instructions": atum}}))
     provider = _LoopbackProvider()
 
     import acp_adapter.session as acp_session
@@ -138,7 +144,8 @@ _REFUSAL_DETAIL = "I can't help with breaking into someone else's property."
 _NEW_REQUEST = "What is the capital of France?"
 
 
-def test_acp_refusal_closes_the_turn_and_is_not_replayed_into_the_next_prompt(acp):
+@pytest.mark.parametrize("atum", [False, True])
+def test_acp_refusal_closes_the_turn_and_is_not_replayed_into_the_next_prompt(acp, atum):
     """Turn 1: HTTP-200 ``content_filter`` refusal. Turn 2: unrelated request.
 
     Invariant: the durable tail after a failed turn is a Hermes-authored assistant row (never
@@ -153,7 +160,9 @@ def test_acp_refusal_closes_the_turn_and_is_not_replayed_into_the_next_prompt(ac
 
     rows = conversation_rows()
     assert [r[0] for r in rows] == ["user", "assistant"], rows
-    assert rows[1][1] == FAILED_TURN_NOTICE  # no tool ran: no hedging, no provider detail
+    assert rows[1][1] == (
+        "I couldn't finish that. Send it again and I'll try once more." if atum else FAILED_TURN_NOTICE
+    )
     assert db.latest_conversation_role(sid) == "assistant"
     # Typed, so a renderer or room poller never has to match the English copy to tell the
     # boundary from a model reply.
@@ -171,7 +180,7 @@ def test_acp_refusal_closes_the_turn_and_is_not_replayed_into_the_next_prompt(ac
     sent = [m for m in provider.requests[-1]["messages"] if m["role"] != "system"]
     assert [m["role"] for m in sent] == ["user", "assistant", "user"], sent
     assert [m["content"] for m in sent if m["role"] == "user"] == [_REFUSED, _NEW_REQUEST]
-    assert sent[1] == {"role": "assistant", "content": FAILED_TURN_NOTICE}  # the type never reaches the wire
+    assert sent[1] == {"role": "assistant", "content": FAILED_TURN_NOTICE}  # the original wire bytes
 
     # Turn 3: cancelled mid-turn. The interrupt envelope carries ``final_response=None``
     # (no assistant text yet); ``_finish_turn`` must still report ``cancelled`` — never crash

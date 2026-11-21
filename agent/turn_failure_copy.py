@@ -34,7 +34,7 @@ def stamp_failure(result: dict[str, Any], reason: str, retryable: bool) -> dict[
 # transcript boundary, NOT the model's answer: no provider/model error or refusal detail is
 # ever interpolated (that rides ``final_response``). Owned here so the core closer
 # (``agent/conversation_loop.py::run_conversation``) and the gateway's own writer
-# (``gateway/run_turn.py::_hmwa_close_failed_turn``) say the same thing.
+# (``gateway/run_turn_persistence.py::_hmwa_close_failed_turn``) say the same thing.
 
 FAILED_TURN_NOTICE = (
     "Your request was not processed. Send it again if you still want me to carry it out."
@@ -76,6 +76,24 @@ def failed_turn_notice(turn_messages: Any) -> str:
         ):
             return PARTIAL_FAILED_TURN_NOTICE
     return FAILED_TURN_NOTICE
+
+
+def failed_turn_boundary(
+    turn_messages: Any, *, atum: bool = False, effects_unknown: bool = False,
+) -> dict[str, str]:
+    """Build a display row while keeping the provider's replay bytes stable."""
+    notice = PARTIAL_FAILED_TURN_NOTICE if effects_unknown else failed_turn_notice(turn_messages)
+    boundary = {"role": "assistant", "content": notice, "display_kind": FAILED_TURN_DISPLAY_KIND}
+    if atum:
+        boundary["api_content"] = notice
+        if notice == PARTIAL_FAILED_TURN_NOTICE:
+            boundary["content"] = (
+                "I stopped partway, so some of it may already be done. "
+                "Ask me to carry on and I'll check what's finished first."
+            )
+        else:
+            boundary["content"] = "I couldn't finish that. Send it again and I'll try once more."
+    return boundary
 
 
 def provider_label_for(provider: Any) -> str:
@@ -379,9 +397,15 @@ def site_copy(code: str, **fields: Any) -> str:
     return _SITE_COPY[code].format_map(_Defaults(fields))
 
 
-def exhausted_copy(reason: str, *, label: str, attempts: int, summary: str, reset_seconds: Optional[float] = None) -> str:
+def exhausted_copy(
+    reason: str, *, label: str, attempts: int, summary: str, reset_seconds: Optional[float] = None,
+    atum: bool = False,
+) -> str:
     """Chat copy once retries + fallback are exhausted (``max_retries_exhausted_result``). A rate
     limit whose reset window is known names it: an 8.6h plan quota is not "wait a minute" (#89401)."""
+    if atum:
+        return ("I couldn't reach my model just now, so I stopped before finishing. "
+                "Send it again in a minute and I'll pick it up.")
     first_attempt = attempts == 1 and reason in _EXHAUSTED_FIRST_ATTEMPT_LEADS
     lead = (_EXHAUSTED_FIRST_ATTEMPT_LEADS if first_attempt else _EXHAUSTED_LEADS).get(
         reason, _EXHAUSTED_DEFAULT_LEAD).format(label=label, attempts=attempts)

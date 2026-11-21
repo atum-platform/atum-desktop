@@ -34,3 +34,20 @@ Native adapters can opt into repeated pending-request reclaim with
 remains one. Each reclaim changes the writer owner using compare-and-swap. Death
 after consumption and before a new pending checkpoint or terminal settlement
 remains uncertain and requires resolution.
+
+## Quiet failures for embedded agents (2026-11-21)
+
+- `agent/turn_recovery_autorecover.py`: the automatic recovery ladder now also covers
+  `upstream_rate_limit` (a provider saying it is briefly rate-limited upstream), so the
+  turn waits and retries (15/30/60/60/60 s, `Retry-After` honoured) instead of ending after
+  three quick attempts. Account and plan rate limits stay out: they can outlast the ladder.
+- With the embedder flag `agent.atum_instructions: true`, the chat-facing copy for retries
+  exhausted and for the failed-turn boundary reads as first-person sentences, with no slash
+  commands, CLI hints, provider dumps or links. The boundary row keeps the upstream notice in
+  `api_content`, so what providers replay is unchanged. Without the flag every surface keeps
+  the upstream copy byte for byte.
+- Busy acknowledgements stay native: embedders silence them with `display.busy_ack_enabled:
+  false` in `config.yaml`.
+- Verified: `scripts/run_tests.sh` on the failed-turn copy, auto-recovery, ACP closure,
+  gateway failed-turn writer and duplicate/incomplete/restart tests (8 files, 75 passed,
+  6 platform skips).
