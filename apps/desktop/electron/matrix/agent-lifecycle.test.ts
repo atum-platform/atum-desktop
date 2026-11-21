@@ -7,11 +7,11 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   MATRIX_AGENT_CREATIONS,
   MATRIX_AGENT_RETIREMENTS,
-  matrixAgentSoulText,
   type MatrixAgentCreation,
   MatrixAgentCreationRefused,
   MatrixAgentLifecycle,
   type MatrixAgentLifecycleDeps,
+  matrixAgentSoulText,
   reconcileMatrixAgentSoul,
   seedMatrixAgentSoul
 } from './agent-lifecycle'
