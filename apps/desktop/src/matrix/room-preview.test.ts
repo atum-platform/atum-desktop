@@ -2,12 +2,12 @@ import { createClient, EventType, MatrixEvent, NotificationCountType, Room } fro
 import { describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_ASSISTANT_ROOM_TYPE } from '../../shared/matrix-assistant-room'
-import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 import {
   MATRIX_COMPANY_PRIVATE_COS_PROTECTED_STATE,
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos'
+import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 
 import { conversationRoom } from './conversations'
 import { matrixPreviewLine, matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
