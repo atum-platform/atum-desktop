@@ -25,6 +25,7 @@ import {
   waitManagedRetry
 } from './atum-managed-request-retry'
 import type { MessagingAccountSession } from './atum-messaging/types'
+import type { WorkBillingUnit } from './work/sidecar/billing'
 
 const LOOPBACK_HOST = '127.0.0.1'
 const MAX_REQUEST_BYTES = 400_000
@@ -106,6 +107,7 @@ export interface AtumManagedModelProxyOptions {
    * resulting short-lived permit to the real backend credential.
    */
   onWorkspaceSourceRead?: (sessionId: string, permits: number, backendToken: unknown) => void
+  recordWorkBillingUnit?: (backendToken: unknown, unit: WorkBillingUnit, signal: AbortSignal) => Promise<void>
   workspaceProtected?: () => boolean
   privateRequestLive?: (backendToken: unknown) => () => boolean
   /** Account-owned metadata path, supplied by main's account-root authority. */
@@ -1210,6 +1212,16 @@ export class AtumManagedModelProxy {
       return
     }
 
+    await this.options.recordWorkBillingUnit?.(workspaceBackendToken, {
+      sessionId: workspaceSessionId, requestId, turnRequestId, reservationId: reservation?.reservationId ?? null
+    }, signal)
+
+    if (!scope.ensureLive()) {
+      jsonError(response, 401, 'managed_shared_job_account_changed')
+
+      return
+    }
+
     if (!reservation) {
       scope.journal?.set(scope.key, pending ?? { requestId, turnRequestId, bodyHash, reservationId: null, createdAt: Date.now() })
       const headers = scope.reserveHeaders()
@@ -1311,6 +1323,10 @@ export class AtumManagedModelProxy {
     reservation.pendingRequestId = requestId
     reservation.pendingRequestBody = requestBody
     scope.journal?.set(scope.key, { requestId, turnRequestId, bodyHash, reservationId: reservation.reservationId, createdAt: pending?.createdAt ?? Date.now() })
+
+    await this.options.recordWorkBillingUnit?.(workspaceBackendToken, {
+      sessionId: workspaceSessionId, requestId, turnRequestId, reservationId: reservation.reservationId
+    }, signal)
 
     const upstream = await this.recoverableFetch('/api/managed-model/chat/completions', {
       method: 'POST',

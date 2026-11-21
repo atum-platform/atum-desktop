@@ -1,0 +1,178 @@
+"""Hold the Work home lock and retire children when Electron's pipe closes."""
+import fcntl
+import json
+import os
+from pathlib import Path
+import resource
+import select
+import signal
+import subprocess
+import sys
+import time
+
+
+def publish(kind, **values):
+    print(json.dumps(dict(kind=kind, **values)), flush=True)
+
+
+def processes():
+    output = subprocess.check_output(
+        ["/bin/ps", "-axo", "pid=,ppid=,rss=,lstart="], text=True, timeout=1,
+    )
+    return {int(pid): (int(parent), int(rss), started) for pid, parent, rss, started in
+            (line.split(maxsplit=3) for line in output.splitlines() if line.strip())}
+
+
+class Children:
+    def __init__(self):
+        self.leaders = []
+        self.seen = {}
+
+    def start(self, argv, env, cwd, stdout=subprocess.DEVNULL):
+        child = subprocess.Popen(argv, cwd=cwd, env=env, start_new_session=True,
+                                 stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL)
+        self.leaders.append(child)
+        return child
+
+    def scan(self):
+        table = processes()
+        owned = {child.pid for child in self.leaders if child.returncode is None and child.pid in table}
+        owned.update(pid for pid, started in self.seen.items()
+                     if pid in table and table[pid][2] == started)
+        while True:
+            descendants = {pid for pid, (parent, _, _) in table.items() if parent in owned}
+            if descendants <= owned:
+                break
+            owned.update(descendants)
+        self.seen = {pid: table[pid][2] for pid in owned if pid in table}
+        return sum(table[pid][1] for pid in self.seen)
+
+    def stop(self):
+        try:
+            self.scan()
+        except (OSError, subprocess.SubprocessError):
+            pass
+        for child in reversed(self.leaders):
+            if child.poll() is None:
+                child.terminate()
+                try:
+                    child.wait(timeout=0.6)
+                except subprocess.TimeoutExpired:
+                    pass
+            # Retire descendants that stayed in this process group as well.
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        try:
+            table = processes()
+        except (OSError, subprocess.SubprocessError):
+            return
+        for pid, started in self.seen.items():
+            if pid in table and table[pid][2] == started:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+
+def wait_for_gateway(home, gateway, children):
+    from hermes_cli.gateway_runtime import discover_gateway_endpoint
+
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        if select.select([0], [], [], 0.1)[0] or gateway.poll() is not None:
+            raise RuntimeError("gateway_stopped")
+        children.scan()
+        ready = discover_gateway_endpoint(home, timeout=0.4)
+        if ready.state == "ready" and ready.endpoint and ready.endpoint.control_home in (None, home):
+            lock = json.loads((Path(home) / "gateway.lock").read_text())
+            if lock.get("pid") == gateway.pid:
+                return
+    raise RuntimeError("gateway_timeout")
+
+
+def run(spec, children):
+    # A per-child file descriptor / core dump bound. The supervisor applies
+    # the process-count and RSS budgets to the entire owned tree separately.
+    for limit, soft in [(resource.RLIMIT_CORE, 0), (resource.RLIMIT_NOFILE, 2048)]:
+        _, hard = resource.getrlimit(limit)
+        resource.setrlimit(limit, (soft if hard < 0 else min(soft, hard), hard))
+    for env in spec["gateways"]:
+        child = children.start([sys.executable, "-P", "-B", "-X", "utf8", "-m",
+                                "hermes_cli.main", "gateway", "run"], env, spec["cwd"])
+        wait_for_gateway(env["HERMES_HOME"], child, children)
+    sidecar = children.start(
+        [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
+        spec["environment"], spec["cwd"], subprocess.PIPE,
+    )
+    publish("spawned", pid=sidecar.pid)
+    assert sidecar.stdout is not None
+    line_buffer = b""
+    while not any(child.poll() is not None for child in children.leaders):
+        readable, _, _ = select.select([0, sidecar.stdout], [], [], 0.2)
+        if 0 in readable:
+            return
+        if sidecar.stdout in readable:
+            chunk = os.read(sidecar.stdout.fileno(), 4096)
+            if not chunk:
+                return
+            line_buffer += chunk
+            while b"\n" in line_buffer:
+                line, line_buffer = line_buffer.split(b"\n", 1)
+                if line.lstrip().startswith(b"pairingUrl:"):
+                    publish("pairing", url=line.strip().removeprefix(b"pairingUrl:").strip().decode("ascii"))
+            if len(line_buffer) > 65536:
+                raise RuntimeError("work_stdout_limit")
+        rss = children.scan()
+        if len(children.seen) > 128:
+            raise RuntimeError("work_process_limit")
+        if rss > 4 * 1024 * 1024:
+            raise RuntimeError("work_memory_limit")
+
+
+def main():
+    spec = json.loads(sys.stdin.buffer.readline(262144))
+    children = Children()
+    with Path(spec["lock"]).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            # Settings writes occur after the kernel lock and before any
+            # server can open the home, including after an app crash.
+            try:
+                with Path(spec["settingsPath"]).open(encoding="utf-8") as file:
+                    settings = json.load(file)
+            except FileNotFoundError:
+                settings = {}
+            import yaml
+
+            profile_source = Path(spec["profileSource"])
+            owner = yaml.safe_load((profile_source / "self-work.yaml").read_text())
+            delegated = yaml.safe_load((profile_source / "delegated.yaml").read_text())
+            owner["model"] = {"provider": "atum-managed", "default": "binh-minh"}
+            owner["gateway"] = {"standalone": True}
+            owner["plugins"] = {"auto_update_check_hours": 0}
+            for env, config in zip(spec["gateways"], (owner, {**owner, **delegated}), strict=True):
+                path = Path(env["HERMES_HOME"]) / "config.yaml"
+                path.write_text(yaml.safe_dump(config), encoding="utf-8")
+                path.chmod(0o600)
+            settings.update(spec["settings"])
+            if not settings["continueThreadsAfterServerUpdate"]:
+                for override in settings.get("projectSettingsOverrides", {}).values():
+                    if "continueThreadsAfterServerUpdate" in override:
+                        override["continueThreadsAfterServerUpdate"] = False
+            temp = Path(spec["settingsPath"] + ".work-next")
+            temp.write_text(json.dumps(settings), encoding="utf-8")
+            os.chmod(temp, 0o600)
+            temp.replace(spec["settingsPath"])
+            run(spec, children)
+        finally:
+            children.stop()
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        # No child output, credentials, paths or spec are forwarded to Electron logs.
+        sys.exit(1)

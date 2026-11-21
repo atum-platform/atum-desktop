@@ -23,6 +23,7 @@ import { assertPackagedRenderer } from './assert-packaged-renderer.mjs'
 import { ATUM_PROD_HOSTED_ORIGINS, ATUM_PROD_PLANE } from './atum-product-defaults.mjs'
 import { stampExeIdentity } from './set-exe-identity.mjs'
 import { stageBundledRuntime } from './stage-bundled-runtime.mjs'
+import { stageWorkRuntime } from './stage-work-runtime.mjs'
 import { publicConfigFromEnvironment, writeAtumPublicConfig } from './write-atum-public-config.mjs'
 
 /**
@@ -87,6 +88,7 @@ export default async function afterPack(context) {
     assertPackagedRenderer(appRoot)
     assertBundledPetsUnpacked(path.join(appRoot, 'Contents', 'Resources'))
     stageBundledRuntime({ targetRoot: runtimeRoot, platform: 'darwin', arch })
+    await stageWorkRuntime({ resources: path.dirname(runtimeRoot), platform: 'darwin', arch, archive: process.env.ATUM_WORK_ARCHIVE })
     writeAtumPublicConfig({ outputPath: publicConfigPath })
     return
   }

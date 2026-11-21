@@ -325,6 +325,7 @@ import { readWindowsUserEnvVar } from './windows-user-env'
 import { registerWordCompanionIpc, WordCompanionController } from './word-companion'
 import { createWordMacAdapter } from './word-companion-mac'
 import { createWordLiveMacAdapter } from './word-live-mac'
+import { WorkHost } from './work/sidecar/host'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { WorkspaceTextFileLeaseProvider } from './workspace-text-file-lease'
 import { isWorkspaceTextRendererApiDenied } from './workspace-text-file-remote'
@@ -1314,6 +1315,7 @@ let atumStore: AtumStoreService | null = null
 let atumAdvisoryRunner: PrivateAdvisoryRunner | null = null
 let atumAccountController: AtumAccountAuthController | null = null
 let atumManagedModelProxy: AtumManagedModelProxy | null = null
+let atumWorkHost: WorkHost | undefined
 let atumFilesystemCapabilities: AtumFilesystemCapabilityAuthority | null = null
 let atumFilesystemActionBroker: AtumFilesystemActionBroker | null = null
 // Set by the normal validated runtime path; optional utilities never resolve or
@@ -12321,6 +12323,7 @@ app.whenReady().then(async () => {
             return filesystemGrant
           },
           revokeAccount: async input => {
+            await atumWorkHost?.stop()
             atumAgentSync?.stop()
             // The outgoing account's catalog cache and signed envelope are
             // discarded with it (plan decision 8); the gateway must not find a
@@ -12452,6 +12455,7 @@ app.whenReady().then(async () => {
     pendingRequestsPath: accountId => path.join(atumAccountRoots.pathsForAccount(accountId).root, 'managed-model-pending.json'),
     workspaceProtected: () => atumUtilities.workspaceProtected(),
     privateRequestLive: token => atumFilesystemActionBroker?.privateRequestLive(token) ?? (() => false),
+    recordWorkBillingUnit: async (token, unit, signal) => atumWorkHost?.recordBillingUnit(token, unit, signal),
     onWorkspaceSourceRead: (sessionId, permits, backendToken) => {
       atumFilesystemActionBroker?.authorizeWorkspaceSourceRead(sessionId, permits, backendToken)
     }
@@ -12463,6 +12467,35 @@ app.whenReady().then(async () => {
     rememberLog(`[atum-managed-model] unavailable: ${error instanceof Error ? error.message : String(error)}`)
     atumManagedModelProxy = null
   }
+
+  atumWorkHost = new WorkHost({
+    resources: process.resourcesPath,
+    account: () => {
+      const current = atumMessagingRuntime.tokens.current()
+      const committed = atumAccountRoots.committed()
+
+      if (current && committed && committed.marker.accountKey === accountKeyFor(current.user.id)) {
+        return {
+          key: committed.marker.accountKey,
+          generation: committed.marker.generation,
+          root: committed.paths.root
+        }
+      }
+    },
+    gatewayEnvironment: () => {
+      const proxy = atumManagedModelProxy?.backendEnvironment({})
+      const broker = atumFilesystemActionBroker?.backendEnvironment('work-sidecar')
+
+      if (!proxy?.ATUM_MANAGED_MODEL_PROXY_TOKEN || !broker?.ATUM_FILESYSTEM_BROKER_TOKEN) {
+        throw new Error('work_model_unavailable')
+      }
+
+      return { ...proxy, ...broker }
+    },
+    revokeCredentials: () => atumFilesystemActionBroker?.revokeBackendCredential('work-sidecar'),
+    accessState: async () => await atumManagedModelProxy?.accessState() ?? { state: 'unavailable' }
+  })
+  atumWorkHost.registerOwnerPreload()
 
   // Product pin (G7): the model Atum lands on when the user has never chosen
   // one. Resolved once at boot from the packaged public config (or the
@@ -13000,6 +13033,12 @@ app.on('before-quit', event => {
   void atumManagedModelProxy?.stop()
 
   const quitTasks = []
+
+  if (atumWorkHost) {
+    const work = atumWorkHost
+    atumWorkHost = undefined
+    quitTasks.push(() => work.stop())
+  }
 
   if (wordCompanionController?.isActive()) {
     quitTasks.push(() => wordCompanionController!.clear())
