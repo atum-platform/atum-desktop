@@ -82,6 +82,18 @@ def test_export_refuses_non_managed_model_instead_of_falling_back(tmp_path):
         portability.export_portable_definition(profile)
 
 
+def test_portable_definition_excludes_native_receipts(tmp_path):
+    profile = _source_profile(tmp_path)
+    path = profile / "SOUL.md"
+    marker = f"<!-- atum:instructions revision=8 seed_bytes=1 sha256={'a' * 64} -->\n"
+    body = path.read_text() + "\n"
+    path.write_text(marker + body)
+
+    assert portability.export_portable_definition(profile)["soul"] == body
+    assert portability._validate_definition(dict(_definition(), soul=marker + body))["soul"] == body
+    assert path.read_text() == marker + body
+
+
 @pytest.mark.parametrize("environment", [{}, {"HERMES_MODEL": "binh-minh"}, {"HERMES_TUI_PROVIDER": "atum-managed"}])
 def test_export_uses_managed_launch_default_for_atum_profile_without_model(tmp_path, monkeypatch, environment):
     profile = _source_profile(tmp_path)

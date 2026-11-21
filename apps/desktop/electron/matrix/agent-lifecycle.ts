@@ -468,7 +468,7 @@ export async function seedMatrixAgentSoul(
 /** Beside SOUL.md: the digest of the persona Atum last wrote there. A SOUL.md that still
  * matches it carries nobody's edits, so a newer persona from the definition may replace it. */
 const SOUL_APPLIED = '.SOUL.md.applied'
-const ATUM_INSTRUCTIONS_MARKER = /^<!-- atum:instructions revision=(0|[1-9][0-9]{0,15})(?: tag=[A-Za-z0-9_-]{22})? -->\n/u
+const ATUM_INSTRUCTIONS_MARKER = /^<!-- atum:instructions revision=(0|[1-9][0-9]{0,15})(?: tag=[A-Za-z0-9_-]{22}| seed_bytes=[0-9]{1,7} sha256=[0-9a-f]{64})? -->\n/u
 
 function soulDigest(text: string): string {
   return createHash('sha256').update(text.replace(/\r\n?/g, '\n').trim()).digest('hex')

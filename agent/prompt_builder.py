@@ -1807,12 +1807,13 @@ def _omitted_headings(content: str, start: int, end: int, limit: int = 15) -> li
 
 _INSTRUCTIONS_MARKER = re.compile(
     r"\A\ufeff?<!-- atum:instructions revision=(?:0|[1-9][0-9]{0,15})"
-    r"(?: tag=[A-Za-z0-9_-]{22})? -->[ \t]*(?:\r?\n|\Z)"
+    r"(?: tag=[A-Za-z0-9_-]{22}| seed_bytes=[0-9]{1,7} sha256=[0-9a-f]{64})?"
+    r" -->[ \t]*(?:\r?\n|\Z)"
 )
 
 
 def strip_instructions_marker(content: str) -> str:
-    """SOUL.md's text without the controller's revision marker line, if it has one."""
+    """SOUL.md's text without its Atum revision marker line, if it has one."""
     return _INSTRUCTIONS_MARKER.sub("", content, count=1)
 
 

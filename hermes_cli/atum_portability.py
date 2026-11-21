@@ -161,6 +161,8 @@ def export_portable_definition(profile_dir: Path) -> dict[str, Any]:
     desktop's managed launch default, just as the gateway does. Explicit
     external/local assignments must never be replaced with that default.
     """
+    from agent.prompt_builder import strip_instructions_marker
+
     profile_dir = Path(profile_dir)
     if profile_dir.is_symlink() or not profile_dir.is_dir():
         raise UnsupportedLocalDefinition("profile does not exist")
@@ -168,7 +170,7 @@ def export_portable_definition(profile_dir: Path) -> dict[str, Any]:
     if soul_path.is_symlink() or not soul_path.is_file():
         raise UnsupportedLocalDefinition("SOUL.md must be a regular file")
     try:
-        soul = soul_path.read_text(encoding="utf-8-sig")
+        soul = strip_instructions_marker(soul_path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeDecodeError) as exc:
         raise UnsupportedLocalDefinition("Could not read SOUL.md") from exc
     if len(soul.encode("utf-8")) > 65536:
@@ -215,11 +217,15 @@ def export_portable_definition(profile_dir: Path) -> dict[str, Any]:
 
 
 def _validate_definition(value: Any) -> dict[str, Any]:
+    from agent.prompt_builder import strip_instructions_marker
+
     if not isinstance(value, dict) or set(value) != {"schema_version", "soul", "model_alias", "reasoning", "skills"}:
         raise TicketError("ticket definition must contain exactly the v1 portability fields")
     if value.get("schema_version") != SCHEMA_VERSION:
         raise TicketError("unsupported portability definition schema")
     soul = value.get("soul")
+    if isinstance(soul, str):
+        soul = strip_instructions_marker(soul)
     if not isinstance(soul, str) or len(soul.encode("utf-8")) > 65536:
         raise TicketError("invalid portable soul")
     alias = value.get("model_alias")

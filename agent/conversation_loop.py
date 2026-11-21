@@ -820,6 +820,11 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
     Mutates ``agent._cached_system_prompt`` and persists a freshly-built prompt on first
     build. Row states ``missing``/``null``/``empty``/``present`` are logged and DB
     failures log at WARNING so silent prefix-cache misses show in ``agent.log``."""
+    # Managed owner turns also enter here on a warm gateway cache hit. Compare
+    # the live identity before touching the DB, tools, or any other prompt tier.
+    previous = agent._cached_system_prompt
+    if previous is not None and _stored_prompt_matches_instructions(agent, previous):
+        return
     stored_prompt = None
     stored_state = "missing"
     session_row = None
@@ -837,7 +842,9 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
                 agent.session_id, exc,
             )
 
-    stale = _stored_prompt_stale_reason(agent, stored_prompt) if stored_prompt else None
+    stale = _stored_prompt_stale_reason(agent, stored_prompt) if stored_prompt else (
+        "instructions" if previous is not None else None
+    )
     if stored_prompt and stale is None:
         # NULL/empty rows never reach this probe: they already rebuild below.
         if _bot_chat_prompt_stale(agent, stored_prompt):

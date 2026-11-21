@@ -1156,8 +1156,17 @@ def build_turn_context(
             f"{'...' if len(_preview_text) > 60 else ''}'"
         )
 
-    # System prompt is cached per session for prefix caching.
-    if agent._cached_system_prompt is None:
+    # S2's Matrix DM receives the owner through the gateway's sender allowlist.
+    # Check at ordinary turn entry; checkpoint resumes bypass this setup.
+    managed_owner_turn = (
+        getattr(agent, "_atum_instructions", False) is True
+        and agent.platform == "matrix"
+        and getattr(agent, "_chat_type", None) == "dm"
+        and turn_author is not None
+        and not turn_author["is_bot"]
+        and persist_user_display_kind != "internal_notification"
+    )
+    if agent._cached_system_prompt is None or managed_owner_turn:
         restore_or_build_system_prompt(agent, system_message, conversation_history)
     active_system_prompt = agent._cached_system_prompt
 
