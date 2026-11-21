@@ -40,6 +40,7 @@ import {
 } from './settings-fixtures'
 import { PlaygroundCommerce, playgroundCommerceOptions } from './store-fixtures'
 import { playgroundSubscriptions, playgroundSubscriptionsMode } from './subscription-fixtures'
+import { playgroundWork } from './work-fixtures'
 
 /**
  * The design playground : the real Matrix window on
@@ -130,6 +131,8 @@ window.atumMatrix = {
   command: checkIns.wrap(bridge.command),
   agentHome: playgroundAgentHome(() => store.current),
   ...playgroundPlaceBridges(places, () => store.current),
+  // Self-work slice A: `?work=<state>` opens the Work page (work-fixtures.ts).
+  ...playgroundWork(params),
   ...(places.doc ? { previewDocument: async () => playgroundDocumentPreview(places) } : {}),
   // The title-bar failover control reads and saves against the fixture (§9.4), never a network.
   executionPolicy: playgroundPolicyBridge(policyMode),

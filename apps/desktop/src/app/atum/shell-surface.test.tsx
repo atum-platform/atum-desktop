@@ -153,6 +153,40 @@ describe('AtumNavSwitchSurface', () => {
     expect(onDestinationChange).toHaveBeenCalledWith('chat')
   })
 
+  it('draws Work right below Chats only while the shell passes it, and makes it the current place', () => {
+    const onDestinationChange = vi.fn()
+
+    const navigation = (props: { workLabel?: string; destination?: 'chat' | 'work' }) => (
+      <AtumNavSwitchSurface
+        ariaLabel="Main navigation"
+        destination={props.destination ?? 'chat'}
+        discoverLabel="Store"
+        driveLabel="Atum Drive"
+        homeLabel="Chats"
+        onDestinationChange={onDestinationChange}
+        workLabel={props.workLabel}
+      />
+    )
+
+    const { rerender } = render(navigation({}))
+
+    expect(screen.queryByRole('button', { name: 'Work' })).toBeNull()
+    rerender(navigation({ workLabel: 'Work' }))
+
+    const order = [...window.document.querySelectorAll('[data-atum-nav-switch] button')].map(button =>
+      button.getAttribute('aria-label')
+    )
+
+    expect(order.slice(0, 2)).toEqual(['Chats', 'Work'])
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }))
+    expect(onDestinationChange).toHaveBeenCalledWith('work')
+    expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-current')).toBeNull()
+
+    rerender(navigation({ workLabel: 'Work', destination: 'work' }))
+    expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-current')).toBe('page')
+    expect(screen.getByRole('button', { name: 'Chats' }).getAttribute('aria-current')).toBeNull()
+  })
+
   it('keeps Workplace disabled unless the owning shell explicitly enables it', () => {
     const onDestinationChange = vi.fn()
 
