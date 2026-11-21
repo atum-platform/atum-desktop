@@ -245,6 +245,8 @@ interface IndicatorProps {
   agentName(principal: string): string
   /** Opens the place an item's action lives (all but the detailed ones). */
   onOpen(item: MatrixAttentionItem): void
+  /** The list opened or closed. The Work page uses it: a native view would cover the list, so it steps aside. */
+  onOpenChange?(open: boolean): void
   snapshot: MatrixSnapshot
 }
 
@@ -253,7 +255,7 @@ export function MatrixAttentionIndicator(props: IndicatorProps) {
   return <AttentionIndicator key={props.snapshot.identity?.userId ?? ''} {...props} />
 }
 
-function AttentionIndicator({ agentName, onOpen, snapshot }: IndicatorProps) {
+function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: IndicatorProps) {
   const { locale } = useI18n()
   const copy = useAttentionCopy()
   const now = useMatrixAttentionNow(snapshot)
@@ -291,6 +293,13 @@ function AttentionIndicator({ agentName, onOpen, snapshot }: IndicatorProps) {
       setOpen(false)
     }
   }, [items.length])
+
+  useEffect(() => {
+    onOpenChange?.(open)
+
+    return () => onOpenChange?.(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the parent's callback is stable state; only `open` is news.
+  }, [open])
 
   const snooze = () => {
     const until = Date.now() + DISK_SNOOZE_MS

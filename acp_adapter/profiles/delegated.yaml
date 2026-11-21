@@ -1,0 +1,12 @@
+# Overlay on self-work.yaml in a separate gateway profile.
+editor_mcp_tools:
+  t3-code: [t3_thread_read, t3_thread_list, t3_thread_wait]
+approvals:
+  mode: manual
+  deny:
+    - '*t3 thread *'
+    - '*t3 acp-mcp-*'
+    - '*t3-orchestrator *'
+    - '*codex *'
+    - '*claude *'
+    - '*antigravity *'

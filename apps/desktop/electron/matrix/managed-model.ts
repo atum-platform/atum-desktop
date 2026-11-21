@@ -141,6 +141,8 @@ export interface MatrixManagedModelOptions {
 export class MatrixManagedModel {
   private server: Server | undefined
   private port: number
+  /** Every forward to the gateway that is on its way, by the agent (role) whose key asked for it. */
+  private readonly inflight = new Set<{ agent: string; abort: AbortController }>()
 
   constructor(private readonly options: MatrixManagedModelOptions) {
     this.port = options.port
@@ -276,6 +278,19 @@ export class MatrixManagedModel {
     }
 
     return null
+  }
+
+  /**
+   * Abort every forward of one role at once (an account was retired or switched): a call that already left must not
+   * finish under the next account's bearer, and its hold is released when the gateway call is cancelled.
+   */
+  abortAgent(agent: string): void {
+    for (const entry of [...this.inflight]) {
+      if (entry.agent === agent) {
+        entry.abort.abort()
+        this.inflight.delete(entry)
+      }
+    }
   }
 
   async stop(): Promise<void> {
@@ -464,7 +479,25 @@ export class MatrixManagedModel {
 
     // Hermes cancelling its request cancels the gateway call, which releases the hold.
     const abort = new AbortController()
-    response.on('close', () => abort.abort())
+    const entry = { agent, abort }
+    this.inflight.add(entry)
+    response.on('close', () => {
+      abort.abort()
+      this.inflight.delete(entry)
+    })
+
+    // The key must still be a current key at every step that spends: the body was read and the bearer is fetched after
+    // the request was first authenticated, and an account switch in between must not borrow the next account's bearer.
+    const holdsKey = () => {
+      for (const [key] of this.options.keys()) {
+        if (key && supplied.length === key.length && timingSafeEqual(Buffer.from(supplied), Buffer.from(key))) {
+          return true
+        }
+      }
+
+      return false
+    }
+
     let upstream: Response | undefined
     let training: Awaited<ReturnType<NonNullable<MatrixManagedModelOptions['training']>>> = null
 
@@ -497,10 +530,14 @@ export class MatrixManagedModel {
       let answer: Response | undefined
 
       for (const refresh of [false, true]) {
+        if (!holdsKey()) {
+          return 'sign_in'
+        }
+
         const bearer = await this.options.bearer(refresh)
 
-        if (!bearer) {
-          return 'sign_in'
+        if (!bearer || !holdsKey() || abort.signal.aborted) {
+          return abort.signal.aborted ? 'aborted' : 'sign_in'
         }
 
         try {

@@ -1,0 +1,372 @@
+import { createHash } from 'node:crypto'
+
+import { z } from 'zod'
+
+// Client mirror of the Work route contract `atum.work-route/1`, with its additive 1.1 settlement amendment
+// (atum-platform spec/work-route/v1, v1.1 and packages/protocol/src/work-route.ts).
+// Lane G builds only on fields declared there; its fixtures are the oracle.
+// Decision D20 (owner, 2026-11-21): one Atum service token at the edge, the
+// Mac's grant tells agents apart. Values marked provisional in the contract
+// may change by amendment: change them here and in the contract together.
+
+export const WORK_GATE_PATH = '/agent/mcp'
+export const WORK_TOOLS = ['launch', 'interrupt', 'read', 'wait', 'list', 'request'] as const
+export type WorkTool = (typeof WORK_TOOLS)[number]
+export const WORK_TERMINAL_THREAD_STATUSES = ['completed', 'failed', 'cancelled', 'interrupted', 'rolled_back'] as const
+export const WORK_WAIT_MAX_MS = 50_000
+export const WORK_REQUEST_BODY_MAX_BYTES = 65_536
+export const WORK_TASK_MAX_CODE_POINTS = 16_000
+export const WORK_DERIVED_TITLE_MAX_CODE_POINTS = 60
+export const WORK_CALL_MESSAGE_MAX_CODE_POINTS = 24_000
+export const WORK_READ_PASSTHROUGH_MAX_ENCODED_BYTES = 262_144
+export const WORK_LIST_MAX_THREADS = 100
+export const WORK_GRANT_RANDOM_BYTES = 32
+export const WORK_THREAD_ID_PREFIX = 'mcp:launch:'
+export const WORK_SOCKET_PATH_MAX_BYTES = 100
+// 1.1 settlement reports: at most 64 per call; the platform keeps a report 30 days.
+export const WORK_SETTLEMENT_REPORTS_MAX = 64
+export const WORK_SETTLEMENT_RETENTION_DAYS = 30
+
+export const WORK_PROVISIONAL = {
+  launchDeadlineSeconds: 120,
+  clockSkewToleranceSeconds: 60,
+  ownerEventMaxAgeSeconds: 900,
+  entitlementFreshnessBoundSeconds: 300,
+  entitlementSyncIntervalSeconds: 60,
+  grantLifetimeSeconds: 2_592_000
+} as const
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
+const safe = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
+const positive = safe.min(1)
+const uuid = z.string().regex(UUID)
+const idString = z.string().min(1).max(200).regex(/^[A-Za-z0-9:._-]{1,200}$/u)
+
+const codePoints = (min: number, max: number) =>
+  z.string().refine(value => {
+    const size = [...value].length
+
+    return size >= min && size <= max
+  }, 'length in code points')
+
+export const WorkRequestIdSchema = z.string().regex(/^[A-Za-z0-9_-]{22,64}$/u)
+export const WorkOwnerEventSchema = z.string().min(2).max(255).regex(/^[$][A-Za-z0-9_+/=-]{1,254}$/u)
+export const WorkThreadIdSchema = idString
+export const WorkRunIdSchema = idString
+
+export const WorkGateIdSchema = z.object({ deviceServiceId: uuid, accountId: uuid, routeEpoch: positive }).strict()
+export type WorkGateId = z.infer<typeof WorkGateIdSchema>
+
+export const WORK_THREAD_STATUSES = [
+  'no_run_yet',
+  'queued',
+  'preparing',
+  'starting',
+  'running',
+  'waiting',
+  'idle',
+  ...WORK_TERMINAL_THREAD_STATUSES
+] as const
+export type WorkThreadStatus = (typeof WORK_THREAD_STATUSES)[number]
+
+export const WORK_REFUSAL_REASONS = [
+  'unknown_field',
+  'invalid_field',
+  'expired',
+  'deadline_too_long',
+  'params_mismatch',
+  'balance_empty',
+  'event_already_used',
+  'owner_event_not_found',
+  'owner_event_redacted',
+  'owner_event_not_owner',
+  'owner_event_wrong_room',
+  'owner_event_too_old',
+  'owner_event_future',
+  'owner_event_undecryptable',
+  'owner_event_device_not_owner'
+] as const
+export type WorkRefusalReason = (typeof WORK_REFUSAL_REASONS)[number]
+
+export const WORK_REJECTION_REASONS = [
+  't3_invalid_request',
+  't3_model_unavailable',
+  't3_runtime_mode_escalation_denied',
+  't3_invalid_mode_limit',
+  't3_unauthorized',
+  't3_schema_error'
+] as const
+export type WorkRejectionReason = (typeof WORK_REJECTION_REASONS)[number]
+
+/** Admission failures are HTTP errors, never receipts. `agent_mismatch` is reserved (D20 does not produce it). */
+export const WORK_ADMISSION_ERRORS = [
+  { type: 'wrong_host', status: 404 },
+  { type: 'no_route', status: 404 },
+  { type: 'method_not_allowed', status: 405 },
+  { type: 'origin_header', status: 403 },
+  { type: 'cookie', status: 403 },
+  { type: 'no_assertion', status: 401 },
+  { type: 'bad_assertion', status: 401 },
+  { type: 'no_grant', status: 401 },
+  { type: 'unknown_grant', status: 401 },
+  { type: 'agent_mismatch', status: 403 },
+  { type: 'revoked', status: 403 },
+  { type: 'stale_entitlements', status: 503 },
+  { type: 'body_too_large', status: 413 },
+  { type: 'bad_request', status: 400 },
+  { type: 'tool_not_allowed', status: 403 },
+  { type: 'internal', status: 500 }
+] as const
+export type WorkAdmissionErrorType = (typeof WORK_ADMISSION_ERRORS)[number]['type']
+
+export function admissionStatus(type: WorkAdmissionErrorType): number {
+  return WORK_ADMISSION_ERRORS.find(entry => entry.type === type)?.status ?? 500
+}
+
+// ----- agent -> gate (strict: an unknown field is refused, never trimmed)
+export const WorkLaunchArgumentsSchema = z
+  .object({
+    requestId: WorkRequestIdSchema,
+    projectId: idString,
+    task: codePoints(1, WORK_TASK_MAX_CODE_POINTS),
+    ownerEvent: WorkOwnerEventSchema,
+    notAfter: safe
+  })
+  .strict()
+export const WorkInterruptArgumentsSchema = z.object({ threadId: WorkThreadIdSchema }).strict()
+export const WorkReadArgumentsSchema = z.object({ threadId: WorkThreadIdSchema }).strict()
+export const WorkWaitArgumentsSchema = z
+  .object({ threadId: WorkThreadIdSchema, timeoutMs: z.number().int().min(1000).max(WORK_WAIT_MAX_MS).optional() })
+  .strict()
+export const WorkListArgumentsSchema = z
+  .object({
+    limit: z.number().int().min(1).max(WORK_LIST_MAX_THREADS).optional(),
+    cursor: z.string().min(1).max(200).regex(/^[A-Za-z0-9_-]{1,200}$/u).optional()
+  })
+  .strict()
+export const WorkRequestArgumentsSchema = z
+  .object({ requestId: WorkRequestIdSchema, action: z.enum(['status', 'void']) })
+  .strict()
+
+export const WORK_TOOL_ARGUMENTS = {
+  launch: WorkLaunchArgumentsSchema,
+  interrupt: WorkInterruptArgumentsSchema,
+  read: WorkReadArgumentsSchema,
+  wait: WorkWaitArgumentsSchema,
+  list: WorkListArgumentsSchema,
+  request: WorkRequestArgumentsSchema
+} as const
+
+export type WorkLaunchArguments = z.infer<typeof WorkLaunchArgumentsSchema>
+
+/** What the gate builds for T3. The caller's arguments and headers are never forwarded. */
+export const WorkT3LaunchCallSchema = z
+  .object({
+    projectId: idString,
+    workspaceStrategy: z.object({ type: z.literal('root') }).strict(),
+    modelSelection: z
+      .object({
+        instanceId: z.string().min(1).max(200).regex(/^[A-Za-z0-9:._/-]{1,200}$/u),
+        model: z.string().min(1).max(200).regex(/^[A-Za-z0-9:._/-]{1,200}$/u)
+      })
+      .strict(),
+    message: codePoints(1, WORK_CALL_MESSAGE_MAX_CODE_POINTS),
+    title: codePoints(1, WORK_DERIVED_TITLE_MAX_CODE_POINTS),
+    clientRequestId: WorkRequestIdSchema
+  })
+  .strict()
+export type WorkT3LaunchCall = z.infer<typeof WorkT3LaunchCallSchema>
+
+// ----- answers (one variant per class)
+export type WorkScope = 'route' | 'agent'
+
+export interface WorkAnswerHead {
+  gateId: WorkGateId
+  requestId: string
+}
+
+export type WorkRequestAnswer =
+  | (WorkAnswerHead & { class: 'none'; receipt: 'none' })
+  | (WorkAnswerHead & { class: 'pending'; receipt: 'admitted'; forwarded: boolean })
+  | (WorkAnswerHead & {
+      class: 'accepted'
+      receipt: 'launched'
+      threadId: string
+      runId?: string
+      threadStatus?: WorkThreadStatus
+    })
+  | (WorkAnswerHead & { class: 'refused'; receipt: 'refused'; reason: WorkRefusalReason })
+  | (WorkAnswerHead & { class: 'refused'; receipt: 'rejected'; reason: WorkRejectionReason })
+  | (WorkAnswerHead & { class: 'refused'; receipt: 'void'; reason: 'void_by_agent' })
+  | (WorkAnswerHead & {
+      class: 'ambiguous'
+      receipt: 'admitted'
+      forwarded: boolean
+      cause: 'session_replaced' | 'deadline_passed' | 'setting_changed' | 'not_found'
+    })
+  | (WorkAnswerHead & { class: 'revoked'; receipt: 'revoked'; scope: WorkScope })
+  | (WorkAnswerHead & {
+      class: 'unavailable'
+      receipt: 'none'
+      reason: 'provider_not_ready' | 'owner_event_unverifiable'
+    })
+  | (WorkAnswerHead & { class: 'revocation_pending'; receipt: 'none' })
+
+export type WorkOutcomeClass = WorkRequestAnswer['class']
+
+export type WorkThreadAnswer =
+  | { gateId: WorkGateId; class: 'ok'; [key: string]: unknown }
+  | { gateId: WorkGateId; class: 'refused'; reason: 'not_in_ledger' | 'thread_from_earlier_session' | 'invalid_arguments'; threadId?: string }
+  | { gateId: WorkGateId; class: 'revoked'; scope: WorkScope; threadId?: string }
+  | { gateId: WorkGateId; class: 't3_error'; code: string; threadId?: string }
+
+/** `isError` is true unless the class is ok, accepted, none or pending. */
+export function workResultIsError(answerClass: string): boolean {
+  return !['ok', 'accepted', 'none', 'pending'].includes(answerClass)
+}
+
+// ----- the platform's enrollment facts and account sync (device-services operations)
+export const WorkAccessClientIdSchema = z.string().regex(/^[A-Za-z0-9]{16,64}[.]access$/u)
+
+export const WorkEnrollmentFactsSchema = z
+  .object({
+    surface: z.literal('work'),
+    workHostname: z.string().min(3).max(253),
+    workUrl: z.string().min(20).max(270),
+    accessTeamDomain: z.string().min(20).max(160).regex(/^[a-z0-9][a-z0-9.-]{1,120}[.]cloudflareaccess[.]com$/u),
+    accessAudienceTag: z.string().regex(/^[0-9a-f]{64}$/u),
+    accessClientIds: z
+      .array(WorkAccessClientIdSchema)
+      .min(1)
+      .max(2)
+      .refine(ids => new Set(ids).size === ids.length, 'unique'),
+    sessionDurationSeconds: z.number().int().min(60).max(86_400),
+    socketPath: z.string().min(2).max(WORK_SOCKET_PATH_MAX_BYTES),
+    gateId: WorkGateIdSchema,
+    workGrant: z.object({ acceptedAt: safe, routeEpoch: positive }).strict().optional()
+  })
+  .strict()
+export type WorkEnrollmentFacts = z.infer<typeof WorkEnrollmentFactsSchema>
+
+export const WorkSyncChangeSchema = z.union([
+  z.object({ seq: positive, kind: z.literal('agent_added'), agentPrincipal: uuid, at: safe }).strict(),
+  z
+    .object({ seq: positive, kind: z.literal('agent_removed'), agentPrincipal: uuid, scope: z.enum(['owner', 'this_mac']), at: safe })
+    .strict(),
+  z.object({ seq: positive, kind: z.literal('device_revoked'), at: safe }).strict()
+])
+export type WorkSyncChange = z.infer<typeof WorkSyncChangeSchema>
+
+export const WorkSyncPageSchema = z
+  .object({
+    deviceServiceId: uuid,
+    accountId: uuid,
+    issuedAt: safe,
+    fromSeq: safe,
+    headSeq: safe,
+    entitled: z
+      .array(uuid)
+      .max(256)
+      .refine(items => new Set(items).size === items.length, 'unique'),
+    changes: z.array(WorkSyncChangeSchema).max(256),
+    hasMore: z.boolean()
+  })
+  .strict()
+  .refine(page => page.fromSeq <= page.headSeq, 'a page never starts after the head')
+export type WorkSyncPage = z.infer<typeof WorkSyncPageSchema>
+
+export interface WorkSyncAck {
+  deviceServiceId: string
+  accountId: string
+  appliedSeq: number
+  settledSeq: number
+  routeEpoch: number
+  appliedAt: number
+}
+
+export interface WorkMacEvent {
+  deviceServiceId: string
+  accountId: string
+  kind: 'route_closed' | 'route_opened' | 'agent_closed' | 'agent_opened'
+  routeEpoch: number
+  at: number
+  agentPrincipal?: string
+  agentGeneration?: number
+}
+
+export interface WorkGrantCarry {
+  gateId: WorkGateId
+  agentPrincipal: string
+  grant: string
+  agentGeneration: number
+  mintedAt: number
+  expiresAt: number
+}
+
+// ----- reference rules (the contract's vectors pin these)
+export function workEntitlementsFresh(
+  ageSeconds: number,
+  headRegressed: boolean,
+  boundSeconds: number = WORK_PROVISIONAL.entitlementFreshnessBoundSeconds
+): boolean {
+  return !headRegressed && ageSeconds <= boundSeconds
+}
+
+export function workOwnerEventAge(
+  ageSeconds: number,
+  maxAgeSeconds: number = WORK_PROVISIONAL.ownerEventMaxAgeSeconds,
+  skewSeconds: number = WORK_PROVISIONAL.clockSkewToleranceSeconds
+): 'ok' | 'owner_event_too_old' | 'owner_event_future' {
+  if (ageSeconds < -skewSeconds) {
+    return 'owner_event_future'
+  }
+
+  return ageSeconds > maxAgeSeconds ? 'owner_event_too_old' : 'ok'
+}
+
+export function workDeadline(
+  notAfterMinusNowSeconds: number,
+  launchDeadlineSeconds: number = WORK_PROVISIONAL.launchDeadlineSeconds,
+  skewSeconds: number = WORK_PROVISIONAL.clockSkewToleranceSeconds
+): 'ok' | 'expired' | 'deadline_too_long' {
+  if (notAfterMinusNowSeconds < 0) {
+    return 'expired'
+  }
+
+  return notAfterMinusNowSeconds > launchDeadlineSeconds + skewSeconds ? 'deadline_too_long' : 'ok'
+}
+
+export const sha256Hex = (value: string | Buffer): string => createHash('sha256').update(value).digest('hex')
+
+/** SHA-256 of the immutable launch parameters. A retry must match; the deadline is compared separately. */
+export function workParamsHash(projectId: string, task: string, ownerEvent: string): string {
+  return sha256Hex(JSON.stringify([projectId, task, ownerEvent]))
+}
+
+/** T3 derives the launch's thread id from the session and the request id; the gate stores it before it forwards. */
+export function workExpectedThreadId(t3SessionId: string, requestId: string): string {
+  return `${WORK_THREAD_ID_PREFIX}${sha256Hex(JSON.stringify([`client:${t3SessionId}`, requestId]))}`
+}
+
+// ----- atum.work-route/1.1: settlement reports. Content-free: no thread, text, owner event or call; the request id is
+// the one correlation the platform learns.
+export const WorkStopReportSchema = z
+  .object({
+    agentPrincipal: uuid,
+    requestId: WorkRequestIdSchema,
+    routeEpochAtAdmit: positive,
+    agentGenerationAtAdmit: positive,
+    scope: z.enum(['route', 'agent']),
+    outcome: z.enum(['stopped', 'never_sent', 'nothing_started']),
+    revocationId: positive,
+    settledAt: safe
+  })
+  .strict()
+
+export const WorkSettlementsReplySchema = z
+  .object({
+    deviceServiceId: uuid,
+    accepted: z.number().int().min(0).max(WORK_SETTLEMENT_REPORTS_MAX),
+    ignored: z.number().int().min(0).max(WORK_SETTLEMENT_REPORTS_MAX)
+  })
+  .strict()

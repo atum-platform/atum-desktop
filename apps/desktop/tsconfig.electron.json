@@ -203,6 +203,7 @@
     "shared/matrix-apps.ts",
     "shared/matrix-window.ts",
     "shared/matrix-window-failure.ts",
+    "shared/matrix-work.ts",
     "shared/matrix-hermes-activity.ts",
     "shared/matrix-turn.ts",
     "shared/matrix-answer-parts.ts",

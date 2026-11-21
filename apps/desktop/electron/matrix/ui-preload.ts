@@ -55,6 +55,7 @@ import type {
 } from '../../shared/matrix-video-consent'
 import { MATRIX_VOICE_IPC } from '../../shared/matrix-voice'
 import { MATRIX_WINDOW_CHANNELS, type MatrixWindowFacts } from '../../shared/matrix-window'
+import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 
 const invoke = (kind: string) => ipcRenderer.invoke(channel.ui, { kind })
 
@@ -95,6 +96,22 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.on(MATRIX_DRIVE_IPC.changed, receive)
 
       return () => ipcRenderer.removeListener(MATRIX_DRIVE_IPC.changed, receive)
+    }
+  },
+  work: {
+    read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
+    show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
+    hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),
+    retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
+    allowAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'allowAssistants' }),
+    setAssistants: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setAssistants', on }),
+    setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
+    reconnectAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'reconnectAssistants' }),
+    subscribe: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, projection: MatrixWorkProjection | null) => listener(projection)
+      ipcRenderer.on(MATRIX_WORK_IPC.changed, receive)
+
+      return () => ipcRenderer.removeListener(MATRIX_WORK_IPC.changed, receive)
     }
   },
   companies: {

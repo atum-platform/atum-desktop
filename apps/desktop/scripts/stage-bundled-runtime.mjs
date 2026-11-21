@@ -855,8 +855,8 @@ function probeStagedRuntime({ pythonRoot, sourceRoot, expectedArch }) {
     python,
     sourceRoot,
     expectedPythonRoot: pythonRoot,
-    inside: ['hermes_cli', 'hermes_cli.config', 'tui_gateway', 'tui_gateway.server'],
-    other: ['yaml', 'dotenv'],
+    inside: ['hermes_cli', 'hermes_cli.config', 'tui_gateway', 'tui_gateway.server', 'acp_adapter.managed'],
+    other: ['yaml', 'dotenv', 'acp', 'mcp'],
     methods: requiredSetupMethods()
   })
 

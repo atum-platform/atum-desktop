@@ -10,6 +10,7 @@ import { stageBundledRuntime } from './stage-bundled-runtime.mjs'
 import { stageDriveEngine } from './stage-drive-engine.mjs'
 import { stageLocalBrain } from './stage-local-brain.mjs'
 import { stageMatrixPublicConfig } from './stage-matrix-public-config.mjs'
+import { stageWorkRuntime } from './stage-work-runtime.mjs'
 import { assertThirdPartyNotices, readBundledPackagesFromAsar, writeThirdPartyNotices } from './third-party-notices.mjs'
 import { desktopServicesConfigFromEnvironment, writeDesktopServicesConfig } from './write-desktop-services-config.mjs'
 
@@ -66,6 +67,7 @@ export default async function matrixAfterPack(
     writeNotices = writeThirdPartyNotices,
     assertNotices = assertThirdPartyNotices,
     stageDisclaimLauncher = stageAtumDisclaimLauncher,
+    stageWork = stageWorkRuntime,
     applyFuses = applyDeviceRuntimeFuses,
     environment = process.env
   } = {}
@@ -104,6 +106,11 @@ export default async function matrixAfterPack(
     requireDeveloperId: context.packager.config?.forceCodeSigning === true
   })
   await stageBrain({ targetRoot: path.join(resources, 'local-brain'), platform: 'darwin', arch })
+  // Work (self-work slice A): T3's standalone server, pinned by digest, beside the Hermes runtime it drives. Without
+  // `ATUM_WORK_ARCHIVE` nothing is staged and the composition draws no Work entry (main-work.ts), so a build without
+  // the archive is honest about it. Developer ID signing of the staged files is `verify-work-runtime-signatures.mjs`'s
+  // check after signing.
+  await stageWork({ resources, platform: 'darwin', arch, archive: environment.ATUM_WORK_ARCHIVE })
   // The open-source notices (FD3) for exactly what is now staged: extraResources put the licence
   // texts in Resources/licenses; this adds THIRD-PARTY-NOTICES.txt for the engine above, Electron
   // and the npm packages this build bundled, then refuses a bundle whose notice is incomplete.

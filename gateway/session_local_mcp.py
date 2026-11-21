@@ -135,10 +135,31 @@ def _frozen_toolset(data, toolset):
     return toolset.startswith(f"mcp-editor_{hashlib.sha256(data['scope'].encode()).hexdigest()[:20]}_")
 
 
-def _configs(servers, names, cwd):
+def _editor_tool_policy(authority):
+    """Load the owner profile's policy, never a viewer's config or request fields."""
+    from hermes_cli.config import load_config_readonly
+    from hermes_constants import reset_hermes_home_override, set_hermes_home_override
+
+    token = set_hermes_home_override(authority.profile_id)
+    try:
+        config = load_config_readonly()
+        if 'editor_mcp_tools' in config:
+            return config['editor_mcp_tools'] or {}
+        return None
+    finally:
+        reset_hermes_home_override(token)
+
+
+def _configs(servers, names, cwd, policy):
     configs = {}
     for i, name in names.items():
         spec = servers[i]
+        if policy is not None:
+            allowed = policy.get(spec['name']) if isinstance(policy, dict) else None
+            if not isinstance(allowed, list) or not allowed or not all(
+                isinstance(tool, str) and tool and not any(c in tool for c in '*?[') for tool in allowed
+            ):
+                continue
         if spec.get('type', 'stdio') == 'stdio':
             config = {'command': spec['command'], 'args': spec['args'],
                       'env': {e['name']: e['value'] for e in spec.get('env', [])}, 'cwd': cwd}
@@ -148,6 +169,8 @@ def _configs(servers, names, cwd):
                 config['transport'] = 'sse'
         # One bounded eager discovery; no lazy or late schema refresh.
         config.update(connect_timeout=5, tool_timeout=30, lazy=False)
+        if policy is not None:
+            config['tools'] = {'include': allowed, 'resources': False, 'prompts': False}
         configs[name] = config
     return configs
 
@@ -198,7 +221,8 @@ def _borrowed(authority, scope, servers, names, cwd, *, partial=False):
     from tools.mcp_tool_discovery import register_mcp_servers
     held = _held(authority, scope)
     # The cwd too: stdio servers run in it, so a committed workspace move respawns them there.
-    wanted = fingerprint([servers, cwd])
+    tool_policy = _editor_tool_policy(authority)
+    wanted = fingerprint([servers, cwd, tool_policy])
     with session_tool_scope(scope):
         with held.lock:
             if held.fingerprint not in (None, wanted):
@@ -209,7 +233,7 @@ def _borrowed(authority, scope, servers, names, cwd, *, partial=False):
                 _disconnect(held, scope)
             connected = _connected(scope, names)
             if len(connected) != len(names):
-                register_mcp_servers(_configs(servers, names, cwd))
+                register_mcp_servers(_configs(servers, names, cwd, tool_policy))
                 connected = _connected(scope, names)
             held.fingerprint = wanted
             held.users += 1

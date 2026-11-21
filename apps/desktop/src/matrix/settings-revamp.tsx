@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { MatrixWorkSettings } from '@/app/work/work-settings'
 import { ProtonMark } from '@/components/brand/proton-mark'
 import { StatusDot } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
@@ -409,6 +410,7 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
       <ThisDeviceStatus fail={fail} snapshot={snapshot} />
       <SettingsSection title={copy.availability}>
         <MatrixKeepAwakeSettings />
+        <MatrixWorkSettings />
       </SettingsSection>
       <MatrixCloudDeviceSettings
         key={`cloud-device:${snapshot.identity?.userId ?? 'none'}:${snapshot.identity?.deviceId ?? 'none'}`}

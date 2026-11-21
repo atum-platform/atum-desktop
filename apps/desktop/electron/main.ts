@@ -325,6 +325,9 @@ import { readWindowsUserEnvVar } from './windows-user-env'
 import { registerWordCompanionIpc, WordCompanionController } from './word-companion'
 import { createWordMacAdapter } from './word-companion-mac'
 import { createWordLiveMacAdapter } from './word-live-mac'
+import { WorkMount } from './work/mount'
+import { WorkSession, workSessionPaths } from './work/session'
+import { WorkHost } from './work/sidecar/host'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { WorkspaceTextFileLeaseProvider } from './workspace-text-file-lease'
 import { isWorkspaceTextRendererApiDenied } from './workspace-text-file-remote'
@@ -1314,6 +1317,8 @@ let atumStore: AtumStoreService | null = null
 let atumAdvisoryRunner: PrivateAdvisoryRunner | null = null
 let atumAccountController: AtumAccountAuthController | null = null
 let atumManagedModelProxy: AtumManagedModelProxy | null = null
+let atumWorkHost: WorkHost | undefined
+let atumWorkMount: WorkMount | undefined
 let atumFilesystemCapabilities: AtumFilesystemCapabilityAuthority | null = null
 let atumFilesystemActionBroker: AtumFilesystemActionBroker | null = null
 // Set by the normal validated runtime path; optional utilities never resolve or
@@ -12314,6 +12319,8 @@ app.whenReady().then(async () => {
             }
 
             atumAgentSync?.start()
+            // Work starts only behind its surface (the mount's own gate); a sign-in is one of the things that can unblock it.
+            void atumWorkMount?.reconcile().catch(() => undefined)
             // Sign-in is one of the store's refresh triggers (plan decision 8):
             // pull the catalog and the signed envelope for this account now.
             void atumStore?.refresh().catch(() => undefined)
@@ -12321,6 +12328,24 @@ app.whenReady().then(async () => {
             return filesystemGrant
           },
           revokeAccount: async input => {
+            // Sign-out and account switch: the Work gate's cutoff and settle first, while the session server still
+            // runs; then the server, the owner view's partition and the auth reset (WorkSession.retire). The mount
+            // never throws: what could not finish stays owed in the gate's ledger or leaves the home refused.
+            if (atumWorkMount) {
+              const work = await atumWorkMount.retire({
+                key: accountKeyFor(input.accountId),
+                generation: input.accountGeneration,
+                root: atumAccountRoots.pathsForAccount(input.accountId).root,
+                accountId: input.accountId
+              })
+
+              if (work.failed.length > 0 || !work.settled) {
+                rememberLog(`[atum-work] retire settled=${work.settled} failed=${work.failed.join(',')}`)
+              }
+            } else {
+              await atumWorkHost?.stop()
+            }
+
             atumAgentSync?.stop()
             // The outgoing account's catalog cache and signed envelope are
             // discarded with it (plan decision 8); the gateway must not find a
@@ -12452,6 +12477,7 @@ app.whenReady().then(async () => {
     pendingRequestsPath: accountId => path.join(atumAccountRoots.pathsForAccount(accountId).root, 'managed-model-pending.json'),
     workspaceProtected: () => atumUtilities.workspaceProtected(),
     privateRequestLive: token => atumFilesystemActionBroker?.privateRequestLive(token) ?? (() => false),
+    recordWorkBillingUnit: async (token, unit, signal) => atumWorkHost?.recordBillingUnit(token, unit, signal),
     onWorkspaceSourceRead: (sessionId, permits, backendToken) => {
       atumFilesystemActionBroker?.authorizeWorkspaceSourceRead(sessionId, permits, backendToken)
     }
@@ -12462,6 +12488,69 @@ app.whenReady().then(async () => {
   } catch (error) {
     rememberLog(`[atum-managed-model] unavailable: ${error instanceof Error ? error.message : String(error)}`)
     atumManagedModelProxy = null
+  }
+
+  const currentWorkAccount = () => {
+    const current = atumMessagingRuntime.tokens.current()
+    const committed = atumAccountRoots.committed()
+
+    if (current && committed && committed.marker.accountKey === accountKeyFor(current.user.id)) {
+      return {
+        key: committed.marker.accountKey,
+        generation: committed.marker.generation,
+        root: committed.paths.root,
+        accountId: current.user.id
+      }
+    }
+  }
+
+  atumWorkHost = new WorkHost({
+    resources: process.resourcesPath,
+    account: currentWorkAccount,
+    gatewayEnvironment: () => {
+      const proxy = atumManagedModelProxy?.backendEnvironment({})
+      const broker = atumFilesystemActionBroker?.backendEnvironment('work-sidecar')
+
+      if (!proxy?.ATUM_MANAGED_MODEL_PROXY_TOKEN || !broker?.ATUM_FILESYSTEM_BROKER_TOKEN) {
+        throw new Error('work_model_unavailable')
+      }
+
+      return { ...proxy, ...broker }
+    },
+    revokeCredentials: () => atumFilesystemActionBroker?.revokeBackendCredential('work-sidecar'),
+    accessState: async () => await atumManagedModelProxy?.accessState() ?? { state: 'unavailable' },
+    openProtons: () => shell.openExternal('https://account.atumplatform.com/payments/protons')
+  })
+  atumWorkHost.registerOwnerPreload()
+
+  // Work's lifecycle as main holds it (plan §6.4, §8.4, §8.5): the session (recovery, auth reset, update) and the
+  // assistants' gate start, retire and tear down together, in one fixed order. See `electron/work/mount/mount.ts`.
+  {
+    const workHost = atumWorkHost
+
+    const workSession = new WorkSession({
+      account: currentWorkAccount,
+      host: workHost.forResources(process.resourcesPath),
+      authTools: paths => workHost.authTools(paths),
+      clearPartition: async partition => {
+        const workPartition = session.fromPartition(partition)
+
+        await workPartition.clearStorageData()
+        await workPartition.clearCache()
+      }
+    })
+
+    atumWorkMount = new WorkMount({
+      account: currentWorkAccount,
+      session: workSession,
+      host: workHost,
+      homeExists: account => fs.existsSync(workSessionPaths(account).home),
+      // This composition has no device enrollment, platform client or Matrix owner client, so it cannot build the
+      // assistants' gate: only the owner's own Work (WorkSession.openOwnerView) exists here. A composition that has
+      // them passes `createWorkGateService` here, and sets the `work` surface with `setSurface('on')`.
+      createGate: () => undefined,
+      log: (event, fields) => rememberLog(`[atum-work] ${event} ${JSON.stringify(fields ?? {})}`)
+    })
   }
 
   // Product pin (G7): the model Atum lands on when the user has never chosen
@@ -13000,6 +13089,15 @@ app.on('before-quit', event => {
   void atumManagedModelProxy?.stop()
 
   const quitTasks = []
+
+  if (atumWorkHost) {
+    const work = atumWorkHost
+    const mount = atumWorkMount
+    atumWorkHost = undefined
+    atumWorkMount = undefined
+    // The gate closes before the server stops (quitting is not a revocation); without a mount, the server alone.
+    quitTasks.push(() => (mount ? mount.quit() : work.stop()))
+  }
 
   if (wordCompanionController?.isActive()) {
     quitTasks.push(() => wordCompanionController!.clear())
