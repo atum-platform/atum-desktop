@@ -488,6 +488,15 @@ export class GateLedger {
     })
   }
 
+  /** An agent has work the gate has not seen end: a new T3 session must not replace the one that owns it (plan §11.2). */
+  hasUnfinished(principal: string): boolean {
+    return Boolean(
+      this.db
+        .prepare("SELECT 1 FROM receipts WHERE principal = ? AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL LIMIT 1")
+        .get(principal)
+    )
+  }
+
   /** Rows that owe a stop and have not settled. */
   owedRows(): ReceiptRow[] {
     return this.receipts('stop_scope IS NOT NULL AND settled IS NULL')

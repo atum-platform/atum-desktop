@@ -4,7 +4,7 @@ import { AccessVerifier, type AssertionResult } from './assertion'
 import { type GateEvent, type GateOptions, type GateState, WorkGate } from './gate'
 import { createGateHandler } from './http'
 import { GateLedger } from './ledger'
-import type { WorkPlatform } from './ports'
+import type { GateSessions, WorkPlatform } from './ports'
 import { bindGateSocket, type BoundGateSocket, GateSocketError } from './socket'
 import { readFacts, WorkSync } from './sync'
 
@@ -24,8 +24,13 @@ export function workGatePaths(account: Pick<GateAccount, 'root'>): { dir: string
   return { dir, ledger: join(dir, 'ledger.sqlite') }
 }
 
-export interface WorkGateServiceOptions extends Omit<GateOptions, 'ledger' | 'hooks'> {
+export interface WorkGateServiceOptions extends Omit<GateOptions, 'ledger' | 'hooks' | 'sessions'> {
   account: GateAccount
+  /**
+   * The agents' sessions and the owner session. A factory gets the gate's ledger so that `unfinished` and
+   * `knownAgents` read the same store the gate writes: `ledger => new T3Sessions({ ..., unfinished: p => ledger.hasUnfinished(p), knownAgents: () => ledger.agents().map(a => a.principal) })`.
+   */
+  sessions: GateSessions | ((ledger: GateLedger) => GateSessions)
   platform: WorkPlatform
   /** The short, protected socket path main created for this enrollment (at most 100 bytes). */
   socketPath: string
@@ -55,7 +60,11 @@ export class WorkGateService {
   constructor(private readonly options: WorkGateServiceOptions) {
     this.now = options.now ?? Date.now
     this.ledger = new GateLedger(workGatePaths(options.account).ledger, options.accountId, this.now)
-    this.gate = new WorkGate({ ...options, ledger: this.ledger })
+    this.gate = new WorkGate({
+      ...options,
+      ledger: this.ledger,
+      sessions: typeof options.sessions === 'function' ? options.sessions(this.ledger) : options.sessions
+    })
     this.sync = new WorkSync({
       gate: this.gate,
       ledger: this.ledger,
