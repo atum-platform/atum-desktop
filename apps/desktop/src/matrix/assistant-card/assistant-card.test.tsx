@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
+import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
 import type { MatrixAgentRoutine, MatrixAgentRoutinesSnapshot, MatrixRoutinesBridge } from '../../../shared/agent-routines'
 import { ACME, botApp } from '../../../shared/app-catalog.test-support'
 import type { MatrixBackgroundSweepBridge } from '../../../shared/background-sweep'
@@ -153,6 +154,7 @@ describe('background follow-ups on the card', () => {
 
   it('shows exactly one short Vietnamese switch for a personal agent beside, not inside, routines', async () => {
     const bridge = backgroundSweep()
+
     const routines = {
       read: vi.fn(async (principal: string) => ({
         ok: true as const,
@@ -165,12 +167,15 @@ describe('background follow-ups on the card', () => {
         }
       }))
     } as unknown as MatrixRoutinesBridge
+
     window.atumMatrix = { ...window.atumMatrix, backgroundSweep: bridge, routines } as MatrixUiBridge
 
     await openLan()
+
     const row = await waitFor(() => {
       const found = document.querySelector<HTMLElement>('[data-assistant-card-background-sweep]')
       expect(found).toBeTruthy()
+
       return found!
     })
 
@@ -208,6 +213,7 @@ it('shows the routines row on a card that is not the primary’s', async () => {
       }
     })
   )
+
   window.atumMatrix = {
     ...window.atumMatrix,
     routines: { read } as unknown as MatrixRoutinesBridge
@@ -233,6 +239,7 @@ it('opens the routines list on arrival when the composer asks for routines', asy
       }
     })
   )
+
   window.atumMatrix = {
     ...window.atumMatrix,
     routines: { read } as unknown as MatrixRoutinesBridge
@@ -567,6 +574,165 @@ it('saves "what it does" as part of the persona, keeping the sections the card d
   expect(soul).toContain('## What you do\n\nLo lịch họp và email.')
   expect(soul).toContain('## Who you are\n\nĐiềm tĩnh.')
   expect(soul).toContain('## Rules\n\nNo Fridays.')
+})
+
+function pendingCardSave() {
+  type Result = Awaited<ReturnType<MatrixAssistantCardsBridge['save']>>
+  let resolve!: (result: Result) => void
+
+  const promise = new Promise<Result>(complete => {
+    resolve = complete
+  })
+
+  return { promise, resolve }
+}
+
+function editPurpose(field: HTMLElement, value: string) {
+  fireEvent.focus(field)
+  fireEvent.change(field, { target: { value } })
+  fireEvent.blur(field)
+}
+
+async function editPersonality(value: string) {
+  fireEvent.click(screen.getByRole('button', { name: /^Tính cách,/ }))
+  const field = await screen.findByRole('textbox', { name: 'Tính cách' })
+  fireEvent.change(field, { target: { value } })
+  fireEvent.blur(field)
+}
+
+it('merges rapid edits to both fields and undoes only the last one', async () => {
+  const firstSave = pendingCardSave()
+  assistants.save.mockReturnValueOnce(firstSave.promise)
+  await openLan()
+  const field = await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' })
+  editPurpose(field, 'Lo lịch họp và email.')
+  await editPersonality('Vui vẻ.')
+
+  await waitFor(() => expect(assistants.save).toHaveBeenCalledTimes(1))
+  const firstSoul = assistants.save.mock.calls[0]![0].soul as string
+  firstSave.resolve({ ok: true, card: card(LAN, { soul: firstSoul, definitionRevision: 3, identityRevision: 2 }) })
+
+  const both = firstSoul.replace('Điềm tĩnh.', 'Vui vẻ.')
+  await waitFor(() => expect(assistants.save).toHaveBeenNthCalledWith(2, {
+    principal: LAN,
+    expectedDefinitionRevision: 3,
+    expectedIdentityRevision: 2,
+    soul: both
+  }))
+  await screen.findByRole('button', { name: 'Tính cách, Vui vẻ.' })
+  fireEvent.click(screen.getByRole('button', { name: 'Hoàn tác' }))
+
+  await waitFor(() => expect(assistants.save).toHaveBeenNthCalledWith(3, expect.objectContaining({ soul: firstSoul })))
+})
+
+it('retries a persona edit using the other field from the conflict snapshot', async () => {
+  const latest = SOUL.replace('Điềm tĩnh.', 'Vui vẻ.')
+  assistants.save.mockResolvedValueOnce({
+    ok: false,
+    error: 'conflict',
+    card: card(LAN, { soul: latest, definitionRevision: 7 })
+  })
+  await openLan()
+  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+
+  await screen.findByText('Đã lưu')
+  expect(assistants.save).toHaveBeenCalledTimes(2)
+  expect(assistants.save).toHaveBeenLastCalledWith({
+    principal: LAN,
+    expectedDefinitionRevision: 7,
+    expectedIdentityRevision: 1,
+    soul: latest.replace('Lo lịch họp.', 'Lo lịch họp và email.')
+  })
+})
+
+it('rejects a queued edit when another writer already changed that field', async () => {
+  const firstSave = pendingCardSave()
+  assistants.save.mockReturnValueOnce(firstSave.promise)
+  await openLan()
+  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+  await editPersonality('Vui vẻ.')
+
+  const latest = SOUL.replace('Điềm tĩnh.', 'Thẳng thắn.')
+  firstSave.resolve({ ok: false, error: 'conflict', card: card(LAN, { soul: latest, definitionRevision: 7 }) })
+
+  await screen.findByText('Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.')
+  expect(assistants.save).toHaveBeenCalledTimes(2)
+  expect(assistants.save).toHaveBeenLastCalledWith(expect.objectContaining({
+    expectedDefinitionRevision: 7,
+    soul: latest.replace('Lo lịch họp.', 'Lo lịch họp và email.')
+  }))
+  expect(screen.getByRole('button', { name: 'Tính cách, Thẳng thắn.' })).toBeTruthy()
+})
+
+it('keeps the latest saved value when the same persona field changed elsewhere', async () => {
+  const latest = SOUL.replace('Lo lịch họp.', 'Quản lý dự án.')
+  assistants.save.mockResolvedValueOnce({
+    ok: false,
+    error: 'conflict',
+    card: card(LAN, { soul: latest, definitionRevision: 7 })
+  })
+  await openLan()
+  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  editPurpose(field, 'Lo lịch họp và email.')
+
+  await screen.findByText('Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.')
+  expect(assistants.save).toHaveBeenCalledTimes(1)
+  expect(field.value).toBe('Quản lý dự án.')
+})
+
+it('keeps a focused draft tied to the value the editor originally showed', async () => {
+  const firstSave = pendingCardSave()
+  assistants.save.mockReturnValueOnce(firstSave.promise)
+  await openLan()
+  await editPersonality('Vui vẻ.')
+  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  fireEvent.focus(field)
+  fireEvent.change(field, { target: { value: 'Lo lịch họp và email.' } })
+
+  const latest = SOUL.replace('Lo lịch họp.', 'Quản lý dự án.')
+  firstSave.resolve({ ok: false, error: 'conflict', card: card(LAN, { soul: latest, definitionRevision: 7 }) })
+  await screen.findByRole('button', { name: 'Tính cách, Vui vẻ.' })
+  expect(field.value).toBe('Lo lịch họp và email.')
+  fireEvent.blur(field)
+
+  await screen.findByText('Mục này đã thay đổi trong lúc bạn chỉnh sửa. Đang hiển thị bản mới nhất.')
+  expect(assistants.save).toHaveBeenCalledTimes(2)
+  expect(field.value).toBe('Quản lý dự án.')
+})
+
+it('undo preserves an other-device edit to the sibling field', async () => {
+  await openLan()
+  editPurpose(await screen.findByRole('textbox', { name: 'Lan giúp bạn việc gì?' }), 'Lo lịch họp và email.')
+  const undo = await screen.findByRole('button', { name: 'Hoàn tác' })
+  const latest = SOUL.replace('Lo lịch họp.', 'Lo lịch họp và email.').replace('Điềm tĩnh.', 'Thẳng thắn.')
+  assistants.save.mockResolvedValueOnce({
+    ok: false,
+    error: 'conflict',
+    card: card(LAN, { soul: latest, definitionRevision: 7 })
+  })
+
+  fireEvent.click(undo)
+  await waitFor(() => expect(assistants.save).toHaveBeenCalledTimes(3))
+  expect(assistants.save).toHaveBeenLastCalledWith(expect.objectContaining({
+    expectedDefinitionRevision: 7,
+    soul: SOUL.replace('Điềm tĩnh.', 'Thẳng thắn.')
+  }))
+  await screen.findByRole('button', { name: 'Tính cách, Thẳng thắn.' })
+})
+
+it('shows a muted hint only after the saved persona exceeds the shared default character budget', async () => {
+  const prefix = '# Lan\n\n## Who you are\n\nWarm.\n\n## What you do\n\n'
+  const budget = contextFileLimits.defaultMaxChars
+  const purpose = '🙂'.repeat(budget - prefix.length)
+  assistants.read.mockResolvedValueOnce({ ok: true, card: card(LAN, { soul: prefix + purpose }) })
+  await openLan()
+  const field = await screen.findByRole<HTMLTextAreaElement>('textbox', { name: 'Lan giúp bạn việc gì?' })
+  await waitFor(() => expect(field.value).toBe(purpose))
+  const hint = 'Trợ lý có thể chỉ đọc một phần hướng dẫn này.'
+  expect(screen.queryByText(hint)).toBeNull()
+
+  editPurpose(field, purpose + 'a')
+  await screen.findByText(hint)
 })
 
 it('shows the standard fields for custom text and changes only its personality section', async () => {
@@ -1088,6 +1254,7 @@ describe('the failover policy on the card', () => {
     base.agents = base.agents?.map(each =>
       each.principal === LAN ? { ...each, answering: 'cloud' as const, executionPolicy: policy } : each
     )
+
     const sourcesRead = vi.fn(async () => ({
       gates: { google: true, folders: true, messages: true, browser: true, location: true, team_spaces: true },
       sources: [],
@@ -1096,6 +1263,7 @@ describe('the failover policy on the card', () => {
         { id: 'mini', name: 'Mac mini', thisMac: false, state: 'ready' as const }
       ]
     }))
+
     window.atumMatrix = {
       assistants,
       command: vi.fn().mockResolvedValue(null),
@@ -1119,6 +1287,7 @@ describe('the failover policy on the card', () => {
 
       return found!
     })
+
     expect(popover.textContent).toContain('Dùng được')
     expect(popover.querySelector('button[data-agent-home-can-use-mac="needs_permission"]')?.textContent).toContain('Cần cấp quyền')
     expect(popover.querySelector('button[data-agent-home-can-use-mac="ready"]')).toBeNull()
@@ -1129,6 +1298,7 @@ describe('the failover policy on the card', () => {
   it('shows only D1 home when an authoritative home and a legacy policy coexist', async () => {
     const base = snapshot()
     const policy = policyView()
+
     const home: NonNullable<MatrixAgentView['home']> = {
       lives: { kind: 'cloud' },
       move: null,
@@ -1154,6 +1324,7 @@ describe('the failover policy on the card', () => {
         ]
       }
     }
+
     base.agents = base.agents?.map(each =>
       each.principal === LAN ? { ...each, executionPolicy: policy, home } : each
     )
@@ -1237,6 +1408,7 @@ describe('where the assistant lives on the card', () => {
       targets: [],
       issue: 'placement_stale'
     }
+
     bridge.read.mockResolvedValue(stale)
     await open(stale, true)
 
@@ -1261,6 +1433,7 @@ describe('one assistant card, the primary included', () => {
   const rowsOf = () =>
     [...window.document.querySelectorAll<HTMLElement>('[data-assistant-card-rows] > *')].map(row => {
       const tag = row.tagName.toLowerCase()
+
       const attributes = [
         'data-assistant-card-home',
         'data-assistant-card-pet',

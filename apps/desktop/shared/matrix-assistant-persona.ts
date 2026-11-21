@@ -48,7 +48,22 @@ export interface ParsedPersona {
 }
 
 const HEADING = /^# (.+)$/m
-const SECTION = /^## (.+?)[ \t]*$/gm
+// An editable field can contain H2s of its own, including the template's titles. A Markdown
+// comment distinguishes those headings from legacy section boundaries without changing their level.
+const FIELD_HEADING = '<!-- atum:persona-heading -->'
+const H2 = /^(?:(<!-- atum:persona-heading -->)(?:\r?\n<!-- atum:persona-heading -->)*\r?\n)?## ([^\r\n]+)/gm
+
+function markFieldHeadings(body: string, customMain = false): string {
+  return body.replace(H2, (heading, marker: string | undefined, title: string) =>
+    marker || !customMain || title.trim() === PERSONA_WHO || title.trim() === PERSONA_WHAT
+      ? `${FIELD_HEADING}\n${heading}`
+      : heading
+  )
+}
+
+function fieldBody(raw: string): string {
+  return raw.replace(H2, (heading, marker: string | undefined) => marker ? heading.slice(heading.indexOf('\n') + 1) : heading).trim()
+}
 
 /** The primary assistant's built-in first line, for any name and either D1 answer (atum-soul.ts
  * writes it; this only has to recognize it so the card shows the same two fields as any other
@@ -79,13 +94,13 @@ function primaryParts(
 
   const bodyStart = lineStart + line.length
   const bodyEnd = sections[0]?.raw ? soul.indexOf(sections[0]!.raw, bodyStart) : soul.length
-  const body = soul.slice(bodyStart, bodyEnd < 0 ? soul.length : bodyEnd).trim()
+  const body = fieldBody(soul.slice(bodyStart, bodyEnd < 0 ? soul.length : bodyEnd))
 
   return { nameLine: line, what: body }
 }
 
 function sectionBody(section: PersonaSection): string {
-  return section.raw.replace(/^## .*(?:\r?\n|$)/, '').trim()
+  return fieldBody(section.raw.replace(/^## .*(?:\r?\n|$)/, ''))
 }
 
 function rawPersona(parsed: ParsedPersona): string {
@@ -101,7 +116,10 @@ export function parsePersona(
   soul: string,
   options: { inherited?: boolean; primary?: boolean } = {}
 ): ParsedPersona {
-  const starts = [...soul.matchAll(SECTION)].map(match => ({ index: match.index!, title: match[1]!.trim() }))
+  const starts = [...soul.matchAll(H2)]
+    .filter(match => !match[1])
+    .map(match => ({ index: match.index!, title: match[2]!.trim() }))
+
   const head = starts.length ? soul.slice(0, starts[0]!.index) : soul
 
   const sections = starts.map((start, index) => ({
@@ -157,14 +175,14 @@ export function parsePersona(
     ...(heading !== undefined ? { heading } : {}),
     who: find(PERSONA_WHO) ? sectionBody(find(PERSONA_WHO)!) : '',
     what: find(PERSONA_WHAT) ? sectionBody(find(PERSONA_WHAT)!) : '',
-    instructions: template ? '' : withoutHeading(customText, heading),
+    instructions: template ? '' : fieldBody(withoutHeading(customText, heading)),
     head,
     sections
   }
 }
 
 function section(title: string, body: string): string {
-  return `## ${title}\n\n${body.trim()}`
+  return `## ${title}\n\n${markFieldHeadings(body.trim())}`
 }
 
 function appendSection(soul: string, raw: string): string {
@@ -231,7 +249,7 @@ export function renderPersona(
     const what = (change.what ?? parsed.what).trim()
     const heading = parsed.heading !== undefined ? `# ${change.name}` : undefined
     const head = [heading, parsed.nameLine].filter((line): line is string => line !== undefined).join('\n\n')
-    const body = what ? `\n\n${what}` : ''
+    const body = what ? `\n\n${markFieldHeadings(what)}` : ''
     let sections = ''
 
     for (const each of parsed.sections) {
@@ -247,7 +265,7 @@ export function renderPersona(
     }
 
     if (who && !parsed.sections.some(each => each.title === PERSONA_WHO)) {
-      sections = `## ${PERSONA_WHO}\n\n${who}${sections ? `\n\n${sections.trimStart()}` : ''}`
+      sections = `${section(PERSONA_WHO, who)}${sections ? `\n\n${sections.trimStart()}` : ''}`
     }
 
     return [`${head}${body}`, sections.trim()].filter(Boolean).join('\n\n').replace(/\s+$/, '')
@@ -268,7 +286,7 @@ export function renderPersona(
       return renderCustomWho(parsed, who)
     }
 
-    let soul = renderCustomMain(parsed, instructions)
+    let soul = renderCustomMain(parsed, markFieldHeadings(instructions, true))
 
     if (whoChanged) {
       return who ? appendSection(soul, section(PERSONA_WHO, who)) : soul
