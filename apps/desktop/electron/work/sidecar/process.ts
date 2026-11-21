@@ -44,6 +44,13 @@ export interface WorkStartOptions {
   trial?: TrialContext
 }
 
+/**
+ * Server settings the assistants' route cannot work without. T3 refuses to register a peer-link OAuth client
+ * (HTTP 400 at `/oauth/mcp/register`) unless linked environments are on, so a fresh install would never get an
+ * agent session. Written before the server opens the home (supervisor.py merges `settings` first).
+ */
+export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
+
 const BROKER_PROFILES = [
   { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum' },
   { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)' }
@@ -146,6 +153,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     lock: join(root, 'sidecar.lock'),
     settingsPath: join(home, 'userdata', 'settings.json'),
     settings: {
+      ...WORK_REQUIRED_SERVER_SETTINGS,
       continueThreadsAfterServerUpdate: continuation,
       defaultModelSelection: managedModel,
       // ACP has no text-generation runner. Keep the selection on Atum so

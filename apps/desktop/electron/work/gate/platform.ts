@@ -47,10 +47,11 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
     },
     async reportSettlements(input) {
       // Contract 1.1 `work.mac.settlements`. A 2xx that is not the contract's reply for this Mac and this batch is not an
-      // acknowledgement: the caller keeps the queue.
+      // acknowledgement: the caller keeps the queue. Every report must be accounted for (accepted or ignored): a smaller
+      // count means the platform did not see some of them, and clearing the batch would lose those.
       const reply = WorkSettlementsReplySchema.safeParse(await call('work_mac_settlements', input as unknown as Record<string, unknown>))
 
-      if (!reply.success || reply.data.deviceServiceId !== input.deviceServiceId || reply.data.accepted + reply.data.ignored > input.reports.length) {
+      if (!reply.success || reply.data.deviceServiceId !== input.deviceServiceId || reply.data.accepted + reply.data.ignored !== input.reports.length) {
         throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
       }
     }

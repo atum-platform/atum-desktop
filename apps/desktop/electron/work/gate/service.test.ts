@@ -27,6 +27,9 @@ let clock: Clock
 let t3: FakeT3
 let carried: { agentPrincipal: string; grant: string }[]
 let pages: WorkSyncPage[]
+let macEvents: { kind: string }[]
+let reportedRequests: string[]
+let acked: number
 
 beforeAll(async () => {
   const pair = await generateKeyPair('RS256', { extractable: true })
@@ -47,6 +50,9 @@ function build(): void {
   clock = new Clock()
   carried = []
   pages = []
+  macEvents = []
+  reportedRequests = []
+  acked = 0
   const sessions = new FakeSessions()
   const owner = new FakeOwner()
 
@@ -70,8 +76,9 @@ function build(): void {
   const platform: WorkPlatform = {
     enroll: async () => ({ work: facts }),
     pull: async input => pages.shift() ?? { deviceServiceId: DEVICE, accountId: ACCOUNT, issuedAt: 1, fromSeq: input.appliedSeq, headSeq: input.appliedSeq, entitled: [LUNA], changes: [], hasMore: false },
-    ack: async () => undefined,
-    macEvent: async () => undefined,
+    ack: async () => void acked++,
+    macEvent: async event => void macEvents.push(event),
+    reportSettlements: async input => void reportedRequests.push(...input.reports.map(report => report.requestId)),
     carryGrant: async carry => void carried.push({ agentPrincipal: carry.agentPrincipal, grant: carry.grant })
   }
 
@@ -205,6 +212,24 @@ describe('the gate as main holds it', () => {
     expect(existsSync(join(run, 'g.sock'))).toBe(false)
     expect(service.state()).toMatchObject({ socket: 'unbound', routeOpen: false })
     expect([...t3.threads.values()][0].runs[0].status).toBe('interrupted')
+  })
+
+  it('retire delivers the cutoff, the settled stop report and the acknowledgement BEFORE it returns (the owner credential is lost right after)', async () => {
+    build()
+    await service.acceptWorkGrant()
+    await service.sync.tick()
+    await service.openRoute()
+    await call(carried[0].grant, launchBody(REQ_1, EVENT_A))
+    macEvents.length = 0
+    acked = 0
+
+    await service.retire('sign_out')
+
+    expect(macEvents.map(event => event.kind)).toEqual(['route_closed'])
+    expect(reportedRequests).toEqual([REQ_1])
+    expect(acked).toBeGreaterThan(0)
+    expect(service.ledger.pending('mac_event')).toHaveLength(0)
+    expect(service.ledger.pending('stop_report')).toHaveLength(0)
   })
 
   it('retire with the server unreachable keeps the stops owed in the ledger: they survive a restart of the app', async () => {

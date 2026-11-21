@@ -208,7 +208,9 @@ export function createT3Client(options: T3ClientOptions): T3Port {
     interrupt: (token, threadId, extra) =>
       call(token, 't3_thread_interrupt', { threadId, ...(extra?.stop ? { stop: true } : {}) }, {}, 30_000, true),
     wait: (token, threadId, runId, timeoutMs) => call(token, 't3_thread_wait', { threadId, runId, timeoutMs }, {}, timeoutMs + 10_000, true),
-    list: (token, args) => call(token, 't3_thread_list', args, {}, 30_000, true),
+    // T3 answers `target_required` to a list from a client that is not inside a thread, unless it names a project or
+    // `allProjects`. The gate always means "every project this session may see" (the peer fence still applies).
+    list: (token, args) => call(token, 't3_thread_list', { ...args, allProjects: true }, {}, 30_000, true),
     restartWhenIdle: options.restartWhenIdle
   }
 }

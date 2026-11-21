@@ -165,15 +165,27 @@ export class T3Sessions implements GateSessions {
     return inflight
   }
 
+  /**
+   * The session id stays (in memory and in the store) until T3 confirms the session is gone, so a failed revocation
+   * is found and retried by the next pass instead of being forgotten. A session T3 no longer lists counts as revoked.
+   */
   async revokeAgent(principal: string): Promise<void> {
     const current = this.agents.get(principal) ?? this.load(`agent:${principal}`)
 
+    if (current) {
+      try {
+        await this.options.auth.revokeSession(current.sessionId)
+      } catch (error) {
+        const listed = await this.options.auth.sessionIds().then(ids => ids.includes(current.sessionId), () => true)
+
+        if (listed) {
+          throw error
+        }
+      }
+    }
+
     this.agents.delete(principal)
     this.options.store.delete(`agent:${principal}`)
-
-    if (current) {
-      await this.options.auth.revokeSession(current.sessionId)
-    }
   }
 
   async revokeAll(principals: string[]): Promise<void> {
@@ -203,18 +215,20 @@ export class T3Sessions implements GateSessions {
     const json = { 'content-type': 'application/json' }
     const before = new Set(await this.options.auth.sessionIds())
 
-    const registered = (await (
-      await this.doFetch(`${origin}/oauth/mcp/register`, {
-        method: 'POST',
-        headers: json,
-        body: JSON.stringify({
-          client_name: input.name,
-          redirect_uris: [REDIRECT],
-          token_endpoint_auth_method: 'none',
-          ...(input.peer ? { software_id: 't3code-peer-link' } : {})
-        })
+    // A peer-link registration is refused (400) unless the server runs with `linkedEnvironmentsEnabled`
+    // (WORK_REQUIRED_SERVER_SETTINGS); every other refusal is a typed failure, never a parse crash.
+    const registration = await this.doFetch(`${origin}/oauth/mcp/register`, {
+      method: 'POST',
+      headers: json,
+      body: JSON.stringify({
+        client_name: input.name,
+        redirect_uris: [REDIRECT],
+        token_endpoint_auth_method: 'none',
+        ...(input.peer ? { software_id: 't3code-peer-link' } : {})
       })
-    ).json()) as { client_id?: string }
+    })
+
+    const registered = (registration.ok ? await registration.json().catch(() => ({})) : {}) as { client_id?: string }
 
     if (!registered.client_id) {
       throw new Error('t3_oauth_register_failed')

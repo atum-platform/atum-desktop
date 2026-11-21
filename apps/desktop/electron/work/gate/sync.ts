@@ -35,6 +35,24 @@ const SETTLEMENT_BACKOFF_BASE_MS = 30_000
 const SETTLEMENT_BACKOFF_CAP_MS = 15 * 60_000
 const SETTLEMENT_RETENTION_MS = WORK_SETTLEMENT_RETENTION_DAYS * 86_400_000
 
+/** A 4xx that says "I will not take this one" (as opposed to signed out, rate limited, or a server that is down). */
+const definiteRefusal = (error: unknown): boolean => [400, 409, 410, 412, 422].includes((error as { status?: number } | null)?.status ?? 0)
+
+/** Events of one family describe the same state, so a newer one makes an older one obsolete. */
+function eventFamily(payload: string): string | undefined {
+  try {
+    const event = JSON.parse(payload) as { kind?: unknown; agentPrincipal?: unknown }
+
+    if (event.kind === 'route_closed' || event.kind === 'route_opened') {
+      return 'route'
+    }
+
+    return typeof event.agentPrincipal === 'string' ? `agent:${event.agentPrincipal}` : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export type TickResult = 'ok' | 'offline' | 'regressed' | 'gap' | 'invalid' | 'not_enrolled'
 
 const FACTS = 'facts'
@@ -150,6 +168,12 @@ export class WorkSync {
 
     if (result === 'ok') {
       gate.noteGoodSync()
+    }
+
+    // A stop that failed on a transient error or a declined restart stays owed in the ledger; every tick is a retry
+    // (the gate serializes it, and it is a no-op when nothing is owed). Before the ack: `settledSeq` must be current.
+    if (ledger.owedRows().length > 0 || ledger.openRevocations().length > 0) {
+      await gate.scheduleSettle().catch(() => undefined)
     }
 
     if (result === 'ok' || result === 'offline') {
@@ -315,21 +339,51 @@ export class WorkSync {
   }
 
   /** The content-free reports owed to the platform: Mac events and request-correlated stop reports (R4-1). */
-  async flush(): Promise<void> {
+  async flush(options: { ignoreBackoff?: boolean } = {}): Promise<void> {
     const { ledger, platform, accountId, deviceServiceId } = this.options
+    const events = ledger.pending('mac_event')
 
-    for (const row of ledger.pending('mac_event')) {
+    for (const row of events) {
       ledger.attempted(row.id)
 
       try {
         await platform.macEvent({ deviceServiceId, accountId, ...JSON.parse(row.payload) })
         ledger.delivered(row.id)
-      } catch {
-        break
+      } catch (error) {
+        if (!definiteRefusal(error)) {
+          // offline, signed out, rate limited or a server error: nothing was decided, so try again in order
+          break
+        }
+
+        // The platform ANSWERED that it cannot take this event (its epoch moved on while this Mac was away). If a newer
+        // event of the same family is queued it says the same thing better, so this one is superseded; the newest of a
+        // family is kept. Either way the events behind it are not held back (they were wedged here before).
+        const family = eventFamily(row.payload)
+
+        if (family && events.some(later => later.id > row.id && eventFamily(later.payload) === family)) {
+          ledger.delivered(row.id)
+          this.options.log?.('mac_event_superseded', { id: row.id })
+        }
       }
     }
 
-    await this.flushSettlements()
+    await this.flushSettlements(options.ignoreBackoff === true)
+  }
+
+  /**
+   * One last, bounded delivery before the owner's credential goes away (sign-out, switch, Work off): the cutoff's
+   * events, the settled stop reports and the acknowledgement. Never throws and never waits longer than `ms`.
+   */
+  async flushBounded(ms: number): Promise<void> {
+    const work = (async () => {
+      await this.flush({ ignoreBackoff: true })
+      await this.ack().catch(() => undefined)
+    })().catch(() => undefined)
+
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    await Promise.race([work, new Promise<void>(resolve => void (timer = setTimeout(resolve, ms)))])
+    clearTimeout(timer)
   }
 
   /**
@@ -340,11 +394,11 @@ export class WorkSync {
    * word alone). A report that cannot be sent from here (it fails the contract, or is past the platform's retention) is
    * dropped with a log line: nothing can ever acknowledge it.
    */
-  private async flushSettlements(): Promise<void> {
+  private async flushSettlements(ignoreBackoff = false): Promise<void> {
     const { ledger, platform, accountId, deviceServiceId } = this.options
     const send = platform.reportSettlements?.bind(platform)
 
-    if (!send || this.now() < this.settlementRetryAt) {
+    if (!send || (!ignoreBackoff && this.now() < this.settlementRetryAt)) {
       return
     }
 

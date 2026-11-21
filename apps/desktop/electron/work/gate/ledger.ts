@@ -428,7 +428,8 @@ export class GateLedger {
   /** Durably, BEFORE the first byte goes to T3. */
   markForwarded(principal: string, requestId: string, incarnation: string): void {
     this.db
-      .prepare('UPDATE receipts SET forwarded = 1, forward_count = forward_count + 1, incarnation = ?, updated_at = ? WHERE principal = ? AND request_id = ?')
+      // The FIRST forward's incarnation is kept: a later resend must not make an earlier uncertain send look provably absent.
+      .prepare('UPDATE receipts SET forwarded = 1, forward_count = forward_count + 1, incarnation = COALESCE(incarnation, ?), updated_at = ? WHERE principal = ? AND request_id = ?')
       .run(incarnation, this.now(), principal, requestId)
   }
 
@@ -483,6 +484,14 @@ export class GateLedger {
             .run(at, revocationId, at, input.principal as string).changes
         )
       }
+
+      // The report owed to the platform is part of the cutoff: a crash can never leave one without the other.
+      this.enqueue('mac_event', {
+        kind: input.scope === 'route' ? 'route_closed' : 'agent_closed',
+        routeEpoch: this.routeEpoch(),
+        at,
+        ...(input.principal ? { agentPrincipal: input.principal, agentGeneration: generation } : {})
+      })
 
       return { revocationId, owed, routeEpoch: this.routeEpoch(), generation }
     })

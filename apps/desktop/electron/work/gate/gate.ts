@@ -7,6 +7,7 @@ import {
   WORK_DERIVED_TITLE_MAX_CODE_POINTS,
   WORK_GRANT_RANDOM_BYTES,
   WORK_PROVISIONAL,
+  WORK_REJECTION_REASONS,
   WORK_THREAD_STATUSES,
   type WorkAdmissionErrorType,
   workDeadline,
@@ -170,6 +171,7 @@ export function buildLaunchCall(options: {
 }
 
 const THREAD_STATUS = new Set<string>(WORK_THREAD_STATUSES)
+const REJECTIONS = new Set<string>(WORK_REJECTION_REASONS)
 
 export function threadStatusOf(read: Extract<ThreadRead, { kind: 'found' }>): WorkThreadStatus {
   if (THREAD_STATUS.has(read.status) && read.status !== 'no_run_yet') {
@@ -405,6 +407,12 @@ export class WorkGate {
         return answerForRow(this.gateId(), this.ledger.receipt(row.principal, row.requestId) as ReceiptRow)
       }
 
+      const proven = this.commitProvenRejection(row)
+
+      if (proven) {
+        return proven
+      }
+
       const can = this.statusReader.resendable(row)
 
       if (!can.ok || row.forwardCount >= 2) {
@@ -582,8 +590,10 @@ export class WorkGate {
     // b. the deadline: past it, an unsent launch is refused for good (safe at any time: no byte ever left); a sent one is never resent
     if (this.now() > (row.notAfter as number)) {
       if (!row.forwarded) {
-        this.ledger.update(principal, requestId, { state: 'refused', reason: 'expired', settled: 'never_sent' })
-        this.ledger.releaseClaim(row.eventId)
+        this.ledger.tx(() => {
+          this.ledger.update(principal, requestId, { state: 'refused', reason: 'expired', settled: 'never_sent' })
+          this.ledger.releaseClaim(row.eventId)
+        })
 
         return answer(same())
       }
@@ -642,8 +652,19 @@ export class WorkGate {
     const pending: WorkRequestAnswer = { gateId, requestId, class: 'pending', receipt: 'admitted', forwarded: true }
 
     const reject = (reason: WorkRejectionReason): WorkRequestAnswer => {
-      this.ledger.update(principal, requestId, { state: 'rejected', reason })
-      this.ledger.releaseClaim(row.eventId)
+      if (row.forwardCount > 1) {
+        // T3 refused THIS send, but an earlier send of the same request was never answered and may have started the
+        // thread. A refusal of the retry says nothing about it: the claim on the owner's event and the stop owed stay
+        // until a read proves the whole request's outcome (`commitProvenRejection`, or the cleanup's own read).
+        this.ledger.update(principal, requestId, { reason })
+
+        return owed ? answerForRow(gateId, this.ledger.receipt(principal, requestId) as ReceiptRow) : pending
+      }
+
+      this.ledger.tx(() => {
+        this.ledger.update(principal, requestId, { state: 'rejected', reason })
+        this.ledger.releaseClaim(row.eventId)
+      })
 
       if (owed) {
         this.settle(this.ledger.receipt(principal, requestId) as ReceiptRow, 'nothing_started')
@@ -685,6 +706,32 @@ export class WorkGate {
     }
 
     return owed ? answerForRow(gateId, row) : pending
+  }
+
+  /**
+   * A rejection that was parked because an earlier send's outcome was unknown becomes final only when the thread is
+   * absent on a read made by ANOTHER T3 process than the one the first send went to (the same proof the cleanup uses).
+   * The rejection and the release of the claim are one durable write. Undefined: not proven, nothing changes.
+   */
+  private commitProvenRejection(row: ReceiptRow): WorkRequestAnswer | undefined {
+    const current = this.ledger.receipt(row.principal, row.requestId) as ReceiptRow
+
+    if (current.state !== 'admitted' || current.stopScope || !current.reason || !REJECTIONS.has(current.reason)) {
+      return undefined
+    }
+
+    const now = this.options.t3.incarnation()
+
+    if (now === undefined || current.incarnation === null || now === current.incarnation) {
+      return undefined
+    }
+
+    this.ledger.tx(() => {
+      this.ledger.update(current.principal, current.requestId, { state: 'rejected', reason: current.reason })
+      this.ledger.releaseClaim(current.eventId)
+    })
+
+    return answerForRow(this.gateId(), this.ledger.receipt(current.principal, current.requestId) as ReceiptRow)
   }
 
   /** Settle one row: write it, release the claim only when nothing could have been sent, queue the content-free report. */
@@ -903,16 +950,27 @@ export class WorkGate {
       const session = await this.options.sessions.owner()
       const reply = await this.options.t3.list(session.token, { limit: 200 })
 
-      if (reply.transport !== 'ok' || reply.isError || reply.data?.nextCursor) {
+      if (reply.transport !== 'ok' || reply.isError || !reply.data) {
         return false
       }
 
-      const raw = reply.data?.threads ?? reply.data?.items ?? []
+      // T3's own pagination, validated: one complete page (no cursor, and a total that is exactly what came back).
+      const { threads, total, nextCursor } = reply.data
 
-      return Array.isArray(raw) && raw.every(item => {
-        const status = (item as { status?: unknown } | null)?.status
+      if (!Array.isArray(threads) || (nextCursor !== null && nextCursor !== undefined) || (total !== undefined && total !== threads.length)) {
+        return false
+      }
 
-        return typeof status === 'string' && THREAD_STATUS.has(status) && !BUSY_RUN(status)
+      return threads.every(item => {
+        const thread = item as { status?: unknown; blockedOnThreadWait?: unknown; pendingBackgroundTasks?: unknown } | null
+
+        return (
+          typeof thread?.status === 'string' &&
+          THREAD_STATUS.has(thread.status) &&
+          !BUSY_RUN(thread.status) &&
+          thread.blockedOnThreadWait !== true &&
+          (thread.pendingBackgroundTasks === undefined || (Array.isArray(thread.pendingBackgroundTasks) && thread.pendingBackgroundTasks.length === 0))
+        )
       })
     } catch {
       return false
@@ -955,14 +1013,9 @@ export class WorkGate {
     return this.ledger.cutoff(input)
   }
 
-  /** What follows a committed cutoff: the report owed to the platform, the event, and the cleanup (steps 3 to 6). */
+  /** What follows a committed cutoff: the log line, the event and the cleanup (steps 3 to 6). */
   finishRevoke(input: RevokeInput, result: CutoffResult): void {
-    this.ledger.enqueue('mac_event', {
-      kind: input.scope === 'route' ? 'route_closed' : 'agent_closed',
-      routeEpoch: result.routeEpoch,
-      at: this.now(),
-      ...(input.principal ? { agentPrincipal: input.principal, agentGeneration: result.generation } : {})
-    })
+    // The `mac_event` for the platform was queued inside the cutoff's own transaction (`GateLedger.cutoff`).
     this.options.log?.('revoked', { scope: input.scope, reason: input.reason, owed: result.owed })
     this.emit({ type: 'revoked', scope: input.scope, principal: input.principal ?? null, reason: input.reason, revocationId: result.revocationId })
     this.emit({ type: 'change' })
@@ -1046,26 +1099,10 @@ export class WorkGate {
         const read = await t3.read(owner.token, row.threadId as string)
 
         if (read.kind === 'found') {
-          if (threadBusy(read)) {
-            await t3.interrupt(owner.token, row.threadId as string, { stop: true })
-
-            let seen = read
-            const polls = this.options.stopPolls ?? 40
-
-            for (let i = 0; i < polls && threadBusy(seen); i++) {
-              await (this.options.sleep ?? ((ms: number) => delay(ms)))(this.options.stopPollMs ?? 250)
-              const again = await t3.read(owner.token, row.threadId as string)
-
-              if (again.kind !== 'found') {
-                break
-              }
-
-              seen = again
-            }
-
-            if (threadBusy(seen)) {
-              break
-            }
+          // `stopped` is claimed only after a native Stop that T3 accepted and a read AFTER it that shows nothing in
+          // flight: an idle first read proves nothing about a run that is about to start or a stop that never landed.
+          if (!(await this.stopAndVerify(owner.token, row.threadId as string))) {
+            break
           }
 
           if (row.state === 'admitted') {
@@ -1107,9 +1144,33 @@ export class WorkGate {
     this.acknowledgeSettled()
   }
 
-  /** Step 6: only when every row in scope is stopped or settled. */
+  /** A native Stop through main's owner session, then a validated read after it. False: the stop is still owed. */
+  private async stopAndVerify(token: string, threadId: string): Promise<boolean> {
+    const { t3 } = this.options
+    const stop = await t3.interrupt(token, threadId, { stop: true })
+
+    if (stop.transport !== 'ok' || stop.isError) {
+      return false
+    }
+
+    let seen = await t3.read(token, threadId)
+    const polls = this.options.stopPolls ?? 40
+
+    for (let i = 0; i < polls && seen.kind === 'found' && threadBusy(seen); i++) {
+      await (this.options.sleep ?? ((ms: number) => delay(ms)))(this.options.stopPollMs ?? 250)
+      seen = await t3.read(token, threadId)
+    }
+
+    return seen.kind === 'found' && !threadBusy(seen)
+  }
+
+  /** Step 6: only when every row in scope is stopped or settled AND the revoked callers' sessions are revoked. */
   private acknowledgeSettled(): void {
     for (const revocation of this.ledger.openRevocations()) {
+      if (this.ledger.meta(`sessions_revoked_${revocation.id}`) === undefined) {
+        continue
+      }
+
       const open = this.ledger.receipts('stop_scope IS NOT NULL AND settled IS NULL AND revocation_id <= ?', revocation.id)
 
       if (open.length > 0) {
@@ -1173,7 +1234,11 @@ export class WorkGate {
             return
           }
 
-          if (read.kind !== 'absent' || !this.statusReader.resendable(fresh).ok || fresh.forwardCount >= 2) {
+          if (read.kind !== 'absent' || this.commitProvenRejection(fresh)) {
+            return
+          }
+
+          if (!this.statusReader.resendable(fresh).ok || fresh.forwardCount >= 2) {
             return
           }
         }

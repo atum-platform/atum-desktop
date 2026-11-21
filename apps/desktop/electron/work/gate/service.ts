@@ -37,6 +37,8 @@ export interface WorkGateServiceOptions extends Omit<GateOptions, 'ledger' | 'ho
   fetchJwks?: (url: string) => Promise<unknown>
   hooks?: GateOptions['hooks']
   syncIntervalMs?: number
+  /** The most `retire` waits to deliver the cutoff and settled reports before the credential is lost. */
+  retireFlushMs?: number
 }
 
 export interface GateServiceState extends GateState {
@@ -203,6 +205,8 @@ export class WorkGateService {
     this.closeRouteState(reason === 'switch' ? 'sign_out' : reason)
     await this.closeRoute()
     await this.gate.scheduleSettle()
+    // The owner's credential is about to go: deliver the cutoff and the settled stop reports now, within a bound.
+    await this.sync.flushBounded(this.options.retireFlushMs ?? 10_000)
     this.gate.stop()
 
     return { settled: this.ledger.owedRows().length === 0 }

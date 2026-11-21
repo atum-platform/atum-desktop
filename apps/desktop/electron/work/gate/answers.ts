@@ -53,7 +53,8 @@ const TEXT: Record<string, string> = {
   accepted: 'Started on the Mac.',
   refused: 'It did not start.',
   ambiguous: 'Could not confirm whether it ran.',
-  revoked: 'It was stopped.',
+  // The cutoff answer is immediate; whether the work was stopped is confirmed later by the Mac's cleanup and report.
+  revoked: 'Access to this Mac was revoked.',
   unavailable: 'The Mac is not ready yet; nothing was started.',
   revocation_pending: 'A stop is still in progress on the Mac; nothing was started.',
   ok: 'Done.',

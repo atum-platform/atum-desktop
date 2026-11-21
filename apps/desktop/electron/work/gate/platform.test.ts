@@ -17,6 +17,7 @@ const report = {
 }
 
 const input = { deviceServiceId: DEVICE, accountId: ACCOUNT, routeEpoch: 4, reports: [report] }
+const two = { ...input, reports: [report, { ...report, requestId: 'AAAAAAAAAAAAAAAAAAAAA2' }] }
 
 function client(answer: (body: Record<string, unknown>) => { status: number; body: unknown }) {
   const calls: { url: string; headers: Record<string, string>; body: Record<string, unknown> }[] = []
@@ -52,9 +53,18 @@ describe('reportSettlements', () => {
     await expect(c.platform.reportSettlements?.(input)).resolves.toBeUndefined()
   })
 
+  it('a batch of two is acknowledged only when accepted plus ignored is two', async () => {
+    const whole = client(() => ({ status: 200, body: { deviceServiceId: DEVICE, accepted: 1, ignored: 1 } }))
+    await expect(whole.platform.reportSettlements?.(two)).resolves.toBeUndefined()
+
+    const partial = client(() => ({ status: 200, body: { deviceServiceId: DEVICE, accepted: 1, ignored: 0 } }))
+    await expect(partial.platform.reportSettlements?.(two)).rejects.toThrow()
+  })
+
   it.each([
     ['a reply about another Mac', { deviceServiceId: NOVA, accepted: 1, ignored: 0 }],
     ['a reply that counts more than was sent', { deviceServiceId: DEVICE, accepted: 1, ignored: 1 }],
+    ['a reply that does not account for every report (fewer counted than sent)', { deviceServiceId: DEVICE, accepted: 0, ignored: 0 }],
     ['an empty object', {}],
     ['an HTML page a proxy answered 200 with', '<html>sign in</html>'],
     ['a reply with an extra field', { deviceServiceId: DEVICE, accepted: 1, ignored: 0, note: 'x' }]
