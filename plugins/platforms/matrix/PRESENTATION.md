@@ -106,5 +106,16 @@ The short owner notices sent when no turn can run (intake paused, unreadable mes
 in English and Vietnamese through `agent.i18n.owner_text`; `display.language: vi` (or
 `HERMES_LANGUAGE=vi`) selects Vietnamese, anything else English.
 
+Trusted gateway integrations can publish one text event with
+`send_structured_delivery(room, content, transaction_id, revalidate=..., acknowledge=...)`.
+Assign distinct stable transaction IDs to distinct notices or reports. Keep the
+same sender device, token and outbox across restarts. The adapter returns the
+observed event ID and supplies it to the acknowledgement callback. It checks
+room history before retrying an uncertain send, keeps the transaction ID through
+an encrypted retry and refuses automatic replay after a sender change. Persist
+the event ID in the caller's receipt. After the seven-day outbox retention
+window, reconcile a lost acknowledgement with room history before submitting
+that publication again.
+
 Offline tests (no homeserver or model calls):
 `scripts/run_tests.sh tests/plugins/matrix_presentation`.
