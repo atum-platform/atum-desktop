@@ -58,6 +58,7 @@ const NOT_OVERLAPPING: Record<string, string> = {
   'components/ui/sheet.tsx#SheetPortal': 'passthrough portal; SheetOverlay and SheetContent hold',
   'components/ui/dropdown-menu.tsx#DropdownMenuPortal': 'passthrough portal; DropdownMenuContent and SubContent hold',
   'matrix/playground/entry.tsx#Playground': 'the design playground bar: dev only, served by Vite alone, and the playground has no native views',
+  'matrix/playground/work-fixtures.ts#paint': 'the playground stand-in for the Work view: dev only, served by Vite alone, a pointer-events:none screenshot painted where the native Work view would sit; the playground has no native views',
   'matrix/app.tsx#MatrixAccountView': 'the skip link to the message box: fixed only while it has keyboard focus, inside the 48px titlebar band (top-2) above every app view, and not rendered while an app is open',
 }
 
