@@ -36,6 +36,14 @@ export function carryCustody(python: string, source: string, home: string,
 
 export class CarryRejected extends Error {}
 
+/** Durable account states in which a ChatGPT sign-in started on this Mac cannot be kept: the
+ * account's connection already lives in cloud custody (`migrated`), or a cloud copy exists beside
+ * it (`cloud_connection_exists`). Hermes' carry tombstone then discards any local grant, so the
+ * device flow would only burn a code. */
+export function chatGptSignInHeldInCloud(state: string | undefined): boolean {
+  return state === 'migrated' || state === 'cloud_connection_exists'
+}
+
 /** One account-scoped flight. Server migration marker survives app reinstall and lost responses. */
 export class ChatGptCarry {
   private running = false
@@ -51,6 +59,15 @@ export class ChatGptCarry {
     restored(): void
     now?: () => number
   }) {}
+
+  /** The account's durable carry state, read fresh from the same owner-scoped route `sync` reads
+   * (a status read: empty body, no credential moves). `undefined` when it cannot be read, so a
+   * caller deciding whether to start a sign-in keeps its normal path instead of guessing. */
+  async status(): Promise<string | undefined> {
+    if (!this.options.scope()) {return undefined}
+    try {return await this.options.call({}, AbortSignal.timeout(8_000))}
+    catch {return undefined}
+  }
 
   async sync(): Promise<void> {
     const scope = this.options.scope()

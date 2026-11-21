@@ -173,7 +173,7 @@ def _sync_codex_pool_entries(
 
 def _save_codex_tokens(
     tokens: dict[str, str], last_refresh: str | None = None, label: str | None = None, *,
-    set_active: bool = True, write_through: bool = False,
+    set_active: bool = True, write_through: bool = False, interactive: bool = False,
 ) -> None:
     """Save Codex OAuth tokens to the auth store the grant was resolved FROM.
 
@@ -187,7 +187,9 @@ def _save_codex_tokens(
     Only a token REFRESH passes ``write_through=True``: a fresh login or import under a profile
     is the profile's own grant and must not overwrite the root account it was borrowing.
     ``set_active=False`` stores credentials for a side tool (image gen) without making Codex the
-    active inference provider.
+    active inference provider. ``interactive=True`` marks a sign-in the person is watching, so a
+    store that holds the ChatGPT-carry tombstone raises ``CredentialCarried`` instead of dropping
+    the grant silently.
     """
     from hermes_cli.auth import (
         _auth_file_path, _load_auth_store, _provider_state_transaction, _same_path,
@@ -216,7 +218,7 @@ def _save_codex_tokens(
         _store_provider_state(target_store, "openai-codex", state, set_active=set_active)
         _sync_codex_pool_entries(
             target_store, tokens, last_refresh, previous_singleton_tokens=previous_singleton_tokens)
-        _save_auth_store(target_store, target_path=target_path)
+        _save_auth_store(target_store, target_path=target_path, interactive=interactive)
 
 
 def _recover_codex_tokens_from_cli(

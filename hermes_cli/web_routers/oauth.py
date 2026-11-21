@@ -482,7 +482,7 @@ def _codex_full_login_worker(session_id: str) -> None:
             return
 
         tokens = _codex_exchange_tokens(httpx, code_resp)
-        from hermes_cli.auth import _save_codex_tokens
+        from hermes_cli.auth import CredentialCarried, _save_codex_tokens
 
         # The cancellation check and the save are one atomic critical section
         # under the lock cancel_oauth_session() uses; otherwise DELETE could
@@ -498,7 +498,20 @@ def _codex_full_login_worker(session_id: str) -> None:
                 _codex_lifecycle("credential_save_end", outcome="cancelled_before_save")
                 return
             try:
-                _save_codex_tokens(tokens)
+                # Interactive: the person is watching, so a store that refuses the grant (the
+                # ChatGPT-carry tombstone keeps this account's sign-in in cloud custody) must
+                # end the flow instead of reporting a login that was never saved.
+                _save_codex_tokens(tokens, interactive=True)
+            except CredentialCarried as carried:
+                _codex_lifecycle("credential_save_end", outcome=carried.code)
+                sess["status"] = "error"
+                sess["error_code"] = carried.code
+                sess["error_message"] = str(carried)
+                _log.warning(
+                    "oauth/device: openai-codex sign-in not saved (session=%s): the account's "
+                    "ChatGPT connection is held in cloud custody and must be reset first",
+                    session_id)
+                return
             except Exception:
                 _codex_lifecycle("credential_save_end", outcome="failed")
                 raise
@@ -1057,6 +1070,9 @@ async def poll_oauth_session(provider_id: str, session_id: str, profile: Optiona
     return {
         "session_id": session_id, "status": sess["status"],
         "error_message": sess.get("error_message"), "expires_at": sess.get("expires_at"),
+        # A closed error class the window can act on (e.g. ``discarded_carried``: the account's
+        # ChatGPT connection is in cloud custody, so this sign-in was refused, not mistyped).
+        "error_code": sess.get("error_code"),
         # Nous: why a sign-in ended, who signed in, and the default model the completion settled on
         # (None when the config was on the user's own model).
         "reason": sess.get("reason"), "account_email": sess.get("account_email"), "model": sess.get("model"),

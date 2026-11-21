@@ -269,13 +269,19 @@ export async function finishMatrixSubscriptionChatGptPoll(
   options: {
     complete(): Promise<MatrixSubscriptionFollowUpResult>
   }
-): Promise<{ status: 'pending' | 'connected' | 'cancelled' | 'failed' }> {
+): Promise<{ status: 'pending' | 'connected' | 'cancelled' | 'failed' | 'carried' }> {
   if (result.status === 'pending') {
     return { status: 'pending' }
   }
 
   if (result.status === 'cancelled') {
     return { status: 'cancelled' }
+  }
+
+  // Approved upstream, refused by the account's auth store: its ChatGPT connection is held in
+  // cloud custody, so this sign-in was never saved. Say what that means; never "failed, try again".
+  if (result.status === 'error' && result.reason === 'discarded_carried') {
+    return { status: 'carried' }
   }
 
   if (result.status !== 'approved') {

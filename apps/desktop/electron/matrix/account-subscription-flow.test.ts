@@ -167,6 +167,20 @@ describe('the account ChatGPT connection state machine', () => {
     expect(complete).not.toHaveBeenCalled()
   })
 
+  it('reports a sign-in the account store refused as held in the cloud, not as a failure', async () => {
+    const complete = vi.fn(async () => ({ relay: 'ok' as const, refresh: 'ok' as const }))
+
+    // Hermes approved the code and then discarded the grant: its carry tombstone keeps this
+    // account's ChatGPT connection in cloud custody. Retrying cannot help, so it is not "failed".
+    await expect(
+      finishMatrixSubscriptionChatGptPoll(
+        { status: 'error', reason: 'discarded_carried' },
+        { complete }
+      )
+    ).resolves.toEqual({ status: 'carried' })
+    expect(complete).not.toHaveBeenCalled()
+  })
+
   it('records one closed status for successful relay publication and agent refresh', async () => {
     const outcomes: string[] = []
 

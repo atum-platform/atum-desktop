@@ -53,6 +53,9 @@ interface MatrixSettingsSubscriptionsCopy {
   chatgptCloudFailed: string
   /** The (?) beside the row while relay publication is not ready. */
   chatgptCloudTip: string
+  /** A sign-in that cannot be kept here: the account's ChatGPT connection is held in cloud custody,
+   * so there is nothing to retry until that connection is reset. One line, no jargon. */
+  chatgptCarried: string
   /** The status itself could not be read. */
   statusUnavailable: string
   tryAgain: string
@@ -108,6 +111,7 @@ const copy: Record<Locale, MatrixSettingsLegacyCopy & MatrixSettingsSubscription
     chatgptCloudSettingUp: 'Setting up for your assistants…',
     chatgptCloudFailed: 'Not ready for your assistants yet.',
     chatgptCloudTip: 'Your assistants use ChatGPT through this Mac once setup finishes.',
+    chatgptCarried: 'ChatGPT is linked in the cloud. Reset that connection before signing in here.',
     statusUnavailable: 'Couldn’t check your subscription.',
     tryAgain: 'Try again',
     signIn: 'Sign in',
@@ -163,6 +167,7 @@ const copy: Record<Locale, MatrixSettingsLegacyCopy & MatrixSettingsSubscription
     chatgptCloudSettingUp: 'Đang thiết lập cho các trợ lý của bạn…',
     chatgptCloudFailed: 'Trợ lý của bạn chưa dùng được ChatGPT.',
     chatgptCloudTip: 'Các trợ lý của bạn sẽ dùng ChatGPT qua máy Mac này khi thiết lập xong.',
+    chatgptCarried: 'ChatGPT đang được liên kết trên đám mây. Hãy đặt lại kết nối đó trước khi đăng nhập tại đây.',
     statusUnavailable: 'Chưa kiểm tra được gói đăng ký của bạn.',
     tryAgain: 'Thử lại',
     signIn: 'Đăng nhập',
@@ -218,6 +223,7 @@ const copy: Record<Locale, MatrixSettingsLegacyCopy & MatrixSettingsSubscription
     chatgptCloudSettingUp: 'アシスタント向けに準備しています…',
     chatgptCloudFailed: 'アシスタントではまだ使えません。',
     chatgptCloudTip: '準備ができると、アシスタントはこの Mac 経由で ChatGPT を使います。',
+    chatgptCarried: 'ChatGPT はクラウドで連携されています。ここでサインインする前に、その接続をリセットしてください。',
     statusUnavailable: 'サブスクリプションを確認できませんでした。',
     tryAgain: 'もう一度',
     signIn: 'サインイン',
@@ -273,6 +279,7 @@ const copy: Record<Locale, MatrixSettingsLegacyCopy & MatrixSettingsSubscription
     chatgptCloudSettingUp: '正在为你的助理设置…',
     chatgptCloudFailed: '你的助理暂时还不能使用 ChatGPT。',
     chatgptCloudTip: '设置完成后，你的助理会通过这台 Mac 使用 ChatGPT。',
+    chatgptCarried: 'ChatGPT 已在云端关联。请先重置该连接，再在此登录。',
     statusUnavailable: '无法检查你的订阅。',
     tryAgain: '重试',
     signIn: '登录',
@@ -327,6 +334,7 @@ const copy: Record<Locale, MatrixSettingsLegacyCopy & MatrixSettingsSubscription
     chatgptCloudSettingUp: '正在為你的助理設定…',
     chatgptCloudFailed: '你的助理暫時還不能使用 ChatGPT。',
     chatgptCloudTip: '設定完成後，你的助理會透過這台 Mac 使用 ChatGPT。',
+    chatgptCarried: 'ChatGPT 已在雲端關聯。請先重設該連線，再在此登入。',
     statusUnavailable: '無法檢查你的訂閱。',
     tryAgain: '重試',
     signIn: '登入',

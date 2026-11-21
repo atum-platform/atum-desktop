@@ -805,20 +805,65 @@ def _save_private_json(target: Path, data: Any, *, fsync_dir: bool = False, **du
     atomic_json_write(target, data, mode=0o600, fsync_dir=fsync_dir, **dump_kwargs)
 
 
+class CredentialCarried(RuntimeError):
+    """A personal (interactive) sign-in whose grant the ChatGPT-carry tombstone discards.
+
+    ``chatgpt_carry.state`` in ``{paused, carried}`` means the account's ChatGPT sign-in lives in
+    cloud custody, so a grant obtained here must not be written beside it: two live copies of one
+    rotating refresh chain is exactly what the tombstone prevents. Internal saves keep the silent
+    strip (a stale pool save must never resurrect a rotated chain); an interactive login raises
+    this instead, so the flow can say the sign-in was not kept rather than reporting success.
+    """
+
+    code = "discarded_carried"
+
+    def __init__(self, carried_state: str, auth_file: Path):
+        super().__init__(
+            "ChatGPT sign-in was not saved: this account's ChatGPT connection is held in the "
+            "cloud, so a sign-in on this Mac cannot be kept. Reset the connection first, then "
+            "sign in again.")
+        self.carried_state = carried_state
+        self.auth_file = auth_file
+
+
+def _carry_holds_grant(held: Any) -> bool:
+    """Whether *held* (a store's ``chatgpt_carry`` value) refuses a new local ChatGPT grant."""
+    return isinstance(held, dict) and held.get("state") in {"paused", "carried"}
+
+
 def _save_auth_store(auth_store: dict[str, Any], target_path: Optional[Path] = None, *,
-                     _carry_recovery: bool = False) -> Path:
+                     _carry_recovery: bool = False, interactive: bool = False) -> Path:
     """Atomically persist *auth_store* (0o600, parent tightened to 0o700) to the active store, or to
-    an explicit *target_path* (e.g. the global-root write-through for rotating xAI OAuth grants)."""
+    an explicit *target_path* (e.g. the global-root write-through for rotating xAI OAuth grants).
+
+    *interactive* marks a save whose grant the person just obtained (a sign-in they are watching):
+    under a carry tombstone nothing is written and ``CredentialCarried`` is raised, so the caller
+    cannot report a login that the store refused."""
     auth_file = target_path if target_path is not None else _auth_file_path()
     with _auth_store_lock(target_path=auth_file):
         # A pool loaded before handoff may finish saving afterwards. Never let
         # that stale snapshot resurrect a rotating grant or erase its tombstone.
         held = _load_auth_store(auth_file).get("chatgpt_carry", {})
-        if not _carry_recovery and held.get("state") in {"paused", "carried"}:
+        if not _carry_recovery and _carry_holds_grant(held):
             incoming = auth_store.get("chatgpt_carry", {})
             auth_store["chatgpt_carry"] = ({"state": "carried"} if incoming.get("state") == "carried" else held)
-            auth_store.setdefault("providers", {}).pop("openai-codex", None)
-            auth_store.setdefault("credential_pool", {}).pop("openai-codex", None)
+            providers = auth_store.setdefault("providers", {})
+            pool = auth_store.setdefault("credential_pool", {})
+            discarded = "openai-codex" in providers or "openai-codex" in pool
+            providers.pop("openai-codex", None)
+            pool.pop("openai-codex", None)
+            # A fresh login also made that provider the active one: keeping the pointer after the
+            # grant is gone is the "active ChatGPT, no account anywhere" pair that reads as damage.
+            # Same meaning as deactivate_provider(): no active provider, never a dangling one.
+            if auth_store.get("active_provider") == "openai-codex":
+                auth_store["active_provider"] = None
+            if discarded and interactive:
+                logger.warning(
+                    "auth: discarded the openai-codex sign-in just obtained for %s: the store's "
+                    "ChatGPT connection is %s (cloud custody). Nothing was written; reset the "
+                    "connection before signing in on this Mac.",
+                    auth_file, held.get("state"))
+                raise CredentialCarried(str(held.get("state")), auth_file)
         auth_store["version"] = AUTH_STORE_VERSION
         auth_store["updated_at"] = datetime.now(UTC).isoformat()
         _save_private_json(auth_file, auth_store, fsync_dir=True)

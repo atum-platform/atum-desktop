@@ -546,6 +546,35 @@ describe('selected-agent provider authority', () => {
     ])
   })
 
+  it('keeps the store’s refusal of a sign-in as its own reason, never a generic error', async () => {
+    const f = fixture()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const result = (await f.scope.request(request('oauth/start', { provider: 'openai-codex' }))) as { session: string }
+    const original = f.forward.getMockImplementation()!
+    f.forward.mockImplementation(call =>
+      call.path.includes('/poll/')
+        ? Promise.resolve({
+            session_id: 'upstream-session',
+            status: 'error',
+            error_code: 'discarded_carried',
+            error_message: 'private-token'
+          })
+        : original(call)
+    )
+
+    // Hermes approved upstream, then discarded the grant under the account's carry tombstone.
+    await expect(f.scope.request(request('oauth/poll', { session: result.session }))).resolves.toEqual({
+      status: 'error',
+      reason: 'discarded_carried'
+    })
+    expect(f.signedIn).not.toHaveBeenCalled()
+    expect(f.signingIn.mock.calls).toEqual([[true], [false]])
+    // A closed marker, and nothing from the backend.
+    expect(JSON.stringify(warn.mock.calls)).toContain('matrix_plan_sign_in_discarded')
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('private-token')
+    warn.mockRestore()
+  })
+
   it('reports an approved sign-in that Hermes does not read back as failed, never as done', async () => {
     const f = fixture()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})

@@ -92,12 +92,18 @@ export type MatrixSubscriptionStart =
   | MatrixSubscriptionSignIn
   | { status: 'connected' }
   | { status: 'cancelled' }
+  /** No flow started: this account's ChatGPT sign-in is held in cloud custody, so a sign-in taken
+   * here cannot be saved. The person resets that connection first. */
+  | { status: 'carried' }
 
 export type MatrixSubscriptionPoll =
   | { status: 'pending' }
   | { status: 'connected' }
   | { status: 'cancelled' }
   | { status: 'failed' }
+  /** The sign-in was approved upstream and refused by the account's store: the account's ChatGPT
+   * connection is held in cloud custody (`code: 'discarded_carried'`). Same words as `carried`. */
+  | { status: 'carried' }
 
 export type MatrixSubscriptionKeyResult = { status: 'applied' | 'cancelled' }
 export type MatrixSubscriptionRelayResult = { status: 'applied' | 'unavailable' }

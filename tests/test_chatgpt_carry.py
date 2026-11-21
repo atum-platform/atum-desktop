@@ -85,3 +85,109 @@ def test_begin_waits_for_inflight_rotation(account, monkeypatch):
         finish.set()
         rotating.result()
         assert beginning.result()['refresh_token'] == 'fake-rotated'
+
+
+# ── Honesty: a sign-in the carried store refuses is reported, never a success ────────────────────
+
+def _fresh_grant():
+    """The store payload a just-completed interactive Codex login hands to the saver."""
+    return {'providers': {'openai-codex': {'tokens': {'access_token': 'new-a', 'refresh_token': 'new-r'},
+                                           'last_refresh': '2026-01-01T00:00:00Z', 'auth_mode': 'chatgpt'}},
+            'credential_pool': {'openai-codex': [{'access_token': 'new-a', 'refresh_token': 'new-r'}]},
+            'active_provider': 'openai-codex'}
+
+
+@pytest.mark.parametrize('action', ['begin', 'commit'])
+def test_interactive_save_is_refused_and_writes_nothing(account, action):
+    """A person watching a sign-in must not be told it worked when the store dropped it."""
+    home, _ = account
+    transition(home, action)
+    before = (home / 'auth.json').read_text(encoding='utf-8')
+    from hermes_cli.auth import CredentialCarried, _save_auth_store
+    with pytest.raises(CredentialCarried) as refused:
+        _save_auth_store(_fresh_grant(), target_path=home / 'auth.json', interactive=True)
+    assert refused.value.code == 'discarded_carried'
+    assert (home / 'auth.json').read_text(encoding='utf-8') == before
+    store = read(home)
+    assert store['chatgpt_carry']['state'] == ('paused' if action == 'begin' else 'carried')
+    assert 'new-r' not in json.dumps(store)
+    assert store.get('active_provider') is None
+
+
+def test_internal_save_still_strips_silently_and_leaves_no_dangling_active_provider(account):
+    """Stale pool/refresh saves keep today's silent strip: the tombstone must hold."""
+    home, _ = account
+    transition(home, 'begin')
+    transition(home, 'commit')
+    from hermes_cli.auth import _save_auth_store
+    store = _fresh_grant()
+    store['unrelated'] = 'preserved'
+    _save_auth_store(store, target_path=home / 'auth.json')
+    saved = read(home)
+    assert 'openai-codex' not in saved.get('providers', {})
+    assert 'openai-codex' not in saved.get('credential_pool', {})
+    assert saved['chatgpt_carry'] == {'state': 'carried'}
+    assert saved['unrelated'] == 'preserved'
+    # The pair the diagnosis found: active on a provider the same write deleted.
+    assert saved.get('active_provider') is None
+
+
+def test_interactive_save_without_a_tombstone_is_saved_and_active(account):
+    home, _ = account
+    from hermes_cli.auth import _save_auth_store
+    _save_auth_store(_fresh_grant(), target_path=home / 'auth.json', interactive=True)
+    saved = read(home)
+    assert saved['providers']['openai-codex']['tokens']['refresh_token'] == 'new-r'
+    assert saved['active_provider'] == 'openai-codex'
+
+
+def test_oauth_flow_ends_in_error_with_the_carried_code(account, monkeypatch):
+    """The dashboard sign-in's own path: approved upstream, refused by the store, reported as such."""
+    import asyncio
+
+    from hermes_cli.web_routers import oauth
+
+    home, _ = account
+    transition(home, 'begin')
+    transition(home, 'commit')
+    before = (home / 'auth.json').read_text(encoding='utf-8')
+    monkeypatch.setattr(oauth, '_codex_request_user_code', lambda httpx: {
+        'device_auth_id': 'device-auth-id', 'interval': 1, 'user_code': 'CODE-1234'})
+    monkeypatch.setattr(oauth, '_codex_poll_authorization', lambda httpx, sess, sid: {
+        'authorization_code': 'code', 'code_verifier': 'verifier'})
+    monkeypatch.setattr(oauth, '_codex_exchange_tokens', lambda httpx, resp: {
+        'access_token': 'new-a', 'refresh_token': 'new-r'})
+    sid, sess = oauth._new_oauth_session('openai-codex', 'device_code')
+    try:
+        oauth._codex_full_login_worker(sid)
+        assert sess['status'] == 'error'
+        assert sess['error_code'] == 'discarded_carried'
+        assert 'cloud' in sess['error_message']
+        payload = asyncio.run(oauth.poll_oauth_session('openai-codex', sid))
+        assert payload['status'] == 'error'
+        assert payload['error_code'] == 'discarded_carried'
+        assert (home / 'auth.json').read_text(encoding='utf-8') == before
+    finally:
+        oauth._oauth_sessions.pop(sid, None)
+
+
+def test_oauth_flow_still_approves_a_save_the_store_keeps(account, monkeypatch):
+    """No tombstone: the same worker path approves exactly as before."""
+    from hermes_cli.web_routers import oauth
+
+    home, _ = account
+    monkeypatch.setattr(oauth, '_codex_request_user_code', lambda httpx: {
+        'device_auth_id': 'device-auth-id', 'interval': 1, 'user_code': 'CODE-1234'})
+    monkeypatch.setattr(oauth, '_codex_poll_authorization', lambda httpx, sess, sid: {
+        'authorization_code': 'code', 'code_verifier': 'verifier'})
+    monkeypatch.setattr(oauth, '_codex_exchange_tokens', lambda httpx, resp: {
+        'access_token': 'new-a', 'refresh_token': 'new-r'})
+    sid, sess = oauth._new_oauth_session('openai-codex', 'device_code')
+    try:
+        oauth._codex_full_login_worker(sid)
+        assert sess['status'] == 'approved'
+        assert sess.get('error_code') is None
+        assert read(home)['providers']['openai-codex']['tokens']['refresh_token'] == 'new-r'
+    finally:
+        oauth._oauth_sessions.pop(sid, None)
+

@@ -330,7 +330,7 @@ def test_codex_dashboard_worker_stops_polling_after_cancel(tmp_path, monkeypatch
     saved = []
     _make_profile_home(tmp_path, monkeypatch, profile="coder")
     monkeypatch.setattr(httpx, "Client", _Client)
-    monkeypatch.setattr(auth_mod, "_save_codex_tokens", lambda tokens: saved.append(tokens))
+    monkeypatch.setattr(auth_mod, "_save_codex_tokens", lambda tokens, **kwargs: saved.append(tokens))
 
     sid, _ = _rt_oauth._new_oauth_session("openai-codex", "device_code", profile="coder")
 
@@ -414,7 +414,7 @@ def test_codex_worker_final_save_is_atomic_with_cancel_delete(tmp_path, monkeypa
     delete_started = threading.Event()
     delete_finished = threading.Event()
 
-    def fake_save(tokens):
+    def fake_save(tokens, **kwargs):
         # We are inside the worker's critical section right now (holding
         # _oauth_sessions_lock). Fire a real DELETE from another thread and
         # prove it cannot complete until this section releases the lock.
