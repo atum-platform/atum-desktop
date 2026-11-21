@@ -7,10 +7,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   MATRIX_AGENT_CREATIONS,
   MATRIX_AGENT_RETIREMENTS,
+  matrixAgentSoulText,
   type MatrixAgentCreation,
   MatrixAgentCreationRefused,
   MatrixAgentLifecycle,
   type MatrixAgentLifecycleDeps,
+  reconcileMatrixAgentSoul,
   seedMatrixAgentSoul
 } from './agent-lifecycle'
 import { ATUM_ASSISTANT_SOUL, MATRIX_PRIMARY_SOUL_FALLBACK } from './atum-soul'
@@ -77,6 +79,17 @@ function lifecycle(overrides: Partial<MatrixAgentLifecycleDeps> = {}, shared = v
 
 const saved = (shared: ReturnType<typeof vault>): MatrixAgentCreation[] =>
   JSON.parse(shared.map.get(MATRIX_AGENT_CREATIONS) ?? '[]')
+
+it('recognizes restored native SOUL receipts and adopts confirmed persona text', () => {
+  const home = mkdtempSync(join(tmpdir(), 'matrix-native-soul-'))
+  const file = join(home, 'SOUL.md')
+  const persona = 'Current persona'
+  writeFileSync(file, `<!-- atum:instructions revision=7 seed_bytes=1 sha256=${'a'.repeat(64)} -->\n${persona}\n`)
+
+  expect(matrixAgentSoulText(home)).toBe(persona)
+  expect(reconcileMatrixAgentSoul(home, persona)).toBe('matches')
+  expect(readFileSync(file, 'utf8').trim()).toBe(persona)
+})
 
 describe('creating another agent', () => {
   it('blocks background runtime starts until the new profile home is installed and resumes a failed install', async () => {

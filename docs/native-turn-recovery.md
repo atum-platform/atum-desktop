@@ -51,3 +51,14 @@ remains uncertain and requires resolution.
 - Verified: `scripts/run_tests.sh` on the failed-turn copy, auto-recovery, ACP closure,
   gateway failed-turn writer and duplicate/incomplete/restart tests (8 files, 75 passed,
   6 platform skips).
+
+## Managed identity refresh (2026-11-21)
+
+- With `agent.atum_instructions: true`, an ordinary owner DM turn on a warm agent compares
+  its cached identity prefix with the current SOUL-derived identity, and only on a change
+  takes the existing restore/build/persist path once at the turn boundary. Unchanged turns
+  stay byte-identical; group, bot, internal-notification and non-Matrix turns never rebuild;
+  plain Hermes is unaffected (`tests/gateway/test_managed_soul_refresh.py`).
+- The leading SOUL receipt marker may carry `seed_bytes=… sha256=…` after the revision; the
+  identity renderer, the desktop lifecycle reader and portability strip it the same way.
+- Verified: 4 Python files, 117 passed; `electron/matrix/agent-lifecycle.test.ts` 36 passed.
