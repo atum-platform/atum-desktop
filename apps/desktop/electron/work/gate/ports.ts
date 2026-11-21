@@ -99,11 +99,12 @@ export interface WorkPlatform {
   macEvent(event: WorkMacEvent): Promise<void>
   carryGrant(carry: WorkGrantCarry): Promise<void>
   /**
-   * Content-free, request-correlated stop reports (R4-1). Optional: the platform carries them only after the
-   * contract amendment in docs/self-work/slice-a/lane-g-report.md. Until then they stay queued and the helper stays
-   * at `revoked`/`unknown` (R4-1: "explicitly leave the helper at unknown when no acknowledgement is reachable").
+   * Content-free, request-correlated stop reports (R4-1; contract atum.work-route/1.1 `work.mac.settlements`). Resolves
+   * only when the platform acknowledged the batch (a 2xx that is the contract's reply); the gate clears its queue then and
+   * not before. Optional so a stand-in without the operation keeps the reports queued, and the helper at
+   * `revoked`/`unknown` (R4-1: "explicitly leave the helper at unknown when no acknowledgement is reachable").
    */
-  reportSettlements?(reports: StopReport[]): Promise<void>
+  reportSettlements?(input: { deviceServiceId: string; accountId: string; routeEpoch: number; reports: StopReport[] }): Promise<void>
 }
 
 /** What the platform may learn about a request that a revocation cut off. No thread, no text, no id of a thread. */

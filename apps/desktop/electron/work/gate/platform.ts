@@ -1,3 +1,4 @@
+import { WorkSettlementsReplySchema } from './contract'
 import type { WorkPlatform } from './ports'
 
 // The platform half of the Work route, as the Mac sees it: operations of the existing device-services endpoint
@@ -25,7 +26,8 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
     })
 
     if (!response.ok) {
-      throw new Error(`device_services_${response.status}`)
+      // The status is the only thing a caller may act on (a 400 isolates a bad row; the rest is retried): no body, no text.
+      throw Object.assign(new Error(`device_services_${response.status}`), { status: response.status })
     }
 
     return response.json()
@@ -42,7 +44,15 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
     },
     async carryGrant(carry) {
       await call('work_grant_carry', carry as unknown as Record<string, unknown>)
+    },
+    async reportSettlements(input) {
+      // Contract 1.1 `work.mac.settlements`. A 2xx that is not the contract's reply for this Mac and this batch is not an
+      // acknowledgement: the caller keeps the queue.
+      const reply = WorkSettlementsReplySchema.safeParse(await call('work_mac_settlements', input as unknown as Record<string, unknown>))
+
+      if (!reply.success || reply.data.deviceServiceId !== input.deviceServiceId || reply.data.accepted + reply.data.ignored > input.reports.length) {
+        throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
+      }
     }
-    // `reportSettlements` is absent on purpose: the platform has no operation for it yet (see lane-g-report.md).
   }
 }
