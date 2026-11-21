@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
@@ -32,8 +32,13 @@ export interface ReceiptRow {
   /** Set durably BEFORE the first byte goes to T3 (plan §11.4). */
   forwarded: boolean
   forwardCount: number
-  /** The T3 process incarnation the forward was handed to. A missing thread settles only after another one is ready. */
+  /**
+   * The T3 process incarnation of the LAST send whose outcome is still unknown. A missing thread settles only on a read
+   * made by another, confirmed process: while this one lives, the send may still be running in it.
+   */
   incarnation: string | null
+  /** The unresolved send before the last one, restored when the last send gets a definitive answer. */
+  priorIncarnation: string | null
   runId: string | null
   /** The gate has seen the thread end with no run active. */
   finished: boolean
@@ -80,6 +85,8 @@ export interface OutboxRow {
   createdAt: number
   deliveredAt: number | null
   attempts: number
+  /** A report the platform refused one at a time waits until here before it is offered again. */
+  retryAt: number | null
 }
 
 type Row = Record<string, unknown>
@@ -112,8 +119,14 @@ const SCHEMA = `
     source_seq INTEGER, at INTEGER NOT NULL, acked_at INTEGER);
   CREATE TABLE IF NOT EXISTS outbox (
     id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, payload TEXT NOT NULL,
-    created_at INTEGER NOT NULL, delivered_at INTEGER, attempts INTEGER NOT NULL DEFAULT 0);
+    created_at INTEGER NOT NULL, delivered_at INTEGER, attempts INTEGER NOT NULL DEFAULT 0, retry_at INTEGER);
 `
+
+/** Columns added after the first ledgers were written: `CREATE TABLE IF NOT EXISTS` does not add them to an old file. */
+const LATER_COLUMNS: [table: string, column: string, ddl: string][] = [
+  ['receipts', 'prior_incarnation', 'TEXT'],
+  ['outbox', 'retry_at', 'INTEGER']
+]
 
 function receipt(row: Row): ReceiptRow {
   return {
@@ -133,6 +146,7 @@ function receipt(row: Row): ReceiptRow {
     forwarded: row.forwarded === 1,
     forwardCount: Number(row.forward_count),
     incarnation: (row.incarnation as string | null) ?? null,
+    priorIncarnation: (row.prior_incarnation as string | null) ?? null,
     runId: (row.run_id as string | null) ?? null,
     finished: row.finished === 1,
     stopScope: (row.stop_scope as WorkScope | null) ?? null,
@@ -188,6 +202,14 @@ export class GateLedger {
     this.db = new DatabaseSync(path)
     this.db.exec(SCHEMA)
 
+    for (const [table, column, ddl] of LATER_COLUMNS) {
+      const have = (this.db.prepare(`PRAGMA table_info(${table})`).all() as Row[]).some(info => info.name === column)
+
+      if (!have) {
+        this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`)
+      }
+    }
+
     if (this.meta('route_epoch') === undefined) {
       this.setMeta('route_epoch', 1)
     }
@@ -195,6 +217,30 @@ export class GateLedger {
 
   close(): void {
     this.db.close()
+  }
+
+  /**
+   * How many stops are owed, read from the ledger FILE and nothing else: no gate, no server and no write (the file is opened
+   * read-only and a missing one owes nothing). The update driver asks this when no gate runs this session.
+   */
+  static owedCountAt(path: string): number {
+    if (!existsSync(path)) {
+      return 0
+    }
+
+    let db: DatabaseSync | undefined
+
+    try {
+      db = new DatabaseSync(path, { readOnly: true })
+      const row = db.prepare('SELECT COUNT(*) AS n FROM receipts WHERE stop_scope IS NOT NULL AND settled IS NULL').get() as Row
+
+      return Number(row.n)
+    } catch {
+      // A ledger that cannot be read cannot prove that nothing is owed.
+      return 1
+    } finally {
+      db?.close()
+    }
   }
 
   /** One durable transaction. Reentrant: an inner call joins the outer one. */
@@ -425,12 +471,26 @@ export class GateLedger {
       .run(...columns.map(column => set[column] ?? null), this.now(), principal, requestId)
   }
 
-  /** Durably, BEFORE the first byte goes to T3. */
+  /**
+   * Durably, BEFORE the first byte goes to T3. The send's process becomes the one whose absence proves nothing: the
+   * earlier unresolved send (if any) is kept as `prior` until this one is answered for good (`resolveSend`).
+   */
   markForwarded(principal: string, requestId: string, incarnation: string): void {
     this.db
-      // The FIRST forward's incarnation is kept: a later resend must not make an earlier uncertain send look provably absent.
-      .prepare('UPDATE receipts SET forwarded = 1, forward_count = forward_count + 1, incarnation = COALESCE(incarnation, ?), updated_at = ? WHERE principal = ? AND request_id = ?')
+      .prepare(
+        'UPDATE receipts SET forwarded = 1, forward_count = forward_count + 1, prior_incarnation = incarnation, incarnation = ?, updated_at = ? WHERE principal = ? AND request_id = ?'
+      )
       .run(incarnation, this.now(), principal, requestId)
+  }
+
+  /**
+   * T3 answered the LAST send definitively (it created nothing): that send is no longer uncertain, so the earlier
+   * unresolved send, if any, is the one a proof must outlive.
+   */
+  resolveSend(principal: string, requestId: string): void {
+    this.db
+      .prepare('UPDATE receipts SET incarnation = prior_incarnation, prior_incarnation = NULL, updated_at = ? WHERE principal = ? AND request_id = ?')
+      .run(this.now(), principal, requestId)
   }
 
   releaseClaim(eventId: string | null): void {
@@ -486,11 +546,12 @@ export class GateLedger {
       }
 
       // The report owed to the platform is part of the cutoff: a crash can never leave one without the other.
-      this.enqueue('mac_event', {
+      // `agentGeneration` of an agent close is the last RETIRED generation (the one whose grants just died), never the new
+      // one: the agent's next grants are minted at the new generation and must stay carriable (platform: closed_generation).
+      this.enqueueMacEvent({
         kind: input.scope === 'route' ? 'route_closed' : 'agent_closed',
         routeEpoch: this.routeEpoch(),
-        at,
-        ...(input.principal ? { agentPrincipal: input.principal, agentGeneration: generation } : {})
+        ...(input.principal ? { agentPrincipal: input.principal, agentGeneration: (generation as number) - 1 } : {})
       })
 
       return { revocationId, owed, routeEpoch: this.routeEpoch(), generation }
@@ -559,6 +620,37 @@ export class GateLedger {
     return open.s === null || open.s === undefined ? applied : Math.min(applied, Number(open.s) - 1)
   }
 
+  // ---- Mac events: strictly increasing event time
+  /**
+   * The next event time: the wall clock, but never at or below the last one given (kept durably). The platform orders a
+   * route's events by (epoch, this time), and a close ties an open at the same millisecond, so two events must never share a
+   * time, and a clock that was corrected backwards, or a restart, must never put a later event before an earlier one.
+   */
+  nextEventAt(): number {
+    return this.tx(() => {
+      const at = Math.max(this.now(), Number(this.meta('event_at') ?? 0) + 1)
+      this.setMeta('event_at', at)
+
+      return at
+    })
+  }
+
+  /** Queue one `mac_event`; its time is assigned here, in the writer's own transaction. */
+  enqueueMacEvent(event: Record<string, unknown>): number {
+    return this.tx(() => this.enqueue('mac_event', { ...event, at: this.nextEventAt() }))
+  }
+
+  /** What the platform last confirmed of this Mac's route ('open' or 'closed'); unknown until a reply says. */
+  platformRoute(): 'open' | 'closed' | 'unknown' {
+    const value = this.meta('platform_route')
+
+    return value === 'open' || value === 'closed' ? value : 'unknown'
+  }
+
+  setPlatformRoute(state: 'open' | 'closed' | 'unknown'): void {
+    this.setMeta('platform_route', state)
+  }
+
   // ---- outbox: content-free reports owed to the platform
   enqueue(kind: string, payload: unknown): number {
     const info = this.db
@@ -579,8 +671,14 @@ export class GateLedger {
       payload: String(row.payload),
       createdAt: Number(row.created_at),
       deliveredAt: null,
-      attempts: Number(row.attempts)
+      attempts: Number(row.attempts),
+      retryAt: (row.retry_at as number | null) ?? null
     }))
+  }
+
+  /** The platform refused this row on its own: offer it again only after `retryAt`. */
+  deferRow(id: number, retryAt: number): void {
+    this.db.prepare('UPDATE outbox SET retry_at = ? WHERE id = ?').run(retryAt, id)
   }
 
   delivered(id: number): void {

@@ -96,7 +96,8 @@ export interface WorkPlatform {
   enroll(input: { deviceServiceId: string; socketPath: string; gateId: WorkEnrollmentFacts['gateId']; workGrant?: { acceptedAt: number; routeEpoch: number } }): Promise<{ work: WorkEnrollmentFacts | null }>
   pull(input: { deviceServiceId: string; accountId: string; appliedSeq: number; routeEpoch: number }): Promise<WorkSyncPage>
   ack(ack: WorkSyncAck): Promise<void>
-  macEvent(event: WorkMacEvent): Promise<void>
+  /** Resolves with the route state the platform holds after the event, when it says (a held reopen answers `closed`). */
+  macEvent(event: WorkMacEvent): Promise<{ routeState?: 'open' | 'closed' } | void>
   carryGrant(carry: WorkGrantCarry): Promise<void>
   /**
    * Content-free, request-correlated stop reports (R4-1; contract atum.work-route/1.1 `work.mac.settlements`). Resolves

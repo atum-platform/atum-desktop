@@ -34,11 +34,25 @@ export interface WorkSyncOptions {
 const SETTLEMENT_BACKOFF_BASE_MS = 30_000
 const SETTLEMENT_BACKOFF_CAP_MS = 15 * 60_000
 const SETTLEMENT_RETENTION_MS = WORK_SETTLEMENT_RETENTION_DAYS * 86_400_000
+// A report the platform refuses on its own (a 400 for that one report) is offered again on its own schedule, so rejected rows never
+// stand in front of reports the platform would take: 30 s, doubling, six hours at most.
+const REJECTED_BACKOFF_BASE_MS = 30_000
+const REJECTED_BACKOFF_CAP_MS = 6 * 3_600_000
 
 /** A 4xx that says "I will not take this one" (as opposed to signed out, rate limited, or a server that is down). */
 const definiteRefusal = (error: unknown): boolean => [400, 409, 410, 412, 422].includes((error as { status?: number } | null)?.status ?? 0)
 
 /** Events of one family describe the same state, so a newer one makes an older one obsolete. */
+function eventKind(payload: string): string | undefined {
+  try {
+    const kind = (JSON.parse(payload) as { kind?: unknown }).kind
+
+    return typeof kind === 'string' ? kind : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function eventFamily(payload: string): string | undefined {
   try {
     const event = JSON.parse(payload) as { kind?: unknown; agentPrincipal?: unknown }
@@ -115,6 +129,8 @@ export class WorkSync {
   }
 
   stop(): void {
+    this.stopDelivery()
+
     if (this.timer) {
       clearInterval(this.timer)
       this.timer = undefined
@@ -176,17 +192,51 @@ export class WorkSync {
       await gate.scheduleSettle().catch(() => undefined)
     }
 
+    let acked = false
+
     if (result === 'ok' || result === 'offline') {
-      await this.ack().catch(() => undefined)
+      acked = await this.ack().then(
+        () => true,
+        () => false
+      )
     }
 
-    if (result === 'ok') {
+    // After a cutoff (a key rotation, a removal) the platform holds the route closed until this Mac has applied it, confirmed the
+    // ack, enrolled again and reported the route open: in that order, and only while its consent and switch still say open.
+    if (result === 'ok' && acked) {
+      await this.reconcileRoute().catch(() => undefined)
+    }
+
+    // Events first: a grant carried before a queued close would be deleted by it.
+    await this.flush().catch(() => undefined)
+
+    if (result === 'ok' && acked) {
       await this.ensureGrants()
     }
 
-    await this.flush().catch(() => undefined)
-
     return result
+  }
+
+  /**
+   * Make the platform's route state agree with this Mac's. Its state is unknown after a platform-made removal or a restart. When
+   * consent and the switch say open: enroll again (idempotent; this re-binds a rotated key), then queue `route_opened` unless one
+   * is already waiting. The open stays queued until the platform's reply says `open` (see `flush`).
+   */
+  private async reconcileRoute(): Promise<void> {
+    const { gate, ledger } = this.options
+    const intentOpen = gate.workGrantAccepted() && gate.routeOpen() && ledger.meta('switch_on') !== '0'
+
+    if (!intentOpen || ledger.platformRoute() === 'open') {
+      return
+    }
+
+    await this.enroll()
+
+    const waiting = ledger.pending('mac_event').some(row => eventKind(row.payload) === 'route_opened')
+
+    if (!waiting) {
+      ledger.enqueueMacEvent({ kind: 'route_opened', routeEpoch: ledger.routeEpoch() })
+    }
   }
 
   /** Apply one page durably. Returns 'ok' only when the page was applied in order and its head is not behind ours. */
@@ -239,6 +289,11 @@ export class WorkSync {
       ledger.setEntitled(change.agentPrincipal, true)
 
       return
+    }
+
+    if (change.kind === 'agent_removed' || change.kind === 'device_revoked') {
+      // A platform-made removal may be a key rotation, which closed the route there: what it holds is no longer known.
+      ledger.setPlatformRoute('unknown')
     }
 
     if (change.kind === 'agent_removed') {
@@ -302,7 +357,9 @@ export class WorkSync {
   async ensureGrants(): Promise<void> {
     const { gate, ledger, platform, accountId, deviceServiceId } = this.options
 
-    if (!gate.routeOpen() || !gate.workGrantAccepted()) {
+    // Only on a route the platform has confirmed open and with no event of this Mac still waiting: a grant carried before a queued
+    // close or reopen would be deleted by the close, or refused while the route is closed.
+    if (!gate.routeOpen() || !gate.workGrantAccepted() || ledger.platformRoute() !== 'open' || ledger.pending('mac_event').length > 0) {
       return
     }
 
@@ -345,10 +402,43 @@ export class WorkSync {
 
     for (const row of events) {
       ledger.attempted(row.id)
+      const kind = eventKind(row.payload)
 
       try {
-        await platform.macEvent({ deviceServiceId, accountId, ...JSON.parse(row.payload) })
-        ledger.delivered(row.id)
+        const reply = await platform.macEvent({ deviceServiceId, accountId, ...JSON.parse(row.payload) })
+        const state = reply ? reply.routeState : undefined
+        const route = kind === 'route_opened' || kind === 'route_closed'
+        const want = kind === 'route_opened' ? 'open' : 'closed'
+
+        if (route && state !== undefined && state !== want) {
+          // The platform ANSWERED, but did not take it: a reopen is held until this Mac's ack and enrollment are in (and the
+          // route stays closed there until then), a close that reads `open` was older than an event the platform already holds.
+          const family = eventFamily(row.payload)
+          const newer = events.some(later => later.id > row.id && eventFamily(later.payload) === family)
+
+          if (newer) {
+            ledger.delivered(row.id)
+          } else if (kind === 'route_opened') {
+            ledger.setPlatformRoute(state)
+            this.options.log?.('route_open_pending', { id: row.id })
+          } else {
+            // A close is never left unsaid: it is reissued with a newer time and the old one is cleared.
+            ledger.tx(() => {
+              ledger.delivered(row.id)
+              ledger.enqueueMacEvent(JSON.parse(row.payload))
+            })
+          }
+
+          continue
+        }
+
+        ledger.tx(() => {
+          ledger.delivered(row.id)
+
+          if (route) {
+            ledger.setPlatformRoute(state ?? want)
+          }
+        })
       } catch (error) {
         if (!definiteRefusal(error)) {
           // offline, signed out, rate limited or a server error: nothing was decided, so try again in order
@@ -403,7 +493,7 @@ export class WorkSync {
     }
 
     const routeEpoch = ledger.routeEpoch()
-    const sendable: { id: number; report: StopReport }[] = []
+    const sendable: { id: number; report: StopReport; attempts: number }[] = []
 
     for (const row of ledger.pending('stop_report')) {
       const parsed = (() => {
@@ -421,8 +511,13 @@ export class WorkSync {
         continue
       }
 
+      // A report the platform refused on its own waits for its own time: it never takes a place in a batch of reports it would accept.
+      if (row.retryAt !== null && row.retryAt > this.now()) {
+        continue
+      }
+
       if (sendable.length < WORK_SETTLEMENT_REPORTS_MAX) {
-        sendable.push({ id: row.id, report: parsed.data })
+        sendable.push({ id: row.id, report: parsed.data, attempts: row.attempts })
       }
     }
 
@@ -448,22 +543,34 @@ export class WorkSync {
       }
     }
 
+    const defer = (item: (typeof sendable)[number]) => {
+      ledger.deferRow(item.id, this.now() + Math.min(REJECTED_BACKOFF_CAP_MS, REJECTED_BACKOFF_BASE_MS * 2 ** Math.min(item.attempts, 20)))
+      this.options.log?.('stop_report_rejected', { id: item.id })
+    }
+
     let outcome = await deliver(sendable)
 
-    if (outcome === 'refused' && sendable.length > 1) {
-      outcome = 'ok'
+    if (outcome === 'refused') {
+      if (sendable.length === 1) {
+        defer(sendable[0])
+        outcome = 'ok'
+      } else {
+        // The platform refused something in the batch: try them one at a time. A refused report goes on its own schedule and the
+        // rest are delivered; only a failure that is not about one report (offline, a server error) backs the whole queue off.
+        outcome = 'ok'
 
-      for (const item of sendable) {
-        const one = await deliver([item])
+        for (const item of sendable) {
+          const one = await deliver([item])
 
-        if (one === 'failed') {
-          outcome = 'failed'
+          if (one === 'failed') {
+            outcome = 'failed'
 
-          break
-        }
+            break
+          }
 
-        if (one === 'refused') {
-          outcome = 'refused'
+          if (one === 'refused') {
+            defer(item)
+          }
         }
       }
     }
@@ -478,5 +585,50 @@ export class WorkSync {
     this.settlementFailures++
     this.settlementRetryAt = this.now() + Math.min(SETTLEMENT_BACKOFF_CAP_MS, SETTLEMENT_BACKOFF_BASE_MS * 2 ** (this.settlementFailures - 1))
     this.options.log?.('stop_report_retry', { failures: this.settlementFailures, pending: ledger.pending('stop_report').length })
+  }
+
+  /** Whether anything is still owed to the platform: events, reports (a report waiting on its own schedule counts). */
+  hasPendingDelivery(): boolean {
+    return this.options.ledger.pending().length > 0
+  }
+
+  private deliveryTimer: ReturnType<typeof setInterval> | undefined
+
+  /**
+   * Deliver what is owed WITHOUT the session server and without the gate (sign-in with a closed gate that still owes the platform
+   * a report): one flush now and one on each interval, until nothing is pending. Pulls nothing: a pull can create stops, and
+   * stops need the server (`start` is for that).
+   */
+  resumeDelivery(intervalMs: number, onIdle?: () => void): void {
+    this.stopDelivery()
+
+    const step = async () => {
+      try {
+        await this.flush({ ignoreBackoff: false })
+        await this.ack()
+      } catch {
+        // offline or signed out: the next interval tries again
+      }
+
+      try {
+        if (this.deliveryTimer && !this.hasPendingDelivery()) {
+          this.stopDelivery()
+          onIdle?.()
+        }
+      } catch {
+        // the ledger was closed under it (the account retired): nothing is left to deliver from here
+        this.stopDelivery()
+      }
+    }
+
+    this.deliveryTimer = setInterval(() => void step(), intervalMs)
+    void step()
+  }
+
+  stopDelivery(): void {
+    if (this.deliveryTimer) {
+      clearInterval(this.deliveryTimer)
+      this.deliveryTimer = undefined
+    }
   }
 }

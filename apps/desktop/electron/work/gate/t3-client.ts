@@ -106,7 +106,8 @@ export function createT3Client(options: T3ClientOptions): T3Port {
 
     const code = (data?.code ?? data?.error ?? reply.json?.error?.message ?? null) as string | null
 
-    return { transport: 'ok', status: reply.status, isError: result?.isError === true, data, code: typeof code === 'string' ? code : null }
+    // No `result` is not a success: a JSON-RPC error, a proxy page or an empty body must never read as one.
+    return { transport: 'ok', status: reply.status, isError: result === undefined || result.isError === true, data, code: typeof code === 'string' ? code : null }
   }
 
   const failed = (error: unknown): T3Reply => ({

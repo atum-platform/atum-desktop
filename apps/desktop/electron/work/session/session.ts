@@ -1,3 +1,5 @@
+import semver from 'semver'
+
 import type { WorkIncarnation } from '../sidecar/process'
 
 import { type OwnerViewPort, pairOwnerView } from './pairing'
@@ -80,6 +82,14 @@ export class WorkSession {
     await state.driver?.recover()
     await state.coordinator.reconcile()
 
+    // A pin this build ships that is newer than the one the home last committed goes through the update driver (reset, snapshot,
+    // trial, commit or restore) BEFORE the home is opened: starting the new binary on the old home directly is not an update.
+    const updated = await this.applyShippedPin(state)
+
+    if (updated) {
+      return updated
+    }
+
     const incarnation = await this.host.start({ continuation: this.options.continuation?.() ?? false })
 
     if (incarnation.home !== state.paths.home) {
@@ -88,6 +98,49 @@ export class WorkSession {
     }
 
     return incarnation
+  }
+
+  /**
+   * The pin check at every start. No record yet: this pin is the baseline. A shipped pin below the committed one is never started
+   * (an older server on a newer home). A newer one is an update, through the same door as `update()`; its refusals leave the home
+   * and the server alone, and so does a trial that rolled back (the previous binary is not part of this build).
+   */
+  private async applyShippedPin(state: AccountState): Promise<WorkIncarnation | undefined> {
+    const { driver } = state
+    const shipped = this.options.update?.currentPin()
+
+    if (!driver || !shipped) {
+      return undefined
+    }
+
+    const known = driver.readState()
+
+    if (!known) {
+      driver.adopt(shipped)
+
+      return undefined
+    }
+
+    if (semver.lt(shipped.version, known.pin)) {
+      throw new WorkSessionError('work_pin_downgrade')
+    }
+
+    if (!semver.gt(shipped.version, known.pin)) {
+      return undefined
+    }
+
+    const outcome = await this.runUpdate(state, shipped, { closeViews: false })
+
+    if (outcome.outcome === 'committed' && outcome.incarnation) {
+      return outcome.incarnation
+    }
+
+    if (outcome.outcome === 'rolled_back') {
+      await outcome.host.stop().catch(() => undefined)
+      throw new WorkSessionError('work_update_rolled_back')
+    }
+
+    throw new WorkSessionError(outcome.outcome === 'refused' ? `work_update_${outcome.reason}` : 'work_update_failed')
   }
 
   /**
@@ -179,19 +232,36 @@ export class WorkSession {
       throw new WorkSessionError('work_update_unavailable')
     }
 
+    // A refusal that can be known up front (a stop owed above all) is answered before a view is closed, the partition cleared or
+    // anything restarted: the running home keeps serving exactly as it was.
+    const refusal = await state.driver.preflight(target)
+
+    if (refusal) {
+      return refusal
+    }
+
+    return this.runUpdate(state, target, { closeViews: true })
+  }
+
+  private async runUpdate(state: AccountState, target: PinRef, options: { closeViews: boolean }): Promise<UpdateOutcome> {
+    const driver = state.driver as UpdateDriver
+
     this.updating.add(state.account.root)
-    this.closeViews(state)
-    await this.options.clearPartition(partitionFor(state.account.key))
 
     try {
-      const outcome = await state.driver.update(target)
+      if (options.closeViews) {
+        this.closeViews(state)
+        await this.options.clearPartition(partitionFor(state.account.key))
+      }
+
+      const outcome = await driver.update(target)
 
       if (outcome.outcome !== 'refused') {
         this.host = outcome.host
         state.pairedIncarnation = undefined
-      } else {
-        // Refused before anything stopped: the running pin is still up, but its
-        // owner view was closed above, so it will pair again from a fresh grant.
+      } else if (options.closeViews) {
+        // Refused after the preflight (a race): the running pin is still up, but its owner view was closed above, so it will
+        // pair again from a fresh grant.
         state.pairedIncarnation = undefined
         await this.restart('pairing-failed')
       }

@@ -271,3 +271,20 @@ describe('the gate as main holds it', () => {
     await second.close()
   })
 })
+
+describe('the switch and the events it queues', () => {
+  it('an off/on cycle inside one millisecond still queues the close BEFORE the open, by event time', async () => {
+    build()
+    await service.enroll()
+    await service.acceptWorkGrant()
+    await service.sync.flushBounded(1000)
+
+    await service.setSwitch(false)
+    await service.setSwitch(true)
+
+    const events = service.ledger.pending('mac_event').map(row => JSON.parse(row.payload) as { kind: string; at: number })
+
+    expect(events.map(event => event.kind)).toEqual(['route_closed', 'route_opened'])
+    expect(events[1].at).toBeGreaterThan(events[0].at)
+  })
+})

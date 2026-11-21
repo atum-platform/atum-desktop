@@ -84,6 +84,8 @@ export type UpdateOutcome =
   | { outcome: 'rolled_back'; reason: string; host: PinHost; incarnation?: UpdateIncarnation }
   | { outcome: 'refused'; reason: 'downgrade' | 'not_newer' | 'insufficient_space' | 'pin_unverified' | 'stops_owed' | 'in_progress' }
 
+export type Refusal = Extract<UpdateOutcome, { outcome: 'refused' }>
+
 export interface UpdateDeps {
   paths: WorkSessionPaths
   coordinator: ResetCoordinator
@@ -145,9 +147,50 @@ export class UpdateDriver {
     }
   }
 
+  /**
+   * Every refusal that can be known BEFORE anything stops: an update already running, a downgrade, the same version, a stop
+   * owed (read from the durable stop ledger by the caller's `stopsOwed`), a pin that fails its digest, too little disk. Nothing
+   * is touched by it, so a caller can answer a refusal without closing a view or restarting the server.
+   */
+  preflight(target: PinRef): Promise<Refusal | undefined> {
+    return this.running ? Promise.resolve({ outcome: 'refused', reason: 'in_progress' }) : this.checks(target)
+  }
+
+  private async checks(target: PinRef): Promise<Refusal | undefined> {
+    const { deps } = this
+    const current = deps.currentPin()
+    // The pin running today is the baseline a later downgrade is refused against.
+    const committedPin = this.readState()?.pin ?? current.version
+
+    if (semver.lt(target.version, committedPin)) {
+      return { outcome: 'refused', reason: 'downgrade' }
+    }
+
+    if (!semver.gt(target.version, committedPin)) {
+      return { outcome: 'refused', reason: 'not_newer' }
+    }
+
+    if (deps.stopsOwed()) {
+      return { outcome: 'refused', reason: 'stops_owed' }
+    }
+
+    try {
+      await (deps.verifyPin ?? verifyPinDigest)(target)
+    } catch {
+      return { outcome: 'refused', reason: 'pin_unverified' }
+    }
+
+    if (!this.enoughSpace()) {
+      return { outcome: 'refused', reason: 'insufficient_space' }
+    }
+
+    return undefined
+  }
+
   async update(target: PinRef): Promise<UpdateOutcome> {
     const { deps } = this
 
+    // Taken before the first await: a second call during the checks is refused as in progress.
     if (this.running) {
       return { outcome: 'refused', reason: 'in_progress' }
     }
@@ -155,32 +198,15 @@ export class UpdateDriver {
     this.running = true
 
     try {
+      // The pin running today is the baseline a later downgrade is refused against, even when this call is refused.
+      this.adopt(deps.currentPin())
+      const refusal = await this.checks(target)
+
+      if (refusal) {
+        return refusal
+      }
+
       const current = deps.currentPin()
-      // The pin running today is the baseline a later downgrade is refused against.
-      this.adopt(current)
-      const committedPin = this.readState()?.pin ?? current.version
-
-      if (semver.lt(target.version, committedPin)) {
-        return { outcome: 'refused', reason: 'downgrade' }
-      }
-
-      if (!semver.gt(target.version, committedPin)) {
-        return { outcome: 'refused', reason: 'not_newer' }
-      }
-
-      if (deps.stopsOwed()) {
-        return { outcome: 'refused', reason: 'stops_owed' }
-      }
-
-      try {
-        await (deps.verifyPin ?? verifyPinDigest)(target)
-      } catch {
-        return { outcome: 'refused', reason: 'pin_unverified' }
-      }
-
-      if (!this.enoughSpace()) {
-        return { outcome: 'refused', reason: 'insufficient_space' }
-      }
 
       return await deps.coordinator.exclusive(() => this.run(current, target))
     } finally {

@@ -113,6 +113,16 @@ export class WorkGateService {
     return this.sync.enroll()
   }
 
+  /** Whether the platform is still owed an event or a report (the gate may be closed and the server down). */
+  hasPendingDelivery(): boolean {
+    return this.sync.hasPendingDelivery()
+  }
+
+  /** Deliver what is owed without the server, until nothing is (see `WorkSync.resumeDelivery`). */
+  resumeDelivery(onIdle?: () => void): void {
+    this.sync.resumeDelivery(this.options.syncIntervalMs ?? 60_000, onIdle)
+  }
+
   /** After the session server is up and `WorkSession.held()` is false. */
   async start(): Promise<void> {
     await this.gate.start()
@@ -155,7 +165,7 @@ export class WorkGateService {
       this.ledger.setMeta('work_grant_accepted_at', this.now())
       this.ledger.setMeta('work_grant_epoch', this.ledger.routeEpoch())
       this.ledger.setMeta('route_open', '1')
-      this.ledger.enqueue('mac_event', { kind: 'route_opened', routeEpoch: this.ledger.routeEpoch(), at: this.now() })
+      this.ledger.enqueueMacEvent({ kind: 'route_opened', routeEpoch: this.ledger.routeEpoch() })
     })
     await this.enroll().catch(() => null)
     void this.sync.tick()
@@ -171,7 +181,7 @@ export class WorkGateService {
       this.ledger.tx(() => {
         this.ledger.setMeta('switch_on', '1')
         this.ledger.setMeta('route_open', '1')
-        this.ledger.enqueue('mac_event', { kind: 'route_opened', routeEpoch: this.ledger.routeEpoch(), at: this.now() })
+        this.ledger.enqueueMacEvent({ kind: 'route_opened', routeEpoch: this.ledger.routeEpoch() })
       })
       void this.sync.tick()
 

@@ -395,7 +395,7 @@ export class WorkGate {
    */
   private async reconcile(row: ReceiptRow): Promise<WorkRequestAnswer> {
     if (row.forwarded) {
-      const read = await this.statusReader.read(row)
+      const { read, incarnation } = await this.confirmedStatusRead(row)
 
       if (read.kind === 'found') {
         this.statusReader.observe(row, read)
@@ -407,7 +407,7 @@ export class WorkGate {
         return answerForRow(this.gateId(), this.ledger.receipt(row.principal, row.requestId) as ReceiptRow)
       }
 
-      const proven = this.commitProvenRejection(row)
+      const proven = this.commitProvenRejection(row, incarnation)
 
       if (proven) {
         return proven
@@ -655,8 +655,12 @@ export class WorkGate {
       if (row.forwardCount > 1) {
         // T3 refused THIS send, but an earlier send of the same request was never answered and may have started the
         // thread. A refusal of the retry says nothing about it: the claim on the owner's event and the stop owed stay
-        // until a read proves the whole request's outcome (`commitProvenRejection`, or the cleanup's own read).
-        this.ledger.update(principal, requestId, { reason })
+        // until a read proves the whole request's outcome (`commitProvenRejection`, or the cleanup's own read). This send
+        // is answered, so the process that must be gone is the earlier send's, not this one's.
+        this.ledger.tx(() => {
+          this.ledger.update(principal, requestId, { reason })
+          this.ledger.resolveSend(principal, requestId)
+        })
 
         return owed ? answerForRow(gateId, this.ledger.receipt(principal, requestId) as ReceiptRow) : pending
       }
@@ -709,20 +713,42 @@ export class WorkGate {
   }
 
   /**
-   * A rejection that was parked because an earlier send's outcome was unknown becomes final only when the thread is
-   * absent on a read made by ANOTHER T3 process than the one the first send went to (the same proof the cleanup uses).
-   * The rejection and the release of the claim are one durable write. Undefined: not proven, nothing changes.
+   * A read of a row's thread together with the T3 process that answered it. The process id is sampled before and after the
+   * read: a read that straddled a restart, or ran while none served, has no process to credit (undefined), and proves nothing.
    */
-  private commitProvenRejection(row: ReceiptRow): WorkRequestAnswer | undefined {
+  private async confirmedRead(read: () => Promise<ThreadRead>): Promise<{ read: ThreadRead; incarnation: string | undefined }> {
+    const before = this.options.t3.incarnation()
+    const result = await read()
+    const after = this.options.t3.incarnation()
+
+    return { read: result, incarnation: before !== undefined && before === after ? after : undefined }
+  }
+
+  private confirmedStatusRead(row: ReceiptRow) {
+    return this.confirmedRead(() => this.statusReader.read(row))
+  }
+
+  /**
+   * The proof that nothing started: the thread is absent on a read made by a confirmed T3 process OTHER than the one the last
+   * unresolved send went to. While that process lives, the send may still be running in it, and absence means only "not yet".
+   */
+  private absenceProven(row: ReceiptRow, confirmed: string | undefined): boolean {
+    return confirmed !== undefined && row.incarnation !== null && confirmed !== row.incarnation
+  }
+
+  /**
+   * A rejection that was parked because an earlier send's outcome was unknown becomes final only when the thread is
+   * absent on a read made by ANOTHER (confirmed) T3 process than the one that earlier send went to (the same proof the
+   * cleanup uses). The rejection and the release of the claim are one durable write. Undefined: not proven, nothing changes.
+   */
+  private commitProvenRejection(row: ReceiptRow, confirmed: string | undefined): WorkRequestAnswer | undefined {
     const current = this.ledger.receipt(row.principal, row.requestId) as ReceiptRow
 
     if (current.state !== 'admitted' || current.stopScope || !current.reason || !REJECTIONS.has(current.reason)) {
       return undefined
     }
 
-    const now = this.options.t3.incarnation()
-
-    if (now === undefined || current.incarnation === null || now === current.incarnation) {
+    if (!this.absenceProven(current, confirmed)) {
       return undefined
     }
 
@@ -1096,7 +1122,7 @@ export class WorkGate {
           break
         }
 
-        const read = await t3.read(owner.token, row.threadId as string)
+        const { read, incarnation } = await this.confirmedRead(() => t3.read((owner as GateSession).token, row.threadId as string))
 
         if (read.kind === 'found') {
           // `stopped` is claimed only after a native Stop that T3 accepted and a read AFTER it that shows nothing in
@@ -1118,10 +1144,9 @@ export class WorkGate {
           break
         }
 
-        // absent, and a byte may have crossed: settle only on a read made after another T3 process is ready
-        const now = t3.incarnation()
-
-        if (now !== undefined && now !== row.incarnation) {
+        // absent, and a byte may have crossed: settle only on a read made by a confirmed T3 process other than the one the last
+        // unresolved send went to (a retry that went to a newer process is still running there, and an absent read proves nothing)
+        if (this.absenceProven(row, incarnation)) {
           this.settle(row, 'nothing_started')
 
           break
@@ -1149,7 +1174,9 @@ export class WorkGate {
     const { t3 } = this.options
     const stop = await t3.interrupt(token, threadId, { stop: true })
 
-    if (stop.transport !== 'ok' || stop.isError) {
+    // An explicit success only: T3 answered 200 with a result, not an error. A reply that is neither (a proxy page, a
+    // JSON-RPC error, no body) is not a Stop that landed, whatever a later read shows.
+    if (stop.transport !== 'ok' || stop.status !== 200 || stop.isError || stop.code) {
       return false
     }
 
@@ -1226,7 +1253,7 @@ export class WorkGate {
         }
 
         if (fresh.forwarded) {
-          const read = await this.statusReader.read(fresh)
+          const { read, incarnation } = await this.confirmedStatusRead(fresh)
 
           if (read.kind === 'found') {
             this.statusReader.observe(fresh, read)
@@ -1234,7 +1261,7 @@ export class WorkGate {
             return
           }
 
-          if (read.kind !== 'absent' || this.commitProvenRejection(fresh)) {
+          if (read.kind !== 'absent' || this.commitProvenRejection(fresh, incarnation)) {
             return
           }
 

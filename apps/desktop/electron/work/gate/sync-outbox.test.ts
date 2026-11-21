@@ -47,13 +47,14 @@ const syncFor = (fake: WorkPlatform) =>
 const refuse = (status: number) => Object.assign(new Error('refused'), { status })
 
 describe('the cutoff and its event are one commit', () => {
+  // The close names the generation that just RETIRED (1), never the new one (2): the agent's next grants are minted at 2 and must stay carriable.
   it('the cutoff queues its report in its own transaction: a crash before `finishRevoke` loses neither', () => {
     h = makeHarness()
     h.gate.beginRevoke({ scope: 'agent', principal: LUNA, reason: 'agent_removed_owner' })
 
     const queued = h.ledger.pending('mac_event').map(row => JSON.parse(row.payload))
 
-    expect(queued).toEqual([expect.objectContaining({ kind: 'agent_closed', agentPrincipal: LUNA, agentGeneration: 2 })])
+    expect(queued).toEqual([expect.objectContaining({ kind: 'agent_closed', agentPrincipal: LUNA, agentGeneration: 1 })])
   })
 
   it('a cutoff that rolls back leaves no event behind', () => {

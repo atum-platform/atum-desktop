@@ -40,7 +40,11 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
       await call('work_sync_ack', ack as unknown as Record<string, unknown>)
     },
     async macEvent(event) {
-      await call('work_mac_event', event as unknown as Record<string, unknown>)
+      // The reply names the route state the platform now holds: a reopen it is holding back (the key rotated, the ack is not in
+      // yet) answers 200 with `closed`, and the caller must not take that for an open route.
+      const state = ((await call('work_mac_event', event as unknown as Record<string, unknown>)) as { routeState?: unknown } | null)?.routeState
+
+      return { routeState: state === 'open' || state === 'closed' ? state : undefined }
     },
     async carryGrant(carry) {
       await call('work_grant_carry', carry as unknown as Record<string, unknown>)

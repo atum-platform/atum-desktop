@@ -7,7 +7,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
-import type { GateEvent } from '../work/gate'
+import { type GateEvent, GateLedger, workGatePaths } from '../work/gate'
 import { workSessionPaths } from '../work/session'
 
 import { createGateDoor, createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess, WORK_MIN_AVAILABLE_MICRO_PROTONS, WorkModelKeys } from './main-work'
@@ -354,6 +354,34 @@ describe('createMatrixWork', () => {
     expect(JSON.parse(readFileSync(paths.marker, 'utf8')).restore).toBe('done')
     // the interrupted snapshot is gone only after the restore completed; it was never reused as a live home
     expect(existsSync(paths.snapshot)).toBe(false)
+  })
+
+  it('the update door reads the durable stop ledger when no gate runs: a stop owed on a home a server may still hold is refused up front', async () => {
+    const { work, deps } = build({}, true)
+    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
+    const paths = workSessionPaths({ root })
+    const ledger = new GateLedger(workGatePaths({ root }).ledger, '67000000-0000-4000-8000-0000000000a1')
+    const luna = '67000000-0000-4000-8000-00000000000a'
+    ledger.setEntitled(luna, true)
+
+    expect(
+      ledger.admit({ principal: luna, requestId: 'AAAAAAAAAAAAAAAAAAAAA1', paramsHash: 'h', callJson: '{}', fingerprint: 'f', sessionId: 's', threadId: 't', eventId: '$e', notAfter: 1, epoch: 1, generation: 1 })
+    ).toEqual({ ok: true })
+    ledger.markForwarded(luna, 'AAAAAAAAAAAAAAAAAAAAA1', 'inc-1')
+    ledger.cutoff({ scope: 'agent', principal: luna, reason: 'agent_removed_owner' })
+    ledger.close()
+    expect(GateLedger.owedCountAt(workGatePaths({ root }).ledger)).toBe(1)
+
+    // a server holds the home (the runtime file names a live process): the refusal comes first, nothing is touched
+    mkdirSync(paths.userdata, { recursive: true })
+    writeFileSync(join(paths.userdata, 'server-runtime.json'), JSON.stringify({ pid: process.pid }))
+    await work.activate()
+    expect(await work.update({ version: '0.1.12', resources: deps.resources })).toEqual({ outcome: 'refused', reason: 'stops_owed' })
+
+    // no server holds it (the app was quit and replaced): the stop settles when the gate starts, so it does not block the update
+    rmSync(join(paths.userdata, 'server-runtime.json'))
+    expect((await work.update({ version: '0.1.12', resources: deps.resources })).outcome).toBe('refused')
+    expect(await work.update({ version: '0.1.12', resources: deps.resources })).not.toEqual({ outcome: 'refused', reason: 'stops_owed' })
   })
 
   it('exposes the main-owned update door; with no account bound it is unavailable, never a silent no-op', async () => {

@@ -117,6 +117,16 @@ export class WorkMount {
     }
   }
 
+  /** A service that only delivers what is owed (no gate, no server), until it has nothing left. */
+  private delivering: WorkGateService | undefined
+
+  private async endDelivery(): Promise<void> {
+    const service = this.delivering
+
+    this.delivering = undefined
+    await service?.close().catch(() => undefined)
+  }
+
   private serial<T>(work: () => Promise<T>): Promise<T> {
     const run = this.chain.then(work, work)
     this.chain = run.catch(() => undefined)
@@ -151,6 +161,9 @@ export class WorkMount {
         return
       }
 
+      // A delivery-only service of an earlier pass holds this account's ledger file: it ends before the gate is built afresh.
+      await this.endDelivery()
+
       const epoch = this.epoch
       const stale = () => this.closed || epoch !== this.epoch || this.deps.account()?.root !== account.root
       this.phase = 'starting'
@@ -173,7 +186,21 @@ export class WorkMount {
         if (!this.needsServer(started)) {
           this.phase = 'idle'
           this.reason = 'not_needed'
-          await started.close()
+
+          // What this account still owes the platform (a cutoff's events, settled stop reports a failed retirement flush left)
+          // goes out without the owner opening Work and without the server: the ledger and the platform are all it needs.
+          if (started.hasPendingDelivery()) {
+            this.delivering = started
+            started.resumeDelivery(() => {
+              if (this.delivering === started) {
+                this.delivering = undefined
+              }
+
+              void started.close().catch(() => undefined)
+            })
+          } else {
+            await started.close()
+          }
 
           return
         }
@@ -285,6 +312,7 @@ export class WorkMount {
 
     return this.serial(async () => {
       const result: RetireResult = { settled: true, failed: [] }
+      await this.endDelivery()
       let current = this.gate
 
       if (current && current.account.root !== account.root) {
@@ -348,6 +376,7 @@ export class WorkMount {
 
     return this.serial(async () => {
       const result: RetireResult = { settled: true, failed: [] }
+      await this.endDelivery()
       const gate = this.gate
 
       try {
@@ -398,6 +427,7 @@ export class WorkMount {
       const gate = this.gate
       this.gate = undefined
 
+      await this.endDelivery()
       await gate?.service.close().catch(error => this.deps.log?.('gate_close_failed', { code: code(error) }))
       await this.deps.host.stop()
       this.phase = 'idle'

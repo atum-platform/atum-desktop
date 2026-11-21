@@ -98,13 +98,33 @@ Real-pin tests: `ATUM_WORK_T3_BIN=<resources>/work-runtime/t3 npx vitest run ele
 - A stop is `stopped` only after a native `t3_thread_interrupt` T3 accepted and a read after it that shows nothing in
   flight; a failed stop, a failed read or a still-busy thread leaves the row owed. Every sync tick retries what is owed.
 - A rejection T3 gives to a *retry* is parked (`reason` on the admitted row) while an earlier send's outcome is unknown;
-  the claim on the owner's event and the stop obligation stay until a read on another T3 process (the first send's
-  incarnation is kept) shows the thread absent, and then the rejection and the claim release are one transaction.
+  the claim on the owner's event and the stop obligation stay until a read made by a *confirmed* T3 process other than the
+  one the LAST unresolved send went to shows the thread absent, and then the rejection and the claim release are one
+  transaction. The ledger keeps that process (`incarnation`) and the unresolved send before it (`prior_incarnation`, restored
+  when the last send is answered for good). A retry sent to a newer process is still running there: an absent read from that
+  process proves nothing. A read is credited to a process only when its id is the same before and after the read.
+- "Explicit success" of a native Stop is a 200 with a result and no error; a reply with no result (a proxy page, a JSON-RPC
+  error, an empty body) is an error everywhere in the T3 client, so `stopped` is never claimed on one.
 - The agent's session id stays in memory and the store until T3 confirms it revoked (or no longer lists it), and a
   revocation is acknowledged only once that succeeded.
 - The cutoff and its `mac_event` are queued in one ledger transaction. A route/agent event the platform definitively
   refuses (400, 409, 410, 412, 422) is superseded when a newer event of its family is queued; the newest of a family is
   kept; events behind a refused one are not held back. Other failures (offline, 401, 429, 5xx) keep the order.
+- **Event order and the reopen.** Every `mac_event` gets a time from `GateLedger.nextEventAt()`: the wall clock, but never at or
+  below the last one given (kept in the ledger, so a restart or a clock set back cannot reorder or tie a close and an open).
+  An agent close (`agent_closed`) reports the last RETIRED generation, never the new one: the agent's next grants are minted at
+  the new generation and must stay carriable (the platform keeps `closed_generation` at the retired one). A route event the
+  platform answers with a state other than the one asked for is not delivered: a reopen answered `closed` (held until this Mac
+  has applied the cutoff, acknowledged and enrolled again) stays queued and is sent again; a close answered `open` was older than
+  an event the platform holds and is reissued with a newer time. The sync cycle is: pull and apply, settle, acknowledge, then
+  (consent and switch still say open, the platform's route not known open) enroll again and queue `route_opened`, then flush
+  the events, then carry grants. Grants are carried only on a route the platform has confirmed open and with no event of this Mac
+  still queued, so a queued close can never delete a grant that was just carried. After a restart, or a platform-made removal,
+  the platform's route state is unknown (`platform_route` in the ledger), which is what triggers the enroll-and-reopen.
+- Reports the platform refuses one at a time (a 400 for that report) go on their own schedule (`outbox.retry_at`: 30 s,
+  doubling, six hours at most), so a full batch of such reports never stands in front of ones it would accept. A closed gate that
+  still owes the platform events or reports delivers them at sign-in without the server (`WorkMount` keeps a delivery-only
+  service until nothing is pending).
 - Retire delivers the cutoff, the settled stop reports and the acknowledgement in one bounded flush (10 s,
   `retireFlushMs`) before the owner's credential goes. A settlement batch is cleared only when `accepted + ignored`
   equals the number of reports sent.
@@ -117,6 +137,16 @@ Real-pin tests: `ATUM_WORK_T3_BIN=<resources>/work-runtime/t3 npx vitest run ele
   `stage-work-runtime.mjs` with the version and the `t3` digest), so `start()` runs its crash recovery before any server
   opens the home, and `work.update(target)` is main's one door for moving the pin. An update is refused while a stop is
   owed. The first `update` records the running pin as the baseline for the downgrade refusal.
+- The installed path goes through the driver too: every `WorkSession.start()` compares the pin this build ships with the one the
+  home last committed. No record: the shipped pin is the baseline. Shipped below committed: nothing starts
+  (`work_pin_downgrade`). Shipped above committed: the update driver runs (reset, snapshot, trial, commit or restore) BEFORE the home
+  opens; a refusal (`work_update_<reason>`) or a trial that rolled back (`work_update_rolled_back`, the previous binary is not part of
+  the build) leaves the server stopped and is retried at the next start.
+- Every refusal that can be known up front (`UpdateDriver.preflight`: in progress, downgrade, not newer, a stop owed, an
+  unverified pin, too little disk) is answered BEFORE a view is closed, the partition cleared or the server restarted. "A stop is
+  owed" reads the running gate, or (no gate this run) the durable stop ledger file (`GateLedger.owedCountAt`); it blocks only while
+  a server could still be holding the work (this process's host, or a live pid in `server-runtime.json`): an app that was quit
+  and replaced has no server, and the owed stop settles when the gate starts on the updated pin.
 - `supervisor.py` gives every child an `ATUM_WORK_OWNER=<token>` environment entry and finds descendants by that token
   as well as by parentage, so a shipped helper that detaches and is reparented to launchd is still stopped (rescanned on
   every stop). Apple platform binaries hide their environment from `ps`; none of the shipped helpers is one.
@@ -131,9 +161,8 @@ stopped). Nothing here encrypts T3's database; that is T3's.
 
 ## Open
 
-- Stop reports (`StopReport`) stay queued in the gate ledger because the platform has no settlement operation yet;
-  `state().gate.undeliveredReports` counts them. Contract amendment needed: `work.mac.settlements`
-  (see the lane G report).
+- Stop reports (`StopReport`) are delivered with `work.mac.settlements` (contract 1.1); `state().gate.undeliveredReports` counts
+  what is still queued.
 - The release build must bundle `electron/work/sidecar/preload.ts` as `matrix-work-preload.js` (private
   `build-matrix-candidate.mjs`) and pass `ATUM_WORK_ARCHIVE` to `matrix-after-pack.mjs`; without either, Work is not drawn.
 - The Work billing join (`work/billing.sqlite`) belonged to the retired proxy; Matrix meters each call at the gateway.

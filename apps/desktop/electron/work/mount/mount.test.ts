@@ -44,6 +44,10 @@ interface Rig {
   t3: FakeT3
   sessions: FakeSessions
   carried: { agentPrincipal: string; grant: string }[]
+  /** Request ids of the stop reports the platform took. */
+  reported: string[]
+  /** Whether the platform has the settlement operation (it does not, by default). */
+  settlements: boolean
   order: string[]
   account: WorkMountAccount | undefined
   held: boolean
@@ -93,6 +97,7 @@ function build(options: { surface?: 'on' | 'hidden'; composed?: boolean } = {}):
   const sessions = new FakeSessions()
   const t3 = new FakeT3(sessions.sessionIdOf)
   const carried: Rig['carried'] = []
+  const reported: string[] = []
   const order: string[] = []
   const built: WorkGateService[] = []
 
@@ -115,6 +120,13 @@ function build(options: { surface?: 'on' | 'hidden'; composed?: boolean } = {}):
     pull: async input => page(input.appliedSeq),
     ack: async () => undefined,
     macEvent: async () => undefined,
+    reportSettlements: async input => {
+      if (!rig.settlements) {
+        throw Object.assign(new Error('unavailable'), { status: 503 })
+      }
+
+      reported.push(...input.reports.map(report => report.requestId))
+    },
     carryGrant: async carry => void carried.push({ agentPrincipal: carry.agentPrincipal, grant: carry.grant })
   }
 
@@ -182,6 +194,8 @@ function build(options: { surface?: 'on' | 'hidden'; composed?: boolean } = {}):
     t3,
     sessions,
     carried,
+    reported,
+    settlements: false,
     order,
     account: account as WorkMountAccount | undefined,
     held: false,
@@ -313,6 +327,35 @@ describe('gating', () => {
     expect(rig.order).toEqual(['createGate'])
     expect(rig.mount.state()).toMatchObject({ phase: 'idle', reason: 'not_needed', gate: null })
     expect(rig.mount.service()).toBeUndefined()
+  })
+
+  it('what a failed retirement flush left owed (a settled report, no stop owed, a closed gate) is delivered at sign-in, without the server and without the owner opening Work', async () => {
+    build()
+    rig.settlements = true
+    const seed = reopen()
+
+    seed.ledger.enqueue('stop_report', {
+      agentPrincipal: LUNA,
+      requestId: REQ_1,
+      routeEpochAtAdmit: 1,
+      agentGenerationAtAdmit: 1,
+      scope: 'agent',
+      outcome: 'stopped',
+      revocationId: 1,
+      settledAt: rig.clock.now()
+    })
+    await seed.close()
+
+    await rig.mount.setSurface('on')
+    await vi.waitFor(() => expect(rig.reported).toEqual([REQ_1]))
+
+    expect(rig.order).toEqual(['createGate']) // no session server, no gate start
+    expect(rig.mount.state()).toMatchObject({ phase: 'idle', reason: 'not_needed' })
+
+    // once nothing is owed the delivery-only service lets go of the ledger, and the first use builds the gate afresh
+    await vi.waitFor(() => expect(rig.built.length).toBeGreaterThan(0))
+    await rig.mount.wantServer()
+    expect(rig.mount.state().phase).toBe('running')
   })
 
   it('first use (the owner opens Work) starts the session and the gate; a later reconcile keeps them', async () => {

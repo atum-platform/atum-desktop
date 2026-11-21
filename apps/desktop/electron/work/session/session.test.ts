@@ -252,15 +252,15 @@ describe('update through the session', () => {
     expect(host.starts).toBe(1)
   })
 
-  it('re-pairs the running pin when an update is refused, instead of leaving a dead view', async () => {
-    const { entry } = lab()
+  it('a refusal known up front (a stop owed) is answered BEFORE the view, the partition or the server are touched', async () => {
+    const { entry, cleared } = lab()
     const { account, home, host } = entry('A')
 
     const session = new WorkSession({
       account: () => account,
       host,
       authTools: () => ({ cli: home.cli(), grants: home.grants() }),
-      clearPartition: async () => undefined,
+      clearPartition: async partition => void cleared.push(partition),
       homeRunning: () => home.running,
       update: {
         currentPin: () => ({ version: '0.1.11', resources: '/p1' }),
@@ -274,9 +274,81 @@ describe('update through the session', () => {
 
     const first = views(home)
     await session.openOwnerView(first.create)
+    const started = host.starts
+    const cookie = first.made[0].cookie
 
     expect(await session.update({ version: '0.1.12', resources: '/p2' })).toEqual({ outcome: 'refused', reason: 'stops_owed' })
-    expect(host.current()).toBeDefined()
-    expect((await session.openOwnerView(views(home).create)).state).toBe('paired')
+
+    // nothing moved: the same view, the same server, no reset (the cookie still works), no partition cleared
+    expect(first.made[0].closed).toBe(false)
+    expect(cleared).toEqual([])
+    expect(host.starts).toBe(started)
+    expect(home.accepts(cookie)).toBe(true)
+    expect(session.held()).toBe(false)
+  })
+
+  it('a pin this build ships that is newer than the committed one goes through the driver before the home opens', async () => {
+    const { entry, events } = lab()
+    const { account, home, host } = entry('A')
+    const v2 = new FakeHost(home, events, '0.1.12')
+    let shipped = { version: '0.1.11', resources: '/p1' }
+
+    const session = new WorkSession({
+      account: () => account,
+      host,
+      authTools: () => ({ cli: home.cli(), grants: home.grants() }),
+      clearPartition: async () => undefined,
+      homeRunning: () => home.running,
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => false, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      pairing: { timeoutMs: 120, pollMs: 15 }
+    })
+
+    await session.start() // first run: the shipped pin is the baseline
+    await host.stop()
+    expect(host.starts).toBe(1)
+
+    // the app was replaced by a build that ships 0.1.12
+    shipped = { version: '0.1.12', resources: '/p2' }
+    const before = home.issueSession()
+    const incarnation = await session.start()
+
+    expect(v2.starts).toBe(1) // the trial was the start
+    expect(host.starts).toBe(1) // the old binary never ran again, and the new one never started outside the driver
+    expect(incarnation.home).toBe(home.paths.home)
+    expect(home.accepts(before)).toBe(false) // the update reset the home first
+    expect(session.held()).toBe(false)
+  })
+
+  it('a stop owed with the server up refuses the shipped pin change before anything starts; a shipped pin below the committed one never starts', async () => {
+    const { entry, events } = lab()
+    const { account, home, host } = entry('A')
+    const v2 = new FakeHost(home, events, '0.1.12')
+    let shipped = { version: '0.1.11', resources: '/p1' }
+    let owed = false
+
+    const session = new WorkSession({
+      account: () => account,
+      host,
+      authTools: () => ({ cli: home.cli(), grants: home.grants() }),
+      clearPartition: async () => undefined,
+      homeRunning: () => home.running,
+      update: { currentPin: () => shipped, hostFor: pin => (pin.version === '0.1.12' ? v2 : host), stopsOwed: () => owed, freeBytes: () => 1e12, verifyPin: async () => undefined },
+      pairing: { timeoutMs: 120, pollMs: 15 }
+    })
+
+    // the home last committed 0.1.11
+    shipped = { version: '0.1.11', resources: '/p1' }
+    await session.start()
+    await host.stop()
+
+    shipped = { version: '0.1.12', resources: '/p2' }
+    owed = true
+    await expect(session.start()).rejects.toMatchObject({ code: 'work_update_stops_owed' })
+    expect(v2.starts).toBe(0)
+    expect(host.starts).toBe(1)
+
+    shipped = { version: '0.1.10', resources: '/p0' }
+    await expect(session.start()).rejects.toMatchObject({ code: 'work_pin_downgrade' })
+    expect(host.starts).toBe(1)
   })
 })

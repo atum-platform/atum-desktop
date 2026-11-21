@@ -10,7 +10,9 @@ import type { SafeStorageLike } from '../encrypted-store'
 import {
   createDeviceServicePlatform,
   type GateEvent,
+  GateLedger,
   type OwnerEventVerifier,
+  workGatePaths,
   type WorkGateService
 } from '../work/gate'
 import {
@@ -21,7 +23,7 @@ import {
   WorkMount,
   type WorkMountAccount
 } from '../work/mount'
-import { type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import {
   createWorkViewFactory,
@@ -353,8 +355,22 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     update: {
       currentPin: () => readShippedPin(deps.resources),
       hostFor: pin => host.forResources(pin.resources),
-      // An update does not start while any stop is owed. No running gate means no stop this run could owe.
-      stopsOwed: () => (mount?.service()?.ledger.owedRows().length ?? 0) > 0,
+      // An update does not start while any stop is owed: the running gate's, or (no gate this run, or none yet) the durable stop
+      // ledger's. A stop owed only blocks the update while a server could still be holding the work: a home no server runs
+      // (the app was quit and replaced) has nothing to protect, and the stop settles when the gate starts on the updated pin.
+      stopsOwed: () => {
+        if ((mount?.service()?.ledger.owedRows().length ?? 0) > 0) {
+          return true
+        }
+
+        const current = account()
+
+        if (!current || GateLedger.owedCountAt(workGatePaths(current).ledger) === 0) {
+          return false
+        }
+
+        return host.current() !== undefined || homeRunningFromRuntimeFile(workSessionPaths(current))()
+      },
       log: event => deps.log(`[atum-work] update ${event}`)
     }
   })
