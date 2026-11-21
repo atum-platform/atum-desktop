@@ -156,6 +156,8 @@ export class UpdateDriver {
 
     try {
       const current = deps.currentPin()
+      // The pin running today is the baseline a later downgrade is refused against.
+      this.adopt(current)
       const committedPin = this.readState()?.pin ?? current.version
 
       if (semver.lt(target.version, committedPin)) {

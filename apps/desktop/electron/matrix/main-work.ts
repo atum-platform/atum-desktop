@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
@@ -21,7 +21,7 @@ import {
   WorkMount,
   type WorkMountAccount
 } from '../work/mount'
-import { WorkSession, workSessionPaths } from '../work/session'
+import { type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import {
   createWorkViewFactory,
@@ -53,6 +53,13 @@ export interface MatrixWorkModelPort {
   baseUrl(): string | undefined
   /** `MatrixManagedModel.probe`: a free read through the proxy, the gateway and the platform identity. */
   probe(role: string, signal?: AbortSignal): Promise<{ ok: true } | { ok: false; code: string }>
+  /** `MatrixManagedModel.abortAgent`: cancel this role's forwards that are on their way to the gateway. */
+  abortRole?(role: string): void
+}
+
+/** The owner's wallet, a real read of the platform ledger (the one the Matrix wallet shows): `account.wallet`. */
+export interface MatrixWorkWalletPort {
+  (signal: AbortSignal): Promise<{ balances: { available: number } }>
 }
 
 export interface MatrixWorkDeps {
@@ -70,6 +77,8 @@ export interface MatrixWorkDeps {
   zoomFactor(): number
   sessionFromPartition(partition: string): Session
   model: MatrixWorkModelPort
+  /** The owner's balance. `GET /v1/models` through the proxy proves catalog access, not that Protons exist. */
+  wallet: MatrixWorkWalletPort
   /** `account.appScope()`. */
   scope(): { accountKey: string; generation: number } | null
   /** The owner's platform principal (the enrollment's), the account id the platform keys Work by. */
@@ -94,6 +103,8 @@ export interface MatrixWorkDeps {
 }
 
 export interface MatrixWork {
+  /** Main-owned update of the pinned Work server (snapshot, trial, commit or rollback). Refused while a stop is owed. */
+  update(target: PinRef): Promise<UpdateOutcome>
   /** The window may have become ready, or the account may have changed. Idempotent. */
   activate(): Promise<void>
   /** Sign-out, a session the server ended, an account switch: tear everything of this account down. */
@@ -164,9 +175,30 @@ export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onCha
   }
 }
 
-/** The balance read, from a free probe through the model proxy. `out_of_protons` is the one answer that says "empty". */
-export async function readWorkAccess(model: MatrixWorkModelPort): Promise<'allowed' | 'empty' | 'unavailable'> {
+/**
+ * Provisional floor for starting Work: one Proton (1,000,000 micro-Protons) available. The gateway's own completion
+ * hold stays the final spending check on every model call; this only keeps a launch from being claimed (and the owner's
+ * message used up) for an owner who plainly cannot pay.
+ */
+export const WORK_MIN_AVAILABLE_MICRO_PROTONS = 1_000_000
+
+/**
+ * Whether Work may start for the owner. The balance is the wallet's own read of the platform ledger; the free probe
+ * through the proxy then confirms the model path (key, sign-in, gateway, catalog). Either can say "empty"; only both
+ * saying yes is "allowed", and anything unreadable is "unavailable", never "allowed".
+ */
+export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<'allowed' | 'empty' | 'unavailable'> {
   try {
+    const view = await wallet(AbortSignal.timeout(10_000))
+
+    if (!Number.isSafeInteger(view?.balances?.available)) {
+      return 'unavailable'
+    }
+
+    if (view.balances.available < WORK_MIN_AVAILABLE_MICRO_PROTONS) {
+      return 'empty'
+    }
+
     const answer = await model.probe(MATRIX_WORK_MODEL_ROLE)
 
     if (answer.ok === true) {
@@ -179,10 +211,87 @@ export async function readWorkAccess(model: MatrixWorkModelPort): Promise<'allow
   }
 }
 
-export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
-  let modelKey: string | undefined
+export interface WorkModelKeysPorts {
+  scope(): { accountKey: string; generation: number } | null
+  closing(): boolean
+  abort(role: string): void
+}
 
-  const mintKey = () => (modelKey ??= randomBytes(32).toString('base64url'))
+/**
+ * The one key Work's gateways present to the model proxy, bound to the account generation it was minted for. It is an
+ * answer only while that account and generation are the signed-in ones; `forget` (called synchronously at the start of
+ * every retirement) drops it and cancels the forwards already on their way, so no call finishes under another account.
+ */
+export class WorkModelKeys {
+  private bound: { key: string; accountKey: string; generation: number } | undefined
+
+  constructor(private readonly ports: WorkModelKeysPorts) {}
+
+  mint(): string {
+    const scope = this.ports.scope()
+
+    if (!scope || this.ports.closing()) {
+      throw new Error('work_model_unavailable')
+    }
+
+    if (this.bound && (this.bound.accountKey !== scope.accountKey || this.bound.generation !== scope.generation)) {
+      this.forget()
+    }
+
+    this.bound ??= { key: randomBytes(32).toString('base64url'), accountKey: scope.accountKey, generation: scope.generation }
+
+    return this.bound.key
+  }
+
+  keys(): [key: string, role: string][] {
+    if (!this.bound) {
+      return []
+    }
+
+    const scope = this.ports.scope()
+
+    if (!scope || this.ports.closing() || scope.accountKey !== this.bound.accountKey || scope.generation !== this.bound.generation) {
+      this.forget()
+
+      return []
+    }
+
+    return [[this.bound.key, MATRIX_WORK_MODEL_ROLE]]
+  }
+
+  forget(): void {
+    const had = this.bound !== undefined
+
+    this.bound = undefined
+
+    if (had) {
+      this.ports.abort(MATRIX_WORK_MODEL_ROLE)
+    }
+  }
+}
+
+/** The pin this build ships: `work-runtime/pin.json`, written when the runtime is staged (version and `t3` digest). */
+export function readShippedPin(resources: string): PinRef {
+  try {
+    const raw = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: unknown; sha256?: unknown }
+
+    if (typeof raw.version === 'string' && /^\d+\.\d+\.\d+$/u.test(raw.version)) {
+      return { version: raw.version, resources, ...(typeof raw.sha256 === 'string' ? { sha256: raw.sha256 } : {}) }
+    }
+  } catch {
+    // an older stage without a manifest
+  }
+
+  return { version: '0.0.0', resources }
+}
+
+export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
+  const modelKeys = new WorkModelKeys({
+    scope: () => deps.scope(),
+    closing: () => deps.closing(),
+    abort: role => deps.model.abortRole?.(role)
+  })
+
   const rootFor = (accountKey: string) => join(deps.userData, 'work-accounts', accountKey.slice(0, 32))
 
   const account = (): WorkMountAccount | undefined =>
@@ -208,16 +317,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       return {
         ATUM_MANAGED_MODEL_BASE_URL: baseUrl,
         ATUM_MANAGED_MODEL_DEFAULT: WORK_DEFAULT_MODEL,
-        ATUM_MANAGED_MODEL_PROXY_TOKEN: mintKey()
+        ATUM_MANAGED_MODEL_PROXY_TOKEN: modelKeys.mint()
       }
     },
     // A stopped or replaced server leaves no key the proxy would still answer to.
-    revokeCredentials: () => {
-      modelKey = undefined
-    },
+    revokeCredentials: () => modelKeys.forget(),
     // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
     accessState: async () => {
-      const access = await readWorkAccess(deps.model)
+      const access = await readWorkAccess(deps.model, deps.wallet)
 
       return access === 'allowed'
         ? ({ state: 'ready', access_alias: 'binh-minh' } as unknown as ManagedModelAccessSnapshot)
@@ -239,6 +346,16 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       await store.clearStorageData()
       await store.clearCache()
+    },
+    // The update driver is part of the installed composition: `WorkSession.start` runs its crash recovery (a restore
+    // that was interrupted, a reset still owed) before any server opens the home, and `update` is the one door for
+    // moving the pin. Without it a crash during a restore would leave the home half restored and start it anyway.
+    update: {
+      currentPin: () => readShippedPin(deps.resources),
+      hostFor: pin => host.forResources(pin.resources),
+      // An update does not start while any stop is owed. No running gate means no stop this run could owe.
+      stopsOwed: () => (mount?.service()?.ledger.owedRows().length ?? 0) > 0,
+      log: event => deps.log(`[atum-work] update ${event}`)
     }
   })
 
@@ -333,7 +450,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     session,
     enabled: () => host.enabled(),
     gate: door,
-    readAccess: () => readWorkAccess(deps.model)
+    readAccess: () => readWorkAccess(deps.model, deps.wallet),
+    wantServer: () => mount.wantServer()
   })
 
   const lifecycle = new MatrixWorkLifecycle({
@@ -349,18 +467,44 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         throw new Error('work_model_unavailable')
       }
     },
-    mount,
+    // Retirement and quit drop the model key (and cancel its forwards) synchronously, before any await.
+    mount: {
+      setSurface: value => mount.setSurface(value),
+      reconcile: () => mount.reconcile(),
+      retire: account => {
+        modelKeys.forget()
+
+        return mount.retire(account)
+      },
+      quit: () => {
+        modelKeys.forget()
+
+        return mount.quit()
+      },
+      state: () => mount.state()
+    },
     attach: value => surface.attach(value),
     parts,
     log: line => deps.log(line)
   })
 
   return {
-    activate: () => lifecycle.activate(),
+    activate: () => {
+      // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
+      modelKeys.keys()
+
+      return lifecycle.activate()
+    },
     retire: async () => {
+      modelKeys.forget()
       await lifecycle.retire()
     },
-    quit: () => lifecycle.quit(),
-    modelKeys: () => (modelKey ? [[modelKey, MATRIX_WORK_MODEL_ROLE]] : [])
+    quit: () => {
+      modelKeys.forget()
+
+      return lifecycle.quit()
+    },
+    update: target => session.update(target),
+    modelKeys: () => modelKeys.keys()
   }
 }

@@ -145,6 +145,26 @@ describe('WorkSurface', () => {
     expect(await surface.read()).toBeNull()
   })
 
+  it('first use asks main to start the server and the gate BEFORE the owner view opens, and a failed ask does not stop the open', async () => {
+    const order: string[] = []
+    const { parts, session, surface } = harness({ wantServer: async () => void order.push('want') })
+
+    session.openOwnerView.mockImplementationOnce(async factory => {
+      order.push('open')
+
+      return { state: 'paired', view: factory(INCARNATION), incarnation: INCARNATION }
+    })
+    surface.attach(parts)
+    await surface.show(RECT)
+    expect(order).toEqual(['want', 'open'])
+
+    const failing = harness({ wantServer: async () => { throw new Error('start_failed') } })
+
+    failing.surface.attach(failing.parts)
+    await failing.surface.show(RECT)
+    expect(failing.session.openOwnerView).toHaveBeenCalledTimes(1)
+  })
+
   it('opens the one owner view on the first show and paints it where the page asks', async () => {
     const { last, parts, placed, session, surface } = harness()
 

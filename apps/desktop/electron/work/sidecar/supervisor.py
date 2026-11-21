@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import resource
+import secrets
 import select
 import signal
 import subprocess
@@ -23,23 +24,57 @@ def processes():
             (line.split(maxsplit=3) for line in output.splitlines() if line.strip())}
 
 
+OWNER_VARIABLE = "ATUM_WORK_OWNER"
+
+
+def tagged(token):
+    """Pids whose environment carries this supervisor's owner token.
+
+    A helper that detaches (setsid, a double fork) is reparented to launchd and leaves the leader's process tree, so a
+    walk down from the leaders cannot find it. Every child is started with the token in its environment and a
+    descendant inherits it, so the token names the helper wherever it went. (Environment of Apple platform binaries is
+    hidden from `ps`; none of the shipped helpers is one.)
+    """
+    output = subprocess.check_output(["/bin/ps", "-axwwE", "-o", "pid=,command="], text=True, timeout=3)
+    needle = f"{OWNER_VARIABLE}={token}"
+    found = set()
+    for line in output.splitlines():
+        if needle in line:
+            head = line.split(maxsplit=1)[0]
+            if head.isdigit():
+                found.add(int(head))
+    found.discard(os.getpid())
+    return found
+
+
 class Children:
     def __init__(self):
         self.leaders = []
         self.seen = {}
+        self.token = secrets.token_hex(16)
+        self.tagged_at = 0.0
 
     def start(self, argv, env, cwd, stdout=subprocess.DEVNULL, pass_fds=()):
+        env = {**env, OWNER_VARIABLE: self.token}
         child = subprocess.Popen(argv, cwd=cwd, env=env, start_new_session=True,
                                  stdin=subprocess.DEVNULL, stdout=stdout, stderr=subprocess.DEVNULL,
                                  pass_fds=pass_fds)
         self.leaders.append(child)
         return child
 
-    def scan(self):
+    def scan(self, force=False):
         table = processes()
         owned = {child.pid for child in self.leaders if child.returncode is None and child.pid in table}
         owned.update(pid for pid, started in self.seen.items()
                      if pid in table and table[pid][2] == started)
+        now = time.monotonic()
+        if force or now - self.tagged_at >= 2:
+            # Detached helpers, found by the token they inherited (rate limited: it reads every environment).
+            self.tagged_at = now
+            try:
+                owned.update(pid for pid in tagged(self.token) if pid in table)
+            except (OSError, subprocess.SubprocessError):
+                pass
         while True:
             descendants = {pid for pid, (parent, _, _) in table.items() if parent in owned}
             if descendants <= owned:
@@ -50,7 +85,7 @@ class Children:
 
     def stop(self):
         try:
-            self.scan()
+            self.scan(force=True)
         except (OSError, subprocess.SubprocessError):
             pass
         for child in reversed(self.leaders):
@@ -75,6 +110,16 @@ class Children:
                     os.kill(pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+        # A helper that detached while the leaders were stopping: the token still names it.
+        try:
+            for pid in tagged(self.token):
+                if pid in table:
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+        except (OSError, subprocess.SubprocessError):
+            pass
 
 
 def wait_for_gateway(home, gateway, children):

@@ -306,8 +306,62 @@ describe('gating', () => {
     expect(rig.mount.state()).toMatchObject({ phase: 'idle', reason: 'not_composed' })
   })
 
-  it('turning the entry on starts it; turning it off later stops nothing', async () => {
+  it('sign-in starts no server (plan D7): the entry turning on builds nothing that runs until first use', async () => {
     build({ surface: 'hidden' })
+    await rig.mount.setSurface('on')
+
+    expect(rig.order).toEqual(['createGate'])
+    expect(rig.mount.state()).toMatchObject({ phase: 'idle', reason: 'not_needed', gate: null })
+    expect(rig.mount.service()).toBeUndefined()
+  })
+
+  it('first use (the owner opens Work) starts the session and the gate; a later reconcile keeps them', async () => {
+    build()
+    await rig.mount.wantServer()
+
+    expect(rig.order).toEqual(['createGate', 'session.start'])
+    expect(rig.mount.state().phase).toBe('running')
+  })
+
+  it('an active delegation starts it without the owner opening Work: an accepted grant with the switch on', async () => {
+    build()
+    // what a previous run of the app left in the ledger of this account
+    const seed = reopen()
+
+    seed.ledger.setMeta('work_grant_accepted_at', rig.clock.now())
+    seed.ledger.setMeta('route_open', '1')
+    await seed.close()
+    await rig.mount.reconcile()
+
+    expect(rig.order).toEqual(['createGate', 'session.start'])
+    expect(rig.mount.state().phase).toBe('running')
+  })
+
+  it('an accepted grant with the switch OFF is not a delegation: nothing starts at sign-in', async () => {
+    build()
+    const seed = reopen()
+
+    seed.ledger.setMeta('work_grant_accepted_at', rig.clock.now())
+    seed.ledger.setMeta('route_open', '0')
+    seed.ledger.setMeta('switch_on', '0')
+    await seed.close()
+    await rig.mount.reconcile()
+
+    expect(rig.order).toEqual(['createGate'])
+    expect(rig.mount.state().reason).toBe('not_needed')
+  })
+
+  it('a reset or restore a crash left pending is healed at sign-in: it starts the session door', async () => {
+    build()
+    rig.held = true
+    await rig.mount.reconcile()
+
+    expect(rig.order).toContain('session.start')
+  })
+
+  it('turning the entry on starts it once Work was used; turning it off later stops nothing', async () => {
+    build({ surface: 'hidden' })
+    await rig.mount.wantServer()
     await rig.mount.setSurface('on')
 
     expect(rig.mount.state().phase).toBe('running')
@@ -319,7 +373,7 @@ describe('gating', () => {
 
   it('the session starts before the gate, and the route stays unbound until the owner accepts the Work screen (D9)', async () => {
     build()
-    await rig.mount.reconcile()
+    await rig.mount.wantServer()
 
     expect(rig.order).toEqual(['createGate', 'session.start'])
     expect(rig.mount.state()).toMatchObject({ phase: 'running', gate: { enrolled: true, workGrantAccepted: false, routeOpen: false, socket: 'unbound' } })
@@ -338,7 +392,7 @@ describe('gating', () => {
     expect(rig.mount.state()).toMatchObject({ phase: 'holding', reason: 'held', gate: null })
 
     rig.held = false
-    await rig.mount.reconcile()
+    await rig.mount.wantServer()
 
     expect(rig.mount.state().phase).toBe('running')
   })
@@ -350,7 +404,7 @@ describe('gating', () => {
       throw new Error('work_unavailable')
     }
 
-    await rig.mount.reconcile()
+    await rig.mount.wantServer()
 
     expect(rig.mount.state()).toMatchObject({ phase: 'failed', reason: 'start_failed', gate: null })
     expect(existsSync(join(rig.run, 'g.sock'))).toBe(false)
@@ -459,7 +513,7 @@ describe('retire (sign-out and account switch)', () => {
     let release!: () => void
     rig.sessionStart = () => new Promise<void>(resolve => (release = resolve))
 
-    const starting = rig.mount.reconcile()
+    const starting = rig.mount.wantServer()
 
     await vi.waitFor(() => expect(rig.order).toContain('session.start'))
 
@@ -526,6 +580,9 @@ describe('quit and Work off', () => {
     await rig.mount.workOn()
 
     expect(rig.order).toContain('host.setEnabled(true)')
+    // turning Work on starts nothing by itself: the next first use does, and finds the route closed
+    expect(rig.mount.state().gate).toBeNull()
+    await rig.mount.wantServer()
     expect(rig.mount.state().gate).toMatchObject({ routeOpen: false, socket: 'unbound' })
   })
 })

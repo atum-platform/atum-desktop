@@ -793,6 +793,70 @@ describe('managed model loopback proxy', () => {
     req.destroy()
     await vi.waitFor(() => expect(upstreamSignal!.aborted).toBe(true))
   })
+
+  it('abortAgent cancels that role\'s forwards in flight and no other role\'s', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal!.addEventListener('abort', () => reject(new Error('aborted')))
+          })
+      )
+    )
+    const OTHER = 'b'.repeat(64)
+
+    const { model, port } = await proxy({
+      keys: [
+        [KEY, 'work'],
+        [OTHER, 'agent']
+      ]
+    })
+
+    const send = (key: string) => {
+      const req = httpRequest({ host: '127.0.0.1', port, method: 'POST', path: '/v1/chat/completions', headers: { Authorization: `Bearer ${key}` } })
+
+      req.on('error', () => {})
+      req.end('{}')
+
+      return req
+    }
+
+    const mine = vi.mocked(fetch)
+    send(KEY)
+    send(OTHER)
+    await vi.waitFor(() => expect(mine).toHaveBeenCalledTimes(2))
+    const [first, second] = mine.mock.calls.map(callArgs => (callArgs[1] as RequestInit).signal as AbortSignal)
+
+    model.abortAgent('work')
+    await vi.waitFor(() => expect(first.aborted).toBe(true))
+    expect(second.aborted).toBe(false)
+  })
+
+  it('a key retired while the request was being read is refused before the gateway is called, and its bearer is never used', async () => {
+    const upstream = vi.fn()
+    vi.stubGlobal('fetch', upstream)
+    let current = true
+    let bearerCalls = 0
+
+    const { port } = await proxy({
+      keys: {
+        [Symbol.iterator]: () => (current ? [[KEY, 'work'] as const] : [])[Symbol.iterator]()
+      },
+      bearer: async () => {
+        bearerCalls++
+        current = false // the account switched while the bearer was being fetched
+
+        return 'next-account-token'
+      }
+    })
+
+    const result = await call(port)
+
+    expect(result.status).toBe(401)
+    expect(upstream).not.toHaveBeenCalled()
+    expect(bearerCalls).toBe(1)
+  })
 })
 
 describe('output caps after a refused hold', () => {

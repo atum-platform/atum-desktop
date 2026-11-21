@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { WorkSyncPage } from './contract'
 import type { StopReport, WorkPlatform } from './ports'
 import { WorkSync } from './sync'
-import { ACCOUNT, DEVICE, type Harness, LUNA, makeHarness, REQ_1, EVENT_A } from './test-support'
+import { ACCOUNT, DEVICE, EVENT_A, type Harness, LUNA, makeHarness, REQ_1 } from './test-support'
 
 // The outbox after an offline switch cycle: obsolete route events are superseded when the platform has moved on, the
 // events behind a refused one are not wedged, the cutoff and its event are one commit, and a retirement delivers the

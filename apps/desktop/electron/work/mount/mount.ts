@@ -16,6 +16,10 @@ import type { WorkMountAccount } from './gate-factory'
 //           path: the gate serves one account, and its socket is gone before another account's home opens.
 //   quit    gate closed (no new admission, no cutoff: quitting is not a revocation) -> the process group stopped.
 //
+// The server is not started at sign-in (plan D7). It starts on first use (the owner opens Work: `wantServer`) or while
+// there is an active delegation (the owner's Work grant is accepted and the assistants' switch is on, or a stop is
+// still owed), and from then on for the rest of the account's run.
+//
 // Hiding the Work entry (`surface` not `on`) is presentation (§8.5): it only keeps the gate from STARTING. It never
 // stops anything that already runs; turning Work off is `workOff()`.
 
@@ -47,7 +51,7 @@ export interface WorkMountState {
   phase: WorkMountPhase
   surface: MountSurfaceState
   /** Why the gate is not running, in a closed vocabulary. Null while it runs. */
-  reason: 'surface_off' | 'no_account' | 'not_composed' | 'start_failed' | 'held' | 'retiring' | null
+  reason: 'surface_off' | 'no_account' | 'not_composed' | 'start_failed' | 'held' | 'retiring' | 'not_needed' | null
   /** The gate's own state (read-only), including `undeliveredReports`: stop reports waiting for the platform. */
   gate: GateServiceState | null
 }
@@ -70,6 +74,8 @@ export class WorkMount {
   private epoch = 0
   private chain: Promise<unknown> = Promise.resolve()
   private closed = false
+  /** The owner opened Work this run: the server is needed from now until the account retires. */
+  private wanted = false
   private readonly listeners = new Set<() => void>()
 
   constructor(private readonly deps: WorkMountDeps) {
@@ -81,6 +87,13 @@ export class WorkMount {
         void this.gate.service.gate.onResetDone().catch(error => this.deps.log?.('reset_done_failed', { code: code(error) }))
       }
     })
+  }
+
+  /** First use: the owner opened Work (or asked for something that needs its gate). Starts what a sign-in does not. */
+  wantServer(): Promise<void> {
+    this.wanted = true
+
+    return this.reconcile()
   }
 
   /** The gate service for the Settings and enrollment surfaces. Undefined until the gate has started. */
@@ -156,6 +169,15 @@ export class WorkMount {
           return
         }
 
+        // No server for an account that has not used Work and delegates nothing: sign-in starts nothing (plan D7).
+        if (!this.needsServer(started)) {
+          this.phase = 'idle'
+          this.reason = 'not_needed'
+          await started.close()
+
+          return
+        }
+
         // Lane R's door: recovery and the reset marker first, so no home serves before they finish.
         await this.deps.session.start()
 
@@ -204,8 +226,21 @@ export class WorkMount {
     })
   }
 
+  /** Used by the owner this run, an accepted grant with the switch on (an active delegation), or a stop still owed. */
+  private needsServer(service: WorkGateService): boolean {
+    // A restore or reset an earlier run left pending is healed at once, before anything else can find the home torn.
+    if (this.wanted || this.deps.session.held()) {
+      return true
+    }
+
+    const state = service.state()
+
+    return (state.workGrantAccepted && state.routeOpen && state.switchOn) || state.stopsOwed.total > 0
+  }
+
   /** The owner accepted the enrollment screen (D9): record it, enroll, and open the route. */
   async acceptWorkGrant(): Promise<void> {
+    await this.wantServer()
     const service = this.requireService()
 
     await service.acceptWorkGrant()
@@ -215,6 +250,7 @@ export class WorkMount {
 
   /** "Assistants may start work here". Off is the cutoff at once and keeps answering typed `revoked`; on opens the route. */
   async setSwitch(on: boolean): Promise<void> {
+    await this.wantServer()
     const service = this.requireService()
 
     await service.setSwitch(on)
@@ -242,6 +278,7 @@ export class WorkMount {
    */
   async retire(account: WorkMountAccount): Promise<RetireResult> {
     this.epoch += 1
+    this.wanted = false
     this.phase = 'retiring'
     this.reason = 'retiring'
     this.changed()
@@ -307,6 +344,7 @@ export class WorkMount {
   /** "Work off": the cutoff for the whole Mac, then the process group stopped and refused to start (§8.5). */
   async workOff(): Promise<RetireResult> {
     this.epoch += 1
+    this.wanted = false
 
     return this.serial(async () => {
       const result: RetireResult = { settled: true, failed: [] }

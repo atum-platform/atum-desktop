@@ -68,7 +68,9 @@ export class WorkSession {
   held(): boolean {
     const account = this.options.account()
 
-    return Boolean(account && (this.accounts.get(account.root)?.coordinator.pending() || this.updating.has(account.root)))
+    // The marker is read from disk (`stateFor` only builds the account's paths): a restore or reset a crash left pending counts
+    // before this run has touched the account at all.
+    return Boolean(account && (this.stateFor(account).coordinator.pending() || this.updating.has(account.root)))
   }
 
   private readonly updating = new Set<string>()

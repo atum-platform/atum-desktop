@@ -67,6 +67,17 @@ afterEach(() => {
   }
 })
 
+describe('main-owned update: baseline', () => {
+  it('records the running pin on the first update call, so a later downgrade is refused even if it was never committed by an update', async () => {
+    const { driver } = lab()
+
+    expect(driver.readState()).toBeUndefined()
+    expect(await driver.update({ version: '0.1.11', resources: '/pins/0.1.11' })).toEqual({ outcome: 'refused', reason: 'not_newer' })
+    expect(driver.readState()).toMatchObject({ pin: '0.1.11', committed: [] })
+    expect(await driver.update({ version: '0.1.10', resources: '/pins/0.1.10' })).toEqual({ outcome: 'refused', reason: 'downgrade' })
+  })
+})
+
 describe('main-owned update: success path', () => {
   it('resets BEFORE the snapshot, trials with continuation off, commits, and refuses a downgrade after', async () => {
     const { home, hosts, events, driver, coordinator } = lab()

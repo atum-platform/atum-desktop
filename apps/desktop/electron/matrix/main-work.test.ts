@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -7,8 +8,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { GateEvent } from '../work/gate'
+import { workSessionPaths } from '../work/session'
 
-import { createGateDoor, createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess } from './main-work'
+import { createGateDoor, createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess, WORK_MIN_AVAILABLE_MICRO_PROTONS, WorkModelKeys } from './main-work'
 
 const { handlers } = vi.hoisted(() => ({ handlers: new Map<string, (event: unknown, value?: unknown) => Promise<unknown>>() }))
 
@@ -24,28 +26,107 @@ describe('readWorkAccess', () => {
     probe: vi.fn(async () => answer as { ok: true } | { ok: false; code: string })
   })
 
-  it('reads the free probe through the proxy as the balance: ok is allowed, out of Protons is empty, anything else is unknown', async () => {
-    expect(await readWorkAccess(probe({ ok: true }))).toBe('allowed')
-    expect(await readWorkAccess(probe({ ok: false, code: 'out_of_protons' }))).toBe('empty')
+  const rich = async () => ({ balances: { available: WORK_MIN_AVAILABLE_MICRO_PROTONS } })
+
+  it('needs a real balance AND the model path: ok is allowed, out of Protons is empty, anything else is unknown', async () => {
+    expect(await readWorkAccess(probe({ ok: true }), rich)).toBe('allowed')
+    expect(await readWorkAccess(probe({ ok: false, code: 'out_of_protons' }), rich)).toBe('empty')
 
     for (const code of ['setup_required', 'sign_in_required', 'ai_unavailable']) {
-      expect(await readWorkAccess(probe({ ok: false, code }))).toBe('unavailable')
+      expect(await readWorkAccess(probe({ ok: false, code }), rich)).toBe('unavailable')
     }
+  })
+
+  it('a catalog that answers does not make an owner with no Protons eligible: the wallet is read first and decides', async () => {
+    const port = probe({ ok: true })
+
+    expect(await readWorkAccess(port, async () => ({ balances: { available: 0 } }))).toBe('empty')
+    expect(await readWorkAccess(port, async () => ({ balances: { available: WORK_MIN_AVAILABLE_MICRO_PROTONS - 1 } }))).toBe('empty')
+    expect(port.probe).not.toHaveBeenCalled()
+  })
+
+  it('an unreadable or malformed wallet is unavailable, never allowed', async () => {
+    const port = probe({ ok: true })
+
+    expect(await readWorkAccess(port, async () => { throw new Error('offline') })).toBe('unavailable')
+    expect(await readWorkAccess(port, async () => ({ balances: { available: Number.NaN } }))).toBe('unavailable')
+    expect(await readWorkAccess(port, async () => ({}) as never)).toBe('unavailable')
   })
 
   it('asks as Work\'s own role, and a probe that throws is unavailable, never allowed', async () => {
     const port = probe({ ok: true })
-    await readWorkAccess(port)
+    await readWorkAccess(port, rich)
     expect(port.probe).toHaveBeenCalledWith(MATRIX_WORK_MODEL_ROLE)
 
     expect(
-      await readWorkAccess({
-        baseUrl: () => undefined,
-        probe: async () => {
-          throw new Error('down')
-        }
-      })
+      await readWorkAccess(
+        {
+          baseUrl: () => undefined,
+          probe: async () => {
+            throw new Error('down')
+          }
+        },
+        rich
+      )
     ).toBe('unavailable')
+  })
+})
+
+describe('WorkModelKeys', () => {
+  function lab() {
+    const state = { scope: { accountKey: 'a', generation: 1 } as { accountKey: string; generation: number } | null, closing: false }
+    const aborted: string[] = []
+    const keys = new WorkModelKeys({ scope: () => state.scope, closing: () => state.closing, abort: role => void aborted.push(role) })
+
+    return { state, aborted, keys }
+  }
+
+  it('offers the key only for the account and generation it was minted for, and is stable within them', () => {
+    const { keys } = lab()
+    const key = keys.mint()
+
+    expect(keys.mint()).toBe(key)
+    expect(keys.keys()).toEqual([[key, MATRIX_WORK_MODEL_ROLE]])
+  })
+
+  it('an account or generation change drops the key at once, with no retirement call, and cancels the forwards on their way', () => {
+    for (const next of [{ accountKey: 'b', generation: 1 }, { accountKey: 'a', generation: 2 }, null]) {
+      const { state, aborted, keys } = lab()
+      keys.mint()
+      state.scope = next
+
+      expect(keys.keys()).toEqual([])
+      expect(aborted).toEqual([MATRIX_WORK_MODEL_ROLE])
+    }
+  })
+
+  it('forget is synchronous, idempotent, and aborts once; a new mint is a different key', () => {
+    const { aborted, keys } = lab()
+    const first = keys.mint()
+
+    keys.forget()
+    keys.forget()
+    expect(keys.keys()).toEqual([])
+    expect(aborted).toHaveLength(1)
+    expect(keys.mint()).not.toBe(first)
+  })
+
+  it('mints nothing while signed out or quitting', () => {
+    const { state, keys } = lab()
+
+    state.closing = true
+    expect(() => keys.mint()).toThrow('work_model_unavailable')
+    state.closing = false
+    state.scope = null
+    expect(() => keys.mint()).toThrow('work_model_unavailable')
+  })
+
+  it('minting under a new generation replaces a stale key rather than reusing it', () => {
+    const { state, keys } = lab()
+    const old = keys.mint()
+
+    state.scope = { accountKey: 'a', generation: 2 }
+    expect(keys.mint()).not.toBe(old)
   })
 })
 
@@ -186,6 +267,7 @@ describe('createMatrixWork', () => {
       zoomFactor: () => 1,
       sessionFromPartition: () => ({ clearStorageData: async () => {}, clearCache: async () => {} }) as never,
       model: { baseUrl: () => 'http://127.0.0.1:9/v1', probe: async () => ({ ok: true }) },
+      wallet: async () => ({ balances: { available: WORK_MIN_AVAILABLE_MICRO_PROTONS } }),
       scope: () => ({ accountKey: 'a'.repeat(64), generation: 1 }),
       ownerPrincipal: () => '67000000-0000-4000-8000-0000000000a1',
       deviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
@@ -246,6 +328,38 @@ describe('createMatrixWork', () => {
     quitting.state.closing = true
     await quitting.work.activate()
     expect(quitting.logs).toEqual([])
+  })
+
+  it('the installed composition recovers an update that crashed during its restore BEFORE any server opens the home', async () => {
+    const { work, deps } = build({}, true)
+    const root = join(deps.userData, 'work-accounts', 'a'.repeat(32))
+    const paths = workSessionPaths({ root })
+    const snapshot = Buffer.from('snapshot-before-the-update')
+    mkdirSync(paths.userdata, { recursive: true })
+    mkdirSync(paths.snapshot, { recursive: true })
+    writeFileSync(join(paths.snapshot, 'statev2.sqlite'), snapshot)
+
+    writeFileSync(
+      join(paths.snapshot, 'manifest.json'),
+      JSON.stringify({ id: 'snap-1', from: '0.1.10', to: '0.1.11', files: [{ name: 'statev2.sqlite', sha256: createHash('sha256').update(snapshot).digest('hex'), size: snapshot.length }] })
+    )
+
+    // the app died halfway through the restore: the live file is a torn mix and the marker says "started"
+    writeFileSync(paths.database, 'half-restored-garbage')
+    writeFileSync(paths.marker, JSON.stringify({ version: 1, id: 'm1', reason: 'update', restore: 'started', snapshotId: 'snap-1', at: new Date().toISOString() }))
+
+    await work.activate()
+
+    expect(readFileSync(paths.database)).toEqual(snapshot)
+    expect(JSON.parse(readFileSync(paths.marker, 'utf8')).restore).toBe('done')
+    // the interrupted snapshot is gone only after the restore completed; it was never reused as a live home
+    expect(existsSync(paths.snapshot)).toBe(false)
+  })
+
+  it('exposes the main-owned update door; with no account bound it is unavailable, never a silent no-op', async () => {
+    const { work } = build({ scope: () => null }, true)
+
+    await expect(work.update({ version: '9.9.9', resources: '/nowhere' })).rejects.toThrow('work_unavailable')
   })
 
   it('offers no model key until a server has asked for one', () => {

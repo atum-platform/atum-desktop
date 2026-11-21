@@ -20708,8 +20708,10 @@ async function start() {
       model: {
         baseUrl: () => managedModel?.baseUrl,
         probe: (role, signal) =>
-          managedModel?.probe(role, signal) ?? Promise.resolve({ ok: false as const, code: 'setup_required' as const })
+          managedModel?.probe(role, signal) ?? Promise.resolve({ ok: false as const, code: 'setup_required' as const }),
+        abortRole: role => managedModel?.abortAgent(role)
       },
+      wallet: signal => account.wallet(signal),
       scope: () => account.appScope(),
       ownerPrincipal,
       deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,

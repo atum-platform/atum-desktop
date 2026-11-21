@@ -29,6 +29,8 @@ export interface WorkSurfaceParts {
   }
   /** S's balance read for the Atum provider (`readModelAccess`). */
   readAccess?(): Promise<WorkAccess>
+  /** First use: the owner opened Work, so main starts what a sign-in does not (the server and the gate). Never rejects. */
+  wantServer?(): Promise<void>
 }
 
 export interface WorkSurfaceOptions {
@@ -260,6 +262,7 @@ export class WorkSurface {
     let outcome: OpenOwnerView
 
     try {
+      await parts.wantServer?.().catch(() => undefined)
       outcome = await parts.session.openOwnerView(incarnation => {
         const handle = this.options.createView(incarnation)
         this.handle = handle

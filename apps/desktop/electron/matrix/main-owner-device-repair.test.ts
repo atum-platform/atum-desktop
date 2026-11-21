@@ -414,6 +414,8 @@ describe('main app chat open, while its room is on its way', () => {
       publish: vi.fn((next: unknown) => {
         sandbox().state = next
       }),
+      // Work's retirement (route cut, stops settled) comes first in main's sign-out; this test has no Work.
+      retireWork: async () => {},
       // Sign-out, as main does it: the human host stops (every pending command fails), the window moves on.
       stopSdk: async () => {
         hosts.delete('human')
