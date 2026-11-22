@@ -10,6 +10,7 @@ import type {
   MatrixWorkViewState
 } from '../../../shared/matrix-work'
 
+import { macLabelsFor } from './plan-consent'
 import { $work, $workActive, $workPlanConsent, resetWorkStoreForTests } from './store'
 import { MatrixWorkSettings } from './work-settings'
 
@@ -125,13 +126,13 @@ describe('MatrixWorkSettings: the plan switch and its consent (gate 4b)', () => 
 
   it('Change opens the sheet on what the consent names; Turn off everywhere revokes in one tap', async () => {
     $work.set({ ...projection('ready'), plan: 'on' })
-    const port = show(bridge({ ...ON, macs: [...ON.macs, { id: OTHER_MAC, thisMac: false, named: false }] }))
+    const port = show(bridge({ ...ON, macs: [...ON.macs, { id: OTHER_MAC, thisMac: false, named: false, name: 'Studio Mac' }] }))
 
     fireEvent.click(await screen.findByRole('button', { name: 'Change' }))
     expect(await screen.findByText(/^Allowed since /u)).toBeTruthy()
     expect((await screen.findByRole('checkbox', { name: 'Rin' })).getAttribute('data-state')).toBe('checked')
     expect(screen.getByRole('checkbox', { name: 'This Mac' }).getAttribute('data-state')).toBe('checked')
-    expect(screen.getByRole('checkbox', { name: 'Your other Mac 1' }).getAttribute('data-state')).toBe('unchecked')
+    expect(screen.getByRole('checkbox', { name: 'Studio Mac' }).getAttribute('data-state')).toBe('unchecked')
 
     fireEvent.click(screen.getByRole('button', { name: 'Turn off everywhere' }))
     await waitFor(() => expect(port.revokePlanConsent).toHaveBeenCalledOnce())
@@ -263,5 +264,28 @@ describe('MatrixWorkSettings', () => {
 
     expect(screen.getByRole('switch', { name: 'Work trên máy Mac này' })).toBeTruthy()
     expect(screen.getByRole('switch', { name: 'Trợ lý có thể bắt đầu việc tại đây' })).toBeTruthy()
+  })
+})
+
+describe('macLabelsFor: the other Macs are named by their owner, stably', () => {
+  const mac = (id: string, name?: string, thisMac = false) => ({ id, thisMac, named: false, ...(name ? { name } : {}) })
+  const ordinal = (index: number) => `Your other Mac ${index}`
+
+  it('uses the registry name, numbers two Macs that share one, and falls back to the ordinal only without a name', () => {
+    const labels = macLabelsFor(
+      [mac('a', undefined, true), mac('b', 'Studio Mac'), mac('c', 'MacBook Pro'), mac('d', 'MacBook Pro'), mac('e'), mac('f')],
+      ordinal
+    )
+
+    expect(labels.has('a')).toBe(false)
+    expect(labels.get('b')).toBe('Studio Mac')
+    expect([labels.get('c'), labels.get('d')]).toEqual(['MacBook Pro 1', 'MacBook Pro 2'])
+    expect([labels.get('e'), labels.get('f')]).toEqual(['Your other Mac 1', 'Your other Mac 2'])
+  })
+
+  it('does not change when the Mac list is read again in the same order', () => {
+    const macs = [mac('b', 'MacBook Pro'), mac('c', 'MacBook Pro')]
+
+    expect([...macLabelsFor(macs, ordinal)]).toEqual([...macLabelsFor([...macs], ordinal)])
   })
 })

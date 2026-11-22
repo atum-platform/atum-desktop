@@ -115,6 +115,19 @@ describe('the owner\'s consent client (gate 4b-2)', () => {
     expect(read.calls).toEqual([{ operation: 'work_subscription_read' }])
   })
 
+  it('reads the registry label of each Mac as a display name, and takes nothing else about the Mac', async () => {
+    const off = { ...record, state: 'off', agents: [], devices: [], revision: 3 }
+    const fact = { deviceServiceId: DEVICE, provider: 'codex', status: 'connected' }
+    const state = (extra: object) => ({ issuedAt: 1, consent: off, facts: [{ ...fact, ...extra }] })
+
+    expect((await consentClient(state({ displayName: 'Studio Mac' })).consent.read()).facts[0]?.displayName).toBe('Studio Mac')
+    expect((await consentClient(state({})).consent.read()).facts[0]?.displayName).toBeUndefined()
+
+    for (const bad of [{ displayName: '' }, { displayName: 'x'.repeat(65) }, { hostname: 'some-mac' }]) {
+      await expect(consentClient(state(bad)).consent.read()).rejects.toThrow('device_services_bad_reply')
+    }
+  })
+
   it('never takes a reply that is not the contract\'s record (a login field, another provider, a refusal)', async () => {
     await expect(consentClient({ ...record, email: 'x' }).consent.set({ agents: [LUNA], devices: [DEVICE], alsoWhenScheduled: false })).rejects.toThrow(
       'device_services_bad_reply'

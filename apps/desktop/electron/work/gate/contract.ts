@@ -360,7 +360,9 @@ export const WorkSubscriptionStateSchema = z
             deviceServiceId: uuid,
             provider: z.enum(WORK_PLAN_PROVIDERS),
             status: z.enum(['connected', 'disconnected', 'stale']),
-            observedAt: safe.optional()
+            observedAt: safe.optional(),
+            // The owner's own label for the Mac (the device registry's display name): shown beside its checkbox, nothing else.
+            displayName: z.string().min(1).max(64).optional()
           })
           .strict()
       )

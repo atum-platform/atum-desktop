@@ -291,6 +291,20 @@ export class WorkGate {
     this.emit({ type: 'change' })
   }
 
+  /**
+   * The platform can no longer carry consent (contract 1.1 fallback): the snapshot held is of unknown age, so plan launches are
+   * refused as stale at once, not after the remaining life of the last snapshot. Only a snapshot applied from a valid 1.2 page
+   * (`noteConsent`) restores it. The stored snapshot stays: it is what the ledger keeps for the next 1.2 pull.
+   */
+  invalidateConsent(): void {
+    if (this.consentAt === undefined) {
+      return
+    }
+
+    this.consentAt = undefined
+    this.emit({ type: 'change' })
+  }
+
   /** The revision this Mac durably applied (the ack carries it), or undefined when no snapshot was ever applied. */
   consentRevision(): number | undefined {
     return this.ledger.consent()?.revision

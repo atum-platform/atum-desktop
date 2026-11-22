@@ -26,6 +26,33 @@ export interface WorkConsentAgent {
 
 type ConsentBridge = Pick<MatrixWorkBridge, 'readPlanConsent' | 'revokePlanConsent' | 'setPlan' | 'setPlanConsent'>
 
+/**
+ * The label of each of the owner's other Macs: the name the owner gave it (the device registry's), so a Mac is the same Mac every
+ * time the sheet opens. Two Macs with one name are told apart by a number after it; a Mac the read carried no name for falls back to
+ * "Your other Mac n".
+ */
+export function macLabelsFor(macs: MatrixWorkPlanConsent['macs'], fallback: (index: number) => string): Map<string, string> {
+  const others = macs.filter(mac => !mac.thisMac)
+  const count = (name: string) => others.filter(mac => mac.name === name).length
+  const seen = new Map<string, number>()
+  let unnamed = 0
+  const labels = new Map<string, string>()
+
+  for (const mac of others) {
+    if (!mac.name) {
+      labels.set(mac.id, fallback(++unnamed))
+
+      continue
+    }
+
+    const nth = (seen.get(mac.name) ?? 0) + 1
+    seen.set(mac.name, nth)
+    labels.set(mac.id, count(mac.name) > 1 ? `${mac.name} ${nth}` : mac.name)
+  }
+
+  return labels
+}
+
 export function workConsentDate(at: number, locale: string): string {
   return new Intl.DateTimeFormat(locale === 'vi' ? 'vi-VN' : 'en', { day: 'numeric', month: 'short', year: 'numeric' }).format(at)
 }
@@ -161,7 +188,7 @@ export function WorkPlanConsentSheet({
     return next
   }
 
-  let other = 0
+  const macLabels = macLabelsFor(consent?.macs ?? [], copy.otherMac)
 
   return (
     <Dialog onOpenChange={next => !next && close()} open>
@@ -201,7 +228,7 @@ export function WorkPlanConsentSheet({
               <div className="grid gap-1" data-atum-work-consent-macs role="group">
                 <p className="mb-1 text-xs font-medium text-(--ui-text-tertiary)">{copy.macs}</p>
                 {consent.macs.map(mac => {
-                  const label = mac.thisMac ? copy.thisMac : copy.otherMac(++other)
+                  const label = mac.thisMac ? copy.thisMac : (macLabels.get(mac.id) ?? mac.id)
 
                   return (
                     <label className="flex min-h-9 items-center gap-2.5 text-sm" key={mac.id}>

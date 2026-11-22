@@ -59,6 +59,7 @@ export function projectWorkConsent(
   const record = read.consent
   const on = record.state === 'on'
   const named = new Set(on ? record.devices : [])
+  const names = new Map(read.facts.flatMap(fact => (fact.displayName ? [[fact.deviceServiceId, fact.displayName] as const] : [])))
   const ids = [
     ...(thisMac ? [thisMac] : []),
     ...read.facts.filter(fact => fact.status === 'connected').map(fact => fact.deviceServiceId),
@@ -69,7 +70,12 @@ export function projectWorkConsent(
     state: record.state,
     agents: on ? [...record.agents] : [],
     eligible: [...entitled, ...(on ? record.agents : [])].filter((id, index, all) => all.indexOf(id) === index),
-    macs: ids.map(id => ({ id, thisMac: id === thisMac, named: named.has(id) })),
+    macs: ids.map(id => ({
+      id,
+      thisMac: id === thisMac,
+      named: named.has(id),
+      ...(names.has(id) ? { name: names.get(id) } : {})
+    })),
     alsoWhenScheduled: on && record.alsoWhenScheduled,
     ...(record.grantedAt !== undefined ? { grantedAt: record.grantedAt } : {})
   }

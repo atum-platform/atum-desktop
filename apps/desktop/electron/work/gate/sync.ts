@@ -280,6 +280,8 @@ export class WorkSync {
     const base = { deviceServiceId, accountId, appliedSeq: ledger.appliedSeq(), routeEpoch: ledger.routeEpoch() }
 
     if (this.now() < this.contract12Retry) {
+      this.options.gate.invalidateConsent()
+
       return platform.pull(base)
     }
 
@@ -292,6 +294,8 @@ export class WorkSync {
 
       this.contract12Retry = this.now() + CONTRACT_12_RETRY_MS
       this.options.log?.('contract_1_2_unavailable')
+      // The platform cannot carry consent now: the snapshot held stops authorising plan launches at once.
+      this.options.gate.invalidateConsent()
 
       return platform.pull(base)
     }

@@ -119,6 +119,39 @@ describe('the pull asks for 1.2 and applies what comes back', () => {
     expect(fake.pulls.at(-2)).toEqual({ contract: '1.2' })
   })
 
+  it('a downgrade to 1.1 after fresh consent refuses plan launches at once as plan_consent_stale; a valid 1.2 snapshot restores them', async () => {
+    h = makeHarness()
+    h.ledger.setPlanSwitch(true)
+    const fake = platform()
+    const sync = syncFor(fake)
+
+    fake.pages.push(page({ consent: snapshot() }))
+    await sync.tick()
+    expect(h.gate.planConsentState()).toBe('on')
+    expect(h.gate.planDecision(LUNA, false)).toBe('allowed')
+
+    // the next 1.2 pull is answered 400: well inside the 300 s the old snapshot would still have been usable
+    h.clock.advance(10_000)
+    fake.rejectContract = true
+    await sync.tick()
+
+    expect(h.gate.planConsentState()).toBe('unknown')
+    expect(await h.gate.launch(h.ctx(LUNA), h.args(REQ_1, EVENT_A, { plan: 'codex' }))).toMatchObject({ class: 'refused', reason: 'plan_consent_stale' })
+
+    // still refused on the 1.1 pulls of the retry window
+    await sync.tick()
+    expect(h.gate.planDecision(LUNA, false)).toBe('plan_consent_stale')
+
+    // the platform learns 1.2 again: the next snapshot applied from a page restores the plan
+    h.clock.advance(3_600_001)
+    fake.rejectContract = false
+    fake.pages.push(page({ consent: snapshot({ revision: 5 }) }))
+    await sync.tick()
+
+    expect(h.gate.planConsentState()).toBe('on')
+    expect(h.gate.planDecision(LUNA, false)).toBe('allowed')
+  })
+
   it('while the platform is pulled as 1.1 an old snapshot is never acknowledged (a 1.1 ack would not know the key)', async () => {
     h = makeHarness()
     h.consent({ revision: 3 })

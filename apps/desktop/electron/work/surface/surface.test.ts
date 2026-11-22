@@ -108,7 +108,7 @@ describe('gate 4a and 4b-2 projections', () => {
         issuedAt: 1,
         consent: { ...record, alsoWhenScheduled: true, grantedAt: 5, revokedAt: 9 },
         facts: [
-          { deviceServiceId: OTHER, provider: 'codex', status: 'connected' },
+          { deviceServiceId: OTHER, provider: 'codex', status: 'connected', displayName: 'Studio Mac' },
           { deviceServiceId: GONE, provider: 'codex', status: 'stale' }
         ]
       },
@@ -122,7 +122,7 @@ describe('gate 4a and 4b-2 projections', () => {
       eligible: [RIN],
       macs: [
         { id: MAC, thisMac: true, named: false },
-        { id: OTHER, thisMac: false, named: false }
+        { id: OTHER, thisMac: false, named: false, name: 'Studio Mac' }
       ],
       alsoWhenScheduled: false,
       grantedAt: 5

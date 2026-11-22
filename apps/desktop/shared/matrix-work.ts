@@ -54,6 +54,8 @@ export interface MatrixWorkConsentMac {
   id: string
   thisMac: boolean
   named: boolean
+  /** The owner's own label for the Mac (the device registry's display name), when the read carried one. Never a hostname or an id. */
+  name?: string
 }
 
 /**

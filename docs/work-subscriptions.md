@@ -23,7 +23,10 @@ provider the gate sets. It replaces the SSH ChatGPT relay, which is removed.
 ## The contract, as the Mac speaks it
 
 - **Pull.** `work_sync_pull` carries `contract: "1.2"`. A platform that answers 400 to it (it does not know 1.2) is pulled as 1.1 for an hour, then asked
-  again: revocation keeps working, there is simply no consent snapshot, so every plan launch is refused `plan_consent_stale`.
+  again: revocation keeps working, there is simply no consent snapshot, so every plan launch is refused `plan_consent_stale`. **The refusal is immediate.**
+  Entering the fallback (and every 1.1 pull of the hour after it) calls `gate.invalidateConsent()`: the snapshot already held stops authorising plan
+  launches at once instead of for the rest of its 300 s. Only a snapshot applied from a valid 1.2 page restores it (`gate-plan`/`sync-plan.test.ts`
+  "a downgrade to 1.1 after fresh consent refuses plan launches at once…"). Review finding 1, fixed.
 - **Snapshot.** The page's `consent` is stored in the ledger in the **same transaction** as the page, and the plan threads of every assistant it no longer
   names are cut off in that same transaction. Its age is counted from the commit on the Mac's **monotonic** clock. After a restart the snapshot is on
   disk but its age is unknown, so it is stale until the next pull. A page that is not applied (gap, regression) applies no snapshot.
@@ -86,6 +89,10 @@ The pieces existed: a second Atum provider instance (`atum-managed-delegated`, i
 Per plan §10.3 the choice for 1 goes to the owner: an isolated assistant environment for accounts with a plan connected (D14's alternative), or **4b stays
 closed**. Until then the plan provider is also left **disabled in the sidecar** (below), so nothing here opens it by accident.
 
+**This gap blocks the Work handoff as well, not only plan launches (owner call 2026-11-22; review finding, not fixed here).** A delegated thread that can
+read the same user's credential stores can read the plan's token and T3's own home, so the OS-sandbox decision above (an isolated assistant environment, or 4b
+stays closed) gates the Work handoff too. Until the owner chooses, the containment floor alone does not open either.
+
 ## What is not switched on
 
 - The sidecar still ships the Codex instance disabled (`providerInstances.codex.enabled: false`, `/usr/bin/false`, `work/sidecar/process.ts`). Enabling it
@@ -119,7 +126,7 @@ Built on the gate lane. Every screen is one action and at most one line; the con
 | **Connect step** (gate 4a) | First sign-in, once per Mac (`src/app/work/plan-connect.tsx`, mounted in `app.tsx`) | "Use your ChatGPT plan here" · "Sign in with OpenAI. Atum never sees your login." · **Connect** / **Not now**. Connect shows the Work page and loads T3's own provider screen in the owner view (`/settings/providers?instanceId=codex`, `WorkSurface.openPlanConnect`). There is no Atum-built login. Either answer closes it for good on this Mac (`atum.work.plan-connect.seen.v1`) |
 | **ChatGPT plan row** | Settings › Connections › Work | "Use your Plus or Pro plan in Work." with **Connect**. Once T3 reports it connected: "Connected on this Mac" with **Manage**, which opens the same T3 screen (disconnect lives there) |
 | **Plan switch** (gate 4b, local) | Same section | "Agents may use my ChatGPT plan here", default off. Help reads "Only the assistants you allow. Off stops their plan work at once." or, when the consent names this Mac, "Rin · since 22 Nov 2026" with **Change**. If the consent does not name this Mac, turning it on opens the consent sheet, and Allow there turns it on |
-| **Consent sheet** (gate 4b-2) | Opened from the switch or Change (`plan-consent.tsx`) | Assistants shown as circles with checkboxes (none ticked), Macs (only when there is more than one; the tapped Mac, or the only Mac, starts ticked), "Also for scheduled tasks" (off), **Allow**. When on: "Allowed since …", **Save**, and **Turn off everywhere** (one tap, `work_consent_revoke`). Writes through `work_consent_set` / `_revoke` / `work_subscription_read` (`createWorkConsentClient`), which send only what the owner named |
+| **Consent sheet** (gate 4b-2) | Opened from the switch or Change (`plan-consent.tsx`) | Assistants shown as circles with checkboxes (none ticked), Macs (only when there is more than one; this Mac, then each other Mac **by the owner's own name for it**: the device registry's display name, which `work_subscription_read` now carries on each fact as `displayName`, platform contract 1.2 additive; two Macs sharing a name read "Name 1" / "Name 2", and a Mac the read gave no name for, such as one the record names but that has no fact, reads "Your other Mac n";  the tapped Mac, or the only Mac, starts ticked), "Also for scheduled tasks" (off), **Allow**. When on: "Allowed since …", **Save**, and **Turn off everywhere** (one tap, `work_consent_revoke`). Writes through `work_consent_set` / `_revoke` / `work_subscription_read` (`createWorkConsentClient`), which send only what the owner named |
 | **Picker line** (D6) | A cloud assistant's model picker | ChatGPT models are greyed with no reason on each row. One note: "Your plan works in Work on your Mac", plus **Open Work** when this account has Work on this Mac. No cost, no relay, no "Mac offline" |
 
 **Gate 4a is closed by construction.** `planConnect` is projected only when `WORK_PLAN_CONNECT_SHIPPED` (`sidecar/process.ts`, false while the Codex instance
