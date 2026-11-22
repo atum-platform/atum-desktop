@@ -238,7 +238,14 @@ export function workRelayChipText(
 
 export function workRelayUsageText(usage: WorkRelayUsage, context: { words: WorkRelayWords; now: number; locale: string }): string {
   const { words, now, locale } = context
-  const at = (time: number | undefined) => (time === undefined ? undefined : workRelayTime(time, now, locale))
+
+  const at = (time: number | undefined) => {
+    if (time === undefined) {return undefined}
+
+    if (Math.abs(time - now) < 6 * 86_400_000) {return workRelayTime(time, now, locale)}
+
+    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(time)
+  }
 
   switch (usage.kind) {
     case 'used':

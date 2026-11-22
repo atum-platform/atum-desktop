@@ -551,7 +551,8 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           ...(agent.mark ? { mark: agent.mark } : {}),
           isDefault: agent.isDefault
         }))}
-        planLimit={work?.planLimit ?? limit}
+        claudeLimit={work?.planLimits?.find(report => report.plan === 'claude')}
+        planLimit={work?.planLimits?.find(report => report.plan === 'codex') ?? work?.planLimit ?? limit}
         relayChats={Boolean(work?.relayChats?.length)}
       />
       <VideoConsentSettings

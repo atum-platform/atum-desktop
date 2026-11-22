@@ -114,7 +114,7 @@ export type WorkRelayFallbackReason = 'mac_off' | 'consent_off' | 'switch_off' |
 export type WorkRelayTurnChrome =
   | { kind: 'none' }
   | { kind: 'fallback'; at: 'reply'; reason: WorkRelayFallbackReason }
-  | { kind: 'waiting'; at: 'message'; action: 'stop' }
+  | { kind: 'waiting'; at: 'message'; action: 'stop'; waitingForAnswer?: true }
   | { kind: 'needs_ok'; at: 'message'; action: 'open_work' | 'stop' }
   | { kind: 'limit'; at: 'message'; action: 'stop'; resetsAt?: number }
   | { kind: 'stopping'; at: 'message' }

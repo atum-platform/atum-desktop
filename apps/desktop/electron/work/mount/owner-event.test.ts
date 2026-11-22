@@ -57,6 +57,21 @@ describe('owner event verifier', () => {
     expect(await fetchWith(source(() => reply))).toMatchObject({ kind: 'ok' })
   })
 
+  it('binds a question answer to an assistant-authored reply to the original relay event', async () => {
+    const reply = plain({ related: true, content: { msgtype: 'm.text', body: 'Sea blue', replyTo: '$question' } })
+
+    const prompt = plain({ eventId: '$question', sender: AGENT_USER, related: true,
+      content: { msgtype: 'm.text', body: 'Which color?', replyTo: '$original' } })
+
+    const verify = (candidate: MatrixInvocationMessage) => createOwnerEventVerifier(source(() => reply, {
+      readEvent: async ({ eventId }) => eventId === '$question' ? candidate : reply
+    })).fetch({ agentPrincipal: PRINCIPAL, eventId: EVENT, question: { eventId: '$question', originalEventId: '$original' } })
+
+    expect(await verify(prompt)).toMatchObject({ kind: 'ok', body: 'Sea blue', questionReply: true })
+    expect(await verify({ ...prompt, sender: OWNER })).toMatchObject({ questionReply: false })
+    expect(await verify({ ...prompt, content: { ...prompt.content, replyTo: '$another' } })).toMatchObject({ questionReply: false })
+  })
+
   it('asks for the room from the account’s agent record, never from the caller', async () => {
     const assistantRoom = vi.fn(async () => ROOM)
     const readEvent = vi.fn(async () => plain())

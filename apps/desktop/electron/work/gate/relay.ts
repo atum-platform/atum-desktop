@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto'
 
-import { workExpectedThreadId, type WorkSendArguments, WorkSendArgumentsSchema } from './contract'
+import { workExpectedThreadId, type WorkRelayQuestionArguments, type WorkSendArguments, WorkSendArgumentsSchema } from './contract'
 import type { CallContext } from './gate'
 import { handoffBudget, type HistoricalMessage, historyCost, renderHistory, selectHistory } from './handoff-helper.cjs'
 import type { GateLedger } from './ledger'
 import type { GateSessions, OwnerEventVerifier, T3Port, T3Reply } from './ports'
+import { nativeQuestions, questionAnswers } from './question'
 
 export interface RelaySelection {
   revision: number
@@ -98,6 +99,7 @@ function scheduledEvent(job: string, occurrence: string): string {
 export class WorkRelay {
   private busy = new Set<string>()
   private requests = new Set<string>()
+  private questionWrites = new Set<string>()
   constructor(private readonly o: RelayOptions) {}
   private scope(ctx: CallContext, room: string): string {
     const gate = this.o.gateId()
@@ -492,7 +494,7 @@ export class WorkRelay {
       const messages = historyRows.filter(m => {
         const replyTo = (m as HistoricalMessage & { replyTo?: string }).replyTo
 
-        return !(m.role === 'assistant' && replyTo && this.o.ledger.receipts(
+        return !this.o.ledger.meta(`relay-question-event:${m.itemId}`) && !(m.role === 'assistant' && replyTo && this.o.ledger.receipts(
           'principal = ? AND event_id = ? AND forwarded = 1 AND relay_json IS NOT NULL', ctx.principal, replyTo
         ).length)
       })
@@ -736,6 +738,199 @@ export class WorkRelay {
       this.requests.delete(requestKey)
     }
   }
+  async question(ctx: CallContext, input: WorkRelayQuestionArguments): Promise<RelayAnswer> {
+    const id = input.request_id
+    const head = { gateId: this.o.gateId(), requestId: id, class: 'question' }
+    const result = (questionStatus: string) => ({ ...head, questionStatus })
+    const frozen = this.frozen(ctx, id)
+    const row = this.o.ledger.receipt(ctx.principal, id)
+    const native = this.o.t3.pendingQuestion
+    const threadId = row?.threadId
+
+    if (!native || !threadId || !row?.runId || !frozen || 'job_id' in frozen.input) {
+      return result('closed')
+    }
+
+    const current = () => {
+      const receipt = this.o.ledger.receipt(ctx.principal, id)
+      const binding = this.binding(frozen.bindingKey, '')
+
+      return this.allowed(ctx) && !binding.resetPending && binding.open === id &&
+        binding.epoch === frozen.snapshot.epoch && !receipt?.stopScope &&
+        receipt?.state === 'launched' && !this.frozen(ctx, id)?.answer &&
+        this.o.sessions.agentSessionId(ctx.principal) === row.sessionId
+    }
+
+    if (!current()) {
+      return result('closed')
+    }
+
+    const session = await this.o.sessions.agent(ctx.principal)
+
+    const list = async () => {
+      const thread = await this.o.t3.read(session.token, threadId)
+
+      if (thread.kind !== 'found') {
+        return undefined
+      }
+
+      if (thread.activeRunId !== row.runId) {
+        return []
+      }
+
+      const reply = await native(session.token, threadId, { action: 'list' })
+      const ids = reply.data?.requestIds
+
+      return reply.transport === 'ok' && !reply.isError && Array.isArray(ids) ? ids : undefined
+    }
+
+    const setQuestionHold = (waiting: boolean) => {
+      const latest = this.frozen(ctx, id)
+
+      if (latest && current() && (waiting ? latest.hold !== 'question' : latest.hold === 'question')) {
+        this.store(ctx, id, { ...latest, hold: waiting ? 'question' : undefined })
+      }
+    }
+
+    const requestIds = await list()
+
+    if (!current()) {
+      return result('closed')
+    }
+
+    if (!requestIds) {
+      return result('held')
+    }
+
+    const questionId = requestIds[0]
+
+    // T3 exposes pending IDs for the thread's one active run. Leave ambiguous
+    // batches in Work, rather than guessing which question an answer is for.
+    if (input.action === 'read' && (requestIds.length !== 1 || typeof questionId !== 'string' || !questionId.length || questionId.length > 512)) {
+      setQuestionHold(false)
+
+      return result('none')
+    }
+
+    if (input.action === 'respond') {
+      const key = `relay-question:${ctx.principal}:${id}:${input.question_id}`
+      const raw = this.o.ledger.meta(key)
+      const saved = raw ? JSON.parse(raw) as { eventId: string; questionEventId: string; answers: Record<string, string | string[]>; answered?: boolean } : undefined
+
+      if (saved && (saved.eventId !== input.event_id || saved.questionEventId !== input.question_event_id)) {
+        return result('closed')
+      }
+
+      if (saved?.answered) {
+        return result('answered')
+      }
+
+      if (!requestIds.includes(input.question_id)) {
+        // A native response may have succeeded before its acknowledgement was lost.
+        return result('closed')
+      }
+
+      if (requestIds.length !== 1 || this.questionWrites.has(key)) {
+        return result('held')
+      }
+
+      this.questionWrites.add(key)
+
+      try {
+        let attempt = saved
+
+        if (!attempt) {
+          const detail = await native(session.token, threadId, { action: 'read', requestId: input.question_id })
+          const questions = nativeQuestions.safeParse(detail.data?.questions)
+
+          if (detail.transport !== 'ok' || detail.isError || detail.data?.requestId !== input.question_id || !questions.success) {
+            return result('held')
+          }
+
+          const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: input.event_id,
+            question: { eventId: input.question_event_id, originalEventId: frozen.input.event_id } })
+
+          if (event.kind === 'unreachable') {
+            return result('held')
+          }
+
+          if (event.kind !== 'ok' || event.encrypted !== false || event.roomId !== frozen.input.room_id ||
+              !event.questionReply || event.originServerTs < row.createdAt - 60_000 || event.originServerTs > this.o.now() + 60_000) {
+            return result('invalid_answer')
+          }
+
+          const answers = questionAnswers(questions.data, event.body)
+
+          if (!answers) {
+            return result('invalid_answer')
+          }
+
+          const latestIds = await list()
+
+          if (!current() || latestIds?.length !== 1 || latestIds[0] !== input.question_id) {
+            return result('held')
+          }
+
+          attempt = { eventId: input.event_id, questionEventId: input.question_event_id, answers }
+          const frozenAttempt = attempt
+
+          const claimed = this.o.ledger.tx(() => {
+            if (!this.o.ledger.claimQuestionReply(ctx.principal, id, input.event_id)) {
+              return false
+            }
+
+            this.o.ledger.setMeta(key, JSON.stringify(frozenAttempt))
+
+            for (const eventId of [input.event_id, input.question_event_id]) {
+              this.o.ledger.setMeta(`relay-question-event:${eventId}`, id)
+            }
+
+            return true
+          })
+
+          if (!claimed) {
+            return result('invalid_answer')
+          }
+        }
+
+        if (!current()) {
+          return result('closed')
+        }
+
+        const reply = await native(session.token, threadId, { action: 'respond', requestId: input.question_id, answers: attempt.answers })
+
+        if (reply.transport !== 'ok' || reply.isError || typeof reply.data?.sequence !== 'number') {
+          return result('held')
+        }
+
+        this.o.ledger.setMeta(key, JSON.stringify({ ...attempt, answered: true }))
+
+        setQuestionHold(false)
+
+        return result('answered')
+      } finally {
+        this.questionWrites.delete(key)
+      }
+    }
+
+    const detail = await native(session.token, threadId, { action: 'read', requestId: questionId })
+    const questions = nativeQuestions.safeParse(detail.data?.questions)
+
+    if (!current() || detail.transport !== 'ok' || detail.isError ||
+        detail.data?.requestId !== questionId || !questions.success) {
+      return result('held')
+    }
+
+    const latestIds = await list()
+
+    if (!current() || latestIds?.length !== 1 || latestIds[0] !== questionId) {
+      return result('held')
+    }
+
+    setQuestionHold(true)
+
+    return { ...head, questionStatus: 'pending', questionId, questions: questions.data }
+  }
   async status(ctx: CallContext, room: string): Promise<RelayAnswer> {
     const b = this.binding(this.key(ctx, room), '')
     const selection = this.o.selection?.(ctx.principal)
@@ -897,8 +1092,12 @@ export class WorkRelay {
     }
 
     if (waited.transport !== 'ok' || waited.isError || waited.data?.timedOut !== false) {
-      f.hold = this.holdReason(waited.data)
-      this.store(ctx, id, f)
+      const latest = this.frozen(ctx, id)
+      const hold = this.holdReason(waited.data)
+
+      if (latest && !latest.answer) {
+        this.store(ctx, id, { ...latest, hold: hold === 'waiting_for_mac' && latest.hold === 'question' ? 'question' : hold })
+      }
 
       return { class: 'pending' }
     }

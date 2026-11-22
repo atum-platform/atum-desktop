@@ -71,6 +71,11 @@ export interface T3Port extends T3Reader {
   send?(token: string, call: {threadId: string; message: string; clientRequestId: string}, modeLimit: string): Promise<T3Reply>
   configure?(token: string, threadId: string, modelSelection: {instanceId: string; model: string}): Promise<T3Reply>
   readPage?(token: string, threadId: string, afterPosition?: number, item?: {itemId: string; textOffset: number}): Promise<T3Reply>
+  pendingQuestion?(token: string, threadId: string, input:
+    | { action: 'list' }
+    | { action: 'read'; requestId: string }
+    | { action: 'respond'; requestId: string; answers: Record<string, string | string[]> }
+  ): Promise<T3Reply>
   launch(token: string, call: WorkT3LaunchCall, modeLimit: string): Promise<T3Reply>
   interrupt(token: string, threadId: string, options?: { stop?: boolean }): Promise<T3Reply>
   wait(token: string, threadId: string, runId: string, timeoutMs: number): Promise<T3Reply>
@@ -82,7 +87,7 @@ export interface T3Port extends T3Reader {
 export type OwnerEventOutcome =
   | { kind: 'unreachable' }
   | { kind: 'invalid'; reason: Extract<WorkRefusalReason, `owner_event_${string}`> }
-  | { kind: 'ok'; body: string; originServerTs: number; roomId?: string; encrypted?: boolean }
+  | { kind: 'ok'; body: string; originServerTs: number; roomId?: string; encrypted?: boolean; questionReply?: boolean }
 
 /**
  * Main's own Matrix client (K35): it fetches THAT event itself and checks that it exists and is not redacted, that
@@ -91,7 +96,7 @@ export type OwnerEventOutcome =
  * sending device is the owner's. The age bound is the gate's.
  */
 export interface OwnerEventVerifier {
-  fetch(input: { agentPrincipal: string; eventId: string }): Promise<OwnerEventOutcome>
+  fetch(input: { agentPrincipal: string; eventId: string; question?: { eventId: string; originalEventId: string } }): Promise<OwnerEventOutcome>
 }
 
 export type ModelAccess = 'allowed' | 'empty' | 'unavailable'

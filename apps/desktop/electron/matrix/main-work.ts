@@ -25,7 +25,7 @@ import {
   type WorkMountAccount
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
-import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
 import {
@@ -35,6 +35,7 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { readPlanUsage } from '../work/surface/plan-usage'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
@@ -508,6 +509,23 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     enabled: () => host.enabled(),
     gate: door,
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
+    async readPlanUsage() {
+      const running = host.current()
+      const service = mount.service()
+
+      if (!running || !host.enabled()) {return []}
+
+      const reports = await readPlanUsage(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+
+      if (host.current()?.id !== running.id || mount.service() !== service) {return []}
+
+      return reports.map(({ windowStart, ...limit }) => ({
+        ...limit,
+        ...(service && windowStart !== undefined
+          ? { scheduledRuns: service.ledger.scheduledRuns(windowStart, limit.resetsAt, limit.plan) }
+          : {})
+      }))
+    },
     wantServer: () => mount.wantServer(),
     // Gate 4a also needs this account's custody retired (plan §12, `UC:` 1-3); `planCustodyRetired` is absent until the un-carry
     // lane reads it, so the step stays hidden by construction.

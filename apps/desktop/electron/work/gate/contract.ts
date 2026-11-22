@@ -10,7 +10,7 @@ import { z } from 'zod'
 // may change by amendment: change them here and in the contract together.
 
 export const WORK_GATE_PATH = '/agent/mcp'
-export const WORK_TOOLS = ['launch', 'send', 'status', 'reset', 'close', 'interrupt', 'read', 'wait', 'list', 'request'] as const
+export const WORK_TOOLS = ['launch', 'send', 'status', 'reset', 'close', 'question', 'interrupt', 'read', 'wait', 'list', 'request'] as const
 export type WorkTool = (typeof WORK_TOOLS)[number]
 export const WORK_TERMINAL_THREAD_STATUSES = ['completed', 'failed', 'cancelled', 'interrupted', 'rolled_back'] as const
 export const WORK_WAIT_MAX_MS = 50_000
@@ -189,7 +189,18 @@ export const WorkRelayStatusSchema = z.union([
 ])
 export const WorkRelayResetArgumentsSchema = WorkOwnerSendArgumentsSchema.pick({room_id: true}).extend({request_id: WorkRequestIdSchema, floor_event_id: WorkOwnerEventSchema.optional()}).strict()
 export const WorkRelayRequestSchema = z.object({request_id: WorkRequestIdSchema}).strict()
+export const WorkRelayQuestionArgumentsSchema = z.discriminatedUnion('action', [
+  WorkRelayRequestSchema.extend({ action: z.literal('read') }).strict(),
+  WorkRelayRequestSchema.extend({
+    action: z.literal('respond'),
+    question_id: z.string().min(1).max(512),
+    question_event_id: WorkOwnerEventSchema,
+    event_id: WorkOwnerEventSchema
+  }).strict()
+])
+export type WorkRelayQuestionArguments = z.infer<typeof WorkRelayQuestionArgumentsSchema>
 export const WORK_TOOL_ARGUMENTS = {
+  question: WorkRelayQuestionArgumentsSchema,
   send: WorkSendArgumentsSchema,
   status: WorkRelayStatusSchema,
   reset: WorkRelayResetArgumentsSchema,

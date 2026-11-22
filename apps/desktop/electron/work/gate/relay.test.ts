@@ -518,6 +518,10 @@ describe('R1s standing scheduled permits', () => {
     expect(await r.relay.send(r.ctx, input)).toEqual(first)
     expect(r.launch).toHaveBeenCalledTimes(1)
     expect((await r.relay.status(r.ctx, '!none:test')).scheduledUsage).toMatchObject({runs: 1})
+    expect(r.h.ledger.scheduledRuns(input.scheduled_at, input.scheduled_at + 1, 'codex')).toBe(1)
+    expect(r.h.ledger.scheduledRuns(input.scheduled_at - 1, input.scheduled_at, 'codex')).toBe(0)
+    expect(r.h.ledger.scheduledRuns(input.scheduled_at + 1)).toBe(0)
+    expect(r.h.ledger.scheduledRuns(input.scheduled_at, input.scheduled_at + 1, 'claude')).toBe(0)
   })
   it.each(['alsoWhenScheduled', 'revision', 'agents', 'devices'])('refuses mismatched consent %s before dispatch', async field => {
     const r = rig(), input = scheduled(r)
@@ -560,5 +564,93 @@ describe('R1s standing scheduled permits', () => {
     }
 
     expect(r.launch).not.toHaveBeenCalled()
+  })
+})
+
+describe('R3 native questions (RT10, RT14 and RT15)', () => {
+  const pending = 'runtime-request:one'
+  const answers = [{ id: 'color', question: 'Which color?', options: [{ label: 'Sea blue', value: 'blue' }] }]
+
+  async function questions() {
+    const r = rig()
+    await r.relay.send(r.ctx, r.input)
+
+    const read = vi.fn(async () => ({ kind: 'found' as const, status: 'waiting', activeRunId: 'run1',
+      runs: [{ runId: 'run1', ordinal: 1, status: 'waiting' }], raw: {} }))
+
+    r.h.t3.read = read
+    let waiting = true
+
+    const native = vi.fn<NonNullable<T3Port['pendingQuestion']>>(async (_token, _thread, args) => {
+      if (args.action === 'list') {return { transport: 'ok', data: { requestIds: waiting ? [pending] : [] } }}
+
+      if (args.action === 'read') {return { transport: 'ok', data: { requestId: pending, questions: answers } }}
+
+      waiting = false
+
+      return { transport: 'ok', data: { sequence: 42 } }
+    })
+
+    ;(r.h.t3 as T3Port).pendingQuestion = native
+    const respond = { request_id: REQ_1, action: 'respond' as const, question_id: pending, question_event_id: '$question', event_id: EVENT_B }
+
+    return { ...r, native, respond, read }
+  }
+
+  it('reads the native question and sends one verified reply across Mac restart and concurrent replay', async () => {
+    const r = await questions()
+    expect(await r.relay.question(r.ctx, { request_id: REQ_1, action: 'read' })).toMatchObject({
+      class: 'question', questionStatus: 'pending', questionId: pending, questions: answers
+    })
+    r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false,
+      body: '> quoted question\n\nSea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    const outcomes = await Promise.all([r.relay.question(r.ctx, r.respond), r.relay.question(r.ctx, r.respond)])
+    expect(outcomes).toContainEqual(expect.objectContaining({ questionStatus: 'answered' }))
+    expect(r.owner).toHaveBeenCalledWith(expect.objectContaining({
+      eventId: EVENT_B, question: { eventId: '$question', originalEventId: EVENT_A }
+    }))
+    expect(r.native).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
+      action: 'respond', requestId: pending, answers: { color: 'blue' }
+    })
+    const disk = new GateLedger(join(r.h.dir, 'ledger.sqlite'), ACCOUNT, r.h.clock.now)
+
+    try {
+      const restarted = new WorkRelay({ ...r.options, ledger: disk })
+      expect(await restarted.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'answered' })
+      expect(await restarted.question(r.ctx, { ...r.respond, event_id: '$different' })).toMatchObject({ questionStatus: 'closed' })
+      expect(await restarted.send(r.ctx, { ...r.input, request_id: REQ_2, event_id: EVENT_B })).toMatchObject({ class: 'refused' })
+      expect(r.native.mock.calls.filter(([, , call]) => call.action === 'respond')).toHaveLength(1)
+    } finally {
+      disk.close()
+    }
+  })
+
+  it('keeps approvals, answers from unrelated rooms, and questions on other runs out of chat', async () => {
+    const r = await questions()
+    r.owner.mockResolvedValueOnce({ kind: 'ok', roomId: '!other:test', encrypted: false,
+      body: 'Sea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'invalid_answer' })
+    r.native.mockResolvedValueOnce({ transport: 'ok', data: { requestIds: ['another-question', pending] } })
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'held' })
+    r.native.mockResolvedValueOnce({ transport: 'ok', data: { requestIds: [] } })
+    expect(await r.relay.question(r.ctx, { request_id: REQ_1, action: 'read' })).toMatchObject({ questionStatus: 'none' })
+    r.read.mockResolvedValue({ kind: 'found', status: 'waiting', activeRunId: 'another-run', runs: [], raw: {} })
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
+    expect(r.native.mock.calls.some(([, , call]) => call.action === 'respond')).toBe(false)
+  })
+
+  it('does not replay a native response after an ambiguous acknowledgement', async () => {
+    const r = await questions()
+    r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false,
+      body: 'Sea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    const native = r.native.getMockImplementation()!
+    r.native.mockImplementation(async (token, thread, args) => {
+      const reply = await native(token, thread, args)
+
+      return args.action === 'respond' ? { transport: 'failed' } : reply
+    })
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'held' })
+    expect(await new WorkRelay(r.options).question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
+    expect(r.native.mock.calls.filter(([, , call]) => call.action === 'respond')).toHaveLength(1)
   })
 })

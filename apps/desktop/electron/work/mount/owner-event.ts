@@ -131,7 +131,7 @@ function judge(message: MatrixInvocationMessage, input: { roomId: string; eventI
 
 export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVerifier {
   return {
-    async fetch({ agentPrincipal, eventId }): Promise<OwnerEventOutcome> {
+    async fetch({ agentPrincipal, eventId, question }): Promise<OwnerEventOutcome> {
       if (!EVENT_ID.test(eventId)) {
         return { kind: 'invalid', reason: 'owner_event_not_found' }
       }
@@ -144,6 +144,7 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
 
       let message: MatrixInvocationMessage
       let roomId: string
+      let questionReply = false
 
       try {
         const agentId = await source.agentUserId(agentPrincipal)
@@ -160,6 +161,19 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
 
         roomId = room
         message = await source.readEvent({ roomId, eventId })
+
+        if (question) {
+          if (message.content.replyTo !== question.eventId) {
+            return { kind: 'invalid', reason: 'owner_event_not_found' }
+          }
+
+          const anchor = await source.readEvent({ roomId, eventId: question.eventId })
+          questionReply = anchor.sender === agentId &&
+            anchor.eventId === question.eventId && anchor.roomId === roomId &&
+            anchor.roomPlain === true && anchor.content.msgtype === 'm.text' &&
+            anchor.content.replyTo === question.originalEventId &&
+            anchor.timestamp <= message.timestamp
+        }
       } catch (error) {
         return classifyOwnerEventReadError(error)
       }
@@ -179,7 +193,7 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
         return { kind: 'unreachable' }
       }
 
-      return { kind: 'ok', body: message.content.body, originServerTs: message.timestamp, roomId, encrypted: message.roomPlain !== true }
+      return { kind: 'ok', body: message.content.body, originServerTs: message.timestamp, roomId, encrypted: message.roomPlain !== true, ...(question ? { questionReply } : {}) }
     }
   }
 }

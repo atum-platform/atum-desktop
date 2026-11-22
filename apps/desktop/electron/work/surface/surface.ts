@@ -53,6 +53,7 @@ export interface WorkSurfaceParts {
   }
   /** S's balance read for the Atum provider (`readModelAccess`). */
   readAccess?(): Promise<WorkAccess>
+  readPlanUsage?(): Promise<MatrixWorkProjection['planLimits']>
   /** Gate 4a for this account (custody retired, the build ships the unmodified Codex client). False or absent: no Connect step. */
   planConnectOpen?(): boolean
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
@@ -92,6 +93,7 @@ export class WorkSurface {
   private rect: MatrixWorkRect | null = null
   private protons: MatrixWorkProjection['protons'] = 'unknown'
   private planLimit: MatrixWorkProjection['planLimit']
+  private planLimits: MatrixWorkProjection['planLimits']
   private generation = 0
   /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
   private holds = 0
@@ -103,6 +105,7 @@ export class WorkSurface {
   /** Main calls this when an account's Work is built (parts) or torn down (undefined): sign-out, switch. */
   attach(parts: WorkSurfaceParts | undefined): void {
     this.planLimit = undefined
+    this.planLimits = undefined
     this.generation++
     this.detachGate?.()
     this.detachGate = undefined
@@ -130,6 +133,7 @@ export class WorkSurface {
     return {
       ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
       ...(this.planLimit ? { planLimit: this.planLimit } : {}),
+      ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
       view: this.viewState(parts),
       assistants: projectWorkAssistants(gate),
       ...(plan ? { plan } : {}),
@@ -141,7 +145,14 @@ export class WorkSurface {
 
   /** The renderer's read also refreshes the balance, so the Add Protons action follows a top-up. */
   async read(): Promise<MatrixWorkProjection | null> {
-    await this.refreshProtons()
+    const generation = this.generation
+    const readUsage = this.parts?.readPlanUsage
+    const [, limits] = await Promise.all([this.refreshProtons(), readUsage?.().catch(() => undefined)])
+
+    if (generation === this.generation && readUsage) {
+      this.planLimits = limits
+      this.publish()
+    }
 
     return this.projection()
   }
@@ -153,7 +164,7 @@ export class WorkSurface {
 
     if (generation !== this.generation) {throw new Error('work_relay_account_changed')}
     const limit = view.status?.limits.find(limit => limit.plan === 'codex')
-    this.planLimit = limit ? {...limit, ...(view.status?.scheduledUsage ? {scheduledRuns: view.status.scheduledUsage.runs} : {})} : undefined
+    this.planLimit = limit
     this.publish()
 
     return view

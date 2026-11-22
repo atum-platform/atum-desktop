@@ -94,6 +94,7 @@ export interface MatrixWorkAgentActivity {
 export interface MatrixWorkProjection {
   relayChats?: string[]
   planLimit?: WorkRelayLimit
+  planLimits?: readonly WorkRelayLimit[]
   view: MatrixWorkViewState
   assistants: MatrixWorkAssistants
   /** Absent: no plan is connected on this Mac and the switch is off, so nothing is drawn. */

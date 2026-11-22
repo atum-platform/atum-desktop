@@ -17,7 +17,7 @@ import { $work, $workPlanConsent, openWorkPlanConnect, openWorkPlanConsent } fro
 
 type SettingsBridge = Pick<
   MatrixWorkBridge,
-  'openPlanConnect' | 'readPlanConsent' | 'revokePlanConsent' | 'setAssistants' | 'setPlan' | 'setPlanConsent' | 'setWork'
+  'read' | 'openPlanConnect' | 'readPlanConsent' | 'revokePlanConsent' | 'setAssistants' | 'setPlan' | 'setPlanConsent' | 'setWork'
 >
 
 /** The plan switch's one line: who the consent names here and since when, or the plain help. */
@@ -52,13 +52,15 @@ export function MatrixWorkSettings({
   agents = [],
   bridge = window.atumMatrix?.work,
   planLimit,
+  claudeLimit,
   relayChats = false
 }: {
   /** The account's own assistants, for the consent sheet's names and circles. */
   agents?: readonly WorkConsentAgent[]
-  bridge?: SettingsBridge
+  bridge?: Omit<SettingsBridge, 'read'> & Partial<Pick<SettingsBridge, 'read'>>
   /** Relay R1: the plan's reported limit (`status.limits`); drawn as one phrase on the connected plan row. Absent: no usage. */
   planLimit?: WorkRelayLimit
+  claudeLimit?: WorkRelayLimit
   /** Relay R1: the plan also answers the assistants' chats, so the consent sheet says so. */
   relayChats?: boolean
 }) {
@@ -72,6 +74,17 @@ export function MatrixWorkSettings({
   const mounted = useRef(true)
   const planShown = Boolean(projection?.plan)
   const usage = useWorkRelayUsageText(planLimit)
+  const claudeUsage = useWorkRelayUsageText(claudeLimit)
+  const read = bridge?.read
+
+  useEffect(() => {
+    const refresh = () => void read?.().catch(() => undefined)
+
+    refresh()
+    window.addEventListener('focus', refresh)
+
+    return () => window.removeEventListener('focus', refresh)
+  }, [read])
 
   // The plan row reads the account's consent while it is drawn, and again when the sheet closes (it may have changed it).
   useEffect(() => {
@@ -181,13 +194,17 @@ export function MatrixWorkSettings({
           help={
             projection.planConnect === 'connected'
               ? planLimit
-                ? `${copy.connect.rowConnected} · ${usage}`
+                ? <span className="block truncate" title={usage}>{usage}</span>
                 : copy.connect.rowConnected
               : copy.connect.rowOffer
           }
           title={copy.connect.rowTitle}
         />
       )}
+      {workOn && projection.planConnect !== 'connected' && planLimit?.usedPercent !== undefined && (
+        <SettingsRow data-atum-work-plan-usage="codex" help={<span className="block truncate" title={usage}>{usage}</span>} title="ChatGPT" />
+      )}
+      {workOn && claudeLimit && <SettingsRow data-atum-work-plan-usage="claude" help={<span className="block truncate" title={claudeUsage}>{claudeUsage}</span>} title="Claude" />}
       {workOn && projection.plan && (
         <SettingsRow
           control={
