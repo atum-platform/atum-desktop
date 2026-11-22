@@ -171,7 +171,8 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
           questionReply = anchor.sender === agentId &&
             anchor.eventId === question.eventId && anchor.roomId === roomId &&
             anchor.roomPlain === true && anchor.content.msgtype === 'm.text' &&
-            anchor.content.replyTo === question.originalEventId &&
+            anchor.content.replyTo === question.originalEventId && anchor.content.body === question.text &&
+            anchor.timestamp > question.pendingSince &&
             anchor.timestamp <= message.timestamp
         }
       } catch (error) {

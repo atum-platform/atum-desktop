@@ -2754,6 +2754,7 @@ export interface Translations {
       sessionRunning: string
       needsInput: string
       waitingForAnswer: string
+      invalidAnswer: string
       finishedUnread: string
       backgroundRunning: string
       handoffOrigin: (platform: string) => string

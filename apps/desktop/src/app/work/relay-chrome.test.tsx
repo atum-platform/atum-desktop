@@ -58,6 +58,13 @@ describe('WorkRelayTurnLine: one line, at most one action, UI chrome only', () =
     expect(screen.queryByRole('button', { name: 'Open Work' })).toBeNull()
   })
 
+  it('asks the owner to reply again after T3 rejects the answer', () => {
+    line({ kind: 'waiting', at: 'message', action: 'stop', waitingForAnswer: true, invalidAnswer: true }, 'en', { onStop: vi.fn() })
+
+    expect(screen.getByRole('status').textContent).toContain('Reply again with a valid answer')
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy()
+  })
+
   it('offers Open Work for an OK the owner can give on this Mac', () => {
     const onOpenWork = vi.fn()
     line({ kind: 'needs_ok', at: 'message', action: 'open_work' }, 'vi', { onOpenWork })
@@ -163,7 +170,7 @@ describe('Settings and the consent sheet (§6)', () => {
       </I18nProvider>
     )
 
-    expect(await screen.findByText('42% used · 3 scheduled runs')).toBeTruthy()
+    expect(await screen.findByText('Connected on this Mac · 42% used · 3 scheduled runs')).toBeTruthy()
     expect(await screen.findByText('100% used · 0 scheduled runs')).toBeTruthy()
   })
 

@@ -1,0 +1,22 @@
+{
+  "ticket": { "ticket": "fixture-ticket" },
+  "request": { "_tag": "Request", "id": "1", "tag": "server.getConfig", "payload": {}, "headers": [] },
+  "response": {
+    "_tag": "Exit",
+    "requestId": "1",
+    "exit": {
+      "_tag": "Success",
+      "value": {
+        "providers": [{
+          "driver": "codex",
+          "instanceId": "codex",
+          "enabled": true,
+          "usageLimits": {
+            "checkedAt": "2026-11-23T07:59:59.000Z",
+            "windows": [{ "usedPercent": 45, "resetsAt": "2026-11-23T08:01:00.000Z", "windowDurationMins": 300 }]
+          }
+        }]
+      }
+    }
+  }
+}

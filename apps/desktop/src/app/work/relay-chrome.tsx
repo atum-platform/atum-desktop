@@ -58,6 +58,11 @@ export function WorkRelayTurnLine({
 
   const run = line.action?.kind === 'stop' ? onStop : line.action?.kind === 'open_work' ? onOpenWork : undefined
 
+  let text = line.text
+  if (chrome.kind === 'waiting' && chrome.waitingForAnswer) {
+    text = chrome.invalidAnswer ? t.sidebar.row.invalidAnswer : t.sidebar.row.waitingForAnswer
+  }
+
   return (
     <p
       className={cn(
@@ -69,7 +74,7 @@ export function WorkRelayTurnLine({
       role={LIVE.has(chrome.kind) ? 'status' : 'note'}
     >
       {LIVE.has(chrome.kind) && <span aria-hidden className="ak-dot size-1.5 shrink-0 animate-pulse bg-(--ak-ink-3)" />}
-      <span className="min-w-0 truncate">{chrome.kind === 'waiting' && chrome.waitingForAnswer ? t.sidebar.row.waitingForAnswer : line.text}</span>
+      <span className="min-w-0 truncate">{text}</span>
       {line.action && run && (
         <>
           <span aria-hidden>·</span>

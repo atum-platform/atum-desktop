@@ -74,6 +74,7 @@ export function MatrixWorkSettings({
   const mounted = useRef(true)
   const planShown = Boolean(projection?.plan)
   const usage = useWorkRelayUsageText(planLimit)
+  const connectedHelp = planLimit ? `${copy.connect.rowConnected} · ${usage}` : copy.connect.rowConnected
   const claudeUsage = useWorkRelayUsageText(claudeLimit)
   const read = bridge?.read
 
@@ -193,9 +194,7 @@ export function MatrixWorkSettings({
           }
           help={
             projection.planConnect === 'connected'
-              ? planLimit
-                ? <span className="block truncate" title={usage}>{usage}</span>
-                : copy.connect.rowConnected
+              ? <span className="block truncate" title={connectedHelp}>{connectedHelp}</span>
               : copy.connect.rowOffer
           }
           title={copy.connect.rowTitle}

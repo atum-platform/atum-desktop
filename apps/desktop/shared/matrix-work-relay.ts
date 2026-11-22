@@ -26,7 +26,7 @@ export interface WorkRelaySelection {
 }
 
 export type WorkRelayPhase = 'admitted' | 'running' | 'held' | 'answered' | 'stopped' | 'failed' | 'empty' | 'cut'
-export type WorkRelayHold = 'waiting_for_mac' | 'approval' | 'question' | 'plan_limit' | 'stop_pending'
+export type WorkRelayHold = 'waiting_for_mac' | 'approval' | 'question' | 'question_invalid' | 'plan_limit' | 'stop_pending'
 
 /** `status.openOperation`: the one open relay operation of this conversation, if any. */
 export interface WorkRelayOperation {
@@ -114,7 +114,7 @@ export type WorkRelayFallbackReason = 'mac_off' | 'consent_off' | 'switch_off' |
 export type WorkRelayTurnChrome =
   | { kind: 'none' }
   | { kind: 'fallback'; at: 'reply'; reason: WorkRelayFallbackReason }
-  | { kind: 'waiting'; at: 'message'; action: 'stop'; waitingForAnswer?: true }
+  | { kind: 'waiting'; at: 'message'; action: 'stop'; waitingForAnswer?: true; invalidAnswer?: true }
   | { kind: 'needs_ok'; at: 'message'; action: 'open_work' | 'stop' }
   | { kind: 'limit'; at: 'message'; action: 'stop'; resetsAt?: number }
   | { kind: 'stopping'; at: 'message' }

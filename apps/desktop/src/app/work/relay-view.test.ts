@@ -198,6 +198,13 @@ describe('one turn’s line (§3.4, §3.6, O12, O13)', () => {
       action: 'stop',
       waitingForAnswer: true
     })
+    expect(workRelayTurnChrome({ operation: operation({ phase: 'held', hold: 'question_invalid' }) })).toEqual({
+      kind: 'waiting',
+      at: 'message',
+      action: 'stop',
+      waitingForAnswer: true,
+      invalidAnswer: true
+    })
     expect(
       workRelayTurnChrome({
         operation: operation({ phase: 'held', hold: 'plan_limit' }),

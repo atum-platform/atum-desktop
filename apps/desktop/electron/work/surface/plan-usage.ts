@@ -69,7 +69,9 @@ interface OwnerFetch {
   fetch(input: string, init: RequestInit): Promise<Response>
 }
 
-/** Native, read-only T3 config RPC via the existing local Work owner session. */
+/** Read-only Work owner RPC. The pinned T3 capabilities tool does not include usage windows.
+ * The ticket and Effect RPC frame shapes are exercised by fixtures/t3-plan-config.json.
+ */
 export async function readPlanUsage(origin: string, owner: OwnerFetch): Promise<Usage[]> {
   if (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/u.test(origin)) {return []}
 

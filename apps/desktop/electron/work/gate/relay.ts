@@ -5,7 +5,7 @@ import type { CallContext } from './gate'
 import { handoffBudget, type HistoricalMessage, historyCost, renderHistory, selectHistory } from './handoff-helper.cjs'
 import type { GateLedger } from './ledger'
 import type { GateSessions, OwnerEventVerifier, T3Port, T3Reply } from './ports'
-import { nativeQuestions, questionAnswers } from './question'
+import { nativeQuestion, questionAnswers, renderQuestion } from './question'
 
 export interface RelaySelection {
   revision: number
@@ -62,6 +62,7 @@ interface Frozen {
   closed?: boolean
   resultRun?: string
   hold?: string
+  questionSeen?: { id: string; text: string; at: number }
 }
 export interface RelayAnswer {
   class?: string
@@ -84,6 +85,10 @@ export interface RelayOptions {
   modeLimit: string
   now(): number
   limit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
+}
+
+function isQuestionHold(hold?: string): boolean {
+  return hold === 'question' || hold === 'question_invalid'
 }
 
 /** Scheduled binding identities occupy a separate gate-owned namespace. */
@@ -784,12 +789,17 @@ export class WorkRelay {
       return reply.transport === 'ok' && !reply.isError && Array.isArray(ids) ? ids : undefined
     }
 
-    const setQuestionHold = (waiting: boolean) => {
+    const setQuestionHold = (hold?: 'question' | 'question_invalid') => {
       const latest = this.frozen(ctx, id)
 
-      if (latest && current() && (waiting ? latest.hold !== 'question' : latest.hold === 'question')) {
-        this.store(ctx, id, { ...latest, hold: waiting ? 'question' : undefined })
+      if (latest && current() && (hold || isQuestionHold(latest.hold)) && latest.hold !== hold) {
+        this.store(ctx, id, { ...latest, hold })
       }
+    }
+    const invalidAnswer = () => {
+      setQuestionHold('question_invalid')
+
+      return result('invalid_answer')
     }
 
     const requestIds = await list()
@@ -807,13 +817,13 @@ export class WorkRelay {
     // T3 exposes pending IDs for the thread's one active run. Leave ambiguous
     // batches in Work, rather than guessing which question an answer is for.
     if (input.action === 'read' && (requestIds.length !== 1 || typeof questionId !== 'string' || !questionId.length || questionId.length > 512)) {
-      setQuestionHold(false)
+      setQuestionHold()
 
       return result('none')
     }
 
     if (input.action === 'respond') {
-      const key = `relay-question:${ctx.principal}:${id}:${input.question_id}`
+      const key = `relay-question-attempt-v2:${ctx.principal}:${id}:${input.question_id}`
       const raw = this.o.ledger.meta(key)
       const saved = raw ? JSON.parse(raw) as { eventId: string; questionEventId: string; answers: Record<string, string | string[]>; answered?: boolean } : undefined
 
@@ -841,28 +851,39 @@ export class WorkRelay {
 
         if (!attempt) {
           const detail = await native(session.token, threadId, { action: 'read', requestId: input.question_id })
-          const questions = nativeQuestions.safeParse(detail.data?.questions)
+          const questions = detail.data?.questions
 
-          if (detail.transport !== 'ok' || detail.isError || detail.data?.requestId !== input.question_id || !questions.success) {
+          if (detail.transport !== 'ok' || detail.isError || detail.data?.requestId !== input.question_id || !Array.isArray(questions)) {
             return result('held')
           }
 
+          const seen = this.frozen(ctx, id)?.questionSeen
+          if (questions.length !== 1 || !seen || seen.id !== input.question_id) {
+            return result('closed')
+          }
+
+          const parsed = nativeQuestion.safeParse(questions[0])
+          if (!parsed.success || seen.text !== renderQuestion(parsed.data)) {
+            return result('closed')
+          }
+          const question = parsed.data
+
           const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: input.event_id,
-            question: { eventId: input.question_event_id, originalEventId: frozen.input.event_id } })
+            question: { eventId: input.question_event_id, originalEventId: frozen.input.event_id, text: seen.text, pendingSince: seen.at } })
 
           if (event.kind === 'unreachable') {
             return result('held')
           }
 
           if (event.kind !== 'ok' || event.encrypted !== false || event.roomId !== frozen.input.room_id ||
-              !event.questionReply || event.originServerTs < row.createdAt - 60_000 || event.originServerTs > this.o.now() + 60_000) {
-            return result('invalid_answer')
+              !event.questionReply || event.originServerTs <= seen.at || event.originServerTs > this.o.now() + 60_000) {
+            return invalidAnswer()
           }
 
-          const answers = questionAnswers(questions.data, event.body)
+          const answers = questionAnswers(question, event.body)
 
           if (!answers) {
-            return result('invalid_answer')
+            return invalidAnswer()
           }
 
           const latestIds = await list()
@@ -889,7 +910,7 @@ export class WorkRelay {
           })
 
           if (!claimed) {
-            return result('invalid_answer')
+            return invalidAnswer()
           }
         }
 
@@ -899,13 +920,25 @@ export class WorkRelay {
 
         const reply = await native(session.token, threadId, { action: 'respond', requestId: input.question_id, answers: attempt.answers })
 
+        if (reply.transport === 'ok' && reply.isError) {
+          const latestIds = await list()
+
+          if (!current() || (latestIds && !latestIds.includes(input.question_id))) {
+            return result('closed')
+          }
+          if (latestIds?.includes(input.question_id)) {
+            this.o.ledger.deleteMeta(key)
+
+            return invalidAnswer()
+          }
+        }
         if (reply.transport !== 'ok' || reply.isError || typeof reply.data?.sequence !== 'number') {
           return result('held')
         }
 
         this.o.ledger.setMeta(key, JSON.stringify({ ...attempt, answered: true }))
 
-        setQuestionHold(false)
+        setQuestionHold()
 
         return result('answered')
       } finally {
@@ -914,10 +947,21 @@ export class WorkRelay {
     }
 
     const detail = await native(session.token, threadId, { action: 'read', requestId: questionId })
-    const questions = nativeQuestions.safeParse(detail.data?.questions)
+    const questions = detail.data?.questions
 
     if (!current() || detail.transport !== 'ok' || detail.isError ||
-        detail.data?.requestId !== questionId || !questions.success) {
+        detail.data?.requestId !== questionId || !Array.isArray(questions)) {
+      return result('held')
+    }
+
+    if (questions.length !== 1) {
+      setQuestionHold()
+
+      return result('none')
+    }
+
+    const parsed = nativeQuestion.safeParse(questions[0])
+    if (!parsed.success) {
       return result('held')
     }
 
@@ -927,9 +971,21 @@ export class WorkRelay {
       return result('held')
     }
 
-    setQuestionHold(true)
+    const questionText = renderQuestion(parsed.data)
+    if (!parsed.data.question.trim() || Buffer.byteLength(questionText) > 18_000) {
+      setQuestionHold()
 
-    return { ...head, questionStatus: 'pending', questionId, questions: questions.data }
+      return result('none')
+    }
+
+    const latest = this.frozen(ctx, id)!
+    if (latest.questionSeen?.id !== questionId || latest.questionSeen.text !== questionText) {
+      this.store(ctx, id, { ...latest, hold: 'question', questionSeen: { id: questionId, text: questionText, at: this.o.now() } })
+    } else if (!isQuestionHold(latest.hold)) {
+      setQuestionHold('question')
+    }
+
+    return { ...head, questionStatus: 'pending', questionId, questionText, questions: [parsed.data] }
   }
   async status(ctx: CallContext, room: string): Promise<RelayAnswer> {
     const b = this.binding(this.key(ctx, room), '')
@@ -1096,7 +1152,7 @@ export class WorkRelay {
       const hold = this.holdReason(waited.data)
 
       if (latest && !latest.answer) {
-        this.store(ctx, id, { ...latest, hold: hold === 'waiting_for_mac' && latest.hold === 'question' ? 'question' : hold })
+        this.store(ctx, id, { ...latest, hold: hold === 'waiting_for_mac' && isQuestionHold(latest.hold) ? latest.hold : hold })
       }
 
       return { class: 'pending' }

@@ -569,9 +569,17 @@ describe('R1s standing scheduled permits', () => {
 
 describe('R3 native questions (RT10, RT14 and RT15)', () => {
   const pending = 'runtime-request:one'
-  const answers = [{ id: 'color', question: 'Which color?', options: [{ label: 'Sea blue', value: 'blue' }] }]
+  const answers = [{ id: 'color', question: 'Which color?', options: [{ label: 'Sea blue', value: 'blue' }],
+    allowCustomAnswer: false }]
+  const questionText = 'Which color?\n1. Sea blue'
+  const readQuestion = { request_id: REQ_1, action: 'read' as const }
 
-  async function questions() {
+  function reply(r: ReturnType<typeof rig>, body = 'Sea blue') {
+    return { kind: 'ok' as const, roomId: '!dm:test', encrypted: false, body,
+      originServerTs: r.h.clock.now(), ...{ questionReply: true } }
+  }
+
+  async function questions(detail = answers) {
     const r = rig()
     await r.relay.send(r.ctx, r.input)
 
@@ -584,7 +592,7 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
     const native = vi.fn<NonNullable<T3Port['pendingQuestion']>>(async (_token, _thread, args) => {
       if (args.action === 'list') {return { transport: 'ok', data: { requestIds: waiting ? [pending] : [] } }}
 
-      if (args.action === 'read') {return { transport: 'ok', data: { requestId: pending, questions: answers } }}
+      if (args.action === 'read') {return { transport: 'ok', data: { requestId: pending, questions: detail } }}
 
       waiting = false
 
@@ -599,15 +607,16 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
 
   it('reads the native question and sends one verified reply across Mac restart and concurrent replay', async () => {
     const r = await questions()
-    expect(await r.relay.question(r.ctx, { request_id: REQ_1, action: 'read' })).toMatchObject({
-      class: 'question', questionStatus: 'pending', questionId: pending, questions: answers
+    const pendingSince = r.h.clock.now()
+    expect(await r.relay.question(r.ctx, readQuestion)).toMatchObject({
+      class: 'question', questionStatus: 'pending', questionId: pending, questionText, questions: answers
     })
-    r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false,
-      body: '> quoted question\n\nSea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    r.h.clock.advance(10)
+    r.owner.mockResolvedValue(reply(r, '> quoted question\n\n  sEa BLUE '))
     const outcomes = await Promise.all([r.relay.question(r.ctx, r.respond), r.relay.question(r.ctx, r.respond)])
     expect(outcomes).toContainEqual(expect.objectContaining({ questionStatus: 'answered' }))
     expect(r.owner).toHaveBeenCalledWith(expect.objectContaining({
-      eventId: EVENT_B, question: { eventId: '$question', originalEventId: EVENT_A }
+      eventId: EVENT_B, question: { eventId: '$question', originalEventId: EVENT_A, text: questionText, pendingSince }
     }))
     expect(r.native).toHaveBeenCalledWith(expect.any(String), expect.any(String), {
       action: 'respond', requestId: pending, answers: { color: 'blue' }
@@ -627,8 +636,9 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
 
   it('keeps approvals, answers from unrelated rooms, and questions on other runs out of chat', async () => {
     const r = await questions()
-    r.owner.mockResolvedValueOnce({ kind: 'ok', roomId: '!other:test', encrypted: false,
-      body: 'Sea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    await r.relay.question(r.ctx, readQuestion)
+    r.h.clock.advance(10)
+    r.owner.mockResolvedValueOnce({ ...reply(r), roomId: '!other:test' })
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'invalid_answer' })
     r.native.mockResolvedValueOnce({ transport: 'ok', data: { requestIds: ['another-question', pending] } })
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'held' })
@@ -641,8 +651,9 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
 
   it('does not replay a native response after an ambiguous acknowledgement', async () => {
     const r = await questions()
-    r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false,
-      body: 'Sea blue', originServerTs: r.h.clock.now(), ...{ questionReply: true } })
+    await r.relay.question(r.ctx, readQuestion)
+    r.h.clock.advance(10)
+    r.owner.mockResolvedValue(reply(r))
     const native = r.native.getMockImplementation()!
     r.native.mockImplementation(async (token, thread, args) => {
       const reply = await native(token, thread, args)
@@ -652,5 +663,51 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'held' })
     expect(await new WorkRelay(r.options).question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
     expect(r.native.mock.calls.filter(([, , call]) => call.action === 'respond')).toHaveLength(1)
+  })
+
+  it('rejects a reply from before the first read and keeps the original observation across reads', async () => {
+    const r = await questions()
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
+
+    await r.relay.question(r.ctx, readQuestion)
+    r.owner.mockResolvedValueOnce(reply(r))
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'invalid_answer' })
+    r.h.clock.advance(10)
+    const newer = reply(r, '1')
+    r.h.clock.advance(10)
+    await r.relay.question(r.ctx, readQuestion)
+    r.owner.mockResolvedValue(newer)
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'answered' })
+  })
+
+  it.each([2, 7])('keeps a native request with %i questions in Work', async count => {
+    const r = await questions(Array.from({ length: count }, (_, index) => ({ ...answers[0], id: `q-${index}` })))
+    expect(await r.relay.question(r.ctx, readQuestion)).toMatchObject({ questionStatus: 'none' })
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
+    expect(r.native.mock.calls.some(([, , call]) => call.action === 'respond')).toBe(false)
+  })
+
+  it('lets the owner replace a definitively rejected answer while the same native request is pending', async () => {
+    const r = await questions()
+    await r.relay.question(r.ctx, readQuestion)
+    r.h.clock.advance(10)
+    r.owner.mockResolvedValue(reply(r))
+    const native = r.native.getMockImplementation()!
+    let rejected = false
+    r.native.mockImplementation(async (token, thread, input) => {
+      if (input.action === 'respond' && !rejected) {
+        rejected = true
+        return { transport: 'ok', isError: true }
+      }
+      return native(token, thread, input)
+    })
+
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'invalid_answer' })
+    await r.relay.question(r.ctx, readQuestion)
+    expect(await r.relay.status(r.ctx, r.input.room_id)).toMatchObject({
+      openOperation: { phase: 'held', hold: 'question_invalid' }
+    })
+    expect(await r.relay.question(r.ctx, { ...r.respond, event_id: '$new-answer' })).toMatchObject({ questionStatus: 'answered' })
+    expect(r.native.mock.calls.filter(([, , call]) => call.action === 'respond')).toHaveLength(2)
   })
 })

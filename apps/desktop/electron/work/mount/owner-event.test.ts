@@ -60,15 +60,18 @@ describe('owner event verifier', () => {
   it('binds a question answer to an assistant-authored reply to the original relay event', async () => {
     const reply = plain({ related: true, content: { msgtype: 'm.text', body: 'Sea blue', replyTo: '$question' } })
 
-    const prompt = plain({ eventId: '$question', sender: AGENT_USER, related: true,
+    const prompt = plain({ eventId: '$question', sender: AGENT_USER, related: true, timestamp: reply.timestamp - 5,
       content: { msgtype: 'm.text', body: 'Which color?', replyTo: '$original' } })
 
     const verify = (candidate: MatrixInvocationMessage) => createOwnerEventVerifier(source(() => reply, {
       readEvent: async ({ eventId }) => eventId === '$question' ? candidate : reply
-    })).fetch({ agentPrincipal: PRINCIPAL, eventId: EVENT, question: { eventId: '$question', originalEventId: '$original' } })
+    })).fetch({ agentPrincipal: PRINCIPAL, eventId: EVENT, question: { eventId: '$question', originalEventId: '$original', text: 'Which color?', pendingSince: reply.timestamp - 10 } })
 
     expect(await verify(prompt)).toMatchObject({ kind: 'ok', body: 'Sea blue', questionReply: true })
     expect(await verify({ ...prompt, sender: OWNER })).toMatchObject({ questionReply: false })
+    expect(await verify({ ...prompt, timestamp: reply.timestamp - 10 })).toMatchObject({ questionReply: false })
+    expect(await verify({ ...prompt, timestamp: reply.timestamp + 1 })).toMatchObject({ questionReply: false })
+    expect(await verify({ ...prompt, content: { ...prompt.content, body: 'Different question?' } })).toMatchObject({ questionReply: false })
     expect(await verify({ ...prompt, content: { ...prompt.content, replyTo: '$another' } })).toMatchObject({ questionReply: false })
   })
 

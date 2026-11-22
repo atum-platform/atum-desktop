@@ -297,6 +297,10 @@ export class GateLedger {
       .run(key, String(value))
   }
 
+  deleteMeta(key: string): void {
+    this.db.prepare('DELETE FROM meta WHERE k = ?').run(key)
+  }
+
   routeEpoch(): number {
     return Number(this.meta('route_epoch') ?? 1)
   }

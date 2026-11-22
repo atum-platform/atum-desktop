@@ -96,7 +96,7 @@ export type OwnerEventOutcome =
  * sending device is the owner's. The age bound is the gate's.
  */
 export interface OwnerEventVerifier {
-  fetch(input: { agentPrincipal: string; eventId: string; question?: { eventId: string; originalEventId: string } }): Promise<OwnerEventOutcome>
+  fetch(input: { agentPrincipal: string; eventId: string; question?: { eventId: string; originalEventId: string; text: string; pendingSince: number } }): Promise<OwnerEventOutcome>
 }
 
 export type ModelAccess = 'allowed' | 'empty' | 'unavailable'
