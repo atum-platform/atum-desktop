@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $work, $workActive, resetWorkStoreForTests } from '@/app/work/store'
 import { I18nProvider } from '@/i18n'
 
 import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
@@ -1100,7 +1101,6 @@ describe('account subscriptions in the model picker', () => {
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
       disconnectOpenCode: vi.fn(async () => undefined)
     }
@@ -1429,7 +1429,7 @@ describe('account subscriptions in the model picker', () => {
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'setModel', roomId: ROOM.id, model: 'nhat-thuc' }))
   })
 
-  it('shows a cloud agent the this-Mac ChatGPT models greyed with the reason, and nothing else in that list', async () => {
+  it('shows a cloud agent the this-Mac ChatGPT models greyed with one line (D6), and nothing else in that list', async () => {
     const subscriptions = {
       ...subscriptionsBridge({}),
       status: vi.fn(async () => ({
@@ -1462,9 +1462,12 @@ describe('account subscriptions in the model picker', () => {
 
     for (const id of [CHATGPT_ROUTE, SOL_ROUTE]) {
       expect(row(card, id).disabled).toBe(true)
-      expect(row(card, id).textContent).toContain('Not ready for your assistants yet')
       expect(row(card, id).parentElement!.querySelector('[data-matrix-model-favorite]')).toBeNull()
     }
+
+    // One line for the list, not one per row; no Work on this Mac, so no action beside it.
+    expect(within(card).getAllByText('Your plan works in Work on your Mac')).toHaveLength(1)
+    expect(card.querySelector('[data-matrix-model-note-action]')).toBeNull()
 
     expect(card.querySelector('[data-matrix-model-list] [data-matrix-model-connect]')).toBeNull()
     expect(within(card).queryByText(/Open ChatGPT in Settings|Use your ChatGPT/)).toBeNull()
@@ -1530,7 +1533,7 @@ describe('account subscriptions in the model picker', () => {
     const card = await open('Model: Nguyệt Thực 1.3')
     await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
     // The stale home model is ChatGPT's, so the card opens on ChatGPT: one note, no fake model.
-    await waitFor(() => expect(within(card).getByText('Not ready for your assistants yet')).toBeTruthy())
+    await waitFor(() => expect(within(card).getByText('Your plan works in Work on your Mac')).toBeTruthy())
     expect(rowIds(card)).toEqual([])
     fireEvent.click(rail(card, 'atum'))
     expect(card.querySelector('[data-matrix-model-route*="gpt-5.6-luna"]')).toBeNull()
@@ -1769,7 +1772,6 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
     pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
     cancelChatGpt: vi.fn(async () => undefined),
     disconnectChatGpt: vi.fn(async () => undefined),
-    useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
     connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
     disconnectOpenCode: vi.fn(async () => undefined)
   })
@@ -1840,38 +1842,37 @@ describe('a plan that cannot answer now (owner 2026-11-11)', () => {
   })
 
   it.each([
-    ['en', 'Your Mac is offline', 'Open Atum on your Mac to use ChatGPT.'],
-    ['vi', 'Máy Mac của bạn đang tắt', 'Mở Atum trên máy Mac để dùng ChatGPT.']
-  ] as const)('greys ChatGPT out while its Mac is offline (%s): one line, one action in the tip', async (locale, line, action) => {
-    const { modelDestinations } = cloudPicker('offline', { locale })
-    const card = await open(/^(Model|Mô hình): Nguyệt Thực 1\.3$/)
-    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    ['en', 'offline', 'Your plan works in Work on your Mac', 'Open Work'],
+    ['vi', 'offline', 'Gói của bạn dùng trong Work trên máy Mac', 'Mở Work'],
+    ['en', 'none', 'Your plan works in Work on your Mac', 'Open Work']
+  ] as const)('greys ChatGPT for an assistant (%s, Mac %s) with one line and one action, Open Work (D6)', async (locale, presence, line, action) => {
+    resetWorkStoreForTests()
+    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok' })
 
-    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
-    fireEvent.click(rail(card, 'openai-codex'))
-    expect(rowIds(card)).toEqual([CHATGPT_ROUTE, SOL_ROUTE])
+    try {
+      const { modelDestinations } = cloudPicker(presence, { locale })
+      const card = await open(/^(Model|Mô hình): Nguyệt Thực 1\.3$/)
+      await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
 
-    for (const id of [CHATGPT_ROUTE, SOL_ROUTE]) {
-      expect(row(card, id).disabled).toBe(true)
-      expect(row(card, id).textContent).toContain(line)
+      expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
+      fireEvent.click(rail(card, 'openai-codex'))
+
+      for (const id of rowIds(card).filter((each): each is string => Boolean(each))) {
+        expect(row(card, id).disabled).toBe(true)
+        expect(row(card, id).textContent).not.toContain(line)
+      }
+
+      expect(within(card).getAllByText(line)).toHaveLength(1)
+      // Never a cost, a relay or a Mac to wake: the plan is for Work, not for the assistant's answers.
+      expect(within(card).queryByText(/offline|Proton|relay|Not ready/u)).toBeNull()
+      fireEvent.click(row(card, SOL_ROUTE))
+      expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
+
+      fireEvent.click(within(card).getByRole('button', { name: action }))
+      expect($workActive.get()).toBe(true)
+    } finally {
+      resetWorkStoreForTests()
     }
-
-    expect(await tip(row(card, SOL_ROUTE).parentElement!)).toContain(action)
-    fireEvent.click(row(card, SOL_ROUTE))
-    expect(modelDestinations.writeSubscription).not.toHaveBeenCalled()
-  })
-
-  it('says no Mac serves ChatGPT yet when none is registered', async () => {
-    cloudPicker('none')
-    const card = await open('Model: Nguyệt Thực 1.3')
-    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
-    fireEvent.click(rail(card, 'openai-codex'))
-
-    expect(row(card, SOL_ROUTE).disabled).toBe(true)
-    expect(row(card, SOL_ROUTE).textContent).toContain('Not ready for your assistants yet')
-    expect(await tip(row(card, SOL_ROUTE).parentElement!)).toContain(
-      'Open Atum on the Mac where you signed in to ChatGPT.'
-    )
   })
 
   it.each([
@@ -2018,7 +2019,6 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
       disconnectOpenCode: vi.fn(async () => undefined),
       chatGptTraining: vi.fn<() => Promise<MatrixChatGptTrainingStatus>>(async () => status),

@@ -1,11 +1,26 @@
-import type { MatrixWorkProjection, MatrixWorkRect, MatrixWorkViewState } from '../../../shared/matrix-work'
+import type {
+  MatrixWorkPlanConsent,
+  MatrixWorkPlanConsentInput,
+  MatrixWorkProjection,
+  MatrixWorkRect,
+  MatrixWorkViewState
+} from '../../../shared/matrix-work'
 import type { GateEvent } from '../gate/gate'
+import type { WorkConsentClient } from '../gate/platform'
 import type { OwnerViewPort } from '../session/pairing'
 import type { OpenOwnerView } from '../session/session'
 import type { WorkAccess } from '../sidecar/host'
 import type { WorkIncarnation } from '../sidecar/process'
 
-import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants, projectWorkPlan } from './projection'
+import {
+  type GateSurfaceState,
+  projectWorkAgents,
+  projectWorkAssistants,
+  projectWorkConsent,
+  projectWorkPlan,
+  projectWorkPlanConnect,
+  WORK_PLAN_CONNECT_PATH
+} from './projection'
 
 /** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
 export interface WorkViewHandle {
@@ -31,6 +46,11 @@ export interface WorkSurfaceParts {
   }
   /** S's balance read for the Atum provider (`readModelAccess`). */
   readAccess?(): Promise<WorkAccess>
+  /** Gate 4a for this account (custody retired, the build ships the unmodified Codex client). False or absent: no Connect step. */
+  planConnectOpen?(): boolean
+  /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
+  consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
+  deviceServiceId?(): string | undefined
   /** First use: the owner opened Work, so main starts what a sign-in does not (the server and the gate). Never rejects. */
   wantServer?(): Promise<void>
 }
@@ -67,6 +87,8 @@ export class WorkSurface {
   private generation = 0
   /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
   private holds = 0
+  /** Gate 4a: T3's own connect screen, opened in the view as soon as it is painted. */
+  private pendingPath: string | undefined
 
   constructor(private readonly options: WorkSurfaceOptions) {}
 
@@ -77,6 +99,7 @@ export class WorkSurface {
     this.detachGate = undefined
     this.closeView()
     this.parts = parts
+    this.pendingPath = undefined
     this.phase = 'idle'
     this.protons = 'unknown'
     this.detachGate = parts?.gate?.on(() => this.publish())
@@ -93,11 +116,13 @@ export class WorkSurface {
     const gate = parts.gate?.state()
 
     const plan = projectWorkPlan(gate)
+    const planConnect = projectWorkPlanConnect(parts.planConnectOpen?.() === true, gate)
 
     return {
       view: this.viewState(parts),
       assistants: projectWorkAssistants(gate),
       ...(plan ? { plan } : {}),
+      ...(planConnect ? { planConnect } : {}),
       agents: projectWorkAgents(gate),
       protons: this.protons
     }
@@ -200,6 +225,46 @@ export class WorkSurface {
     this.publish()
   }
 
+  /**
+   * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
+   * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's. Closed gate: nothing happens.
+   */
+  async openPlanConnect(): Promise<void> {
+    if (this.parts?.planConnectOpen?.() !== true) {
+      return
+    }
+
+    this.pendingPath = WORK_PLAN_CONNECT_PATH
+
+    if (this.phase === 'ready') {
+      await this.followPendingPath()
+    }
+  }
+
+  /** Gate 4b-2: the account's consent, as the owner's page reads it. */
+  async readPlanConsent(): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+
+    const entitled = (this.parts?.gate?.state().agents ?? []).map(agent => agent.principal)
+
+    return projectWorkConsent(await consent.read(), this.parts?.deviceServiceId?.(), entitled)
+  }
+
+  /** Express opt-in: the owner named these assistants and Macs. Main sends nothing the page did not name. */
+  async setPlanConsent(input: MatrixWorkPlanConsentInput): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+    await consent.set({ agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+
+    return this.readPlanConsent()
+  }
+
+  async revokePlanConsent(): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+    await consent.revoke()
+
+    return this.readPlanConsent()
+  }
+
   async reconnectAssistants(): Promise<void> {
     await this.bindRoute()
   }
@@ -223,6 +288,34 @@ export class WorkSurface {
       await this.options.setWork?.(on)
     } finally {
       this.publish()
+    }
+  }
+
+  private consentDoor(): NonNullable<WorkSurfaceParts['consent']> {
+    const consent = this.parts?.consent
+
+    if (!consent) {
+      throw Object.assign(new Error('work_consent_unavailable'), { code: 'work_consent_unavailable' })
+    }
+
+    return consent
+  }
+
+  private async followPendingPath(): Promise<void> {
+    const path = this.pendingPath
+    const port = this.handle?.port
+
+    if (!path || !port) {
+      return
+    }
+
+    this.pendingPath = undefined
+
+    try {
+      const origin = new URL(port.currentUrl()).origin
+      await port.load(`${origin}${path}`)
+    } catch {
+      this.options.log?.('[work-surface] plan_connect_open_failed')
     }
   }
 
@@ -314,6 +407,7 @@ export class WorkSurface {
     handle?.place(this.rect)
     await this.refreshProtons()
     this.publish()
+    await this.followPendingPath()
   }
 
   private closeView(): void {

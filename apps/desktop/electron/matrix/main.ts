@@ -23753,15 +23753,6 @@ async function start() {
         return
       }
 
-      // "Use this Mac for ChatGPT" (the old SSH relay) is gone: a plan on this Mac answers through Work, not through a relay (plan §12).
-      if (request?.kind === 'subscriptionChatGptRelay') {
-        if (typeof request.enabled !== 'boolean') {
-          throw new Error('matrix_command_invalid')
-        }
-
-        return { status: 'unavailable' as const }
-      }
-
       // The one-time ChatGPT-with-Google confirmation (Shell training-confirmation r3). Main only
       // forwards the person's explicit Confirm and Revoke; the server owns the record.
       if (request?.kind === 'subscriptionChatGptTraining') {

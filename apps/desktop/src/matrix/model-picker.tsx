@@ -1,5 +1,7 @@
+import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { $work, setWorkActive } from '@/app/work/store'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
@@ -334,6 +336,7 @@ export function MatrixModelPicker({
   const { locale, t } = useI18n()
   const copy = t.matrixShell
   const words = useModelPickerCopy()
+  const workHere = Boolean(useStore($work))
   const scope = preferenceScope ?? room.id
   const [openState, setOpenState] = useState(false)
   const open = controlledOpen ?? openState
@@ -809,9 +812,10 @@ export function MatrixModelPicker({
     cloudSubscriptions &&
     (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true || chatgptCarried) &&
     chatgptAvailability?.available !== true
-  const chatgptDown = (chatgptAvailability?.available === false ? chatgptAvailability.reason : undefined) ?? 'no_mac'
-  const chatgptReason = chatgptDown === 'mac_offline' ? words.chatgptMacOffline : words.chatgptCloudNotReady
-  const chatgptHint = chatgptDown === 'mac_offline' ? words.chatgptMacOfflineHint : words.chatgptNoMacHint
+  // D6 (self-work plan §10.3): an assistant never answers with the plan; the plan works in Work on the owner's Mac. One line,
+  // the rows greyed without a reason of their own, and one action (Open Work) when this account has Work here.
+  const chatgptReason = words.chatgptInWork
+  const chatgptHint = words.chatgptInWork
   const opencodeProvider = cloudProvider('opencode-go')
   const opencodeConnected = opencodeProvider?.connected === true
 
@@ -858,7 +862,7 @@ export function MatrixModelPicker({
               },
               subscription: true,
               defaultEffort: model.defaultEffort,
-              ...(cloudChatGptConnected ? {} : { disabled: true, reason: chatgptReason, hint: chatgptHint })
+              ...(cloudChatGptConnected ? {} : { disabled: true, hint: chatgptHint })
             }))
           : []),
         // OpenCode Go is account-wide in R1: every served model is a real cloud choice, and the
@@ -906,7 +910,7 @@ export function MatrixModelPicker({
       ? { provider: 'openai-codex', text: words.modelsFailed }
       : chatgptSignedOut
         ? { provider: 'openai-codex', text: words.chatgptSignedOut }
-        : cloudChatGptPending && chatgptModels.length === 0
+        : cloudChatGptPending
           ? { provider: 'openai-codex', text: chatgptReason }
           : cloudSubscriptions && cloudSubscriptionRevoked && cloudSubscription?.source === 'opencode_go'
             ? { provider: 'opencode-go', text: words.modelsSignedOut }
@@ -984,6 +988,17 @@ export function MatrixModelPicker({
     connected: [...shelfRoutes, ...connectedRoutes],
     subscriptions: shownSubscriptionRoutes,
     ...(subscriptionNote ? { subscriptionNote: subscriptionNote.text, subscriptionNoteFor: subscriptionNote.provider } : {}),
+    ...(subscriptionNote?.provider === 'openai-codex' && cloudChatGptPending && workHere
+      ? {
+          subscriptionNoteAction: {
+            label: words.openWork,
+            run: () => {
+              changeOpen(false)
+              setWorkActive(true)
+            }
+          }
+        }
+      : {}),
     providers: [...(shelfRoutes.length ? [{ ...MATRIX_SHELF_PROVIDER }] : []), ...sectionProviders],
     favorites: preferences.favorites,
     query,

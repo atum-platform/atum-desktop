@@ -37,6 +37,7 @@ import {
 } from '@/app/atum/shell-surface'
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { workCopy } from '@/app/work/copy'
+import { WorkPlanConnectStep } from '@/app/work/plan-connect'
 import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
@@ -8400,6 +8401,8 @@ function MatrixAccountView({
             {chat.skipToComposer}
           </a>
         )}
+        {/* Gate 4a: "Use your ChatGPT plan here", once, only while the gate is open for this account. */}
+        <WorkPlanConnectStep />
         <AtumShellFrame
           compact={compact}
           main={() =>

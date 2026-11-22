@@ -333,6 +333,42 @@ export const WorkSubscriptionReportReplySchema = z
   })
   .strict()
 
+/** 4b-2, `work.consent.record`: the account's one consent for a plan, as `work_consent_set` / `_revoke` answer it. Default off. */
+export const WorkConsentRecordSchema = z
+  .object({
+    provider: z.enum(WORK_PLAN_PROVIDERS),
+    state: z.enum(['on', 'off']),
+    agents: z.array(uuid).max(WORK_CONSENT_AGENTS_MAX),
+    devices: z.array(uuid).max(32),
+    alsoWhenScheduled: z.boolean(),
+    revision: safe,
+    grantedAt: safe.optional(),
+    revokedAt: safe.optional()
+  })
+  .strict()
+export type WorkConsentRecord = z.infer<typeof WorkConsentRecordSchema>
+
+/** `work.subscription.state` (`work_subscription_read`): the consent record and each Mac's plan fact. */
+export const WorkSubscriptionStateSchema = z
+  .object({
+    issuedAt: safe,
+    consent: WorkConsentRecordSchema,
+    facts: z
+      .array(
+        z
+          .object({
+            deviceServiceId: uuid,
+            provider: z.enum(WORK_PLAN_PROVIDERS),
+            status: z.enum(['connected', 'disconnected', 'stale']),
+            observedAt: safe.optional()
+          })
+          .strict()
+      )
+      .max(64)
+  })
+  .strict()
+export type WorkSubscriptionState = z.infer<typeof WorkSubscriptionStateSchema>
+
 /** G9, `work_subscription_report`: a boolean and a time. `stale` is never reported, only read by the platform. */
 export interface WorkSubscriptionReport {
   deviceServiceId: string

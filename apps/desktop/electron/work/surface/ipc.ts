@@ -7,7 +7,22 @@ import type { WorkSurface } from './surface'
 /** The Matrix window's Work requests. `requireUi` is main's own check that the sender is the Matrix UI frame. */
 export function registerMatrixWorkIpc(
   ipc: Pick<IpcMain, 'handle'>,
-  surface: Pick<WorkSurface, 'allowAssistants' | 'hide' | 'read' | 'reconnectAssistants' | 'retry' | 'setAssistants' | 'setPlan' | 'setWork' | 'show'>,
+  surface: Pick<
+    WorkSurface,
+    | 'allowAssistants'
+    | 'hide'
+    | 'openPlanConnect'
+    | 'read'
+    | 'readPlanConsent'
+    | 'reconnectAssistants'
+    | 'retry'
+    | 'revokePlanConsent'
+    | 'setAssistants'
+    | 'setPlan'
+    | 'setPlanConsent'
+    | 'setWork'
+    | 'show'
+  >,
   requireUi: (event: IpcMainInvokeEvent) => void
 ): void {
   ipc.handle(MATRIX_WORK_IPC.request, async (event, value: unknown) => {
@@ -45,6 +60,18 @@ export function registerMatrixWorkIpc(
 
       case 'reconnectAssistants':
         return surface.reconnectAssistants()
+
+      case 'openPlanConnect':
+        return surface.openPlanConnect()
+
+      case 'readPlanConsent':
+        return surface.readPlanConsent()
+
+      case 'setPlanConsent':
+        return surface.setPlanConsent(request.consent)
+
+      case 'revokePlanConsent':
+        return surface.revokePlanConsent()
     }
   })
 }

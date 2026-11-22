@@ -100,7 +100,6 @@ export type MatrixSubscriptionPoll =
   | { status: 'failed' }
 
 export type MatrixSubscriptionKeyResult = { status: 'applied' | 'cancelled' }
-export type MatrixSubscriptionRelayResult = { status: 'applied' | 'unavailable' }
 
 /** One subscription model row, before the picker adds its own presentation. */
 export interface MatrixSubscriptionRoute extends MatrixModelRoute {

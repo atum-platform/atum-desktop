@@ -44,7 +44,6 @@ import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
-  MatrixSubscriptionRelayResult,
   MatrixSubscriptionSignIn,
   MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
@@ -108,6 +107,10 @@ const bridge: MatrixUiBridge = {
     setPlan: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlan', on }),
     setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
     reconnectAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'reconnectAssistants' }),
+    openPlanConnect: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'openPlanConnect' }),
+    readPlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent' }),
+    setPlanConsent: consent => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlanConsent', consent }),
+    revokePlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'revokePlanConsent' }),
     subscribe: listener => {
       const receive = (_event: Electron.IpcRendererEvent, projection: MatrixWorkProjection | null) => listener(projection)
       ipcRenderer.on(MATRIX_WORK_IPC.changed, receive)
@@ -209,8 +212,6 @@ const bridge: MatrixUiBridge = {
     disconnectChatGpt: async () => {
       await ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptDisconnect' })
     },
-    useThisMacForChatGpt: enabled =>
-      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptRelay', enabled }) as Promise<MatrixSubscriptionRelayResult>,
     chatGptTraining: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTraining' }) as Promise<MatrixChatGptTrainingStatus>,
     confirmChatGptTraining: connectionId =>

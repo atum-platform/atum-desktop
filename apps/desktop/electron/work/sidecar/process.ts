@@ -49,6 +49,13 @@ export interface WorkStartOptions {
  * (HTTP 400 at `/oauth/mcp/register`) unless linked environments are on, so a fresh install would never get an
  * agent session. Written before the server opens the home (supervisor.py merges `settings` first).
  */
+/**
+ * Gate 4a-2 (plan §10.2): this build ships the maker's own Codex client, unmodified, as an enabled T3 instance. False while the
+ * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
+ * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
+ */
+export const WORK_PLAN_CONNECT_SHIPPED = false
+
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
 const BROKER_PROFILES = [

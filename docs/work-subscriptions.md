@@ -110,6 +110,42 @@ availability types that read the platform's `relay.state` / `relayPresence` (a p
 `packages/device-protocol/fixtures/chatgpt-relay`. **Left for the Connect step:** the "Use this Mac for ChatGPT" row (`src/matrix/subscriptions.tsx`) and its
 bridge method; main answers it `{status: 'unavailable'}`.
 
+## The owner's screens (slice B UI, branch `feat/work-subscriptions-ui-1122`)
+
+Built on the gate lane. Every screen is one action and at most one line; the consent is the one place the "on by default" rule yields.
+
+| Screen | Where | What it does |
+|---|---|---|
+| **Connect step** (gate 4a) | First sign-in, once per Mac (`src/app/work/plan-connect.tsx`, mounted in `app.tsx`) | "Use your ChatGPT plan here" · "Sign in with OpenAI. Atum never sees your login." · **Connect** / **Not now**. Connect shows the Work page and loads T3's own provider screen in the owner view (`/settings/providers?instanceId=codex`, `WorkSurface.openPlanConnect`). There is no Atum-built login. Either answer closes it for good on this Mac (`atum.work.plan-connect.seen.v1`) |
+| **ChatGPT plan row** | Settings › Connections › Work | "Use your Plus or Pro plan in Work." with **Connect**. Once T3 reports it connected: "Connected on this Mac" with **Manage**, which opens the same T3 screen (disconnect lives there) |
+| **Plan switch** (gate 4b, local) | Same section | "Agents may use my ChatGPT plan here", default off. Help reads "Only the assistants you allow. Off stops their plan work at once." or, when the consent names this Mac, "Rin · since 22 Nov 2026" with **Change**. If the consent does not name this Mac, turning it on opens the consent sheet, and Allow there turns it on |
+| **Consent sheet** (gate 4b-2) | Opened from the switch or Change (`plan-consent.tsx`) | Assistants shown as circles with checkboxes (none ticked), Macs (only when there is more than one; the tapped Mac, or the only Mac, starts ticked), "Also for scheduled tasks" (off), **Allow**. When on: "Allowed since …", **Save**, and **Turn off everywhere** (one tap, `work_consent_revoke`). Writes through `work_consent_set` / `_revoke` / `work_subscription_read` (`createWorkConsentClient`), which send only what the owner named |
+| **Picker line** (D6) | A cloud assistant's model picker | ChatGPT models are greyed with no reason on each row. One note: "Your plan works in Work on your Mac", plus **Open Work** when this account has Work on this Mac. No cost, no relay, no "Mac offline" |
+
+**Gate 4a is closed by construction.** `planConnect` is projected only when `WORK_PLAN_CONNECT_SHIPPED` (`sidecar/process.ts`, false while the Codex instance
+ships disabled) AND `planCustodyRetired()` (a port on `main-work.ts`, not supplied yet; the un-carry lane reads `chatgpt_carry_status === 'work'`) are both true.
+The Connect lane flips the constant together with the instance. When the T3 screen opens the OpenAI sign-in, the view policy must allow that one external open:
+that also belongs to the Connect lane.
+
+**Settings placement fix.** The Work rows (Work on this Mac, Assistants can start work here, the plan switch) sat in `DevicesPane`, which no Settings page
+draws any more (`SETTINGS_PAGES.connections` holds only `connections`), so they never appeared. They now form their own **Work** section on Connections,
+under Subscriptions.
+
+**Removed: "Use this Mac for ChatGPT".** The window's automatic cloud-setup attempt (`useThisMacForChatGpt`, the `cloud_setting_up` / `cloud_failed` states,
+Try again, the setup tip) and main's `subscriptionChatGptRelay` handler are gone. A ChatGPT sign-in this Mac holds now reads as connected, with nothing set up.
+
+### Copy for the cloud lane: the `plan_switch_off` refusal
+
+The cloud's current line, "Connect ChatGPT in Work on your Mac to use your plan", is wrong for a Mac that is connected but switched off. Adopt these
+(`planSwitchOffLine()` in `src/app/work/copy.ts`). The quoted label must match the Settings switch exactly:
+
+- en: `Your ChatGPT plan is off on this Mac. Turn on “Agents may use my ChatGPT plan here” in Settings.`
+- vi: `Gói ChatGPT đang tắt trên máy Mac này. Bật “Cho phép trợ lý dùng gói ChatGPT của tôi tại đây” trong Cài đặt.`
+
+Keep "Connect ChatGPT in Work on your Mac…" for `provider_not_ready` (no plan connected), where it is correct.
+
 ## Verification
 
-See the round note in `docs/work-gate-review-round-2.md` ("Round 4").
+See the round note in `docs/work-gate-review-round-2.md` ("Round 4"). UI lane: `npx vitest run src/app/work electron/work/surface
+electron/work/gate/platform.test.ts src/matrix/model-picker.test.tsx src/matrix/settings-revamp.test.tsx src/matrix/subscription-view.test.ts`;
+playground states `?view=settings-work&work=ready&connect=…&plan=…&consent=…&sheet` and `?work=ready&connect=offer&page=chat`.

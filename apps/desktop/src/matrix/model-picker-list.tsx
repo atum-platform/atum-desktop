@@ -276,11 +276,21 @@ export function ModelPickerList({
             })}
             {section.note && (
               <li
-                className="px-2 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)"
+                className="flex items-center gap-2 px-2 py-1 text-(length:--atum-t-caption) text-(--atum-ink-muted)"
                 data-matrix-model-note
                 role="presentation"
               >
-                {section.note}
+                <span className="min-w-0 flex-1">{section.note}</span>
+                {section.noteAction && (
+                  <button
+                    className="shrink-0 font-medium text-(--atum-ink) underline-offset-2 hover:underline"
+                    data-matrix-model-note-action
+                    onClick={() => section.noteAction?.run()}
+                    type="button"
+                  >
+                    {section.noteAction.label}
+                  </button>
+                )}
               </li>
             )}
           </ul>

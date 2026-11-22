@@ -9,6 +9,7 @@ import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-mode
 import type { SafeStorageLike } from '../encrypted-store'
 import {
   createDeviceServicePlatform,
+  createWorkConsentClient,
   type GateEvent,
   GateLedger,
   type OwnerEventVerifier,
@@ -25,6 +26,7 @@ import {
 } from '../work/mount'
 import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
+import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -90,6 +92,8 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
+  /** Gate 4a-1: this account's ChatGPT custody is retired (`chatgpt_carry_status` answers `work`). Absent: not known, so closed. */
+  planCustodyRetired?(): boolean
   /** The owner's own SDK host (`hosts.get('human')`), for the verifier. */
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
@@ -462,13 +466,33 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   registerMatrixWorkIpc(deps.ipcMain, surface, deps.requireUi)
 
   const door = createGateDoor(mount)
+  // The endpoint is read on every call (it follows the signed-in account), like the gate's own platform client.
+  const consentFor = () => {
+    const endpoint = deps.deviceServicesEndpoint()
+
+    if (!endpoint) {
+      throw Object.assign(new Error('work_consent_unavailable'), { code: 'work_consent_unavailable' })
+    }
+
+    return createWorkConsentClient({ endpoint, bearer: () => deps.bearer() })
+  }
+  const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
+    read: () => consentFor().read(),
+    set: input => consentFor().set(input),
+    revoke: () => consentFor().revoke()
+  }
 
   const parts = (): WorkSurfaceParts => ({
     session,
     enabled: () => host.enabled(),
     gate: door,
     readAccess: () => readWorkAccess(deps.model, deps.wallet),
-    wantServer: () => mount.wantServer()
+    wantServer: () => mount.wantServer(),
+    // Gate 4a also needs this account's custody retired (plan §12, `UC:` 1-3); `planCustodyRetired` is absent until the un-carry
+    // lane reads it, so the step stays hidden by construction.
+    planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
+    deviceServiceId: () => deps.deviceServiceId(),
+    consent: consentClient
   })
 
   const lifecycle = new MatrixWorkLifecycle({
