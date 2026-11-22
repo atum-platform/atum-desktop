@@ -50,3 +50,29 @@ describe('the T3 client\'s thread list', () => {
     }
   })
 })
+
+it('uses the native project schema on the authenticated owner MCP session', async () => {
+  const calls: { name: string; arguments: unknown }[] = []
+
+  const client = createT3Client({
+    origin: () => 'http://127.0.0.1:1', incarnation: () => 'decoy', settingsFile: '/nonexistent',
+    delegated: { instanceId: 'a', model: 'b' },
+    fetch: (async (_url: unknown, init: RequestInit) => {
+      expect((init.headers as Record<string, string>).authorization).toBe('Bearer decoy-owner')
+      const body = JSON.parse(init.body as string)
+
+      if (body.method === 'tools/call') {calls.push(body.params)}
+
+      return new Response(JSON.stringify({ result: { structuredContent: { id: 'p' } } }), {
+        status: 200, headers: { 'content-type': 'application/json', 'mcp-session-id': 'decoy-session' }
+      })
+    }) as typeof fetch
+  })
+
+  await client.projects!('decoy-owner', 100)
+  await client.createProject!('decoy-owner', { title: 'Assistant', workspaceRoot: '/decoy/Assistants/assistant' })
+  expect(calls).toEqual([
+    { name: 't3_project_list', arguments: { limit: 100, cursor: 100 } },
+    { name: 't3_project_create', arguments: { title: 'Assistant', workspaceRoot: '/decoy/Assistants/assistant' } }
+  ])
+})

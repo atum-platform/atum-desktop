@@ -8,9 +8,11 @@ import { useI18n } from '@/i18n'
 import { SettingsRow, SettingsSection } from '@/matrix/settings-row'
 
 import type { MatrixWorkBridge, MatrixWorkPlanConsent } from '../../../shared/matrix-work'
+import type { WorkRelayLimit } from '../../../shared/matrix-work-relay'
 
 import { workCopy } from './copy'
 import { type WorkConsentAgent, workConsentDate, WorkPlanConsentSheet } from './plan-consent'
+import { useWorkRelayUsageText } from './relay-chrome'
 import { $work, $workPlanConsent, openWorkPlanConnect, openWorkPlanConsent } from './store'
 
 type SettingsBridge = Pick<
@@ -48,11 +50,17 @@ const ASSISTANT_SWITCH = new Set(['on', 'off', 'holding', 'stale', 'unreachable'
  */
 export function MatrixWorkSettings({
   agents = [],
-  bridge = window.atumMatrix?.work
+  bridge = window.atumMatrix?.work,
+  planLimit,
+  relayChats = false
 }: {
   /** The account's own assistants, for the consent sheet's names and circles. */
   agents?: readonly WorkConsentAgent[]
   bridge?: SettingsBridge
+  /** Relay R1: the plan's reported limit (`status.limits`); drawn as one phrase on the connected plan row. Absent: no usage. */
+  planLimit?: WorkRelayLimit
+  /** Relay R1: the plan also answers the assistants' chats, so the consent sheet says so. */
+  relayChats?: boolean
 }) {
   const { locale } = useI18n()
   const copy = workCopy(locale)
@@ -63,6 +71,7 @@ export function MatrixWorkSettings({
   const [consent, setConsent] = useState<MatrixWorkPlanConsent | null>(null)
   const mounted = useRef(true)
   const planShown = Boolean(projection?.plan)
+  const usage = useWorkRelayUsageText(planLimit)
 
   // The plan row reads the account's consent while it is drawn, and again when the sheet closes (it may have changed it).
   useEffect(() => {
@@ -169,7 +178,13 @@ export function MatrixWorkSettings({
               {projection.planConnect === 'connected' ? copy.connect.manage : copy.connect.action}
             </Button>
           }
-          help={projection.planConnect === 'connected' ? copy.connect.rowConnected : copy.connect.rowOffer}
+          help={
+            projection.planConnect === 'connected'
+              ? planLimit
+                ? `${copy.connect.rowConnected} · ${usage}`
+                : copy.connect.rowConnected
+              : copy.connect.rowOffer
+          }
           title={copy.connect.rowTitle}
         />
       )}
@@ -202,7 +217,7 @@ export function MatrixWorkSettings({
           title={copy.planSwitch.label}
         />
       )}
-      <WorkPlanConsentSheet agents={agents} bridge={bridge} />
+      <WorkPlanConsentSheet agents={agents} bridge={bridge} scope={relayChats ? 'chats' : 'work'} />
       {failed && (
         <NoticeBand role="status" tone="notice">
           {copy.settings.failed}

@@ -24,6 +24,7 @@ import {
   WorkMount,
   type WorkMountAccount
 } from '../work/mount'
+import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
@@ -34,7 +35,9 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { createOwnerRelay } from '../work/surface/relay'
 
+import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
 import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
@@ -100,6 +103,8 @@ export interface MatrixWorkDeps {
   agentMatrixUser(principal: string): Promise<string | null>
   /** The account's own name for an agent, for "Started by …". */
   agentName(principal: string): string | undefined
+  /** The existing account agent-record/definition reader, fenced to the signed-in account. */
+  agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | null): void
@@ -401,9 +406,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
-  const verifier: OwnerEventVerifier = createOwnerEventVerifier(
-    createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
-  )
+  const ownerSource = createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
+  const verifier: OwnerEventVerifier = createOwnerEventVerifier(ownerSource)
+  const relayHistory = createWorkHistory(ownerSource, () => deps.ownerHost())
 
   mount = new WorkMount({
     account,
@@ -424,6 +429,20 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         deviceServiceId,
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
         owner: verifier,
+        relayHistory,
+        relayAssistant: deps.agentDefinition ? {
+          assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
+          definition: async principal => {
+            const snapshot = await deps.agentDefinition!(principal)
+            const active = account()
+
+            if (!active || active.key !== current.key || active.generation !== current.generation || deps.closing()) {
+              throw new Error('relay_account_changed')
+            }
+
+            return snapshot
+          }
+        } : undefined,
         incarnation: () => host.current(),
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
@@ -466,6 +485,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   registerMatrixWorkIpc(deps.ipcMain, surface, deps.requireUi)
 
   const door = createGateDoor(mount)
+
   // The endpoint is read on every call (it follows the signed-in account), like the gate's own platform client.
   const consentFor = () => {
     const endpoint = deps.deviceServicesEndpoint()
@@ -476,6 +496,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     return createWorkConsentClient({ endpoint, bearer: () => deps.bearer() })
   }
+
   const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
     read: () => consentFor().read(),
     set: input => consentFor().set(input),
@@ -492,6 +513,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     // lane reads it, so the step stays hidden by construction.
     planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
     deviceServiceId: () => deps.deviceServiceId(),
+    relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
     consent: consentClient
   })
 

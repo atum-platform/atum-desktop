@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { type WorkConsentSnapshot, workExpectedThreadId, type WorkLaunchArguments, type WorkT3LaunchCall } from './contract'
-import { type CallContext, type GateEvent, WorkGate } from './gate'
+import { type CallContext, type GateEvent, type GateOptions, WorkGate } from './gate'
 import { GateLedger } from './ledger'
 import type { GateSession, GateSessions, ModelAccess, OwnerEventOutcome, OwnerEventVerifier, T3Port, T3Reply, ThreadRead } from './ports'
 
@@ -334,7 +334,7 @@ export interface Harness {
   cleanup(): Promise<void>
 }
 
-export function makeHarness(previous?: Harness): Harness {
+export function makeHarness(previous?: Harness, extra: Partial<GateOptions> = {}): Harness {
   const dir = previous?.dir ?? mkdtempSync(join(tmpdir(), 'wg-'))
   const clock = previous?.clock ?? new Clock()
   const sessions = previous?.sessions ?? new FakeSessions()
@@ -354,6 +354,7 @@ export function makeHarness(previous?: Harness): Harness {
   const events: GateEvent[] = []
 
   const gate = new WorkGate({
+    ...extra,
     accountId: ACCOUNT,
     deviceServiceId: DEVICE,
     ledger,
@@ -446,6 +447,7 @@ export function makeHarness(previous?: Harness): Harness {
         alsoWhenScheduled: false,
         ...partial
       }
+
       const results = ledger.tx(() => gate.beginConsent(snapshot))
 
       gate.finishConsent(snapshot, results)

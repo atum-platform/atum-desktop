@@ -13,6 +13,7 @@ import type { AtumAssistantMark } from '../../../shared/atum-agent-portability'
 import type { MatrixWorkBridge, MatrixWorkPlanConsent } from '../../../shared/matrix-work'
 
 import { workCopy } from './copy'
+import { workRelayCopy } from './relay-copy'
 import { $workPlanConsent, type WorkPlanConsentRequest } from './store'
 
 /** An assistant as the owner's own account record names it (never as the agent names itself). */
@@ -87,13 +88,25 @@ export function workConsentDraft(consent: MatrixWorkPlanConsent, request: WorkPl
  */
 export function WorkPlanConsentSheet({
   agents,
-  bridge = window.atumMatrix?.work
+  bridge = window.atumMatrix?.work,
+  scope = 'work'
 }: {
   agents: readonly WorkConsentAgent[]
   bridge?: ConsentBridge
+  /**
+   * What the plan does once allowed. `work`: work the assistants start on the Mac (slice B). `chats`: relay R1, their chats with
+   * the owner run on the Mac with this plan too (plan §6). The sentence must say what is true, so the caller sets it when the
+   * relay is on.
+   */
+  scope?: 'work' | 'chats'
 }) {
   const { locale } = useI18n()
-  const copy = workCopy(locale).consent
+  const relayWords = workRelayCopy(locale)
+  const base = workCopy(locale).consent
+
+  const copy =
+    scope === 'chats' ? { ...base, line: relayWords.consentChatsLine, scheduled: relayWords.consentScheduled } : base
+
   const request = useStore($workPlanConsent)
   const [consent, setConsent] = useState<MatrixWorkPlanConsent | null>(null)
   const [chosen, setChosen] = useState<Set<string>>(new Set())

@@ -131,6 +131,7 @@ import type { MatrixWalletBridge, MatrixWalletState } from './matrix-wallet'
 import type { MatrixWindowAppearance, MatrixWindowFacts, MatrixWindowMode } from './matrix-window'
 import type { MatrixWindowFailureDiagnostic } from './matrix-window-failure'
 import type { MatrixWorkBridge } from './matrix-work'
+import type { WorkRelayTurnChrome } from './matrix-work-relay'
 import type { MatrixWebPreviewOffer } from './matrix-workbench-preview'
 import type { GroupRecentTarget } from './room-participation/recent'
 import type { GroupChainPublication, GroupPolicyChange, GroupRuntimeCommand } from './room-participation/runtime'
@@ -450,6 +451,9 @@ export interface MatrixMessage {
   subscriptionFallback?: MatrixSubscriptionFallback
   /** This answer came from a fallback, not the chosen plan: one faint line under it, no cost. */
   answeredByFallback?: MatrixSubscriptionFallback
+  /** Relay R1: this turn's one chrome line (held, stopped, fell back, late), from the relay view-model
+   * (`workRelayTurnChrome`). UI chrome, never a message of the agent. */
+  relayTurn?: WorkRelayTurnChrome
   /** The agent's once-per-conversation Google switch line (S2 `google_route_switched`): one quiet
    * line, shown the first time only (`matrixFoldSubscriptionFallbacks`). */
   googleSwitch?: MatrixGoogleRouteSwitch
@@ -1951,6 +1955,7 @@ export type MatrixSdkCommand =
   | { kind: 'createAppGroup'; name: string; app: string }
   /** `agentIds`: every one of the owner's assistants, none of whom is invited this way. */
   | { kind: 'inviteHuman'; roomId: string; userId: string; agentId?: string; agentIds?: string[] }
+  | { kind: 'readWorkHistory'; boundaryOnly?: boolean; roomId: string; before: string; after: string | null; floor: string | null }
   | { kind: 'readInvocation'; roomId: string; eventId: string; includeAttachment?: boolean }
   /** `anyMember`: a group turn's quote may be anyone's message there (marked as theirs). */
   | { kind: 'readReplyQuote'; roomId: string; eventId: string; ownerId: string; agentId: string; anyMember?: true }

@@ -41,6 +41,7 @@ export interface ReceiptRow {
   priorIncarnation: string | null
   /** The plan this launch was admitted under (`codex`), or null for an Atum launch. Set once, at admission. */
   plan: string | null
+  relayJson: string | null
   runId: string | null
   /** The gate has seen the thread end with no run active. */
   finished: boolean
@@ -128,6 +129,7 @@ const SCHEMA = `
 const LATER_COLUMNS: [table: string, column: string, ddl: string][] = [
   ['receipts', 'prior_incarnation', 'TEXT'],
   ['receipts', 'plan', 'TEXT'],
+  ['receipts', 'relay_json', 'TEXT'],
   ['outbox', 'retry_at', 'INTEGER']
 ]
 
@@ -151,6 +153,7 @@ function receipt(row: Row): ReceiptRow {
     incarnation: (row.incarnation as string | null) ?? null,
     priorIncarnation: (row.prior_incarnation as string | null) ?? null,
     plan: (row.plan as string | null) ?? null,
+    relayJson: (row.relay_json as string | null) ?? null,
     runId: (row.run_id as string | null) ?? null,
     finished: row.finished === 1,
     stopScope: (row.stop_scope as WorkScope | null) ?? null,

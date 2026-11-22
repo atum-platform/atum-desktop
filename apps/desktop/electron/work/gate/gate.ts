@@ -56,7 +56,14 @@ export const WORK_PLAN_INSTANCE_IDS: readonly string[] = ['codex']
 
 export type GatePhaseHook = (point: string, key: string) => Promise<void> | void
 
+import { type RelayHistory, type RelaySelection, WorkRelay } from './relay'
+
 export interface GateOptions {
+  relayHistory?: RelayHistory
+  relaySelection?(principal: string): RelaySelection | undefined
+  relayProvision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
+
+  relayLimit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
   accountId: string
   deviceServiceId: string
   ledger: GateLedger
@@ -197,6 +204,7 @@ export function threadStatusOf(read: Extract<ThreadRead, { kind: 'found' }>): Wo
 }
 
 export class WorkGate {
+  readonly relay: WorkRelay
   readonly statusReader: RequestStatusReader
   private readonly ledger: GateLedger
   private readonly listeners = new Set<Listener>()
@@ -219,6 +227,36 @@ export class WorkGate {
     this.monotonic = options.monotonic ?? (() => performance.now())
     this.modeLimit = options.modeLimit ?? 'approval-required/default'
     this.consentSnapshot = this.ledger.consent()
+    this.relay = new WorkRelay({
+      gateId: () => this.gateId(),
+      localSwitch: () => this.planSwitchOn(),
+      consent: () => {
+        const c = this.ledger.consent()
+
+        return c
+          ? { ...c, devices: c.state === 'on' ? [options.deviceServiceId] : [] }
+          : { provider: 'codex', state: 'off', agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
+      },
+      ...options,
+      history: options.relayHistory,
+      selection: options.relaySelection,
+      provision: options.relayProvision,
+      limit: options.relayLimit,
+      now: this.now,
+      modeLimit: this.modeLimit,
+      resetAuthority: ctx => this.countersCurrent(ctx) && this.entitlementsFresh() && !options.held(),
+      authority: ctx =>
+        this.countersCurrent(ctx) &&
+        this.entitlementsFresh() &&
+        !options.held() &&
+        !this.ledger.scopeBlocked(ctx.principal),
+      fence: ctx =>
+        this.countersCurrent(ctx) &&
+        this.entitlementsFresh() &&
+        !options.held() &&
+        !this.ledger.scopeBlocked(ctx.principal) &&
+        this.planDecision(ctx.principal, false) === 'allowed'
+    })
     this.statusReader = new RequestStatusReader({
       ledger: this.ledger,
       reader: options.t3,
@@ -451,7 +489,7 @@ export class WorkGate {
    * (http.ts), so a reply for a call admitted under an old counter is replaced by a typed `revoked` with no thread
    * content. Anything after the bytes are out is the cleanup, not this.
    */
-  silence<T extends { class: string }>(ctx: CallContext, answer: T, revoked: () => T): T {
+  silence<T extends { class?: string }>(ctx: CallContext, answer: T, revoked: () => T): T {
     return this.countersCurrent(ctx) ? answer : revoked()
   }
 
@@ -1505,7 +1543,7 @@ export class WorkGate {
       await this.lock(`${row.principal}|${row.requestId}`).run(async () => {
         const fresh = this.ledger.receipt(row.principal, row.requestId) as ReceiptRow
 
-        if (fresh.state !== 'admitted' || fresh.stopScope || fresh.settled) {
+        if (fresh.relayJson || fresh.state !== 'admitted' || fresh.stopScope || fresh.settled) {
           return
         }
 

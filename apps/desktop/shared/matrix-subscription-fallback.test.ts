@@ -156,3 +156,12 @@ describe('whether the agent’s latest reply fell back (the composer chip)', () 
     expect(matrixLatestAnswerFallback([{ id: '$a', sender: agent, own: false, answeredByFallback: fallback }], undefined)).toBeUndefined()
   })
 })
+
+
+it.each(['consent_off', 'switch_off'])('reads the additive relay fallback reason %s', reason => {
+  expect(matrixSubscriptionFallback({
+    msgtype: 'm.notice', body: '',
+    'm.relates_to': { 'm.in_reply_to': { event_id: '$answer' } },
+    'io.atum.presentation': { version: 1, code: 'subscription_fallback', args: { plan: 'chatgpt', reason, servedBy: 'default-model' } }
+  })).toEqual({ plan: 'chatgpt', reason, servedBy: 'default-model' })
+})

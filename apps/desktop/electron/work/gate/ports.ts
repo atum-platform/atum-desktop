@@ -47,6 +47,8 @@ export interface T3Reader {
 
 export interface T3Port extends T3Reader {
   /** The id of the ready T3 process, or undefined while none serves. A new process has a new id. */
+  projects?(token: string, cursor?: number): Promise<T3Reply>
+  createProject?(token: string, input: { title: string; workspaceRoot: string }): Promise<T3Reply>
   incarnation(): string | undefined
   /** A digest of T3's provider and mode settings. A resend needs the same one that admission saw. */
   settingsFingerprint(): string
@@ -66,6 +68,9 @@ export interface T3Port extends T3Reader {
    * Hand one launch to T3. The request is STARTED before this returns (the caller commits `forwarded` and calls
    * this in one synchronous section); it never retries and never re-initialises a session by itself.
    */
+  send?(token: string, call: {threadId: string; message: string; clientRequestId: string}, modeLimit: string): Promise<T3Reply>
+  configure?(token: string, threadId: string, modelSelection: {instanceId: string; model: string}): Promise<T3Reply>
+  readPage?(token: string, threadId: string, afterPosition?: number, item?: {itemId: string; textOffset: number}): Promise<T3Reply>
   launch(token: string, call: WorkT3LaunchCall, modeLimit: string): Promise<T3Reply>
   interrupt(token: string, threadId: string, options?: { stop?: boolean }): Promise<T3Reply>
   wait(token: string, threadId: string, runId: string, timeoutMs: number): Promise<T3Reply>
@@ -77,7 +82,7 @@ export interface T3Port extends T3Reader {
 export type OwnerEventOutcome =
   | { kind: 'unreachable' }
   | { kind: 'invalid'; reason: Extract<WorkRefusalReason, `owner_event_${string}`> }
-  | { kind: 'ok'; body: string; originServerTs: number }
+  | { kind: 'ok'; body: string; originServerTs: number; roomId?: string; encrypted?: boolean }
 
 /**
  * Main's own Matrix client (K35): it fetches THAT event itself and checks that it exists and is not redacted, that
@@ -119,7 +124,7 @@ export interface WorkPlatform {
     accountId: string
     appliedSeq: number
     routeEpoch: number
-    contract?: '1.2'
+    contract?: '1.2' | '1.3'
   }): Promise<WorkSyncPage>
   ack(ack: WorkSyncAck): Promise<void>
   /** Resolves with the route state the platform holds after the event, when it says (a held reopen answers `closed`). */

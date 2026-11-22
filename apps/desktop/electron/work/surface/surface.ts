@@ -5,6 +5,7 @@ import type {
   MatrixWorkRect,
   MatrixWorkViewState
 } from '../../../shared/matrix-work'
+import type { WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
 import type { GateEvent } from '../gate/gate'
 import type { WorkConsentClient } from '../gate/platform'
 import type { OwnerViewPort } from '../session/pairing'
@@ -30,6 +31,12 @@ export interface WorkViewHandle {
 
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
 export interface WorkSurfaceParts {
+  relay?: {
+    read(principal: string, roomId: string): Promise<WorkRelayRoomView>
+    select(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
+    stop(roomId: string, eventId: string): Promise<void>
+    chats(): string[]
+  }
   session: { openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> }
   /** S's per-account Work off marker (§8.5). Off: nothing starts, the page says so. */
   enabled(): boolean
@@ -84,6 +91,7 @@ export class WorkSurface {
   private opening: Promise<void> | undefined
   private rect: MatrixWorkRect | null = null
   private protons: MatrixWorkProjection['protons'] = 'unknown'
+  private planLimit: MatrixWorkProjection['planLimit']
   private generation = 0
   /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
   private holds = 0
@@ -94,6 +102,7 @@ export class WorkSurface {
 
   /** Main calls this when an account's Work is built (parts) or torn down (undefined): sign-out, switch. */
   attach(parts: WorkSurfaceParts | undefined): void {
+    this.planLimit = undefined
     this.generation++
     this.detachGate?.()
     this.detachGate = undefined
@@ -119,6 +128,8 @@ export class WorkSurface {
     const planConnect = projectWorkPlanConnect(parts.planConnectOpen?.() === true, gate)
 
     return {
+      ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
+      ...(this.planLimit ? { planLimit: this.planLimit } : {}),
       view: this.viewState(parts),
       assistants: projectWorkAssistants(gate),
       ...(plan ? { plan } : {}),
@@ -133,6 +144,30 @@ export class WorkSurface {
     await this.refreshProtons()
 
     return this.projection()
+  }
+
+  async readRelay(principal: string, roomId: string): Promise<WorkRelayRoomView> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+    const generation = this.generation
+    const view = await this.parts.relay.read(principal, roomId)
+
+    if (generation !== this.generation) {throw new Error('work_relay_account_changed')}
+    this.planLimit = view.status?.limits.find(limit => limit.plan === 'codex')
+    this.publish()
+
+    return view
+  }
+
+  async selectRelay(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+
+    return this.parts.relay.select(principal, expectedRevision, model)
+  }
+
+  async stopRelay(roomId: string, eventId: string): Promise<void> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+    await this.parts.relay.stop(roomId, eventId)
+    this.publish()
   }
 
   async show(rect: MatrixWorkRect): Promise<void> {

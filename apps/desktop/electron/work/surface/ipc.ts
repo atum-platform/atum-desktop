@@ -10,6 +10,9 @@ export function registerMatrixWorkIpc(
   surface: Pick<
     WorkSurface,
     | 'allowAssistants'
+    | 'readRelay'
+    | 'selectRelay'
+    | 'stopRelay'
     | 'hide'
     | 'openPlanConnect'
     | 'read'
@@ -34,6 +37,12 @@ export function registerMatrixWorkIpc(
     }
 
     switch (request.kind) {
+      case 'readRelay': return surface.readRelay(request.principal, request.roomId)
+
+      case 'selectRelay': return surface.selectRelay(request.principal, request.expectedRevision, request.model)
+
+      case 'stopRelay': return surface.stopRelay(request.roomId, request.eventId)
+
       case 'read':
         return surface.read()
 
