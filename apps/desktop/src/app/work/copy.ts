@@ -13,6 +13,8 @@ export interface WorkWords {
   /** One quiet line under the switch, per state. */
   line: Record<Exclude<MatrixWorkAssistants, 'not_enrolled' | 'needs_grant'>, string>
   switchLabel: string
+  /** Gate 4b: the per-Mac switch for the owner's own ChatGPT plan. Off until the owner turns it on. */
+  planSwitch: { label: string; help: string }
   reconnect: string
   /** D9 / T13: the enrollment text. One paragraph, everyday words. */
   enrollTitle: string
@@ -56,6 +58,10 @@ const en: WorkWords = {
     unreachable: 'Assistants can’t reach this Mac right now.'
   },
   switchLabel: 'Assistants can start work here',
+  planSwitch: {
+    label: 'Agents may use my ChatGPT plan here',
+    help: 'Only your assistants you chose in your account, and only on this Mac. They use your plan the way you would, and it counts against your own plan. Turn it off anytime: anything they started on it stops.'
+  },
   reconnect: 'Try again',
   enrollTitle: 'Let your assistants work on this Mac?',
   enrollBody:
@@ -102,6 +108,10 @@ const vi: WorkWords = {
     unreachable: 'Hiện trợ lý chưa kết nối được máy Mac này.'
   },
   switchLabel: 'Trợ lý có thể bắt đầu việc tại đây',
+  planSwitch: {
+    label: 'Cho phép trợ lý dùng gói ChatGPT của tôi tại đây',
+    help: 'Chỉ những trợ lý bạn đã chọn trong tài khoản, và chỉ trên máy Mac này. Họ dùng gói của bạn như bạn dùng, và việc đó tính vào gói của chính bạn. Tắt bất cứ lúc nào: mọi việc họ đã bắt đầu bằng gói này sẽ dừng.'
+  },
   reconnect: 'Thử lại',
   enrollTitle: 'Cho trợ lý làm việc trên máy Mac này?',
   enrollBody:

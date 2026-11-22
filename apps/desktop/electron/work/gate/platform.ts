@@ -1,4 +1,4 @@
-import { WorkSettlementsReplySchema } from './contract'
+import { WorkSettlementsReplySchema, WorkSubscriptionReportReplySchema } from './contract'
 import type { WorkPlatform } from './ports'
 
 // The platform half of the Work route, as the Mac sees it: operations of the existing device-services endpoint
@@ -48,6 +48,21 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
     },
     async carryGrant(carry) {
       await call('work_grant_carry', carry as unknown as Record<string, unknown>)
+    },
+    async reportSubscription(report) {
+      // Contract 1.2 `work.mac.subscription`: the reply must be the platform's record of THIS Mac's fact; anything else is not an
+      // acknowledgement and the caller keeps the fact owed.
+      const reply = WorkSubscriptionReportReplySchema.safeParse(
+        await call('work_subscription_report', report as unknown as Record<string, unknown>)
+      )
+
+      if (
+        !reply.success ||
+        reply.data.deviceServiceId !== report.deviceServiceId ||
+        reply.data.provider !== report.provider
+      ) {
+        throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
+      }
     },
     async reportSettlements(input) {
       // Contract 1.1 `work.mac.settlements`. A 2xx that is not the contract's reply for this Mac and this batch is not an

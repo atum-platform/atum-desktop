@@ -648,6 +648,23 @@ describe('stop reports owed to the platform', () => {
   })
 })
 
+describe('"Agents may use my ChatGPT plan here" (gate 4b local switch)', () => {
+  it('is OFF by default, turns on through the mount, and turning it off interrupts the plan threads and nothing else', async () => {
+    build()
+    await openedRoute()
+    await rig.mount.wantServer()
+
+    expect(rig.mount.state().gate).toMatchObject({ planSwitchOn: false, planConnected: 'unknown' })
+
+    await rig.mount.setPlanSwitch(true)
+    expect(rig.mount.state().gate?.planSwitchOn).toBe(true)
+
+    await rig.mount.setPlanSwitch(false)
+    expect(rig.mount.state().gate?.planSwitchOn).toBe(false)
+    expect(rig.mount.state().gate?.stopsOwed.total).toBe(0)
+  })
+})
+
 describe('an account that never used Work', () => {
   it('has nothing to reset: sign-out stops the host and never runs the session server’s tools', async () => {
     build({ composed: false })

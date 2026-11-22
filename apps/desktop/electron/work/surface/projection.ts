@@ -1,11 +1,28 @@
-import type { MatrixWorkAgentActivity, MatrixWorkAssistants } from '../../../shared/matrix-work'
+import type { MatrixWorkAgentActivity, MatrixWorkAssistants, MatrixWorkPlan } from '../../../shared/matrix-work'
 import type { GateServiceState } from '../gate/service'
 
 /** The slice of lane G's read-only state the Work screen draws. */
 export type GateSurfaceState = Pick<
   GateServiceState,
   'agents' | 'enrolled' | 'phase' | 'socket' | 'switchOn' | 'workGrantAccepted'
->
+> &
+  Partial<Pick<GateServiceState, 'planConnected' | 'planSwitchOn'>>
+
+/**
+ * The plan switch (gate 4b): drawn while T3 says the plan is connected on this Mac, and whenever it is on (so it can be turned
+ * off). Never drawn for a Mac with no Work route. A plan that is not connected and a switch that is off say nothing.
+ */
+export function projectWorkPlan(state: GateSurfaceState | null | undefined): MatrixWorkPlan | undefined {
+  if (!state?.enrolled || !state.workGrantAccepted) {
+    return undefined
+  }
+
+  if (state.planSwitchOn) {
+    return 'on'
+  }
+
+  return state.planConnected === 'connected' ? 'off' : undefined
+}
 
 /**
  * One quiet state for "Assistants can start work here". Ordered: what the owner can change comes before

@@ -1,4 +1,13 @@
-import type { WorkEnrollmentFacts, WorkGrantCarry, WorkMacEvent, WorkRefusalReason, WorkSyncAck, WorkSyncPage, WorkT3LaunchCall } from './contract'
+import type {
+  WorkEnrollmentFacts,
+  WorkGrantCarry,
+  WorkMacEvent,
+  WorkRefusalReason,
+  WorkSubscriptionReport,
+  WorkSyncAck,
+  WorkSyncPage,
+  WorkT3LaunchCall
+} from './contract'
 
 // The seams the gate is built against. Each one is something main already has or another lane owns; the gate
 // holds no implementation of them beyond the T3 and platform HTTP clients (t3-client.ts, platform.ts).
@@ -9,6 +18,8 @@ export type ThreadRead =
       kind: 'found'
       status: string
       activeRunId?: string
+      /** The provider instance the thread runs on NOW (T3's `thread.providerInstanceId`); absent when T3 did not say. */
+      provider?: string
       runs: { runId: string; ordinal: number; status: string }[]
       raw: Record<string, unknown>
     }
@@ -39,6 +50,14 @@ export interface T3Port extends T3Reader {
   incarnation(): string | undefined
   /** A digest of T3's provider and mode settings. A resend needs the same one that admission saw. */
   settingsFingerprint(): string
+  /**
+   * Gate 4a/4b: T3's own provider status for the plan (Codex), read from `orchestrator_capabilities` through the given
+   * session. `connected` only when T3 advertises models for it and lists no constraint that says it is not ready;
+   * `unknown` when T3 could not be asked. The login itself is never read: it stays in the maker's own store.
+   */
+  planProvider?(
+    token: string
+  ): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }>
   /** Whether the delegated instance and its model are advertised (a fresh home advertises only `default` at first). */
   providerReady(token: string): Promise<boolean>
   /** Open this bearer's MCP session so that `launch` can start its request in the same synchronous step. */
@@ -94,11 +113,20 @@ export interface GateSessions {
 
 export interface WorkPlatform {
   enroll(input: { deviceServiceId: string; socketPath: string; gateId: WorkEnrollmentFacts['gateId']; workGrant?: { acceptedAt: number; routeEpoch: number } }): Promise<{ work: WorkEnrollmentFacts | null }>
-  pull(input: { deviceServiceId: string; accountId: string; appliedSeq: number; routeEpoch: number }): Promise<WorkSyncPage>
+  /** `contract: '1.2'` asks for the consent snapshot (a pull without it is answered as in 1.1). */
+  pull(input: {
+    deviceServiceId: string
+    accountId: string
+    appliedSeq: number
+    routeEpoch: number
+    contract?: '1.2'
+  }): Promise<WorkSyncPage>
   ack(ack: WorkSyncAck): Promise<void>
   /** Resolves with the route state the platform holds after the event, when it says (a held reopen answers `closed`). */
   macEvent(event: WorkMacEvent): Promise<{ routeState?: 'open' | 'closed' } | void>
   carryGrant(carry: WorkGrantCarry): Promise<void>
+  /** G9: the token-free fact that the plan is connected on this Mac. Resolves on a 2xx reply that is the contract's. */
+  reportSubscription?(report: WorkSubscriptionReport): Promise<void>
   /**
    * Content-free, request-correlated stop reports (R4-1; contract atum.work-route/1.1 `work.mac.settlements`). Resolves
    * only when the platform acknowledged the batch (a 2xx that is the contract's reply); the gate clears its queue then and

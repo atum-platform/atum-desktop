@@ -19,7 +19,11 @@ const projection = (view: MatrixWorkViewState, assistants: MatrixWorkAssistants 
 })
 
 function bridge() {
-  return { setWork: vi.fn(async (_on: boolean) => {}), setAssistants: vi.fn(async (_on: boolean) => {}) }
+  return {
+    setWork: vi.fn(async (_on: boolean) => {}),
+    setAssistants: vi.fn(async (_on: boolean) => {}),
+    setPlan: vi.fn(async (_on: boolean) => {})
+  }
 }
 
 function show(port = bridge(), locale: 'en' | 'vi' = 'en') {
@@ -31,6 +35,41 @@ function show(port = bridge(), locale: 'en' | 'vi' = 'en') {
 
   return port
 }
+
+describe('MatrixWorkSettings: the plan switch (gate 4b)', () => {
+  it('is drawn only while a plan is connected here or the switch is on, and says it is the owner\'s own plan', async () => {
+    $work.set(projection('ready'))
+    show()
+    expect(screen.queryByRole('switch', { name: 'Agents may use my ChatGPT plan here' })).toBeNull()
+
+    cleanup()
+    $work.set({ ...projection('ready'), plan: 'off' })
+    const port = show()
+    const row = screen.getByRole('switch', { name: 'Agents may use my ChatGPT plan here' })
+
+    expect(row.getAttribute('data-state')).toBe('unchecked')
+    expect(screen.getByText(/counts against your own plan/u)).toBeTruthy()
+    fireEvent.click(row)
+    await waitFor(() => expect(port.setPlan).toHaveBeenCalledWith(true))
+  })
+
+  it('can always be turned off while it is on, and goes with Work itself', async () => {
+    $work.set({ ...projection('ready'), plan: 'on' })
+    const port = show()
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Agents may use my ChatGPT plan here' }))
+    await waitFor(() => expect(port.setPlan).toHaveBeenCalledWith(false))
+
+    $work.set({ ...projection('off'), plan: 'on' })
+    await waitFor(() => expect(screen.queryByRole('switch', { name: 'Agents may use my ChatGPT plan here' })).toBeNull())
+  })
+
+  it('speaks Vietnamese in the Vietnamese app', () => {
+    $work.set({ ...projection('ready'), plan: 'off' })
+    show(bridge(), 'vi')
+    expect(screen.getByRole('switch', { name: 'Cho phép trợ lý dùng gói ChatGPT của tôi tại đây' })).toBeTruthy()
+  })
+})
 
 describe('MatrixWorkSettings', () => {
   it('draws nothing while main reports no Work for this account, or has not said yet', () => {

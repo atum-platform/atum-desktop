@@ -7,7 +7,7 @@ import type { OpenOwnerView } from '../session/session'
 import type { WorkIncarnation } from '../sidecar/process'
 
 import { registerMatrixWorkIpc } from './ipc'
-import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants } from './projection'
+import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants, projectWorkPlan } from './projection'
 import { WorkSurface, type WorkSurfaceParts, type WorkViewHandle } from './surface'
 
 const OPEN: GateSurfaceState = {
@@ -33,6 +33,22 @@ describe('projectWorkAssistants', () => {
     [{}, 'on']
   ] as const)('%j reads %s', (change, expected) => {
     expect(projectWorkAssistants(change === null ? null : { ...OPEN, ...change })).toBe(expected)
+  })
+
+  it.each([
+    [null, undefined],
+    [{ enrolled: false, planConnected: 'connected' }, undefined],
+    [{ workGrantAccepted: false, planConnected: 'connected' }, undefined],
+    // nothing is drawn for a plan that is not connected and a switch that is off: no row that does nothing
+    [{}, undefined],
+    [{ planConnected: 'disconnected' }, undefined],
+    [{ planConnected: 'unknown' }, undefined],
+    [{ planConnected: 'connected' }, 'off'],
+    // on stays drawn whatever T3 says, so the owner can always turn it off
+    [{ planSwitchOn: true, planConnected: 'disconnected' }, 'on'],
+    [{ planSwitchOn: true, planConnected: 'connected' }, 'on']
+  ] as const)('the plan switch for %j is %s', (change, expected) => {
+    expect(projectWorkPlan(change === null ? null : { ...OPEN, ...change })).toBe(expected)
   })
 
   it('lists only agents with something running or a stop owed', () => {
@@ -439,6 +455,7 @@ describe('registerMatrixWorkIpc', () => {
       retry: vi.fn(async () => {}),
       allowAssistants: vi.fn(async () => {}),
       setAssistants: vi.fn(async () => {}),
+      setPlan: vi.fn(async () => {}),
       setWork: vi.fn(async () => {}),
       reconnectAssistants: vi.fn(async () => {})
     }
@@ -467,6 +484,8 @@ describe('registerMatrixWorkIpc', () => {
     await call({ kind: 'setAssistants', on: false })
     await call({ kind: 'allowAssistants' })
     await call({ kind: 'setWork', on: true })
+    await call({ kind: 'setPlan', on: true })
+    expect(surface.setPlan).toHaveBeenCalledWith(true)
     expect(surface.setWork).toHaveBeenCalledWith(true)
     expect(surface.show).toHaveBeenCalledWith(RECT)
     expect(surface.setAssistants).toHaveBeenCalledWith(false)
@@ -478,6 +497,9 @@ describe('registerMatrixWorkIpc', () => {
       { kind: 'launch' },
       { kind: 'read', extra: 1 },
       { kind: 'setAssistants', on: 'yes' },
+      { kind: 'setPlan', on: 'yes' },
+      { kind: 'setPlan' },
+      { kind: 'setPlan', on: true, provider: 'claude' },
       { kind: 'setWork', on: 1 },
       { kind: 'setWork' },
       { kind: 'show', rect: { ...RECT, x: -1 } },

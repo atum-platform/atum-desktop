@@ -10,10 +10,12 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { createT3AuthCli } from '../session/t3-auth'
 import { WORK_REQUIRED_SERVER_SETTINGS } from '../sidecar/process'
 
+import { WORK_TOOLS } from './contract'
 import { WorkGate } from './gate'
 import { GateLedger } from './ledger'
 import { createT3PairingCodes, memorySecretStore, T3Sessions } from './sessions'
 import { createT3Client } from './t3-client'
+import { PINNED_T3_TOOLS } from './test-support'
 
 /**
  * Runs the pinned, real `t3` binary (ATUM_WORK_T3_BIN=<resources>/work-runtime/t3) against throwaway homes on
@@ -33,6 +35,19 @@ afterEach(() => {
     rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
   }
 })
+
+const ACCOUNT_ID = 'account'
+const PRINCIPAL = '67000000-0000-4000-8000-00000000000a'
+
+class FakeOwnerEvents {
+  fetched = 0
+
+  async fetch() {
+    this.fetched++
+
+    return { kind: 'unreachable' as const }
+  }
+}
 
 const freePort = () =>
   new Promise<number>(resolve => {
@@ -190,5 +205,86 @@ describe.skipIf(!T3)('the gate against the real pinned t3 binary', () => {
     expect(sessions.agentSessionId('luna')).toBeUndefined()
     await expect(sessions.revokeAgent('luna')).resolves.toBeUndefined()
     expect((await t3.list(agent.token, { limit: 5 })).status).toBe(401)
+  }, 120_000)
+  // ---- gate 4a/4b on the real pin
+  const CODEX_OFF = { driver: 'codex', enabled: false, config: { binaryPath: '/usr/bin/false' } }
+  const CLAUDE_OFF = { driver: 'claudeAgent', enabled: false, config: { binaryPath: '/usr/bin/false' } }
+
+  function planClient(server: Awaited<ReturnType<typeof boot>>) {
+    return createT3Client({
+      origin: () => server.origin,
+      incarnation: () => 'real',
+      settingsFile: join(server.home, 'userdata', 'settings.json'),
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      plan: { instanceId: 'codex' }
+    })
+  }
+
+  it('the pin reports the plan as disconnected: signed out (a fresh home), and disabled (the way the sidecar ships it until the Connect step)', async () => {
+    const fresh = await boot(WORK_REQUIRED_SERVER_SETTINGS)
+    const owner = await sessionsFor(fresh).owner()
+
+    expect(await planClient(fresh).planProvider?.(owner.token)).toEqual({ status: 'disconnected' })
+
+    const shipped = await boot({ ...WORK_REQUIRED_SERVER_SETTINGS, providerInstances: { codex: CODEX_OFF, claudeAgent: CLAUDE_OFF } })
+    const shippedOwner = await sessionsFor(shipped).owner()
+
+    expect(await planClient(shipped).planProvider?.(shippedOwner.token)).toEqual({ status: 'disconnected' })
+  }, 120_000)
+
+  it('a plan launch on the pin with no Codex login is `unavailable`, with no receipt, and the plan fact reads disconnected', async () => {
+    const server = await boot({ ...WORK_REQUIRED_SERVER_SETTINGS, providerInstances: { codex: CODEX_OFF, claudeAgent: CLAUDE_OFF } })
+    const sessions = sessionsFor(server)
+    const root = mkdtempSync(join(tmpdir(), 'work-real-plan-'))
+    dirs.push(root)
+    const ledger = new GateLedger(join(root, 'ledger.sqlite'), ACCOUNT_ID)
+    const owner = new FakeOwnerEvents()
+
+    const gate = new WorkGate({
+      accountId: ACCOUNT_ID,
+      deviceServiceId: 'device',
+      ledger,
+      t3: planClient(server),
+      sessions,
+      owner,
+      modelAccess: async () => 'allowed',
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      held: () => false
+    })
+
+    ledger.setEntitled(PRINCIPAL, true)
+    ledger.setMeta('work_grant_accepted_at', Date.now())
+    ledger.setMeta('route_open', '1')
+    ledger.setPlanSwitch(true)
+    gate.noteGoodSync()
+    const snapshot = { provider: 'codex' as const, state: 'on' as const, revision: 1, agents: [PRINCIPAL], alsoWhenScheduled: false }
+
+    ledger.tx(() => gate.beginConsent(snapshot))
+    gate.finishConsent(snapshot, [])
+
+    const answer = await gate.launch(
+      { principal: PRINCIPAL, routeEpoch: 1, generation: 1 },
+      { requestId: 'AAAAAAAAAAAAAAAAAAAAA1', projectId: 'p', task: 'x', ownerEvent: '$e'.padEnd(20, 'e'), notAfter: Date.now() + 60_000, plan: 'codex' }
+    )
+
+    expect(answer).toMatchObject({ class: 'unavailable', reason: 'provider_not_ready' })
+    expect(ledger.receipt(PRINCIPAL, 'AAAAAAAAAAAAAAAAAAAAA1')).toBeUndefined()
+    expect(owner.fetched).toBe(0)
+    ledger.close()
+  }, 120_000)
+
+  it('every tool the pin advertises is outside the gate\'s six, and none is a name the gate would forward', async () => {
+    const server = await boot(WORK_REQUIRED_SERVER_SETTINGS)
+    const owner = await sessionsFor(server).owner()
+    const headers = { 'content-type': 'application/json', accept: 'application/json, text/event-stream', authorization: `Bearer ${owner.token}` }
+    const init = await fetch(`${server.origin}/mcp`, { method: 'POST', headers, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'probe', version: '1' } } }) })
+    const sid = init.headers.get('mcp-session-id') as string
+    const list = await (await fetch(`${server.origin}/mcp`, { method: 'POST', headers: { ...headers, 'mcp-session-id': sid }, body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }) })).text()
+    const names = [...new Set([...list.matchAll(/"name":"([a-z0-9_]+)"/gu)].map(match => match[1]))]
+
+    expect(names.length).toBeGreaterThan(30)
+    expect(names.filter(name => (WORK_TOOLS as readonly string[]).includes(name))).toEqual([])
+    // The static list in http.test.ts is the one the gate is proven against: a pin that adds a tool must add it there.
+    expect(names.filter(name => !PINNED_T3_TOOLS.includes(name))).toEqual([])
   }, 120_000)
 })

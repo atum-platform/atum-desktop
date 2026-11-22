@@ -42,6 +42,7 @@ function bridge(): MatrixWorkBridge & { [K in keyof MatrixWorkBridge]: ReturnTyp
     retry: vi.fn(async () => {}),
     allowAssistants: vi.fn(async () => {}),
     setAssistants: vi.fn(async () => {}),
+    setPlan: vi.fn(async () => {}),
     reconnectAssistants: vi.fn(async () => {}),
     setWork: vi.fn(async () => {}),
     subscribe: vi.fn(() => () => {})

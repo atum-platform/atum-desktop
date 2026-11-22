@@ -10,6 +10,7 @@ import {
   WORK_REJECTION_REASONS,
   WORK_THREAD_STATUSES,
   type WorkAdmissionErrorType,
+  type WorkConsentSnapshot,
   workDeadline,
   workEntitlementsFresh,
   workExpectedThreadId,
@@ -17,6 +18,9 @@ import {
   type WorkLaunchArguments,
   workOwnerEventAge,
   workParamsHash,
+  workPlanLaunchDecision,
+  type WorkPlanLaunchInput,
+  type WorkPlanRefusalReason,
   type WorkRejectionReason,
   type WorkRequestAnswer,
   type WorkScope,
@@ -42,6 +46,13 @@ import { RequestStatusReader, threadBusy } from './status'
 //
 // 3. A revocation is a cutoff, then a cleanup, and it is complete only when the cleanup is (step 6). The cleanup
 //    uses main's own owner session, never the agent's.
+
+/**
+ * Gate 4b-1, compiled in: the ONE plan instance a launch may ever be set to. It is not read from a setting, a caller or a
+ * project default. Claude and Antigravity are absent on purpose: they join only when their makers confirm background use in
+ * writing, and that is a code change here, not a switch. The Atum instance is the other value a launch can carry (`delegated`).
+ */
+export const WORK_PLAN_INSTANCE_IDS: readonly string[] = ['codex']
 
 export type GatePhaseHook = (point: string, key: string) => Promise<void> | void
 
@@ -195,6 +206,9 @@ export class WorkGate {
   private readonly modeLimit: string
   private lastGoodSync: number | undefined
   private headRegressed = false
+  /** The consent snapshot the Mac applied last, and when (monotonic). After a restart the time is unknown: stale until a pull. */
+  private consentSnapshot: WorkConsentSnapshot | undefined
+  private consentAt: number | undefined
   private settling: Promise<void> | undefined
   private settleAgain = false
   private closed = false
@@ -204,6 +218,7 @@ export class WorkGate {
     this.now = options.now ?? Date.now
     this.monotonic = options.monotonic ?? (() => performance.now())
     this.modeLimit = options.modeLimit ?? 'approval-required/default'
+    this.consentSnapshot = this.ledger.consent()
     this.statusReader = new RequestStatusReader({
       ledger: this.ledger,
       reader: options.t3,
@@ -266,6 +281,115 @@ export class WorkGate {
   noteHeadRegressed(): void {
     this.headRegressed = true
     this.emit({ type: 'change' })
+  }
+
+  // ---- gate 4b: the plan (Codex) and its consent (contract 1.2)
+  /** The snapshot, once it was applied durably with a page: its age counts from now on this Mac's monotonic clock. */
+  noteConsent(snapshot: WorkConsentSnapshot): void {
+    this.consentSnapshot = snapshot
+    this.consentAt = this.monotonic()
+    this.emit({ type: 'change' })
+  }
+
+  /** The revision this Mac durably applied (the ack carries it), or undefined when no snapshot was ever applied. */
+  consentRevision(): number | undefined {
+    return this.ledger.consent()?.revision
+  }
+
+  /** What the owner's consent says about plan launches, for the screen: `unknown` while the snapshot is missing or stale. */
+  planConsentState(): 'on' | 'off' | 'unknown' {
+    const snapshot = this.consentSnapshot
+
+    if (
+      !snapshot ||
+      this.consentAgeSeconds() > WORK_PROVISIONAL.entitlementFreshnessBoundSeconds ||
+      this.headRegressed
+    ) {
+      return 'unknown'
+    }
+
+    return snapshot.state
+  }
+
+  private consentAgeSeconds(): number {
+    return this.consentAt === undefined ? Number.POSITIVE_INFINITY : (this.monotonic() - this.consentAt) / 1000
+  }
+
+  planSwitchOn(): boolean {
+    return this.ledger.planSwitchOn()
+  }
+
+  /**
+   * The Mac's whole plan rule (the platform's `workPlanLaunchDecision`), evaluated NOW from what this Mac holds: the snapshot,
+   * its age on the monotonic clock, the head regression, the local switch. `scheduled` is the caller's: see `admitAndForward`.
+   */
+  planDecision(principal: string, scheduled: boolean): 'allowed' | WorkPlanRefusalReason {
+    const snapshot = this.consentSnapshot
+
+    const input: WorkPlanLaunchInput = {
+      consent: snapshot?.state ?? 'off',
+      agentNamed: snapshot?.agents.includes(principal) ?? false,
+      macNamed: (snapshot?.agents.length ?? 0) > 0,
+      snapshotAgeSeconds: this.consentAgeSeconds(),
+      headRegressed: this.headRegressed,
+      localSwitch: this.ledger.planSwitchOn(),
+      scheduled,
+      alsoWhenScheduled: snapshot?.alsoWhenScheduled ?? false
+    }
+
+    return workPlanLaunchDecision(input)
+  }
+
+  /**
+   * Apply a consent snapshot in the caller's transaction (the page that carried it): store it, and cut off the plan threads of every
+   * assistant it no longer names (or all of them when it says off). Returns what `finishConsent` needs once the page is durable.
+   */
+  beginConsent(snapshot: WorkConsentSnapshot): CutoffResult[] {
+    this.ledger.setConsent(snapshot)
+    const named = snapshot.state === 'on' ? new Set(snapshot.agents) : new Set<string>()
+
+    return this.ledger.planCutoff(
+      this.ledger.planPrincipals().filter(principal => !named.has(principal)),
+      snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off'
+    )
+  }
+
+  finishConsent(snapshot: WorkConsentSnapshot, results: CutoffResult[]): void {
+    this.noteConsent(snapshot)
+    this.finishPlanCutoff(results, snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off')
+  }
+
+  /** "Agents may use my ChatGPT plan here": off interrupts every plan thread at once; on changes nothing that runs. */
+  setPlanSwitch(on: boolean): void {
+    const results = this.ledger.tx(() => {
+      this.ledger.setPlanSwitch(on)
+
+      return on ? [] : this.ledger.planCutoff(this.ledger.planPrincipals(), 'plan_switch_off')
+    })
+
+    this.finishPlanCutoff(results, 'plan_switch_off')
+    this.emit({ type: 'change' })
+  }
+
+  private finishPlanCutoff(results: CutoffResult[], reason: string): void {
+    for (const result of results) {
+      this.options.log?.('plan_revoked', { reason, owed: result.owed })
+      this.emit({ type: 'revoked', scope: 'agent', principal: null, reason, revocationId: result.revocationId })
+    }
+
+    if (results.length > 0) {
+      this.emit({ type: 'change' })
+      void this.scheduleSettle()
+    }
+  }
+
+  /** Whether a call names an instance this gate may ever send to: the Atum instance, or (for a plan row) the compiled-in plan one. */
+  private selectionAllowed(call: WorkT3LaunchCall, plan: string | null): boolean {
+    const instance = call.modelSelection.instanceId
+
+    return plan === null
+      ? instance === this.options.delegated.instanceId
+      : plan === 'codex' && WORK_PLAN_INSTANCE_IDS.includes(instance)
   }
 
   // ---- admission (the part after the assertion): the bearer, the counters, the list
@@ -381,7 +505,7 @@ export class WorkGate {
       return answerForRow(gateId, row)
     }
 
-    if (row.paramsHash !== workParamsHash(args.projectId, args.task, args.ownerEvent) || row.notAfter !== args.notAfter) {
+    if (row.paramsHash !== workParamsHash(args.projectId, args.task, args.ownerEvent, args.plan) || row.notAfter !== args.notAfter) {
       return { gateId, requestId: args.requestId, class: 'refused', receipt: 'refused', reason: 'params_mismatch' }
     }
 
@@ -398,7 +522,7 @@ export class WorkGate {
       const { read, incarnation } = await this.confirmedStatusRead(row)
 
       if (read.kind === 'found') {
-        this.statusReader.observe(row, read)
+        this.observeThread(row, read)
 
         return answerForRow(this.gateId(), this.ledger.receipt(row.principal, row.requestId) as ReceiptRow)
       }
@@ -434,7 +558,7 @@ export class WorkGate {
     const { principal } = ctx
     const gateId = this.gateId()
     const head = { gateId, requestId: args.requestId }
-    const paramsHash = workParamsHash(args.projectId, args.task, args.ownerEvent)
+    const paramsHash = workParamsHash(args.projectId, args.task, args.ownerEvent, args.plan)
 
     const refuse = (reason: string, extra: { eventId?: string } = {}) =>
       this.refuse(principal, args.requestId, reason, { paramsHash, notAfter: args.notAfter, ...extra })
@@ -446,33 +570,65 @@ export class WorkGate {
       return refuse(deadline)
     }
 
+    // 1b. a plan launch (gate 4b-3), after the shape and deadline checks and before anything is read from T3 or Matrix: the Mac's
+    //     snapshot, then the consent, then the local switch. The first failure is a refused receipt, whatever else is true. The
+    //     fourth check (`plan_not_scheduled`) needs the owner's message and is made at step 5.
+    if (args.plan) {
+      const decision = this.planDecision(principal, false)
+
+      if (decision !== 'allowed') {
+        return refuse(decision)
+      }
+    }
+
     // 2. nothing in the scope still owes a stop
     if (this.ledger.scopeBlocked(principal)) {
       return { ...head, class: 'revocation_pending', receipt: 'none' }
     }
 
-    // 3. the provider is ready (not a receipt: a moment must not become a permanent refusal)
+    // 3. the provider is ready (not a receipt: a moment must not become a permanent refusal). A plan launch asks T3 for the plan's
+    //    own status; the instance and model it sets come from the compiled-in allow-list and T3's advertised list, never the caller.
     let session: GateSession
+    let selection = this.options.delegated
 
     try {
       session = await this.options.sessions.agent(principal)
 
-      if (!(await this.options.t3.prepare(session.token)) || !(await this.options.t3.providerReady(session.token))) {
+      if (args.plan) {
+        const plan = await this.options.t3
+          .prepare(session.token)
+          .then(ready => (ready ? this.options.t3.planProvider?.(session.token) : undefined))
+
+        if (
+          plan?.status !== 'connected' ||
+          !plan.selection ||
+          !WORK_PLAN_INSTANCE_IDS.includes(plan.selection.instanceId)
+        ) {
+          return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
+        }
+
+        selection = plan.selection
+      } else if (
+        !(await this.options.t3.prepare(session.token)) ||
+        !(await this.options.t3.providerReady(session.token))
+      ) {
         return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
       }
     } catch {
       return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
     }
 
-    // 4. the owner's balance, read from the Mac's proxy
-    const access = await this.options.modelAccess().catch((): ModelAccess => 'unavailable')
+    // 4. the owner's balance, read from the Mac's proxy. A plan launch debits no Protons, so it never reads it.
+    if (!args.plan) {
+      const access = await this.options.modelAccess().catch((): ModelAccess => 'unavailable')
 
-    if (access === 'empty') {
-      return refuse('balance_empty')
-    }
+      if (access === 'empty') {
+        return refuse('balance_empty')
+      }
 
-    if (access === 'unavailable') {
-      return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
+      if (access === 'unavailable') {
+        return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
+      }
     }
 
     // 5. the owner's own message, fetched by the gate itself
@@ -482,14 +638,28 @@ export class WorkGate {
       return { ...head, class: 'unavailable', receipt: 'none', reason: 'owner_event_unverifiable' }
     }
 
+    const age = event.kind === 'ok' ? workOwnerEventAge((this.now() - event.originServerTs) / 1000) : undefined
+
+    // "Scheduled" (gate 4b-3, defined here once): the launch is NOT backed by a fresh, verified, unclaimed message of the owner. That is
+    // the very test the slice-A claim applies (the message exists and is the owner's, is within its age bound, and no other launch
+    // holds it). A plan launch that is not so backed needs the consent's "also when scheduled"; without it it is refused
+    // `plan_not_scheduled`, in place of the owner-event reason, because the plan check comes first (order fixed by the contract).
+    // With the consent it still meets the owner-event checks below: slice A has no standing permit, every launch consumes a message.
+    if (args.plan) {
+      const backed = event.kind === 'ok' && age === 'ok' && !this.ledger.eventClaimed(args.ownerEvent)
+      const decision = this.planDecision(principal, !backed)
+
+      if (decision !== 'allowed') {
+        return refuse(decision, { eventId: args.ownerEvent })
+      }
+    }
+
     if (event.kind === 'invalid') {
       return refuse(event.reason, { eventId: args.ownerEvent })
     }
 
-    const age = workOwnerEventAge((this.now() - event.originServerTs) / 1000)
-
     if (age !== 'ok') {
-      return refuse(age, { eventId: args.ownerEvent })
+      return refuse(age as 'owner_event_too_old' | 'owner_event_future', { eventId: args.ownerEvent })
     }
 
     if (this.ledger.eventClaimed(args.ownerEvent)) {
@@ -502,11 +672,24 @@ export class WorkGate {
       throw new GateAdmissionError(this.countersCurrent(ctx) ? 'stale_entitlements' : 'revoked')
     }
 
+    // the consent as of THIS step, not as of step 1b: it may have been withdrawn while the awaits above ran
+    if (args.plan) {
+      const decision = this.planDecision(principal, false)
+
+      if (decision !== 'allowed') {
+        return refuse(decision, { eventId: args.ownerEvent })
+      }
+    }
+
     if (this.options.sessions.agentSessionId(principal) !== session.sessionId || this.now() > args.notAfter) {
       return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
     }
 
-    const call = buildLaunchCall({ args, ownerBody: event.body, delegated: this.options.delegated })
+    const call = buildLaunchCall({
+      args,
+      ownerBody: (event as Extract<typeof event, { kind: 'ok' }>).body,
+      delegated: selection
+    })
 
     const admitted = this.ledger.admit({
       principal,
@@ -519,7 +702,8 @@ export class WorkGate {
       eventId: args.ownerEvent,
       notAfter: args.notAfter,
       epoch: ctx.routeEpoch,
-      generation: ctx.generation
+      generation: ctx.generation,
+      ...(args.plan ? { plan: args.plan } : {})
     })
 
     if (admitted.ok === false) {
@@ -533,6 +717,21 @@ export class WorkGate {
     return this.dispatch(principal, args.requestId)
   }
 
+  /**
+   * A read found this row's thread. Gate 4b-3: the provider it runs on NOW is compared with the one the gate set, and a difference is
+   * logged (the owner may move their own view of it in Work, so this is a note and not a stop). The thread is never sent to again:
+   * every path that could send reads first, and a thread that exists ends the send.
+   */
+  private observeThread(row: ReceiptRow, read: Extract<ThreadRead, { kind: 'found' }>): void {
+    const selected = row.callJson ? (JSON.parse(row.callJson) as WorkT3LaunchCall).modelSelection.instanceId : undefined
+
+    if (read.provider !== undefined && selected !== undefined && read.provider !== selected) {
+      this.options.log?.('thread_provider_changed', { plan: row.plan !== null })
+    }
+
+    this.statusReader.observe(row, read)
+  }
+
   /** Every path that can put a launch into T3: the first send, the helper's retry and recovery. */
   private async dispatch(principal: string, requestId: string): Promise<WorkRequestAnswer> {
     const key = `${principal}|${requestId}`
@@ -543,6 +742,26 @@ export class WorkGate {
       await this.options.t3.prepare(session.token)
     } catch {
       return answerForRow(this.gateId(), this.ledger.receipt(principal, requestId) as ReceiptRow)
+    }
+
+    // Gate 4b-3, "re-read the thread's current provider before each send": a send to a launch's own thread (a resend) first reads
+    // the thread. A thread that exists is never sent to again, and one whose provider is not the row's own selection is logged.
+    const before = this.ledger.receipt(principal, requestId) as ReceiptRow
+
+    if (before.forwarded) {
+      const reread = await this.options.t3
+        .read(session.token, before.threadId as string)
+        .catch((): ThreadRead => ({ kind: 'transport' }))
+
+      if (reread.kind === 'found') {
+        this.observeThread(before, reread)
+
+        return answerForRow(this.gateId(), this.ledger.receipt(principal, requestId) as ReceiptRow)
+      }
+
+      if (reread.kind !== 'absent') {
+        return answerForRow(this.gateId(), this.ledger.receipt(principal, requestId) as ReceiptRow)
+      }
     }
 
     await this.point('before_handoff', key)
@@ -599,6 +818,30 @@ export class WorkGate {
       }
 
       return answer({ gateId, requestId, class: 'ambiguous', receipt: 'admitted', forwarded: true, cause: 'deadline_passed' })
+    }
+
+    // b2. gate 4b, as of THIS step: the call's provider must be one this gate may ever send to (a row can only hold such a call, but a
+    //     tampered ledger must not become a way to a provider outside the compiled list), and a plan row needs the consent, its
+    //     snapshot's freshness and the local switch right now. Revoked means refused for good when no byte left, and held otherwise.
+    const refuseUnsent = (reason: string) => {
+      this.ledger.tx(() => {
+        this.ledger.update(principal, requestId, { state: 'refused', reason, settled: 'never_sent' })
+        this.ledger.releaseClaim(row.eventId)
+      })
+
+      return answer(same())
+    }
+
+    if (!this.selectionAllowed(call, row.plan)) {
+      return row.forwarded ? hold() : refuseUnsent('invalid_field')
+    }
+
+    if (row.plan) {
+      const decision = this.planDecision(principal, false)
+
+      if (decision !== 'allowed') {
+        return row.forwarded ? hold() : refuseUnsent(decision)
+      }
     }
 
     // c. the account, counters, list, hold, process: any failure leaves the row as it is and sends nothing
@@ -1256,7 +1499,7 @@ export class WorkGate {
           const { read, incarnation } = await this.confirmedStatusRead(fresh)
 
           if (read.kind === 'found') {
-            this.statusReader.observe(fresh, read)
+            this.observeThread(fresh, read)
 
             return
           }

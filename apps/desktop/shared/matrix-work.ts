@@ -37,6 +37,12 @@ export type MatrixWorkAssistants =
   /** The route's socket could not be bound: assistants cannot reach this Mac. */
   | 'unreachable'
 
+/**
+ * "Agents may use my ChatGPT plan here" on this Mac (gate 4b). Drawn only when a plan is connected here or the switch is on, so
+ * the owner can always turn it off. It is OFF until the owner turns it on: OpenAI asks for express consent for background use.
+ */
+export type MatrixWorkPlan = 'off' | 'on'
+
 export interface MatrixWorkAgentActivity {
   /** The agent's principal. The renderer names it from the account's own agent record, never from the agent. */
   principal: string
@@ -49,6 +55,8 @@ export interface MatrixWorkAgentActivity {
 export interface MatrixWorkProjection {
   view: MatrixWorkViewState
   assistants: MatrixWorkAssistants
+  /** Absent: no plan is connected on this Mac and the switch is off, so nothing is drawn. */
+  plan?: MatrixWorkPlan
   /** Only agents with something running or a stop owed, in a stable order. */
   agents: MatrixWorkAgentActivity[]
   /** The Atum provider's balance read (lane S). No figure ever crosses. */
@@ -70,6 +78,7 @@ export type MatrixWorkRequest =
   | { kind: 'retry' }
   | { kind: 'allowAssistants' }
   | { kind: 'setAssistants'; on: boolean }
+  | { kind: 'setPlan'; on: boolean }
   /** Settings: Work itself on or off for this account on this Mac (§8.5). */
   | { kind: 'setWork'; on: boolean }
   | { kind: 'reconnectAssistants' }
@@ -86,6 +95,8 @@ export interface MatrixWorkBridge {
   /** Accept the enrollment text once (D9) and let assistants start work here. */
   allowAssistants(): Promise<void>
   setAssistants(on: boolean): Promise<void>
+  /** "Agents may use my ChatGPT plan here". Off interrupts every plan thread at once. */
+  setPlan(on: boolean): Promise<void>
   /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
   setWork(on: boolean): Promise<void>
   /** After `unreachable`: bind the route again. */
@@ -115,6 +126,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
       return keys.length === 1 ? { kind: row.kind } : null
     case 'setAssistants':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setAssistants', on: row.on } : null
+    case 'setPlan':
+      return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setPlan', on: row.on } : null
     case 'setWork':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null
     case 'show': {

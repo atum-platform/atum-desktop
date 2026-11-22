@@ -5,7 +5,7 @@ import type { OpenOwnerView } from '../session/session'
 import type { WorkAccess } from '../sidecar/host'
 import type { WorkIncarnation } from '../sidecar/process'
 
-import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants } from './projection'
+import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants, projectWorkPlan } from './projection'
 
 /** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
 export interface WorkViewHandle {
@@ -24,6 +24,8 @@ export interface WorkSurfaceParts {
     on(listener: (event: GateEvent) => void): () => void
     acceptWorkGrant(): Promise<void>
     setSwitch(on: boolean): Promise<void>
+    /** Gate 4b: "Agents may use my ChatGPT plan here" on this Mac. */
+    setPlanSwitch?(on: boolean): Promise<void>
     openRoute(): Promise<void>
     closeRoute(): Promise<void>
   }
@@ -90,9 +92,12 @@ export class WorkSurface {
 
     const gate = parts.gate?.state()
 
+    const plan = projectWorkPlan(gate)
+
     return {
       view: this.viewState(parts),
       assistants: projectWorkAssistants(gate),
+      ...(plan ? { plan } : {}),
       agents: projectWorkAgents(gate),
       protons: this.protons
     }
@@ -188,6 +193,11 @@ export class WorkSurface {
       await gate.closeRoute()
       this.publish()
     }
+  }
+
+  async setPlan(on: boolean): Promise<void> {
+    await this.parts?.gate?.setPlanSwitch?.(on)
+    this.publish()
   }
 
   async reconnectAssistants(): Promise<void> {

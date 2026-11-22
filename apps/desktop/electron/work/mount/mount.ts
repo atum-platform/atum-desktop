@@ -289,6 +289,13 @@ export class WorkMount {
     this.changed()
   }
 
+  /** "Agents may use my ChatGPT plan here" (gate 4b). Off interrupts every plan thread; on starts nothing by itself. */
+  async setPlanSwitch(on: boolean): Promise<void> {
+    await this.wantServer()
+    this.requireService().setPlanSwitch(on)
+    this.changed()
+  }
+
   private requireService(): WorkGateService {
     if (!this.gate) {
       throw new Error('work_gate_not_running')

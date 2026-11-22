@@ -131,7 +131,7 @@ const NO_GATE: GateSurfaceState = {
  * The surface's gate door over a gate that is built later (the mount starts it after the session and the enrollment),
  * and rebuilt after a retire. State and events follow whichever service the mount holds now.
  */
-export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setSwitch'>): NonNullable<WorkSurfaceParts['gate']> {
+export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>): NonNullable<WorkSurfaceParts['gate']> {
   return {
     state: () => {
       const service = mount.service()
@@ -168,6 +168,7 @@ export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onCha
     },
     acceptWorkGrant: () => mount.acceptWorkGrant(),
     setSwitch: on => mount.setSwitch(on),
+    setPlanSwitch: on => mount.setPlanSwitch(on),
     async openRoute() {
       await mount.service()?.openRoute()
     },

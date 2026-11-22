@@ -19,7 +19,7 @@ const ASSISTANT_SWITCH = new Set(['on', 'off', 'holding', 'stale', 'unreachable'
  * route. Nothing is drawn while main reports no Work for this account (the projection is null): a build or an
  * account without Work has no row that does nothing.
  */
-export function MatrixWorkSettings({ bridge = window.atumMatrix?.work }: { bridge?: Pick<MatrixWorkBridge, 'setAssistants' | 'setWork'> }) {
+export function MatrixWorkSettings({ bridge = window.atumMatrix?.work }: { bridge?: Pick<MatrixWorkBridge, 'setAssistants' | 'setPlan' | 'setWork'> }) {
   const { locale } = useI18n()
   const copy = workCopy(locale)
   const projection = useStore($work)
@@ -85,6 +85,21 @@ export function MatrixWorkSettings({ bridge = window.atumMatrix?.work }: { bridg
             />
           }
           title={copy.switchLabel}
+        />
+      )}
+      {workOn && projection.plan && (
+        <SettingsRow
+          as="label"
+          control={
+            <Switch
+              aria-label={copy.planSwitch.label}
+              checked={projection.plan === 'on'}
+              disabled={pending}
+              onCheckedChange={on => void run(() => bridge.setPlan(on))}
+            />
+          }
+          help={copy.planSwitch.help}
+          title={copy.planSwitch.label}
         />
       )}
       {failed && (

@@ -166,3 +166,16 @@ stopped). Nothing here encrypts T3's database; that is T3's.
 - The release build must bundle `electron/work/sidecar/preload.ts` as `matrix-work-preload.js` (private
   `build-matrix-candidate.mjs`) and pass `ATUM_WORK_ARCHIVE` to `matrix-after-pack.mjs`; without either, Work is not drawn.
 - The Work billing join (`work/billing.sqlite`) belonged to the retired proxy; Matrix meters each call at the gateway.
+
+## Subscriptions (slice B): contract 1.2, the plan switch and what replaced the SSH relay
+
+Full note: `docs/work-subscriptions.md`. In short, for the integration:
+
+- The gate pulls as `atum.work-route/1.2`, applies the consent snapshot in the page's own transaction and acks its `consentRevision`; the plan fact
+  (`PlanFact`, G9) rides the sync cycle and the last bounded flush of `retire`. A platform that answers 400 to 1.2 is pulled as 1.1.
+- A launch may name `plan: "codex"`. The Mac decides stale → consent → local switch → not scheduled, sets the provider from the compiled list, debits
+  nothing, and re-checks at the handoff. Revocation cuts off plan threads only.
+- `createWorkGateService` configures the T3 client with the compiled plan instance; the gate state carries `planSwitchOn`, `planConnected` and
+  `planConsent`. The surface projects `plan: 'off' | 'on'` (absent while no plan is connected and the switch is off), `setPlan` is one more request on the
+  Work IPC, and Settings › This Mac draws "Agents may use my ChatGPT plan here" (default OFF).
+- The sidecar still ships Codex disabled; the Connect step enables it. The SSH ChatGPT relay is removed from main, the device runtime and the build.

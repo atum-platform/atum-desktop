@@ -9,7 +9,7 @@ import { AccessVerifier } from './assertion'
 import { WORK_TOOLS } from './contract'
 import { createGateHandler } from './http'
 import { bindGateSocket, type BoundGateSocket } from './socket'
-import { ACCOUNT, DEVICE, EVENT_A, type Harness, LUNA, makeHarness, REQ_1, REQ_2 } from './test-support'
+import { ACCOUNT, DEVICE, EVENT_A, type Harness, LUNA, makeHarness, PINNED_T3_TOOLS, REQ_1, REQ_2 } from './test-support'
 
 // The fifteen admission checks in the contract's order, with a REAL signed assertion (RS256, a locally generated key
 // set standing in for Cloudflare's certs) through the REAL gate socket. T3 and the homeserver are fakes.
@@ -355,6 +355,83 @@ describe('the signed assertion', () => {
   })
 })
 
+describe('B-0: every path from an agent to a plan, with a granted credential, through the real socket', () => {
+  const planReady = () => {
+    h.ledger.setPlanSwitch(true)
+    h.consent({})
+  }
+
+  it('a plan launch with the consent: one thread on Codex, set by the gate, and no Proton read', async () => {
+    planReady()
+    h.access.value = 'empty'
+    const reply = await post(rpc('launch', { ...launchArgs(), plan: 'codex' }), await good())
+
+    expect(reply.json.result.structuredContent).toMatchObject({ class: 'accepted', receipt: 'launched' })
+    expect((h.t3.calls.find(call => call.tool === 'launch')?.args as { call: { modelSelection: unknown } }).call.modelSelection).toEqual({ instanceId: 'codex', model: 'codex-model-1' })
+  })
+
+  it.each([
+    ['claude', 'claude'],
+    ['claudeAgent', 'claudeAgent'],
+    ['antigravity', 'antigravity'],
+    ['another case', 'CODEX'],
+    ['a padded name', 'codex '],
+    ['true', true],
+    ['an object', { instanceId: 'codex' }],
+    ['null', null]
+  ])('plan: %s is refused as an invalid field; T3 and the homeserver see nothing', async (_name, value) => {
+    planReady()
+    const reply = await post(rpc('launch', { ...launchArgs(), plan: value }), await good())
+
+    expect(reply.json.result.structuredContent).toMatchObject({ class: 'refused', reason: 'invalid_field' })
+    expect(h.t3.calls).toHaveLength(0)
+    expect(h.owner.fetched).toHaveLength(0)
+  })
+
+  it.each([
+    ['a provider beside the plan', { plan: 'codex', provider: 'claudeAgent' }],
+    ['a model selection beside the plan', { plan: 'codex', modelSelection: { instanceId: 'claudeAgent', model: 'claude-opus-5-5' } }],
+    ['an instance id', { plan: 'codex', instanceId: 'antigravity' }],
+    ['a runtime mode', { plan: 'codex', runtimeMode: 'full-access' }],
+    ['a plan list', { plans: ['codex'] }]
+  ])('%s is an unknown field, refused and not trimmed', async (_name, extra) => {
+    planReady()
+    const reply = await post(rpc('launch', { ...launchArgs(), ...extra }), await good())
+
+    expect(reply.json.result.structuredContent).toMatchObject({ class: 'refused', reason: 'unknown_field' })
+    expect(h.t3.calls).toHaveLength(0)
+  })
+
+  it('the six gate tools share no name with any tool T3 advertises, and every one of T3\'s is refused at the gate with T3 never called', async () => {
+    planReady()
+
+    for (const name of PINNED_T3_TOOLS) {
+      expect(WORK_TOOLS).not.toContain(name)
+
+      const reply = await post(rpc(name, { threadId: 't', message: 'hi', providerInstanceId: 'codex' }), await good())
+
+      expect(reply.status).toBe(403)
+      expect(reply.json.error.type).toBe('tool_not_allowed')
+    }
+
+    expect(h.t3.calls).toHaveLength(0)
+  })
+
+  it('there is no tool that sends to a thread or moves one to a provider: the list is the six and `launch` is the only one that starts a run', async () => {
+    const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, await good())
+
+    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['interrupt', 'launch', 'list', 'read', 'request', 'wait'])
+  })
+
+  it('consent and the switch are the Mac\'s alone: the answer to an agent names only the check that failed', async () => {
+    h.consent({ state: 'off', agents: [] })
+    const reply = await post(rpc('launch', { ...launchArgs(), plan: 'codex' }), await good())
+
+    expect(reply.json.result.structuredContent).toMatchObject({ class: 'refused', reason: 'plan_consent_off' })
+    expect(JSON.stringify(reply.json)).not.toMatch(/revision|consent":|switch|codex-model/u)
+  })
+})
+
 describe('direct calls with a granted credential (T10)', () => {
   it.each([
     ['scratch', { scratch: true }],
@@ -395,7 +472,7 @@ describe('direct calls with a granted credential (T10)', () => {
   })
 
   it('reads of other Work conversations succeed, as the enrollment text says (D14): the Access token and the grant are enough', async () => {
-    h.t3.threads.set('thread-owner-1', { id: 'thread-owner-1', sessionId: 'sess-owner', runs: [{ runId: 'r1', ordinal: 1, status: 'completed' }], message: 'owner thread' })
+    h.t3.threads.set('thread-owner-1', { id: 'thread-owner-1', sessionId: 'sess-owner', runs: [{ runId: 'r1', ordinal: 1, status: 'completed' }], message: 'owner thread', provider: 'atum-managed' })
     const reply = await post(rpc('read', { threadId: 'thread-owner-1' }), await good())
 
     expect(reply.json.result.structuredContent).toMatchObject({ class: 'ok', status: 'completed' })

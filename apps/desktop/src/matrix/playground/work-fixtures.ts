@@ -84,6 +84,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
       retry: async () => emit({ view: 'ready' }),
       allowAssistants: async () => emit({ assistants: 'on' }),
       setAssistants: async on => emit({ assistants: on ? 'on' : 'off' }),
+      setPlan: async on => emit({ plan: on ? 'on' : 'off' }),
       setWork: async on => emit({ view: on ? 'ready' : 'off' }),
       reconnectAssistants: async () => emit({ assistants: 'on' }),
       subscribe: listener => {
