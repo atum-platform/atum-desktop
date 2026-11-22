@@ -62,7 +62,7 @@ const TEXT: Record<string, string> = {
 }
 
 /** One short, plain block of text. Consumers read `structuredContent` only. */
-export function envelope(answer: { class: string }): {
+export function envelope(answer: { class?: string }): {
   content: [{ type: 'text'; text: string }]
   structuredContent: unknown
   isError: boolean
@@ -70,12 +70,15 @@ export function envelope(answer: { class: string }): {
   return {
     content: [{ type: 'text', text: TEXT[answer.class] ?? 'Done.' }],
     structuredContent: answer,
-    isError: workResultIsError(answer.class)
+    isError: workResultIsError(answer.class ?? 'ok')
   }
 }
 
 /** The six tools with their input schemas, for `tools/list`. */
 export const TOOL_DESCRIPTIONS = {
+  close: 'Acknowledge reconciled publication and release the operation.',
+  send: 'Relay one verified owner DM event on the selected plan. IDs only.',
+  status: 'Read or reconcile the request-scoped relay operation; close after publication.',
   launch: 'Start one task on the owner\'s Mac. Needs the owner\'s own Matrix message as `ownerEvent`; one message starts one task.',
   interrupt: 'Stop a thread this assistant started on the Mac.',
   read: 'Read a Work thread on the Mac.',

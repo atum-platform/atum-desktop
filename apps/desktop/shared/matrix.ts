@@ -1951,6 +1951,7 @@ export type MatrixSdkCommand =
   | { kind: 'createAppGroup'; name: string; app: string }
   /** `agentIds`: every one of the owner's assistants, none of whom is invited this way. */
   | { kind: 'inviteHuman'; roomId: string; userId: string; agentId?: string; agentIds?: string[] }
+  | { kind: 'readWorkHistory'; roomId: string; before: string; after: string | null; floor: string | null }
   | { kind: 'readInvocation'; roomId: string; eventId: string; includeAttachment?: boolean }
   /** `anyMember`: a group turn's quote may be anyone's message there (marked as theirs). */
   | { kind: 'readReplyQuote'; roomId: string; eventId: string; ownerId: string; agentId: string; anyMember?: true }

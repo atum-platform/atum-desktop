@@ -4,8 +4,10 @@ import { join } from 'node:path'
 import type { SafeStorageLike } from '../../encrypted-store'
 import { type GateAccount, WorkGateService, type WorkGateServiceOptions } from '../gate'
 import { WORK_SOCKET_PATH_MAX_BYTES } from '../gate/contract'
+import type { GateOptions } from '../gate/gate'
 import { WORK_PLAN_INSTANCE_IDS } from '../gate/gate'
 import type { ModelAccess, OwnerEventVerifier, T3Port, WorkPlatform } from '../gate/ports'
+import type { RelayHistory } from '../gate/relay'
 import { createT3PairingCodes, T3Sessions } from '../gate/sessions'
 import { createT3Client } from '../gate/t3-client'
 import { workSessionPaths } from '../session/paths'
@@ -41,6 +43,8 @@ export interface WorkGateFactoryInput {
   deviceServiceId: string
   platform: WorkPlatform
   /** Main's own Matrix check of the owner's request (K35). Until one is supplied every launch is `unavailable`. */
+  relayHistory?: RelayHistory
+  relaySelection?: GateOptions['relaySelection']
   owner: OwnerEventVerifier
   /** The running session server, or undefined while none serves. Read on every call: an update changes it. */
   incarnation(): WorkIncarnation | undefined
@@ -95,6 +99,8 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
     deviceServiceId: input.deviceServiceId,
     platform: input.platform,
     owner: input.owner,
+    relayHistory: input.relayHistory,
+    relaySelection: input.relaySelection,
     t3,
     delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
     held: input.held,

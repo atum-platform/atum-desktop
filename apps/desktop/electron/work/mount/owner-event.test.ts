@@ -44,7 +44,7 @@ const fetchWith = (s: OwnerEventSource) => createOwnerEventVerifier(s).fetch({ a
 
 describe('owner event verifier', () => {
   it('accepts the owner’s plain text in the owner’s room with that agent and returns the words and the server time', async () => {
-    expect(await fetchWith(source(() => plain()))).toEqual({ kind: 'ok', body: 'Tidy my Downloads folder', originServerTs: 1_700_000_000_000 })
+    expect(await fetchWith(source(() => plain()))).toEqual({ kind: 'ok', body: 'Tidy my Downloads folder', originServerTs: 1_700_000_000_000, roomId: ROOM, encrypted: false })
   })
 
   it('accepts a message decrypted from a device the owner’s crypto trusts', async () => {

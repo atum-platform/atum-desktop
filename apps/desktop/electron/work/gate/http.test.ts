@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { AccessVerifier } from './assertion'
 import { WORK_TOOLS } from './contract'
 import { createGateHandler } from './http'
+import type { RelaySelection } from './relay'
 import { bindGateSocket, type BoundGateSocket } from './socket'
 import { ACCOUNT, DEVICE, EVENT_A, type Harness, LUNA, makeHarness, PINNED_T3_TOOLS, REQ_1, REQ_2 } from './test-support'
 
@@ -30,6 +31,7 @@ let jwksPublished: object[]
 let logs: string[]
 let clientIds: string[]
 let bearer: string
+let relaySelection: RelaySelection | undefined
 
 beforeAll(async () => {
   keys = []
@@ -130,7 +132,8 @@ async function good(extra: Record<string, string> = {}): Promise<Record<string, 
 const launchArgs = (requestId = REQ_1, event = EVENT_A) => h.args(requestId, event)
 
 beforeEach(async () => {
-  h = makeHarness()
+  relaySelection = undefined
+  h = makeHarness(undefined, {relaySelection: () => relaySelection, relayHistory: {read: async () => []}})
   dir = mkdtempSync('/tmp/wgs-')
   jwksFetches = 0
   jwksPublished = keys.slice(0, 1).map(key => key.jwk)
@@ -226,7 +229,7 @@ describe('admission, in the contract\'s order: the first failure answers', () =>
   add('a batch', async () => post([rpc('read', {})], await good()), 400, 'bad_request')
   add('an rpc method that is not served', async () => post({ jsonrpc: '2.0', id: 1, method: 'resources/list' }, await good()), 400, 'bad_request')
   add('a call with no id', async () => post({ jsonrpc: '2.0', method: 'tools/call', params: { name: 'read', arguments: {} } }, await good()), 400, 'bad_request')
-  add('send is deferred', async () => post(rpc('send', { threadId: 't', message: 'hi' }), await good()), 403, 'tool_not_allowed')
+  add('native send is never exposed', async () => post(rpc('t3_thread_send', { threadId: 't', message: 'hi' }), await good()), 403, 'tool_not_allowed')
   add('schedule_task', async () => post(rpc('schedule_task', {}), await good()), 403, 'tool_not_allowed')
   add('create_threads and t3_thread_update', async () => post(rpc('t3_thread_update', {}), await good()), 403, 'tool_not_allowed')
   add('an environment tool', async () => post(rpc('orchestrator_capabilities', {}), await good()), 403, 'tool_not_allowed')
@@ -417,10 +420,10 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
     expect(h.t3.calls).toHaveLength(0)
   })
 
-  it('there is no tool that sends to a thread or moves one to a provider: the list is the six and `launch` is the only one that starts a run', async () => {
+  it('relay adds ids-only send/status/close without exposing native provider tools', async () => {
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, await good())
 
-    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['interrupt', 'launch', 'list', 'read', 'request', 'wait'])
+    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['close', 'interrupt', 'launch', 'list', 'read', 'request', 'send', 'status', 'wait'])
   })
 
   it('consent and the switch are the Mac\'s alone: the answer to an agent names only the check that failed', async () => {
@@ -549,4 +552,41 @@ describe('logs carry ids and typed reasons only', () => {
     expect(joined).not.toContain('eyJ')
     expect(joined.length).toBeGreaterThan(0)
   })
+})
+
+it('1.3 sends IDs through authenticated socket, freezes replay and refuses caller material (RT2/RT10)', async () => {
+  h.consent({})
+  h.gate.setPlanSwitch(true)
+  relaySelection = { revision: 1, instanceId: 'codex', model: 'test', projectId: 'test', personaRevision: 1 }
+  h.owner.fetch = async () => ({
+    kind: 'ok',
+    body: 'intact owner text',
+    originServerTs: h.clock.now(),
+    roomId: '!dm:test',
+    encrypted: false
+  })
+  const launch = h.t3.launch.bind(h.t3)
+
+  h.t3.launch = async (token, call, limit) => {
+    const reply = await launch(token, call, limit)
+
+    return { ...reply, data: { ...reply.data, runId: 'run1' } }
+  }
+
+  const input = { request_id: REQ_1, event_id: EVENT_A, room_id: '!dm:test', selection_rev: 1 }
+  const sent = await post(rpc('send', input), await good())
+  expect(sent.json.result.structuredContent).toMatchObject({ class: 'accepted', receipt: 'sent' })
+  relaySelection.revision++
+  expect((await post(rpc('send', input), await good())).json.result).toEqual(sent.json.result)
+  expect(h.t3.count('launch')).toBe(1)
+
+  for (const field of ['text', 'history', 'plan', 'model', 'mode', 'threadId']) {
+    const refused = await post(rpc('send', { ...input, request_id: REQ_2, [field]: 'forbidden' }), await good())
+    expect(refused.json.result.structuredContent).toMatchObject({ class: 'refused' })
+  }
+
+  expect(h.t3.count('launch')).toBe(1)
+  expect((await post(rpc('request', { request_id: REQ_1 }), await good())).json.result.structuredContent).toMatchObject(
+    { class: 'accepted' }
+  )
 })

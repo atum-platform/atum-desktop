@@ -133,7 +133,7 @@ function cookieAllowed(raw: string | undefined, assertion: string | undefined): 
   return Boolean(match && assertion !== undefined && match[1] === assertion)
 }
 
-type Answer = { class: string }
+type Answer = { class?: string }
 
 export const TOOL_LIST = WORK_TOOLS.map(name => ({
   name,
@@ -227,20 +227,32 @@ export function createGateHandler(options: GateHttpOptions): GateHandler {
       return fail('bad_request')
     }
 
-    if (!body || typeof body !== 'object' || Array.isArray(body) || (body as { jsonrpc?: unknown }).jsonrpc !== '2.0' || typeof (body as { method?: unknown }).method !== 'string') {
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      Array.isArray(body) ||
+      (body as { jsonrpc?: unknown }).jsonrpc !== '2.0' ||
+      typeof (body as { method?: unknown }).method !== 'string'
+    ) {
       return fail('bad_request')
     }
 
     const rpc = body as { id?: unknown; method: string; params?: unknown }
 
     if (rpc.id === undefined && rpc.method.startsWith('notifications/')) {
-      response.writeHead(202, { 'cache-control': 'no-store', 'x-gate-id': `${gateId.deviceServiceId}.${gateId.accountId}.${gateId.routeEpoch}` })
+      response.writeHead(202, {
+        'cache-control': 'no-store',
+        'x-gate-id': `${gateId.deviceServiceId}.${gateId.accountId}.${gateId.routeEpoch}`
+      })
       response.end()
 
       return
     }
 
-    const idOk = typeof rpc.id === 'string' ? rpc.id.length >= 1 && rpc.id.length <= 64 : Number.isSafeInteger(rpc.id) && (rpc.id as number) >= 0
+    const idOk =
+      typeof rpc.id === 'string'
+        ? rpc.id.length >= 1 && rpc.id.length <= 64
+        : Number.isSafeInteger(rpc.id) && (rpc.id as number) >= 0
 
     if (!JSON_RPC_METHODS.has(rpc.method) || !idOk) {
       return fail('bad_request')
@@ -279,13 +291,17 @@ export function createGateHandler(options: GateHttpOptions): GateHandler {
     const parsed = WORK_TOOL_ARGUMENTS[tool].safeParse(params.arguments ?? {})
 
     try {
-      const answer = parsed.success ? await run(gate, ctx, tool, parsed.data) : shapeAnswer(gate, ctx, tool, params.arguments, parsed.error)
+      const answer = parsed.success
+        ? await run(gate, ctx, tool, parsed.data)
+        : tool === 'send'
+          ? await gate.relay.send(ctx, params.arguments)
+          : shapeAnswer(gate, ctx, tool, params.arguments, parsed.error)
 
       // Step 2, at the moment of release: the check and the write below are one synchronous section.
       const released = gate.silence(ctx, answer, () => revokedAnswer(gate, ctx, tool, params.arguments))
 
       send(response, 200, gate.gateId(), { jsonrpc: '2.0', id: rpc.id, result: envelope(released) })
-      options.log?.('tool', { tool, outcome: released.class })
+      options.log?.('tool', { tool, outcome: released.class ?? 'ok' })
     } catch (error) {
       if (error instanceof GateAdmissionError) {
         return fail(error.type)
@@ -300,6 +316,15 @@ export function createGateHandler(options: GateHttpOptions): GateHandler {
 
 async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unknown): Promise<Answer> {
   switch (tool) {
+    case 'send':
+      return gate.relay.send(ctx, args)
+
+    case 'close':
+      return gate.relay.closeReceipt(ctx, (args as { request_id: string }).request_id)
+    case 'status': {
+      return gate.relay.status(ctx, (args as { room_id: string }).room_id)
+    }
+
     case 'launch':
       return gate.launch(ctx, args as WorkLaunchArguments)
 
@@ -307,16 +332,22 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
       return gate.interrupt(ctx, args as { threadId: string })
 
     case 'read':
-      return gate.read(ctx, args as { threadId: string })
+      return 'request_id' in (args as object)
+        ? gate.relay.read(ctx, (args as { request_id: string }).request_id)
+        : gate.read(ctx, args as { threadId: string })
 
     case 'wait':
-      return gate.wait(ctx, args as { threadId: string; timeoutMs?: number })
+      return 'request_id' in (args as object)
+        ? gate.relay.read(ctx, (args as { request_id: string }).request_id, (args as { timeoutMs?: number }).timeoutMs)
+        : gate.wait(ctx, args as { threadId: string; timeoutMs?: number })
 
     case 'list':
       return gate.list(ctx, args as { limit?: number; cursor?: string })
 
     case 'request':
-      return gate.request(ctx, args as { requestId: string; action: 'status' | 'void' })
+      return 'request_id' in (args as object)
+        ? gate.relay.request(ctx, (args as { request_id: string }).request_id)
+        : gate.request(ctx, args as { requestId: string; action: 'status' | 'void' })
   }
 }
 
@@ -341,13 +372,20 @@ function shapeAnswer(gate: WorkGate, ctx: CallContext, tool: WorkTool, rawArgs: 
 function revokedAnswer(gate: WorkGate, ctx: CallContext, tool: WorkTool, rawArgs: unknown): Answer {
   const gateId = gate.gateId()
   const scope = gate.revokedScope(ctx)
-  const args = rawArgs as { requestId?: string; threadId?: string } | undefined
+  const args = rawArgs as { requestId?: string; request_id?: string; threadId?: string } | undefined
+
+  if (typeof args?.request_id === 'string') return {gateId, requestId: args.request_id, class: 'revoked', receipt: 'revoked', stopConfirmed: false} as Answer
 
   if ((tool === 'launch' || tool === 'request') && typeof args?.requestId === 'string') {
     return { gateId, requestId: args.requestId, class: 'revoked', receipt: 'revoked', scope } as Answer
   }
 
-  return { gateId, class: 'revoked', scope, ...(typeof args?.threadId === 'string' ? { threadId: args.threadId } : {}) } as Answer
+  return {
+    gateId,
+    class: 'revoked',
+    scope,
+    ...(typeof args?.threadId === 'string' ? { threadId: args.threadId } : {})
+  } as Answer
 }
 
 export { answerForRow }

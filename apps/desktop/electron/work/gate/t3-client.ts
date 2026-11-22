@@ -252,10 +252,13 @@ export function createT3Client(options: T3ClientOptions): T3Port {
         return false
       }
     },
+    send: (token, args, modeLimit) => call(token, 't3_thread_send', args, { 'T3-Mode-Limit': modeLimit }, 30_000, false),
+    configure: (token, threadId, modelSelection) => call(token, 't3_thread_configure', {threadId, modelSelection}, {}, 30_000, false),
+    readPage: (token, threadId, afterPosition, item) => call(token, 't3_thread_read', {threadId, limit: 100, maxChars: 24000, ...(afterPosition === undefined ? {} : {afterPosition}), ...item}, {}, 30_000, true),
     launch: (token, args, modeLimit) => call(token, 't3_thread_launch', args, { 'T3-Mode-Limit': modeLimit }, 30_000, false),
     interrupt: (token, threadId, extra) =>
       call(token, 't3_thread_interrupt', { threadId, ...(extra?.stop ? { stop: true } : {}) }, {}, 30_000, true),
-    wait: (token, threadId, runId, timeoutMs) => call(token, 't3_thread_wait', { threadId, runId, timeoutMs }, {}, timeoutMs + 10_000, true),
+    wait: (token, threadId, runId, timeoutMs) => call(token, 't3_thread_wait', { threadId, runId, timeoutMs, untilDelegatedWorkSettled: true }, {}, timeoutMs + 10_000, true),
     // T3 answers `target_required` to a list from a client that is not inside a thread, unless it names a project or
     // `allProjects`. The gate always means "every project this session may see" (the peer fence still applies).
     list: (token, args) => call(token, 't3_thread_list', { ...args, allProjects: true }, {}, 30_000, true),

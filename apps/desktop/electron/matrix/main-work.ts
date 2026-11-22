@@ -24,6 +24,7 @@ import {
   WorkMount,
   type WorkMountAccount
 } from '../work/mount'
+import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
@@ -401,9 +402,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
-  const verifier: OwnerEventVerifier = createOwnerEventVerifier(
-    createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
-  )
+  const ownerSource = createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
+  const verifier: OwnerEventVerifier = createOwnerEventVerifier(ownerSource)
+  const relayHistory = createWorkHistory(ownerSource, () => deps.ownerHost())
 
   mount = new WorkMount({
     account,
@@ -424,6 +425,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         deviceServiceId,
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
         owner: verifier,
+        relayHistory,
         incarnation: () => host.current(),
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
@@ -466,6 +468,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   registerMatrixWorkIpc(deps.ipcMain, surface, deps.requireUi)
 
   const door = createGateDoor(mount)
+
   // The endpoint is read on every call (it follows the signed-in account), like the gate's own platform client.
   const consentFor = () => {
     const endpoint = deps.deviceServicesEndpoint()
@@ -476,6 +479,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
     return createWorkConsentClient({ endpoint, bearer: () => deps.bearer() })
   }
+
   const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
     read: () => consentFor().read(),
     set: input => consentFor().set(input),
