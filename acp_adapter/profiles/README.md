@@ -20,6 +20,11 @@ name with its exact tool names. When configured, omitted servers and empty
 lists are excluded before the editor transport opens. Prompt and resource
 utilities are also excluded. When the entire setting is absent, editor MCP
 discovery retains its usual behavior. Provision the policy before starting the
-profile. The terminal denies direct calls to the editor bridge and selected
-provider CLIs through normal Hermes approval checks. The policy governs Hermes
-tools. A process running as the same OS user retains that user's OS authority.
+profile. The terminal denies direct calls to the editor bridge, the whole `t3` command
+line (thread tools, auth and pairing, environment links, server control), the
+plan makers' clients and Codex's login store through normal Hermes approval
+checks; the rules are a floor under every approvals mode, yolo included.
+`tests/acp_adapter/test_delegated_containment.py` calls them. The policy
+governs Hermes tools. A process running as the same OS user retains that user's
+OS authority: the file tools can still read any path that user can read, which
+is listed as a gap in `docs/work-subscriptions.md`.
