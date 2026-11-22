@@ -242,3 +242,14 @@ the already-exported `matrixAgentStatusCopy.unfunded` and `trialExpired`.
 
 Publication (push, PR, merge), the producer branch's push and the real phone repin are
 coordinator steps.
+
+## Fix: app-icon manifest hash (23 Nov)
+
+The phone importer rejected `c2d71828` and every desktop revision since `57bdc29f` (11 Nov).
+That commit restored the real Atum-owned artwork in `dist/app-icon/atum-app-icon-1024.png`
+(SHA-256 `cf67ad54…47248eb`, which matches its own `.json` sidecar). But `dist/manifest.json` still
+recorded the snapshot placeholder's hash (`8b5b59a6…cc23f4`). The manifest entry now matches the
+bytes on disk, and every other `dist/` file already matched. The manifest SHA-256 goes from
+`2ea06dd3…aaff1` to `be38f8aa…2dead`. Follow-up: `export.mjs --check` and the public guards
+don't hash `dist/` files against the manifest, so this drift went unnoticed. That check belongs
+in the producer (atum-app).
