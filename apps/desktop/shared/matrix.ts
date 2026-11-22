@@ -131,6 +131,7 @@ import type { MatrixWalletBridge, MatrixWalletState } from './matrix-wallet'
 import type { MatrixWindowAppearance, MatrixWindowFacts, MatrixWindowMode } from './matrix-window'
 import type { MatrixWindowFailureDiagnostic } from './matrix-window-failure'
 import type { MatrixWorkBridge } from './matrix-work'
+import type { WorkRelayTurnChrome } from './matrix-work-relay'
 import type { MatrixWebPreviewOffer } from './matrix-workbench-preview'
 import type { GroupRecentTarget } from './room-participation/recent'
 import type { GroupChainPublication, GroupPolicyChange, GroupRuntimeCommand } from './room-participation/runtime'
@@ -450,6 +451,9 @@ export interface MatrixMessage {
   subscriptionFallback?: MatrixSubscriptionFallback
   /** This answer came from a fallback, not the chosen plan: one faint line under it, no cost. */
   answeredByFallback?: MatrixSubscriptionFallback
+  /** Relay R1: this turn's one chrome line (held, stopped, fell back, late), from the relay view-model
+   * (`workRelayTurnChrome`). UI chrome, never a message of the agent. */
+  relayTurn?: WorkRelayTurnChrome
   /** The agent's once-per-conversation Google switch line (S2 `google_route_switched`): one quiet
    * line, shown the first time only (`matrixFoldSubscriptionFallbacks`). */
   googleSwitch?: MatrixGoogleRouteSwitch

@@ -38,6 +38,7 @@ import {
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { workCopy } from '@/app/work/copy'
 import { WorkPlanConnectStep } from '@/app/work/plan-connect'
+import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
 import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
@@ -1579,6 +1580,9 @@ function MatrixEventMessageBubble() {
       )}
       {message.answeredByFallback && !message.redacted && (
         <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
+      )}
+      {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
+        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} roomId={action?.room.id} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>

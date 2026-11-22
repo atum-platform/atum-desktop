@@ -31,6 +31,12 @@ export interface WorkPlanConsentRequest {
 
 export const $workPlanConsent = atom<WorkPlanConsentRequest | null>(null)
 
+/**
+ * Relay R1: how a held relay turn's Stop reaches the gate. The coordinator's data wiring sets it; while it is null, a held line
+ * shows no Stop (never a button that does nothing). The stop is recorded and holds until the Mac confirms (plan §3.6).
+ */
+export const $workRelayStop = atom<((roomId: string, eventId: string) => void) | null>(null)
+
 function storage(): Storage | null {
   try {
     return window.localStorage
@@ -139,6 +145,7 @@ export function workOnRail(projection: MatrixWorkProjection | null | undefined):
 }
 
 export function resetWorkStoreForTests(): void {
+  $workRelayStop.set(null)
   $work.set(undefined)
   $workActive.set(false)
   $workBandOpen.set(false)
