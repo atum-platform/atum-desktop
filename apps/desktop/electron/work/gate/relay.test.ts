@@ -503,7 +503,7 @@ describe('R1s standing scheduled permits', () => {
   function scheduled(r: ReturnType<typeof rig>, job = 'daily-brief', occurrence = 'one') {
     r.options.consent = () => ({provider: 'codex', state: 'on', agents: [LUNA], devices: [r.h.gate.gateId().deviceServiceId], alsoWhenScheduled: true, revision: 1, grantedAt: 1})
 
-    return {request_id: REQ_1, job_id: job, occurrence_id: occurrence, selection_rev: 1,
+    return {request_id: REQ_1, job_id: job, occurrence_id: occurrence, scheduled_at: r.options.now(), job_name: 'Daily brief', selection_rev: 1,
       permit: {agentPrincipal: LUNA, deviceServiceId: r.h.gate.gateId().deviceServiceId, plan: 'codex', consentRevision: 1, alsoWhenScheduled: true}, prompt: 'Write the daily brief'}
   }
 
@@ -529,11 +529,28 @@ describe('R1s standing scheduled permits', () => {
   it('claims each occurrence once and isolates job/DM bindings', async () => {
     const r = rig(), input = scheduled(r)
     expect((await r.relay.send(r.ctx, input)).class).toBe('accepted')
-    expect(await r.relay.send(r.ctx, {...input, request_id: REQ_2})).toMatchObject({reason: 'event_already_used'})
-    expect(await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000003', occurrence_id: 'two'})).toMatchObject({reason: 'operation_open'})
-    expect((await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000004', job_id: 'sweep'})).class).toBe('accepted')
+    expect(await r.relay.send(r.ctx, {...input, request_id: REQ_2})).toMatchObject({reason: 'scheduled_operation_limit'})
+    expect(await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000003', occurrence_id: 'two'})).toMatchObject({reason: 'scheduled_operation_limit'})
+    expect((await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000004', job_id: 'sweep'})).class).toBe('refused')
     expect((await r.relay.send(r.ctx, {...r.input, request_id: 'owner_request_000000005'})).class).toBe('accepted')
-    expect(r.launch).toHaveBeenCalledTimes(3)
+    expect(r.launch).toHaveBeenCalledTimes(2)
+  })
+  it('cuts off scheduled receipts when scheduled consent is disabled', async () => {
+    const r = rig(), input = scheduled(r)
+    expect((await r.relay.send(r.ctx, input)).class).toBe('accepted')
+    const consent = r.options.consent()
+    const results = r.h.gate.beginConsent({...consent, alsoWhenScheduled: false, revision: 2} as Parameters<typeof r.h.gate.beginConsent>[0])
+    expect(results.some(result => result.owed > 0)).toBe(true)
+    expect((await r.relay.send(r.ctx, input)).class).toBe('revoked')
+  })
+  it('refuses stale and future first scheduled admissions', async () => {
+    const r = rig(), input = scheduled(r)
+
+    for (const scheduled_at of [r.options.now() - 900_001, r.options.now() + 60_001]) {
+      expect((await r.relay.send(r.ctx, {...input, scheduled_at})).class).toBe('refused')
+    }
+
+    expect(r.launch).not.toHaveBeenCalled()
   })
   it('rejects mixed envelopes and caller model/mode overrides', async () => {
     const r = rig(), input = scheduled(r)

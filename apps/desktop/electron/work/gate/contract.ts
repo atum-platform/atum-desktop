@@ -178,6 +178,7 @@ export const WorkRelayStandingPermitSchema = z.object({
 }).strict()
 export const WorkRelayScheduledArgumentsSchema = z.object({
   request_id: WorkRequestIdSchema, job_id: z.string().min(1).max(200), occurrence_id: z.string().min(1).max(200),
+  scheduled_at: safe, job_name: z.string().min(1).max(200),
   selection_rev: positive, permit: WorkRelayStandingPermitSchema, prompt: z.string().min(1).max(120_000)
 }).strict()
 export const WorkSendArgumentsSchema = z.union([WorkOwnerSendArgumentsSchema, WorkRelayScheduledArgumentsSchema])

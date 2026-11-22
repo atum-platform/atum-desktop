@@ -380,7 +380,17 @@ export class WorkRelay {
 
     if (!permitValid()) {return { class: 'refused', reason: 'standing_permit_invalid' }}
 
-    if (scheduled) {this.scheduledUsage(ctx)}
+    // One scheduled operation per agent, including concurrent admissions of different jobs.
+    const scheduledLock = `scheduled:${ctx.principal}`
+
+    if (scheduled && (this.busy.has(scheduledLock) || this.o.ledger.receipts(
+      'principal = ? AND relay_json IS NOT NULL AND settled IS NULL', ctx.principal
+    ).some(row => { const f = JSON.parse(row.relayJson!) as Frozen;
+
+ return 'job_id' in f.input && !f.closed }))) {
+      return { class: 'refused', reason: 'scheduled_operation_limit' }
+    }
+
     const requestKey = `${ctx.principal}:${args.request_id}`
 
     if (this.requests.has(requestKey)) {
@@ -394,6 +404,7 @@ export class WorkRelay {
       return { class: 'refused', reason: 'operation_open' }
     }
 
+    if (scheduled) {this.busy.add(scheduledLock)}
     this.busy.add(lock)
     this.requests.add(requestKey)
     let bindingBefore: Binding | undefined
@@ -444,7 +455,7 @@ export class WorkRelay {
         return { class: 'refused', reason: 'plan_limit' }
       }
 
-      const event = scheduled ? { kind: 'ok' as const, roomId: args.room_id, encrypted: false, body: scheduled.prompt, originServerTs: this.o.now() } : await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: args.event_id })
+      const event = scheduled ? { kind: 'ok' as const, roomId: args.room_id, encrypted: false, body: scheduled.prompt, originServerTs: scheduled.scheduled_at } : await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: args.event_id })
 
       if (event.kind !== 'ok') {
         return {
@@ -522,7 +533,7 @@ export class WorkRelay {
           ? {
               projectId: selection.projectId,
               workspaceStrategy: { type: 'root' },
-              title: scheduled ? `Scheduled: ${scheduled.job_id}`.slice(0, 60) : 'Assistant conversation',
+              title: scheduled ? `Scheduled: ${scheduled.job_name}`.slice(0, 60) : 'Assistant conversation',
               modelSelection: { instanceId: selection.instanceId, model: selection.model },
               message,
               clientRequestId: args.request_id
@@ -720,6 +731,7 @@ export class WorkRelay {
           }
         : { class: 'refused', reason: 'admission_failed', forwarded: false }
     } finally {
+      if (scheduled) {this.busy.delete(scheduledLock)}
       this.busy.delete(lock)
       this.requests.delete(requestKey)
     }
@@ -761,14 +773,10 @@ export class WorkRelay {
       window = { start: this.o.now(), ...(resetAt && resetAt > this.o.now() ? { resetAt } : {}) }
     } else if (resetAt && resetAt > this.o.now()) {window.resetAt = resetAt}
 
-    this.o.ledger.setMeta(key, JSON.stringify(window))
+    const encoded = JSON.stringify(window)
 
-    const runs = this.o.ledger.receipts('forwarded = 1 AND relay_json IS NOT NULL')
-      .filter(row => {
-        const f = JSON.parse(row.relayJson!) as Frozen
-
-        return 'job_id' in f.input && Number(f.scheduledAt ?? 0) >= window!.start
-      }).length
+    if (this.o.ledger.meta(key) !== encoded) {this.o.ledger.setMeta(key, encoded)}
+    const runs = this.o.ledger.scheduledRuns(window.start)
 
     return { runs, windowStart: window.start, ...(window.resetAt ? { resetsAt: window.resetAt } : {}) }
   }
