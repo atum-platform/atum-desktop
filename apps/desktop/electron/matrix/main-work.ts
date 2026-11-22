@@ -36,6 +36,7 @@ import {
   type WorkSurfaceParts
 } from '../work/surface'
 
+import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
 import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
 
 // The Matrix composition's Work (self-work slice A, lane W). Everything Work needs from the Matrix window is a port
@@ -101,6 +102,8 @@ export interface MatrixWorkDeps {
   agentMatrixUser(principal: string): Promise<string | null>
   /** The account's own name for an agent, for "Started by …". */
   agentName(principal: string): string | undefined
+  /** The existing account agent-record/definition reader, fenced to the signed-in account. */
+  agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | null): void
@@ -426,6 +429,19 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
         owner: verifier,
         relayHistory,
+        relayAssistant: deps.agentDefinition ? {
+          assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
+          definition: async principal => {
+            const snapshot = await deps.agentDefinition!(principal)
+            const active = account()
+
+            if (!active || active.key !== current.key || active.generation !== current.generation || deps.closing()) {
+              throw new Error('relay_account_changed')
+            }
+
+            return snapshot
+          }
+        } : undefined,
         incarnation: () => host.current(),
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,

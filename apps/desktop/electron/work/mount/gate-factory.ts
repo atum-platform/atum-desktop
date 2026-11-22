@@ -14,6 +14,7 @@ import { workSessionPaths } from '../session/paths'
 import { createT3AuthCli } from '../session/t3-auth'
 import { ATUM_WORK_DELEGATED_PROVIDER, ATUM_WORK_MODEL, type WorkIncarnation } from '../sidecar/process'
 
+import { RelayAssembly, type RelayAssemblyOptions } from './relay-assembly'
 import { createKeychainSecretStore } from './secret-store'
 
 export interface WorkMountAccount extends GateAccount {
@@ -45,6 +46,7 @@ export interface WorkGateFactoryInput {
   /** Main's own Matrix check of the owner's request (K35). Until one is supplied every launch is `unavailable`. */
   relayHistory?: RelayHistory
   relaySelection?: GateOptions['relaySelection']
+  relayAssistant?: Pick<RelayAssemblyOptions, 'assistantsRoot' | 'definition'>
   owner: OwnerEventVerifier
   /** The running session server, or undefined while none serves. Read on every call: an update changes it. */
   incarnation(): WorkIncarnation | undefined
@@ -93,14 +95,22 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       restartWhenIdle: input.restartWhenIdle
     })
 
-  return new WorkGateService({
+  let assembly: RelayAssembly | undefined
+  let ownerToken: (() => Promise<string>) | undefined
+
+  const service = new WorkGateService({
     account,
     accountId: account.accountId,
     deviceServiceId: input.deviceServiceId,
     platform: input.platform,
     owner: input.owner,
     relayHistory: input.relayHistory,
-    relaySelection: input.relaySelection,
+    relaySelection: input.relaySelection ?? (principal => assembly?.selection(principal)),
+    relayProvision: input.relayAssistant ? (principal, threadId) => {
+      if (!assembly) {throw new Error('relay_unavailable')}
+
+      return assembly.provision(principal, threadId)
+    } : undefined,
     t3,
     delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
     held: input.held,
@@ -110,8 +120,8 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       return incarnation ? input.modelAccess(incarnation) : 'unavailable'
     },
     socketPath: workSocketPath(account, input.socketBase),
-    sessions: ledger =>
-      new T3Sessions({
+    sessions: ledger => {
+      const sessions = new T3Sessions({
         origin: () => input.incarnation()?.origin,
         pairing: {
           create: label => {
@@ -125,10 +135,30 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
         agentName: input.agentName ?? (() => 'Assistant'),
         unfinished: principal => ledger.hasUnfinished(principal),
         knownAgents: () => ledger.agents().map(agent => agent.principal)
-      }),
+      })
+
+      ownerToken = async () => (await sessions.owner()).token
+
+      return sessions
+    },
     fetchJwks: input.fetchJwks,
     syncIntervalMs: input.syncIntervalMs,
     log: input.log,
     now: input.now
   })
+
+  if (input.relayAssistant) {
+    assembly = new RelayAssembly({
+      ...input.relayAssistant, ledger: service.ledger, t3,
+      ownerToken: () => {
+        if (!ownerToken) {throw new Error('relay_unavailable')}
+
+        return ownerToken()
+      },
+      fresh: () => service.gate.entitlementsFresh() && service.gate.planConsentState() === 'on',
+      now: input.now
+    })
+  }
+
+  return service
 }

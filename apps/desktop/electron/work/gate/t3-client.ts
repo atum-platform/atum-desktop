@@ -222,6 +222,8 @@ export function createT3Client(options: T3ClientOptions): T3Port {
   }
 
   return {
+    projects: (token, cursor) => call(token, 't3_project_list', { limit: 100, ...(cursor === undefined ? {} : { cursor }) }, {}, 20_000, true),
+    createProject: (token, input) => call(token, 't3_project_create', input, {}, 20_000, true),
     incarnation: options.incarnation,
     settingsFingerprint: () => fileFingerprint(options.settingsFile),
     read,

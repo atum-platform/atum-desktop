@@ -47,6 +47,8 @@ export interface T3Reader {
 
 export interface T3Port extends T3Reader {
   /** The id of the ready T3 process, or undefined while none serves. A new process has a new id. */
+  projects?(token: string, cursor?: number): Promise<T3Reply>
+  createProject?(token: string, input: { title: string; workspaceRoot: string }): Promise<T3Reply>
   incarnation(): string | undefined
   /** A digest of T3's provider and mode settings. A resend needs the same one that admission saw. */
   settingsFingerprint(): string
@@ -122,7 +124,7 @@ export interface WorkPlatform {
     accountId: string
     appliedSeq: number
     routeEpoch: number
-    contract?: '1.2'
+    contract?: '1.2' | '1.3'
   }): Promise<WorkSyncPage>
   ack(ack: WorkSyncAck): Promise<void>
   /** Resolves with the route state the platform holds after the event, when it says (a held reopen answers `closed`). */

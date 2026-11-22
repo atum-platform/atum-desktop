@@ -147,13 +147,16 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
     }))
     const first = await r.relay.read(r.ctx, REQ_1)
     expect(first).toMatchObject({ class: 'completed', answer: { text: 'frozen', itemId: 'final' } })
+
     if (process.env.ATUM_RELAY_PROTOCOL) {
       const protocol = await import(/* @vite-ignore */ process.env.ATUM_RELAY_PROTOCOL)
       expect(protocol.WorkRelayReceiptSchema.parse(first)).toEqual(first)
     }
+
     expect(await r.relay.read(r.ctx, REQ_1)).toEqual(first)
     expect((r.h.t3 as T3Port).readPage).toHaveBeenCalledTimes(1)
     expect(r.relay.close(r.ctx, REQ_1)).toBe(true)
+
     if (process.env.ATUM_RELAY_PROTOCOL) {
       const protocol = await import(/* @vite-ignore */ process.env.ATUM_RELAY_PROTOCOL)
       const closed = r.relay.closeReceipt(r.ctx, REQ_1)
@@ -317,4 +320,37 @@ it('recovers a lost launch acknowledgement by reading ordinal one without relaun
     answer: { runId: 'recovered', text: 'retained' }
   })
   expect(r.launch).toHaveBeenCalledTimes(1)
+})
+
+it('provisions a main-owned target only after verified history and freezes its persona on replay', async () => {
+  const r = rig()
+  const provision = vi.fn(async () => ({ projectId: 'assistant-project', personaRevision: 8 }))
+  const relay = new WorkRelay({ ...r.options, provision })
+  const first = await relay.send(r.ctx, r.input)
+  expect(first.class).toBe('accepted')
+  expect(provision).toHaveBeenCalledOnce()
+  const row = r.h.ledger.receipt(LUNA, REQ_1)!
+  expect(JSON.parse(row.callJson!).projectId).toBe('assistant-project')
+  expect(JSON.parse(row.relayJson!).frozenCall.binding.personaRevision).toBe(8)
+  expect(await relay.send(r.ctx, r.input)).toEqual(first)
+  expect(provision).toHaveBeenCalledOnce()
+})
+
+it('does not provision a project/persona when the owner event is unverifiable', async () => {
+  const r = rig()
+  const provision = vi.fn(async () => ({ projectId: 'assistant-project', personaRevision: 8 }))
+  r.owner.mockResolvedValueOnce({ kind: 'unreachable' } as never)
+  const relay = new WorkRelay({ ...r.options, provision })
+  await relay.send(r.ctx, r.input)
+  expect(provision).not.toHaveBeenCalled()
+  expect(r.launch).not.toHaveBeenCalled()
+})
+
+it('reports disconnected when selection or preflight authority is stale, even when the native provider is connected', async () => {
+  const r = rig()
+
+  for (const options of [{ ...r.options, selection: () => undefined }, { ...r.options, fence: () => false }]) {
+    const relay = new WorkRelay(options)
+    expect(await relay.status(r.ctx, '!dm:test')).toMatchObject({ connected: false })
+  }
 })

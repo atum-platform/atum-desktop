@@ -69,6 +69,7 @@ export interface RelayOptions {
   owner: OwnerEventVerifier
   history?: RelayHistory
   selection?(principal: string): RelaySelection | undefined
+  provision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
   authority?(ctx: CallContext): boolean
   fence(ctx: CallContext): boolean
   modeLimit: string
@@ -363,7 +364,7 @@ export class WorkRelay {
         return { class: 'refused', reason: 'session_replaced' }
       }
 
-      const selection = this.o.selection?.(ctx.principal)
+      let selection = this.o.selection?.(ctx.principal)
 
       if (!selection || selection.revision !== args.selection_rev || selection.instanceId !== 'codex') {
         return { class: 'refused', reason: 'selection_changed' }
@@ -433,6 +434,12 @@ export class WorkRelay {
 
       const threadId = binding.threadId ?? workExpectedThreadId(session.sessionId, args.request_id)
       const kind = binding.threadId ? 'send' : 'launch'
+
+      if (kind === 'launch' && this.o.provision) {
+        selection = { ...selection, ...await this.o.provision(ctx.principal, threadId) }
+      } else if (binding.selection) {
+        selection = { ...selection, projectId: binding.selection.projectId, personaRevision: binding.selection.personaRevision }
+      }
 
       const call =
         kind === 'launch'
@@ -635,7 +642,7 @@ export class WorkRelay {
       ],
       consent: this.o.consent(),
       connected:
-        (await this.o.t3.planProvider?.((await this.o.sessions.agent(ctx.principal)).token))?.status === 'connected',
+        Boolean(selection) && this.o.fence(ctx) && (await this.o.t3.planProvider?.((await this.o.sessions.agent(ctx.principal)).token))?.status === 'connected',
       localSwitch: this.o.localSwitch()
     }
   }

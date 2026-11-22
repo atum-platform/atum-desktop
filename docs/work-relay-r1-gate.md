@@ -110,3 +110,61 @@ Installed acceptance must verify shared native context pressure and compaction.
 
 These are fake-service/local integration proofs, not signed/ASAR or installed
 real-route acceptance, provider inference, physical sleep or real quota proofs.
+
+## Mac assembly follow-through (2026-11-22)
+
+Built locally, not live. The real Matrix composition (`matrix/main-work.ts`), not
+legacy `main.ts`, now passes the assistant provisioning ports to the gate factory.
+It reuses the device enrollment, owner-bearer device-service client, Matrix owner
+history/verifier, `account.agents` and `account.agentDefinition`. A completed
+definition read is fenced against account/generation changes before local writes.
+The existing peer-link `agentName` registration continues to supply T3's native
+"Started by" attribution; no caller attribution fields were added.
+
+`WorkSync` negotiates 1.3 on the existing pull; explicit 400 falls back to 1.2,
+then the existing 1.1 path, with the existing retry interval. Strict local 1.3
+readers mirror P1's selections/consent page and entitlement invariants. Selection
+and its server issue time are committed beside consent in the existing ledger,
+before the unchanged ack. Legacy pages clear relay selection. Regressed issue
+times refuse the page. The factory refuses selection when account sync/consent
+is stale, the snapshot is too old, or the plan is not compiled-in Codex. Status
+now reports disconnected on stale selection/preflight authority even when the
+native provider advertises a connection. Reset epoch/history floor remain in the
+existing per-binding Mac ledger: P1 carries no reset fields in account sync.
+
+`RelayAssembly` uses the existing authenticated T3 MCP transport to list/reuse or
+create a project for the assistant's single folder under `Atum/Assistants`.
+Folders use a stable digest of the agent principal, avoiding rename churn and
+path input from display names. Native project arguments were checked against
+T3's `toolkits/project/tools.ts` and contracts `project.ts`: title/workspaceRoot,
+with no synthetic caller fields. Listing before creation recovers a project
+whose creation reply was lost. No model call is involved.
+
+Selection is resolved in two stages: sync metadata for status/admission, then
+main-owned project/persona provisioning after owner-event and history checks,
+only for a new native thread. The derived full selection is frozen in G1's
+existing receipt transaction. On send/resume the binding supplies the pinned
+project and persona revision; a replay does not call provisioning at all.
+`AGENTS.md` holds only the synced SOUL and an explicit definition-revision stamp,
+written through a private temporary file and rename. The persona pin is durable
+per native thread. Record sync does not rewrite a live thread's persona. A reset
+or other confirmed new native session takes the latest definition revision and
+reuses the project/folder. No memory, Google tools or skill bundle is copied.
+
+Verification: 450 tests passed, 8 skipped across 28 passed test files and one
+skipped real-provider file (gate, mount and Matrix main-work suites). New coverage
+includes sync persistence-before-ack, 1.2 fallback, stale/regressed snapshots,
+project reuse after restart, persona revision pinning (RT11), native project wire
+arguments, main target/persona freezing and no provisioning before owner-event
+verification. Tests ran with disposable decoy HOME directories. Electron
+TypeScript no-emit check passed. ESLint passed for all touched files; the large
+Matrix main file retains four pre-existing padding warnings and no errors.
+`git diff --check` passed. Public guard passed directly against the local
+assembly commit with exit code 0 (no piping); it is rerun on the final amended
+commit containing this result, with its actual exit code in the handoff.
+
+Remaining: installed real-route acceptance, including actual maker loading and
+retention of instructions across provider resume/compaction (R-0-4/RT11), physical
+sleep/stop, and signed packaging. Reset UI and cloud publication-close remain
+coordinator assembly items from G1's handoff. No push, PR, CI, installation,
+production access, inference, spending, or credential-store reads were performed.

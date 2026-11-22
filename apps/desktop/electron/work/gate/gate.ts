@@ -61,6 +61,8 @@ import { type RelayHistory, type RelaySelection, WorkRelay } from './relay'
 export interface GateOptions {
   relayHistory?: RelayHistory
   relaySelection?(principal: string): RelaySelection | undefined
+  relayProvision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
+
   relayLimit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
   accountId: string
   deviceServiceId: string
@@ -238,6 +240,7 @@ export class WorkGate {
       ...options,
       history: options.relayHistory,
       selection: options.relaySelection,
+      provision: options.relayProvision,
       limit: options.relayLimit,
       now: this.now,
       modeLimit: this.modeLimit,

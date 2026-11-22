@@ -322,6 +322,20 @@ export const WorkSyncPageSchema = z
   })
   .strict()
   .refine(page => page.fromSeq <= page.headSeq, 'a page never starts after the head')
+/** Additive 1.3 page; the legacy reader stays strict. Reset remains in the Mac binding ledger. */
+export const WorkRelaySelectionSchema = z.object({
+  provider: z.literal('atum-work'), plan: z.enum(['codex', 'claude', 'antigravity']),
+  model: z.string().min(1).max(200), revision: positive
+}).strict()
+export const WorkRelaySyncPageSchema = WorkSyncPageSchema.safeExtend({
+  consent: WorkConsentSnapshotSchema,
+  selections: z.array(z.object({ agentPrincipal: uuid, selection: WorkRelaySelectionSchema }).strict()).max(256)
+}).superRefine((page, ctx) => {
+  if (new Set(page.selections.map(row => row.agentPrincipal)).size !== page.selections.length ||
+      page.selections.some(row => !page.entitled.includes(row.agentPrincipal))) {
+    ctx.addIssue({ code: 'custom', message: 'selection entitlement invariant' })
+  }
+})
 export type WorkSyncPage = z.infer<typeof WorkSyncPageSchema>
 
 export interface WorkSyncAck {

@@ -24,7 +24,7 @@ function platform() {
     async enroll() {
       return { work: null }
     },
-    async pull(input: { contract?: '1.2'; appliedSeq: number }) {
+    async pull(input: { contract?: '1.2' | '1.3'; appliedSeq: number }) {
       fake.pulls.push({ contract: input.contract })
 
       if (fake.rejectContract && input.contract) {
@@ -46,7 +46,7 @@ function platform() {
 const syncFor = (fake: WorkPlatform, extra = {}) =>
   new WorkSync({ gate: h.gate, ledger: h.ledger, platform: fake, accountId: ACCOUNT, deviceServiceId: DEVICE, now: h.clock.now, socketPath: () => '/tmp/g.sock', ...extra })
 
-describe('the pull asks for 1.2 and applies what comes back', () => {
+describe('the pull negotiates relay and applies legacy consent pages', () => {
   it('stores the snapshot in the same step as the page, starts its age, and acknowledges its revision', async () => {
     h = makeHarness()
     const fake = platform()
@@ -54,7 +54,7 @@ describe('the pull asks for 1.2 and applies what comes back', () => {
     fake.pages.push(page({ consent: snapshot() }))
     expect(await syncFor(fake).tick()).toBe('ok')
 
-    expect(fake.pulls[0]).toEqual({ contract: '1.2' })
+    expect(fake.pulls[0]).toEqual({ contract: '1.3' })
     expect(h.ledger.consent()).toEqual(snapshot())
     expect(h.gate.planConsentState()).toBe('on')
     expect(fake.acks.at(-1)).toMatchObject({ consentRevision: 4 })
@@ -109,10 +109,10 @@ describe('the pull asks for 1.2 and applies what comes back', () => {
 
     expect(await sync.tick()).toBe('ok')
     expect(h.ledger.appliedSeq()).toBe(1)
-    expect(fake.pulls).toEqual([{ contract: '1.2' }, { contract: undefined }])
+    expect(fake.pulls).toEqual([{ contract: '1.3' }, { contract: '1.2' }, { contract: undefined }])
 
     await sync.tick()
-    expect(fake.pulls.slice(2)).toEqual([{ contract: undefined }])
+    expect(fake.pulls.slice(3)).toEqual([{ contract: undefined }])
 
     h.clock.advance(3_600_001)
     await sync.tick()
