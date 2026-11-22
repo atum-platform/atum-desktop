@@ -20565,6 +20565,17 @@ async function start() {
         return agent?.matrixUser ?? null
       },
       agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
+      agentDefinition: async principal => {
+        const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
+          each => each.principal === principal && each.status === 'active'
+        )
+
+        if (!agent) {
+          throw new Error('relay_assistant_unavailable')
+        }
+
+        return account.agentDefinition(agent.id, AbortSignal.timeout(15_000))
+      },
       openProtons: () => shell.openExternal(`${domain.resource}/payments/protons`),
       publish: (channel, projection) => ui?.webContents.send(channel, projection),
       closing: () => closing,

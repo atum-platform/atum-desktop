@@ -20,6 +20,7 @@ import { AwarenessGallery } from './awareness-gallery'
 import { PLAYGROUND_SCENARIOS, scenarioSnapshot } from './fixtures'
 import { PlaygroundGoogleSettings } from './google-fixtures'
 import { LISTING_HIRE_VIEWS, PlaygroundListingHire } from './listing-hire-fixtures'
+import { PlaygroundRelay } from './relay-gallery'
 import {
   PLAYGROUND_ASSISTANT,
   PLAYGROUND_WALLET,
@@ -53,6 +54,7 @@ export const PLAYGROUND_VIEWS = [
   'settings-protons',
   'settings-google',
   'settings-work',
+  'relay',
   'account-menu',
   'loaders',
   'crash',
@@ -254,6 +256,11 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
   // Settings › Devices with Work's rows (slice B): `&work=ready&plan=…&connect=…&consent=…&sheet` (work-fixtures.ts).
   if (view === 'settings-work') {
     return <PlaygroundWorkSettings />
+  }
+
+  // Relay R1's picker rows and chip, Work's shared-context line, the plan's usage and the consent: `&relay=…` (relay-gallery.tsx).
+  if (view === 'relay') {
+    return <PlaygroundRelay />
   }
 
   // Settings › Account › Google in the state `?google=` names (google-fixtures.tsx).

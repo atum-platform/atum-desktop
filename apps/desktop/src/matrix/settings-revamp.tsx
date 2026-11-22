@@ -1,5 +1,7 @@
+import { useStore } from '@nanostores/react'
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { $work, $workRelayRooms } from '@/app/work/store'
 import { MatrixWorkSettings } from '@/app/work/work-settings'
 import { ProtonMark } from '@/components/brand/proton-mark'
 import { StatusDot } from '@/components/status-dot'
@@ -430,6 +432,7 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
   const chatgpt = provider === 'openai-codex'
   // One line per state (subscription-view.ts). A connected OpenCode Go plan keeps its name.
   const relay = chatgpt ? subscriptionProviderStatus(status, 'openai-codex')?.relay : undefined
+
   const help = chatgpt
     ? state === 'ready'
       ? relay?.state === 'enabled'
@@ -444,13 +447,19 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
     switch (view.action) {
       case 'manage':
         setDialog({ provider, kind: 'manage' })
+
         break
+
       case 'sign_in':
         setDialog({ provider: 'openai-codex', kind: 'connect' })
+
         break
+
       case 'reload':
         void reload()
+
         break
+
       default:
         setChoosing(true)
     }
@@ -519,6 +528,9 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
 
 /** Account Connections: subscriptions first, then the sources every assistant may use. */
 function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
+  const work = useStore($work)
+  const relayRooms = useStore($workRelayRooms)
+  const limit = Object.values(relayRooms).flatMap(room => room.status?.limits ?? []).find(each => each.plan === 'codex')
   const copy = useMatrixSettingsCopy()
   const { t } = useI18n()
   const subscriptionsBridge = useSubscriptionsBridge()
@@ -539,6 +551,8 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           ...(agent.mark ? { mark: agent.mark } : {}),
           isDefault: agent.isDefault
         }))}
+        planLimit={work?.planLimit ?? limit}
+        relayChats={Boolean(work?.relayChats?.length)}
       />
       <VideoConsentSettings
         bridge={subscriptionsBridge}
@@ -764,11 +778,13 @@ function PeopleDiscoverySetting() {
     if (!bridge) {
       return
     }
+
     let live = true
     void bridge.privacy().then(result => {
       if (!live) {
         return
       }
+
       if (result.ok) {
         setEnabled(result.enabled)
       } else {
@@ -779,6 +795,7 @@ function PeopleDiscoverySetting() {
         setFailed(true)
       }
     })
+
     return () => { live = false }
   }, [bridge])
 
@@ -790,6 +807,7 @@ function PeopleDiscoverySetting() {
     if (enabled === null || busy) {
       return
     }
+
     const previous = enabled
     setEnabled(next)
     setBusy(true)
@@ -801,6 +819,7 @@ function PeopleDiscoverySetting() {
         setEnabled(previous)
         setFailed(true)
       }
+
       setBusy(false)
     }, () => {
       setEnabled(previous)

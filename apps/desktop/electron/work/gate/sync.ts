@@ -3,6 +3,7 @@ import {
   WORK_SETTLEMENT_RETENTION_DAYS,
   type WorkEnrollmentFacts,
   WorkEnrollmentFactsSchema,
+  WorkRelaySyncPageSchema,
   WorkStopReportSchema,
   type WorkSyncChange,
   WorkSyncPageSchema
@@ -114,6 +115,7 @@ export class WorkSync {
   private routeRecoveries = 0
   private routeRecoveryAt = 0
   private contract12Retry = 0
+  private contract13Retry = 0
 
   constructor(private readonly options: WorkSyncOptions) {
     this.now = options.now ?? Date.now
@@ -181,7 +183,8 @@ export class WorkSync {
         break
       }
 
-      const page = WorkSyncPageSchema.safeParse(raw)
+      const relayPage = WorkRelaySyncPageSchema.safeParse(raw)
+      const page = relayPage.success ? relayPage : WorkSyncPageSchema.safeParse(raw)
 
       if (!page.success || page.data.deviceServiceId !== deviceServiceId || page.data.accountId !== accountId) {
         result = 'invalid'
@@ -189,7 +192,7 @@ export class WorkSync {
         break
       }
 
-      const outcome = this.apply(page.data)
+      const outcome = this.apply(page.data, relayPage.success ? relayPage.data : undefined)
 
       if (outcome !== 'ok') {
         result = outcome
@@ -274,7 +277,7 @@ export class WorkSync {
     }
   }
 
-  /** Pull as contract 1.2 (the consent snapshot rides the page), or as 1.1 against a platform that answered 400 to 1.2. */
+  /** Negotiate 1.3 selections, then 1.2 consent, then legacy revocation on explicit unsupported-contract replies. */
   private async pull(): Promise<unknown> {
     const { ledger, platform, accountId, deviceServiceId } = this.options
     const base = { deviceServiceId, accountId, appliedSeq: ledger.appliedSeq(), routeEpoch: ledger.routeEpoch() }
@@ -284,6 +287,17 @@ export class WorkSync {
 
       return platform.pull(base)
     }
+
+    if (this.now() >= this.contract13Retry) {
+      try {
+        return await platform.pull({ ...base, contract: '1.3' })
+      } catch (error) {
+        if ((error as { status?: number } | null)?.status !== 400) {throw error}
+        this.contract13Retry = this.now() + CONTRACT_12_RETRY_MS
+      }
+    }
+
+    ledger.setMeta('relay_selections', '[]')
 
     try {
       return await platform.pull({ ...base, contract: '1.2' })
@@ -302,9 +316,15 @@ export class WorkSync {
   }
 
   /** Apply one page durably. Returns 'ok' only when the page was applied in order and its head is not behind ours. */
-  private apply(page: ReturnType<typeof WorkSyncPageSchema.parse>): TickResult {
+  private apply(page: ReturnType<typeof WorkSyncPageSchema.parse>, relay?: ReturnType<typeof WorkRelaySyncPageSchema.parse>): TickResult {
     const { gate, ledger } = this.options
     const applied = ledger.appliedSeq()
+
+    if (relay && relay.issuedAt < Number(ledger.meta('relay_selection_issued_at') ?? 0)) {
+      gate.noteHeadRegressed()
+
+      return 'regressed'
+    }
 
     if (page.headSeq < applied) {
       gate.noteHeadRegressed()
@@ -338,6 +358,8 @@ export class WorkSync {
 
       // Gate 4b: the consent snapshot is applied durably in the SAME step as the page, and the plan threads of every assistant it no
       // longer names are cut off in that step too. Its age on this Mac's monotonic clock starts only once the step is committed.
+      ledger.setMeta('relay_selections', JSON.stringify(relay?.selections ?? []))
+      ledger.setMeta('relay_selection_issued_at', relay?.issuedAt ?? 0)
       const consent = page.consent
 
       if (consent) {

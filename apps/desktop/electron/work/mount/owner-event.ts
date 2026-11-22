@@ -179,7 +179,7 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
         return { kind: 'unreachable' }
       }
 
-      return { kind: 'ok', body: message.content.body, originServerTs: message.timestamp }
+      return { kind: 'ok', body: message.content.body, originServerTs: message.timestamp, roomId, encrypted: message.roomPlain !== true }
     }
   }
 }

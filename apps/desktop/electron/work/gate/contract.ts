@@ -10,7 +10,7 @@ import { z } from 'zod'
 // may change by amendment: change them here and in the contract together.
 
 export const WORK_GATE_PATH = '/agent/mcp'
-export const WORK_TOOLS = ['launch', 'interrupt', 'read', 'wait', 'list', 'request'] as const
+export const WORK_TOOLS = ['launch', 'send', 'status', 'reset', 'close', 'interrupt', 'read', 'wait', 'list', 'request'] as const
 export type WorkTool = (typeof WORK_TOOLS)[number]
 export const WORK_TERMINAL_THREAD_STATUSES = ['completed', 'failed', 'cancelled', 'interrupted', 'rolled_back'] as const
 export const WORK_WAIT_MAX_MS = 50_000
@@ -168,13 +168,26 @@ export const WorkRequestArgumentsSchema = z
   .object({ requestId: WorkRequestIdSchema, action: z.enum(['status', 'void']) })
   .strict()
 
+export const WorkSendArgumentsSchema = z.object({
+  request_id: WorkRequestIdSchema,
+  event_id: WorkOwnerEventSchema,
+  room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u),
+  selection_rev: positive
+}).strict()
+export type WorkSendArguments = z.infer<typeof WorkSendArgumentsSchema>
+export const WorkRelayStatusSchema = z.object({room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u)}).strict()
+export const WorkRelayRequestSchema = z.object({request_id: WorkRequestIdSchema}).strict()
 export const WORK_TOOL_ARGUMENTS = {
+  send: WorkSendArgumentsSchema,
+  status: WorkRelayStatusSchema,
+  reset: WorkRelayStatusSchema.extend({ request_id: WorkRequestIdSchema, floor_event_id: WorkOwnerEventSchema.optional() }).strict(),
+  close: WorkRelayRequestSchema,
   launch: WorkLaunchArgumentsSchema,
   interrupt: WorkInterruptArgumentsSchema,
-  read: WorkReadArgumentsSchema,
-  wait: WorkWaitArgumentsSchema,
+  read: z.union([WorkReadArgumentsSchema, WorkRelayRequestSchema]),
+  wait: z.union([WorkWaitArgumentsSchema, WorkRelayRequestSchema.extend({timeoutMs: z.number().int().min(1000).max(WORK_WAIT_MAX_MS).optional()}).strict()]),
   list: WorkListArgumentsSchema,
-  request: WorkRequestArgumentsSchema
+  request: z.union([WorkRequestArgumentsSchema, WorkRelayRequestSchema])
 } as const
 
 export type WorkLaunchArguments = z.infer<typeof WorkLaunchArgumentsSchema>
@@ -242,7 +255,7 @@ export type WorkThreadAnswer =
 
 /** `isError` is true unless the class is ok, accepted, none or pending. */
 export function workResultIsError(answerClass: string): boolean {
-  return !['ok', 'accepted', 'none', 'pending'].includes(answerClass)
+  return !['ok', 'accepted', 'completed', 'terminal', 'closed', 'none', 'pending'].includes(answerClass)
 }
 
 // ----- the platform's enrollment facts and account sync (device-services operations)
@@ -310,6 +323,20 @@ export const WorkSyncPageSchema = z
   })
   .strict()
   .refine(page => page.fromSeq <= page.headSeq, 'a page never starts after the head')
+/** Additive 1.3 page; the legacy reader stays strict. Reset remains in the Mac binding ledger. */
+export const WorkRelaySelectionSchema = z.object({
+  provider: z.literal('atum-work'), plan: z.enum(['codex', 'claude', 'antigravity']),
+  model: z.string().min(1).max(200), revision: positive
+}).strict()
+export const WorkRelaySyncPageSchema = WorkSyncPageSchema.safeExtend({
+  consent: WorkConsentSnapshotSchema,
+  selections: z.array(z.object({ agentPrincipal: uuid, selection: WorkRelaySelectionSchema }).strict()).max(256)
+}).superRefine((page, ctx) => {
+  if (new Set(page.selections.map(row => row.agentPrincipal)).size !== page.selections.length ||
+      page.selections.some(row => !page.entitled.includes(row.agentPrincipal))) {
+    ctx.addIssue({ code: 'custom', message: 'selection entitlement invariant' })
+  }
+})
 export type WorkSyncPage = z.infer<typeof WorkSyncPageSchema>
 
 export interface WorkSyncAck {

@@ -65,6 +65,7 @@ export function matrixManagedModelLabel(model: MatrixModelId): string {
  * an ineligible alias when the choice is written.
  */
 export interface MatrixCloudModelChoiceView {
+  revision?: number
   /** Server aliases eligible right now, in the server's order. */
   offered: readonly string[]
   /** The alias the server says this agent runs now. */
