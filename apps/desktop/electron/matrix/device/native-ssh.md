@@ -61,7 +61,18 @@ staging. The helper can be compiled without invoking a system prompt. Real
 launchd installation, live tunnel reachability and native authentication remain
 installed-app acceptance work. Tests use temporary homes and mocked process calls.
 
-### ChatGPT relay forced command
+### ChatGPT relay forced command (removed 2026-11-22)
+
+The SSH ChatGPT relay, its forced-command helper (`atum-chatgpt-relay`), its local socket and its device-frame handler are removed
+(self-work plan §12; `docs/work-subscriptions.md`). A task on the owner's plan now runs as a Work session on the Mac, through the Work gate.
+What remains of this section's contract is the fail-closed half: the desktop still requests
+`{"operation":"ssh_authorized_keys","purposes":true}`, but a list that carries a `relay` row (or any purpose other than `shell`) is refused whole before
+anything is installed, and `managedKeys` writes shell keys only, replacing any earlier managed block (so an old forced-command line is
+overwritten at the next reconcile). A `ChatGptRelayRequest` device frame is answered `refused 403 relay_disabled`. The text below is
+kept only as the record of what the old contract was.
+
+<details><summary>The old relay contract (historical, no code behind it)</summary>
+
 
 The desktop requests `{"operation":"ssh_authorized_keys","purposes":true}`.
 The plain operation returns only shell rows in the legacy three-field shape.
@@ -96,6 +107,9 @@ write starts, loss/timeout/oversize fails without retry permission. Host code mu
 map pre-submission unavailable to its existing fallback and never replay an
 ambiguous submitted call. Host/platform wiring and installed-Mac qualification
 are separate steps; the device-hub path remains until that parity is verified.
+
+
+</details>
 
 Validation uses mocked filesystem/socket tests plus a compiled Swift helper and
 real Unix sockets under a temporary home, with fake inference. No real SSH keys,

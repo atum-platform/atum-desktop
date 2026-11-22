@@ -49,7 +49,7 @@ function fixture(settings = mockSettings(), initialToken: string | null = null) 
     start: vi.fn(async () => {}),
     stop: vi.fn(async () => {}),
     keys: vi.fn(async keys => {
-      disk = managedKeys(disk, keys, '/test/atum-chatgpt-relay')
+      disk = managedKeys(disk, keys)
     })
   }
 
@@ -479,52 +479,25 @@ it('protects the token file and removes it on revoke without putting it in argv'
   expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
 })
 
-it('relay purpose has a forced fixed command and cannot acquire shell privileges; removing it preserves shell rows', () => {
-  const key = authorized[0].publicKey
-
-  const relay = { purpose: 'relay' as const, publicKey: key, ownerPrincipal: enrollment.deviceServiceId,
-    agentPrincipal: authorized[0].agentId, connectionEpoch: 4 }
-
-  const helper = '/Applications/Atum App.app/Contents/Resources/app.asar.unpacked/atum-chatgpt-relay'
-  const shell = managedKeys('', [key], helper)
-  const both = managedKeys('', [key, relay], helper)
-  expect(both).toContain(`command="'${helper}' ${relay.ownerPrincipal} ${relay.agentPrincipal} 4",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty,no-user-rc ${key}`)
-  expect(managedKeys(both, [key], helper)).toBe(shell)
-  expect(() => managedKeys('', [{ ...relay, agentPrincipal: 'bad;command' }], helper)).toThrow()
-})
-
-
-it('reconciles relay and shell purposes independently and clears relay admission on sign-out', async () => {
-  const f = fixture()
-  let rows = [{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], publicKey: authorized[0].publicKey.slice(0, -1) + 'I', purpose: 'relay' }]
-  const original = f.http.getMockImplementation()!
-  f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
-    ? Response.json(rows) : original(url, init))
-  await f.service.refresh()
-  expect(f.service.relayBindings()).toEqual([{ purpose: 'relay', publicKey: rows[1].publicKey,
-    ownerPrincipal: enrollment.deviceServiceId, agentPrincipal: authorized[0].agentId,
-    connectionEpoch: enrollment.enrollmentEpoch }])
-  expect(f.disk()).toContain('no-pty,no-user-rc')
-  rows = [rows[0]]
-  await f.service.refresh()
-  expect(f.service.relayBindings()).toEqual([])
-  expect(f.disk()).not.toContain('no-pty')
-  expect(f.disk()).toContain(authorized[0].publicKey)
-  await f.service.disconnect()
-  expect(f.service.relayBindings()).toEqual([])
-  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
-})
-
-it('rejects a public key shared between shell and relay purposes', async () => {
+it('the SSH ChatGPT relay is gone: a list that carries a `relay` key is refused whole, and no forced-command line is ever written', async () => {
   const f = fixture()
   const original = f.http.getMockImplementation()!
   f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
-    ? Response.json([{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], purpose: 'relay' }])
+    ? Response.json([{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], publicKey: authorized[0].publicKey.slice(0, -1) + 'I', purpose: 'relay' }])
     : original(url, init))
   await f.service.refresh()
   expect(f.service.status().status).toBe('error')
-  expect(f.service.relayBindings()).toEqual([])
   expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  expect(f.disk()).not.toContain('command=')
+})
+
+it('shell rows install as shell keys only, and an old relay block is replaced by them (no helper named anywhere)', () => {
+  const key = authorized[0].publicKey
+  const old = `# BEGIN ATUM MANAGED SSH KEYS\ncommand="'/x/atum-chatgpt-relay' a b 4",no-pty ${key}\n# END ATUM MANAGED SSH KEYS\n`
+
+  expect(managedKeys(old, [key])).toBe(`# BEGIN ATUM MANAGED SSH KEYS\nno-agent-forwarding,no-port-forwarding,no-X11-forwarding ${key}\n# END ATUM MANAGED SSH KEYS\n`)
+  expect(managedKeys(old, [])).toBe('')
+  expect(() => managedKeys('', [{ purpose: 'relay', publicKey: key } as unknown as string])).toThrow()
 })
 
 
@@ -534,7 +507,6 @@ it('opts into purpose rows while accepting legacy three-field shell rows', async
   const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
   expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', purposes: true })
   expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
-  expect(f.service.relayBindings()).toEqual([])
 })
 
 it('refuses unknown purposes before installing authorized keys', async () => {
@@ -547,7 +519,6 @@ it('refuses unknown purposes before installing authorized keys', async () => {
   expect(f.service.status().status).toBe('error')
   expect(f.system.keys).toHaveBeenCalledWith([])
   expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
-  expect(f.service.relayBindings()).toEqual([])
 })
 
 it.each([
