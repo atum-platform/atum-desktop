@@ -218,6 +218,8 @@ export class GateLedger {
       }
     }
 
+    this.db.exec("CREATE INDEX IF NOT EXISTS receipts_scheduled_usage ON receipts (json_extract(relay_json, '$.scheduledAt')) WHERE forwarded = 1 AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL")
+
     if (this.meta('route_epoch') === undefined) {
       this.setMeta('route_epoch', 1)
     }
@@ -397,6 +399,12 @@ export class GateLedger {
       | undefined
 
     return row ? receipt(row) : undefined
+  }
+
+  scheduledRuns(start: number): number {
+    return Number((this.db.prepare(
+      "SELECT COUNT(*) AS n FROM receipts WHERE forwarded = 1 AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL AND json_extract(relay_json, '$.scheduledAt') >= ?"
+    ).get(start) as Row).n)
   }
 
   receipts(where = '1 = 1', ...args: (string | number)[]): ReceiptRow[] {
@@ -615,7 +623,7 @@ export class GateLedger {
    * route event, and no T3 session is revoked (step 3 is pre-marked done), because an assistant that lost the plan keeps
    * its Atum access. Rows of the same principal that run on Atum are untouched.
    */
-  planCutoff(principals: string[], reason: string): CutoffResult[] {
+  planCutoff(principals: string[], reason: string, scheduledOnly = false): CutoffResult[] {
     return this.tx(() => {
       const results: CutoffResult[] = []
       const at = this.now()
@@ -624,7 +632,7 @@ export class GateLedger {
         const owed = Number(
           this.db
             .prepare(
-              "UPDATE receipts SET stop_scope = 'agent', stop_at = COALESCE(stop_at, ?), updated_at = ? WHERE principal = ? AND plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL"
+              "UPDATE receipts SET stop_scope = 'agent', stop_at = COALESCE(stop_at, ?), updated_at = ? WHERE principal = ? AND plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL" + (scheduledOnly ? " AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL" : "")
             )
             .run(at, at, principal).changes
         )

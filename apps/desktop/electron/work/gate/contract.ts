@@ -168,19 +168,31 @@ export const WorkRequestArgumentsSchema = z
   .object({ requestId: WorkRequestIdSchema, action: z.enum(['status', 'void']) })
   .strict()
 
-export const WorkSendArgumentsSchema = z.object({
-  request_id: WorkRequestIdSchema,
-  event_id: WorkOwnerEventSchema,
-  room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u),
-  selection_rev: positive
+export const WorkOwnerSendArgumentsSchema = z.object({
+  request_id: WorkRequestIdSchema, event_id: WorkOwnerEventSchema,
+  room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u), selection_rev: positive
 }).strict()
+export const WorkRelayStandingPermitSchema = z.object({
+  agentPrincipal: z.string().uuid(), deviceServiceId: z.string().uuid(), plan: z.enum(['codex', 'claude', 'antigravity']),
+  consentRevision: positive, alsoWhenScheduled: z.literal(true)
+}).strict()
+export const WorkRelayScheduledArgumentsSchema = z.object({
+  request_id: WorkRequestIdSchema, job_id: z.string().min(1).max(200), occurrence_id: z.string().min(1).max(200),
+  scheduled_at: safe, job_name: z.string().min(1).max(200),
+  selection_rev: positive, permit: WorkRelayStandingPermitSchema, prompt: z.string().min(1).max(120_000)
+}).strict()
+export const WorkSendArgumentsSchema = z.union([WorkOwnerSendArgumentsSchema, WorkRelayScheduledArgumentsSchema])
 export type WorkSendArguments = z.infer<typeof WorkSendArgumentsSchema>
-export const WorkRelayStatusSchema = z.object({room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u)}).strict()
+export const WorkRelayStatusSchema = z.union([
+  WorkOwnerSendArgumentsSchema.pick({room_id: true}),
+  z.object({job_id: z.string().min(1).max(200)}).strict()
+])
+export const WorkRelayResetArgumentsSchema = WorkOwnerSendArgumentsSchema.pick({room_id: true}).extend({request_id: WorkRequestIdSchema, floor_event_id: WorkOwnerEventSchema.optional()}).strict()
 export const WorkRelayRequestSchema = z.object({request_id: WorkRequestIdSchema}).strict()
 export const WORK_TOOL_ARGUMENTS = {
   send: WorkSendArgumentsSchema,
   status: WorkRelayStatusSchema,
-  reset: WorkRelayStatusSchema.extend({ request_id: WorkRequestIdSchema, floor_event_id: WorkOwnerEventSchema.optional() }).strict(),
+  reset: WorkRelayResetArgumentsSchema,
   close: WorkRelayRequestSchema,
   launch: WorkLaunchArgumentsSchema,
   interrupt: WorkInterruptArgumentsSchema,

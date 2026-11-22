@@ -149,12 +149,12 @@ describe('Settings and the consent sheet (§6)', () => {
       <I18nProvider configClient={null} initialLocale="en">
         <MatrixWorkSettings
           bridge={port()}
-          planLimit={{ plan: 'codex', state: 'available', observedAt: 1, usedPercent: 42 }}
+          planLimit={{ plan: 'codex', state: 'available', observedAt: 1, usedPercent: 42, scheduledRuns: 3 }}
         />
       </I18nProvider>
     )
 
-    expect(await screen.findByText('Connected on this Mac · 42% used')).toBeTruthy()
+    expect(await screen.findByText('Connected on this Mac · 42% used · 3 scheduled runs')).toBeTruthy()
   })
 
   it('keeps the connected row as it was without a limit', async () => {

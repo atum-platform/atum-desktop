@@ -38,7 +38,7 @@ interface Binding {
 }
 interface Frozen {
   frozenCall?: Record<string, unknown>
-  input: WorkSendArguments
+  input: WorkSendArguments & { room_id: string; event_id: string }
   bindingKey: string
   kind: 'launch' | 'send'
   call: Record<string, unknown>
@@ -57,6 +57,7 @@ interface Frozen {
   admission?: RelayAnswer
   answer?: RelayAnswer
   sendResult?: RelayAnswer
+  scheduledAt?: number
   closed?: boolean
   resultRun?: string
   hold?: string
@@ -84,7 +85,16 @@ export interface RelayOptions {
   limit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
 }
 
-/** Thin main-owned adapter. Never accepts prompt material or a T3 target from the caller. */
+/** Scheduled binding identities occupy a separate gate-owned namespace. */
+export function scheduledRoom(job: string): string {
+  return `!cron-${createHash('sha256').update(job).digest('hex')}:scheduled`
+}
+
+function scheduledEvent(job: string, occurrence: string): string {
+  return `$cron-${createHash('sha256').update(JSON.stringify([job, occurrence])).digest('hex')}`
+}
+
+/** Main-owned adapter: owner sends use verified events; scheduled sends require scoped standing consent. */
 export class WorkRelay {
   private busy = new Set<string>()
   private requests = new Set<string>()
@@ -313,7 +323,11 @@ export class WorkRelay {
       }
     }
 
-    const args = parsed.data
+    const scheduled = 'job_id' in parsed.data ? parsed.data : undefined
+
+    const args = scheduled
+      ? { ...scheduled, room_id: scheduledRoom(scheduled.job_id), event_id: scheduledEvent(scheduled.job_id, scheduled.occurrence_id) }
+      : parsed.data as WorkSendArguments & { room_id: string; event_id: string }
 
     if (!this.allowed(ctx)) {
       if (!this.frozen(ctx, args.request_id)) {
@@ -352,6 +366,31 @@ export class WorkRelay {
       )
     }
 
+    const permitValid = () => {
+      if (!scheduled) {return true}
+      const c = this.o.consent()
+      const p = scheduled.permit
+
+      return c.state === 'on' && c.alsoWhenScheduled === true && c.revision === p.consentRevision &&
+        p.agentPrincipal === ctx.principal && p.deviceServiceId === this.o.gateId().deviceServiceId &&
+        p.plan === 'codex' && c.provider === p.plan &&
+        Array.isArray(c.agents) && c.agents.includes(ctx.principal) &&
+        Array.isArray(c.devices) && c.devices.includes(p.deviceServiceId)
+    }
+
+    if (!permitValid()) {return { class: 'refused', reason: 'standing_permit_invalid' }}
+
+    // One scheduled operation per agent, including concurrent admissions of different jobs.
+    const scheduledLock = `scheduled:${ctx.principal}`
+
+    if (scheduled && (this.busy.has(scheduledLock) || this.o.ledger.receipts(
+      'principal = ? AND relay_json IS NOT NULL AND settled IS NULL', ctx.principal
+    ).some(row => { const f = JSON.parse(row.relayJson!) as Frozen;
+
+ return 'job_id' in f.input && !f.closed }))) {
+      return { class: 'refused', reason: 'scheduled_operation_limit' }
+    }
+
     const requestKey = `${ctx.principal}:${args.request_id}`
 
     if (this.requests.has(requestKey)) {
@@ -365,6 +404,7 @@ export class WorkRelay {
       return { class: 'refused', reason: 'operation_open' }
     }
 
+    if (scheduled) {this.busy.add(scheduledLock)}
     this.busy.add(lock)
     this.requests.add(requestKey)
     let bindingBefore: Binding | undefined
@@ -384,7 +424,7 @@ export class WorkRelay {
       let binding = this.binding(key, session.sessionId)
 
       if (binding.sessionId !== session.sessionId) {
-        if (!(await this.reset(ctx, args.room_id, args.event_id, true))) {
+        if (!(await this.reset(ctx, args.room_id, args.event_id, true, Boolean(scheduled)))) {
           return { class: 'refused', reason: 'session_stop_pending' }
         }
 
@@ -415,7 +455,7 @@ export class WorkRelay {
         return { class: 'refused', reason: 'plan_limit' }
       }
 
-      const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: args.event_id })
+      const event = scheduled ? { kind: 'ok' as const, roomId: args.room_id, encrypted: false, body: scheduled.prompt, originServerTs: scheduled.scheduled_at } : await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: args.event_id })
 
       if (event.kind !== 'ok') {
         return {
@@ -434,12 +474,12 @@ export class WorkRelay {
         return { class: 'refused', reason: age < 0 ? 'owner_event_future' : 'owner_event_too_old' }
       }
 
-      if (!this.o.history) {
+      if (!scheduled && !this.o.history) {
         return { class: 'unavailable', reason: 'history_unavailable' }
       }
 
       // A failed read is durably refused by send(), without a claim or dispatch.
-      const acquired = await this.o.history.read({
+      const acquired = scheduled ? [] : await this.o.history!.read({
         agentPrincipal: ctx.principal,
         roomId: args.room_id,
         before: args.event_id,
@@ -472,7 +512,7 @@ export class WorkRelay {
           ? renderHistory(selected.messages, selected.context)
           : ''
 
-      const message = `${history ? history + '\n\n' : ''}Current owner request:\n${event.body}`
+      const message = `${history ? history + '\n\n' : ''}${scheduled ? `Scheduled job ${scheduled.job_id}, occurrence ${scheduled.occurrence_id}:` : 'Current owner request:'}\n${event.body}`
 
       // Native launch has a 120,000-character ceiling. Never truncate the current request.
       if (message.length > 120_000) {
@@ -493,7 +533,7 @@ export class WorkRelay {
           ? {
               projectId: selection.projectId,
               workspaceStrategy: { type: 'root' },
-              title: 'Assistant conversation',
+              title: scheduled ? `Scheduled: ${scheduled.job_name}`.slice(0, 60) : 'Assistant conversation',
               modelSelection: { instanceId: selection.instanceId, model: selection.model },
               message,
               clientRequestId: args.request_id
@@ -538,12 +578,13 @@ export class WorkRelay {
         return { class: 'revoked' }
       }
 
-      if (this.o.selection?.(ctx.principal)?.revision !== args.selection_rev) {
+      if (!permitValid() || this.o.selection?.(ctx.principal)?.revision !== args.selection_rev) {
         return { class: 'refused', reason: 'selection_changed' }
       }
 
       const frozen: Frozen = {
         input: args,
+        ...(scheduled ? { scheduledAt: this.o.now() } : {}),
         bindingKey: key,
         kind,
         call,
@@ -565,7 +606,7 @@ export class WorkRelay {
 
       const gateId = this.o.gateId()
       frozen.frozenCall = {
-        envelope: args,
+        envelope: parsed.data,
         binding: {
           accountId: gateId.accountId,
           agentPrincipal: ctx.principal,
@@ -690,6 +731,7 @@ export class WorkRelay {
           }
         : { class: 'refused', reason: 'admission_failed', forwarded: false }
     } finally {
+      if (scheduled) {this.busy.delete(scheduledLock)}
       this.busy.delete(lock)
       this.requests.delete(requestKey)
     }
@@ -700,6 +742,8 @@ export class WorkRelay {
 
     return {
       gateId: this.o.gateId(),
+      agentPrincipal: ctx.principal,
+      scheduledUsage: this.scheduledUsage(ctx),
       selection: selection
         ? { provider: 'atum-work', plan: 'codex', model: selection.model, revision: selection.revision }
         : null,
@@ -718,6 +762,23 @@ export class WorkRelay {
         Boolean(selection) && this.o.fence(ctx) && (await this.o.t3.planProvider?.((await this.o.sessions.agent(ctx.principal)).token))?.status === 'connected',
       localSwitch: this.o.localSwitch()
     }
+  }
+  private scheduledUsage(ctx: CallContext) {
+    // Retain the observed reset boundary. Unknown usage windows stay explicitly unknown.
+    const key = `relay-usage:${this.o.gateId().accountId}:codex`
+    const resetAt = this.o.limit?.().resetAt
+    let window = JSON.parse(this.o.ledger.meta(key) ?? 'null') as { start: number; resetAt?: number } | null
+
+    if (!window || (window.resetAt !== undefined && this.o.now() >= window.resetAt)) {
+      window = { start: this.o.now(), ...(resetAt && resetAt > this.o.now() ? { resetAt } : {}) }
+    } else if (resetAt && resetAt > this.o.now()) {window.resetAt = resetAt}
+
+    const encoded = JSON.stringify(window)
+
+    if (this.o.ledger.meta(key) !== encoded) {this.o.ledger.setMeta(key, encoded)}
+    const runs = this.o.ledger.scheduledRuns(window.start)
+
+    return { runs, windowStart: window.start, ...(window.resetAt ? { resetsAt: window.resetAt } : {}) }
   }
   private holdReason(data?: Record<string, unknown> | null): string {
     const thread = (data?.thread ?? data) as Record<string, unknown> | undefined
@@ -1086,6 +1147,7 @@ export class WorkRelay {
 
     try {
       const b = this.binding(key, '')
+      const scheduled = room.endsWith(':scheduled')
       const event = trustedBoundary ? { kind: 'ok', roomId: room } : await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: floor })
 
       if (event.kind !== 'ok' || event.roomId !== room || !(this.o.resetAuthority?.(ctx) ?? this.allowed(ctx))) {
@@ -1115,12 +1177,12 @@ export class WorkRelay {
       }
 
       // Adapter proves the proposed boundary is after the existing floor by native room ordering.
-      if (!this.o.history) {
+      if (!scheduled && !this.o.history) {
         return false
       }
 
-      if (b.floor !== floor) {
-        const boundary = await this.o.history.read({ agentPrincipal: ctx.principal, roomId: room, before: floor, after: b.floor, floor: b.floor })
+      if (!scheduled && b.floor !== floor) {
+        const boundary = await this.o.history!.read({ agentPrincipal: ctx.principal, roomId: room, before: floor, after: b.floor, floor: b.floor })
 
         if (b.floor && !Array.isArray(boundary) && boundary.truncated) {return false}
       }

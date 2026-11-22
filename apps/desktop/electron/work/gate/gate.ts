@@ -400,10 +400,15 @@ export class WorkGate {
     this.ledger.setConsent(snapshot)
     const named = snapshot.state === 'on' ? new Set(snapshot.agents) : new Set<string>()
 
-    return this.ledger.planCutoff(
-      this.ledger.planPrincipals().filter(principal => !named.has(principal)),
-      snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off'
-    )
+    return [
+      ...this.ledger.planCutoff(
+        this.ledger.planPrincipals().filter(principal => !named.has(principal)),
+        snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off'
+      ),
+      ...(snapshot.alsoWhenScheduled ? [] : this.ledger.planCutoff(
+        this.ledger.planPrincipals().filter(principal => named.has(principal)), 'plan_not_scheduled', true
+      ))
+    ]
   }
 
   finishConsent(snapshot: WorkConsentSnapshot, results: CutoffResult[]): void {

@@ -114,7 +114,10 @@ export function WorkRelaySharedContextLine({ className, names }: { className?: s
 export function useWorkRelayUsageText(limit: WorkRelayLimit | undefined, now?: number): string {
   const { locale } = useI18n()
 
-  return workRelayUsageText(workRelayUsage(limit), { words: workRelayCopy(locale), now: now ?? Date.now(), locale })
+  const words = workRelayCopy(locale)
+  const usage = workRelayUsageText(workRelayUsage(limit), { words, now: now ?? Date.now(), locale })
+
+  return limit?.scheduledRuns === undefined ? usage : `${usage} · ${words.usageScheduled(limit.scheduledRuns)}`
 }
 
 /**
