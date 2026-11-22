@@ -122,6 +122,12 @@
       ]
     },
     {
+      "source": "apps/desktop/src/matrix/chatgpt-training-copy.ts",
+      "tables": [
+        "COPY"
+      ]
+    },
+    {
       "source": "apps/desktop/src/matrix/check-ins-copy.ts",
       "tables": [
         "matrixCheckInsCopy"
@@ -176,6 +182,11 @@
       ]
     },
     {
+      "note": "Partial locale table, not exported: copies",
+      "source": "apps/desktop/src/matrix/google-write-card-copy.ts",
+      "tables": []
+    },
+    {
       "source": "apps/desktop/src/matrix/group-picker-copy.ts",
       "tables": [
         "copies"
@@ -227,15 +238,15 @@
       ]
     },
     {
-      "source": "apps/desktop/src/matrix/pet/overlay-copy.ts",
-      "tables": [
-        "petOverlayCopy"
-      ]
-    },
-    {
       "source": "apps/desktop/src/matrix/person-info-copy.ts",
       "tables": [
         "copy"
+      ]
+    },
+    {
+      "source": "apps/desktop/src/matrix/pet/overlay-copy.ts",
+      "tables": [
+        "petOverlayCopy"
       ]
     },
     {
@@ -304,7 +315,22 @@
     },
     {
       "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/activity-copy.ts",
+      "tables": []
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/company-threads-copy.ts",
+      "tables": []
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
       "source": "apps/desktop/src/matrix/team-space/copy.ts",
+      "tables": []
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/drafts-copy.ts",
       "tables": []
     },
     {
@@ -312,6 +338,11 @@
       "tables": [
         "copy"
       ]
+    },
+    {
+      "note": "Derived formatting helpers; no locale table",
+      "source": "apps/desktop/src/matrix/team-space/message-link-copy.ts",
+      "tables": []
     },
     {
       "note": "Derived formatting helpers; no locale table",
@@ -333,6 +364,13 @@
       "source": "apps/desktop/src/matrix/updates/copy.ts",
       "tables": [
         "copy"
+      ]
+    },
+    {
+      "note": "Partial locale table, not exported: MATRIX_VIDEO_CONSENT_SENTENCES",
+      "source": "apps/desktop/src/matrix/video-consent-copy.ts",
+      "tables": [
+        "COPY"
       ]
     },
     {
@@ -374,6 +412,12 @@
       "source": "apps/desktop/shared/matrix-agent-access-band-copy.ts",
       "tables": [
         "matrixAgentAccessBandCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-agent-desk-copy.ts",
+      "tables": [
+        "matrixAgentDeskCopy"
       ]
     },
     {
@@ -493,6 +537,12 @@
       ]
     },
     {
+      "source": "apps/desktop/shared/matrix-google-write-copy.ts",
+      "tables": [
+        "MATRIX_GOOGLE_WRITE_COPY"
+      ]
+    },
+    {
       "source": "apps/desktop/shared/matrix-knowledge-sources-copy.ts",
       "tables": [
         "matrixKnowledgeSourcesCopy"
@@ -505,12 +555,30 @@
       ]
     },
     {
+      "source": "apps/desktop/shared/matrix-native-mac-copy.ts",
+      "tables": [
+        "matrixNativeMacCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-notification-copy.ts",
+      "tables": [
+        "copy"
+      ]
+    },
+    {
       "source": "apps/desktop/shared/matrix-pages-copy.ts",
       "tables": [
         "copy",
         "scanCopy",
         "archiveCopy",
         "updateCopy"
+      ]
+    },
+    {
+      "source": "apps/desktop/shared/matrix-presence-copy.ts",
+      "tables": [
+        "copy"
       ]
     },
     {
@@ -537,7 +605,9 @@
       "tables": [
         "matrixStatusLineCopy",
         "matrixProgressCopy",
-        "matrixToolActivityCopy"
+        "matrixToolActivityCopy",
+        "matrixApprovalWaitCopy",
+        "matrixVideoConsentWaitCopy"
       ]
     },
     {

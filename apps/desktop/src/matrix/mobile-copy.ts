@@ -1150,7 +1150,9 @@ const phoneScreensEn = {
   // `common`, `timeline` and `dm` scopes): the main assistant's badge (`mainAgent`,
   // main-agent-badge.tsx), the roster's status dots (`agentDot*`), deleting an assistant
   // (`agentRetireTitle`, `agentRetireBody`, `agentRetireConfirm`, `agentRetireFailed`,
-  // `agentCancel`) and a refused new name (`agentNameRefused`).
+  // `agentCancel`) and a refused new name (`agentNameRefused`). Hiring a listed assistant
+  // (listing-hire.tsx): its Hire button (`agentHireConfirm`), too few Protons (`agentHireShort`)
+  // and the two refusals (`agentAccountRefused`, `agentLimitRefused`).
   shell: {
     mainAgent: 'Main agent',
     agentDotReady: 'Ready',
@@ -1162,7 +1164,11 @@ const phoneScreensEn = {
     agentRetireConfirm: 'Delete',
     agentRetireFailed: "Couldn't delete the assistant. Try again.",
     agentCancel: 'Cancel',
-    agentNameRefused: "That name can't be used. Try another one."
+    agentNameRefused: "That name can't be used. Try another one.",
+    agentHireConfirm: 'Hire',
+    agentHireShort: 'Not enough Protons. Top up to continue.',
+    agentAccountRefused: "Atum can't create assistants for your account right now.",
+    agentLimitRefused: "You've reached the most assistants you can create."
   },
   // An answer's read-aloud button (voice.tsx), copied exactly from i18n `assistant.thread`:
   // `readAloud`, `stopReading`, `preparingAudio` (here `preparing`) and `readAloudFailed`
@@ -1173,9 +1179,11 @@ const phoneScreensEn = {
     preparing: 'Preparing audio...',
     failed: 'Read aloud failed'
   },
-  // Under the composer when Stop was refused (app.tsx), copied exactly from i18n `cloud.stopRefused`.
+  // Under the composer when Stop was refused (app.tsx), copied exactly from i18n `cloud.stopRefused`;
+  // the Stop control while a stop is on its way, including a scheduled run's, from i18n `cloud.stopping`.
   cloud: {
-    stopRefused: "Couldn't stop this reply. It may have already finished."
+    stopRefused: "Couldn't stop this reply. It may have already finished.",
+    stopping: 'Stopping…'
   },
   // The microphone's state while recording, copied exactly from i18n `composer.listening`.
   dictation: {
@@ -1239,6 +1247,81 @@ const phoneScreensEn = {
       showPinnedMessage: 'Jump to message',
       closePinnedMessages: 'Close pinned messages'
     }
+  },
+  // The relay's words in an assistant's chat (relay slice R1), copied exactly from app/work/relay-copy.ts
+  // (`workRelayCopy`), which the export cannot read (it is outside src/matrix). Desktop has English and
+  // Vietnamese; the other locales repeat the English, as the desktop shows them. `greyed` is the picker's
+  // note under a plan's greyed rows and `fixAllow` its Allow action (relay-copy `fix.allow`, which opens the
+  // consent sheet); `fallback(model, why)` the line under a reply another model gave, with `fallbackWhy`;
+  // the held, stopped, queued, late, empty and failed turn lines and `stop`; the composer chip's
+  // `chipLimit` and `chipGreyed`; the plan's usage line (`usageUsed`, `usageLimit`, `usageUnknown`); and the
+  // consent sheet's chats wording (`consentChatsLine`, `consentScheduled`). `plan` is the plan's product
+  // name ("ChatGPT"), `model` the Atum model that answered, `at` a formatted time; with no `at` the words
+  // say so. relay-copy `greyed` and `fallbackWhy.mac_off` are formatters that never say the plan: here they are words.
+  relay: {
+    greyed: {
+      connect: 'Not connected on any of your Macs',
+      allow: 'Not allowed for this assistant yet',
+      google: 'Not yet for assistants that use Google',
+      encrypted: 'Not for encrypted chats'
+    },
+    fixAllow: 'Allow',
+    fallback: (model: string, why: string) => `${model} answered · ${why}`,
+    fallbackWhy: {
+      mac_off: 'your Mac was off',
+      consent_off: (plan: string) => `${plan} wasn’t allowed`,
+      switch_off: (plan: string) => `${plan} is off on your Mac`,
+      limit: (plan: string) => `${plan} limit reached`,
+      other: (plan: string) => `${plan} couldn’t answer`
+    },
+    waiting: 'Waiting for your Mac',
+    needsOk: 'Needs your OK on your Mac',
+    limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
+    stopping: 'Stopping…',
+    stopped: 'Stopped',
+    queued: 'Waiting for the reply above',
+    late: (at: string) => `Finished on your Mac at ${at}`,
+    empty: 'Finished on your Mac · no answer',
+    failed: 'Didn’t finish on your Mac',
+    stop: 'Stop',
+    chipLimit: (plan: string, at?: string) => (at ? `${plan} limit reached · back at ${at}` : `${plan} limit reached`),
+    chipGreyed: {
+      connect: (plan: string) => `${plan} isn’t connected on any of your Macs`,
+      allow: (plan: string) => `${plan} isn’t allowed for this assistant`,
+      google: (plan: string) => `${plan} isn’t available yet for assistants that use Google`,
+      encrypted: (plan: string) => `${plan} isn’t available in encrypted chats`
+    },
+    usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
+    usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+    usageUnknown: 'Usage not reported',
+    consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
+    consentScheduled: 'Also for scheduled work'
+  },
+  // The ChatGPT plan's consent sheet (app/work/plan-consent.tsx) and its Settings row title, copied
+  // exactly from app/work/copy.ts (`workCopy`): `consent.*` (each Mac by its own name, an unnamed one as
+  // `otherMac`; `granted` takes a formatted date) and `connect.rowTitle` (here `planRow`). English and
+  // Vietnamese on desktop; the other locales repeat the English, as the desktop shows them.
+  work: {
+    planRow: 'ChatGPT plan',
+    consent: {
+      title: 'Let assistants use your ChatGPT plan?',
+      assistants: 'Assistants',
+      macs: 'Macs',
+      otherMac: (index: number) => `Your other Mac ${index}`,
+      allow: 'Allow',
+      save: 'Save',
+      cancel: 'Cancel',
+      granted: (since: string) => `Allowed since ${since}`,
+      revoke: 'Turn off everywhere',
+      failed: 'Couldn’t save just now.',
+      none: 'No assistant can work on your Mac yet.'
+    }
+  },
+  // The persona's section titles, as the assistant card writes them into the persona in every locale
+  // (shared/matrix-assistant-persona.ts `PERSONA_WHO` and `PERSONA_WHAT`), copied exactly.
+  assistantCard: {
+    personaWho: 'Who you are',
+    personaWhat: 'What you do'
   }
 }
 
@@ -1323,7 +1406,11 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       agentRetireConfirm: 'Xóa',
       agentRetireFailed: 'Chưa xóa được trợ lý. Hãy thử lại.',
       agentCancel: 'Hủy',
-      agentNameRefused: 'Không dùng được tên này. Hãy thử tên khác.'
+      agentNameRefused: 'Không dùng được tên này. Hãy thử tên khác.',
+      agentHireConfirm: 'Thuê',
+      agentHireShort: 'Không đủ Proton. Hãy nạp thêm để tiếp tục.',
+      agentAccountRefused: 'Hiện Atum chưa thể tạo trợ lý cho tài khoản của bạn.',
+      agentLimitRefused: 'Bạn đã tạo đủ số trợ lý tối đa.'
     },
     readAloud: {
       readAloud: 'Đọc thành tiếng',
@@ -1332,7 +1419,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       failed: 'Không đọc được thành tiếng'
     },
     cloud: {
-      stopRefused: 'Chưa dừng được câu trả lời này. Có thể trợ lý đã trả lời xong.'
+      stopRefused: 'Chưa dừng được câu trả lời này. Có thể trợ lý đã trả lời xong.',
+      stopping: 'Đang dừng…'
     },
     dictation: {
       listening: 'Listening'
@@ -1391,6 +1479,65 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
         showPinnedMessage: 'Đến tin nhắn',
         closePinnedMessages: 'Đóng tin nhắn đã ghim'
       }
+    },
+    relay: {
+      greyed: {
+        connect: 'Chưa kết nối trên máy Mac nào',
+        allow: 'Chưa cho phép trợ lý này',
+        google: 'Chưa dùng được cho trợ lý có Google',
+        encrypted: 'Không dùng cho cuộc trò chuyện mã hoá'
+      },
+      fixAllow: 'Cho phép',
+      fallback: (model: string, why: string) => `${model} trả lời · ${why}`,
+      fallbackWhy: {
+        mac_off: 'máy Mac của bạn đang tắt',
+        consent_off: (plan: string) => `${plan} chưa được cho phép`,
+        switch_off: (plan: string) => `${plan} đang tắt trên máy Mac`,
+        limit: (plan: string) => `${plan} hết lượt dùng`,
+        other: (plan: string) => `${plan} chưa trả lời được`
+      },
+      waiting: 'Đang chờ máy Mac của bạn',
+      needsOk: 'Cần bạn đồng ý trên máy Mac',
+      limitHeld: (plan: string, at?: string) => (at ? `${plan} hết lượt · tiếp tục lúc ${at}` : `${plan} hết lượt · tiếp tục khi có lượt lại`),
+      stopping: 'Đang dừng…',
+      stopped: 'Đã dừng',
+      queued: 'Chờ câu trả lời phía trên',
+      late: (at: string) => `Xong trên máy Mac lúc ${at}`,
+      empty: 'Đã xong trên máy Mac · không có câu trả lời',
+      failed: 'Chưa xong trên máy Mac',
+      stop: 'Dừng',
+      chipLimit: (plan: string, at?: string) => (at ? `${plan} hết lượt · có lại lúc ${at}` : `${plan} hết lượt`),
+      chipGreyed: {
+        connect: (plan: string) => `${plan} chưa kết nối trên máy Mac nào`,
+        allow: (plan: string) => `${plan} chưa được cho phép với trợ lý này`,
+        google: (plan: string) => `${plan} chưa dùng được cho trợ lý có Google`,
+        encrypted: (plan: string) => `${plan} không dùng trong cuộc trò chuyện mã hoá`
+      },
+      usageUsed: (percent: number, at?: string) => (at ? `Đã dùng ${percent}% · làm mới ${at}` : `Đã dùng ${percent}%`),
+      usageLimit: (at?: string) => (at ? `Hết lượt · làm mới ${at}` : 'Hết lượt'),
+      usageUnknown: 'Chưa có số liệu sử dụng',
+      consentChatsLine: 'Cuộc trò chuyện của bạn với họ chạy trên máy Mac bằng gói này. Dừng bất cứ lúc nào.',
+      consentScheduled: 'Cả việc theo lịch'
+    },
+    work: {
+      planRow: 'Gói ChatGPT',
+      consent: {
+        title: 'Cho trợ lý dùng gói ChatGPT của bạn?',
+        assistants: 'Trợ lý',
+        macs: 'Máy Mac',
+        otherMac: (index: number) => `Máy Mac khác ${index}`,
+        allow: 'Cho phép',
+        save: 'Lưu',
+        cancel: 'Huỷ',
+        granted: (since: string) => `Đã cho phép từ ${since}`,
+        revoke: 'Tắt ở mọi nơi',
+        failed: 'Chưa lưu được lúc này.',
+        none: 'Chưa có trợ lý nào làm việc được trên máy Mac của bạn.'
+      }
+    },
+    assistantCard: {
+      personaWho: 'Who you are',
+      personaWhat: 'What you do'
     }
   },
   ja: {
@@ -1472,7 +1619,11 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       agentRetireConfirm: '削除',
       agentRetireFailed: 'アシスタントを削除できませんでした。もう一度お試しください。',
       agentCancel: 'キャンセル',
-      agentNameRefused: 'この名前は使えません。別の名前をお試しください。'
+      agentNameRefused: 'この名前は使えません。別の名前をお試しください。',
+      agentHireConfirm: '雇う',
+      agentHireShort: 'Proton が不足しています。チャージしてから続けてください。',
+      agentAccountRefused: '現在、このアカウントでは Atum でアシスタントを作成できません。',
+      agentLimitRefused: '作成できるアシスタントの上限に達しました。'
     },
     readAloud: {
       readAloud: '読み上げ',
@@ -1481,7 +1632,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       failed: '読み上げに失敗しました'
     },
     cloud: {
-      stopRefused: 'この返信を停止できませんでした。すでに完了している可能性があります。'
+      stopRefused: 'この返信を停止できませんでした。すでに完了している可能性があります。',
+      stopping: '停止中…'
     },
     dictation: {
       listening: '聴いています'
@@ -1540,6 +1692,65 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
         showPinnedMessage: 'Jump to message',
         closePinnedMessages: 'Close pinned messages'
       }
+    },
+    relay: {
+      greyed: {
+        connect: 'Not connected on any of your Macs',
+        allow: 'Not allowed for this assistant yet',
+        google: 'Not yet for assistants that use Google',
+        encrypted: 'Not for encrypted chats'
+      },
+      fixAllow: 'Allow',
+      fallback: (model: string, why: string) => `${model} answered · ${why}`,
+      fallbackWhy: {
+        mac_off: 'your Mac was off',
+        consent_off: (plan: string) => `${plan} wasn’t allowed`,
+        switch_off: (plan: string) => `${plan} is off on your Mac`,
+        limit: (plan: string) => `${plan} limit reached`,
+        other: (plan: string) => `${plan} couldn’t answer`
+      },
+      waiting: 'Waiting for your Mac',
+      needsOk: 'Needs your OK on your Mac',
+      limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
+      stopping: 'Stopping…',
+      stopped: 'Stopped',
+      queued: 'Waiting for the reply above',
+      late: (at: string) => `Finished on your Mac at ${at}`,
+      empty: 'Finished on your Mac · no answer',
+      failed: 'Didn’t finish on your Mac',
+      stop: 'Stop',
+      chipLimit: (plan: string, at?: string) => (at ? `${plan} limit reached · back at ${at}` : `${plan} limit reached`),
+      chipGreyed: {
+        connect: (plan: string) => `${plan} isn’t connected on any of your Macs`,
+        allow: (plan: string) => `${plan} isn’t allowed for this assistant`,
+        google: (plan: string) => `${plan} isn’t available yet for assistants that use Google`,
+        encrypted: (plan: string) => `${plan} isn’t available in encrypted chats`
+      },
+      usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
+      usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageUnknown: 'Usage not reported',
+      consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
+      consentScheduled: 'Also for scheduled work'
+    },
+    work: {
+      planRow: 'ChatGPT plan',
+      consent: {
+        title: 'Let assistants use your ChatGPT plan?',
+        assistants: 'Assistants',
+        macs: 'Macs',
+        otherMac: (index: number) => `Your other Mac ${index}`,
+        allow: 'Allow',
+        save: 'Save',
+        cancel: 'Cancel',
+        granted: (since: string) => `Allowed since ${since}`,
+        revoke: 'Turn off everywhere',
+        failed: 'Couldn’t save just now.',
+        none: 'No assistant can work on your Mac yet.'
+      }
+    },
+    assistantCard: {
+      personaWho: 'Who you are',
+      personaWhat: 'What you do'
     }
   },
   zh: {
@@ -1621,7 +1832,11 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       agentRetireConfirm: '删除',
       agentRetireFailed: '未能删除助手，请重试。',
       agentCancel: '取消',
-      agentNameRefused: '此名称无法使用，请换一个。'
+      agentNameRefused: '此名称无法使用，请换一个。',
+      agentHireConfirm: '聘请',
+      agentHireShort: 'Proton 余额不足。请充值后继续。',
+      agentAccountRefused: 'Atum 目前无法为你的账户创建助手。',
+      agentLimitRefused: '你已达到可创建助手的数量上限。'
     },
     readAloud: {
       readAloud: '朗读',
@@ -1630,7 +1845,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       failed: '朗读失败'
     },
     cloud: {
-      stopRefused: '未能停止这条回复，它可能已经完成。'
+      stopRefused: '未能停止这条回复，它可能已经完成。',
+      stopping: '正在停止…'
     },
     dictation: {
       listening: '聆听中'
@@ -1689,6 +1905,65 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
         showPinnedMessage: 'Jump to message',
         closePinnedMessages: 'Close pinned messages'
       }
+    },
+    relay: {
+      greyed: {
+        connect: 'Not connected on any of your Macs',
+        allow: 'Not allowed for this assistant yet',
+        google: 'Not yet for assistants that use Google',
+        encrypted: 'Not for encrypted chats'
+      },
+      fixAllow: 'Allow',
+      fallback: (model: string, why: string) => `${model} answered · ${why}`,
+      fallbackWhy: {
+        mac_off: 'your Mac was off',
+        consent_off: (plan: string) => `${plan} wasn’t allowed`,
+        switch_off: (plan: string) => `${plan} is off on your Mac`,
+        limit: (plan: string) => `${plan} limit reached`,
+        other: (plan: string) => `${plan} couldn’t answer`
+      },
+      waiting: 'Waiting for your Mac',
+      needsOk: 'Needs your OK on your Mac',
+      limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
+      stopping: 'Stopping…',
+      stopped: 'Stopped',
+      queued: 'Waiting for the reply above',
+      late: (at: string) => `Finished on your Mac at ${at}`,
+      empty: 'Finished on your Mac · no answer',
+      failed: 'Didn’t finish on your Mac',
+      stop: 'Stop',
+      chipLimit: (plan: string, at?: string) => (at ? `${plan} limit reached · back at ${at}` : `${plan} limit reached`),
+      chipGreyed: {
+        connect: (plan: string) => `${plan} isn’t connected on any of your Macs`,
+        allow: (plan: string) => `${plan} isn’t allowed for this assistant`,
+        google: (plan: string) => `${plan} isn’t available yet for assistants that use Google`,
+        encrypted: (plan: string) => `${plan} isn’t available in encrypted chats`
+      },
+      usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
+      usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageUnknown: 'Usage not reported',
+      consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
+      consentScheduled: 'Also for scheduled work'
+    },
+    work: {
+      planRow: 'ChatGPT plan',
+      consent: {
+        title: 'Let assistants use your ChatGPT plan?',
+        assistants: 'Assistants',
+        macs: 'Macs',
+        otherMac: (index: number) => `Your other Mac ${index}`,
+        allow: 'Allow',
+        save: 'Save',
+        cancel: 'Cancel',
+        granted: (since: string) => `Allowed since ${since}`,
+        revoke: 'Turn off everywhere',
+        failed: 'Couldn’t save just now.',
+        none: 'No assistant can work on your Mac yet.'
+      }
+    },
+    assistantCard: {
+      personaWho: 'Who you are',
+      personaWhat: 'What you do'
     }
   },
   'zh-hant': {
@@ -1770,7 +2045,11 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       agentRetireConfirm: '刪除',
       agentRetireFailed: '無法刪除助理，請再試一次。',
       agentCancel: '取消',
-      agentNameRefused: '此名稱無法使用，請換一個。'
+      agentNameRefused: '此名稱無法使用，請換一個。',
+      agentHireConfirm: '聘請',
+      agentHireShort: 'Proton 餘額不足。請加值後繼續。',
+      agentAccountRefused: 'Atum 目前無法為你的帳戶建立助理。',
+      agentLimitRefused: '你已達到可建立助理的數量上限。'
     },
     readAloud: {
       readAloud: '朗讀',
@@ -1779,7 +2058,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       failed: '朗讀失敗'
     },
     cloud: {
-      stopRefused: '未能停止這則回覆，它可能已經完成。'
+      stopRefused: '未能停止這則回覆，它可能已經完成。',
+      stopping: '正在停止…'
     },
     dictation: {
       listening: '聆聽中'
@@ -1838,6 +2118,65 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
         showPinnedMessage: 'Jump to message',
         closePinnedMessages: 'Close pinned messages'
       }
+    },
+    relay: {
+      greyed: {
+        connect: 'Not connected on any of your Macs',
+        allow: 'Not allowed for this assistant yet',
+        google: 'Not yet for assistants that use Google',
+        encrypted: 'Not for encrypted chats'
+      },
+      fixAllow: 'Allow',
+      fallback: (model: string, why: string) => `${model} answered · ${why}`,
+      fallbackWhy: {
+        mac_off: 'your Mac was off',
+        consent_off: (plan: string) => `${plan} wasn’t allowed`,
+        switch_off: (plan: string) => `${plan} is off on your Mac`,
+        limit: (plan: string) => `${plan} limit reached`,
+        other: (plan: string) => `${plan} couldn’t answer`
+      },
+      waiting: 'Waiting for your Mac',
+      needsOk: 'Needs your OK on your Mac',
+      limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
+      stopping: 'Stopping…',
+      stopped: 'Stopped',
+      queued: 'Waiting for the reply above',
+      late: (at: string) => `Finished on your Mac at ${at}`,
+      empty: 'Finished on your Mac · no answer',
+      failed: 'Didn’t finish on your Mac',
+      stop: 'Stop',
+      chipLimit: (plan: string, at?: string) => (at ? `${plan} limit reached · back at ${at}` : `${plan} limit reached`),
+      chipGreyed: {
+        connect: (plan: string) => `${plan} isn’t connected on any of your Macs`,
+        allow: (plan: string) => `${plan} isn’t allowed for this assistant`,
+        google: (plan: string) => `${plan} isn’t available yet for assistants that use Google`,
+        encrypted: (plan: string) => `${plan} isn’t available in encrypted chats`
+      },
+      usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
+      usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageUnknown: 'Usage not reported',
+      consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
+      consentScheduled: 'Also for scheduled work'
+    },
+    work: {
+      planRow: 'ChatGPT plan',
+      consent: {
+        title: 'Let assistants use your ChatGPT plan?',
+        assistants: 'Assistants',
+        macs: 'Macs',
+        otherMac: (index: number) => `Your other Mac ${index}`,
+        allow: 'Allow',
+        save: 'Save',
+        cancel: 'Cancel',
+        granted: (since: string) => `Allowed since ${since}`,
+        revoke: 'Turn off everywhere',
+        failed: 'Couldn’t save just now.',
+        none: 'No assistant can work on your Mac yet.'
+      }
+    },
+    assistantCard: {
+      personaWho: 'Who you are',
+      personaWhat: 'What you do'
     }
   }
 }
