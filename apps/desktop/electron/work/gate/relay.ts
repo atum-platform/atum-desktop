@@ -1006,7 +1006,7 @@ export class WorkRelay {
       return true
     })
   }
-  async resetReceipt(ctx: CallContext, room: string, id: string): Promise<RelayAnswer> {
+  async resetReceipt(ctx: CallContext, room: string, id: string, floorEventId?: string): Promise<RelayAnswer> {
     const key = `${this.scope(ctx, room)}:reset:${id}`
     // Request identity is scoped to the assistant, so a changed room cannot replay it.
     const claim = `relay-reset:${ctx.principal}:${id}`
@@ -1017,10 +1017,19 @@ export class WorkRelay {
     if (existingRoom && existingRoom !== room) {return this.wire(ctx, id, { class: 'refused', reason: 'changed' })}
     let reset = JSON.parse(this.o.ledger.meta(key) ?? 'null') as { floor: string; epoch: number; confirmed: boolean } | null
 
+    if (reset && floorEventId && reset.floor !== floorEventId) {return this.wire(ctx, id, { class: 'refused', reason: 'changed' })}
+
     if (!reset) {
-      if (!this.o.history?.boundary) {return this.wire(ctx, id, { class: 'refused', reason: 'history_unavailable' })}
+      if (!floorEventId && !this.o.history?.boundary) {return this.wire(ctx, id, { class: 'refused', reason: 'history_unavailable' })}
       this.o.ledger.setMeta(claim, room)
-      const floor = await this.o.history.boundary({ agentPrincipal: ctx.principal, roomId: room })
+
+      if (floorEventId) {
+        const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: floorEventId })
+
+        if (event.kind !== 'ok' || event.roomId !== room) {return this.wire(ctx, id, { class: 'refused', reason: 'owner_event_unverifiable' })}
+      }
+
+      const floor = floorEventId ?? await this.o.history!.boundary!({ agentPrincipal: ctx.principal, roomId: room })
       reset = { floor, epoch: this.binding(this.key(ctx, room), '').epoch + 1, confirmed: false }
       this.o.ledger.tx(() => {
         this.o.ledger.setMeta(claim, room)
@@ -1120,6 +1129,10 @@ export class WorkRelay {
 
       return true
     } finally {
+      const current = this.binding(key, '')
+
+      if (current.resetPending) {this.save(key, { ...current, resetPending: false })}
+
       if (!withinAdmission) {this.busy.delete(lock)}
     }
   }

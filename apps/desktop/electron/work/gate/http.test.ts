@@ -601,5 +601,5 @@ it('G6/G7 authenticates reset and separates a nonblocking read from one bounded 
   const reset = vi.spyOn(h.gate.relay, 'resetReceipt').mockResolvedValue({ class: 'reset', receipt: 'reset', epoch: 1, stopConfirmed: true })
   const reply = await post(rpc('reset', { room_id: '!dm:test', request_id: REQ_2 }), await good())
   expect(reply.json.result.structuredContent).toMatchObject({ class: 'reset', receipt: 'reset', epoch: 1, stopConfirmed: true })
-  expect(reset).toHaveBeenCalledWith(expect.any(Object), '!dm:test', REQ_2)
+  expect(reset).toHaveBeenCalledWith(expect.any(Object), '!dm:test', REQ_2, undefined)
 })

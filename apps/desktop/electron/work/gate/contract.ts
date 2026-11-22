@@ -180,7 +180,7 @@ export const WorkRelayRequestSchema = z.object({request_id: WorkRequestIdSchema}
 export const WORK_TOOL_ARGUMENTS = {
   send: WorkSendArgumentsSchema,
   status: WorkRelayStatusSchema,
-  reset: WorkRelayStatusSchema.extend({ request_id: WorkRequestIdSchema }).strict(),
+  reset: WorkRelayStatusSchema.extend({ request_id: WorkRequestIdSchema, floor_event_id: WorkOwnerEventSchema.optional() }).strict(),
   close: WorkRelayRequestSchema,
   launch: WorkLaunchArgumentsSchema,
   interrupt: WorkInterruptArgumentsSchema,

@@ -243,3 +243,25 @@ accept `consent_off` and `switch_off`, with one regression case for each.
  Installed/real-route
 acceptance, physical sleep, provider inference and packaging remain coordinator
 work. No extra review was launched by this implementation child.
+
+## Round 3 recovery amendment (2026-11-22)
+
+Built locally, not live. Reuses the existing gate ledger, reset receipts and
+native stop/read boundary. No new execution or provider surface is introduced.
+
+Reset now accepts optional `floor_event_id: string` (a Matrix owner event ID) in
+its arguments. The gate validates owner and room provenance, freezes that event
+as the history floor and rejects a changed floor on an idempotent retry. Legacy
+callers omitting it still use the observed history boundary. This keeps messages
+after the owner's reset above the floor even if the Mac wakes much later.
+The protocol coordinator owns the matching shared contract amendment.
+
+A failed or incomplete reset clears the temporary `resetPending` latch in
+`finally`. The existing open operation and stop scope remain authoritative;
+the cloud can retry its durable reset rather than leaving a permanent latch.
+The fallback reader now covers `consent_off` and `switch_off` using the existing
+fallback explanation category.
+
+Focused relay, HTTP, history and fallback tests: 121 passed, one existing skip.
+Full Electron, typecheck, lint and outbound guard results follow in the final
+verification entry. No push, PR, CI run, deployment or paid API use.

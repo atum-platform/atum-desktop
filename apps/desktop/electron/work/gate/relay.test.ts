@@ -461,3 +461,23 @@ it('G2 still refuses stale messages outside the binding queue window', async () 
   r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false, body: 'stale', originServerTs: r.h.clock.now() - 3_600_000 })
   expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', reason: 'owner_event_too_old', forwarded: false })
 })
+
+
+it('clears a failed reset latch so the cloud can retry', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  const interrupt = vi.spyOn(r.h.t3, 'interrupt').mockRejectedValueOnce(new Error('offline'))
+  await expect(r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2, EVENT_B)).rejects.toThrow('offline')
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2, EVENT_B)).toMatchObject({ stopConfirmed: true })
+  expect(interrupt).toHaveBeenCalledTimes(2)
+})
+
+it('retains the explicit reset event after a long sleep', async () => {
+  const r = rig()
+
+  r.options.history.boundary = async () => { throw new Error('must use owner floor') }
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2, EVENT_A)).toMatchObject({ stopConfirmed: true })
+  expect(r.owner).toHaveBeenCalledWith({ agentPrincipal: LUNA, eventId: EVENT_A })
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2, EVENT_B)).toMatchObject({ reason: 'changed' })
+})

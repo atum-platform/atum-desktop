@@ -322,9 +322,9 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
     case 'close':
       return gate.relay.closeReceipt(ctx, (args as { request_id: string }).request_id)
     case 'reset': {
-      const input = args as { room_id: string; request_id: string }
+      const input = args as { room_id: string; request_id: string; floor_event_id?: string }
 
-      return gate.relay.resetReceipt(ctx, input.room_id, input.request_id)
+      return gate.relay.resetReceipt(ctx, input.room_id, input.request_id, input.floor_event_id)
     }
 
     case 'status': {
