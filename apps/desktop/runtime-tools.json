@@ -37,8 +37,8 @@
   "work": {
     "version": "0.1.11",
     "node": "26.13.1",
-    "commit": "646e366f63ac54a90e7c27006c5c78ae78f5f7b8",
+    "commit": "5d8d30d04ee11af5ba92d5aa40a7778505f04cff",
     "archive": "atum-work-0.1.11-darwin-arm64.tar.gz",
-    "sha256": "1443a0405bd2b6b807d2c69c74ec2cb172b060c416a2c65404609b7812815454"
+    "sha256": "8d8bccdf71ecd769e0093a3fadbe193cf965174cf6053a2a1b4cf6ca96557aaa"
   }
 }
