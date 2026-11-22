@@ -152,7 +152,8 @@ export class WorkSurface {
     const view = await this.parts.relay.read(principal, roomId)
 
     if (generation !== this.generation) {throw new Error('work_relay_account_changed')}
-    this.planLimit = view.status?.limits.find(limit => limit.plan === 'codex')
+    const limit = view.status?.limits.find(limit => limit.plan === 'codex')
+    this.planLimit = limit ? {...limit, ...(view.status?.scheduledUsage ? {scheduledRuns: view.status.scheduledUsage.runs} : {})} : undefined
     this.publish()
 
     return view

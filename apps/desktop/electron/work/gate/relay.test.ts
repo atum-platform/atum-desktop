@@ -498,3 +498,67 @@ it('owner Stop cuts publication before interrupt and preserves the history floor
   expect(await r.relay.request(r.ctx, REQ_1)).toMatchObject({ class: 'revoked', stopConfirmed: false })
   expect((await r.relay.status(r.ctx, r.input.room_id)).reset).toEqual(before.reset)
 })
+
+describe('R1s standing scheduled permits', () => {
+  function scheduled(r: ReturnType<typeof rig>, job = 'daily-brief', occurrence = 'one') {
+    r.options.consent = () => ({provider: 'codex', state: 'on', agents: [LUNA], devices: [r.h.gate.gateId().deviceServiceId], alsoWhenScheduled: true, revision: 1, grantedAt: 1})
+
+    return {request_id: REQ_1, job_id: job, occurrence_id: occurrence, scheduled_at: r.options.now(), job_name: 'Daily brief', selection_rev: 1,
+      permit: {agentPrincipal: LUNA, deviceServiceId: r.h.gate.gateId().deviceServiceId, plan: 'codex', consentRevision: 1, alsoWhenScheduled: true}, prompt: 'Write the daily brief'}
+  }
+
+  it('freezes the job prompt, bypasses Matrix, counts once, and replays unchanged', async () => {
+    const r = rig(), input = scheduled(r)
+    const first = await r.relay.send(r.ctx, input)
+    expect(first.class).toBe('accepted')
+    expect(r.owner).not.toHaveBeenCalled()
+    expect(r.history).not.toHaveBeenCalled()
+    expect((r.launch.mock.calls as unknown[][])[0]?.[1]).toMatchObject({message: expect.stringContaining('Scheduled job daily-brief, occurrence one:')})
+    r.selection.revision++
+    expect(await r.relay.send(r.ctx, input)).toEqual(first)
+    expect(r.launch).toHaveBeenCalledTimes(1)
+    expect((await r.relay.status(r.ctx, '!none:test')).scheduledUsage).toMatchObject({runs: 1})
+  })
+  it.each(['alsoWhenScheduled', 'revision', 'agents', 'devices'])('refuses mismatched consent %s before dispatch', async field => {
+    const r = rig(), input = scheduled(r)
+    const consent = r.options.consent()
+    r.options.consent = () => ({...consent, [field]: field === 'revision' ? 2 : field === 'alsoWhenScheduled' ? false : []})
+    expect(await r.relay.send(r.ctx, input)).toMatchObject({class: 'refused', forwarded: false})
+    expect(r.launch).not.toHaveBeenCalled()
+  })
+  it('claims each occurrence once and isolates job/DM bindings', async () => {
+    const r = rig(), input = scheduled(r)
+    expect((await r.relay.send(r.ctx, input)).class).toBe('accepted')
+    expect(await r.relay.send(r.ctx, {...input, request_id: REQ_2})).toMatchObject({reason: 'scheduled_operation_limit'})
+    expect(await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000003', occurrence_id: 'two'})).toMatchObject({reason: 'scheduled_operation_limit'})
+    expect((await r.relay.send(r.ctx, {...input, request_id: 'scheduled_request_000004', job_id: 'sweep'})).class).toBe('refused')
+    expect((await r.relay.send(r.ctx, {...r.input, request_id: 'owner_request_000000005'})).class).toBe('accepted')
+    expect(r.launch).toHaveBeenCalledTimes(2)
+  })
+  it('cuts off scheduled receipts when scheduled consent is disabled', async () => {
+    const r = rig(), input = scheduled(r)
+    expect((await r.relay.send(r.ctx, input)).class).toBe('accepted')
+    const consent = r.options.consent()
+    const results = r.h.gate.beginConsent({...consent, alsoWhenScheduled: false, revision: 2} as Parameters<typeof r.h.gate.beginConsent>[0])
+    expect(results.some(result => result.owed > 0)).toBe(true)
+    expect((await r.relay.send(r.ctx, input)).class).toBe('revoked')
+  })
+  it('refuses stale and future first scheduled admissions', async () => {
+    const r = rig(), input = scheduled(r)
+
+    for (const scheduled_at of [r.options.now() - 900_001, r.options.now() + 60_001]) {
+      expect((await r.relay.send(r.ctx, {...input, scheduled_at})).class).toBe('refused')
+    }
+
+    expect(r.launch).not.toHaveBeenCalled()
+  })
+  it('rejects mixed envelopes and caller model/mode overrides', async () => {
+    const r = rig(), input = scheduled(r)
+
+    for (const extra of [{room_id: '!dm:test'}, {model: 'other'}, {mode: 'full-access'}, {text: 'injected'}]) {
+      expect((await r.relay.send(r.ctx, {...input, ...extra})).class).toBe('refused')
+    }
+
+    expect(r.launch).not.toHaveBeenCalled()
+  })
+})

@@ -31,6 +31,7 @@ export interface WorkRelayWords {
   /** The plan's usage line in Settings. Never blocking, never a cost. */
   usageUsed(percent: number, at?: string): string
   usageLimit(at?: string): string
+  usageScheduled(runs: number): string
   usageUnknown: string
   /** O14: one line in Work for the assistants whose chat runs in a thread there. */
   sharedContext(names: readonly string[]): string
@@ -75,6 +76,7 @@ const en: WorkRelayWords = {
   },
   usageUsed: (percent, at) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
   usageLimit: at => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+  usageScheduled: runs => `${runs} scheduled runs`,
   usageUnknown: 'Usage not reported',
   sharedContext: names =>
     names.length === 1
@@ -120,6 +122,7 @@ const vi: WorkRelayWords = {
   },
   usageUsed: (percent, at) => (at ? `Đã dùng ${percent}% · làm mới ${at}` : `Đã dùng ${percent}%`),
   usageLimit: at => (at ? `Hết lượt · làm mới ${at}` : 'Hết lượt'),
+  usageScheduled: runs => `${runs} lượt chạy theo lịch`,
   usageUnknown: 'Chưa có số liệu sử dụng',
   sharedContext: names =>
     names.length === 1

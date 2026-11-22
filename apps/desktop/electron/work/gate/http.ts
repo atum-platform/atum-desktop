@@ -16,6 +16,7 @@ import {
   type WorkTool
 } from './contract'
 import { type CallContext, GateAdmissionError, type WorkGate } from './gate'
+import { scheduledRoom } from './relay'
 import type { GateHandler } from './socket'
 
 // The Work gate's HTTP face: the fifteen admission checks, in the contract's order, then MCP plain request and
@@ -328,7 +329,7 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
     }
 
     case 'status': {
-      return gate.relay.status(ctx, (args as { room_id: string }).room_id)
+      return gate.relay.status(ctx, 'job_id' in (args as object) ? scheduledRoom((args as { job_id: string }).job_id) : (args as { room_id: string }).room_id)
     }
 
     case 'launch':

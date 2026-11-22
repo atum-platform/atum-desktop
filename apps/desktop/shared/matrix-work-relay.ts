@@ -49,6 +49,7 @@ export interface WorkRelayLimit {
   observedAt: number
   resetsAt?: number
   usedPercent?: number
+  scheduledRuns?: number
 }
 
 /** The account's scoped consent for one plan (the 1.2 record; `provider` names the plan). Default off. */
@@ -76,6 +77,7 @@ export interface WorkRelayFact {
 
 /** `status` for one room on one Mac's gate, as 1.3 returns it. */
 export interface WorkRelayStatus {
+  scheduledUsage?: { runs: number; windowStart: number; resetsAt?: number }
   selection: WorkRelaySelection | null
   openOperation: WorkRelayOperation | null
   limits: readonly WorkRelayLimit[]
