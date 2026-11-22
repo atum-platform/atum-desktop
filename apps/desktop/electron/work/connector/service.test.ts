@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -47,14 +47,16 @@ describe('Work connector receipts and release', () => {
     f.ports.send = send
     const q = { agent: 'owned', question: 'Hello', request_id: randomUUID() }
     expect((await f.service.ask(caller, q, 0)).state).toBe('unavailable')
-    await new ConnectorService(f.file, f.ports).ask(caller, q, 0)
+    const restarted = new ConnectorService(f.file, f.ports)
+    await Promise.all([restarted.ask(caller, q, 0), restarted.ask(caller, q, 0)])
+    expect(send).toHaveBeenCalledTimes(2)
     expect(send.mock.calls[0]![0].transaction).toBe(send.mock.calls[1]![0].transaction)
   })
   it.each(['google', 'unknown'] as const)('withholds %s bytes from plans', async dataClass => {
     using f = fixture()
     f.ports.read = async () => ({ body: 'protected answer', dataClass })
     const result = await f.service.ask(caller, { agent: 'owned', question: 'Hello', request_id: randomUUID() }, 0)
-    expect(result.state).toBe('google_requires_atum')
+    expect(result.state).toBe(dataClass === 'google' ? 'google_requires_atum' : 'provenance_unavailable')
     expect(JSON.stringify(result)).not.toContain('protected answer')
   })
   it('rechecks the live provider after reading and never releases after account change', async () => {
@@ -93,7 +95,9 @@ describe('Work connector receipts and release', () => {
       const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
       await f.service.ask(caller, q, 0)
       clock.mockReturnValue(301001)
-      expect((await f.service.ask(caller, q, 0)).state).toBe('timed_out')
+      const restarted = new ConnectorService(f.file, f.ports)
+      expect((await restarted.ask(caller, q, 0)).state).toBe('timed_out')
+      expect(JSON.parse(readFileSync(f.file, 'utf8'))).toEqual([[q.request_id, null]])
       expect(f.ports.send).toHaveBeenCalledTimes(1)
     } finally {
       clock.mockRestore()

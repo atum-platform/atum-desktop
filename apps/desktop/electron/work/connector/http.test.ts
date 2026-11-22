@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 import { ConnectorHttp } from './http'
 import { ConnectorService } from './service'
@@ -43,6 +43,85 @@ it('authenticates the private channel and rejects browser and forged caller inpu
     ).toBe(400)
   } finally {
     await http.close()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+it('retires the old credential and fails closed across a replacement on the same account', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'connector-replacement-'))
+  let reads = 0
+  let unblockRead!: () => void
+
+  const pendingRead = new Promise<void>(resolve => {
+    unblockRead = resolve
+  })
+
+  let reading!: () => void
+
+  const readStarted = new Promise<void>(resolve => {
+    reading = resolve
+  })
+
+  let generation = 1
+  const send = vi.fn(async () => '$question')
+
+  const make = (bound: number, secret: string) =>
+    new ConnectorHttp(
+      new ConnectorService(join(dir, 'receipts'), {
+        current: () => generation === bound,
+        resolve: async () => ({ room: '!room:test', agent: '@agent:test' }),
+        send,
+        async read() {
+          reads++
+
+          if (bound === 1) {
+            reading()
+            await pendingRead
+          }
+
+          return { dataClass: 'non_google', body: 'answer' }
+        },
+        release: async () => true
+      }),
+      secret
+    )
+
+  const old = make(1, 'old-fixture-secret')
+  let replacement: ConnectorHttp | undefined
+  const question = { agent: 'owned', question: 'hello', request_id: '6465392c-2c68-4b3b-ac27-9fdfdd9ddc82' }
+
+  const ask = (endpoint: string, secret: string) =>
+    fetch(endpoint, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${secret}` },
+      body: JSON.stringify({
+        caller: { threadId: 'thread', providerSessionId: 'native', providerInstanceId: 'provider' },
+        question
+      })
+    })
+
+  try {
+    const oldEndpoint = await old.start()
+    const stale = ask(oldEndpoint, 'old-fixture-secret')
+    await readStarted
+    generation = 2
+    unblockRead()
+    expect(await (await stale).json()).toMatchObject({ state: 'cancelled' })
+    await old.close()
+
+    replacement = make(2, 'new-fixture-secret')
+    const endpoint = await replacement.start()
+    expect((await ask(endpoint, 'old-fixture-secret')).status).toBe(401)
+    expect(await (await ask(endpoint, 'new-fixture-secret')).json()).toMatchObject({
+      state: 'answered',
+      answer: 'answer'
+    })
+    expect(reads).toBe(2)
+    expect(send).toHaveBeenCalledTimes(1)
+  } finally {
+    unblockRead()
+    await old.close()
+    await replacement?.close()
     rmSync(dir, { recursive: true, force: true })
   }
 })

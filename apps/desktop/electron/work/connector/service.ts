@@ -14,6 +14,9 @@ interface Receipt {
   deadline: number
   event?: string
 }
+// Null retains only the request ID so an expired retry can never send again.
+type StoredReceipt = Receipt | null
+
 export interface ConnectorPorts {
   current(): boolean
   resolve(agent: string): Promise<{ room: string; agent: string } | undefined>
@@ -23,7 +26,7 @@ export interface ConnectorPorts {
   release(caller: Caller, protectedData: boolean): Promise<boolean>
 }
 export class ConnectorService {
-  private readonly receipts: Map<string, Receipt>
+  private readonly receipts: Map<string, StoredReceipt>
   private readonly active = new Map<string, Promise<void>>()
   private readonly stop = new AbortController()
   constructor(
@@ -39,6 +42,8 @@ export class ConnectorService {
 
       this.receipts = new Map()
     }
+
+    this.collectExpired()
   }
   cancel(): void {
     this.stop.abort()
@@ -48,6 +53,30 @@ export class ConnectorService {
     writeFileSync(`${this.file}.tmp`, JSON.stringify([...this.receipts]), { mode: 0o600 })
     renameSync(`${this.file}.tmp`, this.file)
   }
+  private collectExpired(): void {
+    const expired = [...this.receipts].filter(
+      ([id, receipt]) => receipt && Date.now() >= receipt.deadline && !this.active.has(id)
+    )
+
+    if (!expired.length) {
+      return
+    }
+
+    for (const [id] of expired) {
+      this.receipts.set(id, null)
+    }
+
+    try {
+      this.persist()
+    } catch (error) {
+      for (const [id, receipt] of expired) {
+        this.receipts.set(id, receipt)
+      }
+
+      throw error
+    }
+  }
+
   async ask(caller: Caller, input: unknown, waitMs = 45_000): Promise<Result> {
     if (!validQuestion(input)) {
       throw new Error('invalid_work_question')
@@ -71,7 +100,24 @@ export class ConnectorService {
       return result('unavailable')
     }
 
+    if (!current()) {
+      return result('cancelled')
+    }
+
+    const pending = this.active.get(q.request_id)
+
+    if (pending) {
+      await pending
+
+      return this.ask(caller, q, waitMs)
+    }
+
+    this.collectExpired()
     let r = this.receipts.get(q.request_id)
+
+    if (r === null) {
+      return result('timed_out')
+    }
 
     if (
       r &&
@@ -82,18 +128,9 @@ export class ConnectorService {
       throw new Error('work_request_conflict')
     }
 
-    if (!r) {
-      if (!q.question) {
+    if (!r?.event) {
+      if (!r && !q.question) {
         return result('unavailable')
-      }
-
-      // Reserve before the first await so concurrent invocations cannot send twice.
-      const pending = this.active.get(q.request_id)
-
-      if (pending) {
-        await pending
-
-        return this.ask(caller, q, waitMs)
       }
 
       let finish!: () => void
@@ -105,62 +142,53 @@ export class ConnectorService {
       )
 
       try {
-        const target = await this.ports.resolve(q.agent)
+        if (!r) {
+          const target = await this.ports.resolve(q.agent)
 
-        if (!current()) {
-          return result('cancelled')
-        }
+          if (!current()) {
+            return result('cancelled')
+          }
 
-        if (!target) {
-          return result('unavailable')
-        }
+          if (!target) {
+            return result('unavailable')
+          }
 
-        r = {
-          request: q,
-          thread: caller.threadId,
-          ...target,
-          transaction: `work-${createHash('sha256').update(q.request_id).digest('hex')}`,
-          deadline: Date.now() + 300_000
+          r = {
+            request: q,
+            thread: caller.threadId,
+            ...target,
+            transaction: `work-${createHash('sha256').update(q.request_id).digest('hex')}`,
+            deadline: Date.now() + 300_000
+          }
+          this.receipts.set(q.request_id, r)
+
+          try {
+            this.persist()
+          } catch (error) {
+            this.receipts.delete(q.request_id)
+            throw error
+          }
         }
-        this.receipts.set(q.request_id, r)
-        this.persist()
 
         // A lost acknowledgement is retried only with the same Matrix transaction ID.
-        try {
-          r.event = await this.ports.send(r)
-          this.persist()
-        } catch {
-          return result('unavailable', r)
+        const event = await this.ports.send(r)
+
+        if (!current()) {
+          return result('cancelled', r)
         }
+
+        r.event = event
+        this.persist()
+      } catch {
+        return result(current() ? 'unavailable' : 'cancelled', r)
       } finally {
         this.active.delete(q.request_id)
         finish()
       }
     }
 
-    if (!current()) {
-      return result('cancelled', r)
-    }
-
     if (Date.now() >= r.deadline) {
       return result('timed_out', r)
-    }
-
-    if (!r.event) {
-      const pending = this.active.get(q.request_id)
-
-      if (pending) {
-        await pending
-
-        return this.ask(caller, q, waitMs)
-      }
-
-      try {
-        r.event = await this.ports.send(r)
-        this.persist()
-      } catch {
-        return result('unavailable', r)
-      }
     }
 
     const until = Math.min(r.deadline, Date.now() + Math.max(0, Math.min(waitMs, 45_000)))
@@ -178,6 +206,10 @@ export class ConnectorService {
         return result('cancelled', r)
       }
 
+      if (Date.now() >= r.deadline) {
+        return result('timed_out', r)
+      }
+
       if (answer) {
         const allowed = await this.ports.release(caller, answer.dataClass !== 'non_google')
 
@@ -186,7 +218,14 @@ export class ConnectorService {
         }
 
         if (!allowed) {
-          return result(answer.dataClass === 'non_google' ? 'unavailable' : 'google_requires_atum', r)
+          return result(
+            answer.dataClass === 'unknown'
+              ? 'provenance_unavailable'
+              : answer.dataClass === 'google'
+                ? 'google_requires_atum'
+                : 'unavailable',
+            r
+          )
         }
 
         return { ...result('answered', r), answer: answer.body, provenance: answer.dataClass }

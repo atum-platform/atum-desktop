@@ -352,14 +352,16 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     void old?.close()
   }
 
-  const prepareConnector = async () => {
+  const prepareConnector = async (signal: AbortSignal) => {
     const bound = account()
 
-    if (bound && !connector) {
+    if (bound) {
+      closeConnector()
+
       const current = () => {
         const active = account()
 
-        return active?.key === bound.key && active.generation === bound.generation
+        return !signal.aborted && active?.key === bound.key && active.generation === bound.generation
       }
 
       const secret = randomBytes(32).toString('base64url')

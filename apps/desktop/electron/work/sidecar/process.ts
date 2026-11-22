@@ -19,6 +19,7 @@ interface WorkAccount {
 }
 
 interface WorkProcessOptions {
+  prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
   gatewayEnvironment: () => Record<string, string>
@@ -356,6 +357,8 @@ export class WorkSidecar {
     const signal = controller.signal
 
     try {
+      await this.options.prepare?.(signal)
+      signal.throwIfAborted()
       const { child, exited, home, stop } = await startProcess(this.options, input, signal)
       this.teardown = exited
       const startup = readStartup(child, exited, signal)

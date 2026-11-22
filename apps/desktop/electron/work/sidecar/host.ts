@@ -22,7 +22,7 @@ interface Account {
 
 interface WorkHostOptions {
   resources: string
-  prepare?(): Promise<void>
+  prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
@@ -75,6 +75,7 @@ export class WorkHost {
       process: new WorkSidecar({
         account,
         resources,
+        prepare: this.options.prepare,
         gatewayEnvironment: () => {
           const environment = this.options.gatewayEnvironment()
           this.backendToken = environment.ATUM_FILESYSTEM_BROKER_TOKEN
@@ -88,7 +89,6 @@ export class WorkHost {
         current: () => sameAccount(account, this.options.account())
       })
     }
-    await this.options.prepare?.()
     const incarnation = await this.binding.process.start(input)
     void incarnation.exited.then(() => {
       if (this.view?.incarnation === incarnation) {
