@@ -231,6 +231,7 @@ export async function readMatrixInvocation(
     // moved it there): an edit or a reaction is related either way, never a fresh turn.
     related: content['m.relates_to'] !== undefined || event.getWireContent()['m.relates_to'] !== undefined,
     content: {
+      workAnswer: content['io.atum.work_answer'],
       msgtype: content.msgtype!,
       body: content.body,
       ...(parseGroupChain(content[GROUP_CHAIN_KEY]) ? { chain: parseGroupChain(content[GROUP_CHAIN_KEY]) } : {}),

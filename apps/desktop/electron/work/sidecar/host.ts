@@ -22,6 +22,7 @@ interface Account {
 
 interface WorkHostOptions {
   resources: string
+  prepare?(): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
@@ -87,6 +88,7 @@ export class WorkHost {
         current: () => sameAccount(account, this.options.account())
       })
     }
+    await this.options.prepare?.()
     const incarnation = await this.binding.process.start(input)
     void incarnation.exited.then(() => {
       if (this.view?.incarnation === incarnation) {

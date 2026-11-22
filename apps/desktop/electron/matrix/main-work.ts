@@ -7,6 +7,9 @@ import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electr
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-model-access'
 import type { SafeStorageLike } from '../encrypted-store'
+import { ConnectorHttp } from '../work/connector/http'
+import { matrixConnector } from '../work/connector/matrix'
+import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
   createWorkConsentClient,
@@ -25,7 +28,13 @@ import {
   type WorkMountAccount
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
-import { homeRunningFromRuntimeFile, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
+import {
+  homeRunningFromRuntimeFile,
+  type PinRef,
+  type UpdateOutcome,
+  WorkSession,
+  workSessionPaths
+} from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
 import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
 import {
@@ -140,7 +149,9 @@ const NO_GATE: GateSurfaceState = {
  * The surface's gate door over a gate that is built later (the mount starts it after the session and the enrollment),
  * and rebuilt after a retire. State and events follow whichever service the mount holds now.
  */
-export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>): NonNullable<WorkSurfaceParts['gate']> {
+export function createGateDoor(
+  mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>
+): NonNullable<WorkSurfaceParts['gate']> {
   return {
     state: () => {
       const service = mount.service()
@@ -199,7 +210,10 @@ export const WORK_MIN_AVAILABLE_MICRO_PROTONS = 1_000_000
  * through the proxy then confirms the model path (key, sign-in, gateway, catalog). Either can say "empty"; only both
  * saying yes is "allowed", and anything unreadable is "unavailable", never "allowed".
  */
-export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<'allowed' | 'empty' | 'unavailable'> {
+export async function readWorkAccess(
+  model: MatrixWorkModelPort,
+  wallet: MatrixWorkWalletPort
+): Promise<'allowed' | 'empty' | 'unavailable'> {
   try {
     const view = await wallet(AbortSignal.timeout(10_000))
 
@@ -250,7 +264,11 @@ export class WorkModelKeys {
       this.forget()
     }
 
-    this.bound ??= { key: randomBytes(32).toString('base64url'), accountKey: scope.accountKey, generation: scope.generation }
+    this.bound ??= {
+      key: randomBytes(32).toString('base64url'),
+      accountKey: scope.accountKey,
+      generation: scope.generation
+    }
 
     return this.bound.key
   }
@@ -262,7 +280,12 @@ export class WorkModelKeys {
 
     const scope = this.ports.scope()
 
-    if (!scope || this.ports.closing() || scope.accountKey !== this.bound.accountKey || scope.generation !== this.bound.generation) {
+    if (
+      !scope ||
+      this.ports.closing() ||
+      scope.accountKey !== this.bound.accountKey ||
+      scope.generation !== this.bound.generation
+    ) {
       this.forget()
 
       return []
@@ -285,7 +308,10 @@ export class WorkModelKeys {
 /** The pin this build ships: `work-runtime/pin.json`, written when the runtime is staged (version and `t3` digest). */
 export function readShippedPin(resources: string): PinRef {
   try {
-    const raw = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: unknown; sha256?: unknown }
+    const raw = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as {
+      version?: unknown
+      sha256?: unknown
+    }
 
     if (typeof raw.version === 'string' && /^\d+\.\d+\.\d+$/u.test(raw.version)) {
       return { version: raw.version, resources, ...(typeof raw.sha256 === 'string' ? { sha256: raw.sha256 } : {}) }
@@ -316,7 +342,55 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           rootFor
         })
 
+  let connector: ConnectorHttp | undefined
+  let connectorEnvironment: Record<string, string> = {}
+
+  const closeConnector = () => {
+    const old = connector
+    connector = undefined
+    connectorEnvironment = {}
+    void old?.close()
+  }
+
+  const prepareConnector = async () => {
+    const bound = account()
+
+    if (bound && !connector) {
+      const current = () => {
+        const active = account()
+
+        return active?.key === bound.key && active.generation === bound.generation
+      }
+
+      const secret = randomBytes(32).toString('base64url')
+
+      const service = new ConnectorService(
+        join(bound.root, 'work', 'connector-receipts.json'),
+        matrixConnector({
+          owner: () => deps.ownerHost(),
+          agent: principal => deps.agentMatrixUser(principal),
+          current,
+          // Protected release stays closed until the exact server pin supplies durable transcript fencing
+          // and the managed route's Google policy is certified. Names alone cannot certify that route.
+          release: async (_caller, protectedData) => current() && !protectedData
+        })
+      )
+
+      const candidate = new ConnectorHttp(service, secret)
+      const endpoint = await candidate.start()
+
+      if (!current()) {
+        await candidate.close()
+        throw new Error('work_account_changed')
+      }
+
+      connector = candidate
+      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
+    }
+  }
+
   const host = new WorkHost({
+    prepare: prepareConnector,
     resources: deps.resources,
     account,
     gatewayEnvironment: () => {
@@ -327,13 +401,17 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
 
       return {
+        ...connectorEnvironment,
         ATUM_MANAGED_MODEL_BASE_URL: baseUrl,
         ATUM_MANAGED_MODEL_DEFAULT: WORK_DEFAULT_MODEL,
         ATUM_MANAGED_MODEL_PROXY_TOKEN: modelKeys.mint()
       }
     },
     // A stopped or replaced server leaves no key the proxy would still answer to.
-    revokeCredentials: () => modelKeys.forget(),
+    revokeCredentials: () => {
+      modelKeys.forget()
+      closeConnector()
+    },
     // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
     accessState: async () => {
       const access = await readWorkAccess(deps.model, deps.wallet)
@@ -406,7 +484,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
-  const ownerSource = createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
+  const ownerSource = createSdkOwnerEventSource({
+    owner: () => deps.ownerHost(),
+    agentMatrixUser: principal => deps.agentMatrixUser(principal)
+  })
+
   const verifier: OwnerEventVerifier = createOwnerEventVerifier(ownerSource)
   const relayHistory = createWorkHistory(ownerSource, () => deps.ownerHost())
 
@@ -430,19 +512,26 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
         owner: verifier,
         relayHistory,
-        relayAssistant: deps.agentDefinition ? {
-          assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
-          definition: async principal => {
-            const snapshot = await deps.agentDefinition!(principal)
-            const active = account()
+        relayAssistant: deps.agentDefinition
+          ? {
+              assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
+              definition: async principal => {
+                const snapshot = await deps.agentDefinition!(principal)
+                const active = account()
 
-            if (!active || active.key !== current.key || active.generation !== current.generation || deps.closing()) {
-              throw new Error('relay_account_changed')
+                if (
+                  !active ||
+                  active.key !== current.key ||
+                  active.generation !== current.generation ||
+                  deps.closing()
+                ) {
+                  throw new Error('relay_account_changed')
+                }
+
+                return snapshot
+              }
             }
-
-            return snapshot
-          }
-        } : undefined,
+          : undefined,
         incarnation: () => host.current(),
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
@@ -513,7 +602,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     // lane reads it, so the step stays hidden by construction.
     planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
     deviceServiceId: () => deps.deviceServiceId(),
-    relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
+    relay: createOwnerRelay(mount, consentClient, () => ({
+      endpoint: deps.deviceServicesEndpoint() ?? '',
+      bearer: () => deps.bearer()
+    })),
     consent: consentClient
   })
 
@@ -560,9 +652,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     retire: async () => {
       modelKeys.forget()
+      closeConnector()
       await lifecycle.retire()
     },
     quit: () => {
+      closeConnector()
       modelKeys.forget()
 
       return lifecycle.quit()

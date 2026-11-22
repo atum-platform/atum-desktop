@@ -170,9 +170,9 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     },
     trial,
     profileSource,
-    gateways: profiles.map(profile => ({ ...environment, ...credentials, HERMES_HOME: profile })),
+    gateways: profiles.map(profile => ({ ...environment, ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))), HERMES_HOME: profile })),
     executable: join(resources, 'work-runtime', 't3'),
-    environment,
+    environment: { ...environment, ...Object.fromEntries(Object.entries(credentials).filter(([key]) => key.startsWith('ATUM_WORK_CONNECTOR_'))) },
     cwd
   }) + '\n')
   void exited.then(() => signal.removeEventListener('abort', stop))

@@ -249,6 +249,7 @@ import { matrixTimelineKeyRetry } from './timeline-key-retry'
 import { findMatrixTurn, prepareMatrixCron, publishMatrixCron, sendMatrixTurn, sendWithTransaction } from './turn'
 import { observeMatrixUndecryptable } from './undecryptable'
 import { readWorkHistory } from './work-history'
+import { readWorkAnswer, sendWorkQuestion } from './work-question'
 
 // Raw SDK/provider errors can contain request data. Product state uses closed
 // error codes; do not send SDK logs or decrypted messages to diagnostics.
@@ -4103,6 +4104,14 @@ export async function startMatrixSdk(
 
         return null
       }
+
+      case 'sendWorkQuestion':
+        joinedRoom(command.roomId)
+
+        return sendWorkQuestion(client, command)
+
+      case 'readWorkAnswer':
+        return readWorkAnswer(client, command)
 
       case 'sendAppMessage':
         joinedRoom(command.roomId)

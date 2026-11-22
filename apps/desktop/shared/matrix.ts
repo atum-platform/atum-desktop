@@ -1405,6 +1405,7 @@ export interface MatrixInvocationMessage {
     /** Malformed explicit addressing must not fall back to an ambient turn. */
     invalidMentions?: true
     /** The SDK saw `io.atum.provenance`; protected Google-derived content never enters group routing. */
+    workAnswer?: unknown
     googleProtected?: true
     /** The owner deliberately re-sent this content as a forward. */
     forwarded?: true
@@ -1847,6 +1848,8 @@ export type MatrixSdkCommand =
    * `forgotten`, or `kept` for a room that is not only theirs. */
   | { kind: 'forgetAgentRoom'; roomId: string; ownerId: string; agentId: string }
   | { kind: 'readAppRoom'; roomId: string; ownerId: string; agentId: string; allowInvite?: boolean }
+  | { kind: 'sendWorkQuestion'; roomId: string; agentId: string; question: string; requestId: string; threadId: string; transactionId: string }
+  | { kind: 'readWorkAnswer'; roomId: string; agentId: string; eventId: string; requestId: string }
   | { kind: 'sendAppMessage'; roomId: string; body: string; userId: string }
   /** Native-owned official DM resolver (src/matrix/app-bot-dm.ts). It reuses the room the
    * stored pointer names, else another room with the bot that still works, and makes a new
