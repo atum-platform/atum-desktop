@@ -75,6 +75,23 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
       expect(r.owner).not.toHaveBeenCalled()
     }
   )
+  it.each(['claudeAgent', 'antigravity'])('keeps reserved instance %s out of status and admission', async instanceId => {
+    const r = rig()
+
+    r.selection.instanceId = instanceId
+    const planProvider = vi.fn(r.h.t3.planProvider)
+    r.h.t3.planProvider = planProvider
+
+    expect(await r.relay.status(r.ctx, r.input.room_id)).toMatchObject({ selection: null, connected: false })
+    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({
+      class: 'refused',
+      reason: 'selection_changed',
+      forwarded: false
+    })
+    expect(planProvider).not.toHaveBeenCalled()
+    expect(r.owner).not.toHaveBeenCalled()
+    expect(r.launch).not.toHaveBeenCalled()
+  })
   it('requires an event and the canonical plain owner DM', async () => {
     const r = rig()
     expect(await r.relay.send(r.ctx, { ...r.input, event_id: undefined })).toMatchObject({ class: 'refused' })

@@ -738,7 +738,8 @@ export class WorkRelay {
   }
   async status(ctx: CallContext, room: string): Promise<RelayAnswer> {
     const b = this.binding(this.key(ctx, room), '')
-    const selection = this.o.selection?.(ctx.principal)
+    const candidate = this.o.selection?.(ctx.principal)
+    const selection = candidate?.instanceId === 'codex' ? candidate : undefined
 
     return {
       gateId: this.o.gateId(),
