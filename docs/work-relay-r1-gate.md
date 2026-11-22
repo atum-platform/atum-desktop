@@ -265,3 +265,12 @@ fallback explanation category.
 Focused relay, HTTP, history and fallback tests: 121 passed, one existing skip.
 Full Electron, typecheck, lint and outbound guard results follow in the final
 verification entry. No push, PR, CI run, deployment or paid API use.
+
+Round 3 final verification: full Electron suite **13,817 passed, 57 skipped**;
+focused gate/HTTP/history/fallback **121 passed, 1 skipped**; fallback UI **14
+passed**. Typecheck and Electron-only typecheck passed. The test checkout needed
+its existing Python test venv bound at `.venv`, and the lock-pinned missing local
+markdown adapter package restored; neither changes committed dependencies.
+Full lint ran: 21 existing errors in unrelated generated JavaScript; changed-file
+lint passed with zero errors or warnings. The public outbound guard was invoked
+directly with its return code checked: **0**. No publish or deployment occurred.
