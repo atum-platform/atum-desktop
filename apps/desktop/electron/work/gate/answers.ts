@@ -76,6 +76,7 @@ export function envelope(answer: { class?: string }): {
 
 /** The six tools with their input schemas, for `tools/list`. */
 export const TOOL_DESCRIPTIONS = {
+  reset: 'Stop and confirm open work, then advance the conversation history boundary.',
   close: 'Acknowledge reconciled publication and release the operation.',
   send: 'Relay one verified owner DM event on the selected plan. IDs only.',
   status: 'Read or reconcile the request-scoped relay operation; close after publication.',

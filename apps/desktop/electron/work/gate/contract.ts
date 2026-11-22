@@ -10,7 +10,7 @@ import { z } from 'zod'
 // may change by amendment: change them here and in the contract together.
 
 export const WORK_GATE_PATH = '/agent/mcp'
-export const WORK_TOOLS = ['launch', 'send', 'status', 'close', 'interrupt', 'read', 'wait', 'list', 'request'] as const
+export const WORK_TOOLS = ['launch', 'send', 'status', 'reset', 'close', 'interrupt', 'read', 'wait', 'list', 'request'] as const
 export type WorkTool = (typeof WORK_TOOLS)[number]
 export const WORK_TERMINAL_THREAD_STATUSES = ['completed', 'failed', 'cancelled', 'interrupted', 'rolled_back'] as const
 export const WORK_WAIT_MAX_MS = 50_000
@@ -180,6 +180,7 @@ export const WorkRelayRequestSchema = z.object({request_id: WorkRequestIdSchema}
 export const WORK_TOOL_ARGUMENTS = {
   send: WorkSendArgumentsSchema,
   status: WorkRelayStatusSchema,
+  reset: WorkRelayStatusSchema.extend({ request_id: WorkRequestIdSchema }).strict(),
   close: WorkRelayRequestSchema,
   launch: WorkLaunchArgumentsSchema,
   interrupt: WorkInterruptArgumentsSchema,

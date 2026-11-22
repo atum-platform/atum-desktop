@@ -3,7 +3,7 @@ import { request as httpRequest } from 'node:http'
 import { join } from 'node:path'
 
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AccessVerifier } from './assertion'
 import { WORK_TOOLS } from './contract'
@@ -423,7 +423,7 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
   it('relay adds ids-only send/status/close without exposing native provider tools', async () => {
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, await good())
 
-    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['close', 'interrupt', 'launch', 'list', 'read', 'request', 'send', 'status', 'wait'])
+    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['close', 'interrupt', 'launch', 'list', 'read', 'request', 'reset', 'send', 'status', 'wait'])
   })
 
   it('consent and the switch are the Mac\'s alone: the answer to an agent names only the check that failed', async () => {
@@ -589,4 +589,17 @@ it('1.3 sends IDs through authenticated socket, freezes replay and refuses calle
   expect((await post(rpc('request', { request_id: REQ_1 }), await good())).json.result.structuredContent).toMatchObject(
     { class: 'accepted' }
   )
+})
+
+
+it('G6/G7 authenticates reset and separates a nonblocking read from one bounded wait', async () => {
+  const read = vi.spyOn(h.gate.relay, 'read').mockResolvedValue({ class: 'pending' })
+  await post(rpc('read', { request_id: REQ_1 }), await good())
+  expect(read).toHaveBeenLastCalledWith(expect.any(Object), REQ_1)
+  await post(rpc('wait', { request_id: REQ_1, timeoutMs: 50_000 }), await good())
+  expect(read).toHaveBeenLastCalledWith(expect.any(Object), REQ_1, 50_000)
+  const reset = vi.spyOn(h.gate.relay, 'resetReceipt').mockResolvedValue({ class: 'reset', receipt: 'reset', epoch: 1, stopConfirmed: true })
+  const reply = await post(rpc('reset', { room_id: '!dm:test', request_id: REQ_2 }), await good())
+  expect(reply.json.result.structuredContent).toMatchObject({ class: 'reset', receipt: 'reset', epoch: 1, stopConfirmed: true })
+  expect(reset).toHaveBeenCalledWith(expect.any(Object), '!dm:test', REQ_2)
 })

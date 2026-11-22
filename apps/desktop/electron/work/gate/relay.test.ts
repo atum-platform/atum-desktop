@@ -51,7 +51,7 @@ function rig() {
     sessions: h.sessions,
     t3: h.t3,
     owner: { fetch: owner },
-    history: { read: history },
+    history: { read: history, boundary: async () => EVENT_B },
     selection: () => selection,
     fence: () => true,
     now: h.clock.now,
@@ -112,12 +112,13 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
     })
     expect(r.relay.close(r.ctx, REQ_1)).toBe(false)
   })
-  it('history failure admits nothing; retry claims once', async () => {
+  it('history failure durably refuses without dispatch', async () => {
     const r = rig()
     r.history.mockRejectedValueOnce(new Error('crash'))
-    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'none' })
-    expect(r.h.ledger.receipt(LUNA, REQ_1)).toBeUndefined()
-    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'accepted' })
+    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', forwarded: false })
+    expect(r.h.ledger.receipt(LUNA, REQ_1)?.state).toBe('refused')
+    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused' })
+    expect(r.launch).not.toHaveBeenCalled()
   })
   it('freezes only the admitted result run final, excluding direct Work and tool output', async () => {
     const r = rig()
@@ -145,7 +146,7 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
         ]
       }
     }))
-    const first = await r.relay.read(r.ctx, REQ_1)
+    const first = await r.relay.read(r.ctx, REQ_1, 25_000)
     expect(first).toMatchObject({ class: 'completed', answer: { text: 'frozen', itemId: 'final' } })
 
     if (process.env.ATUM_RELAY_PROTOCOL) {
@@ -153,7 +154,7 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
       expect(protocol.WorkRelayReceiptSchema.parse(first)).toEqual(first)
     }
 
-    expect(await r.relay.read(r.ctx, REQ_1)).toEqual(first)
+    expect(await r.relay.read(r.ctx, REQ_1, 25_000)).toEqual(first)
     expect((r.h.t3 as T3Port).readPage).toHaveBeenCalledTimes(1)
     expect(r.relay.close(r.ctx, REQ_1)).toBe(true)
 
@@ -217,7 +218,7 @@ it('three ids-only operations reuse the bound thread; close is idempotent after 
     ['AAAAAAAAAAAAAAAAAAAAA3', '$eventC']
   ]) {
     expect(await r.relay.send(r.ctx, { ...r.input, request_id, event_id })).toMatchObject({ class: 'accepted' })
-    expect(await r.relay.read(r.ctx, request_id)).toMatchObject({ class: 'completed' })
+    expect(await r.relay.read(r.ctx, request_id, 25_000)).toMatchObject({ class: 'completed' })
     expect(r.relay.closeReceipt(r.ctx, request_id)).toMatchObject({ class: 'closed' })
   }
 
@@ -315,7 +316,7 @@ it('recovers a lost launch acknowledgement by reading ordinal one without relaun
       items: [{ runId: 'recovered', type: 'assistant_message', itemId: 'final', text: 'retained' }]
     }
   }))
-  expect(await r.relay.read(r.ctx, REQ_1)).toMatchObject({
+  expect(await r.relay.read(r.ctx, REQ_1, 25_000)).toMatchObject({
     class: 'completed',
     answer: { runId: 'recovered', text: 'retained' }
   })
@@ -353,4 +354,110 @@ it('reports disconnected when selection or preflight authority is stale, even wh
     const relay = new WorkRelay(options)
     expect(await relay.status(r.ctx, '!dm:test')).toMatchObject({ connected: false })
   }
+})
+
+it('G1 voids a non-forwarded admission and releases the binding atomically', async () => {
+  const r = rig()
+  r.h.t3.incarnation = () => undefined
+  expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', receipt: 'void', forwarded: false })
+  expect(r.h.ledger.receipt(LUNA, REQ_1)).toMatchObject({ state: 'void', forwarded: false, settled: 'never_sent' })
+  expect(await r.relay.status(r.ctx, r.input.room_id)).toMatchObject({ openOperation: null })
+  expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', receipt: 'void' })
+  expect(r.launch).not.toHaveBeenCalled()
+  r.h.t3.incarnation = () => 'ready'
+  expect(await r.relay.send(r.ctx, { ...r.input, request_id: REQ_2, event_id: EVENT_B })).toMatchObject({ class: 'accepted' })
+  expect(r.launch).toHaveBeenCalledOnce()
+})
+
+it('G2 admits a queued owner event after a long hold, but refuses unrelated stale events', async () => {
+  const r = rig()
+  const queuedAt = r.h.clock.now() + 1000
+  await r.relay.send(r.ctx, r.input)
+  r.h.clock.advance(3_600_000)
+  r.h.ledger.update(LUNA, REQ_1, { settled: 'stopped' })
+  expect(r.relay.close(r.ctx, REQ_1)).toBe(true)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  ;(r.h.t3 as T3Port).send = vi.fn(async () => ({ transport: 'ok' as const, status: 200, data: { runId: 'run2' } }))
+  r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false, body: 'queued', originServerTs: queuedAt })
+  expect(await r.relay.send(r.ctx, { ...r.input, request_id: REQ_2, event_id: EVENT_B })).toMatchObject({ class: 'accepted' })
+})
+
+it('G3 replaces an admitted T3 session only after stop and rebinds to a new session key', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  const old = JSON.parse(r.h.ledger.receipt(LUNA, REQ_1)!.relayJson!).bindingKey
+  r.h.sessions.replace(LUNA)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  expect(await r.relay.send(r.ctx, { ...r.input, request_id: REQ_2, event_id: EVENT_B })).toMatchObject({ class: 'accepted' })
+  const next = JSON.parse(r.h.ledger.receipt(LUNA, REQ_2)!.relayJson!)
+  expect(next.bindingKey).not.toBe(old)
+  expect(next.snapshot.floor).toBe(EVENT_B)
+  expect(await r.relay.request(r.ctx, REQ_1)).toMatchObject({ class: 'revoked', stopConfirmed: true })
+  expect(r.launch).toHaveBeenCalledTimes(2)
+})
+
+it('G5 excludes only published relay replies, retaining ordinary Matrix replies', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  r.h.ledger.update(LUNA, REQ_1, { settled: 'stopped' })
+  r.relay.close(r.ctx, REQ_1)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  ;(r.h.t3 as T3Port).send = vi.fn(async () => ({ transport: 'ok' as const, status: 200, data: { runId: 'run2' } }))
+  const message = { role: 'assistant', kind: 'message', threadId: 'room', runId: null, providerThreadId: null, status: 'completed' }
+  r.history.mockResolvedValue([
+    { ...message, itemId: '$echo', text: 'relay echo', replyTo: EVENT_A },
+    { ...message, itemId: '$normal', text: 'ordinary answer', replyTo: '$other' }
+  ] as never)
+  await r.relay.send(r.ctx, { ...r.input, request_id: REQ_2, event_id: EVENT_B })
+  const call = JSON.parse(r.h.ledger.receipt(LUNA, REQ_2)!.callJson!)
+  expect(call.message).not.toContain('relay echo')
+  expect(call.message).toContain('ordinary answer')
+})
+
+it('G6 reset holds until descendants stop, then settles the receipt and confirms', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'running', runs: [], raw: { thread: { pendingBackgroundTasks: ['child'] } } }))
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2)).toMatchObject({ stopConfirmed: false })
+  expect(await r.relay.request(r.ctx, REQ_1)).toMatchObject({ class: 'revoked', stopConfirmed: false })
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2)).toMatchObject({ stopConfirmed: true })
+  expect(await r.relay.request(r.ctx, REQ_1)).toMatchObject({ class: 'revoked', stopConfirmed: true })
+})
+
+it.each(['approval', 'plan_limit', 'waiting_for_mac'])('C3 reports a known %s hold; G7 read never waits and wait caps at 25s', async hold => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'waiting', runs: [{ runId: 'run1', ordinal: 1, status: 'waiting' }], raw: { thread: { hold } } }))
+  r.h.t3.wait = vi.fn(async () => ({ transport: 'ok' as const, data: { timedOut: true, hold } }))
+  expect(await r.relay.read(r.ctx, REQ_1)).toMatchObject({ class: 'pending', operation: { phase: 'held', hold } })
+  expect(r.h.t3.wait).not.toHaveBeenCalled()
+  await r.relay.read(r.ctx, REQ_1, 50_000)
+  expect(r.h.t3.wait).toHaveBeenCalledWith(expect.any(String), expect.any(String), 'run1', 25_000)
+})
+
+
+it('G6 reset replays its epoch and frozen boundary without a second stop', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  r.h.t3.read = vi.fn(async () => ({ kind: 'found' as const, status: 'completed', runs: [], raw: {} }))
+  const first = await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2)
+  expect(first).toMatchObject({ class: 'reset', receipt: 'reset', requestId: REQ_2, epoch: 1, stopConfirmed: true })
+  expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2)).toEqual(first)
+  expect(r.h.t3.count('interrupt')).toBe(1)
+  expect(await r.relay.resetReceipt(r.ctx, '!other:test', REQ_2)).toMatchObject({ class: 'refused', reason: 'changed' })
+})
+
+it.each([['consent_off', false, true], ['switch_off', true, false]])('maps %s before admission to a durable fallback refusal', async (reason, consent, localSwitch) => {
+  const r = rig()
+  const relay = new WorkRelay({ ...r.options, fence: () => false, consent: () => ({ state: consent ? 'on' : 'off' }), localSwitch: () => Boolean(localSwitch) })
+  expect(await relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', forwarded: false, reason })
+  expect(r.h.ledger.receipt(LUNA, REQ_1)?.state).toBe('refused')
+  expect(r.launch).not.toHaveBeenCalled()
+})
+
+it('G2 still refuses stale messages outside the binding queue window', async () => {
+  const r = rig()
+  r.owner.mockResolvedValue({ kind: 'ok', roomId: '!dm:test', encrypted: false, body: 'stale', originServerTs: r.h.clock.now() - 3_600_000 })
+  expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'refused', reason: 'owner_event_too_old', forwarded: false })
 })

@@ -244,6 +244,7 @@ export class WorkGate {
       limit: options.relayLimit,
       now: this.now,
       modeLimit: this.modeLimit,
+      resetAuthority: ctx => this.countersCurrent(ctx) && this.entitlementsFresh() && !options.held(),
       authority: ctx =>
         this.countersCurrent(ctx) &&
         this.entitlementsFresh() &&

@@ -4,7 +4,7 @@ import { workExpectedThreadId, type WorkSendArguments, WorkSendArgumentsSchema }
 import type { CallContext } from './gate'
 import { handoffBudget, type HistoricalMessage, historyCost, renderHistory, selectHistory } from './handoff-helper.cjs'
 import type { GateLedger } from './ledger'
-import type { GateSessions, OwnerEventVerifier, T3Port } from './ports'
+import type { GateSessions, OwnerEventVerifier, T3Port, T3Reply } from './ports'
 
 export interface RelaySelection {
   revision: number
@@ -14,13 +14,14 @@ export interface RelaySelection {
   personaRevision: number
 }
 export interface RelayHistory {
+  boundary?(input: { agentPrincipal: string; roomId: string }): Promise<string>
   read(input: {
     agentPrincipal: string
     roomId: string
     before: string
     after: string | null
     floor: string | null
-  }): Promise<HistoricalMessage[]>
+  }): Promise<HistoricalMessage[] | { messages: HistoricalMessage[]; omittedMessages: number; omittedBytes: number; truncated: boolean }>
 }
 interface Binding {
   epoch: number
@@ -31,6 +32,9 @@ interface Binding {
   accepted: string | null
   delivered: string | null
   selection: RelaySelection | null
+  resetPending?: boolean
+  queueSince?: number
+  queueUntil?: number
 }
 interface Frozen {
   frozenCall?: Record<string, unknown>
@@ -44,6 +48,7 @@ interface Frozen {
     omittedBytes: number
     omitted: number
     omittedIds: string[]
+    truncated?: boolean
     lower: string | null
     floor: string | null
     upper: string
@@ -54,6 +59,7 @@ interface Frozen {
   sendResult?: RelayAnswer
   closed?: boolean
   resultRun?: string
+  hold?: string
 }
 export interface RelayAnswer {
   class?: string
@@ -71,6 +77,7 @@ export interface RelayOptions {
   selection?(principal: string): RelaySelection | undefined
   provision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
   authority?(ctx: CallContext): boolean
+  resetAuthority?(ctx: CallContext): boolean
   fence(ctx: CallContext): boolean
   modeLimit: string
   now(): number
@@ -82,8 +89,15 @@ export class WorkRelay {
   private busy = new Set<string>()
   private requests = new Set<string>()
   constructor(private readonly o: RelayOptions) {}
+  private scope(ctx: CallContext, room: string): string {
+    const gate = this.o.gateId()
+
+    return `relay:${gate.accountId}:${gate.deviceServiceId}:${ctx.principal}:${ctx.generation}:${room}`
+  }
   private key(ctx: CallContext, room: string): string {
-    return `relay:${ctx.principal}:${ctx.generation}:${room}`
+    const scope = this.scope(ctx, room)
+
+    return this.o.ledger.meta(`${scope}:active`) ?? `${scope}:${this.o.sessions.agentSessionId(ctx.principal) ?? ''}`
   }
   private binding(key: string, sessionId: string): Binding {
     const raw = this.o.ledger.meta(key)
@@ -124,7 +138,8 @@ export class WorkRelay {
       eventId: f.input.event_id,
       roomId: f.input.room_id,
       resetEpoch: f.snapshot.epoch,
-      phase: f.answer ? 'answered' : row.runId ? 'running' : 'admitted',
+      phase: f.answer ? 'answered' : f.hold ? 'held' : row.runId ? 'running' : 'admitted',
+      ...(f.hold ? { hold: f.hold } : {}),
       forwarded: row.forwarded,
       threadId: row.threadId,
       ...(row.runId ? { runId: row.runId } : {}),
@@ -135,7 +150,7 @@ export class WorkRelay {
     const head = { gateId: this.o.gateId(), requestId: id }
 
     if (a.class === 'refused' || a.class === 'unavailable') {
-      return { ...head, class: 'refused', receipt: 'refused', forwarded: false, reason: a.reason ?? 'unavailable' }
+      return { ...head, class: 'refused', receipt: a.receipt ?? 'refused', forwarded: false, reason: a.reason === 'plan_consent_off' ? 'consent_off' : a.reason === 'plan_switch_off' ? 'switch_off' : a.reason ?? 'unavailable' }
     }
 
     if (a.class === 'revoked') {
@@ -265,7 +280,7 @@ export class WorkRelay {
 
     return this.wire(ctx, id, f?.answer ?? f?.admission ?? { class: f ? 'pending' : 'none' })
   }
-  async read(ctx: CallContext, id: string, timeoutMs = 50_000): Promise<RelayAnswer> {
+  async read(ctx: CallContext, id: string, timeoutMs = 0): Promise<RelayAnswer> {
     return this.wire(ctx, id, await this.readRaw(ctx, id, timeoutMs))
   }
   closeReceipt(ctx: CallContext, id: string): RelayAnswer {
@@ -301,6 +316,14 @@ export class WorkRelay {
     const args = parsed.data
 
     if (!this.allowed(ctx)) {
+      if (!this.frozen(ctx, args.request_id)) {
+        const consent = this.o.consent()
+
+        if (consent.state !== 'on') {return { class: 'refused', reason: 'consent_off' }}
+
+        if (!this.o.localSwitch()) {return { class: 'refused', reason: 'switch_off' }}
+      }
+
       return { class: 'revoked' }
     }
 
@@ -335,14 +358,16 @@ export class WorkRelay {
       return { class: 'ambiguous', reason: 'admission_in_progress', forwarded: false }
     }
 
-    const key = this.key(ctx, args.room_id)
+    let key = this.key(ctx, args.room_id)
+    const lock = this.scope(ctx, args.room_id)
 
-    if (this.busy.has(key)) {
+    if (this.busy.has(lock)) {
       return { class: 'refused', reason: 'operation_open' }
     }
 
-    this.busy.add(key)
+    this.busy.add(lock)
     this.requests.add(requestKey)
+    let bindingBefore: Binding | undefined
 
     try {
       if (this.o.ledger.receipt(ctx.principal, args.request_id)) {
@@ -354,15 +379,27 @@ export class WorkRelay {
       }
 
       const session = await this.o.sessions.agent(ctx.principal)
-      const binding = this.binding(key, session.sessionId)
 
-      if (binding.open) {
+      if (!this.o.ledger.meta(key)) {key = `${this.scope(ctx, args.room_id)}:${session.sessionId}`}
+      let binding = this.binding(key, session.sessionId)
+
+      if (binding.sessionId !== session.sessionId) {
+        if (!(await this.reset(ctx, args.room_id, args.event_id, true))) {
+          return { class: 'refused', reason: 'session_stop_pending' }
+        }
+
+        binding = this.binding(key, session.sessionId)
+        key = `${this.scope(ctx, args.room_id)}:${session.sessionId}`
+        this.o.ledger.tx(() => {
+          this.save(key, binding)
+          this.o.ledger.setMeta(`${this.scope(ctx, args.room_id)}:active`, key)
+        })
+      }
+
+      if (binding.open || binding.resetPending) {
         return { class: 'refused', reason: 'operation_open' }
       }
 
-      if (binding.sessionId !== session.sessionId) {
-        return { class: 'refused', reason: 'session_replaced' }
-      }
 
       let selection = this.o.selection?.(ctx.principal)
 
@@ -393,7 +430,7 @@ export class WorkRelay {
 
       const age = this.o.now() - event.originServerTs
 
-      if (age > 900_000 || age < -60_000) {
+      if ((age > 900_000 && !(binding.queueSince !== undefined && event.originServerTs >= binding.queueSince && event.originServerTs <= (binding.queueUntil ?? 0))) || age < -60_000) {
         return { class: 'refused', reason: age < 0 ? 'owner_event_future' : 'owner_event_too_old' }
       }
 
@@ -401,13 +438,23 @@ export class WorkRelay {
         return { class: 'unavailable', reason: 'history_unavailable' }
       }
 
-      // A failed read leaves no claim, binding or receipt.
-      const messages = await this.o.history.read({
+      // A failed read is durably refused by send(), without a claim or dispatch.
+      const acquired = await this.o.history.read({
         agentPrincipal: ctx.principal,
         roomId: args.room_id,
         before: args.event_id,
         after: binding.delivered,
         floor: binding.floor
+      })
+
+      const historyRows = Array.isArray(acquired) ? acquired : acquired.messages
+
+      const messages = historyRows.filter(m => {
+        const replyTo = (m as HistoricalMessage & { replyTo?: string }).replyTo
+
+        return !(m.role === 'assistant' && replyTo && this.o.ledger.receipts(
+          'principal = ? AND event_id = ? AND forwarded = 1 AND relay_json IS NOT NULL', ctx.principal, replyTo
+        ).length)
       })
 
       const budget = handoffBudget({
@@ -418,7 +465,7 @@ export class WorkRelay {
         nativeContextEstimate: 0
       })
 
-      const selected = selectHistory({ messages, budget, coverage: 'Owner DM history, before the current request.' })
+      const selected = selectHistory({ messages, budget, coverage: `Owner DM history, before the current request.${!Array.isArray(acquired) && acquired.truncated ? ' Older history omitted at paging budget; total unknown.' : ''}` })
 
       const history =
         selected.messages.length && historyCost(selected.messages, selected.context) <= budget
@@ -502,11 +549,12 @@ export class WorkRelay {
         call,
         selection,
         snapshot: {
+          truncated: !Array.isArray(acquired) && acquired.truncated,
           selected: selected.messages.map(m => m.itemId),
-          omittedBytes: messages
+          omittedBytes: (Array.isArray(acquired) ? 0 : acquired.omittedBytes) + messages
             .filter(m => selected.omittedItemIds.includes(m.itemId))
             .reduce((n, m) => n + Buffer.byteLength(m.text), 0),
-          omitted: selected.omittedItems,
+          omitted: selected.omittedItems + (Array.isArray(acquired) ? 0 : acquired.omittedMessages),
           omittedIds: selected.omittedItemIds,
           lower: binding.delivered,
           floor: binding.floor,
@@ -547,6 +595,8 @@ export class WorkRelay {
         }
       }
 
+      bindingBefore = binding
+
       const admitted = this.o.ledger.tx(() => {
         const result = this.o.ledger.admit({
           principal: ctx.principal,
@@ -568,7 +618,8 @@ export class WorkRelay {
         }
 
         this.store(ctx, args.request_id, frozen)
-        this.save(key, { ...binding, threadId, open: args.request_id, accepted: args.event_id, selection })
+        this.o.ledger.setMeta(`${this.scope(ctx, args.room_id)}:active`, key)
+        this.save(key, { ...binding, queueSince: age <= 900_000 ? event.originServerTs : binding.queueSince, threadId, open: args.request_id, accepted: args.event_id, selection })
 
         return true
       })
@@ -580,7 +631,14 @@ export class WorkRelay {
       const incarnation = this.o.t3.incarnation()
 
       if (!incarnation || !this.allowed(ctx)) {
-        return { class: 'pending', request_id: args.request_id, forwarded: false }
+        return this.o.ledger.tx(() => {
+          this.o.ledger.update(ctx.principal, args.request_id, { state: 'void', reason: 'not_forwarded', settled: 'never_sent' })
+          this.save(key, { ...binding, open: null })
+          frozen.admission = { class: 'refused', receipt: 'void', reason: 'not_forwarded', forwarded: false }
+          this.store(ctx, args.request_id, frozen)
+
+          return frozen.admission
+        })
       }
 
       this.o.ledger.markForwarded(ctx.principal, args.request_id, incarnation)
@@ -609,15 +667,30 @@ export class WorkRelay {
 
       return this.allowed(ctx) ? answer : { class: 'revoked' }
     } catch {
+      const row = this.o.ledger.receipt(ctx.principal, args.request_id)
+      const frozen = this.frozen(ctx, args.request_id)
+
+      if (row && !row.forwarded && frozen && bindingBefore) {
+        const result: RelayAnswer = { class: 'refused', receipt: 'void', reason: 'not_forwarded', forwarded: false }
+        this.o.ledger.tx(() => {
+          this.o.ledger.update(ctx.principal, args.request_id, { state: 'void', reason: 'not_forwarded', settled: 'never_sent' })
+          this.save(key, bindingBefore!)
+          frozen.admission = result
+          this.store(ctx, args.request_id, frozen)
+        })
+
+        return result
+      }
+
       return this.o.ledger.receipt(ctx.principal, args.request_id)
         ? {
             class: 'pending',
             request_id: args.request_id,
             forwarded: this.o.ledger.receipt(ctx.principal, args.request_id)!.forwarded
           }
-        : { class: 'none' }
+        : { class: 'refused', reason: 'admission_failed', forwarded: false }
     } finally {
-      this.busy.delete(key)
+      this.busy.delete(lock)
       this.requests.delete(requestKey)
     }
   }
@@ -646,6 +719,27 @@ export class WorkRelay {
       localSwitch: this.o.localSwitch()
     }
   }
+  private holdReason(data?: Record<string, unknown> | null): string {
+    const thread = (data?.thread ?? data) as Record<string, unknown> | undefined
+
+    if (thread?.hold === 'plan_limit' || thread?.status === 'plan_limit' || this.o.limit?.().state === 'exhausted') {return 'plan_limit'}
+
+    if (thread?.hold === 'approval' || thread?.status === 'approval' || thread?.pendingApproval || (Array.isArray(thread?.pendingApprovals) && thread.pendingApprovals.length)) {return 'approval'}
+
+    return 'waiting_for_mac'
+  }
+  private async observe(token: string, threadId: string, runId: string): Promise<T3Reply> {
+    const read = await this.o.t3.read(token, threadId)
+    const run = read.kind === 'found' ? read.runs.find(r => r.runId === runId) : undefined
+    const thread = read.kind === 'found' ? read.raw.thread as Record<string, unknown> | undefined : undefined
+
+    const settled = read.kind === 'found' && !read.activeRunId && !thread?.blockedOnThreadWait &&
+      !((thread?.pendingBackgroundTasks as unknown[] | undefined)?.length) &&
+      !read.runs.some(r => ['running', 'queued', 'waiting', 'starting', 'preparing'].includes(r.status))
+
+    return { transport: 'ok' as const, data: { ...(read.kind === 'found' ? read.raw : {}),
+      timedOut: !settled || !run, resultRun: run, status: run?.status } }
+  }
   private async readRaw(ctx: CallContext, id: string, timeoutMs: number): Promise<RelayAnswer> {
     if (!this.allowed(ctx)) {
       return { class: 'revoked' }
@@ -655,8 +749,10 @@ export class WorkRelay {
     let row = this.o.ledger.receipt(ctx.principal, id)
 
     if (!f) {
-      return { class: 'none' }
+      return row?.state === 'refused' ? { class: 'refused', reason: row.reason } : { class: 'none' }
     }
+
+    if (row?.state === 'void' && !row.forwarded) {return f.admission ?? { class: 'refused', receipt: 'void', reason: row.reason }}
 
     if (row?.stopScope) {
       return { class: 'revoked' }
@@ -731,21 +827,22 @@ export class WorkRelay {
       return { class: 'revoked' }
     }
 
-    const waited = await this.o.t3.wait(
-      session.token,
-      row.threadId,
-      row.runId,
-      Math.min(50_000, Math.max(1000, timeoutMs))
-    )
+    const waited = timeoutMs > 0
+      ? await this.o.t3.wait(session.token, row.threadId, row.runId, Math.min(25_000, Math.max(1000, timeoutMs)))
+      : await this.observe(session.token, row.threadId, row.runId)
 
     if (!this.allowed(ctx)) {
       return { class: 'revoked' }
     }
 
     if (waited.transport !== 'ok' || waited.isError || waited.data?.timedOut !== false) {
+      f.hold = this.holdReason(waited.data)
+      this.store(ctx, id, f)
+
       return { class: 'pending' }
     }
 
+    f.hold = undefined
     const result = waited.data?.resultRun as { runId?: string; status?: string } | undefined
     const runId = result?.runId ?? row.runId
     const status = result?.status ?? waited.data?.status
@@ -903,27 +1000,70 @@ export class WorkRelay {
       this.store(ctx, id, f)
       b.open = null
       b.delivered = f.input.event_id
+      b.queueUntil = this.o.now()
       this.save(f.bindingKey, b)
 
       return true
     })
   }
-  /** Main-only reset; the native stop must be confirmed before the durable epoch/floor advances. */
-  async reset(ctx: CallContext, room: string, floor: string): Promise<boolean> {
-    const key = this.key(ctx, room)
+  async resetReceipt(ctx: CallContext, room: string, id: string): Promise<RelayAnswer> {
+    const key = `${this.scope(ctx, room)}:reset:${id}`
+    // Request identity is scoped to the assistant, so a changed room cannot replay it.
+    const claim = `relay-reset:${ctx.principal}:${id}`
 
-    if (this.busy.has(key)) {
+    if (!(this.o.resetAuthority?.(ctx) ?? this.allowed(ctx))) {return this.wire(ctx, id, { class: 'revoked' })}
+    const existingRoom = this.o.ledger.meta(claim)
+
+    if (existingRoom && existingRoom !== room) {return this.wire(ctx, id, { class: 'refused', reason: 'changed' })}
+    let reset = JSON.parse(this.o.ledger.meta(key) ?? 'null') as { floor: string; epoch: number; confirmed: boolean } | null
+
+    if (!reset) {
+      if (!this.o.history?.boundary) {return this.wire(ctx, id, { class: 'refused', reason: 'history_unavailable' })}
+      this.o.ledger.setMeta(claim, room)
+      const floor = await this.o.history.boundary({ agentPrincipal: ctx.principal, roomId: room })
+      reset = { floor, epoch: this.binding(this.key(ctx, room), '').epoch + 1, confirmed: false }
+      this.o.ledger.tx(() => {
+        this.o.ledger.setMeta(claim, room)
+        this.o.ledger.setMeta(key, JSON.stringify(reset))
+      })
+    }
+
+    if (!reset.confirmed) {
+      const binding = this.binding(this.key(ctx, room), '')
+
+      if (binding.epoch >= reset.epoch && binding.floor === reset.floor) {reset.confirmed = true}
+    }
+
+    if (!reset.confirmed) {
+      reset.confirmed = await this.reset(ctx, room, reset.floor, false, true)
+      this.o.ledger.setMeta(key, JSON.stringify(reset))
+    }
+
+    return { gateId: this.o.gateId(), requestId: id, class: 'reset', receipt: 'reset', epoch: reset.epoch, stopConfirmed: reset.confirmed }
+  }
+  /** Main-only reset; the native stop must be confirmed before the durable epoch/floor advances. */
+  async reset(ctx: CallContext, room: string, floor: string, withinAdmission = false, trustedBoundary = false): Promise<boolean> {
+    const key = this.key(ctx, room)
+    const lock = this.scope(ctx, room)
+
+    if (!withinAdmission && this.busy.has(lock)) {
       return false
     }
 
-    this.busy.add(key)
+    if (!withinAdmission) {this.busy.add(lock)}
 
     try {
       const b = this.binding(key, '')
-      const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: floor })
+      const event = trustedBoundary ? { kind: 'ok', roomId: room } : await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: floor })
 
-      if (event.kind !== 'ok' || event.roomId !== room || !this.allowed(ctx)) {
+      if (event.kind !== 'ok' || event.roomId !== room || !(this.o.resetAuthority?.(ctx) ?? this.allowed(ctx))) {
         return false
+      }
+
+      this.save(key, { ...b, resetPending: true })
+
+      if (b.open) {
+        this.o.ledger.update(ctx.principal, b.open, { stop_scope: 'agent', stop_at: this.o.now() })
       }
 
       if (b.threadId) {
@@ -943,24 +1083,25 @@ export class WorkRelay {
       }
 
       // Adapter proves the proposed boundary is after the existing floor by native room ordering.
-      if (!this.o.history || b.floor === floor) {
+      if (!this.o.history) {
         return false
       }
 
-      await this.o.history.read({
-        agentPrincipal: ctx.principal,
-        roomId: room,
-        before: floor,
-        after: b.floor,
-        floor: b.floor
-      })
+      if (b.floor !== floor) {
+        const boundary = await this.o.history.read({ agentPrincipal: ctx.principal, roomId: room, before: floor, after: b.floor, floor: b.floor })
 
-      if (!this.allowed(ctx)) {
+        if (b.floor && !Array.isArray(boundary) && boundary.truncated) {return false}
+      }
+
+      if (!(this.o.resetAuthority?.(ctx) ?? this.allowed(ctx))) {
         return false
       }
 
       const session = await this.o.sessions.agent(ctx.principal)
-      this.save(key, {
+      this.o.ledger.tx(() => {
+        if (b.open) {this.o.ledger.update(ctx.principal, b.open, { settled: 'stopped', finished: 1 })}
+
+        const next: Binding = {
         epoch: b.epoch + 1,
         floor,
         threadId: null,
@@ -969,11 +1110,17 @@ export class WorkRelay {
         accepted: null,
         delivered: null,
         selection: null
+        }
+
+        this.save(key, next)
+        const nextKey = `${this.scope(ctx, room)}:${session.sessionId}`
+        this.save(nextKey, next)
+        this.o.ledger.setMeta(`${this.scope(ctx, room)}:active`, nextKey)
       })
 
       return true
     } finally {
-      this.busy.delete(key)
+      if (!withinAdmission) {this.busy.delete(lock)}
     }
   }
 }

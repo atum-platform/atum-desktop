@@ -27,3 +27,11 @@ it('canonical main room authority controls the SDK history command', async () =>
     floor: null
   })
 })
+
+it('G6 obtains reset floor from the canonical SDK room, never from reset caller fields', async () => {
+  const command = vi.fn(async () => ({ messages: [], boundary: '$latest', omittedMessages: 0, omittedBytes: 0, truncated: false }))
+  const host = { userId: '@owner:test', command }
+  const source: OwnerEventSource = { ownerUserId: () => host.userId, agentUserId: async () => '@agent:test', assistantRoom: async () => '!dm:test', readEvent: vi.fn() }
+  expect(await createWorkHistory(source, () => host).boundary!({ agentPrincipal: 'agent', roomId: '!dm:test' })).toBe('$latest')
+  expect(command).toHaveBeenCalledWith(expect.objectContaining({ boundaryOnly: true, roomId: '!dm:test' }))
+})

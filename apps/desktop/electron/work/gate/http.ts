@@ -321,6 +321,12 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
 
     case 'close':
       return gate.relay.closeReceipt(ctx, (args as { request_id: string }).request_id)
+    case 'reset': {
+      const input = args as { room_id: string; request_id: string }
+
+      return gate.relay.resetReceipt(ctx, input.room_id, input.request_id)
+    }
+
     case 'status': {
       return gate.relay.status(ctx, (args as { room_id: string }).room_id)
     }
@@ -338,7 +344,7 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
 
     case 'wait':
       return 'request_id' in (args as object)
-        ? gate.relay.read(ctx, (args as { request_id: string }).request_id, (args as { timeoutMs?: number }).timeoutMs)
+        ? gate.relay.read(ctx, (args as { request_id: string }).request_id, (args as { timeoutMs?: number }).timeoutMs ?? 25_000)
         : gate.wait(ctx, args as { threadId: string; timeoutMs?: number })
 
     case 'list':
@@ -374,7 +380,7 @@ function revokedAnswer(gate: WorkGate, ctx: CallContext, tool: WorkTool, rawArgs
   const scope = gate.revokedScope(ctx)
   const args = rawArgs as { requestId?: string; request_id?: string; threadId?: string } | undefined
 
-  if (typeof args?.request_id === 'string') return {gateId, requestId: args.request_id, class: 'revoked', receipt: 'revoked', stopConfirmed: false} as Answer
+  if (typeof args?.request_id === 'string') {return {gateId, requestId: args.request_id, class: 'revoked', receipt: 'revoked', stopConfirmed: false} as Answer}
 
   if ((tool === 'launch' || tool === 'request') && typeof args?.requestId === 'string') {
     return { gateId, requestId: args.requestId, class: 'revoked', receipt: 'revoked', scope } as Answer
