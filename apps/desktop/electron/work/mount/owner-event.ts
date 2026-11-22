@@ -1,6 +1,9 @@
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage, matrixOwnerWireType, type MatrixSdkCommand } from '../../../shared/matrix'
 import type { OwnerEventOutcome, OwnerEventVerifier } from '../gate/ports'
 
+// Matrix timestamps come from the server clock, pendingSince from the Mac's; allow skew both ways.
+const CLOCK_SKEW_MS = 60_000
+
 // The Work gate's `OwnerEventVerifier` (plan §11.3 "The owner's request", K35). The launch names one Matrix event;
 // this fetches THAT event itself through the owner's own authenticated Matrix SDK and decides, from what the SDK read
 // and never from anything the caller said:
@@ -172,7 +175,7 @@ export function createOwnerEventVerifier(source: OwnerEventSource): OwnerEventVe
             anchor.eventId === question.eventId && anchor.roomId === roomId &&
             anchor.roomPlain === true && anchor.content.msgtype === 'm.text' &&
             anchor.content.replyTo === question.originalEventId && anchor.content.body === question.text &&
-            anchor.timestamp > question.pendingSince &&
+            anchor.timestamp > question.pendingSince - CLOCK_SKEW_MS &&
             anchor.timestamp <= message.timestamp
         }
       } catch (error) {

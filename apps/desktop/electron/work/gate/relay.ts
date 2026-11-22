@@ -876,7 +876,7 @@ export class WorkRelay {
           }
 
           if (event.kind !== 'ok' || event.encrypted !== false || event.roomId !== frozen.input.room_id ||
-              !event.questionReply || event.originServerTs <= seen.at || event.originServerTs > this.o.now() + 60_000) {
+              !event.questionReply || event.originServerTs <= seen.at - 60_000 || event.originServerTs > this.o.now() + 60_000) {
             return invalidAnswer()
           }
 
@@ -1151,8 +1151,9 @@ export class WorkRelay {
       const latest = this.frozen(ctx, id)
       const hold = this.holdReason(waited.data)
 
-      if (latest && !latest.answer) {
-        this.store(ctx, id, { ...latest, hold: hold === 'waiting_for_mac' && isQuestionHold(latest.hold) ? latest.hold : hold })
+      const nextHold = hold === 'waiting_for_mac' && latest && isQuestionHold(latest.hold) ? latest.hold : hold
+      if (latest && !latest.answer && latest.hold !== nextHold) {
+        this.store(ctx, id, { ...latest, hold: nextHold })
       }
 
       return { class: 'pending' }

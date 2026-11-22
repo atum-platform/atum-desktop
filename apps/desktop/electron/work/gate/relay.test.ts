@@ -670,13 +670,21 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'closed' })
 
     await r.relay.question(r.ctx, readQuestion)
-    r.owner.mockResolvedValueOnce(reply(r))
+    // Older than the first read by more than the 60 s clock-skew allowance.
+    r.owner.mockResolvedValueOnce({ ...reply(r), originServerTs: r.h.clock.now() - 61_000 })
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'invalid_answer' })
     r.h.clock.advance(10)
     const newer = reply(r, '1')
     r.h.clock.advance(10)
     await r.relay.question(r.ctx, readQuestion)
     r.owner.mockResolvedValue(newer)
+    expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'answered' })
+  })
+
+  it('accepts a reply whose server timestamp trails the Mac clock by a few seconds', async () => {
+    const r = await questions()
+    await r.relay.question(r.ctx, readQuestion)
+    r.owner.mockResolvedValue({ ...reply(r), originServerTs: r.h.clock.now() - 5_000 })
     expect(await r.relay.question(r.ctx, r.respond)).toMatchObject({ questionStatus: 'answered' })
   })
 

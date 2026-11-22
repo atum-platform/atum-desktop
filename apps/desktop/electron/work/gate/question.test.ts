@@ -10,4 +10,6 @@ it('matches comma-bearing labels intact and takes numbered or line-separated cho
   expect(questionAnswers(question, ' Blue, light\n green ')).toEqual({ colors: ['blue', 'Green'] })
   expect(questionAnswers(question, '1, 2')).toEqual({ colors: ['blue', 'Green'] })
   expect(questionAnswers(question, 'Orange')).toBeUndefined()
+  expect(questionAnswers(question, '2.')).toEqual({ colors: ['Green'] })
+  expect(questionAnswers(question, '2)')).toEqual({ colors: ['Green'] })
 })

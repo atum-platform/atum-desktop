@@ -22,7 +22,8 @@ export function questionAnswers(question: Question, body: string): Record<string
 
   const pick = (input: string): string | undefined => {
     const value = input.trim().toLowerCase()
-    const byNumber = /^[1-9]\d*$/u.test(value) ? question.options[Number(value) - 1] : undefined
+    const numbered = /^([1-9]\d*)[.)]?$/u.exec(value)
+    const byNumber = numbered ? question.options[Number(numbered[1]) - 1] : undefined
     const match = byNumber ?? question.options.find(option =>
       option.label.trim().toLowerCase() === value || option.value?.trim().toLowerCase() === value)
     return match && (match.value ?? match.label)

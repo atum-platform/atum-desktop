@@ -69,7 +69,9 @@ describe('owner event verifier', () => {
 
     expect(await verify(prompt)).toMatchObject({ kind: 'ok', body: 'Sea blue', questionReply: true })
     expect(await verify({ ...prompt, sender: OWNER })).toMatchObject({ questionReply: false })
-    expect(await verify({ ...prompt, timestamp: reply.timestamp - 10 })).toMatchObject({ questionReply: false })
+    // Server clock behind the Mac's: an anchor slightly before pendingSince still binds; one far older does not.
+    expect(await verify({ ...prompt, timestamp: reply.timestamp - 10 - 5_000 })).toMatchObject({ questionReply: true })
+    expect(await verify({ ...prompt, timestamp: reply.timestamp - 10 - 61_000 })).toMatchObject({ questionReply: false })
     expect(await verify({ ...prompt, timestamp: reply.timestamp + 1 })).toMatchObject({ questionReply: false })
     expect(await verify({ ...prompt, content: { ...prompt.content, body: 'Different question?' } })).toMatchObject({ questionReply: false })
     expect(await verify({ ...prompt, content: { ...prompt.content, replyTo: '$another' } })).toMatchObject({ questionReply: false })
