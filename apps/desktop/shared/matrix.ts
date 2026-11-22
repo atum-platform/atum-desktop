@@ -2366,6 +2366,21 @@ export interface MatrixUiBridge {
     | { refused: 'name' | 'limit' | 'account' | 'short' }
     | { refused: { hire: number } }
   >
+  /** The open listings this person can hire (0535), for the new-assistant sheet's shelf.
+   * Absent on an older native host; an empty list when the platform has none to show. */
+  openAgents?(): Promise<MatrixOpenAgentListing[]>
+  /** Hires an open listing under `name`. The platform seeds its persona and skills, so no
+   * persona crosses here, and a retry of an unfinished hire of the same listing resumes it.
+   * It always answers in the cloud: there is no room to open on this Mac. */
+  hireAgent?(
+    name: string,
+    listingId: string,
+    hireConfirmed?: boolean
+  ): Promise<
+    | { principal: string; assistantId?: string }
+    | { refused: 'name' | 'limit' | 'account' | 'short' }
+    | { refused: { hire: number } }
+  >
   /** Native folder picker for a verified offline profile; no paths/credentials in the UI. */
   importAgent(
     name: string,
@@ -2494,3 +2509,18 @@ export const MATRIX_CHANNELS = {
   sdkCommand: 'matrix:sdk:command',
   sdkResult: 'matrix:sdk:result'
 } as const
+
+/** One open listing (0535 `matrix_open_agent_catalog`): an assistant anyone can hire. Titles and
+ * summaries are keyed by locale; the seat price is the ordinary hire, in Protons. */
+export interface MatrixOpenAgentListing {
+  listingId: string
+  displayName: string
+  title?: Record<string, string>
+  summary?: Record<string, string>
+  /** The catalog's emoji; the sheet draws its Phosphor counterpart, never the emoji. */
+  glyph?: string
+  skills: string[]
+  seatPriceProtons: number
+  /** True when this hire is the third+ assistant: the price is confirmed before it is made. */
+  hireRequired: boolean
+}

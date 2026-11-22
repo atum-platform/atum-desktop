@@ -44,6 +44,14 @@ import {
   suggestMatrixAgentHandle,
   typedMatrixAgentHandleStem
 } from './handle-rules'
+import {
+  LISTING_SECTION,
+  listingAssistantName,
+  ListingHireView,
+  ListingShelf,
+  useListingHire,
+  useOpenListings
+} from './listing-hire'
 import { assistantPersona } from './people'
 import { useRosterCreateCopy } from './roster-create-copy'
 import { runMatrixCommand } from './text-document-actions'
@@ -250,6 +258,9 @@ export function NewAssistantDialog({
   const lifetime = useRef(true)
   const shown = useRef(open)
   const photoInput = useRef<HTMLInputElement>(null)
+  // Open listings (D9): hired from this same sheet, one focus at a time.
+  const listings = useOpenListings(open)
+  const listingHire = useListingHire(onCreated)
 
   shown.current = open
 
@@ -347,6 +358,11 @@ export function NewAssistantDialog({
     // Closing after the assistant exists is done with it: its card can add the photo later.
     if (!next && created && !pending) {
       reset()
+    }
+
+    // A hire still under way stays, so reopening shows it; any other listing state is let go.
+    if (!next && listingHire.hire?.phase.kind !== 'hiring') {
+      listingHire.reset()
     }
 
     onOpenChange(next)
@@ -573,10 +589,29 @@ export function NewAssistantDialog({
     <>
     <Dialog onOpenChange={changeOpen} open={open}>
       <DialogContent className="max-w-[27.5rem]" data-atum-agent-sheet>
+        {listingHire.hire ? (
+          <ListingHireView
+            hire={listingHire.hire}
+            onBack={listingHire.reset}
+            onConfirm={listingHire.confirm}
+            onDone={() => {
+              listingHire.reset()
+              finish()
+            }}
+            onRetry={listingHire.retry}
+            onTopUp={listingHire.topUp}
+          />
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle>{shell.newAgent}</DialogTitle>
           <DialogDescription>{copy.assistantIntro}</DialogDescription>
         </DialogHeader>
+        <ListingShelf
+          disabled={!ready || locked}
+          listings={listings}
+          onPick={listing => listingHire.pick(listing, listingAssistantName(listing, locale, agents, apps))}
+        />
         <form
           className="space-y-3"
           id="matrix-new-assistant"
@@ -592,6 +627,11 @@ export function NewAssistantDialog({
             }
           }}
         >
+          {listings.length > 0 && (
+            <h3 className={cn(LISTING_SECTION, 'mt-2')} id="matrix-new-assistant-own">
+              {copy.makeYourOwn}
+            </h3>
+          )}
           <div>
             <label className={label} htmlFor="matrix-new-assistant-name">
               {cardCopy.nameField}
@@ -835,6 +875,8 @@ export function NewAssistantDialog({
             {retryingHandle ? t.common.retry : retryingPhoto ? copy.photoRetry : shell.agentCreate}
           </Button>
         </DialogFooter>
+        </>
+        )}
       </DialogContent>
     </Dialog>
     {cropFile && (

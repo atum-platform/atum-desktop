@@ -19,6 +19,7 @@ import type { DiscoverShelf } from '../store/top-up'
 import { AwarenessGallery } from './awareness-gallery'
 import { PLAYGROUND_SCENARIOS, scenarioSnapshot } from './fixtures'
 import { PlaygroundGoogleSettings } from './google-fixtures'
+import { LISTING_HIRE_VIEWS, PlaygroundListingHire } from './listing-hire-fixtures'
 import {
   PLAYGROUND_ASSISTANT,
   PLAYGROUND_WALLET,
@@ -28,6 +29,7 @@ import {
 } from './store-fixtures'
 
 export const PLAYGROUND_VIEWS = [
+  ...LISTING_HIRE_VIEWS,
   'awareness',
   'awareness-stale',
   'awareness-unavailable',
@@ -223,6 +225,10 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
         <PlaygroundThrow />
       </ErrorBoundary>
     )
+  }
+
+  if ((LISTING_HIRE_VIEWS as readonly string[]).includes(view)) {
+    return <PlaygroundListingHire key={view} view={view as (typeof LISTING_HIRE_VIEWS)[number]} />
   }
 
   if (view.startsWith('awareness')) {

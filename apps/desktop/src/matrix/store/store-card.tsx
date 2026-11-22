@@ -93,9 +93,12 @@ export function storeGlyphIcon(item: Pick<MatrixStoreItem, 'kind'> & { glyph?: s
 
 /** R13: pets keep their portrait; skills and assistants use neutral tiles with their own Phosphor glyph. */
 export function StoreArt({
+  face = false,
   item,
   size
 }: {
+  /** An assistant you hire wears a face, so it is round like every assistant (STYLE.md §5). */
+  face?: boolean
   item: Pick<MatrixStoreItem, 'kind'> & { glyph?: string; itemId?: string }
   size: 'tile' | 'panel'
 }) {
@@ -109,6 +112,7 @@ export function StoreArt({
       aria-hidden
       className="atum-store-art"
       data-art={showPreview ? 'pet' : item.kind}
+      data-face={face || undefined}
       data-size={size}
     >
       {showPreview ? (
