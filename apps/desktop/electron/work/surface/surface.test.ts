@@ -579,6 +579,9 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
   it('reads, sets and revokes the consent through the owner\'s client, naming this Mac by its id', async () => {
     const off = { provider: 'codex' as const, state: 'off' as const, agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
     const consent = {
+      readRelay: vi.fn(),
+      selectRelay: vi.fn(),
+      stopRelay: vi.fn(),
       read: vi.fn(async () => ({ issuedAt: 1, consent: off, facts: [] })),
       set: vi.fn(async () => ({ ...off, state: 'on' as const, revision: 1 })),
       revoke: vi.fn(async () => off)
@@ -608,6 +611,9 @@ describe('registerMatrixWorkIpc', () => {
     const ipc = { handle: vi.fn((channel: string, fn: typeof handler) => void (handler = fn)) }
 
     const surface = {
+      readRelay: vi.fn(),
+      selectRelay: vi.fn(),
+      stopRelay: vi.fn(),
       read: vi.fn(async () => null),
       show: vi.fn(async () => {}),
       hide: vi.fn(async () => {}),

@@ -481,3 +481,20 @@ it('retains the explicit reset event after a long sleep', async () => {
   expect(r.owner).toHaveBeenCalledWith({ agentPrincipal: LUNA, eventId: EVENT_A })
   expect(await r.relay.resetReceipt(r.ctx, '!dm:test', REQ_2, EVENT_B)).toMatchObject({ reason: 'changed' })
 })
+
+it('owner Stop cuts publication before interrupt and preserves the history floor', async () => {
+  const r = rig()
+  await r.relay.send(r.ctx, r.input)
+  const before = await r.relay.status(r.ctx, r.input.room_id)
+  r.h.t3.interrupt = vi.fn(async () => {
+    expect(r.h.ledger.receipt(LUNA, REQ_1)?.stopScope).toBe('agent')
+
+    return { transport: 'failed' as const }
+  })
+  r.h.t3.read = vi.fn(async () => ({ kind: 'error' as const, code: 'offline' }))
+  expect(await r.relay.stop(r.ctx, r.input.room_id, EVENT_B)).toBe(false)
+  expect(r.h.t3.interrupt).not.toHaveBeenCalled()
+  expect(await r.relay.stop(r.ctx, r.input.room_id, EVENT_A)).toBe(false)
+  expect(await r.relay.request(r.ctx, REQ_1)).toMatchObject({ class: 'revoked', stopConfirmed: false })
+  expect((await r.relay.status(r.ctx, r.input.room_id)).reset).toEqual(before.reset)
+})

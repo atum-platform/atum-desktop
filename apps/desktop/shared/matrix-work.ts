@@ -1,3 +1,5 @@
+import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './matrix-work-relay'
+
 /**
  * The Work surface (self-work slice A, lane DW): what the Matrix window may know about Work on this Mac.
  *
@@ -90,6 +92,8 @@ export interface MatrixWorkAgentActivity {
 }
 
 export interface MatrixWorkProjection {
+  relayChats?: string[]
+  planLimit?: WorkRelayLimit
   view: MatrixWorkViewState
   assistants: MatrixWorkAssistants
   /** Absent: no plan is connected on this Mac and the switch is off, so nothing is drawn. */
@@ -111,6 +115,9 @@ export interface MatrixWorkRect {
 }
 
 export type MatrixWorkRequest =
+  | { kind: 'readRelay'; principal: string; roomId: string }
+  | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string }
+  | { kind: 'stopRelay'; roomId: string; eventId: string }
   | { kind: 'read' }
   | { kind: 'show'; rect: MatrixWorkRect }
   | { kind: 'hide' }
@@ -128,6 +135,9 @@ export type MatrixWorkRequest =
   | { kind: 'reconnectAssistants' }
 
 export interface MatrixWorkBridge {
+  readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
+  selectRelay?(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
+  stopRelay?(roomId: string, eventId: string): Promise<void>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
   /** Paint (or move) the owner view over this region. The first call opens and signs the view in. */
@@ -199,6 +209,15 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
   const keys = Object.keys(row)
 
   switch (row.kind) {
+    case 'readRelay':
+      return keys.length === 3 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255
+        ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
+    case 'selectRelay':
+      return keys.length === 4 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model } : null
+    case 'stopRelay':
+      return keys.length === 3 && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255 && typeof row.eventId === 'string' && row.eventId.startsWith('$') && row.eventId.length <= 255
+        ? { kind: 'stopRelay', roomId: row.roomId, eventId: row.eventId } : null
     case 'read':
     case 'hide':
     case 'retry':

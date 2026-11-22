@@ -1050,6 +1050,29 @@ export class WorkRelay {
 
     return { gateId: this.o.gateId(), requestId: id, class: 'reset', receipt: 'reset', epoch: reset.epoch, stopConfirmed: reset.confirmed }
   }
+  /** Owner Stop cuts publication immediately and retains the binding/history. */
+  async stop(ctx: CallContext, room: string, eventId: string): Promise<boolean> {
+    const b = this.binding(this.key(ctx, room), '')
+
+    if (!(this.o.resetAuthority?.(ctx) ?? this.allowed(ctx)) || !b.open || !b.threadId) {return false}
+    const frozen = this.frozen(ctx, b.open)
+
+    if (frozen?.input.event_id !== eventId) {return false}
+    this.o.ledger.update(ctx.principal, b.open, { stop_scope: 'agent', stop_at: this.o.now() })
+    const owner = await this.o.sessions.owner()
+    await this.o.t3.interrupt(owner.token, b.threadId, { stop: true })
+    const read = await this.o.t3.read(owner.token, b.threadId)
+
+    if (read.kind !== 'found' || read.activeRunId ||
+      (read.raw.thread as { blockedOnThreadWait?: boolean })?.blockedOnThreadWait ||
+      ((read.raw.thread as { pendingBackgroundTasks?: unknown[] })?.pendingBackgroundTasks?.length ?? 0) > 0 ||
+      read.runs.some(r => ['running', 'queued', 'waiting', 'starting', 'preparing'].includes(r.status))) {return false}
+
+    this.o.ledger.update(ctx.principal, b.open, { settled: 'stopped', finished: 1 })
+
+    return true
+  }
+
   /** Main-only reset; the native stop must be confirmed before the durable epoch/floor advances. */
   async reset(ctx: CallContext, room: string, floor: string, withinAdmission = false, trustedBoundary = false): Promise<boolean> {
     const key = this.key(ctx, room)

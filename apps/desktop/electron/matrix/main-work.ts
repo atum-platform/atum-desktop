@@ -35,6 +35,7 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
 import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
@@ -512,6 +513,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     // lane reads it, so the step stays hidden by construction.
     planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
     deviceServiceId: () => deps.deviceServiceId(),
+    relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
     consent: consentClient
   })
 

@@ -21,7 +21,7 @@ export interface DeviceServicePlatformOptions {
   fetch?: typeof fetch
 }
 
-function deviceServiceCall(options: DeviceServicePlatformOptions) {
+export function deviceServiceCall(options: DeviceServicePlatformOptions) {
   const doFetch = options.fetch ?? fetch
 
   return async (operation: string, body: Record<string, unknown>): Promise<unknown> => {

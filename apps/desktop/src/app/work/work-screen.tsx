@@ -7,6 +7,8 @@ import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from
 
 import { type WorkAgentNames, WorkAssistantsBand, WorkAssistantsPill } from './assistants'
 import { workCopy, type WorkWords } from './copy'
+import { WorkRelaySharedContextLine } from './relay-chrome'
+import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
 
 export interface WorkScreenProps {
@@ -21,6 +23,11 @@ export interface WorkScreenProps {
   windowControls?: ReactNode
   leadsRow?: boolean
   reserveOverlay?: boolean
+  /**
+   * Relay R1 (O14): assistants whose chat with the owner runs in a thread on this Mac. One line says that what the owner types
+   * in those threads can show up in their replies. Absent or empty: no line.
+   */
+  relayChats?: readonly string[]
 }
 
 /** The body while the owner view is not painted: a Kit state, one line, at most one action. */
@@ -70,6 +77,7 @@ export function WorkScreen({
   obstructed,
   onAddProtons,
   projection,
+  relayChats,
   reserveOverlay,
   windowControls
 }: WorkScreenProps) {
@@ -118,6 +126,9 @@ export function WorkScreen({
         names={names}
         state={projection.assistants}
       />
+      {projection.view === 'ready' && (
+        <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
+      )}
       {/* Full-bleed: the host is the card below the title, so main paints the view edge to edge (and
           rounds it with the card's own radius). */}
       <div

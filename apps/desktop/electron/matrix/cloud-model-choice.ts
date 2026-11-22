@@ -208,6 +208,7 @@ export function matrixCloudModelView(offer: MatrixCloudModelOffer): MatrixCloudM
   const shelf = offer.models.flatMap(row => (row.eligible && row.shelf ? [row.shelf] : []))
 
   return {
+    revision: offer.revision,
     offered: offer.models.filter(row => row.eligible).map(row => row.alias),
     ...(offer.current ? { current: offer.current } : {}),
     ...(parseMatrixEffort(offer.effort) ? { effort: parseMatrixEffort(offer.effort) } : {}),

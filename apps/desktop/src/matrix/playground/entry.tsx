@@ -3,6 +3,7 @@ import '../../styles.css'
 import { StrictMode, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { $workRelayStop } from '@/app/work/store'
 import { I18nProvider } from '@/i18n'
 
 import { matrixModelDisplayName } from '../../../shared/matrix-model-display-name'
@@ -28,6 +29,7 @@ import { PLAYGROUND_SCENARIO_LABELS, PLAYGROUND_SCENARIOS, playgroundAlias, type
 import { isPlaygroundView, PlaygroundGallery } from './gallery'
 import { playgroundLinkPreviewMode, playgroundLinkPreviews, withPlaygroundLinkPreviews } from './link-preview-fixtures'
 import { playgroundDocumentPreview, playgroundPlaceBridges, playgroundPlaces, withPlaygroundPlaces } from './places-fixtures'
+import { playgroundRelayMode, withPlaygroundRelay } from './relay-fixtures'
 import { playgroundRoutines, playgroundRoutinesMode } from './routine-fixtures'
 import {
   playgroundGoogleConnections,
@@ -91,6 +93,13 @@ const policyView = playgroundPolicyView(policyMode)
 const bridge = playgroundBridge(store)
 // Link preview cards under messages in the open chat (?links=1).
 const linkPreviews = playgroundLinkPreviewMode(params)
+// Relay R1's line on a short exchange in the open chat (?relay=waiting|needs-ok|fallback-mac|late|…).
+const relayMode = playgroundRelayMode(params)
+
+// The held lines' Stop, as the coordinator's wiring will give it (the playground only logs it).
+if (relayMode) {
+  $workRelayStop.set((roomId, eventId) => console.info('relay stop', roomId, eventId))
+}
 // The account's ChatGPT states in Settings › Connections and the model picker (?subscriptions=).
 const subscriptionsMode = playgroundSubscriptionsMode(params)
 // The agent's desk in the side panel (?desk=free|working|waiting|device), on the open assistant chat.
@@ -106,7 +115,7 @@ store.emit = snapshot =>
           checkIns.decorate(
             homeDecorated(
               withPlaygroundDesk(
-                withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews),
+                withPlaygroundRelay(withPlaygroundLinkPreviews(withPlaygroundPlaces(snapshot, places), linkPreviews), relayMode),
                 deskMode,
                 store.locale ?? 'en'
               )

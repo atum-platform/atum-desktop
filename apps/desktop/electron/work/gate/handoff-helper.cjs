@@ -126,6 +126,7 @@ Selected ${count} intact items; omitted ${omitted} items.${omittedList(widestIds
   };
 }
 // Annotate the CommonJS export names for ESM import in node:
+// eslint-disable-next-line no-constant-binary-expression -- Node ESM export-name annotation; deliberately unreachable.
 0 && (module.exports = {
   attachmentTokenAllowance,
   estimateTextTokens,

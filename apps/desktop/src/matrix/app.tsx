@@ -38,7 +38,11 @@ import {
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
 import { workCopy } from '@/app/work/copy'
 import { WorkPlanConnectStep } from '@/app/work/plan-connect'
+import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
+import { workRelayFallbackReason, workRelayPickerView, workRelayTurnChrome } from '@/app/work/relay-view'
 import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
+import { $workRelayRooms, openWorkPlanConnect, openWorkPlanConsent } from '@/app/work/store'
+import { useWorkRelayRoom } from '@/app/work/use-relay'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
 import { Button } from '@/components/ui/button'
@@ -753,14 +757,33 @@ function MatrixEventMessageBubble() {
   const action = useContext(ConversationActions)
   const companyAIStatuses = useStore($companyAIStatuses)
   const privateCosCompanyId = action?.room.companyPrivateCos?.companyId
+
   const privateCosKey = action?.accountKey && privateCosCompanyId
     ? teamSpaceKey(action.accountKey, privateCosCompanyId)
     : ''
+
   const privateCosRecords = useStore($companyPrivateCos, { keys: [privateCosKey] })
   const privateCosState = privateCosRecords[privateCosKey]
   // Senders, replies, receipts and mentions in a message: names only, never a public @handle.
   const people = useMatrixChatPeople(action?.members, action?.ownerUserId)
-  const message = useAuiState(state => state.message.metadata.custom?.matrix) as MatrixMessage
+  const sourceMessage = useAuiState(state => state.message.metadata.custom?.matrix) as MatrixMessage
+  const relayRooms = useStore($workRelayRooms)
+  const relayView = action?.room.id ? relayRooms[action.room.id] : undefined
+  const eventId = sourceMessage?.own ? sourceMessage.id : sourceMessage?.replyTo
+  const relayTurn = relayView?.turns.find(each => each.eventId === eventId)
+  const receipt = relayTurn?.receipt
+  const operation = relayView?.status?.openOperation
+
+  const openTurn = relayView?.turns.find(each => each.eventId === operation?.eventId)
+
+  const chrome = workRelayTurnChrome({ receipt,
+    queued: Boolean(sourceMessage?.own && !sourceMessage.pending && !sourceMessage.failed && !receipt && operation && openTurn && sourceMessage.timestamp > openTurn.sentAt),
+    operation: operation?.eventId === eventId ? operation : undefined,
+    fallback: relayView && sourceMessage?.answeredByFallback?.plan === 'chatgpt' ? workRelayFallbackReason(sourceMessage.answeredByFallback.reason) : undefined,
+    sentAt: sourceMessage?.own ? sourceMessage.timestamp : relayTurn?.sentAt, now: Date.now(),
+    limit: relayView?.status?.limits.find(each => each.plan === 'codex'), onBoundMac: true })
+
+  const message = sourceMessage && { ...sourceMessage, relayTurn: chrome.kind !== 'none' && chrome.at === (sourceMessage.own ? 'message' : 'reply') ? chrome : sourceMessage.relayTurn }
   const local = useAuiState(state => state.message.metadata.custom?.local) as MatrixTranscriptEntry['local']
   const reply = useAuiState(state => state.message.metadata.custom?.reply) as MatrixMessage | undefined
   const consecutiveReply = useAuiState(state => state.message.metadata.custom?.consecutiveReply) as boolean
@@ -837,12 +860,14 @@ function MatrixEventMessageBubble() {
   const status = (agent && Boolean(message.notice)) || authenticatedBotNotice || Boolean(companyStatus)
   // In its own private chat the assistant's answers are bare text, with no name above them.
   const ownAssistant = Boolean(!message.own && action?.assistantEligible && message.sender === action.assistantUserId)
+
   // A web link's preview card under the text (link-preview-card.tsx): plain chats only, never
   // under a status line, a check-in card, a bot's own layout or the private-CoS greeting.
   const previewLink =
     action && !status && !botApi && !privateCosGreeting && !(message.checkIn && ownAssistant)
       ? matrixMessagePreviewLink(message, action.room.encrypted)
       : null
+
   const person = !message.own && !agent && message.sender !== action?.assistantUserId
   // A group shows who is talking: a name over a run's first bubble, a face beside its last. A
   // Preserve user-visible identity, state and recovery behavior across connection changes.
@@ -854,6 +879,7 @@ function MatrixEventMessageBubble() {
   const flat = Boolean(action?.room && isTeamSpaceRoom(action.room))
   const savedScope = Boolean(action?.room.companyChannel || action?.room.companyConversation)
   const flatRunStart = runStart !== false || Boolean(dayStart)
+
   const mentioned = Boolean(
     !message.own &&
       action?.ownerUserId &&
@@ -903,8 +929,10 @@ function MatrixEventMessageBubble() {
     action.room.membership === 'join' &&
     (message.encrypted || !action.room.encrypted)
   )
+
   // Native Hermes asking before it runs a command on your Mac: its own prompt, drawn as one card.
   const nativeApproval = agent && actionable && !flat ? matrixNativeApproval(message) : null
+
   const stableMessageLinkTarget = actionable && action?.room.companyChannel
     ? {
         companyId: action.room.companyChannel.companyId,
@@ -913,6 +941,7 @@ function MatrixEventMessageBubble() {
         ...(action.threadRootId && action.threadRootId !== message.id ? { threadRootId: action.threadRootId } : {})
       }
     : undefined
+
   const stableMessageLink = validMatrixMessageLinkTarget(stableMessageLinkTarget)
     ? matrixMessageLink(stableMessageLinkTarget)
     : undefined
@@ -931,6 +960,7 @@ function MatrixEventMessageBubble() {
 
   // A person's words in a public company channel can become a task that links back here.
   const captureCard = action?.captureCard
+
   const toCard =
     captureCard && stableMessageLink && text && !message.attachment && !message.companyFile && !botApi?.photo && !status
       ? {
@@ -1062,6 +1092,7 @@ function MatrixEventMessageBubble() {
   )
 
   const forwardableKind = message.own || person || (agent && !status && !message.interim && !(message.checkIn && ownAssistant))
+
   const onForward = action?.forward && actionable && forwardableKind && !message.notice && !message.progress &&
     !message.companyFile && (Boolean(text) || message.attachment) && !(botApi?.photo && !message.attachment)
     ? () => action.forward?.(message, message.own ? t.dm.you : (name ?? message.sender))
@@ -1158,6 +1189,7 @@ function MatrixEventMessageBubble() {
   const flatName = message.own ? (senderMember?.name ?? t.dm.you) : (name ?? message.sender)
   const time = Number.isFinite(message.timestamp) ? matrixClock(message.timestamp, locale) : ''
   const fullTime = time ? matrixFullTime(message.timestamp, locale) : ''
+
   const timestamp = time ? (
     <MatrixTimestamp
       className="shrink-0 text-xs text-(--atum-ink-faint)"
@@ -1166,8 +1198,10 @@ function MatrixEventMessageBubble() {
       value={time}
     />
   ) : undefined
+
   const timeEligible = settled && !status && !message.progress && !(message.checkIn && ownAssistant)
   const personEdited = Boolean(message.edited && !agent && !botApp)
+
   const editTime = personEdited && message.editedAt !== undefined
     ? chat.editedAt(
         matrixNewDay(message.timestamp, message.editedAt)
@@ -1182,6 +1216,7 @@ function MatrixEventMessageBubble() {
   const sending = Boolean(message.own && message.pending && !local)
   const ownTick = message.own && settled ? matrixReceiptTick(message, message.id === action?.latestOwnId) : undefined
   const editedLabel = mobileChatCopy[locale].edited
+
   const bubbleMeta = !flat && time && (timeEligible || (sending && !status)) ? (
     <span className="matrix-bubble-meta" data-matrix-bubble-meta>
       {personEdited && (
@@ -1200,12 +1235,14 @@ function MatrixEventMessageBubble() {
       ) : null}
     </span>
   ) : undefined
+
   // The room the corner keeps free on the bubble's last line, in the corner's own type size
   // (`ch` there): its characters, an icon, and a little air. It never needs to be exact, only
   // never narrower than the corner, so the last word never runs under it.
   const bubbleMetaRoom = `calc(${time.length + (personEdited ? editedLabel.length + 1 : 0)}ch + ${
     sending || ownTick ? '1.125rem' : '0rem'
   } + 0.75rem)`
+
   // How the bubble's text makes room for the corner (styles.css): your plain text's paragraph and
   // markdown's last paragraph or list item end in an invisible spacer; anything else gives the
   // corner its own row.
@@ -1577,8 +1614,11 @@ function MatrixEventMessageBubble() {
           </span>
         </Tip>
       )}
-      {message.answeredByFallback && !message.redacted && (
+      {message.answeredByFallback && message.relayTurn?.kind !== 'fallback' && !message.redacted && (
         <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
+      )}
+      {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
+        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} roomId={action?.room.id} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -2297,6 +2337,7 @@ function MatrixComposer({
     teamSpaceAccountKey(snapshot.identity),
     room.companyChannel?.companyId
   )
+
   const companyAIReady = companyAI ? companyAIAvailability(companyAI) === 'ready' : false
 
   // A company DM or group DM: its audience is its participants, and the platform's directory is what says it exists.
@@ -2312,11 +2353,13 @@ function MatrixComposer({
   // The box names who you are writing to (Atum Kit mockup: "Message Atum"), a channel by the name
   // its header shows ("#chung", never the room's raw "#general"); a thread keeps the plain prompt.
   const channelTitle = useChannelTitle(teamSpaceAccountKey(snapshot.identity), room, (room.name ?? '').trim().replace(/^#/, ''))
+
   const conversationTitle = useConversationTitle(
     teamSpaceAccountKey(snapshot.identity),
     room,
     room.name?.trim() || copy.placeholder
   )
+
   const composerTarget = notesSelfRoom
     ? notesCopy.you
     : privateCos
@@ -2352,6 +2395,8 @@ function MatrixComposer({
   // This room's agent answers in the cloud: its model is the server's choice, read from the
   // platform's model-choice offer (`cloudModel`). No offer leaves Nguyệt Thực, as before.
   const roomAgent = snapshot.agents?.find(agent => agent.principal === room.agentPrincipal)
+  const relayRoom = useWorkRelayRoom(roomAgent?.principal, room.id, snapshot.identity?.userId, fail)
+  const relayFallback = matrixLatestAnswerFallback(contextMessages ?? snapshot.messages, roomAgent?.userId ?? snapshot.assistant?.userId)
   const cloudAnswering = roomAgent?.answering === 'cloud'
   // The selected room's own assistant, not the default one: an agent's model catalog is its own.
   const pickerAgent = roomAgent && !roomAgent.isDefault ? roomAgent : undefined
@@ -2396,6 +2441,7 @@ function MatrixComposer({
   const [fileTooLarge, setFileTooLarge] = useState(false)
   // Answering one message or changing one of yours (launch night): a bar above the input.
   const [mode, setMode] = useState<MatrixComposerMode | null>(null)
+
   // Account data seeds this mount once. Later remote writes never replace local composition,
   // caret or selection in an open box; reopening the room/root restores the newest sync value.
   const initialDraft = useRef(
@@ -2403,6 +2449,7 @@ function MatrixComposer({
       ? localMatrixDraft(snapshot.identity, draftTarget) ?? matrixDraftText(snapshot.drafts, draftTarget)
       : ''
   ).current
+
   const [draftText, setDraftText] = useState(initialDraft)
   const draftWriter = useMatrixDraftWriter(snapshot.identity, draftTarget, initialDraft)
   const syncedDraft = draftTarget ? matrixDraftText(snapshot.drafts, draftTarget) : ''
@@ -2422,6 +2469,7 @@ function MatrixComposer({
   const fileInput = useRef<HTMLInputElement>(null)
   const photoInput = useRef<HTMLInputElement>(null)
   const roomMentionConfirmed = useRef(false)
+
   const roomMentionConfirmationRef = useRef<{
     body: string
     file: File | null
@@ -2429,12 +2477,14 @@ function MatrixComposer({
     resolve(sent: boolean): void
     task: boolean
   } | null>(null)
+
   const [roomMentionConfirmation, setRoomMentionConfirmation] = useState(roomMentionConfirmationRef.current)
 
   useEffect(() => {
     reconcileLocalMatrixDraft(snapshot.identity, draftTarget, syncedDraft)
     draftWriter?.reconcile(syncedDraft)
   }, [draftTarget, draftWriter, snapshot.identity, syncedDraft])
+
   // Authenticated metadata selects Bot API in any room. Before the first reply, the signed
   // catalog may select it only for this owner's exact direct bot room. Legacy rooms keep every
   // old setup, outcome and send path; a Bot API room uses the ordinary Matrix path.
@@ -2517,12 +2567,15 @@ function MatrixComposer({
     },
     [draftTarget, draftWriter, snapshot.identity]
   )
+
   const clearDraftText = useCallback(() => {
     setDraftText('')
     setLocalMatrixDraft(snapshot.identity, draftTarget, '')
     void draftWriter?.clear().catch(() => {})
   }, [draftTarget, draftWriter, snapshot.identity])
+
   const mentionMatch = teamSpaceBox ? matrixMentionMatch(draftText, mentionCursor) : null
+
   const excludedMentionUsers = useMemo(
     () =>
       new Set(
@@ -2539,6 +2592,7 @@ function MatrixComposer({
     [companyAI?.agent.userId, room.companyChannel?.managerUserId, room.companyConversation?.managerUserId,
       snapshot.agents, snapshot.appParticipants, snapshot.apps?.apps, snapshot.assistant?.userId]
   )
+
   const humanMentionCandidates = useMemo(
     () =>
       teamSpaceBox
@@ -2546,18 +2600,21 @@ function MatrixComposer({
         : [],
     [excludedMentionUsers, locale, people, snapshot.members, teamSpaceBox]
   )
+
   // While the @ menu is open it picks people, so it shows their handles; the chat itself does not.
   useMatrixHandleContacts(
     snapshot.identity?.userId,
     mentionMatch ? humanMentionCandidates.map(candidate => candidate.userId) : [],
     Boolean(snapshot.domainEnabled)
   )
+
   const companyAIMentionAligned = useMemo(() => {
     const companyMatch = mentionMatch && companyAI ? companyAIMentionMatch(draftText, mentionCursor) : null
 
     return Boolean(companyMatch && mentionMatch && companyMatch.start === mentionMatch.start &&
       companyMatch.end === mentionMatch.end)
   }, [companyAI, draftText, mentionCursor, mentionMatch])
+
   const mentionOptions = useMemo<TeamSpaceMentionOption[]>(() => {
     if (!mentionMatch) {
       return []
@@ -2588,6 +2645,7 @@ function MatrixComposer({
         line: companyAIAvailabilityLine(companyAIAvailability(companyAI), matrixCompanyBoardCopy(locale)) ?? ''
       }
     : undefined
+
   useCompanyAIRecheck(Boolean(companyAINotice), reloadCompanyAI)
 
   useEffect(() => setMentionIndex(0), [mentionMatch?.query, mentionMatch?.start])
@@ -2635,6 +2693,7 @@ function MatrixComposer({
     ) : (
       actions
     )
+
   const formatText = (next: FormattedText) => {
     composer.current?.setText(next.text)
     updateDraftText(next.text, mode?.kind !== 'edit')
@@ -3562,6 +3621,7 @@ function MatrixComposer({
   // The transcript's Retry, Reply and Edit use this same box and path.
   const sendRef = useRef(sendMessage)
   sendRef.current = sendMessage
+
   const closeRoomMentionConfirmation = () => {
     const pending = roomMentionConfirmationRef.current
 
@@ -3601,6 +3661,7 @@ function MatrixComposer({
       setRoomMentionConfirmation(null)
     }
   }
+
   const beginEditRef = useRef(beginEdit)
   beginEditRef.current = beginEdit
   const modeRef = useRef(mode)
@@ -3946,6 +4007,27 @@ function MatrixComposer({
                     onSubscriptions={onSubscriptions}
                     preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
                     room={room}
+                    workRelay={roomAgent && relayRoom && window.atumMatrix.work?.selectRelay ? {
+                      view: workRelayPickerView({ plan: 'codex', agentPrincipal: roomAgent.principal,
+                        account: relayRoom.account, selection: relayRoom.status?.selection ?? null,
+                        encrypted: room.encrypted, holdsGoogle: snapshot.googleAssistant?.state === 'ready',
+                        limit: relayRoom.status?.limits.find(each => each.plan === 'codex'),
+                        lastTurn: relayFallback?.plan === 'chatgpt' ? workRelayTurnChrome({ fallback: workRelayFallbackReason(relayFallback.reason) }) : undefined }),
+                      select: async model => {
+                        const revision = relayRoom.status?.selection?.revision ?? roomAgent.cloudModel?.revision
+
+                        if (revision === undefined) {return { status: 'unavailable' }}
+                        const selection = await window.atumMatrix.work!.selectRelay!(roomAgent.principal, revision, model)
+
+                        if (relayRoom.status) {$workRelayRooms.set({ ...$workRelayRooms.get(), [room.id]: { ...relayRoom, status: { ...relayRoom.status, selection } } })}
+
+                        return { status: 'saved' }
+                      },
+                      fix: fix => {
+                        if (fix === 'allow') {openWorkPlanConsent({ agent: roomAgent.principal })}
+                        else {void openWorkPlanConnect(window.atumMatrix.work!).catch(fail)}
+                      }
+                    } : undefined}
                   />
                 )}
               {room.assistant && window.atumMatrix.voice && (
@@ -4510,6 +4592,7 @@ function MatrixThreadDetail({
   const companyPresentation = useStableCompanyBinding(
     companyChannelPresentationBinding(room, companyAI, companyAIFresh)
   )
+
   const companyName = companyAI?.agent.displayName ?? matrixCompanyBoardCopy(locale).chiefOfStaff
   const companyTurns = companyTurnMemory(companyAIAccount)
 
@@ -4993,7 +5076,9 @@ function useMatrixForwarding(snapshot: MatrixSnapshot) {
   const selfRefs = useMemo(() => new Map(
     Object.entries(selfRefRecords).map(([key, value]) => [key.slice(key.lastIndexOf('\n') + 1), value])
   ), [selfRefRecords])
+
   const forwardHandles = useMatrixHandles(snapshot.identity?.userId)
+
   const targets = useMemo(() => source ? matrixForwardTargets({
     rooms: snapshot.rooms,
     ownerUserId: snapshot.identity?.userId,
@@ -5031,6 +5116,7 @@ function useMatrixForwarding(snapshot: MatrixSnapshot) {
       await window.atumMatrix.invokeHermes(target.room.id, eventId, locale)
     }
   }
+
   const sourceRoom = snapshot.rooms.find(room => room.id === source?.roomId)
   const companyId = sourceRoom?.companyChannel?.companyId ?? sourceRoom?.companyConversation?.companyId
 
@@ -5153,16 +5239,19 @@ function Conversation({
     if (historyReveal?.owner !== 'company' && historyReveal?.owner !== 'pinned') {
       return
     }
+
     if (historyReveal.owner === 'company' && historyReveal.accountKey !== accountKey) {
       clearExactMatrixHistoryReveal(historyReveal)
 
       return
     }
+
     if (historyReveal.roomId !== selectedRoomId) {
       if (historyReveal.owner === 'pinned') {clearExactMatrixHistoryReveal(historyReveal)}
 
       return
     }
+
     let cancelled = false
     let jumpFrame = 0
 
@@ -5175,6 +5264,7 @@ function Conversation({
       }
 
       clearExactMatrixHistoryReveal(historyReveal)
+
       if (failed) {failRef.current(new Error(historyReveal.owner === 'company'
         ? 'matrix_company_search_result_unavailable' : 'matrix_pinned_message_unavailable'))}
     }
@@ -5361,6 +5451,7 @@ function Conversation({
     })
 
     const line = lineAgent ? matrixLiveWorkingLine(visible, lineAgents, lineAgent) : undefined
+
     // Only one line shows at a time: the live one goes under the typing bubble, and an older
     // live line a legacy build left behind does not become a second status row.
     // A fallback notice (agent-turns/1.7) is never a row: it marks the answer it replies to.
@@ -5597,6 +5688,7 @@ function Conversation({
   const localAssistant = Boolean(
     room.assistant && !cloudAgent && snapshot.assistantPath !== 'server' && snapshot.readiness
   )
+
   const companyChannel = room.roomType === MATRIX_COMPANY_CHANNEL_TYPE
   const companyConversation = isCompanyConversationRoom(room)
   const teamSpaceRoom = companyChannel || companyConversation
@@ -6517,9 +6609,11 @@ function MatrixRoster({
   const openGlobalPerson = async (userId: string) => {
     const existing = directRoomWith(snapshot, userId)
     const roomId = existing?.id ?? await runMatrixCommand({ kind: 'create', name: '', invite: [userId], direct: true })
+
     if (typeof roomId !== 'string' || !roomId) {
       throw new Error('matrix_direct_room_missing')
     }
+
     await runMatrixCommand({ kind: 'select', roomId })
     onNavigate()
     closeDrawer()
@@ -6533,9 +6627,11 @@ function MatrixRoster({
       eventId: result.eventId,
       ...(result.threadRootId ? { threadRootId: result.threadRootId } : {})
     })
+
     if (!opened?.ok) {
       throw new Error('matrix_company_search_unavailable')
     }
+
     revealMatrixHistoryMessage(result.roomId, result.eventId, 'company', result.threadRootId)
     await runMatrixCommand({ kind: 'select', roomId: result.roomId })
     onNavigate()
@@ -6585,6 +6681,7 @@ function MatrixRoster({
         }
       } else {
         failureSource = 'command.create'
+
         const roomId = await runMatrixCommand({
           kind: 'create',
           name: '',
@@ -6601,6 +6698,7 @@ function MatrixRoster({
           agentId,
           roomId
         })
+
         if (connectsHere) {
           // A newly created local room is not usable until its agent joins; this remains the
           // person's foreground operation and therefore keeps the typed failure path.
@@ -6995,9 +7093,11 @@ function MatrixAccountView({
   const shell = t.matrixShell
   const assistantCardCopy = useAssistantCardCopy()
   const privateCosRecords = useStore($companyPrivateCos)
+
   const snapshot = useMemo(() => {
     const accountKey = teamSpaceAccountKey(projectedSnapshot.identity)
     const prefix = `${accountKey}\n`
+
     const boundRoomIds = new Set(
       Object.entries(privateCosRecords)
         .filter(([key]) => key.startsWith(prefix))
@@ -7007,7 +7107,9 @@ function MatrixAccountView({
           return roomId ? [roomId] : []
         })
     )
+
     let changed = false
+
     // A company's private Chief of Staff room is the company's, never one of the person's own
     // assistants: whatever a projection said, it carries no personal assistant flag or agent.
     const rooms = projectedSnapshot.rooms.map(room => {
@@ -7026,6 +7128,7 @@ function MatrixAccountView({
 
     return changed ? { ...projectedSnapshot, rooms } : projectedSnapshot
   }, [privateCosRecords, projectedSnapshot])
+
   const compact = useCompact()
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)')
   const lookAppearance = matrixDisplayMode(snapshot.displayPreferences?.appearance.value, systemDark)
@@ -7170,6 +7273,7 @@ function MatrixAccountView({
     },
     [snapshot.state]
   )
+
   const messageLinkRequest = useStore($matrixMessageLinkRequest)
   const inviteJoinRequest = useStore($matrixInviteJoinRequest)
   const pendingCompanyInvites = usePendingCompanyInvites(snapshot)
@@ -7510,8 +7614,10 @@ function MatrixAccountView({
   }, [createdAssistantRoomId, snapshot.rooms])
   const room = snapshot.rooms.find(value => value.id === snapshot.roomId)
   const privateCosAccountPrefix = `${teamSpaceAccountKey(snapshot.identity)}\n`
+
   const verifiedPrivateCosRoom = room && Object.entries(privateCosRecords).some(([key, state]) =>
     key.startsWith(privateCosAccountPrefix) && companyPrivateCosRoom(state, [room])?.id === room.id)
+
   useEffect(() => {
     if (!lookPreview) {
       return
@@ -7545,10 +7651,12 @@ function MatrixAccountView({
 
   // A channel or a company conversation: Team Space's room, shown in the company workspace and in no Personal list.
   const companyChannelBound = isTeamSpaceRoom(room)
+
   // A raw marker, renderer-only binding, or restored room selection is quarantine, not authority.
   // Only the current strict platform view plus the exact joined-room policy may mount its transcript.
   const companyChannelContentAuthorized = companyChannelBound &&
     (!isCompanyPrivateCosClaim(room) || verifiedPrivateCosRoom)
+
   // Notes-to-self integration seam: Team Space keeps its sidebar while this company's notes room
   // occupies the same transcript pane. Its company identity comes from immutable create content.
   const notesSelfBound = Boolean(room && matrixNotesSelfRoom(snapshot.notesSelf, room.id))
@@ -8425,6 +8533,7 @@ function MatrixAccountView({
                 }
                 onAddProtons={openTopUp}
                 projection={work}
+                relayChats={work.relayChats}
                 reserveOverlay={facts.overlayWidth > 0}
                 windowControls={
                   <div className="flex items-center gap-2">

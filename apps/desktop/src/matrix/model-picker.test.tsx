@@ -26,7 +26,7 @@ import {
 import type { MatrixSubscriptionFallback } from '../../shared/matrix-subscription-fallback'
 import type { MatrixChatGptTrainingStatus } from '../../shared/matrix-subscriptions'
 
-import { MatrixModelPicker } from './model-picker'
+import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
 
 beforeEach(() => {
@@ -319,6 +319,7 @@ interface PickerOptions {
   home?: MatrixAgentHomeView
   cloudOnly?: boolean
   lastFallback?: MatrixSubscriptionFallback
+  workRelay?: MatrixModelPickerRelay
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -350,6 +351,7 @@ function picker(room: MatrixRoom, options: PickerOptions = {}) {
         onSubscriptions={onSubscriptions ?? undefined}
         preferenceScope={current.preferenceScope}
         room={nextRoom}
+        workRelay={current.workRelay}
       />
     </I18nProvider>
   )
@@ -2193,4 +2195,115 @@ it('undoes a refused managed cloud effort write', async () => {
   await waitFor(() => expect(command).toHaveBeenCalled())
   await waitFor(() => expect(card.querySelector('[data-matrix-model-effort-level="low"]')?.getAttribute('aria-checked')).toBe('true'))
   expect(card.querySelector('[data-matrix-model-effort-level="medium"]')).toBeNull()
+})
+
+describe('relay R1: plan rows from the relay view-model (lane U1)', () => {
+  const AGENT = '00000000-0000-4000-8000-bd7662a5eeb4'
+
+  const account = (presence: 'online' | 'offline') => ({
+    catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers: [] })),
+    status: vi.fn(async () => ({
+      scope: 'account' as const,
+      providers: [
+        {
+          id: 'openai-codex' as const,
+          connected: true,
+          localConnected: false,
+          models: ['gpt-6-sol'],
+          relay: { state: 'enabled' as const, thisMac: false, revision: 4, presence }
+        },
+        { id: 'opencode-go' as const, connected: false }
+      ]
+    })),
+    startChatGpt: vi.fn(async () => ({ status: 'cancelled' as const })),
+    pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
+    cancelChatGpt: vi.fn(async () => undefined),
+    disconnectChatGpt: vi.fn(async () => undefined),
+    connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
+    disconnectOpenCode: vi.fn(async () => undefined)
+  })
+
+  const relayPicker = (view: MatrixModelPickerRelay['view'], presence: 'online' | 'offline' = 'offline') => {
+    const select = vi.fn(async (_model: string) => ({ status: 'saved' }))
+    const fix = vi.fn()
+    const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
+
+    picker(ROOM, {
+      agentPrincipal: AGENT,
+      bridge: {
+        subscriptions: account(presence),
+        modelDestinations: {
+          read: vi.fn(async () => undefined),
+          write: vi.fn(async () => ({ status: 'saved' as const })),
+          writeSubscription,
+          cap: vi.fn(async () => ({ status: 'saved' as const }))
+        }
+      } as unknown as Partial<MatrixUiBridge>,
+      cloud: true,
+      cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' },
+      local: true,
+      managed: true,
+      workRelay: { view, select, fix, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] }
+    })
+
+    return { fix, select, writeSubscription }
+  }
+
+  it('lets the owner pick a plan model while its Mac is offline (RT4), through the relay selection only', async () => {
+    const { select, writeSubscription } = relayPicker({ plan: 'codex', rows: 'selectable' }, 'offline')
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+
+    fireEvent.click(rail(card, 'openai-codex'))
+    expect(row(card, SOL_ROUTE).disabled).toBe(false)
+    expect(within(card).queryByText(/offline|Proton|relay|Your plan works in Work/u)).toBeNull()
+
+    fireEvent.click(row(card, SOL_ROUTE))
+    await waitFor(() => expect(select).toHaveBeenCalledWith('gpt-6-sol'))
+    expect(writeSubscription).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['connect', 'Not connected on any of your Macs', 'Connect'],
+    ['allow', 'Not allowed for this assistant yet', 'Allow']
+  ] as const)('greys the rows when no Mac can serve the plan (%s): one line, the one fixing action', async (greyed, line, action) => {
+    const { fix, select } = relayPicker({ plan: 'codex', rows: 'greyed', greyed, fix: greyed })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+
+    expect(row(card, SOL_ROUTE).disabled).toBe(true)
+    expect(within(card).getAllByText(line)).toHaveLength(1)
+    fireEvent.click(row(card, SOL_ROUTE))
+    expect(select).not.toHaveBeenCalled()
+
+    fireEvent.click(within(card).getByRole('button', { name: action }))
+    expect(fix).toHaveBeenCalledWith(greyed)
+  })
+
+  it('greys an assistant that holds Google with one line and no action (O1)', async () => {
+    relayPicker({ plan: 'codex', rows: 'greyed', greyed: 'google' })
+    const card = await open('Model: Nguyệt Thực 1.3')
+    await waitFor(() => expect(rail(card, 'openai-codex')).toBeTruthy())
+    fireEvent.click(rail(card, 'openai-codex'))
+
+    const note = card.querySelector<HTMLElement>('[data-matrix-model-note]')!
+    expect(note.textContent).toBe('Not yet for assistants that use Google')
+    expect(note.querySelector('[data-matrix-model-note-action]')).toBeNull()
+  })
+
+  it('names the selected plan model on the chip and warns in red at its limit, never with a cost', () => {
+    relayPicker({ plan: 'codex', rows: 'selectable', currentModel: 'gpt-6-sol', chip: { kind: 'limit' } })
+
+    const chip = screen.getByRole('button', { name: 'Model: GPT-6 Sol · ChatGPT limit reached' })
+    expect(chip.querySelector('[data-matrix-model-warning]')?.getAttribute('style')).toContain('var(--ak-danger)')
+    expect(chip.dataset.matrixModelUnavailable).toBe('relay_limit')
+    expect(chip.textContent).not.toMatch(/Proton|\$/u)
+  })
+
+  it('keeps the chip plain while the selected plan can answer', () => {
+    relayPicker({ plan: 'codex', rows: 'selectable', currentModel: 'gpt-6-sol' })
+    const chip = screen.getByRole('button', { name: 'Model: GPT-6 Sol' })
+    expect(chip.querySelector('[data-matrix-model-warning]')).toBeNull()
+  })
 })
