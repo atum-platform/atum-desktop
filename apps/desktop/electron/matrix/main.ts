@@ -21066,6 +21066,7 @@ async function start() {
         name?: unknown
         persona?: unknown
         hireConfirmed?: unknown
+        listingId?: unknown
         assistantId?: unknown
         /** `subscriptionChatGptTrainingConfirm`: the relay connection the card read. */
         connectionId?: unknown
@@ -24437,6 +24438,64 @@ async function start() {
           return matrixInvocationResult(await runHermes(target, request.locale, undefined, undefined, roomAgent))
         } finally {
           release()
+        }
+      }
+
+      if (request?.kind === 'openAgents') {
+        if (!config.domain || !agentCreation || closing || state.state !== 'ready' || !account.identity()) {
+          return []
+        }
+
+        try {
+          return await account.openAgents(AbortSignal.timeout(20_000))
+        } catch (error) {
+          // The shelf is optional: an unreachable catalog hides it, and the sheet still makes one.
+          console.warn('[Matrix] open listings not read:', setupFailureDetail(error))
+
+          return []
+        }
+      }
+
+      if (request?.kind === 'hireAgent') {
+        const listingId = typeof request.listingId === 'string' ? request.listingId : ''
+
+        const checked = checkAssistantName(request.name, {
+          primary: false,
+          principal: '',
+          others: allAgents().flatMap(each =>
+            !each.closed && each.agentPrincipal ? [{ principal: each.agentPrincipal, name: each.name }] : []
+          ),
+          apps: appNames()
+        })
+
+        if (!checked.ok || listingId.length < 1 || listingId.length > 128) {
+          throw new Error('matrix_command_invalid')
+        }
+
+        if (
+          !config.domain ||
+          !agentCreation ||
+          closing ||
+          anyOperation() ||
+          state.state !== 'ready' ||
+          !account.identity()
+        ) {
+          throw new Error('matrix_not_ready')
+        }
+
+        try {
+          // The platform seeds the listing's persona and skills; no persona write follows (0535).
+          const hired = await lifecycle.hire(checked.name, listingId, request.hireConfirmed === true)
+
+          return { principal: hired.principal, assistantId: hired.assistantId }
+        } catch (error) {
+          if (error instanceof MatrixAgentCreationRefused) {
+            return { refused: error.reason }
+          }
+
+          // Never relay a server's error text; the same hire resumes on Retry or at next launch.
+          console.warn('[Matrix] listing hire did not finish:', setupFailureDetail(error))
+          throw new Error('matrix_agent_unavailable')
         }
       }
 

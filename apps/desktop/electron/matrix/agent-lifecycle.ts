@@ -22,6 +22,9 @@ export interface MatrixAgentCreation {
   profileImport?: MatrixProfileImport
   /** The confirmed 60,000-Proton hire for the third+ agent (agent-definition.ts). */
   hireConfirmed?: boolean
+  /** An open listing's hire (0535): the platform seeds its persona and skills and places it in
+   * the cloud, so this Mac never writes a definition for it and never runs it locally. */
+  listingId?: string
   /** The platform's answer to the versioned create: `placed`/`pending_trust` mean the cloud
    * owns the agent's room and executor, so this Mac runs neither (agent-definition.ts). */
   cloudPlacement?: MatrixAgentCloudPlacement
@@ -44,9 +47,13 @@ export interface MatrixCreatedAgentResult {
   assistantId: string
 }
 
-/** The platform owns a placed agent: no local room, executor setup, connect or profile import. */
-const cloudPlaced = (placement: MatrixAgentCloudPlacement | undefined) =>
-  placement === 'placed' || placement === 'pending_trust'
+/** The platform owns a placed agent: no local room, executor setup, connect or profile import.
+ * A listing hire is always the cloud's, still waiting for capacity included: the platform refuses
+ * one it cannot compose natively, and never sells a Mac-run fallback (0535). */
+const cloudPlaced = (creation: Pick<MatrixAgentCreation, 'cloudPlacement' | 'listingId'>) =>
+  creation.listingId !== undefined ||
+  creation.cloudPlacement === 'placed' ||
+  creation.cloudPlacement === 'pending_trust'
 
 export type MatrixAgentSessionCleanup = 'complete' | 'pending' | 'unconfirmed'
 
@@ -82,7 +89,7 @@ export interface MatrixAgentLifecycleDeps {
   refusal(error: unknown): MatrixAgentRefusal | undefined
   /** POST /agents: the same request ID returns the same agent. `cloudPlacement` is the
    * platform's answer to the versioned create (atum.agent-lifecycle/1.1 A3). */
-  createOnPlatform(input: { requestId: string; displayName: string; hireConfirmed?: boolean }): Promise<{
+  createOnPlatform(input: { requestId: string; displayName: string; hireConfirmed?: boolean; listingId?: string }): Promise<{
     principal: string
     id: string
     matrixUser: string
@@ -144,6 +151,36 @@ export class MatrixAgentLifecycle {
       persona,
       step: 'create',
       ...(profileImport ? { profileImport } : {}),
+      ...(hireConfirmed ? { hireConfirmed } : {})
+    }
+
+    this.save(creation)
+
+    return this.run(creation)
+  }
+
+  /** Hires an open listing. An unfinished hire of the same listing resumes under its request,
+   * name and listing, so a retry never hires twice; a confirmation given now carries over. */
+  hire(name: string, listingId: string, hireConfirmed?: boolean): Promise<MatrixCreatedAgentResult> {
+    const unfinished = this.list<MatrixAgentCreation>(MATRIX_AGENT_CREATIONS).find(
+      each => each.listingId === listingId
+    )
+
+    if (unfinished) {
+      if (hireConfirmed && !unfinished.hireConfirmed && unfinished.step === 'create') {
+        unfinished.hireConfirmed = true
+        this.save(unfinished)
+      }
+
+      return this.run(unfinished)
+    }
+
+    const creation: MatrixAgentCreation = {
+      requestId: this.deps.randomId(),
+      name,
+      persona: '',
+      step: 'create',
+      listingId,
       ...(hireConfirmed ? { hireConfirmed } : {})
     }
 
@@ -229,7 +266,8 @@ export class MatrixAgentLifecycle {
 
       try {
         agent = await this.deps.createOnPlatform({ requestId: creation.requestId, displayName: creation.name,
-          ...(creation.hireConfirmed ? { hireConfirmed: true } : {}) })
+          ...(creation.hireConfirmed ? { hireConfirmed: true } : {}),
+          ...(creation.listingId === undefined ? {} : { listingId: creation.listingId }) })
       } catch (error) {
         const refused = this.deps.refusal(error)
 
@@ -265,13 +303,17 @@ export class MatrixAgentLifecycle {
     // The cloud owns it from the create's answer on, before any step this Mac still owes it
     // (the persona write): its listing still says `local` until the controller trusts the
     // enrollment, so the roster alone must not start a local executor meanwhile.
-    if (cloudPlaced(created.cloudPlacement)) {
+    if (cloudPlaced(created)) {
       this.deps.placed?.(created)
     }
 
     if (created.step === 'define') {
-      await this.deps.define(created)
-      advance(cloudPlaced(created.cloudPlacement) ? 'cloud' : 'room')
+      // A listing's definition is the platform's seed: writing a persona here would replace it.
+      if (created.listingId === undefined) {
+        await this.deps.define(created)
+      }
+
+      advance(cloudPlaced(created) ? 'cloud' : 'room')
     }
 
     // The platform placed it: it owns the room, the executor enrollment and the connect. The

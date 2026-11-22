@@ -91,6 +91,74 @@ it('recognizes restored native SOUL receipts and adopts confirmed persona text',
   expect(readFileSync(file, 'utf8').trim()).toBe(persona)
 })
 
+describe('hiring an open listing', () => {
+  const LISTING = 'open/agents/researcher'
+
+  it('sends the listing, never writes a persona over the seed, and leaves it to the cloud', async () => {
+    const { deps, order, vault: shared, lifecycle: agents } = lifecycle({
+      createOnPlatform: vi.fn(async () => ({ ...AGENT, cloudPlacement: 'capacity' as const }))
+    })
+
+    await expect(agents.hire('Researcher', LISTING)).resolves.toEqual({
+      principal: AGENT.principal,
+      assistantId: AGENT.id
+    })
+    expect(deps.createOnPlatform).toHaveBeenCalledWith({
+      requestId: 'request-1',
+      displayName: 'Researcher',
+      listingId: LISTING
+    })
+    // Waiting for capacity is still the cloud's: no definition write, room, setup or connect here.
+    expect(deps.define).not.toHaveBeenCalled()
+    expect(order).toEqual(['runtime', 'placed'])
+    expect(saved(shared)).toEqual([])
+  })
+
+  it('resumes an unfinished hire of the same listing under its request, carrying a confirmation', async () => {
+    const ids = ['request-1', 'request-2']
+    const shared = vault()
+    const first = lifecycle(
+      {
+        randomId: () => ids.shift()!,
+        createOnPlatform: vi.fn(async () => {
+          throw new Error('offline')
+        })
+      },
+      shared
+    )
+
+    await expect(first.lifecycle.hire('Researcher', LISTING)).rejects.toThrow('offline')
+    expect(saved(shared)).toMatchObject([{ requestId: 'request-1', listingId: LISTING, step: 'create' }])
+
+    const retry = lifecycle({ randomId: () => ids.shift()! }, shared)
+    await retry.lifecycle.hire('Researcher', LISTING, true)
+    expect(retry.deps.createOnPlatform).toHaveBeenCalledWith({
+      requestId: 'request-1',
+      displayName: 'Researcher',
+      hireConfirmed: true,
+      listingId: LISTING
+    })
+    expect(retry.deps.define).not.toHaveBeenCalled()
+  })
+
+  it('drops a refused hire so the confirmed one starts clean', async () => {
+    const shared = vault()
+    const refusal = new Error('hire')
+    const { lifecycle: agents } = lifecycle(
+      {
+        refusal: error => (error === refusal ? { hire: 60_000 } : undefined),
+        createOnPlatform: vi.fn(async () => {
+          throw refusal
+        })
+      },
+      shared
+    )
+
+    await expect(agents.hire('Researcher', LISTING)).rejects.toMatchObject({ reason: { hire: 60_000 } })
+    expect(saved(shared)).toEqual([])
+  })
+})
+
 describe('creating another agent', () => {
   it('blocks background runtime starts until the new profile home is installed and resumes a failed install', async () => {
     const profileImport = { prepared: '/private/prepared', sha256: 'a'.repeat(64) }

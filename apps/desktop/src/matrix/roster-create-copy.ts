@@ -63,7 +63,13 @@ const en = {
   photoRemove: 'Remove',
   photoSaving: 'Adding the photo…',
   photoFailed: (name: string) => `${name} is ready, but the photo didn't save.`,
-  photoRetry: 'Retry photo'
+  photoRetry: 'Retry photo',
+  readyToHire: 'Ready to hire',
+  makeYourOwn: 'Make your own',
+  hirePrice: (amount: string) => `${amount} Protons/month`,
+  hiring: (name: string) => `Hiring ${name}…`,
+  hired: (name: string) => `${name} is in your chats.`,
+  hireFailed: (name: string) => `Couldn't hire ${name}. Try again.`
 }
 
 type RosterCreateCopy = typeof en
@@ -128,7 +134,13 @@ const vi: RosterCreateCopy = {
   photoRemove: 'Gỡ',
   photoSaving: 'Đang thêm ảnh…',
   photoFailed: name => `${name} đã sẵn sàng, nhưng ảnh chưa lưu được.`,
-  photoRetry: 'Thử lưu ảnh lại'
+  photoRetry: 'Thử lưu ảnh lại',
+  readyToHire: 'Có sẵn để thuê',
+  makeYourOwn: 'Tự tạo trợ lý',
+  hirePrice: amount => `${amount} Proton/tháng`,
+  hiring: name => `Đang thuê ${name}…`,
+  hired: name => `${name} đã có trong danh sách trò chuyện.`,
+  hireFailed: name => `Chưa thuê được ${name}. Hãy thử lại.`
 }
 
 const ja: RosterCreateCopy = {
@@ -191,7 +203,13 @@ const ja: RosterCreateCopy = {
   photoRemove: '削除',
   photoSaving: '写真を追加しています…',
   photoFailed: name => `${name}の準備はできましたが、写真を保存できませんでした。`,
-  photoRetry: '写真をもう一度保存'
+  photoRetry: '写真をもう一度保存',
+  readyToHire: 'すぐに雇える',
+  makeYourOwn: '自分で作る',
+  hirePrice: amount => `月額 ${amount} Proton`,
+  hiring: name => `${name} を雇っています…`,
+  hired: name => `${name} がチャットに加わりました。`,
+  hireFailed: name => `${name} を雇えませんでした。もう一度お試しください。`
 }
 
 const zh: RosterCreateCopy = {
@@ -253,7 +271,13 @@ const zh: RosterCreateCopy = {
   photoRemove: '移除',
   photoSaving: '正在添加照片…',
   photoFailed: name => `${name} 已就绪，但照片没有保存成功。`,
-  photoRetry: '重新保存照片'
+  photoRetry: '重新保存照片',
+  readyToHire: '可直接聘请',
+  makeYourOwn: '自己创建',
+  hirePrice: amount => `每月 ${amount} Proton`,
+  hiring: name => `正在聘请 ${name}…`,
+  hired: name => `${name} 已加入你的聊天。`,
+  hireFailed: name => `未能聘请 ${name}。请重试。`
 }
 
 const zhHant: RosterCreateCopy = {
@@ -315,7 +339,13 @@ const zhHant: RosterCreateCopy = {
   photoRemove: '移除',
   photoSaving: '正在加入照片…',
   photoFailed: name => `${name} 已準備好，但照片沒有儲存成功。`,
-  photoRetry: '重新儲存照片'
+  photoRetry: '重新儲存照片',
+  readyToHire: '可直接聘請',
+  makeYourOwn: '自己建立',
+  hirePrice: amount => `每月 ${amount} Proton`,
+  hiring: name => `正在聘請 ${name}…`,
+  hired: name => `${name} 已加入你的聊天。`,
+  hireFailed: name => `無法聘請 ${name}。請再試一次。`
 }
 
 const copies: Record<Locale, RosterCreateCopy> = { en, vi, ja, zh, 'zh-hant': zhHant }

@@ -32,6 +32,7 @@ import type {
   MatrixEmailSignIn,
   MatrixEnrollment,
   MatrixIdentity,
+  MatrixOpenAgentListing,
   MatrixRefreshCause,
   MatrixRefreshResult,
   MatrixSdkConfiguration,
@@ -74,6 +75,7 @@ import {
   getMatrixAgentSkill,
   getMatrixPersonalPetContent,
   listMatrixAgentDefinitions,
+  listMatrixOpenAgents,
   listMatrixPersonalPets,
   type MatrixAgentCloudPlacement,
   MatrixAgentDefinitionError,
@@ -4186,10 +4188,15 @@ export class MatrixAccount {
 
   /** Creates another agent; the request ID makes a retry return the same agent. */
   async createAgent(
-    input: { requestId: string; displayName: string; hireConfirmed?: boolean },
+    input: { requestId: string; displayName: string; hireConfirmed?: boolean; listingId?: string },
     signal: AbortSignal
   ): Promise<MatrixAgentDefinitionRecord & { matrixUser: string; cloudPlacement?: MatrixAgentCloudPlacement }> {
     return createMatrixAgent(this.config.domain!.resource, await this.agentGrant(), input, signal)
+  }
+
+  /** The open listings this person can hire, with the current seat quote (0535). */
+  async openAgents(signal: AbortSignal): Promise<MatrixOpenAgentListing[]> {
+    return listMatrixOpenAgents(this.config.domain!.resource, await this.agentGrant(), signal)
   }
 
   async renewAgentHire(assistantId: string, requestId: string, signal: AbortSignal): Promise<{ renewed: true } | { refused: 'short' }> {

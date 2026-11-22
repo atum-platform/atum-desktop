@@ -680,6 +680,9 @@ const bridge: MatrixUiBridge = {
   cancelHermes: roomId => ipcRenderer.invoke(channel.ui, { kind: 'cancelHermes', roomId }),
   createAgent: (name, persona, hireConfirmed) => ipcRenderer.invoke(channel.ui, { kind: 'createAgent', name, persona, hireConfirmed }),
   importAgent: (name, hireConfirmed) => ipcRenderer.invoke(channel.ui, { kind: 'importAgent', name, hireConfirmed }),
+  openAgents: () => ipcRenderer.invoke(channel.ui, { kind: 'openAgents' }),
+  hireAgent: (name, listingId, hireConfirmed) =>
+    ipcRenderer.invoke(channel.ui, { kind: 'hireAgent', name, listingId, hireConfirmed }),
   retireAgent: principal => ipcRenderer.invoke(channel.ui, { kind: 'retireAgent', principal }),
   renewAgent: assistantId => ipcRenderer.invoke(channel.ui, { kind: 'renewAgent', assistantId }),
   respondHermes: response => ipcRenderer.invoke(channel.ui, { kind: 'respondHermes', response }),

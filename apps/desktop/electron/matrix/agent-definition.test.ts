@@ -6,6 +6,7 @@ import {
   createMatrixAgent,
   getMatrixAgentSkill,
   listMatrixAgentDefinitions,
+  listMatrixOpenAgents,
   MAXIMUM_SKILL_RESPONSE_BYTES,
   publishMatrixPersonalPet,
   putMatrixAgentSkill,
@@ -851,6 +852,70 @@ describe('creating and retiring agents', () => {
     await createMatrixAgent(resource, grant, { requestId: REQUEST, displayName: 'Third', hireConfirmed: true }, new AbortController().signal)
     const [, init] = request.mock.calls.filter(([each]) => String(each).endsWith('/agents')).at(-1) as unknown as [string, RequestInit]
     expect(JSON.parse(init.body as string)).toEqual({ requestId: REQUEST, displayName: 'Third', hireConfirmed: true })
+  })
+
+  it('reads the open listings from the catalog query and drops rows it cannot show', async () => {
+    const researcher = {
+      listingId: 'open/agents/researcher',
+      displayName: 'Researcher',
+      title: { vi: 'Nhà nghiên cứu', en: 'Researcher' },
+      summary: { vi: 'Nghiên cứu với nguồn rõ ràng', en: 'Research with clear sources' },
+      glyph: '🔎',
+      accent: '#4f7cac',
+      visibility: 'open',
+      revision: 1,
+      skills: ['atum-weekly-digest', 'trend-researcher'],
+      seatPriceProtons: 60000,
+      hireRequired: true
+    }
+    const request = vi.fn(async () =>
+      json([researcher, { ...researcher, listingId: '' }, { ...researcher, seatPriceProtons: -1 }, 'x'])
+    )
+    vi.stubGlobal('fetch', request)
+
+    await expect(listMatrixOpenAgents(resource, grant, new AbortController().signal)).resolves.toEqual([
+      {
+        listingId: 'open/agents/researcher',
+        displayName: 'Researcher',
+        title: researcher.title,
+        summary: researcher.summary,
+        glyph: '🔎',
+        skills: researcher.skills,
+        seatPriceProtons: 60000,
+        hireRequired: true
+      }
+    ])
+    expect(String((request.mock.calls[0] as unknown as [string])[0])).toBe('https://matrix.test/atum/agents?catalog=open')
+  })
+
+  it('hires a listing by sending its id beside the same request and name', async () => {
+    const request = vi.fn(async (url: string) =>
+      String(url).endsWith('/cloud/disclosure')
+        ? new Response('', { status: 503 })
+        : json({
+            ...record({ id: OTHER_ASSISTANT, is_default: false, display_name: 'Researcher', matrixUser: '@agent-04:atum.test' }),
+            cloud_placement: 'placed'
+          })
+    )
+    vi.stubGlobal('fetch', request)
+
+    const agent = await createMatrixAgent(
+      resource,
+      grant,
+      { requestId: REQUEST, displayName: 'Researcher', listingId: 'open/agents/researcher', hireConfirmed: true },
+      new AbortController().signal
+    )
+    expect(agent.cloudPlacement).toBe('placed')
+    const [, init] = request.mock.calls.filter(([each]) => String(each).endsWith('/agents')).at(-1) as unknown as [string, RequestInit]
+    expect(JSON.parse(init.body as string)).toEqual({
+      requestId: REQUEST,
+      displayName: 'Researcher',
+      hireConfirmed: true,
+      listingId: 'open/agents/researcher'
+    })
+    await expect(
+      createMatrixAgent(resource, grant, { requestId: REQUEST, displayName: 'Researcher', listingId: '' }, new AbortController().signal)
+    ).rejects.toMatchObject({ code: 'invalid' })
   })
 
   it('asks for a cloud placement with the active disclosure version and reads the answer', async () => {
