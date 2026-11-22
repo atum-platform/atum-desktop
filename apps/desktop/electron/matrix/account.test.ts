@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EncryptedStore } from '../encrypted-store'
 
 import { END_DEVICE_SESSION_ACTION, END_DEVICE_SESSION_ID, MatrixAccount } from './account'
-import { requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import { matrixConfigurationKey } from './config'
 import { currentIanaTimeZone } from './time-zone'
 import type * as TimeZoneModule from './time-zone'
@@ -1473,7 +1472,7 @@ describe('the owner time zone on the Matrix roster read', () => {
   })
 })
 
-describe('relay publication bearer repair', () => {
+describe('S1 bearer repair', () => {
   it.each([false, true])('refreshes once on 401 (repeat rejection: %s)', async repeat => {
     const { account, store } = ownerReaderFixture()
     vi.mocked(oidc.refreshTokenGrant).mockResolvedValue({ access_token: 'fresh-domain-access', refresh_token: 'fresh-domain-refresh' } as never)
@@ -1483,8 +1482,21 @@ describe('relay publication bearer repair', () => {
       }))
     vi.stubGlobal('fetch', fetch)
     const signal = AbortSignal.timeout(10_000)
-    const result = account.s1Request((token, resource) =>
-      requestMatrixChatGptRelay(resource, token, 'enable', signal, { requestId: 'same-request' }), signal)
+    const result = account.s1Request(async (token, resource) => {
+      const response = await globalThis.fetch(`${resource}/api/matrix/v1/example`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ requestId: 'same-request' }),
+        signal
+      })
+
+      // What every S1 caller does: a 401 is the one answer that asks for a refreshed bearer.
+      if (response.status === 401) {
+        throw new Error('matrix_s1_authentication')
+      }
+
+      return { status: response.status, value: await response.json() }
+    }, signal)
     if (repeat) {await expect(result).rejects.toThrow('matrix_s1_authentication')}
     else {await expect(result).resolves.toEqual({ status: 200, value: { state: 'enabled' } })}
     expect(fetch).toHaveBeenCalledTimes(2)

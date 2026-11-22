@@ -31,15 +31,9 @@ interface ModelPickerCopy {
   useSubscription: string
   /** The plain menu's last row when ChatGPT is not connected: it starts the ChatGPT sign-in. */
   useChatGpt: string
-  /** A connected ChatGPT plan a cloud assistant cannot reach yet (its sign-in lives on this Mac). */
-  chatgptCloudNotReady: string
-  /** The row under those not-ready models: ChatGPT's state and its one fix, in Settings. */
-  chatgptOpenSettings: string
-  /** A ChatGPT plan whose relay Mac is offline: the row's second line, then its one action (tooltip). */
-  chatgptMacOffline: string
-  chatgptMacOfflineHint: string
-  /** No Mac serves ChatGPT to cloud assistants yet: the tooltip's one action. */
-  chatgptNoMacHint: string
+  /** D6: ChatGPT greyed in an assistant's picker. One line; its one action opens Work. */
+  chatgptInWork: string
+  openWork: string
   /** The composer chip's tooltip while the chosen plan cannot answer (the chip opens the picker). */
   planUnavailable: Record<'mac_offline' | 'no_mac' | 'reconnect', (plan: string) => string>
   /** The faint line under an answer a fallback model gave, and its tooltip. Never a cost. */
@@ -146,11 +140,8 @@ const en: ModelPickerCopy = {
   answersWith: (assistant?: string) => (assistant ? `${assistant} answers with` : 'Answers with'),
   useSubscription: 'Use a subscription you pay for',
   useChatGpt: 'Use your ChatGPT subscription',
-  chatgptCloudNotReady: 'Not ready for your assistants yet',
-  chatgptOpenSettings: 'Open ChatGPT in Settings',
-  chatgptMacOffline: 'Your Mac is offline',
-  chatgptMacOfflineHint: 'Open Atum on your Mac to use ChatGPT.',
-  chatgptNoMacHint: 'Open Atum on the Mac where you signed in to ChatGPT.',
+  chatgptInWork: 'Your plan works in Work on your Mac',
+  openWork: 'Open Work',
   planUnavailable: {
     mac_offline: plan => `${plan} can’t answer: your Mac is offline`,
     no_mac: plan => `${plan} isn’t ready for your assistants yet`,
@@ -255,11 +246,8 @@ const vi: ModelPickerCopy = {
   answersWith: (assistant?: string) => (assistant ? `${assistant} trả lời bằng` : 'Trả lời bằng'),
   useSubscription: 'Dùng gói đăng ký bạn đang trả',
   useChatGpt: 'Dùng gói ChatGPT của bạn',
-  chatgptCloudNotReady: 'Trợ lý của bạn chưa dùng được',
-  chatgptOpenSettings: 'Mở ChatGPT trong Cài đặt',
-  chatgptMacOffline: 'Máy Mac của bạn đang tắt',
-  chatgptMacOfflineHint: 'Mở Atum trên máy Mac để dùng ChatGPT.',
-  chatgptNoMacHint: 'Mở Atum trên máy Mac bạn đã đăng nhập ChatGPT.',
+  chatgptInWork: 'Gói của bạn dùng trong Work trên máy Mac',
+  openWork: 'Mở Work',
   planUnavailable: {
     mac_offline: plan => `${plan} chưa trả lời được: máy Mac của bạn đang tắt`,
     no_mac: plan => `${plan} chưa dùng được cho trợ lý của bạn`,
@@ -363,11 +351,8 @@ const ja: ModelPickerCopy = {
   answersWith: (assistant?: string) => (assistant ? `${assistant} が使うモデル` : '使うモデル'),
   useSubscription: '契約中のサブスクリプションを使う',
   useChatGpt: 'ChatGPT のサブスクリプションを使う',
-  chatgptCloudNotReady: 'アシスタントではまだ使えません',
-  chatgptOpenSettings: '設定で ChatGPT を開く',
-  chatgptMacOffline: 'Mac がオフラインです',
-  chatgptMacOfflineHint: 'ChatGPT を使うには Mac で Atum を開いてください。',
-  chatgptNoMacHint: 'ChatGPT にサインインした Mac で Atum を開いてください。',
+  chatgptInWork: 'プランは Mac の Work で使えます',
+  openWork: 'Work を開く',
   planUnavailable: {
     mac_offline: plan => `${plan} は使えません：Mac がオフラインです`,
     no_mac: plan => `${plan} はまだアシスタントで使えません`,
@@ -472,11 +457,8 @@ const zh: ModelPickerCopy = {
   answersWith: (assistant?: string) => (assistant ? `${assistant} 使用的模型` : '使用的模型'),
   useSubscription: '使用你已付费的订阅',
   useChatGpt: '使用你的 ChatGPT 订阅',
-  chatgptCloudNotReady: '你的助理暂时还不能使用',
-  chatgptOpenSettings: '在设置中打开 ChatGPT',
-  chatgptMacOffline: '你的 Mac 已离线',
-  chatgptMacOfflineHint: '在 Mac 上打开 Atum 即可使用 ChatGPT。',
-  chatgptNoMacHint: '在你登录 ChatGPT 的 Mac 上打开 Atum。',
+  chatgptInWork: '你的套餐可在 Mac 上的 Work 中使用',
+  openWork: '打开 Work',
   planUnavailable: {
     mac_offline: plan => `${plan} 暂不可用：你的 Mac 已离线`,
     no_mac: plan => `${plan} 暂时还不能给助理使用`,
@@ -579,11 +561,8 @@ const zhHant: ModelPickerCopy = {
   answersWith: (assistant?: string) => (assistant ? `${assistant} 使用的模型` : '使用的模型'),
   useSubscription: '使用你已付費的訂閱',
   useChatGpt: '使用你的 ChatGPT 訂閱',
-  chatgptCloudNotReady: '你的助理暫時還不能使用',
-  chatgptOpenSettings: '在設定中開啟 ChatGPT',
-  chatgptMacOffline: '你的 Mac 已離線',
-  chatgptMacOfflineHint: '在 Mac 上開啟 Atum 即可使用 ChatGPT。',
-  chatgptNoMacHint: '在你登入 ChatGPT 的 Mac 上開啟 Atum。',
+  chatgptInWork: '你的方案可在 Mac 上的 Work 中使用',
+  openWork: '開啟 Work',
   planUnavailable: {
     mac_offline: plan => `${plan} 暫不可用：你的 Mac 已離線`,
     no_mac: plan => `${plan} 暫時還不能給助理使用`,

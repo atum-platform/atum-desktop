@@ -42,7 +42,12 @@ function bridge(): MatrixWorkBridge & { [K in keyof MatrixWorkBridge]: ReturnTyp
     retry: vi.fn(async () => {}),
     allowAssistants: vi.fn(async () => {}),
     setAssistants: vi.fn(async () => {}),
+    setPlan: vi.fn(async () => {}),
     reconnectAssistants: vi.fn(async () => {}),
+    openPlanConnect: vi.fn(async () => {}),
+    readPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
+    setPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
+    revokePlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
     setWork: vi.fn(async () => {}),
     subscribe: vi.fn(() => () => {})
   }

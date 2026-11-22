@@ -141,7 +141,6 @@ function bridge(
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'unavailable' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'cancelled' as const })),
       disconnectOpenCode: vi.fn(async () => undefined)
     }

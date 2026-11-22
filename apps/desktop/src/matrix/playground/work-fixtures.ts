@@ -1,12 +1,20 @@
-import { $workActive, $workBandOpen } from '@/app/work/store'
+import { $workActive, $workBandOpen, $workPlanConsent } from '@/app/work/store'
 
-import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkRect } from '../../../shared/matrix-work'
+import type {
+  MatrixWorkBridge,
+  MatrixWorkPlanConsent,
+  MatrixWorkProjection,
+  MatrixWorkRect
+} from '../../../shared/matrix-work'
 
 /**
  * Self-work slice A (lane DW): the Work page on fixture data.
  *
  * - `?work=ready|starting|unavailable|off|enroll|assistants-off|holding|stale|unreachable|working|protons`
  *   opens the Work page in that state (`enroll` is the D9 text; `working` has agents running).
+ * - Slice B (subscriptions): `&connect=offer|connected` opens gate 4a (the first-sign-in step shows for `offer`);
+ *   `&plan=off|on` the per-Mac plan switch; `&consent=off|on|on-two-macs` the account's consent; `&sheet` opens the consent sheet;
+ *   `&page=chat` leaves the Work page so the app (or Settings, `?view=settings-work`) is what shows.
  * - `&band` opens the assistants band; `&workShot=<url>` paints that image where main would paint the
  *   owner view (the fork's screen), so the page can be judged with something in it.
  */
@@ -30,6 +38,30 @@ const STATES: Record<string, Partial<MatrixWorkProjection>> = {
 }
 
 const READY: MatrixWorkProjection = { view: 'ready', assistants: 'on', agents: [], protons: 'ok' }
+
+const THIS_MAC = '00000000-0000-4000-8000-0000000c0a01'
+const OTHER_MAC = '00000000-0000-4000-8000-0000000c0a02'
+/** The playground's assistants (fixtures.ts: Atum is the master, Moon the second). */
+export const PLAYGROUND_WORK_AGENTS = ['agent-atum', 'agent-moon'] as const
+
+function consentFixture(mode: string | null): MatrixWorkPlanConsent {
+  const macs = [{ id: THIS_MAC, thisMac: true, named: mode === 'on' || mode === 'on-two-macs' }]
+
+  if (mode === 'on-two-macs') {
+    macs.push({ id: OTHER_MAC, thisMac: false, named: false })
+  }
+
+  return mode === 'on' || mode === 'on-two-macs'
+    ? {
+        state: 'on',
+        agents: [PLAYGROUND_WORK_AGENTS[0]],
+        eligible: [...PLAYGROUND_WORK_AGENTS],
+        macs,
+        alsoWhenScheduled: false,
+        grantedAt: Date.UTC(2026, 10, 22, 2, 30)
+      }
+    : { state: 'off', agents: [], eligible: [...PLAYGROUND_WORK_AGENTS], macs, alsoWhenScheduled: false }
+}
 
 function paint(rect: MatrixWorkRect | null, shot: string | null) {
   let layer = document.querySelector<HTMLImageElement>('[data-playground-work-view]')
@@ -64,7 +96,15 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
     return {}
   }
 
-  let projection: MatrixWorkProjection = { ...READY, ...STATES[state] }
+  const connect = params.get('connect')
+  const plan = params.get('plan')
+  let projection: MatrixWorkProjection = {
+    ...READY,
+    ...STATES[state],
+    ...(connect === 'offer' || connect === 'connected' ? { planConnect: connect } : {}),
+    ...(plan === 'off' || plan === 'on' ? { plan } : {})
+  }
+  let consent = consentFixture(params.get('consent'))
   const listeners = new Set<(projection: MatrixWorkProjection | null) => void>()
   const shot = params.get('workShot')
 
@@ -73,8 +113,16 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
     listeners.forEach(listener => listener(projection))
   }
 
-  $workActive.set(true)
+  $workActive.set(params.get('page') !== 'chat')
   $workBandOpen.set(params.has('band'))
+  $workPlanConsent.set(params.has('sheet') ? { thisMac: true } : null)
+
+  try {
+    // The Connect step appears once; the playground shows it whenever `connect=offer` asks.
+    localStorage.removeItem('atum.work.plan-connect.seen.v1')
+  } catch {
+    // Storage off: the step shows anyway.
+  }
 
   return {
     work: {
@@ -84,8 +132,28 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
       retry: async () => emit({ view: 'ready' }),
       allowAssistants: async () => emit({ assistants: 'on' }),
       setAssistants: async on => emit({ assistants: on ? 'on' : 'off' }),
+      setPlan: async on => emit({ plan: on ? 'on' : 'off' }),
       setWork: async on => emit({ view: on ? 'ready' : 'off' }),
       reconnectAssistants: async () => emit({ assistants: 'on' }),
+      openPlanConnect: async () => emit({ view: 'ready' }),
+      readPlanConsent: async () => consent,
+      setPlanConsent: async input => {
+        consent = {
+          ...consent,
+          state: 'on',
+          agents: [...input.agents],
+          macs: consent.macs.map(mac => ({ ...mac, named: input.macs.includes(mac.id) })),
+          alsoWhenScheduled: input.alsoWhenScheduled,
+          grantedAt: Date.now()
+        }
+
+        return consent
+      },
+      revokePlanConsent: async () => {
+        consent = { ...consent, state: 'off', agents: [], macs: consent.macs.map(mac => ({ ...mac, named: false })) }
+
+        return consent
+      },
       subscribe: listener => {
         listeners.add(listener)
 

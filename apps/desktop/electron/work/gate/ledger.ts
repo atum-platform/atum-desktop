@@ -2,7 +2,7 @@ import { closeSync, existsSync, mkdirSync, openSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
-import type { WorkScope } from './contract'
+import { type WorkConsentSnapshot, WorkConsentSnapshotSchema, type WorkScope } from './contract'
 
 // The gate's durable store (plan §6.4, §11.3, §11.4). It lives in main's own
 // account directory, outside T3's database and its snapshot, so a SQLite
@@ -39,6 +39,8 @@ export interface ReceiptRow {
   incarnation: string | null
   /** The unresolved send before the last one, restored when the last send gets a definitive answer. */
   priorIncarnation: string | null
+  /** The plan this launch was admitted under (`codex`), or null for an Atum launch. Set once, at admission. */
+  plan: string | null
   runId: string | null
   /** The gate has seen the thread end with no run active. */
   finished: boolean
@@ -125,6 +127,7 @@ const SCHEMA = `
 /** Columns added after the first ledgers were written: `CREATE TABLE IF NOT EXISTS` does not add them to an old file. */
 const LATER_COLUMNS: [table: string, column: string, ddl: string][] = [
   ['receipts', 'prior_incarnation', 'TEXT'],
+  ['receipts', 'plan', 'TEXT'],
   ['outbox', 'retry_at', 'INTEGER']
 ]
 
@@ -147,6 +150,7 @@ function receipt(row: Row): ReceiptRow {
     forwardCount: Number(row.forward_count),
     incarnation: (row.incarnation as string | null) ?? null,
     priorIncarnation: (row.prior_incarnation as string | null) ?? null,
+    plan: (row.plan as string | null) ?? null,
     runId: (row.run_id as string | null) ?? null,
     finished: row.finished === 1,
     stopScope: (row.stop_scope as WorkScope | null) ?? null,
@@ -170,6 +174,7 @@ export interface AdmitInput {
   notAfter: number
   epoch: number
   generation: number
+  plan?: string
 }
 
 export type AdmitResult = { ok: true } | { ok: false; reason: 'event_already_used' | 'request_exists' }
@@ -413,8 +418,8 @@ export class GateLedger {
         this.db
           .prepare(
             `INSERT INTO receipts (principal, request_id, state, params_hash, call_json, fingerprint, session_id, thread_id,
-               event_id, not_after, epoch_at_admit, generation_at_admit, created_at, updated_at)
-             VALUES (?, ?, 'admitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+               event_id, not_after, epoch_at_admit, generation_at_admit, plan, created_at, updated_at)
+             VALUES (?, ?, 'admitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           )
           .run(
             input.principal,
@@ -428,6 +433,7 @@ export class GateLedger {
             input.notAfter,
             input.epoch,
             input.generation,
+            input.plan ?? null,
             this.now(),
             this.now()
           )
@@ -555,6 +561,91 @@ export class GateLedger {
       })
 
       return { revocationId, owed, routeEpoch: this.routeEpoch(), generation }
+    })
+  }
+
+  // ---- plan consent (gate 4b)
+  /** The last consent snapshot this Mac applied durably (with a page), or undefined when none ever arrived or it did not parse. */
+  consent(): WorkConsentSnapshot | undefined {
+    const raw = this.meta('consent')
+
+    if (!raw) {
+      return undefined
+    }
+
+    try {
+      const parsed = WorkConsentSnapshotSchema.safeParse(JSON.parse(raw))
+
+      return parsed.success ? parsed.data : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  setConsent(snapshot: WorkConsentSnapshot): void {
+    this.setMeta('consent', JSON.stringify(snapshot))
+  }
+
+  /** "Agents may use my ChatGPT plan here" on this Mac. OFF until the owner turns it on: OpenAI asks for express consent. */
+  planSwitchOn(): boolean {
+    return this.meta('plan_switch_on') === '1'
+  }
+
+  setPlanSwitch(on: boolean): void {
+    this.setMeta('plan_switch_on', on ? '1' : '0')
+  }
+
+  /** Agents that have a plan thread the gate has not seen end and that no stop is owed for yet. */
+  planPrincipals(): string[] {
+    return (
+      this.db
+        .prepare(
+          "SELECT DISTINCT principal FROM receipts WHERE plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL ORDER BY principal"
+        )
+        .all() as Row[]
+    ).map(row => String(row.principal))
+  }
+
+  /**
+   * Gate 4b revocation, one durable write: every unfinished PLAN row of each principal is marked stop owed (scope `agent`, the
+   * wire's own word for "one assistant"), with a revocation of its own. Nothing else moves: no generation, no grant, no
+   * route event, and no T3 session is revoked (step 3 is pre-marked done), because an assistant that lost the plan keeps
+   * its Atum access. Rows of the same principal that run on Atum are untouched.
+   */
+  planCutoff(principals: string[], reason: string): CutoffResult[] {
+    return this.tx(() => {
+      const results: CutoffResult[] = []
+      const at = this.now()
+
+      for (const principal of principals) {
+        const owed = Number(
+          this.db
+            .prepare(
+              "UPDATE receipts SET stop_scope = 'agent', stop_at = COALESCE(stop_at, ?), updated_at = ? WHERE principal = ? AND plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL"
+            )
+            .run(at, at, principal).changes
+        )
+
+        if (owed === 0) {
+          continue
+        }
+
+        const info = this.db
+          .prepare('INSERT INTO revocations (scope, principal, reason, source_seq, at) VALUES (?, ?, ?, NULL, ?)')
+          .run('agent', principal, reason, at)
+
+        const revocationId = Number(info.lastInsertRowid)
+
+        this.db
+          .prepare(
+            "UPDATE receipts SET revocation_id = ? WHERE principal = ? AND plan IS NOT NULL AND stop_scope = 'agent' AND revocation_id IS NULL AND settled IS NULL"
+          )
+          .run(revocationId, principal)
+        this.setMeta(`sessions_revoked_${revocationId}`, '1')
+        results.push({ revocationId, owed, routeEpoch: this.routeEpoch() })
+      }
+
+      return results
     })
   }
 

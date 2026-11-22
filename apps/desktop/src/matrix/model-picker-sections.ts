@@ -61,6 +61,13 @@ export interface PickerSection {
   /** One short line in a provider's list (ChatGPT signed out, not ready for cloud assistants). The
    * fix is the rail's Connect, never a row in the list. */
   note?: string
+  /** The note's one action (D6: ChatGPT greyed for an assistant, "Open Work"). */
+  noteAction?: PickerNoteAction
+}
+
+export interface PickerNoteAction {
+  label: string
+  run(): void
 }
 
 export const PICKER_DEFAULTS_SECTION = 'defaults'
@@ -83,6 +90,7 @@ export interface PickerSectionsInput {
   subscriptionNote?: string
   /** The provider that note is about: it shows only in that provider's list. */
   subscriptionNoteFor?: string
+  subscriptionNoteAction?: PickerNoteAction
   /** Every model the Mac's connections list, in the catalog's order. */
   connected: readonly PickerRoute[]
   /** Provider families in rail/list order. */
@@ -186,6 +194,7 @@ export function pickerSections(input: PickerSectionsInput): PickerSection[] {
       ...(subscriptionHeading ? { heading: subscriptionHeading } : {}),
       rows: subscriptionRows,
       ...(subscriptionNoteShown ? { note: subscriptionNoteShown } : {}),
+      ...(subscriptionNoteShown && input.subscriptionNoteAction ? { noteAction: input.subscriptionNoteAction } : {}),
       current: subscriptionRows.some(each => isCurrent(each.route))
     })
   }

@@ -27,8 +27,6 @@ import {
 } from './approvals'
 import { type AuditWriter, FileAuditWriter } from './audit'
 import { deviceMessageHash } from './canonical'
-import { type ChatGptRelayCall, ChatGptRelayHandler, type ChatGptRelayRequestBody, type RelaySshBinding } from './chatgpt-relay'
-import { ChatGptRelaySocket, relaySocketPath } from './chatgpt-relay-socket'
 import type {
   DeviceArtifact,
   DeviceExecutor,
@@ -96,13 +94,6 @@ export interface DeviceRuntimeEnvironment {
   approvalKey(): ApprovalKeyRef | null
   deviceServiceId(): string | null
   macSource?: DeviceServiceDeps['macSource']
-  chatGptRelay?: {
-    sshBindings?(): readonly RelaySshBinding[]
-    authority(): { ownerPrincipal: string; agentPrincipals: readonly string[]; deviceServiceId: string } | null
-    call(input: { model: string; effort: 'low' | 'medium' | 'high'; request: Record<string, unknown> },
-      signal: AbortSignal): Promise<ChatGptRelayCall>
-    authorize?(request: ChatGptRelayRequestBody, signal: AbortSignal): Promise<boolean>
-  }
 
   // ---- naming
   agentName(agentUserId: string): string
@@ -164,7 +155,6 @@ export interface DeviceRuntime {
   hello(): { terminal: boolean; files: boolean; computer: { available: boolean; reason?: string } }
   /** The Settings › Device bridge. */
   request(input: unknown): Promise<unknown>
-  configureChatGptRelay(enabled: boolean, models?: readonly string[]): void
 }
 
 class DeviceRequestError extends Error {
@@ -180,42 +170,11 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
   const audit: AuditWriter = new FileAuditWriter(path.join(deviceDir, 'audit'))
   const ledger = new DeviceLedger(env.store)
   const grants = new GrantsStore(env.store, () => env.approvalKey(), line => env.log(line))
-  const relayKey = 'chatgpt-relay-v1'
-  let relayEnabled = false
-  let relayModels: string[] = []
-
+  // The SSH ChatGPT relay is gone (self-work plan §12). What an earlier build saved about it is dropped, once, so nothing reads it again.
   try {
-    const saved = JSON.parse(env.store.getItem(relayKey) ?? 'null') as { enabled?: unknown; models?: unknown } | null
-    relayEnabled = saved?.enabled === true
-    relayModels = Array.isArray(saved?.models)
-      ? saved.models.filter((model): model is string => typeof model === 'string' && /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(model)).slice(0, 64)
-      : []
+    env.store.setItem('chatgpt-relay-v1', JSON.stringify({ enabled: false, models: [] }))
   } catch {
-    relayEnabled = false
-    relayModels = []
-  }
-
-  const relay = env.chatGptRelay ? new ChatGptRelayHandler({
-    authority: () => {
-      const base = env.chatGptRelay?.authority()
-
-      return base ? { ...base, enabled: relayEnabled, models: relayModels } : null
-    },
-    call: (input, signal) => env.chatGptRelay!.call(input, signal),
-    authorize: env.chatGptRelay.authorize
-      ? (request, signal) => env.chatGptRelay!.authorize!(request, signal)
-      : undefined,
-    log: line => env.log(line)
-  }) : undefined
-
-  const relaySocket = relay && env.platform === 'darwin' && env.chatGptRelay?.sshBindings
-    ? new ChatGptRelaySocket(relaySocketPath(env.home), relay, () => env.chatGptRelay!.sshBindings!()) : undefined
-
-  let relaySocketTimer: ReturnType<typeof setInterval> | undefined
-
-  const syncRelaySocket = () => {
-    void relaySocket?.setEnabled(Boolean(ready && relayEnabled && env.chatGptRelay?.authority()))
-      .catch(() => env.log('[ChatGPT relay] local socket unavailable'))
+    // a store that cannot be written has nothing to forget either
   }
 
   const tasksRoot = path.join(env.home, 'Atum Tasks')
@@ -361,7 +320,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
 
   const service: DeviceService = new DeviceService({
     connected: scanConflicts,
-    relay,
     macSource: env.macSource,
     ledger,
     executor,
@@ -571,12 +529,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
     })
     ready = true
 
-    if (relaySocket && !relaySocketTimer) {
-      syncRelaySocket()
-      relaySocketTimer = setInterval(syncRelaySocket, 1_000)
-      relaySocketTimer.unref?.()
-    }
-
     if (env.conflictCopies && !conflictTimer) {
       conflictTimer = setInterval(scanConflicts, 5 * 60_000)
       conflictTimer.unref?.()
@@ -613,9 +565,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
     },
 
     fence(reason) {
-      clearInterval(relaySocketTimer)
-      relaySocketTimer = undefined
-      void relaySocket?.setEnabled(false)
       sudoPasswords.forget()
       // The synchronous half runs inside `stop` before it returns.
       void service.stop(reason).catch(() => env.log('[Device] fence tail failed'))
@@ -634,7 +583,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
 
       const run = (async () => {
         await previous?.catch(() => undefined)
-        await relaySocket?.setEnabled(false)
         // A start still in flight finishes first, so its host is the one stopped here.
         await starting?.catch(() => undefined)
         indicator.dispose()
@@ -675,19 +623,6 @@ export function createDeviceRuntime(env: DeviceRuntimeEnvironment): DeviceRuntim
         : { available: false, reason: 'cua_driver_missing' }
 
       return { terminal: true, files: true, computer }
-    },
-
-    configureChatGptRelay(enabled, models = []) {
-      relayEnabled = enabled
-      relayModels = enabled
-        ? [...new Set(models)].filter(model => /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(model)).slice(0, 64)
-        : []
-      syncRelaySocket()
-      env.store.setItem(relayKey, JSON.stringify({ enabled: relayEnabled, models: relayModels }))
-
-      if (!enabled) {
-        relay?.disable()
-      }
     },
 
     async request(input) {

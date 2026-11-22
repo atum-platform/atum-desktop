@@ -541,7 +541,6 @@ function cardSubscriptions(
     pollChatGpt: async () => ({ status: 'pending' }),
     cancelChatGpt: async () => undefined,
     disconnectChatGpt: async () => undefined,
-    useThisMacForChatGpt: async () => ({ status: 'unavailable' }),
     connectOpenCode: async () => ({ status: 'cancelled' }),
     disconnectOpenCode: async () => undefined
   }

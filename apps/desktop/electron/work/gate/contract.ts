@@ -27,6 +27,23 @@ export const WORK_SOCKET_PATH_MAX_BYTES = 100
 export const WORK_SETTLEMENT_REPORTS_MAX = 64
 export const WORK_SETTLEMENT_RETENTION_DAYS = 30
 
+// atum.work-route/1.2: subscriptions (self-work slice B; atum-platform spec/work-route/v1.2 and packages/protocol/src/work-route.ts).
+// Codex is the only plan a launch may name (gate 4b-1). No token, login, e-mail or plan name appears in any of these.
+export const WORK_PLAN_PROVIDERS = ['codex'] as const
+export type WorkPlanProvider = (typeof WORK_PLAN_PROVIDERS)[number]
+export const WORK_PLAN_REFUSAL_REASONS = [
+  'plan_consent_stale',
+  'plan_consent_off',
+  'plan_switch_off',
+  'plan_not_scheduled'
+] as const
+export type WorkPlanRefusalReason = (typeof WORK_PLAN_REFUSAL_REASONS)[number]
+export const WORK_CONSENT_AGENTS_MAX = 256
+/** The Mac reports the plan fact on every change and at least this often; the platform reads an older one as stale. */
+export const WORK_SUBSCRIPTION_FACT_REFRESH_SECONDS = 3_600
+export const WORK_SUBSCRIPTION_FACT_MAX_AGE_SECONDS = 86_400
+export const WORK_CONSENT_FRESHNESS_BOUND_SECONDS = 300
+
 export const WORK_PROVISIONAL = {
   launchDeadlineSeconds: 120,
   clockSkewToleranceSeconds: 60,
@@ -84,7 +101,8 @@ export const WORK_REFUSAL_REASONS = [
   'owner_event_too_old',
   'owner_event_future',
   'owner_event_undecryptable',
-  'owner_event_device_not_owner'
+  'owner_event_device_not_owner',
+  ...WORK_PLAN_REFUSAL_REASONS
 ] as const
 export type WorkRefusalReason = (typeof WORK_REFUSAL_REASONS)[number]
 
@@ -130,7 +148,9 @@ export const WorkLaunchArgumentsSchema = z
     projectId: idString,
     task: codePoints(1, WORK_TASK_MAX_CODE_POINTS),
     ownerEvent: WorkOwnerEventSchema,
-    notAfter: safe
+    notAfter: safe,
+    /** 1.2: "on my plan". The one new argument; the gate still sets the provider itself, never the caller. */
+    plan: z.enum(WORK_PLAN_PROVIDERS).optional()
   })
   .strict()
 export const WorkInterruptArgumentsSchema = z.object({ threadId: WorkThreadIdSchema }).strict()
@@ -257,6 +277,22 @@ export const WorkSyncChangeSchema = z.union([
 ])
 export type WorkSyncChange = z.infer<typeof WorkSyncChangeSchema>
 
+/** This Mac's slice of the account's consent record, carried by a 1.2 page. State, not a log: no sequence, no gap rule. */
+export const WorkConsentSnapshotSchema = z
+  .object({
+    provider: z.enum(WORK_PLAN_PROVIDERS),
+    state: z.enum(['on', 'off']),
+    revision: safe,
+    agents: z
+      .array(uuid)
+      .max(WORK_CONSENT_AGENTS_MAX)
+      .refine(items => new Set(items).size === items.length, 'unique'),
+    alsoWhenScheduled: z.boolean(),
+    grantedAt: safe.optional()
+  })
+  .strict()
+export type WorkConsentSnapshot = z.infer<typeof WorkConsentSnapshotSchema>
+
 export const WorkSyncPageSchema = z
   .object({
     deviceServiceId: uuid,
@@ -269,7 +305,8 @@ export const WorkSyncPageSchema = z
       .max(256)
       .refine(items => new Set(items).size === items.length, 'unique'),
     changes: z.array(WorkSyncChangeSchema).max(256),
-    hasMore: z.boolean()
+    hasMore: z.boolean(),
+    consent: WorkConsentSnapshotSchema.optional()
   })
   .strict()
   .refine(page => page.fromSeq <= page.headSeq, 'a page never starts after the head')
@@ -282,6 +319,66 @@ export interface WorkSyncAck {
   settledSeq: number
   routeEpoch: number
   appliedAt: number
+  /** 1.2: the consent revision this Mac durably applied. Omitted until a snapshot was applied. */
+  consentRevision?: number
+}
+
+export const WorkSubscriptionReportReplySchema = z
+  .object({
+    deviceServiceId: uuid,
+    provider: z.enum(WORK_PLAN_PROVIDERS),
+    state: z.enum(['connected', 'disconnected']),
+    observedAt: safe,
+    recordedAt: safe
+  })
+  .strict()
+
+/** 4b-2, `work.consent.record`: the account's one consent for a plan, as `work_consent_set` / `_revoke` answer it. Default off. */
+export const WorkConsentRecordSchema = z
+  .object({
+    provider: z.enum(WORK_PLAN_PROVIDERS),
+    state: z.enum(['on', 'off']),
+    agents: z.array(uuid).max(WORK_CONSENT_AGENTS_MAX),
+    devices: z.array(uuid).max(32),
+    alsoWhenScheduled: z.boolean(),
+    revision: safe,
+    grantedAt: safe.optional(),
+    revokedAt: safe.optional()
+  })
+  .strict()
+export type WorkConsentRecord = z.infer<typeof WorkConsentRecordSchema>
+
+/** `work.subscription.state` (`work_subscription_read`): the consent record and each Mac's plan fact. */
+export const WorkSubscriptionStateSchema = z
+  .object({
+    issuedAt: safe,
+    consent: WorkConsentRecordSchema,
+    facts: z
+      .array(
+        z
+          .object({
+            deviceServiceId: uuid,
+            provider: z.enum(WORK_PLAN_PROVIDERS),
+            status: z.enum(['connected', 'disconnected', 'stale']),
+            observedAt: safe.optional(),
+            // The owner's own label for the Mac (the device registry's display name): shown beside its checkbox, nothing else.
+            displayName: z.string().min(1).max(64).optional()
+          })
+          .strict()
+      )
+      .max(64)
+  })
+  .strict()
+export type WorkSubscriptionState = z.infer<typeof WorkSubscriptionStateSchema>
+
+/** G9, `work_subscription_report`: a boolean and a time. `stale` is never reported, only read by the platform. */
+export interface WorkSubscriptionReport {
+  deviceServiceId: string
+  accountId: string
+  routeEpoch: number
+  provider: WorkPlanProvider
+  state: 'connected' | 'disconnected'
+  observedAt: number
 }
 
 export interface WorkMacEvent {
@@ -338,9 +435,52 @@ export function workDeadline(
 
 export const sha256Hex = (value: string | Buffer): string => createHash('sha256').update(value).digest('hex')
 
-/** SHA-256 of the immutable launch parameters. A retry must match; the deadline is compared separately. */
-export function workParamsHash(projectId: string, task: string, ownerEvent: string): string {
-  return sha256Hex(JSON.stringify([projectId, task, ownerEvent]))
+/**
+ * SHA-256 of the immutable launch parameters. A retry must match; the deadline is compared separately. `plan` joins the
+ * hash only when present, so a 1.1 launch keeps its hash and a retry cannot turn an Atum launch into a plan one.
+ */
+export function workParamsHash(projectId: string, task: string, ownerEvent: string, plan?: WorkPlanProvider): string {
+  return sha256Hex(JSON.stringify(plan ? [projectId, task, ownerEvent, plan] : [projectId, task, ownerEvent]))
+}
+
+export interface WorkPlanLaunchInput {
+  consent: 'on' | 'off'
+  agentNamed: boolean
+  macNamed: boolean
+  snapshotAgeSeconds: number
+  boundSeconds?: number
+  headRegressed: boolean
+  localSwitch: boolean
+  /** The launch is NOT backed by a fresh, verified, unclaimed owner message (see `WorkGate` and docs/work-subscriptions.md). */
+  scheduled: boolean
+  alsoWhenScheduled: boolean
+}
+
+/**
+ * Gate 4b-3, the Mac's rule; the first failing check answers (the platform's `workPlanLaunchDecision`, 12 vectors):
+ * a snapshot the Mac cannot call fresh refuses everything (fail closed); then consent off, or this assistant or Mac not
+ * named; then the Mac's own switch; then a launch with no fresh owner message that the consent did not allow.
+ */
+export function workPlanLaunchDecision(input: WorkPlanLaunchInput): 'allowed' | WorkPlanRefusalReason {
+  const bound = input.boundSeconds ?? WORK_CONSENT_FRESHNESS_BOUND_SECONDS
+
+  if (input.headRegressed || input.snapshotAgeSeconds > bound) {
+    return 'plan_consent_stale'
+  }
+
+  if (input.consent !== 'on' || !input.agentNamed || !input.macNamed) {
+    return 'plan_consent_off'
+  }
+
+  if (!input.localSwitch) {
+    return 'plan_switch_off'
+  }
+
+  if (input.scheduled && !input.alsoWhenScheduled) {
+    return 'plan_not_scheduled'
+  }
+
+  return 'allowed'
 }
 
 /** T3 derives the launch's thread id from the session and the request id; the gate stores it before it forwards. */

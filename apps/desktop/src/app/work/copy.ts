@@ -13,6 +13,39 @@ export interface WorkWords {
   /** One quiet line under the switch, per state. */
   line: Record<Exclude<MatrixWorkAssistants, 'not_enrolled' | 'needs_grant'>, string>
   switchLabel: string
+  /**
+   * Gate 4b: the per-Mac switch for the owner's own ChatGPT plan. Off until the owner turns it on. `label` is quoted verbatim by the
+   * cloud's `plan_switch_off` line (`planSwitchOffLine`): change both together.
+   */
+  planSwitch: { label: string; help: string; named(names: string, since: string): string; change: string }
+  /** Gate 4a: the one Connect step (first sign-in, once) and its row in Settings. T3's own screen does the sign-in. */
+  connect: {
+    title: string
+    line: string
+    action: string
+    skip: string
+    rowTitle: string
+    rowOffer: string
+    rowConnected: string
+    manage: string
+  }
+  /** Gate 4b-2: the one consent sheet. Express opt-in: nothing is chosen until the owner chooses it. */
+  consent: {
+    title: string
+    line: string
+    assistants: string
+    macs: string
+    thisMac: string
+    otherMac(index: number): string
+    scheduled: string
+    allow: string
+    save: string
+    cancel: string
+    granted(since: string): string
+    revoke: string
+    failed: string
+    none: string
+  }
   reconnect: string
   /** D9 / T13: the enrollment text. One paragraph, everyday words. */
   enrollTitle: string
@@ -56,6 +89,38 @@ const en: WorkWords = {
     unreachable: 'Assistants can’t reach this Mac right now.'
   },
   switchLabel: 'Assistants can start work here',
+  planSwitch: {
+    label: 'Agents may use my ChatGPT plan here',
+    help: 'Only the assistants you allow. Off stops their plan work at once.',
+    named: (names, since) => `${names} · since ${since}`,
+    change: 'Change'
+  },
+  connect: {
+    title: 'Use your ChatGPT plan here',
+    line: 'Sign in with OpenAI. Atum never sees your login.',
+    action: 'Connect',
+    skip: 'Not now',
+    rowTitle: 'ChatGPT plan',
+    rowOffer: 'Use your Plus or Pro plan in Work.',
+    rowConnected: 'Connected on this Mac',
+    manage: 'Manage'
+  },
+  consent: {
+    title: 'Let assistants use your ChatGPT plan?',
+    line: 'Only for work they start on your Mac. Stop it anytime.',
+    assistants: 'Assistants',
+    macs: 'Macs',
+    thisMac: 'This Mac',
+    otherMac: index => `Your other Mac ${index}`,
+    scheduled: 'Also for scheduled tasks',
+    allow: 'Allow',
+    save: 'Save',
+    cancel: 'Cancel',
+    granted: since => `Allowed since ${since}`,
+    revoke: 'Turn off everywhere',
+    failed: 'Couldn’t save just now.',
+    none: 'No assistant can work on your Mac yet.'
+  },
   reconnect: 'Try again',
   enrollTitle: 'Let your assistants work on this Mac?',
   enrollBody:
@@ -102,6 +167,38 @@ const vi: WorkWords = {
     unreachable: 'Hiện trợ lý chưa kết nối được máy Mac này.'
   },
   switchLabel: 'Trợ lý có thể bắt đầu việc tại đây',
+  planSwitch: {
+    label: 'Cho phép trợ lý dùng gói ChatGPT của tôi tại đây',
+    help: 'Chỉ những trợ lý bạn cho phép. Tắt là dừng ngay việc họ làm bằng gói này.',
+    named: (names, since) => `${names} · từ ${since}`,
+    change: 'Đổi'
+  },
+  connect: {
+    title: 'Dùng gói ChatGPT của bạn tại đây',
+    line: 'Đăng nhập với OpenAI. Atum không thấy thông tin đăng nhập.',
+    action: 'Kết nối',
+    skip: 'Để sau',
+    rowTitle: 'Gói ChatGPT',
+    rowOffer: 'Dùng gói Plus hoặc Pro của bạn trong Work.',
+    rowConnected: 'Đã kết nối trên máy Mac này',
+    manage: 'Quản lý'
+  },
+  consent: {
+    title: 'Cho trợ lý dùng gói ChatGPT của bạn?',
+    line: 'Chỉ cho việc họ bắt đầu trên máy Mac của bạn. Dừng bất cứ lúc nào.',
+    assistants: 'Trợ lý',
+    macs: 'Máy Mac',
+    thisMac: 'Máy Mac này',
+    otherMac: index => `Máy Mac khác ${index}`,
+    scheduled: 'Cả việc theo lịch',
+    allow: 'Cho phép',
+    save: 'Lưu',
+    cancel: 'Huỷ',
+    granted: since => `Đã cho phép từ ${since}`,
+    revoke: 'Tắt ở mọi nơi',
+    failed: 'Chưa lưu được lúc này.',
+    none: 'Chưa có trợ lý nào làm việc được trên máy Mac của bạn.'
+  },
   reconnect: 'Thử lại',
   enrollTitle: 'Cho trợ lý làm việc trên máy Mac này?',
   enrollBody:
@@ -125,4 +222,16 @@ const words: Record<'en' | 'vi', WorkWords> = { en, vi }
 /** English and Vietnamese in slice A; other languages read English until they are written. */
 export function workCopy(locale: string): WorkWords {
   return locale === 'vi' ? words.vi : words.en
+}
+
+/**
+ * The cloud's line for a `plan_switch_off` refusal (the Mac's own switch is off). It quotes the Settings label verbatim, so the
+ * cloud lane adopts this text and `planSwitch.label` together (docs/work-subscriptions.md, "Copy").
+ */
+export function planSwitchOffLine(locale: string): string {
+  const copy = workCopy(locale)
+
+  return locale === 'vi'
+    ? `Gói ChatGPT đang tắt trên máy Mac này. Bật “${copy.planSwitch.label}” trong Cài đặt.`
+    : `Your ChatGPT plan is off on this Mac. Turn on “${copy.planSwitch.label}” in Settings.`
 }

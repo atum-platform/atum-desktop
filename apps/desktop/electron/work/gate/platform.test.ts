@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { createDeviceServicePlatform } from './platform'
+import { createDeviceServicePlatform, createWorkConsentClient } from './platform'
 import { ACCOUNT, DEVICE, LUNA, NOVA, REQ_1 } from './test-support'
 
 // The device-services HTTP client: the settlement operation's wire shape, and what counts as an acknowledgement.
@@ -80,5 +80,59 @@ describe('reportSettlements', () => {
 
     expect((error as { status?: number }).status).toBe(status)
     expect(String((error as Error).message)).toBe(`device_services_${status}`)
+  })
+})
+
+describe('the owner\'s consent client (gate 4b-2)', () => {
+  const record = { provider: 'codex', state: 'on', agents: [LUNA], devices: [DEVICE], alsoWhenScheduled: false, revision: 2, grantedAt: 1_795_000_000_000 }
+
+  function consentClient(reply: unknown, status = 200) {
+    const calls: Record<string, unknown>[] = []
+    const fetcher = (async (_url: string, init: RequestInit) => {
+      calls.push(JSON.parse(String(init.body)) as Record<string, unknown>)
+
+      return new Response(JSON.stringify(reply), { status })
+    }) as unknown as typeof fetch
+
+    return { calls, consent: createWorkConsentClient({ endpoint: 'https://api.test/api/matrix/v1/device-services', bearer: async () => 'owner-bearer', fetch: fetcher }) }
+  }
+
+  it('sends work_consent_set with exactly what the owner named, and returns the platform\'s record', async () => {
+    const { calls, consent } = consentClient(record)
+
+    expect(await consent.set({ agents: [LUNA, NOVA], devices: [DEVICE], alsoWhenScheduled: true })).toEqual(record)
+    expect(calls).toEqual([{ operation: 'work_consent_set', provider: 'codex', agents: [LUNA, NOVA], devices: [DEVICE], alsoWhenScheduled: true }])
+  })
+
+  it('revokes with the provider only, and reads the state', async () => {
+    const off = { ...record, state: 'off', agents: [], devices: [], revision: 3, revokedAt: 1_795_000_000_500 }
+    const revoke = consentClient(off)
+    expect(await revoke.consent.revoke()).toEqual(off)
+    expect(revoke.calls).toEqual([{ operation: 'work_consent_revoke', provider: 'codex' }])
+
+    const read = consentClient({ issuedAt: 1, consent: off, facts: [{ deviceServiceId: DEVICE, provider: 'codex', status: 'stale' }] })
+    expect((await read.consent.read()).facts).toHaveLength(1)
+    expect(read.calls).toEqual([{ operation: 'work_subscription_read' }])
+  })
+
+  it('reads the registry label of each Mac as a display name, and takes nothing else about the Mac', async () => {
+    const off = { ...record, state: 'off', agents: [], devices: [], revision: 3 }
+    const fact = { deviceServiceId: DEVICE, provider: 'codex', status: 'connected' }
+    const state = (extra: object) => ({ issuedAt: 1, consent: off, facts: [{ ...fact, ...extra }] })
+
+    expect((await consentClient(state({ displayName: 'Studio Mac' })).consent.read()).facts[0]?.displayName).toBe('Studio Mac')
+    expect((await consentClient(state({})).consent.read()).facts[0]?.displayName).toBeUndefined()
+
+    for (const bad of [{ displayName: '' }, { displayName: 'x'.repeat(65) }, { hostname: 'some-mac' }]) {
+      await expect(consentClient(state(bad)).consent.read()).rejects.toThrow('device_services_bad_reply')
+    }
+  })
+
+  it('never takes a reply that is not the contract\'s record (a login field, another provider, a refusal)', async () => {
+    await expect(consentClient({ ...record, email: 'x' }).consent.set({ agents: [LUNA], devices: [DEVICE], alsoWhenScheduled: false })).rejects.toThrow(
+      'device_services_bad_reply'
+    )
+    await expect(consentClient({ ...record, provider: 'claude' }).consent.revoke()).rejects.toThrow('device_services_bad_reply')
+    await expect(consentClient({ code: 'not_eligible' }, 403).consent.revoke()).rejects.toThrow('device_services_403')
   })
 })

@@ -116,7 +116,6 @@ import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
-  MatrixSubscriptionRelayResult,
   MatrixSubscriptionsStatus,
   MatrixSubscriptionStart
 } from './matrix-subscriptions'
@@ -2096,7 +2095,6 @@ export interface MatrixSubscriptionsBridge {
   pollChatGpt(session: string): Promise<MatrixSubscriptionPoll>
   cancelChatGpt(session: string): Promise<void>
   disconnectChatGpt(): Promise<void>
-  useThisMacForChatGpt(enabled: boolean): Promise<MatrixSubscriptionRelayResult>
   /** The account's one-time ChatGPT-with-Google training-off confirmation (absent on older main). */
   chatGptTraining?(): Promise<MatrixChatGptTrainingStatus>
   /** Only after the person ticked the box and pressed Confirm, for the connection the card read. */

@@ -4,6 +4,7 @@ import { AccessVerifier, type AssertionResult } from './assertion'
 import { type GateEvent, type GateOptions, type GateState, WorkGate } from './gate'
 import { createGateHandler } from './http'
 import { GateLedger } from './ledger'
+import { PlanFact } from './plan-fact'
 import type { GateSessions, WorkPlatform } from './ports'
 import { bindGateSocket, type BoundGateSocket, GateSocketError } from './socket'
 import { readFacts, WorkSync } from './sync'
@@ -48,12 +49,19 @@ export interface GateServiceState extends GateState {
   switchOn: boolean
   socket: 'bound' | 'unbound' | 'down'
   socketReason: string | null
+  /** Gate 4b, "Agents may use my ChatGPT plan here" on this Mac. OFF until the owner turns it on. */
+  planSwitchOn: boolean
+  /** What T3 last said about the plan on this Mac (the fact this Mac reports), `unknown` before the first read or while no server runs. */
+  planConnected: 'connected' | 'disconnected' | 'unknown'
+  /** What the owner's consent says about this Mac, `unknown` while its snapshot is missing or stale. */
+  planConsent: 'on' | 'off' | 'unknown'
 }
 
 export class WorkGateService {
   readonly ledger: GateLedger
   readonly gate: WorkGate
   readonly sync: WorkSync
+  readonly planFact: PlanFact | undefined
   private bound: BoundGateSocket | undefined
   private down: string | null = null
   private readonly verifiers = new Map<string, AccessVerifier>()
@@ -62,11 +70,31 @@ export class WorkGateService {
   constructor(private readonly options: WorkGateServiceOptions) {
     this.now = options.now ?? Date.now
     this.ledger = new GateLedger(workGatePaths(options.account).ledger, options.accountId, this.now)
-    this.gate = new WorkGate({
-      ...options,
-      ledger: this.ledger,
-      sessions: typeof options.sessions === 'function' ? options.sessions(this.ledger) : options.sessions
-    })
+    const sessions = typeof options.sessions === 'function' ? options.sessions(this.ledger) : options.sessions
+
+    this.gate = new WorkGate({ ...options, ledger: this.ledger, sessions })
+
+    // Gate 4a: only a T3 client that has a plan instance configured can read the plan's status, and only a platform that speaks 1.2
+    // can take the fact. Either absent (a stand-in, an older composition): nothing is read and nothing is reported.
+    const planProvider = options.t3.planProvider?.bind(options.t3)
+
+    this.planFact =
+      planProvider && options.platform.reportSubscription
+        ? new PlanFact({
+            ledger: this.ledger,
+            platform: options.platform,
+            accountId: options.accountId,
+            deviceServiceId: options.deviceServiceId,
+            now: this.now,
+            log: options.log,
+            status: async () => {
+              const owner = await sessions.owner()
+
+              return (await planProvider(owner.token)).status
+            }
+          })
+        : undefined
+
     this.sync = new WorkSync({
       gate: this.gate,
       ledger: this.ledger,
@@ -75,7 +103,8 @@ export class WorkGateService {
       deviceServiceId: options.deviceServiceId,
       now: this.now,
       socketPath: () => options.socketPath,
-      log: options.log
+      log: options.log,
+      planFact: this.planFact
     })
   }
 
@@ -171,6 +200,11 @@ export class WorkGateService {
     void this.sync.tick()
   }
 
+  /** "Agents may use my ChatGPT plan here" (gate 4b local switch). Off interrupts every plan thread at once. */
+  setPlanSwitch(on: boolean): void {
+    this.gate.setPlanSwitch(on)
+  }
+
   /** "Assistants may start work here". Off: the cutoff at once; the edge follows within seconds. On: new work, nothing resumed. */
   async setSwitch(on: boolean): Promise<void> {
     if (on) {
@@ -231,7 +265,10 @@ export class WorkGateService {
       hostname: facts?.workHostname ?? null,
       switchOn: this.ledger.meta('switch_on') !== '0',
       socket: this.bound ? 'bound' : this.down ? 'down' : 'unbound',
-      socketReason: this.down
+      socketReason: this.down,
+      planSwitchOn: this.ledger.planSwitchOn(),
+      planConnected: this.planFact?.current() ?? 'unknown',
+      planConsent: this.gate.planConsentState()
     }
   }
 

@@ -410,7 +410,6 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
       <ThisDeviceStatus fail={fail} snapshot={snapshot} />
       <SettingsSection title={copy.availability}>
         <MatrixKeepAwakeSettings />
-        <MatrixWorkSettings />
       </SettingsSection>
       <MatrixCloudDeviceSettings
         key={`cloud-device:${snapshot.identity?.userId ?? 'none'}:${snapshot.identity?.deviceId ?? 'none'}`}
@@ -424,7 +423,7 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
 function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
   const copy = useMatrixSettingsCopy()
   const training = useChatGptTrainingCopy()
-  const { bridge, reload, retryCloud, status, view } = useMatrixSubscriptions(scopeKey)
+  const { bridge, reload, status, view } = useMatrixSubscriptions(scopeKey)
   const [dialog, setDialog] = useState<{ provider: MatrixSubscriptionProvider; kind: 'connect' | 'manage' } | null>(null)
   const [choosing, setChoosing] = useState(false)
   const { provider, state } = view
@@ -483,7 +482,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
         data-matrix-subscription-state={state}
         data-matrix-subscriptions
         help={help}
-        tip={state === 'cloud_setting_up' || state === 'cloud_failed' ? copy.chatgptCloudTip : undefined}
         title={copy.yourSubscription}
       />
       {chatgpt && state === 'ready' && <ChatGptTrainingSettings bridge={bridge} scopeKey={scopeKey} />}
@@ -509,7 +507,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
           onChanged={() => void reload()}
           onClose={() => setDialog(null)}
           onReconnect={() => setDialog({ provider: dialog.provider, kind: 'connect' })}
-          onRetryCloud={() => void retryCloud()}
           open={dialog.kind === 'manage'}
           provider={dialog.provider}
           status={subscriptionProviderStatus(status, dialog.provider)}
@@ -523,6 +520,7 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
 /** Account Connections: subscriptions first, then the sources every assistant may use. */
 function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
   const copy = useMatrixSettingsCopy()
+  const { t } = useI18n()
   const subscriptionsBridge = useSubscriptionsBridge()
 
   return (
@@ -532,6 +530,16 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
         />
       </SettingsSection>
+      {/* Work on this Mac (its own section; nothing is drawn without Work): the plan's Connect, the switches, the consent. */}
+      <MatrixWorkSettings
+        agents={(snapshot.agents ?? []).map(agent => ({
+          principal: agent.principal,
+          name: matrixRosterAgentName(agent, t.matrixShell.assistantName),
+          avatarUrl: agent.avatarUrl,
+          ...(agent.mark ? { mark: agent.mark } : {}),
+          isDefault: agent.isDefault
+        }))}
+      />
       <VideoConsentSettings
         bridge={subscriptionsBridge}
         scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}

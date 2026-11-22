@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { workExpectedThreadId, type WorkLaunchArguments, type WorkT3LaunchCall } from './contract'
+import { type WorkConsentSnapshot, workExpectedThreadId, type WorkLaunchArguments, type WorkT3LaunchCall } from './contract'
 import { type CallContext, type GateEvent, WorkGate } from './gate'
 import { GateLedger } from './ledger'
 import type { GateSession, GateSessions, ModelAccess, OwnerEventOutcome, OwnerEventVerifier, T3Port, T3Reply, ThreadRead } from './ports'
@@ -21,6 +21,21 @@ export const EVENT_C = '$eventCcccccccccccccccccccccccccccccccccccccc'
 export const REQ_1 = 'AAAAAAAAAAAAAAAAAAAAA1'
 export const REQ_2 = 'AAAAAAAAAAAAAAAAAAAAA2'
 export const REQ_3 = 'AAAAAAAAAAAAAAAAAAAAA3'
+
+// Every tool name T3 v0.1.11 advertises to a connected client (recorded from the pinned server's `tools/list`). None of them is a gate tool, and the
+// gate serves only its own six: a granted credential cannot reach any of them through the hostname, plan-provider paths included.
+export const PINNED_T3_TOOLS = [
+  'orchestrator_capabilities', 't3_workflow_stop', 'schedule_task', 'list_scheduled_tasks', 'delete_scheduled_task', 't3_thread_list',
+  't3_thread_read', 't3_thread_update', 't3_thread_send', 't3_thread_wait', 't3_thread_interrupt', 't3_environment_links', 't3_environment_link',
+  't3_environment_unlink', 'run_scheduled_task_now', 't3_thread_search', 't3_thread_configure', 't3_thread_transfer', 't3_thread_organize',
+  't3_pending_request', 't3_queue', 't3_attachment_prepare_upload', 't3_attachment_discard', 't3_thread_send_attachments', 't3_thread_launch',
+  't3_project_list', 't3_project_read', 't3_project_create', 't3_project_update', 't3_project_delete', 't3_project_clone', 't3_environment_read',
+  't3_environment_preferences_update', 't3_theme_read', 't3_theme_set', 't3_worktree_list', 'link_pull_request', 'link_pull_requests',
+  'unlink_pull_request', 'unlink_pull_requests', 'list_thread_pull_requests', 'watch_pull_request', 'unwatch_pull_request',
+  'write_pull_request_guides', 'read_pull_request_guide', 'pull_request_read', 'pull_request_list', 'pull_request_create', 'pull_request_update',
+  'pull_request_respond', 'pull_request_review', 'pull_request_merge', 'ci_logs', 'ci_rerun', 'list_issues', 'read_issue', 'create_issue',
+  'comment_on_issue', 'set_issue_state', 'link_issue', 'unlink_issue', 'list_thread_issues'
+]
 
 export class Clock {
   t = 1_795_000_000_000
@@ -45,6 +60,8 @@ interface FakeThread {
   sessionId: string
   runs: FakeRun[]
   message: string
+  /** The provider instance the launch named: what T3 would report as `thread.providerInstanceId`. */
+  provider: string
 }
 
 export class FakeT3 implements T3Port {
@@ -65,6 +82,9 @@ export class FakeT3 implements T3Port {
   autoRunning = true
   restartResult: 'restarted' | 'declined' = 'declined'
   readFails = false
+  /** What T3 says about the plan (Codex) on this Mac, and the model it lists first. */
+  planStatus: 'connected' | 'disconnected' | 'unknown' = 'connected'
+  planCalls = 0
   /** Hold a `wait` until released: a call in flight while a revocation lands. */
   holdWait: Promise<void> | undefined
 
@@ -81,6 +101,11 @@ export class FakeT3 implements T3Port {
   incarnation = () => (this.alive ? this.incarnationId : undefined)
   settingsFingerprint = () => this.fingerprint
   providerReady = async () => this.providerOk
+  planProvider = async (): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }> => {
+    this.planCalls++
+
+    return this.planStatus === 'connected' ? { status: 'connected', selection: { instanceId: 'codex', model: 'codex-model-1' } } : { status: this.planStatus }
+  }
   prepare = async () => true
 
   restart(): void {
@@ -118,6 +143,7 @@ export class FakeT3 implements T3Port {
         id,
         sessionId,
         message: call.message,
+        provider: call.modelSelection.instanceId,
         runs: [{ runId: `run:thread:${id}:ordinal:1`, ordinal: 1, status: this.autoRunning ? 'running' : 'completed' }]
       })
     }
@@ -168,6 +194,7 @@ export class FakeT3 implements T3Port {
       kind: 'found',
       status: active ? 'running' : (thread.runs.at(-1)?.status ?? 'idle'),
       activeRunId: active?.runId,
+      provider: thread.provider,
       runs: thread.runs.map(run => ({ ...run })),
       raw: { thread: { status: active ? 'running' : 'idle' }, recentRuns: thread.runs }
     }
@@ -300,6 +327,8 @@ export interface Harness {
   pause(name: string): { reached: Promise<void>; release(): void }
   ctx(principal: string): CallContext
   args(requestId: string, ownerEvent: string, extra?: Partial<WorkLaunchArguments>): WorkLaunchArguments
+  /** Apply a consent snapshot the way a pulled page does: durably, with the cutoffs, then its age starts. */
+  consent(snapshot: Partial<WorkConsentSnapshot> & { agents?: string[] }): WorkConsentSnapshot
   /** A new gate over the same ledger file and the same T3: the app was killed and restarted. */
   reopen(): Harness
   cleanup(): Promise<void>
@@ -407,6 +436,21 @@ export function makeHarness(previous?: Harness): Harness {
         notAfter: clock.now() + 90_000,
         ...extra
       }
+    },
+    consent(partial) {
+      const snapshot: WorkConsentSnapshot = {
+        provider: 'codex',
+        state: 'on',
+        revision: 1,
+        agents: [LUNA],
+        alsoWhenScheduled: false,
+        ...partial
+      }
+      const results = ledger.tx(() => gate.beginConsent(snapshot))
+
+      gate.finishConsent(snapshot, results)
+
+      return snapshot
     },
     reopen: () => makeHarness(harness),
     async cleanup() {

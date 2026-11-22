@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { SafeStorageLike } from '../../encrypted-store'
 import { type GateAccount, WorkGateService, type WorkGateServiceOptions } from '../gate'
 import { WORK_SOCKET_PATH_MAX_BYTES } from '../gate/contract'
+import { WORK_PLAN_INSTANCE_IDS } from '../gate/gate'
 import type { ModelAccess, OwnerEventVerifier, T3Port, WorkPlatform } from '../gate/ports'
 import { createT3PairingCodes, T3Sessions } from '../gate/sessions'
 import { createT3Client } from '../gate/t3-client'
@@ -83,6 +84,8 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       incarnation: () => input.incarnation()?.id,
       settingsFile: join(paths.userdata, 'settings.json'),
       delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
+      // Gate 4b-1: the one plan instance, compiled in. T3's own status for it is what the Mac reports and what a launch needs.
+      plan: { instanceId: WORK_PLAN_INSTANCE_IDS[0] },
       restartWhenIdle: input.restartWhenIdle
     })
 

@@ -24,6 +24,8 @@ export interface WorkSyncOptions {
   accountId: string
   deviceServiceId: string
   now?(): number
+  /** Gate 4a: the plan fact (G9). Checked at the end of every cycle; `final` runs in the last, bounded flush before sign-out. */
+  planFact?: { tick(): Promise<void>; final(): Promise<void> }
   /** The Mac's reported socket path (plan §11.2: the platform writes the tunnel's ingress from it). */
   socketPath(): string
   log?(event: string, fields?: Record<string, string | number | boolean | null>): void
@@ -46,6 +48,9 @@ const ROUTE_CONFIRM_MS = 5 * 60_000
 // A grant refused for a reason the route cannot fix (an agent that is not eligible) must not make every cycle enroll again.
 const ROUTE_RECOVERY_BACKOFF_BASE_MS = 30_000
 const ROUTE_RECOVERY_BACKOFF_CAP_MS = 15 * 60_000
+// A platform that does not know contract 1.2 answers a `contract: "1.2"` pull with 400. The Mac then pulls as in 1.1 (revocation keeps
+// working; there is simply no consent snapshot, so every plan launch is refused stale) and asks for 1.2 again after this long.
+const CONTRACT_12_RETRY_MS = 60 * 60_000
 
 /** The platform's answers to a carry that name the route or its enrollment: closed route (403), no route (404), stale enrollment (409). */
 const routeRefusal = (error: unknown): boolean => [403, 404, 409].includes((error as { status?: number } | null)?.status ?? 0)
@@ -108,6 +113,7 @@ export class WorkSync {
   private routeConfirmedAt = 0
   private routeRecoveries = 0
   private routeRecoveryAt = 0
+  private contract12Retry = 0
 
   constructor(private readonly options: WorkSyncOptions) {
     this.now = options.now ?? Date.now
@@ -168,7 +174,7 @@ export class WorkSync {
       let raw: unknown
 
       try {
-        raw = await platform.pull({ deviceServiceId, accountId, appliedSeq: ledger.appliedSeq(), routeEpoch: ledger.routeEpoch() })
+        raw = await this.pull()
       } catch {
         result = 'offline'
 
@@ -228,6 +234,9 @@ export class WorkSync {
       await this.ensureGrants()
     }
 
+    // The plan fact is independent of the pull: it says what T3 reports on this Mac, and is owed whether or not the platform answered.
+    await this.options.planFact?.tick().catch(() => undefined)
+
     return result
   }
 
@@ -265,6 +274,33 @@ export class WorkSync {
     }
   }
 
+  /** Pull as contract 1.2 (the consent snapshot rides the page), or as 1.1 against a platform that answered 400 to 1.2. */
+  private async pull(): Promise<unknown> {
+    const { ledger, platform, accountId, deviceServiceId } = this.options
+    const base = { deviceServiceId, accountId, appliedSeq: ledger.appliedSeq(), routeEpoch: ledger.routeEpoch() }
+
+    if (this.now() < this.contract12Retry) {
+      this.options.gate.invalidateConsent()
+
+      return platform.pull(base)
+    }
+
+    try {
+      return await platform.pull({ ...base, contract: '1.2' })
+    } catch (error) {
+      if ((error as { status?: number } | null)?.status !== 400) {
+        throw error
+      }
+
+      this.contract12Retry = this.now() + CONTRACT_12_RETRY_MS
+      this.options.log?.('contract_1_2_unavailable')
+      // The platform cannot carry consent now: the snapshot held stops authorising plan launches at once.
+      this.options.gate.invalidateConsent()
+
+      return platform.pull(base)
+    }
+  }
+
   /** Apply one page durably. Returns 'ok' only when the page was applied in order and its head is not behind ours. */
   private apply(page: ReturnType<typeof WorkSyncPageSchema.parse>): TickResult {
     const { gate, ledger } = this.options
@@ -298,6 +334,15 @@ export class WorkSync {
       if (!page.hasMore) {
         this.reconcileEntitled(page.entitled, page.headSeq, finish)
         ledger.setAppliedSeq(page.headSeq)
+      }
+
+      // Gate 4b: the consent snapshot is applied durably in the SAME step as the page, and the plan threads of every assistant it no
+      // longer names are cut off in that step too. Its age on this Mac's monotonic clock starts only once the step is committed.
+      const consent = page.consent
+
+      if (consent) {
+        const results = gate.beginConsent(consent)
+        finish.push(() => gate.finishConsent(consent, results))
       }
     })
 
@@ -375,7 +420,11 @@ export class WorkSync {
       appliedSeq: ledger.appliedSeq(),
       settledSeq: ledger.settledSeq(),
       routeEpoch: ledger.routeEpoch(),
-      appliedAt: this.now()
+      appliedAt: this.now(),
+      // the revision of the snapshot this Mac durably applied; omitted until one was (a 1.1 platform never sends one)
+      ...(this.options.gate.consentRevision() !== undefined && this.now() >= this.contract12Retry
+        ? { consentRevision: this.options.gate.consentRevision() }
+        : {})
     })
   }
 
@@ -505,6 +554,7 @@ export class WorkSync {
    */
   async flushBounded(ms: number): Promise<void> {
     const work = (async () => {
+      await this.options.planFact?.final().catch(() => undefined)
       await this.flush({ ignoreBackoff: true })
       await this.ack().catch(() => undefined)
     })().catch(() => undefined)

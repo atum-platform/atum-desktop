@@ -7,7 +7,15 @@ import type { OpenOwnerView } from '../session/session'
 import type { WorkIncarnation } from '../sidecar/process'
 
 import { registerMatrixWorkIpc } from './ipc'
-import { type GateSurfaceState, projectWorkAgents, projectWorkAssistants } from './projection'
+import {
+  type GateSurfaceState,
+  projectWorkAgents,
+  projectWorkAssistants,
+  projectWorkConsent,
+  projectWorkPlan,
+  projectWorkPlanConnect,
+  WORK_PLAN_CONNECT_PATH
+} from './projection'
 import { WorkSurface, type WorkSurfaceParts, type WorkViewHandle } from './surface'
 
 const OPEN: GateSurfaceState = {
@@ -35,6 +43,22 @@ describe('projectWorkAssistants', () => {
     expect(projectWorkAssistants(change === null ? null : { ...OPEN, ...change })).toBe(expected)
   })
 
+  it.each([
+    [null, undefined],
+    [{ enrolled: false, planConnected: 'connected' }, undefined],
+    [{ workGrantAccepted: false, planConnected: 'connected' }, undefined],
+    // nothing is drawn for a plan that is not connected and a switch that is off: no row that does nothing
+    [{}, undefined],
+    [{ planConnected: 'disconnected' }, undefined],
+    [{ planConnected: 'unknown' }, undefined],
+    [{ planConnected: 'connected' }, 'off'],
+    // on stays drawn whatever T3 says, so the owner can always turn it off
+    [{ planSwitchOn: true, planConnected: 'disconnected' }, 'on'],
+    [{ planSwitchOn: true, planConnected: 'connected' }, 'on']
+  ] as const)('the plan switch for %j is %s', (change, expected) => {
+    expect(projectWorkPlan(change === null ? null : { ...OPEN, ...change })).toBe(expected)
+  })
+
   it('lists only agents with something running or a stop owed', () => {
     const agent = (principal: string, running: number, stopOwed: number) => ({
       principal,
@@ -51,6 +75,78 @@ describe('projectWorkAssistants', () => {
       { principal: '@luna:x', running: 2, stopping: false },
       { principal: '@nova:x', running: 0, stopping: true }
     ])
+  })
+})
+
+describe('gate 4a and 4b-2 projections', () => {
+  const MAC = '00000000-0000-4000-8000-00000000a001'
+  const OTHER = '00000000-0000-4000-8000-00000000a002'
+  const GONE = '00000000-0000-4000-8000-00000000a003'
+  const RIN = '00000000-0000-4000-8000-00000000b001'
+  const LUNA = '00000000-0000-4000-8000-00000000b002'
+  const record = {
+    provider: 'codex' as const,
+    state: 'off' as const,
+    agents: [],
+    devices: [],
+    alsoWhenScheduled: false,
+    revision: 0
+  }
+
+  it('the Connect step is hidden while 4a is closed, whatever T3 says, and offered until T3 says connected', () => {
+    expect(projectWorkPlanConnect(false, { ...OPEN, planConnected: 'connected' })).toBeUndefined()
+    expect(projectWorkPlanConnect(false, OPEN)).toBeUndefined()
+    expect(projectWorkPlanConnect(true, { ...OPEN, planConnected: 'disconnected' })).toBe('offer')
+    expect(projectWorkPlanConnect(true, null)).toBe('offer')
+    expect(projectWorkPlanConnect(true, { ...OPEN, planConnected: 'connected' })).toBe('connected')
+    expect(WORK_PLAN_CONNECT_PATH).toBe('/settings/providers?instanceId=codex')
+  })
+
+  it('an off record names nothing; this Mac comes first, then Macs with a connected plan', () => {
+    const view = projectWorkConsent(
+      {
+        issuedAt: 1,
+        consent: { ...record, alsoWhenScheduled: true, grantedAt: 5, revokedAt: 9 },
+        facts: [
+          { deviceServiceId: OTHER, provider: 'codex', status: 'connected', displayName: 'Studio Mac' },
+          { deviceServiceId: GONE, provider: 'codex', status: 'stale' }
+        ]
+      },
+      MAC,
+      [RIN]
+    )
+
+    expect(view).toEqual({
+      state: 'off',
+      agents: [],
+      eligible: [RIN],
+      macs: [
+        { id: MAC, thisMac: true, named: false },
+        { id: OTHER, thisMac: false, named: false, name: 'Studio Mac' }
+      ],
+      alsoWhenScheduled: false,
+      grantedAt: 5
+    })
+  })
+
+  it('an on record keeps what it names, even a Mac or assistant this read no longer lists', () => {
+    const view = projectWorkConsent(
+      {
+        issuedAt: 1,
+        consent: { ...record, state: 'on', agents: [LUNA], devices: [GONE], alsoWhenScheduled: true, revision: 3, grantedAt: 7 },
+        facts: []
+      },
+      MAC,
+      [RIN]
+    )
+
+    expect(view.agents).toEqual([LUNA])
+    expect(view.eligible).toEqual([RIN, LUNA])
+    expect(view.macs).toEqual([
+      { id: MAC, thisMac: true, named: false },
+      { id: GONE, thisMac: false, named: true }
+    ])
+    expect(view.alsoWhenScheduled).toBe(true)
   })
 })
 
@@ -427,6 +523,85 @@ describe('WorkSurface', () => {
   })
 })
 
+describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
+  const MAC = '00000000-0000-4000-8000-00000000a001'
+
+  function navigable() {
+    const loads: string[] = []
+    const h = harness({ planConnectOpen: () => true })
+    const create = (h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView
+
+    ;(h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView = () => {
+      const handle = create()
+      Object.assign(handle.port, {
+        currentUrl: () => 'http://127.0.0.1:61275/?pairing=done',
+        load: async (url: string) => void loads.push(url)
+      })
+
+      return handle
+    }
+
+    return { ...h, loads }
+  }
+
+  it('projects planConnect only while main says gate 4a is open', async () => {
+    const closed = harness()
+    closed.surface.attach(closed.parts)
+    expect((await closed.surface.read())?.planConnect).toBeUndefined()
+
+    const open = harness({ planConnectOpen: () => true })
+    open.surface.attach(open.parts)
+    expect((await open.surface.read())?.planConnect).toBe('offer')
+  })
+
+  it('Connect opens T3\'s own provider screen on the view\'s own origin, after the view is painted', async () => {
+    const { loads, parts, surface } = navigable()
+
+    surface.attach(parts)
+    await surface.openPlanConnect()
+    expect(loads).toEqual([])
+    await surface.show(RECT)
+    expect(loads).toEqual(['http://127.0.0.1:61275/settings/providers?instanceId=codex'])
+
+    await surface.openPlanConnect()
+    expect(loads).toHaveLength(2)
+  })
+
+  it('Connect does nothing while gate 4a is closed', async () => {
+    const { parts, surface } = navigable()
+
+    surface.attach({ ...parts, planConnectOpen: () => false })
+    await surface.show(RECT)
+    await surface.openPlanConnect()
+    expect(surface.projection()?.planConnect).toBeUndefined()
+  })
+
+  it('reads, sets and revokes the consent through the owner\'s client, naming this Mac by its id', async () => {
+    const off = { provider: 'codex' as const, state: 'off' as const, agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
+    const consent = {
+      read: vi.fn(async () => ({ issuedAt: 1, consent: off, facts: [] })),
+      set: vi.fn(async () => ({ ...off, state: 'on' as const, revision: 1 })),
+      revoke: vi.fn(async () => off)
+    }
+    const { parts, surface } = harness({ consent, deviceServiceId: () => MAC })
+
+    surface.attach(parts)
+    expect((await surface.readPlanConsent()).macs).toEqual([{ id: MAC, thisMac: true, named: false }])
+    await surface.setPlanConsent({ agents: ['00000000-0000-4000-8000-00000000b001'], macs: [MAC], alsoWhenScheduled: false })
+    expect(consent.set).toHaveBeenCalledWith({
+      agents: ['00000000-0000-4000-8000-00000000b001'],
+      devices: [MAC],
+      alsoWhenScheduled: false
+    })
+    await surface.revokePlanConsent()
+    expect(consent.revoke).toHaveBeenCalledOnce()
+
+    const none = harness()
+    none.surface.attach(none.parts)
+    await expect(none.surface.readPlanConsent()).rejects.toThrow('work_consent_unavailable')
+  })
+})
+
 describe('registerMatrixWorkIpc', () => {
   function registered() {
     let handler!: (event: unknown, value: unknown) => Promise<unknown>
@@ -439,8 +614,13 @@ describe('registerMatrixWorkIpc', () => {
       retry: vi.fn(async () => {}),
       allowAssistants: vi.fn(async () => {}),
       setAssistants: vi.fn(async () => {}),
+      setPlan: vi.fn(async () => {}),
       setWork: vi.fn(async () => {}),
-      reconnectAssistants: vi.fn(async () => {})
+      reconnectAssistants: vi.fn(async () => {}),
+      openPlanConnect: vi.fn(async () => {}),
+      readPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
+      setPlanConsent: vi.fn(async () => ({ state: 'on' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
+      revokePlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false }))
     }
 
     const requireUi = vi.fn()
@@ -467,17 +647,39 @@ describe('registerMatrixWorkIpc', () => {
     await call({ kind: 'setAssistants', on: false })
     await call({ kind: 'allowAssistants' })
     await call({ kind: 'setWork', on: true })
+    await call({ kind: 'setPlan', on: true })
+    expect(surface.setPlan).toHaveBeenCalledWith(true)
     expect(surface.setWork).toHaveBeenCalledWith(true)
     expect(surface.show).toHaveBeenCalledWith(RECT)
     expect(surface.setAssistants).toHaveBeenCalledWith(false)
     expect(surface.allowAssistants).toHaveBeenCalledTimes(1)
 
+    const consent = { agents: ['00000000-0000-4000-8000-00000000b001'], macs: ['00000000-0000-4000-8000-00000000a001'], alsoWhenScheduled: true }
+    await call({ kind: 'openPlanConnect' })
+    await call({ kind: 'readPlanConsent' })
+    await call({ kind: 'setPlanConsent', consent })
+    await call({ kind: 'revokePlanConsent' })
+    expect(surface.openPlanConnect).toHaveBeenCalledOnce()
+    expect(surface.readPlanConsent).toHaveBeenCalledOnce()
+    expect(surface.setPlanConsent).toHaveBeenCalledWith(consent)
+    expect(surface.revokePlanConsent).toHaveBeenCalledOnce()
+
     for (const value of [
+      { kind: 'openPlanConnect', url: 'https://example.invalid' },
+      { kind: 'setPlanConsent' },
+      { kind: 'setPlanConsent', consent: { ...consent, agents: [] } },
+      { kind: 'setPlanConsent', consent: { ...consent, agents: ['all'] } },
+      { kind: 'setPlanConsent', consent: { ...consent, macs: [consent.macs[0], consent.macs[0]] } },
+      { kind: 'setPlanConsent', consent: { ...consent, provider: 'claude' } },
+      { kind: 'setPlanConsent', consent: { ...consent, alsoWhenScheduled: 'yes' } },
       null,
       [],
       { kind: 'launch' },
       { kind: 'read', extra: 1 },
       { kind: 'setAssistants', on: 'yes' },
+      { kind: 'setPlan', on: 'yes' },
+      { kind: 'setPlan' },
+      { kind: 'setPlan', on: true, provider: 'claude' },
       { kind: 'setWork', on: 1 },
       { kind: 'setWork' },
       { kind: 'show', rect: { ...RECT, x: -1 } },

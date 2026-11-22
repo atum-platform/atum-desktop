@@ -56,3 +56,41 @@ No platform change and no wire change: `route_opened` is the existing idempotent
 ## Verification (round 3)
 
 `vitest run electron/work electron/matrix/main-work.test.ts` with `ATUM_WORK_T3_BIN` set to the pinned t3: 459 passed, 1 skipped (`process.integration.test.ts`, needs the bundled Python runtime); `npm run typecheck` clean; ESLint clean on the four touched files; `scripts/public_guard.py --base origin/main --head HEAD` exit code read directly (see the commit). The test count differs from round 2's 547 because that run covered a wider path set; the same command on `ec5a7b62` gives 454 passed, 1 skipped.
+
+# Round 4 · 2026-11-22 — slice B: the subscription relay (gate 4a/4b)
+
+Not a review round: the next piece of work on the same gate. Branch `feat/work-subscriptions-gate-1122`, local only (nothing pushed, no CI run, no PR).
+Design and the per-rule table: `docs/work-subscriptions.md`.
+
+| What | Where | Tests |
+|---|---|---|
+| Contract 1.2: `contract:"1.2"` pull (with the 1.1 fallback on 400), the consent snapshot stored in the page's transaction, `consentRevision` in the ack | `gate/contract.ts`, `sync.ts`, `ledger.ts` | `sync-plan.test.ts` |
+| The plan fact (G9), from T3's own provider status, on change, hourly and at sign-out | `gate/plan-fact.ts`, `t3-client.ts` (`planProvider`), `platform.ts` | `plan-fact.test.ts`, `t3-client-plan.test.ts`, real pin |
+| 4b-1/4b-3: compiled provider list, the contract's four-step decision, the fence at the handoff, re-read before a send, plan-only revocation | `gate/gate.ts`, `ledger.ts` | `gate-plan.test.ts` (43), `http.test.ts` B-0 block, real pin |
+| The local switch (default OFF), its row and IPC | `service.ts`, `mount.ts`, `surface/*`, `shared/matrix-work.ts`, `src/app/work/*` | `mount.test.ts`, `surface.test.ts`, `work-settings.test.tsx` |
+| Containment of delegated threads | `acp_adapter/profiles/delegated.yaml` | `tests/acp_adapter/test_delegated_containment.py` (46, two strict xfail gaps) |
+| The old SSH ChatGPT relay removed | see `docs/work-subscriptions.md` "Removed" | `native-ssh.test.ts`, `account-subscription-flow.test.ts`, `connection.test.ts` |
+
+## Decisions and open points (round 4)
+
+- **"Scheduled"** = the launch is not backed by a fresh, verified, unclaimed message of the owner (the slice-A claim's own test). Defined in
+  `docs/work-subscriptions.md`. `alsoWhenScheduled` changes nothing in slice A (no standing permit); it matters when permits return.
+- A plan thread being stopped blocks that assistant's Atum launches for the seconds the stop takes (existing agent-scope block).
+- A tampered ledger row that names a provider outside the compiled list is refused at the handoff (`invalid_field`), never sent.
+- **Open, owner's call (plan §10.3, B-0):** the file tools can read the plan's login store as the same macOS user, and a delegated thread runs on the Atum model.
+  The terminal and the T3 tool surface are closed; this one is not. Either an isolated assistant environment for accounts with a plan connected, or 4b stays closed.
+  Until then the sidecar keeps the Codex instance disabled.
+- The "Use this Mac for ChatGPT" row in `src/matrix/subscriptions.tsx` is left for the Connect step; main answers it `unavailable`.
+
+## Verification (round 4)
+
+- `vitest run electron/work electron/matrix src/app/work src/matrix shared` with `ATUM_WORK_T3_BIN` set to the pinned t3 v0.1.11: 1,013 files and 17,883 tests
+  passed, 39 skipped, **18 failed in 5 files, all because this Mac has no Python runtime for them** (`mac-job-runner` 10, `conversation/jobs` 4,
+  `mac-job-startup` 2, `atum-messaging/shared-group-runner` 1, `shared/setup-methods` 1: `runtime_unavailable`, `No module named 'dotenv'`). The first
+  three are the ones round 2 already named; none touches this change. `electron/work` alone has 593 passing tests with `main-work` and `src/app/work`.
+- `npm run typecheck` clean (boundary, renderer, consumer browser, Electron, e2e). ESLint on the 45 touched and new TypeScript files: no errors (the
+  warnings that remain are padding and `document` warnings that were in those files already).
+- `scripts/run_tests.sh tests/acp_adapter/test_delegated_containment.py tests/acp_adapter/test_managed_profile.py`: 50 passed (46 + 4), including two
+  strict `xfail` rows for the gaps; `--runxfail` shows the file-tool row fails because the marker token is returned.
+- `python3 scripts/public_guard.py --base origin/main --head HEAD`: rc=0, read directly.
+- Not run: `process.integration.test.ts` (needs the bundled Python runtime), a real Codex login (none on this Mac), CI, any push.

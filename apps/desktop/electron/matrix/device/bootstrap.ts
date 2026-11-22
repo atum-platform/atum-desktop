@@ -136,11 +136,6 @@ export class DeviceServiceBootstrap {
     this.runtime?.service.setPaused(paused)
   }
 
-  /** Main-owned subscription action; no renderer-supplied model list reaches the device service. */
-  configureChatGptRelay(enabled: boolean, models?: readonly string[]): void {
-    this.ensureRuntime().configureChatGptRelay(enabled, models)
-  }
-
   /** After sign-out (the fence already ran first): stop everything; the next `accountReady` starts again. */
   async signedOut(): Promise<void> {
     const running = this.running
