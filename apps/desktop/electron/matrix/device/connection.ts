@@ -1211,6 +1211,9 @@ export class DeviceConnection {
 
     if (await this.sendOn(attempt, 'Status', plan.status)) {
       const first = this.connectionState === 'ready'
+      // An accepted registration re-arms the one automatic refresh for a later 4401.
+      this.registrationRefreshUsed = false
+      this.rejectedRegistration = undefined
       this.enter('status_exchanged')
 
       for (const receipt of plan.followUps) {

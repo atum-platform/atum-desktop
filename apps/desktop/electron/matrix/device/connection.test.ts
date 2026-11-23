@@ -1386,6 +1386,33 @@ it('refreshes once on 4401 and stays quiet across periodic starts and network re
 })
 
 
+it('re-arms the one automatic refresh after an accepted registration', async () => {
+  let refreshes = 0
+
+  const h = harness({ refreshRegistration: async () => {
+    refreshes++
+    vi.spyOn(h.enrollment, 'current').mockReturnValue({ ...h.record, enrollmentEpoch: h.record.enrollmentEpoch + refreshes })
+  } })
+
+  h.connection.start()
+  h.sockets[0].onclose?.({ code: 4401 })
+  await settle()
+  expect(refreshes).toBe(1)
+  // The refreshed registration is accepted: the session reaches the status exchange.
+  const socket = h.sockets.at(-1)!
+  await h.handshake(socket, 'ready')
+  socket.deliver(envelope(h.hub, 'StatusQuery', { commandIds: [] }))
+  await settle()
+  expect(h.connection.state()).toBe('status_exchanged')
+  expect(h.connection.needsRepair()).toBe(false)
+  // Days later the controller rejects again: the Mac refreshes on its own instead of asking for Repair.
+  socket.onclose?.({ code: 4401 })
+  await settle()
+  expect(refreshes).toBe(2)
+  h.connection.stop()
+})
+
+
 it('tries a changed registration once after refresh, then requires explicit repair on another 4401', async () => {
   let refreshes = 0
 

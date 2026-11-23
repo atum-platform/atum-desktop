@@ -120,9 +120,20 @@ it('offers one device access repair action without replacing cloud chat', async 
 
   const view = draw({ deviceAccessRepair: true })
 
-  expect(screen.getByText(/Cloud chat remains available/)).toBeTruthy()
+  expect(screen.getByText(/Cloud chat keeps working/)).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Repair this Mac' }))
   await waitFor(() => expect(native.repairDeviceAccess).toHaveBeenCalledOnce())
   view.rerenderSnapshot({})
   expect(screen.queryByRole('button', { name: 'Repair this Mac' })).toBeNull()
+})
+
+it('says when a device access repair did not finish, and lets the person try again', async () => {
+  const native = bridge()
+  native.repairDeviceAccess.mockRejectedValueOnce(new Error('repair_failed'))
+
+  draw({ deviceAccessRepair: true })
+
+  fireEvent.click(screen.getByRole('button', { name: 'Repair this Mac' }))
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/didn’t finish/))
+  expect((screen.getByRole('button', { name: 'Repair this Mac' }) as HTMLButtonElement).disabled).toBe(false)
 })

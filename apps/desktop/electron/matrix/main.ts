@@ -6424,7 +6424,11 @@ function scheduleContinuousListening() {
     if (connection !== keepAwakeConnection) {
       stopWatchingKeepAwakeConnection?.()
       keepAwakeConnection = connection
-      stopWatchingKeepAwakeConnection = connection?.onState(() => scheduleContinuousListening())
+      stopWatchingKeepAwakeConnection = connection?.onState((next, reason) => {
+        scheduleContinuousListening()
+        // The Repair band reads needsRepair(); republish when it can change.
+        if (reason === 'authentication' || next === 'status_exchanged') { publish(state) }
+      })
     }
 
     for (const each of allAgents()) {
