@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Work in Atum</title>
+<style>
+/* Approximations of Atum Kit tokens for a design mockup only. The build generates the real theme from packages/atum-kit. */
+:root {
+  --frame: #e9e9ec; --roster: #f6f6f8; --main: #ffffff; --edge: rgba(0,0,0,.08); --rim: rgba(0,0,0,.07);
+  --ink: #1c1c1f; --muted: #6e6e76; --faint: #a3a3ab; --sel: rgba(0,0,0,.06); --accent: #1c1c1f; --on-accent: #fff;
+  --sheet: #ffffff; --shadow: 0 12px 40px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.06);
+  --gap: 8px; --r-panel: 14px; --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --atum: #16233f; --gpt: #10a37f; --claude: #d97757; --agy: #4285f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --frame: #1b1b1e; --roster: #232327; --main: #2a2a2f; --edge: rgba(255,255,255,.07); --rim: rgba(255,255,255,.08);
+    --ink: #ececf0; --muted: #a0a0a8; --faint: #6c6c74; --sel: rgba(255,255,255,.08); --accent: #ececf0; --on-accent: #1b1b1e;
+    --sheet: #2e2e33; --shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"] {
+  --frame: #1b1b1e; --roster: #232327; --main: #2a2a2f; --edge: rgba(255,255,255,.07); --rim: rgba(255,255,255,.08);
+  --ink: #ececf0; --muted: #a0a0a8; --faint: #6c6c74; --sel: rgba(255,255,255,.08); --accent: #ececf0; --on-accent: #1b1b1e;
+  --sheet: #2e2e33; --shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 32px 16px 64px; background: var(--frame); color: var(--ink); font: 13px/1.4 var(--font); }
+h1 { font-size: 20px; margin: 0 0 4px; } .lede { color: var(--muted); margin: 0 0 28px; max-width: 60ch; }
+h2 { font-size: 14px; margin: 36px 0 10px; color: var(--muted); font-weight: 600; }
+.win { max-width: 1040px; height: 600px; border-radius: 12px; background: var(--frame); border: 1px solid var(--rim);
+  display: grid; grid-template-columns: 56px 1fr; overflow: hidden; position: relative; box-shadow: var(--shadow); }
+.rail { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 52px 0 12px; }
+.rail i { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--faint); display: block; }
+.rail i.on { background: var(--ink); border-color: var(--ink); }
+.rail .face { margin-top: auto; width: 28px; height: 28px; border-radius: 50%; background: var(--ink); }
+.lights { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; }
+.lights b { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .lights b:nth-child(2){background:#febc2e} .lights b:nth-child(3){background:#28c840}
+.right { display: grid; grid-template-rows: 48px 1fr; min-width: 0; }
+.band { display: grid; grid-template-columns: 268px 1fr; align-items: center; }
+.band .l { display: flex; gap: 14px; justify-content: flex-end; padding-right: 12px; color: var(--muted); }
+.band .m { display: flex; align-items: center; justify-content: space-between; padding: 0 16px 0 20px; }
+.band .m strong { font-size: 15px; }
+.pill { display: flex; align-items: center; gap: 6px; border: 1px solid var(--rim); border-radius: 999px; padding: 3px 10px 3px 4px; color: var(--muted); }
+.faces { display: flex; } .faces s { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--frame); margin-left: -6px; display: block; }
+.faces s:first-child { margin-left: 0; }
+.cols { display: grid; grid-template-columns: 268px 1fr; gap: var(--gap); padding: 0 var(--gap) var(--gap) 0; min-height: 0; }
+.panel { background: var(--roster); border-radius: var(--r-panel); box-shadow: inset 0 0 0 .5px var(--rim), inset 0 1px 0 rgba(255,255,255,.5); padding: 10px 8px; display: flex; flex-direction: column; min-height: 0; }
+.card { background: var(--main); border-radius: var(--r-panel); box-shadow: 0 0 0 .5px var(--edge); display: flex; flex-direction: column; min-width: 0; position: relative; overflow: hidden; }
+.search { display: flex; align-items: center; gap: 8px; color: var(--faint); padding: 8px 10px; border-radius: 10px; background: var(--sel); margin-bottom: 10px; }
+.sec { color: var(--faint); font-size: 11px; padding: 8px 10px 4px; }
+.row { display: flex; align-items: center; gap: 10px; height: 40px; padding: 0 10px; border-radius: 10px; }
+.row.sel { background: var(--sel); font-weight: 500; }
+.row .t { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ink); }
+.av { width: 16px; height: 16px; border-radius: 50%; flex: none; }
+.sq { width: 16px; height: 16px; border-radius: 22.5%; flex: none; }
+.foot { margin-top: auto; display: flex; justify-content: space-between; color: var(--muted); padding: 8px 10px 2px; }
+.thead { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 20px; }
+.thead .tt { font-weight: 600; } .thead .tools { margin-left: auto; display: flex; gap: 6px; }
+.thead .tools i { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--rim); display: block; }
+.badge { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.disclose { color: var(--muted); font-size: 12px; padding: 0 20px 10px; }
+.body { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 24px; }
+.body.top { justify-content: flex-start; align-items: stretch; gap: 14px; padding: 8px 28px; }
+.seed { color: var(--muted); padding: 8px 12px; border-radius: 10px; background: var(--sel); width: fit-content; }
+.msg { max-width: 62ch; } .msg.me { align-self: flex-end; background: var(--sel); padding: 8px 12px; border-radius: 14px; }
+.composer { margin: 0 auto 20px; width: min(640px, calc(100% - 40px)); border-radius: 20px; box-shadow: 0 0 0 1px var(--rim), 0 2px 8px rgba(0,0,0,.04); padding: 12px 12px 10px 16px; background: var(--main); }
+.composer .ph { color: var(--faint); height: 28px; }
+.composer .bar { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.chip { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--sel); color: var(--ink); }
+.send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 14px; }
+.picker { position: absolute; right: 60px; bottom: 76px; width: 520px; height: 300px; background: var(--sheet); border-radius: 14px; box-shadow: var(--shadow), 0 0 0 .5px var(--rim); display: grid; grid-template-columns: 52px 1fr; overflow: hidden; }
+.prail { border-right: 1px solid var(--rim); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 12px 0; }
+.mk { width: 26px; height: 26px; border-radius: 22.5%; position: relative; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 11px; }
+.mk.on { box-shadow: 0 0 0 2px var(--sheet), 0 0 0 3.5px var(--ink); }
+.mk.off::after { content: ""; position: absolute; right: -3px; bottom: -3px; width: 8px; height: 8px; border-radius: 50%; background: var(--sheet); box-shadow: inset 0 0 0 1.5px var(--faint); }
+.star { color: var(--muted); font-size: 16px; }
+.plist { padding: 10px; display: flex; flex-direction: column; min-height: 0; }
+.prow { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 9px; }
+.prow.sel { background: var(--sel); } .prow .d { color: var(--muted); flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.prow .k { color: var(--faint); font-size: 11px; } .prow.dis { opacity: .45; }
+.empty { flex: 1; display: grid; place-items: center; text-align: center; gap: 10px; }
+.btn { display: inline-block; border-radius: 999px; padding: 7px 16px; background: var(--accent); color: var(--on-accent); font-weight: 500; }
+.btn.ghost { background: transparent; color: var(--ink); }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1040px; }
+.mini { background: var(--frame); border-radius: 12px; border: 1px solid var(--rim); padding: 18px; position: relative; height: 330px; display: grid; place-items: center; }
+.sheets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; max-width: 1040px; }
+.sheet { background: var(--sheet); border-radius: 20px; box-shadow: var(--shadow), 0 0 0 .5px var(--rim); padding: 26px 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; min-height: 290px; }
+.sheet .big { width: 48px; height: 48px; border-radius: 22.5%; display: grid; place-items: center; color: #fff; font-weight: 700; margin-bottom: 6px; }
+.sheet .ttl { font-size: 17px; font-weight: 600; } .sheet .ln { color: var(--muted); max-width: 30ch; }
+.sheet .chk { display: flex; gap: 8px; align-items: center; margin: 14px 0 6px; }
+.sheet .chk i { width: 16px; height: 16px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--faint); display: block; }
+.sheet .acts { margin-top: auto; align-self: stretch; display: flex; justify-content: flex-end; gap: 6px; }
+.spin { width: 22px; height: 22px; border-radius: 50%; border: 2.5px solid var(--sel); border-top-color: var(--ink); animation: s 1s linear infinite; margin-top: 18px; }
+@keyframes s { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+.ok { width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--on-accent); display: grid; place-items: center; font-size: 13px; margin-top: 18px; }
+.cap { color: var(--muted); font-size: 12px; margin-top: 8px; max-width: 1040px; }
+@media (max-width: 760px) {
+  .win { height: auto; grid-template-columns: 44px 1fr; } .band, .cols { grid-template-columns: 1fr; } .band .l, .panel { display: none; }
+  .cols { padding-left: var(--gap); } .card { min-height: 460px; } .picker { left: 8px; right: 8px; width: auto; }
+  .pair, .sheets { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<h1>Work in Atum</h1>
+<p class="lede">Design mockups for docs/design/2026-11-23-work-in-atum-shell.md. T3's thread list becomes Atum's roster panel, the thread becomes the main card, and every subscription connects through one account-level sheet.</p>
+
+<h2>1 · Default Work</h2>
+<div class="win">
+  <div class="lights"><b></b><b></b><b></b></div>
+  <nav class="rail"><i></i><i class="on"></i><i></i><i></i><span class="face"></span></nav>
+  <div class="right">
+    <div class="band">
+      <div class="l"><span title="Sidebar">◧</span><span title="New thread">✎</span></div>
+      <div class="m"><strong>Work</strong>
+        <span class="pill"><span class="faces"><s style="background:#c48bd8"></s><s style="background:#7fb0e0"></s></span>2 working</span></div>
+    </div>
+    <div class="cols">
+      <aside class="panel">
+        <div class="search">⚲ Search</div>
+        <div class="sec">Today</div>
+        <div class="row sel"><span class="sq" style="background:var(--atum)"></span><span class="t">Fix the login bug</span></div>
+        <div class="row"><span class="av" style="background:#c48bd8"></span><span class="t">Luna's chat</span><span class="dot"></span></div>
+        <div class="row"><span class="av" style="background:#7fb0e0"></span><span class="t">Draft the Q4 summary</span><span class="dot"></span></div>
+        <div class="row"><span class="sq" style="background:var(--gpt)"></span><span class="t">Clean up the invoice script</span></div>
+        <div class="foot"><span>Settled · 3</span><span>⚙</span></div>
+      </aside>
+      <main class="card">
+        <div class="thead"><span class="tt">New thread</span><span class="tools"><i></i><i></i><i></i></span></div>
+        <div class="body"></div>
+        <div class="composer"><div class="ph">Ask anything</div>
+          <div class="bar">⊕<span class="chip"><span class="sq" style="background:var(--atum);width:12px;height:12px"></span>Nguyệt Thực ▾</span><span class="send">↑</span></div></div>
+      </main>
+    </div>
+  </div>
+</div>
+<p class="cap">No card inside a card: the frame shows through the 8 px gaps. T3's brand row and footer icons are gone; Settings is one gear. Assistant-started threads wear the assistant's circle face.</p>
+
+<h2>2 · The picker: Atum models, ChatGPT connected, Claude and Antigravity not</h2>
+<div class="pair">
+  <div class="mini">
+    <div class="picker" style="position:static;width:100%;max-width:470px">
+      <div class="prail"><span class="star">★</span><span class="mk on" style="background:var(--atum)">A</span><span class="mk" style="background:var(--gpt)">G</span><span class="mk off" style="background:var(--claude)">C</span><span class="mk off" style="background:var(--agy)">A</span></div>
+      <div class="plist">
+        <div class="search" style="margin-bottom:6px">⚲ Search models</div>
+        <div class="prow"><span class="sq" style="background:var(--atum)"></span><b>Nguyệt Thực</b><span class="d">Suggested · Good for everyday tasks</span><span class="k">⌘1</span></div>
+        <div class="prow sel"><span class="sq" style="background:var(--atum)"></span><b>Nhật Thực</b><span class="d">Good for hard tasks</span><span class="k">✓ ⌘2</span></div>
+        <div class="prow"><span class="sq" style="background:var(--atum)"></span><b>Thái Cực</b><span class="d">The most powerful model</span><span class="k">⌘3</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="mini">
+    <div class="picker" style="position:static;width:100%;max-width:470px">
+      <div class="prail"><span class="star">★</span><span class="mk" style="background:var(--atum)">A</span><span class="mk" style="background:var(--gpt)">G</span><span class="mk on off" style="background:var(--claude)">C</span><span class="mk off" style="background:var(--agy)">A</span></div>
+      <div class="plist"><div class="empty"><div>
+        <div class="sheet-mk" style="display:grid;place-items:center"><span class="mk" style="background:var(--claude);width:40px;height:40px;font-size:15px">C</span></div>
+        <div style="font-weight:600;margin:10px 0 12px">Use your Claude plan</div>
+        <span class="btn">Connect</span></div></div></div>
+    </div>
+  </div>
+</div>
+<p class="cap">Left: Atum's three models under their real names; no "binh-minh", no "Atum (delegated)" in the rail. Right: an unconnected plan is one line and one Connect, which opens the account-level sheet.</p>
+
+<h2>3 · The connect sheet: ask, signing in, done</h2>
+<div class="sheets">
+  <div class="sheet"><span class="big" style="background:var(--gpt)">G</span><div class="ttl">Connect ChatGPT</div><div class="ln">Sign in with OpenAI. Atum never sees your login.</div>
+    <label class="chk"><i></i>My assistants can use it too</label>
+    <div class="acts"><span class="btn ghost">Not now</span><span class="btn">Continue</span></div></div>
+  <div class="sheet"><span class="big" style="background:var(--gpt)">G</span><div class="ttl">Finish in your browser</div><div class="spin" role="status" aria-label="Signing in"></div></div>
+  <div class="sheet"><span class="big" style="background:var(--gpt)">G</span><div class="ttl">ChatGPT is connected</div><div class="ok">✓</div></div>
+</div>
+<p class="cap">The same sheet for Claude and Antigravity, opened from any Connect in Atum. A code field appears only when the maker's page hands back a code. The checkbox is the consent, off by default.</p>
+</body>
+</html>
