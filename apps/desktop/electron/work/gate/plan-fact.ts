@@ -22,10 +22,12 @@ export interface PlanFactOptions {
   deviceServiceId: string
   provider?: WorkPlanProvider
   /** T3's own word, through main's owner session. `unknown`: it could not be asked, so nothing may be claimed either way. */
-  status(): Promise<'connected' | 'disconnected' | 'unknown'>
+  status(): Promise<PlanStatus | PlanStatus['status']>
   now?(): number
   log?(event: string, fields?: Record<string, string | number | boolean | null>): void
 }
+
+interface PlanStatus { status: 'connected' | 'disconnected' | 'unknown'; models?: string[] }
 
 export type PlanFactState = 'connected' | 'disconnected'
 
@@ -40,15 +42,21 @@ export class PlanFact {
     this.now = options.now ?? Date.now
   }
 
+  private key(): string {
+    const plan = this.options.provider ?? 'codex'
+
+    return plan === 'codex' ? KEY : `${KEY}:${plan}`
+  }
+
   /** The state the platform last acknowledged for this Mac, and when this Mac observed it. */
-  reported(): { state: PlanFactState; at: number } | undefined {
-    const raw = this.options.ledger.meta(KEY)
+  reported(): { state: PlanFactState; at: number; models?: string[] } | undefined {
+    const raw = this.options.ledger.meta(this.key())
 
     try {
-      const value = raw ? (JSON.parse(raw) as { state?: unknown; at?: unknown }) : undefined
+      const value = raw ? (JSON.parse(raw) as { state?: unknown; at?: unknown; models?: string[] }) : undefined
 
       return value && (value.state === 'connected' || value.state === 'disconnected') && typeof value.at === 'number'
-        ? { state: value.state, at: value.at }
+        ? { state: value.state, at: value.at, models: value.models }
         : undefined
     } catch {
       return undefined
@@ -96,7 +104,8 @@ export class PlanFact {
   }
 
   private async check(): Promise<void> {
-    const state = await this.options.status().catch((): 'unknown' => 'unknown')
+    const value = await this.options.status().catch((): 'unknown' => 'unknown')
+    const { status: state, models } = typeof value === 'string' ? { status: value, models: undefined } : value
 
     if (state === 'unknown') {
       return
@@ -104,10 +113,10 @@ export class PlanFact {
 
     this.seen = state
     const last = this.reported()
-    const due = !last || last.state !== state || this.now() - last.at >= WORK_SUBSCRIPTION_FACT_REFRESH_SECONDS * 1000
+    const due = !last || last.state !== state || JSON.stringify(last.models) !== JSON.stringify(models) || this.now() - last.at >= WORK_SUBSCRIPTION_FACT_REFRESH_SECONDS * 1000
 
     if (due) {
-      await this.send(state).catch(error => {
+      await this.send(state, models).catch(error => {
         // The status is the only thing worth a line: offline, signed out, a stale epoch and a platform that does not know 1.2 all
         // look alike, and all are retried at the next check.
         this.options.log?.('plan_fact_failed', { status: (error as { status?: number } | null)?.status ?? 0 })
@@ -115,7 +124,7 @@ export class PlanFact {
     }
   }
 
-  private async send(state: PlanFactState): Promise<void> {
+  private async send(state: PlanFactState, models?: string[]): Promise<void> {
     const { ledger, platform, accountId, deviceServiceId } = this.options
     const observedAt = Math.max(this.now(), (this.reported()?.at ?? 0) + 1)
 
@@ -129,8 +138,9 @@ export class PlanFact {
       routeEpoch: ledger.routeEpoch(),
       provider: this.options.provider ?? 'codex',
       state,
-      observedAt
+      observedAt,
+      ...(state === 'connected' && models?.length ? { models } : {})
     })
-    ledger.setMeta(KEY, JSON.stringify({ state, at: observedAt }))
+    ledger.setMeta(this.key(), JSON.stringify({ state, at: observedAt, models }))
   }
 }

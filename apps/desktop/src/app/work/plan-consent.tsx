@@ -13,7 +13,7 @@ import type { AtumAssistantMark } from '../../../shared/atum-agent-portability'
 import type { MatrixWorkBridge, MatrixWorkPlanConsent } from '../../../shared/matrix-work'
 
 import { workCopy } from './copy'
-import { workRelayCopy } from './relay-copy'
+import { WORK_RELAY_PLAN_NAMES, workRelayCopy } from './relay-copy'
 import { $workPlanConsent, type WorkPlanConsentRequest } from './store'
 
 /** An assistant as the owner's own account record names it (never as the agent names itself). */
@@ -141,7 +141,8 @@ export function WorkPlanConsentSheet({
     }
 
     let current = true
-    bridge.readPlanConsent().then(
+    const read = request.plan ? bridge.readPlanConsent(request.plan) : bridge.readPlanConsent()
+    void read.then(
       next => current && live.current && adopt(next, request),
       () => current && live.current && setFailed(true)
     )
@@ -156,7 +157,7 @@ export function WorkPlanConsentSheet({
   }
 
   const close = () => $workPlanConsent.set(null)
-  const on = consent?.state === 'on'
+  const on = consent?.state === 'on' && (!request.plan || consent.alsoWhenScheduled)
   const named = agents.filter(agent => consent?.eligible.includes(agent.principal))
   const ready = chosen.size > 0 && macs.size > 0
 
@@ -178,9 +179,15 @@ export function WorkPlanConsentSheet({
     }
   }
 
+  const revoke = () => run(async () => {
+    await (request.plan ? bridge.revokePlanConsent(request.plan) : bridge.revokePlanConsent())
+  })
+
   const allow = () =>
     run(async () => {
-      await bridge.setPlanConsent({ agents: [...chosen], macs: [...macs], alsoWhenScheduled: scheduled })
+      const input = { agents: [...chosen], macs: [...macs], alsoWhenScheduled: request.plan ? true : scheduled }
+
+      await (request.plan ? bridge.setPlanConsent(input, request.plan) : bridge.setPlanConsent(input))
       const thisMac = consent?.macs.find(mac => mac.thisMac)
 
       // The owner turned this Mac's switch on to get here: Allow finishes that one act.
@@ -207,9 +214,17 @@ export function WorkPlanConsentSheet({
     <Dialog onOpenChange={next => !next && close()} open>
       <DialogContent className="max-w-sm gap-4" data-atum-work-plan-consent={consent?.state ?? 'loading'}>
         <div className="grid gap-1.5">
-          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogTitle>{request.plan
+            ? `${locale === 'vi' ? 'Tác vụ đã lên lịch' : 'Scheduled tasks'} · ${WORK_RELAY_PLAN_NAMES[request.plan]}`
+            : copy.title}</DialogTitle>
           <DialogDescription>
-            {on && consent?.grantedAt ? copy.granted(workConsentDate(consent.grantedAt, locale)) : copy.line}
+            {on && consent?.grantedAt
+              ? copy.granted(workConsentDate(consent.grantedAt, locale))
+              : request.plan
+                ? locale === 'vi'
+                  ? 'Chọn trợ lý và máy Mac có thể dùng gói này cho tác vụ đã lên lịch.'
+                  : 'Choose which assistants and Macs can use this plan for scheduled tasks.'
+                : copy.line}
           </DialogDescription>
         </div>
         {consent && (
@@ -257,10 +272,12 @@ export function WorkPlanConsentSheet({
                 })}
               </div>
             )}
-            <label className="flex min-h-9 items-center gap-2.5 text-sm">
-              <span className="min-w-0 flex-1">{copy.scheduled}</span>
-              <Switch aria-label={copy.scheduled} checked={scheduled} disabled={pending} onCheckedChange={setScheduled} />
-            </label>
+            {!request.plan && (
+              <label className="flex min-h-9 items-center gap-2.5 text-sm">
+                <span className="min-w-0 flex-1">{copy.scheduled}</span>
+                <Switch aria-label={copy.scheduled} checked={scheduled} disabled={pending} onCheckedChange={setScheduled} />
+              </label>
+            )}
           </div>
         )}
         {failed && (
@@ -273,7 +290,7 @@ export function WorkPlanConsentSheet({
             <Button
               data-atum-work-consent-revoke
               disabled={pending}
-              onClick={() => void run(async () => void (await bridge.revokePlanConsent()))}
+              onClick={() => void revoke()}
               size="sm"
               type="button"
               variant="text"

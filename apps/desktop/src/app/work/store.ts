@@ -1,3 +1,4 @@
+import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
 import { atom } from 'nanostores'
 
 import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
@@ -26,6 +27,7 @@ const PLAN_CONNECT_SEEN_KEY = 'atum.work.plan-connect.seen.v1'
 
 /** Gate 4b-2: the consent sheet, open for an assistant (from the picker) or for this Mac (from its switch). */
 export interface WorkPlanConsentRequest {
+  plan?: WorkRelayPlan
   /** Preselect this assistant: the owner tapped it by name. */
   agent?: string
   /** Preselect this Mac: the owner turned its switch on. */
@@ -86,9 +88,9 @@ export function markWorkPlanConnectSeen(): void {
 }
 
 /** Gate 4a: show the Work page and open T3's own Codex connect screen in it. */
-export async function openWorkPlanConnect(bridge: Pick<MatrixWorkBridge, 'openPlanConnect'>): Promise<void> {
+export async function openWorkPlanConnect(bridge: Pick<MatrixWorkBridge, 'openPlanConnect'>, plan?: WorkRelayPlan): Promise<void> {
   setWorkActive(true)
-  await bridge.openPlanConnect()
+  await bridge.openPlanConnect(plan)
 }
 
 export function openWorkPlanConsent(request: WorkPlanConsentRequest = {}): void {

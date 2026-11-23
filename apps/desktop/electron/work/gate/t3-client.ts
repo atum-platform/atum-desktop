@@ -190,8 +190,8 @@ export function createT3Client(options: T3ClientOptions): T3Port {
     }
   }
 
-  const planProvider: NonNullable<T3Port['planProvider']> = async token => {
-    const plan = options.plan as { instanceId: string }
+  const planProvider: NonNullable<T3Port['planProvider']> = async (token, instanceId = options.plan?.instanceId) => {
+    if (!instanceId) {return { status: 'unknown' }}
 
     const reply = await call(token, 'orchestrator_capabilities', {}, {}, 20_000, true)
 
@@ -201,12 +201,13 @@ export function createT3Client(options: T3ClientOptions): T3Port {
 
     const providers = reply.data.providers as {
       providerInstanceId?: string
+      driverKind?: string
       models?: { id?: string }[]
       constraints?: unknown
     }[]
 
-    const found = providers.find(item => item.providerInstanceId === plan.instanceId)
-    const models = (found?.models ?? []).flatMap(model => (typeof model.id === 'string' && model.id ? [model.id] : []))
+    const found = providers.find(item => item.providerInstanceId === instanceId && item.driverKind === instanceId)
+    const models = [...new Set((found?.models ?? []).flatMap(model => (typeof model.id === 'string' && model.id.length > 0 && model.id.length <= 200 ? [model.id] : [])))].slice(0, 64)
 
     const constraints = Array.isArray(found?.constraints)
       ? (found.constraints as unknown[]).filter((item): item is string => typeof item === 'string')
@@ -218,7 +219,7 @@ export function createT3Client(options: T3ClientOptions): T3Port {
       return { status: 'disconnected' }
     }
 
-    return { status: 'connected', selection: { instanceId: plan.instanceId, model: models[0] as string } }
+    return { status: 'connected', selection: { instanceId, model: models[0] as string }, models }
   }
 
   return {
@@ -256,7 +257,7 @@ export function createT3Client(options: T3ClientOptions): T3Port {
       }
     },
     send: (token, args, modeLimit) => call(token, 't3_thread_send', args, { 'T3-Mode-Limit': modeLimit }, 30_000, false),
-    configure: (token, threadId, modelSelection) => call(token, 't3_thread_configure', {threadId, modelSelection}, {}, 30_000, false),
+    configure: (token, threadId, modelSelection, modeLimit) => call(token, 't3_thread_configure', {threadId, modelSelection}, modeLimit ? { 'T3-Mode-Limit': modeLimit } : {}, 30_000, false),
     readPage: (token, threadId, afterPosition, item) => call(token, 't3_thread_read', {threadId, limit: 100, maxChars: 24000, ...(afterPosition === undefined ? {} : {afterPosition}), ...item}, {}, 30_000, true),
     launch: (token, args, modeLimit) => call(token, 't3_thread_launch', args, { 'T3-Mode-Limit': modeLimit }, 30_000, false),
     interrupt: (token, threadId, extra) =>

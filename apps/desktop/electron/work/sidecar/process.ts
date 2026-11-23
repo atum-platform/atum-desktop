@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import semver from 'semver'
+import { WORK_RELAY_PROVIDER, WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
+
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
@@ -34,6 +38,7 @@ export interface WorkIncarnation {
   home: string
   pid: number
   exited: Promise<void>
+  relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
 }
@@ -54,7 +59,15 @@ export interface WorkStartOptions {
  * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
  * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
  */
-export const WORK_PLAN_CONNECT_SHIPPED = false
+export function workRelayRuntimeReady(resources: string): boolean {
+  try {
+    const pin = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: string }
+
+    return Boolean(pin.version && semver.valid(pin.version) && semver.gte(pin.version, '0.1.12'))
+  } catch {
+    return false
+  }
+}
 
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
@@ -123,8 +136,14 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
   const providerInstances = Object.fromEntries([
-    ['codex', { driver: 'codex', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
-    ['claudeAgent', { driver: 'claudeAgent', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
+    ...WORK_RELAY_PLANS.map(plan => {
+      const { instanceId } = WORK_RELAY_PROVIDER[plan]
+      const enabled = workRelayRuntimeReady(resources)
+
+      return [instanceId, enabled
+        ? { driver: instanceId, enabled }
+        : { driver: instanceId, enabled, config: { binaryPath: '/usr/bin/false' } }]
+    }),
     ...BROKER_PROFILES.map(({ directory, instance, label }) => [
       instance, provider(python, join(root, directory), label)
     ])
@@ -391,6 +410,7 @@ export class WorkSidecar {
         },
         home,
         pid: await startup.pid,
+        relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
         trial,
         takePairingUrl: () => {

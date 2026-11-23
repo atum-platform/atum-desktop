@@ -1,3 +1,4 @@
+import { WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
@@ -340,7 +341,7 @@ export function MatrixModelPicker({
   /** The fallback that answered the agent's latest reply here (agent-turns/1.7), if one did. */
   lastFallback?: MatrixSubscriptionFallback
   /** Relay R1: the plan rows from the relay view-model. Absent: D6. */
-  workRelay?: MatrixModelPickerRelay
+  workRelay?: readonly MatrixModelPickerRelay[]
   /** A row that opens this picker, replacing the composer's model pill. */
   trigger?: ReactNode
   /** Controlled open state, for a surface whose row owns it. */
@@ -862,50 +863,59 @@ export function MatrixModelPicker({
   // Relay R1 (lane U1): with the relay's view, ChatGPT rows follow its rule, not D6. Selectable whenever the plan is connected and
   // consented on at least one Mac; greyed rows get one line and the one fixing action. The plan picks its own thinking, so no
   // levels. An Atum pick in flight hides the relay's current model, exactly as it hides a saved plan.
-  const relay = cloudSubscriptions && workRelay && workRelay.view.rows !== 'hidden' ? workRelay : undefined
+  const relays = cloudSubscriptions ? (workRelay ?? []).filter(each => each.view.rows !== 'hidden') : []
+  const relay = relays.find(each => WORK_RELAY_PROVIDER[each.view.plan].picker === filter.source) ??
+    relays.find(each => each.view.currentModel) ?? relays[0]
+  const selectedRelay = workRelay?.find(each => each.view.currentModel)
+  const hasCodexRelay = relays.some(each => each.view.plan === 'codex')
   const relayWords = workRelayCopy(locale)
-  const relayPlanName = WORK_RELAY_PLAN_NAMES[workRelay?.view.plan ?? 'codex']
-  const relaySelectable = relay?.view.rows === 'selectable'
-  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? workRelay?.view.currentModel : undefined
+  const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
+  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? selectedRelay?.view.currentModel : undefined
 
-  const relayModels = relay
-    ? (relay.models ?? chatgptModels.map(model => ({ id: model.id, displayName: model.displayName })))
-    : []
+  const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : [])
 
   const relayCurrentName = relayCurrent
-    ? ([...relayModels, ...(workRelay?.models ?? [])].find(model => model.id === relayCurrent)?.displayName ??
+    ? ((selectedRelay ? modelsFor(selectedRelay) : []).find(model => model.id === relayCurrent)?.displayName ??
       matrixModelDisplayName(relayCurrent))
     : undefined
 
   const relayNote =
     relay?.view.rows === 'greyed' && relay.view.greyed
-      ? { provider: 'openai-codex', text: relayWords.greyed[relay.view.greyed](relayPlanName) }
+      ? { provider: WORK_RELAY_PROVIDER[relay.view.plan].picker, text: relayWords.greyed[relay.view.greyed](WORK_RELAY_PLAN_NAMES[relay.view.plan]) }
       : undefined
 
-  const relayRoutes: PickerRoute[] = relayModels.map(model => ({
+  const relayRoutes: PickerRoute[] = relays.flatMap(each => {
+    const plan = each.view.plan
+    const provider = WORK_RELAY_PROVIDER[plan].picker
+    const name = WORK_RELAY_PLAN_NAMES[plan]
+    const ready = each.view.rows === 'selectable'
+
+    return modelsFor(each).map(model => ({
+    relayPlan: plan,
     route: {
-      id: matrixModelRouteId('openai-codex', model.id),
-      provider: 'openai-codex',
+      id: matrixModelRouteId(provider, model.id),
+      provider,
       model: model.id,
       name: model.displayName,
-      providerLabel: relayPlanName,
-      accountLabel: words.planAccount(relayPlanName),
+      providerLabel: name,
+      accountLabel: words.planAccount(name),
       connection: 'plan' as const,
       target: 'agent_default' as const,
       destination: 'cloud' as const,
       efforts: [],
-      current: relayCurrent === model.id,
-      ready: relaySelectable
+      current: selectedRelay?.view.plan === plan && relayCurrent === model.id,
+      ready
     },
     subscription: true,
-    ...(relaySelectable ? {} : { disabled: true })
-  }))
+    ...(ready ? {} : { disabled: true })
+    }))
+  })
 
   const cloudSubscriptionRoutes: PickerRoute[] = cloudSubscriptions
     ? [
         ...relayRoutes,
         // ChatGPT plan models are served by the selected owner Mac (R2).
-        ...(!relay && (cloudChatGptConnected || cloudChatGptPending)
+        ...(!hasCodexRelay && (cloudChatGptConnected || cloudChatGptPending)
           ? chatgptModels.map(model => ({
               route: {
                 id: matrixModelRouteId('openai-codex', model.id),
@@ -974,9 +984,9 @@ export function MatrixModelPicker({
       ? { provider: 'openai-codex', text: words.modelsFailed }
       : relayNote
         ? relayNote
-        : chatgptSignedOut && !relay
+        : chatgptSignedOut && !hasCodexRelay
         ? { provider: 'openai-codex', text: words.chatgptSignedOut }
-        : cloudChatGptPending && !relay
+        : cloudChatGptPending && !hasCodexRelay
           ? { provider: 'openai-codex', text: chatgptReason }
           : cloudSubscriptions && cloudSubscriptionRevoked && cloudSubscription?.source === 'opencode_go'
             ? { provider: 'opencode-go', text: words.modelsSignedOut }
@@ -986,6 +996,7 @@ export function MatrixModelPicker({
   // Favorites first in the rail, then Atum's line-up and every current-home provider (including
   // the subscription sources, so a cloud OpenCode Go model has a rail entry of its own).
   const subscriptionProviders = [
+    ...relays.map(each => ({ id: WORK_RELAY_PROVIDER[each.view.plan].picker, label: WORK_RELAY_PLAN_NAMES[each.view.plan] })),
     ...(cloudSubscriptions ? cloudSubscriptionRoutes : subscriptionRoutes).map(({ route }) => ({
       id: route.provider,
       label: route.providerLabel
@@ -1614,17 +1625,16 @@ export function MatrixModelPicker({
       return
     }
 
+    if (picked.relayPlan) {
+      writeRelaySelection(picked)
+      return
+    }
+
     // A cloud agent's OpenCode Go pick is the owner's per-destination choice
     // (`atum.model-choice/1.4`), not a Mac profile switch and not the managed 1.1 offer.
     if (cloud && !macAnswers && (picked.route.provider === 'opencode-go' || picked.route.provider === 'openai-codex')) {
       // Relay R1: a plan model is the agent's revisioned selection, written through the relay (never the 1.4 plan choice). An
       // assistant that holds Google never gets here: its rows are greyed (O1).
-      if (relay && picked.route.provider === 'openai-codex') {
-        writeRelaySelection(picked)
-
-        return
-      }
-
       // ChatGPT for an account whose assistants touch Google asks once, inside this card; until
       // the person confirms, nothing is written and the saved model stays as it is.
       if (picked.route.provider === 'openai-codex' && subscriptionsService?.chatGptTraining) {
@@ -1671,7 +1681,9 @@ export function MatrixModelPicker({
 
   /** Relay R1: the selection write (`work_selection_set`), held as a pick until the relay's view names it. */
   const writeRelaySelection = (picked: PickerRoute) => {
-    if (!relay) {
+    const target = relays.find(each => each.view.plan === picked.relayPlan)
+
+    if (!target) {
       return
     }
 
@@ -1681,7 +1693,7 @@ export function MatrixModelPicker({
     setRetryPick(null)
     setPendingCloudSubscription({ route: picked.route, saved: false })
 
-    void relay.select(picked.route.model).then(
+    void target.select(picked.route.model).then(
       result => {
         if (!context.current()) {
           return
@@ -2065,7 +2077,7 @@ export function MatrixModelPicker({
 
     if (
       (cloudSubscription?.model === pendingCloudSubscription.route.model && !cloudSubscriptionRevoked) ||
-      (pendingCloudSubscription.route.provider === 'openai-codex' && workRelay?.view.currentModel === pendingCloudSubscription.route.model)
+      (selectedRelay && pendingCloudSubscription.route.provider === WORK_RELAY_PROVIDER[selectedRelay.view.plan].picker && selectedRelay.view.currentModel === pendingCloudSubscription.route.model)
     ) {
       setPendingCloudSubscription(null)
 
@@ -2075,7 +2087,7 @@ export function MatrixModelPicker({
     const timer = setTimeout(() => setPendingCloudSubscription(null), 5000)
 
     return () => clearTimeout(timer)
-  }, [cloudSubscription, cloudSubscriptionRevoked, pendingCloudSubscription, workRelay?.view.currentModel])
+  }, [cloudSubscription, cloudSubscriptionRevoked, pendingCloudSubscription, selectedRelay])
 
   useEffect(() => {
     if (!pendingHome?.saved) {
@@ -2225,14 +2237,14 @@ export function MatrixModelPicker({
   const fellBack =
     !chipDown &&
     lastFallback &&
-    chipPlanProvider === (lastFallback.plan === 'chatgpt' ? 'openai-codex' : 'opencode-go')
+    chipPlanProvider === (lastFallback.plan === 'opencode_go' ? 'opencode-go' : WORK_RELAY_PROVIDER[workRelayNoticePlan(lastFallback.plan)!].picker)
       ? lastFallback
       : undefined
 
   // Relay R1: the selected plan's own warning (greyed, at its limit, or the last turn fell back). Never for a held run.
   const relayChip =
-    relayCurrent && !pendingCloudSubscription && workRelay?.view.chip
-      ? workRelayChipText(workRelay.view.chip, {
+    relayCurrent && !pendingCloudSubscription && selectedRelay?.view.chip
+      ? workRelayChipText(selectedRelay.view.chip, {
           words: relayWords,
           plan: relayPlanName,
           model: workRelayServedByName(),
@@ -2294,8 +2306,8 @@ export function MatrixModelPicker({
               className="ak-btn ak-btn--plain ak-btn--sm max-w-52 shrink-0"
               data-matrix-model-picker
               data-matrix-model-unavailable={
-                relayChip && workRelay?.view.chip
-                  ? `relay_${workRelay.view.chip.kind}`
+                relayChip && selectedRelay?.view.chip
+                  ? `relay_${selectedRelay.view.chip.kind}`
                   : chipWarning
                     ? (chipDown ?? 'fell_back')
                     : undefined

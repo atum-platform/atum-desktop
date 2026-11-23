@@ -12,6 +12,7 @@ import type { WorkRelayLimit } from '../../../shared/matrix-work-relay'
 
 import { workCopy } from './copy'
 import { type WorkConsentAgent, workConsentDate, WorkPlanConsentSheet } from './plan-consent'
+import { WORK_RELAY_PLAN_NAMES } from './relay-copy'
 import { useWorkRelayUsageText } from './relay-chrome'
 import { $work, $workPlanConsent, openWorkPlanConnect, openWorkPlanConsent } from './store'
 
@@ -76,6 +77,8 @@ export function MatrixWorkSettings({
   const usage = useWorkRelayUsageText(planLimit)
   const connectedHelp = planLimit ? `${copy.connect.rowConnected} · ${usage}` : copy.connect.rowConnected
   const claudeUsage = useWorkRelayUsageText(claudeLimit)
+  const unknownUsage = useWorkRelayUsageText(undefined)
+  const planUsage = { codex: usage, claude: claudeUsage, antigravity: unknownUsage }
   const read = bridge?.read
 
   useEffect(() => {
@@ -137,10 +140,15 @@ export function MatrixWorkSettings({
   const name = (principal: string) => agents.find(agent => agent.principal === principal)?.name
   const planHelp = workPlanSwitchHelp(copy, consent, name, locale)
 
-  // Turning this Mac's switch on is the express act only when the consent already names this Mac; otherwise it opens the one
-  // consent sheet, and Allow there turns the switch on.
+  const accountConsent = projection.relayAccountConsent === true
+  const switchLabel = accountConsent
+    ? locale === 'vi'
+      ? 'Cho phép trợ lý dùng các gói đã kết nối trên máy Mac này'
+      : 'Assistants can use my connected plans on this Mac'
+    : copy.planSwitch.label
+
   const setPlan = (on: boolean) => {
-    if (on && !planHelp.named) {
+    if (!accountConsent && on && !planHelp.named) {
       openWorkPlanConsent({ thisMac: true })
 
       return
@@ -200,15 +208,28 @@ export function MatrixWorkSettings({
           title={copy.connect.rowTitle}
         />
       )}
-      {workOn && projection.planConnect !== 'connected' && planLimit?.usedPercent !== undefined && (
+      {workOn && !projection.relayAccountConsent && projection.planConnect !== 'connected' && planLimit?.usedPercent !== undefined && (
         <SettingsRow data-atum-work-plan-usage="codex" help={<span className="block truncate" title={usage}>{usage}</span>} title="ChatGPT" />
       )}
-      {workOn && claudeLimit && <SettingsRow data-atum-work-plan-usage="claude" help={<span className="block truncate" title={claudeUsage}>{claudeUsage}</span>} title="Claude" />}
+      {workOn && !projection.relayAccountConsent && claudeLimit && <SettingsRow data-atum-work-plan-usage="claude" help={<span className="block truncate" title={claudeUsage}>{claudeUsage}</span>} title="Claude" />}
+      {workOn && projection.relayAccountConsent && projection.connectedPlans?.map(plan => (
+        <SettingsRow
+          control={
+            <Button disabled={pending} onClick={() => openWorkPlanConsent({ plan })} size="sm" type="button" variant="secondary">
+              {locale === 'vi' ? 'Tác vụ đã lên lịch' : 'Scheduled tasks'}
+            </Button>
+          }
+          data-atum-work-plan-usage={plan}
+          help={planUsage[plan]}
+          key={plan}
+          title={WORK_RELAY_PLAN_NAMES[plan]}
+        />
+      ))}
       {workOn && projection.plan && (
         <SettingsRow
           control={
             <span className="flex items-center gap-2">
-              {planHelp.named && (
+              {!accountConsent && planHelp.named && (
                 <Button
                   data-atum-work-plan-consent-change
                   disabled={pending}
@@ -221,7 +242,7 @@ export function MatrixWorkSettings({
                 </Button>
               )}
               <Switch
-                aria-label={copy.planSwitch.label}
+                aria-label={switchLabel}
                 checked={projection.plan === 'on'}
                 disabled={pending}
                 onCheckedChange={setPlan}
@@ -229,8 +250,8 @@ export function MatrixWorkSettings({
             </span>
           }
           data-atum-work-plan-switch={projection.plan}
-          help={planHelp.line}
-          title={copy.planSwitch.label}
+          help={accountConsent ? undefined : planHelp.line}
+          title={switchLabel}
         />
       )}
       <WorkPlanConsentSheet agents={agents} bridge={bridge} scope={relayChats ? 'chats' : 'work'} />

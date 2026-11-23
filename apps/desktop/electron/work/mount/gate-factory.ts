@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import type { SafeStorageLike } from '../../encrypted-store'
 import { type GateAccount, WorkGateService, type WorkGateServiceOptions } from '../gate'
 import { WORK_SOCKET_PATH_MAX_BYTES } from '../gate/contract'
 import type { GateOptions } from '../gate/gate'
-import { WORK_PLAN_INSTANCE_IDS } from '../gate/gate'
+import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 import type { ModelAccess, OwnerEventVerifier, T3Port, WorkPlatform } from '../gate/ports'
 import type { RelayHistory } from '../gate/relay'
 import { createT3PairingCodes, T3Sessions } from '../gate/sessions'
@@ -14,7 +15,7 @@ import { workSessionPaths } from '../session/paths'
 import { createT3AuthCli } from '../session/t3-auth'
 import { ATUM_WORK_DELEGATED_PROVIDER, ATUM_WORK_MODEL, type WorkIncarnation } from '../sidecar/process'
 
-import { RelayAssembly, type RelayAssemblyOptions } from './relay-assembly'
+import { RelayAssembly, type RelayAssemblyOptions, relayProtectedRoots } from './relay-assembly'
 import { createKeychainSecretStore } from './secret-store'
 
 export interface WorkMountAccount extends GateAccount {
@@ -58,6 +59,8 @@ export interface WorkGateFactoryInput {
   modelAccess(incarnation: WorkIncarnation): Promise<ModelAccess>
   /** Lane R: `WorkSession.held()`. */
   held(): boolean
+  relayRuntimeReady?(): boolean
+  relayLimit?: WorkGateServiceOptions['relayLimit']
   /** The name T3 shows on an assistant's threads ("Started by …"). */
   agentName?(principal: string): string
   socketBase: string
@@ -91,7 +94,7 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       settingsFile: join(paths.userdata, 'settings.json'),
       delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
       // Gate 4b-1: the one plan instance, compiled in. T3's own status for it is what the Mac reports and what a launch needs.
-      plan: { instanceId: WORK_PLAN_INSTANCE_IDS[0] },
+      plan: { instanceId: WORK_RELAY_PROVIDER.codex.instanceId },
       restartWhenIdle: input.restartWhenIdle
     })
 
@@ -105,6 +108,8 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
     platform: input.platform,
     owner: input.owner,
     relayHistory: input.relayHistory,
+    relayRuntimeReady: input.relayRuntimeReady,
+    relayLimit: input.relayLimit,
     relaySelection: input.relaySelection ?? (principal => assembly?.selection(principal)),
     relayProvision: input.relayAssistant ? (principal, threadId) => {
       if (!assembly) {throw new Error('relay_unavailable')}
@@ -150,12 +155,13 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
   if (input.relayAssistant) {
     assembly = new RelayAssembly({
       ...input.relayAssistant, ledger: service.ledger, t3,
+      protectedRoots: relayProtectedRoots(homedir(), input.relayAssistant.assistantsRoot),
       ownerToken: () => {
         if (!ownerToken) {throw new Error('relay_unavailable')}
 
         return ownerToken()
       },
-      fresh: () => service.gate.entitlementsFresh() && service.gate.planConsentState() === 'on',
+      fresh: () => service.gate.entitlementsFresh(),
       now: input.now
     })
   }

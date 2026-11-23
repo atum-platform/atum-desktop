@@ -5,7 +5,7 @@ import type {
   MatrixWorkRect,
   MatrixWorkViewState
 } from '../../../shared/matrix-work'
-import type { WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
+import type { WorkRelayPlan, WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
 import type { GateEvent } from '../gate/gate'
 import type { WorkConsentClient } from '../gate/platform'
 import type { OwnerViewPort } from '../session/pairing'
@@ -20,7 +20,7 @@ import {
   projectWorkConsent,
   projectWorkPlan,
   projectWorkPlanConnect,
-  WORK_PLAN_CONNECT_PATH
+  workPlanConnectPath
 } from './projection'
 
 /** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
@@ -33,7 +33,7 @@ export interface WorkViewHandle {
 export interface WorkSurfaceParts {
   relay?: {
     read(principal: string, roomId: string): Promise<WorkRelayRoomView>
-    select(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
+    select(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
     stop(roomId: string, eventId: string): Promise<void>
     chats(): string[]
   }
@@ -134,6 +134,8 @@ export class WorkSurface {
       ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
       ...(this.planLimit ? { planLimit: this.planLimit } : {}),
       ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
+      ...(gate?.relayAccountConsent ? { relayAccountConsent: true } : {}),
+      ...(gate?.connectedPlans?.length ? { connectedPlans: gate.connectedPlans } : {}),
       view: this.viewState(parts),
       assistants: projectWorkAssistants(gate),
       ...(plan ? { plan } : {}),
@@ -163,17 +165,17 @@ export class WorkSurface {
     const view = await this.parts.relay.read(principal, roomId)
 
     if (generation !== this.generation) {throw new Error('work_relay_account_changed')}
-    const limit = view.status?.limits.find(limit => limit.plan === 'codex')
+    const limit = view.status?.limits.find(limit => limit.plan === view.status?.selection?.plan)
     this.planLimit = limit
     this.publish()
 
     return view
   }
 
-  async selectRelay(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection> {
+  async selectRelay(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection> {
     if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
 
-    return this.parts.relay.select(principal, expectedRevision, model)
+    return this.parts.relay.select(principal, expectedRevision, model, plan)
   }
 
   async stopRelay(roomId: string, eventId: string): Promise<void> {
@@ -276,12 +278,12 @@ export class WorkSurface {
    * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
    * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's. Closed gate: nothing happens.
    */
-  async openPlanConnect(): Promise<void> {
+  async openPlanConnect(plan: WorkRelayPlan = 'codex'): Promise<void> {
     if (this.parts?.planConnectOpen?.() !== true) {
       return
     }
 
-    this.pendingPath = WORK_PLAN_CONNECT_PATH
+    this.pendingPath = workPlanConnectPath(plan)
 
     if (this.phase === 'ready') {
       await this.followPendingPath()
@@ -289,27 +291,28 @@ export class WorkSurface {
   }
 
   /** Gate 4b-2: the account's consent, as the owner's page reads it. */
-  async readPlanConsent(): Promise<MatrixWorkPlanConsent> {
+  async readPlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
 
     const entitled = (this.parts?.gate?.state().agents ?? []).map(agent => agent.principal)
 
-    return projectWorkConsent(await consent.read(), this.parts?.deviceServiceId?.(), entitled)
+    return projectWorkConsent(await (plan ? consent.read(plan) : consent.read()), this.parts?.deviceServiceId?.(), entitled)
   }
 
   /** Express opt-in: the owner named these assistants and Macs. Main sends nothing the page did not name. */
-  async setPlanConsent(input: MatrixWorkPlanConsentInput): Promise<MatrixWorkPlanConsent> {
+  async setPlanConsent(input: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
-    await consent.set({ agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+    await consent.set({ ...(plan ? { provider: plan } : {}), agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
 
-    return this.readPlanConsent()
+    return this.readPlanConsent(plan)
   }
 
-  async revokePlanConsent(): Promise<MatrixWorkPlanConsent> {
+  async revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
-    await consent.revoke()
+    if (plan) {await consent.revoke(plan)}
+    else {await consent.revoke()}
 
-    return this.readPlanConsent()
+    return this.readPlanConsent(plan)
   }
 
   async reconnectAssistants(): Promise<void> {

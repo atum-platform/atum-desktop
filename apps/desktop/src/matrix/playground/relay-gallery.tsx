@@ -120,7 +120,7 @@ function RelayPicker({ state }: { state: keyof typeof PICKER_VIEWS }) {
         open={chip ? undefined : true}
         room={ROOM}
         side="top"
-        workRelay={relay}
+        workRelay={[relay]}
       />
     </div>
   ) : null

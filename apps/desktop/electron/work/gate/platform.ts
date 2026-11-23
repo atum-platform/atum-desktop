@@ -1,3 +1,5 @@
+import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
+
 import {
   type WorkConsentRecord,
   WorkConsentRecordSchema,
@@ -90,10 +92,10 @@ export function createDeviceServicePlatform(options: DeviceServicePlatformOption
 
 /** The owner's consent for background use of a plan (gate 4b-2). Only the owner's own app writes it. */
 export interface WorkConsentClient {
-  read(): Promise<WorkSubscriptionState>
+  read(provider?: WorkRelayPlan): Promise<WorkSubscriptionState>
   /** Names assistants and Macs (never "all"); the same scope again changes nothing on the platform. */
-  set(input: { agents: string[]; devices: string[]; alsoWhenScheduled: boolean }): Promise<WorkConsentRecord>
-  revoke(): Promise<WorkConsentRecord>
+  set(input: { provider?: WorkRelayPlan; agents: string[]; devices: string[]; alsoWhenScheduled: boolean }): Promise<WorkConsentRecord>
+  revoke(provider?: WorkRelayPlan): Promise<WorkConsentRecord>
 }
 
 /**
@@ -103,10 +105,10 @@ export interface WorkConsentClient {
 export function createWorkConsentClient(options: DeviceServicePlatformOptions): WorkConsentClient {
   const call = deviceServiceCall(options)
 
-  const record = (value: unknown): WorkConsentRecord => {
+  const record = (value: unknown, provider: WorkRelayPlan): WorkConsentRecord => {
     const parsed = WorkConsentRecordSchema.safeParse(value)
 
-    if (!parsed.success) {
+    if (!parsed.success || parsed.data.provider !== provider) {
       throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
     }
 
@@ -114,10 +116,11 @@ export function createWorkConsentClient(options: DeviceServicePlatformOptions): 
   }
 
   return {
-    async read() {
-      const parsed = WorkSubscriptionStateSchema.safeParse(await call('work_subscription_read', {}))
+    async read(provider) {
+      const plan = provider ?? 'codex'
+      const parsed = WorkSubscriptionStateSchema.safeParse(await call('work_subscription_read', provider ? { provider } : {}))
 
-      if (!parsed.success) {
+      if (!parsed.success || parsed.data.consent.provider !== plan || parsed.data.facts.some(fact => fact.provider !== plan)) {
         throw Object.assign(new Error('device_services_bad_reply'), { status: 502 })
       }
 
@@ -126,12 +129,12 @@ export function createWorkConsentClient(options: DeviceServicePlatformOptions): 
     set: async input =>
       record(
         await call('work_consent_set', {
-          provider: 'codex',
+          provider: input.provider ?? 'codex',
           agents: [...input.agents],
           devices: [...input.devices],
           alsoWhenScheduled: input.alsoWhenScheduled
-        })
+        }), input.provider ?? 'codex'
       ),
-    revoke: async () => record(await call('work_consent_revoke', { provider: 'codex' }))
+    revoke: async (provider = 'codex') => record(await call('work_consent_revoke', { provider }), provider)
   }
 }

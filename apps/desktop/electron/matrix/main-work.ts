@@ -27,7 +27,7 @@ import {
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { WorkHost } from '../work/sidecar/host'
-import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
+import { workRelayRuntimeReady } from '../work/sidecar/process'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -97,7 +97,6 @@ export interface MatrixWorkDeps {
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
   /** Gate 4a-1: this account's ChatGPT custody is retired (`chatgpt_carry_status` answers `work`). Absent: not known, so closed. */
-  planCustodyRetired?(): boolean
   /** The owner's own SDK host (`hosts.get('human')`), for the verifier. */
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
@@ -389,6 +388,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   // The gate's `restartWhenIdle`, the mount that builds the gate and the surface that holds the view need each other.
   let mount!: WorkMount
   let surface!: WorkSurface
+  let planUsage: { incarnation: string; reports: Awaited<ReturnType<typeof readPlanUsage>> } | undefined
 
   const restartWhenIdle = async (): Promise<'restarted' | 'declined'> => {
     const gate = mount.service()?.gate
@@ -445,6 +445,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           }
         } : undefined,
         incarnation: () => host.current(),
+        relayRuntimeReady: () => host.current()?.relayRuntimeReady === true,
+        relayLimit: plan => {
+          const usage = planUsage
+          const report = usage?.incarnation === host.current()?.id && usage?.reports.find(each => each.plan === plan)
+
+          return report && (report.resetsAt === undefined || report.resetsAt > Date.now())
+            ? { state: report.state, resetAt: report.resetsAt }
+            : { state: 'unknown' }
+        },
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
         modelAccess: incarnation => host.readModelAccess(incarnation),
@@ -499,9 +508,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
-    read: () => consentFor().read(),
+    read: plan => consentFor().read(plan),
     set: input => consentFor().set(input),
-    revoke: () => consentFor().revoke()
+    revoke: plan => consentFor().revoke(plan)
   }
 
   const parts = (): WorkSurfaceParts => ({
@@ -519,6 +528,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       if (host.current()?.id !== running.id || mount.service() !== service) {return []}
 
+      planUsage = { incarnation: running.id, reports }
+
       return reports.map(({ windowStart, ...limit }) => ({
         ...limit,
         ...(service && windowStart !== undefined
@@ -527,9 +538,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }))
     },
     wantServer: () => mount.wantServer(),
-    // Gate 4a also needs this account's custody retired (plan §12, `UC:` 1-3); `planCustodyRetired` is absent until the un-carry
-    // lane reads it, so the step stays hidden by construction.
-    planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
+    // Work's own provider view owns the login. The staged T3 pin must enforce own-thread MCP scope.
+    planConnectOpen: () => host.current()?.relayRuntimeReady ?? workRelayRuntimeReady(deps.resources),
     deviceServiceId: () => deps.deviceServiceId(),
     relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
     consent: consentClient

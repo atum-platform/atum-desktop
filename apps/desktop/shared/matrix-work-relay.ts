@@ -9,13 +9,41 @@
 export interface WorkRelayRoomView {
   account: { consent: WorkRelayConsent; facts: readonly WorkRelayFact[] }
   status: WorkRelayStatus | null
-  turns: { eventId: string; sentAt: number; receipt: WorkRelayReceipt }[]
+  turns: { eventId: string; plan?: WorkRelayPlan; sentAt: number; receipt: WorkRelayReceipt }[]
 }
 
-/** Plans the contract names. R1 enables Codex only; the others are schema-reserved (R2). */
+/** Plan IDs shared by the Work route and renderer. */
 export const WORK_RELAY_PLANS = ['codex', 'claude', 'antigravity'] as const
 export type WorkRelayPlan = (typeof WORK_RELAY_PLANS)[number]
-export const WORK_RELAY_ENABLED_PLANS: readonly WorkRelayPlan[] = ['codex']
+export const WORK_RELAY_ENABLED_PLANS = WORK_RELAY_PLANS
+/** Wire plan IDs map only to these built-in native instances. */
+export const WORK_RELAY_PROVIDER = {
+  codex: { instanceId: 'codex', picker: 'openai-codex', notice: 'chatgpt', usage: true, mode: {} },
+  claude: { instanceId: 'claudeAgent', picker: 'anthropic', notice: 'claude', usage: true, mode: {} },
+  antigravity: { instanceId: 'antigravity', picker: 'antigravity', notice: 'antigravity', usage: false,
+    mode: { 'auto-accept-edits': 'approval-required' } }
+} as const satisfies Record<WorkRelayPlan, {
+  instanceId: string
+  picker: string
+  notice: string
+  usage: boolean
+  mode: Partial<Record<string, string>>
+}>
+
+export function workRelayPlan(instanceId: string): WorkRelayPlan | undefined {
+  return WORK_RELAY_PLANS.find(plan => WORK_RELAY_PROVIDER[plan].instanceId === instanceId)
+}
+
+export function workRelayNoticePlan(notice: string | undefined): WorkRelayPlan | undefined {
+  return WORK_RELAY_PLANS.find(plan => WORK_RELAY_PROVIDER[plan].notice === notice)
+}
+
+export function workRelayModeLimit(plan: WorkRelayPlan, modeLimit: string): string {
+  const [runtime, interaction] = modeLimit.split('/')
+  const modes: Partial<Record<string, string>> = WORK_RELAY_PROVIDER[plan].mode
+
+  return `${modes[runtime] ?? runtime}/${interaction}`
+}
 
 /** `status.selection`: the agent's revisioned model selection. Null when the agent is on an Atum model. */
 export interface WorkRelaySelection {
@@ -31,6 +59,7 @@ export type WorkRelayHold = 'waiting_for_mac' | 'approval' | 'question' | 'quest
 /** `status.openOperation`: the one open relay operation of this conversation, if any. */
 export interface WorkRelayOperation {
   requestId: string
+  plan?: WorkRelayPlan
   eventId: string
   roomId: string
   resetEpoch: number
@@ -72,6 +101,7 @@ export interface WorkRelayFact {
   provider: WorkRelayPlan
   status: 'connected' | 'disconnected' | 'stale'
   observedAt?: number
+  models?: readonly string[]
   displayName?: string
 }
 

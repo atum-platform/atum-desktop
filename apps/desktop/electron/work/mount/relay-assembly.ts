@@ -1,6 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { lstatSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+
+import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 
 import type { MatrixAgentDefinitionSnapshot } from '../../matrix/agent-definition'
 import { WORK_PROVISIONAL, WorkRelaySelectionSchema } from '../gate/contract'
@@ -17,6 +19,62 @@ export interface RelayAssemblyOptions {
   ownerToken(): Promise<string>
   fresh(): boolean
   now?(): number
+  /**
+   * Absolute paths a relay session must not read (plan O16): other makers' logins, SSH and cloud credentials, browser
+   * profiles, the keychain, Atum's and T3's own stores, sibling assistants. Written into the folder's native settings.
+   */
+  protectedRoots?: readonly string[]
+}
+
+/**
+ * The protected data of plan O16 as roots under `home`, for a relay folder's native settings: other makers' logins, SSH and
+ * cloud credentials, the keychain, browser stores, Atum's and T3's own stores, and every assistant folder (a session's own
+ * folder is allowed back in by `allowRead`).
+ */
+export function relayProtectedRoots(home: string, assistantsRoot: string): string[] {
+  return [
+    '.ssh', '.aws', '.azure', '.config/gcloud', '.config/gh', '.kube', '.docker', '.netrc', '.gnupg',
+    '.codex', '.gemini', '.claude', '.claude.json', '.t3', '.hermes',
+    'Library/Keychains', 'Library/Cookies', 'Library/Safari', 'Library/Mail', 'Library/Messages',
+    'Library/Application Support/Google', 'Library/Application Support/Chromium',
+    'Library/Application Support/Firefox', 'Library/Application Support/Arc',
+    'Library/Application Support/BraveSoftware', 'Library/Application Support/Microsoft Edge',
+    'Library/Application Support/T3 Code', 'Library/Application Support/Atum',
+    'Library/Application Support/Claude', 'Library/Application Support/Antigravity',
+    'Library/Application Support/Code/User/globalStorage'
+  ]
+    .map(relative => join(home, relative))
+    .concat(resolve(assistantsRoot))
+}
+
+/** Instruction files each native harness loads at session start: Codex and Antigravity read AGENTS.md, Claude CLAUDE.md, Antigravity GEMINI.md. */
+export const RELAY_INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'] as const
+
+/**
+ * Claude Code's own project settings for a relay folder, written once with the persona (never rewritten): an enforced
+ * deny-read over the protected roots, its native sandbox required, no project MCP servers, and no edits to the persona
+ * or these settings. `//` is Claude's absolute-path prefix in permission rules.
+ */
+export function claudeRelaySettings(input: { folder: string; protectedRoots: readonly string[] }) {
+  const absolute = (path: string) => `/${path}`
+  const own = (file: string) => absolute(join(input.folder, file))
+
+  return {
+    permissions: {
+      deny: [
+        ...input.protectedRoots.flatMap(root => [`Read(${absolute(root)})`, `Read(${absolute(root)}/**)`]),
+        ...[...RELAY_INSTRUCTION_FILES, '.claude/settings.json'].flatMap(file => [`Edit(${own(file)})`, `Write(${own(file)})`])
+      ]
+    },
+    enableAllProjectMcpServers: false,
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      allowUnsandboxedCommands: false,
+      autoAllowBashIfSandboxed: true,
+      filesystem: { denyRead: [...input.protectedRoots], allowRead: [input.folder] }
+    }
+  }
 }
 
 function result(reply: T3Reply): Record<string, unknown> {
@@ -48,14 +106,14 @@ export class RelayAssembly {
 
       const parsed = WorkRelaySelectionSchema.safeParse(rows.find(row => row.agentPrincipal === principal)?.selection)
 
-      if (!parsed.success || parsed.data.plan !== 'codex') {
+      if (!parsed.success) {
         return undefined
       }
 
       // The target/persona are provisioned by main only for a new native thread, after owner-event/history verification.
       return {
         revision: parsed.data.revision,
-        instanceId: 'codex',
+        instanceId: WORK_RELAY_PROVIDER[parsed.data.plan].instanceId,
         model: parsed.data.model,
         projectId: '',
         personaRevision: 1
@@ -73,19 +131,19 @@ export class RelayAssembly {
       return Promise.resolve(JSON.parse(pinned))
     }
 
-    const pending = this.pending.get(principal)
+    const pending = this.pending.get(key)
 
     if (pending) {
-      return pending.then(() => this.provision(principal, threadId))
+      return pending
     }
 
-    const run = this.create(principal, key).finally(() => this.pending.delete(principal))
-    this.pending.set(principal, run)
+    const run = this.create(principal, threadId, key).finally(() => this.pending.delete(key))
+    this.pending.set(key, run)
 
     return run
   }
 
-  private async create(principal: string, key: string) {
+  private async create(principal: string, threadId: string, key: string) {
     const snapshot = await this.o.definition(principal)
 
     if (
@@ -99,16 +157,56 @@ export class RelayAssembly {
     }
 
     const root = resolve(this.o.assistantsRoot)
-    const folder = join(root, createHash('sha256').update(principal).digest('hex'))
+    const folder = join(root, createHash('sha256').update(JSON.stringify([principal, threadId])).digest('hex'))
     mkdirSync(root, { recursive: true, mode: 0o700 })
 
     if (lstatSync(root).isSymbolicLink()) {
       throw new Error('relay_folder_invalid')
     }
 
-    mkdirSync(folder, { recursive: true, mode: 0o700 })
+    // A new native session gets its own project. Keep it beside legacy assistant projects
+    // so native instruction discovery cannot inherit their previously shared persona.
+    if (!existsSync(folder)) {
+      const temporary = mkdtempSync(join(root, '.relay-persona-'))
+      const instruction = `<!-- Atum persona revision: ${snapshot.definitionRevision} -->\n${snapshot.definition.soul}\n`
 
-    if (lstatSync(folder).isSymbolicLink()) {
+      try {
+        for (const file of RELAY_INSTRUCTION_FILES) {
+          writeFileSync(join(temporary, file), instruction, { mode: 0o400, flag: 'wx' })
+        }
+
+        mkdirSync(join(temporary, '.claude'), { mode: 0o700 })
+        writeFileSync(
+          join(temporary, '.claude', 'settings.json'),
+          JSON.stringify(claudeRelaySettings({ folder, protectedRoots: this.o.protectedRoots ?? [] })),
+          { mode: 0o400, flag: 'wx' }
+        )
+
+        renameSync(temporary, folder)
+      } finally {
+        rmSync(temporary, { recursive: true, force: true })
+      }
+    }
+
+    if (!lstatSync(folder).isDirectory()) {
+      throw new Error('relay_folder_invalid')
+    }
+
+    // Project creation and ledger persistence can fail independently. Retrying the same
+    // launch must reuse the files and their original revision across either failure.
+    const instructions = RELAY_INSTRUCTION_FILES.map(file => {
+      const location = join(folder, file)
+
+      if (!lstatSync(location).isFile()) {
+        throw new Error('relay_folder_invalid')
+      }
+
+      return readFileSync(location, 'utf8')
+    })
+    const revision = /^<!-- Atum persona revision: ([1-9][0-9]*) -->\n/u.exec(instructions[0])
+    const personaRevision = Number(revision?.[1])
+
+    if (!Number.isSafeInteger(personaRevision) || instructions.some(text => text !== instructions[0])) {
       throw new Error('relay_folder_invalid')
     }
 
@@ -158,15 +256,7 @@ export class RelayAssembly {
       projectId = data.id
     }
 
-    // Codex reads AGENTS.md at native session start. Never rewrite it on resume/send or record sync.
-    const temporary = join(folder, `.persona-${randomUUID()}`)
-    writeFileSync(
-      temporary,
-      `<!-- Atum persona revision: ${snapshot.definitionRevision} -->\n${snapshot.definition.soul}\n`,
-      { mode: 0o600, flag: 'wx' }
-    )
-    renameSync(temporary, join(folder, 'AGENTS.md'))
-    const pinned = { projectId, personaRevision: snapshot.definitionRevision }
+    const pinned = { projectId, personaRevision }
     this.o.ledger.setMeta(key, JSON.stringify(pinned))
 
     return pinned

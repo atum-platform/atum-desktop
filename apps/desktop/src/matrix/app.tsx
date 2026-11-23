@@ -1,3 +1,4 @@
+import { WORK_RELAY_PLANS, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 import './look/look.css'
 import './team-space/slack-layout.css'
 
@@ -41,7 +42,7 @@ import { WorkPlanConnectStep } from '@/app/work/plan-connect'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
 import { workRelayFallbackReason, workRelayPickerView, workRelayTurnChrome } from '@/app/work/relay-view'
 import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
-import { $workRelayRooms, openWorkPlanConnect, openWorkPlanConsent } from '@/app/work/store'
+import { $workRelayRooms, openWorkPlanConnect } from '@/app/work/store'
 import { useWorkRelayRoom } from '@/app/work/use-relay'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
@@ -780,9 +781,9 @@ function MatrixEventMessageBubble() {
   const chrome = workRelayTurnChrome({ receipt,
     queued: Boolean(sourceMessage?.own && !sourceMessage.pending && !sourceMessage.failed && !receipt && operation && openTurn && sourceMessage.timestamp > openTurn.sentAt),
     operation: operation?.eventId === eventId ? operation : undefined,
-    fallback: relayView && sourceMessage?.answeredByFallback?.plan === 'chatgpt' ? workRelayFallbackReason(sourceMessage.answeredByFallback.reason) : undefined,
+    fallback: relayView && sourceMessage?.answeredByFallback && workRelayNoticePlan(sourceMessage.answeredByFallback.plan) ? workRelayFallbackReason(sourceMessage.answeredByFallback.reason) : undefined,
     sentAt: sourceMessage?.own ? sourceMessage.timestamp : relayTurn?.sentAt, now: Date.now(),
-    limit: relayView?.status?.limits.find(each => each.plan === 'codex'), onBoundMac: true })
+    limit: relayView?.status?.limits.find(each => each.plan === (operation?.plan ?? relayView.status?.selection?.plan)), onBoundMac: true })
 
   const message = sourceMessage && { ...sourceMessage, relayTurn: chrome.kind !== 'none' && chrome.at === (sourceMessage.own ? 'message' : 'reply') ? chrome : sourceMessage.relayTurn }
   const local = useAuiState(state => state.message.metadata.custom?.local) as MatrixTranscriptEntry['local']
@@ -1618,7 +1619,7 @@ function MatrixEventMessageBubble() {
         <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
       )}
       {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
-        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} roomId={action?.room.id} />
+        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} roomId={action?.room.id} plan={workRelayNoticePlan(message.answeredByFallback?.plan) ?? relayTurn?.plan ?? operation?.plan} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>
@@ -4007,27 +4008,30 @@ function MatrixComposer({
                     onSubscriptions={onSubscriptions}
                     preferenceScope={`account:${snapshot.identity?.userId ?? 'signed-out'}`}
                     room={room}
-                    workRelay={roomAgent && relayRoom && window.atumMatrix.work?.selectRelay ? {
-                      view: workRelayPickerView({ plan: 'codex', agentPrincipal: roomAgent.principal,
+                    workRelay={roomAgent && relayRoom && window.atumMatrix.work?.selectRelay ? WORK_RELAY_PLANS.map(plan => ({
+                      view: workRelayPickerView({ plan, agentPrincipal: roomAgent.principal,
                         account: relayRoom.account, selection: relayRoom.status?.selection ?? null,
                         encrypted: room.encrypted, holdsGoogle: snapshot.googleAssistant?.state === 'ready',
-                        limit: relayRoom.status?.limits.find(each => each.plan === 'codex'),
-                        lastTurn: relayFallback?.plan === 'chatgpt' ? workRelayTurnChrome({ fallback: workRelayFallbackReason(relayFallback.reason) }) : undefined }),
+                        limit: relayRoom.status?.limits.find(each => each.plan === plan),
+                        lastTurn: relayFallback && workRelayNoticePlan(relayFallback.plan) === plan ? workRelayTurnChrome({ fallback: workRelayFallbackReason(relayFallback.reason) }) : undefined }),
+                      models: (() => {
+                        const ids = [...new Set(relayRoom.account.facts.filter(fact => fact.provider === plan && fact.status !== 'disconnected')
+                          .flatMap(fact => fact.models ?? []))]
+
+                        return ids.length ? ids.map(id => ({ id, displayName: id })) : undefined
+                      })(),
                       select: async model => {
                         const revision = relayRoom.status?.selection?.revision ?? roomAgent.cloudModel?.revision
 
                         if (revision === undefined) {return { status: 'unavailable' }}
-                        const selection = await window.atumMatrix.work!.selectRelay!(roomAgent.principal, revision, model)
+                        const selection = await window.atumMatrix.work!.selectRelay!(roomAgent.principal, revision, model, plan)
 
                         if (relayRoom.status) {$workRelayRooms.set({ ...$workRelayRooms.get(), [room.id]: { ...relayRoom, status: { ...relayRoom.status, selection } } })}
 
                         return { status: 'saved' }
                       },
-                      fix: fix => {
-                        if (fix === 'allow') {openWorkPlanConsent({ agent: roomAgent.principal })}
-                        else {void openWorkPlanConnect(window.atumMatrix.work!).catch(fail)}
-                      }
-                    } : undefined}
+                      fix: () => void openWorkPlanConnect(window.atumMatrix.work!, plan).catch(fail)
+                    })) : undefined}
                   />
                 )}
               {room.assistant && window.atumMatrix.voice && (

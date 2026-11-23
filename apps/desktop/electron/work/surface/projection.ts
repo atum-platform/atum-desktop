@@ -1,3 +1,5 @@
+import { WORK_RELAY_PROVIDER, type WorkRelayPlan } from '../../../shared/matrix-work-relay'
+
 import type {
   MatrixWorkAgentActivity,
   MatrixWorkAssistants,
@@ -13,7 +15,7 @@ export type GateSurfaceState = Pick<
   GateServiceState,
   'agents' | 'enrolled' | 'phase' | 'socket' | 'switchOn' | 'workGrantAccepted'
 > &
-  Partial<Pick<GateServiceState, 'planConnected' | 'planSwitchOn'>>
+  Partial<Pick<GateServiceState, 'planConnected' | 'planSwitchOn' | 'connectedPlans' | 'relayAccountConsent'>>
 
 /**
  * The plan switch (gate 4b): drawn while T3 says the plan is connected on this Mac, and whenever it is on (so it can be turned
@@ -28,11 +30,14 @@ export function projectWorkPlan(state: GateSurfaceState | null | undefined): Mat
     return 'on'
   }
 
-  return state.planConnected === 'connected' ? 'off' : undefined
+  return state.planConnected === 'connected' || state.connectedPlans?.length ? 'off' : undefined
 }
 
 /** T3's own provider screen, on the Codex instance (`apps/web/src/routes/_chat.settings.providers.tsx` in the fork). */
-export const WORK_PLAN_CONNECT_PATH = '/settings/providers?instanceId=codex'
+export function workPlanConnectPath(plan: WorkRelayPlan): string {
+  return `/settings/providers?instanceId=${WORK_RELAY_PROVIDER[plan].instanceId}`
+}
+export const WORK_PLAN_CONNECT_PATH = workPlanConnectPath('codex')
 
 /**
  * Gate 4a: the Connect step and row. Hidden until main says every 4a row holds for this account; then `offer` until T3 itself says
