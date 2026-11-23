@@ -45,14 +45,14 @@ function renderMacs(native: MatrixNativeMacBridge | undefined, macs: MatrixReach
 const thisRow = () => window.document.querySelector('[data-matrix-mac="this"]') as HTMLElement
 
 describe("this Mac's native reach in Your Macs", () => {
-  it('shows only the quiet Ready state when native reach is connected', async () => {
+  it('shows Ready with a quiet Disconnect action when native reach is connected', async () => {
     const { ssh, value } = bridge({ status: view('connected') })
     renderMacs(value)
 
     await waitFor(() => expect(thisRow().getAttribute('data-matrix-mac-native')).toBe('connected'))
     expect(ssh).toHaveBeenCalledWith('status')
     expect(within(thisRow()).getByRole('status').textContent).toContain('Ready')
-    expect(within(thisRow()).queryByRole('button')).toBeNull()
+    expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy()
     expect(screen.queryByText(words.remoteLogin)).toBeNull()
   })
 
@@ -67,7 +67,7 @@ describe("this Mac's native reach in Your Macs", () => {
     fireEvent.click(allow)
 
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('enable_remote_login'))
-    await waitFor(() => expect(within(thisRow()).queryByRole('button')).toBeNull())
+    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
     expect(screen.queryByText(words.remoteLogin)).toBeNull()
   })
 
@@ -95,13 +95,77 @@ describe("this Mac's native reach in Your Macs", () => {
   })
 
   it('offers Try again for a failed setup result and refreshes on focus', async () => {
-    const { ssh, value } = bridge({ status: view('tunnel_down'), connect: view('connected') })
+    const { ssh, value } = bridge({ status: view('tunnel_down'), connect: view('connected'), refresh: view('connected') })
     renderMacs(value)
     fireEvent.click(await within(thisRow()).findByRole('button', { name: words.tryAgain }))
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
-    await waitFor(() => expect(within(thisRow()).queryByRole('button')).toBeNull())
+    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
     fireEvent.focus(window)
-    await waitFor(() => expect(ssh.mock.calls.filter(([action]) => action === 'connect')).toHaveLength(2))
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('refresh'))
+    expect(ssh.mock.calls.filter(([action]) => action === 'connect')).toHaveLength(1)
+  })
+
+  it('names the step and gives a plain-language reason for a known code', async () => {
+    const refused = bridge({ status: { ...view('error'), step: 'start_tunnel', code: 'EACCES' } })
+    renderMacs(refused.value)
+    expect(await within(thisRow()).findByText(`${words.failure.atStep(words.failure.steps.start_tunnel)} ${words.failure.files}`)).toBeTruthy()
+  })
+
+  it('names the step for a code it does not know, and offers the reset beside Try again', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'start_tunnel', code: 'ETIMEDOUT' } })
+    renderMacs(value)
+    const line = await within(thisRow()).findByText(words.failure.atStep(words.failure.steps.start_tunnel, 'ETIMEDOUT'))
+    expect(line).toBeTruthy()
+    expect(within(thisRow()).getByRole('button', { name: words.tryAgain })).toBeTruthy()
+    expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy()
+  })
+
+  it('says the key list was refused in plain words, without the internal code', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'authorized_keys', code: 'device_registry_400_invalid' } })
+    renderMacs(value)
+    expect(await within(thisRow()).findByText(`${words.failure.atStep(words.failure.steps.authorized_keys)} ${words.failure.details}`)).toBeTruthy()
+  })
+
+  it('explains a saved route that needs a reset', async () => {
+    const { value } = bridge({ status: { ...view('error'), step: 'prepare', code: 'native_ssh_route_recovery_required' } })
+    renderMacs(value)
+    expect(await within(thisRow()).findByText(`${words.failure.atStep(words.failure.steps.prepare)} ${words.failure.recovery}`)).toBeTruthy()
+  })
+
+  it('disconnects this Mac in one action and returns the row to Connect from scratch', async () => {
+    const { ssh, value } = bridge({
+      status: { ...view('error'), step: 'prepare', code: 'native_ssh_setup_failed' },
+      disconnect: view('not_connected'),
+      refresh: view('not_connected'),
+      connect: view('connected')
+    })
+
+    renderMacs(value)
+
+    fireEvent.click(await within(thisRow()).findByRole('button', { name: words.disconnect }))
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('disconnect'))
+    expect(await within(thisRow()).findByText(words.notConnected)).toBeTruthy()
+    // Regaining focus never reconnects a Mac the owner just disconnected.
+    fireEvent.focus(window)
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('refresh'))
+    expect(ssh).not.toHaveBeenCalledWith('connect')
+
+    fireEvent.click(within(thisRow()).getByRole('button', { name: words.connect }))
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
+    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
+  })
+
+  it('shows Try again working while it retries, and the new reason afterwards', async () => {
+    const ssh = vi.fn(async (action: string) =>
+      action === 'status' ? view('error') : new Promise<MatrixNativeSshView>(() => undefined)
+    )
+
+    renderMacs({ ssh, confirmCommand: vi.fn() } as unknown as MatrixNativeMacBridge)
+
+    const retry = await within(thisRow()).findByRole('button', { name: words.tryAgain })
+    fireEvent.click(retry)
+    const working = await within(thisRow()).findByRole('button', { name: words.working })
+    expect(working.hasAttribute('disabled')).toBe(true)
   })
 
   it("leaves a fix of this Mac's own first, and other Macs untouched", async () => {

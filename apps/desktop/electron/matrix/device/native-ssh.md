@@ -216,3 +216,33 @@ Local validation for B1 (2026-11-18):
 ## macOS login names
 
 Enrollment preserves the spelling of the short account name, including uppercase letters. The first character must be an ASCII letter or underscore. Subsequent characters can also include digits or hyphens, up to 32 characters total. Deploy compatible server-side enrollment validation before releasing the client.
+
+## Setup step reasons and Disconnect
+
+Native SSH reports the failing step (`prepare`, `authorized_keys`, `write_keys`,
+`start_tunnel`, or `enroll`) through the existing `matrix:native-ssh` IPC.
+The view contains the step and an allowlisted code. Main logs the same pair.
+Registry response text and process messages stay out of both. The saved token
+and the enrollment-scoped Full Disk Access reminder retain their existing
+recovery and acknowledgement rules.
+
+The current Connections row calls `nativeMac.ssh('disconnect')`. C4 can call
+the same action from its Connections pane. This action disables automatic
+reconnect for the signed-in account on this Mac, revokes the SSH route and
+removes the local tunnel, managed keys, token and route metadata. It also cuts
+off delegated plan use and withdraws this Mac's acknowledged Work plan fact
+through the existing Work publisher, even if Work is stopped. Missing plan
+facts or a missing Work ledger require no platform call. When C3 expands
+publication to more plans, extend that publisher's withdrawal to cover them.
+The action preserves provider sign-ins.
+
+Window focus uses `nativeMac.ssh('refresh')`, which respects the native service's
+saved Disconnect setting. Only an explicit Connect restarts setup and resumes
+plan-fact publication. Delegated plan use remains off until the owner enables
+it. A failed revoke or withdrawal stays visible as a retryable Disconnect,
+including after an app restart.
+
+Verification uses mocked owner responses, process calls and Work reports, plus
+temporary homes and real Work ledgers. The focused tests cover all five failing
+setup steps, credential redaction, cleanup and retry, focus and restart after
+Disconnect, and published fact withdrawal.

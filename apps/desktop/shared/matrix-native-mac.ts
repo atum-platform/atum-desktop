@@ -1,7 +1,7 @@
 /**
  * Native Hermes reach-down to this Mac (files + terminal over the system's own Remote Login), as the
  * window sees it. Main owns setup (`electron/matrix/device/native-ssh.ts`); this is display state and
- * two owner actions. Nothing here is execution authority.
+ * owner actions. Nothing here is execution authority.
  */
 export const MATRIX_NATIVE_MAC_IPC = {
   /** The main-process native SSH service (registered beside it in `matrix/main.ts`). */
@@ -15,10 +15,21 @@ export type MatrixNativeSshStatus =
   | 'needs_remote_login'
   | 'needs_full_disk_access_hint'
   | 'tunnel_down'
+  /** The owner disconnected this Mac; Connect sets it up again from scratch. */
+  | 'not_connected'
   | 'error'
+
+/** Where setup stopped. Fixed step names only, never text from a process or the account. */
+export type MatrixNativeSshSetupStep =
+  | 'prepare'
+  | 'authorized_keys'
+  | 'write_keys'
+  | 'start_tunnel'
+  | 'enroll'
 
 export type MatrixNativeSshAction =
   | 'status'
+  | 'refresh'
   | 'connect'
   | 'disconnect'
   | 'enable_remote_login'
@@ -30,6 +41,10 @@ export interface MatrixNativeSshView {
   status: MatrixNativeSshStatus
   settingsUrl: string
   reason?: string
+  /** The setup step that failed, so the window can say where it stopped. */
+  step?: MatrixNativeSshSetupStep
+  /** A safe code for the failed step: our own code, an OS error code or an HTTP status number. */
+  code?: string
 }
 
 /** `confirmed`: the owner is present and said yes; `declined`: they cancelled the sheet. */

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { MatrixNativeMacBridge, MatrixNativeSshAction, MatrixNativeSshView } from '../../shared/matrix-native-mac'
 import type { MatrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
@@ -11,12 +11,55 @@ import type { MatrixNativeMacCopy } from '../../shared/matrix-native-mac-copy'
 export interface MatrixNativeMacLine {
   help: string
   action: { label: string; run: MatrixNativeSshAction }
+  /** The quiet way back to a fresh Connect, beside the fix, only where a route may be left behind. */
+  reset?: { label: string; run: MatrixNativeSshAction }
 }
 
 export interface MatrixNativeMacFacts {
   view?: MatrixNativeSshView
   /** The administrator prompt did not turn Remote Login on: the way left is System Settings. */
   manual: boolean
+}
+
+type FailureWord = 'recovery' | 'cleanup' | 'files' | 'helper' | 'details'
+
+/** Safe codes we know in plain words; anything else names the step it stopped at. */
+const FAILURE_WORD: Record<string, FailureWord> = {
+  native_ssh_route_recovery_required: 'recovery',
+  native_ssh_cleanup_pending: 'cleanup',
+  native_ssh_file_failed: 'files',
+  native_ssh_symlink: 'files',
+  EACCES: 'files',
+  EPERM: 'files',
+  EROFS: 'files',
+  ENOENT: 'helper',
+  invalid_keys: 'details',
+  invalid_prepare: 'details',
+  invalid_host: 'details',
+  invalid_device: 'details',
+  invalid_ssh_key: 'details',
+  invalid_ssh_block: 'details',
+  // The account refused the key list a purpose-aware setup needs.
+  device_registry_400_invalid: 'details'
+}
+
+export function matrixNativeMacFailureLine(
+  view: MatrixNativeSshView | undefined,
+  copy: MatrixNativeMacCopy
+): string {
+  const words = copy.mac
+  const code = view?.code ?? view?.reason
+  const word = code && Object.hasOwn(FAILURE_WORD, code) ? FAILURE_WORD[code] : undefined
+
+  const step = view?.step ? words.failure.steps[view.step] : undefined
+
+  if (word) {
+    const detail = words.failure[word]
+
+    return step ? `${words.failure.atStep(step)} ${detail}` : detail
+  }
+
+  return step ? words.failure.atStep(step, code === 'unknown' ? undefined : code) : words.unreachable
 }
 
 /** The one line and action, or null when nothing needs the owner. */
@@ -35,41 +78,71 @@ export function matrixNativeMacLine(
     case 'needs_full_disk_access_hint':
       return { help: words.fullDisk, action: { label: words.openSettings, run: 'open_settings' } }
 
+    case 'not_connected':
+      return { help: words.notConnected, action: { label: words.connect, run: 'connect' } }
+
     case 'tunnel_down':
       return { help: words.unreachable, action: { label: words.tryAgain, run: 'connect' } }
 
     case 'error':
-      return { help: words.unreachable, action: { label: words.tryAgain, run: 'connect' } }
+      if (facts.view.reason === 'native_ssh_cleanup_pending') {
+        return { help: words.failure.cleanup, action: { label: words.disconnect, run: 'disconnect' } }
+      }
+
+      return {
+        help: matrixNativeMacFailureLine(facts.view, copy),
+        action: { label: words.tryAgain, run: 'connect' },
+        reset: { label: words.disconnect, run: 'disconnect' }
+      }
 
     default:
       return null
   }
 }
 
-/** Read the setup result on entry, after actions and when the window regains focus. */
+/**
+ * Read the setup result on entry, after actions and when the window regains focus. Focus never
+ * reconnects a Mac the owner just disconnected: only Connect does that.
+ */
 export function useMatrixNativeMac(
   active: boolean,
   bridge: MatrixNativeMacBridge | undefined = window.atumMatrix?.nativeMac
-): MatrixNativeMacFacts & { busy: boolean; run(action: MatrixNativeSshAction): void } {
+): MatrixNativeMacFacts & { busy: boolean; running?: MatrixNativeSshAction; run(action: MatrixNativeSshAction): void } {
   const [result, setResult] = useState<MatrixNativeMacFacts>({ manual: false })
-  const [busy, setBusy] = useState(false)
+  const [running, setRunning] = useState<MatrixNativeSshAction>()
+  const inFlight = useRef(false)
+
+  const take = useCallback((view: MatrixNativeSshView | undefined, action?: MatrixNativeSshAction) => {
+    setResult(previous =>
+      view
+        ? { view, manual: action === 'enable_remote_login' && view.status === 'needs_remote_login' }
+        : { ...previous, manual: action === 'enable_remote_login' }
+    )
+  }, [])
 
   const run = useCallback(
     (action: MatrixNativeSshAction) => {
-      if (!active || !bridge) {
+      if (!active || !bridge || inFlight.current) {
         return
       }
 
-      setBusy(true)
+      inFlight.current = true
+      setRunning(action)
       void bridge
         .ssh(action)
         .then(
-          view => setResult({ view, manual: action === 'enable_remote_login' && view.status === 'needs_remote_login' }),
-          () => setResult(previous => ({ ...previous, manual: action === 'enable_remote_login' }))
+          view => take(view, action),
+          async () => {
+            // Main answers a failed action with its error; the status it now holds is the reason.
+            take(await bridge.ssh('status').catch(() => undefined), action)
+          }
         )
-        .finally(() => setBusy(false))
+        .finally(() => {
+          inFlight.current = false
+          setRunning(undefined)
+        })
     },
-    [active, bridge]
+    [active, bridge, take]
   )
 
   useEffect(() => {
@@ -81,19 +154,21 @@ export function useMatrixNativeMac(
     void bridge.ssh('status').then(
       view => {
         if (live) {
-          setResult({ view, manual: false })
+          take(view)
         }
       },
       () => undefined
     )
-    const refresh = () => run('connect')
+
+    const refresh = () => run('refresh')
+
     window.addEventListener('focus', refresh)
 
     return () => {
       live = false
       window.removeEventListener('focus', refresh)
     }
-  }, [active, bridge, run])
+  }, [active, bridge, run, take])
 
-  return { ...result, busy, run }
+  return { ...result, busy: running !== undefined, running, run }
 }
