@@ -253,3 +253,27 @@ bytes on disk, and every other `dist/` file already matched. The manifest SHA-25
 `2ea06dd3…aaff1` to `be38f8aa…2dead`. Follow-up: `export.mjs --check` and the public guards
 don't hash `dist/` files against the manifest, so this drift went unnoticed. That check belongs
 in the producer (atum-app).
+
+## Wave 4b: relay questions and scheduled plan usage (#103, #104)
+
+Follow-up for the phone's "Work plan rows + consent" lane: the phone-visible copy desktop added
+between `46f5a518` and `784f608f`, by the same method as above (generated into
+`mobileScreensCopy.relay` by evaluating the desktop modules, producer run, `splice4.mjs` with
+`wave4b/spec.json` on atum-app `chore/mobile-export-wave4b-keys`).
+
+- **Added: 5 entries (3 keys).** `MS.relay.waitingForAnswer` and `MS.relay.invalidAnswer`, the
+  turn line while a relay turn waits on the assistant's question and after a reply that did not
+  answer it (i18n `sidebar.row.waitingForAnswer`, existing, now drawn by `relay-chrome.tsx`;
+  `sidebar.row.invalidAnswer`, new in #104; all five locales on desktop).
+  `MS.relay.usageScheduled(runs)` (relay-copy, #103), number with exact `runs=1` / `runs=0`
+  branches; desktop has en and vi, the other locales repeat the English as desktop shows them.
+  En says "1 scheduled runs" for one run, exactly as desktop does.
+- **Refreshed / removed: none.** Every other entry the snapshot shares with the producer is still
+  byte-identical to it; the inventory and copy map are unchanged.
+- **Not exported:** the Settings rows' titles "ChatGPT" and "Claude" (product names, hard-coded),
+  the usage line's `·` composition and its date format (`workRelayUsageText` logic, not words),
+  and the gate's T3-side prompt and thread titles ("Current owner request:", "Scheduled job …",
+  "Scheduled: …", "Assistant conversation"), which only Work shows. No new partial-locale table.
+- Checks: producer `export.mjs --check` clean, producer tests 45/45 (one earlier run had 2
+  timing failures that did not recur in two full reruns); 44 manifest hashes match their files;
+  desktop `tsc -p . --noEmit` and the copy vitest files pass; outbound guard passes (see the commit).

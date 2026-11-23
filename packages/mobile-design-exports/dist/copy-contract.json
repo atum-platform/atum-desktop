@@ -584,6 +584,18 @@
       "key": "src.matrix.mobile-copy.mobileChatCopy.newMessages.count=1",
       "value": 1
     },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=1",
+      "value": 1
+    },
     "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed": {
       "alternatives": [
         {
@@ -6253,6 +6265,7 @@
     "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.connect": [],
     "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.encrypted": [],
     "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.google": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.invalidAnswer": [],
     "src.matrix.mobile-copy.mobileScreensCopy.relay.late": [
       {
         "kind": "string",
@@ -6294,6 +6307,24 @@
       {
         "kind": "string",
         "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=1": [
+      {
+        "kind": "number",
+        "nullable": false
       }
     ],
     "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUnknown": [],
@@ -6358,6 +6389,7 @@
       }
     ],
     "src.matrix.mobile-copy.mobileScreensCopy.relay.waiting": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.waitingForAnswer": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentAccountRefused": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentCancel": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentDotNeedsYou": [],
