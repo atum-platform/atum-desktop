@@ -7,6 +7,7 @@ import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
+import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
 export const ATUM_WORK_PROVIDER = 'atum-managed'
@@ -48,12 +49,6 @@ export interface WorkStartOptions {
 
 /** Required before T3 can register the agent session's peer-link OAuth client. */
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
-
-const PLAN_PROVIDER_DEFAULTS = {
-  codex: { driver: 'codex', enabled: true, config: { setupMode: 'managed' } },
-  claudeAgent: { driver: 'claudeAgent', enabled: true },
-  antigravity: { driver: 'antigravity', enabled: true }
-}
 
 const BROKER_PROFILES = [
   { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum', showInPicker: true },

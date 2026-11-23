@@ -33,7 +33,9 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
 import { readPlanUsage } from '../work/surface/plan-usage'
+import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
@@ -415,6 +417,18 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         account: current,
         deviceServiceId,
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
+        async readPlanCapabilities() {
+          const running = host.current()
+
+          if (!running || running.accountKey !== current.key) {return {}}
+
+          const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(current.key)))
+          const active = account()
+
+          if (host.current()?.id !== running.id || active?.key !== current.key || active.generation !== current.generation) {return {}}
+
+          return projectPlanCapabilities(providers)
+        },
         owner: verifier,
         relayHistory,
         relayAssistant: deps.agentDefinition ? {

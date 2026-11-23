@@ -2,6 +2,8 @@ import { createHash } from 'node:crypto'
 
 import { z } from 'zod'
 
+import { ACCOUNT_PLAN_PROVIDERS, type AccountPlanProvider } from '../plan-providers'
+
 // Client mirror of the Work route contract `atum.work-route/1`, with its additive 1.1 settlement amendment
 // (atum-platform spec/work-route/v1, v1.1 and packages/protocol/src/work-route.ts).
 // Lane G builds only on fields declared there; its fixtures are the oracle.
@@ -376,7 +378,7 @@ export interface WorkSyncAck {
 export const WorkSubscriptionReportReplySchema = z
   .object({
     deviceServiceId: uuid,
-    provider: z.enum(WORK_PLAN_PROVIDERS),
+    provider: z.enum(ACCOUNT_PLAN_PROVIDERS),
     state: z.enum(['connected', 'disconnected']),
     observedAt: safe,
     recordedAt: safe
@@ -421,14 +423,20 @@ export const WorkSubscriptionStateSchema = z
   .strict()
 export type WorkSubscriptionState = z.infer<typeof WorkSubscriptionStateSchema>
 
-/** G9, `work_subscription_report`: a boolean and a time. `stale` is never reported, only read by the platform. */
+export interface WorkPlanModel {
+  id: string
+  displayName: string
+}
+
+/** G9, `work_subscription_report`: native plan availability and its safe model catalog. */
 export interface WorkSubscriptionReport {
   deviceServiceId: string
   accountId: string
   routeEpoch: number
-  provider: WorkPlanProvider
+  provider: AccountPlanProvider
   state: 'connected' | 'disconnected'
   observedAt: number
+  models?: WorkPlanModel[]
 }
 
 export interface WorkMacEvent {
