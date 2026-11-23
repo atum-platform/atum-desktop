@@ -26,6 +26,10 @@ interface CompanySearchProps {
   copy: MatrixCompanyCopy
   locale: string
   onOpen(result: MatrixCompanyMessageSearchResult): Promise<void>
+  /** Asked from the workspace header: searched once on mount. */
+  initialQuery?: string
+  /** Shown in the right pane, whose header already names it. */
+  pane?: boolean
 }
 
 const FILE_TYPES: MatrixCompanySearchFileType[] = ['all', 'images', 'pdfs', 'documents', 'other']
@@ -36,8 +40,8 @@ function today(): string {
   return `${value.getFullYear().toString().padStart(4, '0')}-${(value.getMonth() + 1).toString().padStart(2, '0')}-${value.getDate().toString().padStart(2, '0')}`
 }
 
-export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: CompanySearchProps) {
-  const [query, setQuery] = useState('')
+export function CompanySearch({ bridge, companyId, copy, initialQuery = '', locale, onOpen, pane = false }: CompanySearchProps) {
+  const [query, setQuery] = useState(initialQuery)
   const [tab, setTab] = useState<MatrixCompanySearchTab>('messages')
   const [selectedFileType, setSelectedFileType] = useState<MatrixCompanySearchFileType>('all')
   const [value, setValue] = useState<MatrixCompanyMessageSearchValue>()
@@ -56,6 +60,13 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
     openAttemptRef.current += 1
   }, [])
 
+  // A query asked from the header box is searched straight away; the pane is the results, not another form.
+  const searchRef = useRef<() => Promise<void>>(async () => {})
+
+  useEffect(() => {
+    if (initialQuery.trim()) {void searchRef.current()}
+  }, [initialQuery])
+
   const search = async (
     nextTab: MatrixCompanySearchTab = tab,
     nextFileType: MatrixCompanySearchFileType = selectedFileType,
@@ -68,6 +79,7 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
     const attempt = ++attemptRef.current
     nextBatch ? setLoadingMore(true) : setLoading(true)
     setError(undefined)
+
     if (!nextBatch) {setValue(undefined)}
 
     try {
@@ -91,6 +103,8 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
       if (attemptRef.current === attempt) {setLoading(false); setLoadingMore(false)}
     }
   }
+
+  searchRef.current = () => search()
 
   const switchTab = (next: MatrixCompanySearchTab) => {
     attemptRef.current += 1
@@ -151,7 +165,7 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
   return (
     <section className="grid gap-(--ak-s2)" data-matrix-company-search>
       <div className="flex flex-wrap items-center justify-between gap-(--ak-s2)">
-        <h3 className="text-(length:--atum-t-title) font-semibold text-(--atum-ink)">{copy.searchMessages}</h3>
+        <h3 className={pane ? 'sr-only' : 'text-(length:--atum-t-title) font-semibold text-(--atum-ink)'}>{copy.searchMessages}</h3>
         <div aria-label={copy.searchMessages} className="ak-seg ak-seg--sm" role="radiogroup">
           {(['messages', 'files'] as const).map(item => (
             <button aria-checked={tab === item} className={tab === item ? 'is-selected' : undefined}
@@ -207,7 +221,7 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
             ))}
           </div>
         )}
-        <Button disabled={loading || parsed.errors.length > 0 || [...query.trim()].length < 2}
+        <Button className={pane ? 'sr-only' : undefined} disabled={loading || parsed.errors.length > 0 || [...query.trim()].length < 2}
           type="submit" variant="secondary">
           <SearchIcon aria-hidden />{copy.searchAction}
         </Button>
@@ -227,9 +241,10 @@ export function CompanySearch({ bridge, companyId, copy, locale, onOpen }: Compa
           {value.results.length === 0 ? (
             <p className="text-sm text-(--atum-ink-muted)">{tab === 'files' ? copy.searchNoFiles : copy.searchNoResults}</p>
           ) : (
-            <ul aria-label={tab === 'files' ? copy.searchFilesTab : copy.searchMessagesTab} className="grid gap-(--ak-s2)">
+            <ul aria-label={tab === 'files' ? copy.searchFilesTab : copy.searchMessagesTab}
+              className={pane ? 'grid divide-y divide-(--atum-panel-line)' : 'grid gap-(--ak-s2)'}>
               {value.results.map(result => (
-                <li className="rounded-(--atum-r-control) border border-(--atum-line) p-(--ak-s3)" key={result.eventId}>
+                <li className={pane ? 'py-(--ak-s3)' : 'rounded-(--atum-r-control) border border-(--atum-line) p-(--ak-s3)'} key={result.eventId}>
                   <Button aria-label={result.file ? copy.openFileResult(result.file.name, result.channelName) : undefined}
                     className="h-auto w-full justify-start p-0 text-left" disabled={Boolean(opening)} onClick={() => void open(result)} variant="text">
                     {result.file && <MatrixFileGlyph className="ak-icon ak-icon--lg shrink-0" name={result.file.name} />}

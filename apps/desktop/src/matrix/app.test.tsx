@@ -14466,7 +14466,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
 
       return found!
     })
-    fireEvent.click(within(row).getByRole('button', { name: 'Chief of Staff' }))
+    fireEvent.click(within(row).getByRole('button', { name: 'Private Chief of Staff' }))
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: PRIVATE_ROOM }))
 
     emit({

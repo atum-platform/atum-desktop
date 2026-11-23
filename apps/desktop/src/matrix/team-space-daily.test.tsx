@@ -18,11 +18,13 @@ afterEach(() => {
   cleanup()
   // The company last open is remembered on the device: one test's choice must not open the next one's.
   window.localStorage.clear()
+
   if (scrollDescriptor) {
     Object.defineProperty(Element.prototype, 'scrollIntoView', scrollDescriptor)
   } else {
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
   }
+
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -233,12 +235,19 @@ describe('company sidebar unread and mentions', () => {
 })
 
 describe('company search', () => {
-  it('keeps search out of the sidebar and reachable from the company menu', async () => {
+  it('searches from the header box into the right pane, not from the company overview', async () => {
     mount({ bridge: bridgeFor(), searchEnabled: true, rooms: [] })
     expect(screen.queryByRole('button', { name: 'Search Acme' })).toBeNull()
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Acme' }), { key: 'Enter' })
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Company overview' }))
-    expect(await screen.findByRole('textbox', { name: 'Search company messages' })).toBeTruthy()
+    await screen.findByRole('dialog', { name: 'Company overview' })
+    expect(screen.queryByRole('textbox', { name: 'Search company messages' })).toBeNull()
+
+    const box = screen.getByRole('textbox', { name: 'Search Acme' })
+    fireEvent.change(box, { target: { value: 'launch' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Search messages for “launch”' }))
+    const pane = await screen.findByRole('complementary', { name: 'Search company messages' })
+    expect((within(pane).getByRole('textbox', { name: 'Search company messages' }) as HTMLInputElement).value).toBe('launch')
   })
 
   it('has no search surface while search is off or the bridge lacks it', async () => {

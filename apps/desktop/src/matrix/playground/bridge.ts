@@ -718,6 +718,7 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
       const route = catalog.routes.find(each => each.id === routeId && each.ready && each.target === target)
       // An account-plan model (`?subscriptions=`) answers through the same switch in main.
       const [planProvider, planModel] = routeId.split(':')
+
       const plan =
         !route && (planProvider === 'openai-codex' || planProvider === 'opencode-go') && planModel && target === 'agent_default'
           ? { provider: planProvider, model: planModel, name: planModel, efforts: [] }
@@ -728,6 +729,7 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
       }
 
       const chosen = plan ?? route!
+
       const localModel = {
         provider: chosen.provider,
         model: chosen.model,
@@ -819,6 +821,13 @@ export function playgroundBridge(store: PlaygroundStore): MatrixUiBridge {
       }
 
       if (command.kind === 'select') {
+        // `?channelOpen=fail`: a company channel's room never opens, to show the pane's Try again.
+        const channelOpen = new URLSearchParams(location.search).get('channelOpen')
+
+        if (channelOpen === 'fail' && store.current.rooms.some(room => room.id === command.roomId && room.companyChannel)) {
+          throw new Error('MATRIX_COMPANY_ROOM_UNAVAILABLE')
+        }
+
         store.select(command.roomId)
       }
 

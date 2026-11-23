@@ -17,6 +17,7 @@ import { TeamSpaceSidebarRow, TeamSpaceSidebarSection } from '../team-space-side
 import { ConversationGroupAvatar } from './conversation-chrome'
 import { useTeamSpaceCopy } from './copy'
 import { type CompanyPrivateCosRowStatus, companyPrivateCosRowStatus, type CompanyPrivateCosState } from './private-cos-store'
+import { teamSpaceRevampCopy } from './revamp-copy'
 import { type CompanyConversationView, conversationPeople, conversationTitle } from './views'
 
 export interface ConversationSectionProps {
@@ -90,6 +91,8 @@ export function ConversationSections({
   const boardCopy = matrixCompanyBoardCopy(locale)
   const privateCopy = matrixCompanyPrivateCosCopy[locale]
   const privateRowCopy = matrixCompanyPrivateCosRowCopy[locale]
+  // The shared Chief of Staff answers in channels; this row is the person's own, private one.
+  const revampCopy = teamSpaceRevampCopy(locale)
   const [openingNotes, setOpeningNotes] = useState(false)
   const [notesError, setNotesError] = useState(false)
   const [openingPrivateCos, setOpeningPrivateCos] = useState(false)
@@ -132,7 +135,7 @@ export function ConversationSections({
     : chiefStatus === 'ready' || privateCos ? onOpenPrivateCos : undefined
 
   const privateCosShown = chiefStatus && (
-    !needle || boardCopy.chiefOfStaff.toLocaleLowerCase().includes(needle) ||
+    !needle || revampCopy.privateChiefOfStaff.toLocaleLowerCase().includes(needle) ||
     Boolean(chiefLine?.toLocaleLowerCase().includes(needle))
   )
 
@@ -239,8 +242,8 @@ export function ConversationSections({
           <div data-company-private-cos-row data-company-private-cos-state={chiefStatus}>
             <TeamSpaceSidebarRow
               ariaLabel={chiefRetry && chiefAction
-                ? `${boardCopy.chiefOfStaff} · ${privateRowCopy.retry}`
-                : boardCopy.chiefOfStaff}
+                ? `${revampCopy.privateChiefOfStaff} · ${privateRowCopy.retry}`
+                : revampCopy.privateChiefOfStaff}
               disabled={!chiefAction || openingPrivateCos || Boolean(privateCos?.loading)}
               icon={(
                 <CompanyAIAvatar
@@ -253,7 +256,7 @@ export function ConversationSections({
                       : privateCos.view.pair.membershipIncarnation}
                 />
               )}
-              label={boardCopy.chiefOfStaff}
+              label={revampCopy.privateChiefOfStaff}
               onSelect={() => {
                 if (!chiefAction || openingPrivateCos) {return}
                 setOpeningPrivateCos(true)

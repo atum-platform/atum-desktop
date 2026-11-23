@@ -2843,6 +2843,19 @@ article.company-board-card:hover {
   box-shadow: 0 0 0 1.5px var(--board-card);
 }
 
+/* Suggestions are provisional: a see-through lane and dashed cards, so a proposal never reads as an
+   accepted commitment until someone moves it on. */
+.company-board-lane[data-board-column='suggested'] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--ak-line-2);
+}
+
+.company-board-card[data-board-status='suggested'] {
+  background: color-mix(in oklab, var(--board-card), transparent 35%);
+  box-shadow: inset 0 0 0 1px var(--ak-line-2);
+  border: 1px dashed var(--ak-line-2);
+}
+
 /* The launch screen and the auth window: a tint the mark animates over
    (frosted desktop on macOS, the ground elsewhere). */
 .atum-launch {

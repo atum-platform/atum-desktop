@@ -155,6 +155,15 @@ async function switchCompany(name: string) {
 }
 
 /** One company is the page title; two or more keep a chip to select one. */
+/** Company search is asked from the header box (Enter) and answered in the right pane. */
+async function openCompanySearch(company: string, query = 'la') {
+  const box = await screen.findByRole('textbox', { name: `Search ${company}` })
+  fireEvent.change(box, { target: { value: query } })
+  fireEvent.keyDown(box, { key: 'Enter' })
+
+  return screen.findByRole('textbox', { name: 'Search company messages' })
+}
+
 async function openCompany(name: string) {
   const chip = () => screen.queryByRole('button', { name: new RegExp(`^${name} · (Admin|Member)$`) })
 
@@ -292,6 +301,7 @@ describe('MatrixCompanyWorkspace', () => {
       role: 'admin' as const,
       authorityGeneration: 1
     }
+
     const room: MatrixRoom = {
       id: '!stale-private-cos:test',
       name: 'Chief of Staff',
@@ -306,13 +316,16 @@ describe('MatrixCompanyWorkspace', () => {
         executorId: '00000000-0000-4000-8000-01670d853f95'
       }
     }
+
     const bridge: MatrixCompanyBridge = {
       pending: noPending,
       request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {
           return { ok: true as const, value: snapshot(company.id, company.displayName) }
         }
+
         if (input.action === 'list-channels') {
           return { ok: true as const, value: channelDirectory(company.id) }
         }
@@ -337,20 +350,60 @@ describe('MatrixCompanyWorkspace', () => {
     expect(screen.queryByText('stale private transcript secret')).toBeNull()
   })
 
+  it('shows company settings one section at a time and keeps search out of them', async () => {
+    const company = { id: '00000000-0000-4000-8000-4423c334534f', displayName: 'Acme', role: 'admin' as const,
+      authorityGeneration: 1 }
+
+    const bridge: MatrixCompanyBridge = {
+      pending: noPending,
+      request: vi.fn(async input => input.action === 'list'
+        ? { ok: true as const, value: directory([company]) }
+        : input.action === 'read'
+          ? { ok: true as const, value: snapshot(company.id, company.displayName) }
+          : { ok: true as const, value: channelDirectory(company.id) }),
+      search: vi.fn(async () => ({ ok: false as const, error: 'unavailable' as const })),
+      open: vi.fn(async () => ({ ok: true as const }))
+    }
+
+    renderWorkspace({ bridge, onOpenSearchResult: vi.fn(), overviewFallback: false })
+    await screen.findByRole('heading', { name: 'Acme' })
+    await chooseFromCompanyMenu('Company overview')
+    const sheet = await screen.findByRole('dialog', { name: 'Company overview' })
+    const sections = within(sheet).getByRole('tablist', { name: 'Settings sections' })
+
+    const tabs = within(sections).getAllByRole('tab')
+
+    expect(tabs.map(tab => tab.textContent)).toEqual(expect.arrayContaining(['Workspace', 'AI']))
+    expect(tabs[0]!.getAttribute('aria-selected')).toBe('true')
+    expect(sheet.querySelector('[data-company-ai-setting]')).toBeNull()
+    expect(within(sheet).queryByRole('textbox', { name: 'Search company messages' })).toBeNull()
+
+    fireEvent.click(within(sections).getByRole('tab', { name: 'AI' }))
+    expect(within(sections).getByRole('tab', { name: 'AI' }).getAttribute('aria-selected')).toBe('true')
+    expect(sheet.querySelector('[data-company-ai-setting]')).toBeTruthy()
+    expect(sheet.querySelectorAll('[role=tab][aria-selected=true]')).toHaveLength(1)
+  })
+
   it('searches exact company messages and opens one reauthorized result', async () => {
     const company = { id: '00000000-0000-4000-8000-4423c334534f', displayName: 'Acme', role: 'admin' as const,
       authorityGeneration: 1 }
+
     const channelId = '00000000-0000-4000-8000-a6350151b493'
     const channels = channelDirectory(company.id, ['general'])
     channels.channels[0]!.channel.id = channelId
     channels.channels[0]!.channel.state = 'active'
     channels.channels[0]!.room = { state: 'ready', roomId: '!general:test' }
+
     const found = { channelId, roomId: '!general:test', channelName: 'general', eventId: '$message',
       sender: '@avery:test', snippet: 'Exact launch needle', at: 100 }
+
     const open = vi.fn(async () => ({ ok: true as const }))
+
     const search = vi.fn(async () => ({ ok: true as const, value: { schemaVersion: 1 as const, companyId: company.id,
       query: 'launch', coverage: { eligibleRooms: 1, searchedRooms: 1, truncated: false }, results: [found] } }))
+
     const reveal = vi.fn(async () => {})
+
     const bridge: MatrixCompanyBridge = {
       pending: noPending,
       request: vi.fn(async input => input.action === 'list'
@@ -364,7 +417,7 @@ describe('MatrixCompanyWorkspace', () => {
 
     renderWorkspace({ bridge, onOpenSearchResult: reveal })
     await openCompany('Acme')
-    const input = await screen.findByRole('textbox', { name: 'Search company messages' })
+    const input = await openCompanySearch('Acme')
     fireEvent.change(input, { target: { value: ' launch ' } })
     fireEvent.click(screen.getByRole('button', { name: 'Search' }))
     expect(await screen.findByText('Exact launch needle')).toBeTruthy()
@@ -385,8 +438,10 @@ describe('MatrixCompanyWorkspace', () => {
     onTestFinished(() => {
       vi.useRealTimers()
     })
+
     const company = { id: '00000000-0000-4000-8000-4423c334534f', displayName: 'Acme', role: 'admin' as const,
       authorityGeneration: 1 }
+
     const bridge: MatrixCompanyBridge = {
       pending: noPending,
       request: vi.fn(async input => input.action === 'list'
@@ -402,7 +457,8 @@ describe('MatrixCompanyWorkspace', () => {
 
     renderWorkspace({ bridge, onOpenSearchResult: vi.fn() })
     await openCompany('Acme')
-    const input = await screen.findByRole('textbox', { name: 'Search company messages' })
+    const input = await openCompanySearch('Acme')
+    fireEvent.change(input, { target: { value: '' } })
     fireEvent.focus(input)
     expect(screen.getByRole('option', { name: /from:@.*From a person/ })).toBeTruthy()
     fireEvent.change(input, { target: { value: '"launch plan" from:@nguyễn before:2026-11-01' } })
@@ -416,15 +472,20 @@ describe('MatrixCompanyWorkspace', () => {
   it('filters the Files tab by type and reports an authority refusal without revealing the file', async () => {
     const company = { id: '00000000-0000-4000-8000-4423c334534f', displayName: 'Acme', role: 'admin' as const,
       authorityGeneration: 1 }
+
     const channelId = '00000000-0000-4000-8000-a6350151b493'
+
     const file = { channelId, roomId: '!general:test', channelName: 'general', eventId: '$pdf', sender: '@avery:test',
       snippet: 'Launch brief.pdf', at: 100, file: { name: 'Launch brief.pdf', mimeType: 'application/pdf', size: 42,
         type: 'pdfs' as const } }
+
     const search = vi.fn(async input => ({ ok: true as const, value: { schemaVersion: 1 as const, companyId: company.id,
       query: input.query, coverage: { eligibleRooms: 1, searchedRooms: 1, truncated: false,
         source: 'loaded_history' as const }, results: input.fileType === 'pdfs' ? [file] : [] } }))
+
     const open = vi.fn(async () => ({ ok: false as const, error: 'denied' as const }))
     const reveal = vi.fn(async () => {})
+
     const bridge: MatrixCompanyBridge = {
       pending: noPending,
       request: vi.fn(async input => input.action === 'list'
@@ -438,7 +499,7 @@ describe('MatrixCompanyWorkspace', () => {
 
     renderWorkspace({ bridge, onOpenSearchResult: reveal })
     await openCompany('Acme')
-    fireEvent.change(await screen.findByRole('textbox', { name: 'Search company messages' }), {
+    fireEvent.change(await openCompanySearch('Acme'), {
       target: { value: 'launch' }
     })
     fireEvent.click(await screen.findByRole('radio', { name: 'Files' }))
@@ -597,10 +658,15 @@ describe('MatrixCompanyWorkspace', () => {
 
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       requests.push(input)
+
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: { ...snapshot(company.id, company.displayName), projects: [project] } }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       if (input.action === 'project-sources') {return { ok: true as const, value }}
+
       if (input.action === 'include-project-channel-source') {
         value = { ...value, sourceGeneration: 1, coverage: { state: 'pending' }, sources: [{
           id: '00000000-0000-4000-8000-47261dd3dd93', kind: 'channel', state: 'active',
@@ -609,6 +675,7 @@ describe('MatrixCompanyWorkspace', () => {
 
         return { ok: true as const, value }
       }
+
       if (input.action === 'include-project-file-source') {
         value = { ...value, sourceGeneration: 2, sources: [...value.sources, {
           id: '00000000-0000-4000-8000-a575cda4f7e5', kind: 'company_file', state: 'active',
@@ -647,6 +714,7 @@ describe('MatrixCompanyWorkspace', () => {
     const projectId = '00000000-0000-4000-8000-072e4e6126bd'
     const project = { id: projectId, displayName: 'Launch', memberPrincipals: [], collaboration: 'not_provisioned' as const }
     const base = sourceDocument(company.id, projectId)
+
     const value: MatrixCompanyProjectSources = { ...base, sourceGeneration: 2, coverage: { state: 'pending' }, sources: [{
       id: '00000000-0000-4000-8000-47261dd3dd93', kind: 'channel', state: 'active',
       channelId: base.eligibleChannels[0]!.channelId, enrolledAt: '2026-10-15T10:00:00+00:00', withdrawnAt: null
@@ -655,10 +723,14 @@ describe('MatrixCompanyWorkspace', () => {
       channelId: '00000000-0000-4000-8000-58989c5fa7a2', enrolledAt: '2026-10-15T09:00:00+00:00',
       withdrawnAt: '2026-10-15T09:30:00+00:00'
     }] }
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: { ...snapshot(company.id, company.displayName, 'member'), projects: [project] } }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       if (input.action === 'project-sources') {return { ok: true as const, value }}
 
       return { ok: false as const, error: 'invalid' as const }
@@ -680,23 +752,33 @@ describe('MatrixCompanyWorkspace', () => {
     const project = { id: projectId, displayName: 'Launch', memberPrincipals: [], collaboration: 'not_provisioned' as const }
     const base = sourceDocument(company.id, projectId)
     const sourceId = '00000000-0000-4000-8000-47261dd3dd93'
+
     const sources: MatrixCompanyProjectSources = { ...base, sourceGeneration: 1, coverage: {state: 'pending'}, sources: [{
       id: sourceId, kind: 'channel', state: 'active', channelId: base.eligibleChannels[0]!.channelId,
       enrolledAt: '2026-10-15T10:00:00+00:00', withdrawnAt: null
     }] }
+
     const live: MatrixCompanyProjectReaderStatus = {schemaVersion: 2, companyId: company.id, projectId,
       authorityGeneration: 2, sourceGeneration: 1, coverage: {state: 'live', lastIngestedAt: '2026-10-15T10:02:00+00:00'},
       sources: [{sourceId, kind: 'channel', state: 'active', channelId: base.eligibleChannels[0]!.channelId,
         receiptState: 'live', lastIngestedAt: '2026-10-15T10:02:00+00:00'}]}
+
     const requests: MatrixCompanyRequest[] = []
+
     const bridge: MatrixCompanyBridge = {pending: noPending, request: vi.fn(async input => {
       requests.push(input)
+
       if (input.action === 'list') {return {ok: true as const, value: directory([company])}}
+
       if (input.action === 'read') {return {ok: true as const,
         value: {...snapshot(company.id, company.displayName, 'member'), projects: [project]}}}
+
       if (input.action === 'list-channels') {return {ok: true as const, value: channelDirectory(company.id)}}
+
       if (input.action === 'project-sources') {return {ok: true as const, value: sources}}
+
       if (input.action === 'project-reader') {return {ok: true as const, value: live}}
+
       return {ok: false as const, error: 'invalid' as const}
     })}
 
@@ -716,13 +798,19 @@ describe('MatrixCompanyWorkspace', () => {
     const value = sourceDocument(company.id, projectId)
     const mutations: MatrixCompanyRequest[] = []
     let attempts = 0
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: { ...snapshot(company.id, company.displayName), projects: [project] } }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       if (input.action === 'project-sources') {return { ok: true as const, value }}
+
       if (input.action === 'include-project-channel-source') {
         mutations.push(input)
+
         if (++attempts === 1) {return { ok: false as const, error: 'unavailable' as const }}
 
         return { ok: true as const, value: { ...value, sourceGeneration: 1, coverage: { state: 'pending' as const }, sources: [{
@@ -750,6 +838,7 @@ describe('MatrixCompanyWorkspace', () => {
       projectId: '00000000-0000-4000-8000-072e4e6126bd',
       requestId: '00000000-0000-4000-8000-b4b6412c243e',
       channelId: '00000000-0000-4000-8000-e70014261c8b', expectedSourceGeneration: 0 }
+
     const bridge: MatrixCompanyBridge = {
       pending: vi.fn(async () => ({ ok: true as const, request: intent })),
       request: vi.fn(async input => input.action === 'list'
@@ -768,17 +857,23 @@ describe('MatrixCompanyWorkspace', () => {
     const projectId = '00000000-0000-4000-8000-072e4e6126bd'
     const project = { id: projectId, displayName: 'Launch', memberPrincipals: [], collaboration: 'not_provisioned' as const }
     const base = sourceDocument(company.id, projectId)
+
     const value: MatrixCompanyProjectSources = { ...base, sourceGeneration: 1, coverage: { state: 'pending' }, sources: [{
       id: '00000000-0000-4000-8000-47261dd3dd93', kind: 'channel', state: 'active',
       channelId: base.eligibleChannels[0]!.channelId, enrolledAt: '2026-10-15T10:00:00+00:00', withdrawnAt: null
     }] }
+
     let removed = false
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: {
         ...snapshot(company.id, company.displayName), projects: removed ? [] : [project]
       } }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       if (input.action === 'project-sources') {return { ok: true as const, value }}
 
       if (input.action === 'withdraw-project-source') {removed = true;
@@ -805,12 +900,16 @@ describe('MatrixCompanyWorkspace', () => {
     const late = deferred<Awaited<ReturnType<MatrixCompanyBridge['request']>>>()
     let removed = false
     let sourceReads = 0
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: {
         ...snapshot(company.id, company.displayName), projects: removed ? [] : [project]
       } }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       if (input.action === 'project-sources') {return ++sourceReads === 1 ? { ok: true as const, value } : late.promise}
 
       return { ok: false as const, error: 'invalid' as const }
@@ -974,9 +1073,12 @@ describe('MatrixCompanyWorkspace', () => {
       const onOpenChannel = vi.fn(async () => {})
       const channels = channelDirectory(company.id, ['decisions'])
       channels.channels[0]!.room = { state, roomId: null }
+
       const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
         if (input.action === 'list-channels') {return { ok: true as const, value: channels }}
 
         return { ok: false as const, error: 'invalid' as const }
@@ -996,9 +1098,12 @@ describe('MatrixCompanyWorkspace', () => {
     const channels = channelDirectory(company.id, ['decisions'])
     channels.channels[0]!.channel.state = 'archived'
     channels.channels[0]!.room = { state: 'ready', roomId: '!decisions:test' }
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channels }}
 
       return { ok: false as const, error: 'invalid' as const }
@@ -1033,7 +1138,7 @@ describe('MatrixCompanyWorkspace', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open # decisions' }))
     await screen.findByRole('alert')
     expect(screen.getByRole('heading', { name: 'Acme' })).toBeTruthy()
-    expect(screen.getByText('Couldn’t open this channel. It may have changed; try again in a moment.')).toBeTruthy()
+    expect(screen.getByText('Couldn’t open this channel.')).toBeTruthy()
   })
 
   it('shows an unavailable directory as an error, never as an empty company list', async () => {
@@ -1137,6 +1242,7 @@ describe('MatrixCompanyWorkspace', () => {
   it('selects the active room company from its authority binding when several companies exist', async () => {
     const alpha = { id: 'company-a', displayName: 'Alpha', role: 'admin' as const, authorityGeneration: 1 }
     const beta = { id: 'company-b', displayName: 'Beta', role: 'member' as const, authorityGeneration: 1 }
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([alpha, beta]) }}
 
@@ -1167,18 +1273,24 @@ describe('MatrixCompanyWorkspace', () => {
   it('follows a newly selected bound room into its company without overriding a manual company choice', async () => {
     const alpha = { id: 'company-a', displayName: 'Alpha', role: 'admin' as const, authorityGeneration: 1 }
     const beta = { id: 'company-b', displayName: 'Beta', role: 'member' as const, authorityGeneration: 1 }
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([alpha, beta]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: snapshot(input.companyId,
         input.companyId === alpha.id ? alpha.displayName : beta.displayName) }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(input.companyId) }}
 
       return { ok: false as const, error: 'missing' as const }
     }) }
+
     const onOpenChannel = vi.fn(async () => {})
     const content = <div data-testid="external-channel">Channel</div>
+
     const view = renderWorkspace({ activeRoomId: '!alpha:test', bridge, channelContent: content,
       onOpenChannel, preferredCompanyId: alpha.id })
+
     await screen.findByRole('heading', { name: 'Alpha' })
     expect(await screen.findByTestId('external-channel')).toBeTruthy()
 
@@ -1201,12 +1313,14 @@ describe('MatrixCompanyWorkspace', () => {
     const alpha = { id: 'company-a', displayName: 'Alpha', role: 'admin' as const, authorityGeneration: 1 }
     const beta = { id: 'company-b', displayName: 'Beta', role: 'member' as const, authorityGeneration: 1 }
     let betaVisible = false
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {
         return { ok: true as const, value: directory(betaVisible ? [alpha, beta] : [alpha]) }
       }
 
       if (input.action === 'read') {return { ok: true as const, value: snapshot(input.companyId, beta.displayName) }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(input.companyId) }}
 
       return { ok: false as const, error: 'missing' as const }
@@ -1241,9 +1355,12 @@ describe('MatrixCompanyWorkspace', () => {
     }
     const onOpenChannel = vi.fn(async () => {})
     const onChannelVisibilityChange = vi.fn()
+
     const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channels }}
 
       return { ok: false as const, error: 'missing' as const }
@@ -1328,11 +1445,13 @@ describe('private Chief of Staff locale retry', () => {
     role: 'admin' as const,
     authorityGeneration: 1
   }
+
   const pair = {
     companyPrincipal: company.id,
     memberPrincipal: '00000000-0000-4000-8000-7acf30c68b5e',
     membershipIncarnation: '00000000-0000-4000-8000-2003d0eebf32'
   }
+
   const capability: MatrixCompanyPrivateCosCapabilityV13 = {
     schemaVersion: 4,
     profile: 'atum.company-private-cos/1.3',
@@ -1357,6 +1476,7 @@ describe('private Chief of Staff locale retry', () => {
     greetingVersion: 2,
     ensureLocale: true
   }
+
   const preparing: MatrixCompanyPrivateCosView = {
     schemaVersion: 2,
     profile: 'atum.company-private-cos/1.1',
@@ -1369,6 +1489,7 @@ describe('private Chief of Staff locale retry', () => {
   it('sends the current UI locale when dm_open retries a negotiated 1.3 pair', async () => {
     const base = playgroundCompanyDesktopAdapter()
     const ensurePrivateCos = vi.fn(async () => preparing)
+
     const companyDesktop = {
       ...base,
       readPrivateCosCapability: vi.fn(async () => capability),
@@ -1387,7 +1508,9 @@ describe('private Chief of Staff locale retry', () => {
       pending: noPending,
       request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
         if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
 
         return { ok: false as const, error: 'missing' as const }
@@ -1404,7 +1527,7 @@ describe('private Chief of Staff locale retry', () => {
       </I18nProvider>
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Chief of Staff' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Chief of Staff riêng' }))
     await waitFor(() => expect(ensurePrivateCos).toHaveBeenCalledExactlyOnceWith(company.id, {
       schemaVersion: 1,
       requestId: expect.any(String),
@@ -1419,11 +1542,13 @@ describe('private Chief of Staff locale retry', () => {
     let ensured = false
     const uncreated: MatrixCompanyPrivateCosView = { schemaVersion: 1, state: 'uncreated', pair, greetingState: 'pending' }
     const base = playgroundCompanyDesktopAdapter()
+
     const ensurePrivateCos = vi.fn(async () => {
       ensured = true
 
       return preparing
     })
+
     const companyDesktop = {
       ...base,
       // Off is a 404 on the capability route, which the bridge reports as missing.
@@ -1447,7 +1572,9 @@ describe('private Chief of Staff locale retry', () => {
       pending: noPending,
       request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
         if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
 
         return { ok: false as const, error: 'missing' as const }
@@ -1480,16 +1607,20 @@ describe('private Chief of Staff locale retry', () => {
 
   it('does not let a rejected first-visit ensure clear a newer incarnation', async () => {
     let rejectEnsure!: (error: Error) => void
+
     const uncreated: MatrixCompanyPrivateCosView = {
       schemaVersion: 1,
       state: 'uncreated',
       pair,
       greetingState: 'pending'
     }
+
     const base = playgroundCompanyDesktopAdapter()
+
     const ensurePrivateCos = vi.fn(() => new Promise<MatrixCompanyPrivateCosView>((_resolve, reject) => {
       rejectEnsure = reject
     }))
+
     const companyDesktop = {
       ...base,
       readPrivateCosCapability: vi.fn(async () => capability),
@@ -1508,7 +1639,9 @@ describe('private Chief of Staff locale retry', () => {
       pending: noPending,
       request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName) }}
+
         if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
 
         return { ok: false as const, error: 'missing' as const }
@@ -1526,6 +1659,7 @@ describe('private Chief of Staff locale retry', () => {
 
     clearCompanyPrivateCos('account-a', company.id)
     const nextPair = { ...pair, membershipIncarnation: '00000000-0000-4000-8000-574a85d37f85' }
+
     const nextReady: MatrixCompanyPrivateCosView = {
       schemaVersion: 1,
       state: 'ready',
@@ -1542,6 +1676,7 @@ describe('private Chief of Staff locale retry', () => {
         profileDigest: 'b'.repeat(64)
       }
     }
+
     await loadCompanyPrivateCos({ ...companyDesktop, readPrivateCos: vi.fn(async () => nextReady) },
       'account-a', company.id, capability)
     rejectEnsure(new Error('unavailable'))
@@ -1563,7 +1698,9 @@ describe('company menu wallet', () => {
       pending: noPending,
       request: vi.fn(async input => {
         if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
         if (input.action === 'read') {return { ok: true as const, value: snapshot(TEAM_COMPANY_ID, 'Acme', role) }}
+
         if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(TEAM_COMPANY_ID) }}
 
         return { ok: false as const, error: 'missing' as const }
@@ -1810,6 +1947,7 @@ describe('company workspace revalidation', () => {
     const company = { id: 'company-a', displayName: 'Alpha', role: 'admin' as const, authorityGeneration: 1 }
     let reads = 0
     const denied = deferred<Awaited<ReturnType<MatrixCompanyBridge['request']>>>()
+
     const project = {
       id: 'project-a',
       displayName: 'Restricted project',
@@ -2013,16 +2151,22 @@ describe('company workspace durable recovery', () => {
 it('keeps cached companies during a transport failure and recovers on online without a manual reload', async () => {
   const company = { id: 'resilience-company', displayName: 'Resilience', role: 'member' as const, authorityGeneration: 1 }
   let offline = false
+
   const bridge: MatrixCompanyBridge = {
     pending: noPending,
     request: vi.fn(async input => {
       if (offline) {return { ok: false as const, error: 'unavailable' as const }}
+
       if (input.action === 'list') {return { ok: true as const, value: directory([company]) }}
+
       if (input.action === 'read') {return { ok: true as const, value: snapshot(company.id, company.displayName, 'member') }}
+
       if (input.action === 'list-channels') {return { ok: true as const, value: channelDirectory(company.id) }}
+
       return { ok: false as const, error: 'missing' as const }
     })
   }
+
   renderWorkspace({ bridge })
   await openCompany('Resilience')
   offline = true

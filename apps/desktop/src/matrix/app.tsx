@@ -460,6 +460,7 @@ import {
   useConversationTitle
 } from './team-space/conversation-chrome'
 import { $companyConversations, $companySelfRefs } from './team-space/conversations-store'
+import { useTeamSpaceDetailPane } from './team-space/detail-pane'
 import { activateTeamSpaceCacheAccount } from './team-space/directory-store'
 import { type FormattedText } from './team-space/formatting'
 import { TeamSpaceFormattingBar, TeamSpaceFormattingToggle } from './team-space/formatting-bar'
@@ -7657,6 +7658,10 @@ function MatrixAccountView({
 
   // A channel or a company conversation: Team Space's room, shown in the company workspace and in no Personal list.
   const companyChannelBound = isTeamSpaceRoom(room)
+
+  // The thread and the pinned list share Team Space's one right pane with info, search and a task's details.
+  useTeamSpaceDetailPane('thread', Boolean(companyChannelBound && currentThreadView), () => setThreadView(null))
+  useTeamSpaceDetailPane('pins', Boolean(companyChannelBound && pinsOpen), () => setPinnedRoomId(null))
 
   // A raw marker, renderer-only binding, or restored room selection is quarantine, not authority.
   // Only the current strict platform view plus the exact joined-room policy may mount its transcript.
