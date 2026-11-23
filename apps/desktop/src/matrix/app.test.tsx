@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { createClient, EventType, MatrixEvent, Room } from 'matrix-js-sdk'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { resetAccountConnectionsForTest } from '@/app/connections/store'
 import { $appViewOverlayCount } from '@/store/app-view-overlay'
 import { $bindings, resetAllBindings, setBinding } from '@/store/keybinds'
 
@@ -419,6 +420,7 @@ function promotedMainSnapshot(): MatrixSnapshot {
 
 beforeEach(() => {
   resetAllBindings()
+  resetAccountConnectionsForTest()
   resetMatrixGoogleNudgeDismissals()
   // The first launch's story has its own tests; everything else starts past it.
   window.localStorage.setItem('io.atum.welcome.played', '1')
@@ -10926,13 +10928,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
   })
 
   it('routes the ChatGPT recovery CTA through account Connections without assistant pages', async () => {
-    let connected!: (value: { status: 'connected' }) => void
-    const startChatGpt = vi.fn(
-      () =>
-        new Promise<{ status: 'connected' }>(resolve => {
-          connected = resolve
-        })
-    )
+    const startChatGpt = vi.fn(async () => ({ status: 'connected' as const }))
     const harness = fixture(async () => chatGptPlansBlocked())
     harness.bridge.subscriptions = {
       status: vi.fn(async () => ({ scope: 'account' as const, providers: [] })),
@@ -10955,14 +10951,16 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
     expect(startChatGpt).not.toHaveBeenCalled()
     expect(harness.bridge.pages).toBeUndefined()
 
-    fireEvent.click(within(settings).getByRole('button', { name: 'Connect' }))
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Your subscription' })).getByRole('button', { name: /ChatGPT/u }))
-    await waitFor(() => expect(startChatGpt).toHaveBeenCalledOnce())
+    const codex = settings.querySelector<HTMLElement>('[data-atum-connection="codex"]')!
+    fireEvent.click(within(codex).getByRole('button', { name: 'Connect' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Connect ChatGPT' })
+    // This fixture has no Work bridge: the account sheet explains where to
+    // connect, rather than starting the retired per-assistant device-code flow.
+    expect(within(sheet).getByText('Open Atum on your Mac to connect.')).toBeTruthy()
+    expect(startChatGpt).not.toHaveBeenCalled()
     expect(harness.bridge.retryReadiness).not.toHaveBeenCalled()
-
-    await act(async () => connected({ status: 'connected' }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'ChatGPT' })).toBeNull())
-    expect(harness.bridge.retryReadiness).not.toHaveBeenCalled()
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Close' }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Connect ChatGPT' })).toBeNull())
   })
 
   it('offers a blocked default assistant an explicit Atum switch and never chooses it silently', async () => {

@@ -53,14 +53,22 @@ describe('update quit with live owned children', () => {
     let handler!: ReturnType<typeof createMatrixQuitHandler>
     const quit = () => handler({ preventDefault() {} })
     let installs = 0
+    let installState: { killSent: boolean; bystanderAlive: boolean } | undefined
+    const signal = vi.spyOn(process, 'kill')
 
     const stock = Object.assign(events, {
       checkForUpdates: async () => null,
       setFeedURL() {},
       quitAndInstall: () => {
         installs++
-        expect(background.killed || !alive(background.pid!)).toBe(true)
-        expect(alive(bystander.pid!)).toBe(true)
+        // Snapshot at install time; assertions outside this callback cannot
+        // be swallowed by the updater's catch around quitAndInstall.
+        installState = {
+          killSent: process.platform === 'win32'
+            ? background.killed
+            : signal.mock.calls.some(([pid, kind]) => pid === -background.pid! && kind === 'SIGKILL'),
+          bystanderAlive: alive(bystander.pid!)
+        }
       }
     }) as unknown as ElectronUpdaterPort
 
@@ -100,9 +108,13 @@ describe('update quit with live owned children', () => {
       expect(installs).toBe(0)
       release()
       await vi.waitFor(() => expect(installs).toBe(1))
+      // POSIX group signalling does not set ChildProcess.killed; a killed pid
+      // can remain visible until the OS reaps it. Still require actual death below.
+      expect(installState).toEqual({ killSent: true, bystanderAlive: true })
       await vi.waitFor(() => expect(alive(background.pid!)).toBe(false))
     } finally {
       children.killNow()
+      signal.mockRestore()
       bystander.kill('SIGKILL')
 
       if (bystander.exitCode === null && bystander.signalCode === null) {

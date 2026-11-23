@@ -1276,6 +1276,10 @@ const phoneScreensEn = {
     },
     waiting: 'Waiting for your Mac',
     needsOk: 'Needs your OK on your Mac',
+    // A turn held on the assistant's question (relay R3, relay-chrome.tsx), copied exactly from i18n
+    // `sidebar.row.waitingForAnswer`, and `invalidAnswer` when the reply did not answer it.
+    waitingForAnswer: 'Waiting for your answer',
+    invalidAnswer: 'Reply again with a valid answer',
     limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
     stopping: 'Stopping…',
     stopped: 'Stopped',
@@ -1293,6 +1297,8 @@ const phoneScreensEn = {
     },
     usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
     usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+    // After the usage line, its scheduled runs in the plan's window (relay R1s, relay-copy `usageScheduled`).
+    usageScheduled: (runs: number) => `${runs} scheduled runs`,
     usageUnknown: 'Usage not reported',
     consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
     consentScheduled: 'Also for scheduled work'
@@ -1498,6 +1504,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       waiting: 'Đang chờ máy Mac của bạn',
       needsOk: 'Cần bạn đồng ý trên máy Mac',
+      waitingForAnswer: 'Đang chờ câu trả lời của bạn',
+      invalidAnswer: 'Hãy trả lời lại bằng một câu trả lời hợp lệ',
       limitHeld: (plan: string, at?: string) => (at ? `${plan} hết lượt · tiếp tục lúc ${at}` : `${plan} hết lượt · tiếp tục khi có lượt lại`),
       stopping: 'Đang dừng…',
       stopped: 'Đã dừng',
@@ -1515,6 +1523,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       usageUsed: (percent: number, at?: string) => (at ? `Đã dùng ${percent}% · làm mới ${at}` : `Đã dùng ${percent}%`),
       usageLimit: (at?: string) => (at ? `Hết lượt · làm mới ${at}` : 'Hết lượt'),
+      usageScheduled: (runs: number) => `${runs} lượt chạy theo lịch`,
       usageUnknown: 'Chưa có số liệu sử dụng',
       consentChatsLine: 'Cuộc trò chuyện của bạn với họ chạy trên máy Mac bằng gói này. Dừng bất cứ lúc nào.',
       consentScheduled: 'Cả việc theo lịch'
@@ -1711,6 +1720,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       waiting: 'Waiting for your Mac',
       needsOk: 'Needs your OK on your Mac',
+      waitingForAnswer: '回答を待っています',
+      invalidAnswer: '有効な回答でもう一度返信してください',
       limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
       stopping: 'Stopping…',
       stopped: 'Stopped',
@@ -1728,6 +1739,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
       usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageScheduled: (runs: number) => `${runs} scheduled runs`,
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
@@ -1924,6 +1936,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       waiting: 'Waiting for your Mac',
       needsOk: 'Needs your OK on your Mac',
+      waitingForAnswer: '正在等待你的回答',
+      invalidAnswer: '请重新回复有效答案',
       limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
       stopping: 'Stopping…',
       stopped: 'Stopped',
@@ -1941,6 +1955,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
       usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageScheduled: (runs: number) => `${runs} scheduled runs`,
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
@@ -2137,6 +2152,8 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       waiting: 'Waiting for your Mac',
       needsOk: 'Needs your OK on your Mac',
+      waitingForAnswer: '等待您的回答',
+      invalidAnswer: '請重新回覆有效答案',
       limitHeld: (plan: string, at?: string) => (at ? `${plan} limit reached · continues at ${at}` : `${plan} limit reached · continues when it resets`),
       stopping: 'Stopping…',
       stopped: 'Stopped',
@@ -2154,6 +2171,7 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       },
       usageUsed: (percent: number, at?: string) => (at ? `${percent}% used · resets ${at}` : `${percent}% used`),
       usageLimit: (at?: string) => (at ? `Limit reached · resets ${at}` : 'Limit reached'),
+      usageScheduled: (runs: number) => `${runs} scheduled runs`,
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
