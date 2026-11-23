@@ -132,6 +132,9 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
 
   return {
     work: {
+      getSurfaceMode: async () => null,
+      setSurfaceMode: async () => {},
+      onSurfaceModeChanged: () => () => {},
       read: async () => projection,
       show: async rect => paint(projection.view === 'ready' ? rect : null, shot),
       hide: async () => paint(null, shot),

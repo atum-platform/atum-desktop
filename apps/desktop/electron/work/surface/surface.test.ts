@@ -646,6 +646,9 @@ describe('registerMatrixWorkIpc', () => {
     const ipc = { handle: vi.fn((channel: string, fn: typeof handler) => void (handler = fn)) }
 
     const surface = {
+      getSurfaceMode: vi.fn(async () => null),
+      setSurfaceMode: vi.fn(async () => {}),
+      runCommand: vi.fn(async () => true),
       readRelay: vi.fn(),
       selectRelay: vi.fn(),
       stopRelay: vi.fn(),
@@ -709,8 +712,12 @@ describe('registerMatrixWorkIpc', () => {
     expect(surface.readPlanConsent).toHaveBeenCalledOnce()
     expect(surface.setPlanConsent).toHaveBeenCalledWith(consent)
     expect(surface.revokePlanConsent).toHaveBeenCalledOnce()
+    await call({ kind: 'runCommand', command: 'chat.new' })
+    expect(surface.runCommand).toHaveBeenCalledWith('chat.new')
 
     for (const value of [
+      { kind: 'runCommand', command: 'terminal.toggle' },
+      { kind: 'runCommand', command: 'sidebar.toggle', extra: 1 },
       { kind: 'openPlanConnect', url: 'https://example.invalid' },
       { kind: 'openPlanConnect', plan: 'gemini' },
       { kind: 'readConnections', owner: 'someone' },

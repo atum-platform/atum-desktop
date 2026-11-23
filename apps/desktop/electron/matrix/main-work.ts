@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
+import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { SafeStorageLike } from '../encrypted-store'
 import { admitConnector } from '../work/connector/admission'
@@ -111,7 +112,7 @@ export interface MatrixWorkDeps {
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
-  publish(channel: string, payload: MatrixWorkProjection | null): void
+  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | null): void
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
@@ -391,6 +392,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const host = new WorkHost({
+    surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     prepare: prepareConnector,
     resources: deps.resources,
     account,
@@ -562,11 +564,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   surface = new WorkSurface({
+    getSurfaceMode: () => host.getSurfaceMode(),
+    runCommand: command => host.runCommand(command),
+    setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
       window: () => deps.ui() ?? null,
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
-      radius: 14,
+      radius: 0,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
     publish: projection => {

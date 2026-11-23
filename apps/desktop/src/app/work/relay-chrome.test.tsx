@@ -113,7 +113,7 @@ describe('the shared-context line (O14)', () => {
 
   it('is drawn on the Work page only for assistants whose chat runs here', () => {
     const projection: MatrixWorkProjection = { view: 'ready', assistants: 'on', agents: [], protons: 'ok' }
-    const bridge = { read: vi.fn(async () => null), place: vi.fn(async () => {}), hide: vi.fn(async () => {}), retry: vi.fn(async () => {}) } as unknown as MatrixWorkBridge
+    const bridge = { read: vi.fn(async () => null), place: vi.fn(async () => {}), hide: vi.fn(async () => {}), retry: vi.fn(async () => {}), getSurfaceMode: vi.fn(async () => null), onSurfaceModeChanged: vi.fn(() => () => {}) } as unknown as MatrixWorkBridge
 
     const page = (relayChats?: string[]) =>
       render(

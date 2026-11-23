@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
+
 import { exposeMatrixBrowserImport } from './browser-import-preload'
 import { createMatrixCompanyDesktopBridge } from './company-desktop-preload'
 import { exposeMatrixDesktopServices } from './desktop-services-preload'
@@ -98,6 +100,15 @@ const bridge: MatrixUiBridge = {
     }
   },
   work: {
+    getSurfaceMode: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'getSurfaceMode' }),
+    runCommand: command => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'runCommand', command }),
+    setSurfaceMode: (projectId, mode) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setSurfaceMode', projectId, mode }),
+    onSurfaceModeChanged: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, snapshot: WorkSurfaceModeSnapshot | null) => listener(snapshot)
+      ipcRenderer.on(MATRIX_WORK_IPC.surfaceModeChanged, receive)
+
+      return () => { ipcRenderer.removeListener(MATRIX_WORK_IPC.surfaceModeChanged, receive) }
+    },
     read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
     show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
     hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),

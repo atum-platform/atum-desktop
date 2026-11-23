@@ -1,5 +1,6 @@
 """Hold the Work home lock and retire children when Electron's pipe closes."""
 import fcntl
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -257,9 +258,14 @@ def main():
             temp.write_text(json.dumps(settings), encoding="utf-8")
             os.chmod(temp, 0o600)
             temp.replace(spec["settingsPath"])
+            # The Atum theme (generated from the Kit) is published and set as the default whenever
+            # the shipped file differs from the one last set. The same theme is never set twice, so
+            # an owner who picks another theme keeps it until the Atum theme itself changes.
             theme_marker = Path(spec["settingsPath"]).with_name(".atum-theme-installed")
-            if not theme_marker.exists():
-                theme = Path(spec["executable"]).with_name("atum.json")
+            theme = Path(spec["executable"]).with_name("atum.json")
+            digest = hashlib.sha256(theme.read_bytes()).hexdigest() if theme.is_file() else None
+            installed = theme_marker.read_text(encoding="ascii").strip() if theme_marker.exists() else None
+            if digest is not None and installed != digest:
                 child = children.start(
                     [spec["executable"], "theme", "set", str(theme)], spec["environment"], spec["cwd"],
                 )
@@ -267,7 +273,8 @@ def main():
                 children.leaders.remove(child)
                 if child.returncode:
                     raise RuntimeError("work_theme_failed")
-                theme_marker.touch(mode=0o600)
+                theme_marker.write_text(digest, encoding="ascii")
+                theme_marker.chmod(0o600)
             run(spec, children, channel)
         finally:
             children.stop()

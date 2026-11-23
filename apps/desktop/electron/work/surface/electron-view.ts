@@ -15,7 +15,7 @@ export function createWorkViewFactory(input: {
   /** S's isolated `dist/electron-work-preload.js`. */
   preload: string
   zoomFactor?: () => number
-  /** The Matrix card's radius (`--atum-r-panel`), so the view keeps the card's corners. */
+  /** Corner radius of the region; 0 for Work, whose view paints its own panel corners (spec §1.4). */
   radius?: number
   onBlocked?: (kind: string, origin: string) => void
 }): (incarnation: WorkIncarnation) => WorkViewHandle {
@@ -33,6 +33,9 @@ export function createWorkViewFactory(input: {
         webviewTag: false
       }
     })
+
+    // Transparent, so the window's frame (and its vibrancy) shows in the gaps between T3's panels.
+    view.setBackgroundColor('#00000000')
 
     // Electron's overloaded `on`/`removeListener` signatures don't narrow to R's structural targets.
     const disposePolicy = installWorkViewPolicy(view.webContents, session as unknown as Parameters<typeof installWorkViewPolicy>[1], {
@@ -65,7 +68,7 @@ export function createWorkViewFactory(input: {
       }
 
       const zoom = input.zoomFactor?.() ?? 1
-      view.setBorderRadius(Math.round((input.radius ?? 14) * zoom))
+      view.setBorderRadius(Math.round((input.radius ?? 0) * zoom))
       view.setBounds({
         x: Math.round(rect.x * zoom),
         y: Math.round(rect.y * zoom),
