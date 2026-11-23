@@ -5,6 +5,7 @@ import type {
   MatrixWorkProjection,
   MatrixWorkRect,
   MatrixWorkViewState,
+  WorkBandCommand,
   WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
 import type { WorkRelayPlan, WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
@@ -70,6 +71,7 @@ export interface WorkSurfaceParts {
 
 export interface WorkSurfaceOptions {
   getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
+  runCommand?(command: WorkBandCommand): Promise<boolean>
   setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
   createView(incarnation: WorkIncarnation): WorkViewHandle
   publish(projection: MatrixWorkProjection | null): void
@@ -286,6 +288,8 @@ export class WorkSurface {
    * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's.
    */
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
+
+  runCommand(command: WorkBandCommand) { return this.options.runCommand?.(command) ?? Promise.resolve(false) }
 
   setSurfaceMode(projectId: string, mode: 'work' | 'code') {
     if (!this.options.setSurfaceMode) {return Promise.reject(new Error('work_unavailable'))}

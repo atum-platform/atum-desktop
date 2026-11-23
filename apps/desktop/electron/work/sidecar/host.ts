@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
-import { MATRIX_WORK_IPC, type WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
+import { MATRIX_WORK_IPC, WORK_BAND_COMMANDS, type WorkBandCommand, type WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
@@ -229,6 +229,19 @@ export class WorkHost {
     }
 
     return parseSurfaceMode(value)
+  }
+
+  /** The band's buttons run T3's own commands in the live owner view (its `window.atumWorkCommands`). */
+  async runCommand(command: WorkBandCommand): Promise<boolean> {
+    const view = this.view
+
+    if (!WORK_BAND_COMMANDS.includes(command) || !view || this.current() !== view.incarnation || view.contents.isDestroyed() ||
+      !this.binding || !sameAccount(this.binding.account, this.options.account())) {
+      return false
+    }
+    const ran: unknown = await view.contents.executeJavaScript(`window.atumWorkCommands?.run(${JSON.stringify(command)}) ?? false`)
+
+    return this.view === view && ran === true
   }
 
   async setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void> {

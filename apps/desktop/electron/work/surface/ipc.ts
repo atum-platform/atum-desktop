@@ -10,6 +10,7 @@ export function registerMatrixWorkIpc(
   surface: Pick<
     WorkSurface,
     | 'getSurfaceMode'
+    | 'runCommand'
     | 'setSurfaceMode'
     | 'allowAssistants'
     | 'readRelay'
@@ -41,6 +42,8 @@ export function registerMatrixWorkIpc(
 
     switch (request.kind) {
       case 'getSurfaceMode': return surface.getSurfaceMode()
+
+      case 'runCommand': return surface.runCommand(request.command)
 
       case 'setSurfaceMode': return surface.setSurfaceMode(request.projectId, request.mode)
 

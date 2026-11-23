@@ -11,6 +11,7 @@ import { workCopy, type WorkWords } from './copy'
 import { WorkRelaySharedContextLine } from './relay-chrome'
 import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
+import { WorkModeSwitch, WorkRosterControls } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -67,7 +68,7 @@ function QuietState({ bridge, copy, view }: { bridge: Pick<MatrixWorkBridge, 're
 }
 
 /**
- * The Work page (plan §9): the owner's own Work view, full-bleed in Atum's card, with one quiet control
+ * The Work page (plan §9): the owner's own Work view across the region right of the rail, with one quiet control
  * for "Assistants can start work here". Work an assistant started is an ordinary thread in the view's own
  * list, marked "Started by {name}" there (FL); this page only says who is working right now.
  */
@@ -113,6 +114,7 @@ export function WorkScreen({
                 {copy.addProtons}
               </button>
             )}
+            <WorkModeSwitch bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
             <WorkAssistantsPill agents={projection.agents} copy={copy} names={names} state={projection.assistants} />
           </div>
         }
@@ -120,7 +122,10 @@ export function WorkScreen({
         reserveOverlay={reserveOverlay ?? false}
         windowControls={windowControls}
       >
-        <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+        <div className="flex min-w-0 items-center gap-3">
+          {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
+          <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+        </div>
       </AtumMainHeaderSurface>
       <WorkAssistantsBand
         agents={projection.agents}
@@ -132,10 +137,16 @@ export function WorkScreen({
       {projection.view === 'ready' && (
         <WorkRelaySharedContextLine names={workRelaySharedContext(relayChats ?? []).map(names.name)} />
       )}
-      {/* Full-bleed: the host is the card below the title, so main paints the view edge to edge (and
-          rounds it with the card's own radius). */}
+      {/* Spec §1: the host is the whole region right of the rail under the band, with no card: the
+          view is transparent and paints T3's thread list, thread and right panel as Atum's roster
+          panel, main card and side panel, with the frame showing through the gaps (the Work theme).
+          While the view is away the quiet state sits on a plain card. */}
       <div
-        className="relative mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel)"
+        className={
+          projection.view === 'ready'
+            ? 'relative min-h-0 flex-1 overflow-hidden'
+            : 'relative me-(--atum-panel-gap) mb-(--atum-panel-inset) min-h-0 flex-1 overflow-hidden rounded-(--atum-r-panel) bg-(--atum-main-bg) shadow-(--atum-main-edge)'
+        }
         data-atum-work-host
         ref={host}
       >

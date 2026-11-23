@@ -39,6 +39,7 @@ function bridge(): MatrixWorkBridge & { [K in keyof MatrixWorkBridge]: ReturnTyp
     getSurfaceMode: vi.fn(async () => null),
     setSurfaceMode: vi.fn(async () => {}),
     onSurfaceModeChanged: vi.fn(() => () => {}),
+    runCommand: vi.fn(async () => true),
     read: vi.fn(async () => null),
     show: vi.fn(async () => {}),
     hide: vi.fn(async () => {}),
@@ -263,5 +264,46 @@ describe('WorkScreen: assistants can start work here', () => {
     expect(screen.getByText('Cho trợ lý làm việc trên máy Mac này?')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Cho phép' })).toBeTruthy()
     expect(window.document.querySelector('[data-atum-work-enrollment]')!.textContent).toContain('Cloudflare')
+  })
+})
+
+describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
+  it('switches the open project between Work and Code, and puts the switch back when the view refuses', async () => {
+    const work = bridge()
+    let report: ((snapshot: { projectId: string; mode: 'work' | 'code' } | null) => void) | undefined
+
+    work.getSurfaceMode.mockResolvedValue({ projectId: 'p1', mode: 'work' })
+    work.onSurfaceModeChanged.mockImplementation(listener => {
+      report = listener
+
+      return () => {}
+    })
+    show({}, { work })
+
+    const code = await screen.findByRole('button', { name: 'Code' })
+
+    expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(code)
+    expect(work.setSurfaceMode).toHaveBeenCalledWith('p1', 'code')
+    expect(code.getAttribute('aria-pressed')).toBe('true')
+
+    work.setSurfaceMode.mockRejectedValueOnce(new Error('work_mode_not_saved'))
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }))
+    await waitFor(() => expect(code.getAttribute('aria-pressed')).toBe('true'))
+
+    // A project with no mode to switch (nothing open) shows no switch at all.
+    act(() => report?.(null))
+    expect(screen.queryByRole('group', { name: 'Mode' })).toBeNull()
+  })
+
+  it('runs the view\'s own sidebar toggle and New thread, and offers neither before the view is ready', () => {
+    const work = bridge()
+    const { rerender } = show({ view: 'starting' }, { work })
+
+    expect(screen.queryByRole('button', { name: 'New thread' })).toBeNull()
+    rerender({ view: 'ready' })
+    fireEvent.click(screen.getByRole('button', { name: 'New thread' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show or hide threads' }))
+    expect(work.runCommand?.mock.calls).toEqual([['chat.new'], ['sidebar.toggle']])
   })
 })

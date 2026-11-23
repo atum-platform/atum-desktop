@@ -101,6 +101,7 @@ const bridge: MatrixUiBridge = {
   },
   work: {
     getSurfaceMode: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'getSurfaceMode' }),
+    runCommand: command => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'runCommand', command }),
     setSurfaceMode: (projectId, mode) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setSurfaceMode', projectId, mode }),
     onSurfaceModeChanged: listener => {
       const receive = (_event: Electron.IpcRendererEvent, snapshot: WorkSurfaceModeSnapshot | null) => listener(snapshot)

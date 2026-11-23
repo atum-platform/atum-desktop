@@ -231,6 +231,8 @@ const Tag = phosphorIcon('tag')
 const Target = phosphorIcon('target')
 const Telescope = phosphorIcon('binoculars')
 const Terminal = phosphorIcon('terminal-window')
+/** Work's rail glyph: a pen reads as "make something" (design spec §9.3). */
+const PenNib = phosphorIcon('pen-nib')
 const TextSize = phosphorIcon('text-aa')
 const ThumbsDown = phosphorIcon('thumbs-down')
 const ThumbsUp = phosphorIcon('thumbs-up')
@@ -433,6 +435,7 @@ export {
   Pencil,
   PencilIcon,
   PencilLine,
+  PenNib,
   Photo,
   Pin,
   PinFilled,

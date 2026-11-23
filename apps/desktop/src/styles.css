@@ -8059,3 +8059,9 @@ body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:f
   box-shadow: none;
   color: var(--ak-ink-3);
 }
+
+/* Work (design spec 2026-11-23 §1.4): the owner view paints the roster panel, main card and side
+   panel itself, so the main column draws no card of its own behind it. */
+[data-atum-main]:has(> [data-atum-main-split] > [data-atum-work])::before {
+  display: none;
+}

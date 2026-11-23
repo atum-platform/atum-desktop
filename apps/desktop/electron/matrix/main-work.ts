@@ -565,12 +565,13 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
   surface = new WorkSurface({
     getSurfaceMode: () => host.getSurfaceMode(),
+    runCommand: command => host.runCommand(command),
     setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
       window: () => deps.ui() ?? null,
       preload: deps.workPreload,
       zoomFactor: deps.zoomFactor,
-      radius: 14,
+      radius: 0,
       onBlocked: (kind, origin) => deps.log(`[atum-work] view_blocked ${kind} ${origin}`)
     }),
     publish: projection => {

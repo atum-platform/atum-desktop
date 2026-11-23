@@ -1,0 +1,192 @@
+/* ---------- Work in the Atum frame (design spec 2026-11-23 §1, §8.6, §9.4) ----------
+ * Appended to the Kit stylesheet by scripts/build-work-theme.mjs. T3 paints its three regions as
+ * Atum's panels: the thread list is the roster panel, the thread is the main card, the right panel
+ * is the side panel; the window's frame shows through the 8px gaps (the owner view is transparent).
+ * Selectors use T3's data- hooks only, never its class names, so they survive pin bumps (P3).
+ */
+:root {
+  --radius: 0.625rem;
+  --font-sans: var(--ak-font-text);
+  --font-mono: var(--ak-font-mono);
+  --atum-w-gap: 8px;
+  --atum-w-r-panel: var(--ak-r-lg);
+  --atum-w-roster-rim: inset 0 0 0 0.5px rgba(23, 25, 31, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --atum-w-main-edge: var(--ak-shadow-1);
+}
+
+.dark {
+  --atum-w-roster-rim: inset 0 0 0 0.5px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* The frame shows through: nothing under the panels paints. */
+html,
+body,
+#root,
+[data-slot='sidebar-wrapper'] {
+  background: transparent !important;
+}
+
+body {
+  font: var(--ak-t-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Roster panel: 14px card, rim and top highlight, 8px from the rail edge's gap and from main. */
+[data-app-sidebar] [data-slot='sidebar-container'] {
+  padding: 0 0 var(--atum-w-gap) 0;
+  border: 0 !important;
+}
+
+[data-app-sidebar] [data-slot='sidebar-inner'] {
+  border-radius: var(--atum-w-r-panel);
+  box-shadow: var(--atum-w-roster-rim);
+  overflow: hidden;
+}
+
+/* The brand row (T3's logo and its own sidebar toggle) leaves: Atum's title band holds both. */
+[data-app-sidebar] [data-sidebar-brand-row] {
+  display: none;
+}
+
+/* Main card. */
+[data-slot='sidebar-inset'] {
+  margin: 0 var(--atum-w-gap) var(--atum-w-gap) var(--atum-w-gap);
+  border-radius: var(--atum-w-r-panel);
+  background: var(--ak-surface) !important;
+  box-shadow: var(--atum-w-main-edge);
+  overflow: hidden;
+}
+
+/* Roster rows: 40px pitch, Kit selected fill, Body type. */
+[data-app-sidebar] [data-slot='sidebar-menu-button'] {
+  min-height: 2.5rem;
+  border-radius: var(--ak-r-md);
+  font: var(--ak-t-body);
+}
+
+[data-app-sidebar] [data-slot='sidebar-menu-button'][data-active='true'] {
+  background: var(--ak-fill-selected);
+  font-weight: 500;
+}
+
+/* Thread header: quiet, no rule under it, title in Headline. */
+[data-chat-header] {
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-chat-header] :is(h1, h2) {
+  font: var(--ak-t-headline);
+}
+
+/* Actions are capsules; icon buttons are circles (T3's square toggles included). */
+[data-slot='button'],
+[data-slot='toggle'] {
+  border-radius: var(--ak-r-full);
+}
+
+/* Keyboard focus only, following the control's shape. */
+:focus-visible {
+  outline: 3px solid var(--ak-focus);
+  outline-offset: 1px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Composer: frosted capsule-ish container, radius 20 (STYLE §11). */
+[data-chat-composer-stack] [data-slot='composer-surface'],
+[data-chat-composer-stack] form {
+  border-radius: var(--ak-r-xl);
+}
+
+/* Popovers, menus and the model picker: Kit radii and shadows. */
+[data-slot='popover-popup'],
+[data-slot='menu-popup'],
+[data-slot='combobox-popup'],
+[data-slot='dialog-popup'] {
+  border-radius: var(--ak-r-lg);
+  box-shadow: var(--ak-shadow-2);
+}
+
+[data-slot='dialog-popup'] {
+  border-radius: var(--ak-r-2xl);
+}
+
+/* Badges stay quiet: the "From …" origin badge and its kin are never coloured. */
+[data-slot='badge'] {
+  border-radius: var(--ak-r-full);
+}
+
+/* ---------- Work's own pieces (atum-work fork, behind VITE_ATUM_WORK_BUILD) ---------- */
+
+/* The Atum mark: a navy squircle with the crescent. Brand colour lives only inside app marks. */
+[data-atum-mark] {
+  border-radius: 22.5%;
+  corner-shape: squircle;
+  background: #16233f;
+}
+
+[data-atum-mark-moon] {
+  width: 46%;
+  height: 46%;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset -6px 0 0 0 #f3e6c4;
+  transform: rotate(-30deg);
+}
+
+[data-atum-display] {
+  font: var(--ak-t-display);
+  letter-spacing: 0;
+}
+
+/* The atom: one travelling electron, Kit motion; still under Reduce Motion. */
+[data-atum-atom-track] {
+  transform: rotate(-45deg);
+  animation: atum-w-atom 1600ms linear infinite;
+}
+
+@keyframes atum-w-atom {
+  from {
+    transform: rotate(-45deg);
+  }
+
+  to {
+    transform: rotate(315deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-atum-atom-track] {
+    animation: none;
+  }
+}
+
+[data-atum-file-card],
+[data-atum-ask] {
+  border-radius: var(--ak-r-xl);
+  box-shadow: inset 0 0 0 0.5px var(--ak-line-2);
+}
+
+[data-atum-ask] {
+  background: var(--ak-fill-quiet);
+}
+
+/* ---------- Mode density (data-atum-mode on the root, fork F1) ---------- */
+
+/* Work is airy: roster rows breathe, tool steps read as one quiet line. */
+[data-atum-mode='work'] [data-app-sidebar] [data-slot='sidebar-menu-button'] {
+  font: var(--ak-t-body);
+}
+
+[data-atum-mode='work'] [data-v2-item-type] code {
+  font-size: 12px;
+}
+
+/* The mode flip cross-fades the chrome only; the transcript does not move. */
+[data-chat-header],
+[data-app-sidebar] [data-slot='sidebar-footer'] {
+  transition: opacity 200ms var(--ak-ease, ease);
+}

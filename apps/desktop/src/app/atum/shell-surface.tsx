@@ -3,7 +3,7 @@ import { Fragment, type ReactNode } from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip } from '@/components/ui/tooltip'
 import { ATUM_TITLEBAR_LIGHTS_CONTENT_RESERVATION } from '@/lib/atum-shell-geometry'
-import { Briefcase, Compass, Folder, LayoutSidebar, MessageCircle, Terminal } from '@/lib/icons'
+import { Briefcase, Compass, Folder, LayoutSidebar, MessageCircle, PenNib } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { type SurfaceId, type SurfaceSet, type SurfaceState } from '@/store/surfaces'
 
@@ -298,7 +298,7 @@ export function AtumNavSwitchSurface({
                   onClick={() => onDestinationChange('work')}
                   type="button"
                 >
-                  <Terminal aria-hidden className={cn('size-4', destination === 'work' && 'fill-current')} />
+                  <PenNib aria-hidden className={cn('size-4', destination === 'work' && 'fill-current')} />
                 </button>
               </Tip>
             )}
