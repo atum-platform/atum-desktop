@@ -132,3 +132,10 @@ publication still need separate evidence. Per the handoff cleanup
 requirement, the temporary archives and staging resources are removed.
 A release assembler must rebuild and refresh the archive hash against
 the actual retained artifact before distribution.
+
+Work preserves an existing machine-wide T3 policy. If a native macOS policy
+source is present or unreadable, the sidecar does not load the Work-specific
+policy or admit protected replies. Ordinary Work keeps the native
+administrator policy. A home with protected history requires the guarded
+runtime before it can reopen. The native policy sources are defined at
+`packages/shared/src/managedPolicyFile.ts:36` and `:93` in the Work fork.

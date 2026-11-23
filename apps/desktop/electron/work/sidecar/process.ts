@@ -1,6 +1,6 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readFile } from 'node:fs/promises'
+import { lstat, mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
@@ -107,6 +107,20 @@ export function workRuntimeEnvironment(root: string, resources: string): Record<
 
 type Supervisor = ChildProcessByStdio<Writable, Readable, null>
 
+// Match T3's native macOS managed-policy sources so Work cannot mask either.
+const nativePolicyPaths = [
+  '/Library/Application Support/T3Code/policy.json',
+  '/Library/Managed Preferences/com.t3tools.t3code.plist'
+]
+
+async function nativePolicyPresent(): Promise<boolean> {
+  const present = await Promise.all(
+    nativePolicyPaths.map(path => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => error.code !== 'ENOENT'))
+  )
+
+  return present.some(Boolean)
+}
+
 async function startProcess(options: WorkProcessOptions, { continuation, trial }: WorkStartOptions, signal: AbortSignal) {
   const { account, resources } = options
   const root = join(account.root, 'work')
@@ -121,7 +135,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     .then(text => JSON.parse(text) as { protectedConnector?: boolean })
     .catch(() => undefined)
 
-  const protectedConnector = pin?.protectedConnector === true
+  const protectedConnector = pin?.protectedConnector === true && !(await nativePolicyPresent())
 
   // A previous runtime must never reopen a home whose provider fence it cannot enforce.
   if (!protectedConnector && protectedWorkRoute(account.root) !== 'open') {
