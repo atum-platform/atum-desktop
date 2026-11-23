@@ -151,15 +151,24 @@ def run(spec, children, channel):
     env = spec["environment"]
     if channel:
         env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    passed = [int(channel["NODE_CHANNEL_FD"])] if channel else []
+    token = spec.pop("connectorToken", None)
     try:
+        if token:
+            read_fd, write_fd = os.pipe()
+            passed.append(read_fd)
+            try:
+                os.write(write_fd, token.encode("ascii"))
+            finally:
+                os.close(write_fd)
+            env = {**env, "ATUM_WORK_CONNECTOR_FD": str(read_fd)}
         sidecar = children.start(
             [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
-            env, spec["cwd"], subprocess.PIPE,
-            (int(channel["NODE_CHANNEL_FD"]),) if channel else (),
+            env, spec["cwd"], subprocess.PIPE, tuple(passed),
         )
     finally:
-        if channel:
-            os.close(int(channel["NODE_CHANNEL_FD"]))
+        for fd in passed:
+            os.close(fd)
     publish("spawned", pid=sidecar.pid)
     assert sidecar.stdout is not None
     line_buffer = b""
@@ -183,6 +192,22 @@ def run(spec, children, channel):
             raise RuntimeError("work_process_limit")
         if rss > 4 * 1024 * 1024:
             raise RuntimeError("work_memory_limit")
+
+
+def work_provider_instances(saved, defaults, brokers):
+    # Replace old blocked stubs once. Real T3 settings belong to the account.
+    saved = saved if isinstance(saved, dict) else {}
+    instances = dict(brokers)
+    for instance_id, default in defaults.items():
+        instance = saved.get(instance_id)
+        if isinstance(instance, dict) and instance.get("driver") == default["driver"]:
+            config = instance.get("config")
+            blocked = isinstance(config, dict) and config.get("binaryPath") == "/usr/bin/false"
+            if not blocked:
+                instances[instance_id] = instance
+                continue
+        instances[instance_id] = default
+    return instances
 
 
 def main():
@@ -209,14 +234,19 @@ def main():
             profile_source = Path(spec["profileSource"])
             owner = yaml.safe_load((profile_source / "self-work.yaml").read_text())
             delegated = yaml.safe_load((profile_source / "delegated.yaml").read_text())
-            owner["model"] = {"provider": "atum-managed", "default": "binh-minh"}
+            owner["model"] = {"provider": spec["managedProvider"], "default": spec["managedModelAlias"]}
             owner["gateway"] = {"standalone": True}
             owner["plugins"] = {"auto_update_check_hours": 0}
             for env, config in zip(spec["gateways"], (owner, {**owner, **delegated}), strict=True):
                 path = Path(env["HERMES_HOME"]) / "config.yaml"
                 path.write_text(yaml.safe_dump(config), encoding="utf-8")
                 path.chmod(0o600)
+            instances = work_provider_instances(
+                settings.get("providerInstances", {}), spec["planProviderDefaults"],
+                spec["settings"]["providerInstances"],
+            )
             settings.update(spec["settings"])
+            settings["providerInstances"] = instances
             settings["textGenerators"] = {}
             for override in settings.get("projectSettingsOverrides", {}).values():
                 override.pop("textGenerationModelSelection", None)

@@ -179,3 +179,19 @@ Full note: `docs/work-subscriptions.md`. In short, for the integration:
   `planConsent`. The surface projects `plan: 'off' | 'on'` (absent while no plan is connected and the switch is off), `setPlan` is one more request on the
   Work IPC, and Settings › This Mac draws "Agents may use my ChatGPT plan here" (default OFF).
 - The sidecar still ships Codex disabled; the Connect step enables it. The SSH ChatGPT relay is removed from main, the device runtime and the build.
+
+## Account plan capability reports
+
+Work reads the native T3 owner connection's `server.getConfig` provider snapshot
+on its normal sync cycle (one minute by default). This is the same local RPC
+used for plan usage. The reporter identifies the built-in Codex, Claude and
+Antigravity instances and uses native authentication status to detect a
+subscription login. It projects only built-in model slugs and display names.
+Provider account metadata and custom model entries stay local.
+
+A changed plan state or model list is reported on the next cycle. An unchanged
+fact refreshes hourly. Unknown probe results leave the prior fact to age out.
+Sign-out, switching accounts and turning Work off send a final disconnect for
+each plan. Ordinary application quit stops reports, so the platform shows the
+last connected device as stale after 24 hours. The account service should have
+the expanded report contract before this desktop reporter ships.

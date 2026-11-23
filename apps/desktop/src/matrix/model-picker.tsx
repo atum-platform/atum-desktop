@@ -1,6 +1,10 @@
 import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { AccountPlanConnectState } from '@/app/connections/connect-sheet'
+import { ACCOUNT_PLAN_NAMES, connectionsCopy } from '@/app/connections/copy'
+import { $accountConnections, loadAccountConnections, openAccountConnect } from '@/app/connections/store'
+import { ACCOUNT_PLAN_PICKER_PROVIDER, accountPickerPlans, accountPlanOfPickerProvider } from '@/app/connections/view'
 import { workRelayServedByName } from '@/app/work/relay-chrome'
 import { WORK_RELAY_PLAN_NAMES, workRelayChipText, workRelayCopy } from '@/app/work/relay-copy'
 import type { WorkRelayFix, WorkRelayPickerView } from '@/app/work/relay-view'
@@ -65,6 +69,7 @@ import {
   type MatrixSubscriptionsStatus,
   parseMatrixSubscriptionProvider
 } from '../../shared/matrix-subscriptions'
+import { WORK_RELAY_PROVIDER, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 
 import { ChatGptTrainingConfirm } from './chatgpt-training-confirm'
 import { useModelPickerCopy } from './model-picker-copy'
@@ -182,6 +187,7 @@ function cloudSubscriptionOption(input: {
   source: 'opencode_go' | 'chatgpt_plan'
 }): MatrixAgentHomeModelOption {
   const chatgpt = input.source === 'chatgpt_plan'
+
   return {
     connectionRef: `${input.source}:${input.model.id}`,
     source: input.source,
@@ -340,7 +346,7 @@ export function MatrixModelPicker({
   /** The fallback that answered the agent's latest reply here (agent-turns/1.7), if one did. */
   lastFallback?: MatrixSubscriptionFallback
   /** Relay R1: the plan rows from the relay view-model. Absent: D6. */
-  workRelay?: MatrixModelPickerRelay
+  workRelay?: readonly MatrixModelPickerRelay[]
   /** A row that opens this picker, replacing the composer's model pill. */
   trigger?: ReactNode
   /** Controlled open state, for a surface whose row owns it. */
@@ -358,6 +364,8 @@ export function MatrixModelPicker({
   const copy = t.matrixShell
   const words = useModelPickerCopy()
   const workHere = Boolean(useStore($work))
+  const accountConnections = useStore($accountConnections)
+  const connectionWords = connectionsCopy(locale)
   const scope = preferenceScope ?? room.id
   const [openState, setOpenState] = useState(false)
   const open = controlledOpen ?? openState
@@ -384,6 +392,7 @@ export function MatrixModelPicker({
   const cloudCurrent: ManagedPick | undefined = cloud
     ? (parseMatrixShelfModel(cloudChoice?.current) ?? matrixCloudModelAlias(cloudChoice?.current) ?? destinationDefault)
     : undefined
+
   // The account-wide OpenCode Go source: the model the cloud runs, its connection state, and
   // the models the connected account serves. A revoked choice never reads as Atum.
   const cloudSubscription = cloud ? cloudChoice?.subscription : undefined
@@ -423,10 +432,12 @@ export function MatrixModelPicker({
   // A cloud plan's thinking level, saved with its model (`atum.model-choice/1.4`), held until sync.
   const [pendingPlanEffort, setPendingPlanEffort] = usePendingPick<MatrixEffort>(cloudSubscription?.effort)
   const [pendingConnected, setPendingConnected] = useState<{ route: MatrixModelRoute; saved: boolean } | null>(null)
+
   const [pendingCloudSubscription, setPendingCloudSubscription] = useState<{
     route: MatrixModelRoute
     saved: boolean
   } | null>(null)
+
   const [pendingHome, setPendingHome] = useState<PendingHomePick | null>(null)
   const [retryPick, setRetryPick] = useState<PickerRoute | null>(null)
   const [catalog, setCatalog] = useState<ConnectedCatalog>({ status: 'idle' })
@@ -435,16 +446,20 @@ export function MatrixModelPicker({
   // The account's one-time ChatGPT-with-Google confirmation, read with the account subscriptions,
   // and the ChatGPT pick waiting on it (shown in place of the list until confirmed or kept).
   const [training, setTraining] = useState<MatrixChatGptTrainingStatus | null>(null)
+
   const [confirming, setConfirming] = useState<{ picked: PickerRoute; training: MatrixChatGptTrainingStatus } | null>(
     null
   )
+
   const trainingRead = useRef(0)
   const [filterTouched, setFilterTouched] = useState(false)
+
   // The chooser opened from the rail, with the account state as the card last read it (the card
   // closes first, and a closed card drops its reads).
   const [connecting, setConnecting] = useState<{ providers?: readonly MatrixSubscriptionProviderStatus[] } | null>(
     null
   )
+
   const [problem, setProblem] = useState<MatrixConnectedModelProblem>()
   const [effortNotice, setEffortNotice] = useState<EffortNotice>()
 
@@ -511,6 +526,7 @@ export function MatrixModelPicker({
 
     const visible = (option: MatrixAgentHomeModelOption) =>
       !(cloudOnly && currentDestination.kind === 'cloud' && option.source.startsWith('own_key:'))
+
     const options = currentDestination.models.filter(visible)
 
     if (
@@ -825,14 +841,17 @@ export function MatrixModelPicker({
   const chatgptAvailability = matrixAccountPlanAvailability(chatgptProvider)
   // A plan carried to cloud custody (S2) is the account's connection even with no local sign-in left.
   const chatgptCarried = chatgptProvider?.relay?.state === 'carried'
+
   const cloudChatGptConnected =
     (chatgptProvider?.connected === true || chatgptCarried) && chatgptAvailability?.available === true
+
   // A linked plan cloud assistants cannot reach now (no relay Mac, or its Mac is offline): its
   // models stay listed, greyed, with one line saying why and the one fix in the tooltip.
   const cloudChatGptPending =
     cloudSubscriptions &&
     (chatgptProvider?.connected === true || chatgptProvider?.localConnected === true || chatgptCarried) &&
     chatgptAvailability?.available !== true
+
   // D6 (self-work plan §10.3): an assistant never answers with the plan; the plan works in Work on the owner's Mac. One line,
   // the rows greyed without a reason of their own, and one action (Open Work) when this account has Work here.
   const chatgptReason = words.chatgptInWork
@@ -849,6 +868,7 @@ export function MatrixModelPicker({
         defaultEffort: 'medium' as MatrixEffort
       })))
     : []
+
   const chatgptModels = chatgptProvider
     ? (chatgptProvider.modelDetails ??
       (chatgptProvider.models ?? []).map(model => ({
@@ -862,50 +882,61 @@ export function MatrixModelPicker({
   // Relay R1 (lane U1): with the relay's view, ChatGPT rows follow its rule, not D6. Selectable whenever the plan is connected and
   // consented on at least one Mac; greyed rows get one line and the one fixing action. The plan picks its own thinking, so no
   // levels. An Atum pick in flight hides the relay's current model, exactly as it hides a saved plan.
-  const relay = cloudSubscriptions && workRelay && workRelay.view.rows !== 'hidden' ? workRelay : undefined
-  const relayWords = workRelayCopy(locale)
-  const relayPlanName = WORK_RELAY_PLAN_NAMES[workRelay?.view.plan ?? 'codex']
-  const relaySelectable = relay?.view.rows === 'selectable'
-  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? workRelay?.view.currentModel : undefined
+  const relays = cloudSubscriptions ? (workRelay ?? []).filter(each => each.view.rows !== 'hidden') : []
 
-  const relayModels = relay
-    ? (relay.models ?? chatgptModels.map(model => ({ id: model.id, displayName: model.displayName })))
-    : []
+  const relay = relays.find(each => WORK_RELAY_PROVIDER[each.view.plan].picker === filter.source) ??
+    relays.find(each => each.view.currentModel) ?? relays[0]
+
+  const selectedRelay = workRelay?.find(each => each.view.currentModel)
+  const hasCodexRelay = relays.some(each => each.view.plan === 'codex')
+  const relayWords = workRelayCopy(locale)
+  const relayPlanName = WORK_RELAY_PLAN_NAMES[selectedRelay?.view.plan ?? 'codex']
+  const relayCurrent = cloudSubscriptions && !(cloud && pendingModel) ? selectedRelay?.view.currentModel : undefined
+
+  const modelsFor = (each: MatrixModelPickerRelay) => each.models ?? (each.view.plan === 'codex' ? chatgptModels : [])
 
   const relayCurrentName = relayCurrent
-    ? ([...relayModels, ...(workRelay?.models ?? [])].find(model => model.id === relayCurrent)?.displayName ??
+    ? ((selectedRelay ? modelsFor(selectedRelay) : []).find(model => model.id === relayCurrent)?.displayName ??
       matrixModelDisplayName(relayCurrent))
     : undefined
 
   const relayNote =
     relay?.view.rows === 'greyed' && relay.view.greyed
-      ? { provider: 'openai-codex', text: relayWords.greyed[relay.view.greyed](relayPlanName) }
+      ? { provider: WORK_RELAY_PROVIDER[relay.view.plan].picker, text: relayWords.greyed[relay.view.greyed](WORK_RELAY_PLAN_NAMES[relay.view.plan]) }
       : undefined
 
-  const relayRoutes: PickerRoute[] = relayModels.map(model => ({
+  const relayRoutes: PickerRoute[] = relays.flatMap(each => {
+    const plan = each.view.plan
+    const provider = WORK_RELAY_PROVIDER[plan].picker
+    const name = WORK_RELAY_PLAN_NAMES[plan]
+    const ready = each.view.rows === 'selectable'
+
+    return modelsFor(each).map(model => ({
+    relayPlan: plan,
     route: {
-      id: matrixModelRouteId('openai-codex', model.id),
-      provider: 'openai-codex',
+      id: matrixModelRouteId(provider, model.id),
+      provider,
       model: model.id,
       name: model.displayName,
-      providerLabel: relayPlanName,
-      accountLabel: words.planAccount(relayPlanName),
+      providerLabel: name,
+      accountLabel: words.planAccount(name),
       connection: 'plan' as const,
       target: 'agent_default' as const,
       destination: 'cloud' as const,
       efforts: [],
-      current: relayCurrent === model.id,
-      ready: relaySelectable
+      current: selectedRelay?.view.plan === plan && relayCurrent === model.id,
+      ready
     },
     subscription: true,
-    ...(relaySelectable ? {} : { disabled: true })
-  }))
+    ...(ready ? {} : { disabled: true })
+    }))
+  })
 
   const cloudSubscriptionRoutes: PickerRoute[] = cloudSubscriptions
     ? [
         ...relayRoutes,
         // ChatGPT plan models are served by the selected owner Mac (R2).
-        ...(!relay && (cloudChatGptConnected || cloudChatGptPending)
+        ...(!hasCodexRelay && (cloudChatGptConnected || cloudChatGptPending)
           ? chatgptModels.map(model => ({
               route: {
                 id: matrixModelRouteId('openai-codex', model.id),
@@ -961,12 +992,15 @@ export function MatrixModelPicker({
   // the sign-in; a saved sign-in that stopped working is one Reconnect row; a plan the cloud
   // cannot reach yet keeps its models (disabled above) and one row that opens Settings.
   const chatgptRead = cloudSubscriptions ? Boolean(accountSubscriptions) : subscriptionListable && Boolean(subscriptionValue)
+
   const chatgptLinked = cloudSubscriptions
     ? chatgptProvider?.connected === true || chatgptProvider?.localConnected === true
     : subscriptionValue?.providers.some(provider => provider.id === 'openai-codex' && provider.connected) === true
+
   const chatgptSignedOut = cloudSubscriptions
     ? chatgptProvider?.needsSignIn === true && !chatgptLinked
     : chatgptNeedsSignIn
+
   // One short note in a subscription's own list when it has nothing choosable; the fix is the
   // rail's Connect, never a row here.
   const subscriptionNote: { provider: string; text: string } | undefined =
@@ -974,19 +1008,62 @@ export function MatrixModelPicker({
       ? { provider: 'openai-codex', text: words.modelsFailed }
       : relayNote
         ? relayNote
-        : chatgptSignedOut && !relay
+        : chatgptSignedOut && !hasCodexRelay
         ? { provider: 'openai-codex', text: words.chatgptSignedOut }
-        : cloudChatGptPending && !relay
+        : cloudChatGptPending && !hasCodexRelay
           ? { provider: 'openai-codex', text: chatgptReason }
           : cloudSubscriptions && cloudSubscriptionRevoked && cloudSubscription?.source === 'opencode_go'
             ? { provider: 'opencode-go', text: words.modelsSignedOut }
             : undefined
 
 
+  // The account's plans (`atum.account-connections/1`): every plan has a rail entry, connected or not. ChatGPT's rows come from the
+  // relay above; a connected plan the relay does not carry yet lists its models greyed with one line; a plan connected nowhere
+  // gets a hollow mark and one Connect state in place of the list (Work UI spec §2.1).
+  const accountPicks = cloudSubscriptions ? accountPickerPlans(accountConnections) : []
+  const listedPlanProviders = new Set(cloudSubscriptionRoutes.map(({ route }) => route.provider))
+
+  const accountPlanRoutes: PickerRoute[] = accountPicks.flatMap(pick => {
+    const provider = ACCOUNT_PLAN_PICKER_PROVIDER[pick.plan]
+
+    if (pick.kind === 'connect' || listedPlanProviders.has(provider) || (pick.kind === 'relay' && relay)) {
+      return []
+    }
+
+    const planName = ACCOUNT_PLAN_NAMES[pick.plan]
+
+    return pick.models.map(model => ({
+      route: {
+        id: matrixModelRouteId(provider, model.id),
+        provider,
+        model: model.id,
+        name: model.displayName,
+        providerLabel: planName,
+        accountLabel: words.planAccount(planName),
+        connection: 'plan' as const,
+        target: 'agent_default' as const,
+        destination: 'cloud' as const,
+        efforts: [],
+        current: false,
+        ready: false
+      },
+      subscription: true,
+      disabled: true,
+      reason: connectionWords.picker.inWork
+    }))
+  })
+
+  const accountPlanSources: PickerFilterSource[] = accountPicks.map(pick => ({
+    id: ACCOUNT_PLAN_PICKER_PROVIDER[pick.plan],
+    label: ACCOUNT_PLAN_NAMES[pick.plan],
+    ready: pick.kind !== 'connect'
+  }))
+
   // Favorites first in the rail, then Atum's line-up and every current-home provider (including
   // the subscription sources, so a cloud OpenCode Go model has a rail entry of its own).
   const subscriptionProviders = [
-    ...(cloudSubscriptions ? cloudSubscriptionRoutes : subscriptionRoutes).map(({ route }) => ({
+    ...relays.map(each => ({ id: WORK_RELAY_PROVIDER[each.view.plan].picker, label: WORK_RELAY_PLAN_NAMES[each.view.plan] })),
+    ...(cloudSubscriptions ? [...cloudSubscriptionRoutes, ...accountPlanRoutes] : subscriptionRoutes).map(({ route }) => ({
       id: route.provider,
       label: route.providerLabel
     })),
@@ -1013,7 +1090,10 @@ export function MatrixModelPicker({
       id: each.id,
       label: each.providerLabel,
       ready: each.ready && each.models > 0
-    }))
+    })),
+    // Connected plans first (in the account's order), then the ones to connect.
+    ...accountPlanSources.filter(source => source.ready),
+    ...accountPlanSources.filter(source => !source.ready)
   ].filter((source, index, sources) => sources.findIndex(candidate => candidate.id === source.id) === index)
 
   // Exactly one route is current: the current home's projection, or the one legacy destination
@@ -1041,7 +1121,7 @@ export function MatrixModelPicker({
               ? route.id === pendingConnected.route.id
               : route.current
 
-  const shownSubscriptionRoutes = cloudSubscriptions ? cloudSubscriptionRoutes : subscriptionRoutes
+  const shownSubscriptionRoutes = cloudSubscriptions ? [...cloudSubscriptionRoutes, ...accountPlanRoutes] : subscriptionRoutes
 
   // Never a mixed list: with no (or a vanished) provider chosen, the first provider in the rail.
   const shownFilter: PickerFilter =
@@ -1087,6 +1167,18 @@ export function MatrixModelPicker({
     filter: shownFilter,
     isCurrent
   })
+
+  // A plan connected nowhere, chosen in the rail, with nothing of its own to list: one Connect state instead of the list.
+  const railPlan = shownFilter.favoritesOnly ? undefined : accountPlanOfPickerProvider(shownFilter.source)
+
+  const connectPlan =
+    railPlan &&
+    filterTouched &&
+    !query.trim() &&
+    accountPicks.some(pick => pick.plan === railPlan && pick.kind === 'connect') &&
+    !sections.some(section => section.note || section.rows.some(({ route }) => route.provider === shownFilter.source))
+      ? railPlan
+      : undefined
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // answers now (Atum's by default) and lists only that provider's models until the rail changes.
@@ -1161,6 +1253,7 @@ export function MatrixModelPicker({
   const managedEffortRoute = !homeMode && managed && cloud && !currentPlan && !savedCloudPlan
     ? atumRoutes.find(({ route }) => route.model === managedCurrent)?.route
     : undefined
+
   const managedEffortChoice = managedEffortRoute
     ? pickerEffortChoice({
         efforts: managedEffortRoute.efforts,
@@ -1265,6 +1358,8 @@ export function MatrixModelPicker({
       setEffortNotice(undefined)
       setRetryPick(null)
       loadCatalog()
+
+      void loadAccountConnections()
 
       if (cloudSubscriptions) {
         void loadAccountSubscriptions()
@@ -1614,17 +1709,17 @@ export function MatrixModelPicker({
       return
     }
 
+    if (picked.relayPlan) {
+      writeRelaySelection(picked)
+
+      return
+    }
+
     // A cloud agent's OpenCode Go pick is the owner's per-destination choice
     // (`atum.model-choice/1.4`), not a Mac profile switch and not the managed 1.1 offer.
     if (cloud && !macAnswers && (picked.route.provider === 'opencode-go' || picked.route.provider === 'openai-codex')) {
       // Relay R1: a plan model is the agent's revisioned selection, written through the relay (never the 1.4 plan choice). An
       // assistant that holds Google never gets here: its rows are greyed (O1).
-      if (relay && picked.route.provider === 'openai-codex') {
-        writeRelaySelection(picked)
-
-        return
-      }
-
       // ChatGPT for an account whose assistants touch Google asks once, inside this card; until
       // the person confirms, nothing is written and the saved model stays as it is.
       if (picked.route.provider === 'openai-codex' && subscriptionsService?.chatGptTraining) {
@@ -1671,7 +1766,9 @@ export function MatrixModelPicker({
 
   /** Relay R1: the selection write (`work_selection_set`), held as a pick until the relay's view names it. */
   const writeRelaySelection = (picked: PickerRoute) => {
-    if (!relay) {
+    const target = relays.find(each => each.view.plan === picked.relayPlan)
+
+    if (!target) {
       return
     }
 
@@ -1681,7 +1778,7 @@ export function MatrixModelPicker({
     setRetryPick(null)
     setPendingCloudSubscription({ route: picked.route, saved: false })
 
-    void relay.select(picked.route.model).then(
+    void target.select(picked.route.model).then(
       result => {
         if (!context.current()) {
           return
@@ -2002,6 +2099,7 @@ export function MatrixModelPicker({
   useEffect(() => {
     selection.current += 1
     setPreferences(readPreferences(scope))
+
     // The account's subscriptions are the same account's after a pick: keep them (the ChatGPT
     // rail and its models must not vanish once a ChatGPT model is chosen) and re-read them while
     // the card is open, so a refreshed relay or connection shows up in place.
@@ -2012,6 +2110,7 @@ export function MatrixModelPicker({
         void loadSubscriptions()
       }
     }
+
     setFilterTouched(false)
     setPendingConnected(null)
     setPendingCloudSubscription(null)
@@ -2065,7 +2164,7 @@ export function MatrixModelPicker({
 
     if (
       (cloudSubscription?.model === pendingCloudSubscription.route.model && !cloudSubscriptionRevoked) ||
-      (pendingCloudSubscription.route.provider === 'openai-codex' && workRelay?.view.currentModel === pendingCloudSubscription.route.model)
+      (selectedRelay && pendingCloudSubscription.route.provider === WORK_RELAY_PROVIDER[selectedRelay.view.plan].picker && selectedRelay.view.currentModel === pendingCloudSubscription.route.model)
     ) {
       setPendingCloudSubscription(null)
 
@@ -2075,7 +2174,7 @@ export function MatrixModelPicker({
     const timer = setTimeout(() => setPendingCloudSubscription(null), 5000)
 
     return () => clearTimeout(timer)
-  }, [cloudSubscription, cloudSubscriptionRevoked, pendingCloudSubscription, workRelay?.view.currentModel])
+  }, [cloudSubscription, cloudSubscriptionRevoked, pendingCloudSubscription, selectedRelay])
 
   useEffect(() => {
     if (!pendingHome?.saved) {
@@ -2181,6 +2280,7 @@ export function MatrixModelPicker({
   // falls back to the assistant-scoped native Hermes page.
   const showConnections = Boolean(onSubscriptions || subscriptionsService?.startChatGpt)
   const catalogReady = homeMode || !legacyListable || catalog.status === 'ready'
+
   // The rail's Connect: choose a service and sign in right here (ChatGPT, OpenCode Go, and any
   // service added later). An older main without the bridge opens Settings instead.
   const openConnections = () => {
@@ -2225,14 +2325,14 @@ export function MatrixModelPicker({
   const fellBack =
     !chipDown &&
     lastFallback &&
-    chipPlanProvider === (lastFallback.plan === 'chatgpt' ? 'openai-codex' : 'opencode-go')
+    chipPlanProvider === (lastFallback.plan === 'opencode_go' ? 'opencode-go' : WORK_RELAY_PROVIDER[workRelayNoticePlan(lastFallback.plan)!].picker)
       ? lastFallback
       : undefined
 
   // Relay R1: the selected plan's own warning (greyed, at its limit, or the last turn fell back). Never for a held run.
   const relayChip =
-    relayCurrent && !pendingCloudSubscription && workRelay?.view.chip
-      ? workRelayChipText(workRelay.view.chip, {
+    relayCurrent && !pendingCloudSubscription && selectedRelay?.view.chip
+      ? workRelayChipText(selectedRelay.view.chip, {
           words: relayWords,
           plan: relayPlanName,
           model: workRelayServedByName(),
@@ -2251,6 +2351,7 @@ export function MatrixModelPicker({
         : undefined)
 
   const atumChipName = MATRIX_MODEL_LINEUP.find(row => row.id === (cloud ? cloudCurrent : managedCurrent))?.name
+
   const chipLabel =
     !connectedHere && !shownPlanName && (!homeDisplayRoute || homeDisplayRoute.provider === 'atum')
       ? (atumChipName ?? label)
@@ -2294,8 +2395,8 @@ export function MatrixModelPicker({
               className="ak-btn ak-btn--plain ak-btn--sm max-w-52 shrink-0"
               data-matrix-model-picker
               data-matrix-model-unavailable={
-                relayChip && workRelay?.view.chip
-                  ? `relay_${workRelay.view.chip.kind}`
+                relayChip && selectedRelay?.view.chip
+                  ? `relay_${selectedRelay.view.chip.kind}`
                   : chipWarning
                     ? (chipDown ?? 'fell_back')
                     : undefined
@@ -2460,7 +2561,15 @@ export function MatrixModelPicker({
             ) : undefined
           }
         >
-          {managed || listable || atumRoutes.length ? (
+          {connectPlan ? (
+            <AccountPlanConnectState
+              onConnect={() => {
+                changeOpen(false)
+                openAccountConnect(connectPlan)
+              }}
+              plan={connectPlan}
+            />
+          ) : managed || listable || atumRoutes.length ? (
             <>
               <ModelPickerList
                 busy={switching || Boolean(pendingEffort)}

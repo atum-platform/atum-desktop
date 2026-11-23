@@ -273,6 +273,7 @@ describe('createMatrixWork', () => {
       deviceServiceId: () => '67000000-0000-4000-8000-0000000000d1',
       deviceServicesEndpoint: () => 'https://api.example.test/api/matrix/v1/device-services',
       bearer: async () => 'bearer',
+      prepareChatGptConnect: async () => undefined,
       ownerHost: () => undefined,
       agentMatrixUser: async () => null,
       agentName: () => undefined,

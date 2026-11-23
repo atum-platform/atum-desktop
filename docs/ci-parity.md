@@ -314,3 +314,67 @@ because they require Linux `/proc`; exact-head Linux CI remains coordinator
 work. No push, PR edit, CI rerun, deployment, or nested review was performed.
 
 Identifier findings follow the same rule: a new identifier is accepted only in a file whose exact bytes the coordinator reviewed and recorded in `reviewed_blobs` of the base-branch policy, landed by a policy-only PR before the content PR. 2026-11-11: `packages/mobile-design-exports/dist/Localizable.xcstrings` for the wave 3 phone export (#26), whose only new identifier is desktop's DM placeholder address at the reserved `example.com` domain, five times. Any later change to that file needs a new approval.
+
+## Work subscriptions integration checks (2026-11-23)
+
+Built locally, not published. The assembled account Connections design reuses
+`AccountSubscriptionsSection`, `AccountConnectSheet`, and the existing strict
+fallback parser. CI repairs change tests rather than adding a parallel flow:
+
+- Claude is now a valid relay fallback plan, alongside Antigravity. Reject an
+  actually unknown plan, and exercise both additive plans. Authored text,
+  prices, unknown reasons, wrong message types, and missing reply relations
+  remain rejected.
+- The ChatGPT recovery entry still opens account Connections. Its test now
+  selects the Codex row among the account's plan rows and opens the canonical
+  ChatGPT connect sheet. Without Work, it explains that connection needs a Mac;
+  it never starts the retired device-code flow or assistant pages.
+- The real supervisor settings/restart test invokes its discovered Python via
+  an executable wrapper. Relocating a virtualenv interpreter with a symlink
+  loses pyvenv.cfg and PyYAML, causing work_start_failed in CI. Production
+  startup and settings migration remain unchanged. A separate reproduction
+  using the reusable virtualenv confirms that the old symlink exits 1 with
+  missing PyYAML; the wrapper-backed real-supervisor test passes.
+- The updater test observes group SIGKILL dispatch before stock installation.
+  POSIX process.kill does not set ChildProcess.killed, and kill(pid, 0) can
+  remain true briefly while the kernel reaps the process. The existing eventual
+  death assertion and live-bystander assertion remain intact.
+
+Python upgrade E2E (hosts) failed during dependency preparation, before the
+upgrade shard: the KittenTTS 0.8.1 GitHub release wheel timed out after three
+retries. Main's two recent hosts jobs succeeded (runs 45108487294 and
+45100452279). The branch has no changes to pyproject.toml, uv.lock, PM,
+setup_toolchain.py, or the Python E2E workflow. This is a transient download
+failure, with no product-code change indicated. No CI rerun was requested.
+
+Local verification uses shared Node dependencies and an existing Python test
+environment without installing packages. Temporary dependency links are removed
+before commit. Exact committed-head public guard and final suite results are
+recorded with the implementation handoff; hosted CI remains coordinator work.
+
+Verification for the repair checkpoint:
+
+- Full desktop typecheck: exit 0; client boundary passed.
+- Full desktop ESLint: exit 0 (existing warnings, no errors). Focused lint
+  of changed tests also exited 0.
+- Native fallback, supervisor settings/restart, and updater suites: 16 passed,
+  exit 0, with the reusable virtualenv on PATH. The final updater snapshot
+  assertion also passed independently (2 tests, exit 0).
+- Recovery CTA targeted test: passed, exit 0. The account plan key is `codex`,
+  while its existing user-facing product name is ChatGPT.
+- Mac job startup and Work HTTP suites: 73 passed, exit 0 in isolation.
+- Final complete `src/matrix/app.test.tsx`: 450 passed, exit 0. The earlier
+  broad-run worker had already loaded an intermediate test edit that called
+  the existing ChatGPT sheet "Connect Codex"; the full final-file rerun verifies
+  the corrected display-name assertion and every sibling app test.
+- CI's full command, `npm exec --workspace apps/desktop -- vitest run
+  --maxWorkers 4`, completed with exit 1: 1700 files passed, 12 skipped,
+  3 failed; 25662 tests passed, 47 skipped, 4 failed. One failure was the
+  already-loaded intermediate recovery assertion covered by the green final
+  450-test app rerun. Two were unchanged Mac job startup cases exceeding
+  their 30-second limit. The fourth was Work HTTP reply silencing: its
+  30-millisecond sleep can revoke before launch admission under load, leaving
+  an admission error instead of an in-flight revoked result. Both affected
+  suites passed together in isolation (73 tests). No timeout or revocation
+  invariant was weakened. The full aggregate is explicitly not green;
+  coordinator CI must supply final current-head evidence.

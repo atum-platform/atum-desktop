@@ -59,6 +59,7 @@ export function WorkRelayTurnLine({
   const run = line.action?.kind === 'stop' ? onStop : line.action?.kind === 'open_work' ? onOpenWork : undefined
 
   let text = line.text
+
   if (chrome.kind === 'waiting' && chrome.waitingForAnswer) {
     text = chrome.invalidAnswer ? t.sidebar.row.invalidAnswer : t.sidebar.row.waitingForAnswer
   }
@@ -136,11 +137,13 @@ export function WorkRelayMessageLine({
   chrome,
   className,
   eventId,
+  plan,
   roomId
 }: {
   chrome: WorkRelayTurnChrome
   className?: string
   eventId: string
+  plan?: WorkRelayPlan
   roomId?: string
 }) {
   const stop = useStore($workRelayStop)
@@ -151,6 +154,7 @@ export function WorkRelayMessageLine({
       className={className}
       onOpenWork={() => setWorkActive(true)}
       onStop={stop && roomId ? () => stop(roomId, eventId) : undefined}
+      plan={plan}
     />
   )
 }

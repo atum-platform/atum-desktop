@@ -58,8 +58,8 @@ export interface T3Port extends T3Reader {
    * `unknown` when T3 could not be asked. The login itself is never read: it stays in the maker's own store.
    */
   planProvider?(
-    token: string
-  ): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }>
+    token: string, instanceId?: string
+  ): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string }; models?: string[] }>
   /** Whether the delegated instance and its model are advertised (a fresh home advertises only `default` at first). */
   providerReady(token: string): Promise<boolean>
   /** Open this bearer's MCP session so that `launch` can start its request in the same synchronous step. */
@@ -69,7 +69,7 @@ export interface T3Port extends T3Reader {
    * this in one synchronous section); it never retries and never re-initialises a session by itself.
    */
   send?(token: string, call: {threadId: string; message: string; clientRequestId: string}, modeLimit: string): Promise<T3Reply>
-  configure?(token: string, threadId: string, modelSelection: {instanceId: string; model: string}): Promise<T3Reply>
+  configure?(token: string, threadId: string, modelSelection: {instanceId: string; model: string}, modeLimit?: string): Promise<T3Reply>
   readPage?(token: string, threadId: string, afterPosition?: number, item?: {itemId: string; textOffset: number}): Promise<T3Reply>
   pendingQuestion?(token: string, threadId: string, input:
     | { action: 'list' }
@@ -130,6 +130,7 @@ export interface WorkPlatform {
     appliedSeq: number
     routeEpoch: number
     contract?: '1.2' | '1.3'
+    planConsent?: true
   }): Promise<WorkSyncPage>
   ack(ack: WorkSyncAck): Promise<void>
   /** Resolves with the route state the platform holds after the event, when it says (a held reopen answers `closed`). */

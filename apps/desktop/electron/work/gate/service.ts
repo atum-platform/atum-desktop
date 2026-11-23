@@ -1,10 +1,12 @@
 import { join } from 'node:path'
 
+import { WORK_RELAY_PLANS, type WorkRelayPlan } from '../../../shared/matrix-work-relay'
+
 import { AccessVerifier, type AssertionResult } from './assertion'
 import { type GateEvent, type GateOptions, type GateState, WorkGate } from './gate'
 import { createGateHandler } from './http'
 import { GateLedger } from './ledger'
-import { PlanFact } from './plan-fact'
+import { type PlanCapabilities, PlanFact } from './plan-fact'
 import type { GateSessions, WorkPlatform } from './ports'
 import { bindGateSocket, type BoundGateSocket, GateSocketError } from './socket'
 import { readFacts, WorkSync } from './sync'
@@ -33,6 +35,7 @@ export interface WorkGateServiceOptions extends Omit<GateOptions, 'ledger' | 'ho
    */
   sessions: GateSessions | ((ledger: GateLedger) => GateSessions)
   platform: WorkPlatform
+  readPlanCapabilities?(): Promise<PlanCapabilities>
   /** The short, protected socket path main created for this enrollment (at most 100 bytes). */
   socketPath: string
   fetchJwks?: (url: string) => Promise<unknown>
@@ -54,6 +57,8 @@ export interface GateServiceState extends GateState {
   /** What T3 last said about the plan on this Mac (the fact this Mac reports), `unknown` before the first read or while no server runs. */
   planConnected: 'connected' | 'disconnected' | 'unknown'
   /** What the owner's consent says about this Mac, `unknown` while its snapshot is missing or stale. */
+  connectedPlans?: WorkRelayPlan[]
+  relayAccountConsent?: boolean
   planConsent: 'on' | 'off' | 'unknown'
 }
 
@@ -74,12 +79,10 @@ export class WorkGateService {
 
     this.gate = new WorkGate({ ...options, ledger: this.ledger, sessions })
 
-    // Gate 4a: only a T3 client that has a plan instance configured can read the plan's status, and only a platform that speaks 1.2
-    // can take the fact. Either absent (a stand-in, an older composition): nothing is read and nothing is reported.
-    const planProvider = options.t3.planProvider?.bind(options.t3)
+    const { readPlanCapabilities } = options
 
     this.planFact =
-      planProvider && options.platform.reportSubscription
+      options.platform.reportSubscription
         ? new PlanFact({
             ledger: this.ledger,
             platform: options.platform,
@@ -87,11 +90,7 @@ export class WorkGateService {
             deviceServiceId: options.deviceServiceId,
             now: this.now,
             log: options.log,
-            status: async () => {
-              const owner = await sessions.owner()
-
-              return (await planProvider(owner.token)).status
-            }
+            read: readPlanCapabilities ?? (async () => ({}))
           })
         : undefined
 
@@ -285,6 +284,8 @@ export class WorkGateService {
       socketReason: this.down,
       planSwitchOn: this.ledger.planSwitchOn(),
       planConnected: this.planFact?.current() ?? 'unknown',
+      connectedPlans: WORK_RELAY_PLANS.filter(plan => this.planFact?.current(plan) === 'connected'),
+      relayAccountConsent: this.ledger.usesAccountPlanConsent(),
       planConsent: this.gate.planConsentState()
     }
   }

@@ -161,44 +161,24 @@ it('reads only verified history before a routing trigger, including the prior vi
   expect(f.decrypt).toHaveBeenCalledTimes(2)
 })
 
-it('turns Google-provenance history into a routing gap without forwarding its protected text', async () => {
-  const f = fixture()
-  f.pages.mockResolvedValue({
-    chunk: [
-      wire('$trigger'),
-      wire('$google', '@two:test', {
-        msgtype: 'm.text',
-        body: 'private calendar event',
-        [MATRIX_GOOGLE_PROVENANCE_KEY]: { v: 1, google: true }
-      }),
-      wire('$ordinary', '@two:test', { msgtype: 'm.text', body: 'public room update' })
-    ]
-  })
-
-  const read = await readGroupRecent(f.client, { ...target, purpose: 'routing' })
-  expect(read.context.lines.map(line => line.eventId)).toEqual(['$ordinary'])
-  expect(read.context.gaps).toBe(1)
-  expect(JSON.stringify(read)).not.toContain('private calendar event')
-})
-
-it.each([null, {}])('fails closed for a malformed Google provenance marker (%j)', async provenance => {
+it.each([{ v: 1, google: true }, null, {}])('includes verified routing history carrying provenance (%j)', async provenance => {
   const f = fixture()
   f.pages.mockResolvedValue({
     chunk: [
       wire('$trigger'),
       wire('$marked', '@two:test', {
         msgtype: 'm.text',
-        body: 'never forward this text',
+        body: 'calendar event',
         [MATRIX_GOOGLE_PROVENANCE_KEY]: provenance
       }),
-      wire('$ordinary', '@two:test', { msgtype: 'm.text', body: 'safe room update' })
+      wire('$ordinary', '@two:test', { msgtype: 'm.text', body: 'room update' })
     ]
   })
 
   const read = await readGroupRecent(f.client, { ...target, purpose: 'routing' })
-  expect(read.context.lines.map(line => line.eventId)).toEqual(['$ordinary'])
-  expect(read.context.gaps).toBe(1)
-  expect(JSON.stringify(read)).not.toContain('never forward this text')
+  expect(read.context.lines.map(line => line.eventId)).toEqual(['$ordinary', '$marked'])
+  expect(read.context.gaps).toBe(0)
+  expect(JSON.stringify(read)).toContain('calendar event')
 })
 
 it('refuses a routing read when the trigger is absent before the page budget is exhausted', async () => {

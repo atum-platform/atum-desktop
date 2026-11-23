@@ -231,13 +231,13 @@ export async function readMatrixInvocation(
     // moved it there): an edit or a reaction is related either way, never a fresh turn.
     related: content['m.relates_to'] !== undefined || event.getWireContent()['m.relates_to'] !== undefined,
     content: {
+      workAnswer: content['io.atum.work_answer'],
       msgtype: content.msgtype!,
       body: content.body,
       ...(parseGroupChain(content[GROUP_CHAIN_KEY]) ? { chain: parseGroupChain(content[GROUP_CHAIN_KEY]) } : {}),
       ...(mentionedUserIds ? { mentionedUserIds } : {}),
       ...(invalidMentions ? { invalidMentions: true as const } : {}),
-      // Presence is enough to keep a protected source out of an unrelated model route. The
-      // owner-side protected sender wrote the marker; malformed or forwarded marks fail closed too.
+      // Preserve marker presence as informational provenance.
       ...(Object.prototype.hasOwnProperty.call(content, MATRIX_GOOGLE_PROVENANCE_KEY)
         ? { googleProtected: true as const }
         : {}),

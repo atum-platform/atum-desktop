@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+
 import { WORK_CONSENT_FRESHNESS_BOUND_SECONDS, WORK_REFUSAL_REASONS, workPlanLaunchDecision } from './contract'
-import { WORK_PLAN_INSTANCE_IDS } from './gate'
 import { EVENT_A, EVENT_B, type Harness, LUNA, makeHarness, NOVA, REQ_1, REQ_2, REQ_3 } from './test-support'
 
 // Gate 4b (self-work slice B): the Mac's rule for a launch that names the owner's plan, contract atum.work-route/1.2.
@@ -200,7 +201,7 @@ describe('a passing plan launch', () => {
 
     expect(answer).toMatchObject({ class: 'accepted', receipt: 'launched' })
     expect(launchedCall().modelSelection).toEqual({ instanceId: 'codex', model: 'codex-model-1' })
-    expect(WORK_PLAN_INSTANCE_IDS).toEqual(['codex'])
+    expect(Object.values(WORK_RELAY_PROVIDER).map(plan => plan.instanceId)).toEqual(['codex', 'claudeAgent', 'antigravity'])
     expect(h.ledger.receipt(LUNA, REQ_1)).toMatchObject({ plan: 'codex', state: 'launched' })
     expect(h.ledger.eventClaimed(EVENT_A)).toBe(true)
   })
@@ -407,4 +408,14 @@ describe('the consent revision the ack carries', () => {
     h.consent({ revision: 7 })
     expect(h.gate.consentRevision()).toBe(7)
   })
+})
+
+
+it.each(WORK_RELAY_PLANS)('uses the connected %s account consent for owner turns and the Mac switch', plan => {
+  h = makeHarness()
+  h.consent({ provider: plan, scheduledAgents: [] })
+  expect(h.gate.planDecision(LUNA, false, plan)).toBe('allowed')
+  expect(h.gate.planDecision(LUNA, true, plan)).toBe('plan_not_scheduled')
+  h.gate.setPlanSwitch(false)
+  expect(h.gate.planDecision(LUNA, false, plan)).toBe('plan_switch_off')
 })

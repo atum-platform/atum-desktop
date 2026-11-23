@@ -2,6 +2,8 @@ import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+
 import { handoffBudget, historyCost, selectHistory } from './handoff-helper.cjs'
 import { GateLedger } from './ledger'
 import type { T3Port } from './ports'
@@ -37,8 +39,8 @@ function rig() {
 
   const options = {
     gateId: () => h.gate.gateId(),
-    consent: () => ({
-      provider: 'codex',
+    consent: (provider: (typeof WORK_RELAY_PLANS)[number] = 'codex') => ({
+      provider,
       state: 'on',
       agents: [LUNA],
       devices: [h.gate.gateId().deviceServiceId],
@@ -75,6 +77,35 @@ describe('relay admission and frozen receipts (RT2/RT10)', () => {
       expect(r.owner).not.toHaveBeenCalled()
     }
   )
+  it.each(WORK_RELAY_PLANS)('launches the selected %s plan with the native permission ceiling', async plan => {
+    const r = rig()
+    const { instanceId } = WORK_RELAY_PROVIDER[plan]
+    r.selection.instanceId = instanceId
+    r.options.modeLimit = 'auto-accept-edits/default'
+    const planProvider = vi.fn(r.h.t3.planProvider)
+    r.h.t3.planProvider = planProvider
+
+    expect(await r.relay.status(r.ctx, r.input.room_id)).toMatchObject({
+      selection: { plan, model: 'test' }, connected: true
+    })
+    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'accepted' })
+    expect(planProvider).toHaveBeenCalledWith(expect.any(String), instanceId)
+    expect(r.h.ledger.receipt(LUNA, REQ_1)).toMatchObject({ plan })
+    expect(r.launch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+      modelSelection: { instanceId, model: 'test' }
+    }), plan === 'antigravity' ? 'approval-required/default' : 'auto-accept-edits/default')
+  })
+
+  it('refuses an instance outside the plan table before reading the owner event', async () => {
+    const r = rig()
+    r.selection.instanceId = 'custom'
+
+    expect(await r.relay.status(r.ctx, r.input.room_id)).toMatchObject({ selection: null, connected: false })
+    expect(await r.relay.send(r.ctx, r.input)).toMatchObject({ class: 'revoked' })
+    expect(r.owner).not.toHaveBeenCalled()
+    expect(r.launch).not.toHaveBeenCalled()
+  })
+
   it('requires an event and the canonical plain owner DM', async () => {
     const r = rig()
     expect(await r.relay.send(r.ctx, { ...r.input, event_id: undefined })).toMatchObject({ class: 'refused' })
@@ -569,8 +600,10 @@ describe('R1s standing scheduled permits', () => {
 
 describe('R3 native questions (RT10, RT14 and RT15)', () => {
   const pending = 'runtime-request:one'
+
   const answers = [{ id: 'color', question: 'Which color?', options: [{ label: 'Sea blue', value: 'blue' }],
     allowCustomAnswer: false }]
+
   const questionText = 'Which color?\n1. Sea blue'
   const readQuestion = { request_id: REQ_1, action: 'read' as const }
 
@@ -705,8 +738,10 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
     r.native.mockImplementation(async (token, thread, input) => {
       if (input.action === 'respond' && !rejected) {
         rejected = true
+
         return { transport: 'ok', isError: true }
       }
+
       return native(token, thread, input)
     })
 

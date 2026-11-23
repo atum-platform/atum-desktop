@@ -19,21 +19,6 @@ export const $workEnrollmentDeferred = atom(false)
 
 const DEFERRED_KEY = 'atum.work.enrollment.deferred.v1'
 
-/** Gate 4a: the first-sign-in Connect step was answered (Connect or Not now) on this Mac. It appears once. */
-export const $workPlanConnectSeen = atom(false)
-
-const PLAN_CONNECT_SEEN_KEY = 'atum.work.plan-connect.seen.v1'
-
-/** Gate 4b-2: the consent sheet, open for an assistant (from the picker) or for this Mac (from its switch). */
-export interface WorkPlanConsentRequest {
-  /** Preselect this assistant: the owner tapped it by name. */
-  agent?: string
-  /** Preselect this Mac: the owner turned its switch on. */
-  thisMac?: boolean
-}
-
-export const $workPlanConsent = atom<WorkPlanConsentRequest | null>(null)
-
 /**
  * Relay R1: how a held relay turn's Stop reaches the gate. The coordinator's data wiring sets it; while it is null, a held line
  * shows no Stop (never a button that does nothing). The stop is recorded and holds until the Mac confirms (plan §3.6).
@@ -65,34 +50,6 @@ export function deferWorkEnrollment(): void {
   } catch {
     // A convenience only: the card comes back next time.
   }
-}
-
-export function loadWorkPlanConnectSeen(): void {
-  try {
-    $workPlanConnectSeen.set(storage()?.getItem(PLAN_CONNECT_SEEN_KEY) === '1')
-  } catch {
-    $workPlanConnectSeen.set(false)
-  }
-}
-
-export function markWorkPlanConnectSeen(): void {
-  $workPlanConnectSeen.set(true)
-
-  try {
-    storage()?.setItem(PLAN_CONNECT_SEEN_KEY, '1')
-  } catch {
-    // A convenience only: the step may show once more.
-  }
-}
-
-/** Gate 4a: show the Work page and open T3's own Codex connect screen in it. */
-export async function openWorkPlanConnect(bridge: Pick<MatrixWorkBridge, 'openPlanConnect'>): Promise<void> {
-  setWorkActive(true)
-  await bridge.openPlanConnect()
-}
-
-export function openWorkPlanConsent(request: WorkPlanConsentRequest = {}): void {
-  $workPlanConsent.set(request)
 }
 
 /**
@@ -157,6 +114,4 @@ export function resetWorkStoreForTests(): void {
   $workActive.set(false)
   $workBandOpen.set(false)
   $workEnrollmentDeferred.set(false)
-  $workPlanConnectSeen.set(false)
-  $workPlanConsent.set(null)
 }
