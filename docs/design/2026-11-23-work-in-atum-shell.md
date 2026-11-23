@@ -8,6 +8,11 @@ way for me to connect my subs?"; "Still seeing 'binh minh'". Direction: every su
 Claude, Antigravity) is reached from Work; cloud agents use Work sessions for relay and for delegation.
 Coordinator follow-up, same day: **connections are account-level** (connect once anywhere, available everywhere), and
 **Google data restrictions are removed** (owner's attestation): no "Atum only" greying anywhere in the picker.
+Second pass, same day (owner): "get the mode split folded in" and "the design of Work isn't in line with our
+consistent aesthetics - icon uses for example". Original intent (self-work plan, `docs/self-work-plan-1121-r5` §0): "edit
+the UI UX for work mode vs code mode (code can stay basically the same as T3 now, work mode has less coding-specific
+stuff to be less intimidating) … a toggle inside its screen to switch between code and work". That pass adds §8-§11;
+§11 supersedes §7's order.
 
 Mockups: [`2026-11-23-work-in-atum-shell-mockups.html`](./2026-11-23-work-in-atum-shell-mockups.html) (open in a
 browser, light and dark). ASCII versions are inline below.
@@ -285,7 +290,8 @@ tap opens a small list that jumps to each thread.
 
 ## 5. Mockups
 
-`docs/design/2026-11-23-work-in-atum-shell-mockups.html`, three frames, light and dark:
+`docs/design/2026-11-23-work-in-atum-shell-mockups.html`. The second pass (§10) redraws every frame with the Kit's
+real Phosphor Light glyphs and adds the mode frames. The first three frames:
 
 1. **Default Work**: rail, title band, roster panel (T3's list), main card (empty thread, composer with Nguyệt Thực).
 2. **Picker**: Atum's three models; ChatGPT connected (its models), Claude and Antigravity unconnected (hollow dot);
@@ -355,3 +361,343 @@ E1 + E2 first (they fix "binh-minh" and "Atum delegated" on their own, no depend
 U4 + E4 (Connect) · E3 when B-0 is decided · U5 + E7 with the connections lane · E6 + U3's relay pieces with relay R1.
 
 Nothing in this document authorises a build, a deploy, a purchase or a production change.
+
+---
+
+## 8. Work mode (default) and Code mode
+
+References in this section: `T3:` is `atum-platform/atum-work` @ `5d8d30d04ee11af5ba92d5aa40a7778505f04cff`, paths under
+`apps/web/src/` unless they start with `packages/`.
+
+### 8.1 The decision
+
+**Two modes of one surface. The mode is presentation only.** It never changes a thread's provider, model, session,
+prompt or history, so flipping it costs nothing and breaks no cache (AGENTS.md, "Prompt caching must not break").
+Both modes run the same T3, the same threads, the same picker and the same Atum frame (§1).
+
+- **Work** is the default. Airy, plain words, no source-control vocabulary: documents, files, design, research,
+  everyday tasks. What it hides is listed in §8.3; nothing it hides is *disabled*: the agent still runs commands and
+  edits files, and the owner sees the result as files, not as diffs and terminals.
+- **Code** is T3 as it is today, restyled to Atum (§9): branches, worktrees, diffs, terminal, PRs, scripts, open-in.
+
+### 8.2 Where the switch lives and what it remembers
+
+**One control: a two-segment `.ak-seg` "Work · Code" in the title band over the main column**, at the right, before
+the Assistants pill (STYLE §2: the title bar belongs to the page under it; a page's controls live in its title band,
+never in a second header). Small size (26 px). It is the "toggle inside its screen" of the owner's brief.
+
+**Remembered per project, not per thread.** Why:
+
+1. **What a folder is decides what tools make sense.** A repository wants branches and diffs; a folder of documents
+   does not. Mode is a property of the place, like Finder's view per folder.
+2. **Native.** T3 already has project-scoped settings with inheritance and per-project overrides
+   (`T3: packages/contracts/src/settings.ts:1173` `PROJECT_SCOPED_SERVER_SETTING_KEYS`, `:1211`
+   `ProjectSettingsOverrides`, absent keys inherit). The mode is one more key there. Per thread would need a new
+   thread field, an orchestration event and a migration.
+3. **Calm.** T3's roster groups threads by project. Per-thread mode would flip the chrome as the owner walks down the
+   list; per project it changes only when they cross into another project.
+4. **Deterministic for assistants** (§8.4): every assistant-started thread lands in a known project.
+
+**Default: Work, with one automatic exception.** A project whose folder is a git repository opens in **Code** the
+first time (T3 already knows: `isGitRepo`, passed as `showGitControls={isGitRepo}` at `T3: components/ChatView.tsx:3872`).
+Anyone with a repository is a coder; nobody is asked to choose (owner rule: default automatic, no decisions). Once the
+owner flips the switch on a project, that choice is kept for the project.
+
+### 8.3 What each mode shows
+
+| Element | Work | Code | Controlled by (native first) |
+|---|---|---|---|
+| Thread header panel toggles | **Right panel only** (opens Files / Preview / Browser) | Thread details, terminal, right panel, maximize | Existing props `showThreadPanelControl`, `showTerminalControl`, `showRightPanelControl` on `PanelLayoutControls` (`T3: components/chat/PanelLayoutControls.tsx:23-25, 96-134`), rendered at `ChatView.tsx:3370` |
+| Terminal drawer | **Hidden, not mounted.** The agent's commands still run; they appear as the collapsed work line below | Shown | `<ChatTerminalDrawers>` at `ChatView.tsx:4047`; the `terminal.toggle` keybinding is a no-op in Work |
+| Right panel | Files, Preview, Browser surfaces | All, including Diff | `<ChatRightPanel>` at `ChatView.tsx:4063`; `RightPanelSurfaceContent.tsx:116` (`DiffPanel`) skipped in Work |
+| Composer context strip: env mode (local / worktree), branch, start-from-origin, environment, PR checkout | **Hidden.** Work projects run local (`defaultThreadEnvMode: "local"`) | Shown | `showComposerContextStrip` (`ChatView.tsx:1818`) feeds `<BranchToolbar>` (`:3865`); project setting `defaultThreadEnvMode` (`packages/contracts/src/settings.ts:1215`) |
+| Permission mode chip (Supervised / Auto-accept / Auto / Full access) | **Hidden.** Work projects use `auto` (provider approves routine actions, asks for the rest; owner 11-17 "smart") | Shown | `<ComposerContextPermissions>` (`ChatView.tsx:3908`, modes in `components/chat/runtimeModeConfig.ts:15-40`); project setting `defaultRuntimeMode` (`settings.ts:1214`) |
+| Approvals when they arrive | **Shown, plain**: one `.ak-ask`, "Allow changes to 3 files in Documents?", Allow / Not now; the command or path behind a "Details" disclosure | T3's own row with the command | `TimelinePendingApprovalRow.tsx`, `ComposerPendingApprovalActions.tsx` (restyled, same data) |
+| Thread details panel (branch, open-in, scripts, PR rows, git actions, servers) | **Hidden** | Shown | `<ThreadDetailsPanel>` at `ChatView.tsx:3962` (contains `OpenInPicker` `ThreadDetailsPanel.tsx:206`, `ProjectScriptsControl` `:217`, `GitActionsControl` `:252`, `ThreadServersPanel` `:268`) |
+| Pull requests and Issues links in the roster | **Hidden** | Shown | `components/sidebar/SidebarChrome.tsx:291-299` (Settings, `:285`, stays) |
+| Roster footer | Settings gear only (§1.2) | Settings, Pull requests, Issues | `SidebarChrome.tsx:318` (`SidebarFooter`), usage item `:304` hidden in both (no balance meters) |
+| Agent's tool steps | **Collapsed** to one quiet line, "Worked for 2 min · 6 steps", expandable; raw shell output only inside | T3's work groups as they are | T3 already groups them (`WorkGroupSection`, `components/chat/TimelineWorkGroupRows.tsx:66`); Work starts groups collapsed |
+| Changed files | **File cards** (STYLE §10 "Files": sunk tile with the file's glyph, name, "Document · changed"); Open opens Preview | `+12 −3` stats, `ChangedFilesTree`, Diff | `DiffStatLabel` / `ChangedFilesTree.tsx:77-278` replaced in Work by the card |
+| Timeline minimap | Hidden | Shown | `MessagesTimeline.tsx:1503` |
+| Model picker | **Same picker** (one picker everywhere). Chip shows the model name only | Chip with effort glyph | `ProviderModelPicker` at `components/chat/ComposerFooterControls.tsx:321`; the thinking column follows STYLE §12 in both |
+| Slash suggestions | `/model`, `/side`, skills | Everything, including the provider's own (`/compact`, `/review`, `/init` …) | `useComposerMenuItems.ts:256-322`; Work drops `provider-slash-command` items from **suggestions only**: typed, they still run (same rule as desktop's `isDesktopSlashExtensionCommand`) |
+| Command palette | Threads, projects, models, themes | Everything | Work filters git, worktree and port-forward items (`CommandPalettePortForwardItems.tsx`, `CommandPaletteProjectItems.tsx`) |
+| New-thread empty state | Atum's (§9.5): mark, "What should we work on?", one line, three suggestions | T3's hero (project heading, "Ask anything"), restyled | `DraftHeroHeadline` at `ChatView.tsx:3651` |
+| Subagent bar | Shown, as faces + "2 helpers working" | T3's bar | `ProviderSubagentBar` at `ChatView.tsx:3677` |
+| Usage limits chip | Hidden (both); only the limit-reached composer warning (11-11 rule) | Hidden | `ComposerUsageLimits.tsx` |
+| Settings (from the gear) | General, Appearance, and a "Connections" row that opens Atum's sheet (§3) | Every T3 page | `components/settings/SettingsSidebarNav.tsx` nav list filtered in Work |
+
+### 8.4 Threads started by an assistant
+
+- **Relay threads** live in the assistant's relay project, provisioned by the gate (`D: electron/work/gate/gate.ts:64`
+  `relayProvision` returns its `projectId`). That project is created **Work** and is never a repository, so a relay
+  thread always opens in Work.
+- **Delegated threads** name their project (`D: electron/work/gate/contract.ts:148`). They open in **that project's
+  mode**: a writing task in Documents opens in Work, a fix in a repository opens in Code. No rule beyond §8.2.
+- The badge, title and disclosure line of §4 are the same in both modes.
+
+### 8.5 Moving between modes
+
+- Flip the switch: the current project changes mode at once, every thread in it included, with a 200 ms cross-fade of
+  the chrome (fade only under Reduce Motion). The transcript does not move; nothing is re-sent.
+- A keybinding command `atum.mode.toggle` (⌘⇧M) through T3's own keybinding registry (`T3: docs/user/keybindings.md`).
+- No per-thread override, deliberately: one thread that needs a terminal is a reason to flip its project, which is
+  one tap and reversible.
+- Moving a thread to another project (T3's own move) takes on that project's mode.
+
+### 8.6 Mechanism
+
+1. **One project-scoped key**, `atumSurfaceMode: "work" | "code"`, added to `PROJECT_SCOPED_SERVER_SETTING_KEYS`
+   (`settings.ts:1173`) and `ProjectSettingsOverrides` (`:1211`). Server default `"work"`; the git-repository default
+   of §8.2 is applied once at project creation. Behind `VITE_ATUM_WORK_BUILD`, a hook `useAtumSurfaceMode(projectId)`
+   reads it; **outside the Atum build it always returns `"code"`**, so upstream behaviour is byte-identical and pin
+   bumps stay cheap.
+2. **Existing props first**: the panel toggles and the context strip already take booleans (§8.3), so most rows are
+   one prop at the call site.
+3. **Render guards** (`mode === "code" &&`) for the few interactive pieces with no prop (terminal drawer, thread
+   details, diff surface, minimap, PR links), so a hidden panel cannot be opened by a shortcut either.
+4. **Theme CSS** only for presentation: the root carries `data-atum-mode="work|code"`, and the environment theme (§1.3)
+   uses it for density (roster row lines, collapsed work groups' styling). No hidden-but-mounted interactive control.
+5. **Sidecar defaults** for Work projects: `defaultThreadEnvMode: "local"`, `defaultRuntimeMode: "auto"`.
+
+---
+
+## 9. Icons and aesthetics
+
+### 9.1 What is wrong
+
+T3 draws **Lucide** (stroke icons, `lucide-react` ^0.564, imported directly in about 330 files of `T3: apps/web/src`).
+Atum draws **Phosphor Light**, Fill for the selected state only (STYLE §8, owner 2026-10-28), from the Kit's pinned
+set (`D: packages/atum-kit/icons.json`; paths in `dist/phosphor-icons.json`, Phosphor 2.1.1). Side by side in one
+window the two read as two products: different stroke weight, corner shapes and metaphors (a "square pen" for New
+thread where Atum draws `note-pencil`; a blue info badge where Atum has a quiet badge; square toggles where Atum has
+circle icon buttons).
+
+### 9.2 Mechanism: one icon map in the fork, behind the Atum build flag
+
+Adopted pattern: the desktop already did exactly this when it moved from Tabler to Phosphor without touching a call
+site: "The exported names are the ones the Tabler set used, so no call site changed; the Phosphor glyph for each is
+chosen by meaning" (`D: apps/desktop/src/lib/icons.ts:3-5`, `src/lib/phosphor-icon.tsx`).
+
+1. **`atum-icon-map.json` in the fork** (the table in §9.3) is the source of truth: Lucide export name → Phosphor name
+   (+ `mirror`, `weight`).
+2. **A generated shim**, `apps/web/src/atum/lucide-phosphor.tsx`, built from that map and the Kit's
+   `dist/phosphor-icons.json` (copied into the fork's build by the desktop's Work-runtime packaging, never fetched).
+   Each mapped name is exported in both Lucide forms (`X` and `XIcon`), takes Lucide's props (`className`, `size`,
+   `strokeWidth` ignored, `aria-*`, `style`) and draws the Phosphor path in `currentColor` on a 256 viewBox. It
+   re-exports the real Lucide for anything unmapped (`export *`), so a missed name degrades to Lucide, never to a crash.
+3. **One Vite alias under `VITE_ATUM_WORK_BUILD`** (`T3: apps/web/vite.config.ts`, the same flag already used at
+   `:331`): exact `^lucide-react$` → the shim. The shim imports real Lucide by its file path, which the exact alias
+   does not catch. Upstream builds are untouched.
+4. **A build check** fails the Atum Work build when a rendered Lucide name has no map row, so a pin bump that brings a
+   new icon is caught at build, not by the owner.
+5. **Sizes.** T3 uses 14 and 16 px (`size-3.5`, `size-4`). Phosphor Light is too thin below 16, so the shim draws
+   any glyph smaller than 16 at 16 (STYLE §6: 16 dense rows, 18 buttons, 20 toolbars). Header and composer icon
+   buttons are 18 inside 32 px circles via the theme (§9.4).
+6. **Not mapped, on purpose:** brand art in `T3: components/Icons.tsx` (Finder, editors, provider logos) stays brand
+   art inside a **squircle** (apps are squircles, STYLE §5); a project's custom icon chosen by the owner
+   (`lib/lucideIconByName.ts`) is content and stays as chosen; a generic working spinner (`LoaderCircle`) becomes the
+   Kit's `.ak-spinner`, and **the model at work shows the Atum atom** (STYLE §10), never a spinner.
+7. **37 names to add to the Kit's `icons.json`** (then rebuild the Kit): `alarm`, `arrow-bend-left-up`, `arrow-bend-up-right`, `arrow-circle-up`, `arrow-u-up-right`, `arrow-up-left`, `arrows-down-up`, `battery-medium`, `circle-dashed`, `cloud-arrow-up`, `cursor`, `cursor-click`, `eraser`, `funnel-simple`, `gauge`, `git-commit`, `git-merge`, `hammer`, `laptop`, `link-break`, `list-plus`, `lock-simple-open`, `memory`, `paragraph`, `path`, `picture-in-picture`, `power`, `qr-code`, `scales`, `scan`, `scroll`, `shield-slash`, `translate`, `trend-down`, `user-check`, `user-plus`, `warning-octagon`. Marked ⁺ below.
+
+### 9.3 The full map (every Lucide name the pinned T3 imports; ⁺ = add to the Kit first)
+
+Both modes see a subset of these; Code sees more. The map covers all 245 so no surface falls back to Lucide.
+Choices by meaning, as the desktop's map did: chats are `chat-circle` (Atum's chat glyph), New thread is
+`note-pencil`, folders are `folder-simple` whether or not they hold a repository (Work never shows git as a folder
+badge), `Bot` is `sparkle` (an assistant has a face, §9.4; a glyph-only slot gets the sparkle), the thread-details
+toggle `SquareMenu` is `info`, the terminal toggle `PanelBottom` is `terminal-window`, and `PanelRight` is
+`sidebar-simple` mirrored.
+
+| Lucide (T3) → Phosphor Light (Atum) | | |
+|---|---|---|
+| `Activity` → `pulse` | `AlarmClock` → `alarm` ⁺ | `AlarmClockOff` → `alarm` ⁺ |
+| `AlertTriangle` → `warning` | `Archive` → `archive` | `ArchiveX` → `archive` |
+| `ArrowDown` → `arrow-down` | `ArrowDownUp` → `arrows-down-up` ⁺ | `ArrowLeft` → `arrow-left` |
+| `ArrowRight` → `arrow-right` | `ArrowRightLeft` → `arrows-left-right` | `ArrowUp` → `arrow-up` |
+| `ArrowUpCircle` → `arrow-circle-up` ⁺ | `ArrowUpLeft` → `arrow-up-left` ⁺ | `ArrowUpRight` → `arrow-up-right` |
+| `AtSign` → `at` | `AudioLines` → `wave-sine` | `Battery` → `battery-medium` ⁺ |
+| `Blocks` → `puzzle-piece` | `BookOpen` → `book-open` | `Bookmark` → `bookmark-simple` |
+| `Bot` → `sparkle` | `Box` → `package` | `Brain` → `brain` |
+| `Bug` → `bug` | `Building` → `buildings` | `Cable` → `plug` |
+| `Calendar` → `calendar-blank` | `CalendarArrowDown` → `calendar-blank` | `CalendarArrowUp` → `calendar-blank` |
+| `CalendarClock` → `calendar-check` | `Camera` → `camera` | `ChartNoAxesColumn` → `chart-bar` |
+| `Check` → `check` | `CheckCircle2` → `check-circle` | `ChevronDown` → `caret-down` |
+| `ChevronLeft` → `caret-left` | `ChevronRight` → `caret-right` | `ChevronUp` → `caret-up` |
+| `ChevronsDownUp` → `arrows-in-line-vertical` | `ChevronsLeftRightEllipsis` → `dots-three` | `ChevronsUpDown` → `caret-up-down` |
+| `Circle` → `circle` | `CircleAlert` → `warning-circle` | `CircleArrowUp` → `arrow-circle-up` ⁺ |
+| `CircleCheck` → `check-circle` | `CircleDashed` → `circle-dashed` ⁺ | `CircleDot` → `dot-outline` |
+| `CircleDotDashed` → `circle-dashed` ⁺ | `CircleSlash` → `prohibit` | `CircleStop` → `stop` |
+| `CircleX` → `x-circle` | `ClipboardCopy` → `clipboard` | `Clock` → `clock` |
+| `Clock3` → `clock` | `Cloud` → `cloud` | `CloudDownload` → `cloud-arrow-down` |
+| `CloudUpload` → `cloud-arrow-up` ⁺ | `Code` → `code` | `Code2` → `code` |
+| `Columns2` → `columns` | `Copy` → `copy` | `CornerLeftUp` → `arrow-bend-left-up` ⁺ |
+| `CornerUpRight` → `arrow-bend-up-right` ⁺ | `Cpu` → `cpu` | `Database` → `database` |
+| `Download` → `download-simple` | `Ellipsis` → `dots-three` | `Eraser` → `eraser` ⁺ |
+| `ExternalLink` → `arrow-square-out` | `Eye` → `eye` | `EyeOff` → `eye-slash` |
+| `File` → `file` | `FileCode2` → `file-code` | `FileDiff` → `git-diff` |
+| `FileJson` → `file-code` | `FileSearch` → `magnifying-glass` | `FileSpreadsheet` → `file-xls` |
+| `FileText` → `file-text` | `Files` → `files` | `Film` → `film-strip` |
+| `FlaskConical` → `flask` | `FlaskConicalOff` → `flask` | `Folder` → `folder-simple` |
+| `FolderClosed` → `folder-simple` | `FolderCode` → `folder-simple` | `FolderGit` → `folder-simple` |
+| `FolderGit2` → `folder-simple` | `FolderOpen` → `folder-open` | `FolderPlus` → `folder-simple-plus` |
+| `FolderTree` → `tree-structure` | `Gauge` → `gauge` ⁺ | `GitBranch` → `git-branch` |
+| `GitBranchPlus` → `git-branch` | `GitCommit` → `git-commit` ⁺ | `GitCommitHorizontal` → `git-commit` ⁺ |
+| `GitFork` → `git-fork` | `GitMerge` → `git-merge` ⁺ | `GitPullRequestArrow` → `git-pull-request` |
+| `GitPullRequestClosed` → `git-pull-request` | `GitPullRequestDraft` → `git-pull-request` | `Globe` → `globe-simple` |
+| `Globe2` → `globe` | `GripVertical` → `dots-six-vertical` | `Hammer` → `hammer` ⁺ |
+| `HardDrive` → `hard-drives` | `History` → `clock-counter-clockwise` | `Home` → `house` |
+| `Image` → `image` | `Inbox` → `tray` | `Info` → `info` |
+| `KeyRound` → `key` | `Keyboard` → `keyboard` | `Languages` → `translate` ⁺ |
+| `Laptop` → `laptop` ⁺ | `Layers` → `stack` | `Lightbulb` → `lightbulb` |
+| `Link` → `link` | `Link2` → `link` | `Link2Off` → `link-break` ⁺ |
+| `ListChecks` → `list-checks` | `ListFilter` → `funnel-simple` ⁺ | `ListPlus` → `list-plus` ⁺ |
+| `ListTodo` → `list-checks` | `ListTree` → `tree-structure` | `LoaderCircle` → `(kit spinner)` |
+| `Lock` → `lock-simple` | `LockOpen` → `lock-simple-open` ⁺ | `LogIn` → `sign-in` |
+| `Mail` → `envelope-simple` | `Maximize` → `arrows-out` | `Maximize2` → `arrows-out-simple` |
+| `MemoryStick` → `memory` ⁺ | `MessageCircle` → `chat-circle` | `MessageCircleQuestion` → `question` |
+| `MessageSquare` → `chat-circle` | `MessageSquareDashed` → `chat-circle-dots` | `MessageSquareOff` → `chat-circle` |
+| `MessageSquarePlus` → `note-pencil` | `MessageSquareText` → `chat-text` | `MessageSquareWarning` → `warning-circle` |
+| `MessagesSquare` → `chats-circle` | `Mic` → `microphone` | `MicOff` → `microphone-slash` |
+| `Minimize2` → `arrows-in-simple` | `Minus` → `minus` | `Monitor` → `monitor` |
+| `Moon` → `moon` | `MoreHorizontal` → `dots-three` | `MoreVertical` → `dots-three-vertical` |
+| `MousePointer2` → `cursor` ⁺ | `MousePointerClick` → `cursor-click` ⁺ | `OctagonAlert` → `warning-octagon` ⁺ |
+| `OctagonX` → `x-circle` | `Package` → `package` | `PackagePlus` → `package` |
+| `Paintbrush` → `paint-brush` | `Palette` → `palette` | `PanelBottom` → `terminal-window` |
+| `PanelLeft` → `sidebar-simple` | `PanelLeftClose` → `sidebar-simple` | `PanelRight` → `sidebar-simple (mirrored)` |
+| `PanelsTopLeft` → `layout` | `Paperclip` → `paperclip` | `Pause` → `pause` |
+| `PenLine` → `pencil-simple-line` | `Pencil` → `pencil-simple` | `PictureInPicture2` → `picture-in-picture` ⁺ |
+| `Pilcrow` → `paragraph` ⁺ | `Pin` → `push-pin` | `PinOff` → `push-pin-slash` |
+| `Play` → `play` | `Plug` → `plug` | `Plug2` → `plug` |
+| `Plus` → `plus` | `Power` → `power` ⁺ | `Presentation` → `presentation` |
+| `QrCode` → `qr-code` ⁺ | `Quote` → `quotes` | `RadioTower` → `broadcast` |
+| `Redo2` → `arrow-u-up-right` ⁺ | `RefreshCw` → `arrows-clockwise` | `Reply` → `arrow-bend-up-left` |
+| `RotateCcw` → `arrow-counter-clockwise` | `RotateCw` → `arrow-clockwise` | `Route` → `path` ⁺ |
+| `Rows3` → `rows` | `Scale` → `scales` ⁺ | `Scan` → `scan` ⁺ |
+| `ScrollText` → `scroll` ⁺ | `Search` → `magnifying-glass` | `Send` → `paper-plane-right` |
+| `Server` → `hard-drives` | `Settings` → `gear` | `Settings2` → `gear-six` |
+| `Shield` → `shield` | `ShieldCheck` → `shield-check` | `ShieldOff` → `shield-slash` ⁺ |
+| `ShieldQuestion` → `shield` | `SlidersHorizontal` → `sliders-horizontal` | `Smartphone` → `device-mobile` |
+| `SmilePlus` → `smiley` | `Square` → `stop` | `SquareArrowOutUpRight` → `arrow-square-out` |
+| `SquareMenu` → `info` | `SquarePen` → `note-pencil` | `SquareSplitHorizontal` → `columns` |
+| `SquareSplitVertical` → `rows` | `Star` → `star` | `Sun` → `sun` |
+| `Table2` → `table` | `Tag` → `tag` | `Target` → `target` |
+| `Terminal` → `terminal-window` | `TerminalSquare` → `terminal-window` | `Text` → `text-aa` |
+| `TextSearch` → `magnifying-glass` | `TextWrap` → `paragraph` ⁺ | `Ticket` → `ticket` |
+| `Trash2` → `trash` | `TrendingDown` → `trend-down` ⁺ | `TrendingUp` → `trend-up` |
+| `TriangleAlert` → `warning` | `Type` → `text-aa` | `Undo2` → `arrow-u-up-left` |
+| `Unlink` → `link-break` ⁺ | `Unlink2` → `link-break` ⁺ | `Unplug` → `plug` |
+| `Upload` → `upload-simple` | `User` → `user` | `UserCheck` → `user-check` ⁺ |
+| `UserLock` → `user` | `UserPlus` → `user-plus` ⁺ | `UserRound` → `user-circle` |
+| `UserRoundX` → `user` | `Users` → `users` | `Volume2` → `speaker-simple-high` |
+| `VolumeOff` → `speaker-simple-slash` | `WifiOff` → `wifi-slash` | `Workflow` → `tree-structure` |
+| `WrapText` → `paragraph` ⁺ | `Wrench` → `wrench` | `X` → `x` |
+| `XCircle` → `x-circle` | `Zap` → `lightning` |  |
+
+**Where each one shows.** Work mode, visible on every screen: `note-pencil`, `sidebar-simple`, `magnifying-glass`,
+`gear`, `folder-simple`, `caret-down`/`caret-right`, `plus`, `paperclip`, `microphone`, `arrow-up` (send), `stop`,
+`sidebar-simple` mirrored (right panel), `dots-three`, `push-pin`, `archive`, `check`, `x`, `copy`, `arrow-square-out`,
+`info`, `warning`, `warning-circle`, `file`/`file-text`/`image`, `eye`, `globe-simple` (browser surface), `clock`.
+Code mode adds: `terminal-window`, `git-branch`, `git-diff`, `git-pull-request`, `git-merge`, `git-commit`,
+`git-fork`, `tree-structure`, `arrows-out-simple`/`arrows-in-simple`, `play`, `hard-drives`, `code`, `lock-simple`,
+`pencil-simple-line`, `shield-check`, `shield-slash`, `bug`, `flask`.
+
+**The rail glyph for Work itself** (desktop, not the fork). Today it is `terminal-window` at 16 px
+(`D: apps/desktop/src/app/atum/shell-surface.tsx:301`, `Terminal` = `phosphorIcon('terminal-window')` at
+`src/lib/icons.ts:233`): the most intimidating glyph in the set, on the default-Work destination, and under the rail's
+24 px (STYLE §6). It becomes **`pen-nib`** (already in the Kit), Light at rest and Fill when Work is the current
+destination, 24 px like its neighbours. A pen reads as "make something", which covers documents, design and code alike.
+
+### 9.4 Type, space, shape, faces
+
+All generated into the environment theme from Kit tokens (`D: packages/atum-kit/tokens.json`), light and dark, never
+hand-copied (§1.3).
+
+| Thing | T3 today | Atum (both modes) |
+|---|---|---|
+| Font | T3's own stack and sizes | Kit `font`: system (SF Pro); code blocks and the terminal SF Mono 12/18 (Code mode only in practice) |
+| Type roles | ad hoc 12-14 px | STYLE §4 roles only: thread title **Headline** 15/20; roster rows, menus, buttons **Body** 13/18; transcript and composer **Chat** 15/23; secondary lines **Callout** 12/16; times **Caption** 11/14; section labels 12 semibold `--ak-ink-3`, never uppercase |
+| Space | Tailwind steps | 4-point grid (`--ak-s1`…`--ak-s12`); roster rows 40 px pitch; controls 26 / 32 / 40 |
+| Containers | 6-8 px radii | Kit scale: panels and popovers `--ak-r-lg` 14; menus glass; sheets `--ak-r-2xl` 26; file cards `--ak-r-xl` 20; concentric nesting |
+| Buttons | rounded rectangles | **Capsules**; icon buttons are **circles** (T3's `ui/toggle` square toggles included); one primary per view |
+| Composer | bordered box | Frosted capsule, `--ak-glass`, radius 20 (STYLE §11), add (+) left; model chip, dictation, send right; send faint until there is text |
+| Selected row | accent fill | Kit selected fill, never blue; Fill weight of the row's glyph |
+| Badges | coloured "info" badge (`ui/badge`, e.g. "From …" at `T3: components/chat/ChatHeader.tsx:399`) | `.ak-badge--quiet`; mention is the only red badge |
+| Focus | always-on rings | Keyboard focus only, `3px solid var(--ak-focus)`, following the control's shape (STYLE §9) |
+| Shadows | T3's | `--ak-shadow-1/-2/-3` only |
+| **Faces** | provider marks on thread rows; no people | **Assistants and people: circles**, Kit monogram until a photo (white initial on `--ak-monogram`). **Providers and apps** (Atum, ChatGPT, Claude, Antigravity, editors): **squircles**, 22.5% + `corner-shape: squircle`. Projects: the `folder-simple` glyph in ink, no tile |
+| Motion | T3's | 120 ms hover/press, 200 ms menus and the mode cross-fade, 320 ms panels; fades only under Reduce Motion |
+
+### 9.5 Empty, loading and error states
+
+| State | Work | Code |
+|---|---|---|
+| New thread | The Atum mark (48, squircle), **"What should we work on?"** (Display), one muted line "Files in {project} are in reach.", three `.ak-btn--sm` capsules: Write something · Research a topic · Design a page. Nothing else; no tips, no shortcuts list | T3's hero restyled: project name (Headline), composer focused, no suggestions |
+| Empty roster | `.ak-state`: "No threads yet", New thread capsule | same |
+| Thread loading | Three `.ak-skeleton` lines, never a spinner over the transcript | same |
+| Model at work | **The Atum atom** with "Working · 1:12" in Caption beside the collapsed work line | the atom on T3's work group header |
+| Work starting (sidecar not ready) | Centered `.ak-spinner` + "Getting Work ready" (one line); after 20 s "Still starting…" + Retry | same |
+| Error in a thread | `.ak-notice--danger`, one line in plain words, Retry; details behind a disclosure | T3's error text inside the same notice |
+| Plan not connected / limit reached | §2 rules, unchanged | same |
+
+---
+
+## 10. Mockups (second pass)
+
+The mockups file now draws every icon from the Kit's real Phosphor Light paths (inlined from
+`packages/atum-kit/dist/phosphor-icons.json`), with a Light / Dark / System switch at the top:
+
+1. **Work mode, new thread**: mode switch on Work, roster with an assistant's circle face, the Work empty state.
+2. **Work mode, a thread at work**: collapsed work line with the Atum atom, a plain `.ak-ask` approval, file cards,
+   the right panel on Preview; no terminal, branch strip, permission chip or diff.
+3. **Code mode, the same project flipped**: header toggles (details, terminal, right panel), branch / worktree strip,
+   permission chip, `+/−` stats, the terminal drawer, the Diff surface.
+4. **The mode switch**: the band in both states, and the cross-fade note.
+5. **Light and dark side by side**: frames 1 and 3 in both themes.
+6. **Icon sheet**: the slots Work shows, each with its T3 name and the Atum glyph.
+7-9. The first pass's picker, unconnected state and connect sheet, redrawn with Kit glyphs.
+
+---
+
+## 11. Implementation split and order, second pass (target: Work runtime 0.1.13)
+
+Supersedes §7's order; §7's rows stand unless renumbered here. Lanes per the playbook: **desktop UI and fork UI →
+Opus**; **plumbing (fork contracts, sidecar, build, preload) → Sol**. One PR per repo outcome; the fork changes ship
+in one atum-work pin bump that the desktop's Work runtime 0.1.13 consumes.
+
+### Fork, atum-work (behind `VITE_ATUM_WORK_BUILD`)
+
+| # | Piece | Lane | Files (T3 pin) |
+|---|---|---|---|
+| F1 | `atumSurfaceMode` project-scoped key, default `"work"`, git-repo default at creation; `useAtumSurfaceMode` (returns `"code"` outside the Atum build); `data-atum-mode` on the root; `atum.mode.toggle` keybinding command | Sol | `packages/contracts/src/settings.ts:1173, 1211, 1366`; new `apps/web/src/atum/surfaceMode.ts`; keybinding registry |
+| F2 | Mode guards and props per §8.3 (panel toggles, context strip, permission chip, terminal drawer, thread details, diff surface, PR links, minimap, slash suggestions, palette filter, settings nav filter) | Opus | `ChatView.tsx:1818, 3370, 3865, 3908, 3962, 4047, 4063`; `PanelLayoutControls.tsx`; `RightPanelSurfaceContent.tsx:116`; `SidebarChrome.tsx:291-318`; `MessagesTimeline.tsx:1503`; `useComposerMenuItems.ts:296-322`; `SettingsSidebarNav.tsx` |
+| F3 | Work-mode presentation: collapsed work groups with the atom, file cards for changed files, plain `.ak-ask` approvals, the Work empty state, subagent faces | Opus | `TimelineWorkGroupRows.tsx`, `ChangedFilesTree.tsx`, `TimelinePendingApprovalRow.tsx`, `DraftHeroHeadline.tsx`, `ProviderSubagentBar.tsx` |
+| F4 | Icon map: `atum-icon-map.json`, the generated `lucide-phosphor.tsx` shim, the exact Vite alias, the unmapped-name build check, the 16 px floor | Sol (generator, alias, check) + Opus (the map's choices, already in §9.3) | new `apps/web/src/atum/*`, `apps/web/vite.config.ts` |
+| F5 | §7 E2 (`showInPicker`), E6 (relay labels) unchanged | Sol / Opus | as §7 |
+
+### Kit and desktop, atum-desktop
+
+| # | Piece | Lane | Files |
+|---|---|---|---|
+| K1 | Add the 37 names of §9.2 to `icons.json`; rebuild `dist/` | Sol | `packages/atum-kit/icons.json`, `dist/phosphor-icons.json` |
+| U3′ | The environment theme generator, now also: type roles, radii, capsules and circle icon buttons, glass composer, quiet badges, focus, `data-atum-mode` density rules, light and dark, look packs | Opus | `apps/desktop/scripts/build-work-theme.mjs` → `work-runtime/themes/atum.json` |
+| U7 | The title-band mode switch (`.ak-seg` Work · Code) wired to the project's mode through the preload; the Work rail glyph becomes `pen-nib` at 24 px (§9.3) | Opus | `src/app/work/work-screen.tsx`, `src/app/work/copy.ts` (en, vi), `src/app/atum/shell-surface.tsx:301`, `src/lib/icons.ts` |
+| E5′ | Theme delivery (§7 E5) plus: the Kit icon paths and theme copied into the Work runtime package at build; sidecar writes Work project defaults (`defaultThreadEnvMode: "local"`, `defaultRuntimeMode: "auto"`); relay projects created Work | Sol | `electron/work/sidecar/supervisor.py:200-218`, Work-runtime packaging script, `electron/work/gate/gate.ts:64` |
+| E8 | Preload `getSurfaceMode` / `setSurfaceMode(projectId)` and the change event for the band's switch | Sol | `electron/work/sidecar/preload.ts`, `host.ts` |
+| U1, U2, U4-U6, E1-E4, E6-E7 | As §7 | as §7 | as §7 |
+
+### Order
+
+1. **K1 + F4 + E1 + E2** (no dependencies; fixes the icon mismatch and "binh-minh" / "Atum delegated" on their own).
+2. **F1 + E8** (the mode key and its plumbing), then **F2 + U7** in parallel (Opus on both; disjoint repos).
+3. **U3′ + E5′ + U1** (the layout and theme, after F1 so `data-atum-mode` exists), with probes P1-P3.
+4. **F3** (Work presentation) once F2 lands; screenshot check of mockup frames 1-3 against the built runtime.
+5. **Work runtime 0.1.13** = the atum-work pin with F1-F4, plus the desktop's K1, U1, U3′, U7, E1, E2, E5′, E8.
+   Connect (U4 + E4, E3 on B-0), connections (U5 + E7) and relay labels (E6) follow on their own lanes as in §7.
+
+**Acceptance for 0.1.13:** a new documents project opens in Work with none of §8.3's Code-only elements reachable by
+click or shortcut; a repository project opens in Code; the switch flips one project and nothing else; every icon in
+both modes is a Kit glyph (the build check passes with zero unmapped names); an Opus UI review against STYLE's
+checklist (§16) in light and dark.
+
+Nothing in this section authorises a build, a deploy, a purchase or a production change.
