@@ -41,6 +41,7 @@ export interface WorkIncarnation {
   home: string
   pid: number
   exited: Promise<void>
+  unexpectedExit?: Promise<boolean>
   relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
@@ -348,6 +349,10 @@ export class WorkSidecar {
   private controller?: AbortController
   private starting?: Promise<WorkIncarnation>
   private live?: WorkIncarnation
+  private desired?: WorkStartOptions
+  private retryTimer?: ReturnType<typeof setTimeout>
+  private failures = 0
+  private readyAt = 0
 
   constructor(private readonly options: WorkProcessOptions) {}
 
@@ -364,6 +369,8 @@ export class WorkSidecar {
       return this.starting
     }
 
+    clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
     const controller = new AbortController()
     this.controller = controller
     this.starting = this.launch(input, controller)
@@ -372,6 +379,9 @@ export class WorkSidecar {
   }
 
   async stop(): Promise<void> {
+    this.desired = undefined
+    clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
     const starting = this.starting
     this.live = undefined
     this.controller?.abort()
@@ -405,6 +415,9 @@ export class WorkSidecar {
         origin = paired.origin
         grant = paired.url
         this.live = incarnation
+        this.readyAt = Date.now()
+        // A committed trial recovers as an ordinary run, never replays a trial.
+        this.desired = { continuation: false, resources: input.resources }
       }
 
       const trial = input.trial ? nativeTrial(child, input.trial.update.id, exited, () => !signal.aborted && this.options.current(), activate) : undefined
@@ -424,6 +437,7 @@ export class WorkSidecar {
         pid: await startup.pid,
         relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
+        unexpectedExit: exited.then(() => !signal.aborted && this.options.current()),
         trial,
         takePairingUrl: () => {
           const url = this.current() === incarnation ? grant : undefined
@@ -439,7 +453,12 @@ export class WorkSidecar {
 
       void exited.then(() => {
         grant = undefined
+        const recover = !signal.aborted && this.options.current()
+
+        if (Date.now() - this.readyAt >= 60_000) {this.failures = 0}
         this.clearRun()
+
+        if (recover) {this.scheduleRecovery()}
       })
 
       return incarnation
@@ -447,8 +466,22 @@ export class WorkSidecar {
       controller.abort()
       await this.teardown
       this.clearRun()
+      this.scheduleRecovery()
       throw error
     }
+  }
+
+  private scheduleRecovery() {
+    if (!this.desired || !this.options.current() || this.retryTimer) {return}
+    const wait = Math.min(30_000, 1_000 * 2 ** Math.min(this.failures++, 5))
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined
+
+      if (this.desired && this.options.current()) {
+        void this.start(this.desired).catch(() => undefined)
+      }
+    }, wait)
+    this.retryTimer.unref()
   }
 
   private clearRun() {
