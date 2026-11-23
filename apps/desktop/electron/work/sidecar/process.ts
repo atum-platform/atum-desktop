@@ -13,6 +13,8 @@ import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
+import { loginShellPath } from './shell-environment'
+
 export const ATUM_WORK_PROVIDER = 'atum-managed'
 export const ATUM_WORK_DEFAULT_ALIAS = MATRIX_DEFAULT_MODEL
 export const ATUM_WORK_MODEL = `${ATUM_WORK_PROVIDER}:${ATUM_WORK_DEFAULT_ALIAS}`
@@ -103,7 +105,7 @@ function provider(python: string, home: string, label: string, showInPicker: boo
   }
 }
 
-export function workRuntimeEnvironment(root: string, resources: string): Record<string, string> {
+export function workRuntimeEnvironment(root: string, resources: string, shellPath = ''): Record<string, string> {
   const osHome = join(root, 'environment')
 
   return {
@@ -111,7 +113,7 @@ export function workRuntimeEnvironment(root: string, resources: string): Record<
     TMPDIR: osHome,
     XDG_CONFIG_HOME: join(osHome, 'config'),
     XDG_CACHE_HOME: join(osHome, 'cache'),
-    PATH: [join(resources, 'work-runtime'), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':'),
+    PATH: [join(resources, 'work-runtime'), shellPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
     NO_PROXY: 'localhost,127.0.0.1,::1',
@@ -138,7 +140,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     mkdir(directory, { recursive: true, mode: 0o700 })
   ))
 
-  const environment = workRuntimeEnvironment(root, resources)
+  const environment = workRuntimeEnvironment(root, resources, await loginShellPath())
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
   const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [

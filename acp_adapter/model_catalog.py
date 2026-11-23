@@ -9,6 +9,8 @@ from typing import Callable
 
 from acp.schema import ModelInfo, SessionModelState
 
+from acp_adapter.model_labels import model_display_name
+
 logger = logging.getLogger("acp_adapter.server")
 
 # Per-provider row cap (clients render all `availableModels` in one dropdown; mirrors the
@@ -182,6 +184,7 @@ class _ModelCatalog:
         semantic_id = f"{self.semantic(provider_id)}:{model_id}"
         if not choice_id or choice_id in self.seen_ids or semantic_id in self.seen_semantic_ids:
             return
+        name = model_display_name(self.semantic(provider_id), model_id, name)
         self.models.append(ModelInfo(model_id=choice_id, name=name, description=description))
         self.seen_ids.add(choice_id)
         self.seen_semantic_ids.add(semantic_id)
@@ -298,7 +301,7 @@ def build_model_state(model: str, provider: str, base_url: str) -> SessionModelS
     if current_model_id and current_model_id not in {item.model_id for item in available_models}:
         provider_name = provider_label(normalized_provider)
         available_models.insert(0, ModelInfo(
-            model_id=current_model_id, name=f"{provider_name} · {model}",
+            model_id=current_model_id, name=model_display_name(current_choice_provider, model, f"{provider_name} · {model}"),
             description=f"Provider: {provider_name} • current",
         ))
 
