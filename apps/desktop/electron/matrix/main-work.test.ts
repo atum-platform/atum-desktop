@@ -366,13 +366,13 @@ describe('createMatrixWork', () => {
     expect(logs).toEqual(['[atum-work] bind_failed work_not_in_this_build'])
   })
 
-  it('draws no Work entry while the model proxy is down', async () => {
+  it('keeps Work visible while the optional local model proxy is down', async () => {
     const { logs, work } = build({ model: { baseUrl: () => undefined, probe: async () => ({ ok: false, code: 'setup_required' }) } }, true)
 
     await work.activate()
 
-    expect(await read()).toBeNull()
-    expect(logs).toEqual(['[atum-work] bind_failed work_model_unavailable'])
+    expect(await read()).not.toBeNull()
+    expect(logs).not.toContain('[atum-work] bind_failed work_model_unavailable')
   })
 
   it('has no account to bind before the owner principal and this Mac\'s enrollment exist, or while the app quits', async () => {

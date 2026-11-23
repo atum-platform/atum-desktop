@@ -12,6 +12,7 @@ export const MATRIX_NATIVE_MAC_IPC = {
 
 export type MatrixNativeSshStatus =
   | 'connected'
+  | 'set_up'
   | 'needs_remote_login'
   | 'needs_full_disk_access_hint'
   | 'tunnel_down'

@@ -6424,7 +6424,11 @@ function scheduleContinuousListening() {
     if (connection !== keepAwakeConnection) {
       stopWatchingKeepAwakeConnection?.()
       keepAwakeConnection = connection
-      stopWatchingKeepAwakeConnection = connection?.onState(() => scheduleContinuousListening())
+      stopWatchingKeepAwakeConnection = connection?.onState((next, reason) => {
+        scheduleContinuousListening()
+        // The Repair band reads needsRepair(); republish when it can change.
+        if (reason === 'authentication' || next === 'status_exchanged') { publish(state) }
+      })
     }
 
     for (const each of allAgents()) {
@@ -7074,6 +7078,7 @@ function publish(next: MatrixSnapshot) {
       next.identity && (ownDeviceDamaged === `${next.identity.userId}\n${next.identity.deviceId}` ||
         ownerDeviceRepair?.replacing(next.identity)) ? true : undefined,
     ownerDeviceRepair: ownerDeviceRepair?.snapshot(next.identity),
+    deviceAccessRepair: deviceIdentity?.connection()?.needsRepair() || undefined,
     deviceControlRequired: next.identity && deviceControlOwner?.userId === next.identity.userId &&
       deviceControlOwner?.deviceId === next.identity.deviceId ? true : undefined,
     newSignIn,
@@ -11613,7 +11618,12 @@ function syncAgents(): Promise<MatrixReadinessCheck> {
       applyAnswering(roster)
       const own = account.retainedAgentPrincipal()
       const primary = matrixDefaultAgent(roster)
-      const mine = roster.find(agent => agent.principal === own)
+
+      const rootPrincipal = matrixRootEnrollmentPrincipal(
+        own, primary.principal, new Set([...agents.keys(), ...account.agentEnrollments()])
+      )
+
+      const mine = roster.find(agent => agent.principal === rootPrincipal)
 
       productDefaultPrincipal = primary.principal
 
@@ -11643,24 +11653,15 @@ function syncAgents(): Promise<MatrixReadinessCheck> {
       }
 
       if (mine) {
+        // Roster identity is display/routing metadata, never local executor authority.
+        defaultAgent.agentPrincipal = mine.principal
+        defaultAgent.matrixUser = mine.matrixUser
         defaultAgent.assistantId = mine.id
         defaultAgent.name = mine.displayName
         defaultAgent.title = mine.title
         defaultAgent.mark = mine.mark
         defaultAgent.hire = mine.hire
         agentAvatars.project(defaultAgent, mine.id, mine.avatarUrl)
-
-        // The authenticated roster can name a withdrawn default agent for display,
-        // without restoring its executor credential or fabricating an SDK device.
-        if (
-          account.enrollment().state === 'withdrawn' &&
-          !defaultAgent.identity &&
-          mine.status === 'active' &&
-          mine.matrixUser
-        ) {
-          defaultAgent.agentPrincipal = mine.principal
-          defaultAgent.matrixUser = mine.matrixUser
-        }
       }
 
       // Only a platform with several agents per person (0146) names the agents' Matrix users.
@@ -25721,6 +25722,13 @@ async function start() {
 
       try {
         switch (request?.kind) {
+          case 'repairDeviceAccess': {
+            await deviceIdentity?.repairConnection()
+            publish(state)
+
+            return
+          }
+
           case 'repairOwnerDevice': {
             if (closing) { throw new Error('matrix_owner_repair_stale') }
             const result = await ownerRepairController().run(parseMatrixSignInMethod(request.method))

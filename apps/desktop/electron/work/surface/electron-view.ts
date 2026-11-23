@@ -84,7 +84,12 @@ export function createWorkViewFactory(input: {
 
     return {
       port: createElectronOwnerView({ contents: view.webContents, session, origin: incarnation.origin }),
-      place
+      place,
+      focus: () => {
+        if (!view.webContents.isDestroyed()) {
+          view.webContents.focus()
+        }
+      }
     }
   }
 }

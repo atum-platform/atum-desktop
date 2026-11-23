@@ -1004,6 +1004,12 @@ export class MacDeviceIdentity {
       url: this.options.hubUrl,
       socket: this.options.socket,
       enrollment,
+      refreshRegistration: async () => {
+        const bound = await this.bound()
+
+        if ('refused' in bound || bound.device.enrollment !== enrollment) { return }
+        await enrollment.ensure(bound.owner, AbortSignal.timeout(30_000), { refreshPins: true, verifyRegistry: true })
+      },
       signer: keys,
       epochs: this.epochs,
       hello: () => (this.helloFacts ?? this.options.hello)(),
@@ -1046,6 +1052,10 @@ export class MacDeviceIdentity {
       return { state: 'signed_out' }
     }
 
+    if (bound.device.connection.needsRepair() && bound.device.enrollment.activeFor(bound.owner)) {
+      return this.presence()
+    }
+
     await bound.device.enrollment.ensure(bound.owner, AbortSignal.timeout(30_000), { verifyRegistry: true })
     await this.loadApprovalKey(bound.device)
 
@@ -1062,6 +1072,11 @@ export class MacDeviceIdentity {
     }
 
     return this.presence()
+  }
+
+  async repairConnection(): Promise<void> {
+    await this.enroll(AbortSignal.timeout(30_000), { refreshPins: true })
+    this.device?.connection.repair()
   }
 
   /**
@@ -1357,6 +1372,7 @@ export class MacDeviceIdentity {
       ? {
           state: 'enrolled',
           connection: device.connection.state(),
+          repairRequired: device.connection.needsRepair() || undefined,
           deviceServiceId: record.deviceServiceId,
           enrollmentEpoch: record.enrollmentEpoch
         }

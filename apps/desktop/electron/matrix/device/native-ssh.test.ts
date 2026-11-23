@@ -270,10 +270,10 @@ describe('native SSH owner route', () => {
       await f.service.refresh()
       expect(f.service.status().status).toBe('needs_full_disk_access_hint')
       f.service.acknowledgeFullDiskAccessHint()
-      expect(f.service.status().status).toBe('connected')
+      expect(f.service.status().status).toBe('set_up')
       await vi.advanceTimersByTimeAsync(60_000)
       await f.service.refresh()
-      expect(f.service.status().status).toBe('connected')
+      expect(f.service.status().status).toBe('set_up')
     } finally {
       await f.service.disconnect()
       vi.useRealTimers()
@@ -299,12 +299,12 @@ describe('native SSH owner route', () => {
     f.service.acknowledgeFullDiskAccessHint()
     await f.service.disconnect()
     await f.service.start(true)
-    expect(f.service.status().status).toBe('connected')
-    expect(f.service.fullDiskAccessHint().status).toBe('connected')
+    expect(f.service.status().status).toBe('set_up')
+    expect(f.service.fullDiskAccessHint().status).toBe('set_up')
     await f.service.refresh()
-    expect(f.service.status().status).toBe('connected')
+    expect(f.service.status().status).toBe('set_up')
     f.service.acknowledgeFullDiskAccessHint()
-    expect(f.service.status().status).toBe('connected')
+    expect(f.service.status().status).toBe('set_up')
     await f.service.disconnect()
   })
   it('restores acknowledgement from local settings after an app restart', async () => {
@@ -318,8 +318,8 @@ describe('native SSH owner route', () => {
     )
     const restarted = fixture(settings)
     await restarted.service.refresh()
-    expect(restarted.service.status().status).toBe('connected')
-    expect(restarted.service.fullDiskAccessHint().status).toBe('connected')
+    expect(restarted.service.status().status).toBe('set_up')
+    expect(restarted.service.fullDiskAccessHint().status).toBe('set_up')
   })
   it('offers an unacknowledged hint again after restart', async () => {
     const settings = mockSettings()
@@ -343,7 +343,7 @@ describe('native SSH owner route', () => {
     expect(f.service.status().status).toBe('needs_full_disk_access_hint')
     f.setEnrollment(original)
     await f.service.refresh()
-    expect(f.service.status().status).toBe('connected')
+    expect(f.service.status().status).toBe('set_up')
   })
   it('does not acknowledge a different enrollment if it changes while Settings opens', async () => {
     const f = fixture()
@@ -367,7 +367,7 @@ describe('native SSH owner route', () => {
     expect(() => f.service.acknowledgeFullDiskAccessHint()).toThrow('native_ssh_hint_save_failed')
     expect(f.service.status().status).toBe('needs_full_disk_access_hint')
     f.service.acknowledgeFullDiskAccessHint()
-    expect(f.service.status().status).toBe('connected')
+    expect(f.service.status().status).toBe('set_up')
   })
   it('offers the reminder only after a successful enrollment', async () => {
     const f = fixture()
@@ -485,15 +485,17 @@ it('protects the token file and removes it on revoke without putting it in argv'
   expect(JSON.stringify(run.mock.calls)).not.toContain(secret)
 })
 
-it('the SSH ChatGPT relay is gone: a list that carries a `relay` key is refused whole, and no forced-command line is ever written', async () => {
+it('ignores extra relay rows while retaining shell keys and the tunnel', async () => {
   const f = fixture()
   const original = f.http.getMockImplementation()!
   f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
     ? Response.json([{ ...authorized[0], purpose: 'shell' }, { ...authorized[0], publicKey: authorized[0].publicKey.slice(0, -1) + 'I', purpose: 'relay' }])
     : original(url, init))
   await f.service.refresh()
-  expect(f.service.status().status).toBe('error')
-  expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  expect(f.system.stop).not.toHaveBeenCalled()
+  expect(f.system.start).toHaveBeenCalled()
+  expect(f.disk()).toContain(authorized[0].publicKey)
   expect(f.disk()).not.toContain('command=')
 })
 
@@ -507,23 +509,23 @@ it('shell rows install as shell keys only, and an old relay block is replaced by
 })
 
 
-it('opts into purpose rows while accepting legacy three-field shell rows', async () => {
+it('requests the platform shell-only projection', async () => {
   const f = fixture()
   await f.service.refresh()
   const requests = f.http.mock.calls.map(([, init]) => JSON.parse(init.body))
-  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys', purposes: true })
+  expect(requests).toContainEqual({ operation: 'ssh_authorized_keys' })
   expect(f.disk()).toContain(`no-agent-forwarding,no-port-forwarding,no-X11-forwarding ${authorized[0].publicKey}`)
 })
 
-it('refuses unknown purposes before installing authorized keys', async () => {
+it('ignores unknown purposes before installing authorized keys', async () => {
   const f = fixture()
   const original = f.http.getMockImplementation()!
   f.http.mockImplementation(async (url, init) => JSON.parse(init.body).operation === 'ssh_authorized_keys'
     ? Response.json([{ ...authorized[0], purpose: 'unknown' }])
     : original(url, init))
   await f.service.refresh()
-  expect(f.service.status().status).toBe('error')
-  expect(f.system.keys).toHaveBeenCalledWith([])
+  expect(f.service.status().status).toBe('needs_full_disk_access_hint')
+  expect(f.system.stop).not.toHaveBeenCalled()
   expect(f.disk()).toBe('ssh-ed25519 user-owned-line\n')
 })
 

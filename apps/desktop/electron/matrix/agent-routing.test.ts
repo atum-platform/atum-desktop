@@ -10,11 +10,14 @@ import {
   matrixRetiredRootCustody,
   matrixRetirementTarget,
   matrixRoomAgent,
+  matrixRootEnrollmentPrincipal,
   matrixRosterChanges,
   matrixTurnAgent,
   matrixTurnsNeedingHost,
   matrixTurnsUsing
 } from './agent-routing'
+import { matrixAssistantSetupRunsLocally } from './assistant-setup'
+import { matrixAgentAnswerReady, matrixRosterAgentAnswersInCloud } from './cloud-agent-placement'
 import type { MatrixHostRole } from './sdk-host'
 
 const OWNER = '@owner:test'
@@ -245,6 +248,7 @@ describe('what a roster means for this Mac', () => {
       known: ['alfred', 'gone'],
       keep: new Set()
     })
+
     expect(result.active.map(each => each.principal)).toEqual(['alfred'])
     expect(result.retired).toEqual(['gone'])
   })
@@ -312,6 +316,7 @@ describe('product default is a role, not custody', () => {
       isDefault: false,
       status: 'retired' as const
     } as MatrixAgentDefinitionRecord
+
     const main = {
       id: 'main-id',
       principal: 'main',
@@ -368,4 +373,16 @@ it('never makes a room marked Earlier the home, even when no room is marked main
 
   // An unmarked room beside Earlier ones (no main yet) is still a home; the Earlier ones never are.
   expect(matrixAgentHomeRoom([...crossed.slice(1), privateRoom('!z:test', '@alfred:test')], OWNER, '@alfred:test')).toBe('!z:test')
+})
+
+
+it('projects the cloud default into a fresh root without local enrollment custody', () => {
+  const principal = matrixRootEnrollmentPrincipal(undefined, 'raymond', new Set())
+  expect(principal).toBe('raymond')
+  const roster = [{ principal: 'raymond', runtime: 'hermes' as const, answering: 'local' as const }]
+  const cloud = new Set(roster.filter(matrixRosterAgentAnswersInCloud).map(agent => agent.principal))
+  expect(matrixAssistantSetupRunsLocally({ cloudOnly: cloud.has(principal!) })).toBe(false)
+  expect(matrixAgentAnswerReady({ cloudRoute: cloud.has(principal!), role: undefined, localAuthority: false, localHostReady: false })).toBe(true)
+  expect(matrixRootEnrollmentPrincipal('old-root', 'raymond', new Set())).toBe('old-root')
+  expect(matrixRootEnrollmentPrincipal(undefined, 'raymond', new Set(['raymond']))).toBeUndefined()
 })

@@ -685,14 +685,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   const lifecycle = new MatrixWorkLifecycle({
     account,
     // A build without the staged runtime or the owner-view preload cannot run Work: draw nothing rather than an entry
-    // that fails on click. The model proxy must be up for the same reason.
+    // that fails on click. Proxy availability belongs to runtime startup, not discovery.
     prepare: async () => {
       if (!existsSync(join(deps.resources, 'work-runtime', 't3')) || !existsSync(deps.workPreload)) {
         throw new Error('work_not_in_this_build')
-      }
-
-      if (!deps.model.baseUrl()) {
-        throw new Error('work_model_unavailable')
       }
     },
     // Retirement and quit drop the model key (and cancel its forwards) synchronously, before any await.

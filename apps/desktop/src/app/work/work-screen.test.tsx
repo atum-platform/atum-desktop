@@ -268,7 +268,7 @@ describe('WorkScreen: assistants can start work here', () => {
 })
 
 describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
-  it('switches the open project between Work and Code, and puts the switch back when the view refuses', async () => {
+  it('titles the page with the Work · Code switch, switches the open project, and puts the switch back when the view refuses', async () => {
     const work = bridge()
     let report: ((snapshot: { projectId: string; mode: 'work' | 'code' } | null) => void) | undefined
 
@@ -282,6 +282,8 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
 
     const code = await screen.findByRole('button', { name: 'Code' })
 
+    // One place for the name and the mode: the switch is the band's visible title.
+    expect(screen.getByRole('heading', { name: 'Work' }).className).toContain('sr-only')
     expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(code)
     expect(work.setSurfaceMode).toHaveBeenCalledWith('p1', 'code')
@@ -294,6 +296,7 @@ describe('WorkScreen: the title band (spec §1.4, §8.2)', () => {
     // A project with no mode to switch (nothing open) shows no switch at all.
     act(() => report?.(null))
     expect(screen.queryByRole('group', { name: 'Mode' })).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Work' }).className).not.toContain('sr-only')
   })
 
   it('runs the view\'s own sidebar toggle and New thread, and offers neither before the view is ready', () => {
