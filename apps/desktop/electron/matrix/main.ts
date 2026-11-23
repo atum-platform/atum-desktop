@@ -795,7 +795,7 @@ import {
   registerMatrixMemberAvatarIpc,
   registerMatrixProfilesIpc
 } from './main-profiles'
-import { createMatrixWork, type MatrixWork } from './main-work'
+import { createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWork } from './main-work'
 import { matrixManagedAgentPrincipal, MatrixManagedModel } from './managed-model'
 import { dispatchMatrixCommand } from './message-dispatch'
 import { MatrixMessageLinkBroker } from './message-link-broker'
@@ -9669,10 +9669,6 @@ async function runGroupTurn(
                 const router = groupRelevanceRouter
 
                 try {
-                  if (message.content.googleProtected) {
-                    throw new Error('matrix_group_routing_protected')
-                  }
-
                   if (!router) {
                     throw new Error('matrix_group_routing_unavailable')
                   }
@@ -19228,7 +19224,7 @@ async function start() {
       ],
       bearer: refresh => account.managedModelBearer(refresh),
       // The Google fence: a latched default assistant uses only the protected route.
-      route: role => googleAssistant.route(role),
+      route: role => (role === MATRIX_WORK_MODEL_ROLE ? (work?.modelRoute() ?? 'refused') : googleAssistant.route(role)),
       hatchKey: (role, key) =>
         Array.from(matrixPetHatches.values()).some(
           run =>

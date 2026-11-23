@@ -22,6 +22,7 @@ interface WorkAccount {
 }
 
 interface WorkProcessOptions {
+  prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
   gatewayEnvironment: () => Record<string, string>
@@ -74,7 +75,7 @@ function provider(python: string, home: string, label: string, showInPicker: boo
       commandPath: python,
       commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed']
     },
-    environment: [{ name: 'HERMES_HOME', value: home }]
+    environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
   }
 }
 
@@ -107,6 +108,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const source = join(resources, 'runtime', 'hermes-agent')
   const python = join(resources, 'runtime', 'python', 'bin', 'python3.14')
   const profileSource = join(source, 'acp_adapter', 'profiles')
+
   const profiles = BROKER_PROFILES.map(({ directory }) => join(root, directory))
   await Promise.all([join(home, 'userdata'), cwd, osHome, ...profiles].map(directory =>
     mkdir(directory, { recursive: true, mode: 0o700 })
@@ -164,12 +166,19 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     managedProvider: ATUM_WORK_PROVIDER,
     gateways: profiles.map(profile => ({
       ...environment,
-      ...credentials,
+      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))),
       ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
       HERMES_HOME: profile
     })),
+    connectorToken: credentials.ATUM_WORK_CONNECTOR_TOKEN,
     executable: join(resources, 'work-runtime', 't3'),
-    environment,
+    environment: {
+      ...environment,
+      ...(credentials.ATUM_WORK_CONNECTOR_URL
+      ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
+      : {}),
+
+    },
     cwd
   }) + '\n')
   void exited.then(() => signal.removeEventListener('abort', stop))
@@ -353,6 +362,8 @@ export class WorkSidecar {
     const signal = controller.signal
 
     try {
+      await this.options.prepare?.(signal)
+      signal.throwIfAborted()
       const { child, exited, home, stop } = await startProcess(this.options, input, signal)
       this.teardown = exited
       const startup = readStartup(child, exited, signal)

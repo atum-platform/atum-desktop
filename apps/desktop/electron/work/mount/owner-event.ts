@@ -125,7 +125,7 @@ function judge(message: MatrixInvocationMessage, input: { roomId: string; eventI
     return no('owner_event_not_found')
   }
 
-  if (message.content.forwarded || message.content.googleProtected) {
+  if (message.content.forwarded) {
     return no('owner_event_not_owner')
   }
 
