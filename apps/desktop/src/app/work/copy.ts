@@ -29,6 +29,8 @@ export interface WorkWords {
   anAssistant: string
   /** Settings: one row to turn Work on or off on this Mac. */
   settings: { title: string; help: string; failed: string }
+  /** The title band's controls (design spec §1.4, §8.2): the mode switch and the roster column's two buttons. */
+  band: { mode: string; work: string; code: string; toggleSidebar: string; newThread: string }
 }
 
 const en: WorkWords = {
@@ -74,7 +76,8 @@ const en: WorkWords = {
     title: 'Work on this Mac',
     help: 'Turn off to stop all Work on this Mac.',
     failed: 'Could not change Work just now.'
-  }
+  },
+  band: { mode: 'Mode', work: 'Work', code: 'Code', toggleSidebar: 'Show or hide threads', newThread: 'New thread' }
 }
 
 const vi: WorkWords = {
@@ -119,7 +122,8 @@ const vi: WorkWords = {
     title: 'Work trên máy Mac này',
     help: 'Tắt để dừng mọi việc Work trên máy Mac này.',
     failed: 'Chưa đổi được Work lúc này.'
-  }
+  },
+  band: { mode: 'Chế độ', work: 'Work', code: 'Code', toggleSidebar: 'Hiện hoặc ẩn danh sách việc', newThread: 'Việc mới' }
 }
 
 const words: Record<'en' | 'vi', WorkWords> = { en, vi }

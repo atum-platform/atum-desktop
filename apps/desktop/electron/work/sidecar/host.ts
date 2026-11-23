@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
+import { MATRIX_WORK_IPC, WORK_BAND_COMMANDS, type WorkBandCommand, type WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
@@ -21,6 +22,7 @@ interface Account {
 
 interface WorkHostOptions {
   resources: string
+  surfaceModeChanged?(snapshot: WorkSurfaceModeSnapshot | null): void
   prepare?(signal: AbortSignal): Promise<void>
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
@@ -117,6 +119,7 @@ export class WorkHost {
 
   stop(): Promise<void> {
     this.view = undefined
+    this.options.surfaceModeChanged?.(null)
 
     if (this.closing) {
       return this.closing
@@ -175,6 +178,7 @@ export class WorkHost {
     const detach = () => {
       if (this.view === view) {
         this.view = undefined
+        this.options.surfaceModeChanged?.(null)
       }
     }
 
@@ -211,7 +215,59 @@ export class WorkHost {
     }
   }
 
+  async getSurfaceMode(): Promise<WorkSurfaceModeSnapshot | null> {
+    const view = this.view
+
+    if (!view || this.current() !== view.incarnation || view.contents.isDestroyed() ||
+      !this.binding || !sameAccount(this.binding.account, this.options.account())) {
+      return null
+    }
+    const value: unknown = await view.contents.executeJavaScript('window.atumSurfaceMode?.getSurfaceMode() ?? null')
+
+    if (this.view !== view || !this.binding || !sameAccount(this.binding.account, this.options.account())) {
+      return null
+    }
+
+    return parseSurfaceMode(value)
+  }
+
+  /** The band's buttons run T3's own commands in the live owner view (its `window.atumWorkCommands`). */
+  async runCommand(command: WorkBandCommand): Promise<boolean> {
+    const view = this.view
+
+    if (!WORK_BAND_COMMANDS.includes(command) || !view || this.current() !== view.incarnation || view.contents.isDestroyed() ||
+      !this.binding || !sameAccount(this.binding.account, this.options.account())) {
+      return false
+    }
+    const ran: unknown = await view.contents.executeJavaScript(`window.atumWorkCommands?.run(${JSON.stringify(command)}) ?? false`)
+
+    return this.view === view && ran === true
+  }
+
+  async setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void> {
+    const view = this.view
+
+    if (!view || this.current() !== view.incarnation || view.contents.isDestroyed() || !this.binding || !sameAccount(this.binding.account, this.options.account())) {
+      throw new Error('work_unavailable')
+    }
+
+    if (!projectId || projectId.length > 255 || (mode !== 'work' && mode !== 'code')) {
+      throw new Error('work_mode_invalid')
+    }
+    await view.contents.executeJavaScript(`window.atumSurfaceMode ? window.atumSurfaceMode.setSurfaceMode(${JSON.stringify(projectId)}, ${JSON.stringify(mode)}) : Promise.reject(new Error('work_unavailable'))`)
+
+    if (this.view !== view) {
+      throw new Error('work_unavailable')
+    }
+  }
+
   registerOwnerPreload(): void {
+    ipcMain.handle(MATRIX_WORK_IPC.surfaceModeChanged, (event, value: unknown) => {
+      if (!this.ownerCaller(event)) {
+        return
+      }
+      this.options.surfaceModeChanged?.(parseSurfaceMode(value))
+    })
     ipcMain.handle(WORK_ACCESS_CHANNEL, async event => {
       const view = this.ownerCaller(event)
 
@@ -261,4 +317,14 @@ function disabledMarker(account: Account) {
 
 function supported() {
   return process.platform === 'darwin' && process.arch === 'arm64'
+}
+
+function parseSurfaceMode(value: unknown): WorkSurfaceModeSnapshot | null {
+  if (!value || typeof value !== 'object') {
+      return null
+    }
+  const row = value as Record<string, unknown>
+
+  return typeof row.projectId === 'string' && row.projectId.length > 0 && row.projectId.length <= 255 && (row.mode === 'work' || row.mode === 'code')
+    ? { projectId: row.projectId, mode: row.mode } : null
 }

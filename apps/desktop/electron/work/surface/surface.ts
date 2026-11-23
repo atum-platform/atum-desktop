@@ -4,7 +4,9 @@ import type {
   MatrixWorkPlanConsentInput,
   MatrixWorkProjection,
   MatrixWorkRect,
-  MatrixWorkViewState
+  MatrixWorkViewState,
+  WorkBandCommand,
+  WorkSurfaceModeSnapshot
 } from '../../../shared/matrix-work'
 import type { WorkRelayPlan, WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
 import type { GateEvent } from '../gate/gate'
@@ -68,6 +70,9 @@ export interface WorkSurfaceParts {
 }
 
 export interface WorkSurfaceOptions {
+  getSurfaceMode?(): Promise<WorkSurfaceModeSnapshot | null>
+  runCommand?(command: WorkBandCommand): Promise<boolean>
+  setSurfaceMode?(projectId: string, mode: 'work' | 'code'): Promise<void>
   createView(incarnation: WorkIncarnation): WorkViewHandle
   publish(projection: MatrixWorkProjection | null): void
   /** Stable codes only: never a URL, a token or a path. */
@@ -282,6 +287,16 @@ export class WorkSurface {
    * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
    * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's.
    */
+  getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
+
+  runCommand(command: WorkBandCommand) { return this.options.runCommand?.(command) ?? Promise.resolve(false) }
+
+  setSurfaceMode(projectId: string, mode: 'work' | 'code') {
+    if (!this.options.setSurfaceMode) {return Promise.reject(new Error('work_unavailable'))}
+
+    return this.options.setSurfaceMode(projectId, mode)
+  }
+
   async openPlanConnect(plan: AccountPlan = 'codex'): Promise<void> {
     const parts = this.parts
 

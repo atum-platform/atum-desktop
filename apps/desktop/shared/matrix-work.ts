@@ -12,7 +12,8 @@ import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './ma
 
 export const MATRIX_WORK_IPC = {
   request: 'matrix:work:request',
-  changed: 'matrix:work:changed'
+  changed: 'matrix:work:changed',
+  surfaceModeChanged: 'matrix:work:surface-mode-changed'
 } as const
 
 /** The owner's own Work view, which fills the page. */
@@ -119,7 +120,16 @@ export interface MatrixWorkRect {
   height: number
 }
 
+export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
+
+/** T3 commands the Work title band offers as buttons over the roster column (spec §1.4). */
+export const WORK_BAND_COMMANDS = ['sidebar.toggle', 'chat.new'] as const
+export type WorkBandCommand = (typeof WORK_BAND_COMMANDS)[number]
+
 export type MatrixWorkRequest =
+  | { kind: 'getSurfaceMode' }
+  | { kind: 'runCommand'; command: WorkBandCommand }
+  | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readRelay'; principal: string; roomId: string }
   | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string; plan?: WorkRelayPlan }
   | { kind: 'stopRelay'; roomId: string; eventId: string }
@@ -141,6 +151,11 @@ export type MatrixWorkRequest =
   | { kind: 'reconnectAssistants' }
 
 export interface MatrixWorkBridge {
+  getSurfaceMode(): Promise<WorkSurfaceModeSnapshot | null>
+  /** Runs one of T3's own commands in the owner view; false when the view did not take it. */
+  runCommand?(command: WorkBandCommand): Promise<boolean>
+  setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void>
+  onSurfaceModeChanged(listener: (snapshot: WorkSurfaceModeSnapshot | null) => void): () => void
   readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
   selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   stopRelay?(roomId: string, eventId: string): Promise<void>
@@ -218,6 +233,17 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
   const relayPlan = WORK_RELAY_PLANS.find(plan => plan === row.plan)
 
   switch (row.kind) {
+    case 'getSurfaceMode': return keys.length === 1 ? { kind: 'getSurfaceMode' } : null
+    case 'runCommand': {
+      const command = WORK_BAND_COMMANDS.find(each => each === row.command)
+
+      return keys.length === 2 && command ? { kind: 'runCommand', command } : null
+    }
+
+    case 'setSurfaceMode':
+      return keys.length === 3 && typeof row.projectId === 'string' && row.projectId.length > 0 && row.projectId.length <= 255 && (row.mode === 'work' || row.mode === 'code')
+        ? { kind: 'setSurfaceMode', projectId: row.projectId, mode: row.mode } : null
+
     case 'readRelay':
       return keys.length === 3 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255
         ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
