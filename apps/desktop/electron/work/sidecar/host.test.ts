@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { MATRIX_WORK_IPC } from '../../../shared/matrix-work'
 import { workSessionPaths } from '../session/paths'
 
 import { WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL, WorkHost } from './host'
@@ -66,7 +67,9 @@ const account = { key: 'owner', generation: 1, root: '/account-fixture' }
 function lab() {
   const openProtons = vi.fn<() => Promise<void>>().mockResolvedValue(undefined)
 
+  const surfaceModeChanged = vi.fn()
   const host = new WorkHost({
+    surfaceModeChanged,
     resources: '/bundled',
     account: () => account,
     openProtons,
@@ -77,7 +80,7 @@ function lab() {
 
   host.registerOwnerPreload()
 
-  return { host, openProtons }
+  return { host, openProtons, surfaceModeChanged }
 }
 
 function sender() {
@@ -118,6 +121,28 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     expect(openProtons).toHaveBeenCalledOnce()
   })
 
+  it('keeps mode reports inside the bound owner account and validates snapshots', async () => {
+    const { host, surfaceModeChanged } = lab()
+    const incarnation = await host.start({ continuation: false })
+    const contents = sender()
+    host.bindOwnerView(incarnation, contents)
+    const invoke = handlers.get(MATRIX_WORK_IPC.surfaceModeChanged)! as (event: IpcMainInvokeEvent, value: unknown) => Promise<unknown>
+    const event = { sender: contents, senderFrame: { parent: null, detached: false, url: incarnation.origin + '/' } } as unknown as IpcMainInvokeEvent
+    const snapshot = { projectId: 'project-a', mode: 'work' }
+    await invoke({ ...event, sender: sender() }, snapshot)
+    expect(surfaceModeChanged).not.toHaveBeenCalled()
+    await invoke(event, snapshot)
+    expect(surfaceModeChanged).toHaveBeenLastCalledWith(snapshot)
+    await invoke(event, { ...snapshot, mode: 'invalid' })
+    expect(surfaceModeChanged).toHaveBeenLastCalledWith(null)
+    await host.stop()
+    surfaceModeChanged.mockClear()
+    await invoke(event, snapshot)
+    expect(surfaceModeChanged).not.toHaveBeenCalled()
+    expect(await host.getSurfaceMode()).toBeNull()
+    await expect(host.setSurfaceMode('project-a', 'code')).rejects.toThrow('work_unavailable')
+  })
+
   it('selects resources for each pin while keeping a single owner IPC registration', async () => {
     const { host } = lab()
     const packaged = host.forResources('/bundled')
@@ -138,7 +163,7 @@ describe.skipIf(process.platform !== 'darwin' || process.arch !== 'arm64')('Work
     await target.start({ continuation: false })
 
     expect(starts.mock.calls).toEqual([['/bundled'], ['/target'], ['/target']])
-    expect([...handlers.keys()]).toEqual([WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
+    expect([...handlers.keys()]).toEqual([MATRIX_WORK_IPC.surfaceModeChanged, WORK_ACCESS_CHANNEL, WORK_OPEN_PROTONS_CHANNEL])
   })
 })
 

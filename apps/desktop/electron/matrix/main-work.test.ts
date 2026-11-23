@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import type { IpcMainInvokeEvent } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
+import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkSurfaceModeSnapshot } from '../../shared/matrix-work'
 import { type GateEvent, GateLedger, workGatePaths } from '../work/gate'
 import { workSessionPaths } from '../work/session'
 
@@ -252,7 +252,7 @@ describe('createMatrixWork', () => {
     }
 
     const logs: string[] = []
-    const published: (MatrixWorkProjection | null)[] = []
+    const published: (MatrixWorkProjection | WorkSurfaceModeSnapshot | null)[] = []
     const state = { closing: false }
 
     const deps: MatrixWorkDeps = {

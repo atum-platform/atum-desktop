@@ -9,6 +9,8 @@ export function registerMatrixWorkIpc(
   ipc: Pick<IpcMain, 'handle'>,
   surface: Pick<
     WorkSurface,
+    | 'getSurfaceMode'
+    | 'setSurfaceMode'
     | 'allowAssistants'
     | 'readRelay'
     | 'selectRelay'
@@ -37,6 +39,10 @@ export function registerMatrixWorkIpc(
     }
 
     switch (request.kind) {
+      case 'getSurfaceMode': return surface.getSurfaceMode()
+
+      case 'setSurfaceMode': return surface.setSurfaceMode(request.projectId, request.mode)
+
       case 'readRelay': return surface.readRelay(request.principal, request.roomId)
 
       case 'selectRelay': return surface.selectRelay(request.principal, request.expectedRevision, request.model)

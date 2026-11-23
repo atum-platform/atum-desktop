@@ -4,6 +4,7 @@ import { join } from 'node:path'
 
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
+import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-model-access'
 import type { SafeStorageLike } from '../encrypted-store'
@@ -108,7 +109,7 @@ export interface MatrixWorkDeps {
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
-  publish(channel: string, payload: MatrixWorkProjection | null): void
+  publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | null): void
   /** Main's `closing`: nothing starts while the app quits. */
   closing(): boolean
   log(line: string): void
@@ -320,6 +321,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   const host = new WorkHost({
+    surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
     resources: deps.resources,
     account,
     gatewayEnvironment: () => {
@@ -461,6 +463,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   surface = new WorkSurface({
+    getSurfaceMode: () => host.getSurfaceMode(),
+    setSurfaceMode: (projectId, mode) => host.setSurfaceMode(projectId, mode),
     createView: createWorkViewFactory({
       window: () => deps.ui() ?? null,
       preload: deps.workPreload,

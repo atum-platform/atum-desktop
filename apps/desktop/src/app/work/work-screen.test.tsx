@@ -36,6 +36,9 @@ afterEach(() => {
 
 function bridge(): MatrixWorkBridge & { [K in keyof MatrixWorkBridge]: ReturnType<typeof vi.fn> } {
   return {
+    getSurfaceMode: vi.fn(async () => null),
+    setSurfaceMode: vi.fn(async () => {}),
+    onSurfaceModeChanged: vi.fn(() => () => {}),
     read: vi.fn(async () => null),
     show: vi.fn(async () => {}),
     hide: vi.fn(async () => {}),

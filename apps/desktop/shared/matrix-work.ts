@@ -10,7 +10,8 @@ import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './ma
 
 export const MATRIX_WORK_IPC = {
   request: 'matrix:work:request',
-  changed: 'matrix:work:changed'
+  changed: 'matrix:work:changed',
+  surfaceModeChanged: 'matrix:work:surface-mode-changed'
 } as const
 
 /** The owner's own Work view, which fills the page. */
@@ -115,7 +116,11 @@ export interface MatrixWorkRect {
   height: number
 }
 
+export interface WorkSurfaceModeSnapshot { projectId: string; mode: 'work' | 'code' }
+
 export type MatrixWorkRequest =
+  | { kind: 'getSurfaceMode' }
+  | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readRelay'; principal: string; roomId: string }
   | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string }
   | { kind: 'stopRelay'; roomId: string; eventId: string }
@@ -136,6 +141,9 @@ export type MatrixWorkRequest =
   | { kind: 'reconnectAssistants' }
 
 export interface MatrixWorkBridge {
+  getSurfaceMode(): Promise<WorkSurfaceModeSnapshot | null>
+  setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void>
+  onSurfaceModeChanged(listener: (snapshot: WorkSurfaceModeSnapshot | null) => void): () => void
   readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
   selectRelay?(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
   stopRelay?(roomId: string, eventId: string): Promise<void>
@@ -210,22 +218,38 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
   const keys = Object.keys(row)
 
   switch (row.kind) {
+    case 'getSurfaceMode': return keys.length === 1 ? { kind: 'getSurfaceMode' } : null
+
+    case 'setSurfaceMode':
+      return keys.length === 3 && typeof row.projectId === 'string' && row.projectId.length > 0 && row.projectId.length <= 255 && (row.mode === 'work' || row.mode === 'code')
+        ? { kind: 'setSurfaceMode', projectId: row.projectId, mode: row.mode } : null
+
     case 'readRelay':
       return keys.length === 3 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255
         ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
+
     case 'selectRelay':
       return keys.length === 4 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
         ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model } : null
+
     case 'stopRelay':
       return keys.length === 3 && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255 && typeof row.eventId === 'string' && row.eventId.startsWith('$') && row.eventId.length <= 255
         ? { kind: 'stopRelay', roomId: row.roomId, eventId: row.eventId } : null
+
     case 'read':
+
     case 'hide':
+
     case 'retry':
+
     case 'allowAssistants':
+
     case 'reconnectAssistants':
+
     case 'openPlanConnect':
+
     case 'readPlanConsent':
+
     case 'revokePlanConsent':
       return keys.length === 1 ? { kind: row.kind } : null
     case 'setPlanConsent': {
@@ -233,10 +257,13 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
       return consent ? { kind: 'setPlanConsent', consent } : null
     }
+
     case 'setAssistants':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setAssistants', on: row.on } : null
+
     case 'setPlan':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setPlan', on: row.on } : null
+
     case 'setWork':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null
     case 'show': {
@@ -257,6 +284,7 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
       return { kind: 'show', rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
     }
+
     default:
       return null
   }
