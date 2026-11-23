@@ -8,6 +8,7 @@ import json
 import hashlib
 import os
 import re
+import stat
 import uuid
 import urllib.request
 from urllib.parse import urlparse
@@ -112,11 +113,32 @@ def read_route_authority():
         raise WorkspaceRouteRequired("Atum could not verify the protected Google-data route. Reconnect to Atum and retry; no other AI provider was used.") from None
 
 
+def workspace_route_guard_required():
+    return (os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") == "1"
+            or bool(os.environ.get("ATUM_WORK_PROTECTED_DIRECTORY")))
+
+
+def _work_route_authority(directory):
+    # Main and the Work server own this monotonic marker outside the rollback home.
+    try:
+        if not stat.S_ISDIR(os.stat(directory).st_mode):
+            raise ValueError("work protection store")
+    except FileNotFoundError:
+        return {"protected": False}
+    return {"protected": True, "workspaceAlias": "binh-minh"}
+
+
 def protected_workspace_route():
-    if os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") != "1":
+    if not workspace_route_guard_required():
         return None
     try:
-        data = read_route_authority()
+        directory = os.environ.get("ATUM_WORK_PROTECTED_DIRECTORY")
+        filesystem_required = os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") == "1"
+        data = read_route_authority() if filesystem_required else {"protected": False}
+        if directory:
+            work = _work_route_authority(directory)
+            if work["protected"]:
+                data = work
         if not data["protected"]:
             return None
         base_url = os.environ.get("ATUM_MANAGED_MODEL_BASE_URL", "")
@@ -283,7 +305,7 @@ def guard_auxiliary_resolution(resolve):
         admitted = fence_resolved_client((client, _model))
         if admitted[0] is None and client is not None:
             return (*result[:-2], None, None)
-        if os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") != "1" or client is None:
+        if not workspace_route_guard_required() or client is None:
             return result
         completions = client.chat.completions
         if getattr(completions.create, "_atum_route_guarded", False):

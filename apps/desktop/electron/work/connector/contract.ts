@@ -4,6 +4,7 @@ export interface Caller {
   threadId: string
   providerSessionId: string
   providerInstanceId: string
+  admission?: string
 }
 export interface Answer {
   body: string

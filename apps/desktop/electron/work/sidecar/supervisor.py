@@ -216,6 +216,12 @@ def main():
                 path = Path(env["HERMES_HOME"]) / "config.yaml"
                 path.write_text(yaml.safe_dump(config), encoding="utf-8")
                 path.chmod(0o600)
+            if policy := spec.get("protectionPolicy"):
+                policy_path = Path(policy["path"])
+                policy_temp = policy_path.with_suffix(".next")
+                policy_temp.write_text(json.dumps(policy["document"]), encoding="utf-8")
+                policy_temp.chmod(0o600)
+                policy_temp.replace(policy_path)
             settings.update(spec["settings"])
             settings["textGenerators"] = {}
             for override in settings.get("projectSettingsOverrides", {}).values():

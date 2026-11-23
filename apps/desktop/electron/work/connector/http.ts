@@ -46,7 +46,7 @@ export class ConnectorHttp {
           }
         }
 
-        const value = JSON.parse(body) as { caller?: Caller; question?: unknown }
+        const value = JSON.parse(body) as { caller?: Caller; question?: unknown; admission?: unknown }
         const caller = value.caller
 
         if (
@@ -61,7 +61,18 @@ export class ConnectorHttp {
           return
         }
 
-        reply(200, await this.service.ask(caller, value.question))
+        const admission = value.admission
+
+        if (admission !== undefined && (typeof admission !== 'string' || !/^[0-9a-f-]{36}$/u.test(admission))) {
+          reply(400, { error: 'invalid_request' })
+
+          return
+        }
+
+        reply(
+          200,
+          await this.service.ask({ ...caller, ...(typeof admission === 'string' ? { admission } : {}) }, value.question)
+        )
       } catch {
         reply(400, { error: 'work_question_unavailable' })
       }

@@ -476,3 +476,51 @@ async def test_cached_async_vision_client_is_rechecked_after_google_connection(m
     broker["protected"] = True
     assert (await cached.chat.completions.create(model=model, messages=[])).choices[0].message.content == "protected"
     assert len(foreign_calls) == 1
+
+
+def test_work_protection_rechecks_primary_and_cached_auxiliary_route(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from agent import workspace_route_guard as guard
+
+    marker = tmp_path / "protected-threads"
+    base = "http://127.0.0.1:45678/v1"
+    monkeypatch.delenv("ATUM_FILESYSTEM_CAPABILITY_REQUIRED", raising=False)
+    monkeypatch.setenv("ATUM_WORK_PROTECTED_DIRECTORY", str(marker))
+    monkeypatch.setenv("ATUM_MANAGED_MODEL_BASE_URL", base)
+    monkeypatch.setenv("ATUM_MANAGED_MODEL_PROXY_TOKEN", "fixture")
+    cached = SimpleNamespace(
+        base_url="https://ordinary.invalid/v1",
+        chat=SimpleNamespace(completions=SimpleNamespace(create=lambda **_: "ordinary")),
+    )
+    auxiliary = guard.guard_auxiliary_resolution(lambda: (cached, "ordinary"))
+    assert auxiliary()[0].chat.completions.create(messages=[]) == "ordinary"
+
+    marker.mkdir()
+    foreign = SimpleNamespace(provider="openrouter", api_mode="chat_completions", base_url=cached.base_url)
+    with pytest.raises(guard.WorkspaceRouteRequired):
+        guard.protect_agent_request(foreign, {"model": "ordinary"})
+
+    managed = SimpleNamespace(provider="atum-managed", api_mode="chat_completions", base_url=base)
+    request = {"model": "ordinary"}
+    guard.protect_agent_request(managed, request)
+    assert request["model"] == "binh-minh"
+
+    monkeypatch.setattr(
+        guard, "protected_auxiliary_client",
+        lambda **_: (SimpleNamespace(chat=SimpleNamespace(
+            completions=SimpleNamespace(create=lambda **_: "protected")
+        )), "binh-minh"),
+    )
+    assert cached.chat.completions.create(messages=[]) == "protected"
+
+
+def test_work_protection_rejects_unreadable_marker_shape(monkeypatch, tmp_path):
+    from agent import workspace_route_guard as guard
+
+    marker = tmp_path / "protected-threads"
+    marker.touch()
+    monkeypatch.setenv("ATUM_WORK_PROTECTED_DIRECTORY", str(marker))
+
+    with pytest.raises(guard.WorkspaceRouteRequired):
+        guard.protected_workspace_route()

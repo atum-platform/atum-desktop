@@ -59,3 +59,34 @@ paging beyond 100 events, decryption retry, account turnover, HTTP
 credential replacement, receipt compaction and acknowledgement retries.
 The full Desktop typecheck was run with its lockfile workspace
 dependencies, including the missing Streamdown dependency.
+
+## Certified route checkpoint
+
+Main now asks the current account's managed proxy whether the gateway serves the
+existing protected model. It then calls the current sidecar's private admission
+route before writing any protected or unknown answer bytes. The callback
+revalidates the native session and active run and commits a durable protected
+thread marker. The account, sidecar and durable route are checked again before
+release. If any check fails, only the refusal state reaches the provider.
+
+The Work supervisor uses the native T3 managed-settings policy to lock the
+owner ACP launch configuration. The marker lives beside the server home so a
+home rollback cannot erase the fence. After the first protected result, every
+managed Work model call routes through the existing protected proxy alias.
+Hermes primary and cached auxiliary calls reuse its native workspace route
+guard and cannot divert summaries to an ordinary route. Work's plan threads
+keep their subscription routing and cannot reuse the fenced transcript. The
+scope is direct connector delivery and transcript reuse within Work. Trusted
+same-user processes retain their existing filesystem access.
+
+Reused native seams include `electron/matrix/managed-model.ts` (`servesModel`,
+`withProtectedModel`), `electron/work/sidecar/host.ts` (`current`),
+`electron/work/sidecar/supervisor.py` (locked local profile provisioning), and
+`agent/workspace_route_guard.py` (main and auxiliary request routing).
+The gateway's `google-protected` policy uses the exact private Vertex route,
+denies data collection, enforces zero retention and disables fallback.
+
+A staged pin must explicitly advertise the protected connector capability.
+An older pin refuses to start against an account home that already has
+protected threads. The checked-in archive pin has no such capability until
+the matching archive is built and the packaged route is verified.

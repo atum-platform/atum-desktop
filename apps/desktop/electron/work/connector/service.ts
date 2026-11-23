@@ -217,6 +217,10 @@ export class ConnectorService {
           return result('cancelled', r)
         }
 
+        if (Date.now() >= r.deadline) {
+          return result('timed_out', r)
+        }
+
         if (!allowed) {
           return result(
             answer.dataClass === 'unknown'
