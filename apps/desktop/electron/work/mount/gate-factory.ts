@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import type { SafeStorageLike } from '../../encrypted-store'
@@ -14,7 +15,7 @@ import { workSessionPaths } from '../session/paths'
 import { createT3AuthCli } from '../session/t3-auth'
 import { ATUM_WORK_DELEGATED_PROVIDER, ATUM_WORK_MODEL, type WorkIncarnation } from '../sidecar/process'
 
-import { RelayAssembly, type RelayAssemblyOptions } from './relay-assembly'
+import { RelayAssembly, type RelayAssemblyOptions, relayProtectedRoots } from './relay-assembly'
 import { createKeychainSecretStore } from './secret-store'
 
 export interface WorkMountAccount extends GateAccount {
@@ -150,6 +151,7 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
   if (input.relayAssistant) {
     assembly = new RelayAssembly({
       ...input.relayAssistant, ledger: service.ledger, t3,
+      protectedRoots: relayProtectedRoots(homedir(), input.relayAssistant.assistantsRoot),
       ownerToken: () => {
         if (!ownerToken) {throw new Error('relay_unavailable')}
 

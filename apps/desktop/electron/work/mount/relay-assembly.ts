@@ -17,6 +17,62 @@ export interface RelayAssemblyOptions {
   ownerToken(): Promise<string>
   fresh(): boolean
   now?(): number
+  /**
+   * Absolute paths a relay session must not read (plan O16): other makers' logins, SSH and cloud credentials, browser
+   * profiles, the keychain, Atum's and T3's own stores, sibling assistants. Written into the folder's native settings.
+   */
+  protectedRoots?: readonly string[]
+}
+
+/**
+ * The protected data of plan O16 as roots under `home`, for a relay folder's native settings: other makers' logins, SSH and
+ * cloud credentials, the keychain, browser stores, Atum's and T3's own stores, and every assistant folder (a session's own
+ * folder is allowed back in by `allowRead`).
+ */
+export function relayProtectedRoots(home: string, assistantsRoot: string): string[] {
+  return [
+    '.ssh', '.aws', '.azure', '.config/gcloud', '.config/gh', '.kube', '.docker', '.netrc', '.gnupg',
+    '.codex', '.gemini', '.claude', '.claude.json', '.t3', '.hermes',
+    'Library/Keychains', 'Library/Cookies', 'Library/Safari', 'Library/Mail', 'Library/Messages',
+    'Library/Application Support/Google', 'Library/Application Support/Chromium',
+    'Library/Application Support/Firefox', 'Library/Application Support/Arc',
+    'Library/Application Support/BraveSoftware', 'Library/Application Support/Microsoft Edge',
+    'Library/Application Support/T3 Code', 'Library/Application Support/Atum',
+    'Library/Application Support/Claude', 'Library/Application Support/Antigravity',
+    'Library/Application Support/Code/User/globalStorage'
+  ]
+    .map(relative => join(home, relative))
+    .concat(resolve(assistantsRoot))
+}
+
+/** Instruction files each native harness loads at session start: Codex and Antigravity read AGENTS.md, Claude CLAUDE.md, Antigravity GEMINI.md. */
+export const RELAY_INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'] as const
+
+/**
+ * Claude Code's own project settings for a relay folder, written once with the persona (never rewritten): an enforced
+ * deny-read over the protected roots, its native sandbox required, no project MCP servers, and no edits to the persona
+ * or these settings. `//` is Claude's absolute-path prefix in permission rules.
+ */
+export function claudeRelaySettings(input: { folder: string; protectedRoots: readonly string[] }) {
+  const absolute = (path: string) => `/${path}`
+  const own = (file: string) => absolute(join(input.folder, file))
+
+  return {
+    permissions: {
+      deny: [
+        ...input.protectedRoots.flatMap(root => [`Read(${absolute(root)})`, `Read(${absolute(root)}/**)`]),
+        ...[...RELAY_INSTRUCTION_FILES, '.claude/settings.json'].flatMap(file => [`Edit(${own(file)})`, `Write(${own(file)})`])
+      ]
+    },
+    enableAllProjectMcpServers: false,
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      allowUnsandboxedCommands: false,
+      autoAllowBashIfSandboxed: true,
+      filesystem: { denyRead: [...input.protectedRoots], allowRead: [input.folder] }
+    }
+  }
 }
 
 function result(reply: T3Reply): Record<string, unknown> {
@@ -113,9 +169,16 @@ export class RelayAssembly {
       const instruction = `<!-- Atum persona revision: ${snapshot.definitionRevision} -->\n${snapshot.definition.soul}\n`
 
       try {
-        for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+        for (const file of RELAY_INSTRUCTION_FILES) {
           writeFileSync(join(temporary, file), instruction, { mode: 0o400, flag: 'wx' })
         }
+
+        mkdirSync(join(temporary, '.claude'), { mode: 0o700 })
+        writeFileSync(
+          join(temporary, '.claude', 'settings.json'),
+          JSON.stringify(claudeRelaySettings({ folder, protectedRoots: this.o.protectedRoots ?? [] })),
+          { mode: 0o400, flag: 'wx' }
+        )
 
         renameSync(temporary, folder)
       } finally {
@@ -129,7 +192,7 @@ export class RelayAssembly {
 
     // Project creation and ledger persistence can fail independently. Retrying the same
     // launch must reuse the files and their original revision across either failure.
-    const instructions = ['AGENTS.md', 'CLAUDE.md'].map(file => {
+    const instructions = RELAY_INSTRUCTION_FILES.map(file => {
       const location = join(folder, file)
 
       if (!lstatSync(location).isFile()) {
@@ -141,7 +204,7 @@ export class RelayAssembly {
     const revision = /^<!-- Atum persona revision: ([1-9][0-9]*) -->\n/u.exec(instructions[0])
     const personaRevision = Number(revision?.[1])
 
-    if (!Number.isSafeInteger(personaRevision) || instructions[0] !== instructions[1]) {
+    if (!Number.isSafeInteger(personaRevision) || instructions.some(text => text !== instructions[0])) {
       throw new Error('relay_folder_invalid')
     }
 
