@@ -29,7 +29,7 @@ function fixture() {
   const projects: { id: string; workspaceRoot: string }[] = []
 
   const createProject = vi.fn(async (_token: string, input: { title: string; workspaceRoot: string }) => {
-    const project = { ...input, id: 'assistant-project' }
+    const project = { ...input, id: `assistant-project-${projects.length + 1}` }
     projects.push(project)
 
     return { transport: 'ok' as const, status: 200, data: project }
@@ -161,17 +161,32 @@ it('rejects a regressed snapshot without restoring connection', async () => {
   expect(h.gate.entitlementsFresh()).toBe(false)
   expect(new RelayAssembly({ ...f.options, fresh: () => h.gate.entitlementsFresh() }).selection(LUNA)).toBeUndefined()
 })
-it('reuses the native project after restart and pins persona until the next native thread (RT11)', async () => {
+it('resumes the original persona after a new native thread starts with a newer revision (RT11)', async () => {
   const f = fixture()
-  expect(await f.assembly.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project', personaRevision: 1 })
-  const folder = join(f.options.assistantsRoot, readdirSync(f.options.assistantsRoot)[0])
-  const first = readFileSync(join(folder, 'AGENTS.md'), 'utf8')
+  expect(await f.assembly.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
   f.revision(2)
   const resumed = new RelayAssembly(f.options)
-  expect((await resumed.provision(LUNA, 'native-1')).personaRevision).toBe(1)
-  expect(readFileSync(join(folder, 'AGENTS.md'), 'utf8')).toBe(first)
-  expect((await resumed.provision(LUNA, 'native-2')).personaRevision).toBe(2)
-  expect(readFileSync(join(folder, 'AGENTS.md'), 'utf8')).toContain('Persona 2')
+  expect(await resumed.provision(LUNA, 'native-2')).toEqual({ projectId: 'assistant-project-2', personaRevision: 2 })
+  expect(await resumed.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
+  const [first, second] = f.createProject.mock.calls.map(([, input]) => input.workspaceRoot)
+  expect(first).not.toBe(second)
+
+  for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+    expect(readFileSync(join(first, file), 'utf8')).toBe('<!-- Atum persona revision: 1 -->\nPersona 1\n')
+    expect(readFileSync(join(second, file), 'utf8')).toBe('<!-- Atum persona revision: 2 -->\nPersona 2\n')
+  }
+})
+
+it('recovers the original persona when a project was created before the ledger pin', async () => {
+  const f = fixture()
+  const setMeta = vi.spyOn(h.ledger, 'setMeta').mockImplementationOnce(() => {
+    throw new Error('lost before the persona pin')
+  })
+  await expect(f.assembly.provision(LUNA, 'native-1')).rejects.toThrow('lost before the persona pin')
+  setMeta.mockRestore()
+  f.revision(2)
+  const resumed = new RelayAssembly(f.options)
+  expect(await resumed.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
   expect(f.createProject).toHaveBeenCalledOnce()
   expect(readdirSync(f.options.assistantsRoot)).toHaveLength(1)
 })

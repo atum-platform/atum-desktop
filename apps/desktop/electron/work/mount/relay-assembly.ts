@@ -1,5 +1,5 @@
-import { createHash, randomUUID } from 'node:crypto'
-import { lstatSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 import type { MatrixAgentDefinitionSnapshot } from '../../matrix/agent-definition'
@@ -73,19 +73,19 @@ export class RelayAssembly {
       return Promise.resolve(JSON.parse(pinned))
     }
 
-    const pending = this.pending.get(principal)
+    const pending = this.pending.get(key)
 
     if (pending) {
-      return pending.then(() => this.provision(principal, threadId))
+      return pending
     }
 
-    const run = this.create(principal, key).finally(() => this.pending.delete(principal))
-    this.pending.set(principal, run)
+    const run = this.create(principal, threadId, key).finally(() => this.pending.delete(key))
+    this.pending.set(key, run)
 
     return run
   }
 
-  private async create(principal: string, key: string) {
+  private async create(principal: string, threadId: string, key: string) {
     const snapshot = await this.o.definition(principal)
 
     if (
@@ -99,16 +99,49 @@ export class RelayAssembly {
     }
 
     const root = resolve(this.o.assistantsRoot)
-    const folder = join(root, createHash('sha256').update(principal).digest('hex'))
+    const folder = join(root, createHash('sha256').update(JSON.stringify([principal, threadId])).digest('hex'))
     mkdirSync(root, { recursive: true, mode: 0o700 })
 
     if (lstatSync(root).isSymbolicLink()) {
       throw new Error('relay_folder_invalid')
     }
 
-    mkdirSync(folder, { recursive: true, mode: 0o700 })
+    // A new native session gets its own project. Keep it beside legacy assistant projects
+    // so native instruction discovery cannot inherit their previously shared persona.
+    if (!existsSync(folder)) {
+      const temporary = mkdtempSync(join(root, '.relay-persona-'))
+      const instruction = `<!-- Atum persona revision: ${snapshot.definitionRevision} -->\n${snapshot.definition.soul}\n`
 
-    if (lstatSync(folder).isSymbolicLink()) {
+      try {
+        for (const file of ['AGENTS.md', 'CLAUDE.md']) {
+          writeFileSync(join(temporary, file), instruction, { mode: 0o400, flag: 'wx' })
+        }
+
+        renameSync(temporary, folder)
+      } finally {
+        rmSync(temporary, { recursive: true, force: true })
+      }
+    }
+
+    if (!lstatSync(folder).isDirectory()) {
+      throw new Error('relay_folder_invalid')
+    }
+
+    // Project creation and ledger persistence can fail independently. Retrying the same
+    // launch must reuse the files and their original revision across either failure.
+    const instructions = ['AGENTS.md', 'CLAUDE.md'].map(file => {
+      const location = join(folder, file)
+
+      if (!lstatSync(location).isFile()) {
+        throw new Error('relay_folder_invalid')
+      }
+
+      return readFileSync(location, 'utf8')
+    })
+    const revision = /^<!-- Atum persona revision: ([1-9][0-9]*) -->\n/u.exec(instructions[0])
+    const personaRevision = Number(revision?.[1])
+
+    if (!Number.isSafeInteger(personaRevision) || instructions[0] !== instructions[1]) {
       throw new Error('relay_folder_invalid')
     }
 
@@ -158,15 +191,7 @@ export class RelayAssembly {
       projectId = data.id
     }
 
-    // Codex reads AGENTS.md at native session start. Never rewrite it on resume/send or record sync.
-    const temporary = join(folder, `.persona-${randomUUID()}`)
-    writeFileSync(
-      temporary,
-      `<!-- Atum persona revision: ${snapshot.definitionRevision} -->\n${snapshot.definition.soul}\n`,
-      { mode: 0o600, flag: 'wx' }
-    )
-    renameSync(temporary, join(folder, 'AGENTS.md'))
-    const pinned = { projectId, personaRevision: snapshot.definitionRevision }
+    const pinned = { projectId, personaRevision }
     this.o.ledger.setMeta(key, JSON.stringify(pinned))
 
     return pinned
