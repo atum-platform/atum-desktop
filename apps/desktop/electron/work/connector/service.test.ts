@@ -16,7 +16,7 @@ function fixture() {
     resolve: async () => ({ room: '!dm:test', agent: '@agent:test' }),
     send: vi.fn(async () => '$question'),
     read: async () => undefined,
-    release: async (_, protectedData) => !protectedData
+    admit: async (_, protectedData) => protectedData ? undefined : { protected: false }
   }
 
   const file = join(directory, 'receipts.json')
@@ -87,6 +87,28 @@ describe('Work connector receipts and release', () => {
       'cancelled'
     )
   })
+  it('requires live caller admission even for answers with a clean marker', async () => {
+    using f = fixture()
+    const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
+    f.ports.read = async () => {
+      f.ports.admit = async () => undefined
+
+      return { body: 'clean', dataClass: 'non_google' }
+    }
+    expect(await f.service.ask(caller, q, 0)).toMatchObject({ state: 'unavailable' })
+  })
+
+  it('passes the live thread fence to the target resolver before sending', async () => {
+    using f = fixture()
+    f.ports.admit = async () => ({ protected: true })
+    const resolve = vi.fn(async () => undefined)
+    f.ports.resolve = resolve
+    const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
+    expect(await f.service.ask(caller, q, 0)).toMatchObject({ state: 'unavailable' })
+    expect(resolve).toHaveBeenCalledWith('owned', true)
+    expect(f.ports.send).not.toHaveBeenCalled()
+  })
+
   it('bounds the overall deadline, without another send', async () => {
     using f = fixture()
     const clock = vi.spyOn(Date, 'now').mockReturnValue(1000)

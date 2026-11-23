@@ -9,7 +9,7 @@ import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-mode
 import type { SafeStorageLike } from '../encrypted-store'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
-import { admitProtectedAnswer, protectedThreadsPath, protectedWorkRoute } from '../work/connector/protected-route'
+import { admitConnector, protectedThreadsPath, protectedWorkRoute } from '../work/connector/protected-route'
 import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
@@ -375,17 +375,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           owner: () => deps.ownerHost(),
           agent: principal => deps.agentMatrixUser(principal),
           current,
-          release: async (caller, protectedData) =>
-            protectedData
-              ? admitProtectedAnswer(caller.admission, {
-                  origin: () => host.current()?.origin,
-                  current,
-                  servesProtectedRoute: signal => deps.model.servesProtectedRoute?.(signal) ?? Promise.resolve(null),
-                  route: () => protectedWorkRoute(bound.root),
-                  signal,
-                  secret
-                })
-              : current()
+          admit: (caller, protectedData) =>
+            admitConnector(caller, protectedData, {
+              origin: () => host.current()?.origin,
+              current,
+              servesProtectedRoute: signal => deps.model.servesProtectedRoute?.(signal) ?? Promise.resolve(null),
+              route: () => protectedWorkRoute(bound.root),
+              signal,
+              secret
+            })
         })
       )
 

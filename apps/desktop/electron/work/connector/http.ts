@@ -63,7 +63,7 @@ export class ConnectorHttp {
 
         const admission = value.admission
 
-        if (admission !== undefined && (typeof admission !== 'string' || !/^[0-9a-f-]{36}$/u.test(admission))) {
+        if (typeof admission !== 'string' || !/^[0-9a-f-]{36}$/u.test(admission)) {
           reply(400, { error: 'invalid_request' })
 
           return
@@ -71,7 +71,7 @@ export class ConnectorHttp {
 
         reply(
           200,
-          await this.service.ask({ ...caller, ...(typeof admission === 'string' ? { admission } : {}) }, value.question)
+          await this.service.ask({ ...caller, admission }, value.question)
         )
       } catch {
         reply(400, { error: 'work_question_unavailable' })

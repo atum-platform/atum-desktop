@@ -151,15 +151,24 @@ def run(spec, children, channel):
     env = spec["environment"]
     if channel:
         env = {**env, **channel, "T3_SERVICE_LAUNCHER_CONTEXT": json.dumps(spec["trial"])}
+    passed = [int(channel["NODE_CHANNEL_FD"])] if channel else []
+    token = spec.pop("connectorToken", None)
     try:
+        if token:
+            read_fd, write_fd = os.pipe()
+            passed.append(read_fd)
+            try:
+                os.write(write_fd, token.encode("ascii"))
+            finally:
+                os.close(write_fd)
+            env = {**env, "ATUM_WORK_CONNECTOR_FD": str(read_fd)}
         sidecar = children.start(
             [spec["executable"], "--mode", "web", "--no-browser", "--host", "127.0.0.1"],
-            env, spec["cwd"], subprocess.PIPE,
-            (int(channel["NODE_CHANNEL_FD"]),) if channel else (),
+            env, spec["cwd"], subprocess.PIPE, tuple(passed),
         )
     finally:
-        if channel:
-            os.close(int(channel["NODE_CHANNEL_FD"]))
+        for fd in passed:
+            os.close(fd)
     publish("spawned", pid=sidecar.pid)
     assert sidecar.stdout is not None
     line_buffer = b""

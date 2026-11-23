@@ -1,6 +1,7 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { lstat, mkdir, readFile } from 'node:fs/promises'
+import { userInfo } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
@@ -108,12 +109,12 @@ export function workRuntimeEnvironment(root: string, resources: string): Record<
 type Supervisor = ChildProcessByStdio<Writable, Readable, null>
 
 // Match T3's native macOS managed-policy sources so Work cannot mask either.
-const nativePolicyPaths = [
-  '/Library/Application Support/T3Code/policy.json',
-  '/Library/Managed Preferences/com.t3tools.t3code.plist'
-]
-
 async function nativePolicyPresent(): Promise<boolean> {
+  const nativePolicyPaths = [
+    '/Library/Application Support/T3Code/policy.json',
+    '/Library/Managed Preferences/com.t3tools.t3code.plist',
+    join('/Library/Managed Preferences', userInfo().username, 'com.t3tools.t3code.plist')
+  ]
   const present = await Promise.all(
     nativePolicyPaths.map(path => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => error.code !== 'ENOENT'))
   )
@@ -216,10 +217,13 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
         }
       : {}),
     gateways: profiles.map(profile => ({ ...environment, ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))), HERMES_HOME: profile })),
+    connectorToken: credentials.ATUM_WORK_CONNECTOR_TOKEN,
     executable: join(resources, 'work-runtime', 't3'),
     environment: {
       ...environment,
-      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => key.startsWith('ATUM_WORK_CONNECTOR_'))),
+      ...(credentials.ATUM_WORK_CONNECTOR_URL
+      ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
+      : {}),
       ...(protectedConnector
         ? {
             ATUM_WORK_CONNECTOR_PROTECTED_DIR: protectedThreadsPath(account.root),

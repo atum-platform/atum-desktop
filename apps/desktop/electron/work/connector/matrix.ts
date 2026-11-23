@@ -7,7 +7,7 @@ export function matrixConnector(input: {
   owner(): OwnerSdkHost | undefined
   agent(principal: string): Promise<string | null>
   current(): boolean
-  release: ConnectorPorts['release']
+  admit: ConnectorPorts['admit']
 }): ConnectorPorts {
   const host = () => {
     const owner = input.owner()
@@ -21,8 +21,14 @@ export function matrixConnector(input: {
 
   return {
     current: input.current,
-    release: input.release,
-    async resolve(principal) {
+    admit: input.admit,
+    async resolve(principal, protectedInput) {
+      // The roster currently attests ownership only. Require route certification
+      // before allowing any protected question to leave Work.
+      if (protectedInput) {
+        return undefined
+      }
+
       const owner = host()
       const agent = await input.agent(principal)
 
@@ -35,6 +41,11 @@ export function matrixConnector(input: {
       return typeof room === 'string' && input.current() ? { room, agent } : undefined
     },
     async send(r) {
+      if (r.protectedInput) {
+        throw new Error('work_target_route_uncertified')
+      }
+
+
       const event = await host().command({
         kind: 'sendWorkQuestion',
         roomId: r.room,
@@ -42,7 +53,8 @@ export function matrixConnector(input: {
         question: r.request.question!,
         requestId: r.request.request_id,
         threadId: r.thread,
-        transactionId: r.transaction
+        transactionId: r.transaction,
+        protectedInput: r.protectedInput === true
       })
 
       if (typeof event !== 'string' || !event.startsWith('$')) {

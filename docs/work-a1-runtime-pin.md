@@ -5,3 +5,18 @@ Update the single archive lock runtime-tools.json to atum-work 5d8d30d04ee11af5b
 Verification: actual staging and focused Work tests recorded below. No signing, notarization, push, PR, CI, deployment or publication authorized in this worker.
 
 Actual stageWorkRuntime passed under Node 24.21.0, extracted arm64 server digest 41067e0a1ef949654ad32ef05d725ab03391b48bc310070d35b33074dedfc6a6; temporary staging removed.
+
+## Slice C connector admission
+
+Every connector response carrying an answer requires a live T3 invocation check.
+The supervisor passes the private connector credential on an inherited pipe and
+does not include it in child environments. Protected input carries the Matrix
+provenance marker at the SDK send boundary. Desktop declines protected outbound
+questions because its owned-agent roster does not certify the destination's
+cloud model route.
+
+The Work runtime only provisions its local policy when machine and per-user
+managed preference sources are absent.
+
+TODO after the coordinator publishes Work 0.1.12: update the Work version, fork
+commit, archive and SHA-256 in `apps/desktop/runtime-tools.json` together.
