@@ -109745,6 +109745,40 @@
         }
       }
     },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.invalidAnswer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reply again with a valid answer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効な回答でもう一度返信してください"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hãy trả lời lại bằng một câu trả lời hợp lệ"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请重新回复有效答案"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請重新回覆有效答案"
+          }
+        }
+      }
+    },
     "src.matrix.mobile-copy.mobileScreensCopy.relay.late": {
       "localizations": {
         "en": {
@@ -110085,6 +110119,130 @@
         }
       }
     },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%#@runs@"
+          },
+          "substitutions": {
+            "runs": {
+              "argNum": 1,
+              "formatSpecifier": "lld",
+              "variations": {
+                "plural": {
+                  "one": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "1 scheduled runs"
+                    }
+                  },
+                  "other": {
+                    "stringUnit": {
+                      "state": "translated",
+                      "value": "%1$lld scheduled runs"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld scheduled runs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld lượt chạy theo lịch"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld scheduled runs"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld scheduled runs"
+          }
+        }
+      }
+    },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=0": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 scheduled runs"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 scheduled runs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 lượt chạy theo lịch"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 scheduled runs"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "0 scheduled runs"
+          }
+        }
+      }
+    },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageScheduled.runs=1": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 scheduled runs"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 scheduled runs"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 lượt chạy theo lịch"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 scheduled runs"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 scheduled runs"
+          }
+        }
+      }
+    },
     "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUnknown": {
       "localizations": {
         "en": {
@@ -110397,6 +110555,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "Waiting for your Mac"
+          }
+        }
+      }
+    },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.waitingForAnswer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for your answer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答を待っています"
+          }
+        },
+        "vi": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Đang chờ câu trả lời của bạn"
+          }
+        },
+        "zh": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在等待你的回答"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "等待您的回答"
           }
         }
       }
