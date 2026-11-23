@@ -31,9 +31,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Roster panel: 14px card, rim and top highlight, 8px from the rail edge's gap and from main. */
-[data-app-sidebar] [data-slot='sidebar-container'] {
-  padding: 0 0 var(--atum-w-gap) 0;
+/* Roster panel: 14px card, rim and top highlight, 8px in from the rail and the window's foot, 8px
+ * from main. T3 puts data-app-sidebar on the container itself (its props spread there), so the
+ * container rules are compound selectors: as descendants they never matched, and T3's own
+ * full-height border-r stayed as a hard seam beside the card. */
+[data-app-sidebar][data-slot='sidebar-container'] {
+  padding: 0 0 var(--atum-w-gap) var(--atum-w-gap);
   border: 0 !important;
 }
 
@@ -43,9 +46,30 @@ body {
   overflow: hidden;
 }
 
+/* The gap between the cards is frame, never a hairline: the resize handle keeps its cursor only. */
+[data-slot='sidebar-rail']::after {
+  background: transparent !important;
+}
+
+/* New thread lives in Atum's title band over the roster (STYLE §2); one control per action. */
+[data-app-sidebar] [data-sidebar-new-thread] {
+  display: none;
+}
+
 /* The brand row (T3's logo and its own sidebar toggle) leaves: Atum's title band holds both. */
 [data-app-sidebar] [data-sidebar-brand-row] {
   display: none;
+}
+
+/* T3's floating sidebar toggle would sit inside the main card once the roster closes, a second
+ * copy of the band's. Hidden (still mounted: it carries the shell's shortcuts), and the thread
+ * header keeps its own padding instead of the space T3 reserves for that toggle. */
+[data-sidebar-control] {
+  display: none;
+}
+
+[data-slot='sidebar-wrapper'] {
+  --workspace-titlebar-content-left: 1.25rem !important;
 }
 
 /* Main card. */

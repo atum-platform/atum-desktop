@@ -26,6 +26,7 @@ export interface MatrixNativeMacCopy {
     /** The quiet reset beside Try again. */
     disconnect: string
     /** While an action runs. */
+    setUp: string
     working: string
     disconnecting: string
     /** Why setup stopped, in plain words; every line ends where the owner can act. */
@@ -81,6 +82,7 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       notConnected: 'This Mac isn’t connected.',
       connect: 'Connect',
       disconnect: 'Disconnect this Mac',
+      setUp: 'Set up',
       working: 'Working…',
       disconnecting: 'Disconnecting…',
       failure: {
@@ -127,6 +129,7 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       notConnected: 'Máy Mac này chưa được kết nối.',
       connect: 'Kết nối',
       disconnect: 'Ngắt kết nối máy Mac này',
+      setUp: 'Đã thiết lập',
       working: 'Đang xử lý…',
       disconnecting: 'Đang ngắt kết nối…',
       failure: {
@@ -173,6 +176,7 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       notConnected: 'この Mac はまだ接続されていません。',
       connect: '接続',
       disconnect: 'この Mac の接続を解除',
+      setUp: '設定済み',
       working: '処理中…',
       disconnecting: '接続を解除しています…',
       failure: {
@@ -219,6 +223,7 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       notConnected: '这台 Mac 尚未连接。',
       connect: '连接',
       disconnect: '断开这台 Mac',
+      setUp: '已设置',
       working: '正在处理…',
       disconnecting: '正在断开…',
       failure: {
@@ -265,6 +270,7 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       notConnected: '這台 Mac 尚未連線。',
       connect: '連線',
       disconnect: '中斷這台 Mac 的連線',
+      setUp: '已設定',
       working: '正在處理…',
       disconnecting: '正在中斷連線…',
       failure: {

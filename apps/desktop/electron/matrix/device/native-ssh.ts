@@ -22,7 +22,7 @@ export type NativeSshRequest =
       hostKey: string
     }
   | { operation: 'ssh_revoke'; deviceServiceId: string }
-  | { operation: 'ssh_authorized_keys'; purposes: true }
+  | { operation: 'ssh_authorized_keys' }
 export interface NativeSshSystem {
   ready(): Promise<{ remoteLogin: boolean; user: string; hostKey: string }>
   enableRemoteLogin(): Promise<void>
@@ -173,7 +173,7 @@ export class NativeMacSsh {
 
     return {
       ...this.view,
-      status: this.view.status === 'connected' && !acknowledged ? 'needs_full_disk_access_hint' : this.view.status
+      status: ['connected', 'set_up'].includes(this.view.status) && !acknowledged ? 'needs_full_disk_access_hint' : this.view.status
     }
   }
   private serial<T>(fn: () => Promise<T>): Promise<T> {
@@ -260,7 +260,7 @@ export class NativeMacSsh {
     const record = this.deps.enrollment()
 
     if (
-      this.view.status === 'connected' &&
+      ['connected', 'set_up'].includes(this.view.status) &&
       record?.state === 'active' &&
       this.hintEnrollmentKey === this.enrollmentHintKey(record)
     ) {
@@ -368,15 +368,24 @@ export class NativeMacSsh {
         }
 
         step = 'authorized_keys'
-        const rows = await this.deps.call({ operation: 'ssh_authorized_keys', purposes: true })
+        const rows = await this.deps.call({ operation: 'ssh_authorized_keys' })
 
-        // The SSH ChatGPT relay is gone (self-work plan §12): a `relay` key is never installed, and a list that carries one is not
-        // taken at all (fail closed), so no forced-command line can ever name a helper this build no longer has.
-        if (!Array.isArray(rows) || !rows.every(row => row && sshPublicKey(row.publicKey) && (row.purpose === undefined || row.purpose === 'shell'))) {
-          throw new Error('invalid_keys')
-        }
+        // The plain platform projection is shell-only. Tolerate extra purpose rows from
+        // older servers without installing their keys or destroying a working tunnel.
+        if (!Array.isArray(rows)) { throw new Error('invalid_keys') }
 
-        const keys = rows.map(row => row.publicKey)
+        const shell = rows.filter(row => {
+          if (row && typeof row === 'object' && row.purpose !== undefined && row.purpose !== 'shell') {
+            this.log('native-ssh ignored non-shell authorized key row')
+
+            return false
+          }
+
+          return true
+        })
+
+        if (!shell.every(row => row && sshPublicKey(row.publicKey))) { throw new Error('invalid_keys') }
+        const keys = shell.map(row => row.publicKey)
 
         step = 'write_keys'
         await this.deps.system.keys(keys)
@@ -399,7 +408,7 @@ export class NativeMacSsh {
 
         this.hintEnrollmentKey = this.enrollmentHintKey(record)
         this.view = {
-          status: 'connected',
+          status: 'set_up',
           settingsUrl: REMOTE_LOGIN_SETTINGS
         }
       } catch (error) {

@@ -30,6 +30,8 @@ import {
 export interface WorkViewHandle {
   port: OwnerViewPort
   place(rect: MatrixWorkRect | null): void
+  /** Moves keyboard focus into the view, so a band command that lands in its composer shows the caret. */
+  focus?(): void
 }
 
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
@@ -298,7 +300,14 @@ export class WorkSurface {
    */
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
 
-  runCommand(command: WorkBandCommand) { return this.options.runCommand?.(command) ?? Promise.resolve(false) }
+  async runCommand(command: WorkBandCommand): Promise<boolean> {
+    // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.
+    if (command === 'chat.new') {
+      this.handle?.focus?.()
+    }
+
+    return (await this.options.runCommand?.(command)) ?? false
+  }
 
   setSurfaceMode(projectId: string, mode: 'work' | 'code') {
     if (!this.options.setSurfaceMode) {return Promise.reject(new Error('work_unavailable'))}

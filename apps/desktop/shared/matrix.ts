@@ -727,6 +727,7 @@ export interface MatrixSnapshot {
   /** Main-owned progress survives the human device ID changing. */
   ownerDeviceRepair?: { state: 'verifying' | 'resume_pending' | 'failed'; error?: string }
   /** This Mac has no device-service enrollment for the owner, or it no longer matches this human device. */
+  deviceAccessRepair?: boolean
   deviceControlRequired?: true
   /** The account signed in on another device after this Mac's first sign-in (G13): the window
    * offers to see and sign it out. Dismissing acknowledges that device across restarts. */
@@ -1023,6 +1024,7 @@ export type MatrixDevicePresence =
   | { state: 'not_enrolled' }
   | {
       state: 'enrolled'
+      repairRequired?: boolean
       connection: 'closed' | 'hello_sent' | 'challenged' | 'ready' | 'status_exchanged'
       deviceServiceId: string
       enrollmentEpoch: number
@@ -2233,6 +2235,7 @@ export interface MatrixUiBridge {
   /** `forgetKey`: forget the recovery key kept on this Mac too (selling or giving it away);
    * by default it stays, so signing in again here unlocks by itself. */
   signOut(options?: { forgetKey?: boolean }): Promise<void>
+  repairDeviceAccess?(): Promise<void>
   retry(): Promise<void>
   /** Opens the sign-in server's own page for ending that one device's session, in the browser
    * (it signs the person in first if needed): the only thing of its account app Atum opens. */

@@ -11,7 +11,7 @@ import { workCopy, type WorkWords } from './copy'
 import { WorkRelaySharedContextLine } from './relay-chrome'
 import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { WorkModeSwitch, WorkRosterControls } from './work-band'
+import { WorkRosterControls, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -114,7 +114,6 @@ export function WorkScreen({
                 {copy.addProtons}
               </button>
             )}
-            <WorkModeSwitch bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
             <WorkAssistantsPill agents={projection.agents} copy={copy} names={names} state={projection.assistants} />
           </div>
         }
@@ -124,7 +123,7 @@ export function WorkScreen({
       >
         <div className="flex min-w-0 items-center gap-3">
           {projection.view === 'ready' && <WorkRosterControls bridge={bridge} copy={copy} />}
-          <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
+          <WorkTitle bridge={bridge} copy={copy} ready={projection.view === 'ready'} />
         </div>
       </AtumMainHeaderSurface>
       <WorkAssistantsBand
