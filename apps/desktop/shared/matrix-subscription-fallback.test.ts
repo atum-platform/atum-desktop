@@ -26,13 +26,18 @@ describe('the subscription fallback notice', () => {
     ).toEqual({ plan: 'opencode_go', reason: 'rate_limited', servedBy: 'nhat-thuc' })
   })
 
+  it.each(['claude', 'antigravity'])('reads the additive R2 plan %s', plan => {
+    expect(matrixSubscriptionFallback(descriptor({ plan, reason: 'offline', servedBy: 'nguyet-thuc' })))
+      .toEqual({ plan, reason: 'offline', servedBy: 'nguyet-thuc' })
+  })
+
   it('refuses anything else: authored text, a price, an unknown plan or reason, no reply', () => {
     expect(matrixSubscriptionFallback({ ...descriptor(), body: 'ChatGPT was offline' })).toBeUndefined()
     expect(matrixSubscriptionFallback({ ...descriptor(), msgtype: 'm.text' })).toBeUndefined()
     expect(
       matrixSubscriptionFallback(descriptor({ plan: 'chatgpt', reason: 'offline', servedBy: 'x', protons: 40 }))
     ).toBeUndefined()
-    expect(matrixSubscriptionFallback(descriptor({ plan: 'claude', reason: 'offline', servedBy: 'x' }))).toBeUndefined()
+    expect(matrixSubscriptionFallback(descriptor({ plan: 'unknown-plan', reason: 'offline', servedBy: 'x' }))).toBeUndefined()
     expect(matrixSubscriptionFallback(descriptor({ plan: 'chatgpt', reason: 'cheaper', servedBy: 'x' }))).toBeUndefined()
     const { 'm.relates_to': _reply, ...unrelated } = descriptor()
     expect(matrixSubscriptionFallback(unrelated)).toBeUndefined()

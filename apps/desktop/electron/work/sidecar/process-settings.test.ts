@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { copyFile, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -43,7 +43,10 @@ describe.skipIf(!python || process.platform === 'win32')('Work startup settings'
 
     try {
       await Promise.all([pythonBin, workRuntime, profiles, paths.userdata].map(directory => mkdir(directory, { recursive: true })))
-      await symlink(python!, join(pythonBin, 'python3.14'))
+      // A symlink relocates a venv interpreter away from pyvenv.cfg and loses
+      // its site-packages (PyYAML in CI). Invoke the original path instead.
+      const quotedPython = "'" + python!.replaceAll("'", "'\\''") + "'"
+      await writeFile(join(pythonBin, 'python3.14'), `#!/bin/sh\nexec ${quotedPython} "$@"\n`, { mode: 0o700 })
       await copyFile(join(__dirname, 'supervisor.py'), join(workRuntime, 'actual_supervisor.py'))
 
       for (const profile of ['self-work.yaml', 'delegated.yaml']) {
