@@ -218,9 +218,11 @@ describe('company board owners', () => {
 
   it('shows every owner, primary first, and adds a co-owner without dropping anyone', async () => {
     const card = boardCard({ owners: ['member-2', 'member-1'], primaryOwner: 'member-1', participants: ['member-3'] })
+
     const commandBoard = vi.fn(async (_companyId: string, command: CompanyBoardCommand) =>
       patchResponse(card, (command as Extract<CompanyBoardCommand, { operation: 'patch' }>).patch)
     )
+
     fixture([card], commandBoard, { members, viewerManages: true, viewerMemberRef: 'member-1' })
 
     const { detail, trigger } = await openOwners(card)
@@ -255,9 +257,11 @@ describe('company board owners', () => {
   it('rolls a refused owner change back to every owner it had', async () => {
     const card = boardCard({ owners: ['member-1', 'member-2'], primaryOwner: 'member-1' })
     let rejectCommand!: (reason: Error) => void
+
     const command = new Promise<CompanyBoardCommandResponse>((_resolve, reject) => {
       rejectCommand = reject
     })
+
     fixture([card], vi.fn(() => command), { members, viewerManages: true })
 
     const { detail, trigger } = await openOwners(card)
@@ -276,6 +280,7 @@ describe('company board owners', () => {
   it('shows the current card when the owner change met a newer revision', async () => {
     const card = boardCardV11({ owners: ['member-1'], primaryOwner: 'member-1' })
     const current = boardCardV11({ owners: ['member-1', 'member-2'], primaryOwner: 'member-1', revision: card.revision + 1 })
+
     const commandBoard = vi.fn(async () => ({
       schemaVersion: 1 as const,
       state: 'conflict' as const,
@@ -285,6 +290,7 @@ describe('company board owners', () => {
       currentCardRevision: current.revision,
       currentCard: current
     }))
+
     fixture([card], commandBoard as unknown as CompanyDesktopAdapter['commandBoard'], { members, viewerManages: true })
 
     const { detail, trigger } = await openOwners(card)
@@ -353,9 +359,11 @@ describe('company board owners', () => {
 
   it('lets a member claim an unowned task, and only themselves', async () => {
     const card = boardCard({ owners: [], primaryOwner: null })
+
     const commandBoard = vi.fn(async (_companyId: string, command: CompanyBoardCommand) =>
       patchResponse(card, (command as Extract<CompanyBoardCommand, { operation: 'patch' }>).patch)
     )
+
     fixture([card], commandBoard, { members, viewerManages: false, viewerMemberRef: 'member-3' })
 
     const { trigger } = await openOwners(card)
@@ -394,6 +402,7 @@ describe('a suggested task in its panel', () => {
       canAccept: true,
       canArchive: true
     })
+
     const commandBoard = vi.fn(async () => archiveResponse(card))
     fixture([card], commandBoard)
 
@@ -679,7 +688,7 @@ describe('company board inline editing', () => {
   })
 })
 
-describe('company board My tasks view', () => {
+describe('company board Mine', () => {
   it('requests the viewer owner filter and keeps other owners out of the compact list', async () => {
     const mine = boardCard({ owners: ['member-1'], primaryOwner: 'member-1' })
     const theirs = boardCard({ cardId: 'card-2', displayKey: 'ATUM-2', owners: ['member-2'], title: 'Their task' })
@@ -699,7 +708,7 @@ describe('company board My tasks view', () => {
     })
 
     await screen.findByText(mine.title)
-    fireEvent.click(screen.getByRole('button', { name: 'My tasks' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Mine' }))
 
     await waitFor(() =>
       expect(listBoard).toHaveBeenLastCalledWith(
@@ -709,57 +718,57 @@ describe('company board My tasks view', () => {
     )
     expect(screen.getByText(mine.title)).not.toBeNull()
     expect(screen.queryByText(theirs.title)).toBeNull()
-    expect($companySpacePreferences.get()['company-1']?.boardView).toBe('my_tasks')
+    expect($companySpacePreferences.get()['company-1']?.ownerMemberRef).toBe('member-1')
+    expect(screen.getByRole('button', { name: 'Mine' }).getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('groups accepted work by status, sorts by priority then due, and collapses Done', async () => {
-    const due = (date: string) => ({ kind: 'date' as const, date, timeZone: 'Asia/Ho_Chi_Minh', originalText: date })
+  it('opens a remembered My tasks view as List with Mine on', async () => {
+    const mine = boardCard({ owners: ['member-1'], primaryOwner: 'member-1', title: 'Remembered task' })
+    const listBoard = vi.fn(async () => boardPage([mine]))
+    $companySpacePreferences.set({ ...$companySpacePreferences.get(), 'company-1': {
+      ...($companySpacePreferences.get()['company-1'] ?? {}), boardView: 'my_tasks' } as never })
+    fixture([mine], vi.fn(async () => unused()), { listBoard, viewerMemberRef: 'member-1' })
 
-    const withPriority = (card: CompanyBoardCard, priority: string) =>
-      Object.assign(card, { priority }) as CompanyBoardCard
+    await screen.findByText('Remembered task')
+    expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Mine' }).getAttribute('aria-pressed')).toBe('true')
+    expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: 'member-1' }))
+  })
 
-    const cards = [
-      withPriority(
-        boardCard({ cardId: 'card-later', displayKey: 'ATUM-2', due: due('2026-11-02'), owners: ['member-1'], title: 'Later' }),
-        'high'
-      ),
-      withPriority(
-        boardCard({ cardId: 'card-low', displayKey: 'ATUM-3', due: due('2026-11-01'), owners: ['member-1'], title: 'Low' }),
-        'low'
-      ),
-      withPriority(
-        boardCard({ cardId: 'card-urgent', displayKey: 'ATUM-4', due: due('2026-11-01'), owners: ['member-1'], title: 'Urgent' }),
-        'urgent'
-      ),
-      boardCard({ cardId: 'card-progress', displayKey: 'ATUM-5', owners: ['member-1'], status: 'in_progress', title: 'Progress' }),
-      boardCard({ cardId: 'card-blocked', displayKey: 'ATUM-6', owners: ['member-1'], status: 'blocked', title: 'Blocked task' }),
-      boardCard({ cardId: 'card-done', displayKey: 'ATUM-7', owners: ['member-1'], status: 'done', title: 'Finished' }),
-      boardCard({ cardId: 'card-suggested', displayKey: 'ATUM-8', owners: ['member-1'], status: 'suggested', title: 'Suggestion' })
-    ]
+  it('migrates a remembered My tasks view once, then follows the owner filter and Clear filters', async () => {
+    const mine = boardCard({ owners: ['member-1'], primaryOwner: 'member-1', title: 'Remembered task' })
+    const listBoard = vi.fn(async () => boardPage([mine]))
+    $companySpacePreferences.set({ ...$companySpacePreferences.get(), 'company-1': {
+      ...($companySpacePreferences.get()['company-1'] ?? {}), boardView: 'my_tasks' } as never })
+    fixture([mine], vi.fn(async () => unused()), {
+      listBoard,
+      members: [
+        { memberRef: 'member-1', displayName: 'Minh' },
+        { memberRef: 'member-2', displayName: 'Lan' }
+      ],
+      viewerMemberRef: 'member-1'
+    })
 
-    const listBoard = vi.fn(async () => boardPage(cards))
-    fixture(cards, vi.fn(async () => unused()), { listBoard, viewerMemberRef: 'member-1' })
+    await screen.findByText('Remembered task')
+    await waitFor(() => expect($companySpacePreferences.get()['company-1']).toEqual(
+      expect.objectContaining({ boardView: 'list', ownerMemberRef: 'member-1' })))
 
-    await screen.findByText('Later')
-    fireEvent.click(screen.getByRole('button', { name: 'My tasks' }))
-    await screen.findByText('Urgent')
+    const openFilters = async () => {
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Filter' }), { key: 'Enter' })
 
-    const groups = window.document.querySelectorAll('[data-my-tasks-group]')
-    expect([...groups].map(group => group.getAttribute('data-my-tasks-group'))).toEqual([
-      'to_do',
-      'in_progress',
-      'blocked'
-    ])
+      return screen.findByRole('menu')
+    }
 
-    const ordered = [...window.document.querySelectorAll('[data-my-task-card]')]
-      .slice(0, 3)
-      .map(row => row.textContent)
+    fireEvent.click(within(await openFilters()).getByRole('menuitemradio', { name: 'Lan' }))
+    await waitFor(() =>
+      expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: 'member-2' })))
+    expect(screen.getByRole('button', { name: 'Mine' }).getAttribute('aria-pressed')).toBe('false')
 
-    expect(ordered).toEqual(expect.arrayContaining(['UrgentNov 1', 'LowNov 1', 'LaterNov 2']))
-    expect(ordered.indexOf('UrgentNov 1')).toBeLessThan(ordered.indexOf('LowNov 1'))
-    expect(ordered.indexOf('LaterNov 2')).toBeLessThan(ordered.indexOf('LowNov 1'))
-    expect(screen.queryByText('Suggestion')).toBeNull()
-    expect((window.document.querySelector('[data-my-tasks-done]') as HTMLDetailsElement).open).toBe(false)
+    fireEvent.click(within(await openFilters()).getByRole('menuitem', { name: /^Clear filter/ }))
+    await waitFor(() =>
+      expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: null })))
+    expect($companySpacePreferences.get()['company-1']?.ownerMemberRef).toBeNull()
+    expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
   })
 })
 
@@ -841,6 +850,7 @@ describe('company board list view', () => {
       title: 'Valid due',
       due: { kind: 'date', date: '2026-11-02', timeZone: 'UTC', originalText: '2026-11-02' }
     })
+
     const malformed = boardCardV11({
       cardId: 'card-malformed',
       displayKey: 'ATUM-2',
@@ -858,10 +868,12 @@ describe('company board list view', () => {
 
   it('resets a priority sort to due when the board falls back to the legacy contract', async () => {
     const due = (date: string) => ({ kind: 'date' as const, date, timeZone: 'UTC', originalText: date })
+
     const modern = [
       boardCardV11({ title: 'Z early', due: due('2026-11-01'), owners: ['member-1'], priority: 'low' }),
       boardCardV11({ cardId: 'card-2', displayKey: 'ATUM-2', title: 'A late', due: due('2026-11-03'), owners: ['member-1'], priority: 'urgent' })
     ]
+
     const legacy = modern.map(card => boardCard({
       cardId: card.cardId,
       displayKey: card.displayKey,
@@ -869,6 +881,7 @@ describe('company board list view', () => {
       due: card.due,
       owners: card.owners
     }))
+
     const listBoard = vi.fn()
       .mockResolvedValueOnce(boardPage(modern))
       .mockResolvedValueOnce(boardPage(legacy, 10, '1'))
@@ -1213,7 +1226,10 @@ describe('company board 1.1 mechanics', () => {
     fireEvent.click(await screen.findByText(card.title))
     const detail = await screen.findByRole('complementary', { name: 'Task details' })
 
-    expect(await within(detail).findAllByText(/Chief of Staff · from #Sales/u)).toHaveLength(2)
+    // The latest change shows; the whole trail is one tap away.
+    expect(await within(detail).findAllByText(/Chief of Staff · from #Sales/u)).toHaveLength(1)
+    fireEvent.click(await within(detail).findByRole('button', { name: 'Show all activity (2)' }))
+    expect(within(detail).getAllByText(/Chief of Staff · from #Sales/u)).toHaveLength(2)
     expect(within(detail).getAllByRole('button', { name: 'Undo' })).toHaveLength(1)
     fireEvent.click(within(detail).getByRole('button', { name: 'Undo' }))
     await waitFor(() => expect(commandBoard).toHaveBeenCalledWith(

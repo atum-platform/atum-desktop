@@ -38,8 +38,6 @@ import {
   Checklist,
   Flag,
   GripVertical,
-  List,
-  MessageCircle,
   MoreHorizontal,
   Plus,
   Search,
@@ -92,7 +90,9 @@ import {
   companySpacePreferences,
   patchCompanySpacePreferences
 } from './company-space-store'
+import { TEAM_SPACE_DETAIL_PANE_CLASS, useTeamSpaceDetailPane } from './team-space/detail-pane'
 import { requestMatrixMessageLink } from './team-space/message-links'
+import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { useCompanyBoardLiveRefresh } from './use-company-board-live-refresh'
 
 export interface CompanyBoardMember {
@@ -189,8 +189,6 @@ function dueDateValue(due: CompanyBoardDue | null): string {
   return due.kind === 'date' ? due.date : due.at.slice(0, 10)
 }
 
-const MY_TASK_COLUMNS = ['to_do', 'in_progress', 'blocked'] as const
-
 /** Where a human-created task lands (the platform's `create` always sets To do). */
 const CREATED_CARD_COLUMN: CompanyBoardColumn = 'to_do'
 
@@ -220,14 +218,6 @@ function cardDueOrder(card: CompanyBoardCard): number {
   const parsed = Date.parse(value)
 
   return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER
-}
-
-function compareMyTasks(left: CompanyBoardCard, right: CompanyBoardCard): number {
-  return (
-    cardPriority(left) - cardPriority(right) ||
-    cardDueOrder(left) - cardDueOrder(right) ||
-    left.title.localeCompare(right.title)
-  )
 }
 
 function compareListCards(
@@ -274,6 +264,7 @@ function BoardLane({
   supportsV11: boolean
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: `column:${column}` })
+  const revamp = teamSpaceRevampCopy(useI18n().locale)
   const [sort, setSort] = useState<CompanyBoardLaneSort>(null)
   const title = statusCopy(column, copy)
   const activeSort = sort === 'priority' && !supportsV11 ? null : sort
@@ -292,7 +283,14 @@ function BoardLane({
       ref={setNodeRef}
     >
       <header className="flex h-10 shrink-0 items-center gap-2 ps-3.5 pe-1.5">
-        <h2 className="min-w-0 truncate text-[0.8125rem] leading-[1.125rem] font-semibold text-(--ak-ink)">{title}</h2>
+        {column === 'suggested' ? (
+          <Tip label={revamp.suggestedHint}>
+            <h2 className="min-w-0 cursor-help truncate text-[0.8125rem] leading-[1.125rem] font-semibold text-(--ak-ink-2)"
+              data-board-provisional tabIndex={0}>{title}</h2>
+          </Tip>
+        ) : (
+          <h2 className="min-w-0 truncate text-[0.8125rem] leading-[1.125rem] font-semibold text-(--ak-ink)">{title}</h2>
+        )}
         <span
           className="grid h-[1.125rem] min-w-[1.125rem] place-items-center rounded-full bg-(--ak-fill-quiet) px-1.5 text-[0.6875rem] leading-none font-semibold text-(--ak-ink-3) tabular-nums"
           data-board-lane-count
@@ -400,8 +398,10 @@ function BoardCard({
     .map(owner => members.find(member => member.memberRef === owner))
     .filter(Boolean) as CompanyBoardMember[]
 
-  const hasLabels = Boolean(priority || projectName)
-  const hasBadges = Boolean(due || card.description || card.conversation || (extension && extension.checklist.length > 0))
+  // A compact card: its title, who owns it and when it is due. Priority shows only when it is not normal;
+  // project, description and discussion live in the task's details, and the project in a tooltip.
+  const hasLabels = Boolean(priority)
+  const hasBadges = Boolean(due || (extension && extension.checklist.length > 0))
 
   return (
     <article
@@ -420,15 +420,11 @@ function BoardCard({
       ref={setNodeRef}
       style={style}
       tabIndex={0}
+      title={projectName}
     >
       {hasLabels && (
         <div className="flex min-w-0 flex-wrap items-center gap-1 pe-12">
           {priority && <PriorityBadge copy={copy} priority={priority} />}
-          {projectName && (
-            <span className={`${cardChip} min-w-0 bg-(--ak-fill-quiet) text-(--ak-ink-2)`} data-board-project>
-              <span className="truncate">{projectName}</span>
-            </span>
-          )}
         </div>
       )}
       <p
@@ -493,18 +489,6 @@ function BoardCard({
                 {checklistDone}/{extension.checklist.length}
               </span>
             )}
-            {card.description && (
-              <span className={`${cardChip} px-1 text-(--ak-ink-4)`} data-board-has-description>
-                <List aria-hidden className="size-3.5" />
-                <span className="sr-only">{copy.description}</span>
-              </span>
-            )}
-            {card.conversation && (
-              <span className={`${cardChip} px-1 text-(--ak-ink-4)`} data-board-has-discussion>
-                <MessageCircle aria-hidden className="size-3.5" />
-                <span className="sr-only">{copy.discussion}</span>
-              </span>
-            )}
           </div>
           <div aria-label={copy.ownerFilter} className="flex shrink-0 -space-x-1.5">
             {owners.map(owner => (
@@ -530,105 +514,6 @@ function BoardCard({
         </div>
       )}
     </article>
-  )
-}
-
-function MyTaskRow({
-  card,
-  locale,
-  onOpen
-}: {
-  card: CompanyBoardCard
-  locale: string
-  onOpen(): void
-}) {
-  const due = dueText(card, locale)
-  const copy = matrixCompanyBoardCopy(locale)
-
-  return (
-    <button
-      className="flex min-w-0 items-center gap-3 rounded-(--atum-r-control) px-3 py-2 text-start hover:bg-(--atum-row-hover) focus-visible:bg-(--atum-row-hover)"
-      data-my-task-card={card.cardId}
-      onClick={onOpen}
-      type="button"
-    >
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-(--atum-ink)">{card.title}</span>
-      {isCompanyBoardCardV11(card) && card.priority !== 'normal' && (
-        <PriorityBadge copy={copy} priority={card.priority} />
-      )}
-      {due && (
-        <span className="flex shrink-0 items-center gap-1 text-xs text-(--atum-ink-muted)">
-          <Calendar aria-hidden className="size-3.5" />
-          {due}
-        </span>
-      )}
-    </button>
-  )
-}
-
-function MyTaskGroup({
-  cards,
-  column,
-  locale,
-  onOpen
-}: {
-  cards: CompanyBoardCard[]
-  column: CompanyBoardColumn
-  locale: string
-  onOpen(cardId: string): void
-}) {
-  const copy = matrixCompanyBoardCopy(locale)
-
-  return (
-    <section className="grid gap-1" data-my-tasks-group={column}>
-      <h2 className="px-3 text-xs font-semibold text-(--atum-ink-muted)">
-        {statusCopy(column, copy)} <span className="text-(--atum-ink-faint)">{cards.length}</span>
-      </h2>
-      <div className="grid divide-y divide-(--atum-panel-line)">
-        {cards.map(card => (
-          <MyTaskRow card={card} key={card.cardId} locale={locale} onOpen={() => onOpen(card.cardId)} />
-        ))}
-      </div>
-    </section>
-  )
-}
-
-function MyTasksList({
-  cards,
-  locale,
-  onOpen
-}: {
-  cards: CompanyBoardCard[]
-  locale: string
-  onOpen(cardId: string): void
-}) {
-  const copy = matrixCompanyBoardCopy(locale)
-
-  const groups = Object.fromEntries(
-    [...MY_TASK_COLUMNS, 'done'].map(column => [
-      column,
-      cards.filter(card => card.status === column).toSorted(compareMyTasks)
-    ])
-  ) as Record<(typeof MY_TASK_COLUMNS)[number] | 'done', CompanyBoardCard[]>
-
-  return (
-    <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4" data-company-my-tasks>
-      <div className="mx-auto grid w-full max-w-3xl gap-5">
-        {MY_TASK_COLUMNS.map(column => (
-          <MyTaskGroup cards={groups[column]} column={column} key={column} locale={locale} onOpen={onOpen} />
-        ))}
-        <details data-my-tasks-done>
-          <summary className="cursor-pointer rounded-(--atum-r-control) px-3 py-1 text-xs font-semibold text-(--atum-ink-muted) hover:bg-(--atum-row-hover)">
-            {copy.done} <span className="text-(--atum-ink-faint)">{groups.done.length}</span>
-          </summary>
-          <div className="mt-1 grid divide-y divide-(--atum-panel-line)">
-            {groups.done.map(card => (
-              <MyTaskRow card={card} key={card.cardId} locale={locale} onOpen={() => onOpen(card.cardId)} />
-            ))}
-          </div>
-        </details>
-      </div>
-    </div>
   )
 }
 
@@ -923,6 +808,9 @@ function CardDetail({
   const [checklistText, setChecklistText] = useState('')
   const [activity, setActivity] = useState<CompanyBoardActivityEvent[]>()
   const [activityFailed, setActivityFailed] = useState(false)
+  // The latest change shows with its source and Undo; the full trail is one tap away.
+  const [activityExpanded, setActivityExpanded] = useState(false)
+  const revamp = teamSpaceRevampCopy(locale)
   const [attachmentFailed, setAttachmentFailed] = useState(false)
   const editingFieldRef = useRef<'title' | 'description' | undefined>(undefined)
 
@@ -1062,7 +950,7 @@ function CardDetail({
   return (
     <aside
       aria-label={copy.taskDetails}
-      className="absolute inset-y-0 end-0 z-20 flex w-[min(30rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+      className={TEAM_SPACE_DETAIL_PANE_CLASS}
       data-company-card-detail={card.cardId}
     >
       <header className="flex h-(--atum-l-header) shrink-0 items-center justify-between gap-3 border-b border-(--atum-panel-line) px-5">
@@ -1481,8 +1369,9 @@ function CardDetail({
               activity.length === 0 ? (
                 <p className="text-sm text-(--atum-ink-muted)">{copy.activityEmpty}</p>
               ) : (
+                <>
                 <ol className="grid divide-y divide-(--atum-panel-line)">
-                  {activity.map(event => {
+                  {(activityExpanded ? activity : activity.slice(0, 1)).map(event => {
                     const eventMemberRef = event.actor.kind === 'human' ? event.actor.memberRef : undefined
 
                     const eventActor = eventMemberRef === undefined
@@ -1517,6 +1406,13 @@ function CardDetail({
                     )
                   })}
                 </ol>
+                {activity.length > 1 && (
+                  <Button aria-expanded={activityExpanded} className="justify-self-start" data-company-card-activity-toggle
+                    onClick={() => setActivityExpanded(value => !value)} size="inline" variant="text">
+                    {activityExpanded ? revamp.showLessActivity : revamp.showAllActivity(activity.length)}
+                  </Button>
+                )}
+                </>
               )
             ) : (
               <p className={activityFailed ? 'text-sm text-(--atum-danger)' : 'text-sm text-(--atum-ink-muted)'}>
@@ -1661,10 +1557,19 @@ export function CompanyBoard({
   const [conflictCard, setConflictCard] = useState<string>()
   const generation = useRef(0)
 
-  const boardView: CompanyBoardViewMode =
-    preferences.boardView === 'my_tasks' && !viewerMemberRef ? 'board' : preferences.boardView
+  // Two views of the one board, Board and List, and one Mine filter over either. A remembered "My tasks"
+  // (the old third view) is migrated once to List with the viewer's owner filter; after that the filter is an
+  // ordinary one the person can change or clear. Until the migration lands, the first render already reads that way.
+  useEffect(() => {
+    if (preferences.boardView === 'my_tasks' && viewerMemberRef) {
+      patchCompanySpacePreferences(scope, { boardView: 'list', ownerMemberRef: viewerMemberRef })
+    }
+  }, [preferences.boardView, scope, viewerMemberRef])
 
-  const listOwnerMemberRef = boardView === 'my_tasks' ? (viewerMemberRef ?? null) : preferences.ownerMemberRef
+  const legacyMyTasks = preferences.boardView === 'my_tasks' && Boolean(viewerMemberRef)
+  const boardView: Exclude<CompanyBoardViewMode, 'my_tasks'> = preferences.boardView === 'board' ? 'board' : 'list'
+  const listOwnerMemberRef = legacyMyTasks ? (viewerMemberRef ?? null) : preferences.ownerMemberRef
+  const mineOn = Boolean(viewerMemberRef && listOwnerMemberRef === viewerMemberRef)
 
   const context = useMemo<CompanyCitationContext>(
     () => ({
@@ -1772,13 +1677,8 @@ export function CompanyBoard({
   const supportsV11 = page?.contractVersion === '1.1'
   const selectedCard = cards.find(card => card.cardId === preferences.selectedCardId)
 
-  const myTasks = useMemo(
-    () =>
-      boardView === 'my_tasks' && viewerMemberRef
-        ? cards.filter(card => card.status !== 'suggested' && card.owners.includes(viewerMemberRef))
-        : [],
-    [boardView, cards, viewerMemberRef]
-  )
+  // A task's details take Team Space's one right pane; opening a thread or search elsewhere closes them.
+  useTeamSpaceDetailPane('task', Boolean(selectedCard), () => patchCompanySpacePreferences(scope, { selectedCardId: null }))
 
   const columns = useMemo(
     () =>
@@ -2070,17 +1970,9 @@ export function CompanyBoard({
     }
   }
 
-  const filtersActive = Boolean(
-    preferences.projectId ||
-      (boardView !== 'my_tasks' && preferences.ownerMemberRef) ||
-      preferences.due !== 'all'
-  )
-
-  const menuFiltersActive = Boolean(
-    (boardView !== 'my_tasks' && preferences.ownerMemberRef) || preferences.due !== 'all'
-  )
-
-  const visibleCards = boardView === 'my_tasks' ? myTasks : cards
+  const filtersActive = Boolean(preferences.projectId || listOwnerMemberRef || preferences.due !== 'all')
+  const menuFiltersActive = Boolean((listOwnerMemberRef && !mineOn) || preferences.due !== 'all')
+  const visibleCards = cards
   const lanesVisible = Boolean(page && !searchPage && boardView === 'board')
   const projectNames = new Map(projects.map(project => [project.id, project.displayName]))
 
@@ -2134,24 +2026,35 @@ export function CompanyBoard({
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-company-board>
       <header className="flex flex-wrap items-center gap-2 border-b border-(--atum-panel-line) px-5 py-3">
-        <div aria-label={copy.boardViews} className="flex items-center gap-1" role="group">
-          {(['board', 'list', 'my_tasks'] as const).map(view => (
-            <Button
+        <div aria-label={copy.boardViews} className="ak-seg ak-seg--sm" role="group">
+          {(['board', 'list'] as const).map(view => (
+            <button
               aria-pressed={boardView === view}
-              disabled={view === 'my_tasks' && !viewerMemberRef}
+              className={boardView === view ? 'is-selected' : undefined}
               key={view}
               onClick={() => patchCompanySpacePreferences(scope, { boardView: view })}
-              size="sm"
-              variant={boardView === view ? 'secondary' : 'text'}
+              type="button"
             >
-              {view === 'board' ? copy.board : view === 'list' ? copy.list : copy.myTasks}
-            </Button>
+              {view === 'board' ? copy.board : copy.list}
+            </button>
           ))}
         </div>
-        <Button onClick={() => setCreating(value => !value)} size="sm">
-          <Plus aria-hidden />
-          {copy.addTask}
-        </Button>
+        {viewerMemberRef && (
+          <Button
+            aria-pressed={mineOn}
+            data-company-board-mine
+            onClick={() =>
+              patchCompanySpacePreferences(scope, {
+                boardView,
+                ownerMemberRef: mineOn ? null : viewerMemberRef
+              })
+            }
+            size="sm"
+            variant={mineOn ? 'secondary' : 'text'}
+          >
+            {copy.mine}
+          </Button>
+        )}
         <select
           aria-label={copy.projectFilter}
           className="desktop-input-chrome h-8 min-w-36 rounded-md px-2 text-sm"
@@ -2177,22 +2080,8 @@ export function CompanyBoard({
           }
           onOwner={value => patchCompanySpacePreferences(scope, { ownerMemberRef: value })}
           ownerValue={preferences.ownerMemberRef}
-          showOwner={boardView !== 'my_tasks'}
+          showOwner
         />
-        {boardView === 'list' && viewerMemberRef && (
-          <Button
-            aria-pressed={preferences.ownerMemberRef === viewerMemberRef}
-            onClick={() =>
-              patchCompanySpacePreferences(scope, {
-                ownerMemberRef: preferences.ownerMemberRef === viewerMemberRef ? null : viewerMemberRef
-              })
-            }
-            size="sm"
-            variant={preferences.ownerMemberRef === viewerMemberRef ? 'secondary' : 'text'}
-          >
-            {copy.mine}
-          </Button>
-        )}
         {supportsV11 && (
           <form
             className="flex min-w-48 flex-1 items-center gap-1 sm:max-w-72"
@@ -2251,6 +2140,11 @@ export function CompanyBoard({
               {copy.openBrief}
             </Button>
           )}
+          {/* One quiet Add task: on the board its composer opens at the foot of To do. */}
+          <Button onClick={() => setCreating(value => !value)} size="sm" variant="secondary">
+            <Plus aria-hidden />
+            {copy.addTask}
+          </Button>
         </span>
       </header>
       {creating && !lanesVisible && (
@@ -2285,7 +2179,7 @@ export function CompanyBoard({
       {page && !searchPage && !lanesVisible && visibleCards.length === 0 && (
         <div className="m-auto grid justify-items-center gap-2">
           <p className="text-sm text-(--atum-ink-muted)">
-            {filtersActive ? copy.noMatches : boardView === 'my_tasks' ? copy.emptyMyTasks : copy.emptyBoard}
+            {mineOn && !preferences.projectId && preferences.due === 'all' ? copy.emptyMyTasks : filtersActive ? copy.noMatches : copy.emptyBoard}
           </p>
           {filtersActive && (
             <Button onClick={() => clearCompanySpaceFilters(scope)} size="sm" variant="secondary">
@@ -2319,7 +2213,8 @@ export function CompanyBoard({
               className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-hidden p-4"
               data-company-board-columns
             >
-              {COMPANY_BOARD_COLUMNS.map(column => (
+              {/* Suggestions stay apart and provisional; with none waiting, their lane is not drawn. */}
+              {COMPANY_BOARD_COLUMNS.filter(column => column !== 'suggested' || columns.suggested.length > 0).map(column => (
                 <BoardLane
                   cards={columns[column]}
                   column={column}
@@ -2346,13 +2241,6 @@ export function CompanyBoard({
             </div>
           </DndContext>
         </div>
-      )}
-      {page && !searchPage && boardView === 'my_tasks' && myTasks.length > 0 && (
-        <MyTasksList
-          cards={myTasks}
-          locale={locale}
-          onOpen={cardId => patchCompanySpacePreferences(scope, { selectedCardId: cardId })}
-        />
       )}
       {page && !searchPage && boardView === 'list' && cards.length > 0 && (
         <CompanyBoardList

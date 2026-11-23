@@ -17,7 +17,8 @@ import type { MatrixStoreEntitlement, MatrixStoreItem, MatrixStorePurchase } fro
  * as insufficient, with the shortfall), `pending` (an unconfirmed hire is waiting), `uncertain`
  * (purchases come back unconfirmed until checked again).
  */
-export type PlaygroundCompanyStoreMode = 'owner' | 'member' | 'short' | 'pending' | 'uncertain'
+/** `empty` keeps the team but has nothing left to hire. */
+export type PlaygroundCompanyStoreMode = 'owner' | 'member' | 'short' | 'pending' | 'uncertain' | 'empty'
 
 const MICRO = 1_000_000
 export const PLAYGROUND_CHIEF_PRINCIPAL = '00000000-0000-4000-8000-9896148e0625'
@@ -126,7 +127,7 @@ export interface PlaygroundCompanyStore extends MatrixCompanyStoreBridge {
 }
 
 export function playgroundCompanyStore(mode: PlaygroundCompanyStoreMode = 'owner'): PlaygroundCompanyStore {
-  let items = catalog()
+  let items = mode === 'empty' ? [] : catalog()
   let balance = 485_000 * MICRO
   let unconfirmed = mode === 'uncertain'
 

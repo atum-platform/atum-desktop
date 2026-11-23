@@ -186,11 +186,11 @@ it('shows the Chief of Staff row before the platform serves a view: Setting up�
 
   expect(row().getAttribute('data-company-private-cos-state')).toBe('setting_up')
   expect(row().textContent).toContain('Setting up…')
-  expect(within(row()).getByRole('button', { name: 'Chief of Staff' }).hasAttribute('disabled')).toBe(true)
+  expect(within(row()).getByRole('button', { name: 'Private Chief of Staff' }).hasAttribute('disabled')).toBe(true)
 
   view.rerender(sections('not_available'))
   expect(row().textContent).toContain('Not available yet')
-  fireEvent.click(within(row()).getByRole('button', { name: 'Chief of Staff · Retry' }))
+  fireEvent.click(within(row()).getByRole('button', { name: 'Private Chief of Staff · Retry' }))
   await waitFor(() => expect(retry).toHaveBeenCalledTimes(1))
 })
 

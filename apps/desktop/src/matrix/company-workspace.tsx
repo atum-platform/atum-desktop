@@ -58,7 +58,7 @@ import { $companyChannelCompanyId, $companyChannelOrder, $companyOverviewRequest
 import { companyDesktopAdapter, companyPrivateCosDesktopAdapter } from './company-desktop-adapter'
 import { MatrixCompanyFundingPanel } from './company-funding'
 import { CompanyMarketplace } from './company-marketplace'
-import { $companyMarketplaces, effectiveCompanySpaceTab, refreshCompanyMarketplace } from './company-marketplace-store'
+import { $companyMarketplaces, companySpaceTabIds, effectiveCompanySpaceTab, refreshCompanyMarketplace } from './company-marketplace-store'
 import { CompanyProjectBrief } from './company-project-brief'
 import { MatrixCompanyProjectSourcesPanel } from './company-project-sources'
 import {
@@ -121,6 +121,7 @@ import {
   loadCompanyConversations,
   publishCompanySelfRef
 } from './team-space/conversations-store'
+import { TEAM_SPACE_DETAIL_PANE_CLASS, useTeamSpaceDetailPane } from './team-space/detail-pane'
 import { companyDirectoryCache } from './team-space/directory-store'
 import {
   $teamSpaceDiscovery,
@@ -159,6 +160,7 @@ import {
   loadCompanyPrivateCos,
   recheckCompanyPrivateCos
 } from './team-space/private-cos-store'
+import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { SavedMessagesView } from './team-space/saved-messages'
 import { savedMessagesCopy } from './team-space/saved-messages-copy'
 import { teamSpaceSidebarEntryVisibility } from './team-space/sidebar-entry-visibility'
@@ -244,6 +246,8 @@ export interface MatrixCompanyWorkspaceProps {
   /** Opens the already-authorized Team Space thread named by a board card. */
   onOpenThread?(roomId: string, threadRootEventId: string): void
 }
+
+type CompanySettingsSection = 'people' | 'workspace' | 'ai' | 'billing'
 
 type DirectoryValue = MatrixCompanyDirectory | MatrixCompanyDirectory11
 type SnapshotValue = MatrixCompanySnapshot | MatrixCompanySnapshot11
@@ -401,10 +405,14 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   const [openingRoomId, setOpeningRoomId] = useState<string>()
   // A newer open supersedes an older one still retrying: the person's last click wins, never a stale retry.
   const openSequenceRef = useRef(0)
-  const [channelOpenError, setChannelOpenError] = useState(false)
+  // The channel that could not open, held with its company: it is shown only while that company is on screen, "Try
+  // again" asks for exactly that room, and any successful navigation (another room, another company) clears it.
+  const [channelOpenFailure, setChannelOpenFailure] = useState<{ companyId: string; roomId: string }>()
   // The channel this person last opened here, kept until something else is on screen: when Matrix holds it but the window
   // is not shown it (the platform has not confirmed the room yet), the pane says so instead of staying empty.
   const [openedChannel, setOpenedChannel] = useState<{ companyId: string; roomId: string }>()
+  // Another room or another company on screen is a successful navigation: the failure it replaced is gone.
+  useEffect(() => { setChannelOpenFailure(undefined) }, [activeRoomId, selectedCompanyId])
   // The Add people sheet keeps its own query, picks and results (team-space/invite-sheet.tsx); it is keyed by company
   // and opening, so nothing typed or picked in one company is ever sent into another.
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -418,6 +426,8 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // Links whose create was replayed (their text can no longer be shown), however the create was run.
   const [replayedLinkIds, setReplayedLinkIds] = useState<ReadonlySet<string>>(new Set())
   const [overviewSection, setOverviewSection] = useState<'members' | 'settings'>()
+  // Company settings show one short section at a time.
+  const [settingsSection, setSettingsSection] = useState<CompanySettingsSection>('people')
   const [pendingCompanySetup, setPendingCompanySetup] = useState<CompanyCreationSetup>()
   const [setupAvatarUploadError, setSetupAvatarUploadError] = useState(false)
   const [avatarUploadBusy, setAvatarUploadBusy] = useState(false)
@@ -463,9 +473,11 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     clearCompanyPrivateCos(accountKey, companyId)
     setLeftVersion(version => version + 1)
   }, [accountKey])
+
   // The viewer's standing as of the latest render, which every change is checked against as it is sent.
   const standingRef = useRef<SendingStanding | undefined>(undefined)
   const roomsRef = useRef(rooms)
+
   const companyInboxAuthorizationRef = useRef<{
     companyId?: string
     roomIds: ReadonlySet<string>
@@ -526,6 +538,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // has answered, and on any server that predates it, this is the 1.1 workspace exactly.
   const teamCopy = matrixTeamSpaceCopy(locale)
   const layoutCopy = teamSpaceLayoutCopy(locale)
+  const revampCopy = teamSpaceRevampCopy(locale)
   const companyAvatarUrls = useCompanyAvatarUrls(bridge, rooms)
   const discovery = useStore($teamSpaceDiscovery)
   const inviteReadiness = useStore($teamSpaceInviteReadiness)
@@ -572,6 +585,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
     return !companyAIActivityStatusHidden(item, { channelAgentUserId, privateCos: activityPrivateCos })
   })
+
   // Company DMs and group DMs exist only where discovery says wire 1.5 is on; otherwise there is nothing to draw.
   const conversationsState = profile.conversations ? conversationsRecord[adminKey] : undefined
   const channelsLoading = channelsState?.loading ?? false
@@ -588,6 +602,34 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
   const [transferTarget, setTransferTarget] = useState<{ memberRef: string; name: string }>()
   const [dialog, setDialog] = useState<ChannelDialog>()
+  // Company search lives in the right pane; `serial` restarts it when the header box asks again.
+  const [searchPane, setSearchPane] = useState<{ query: string; serial: number }>()
+  const searchSerialRef = useRef(0)
+  // Info (company or channel members), search, a thread, pins and a task share the one right pane.
+  useTeamSpaceDetailPane('info', companyMembersPanel || dialog?.kind === 'members-panel', () => {
+    setCompanyMembersPanel(false)
+    setDialog(current => current?.kind === 'members-panel' ? undefined : current)
+  })
+  useTeamSpaceDetailPane('search', Boolean(searchPane), () => setSearchPane(undefined))
+  // A channel's info pane belongs to that channel: another room on screen closes it, never leaves the old roster up.
+  const channelViewsRef = useRef(channelViews)
+  channelViewsRef.current = channelViews
+
+  const closeChannelInfoUnlessFor = useCallback((roomId: string | null | undefined) => {
+    setDialog(current => current?.kind === 'members-panel' &&
+      channelViewsRef.current?.find(view => view.id === current.channelId)?.room.roomId !== roomId
+      ? undefined
+      : current)
+  }, [])
+
+  const lastActiveRoomRef = useRef(activeRoomId)
+
+  useEffect(() => {
+    if (lastActiveRoomRef.current === activeRoomId) {return}
+
+    lastActiveRoomRef.current = activeRoomId
+    closeChannelInfoUnlessFor(activeRoomId)
+  }, [activeRoomId, closeChannelInfoUnlessFor])
   const [conversationDialog, setConversationDialog] = useState<ConversationDialogMode>()
   // A conversation was started but its room is not here yet; it opens by itself when it is.
   const [conversationNotice, setConversationNotice] = useState(false)
@@ -967,6 +1009,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setChannelName('')
     setChannelComposerOpen(false)
     setCompanyMembersPanel(false)
+    setSearchPane(undefined)
     autoSelectedCompanyRef.current = undefined
     followedPreferredCompanyRef.current = undefined
     clearCompanyChannels(accountKey)
@@ -976,7 +1019,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setConversationNotice(false)
     setFundingRefresh(0)
     setOpeningRoomId(undefined)
-    setChannelOpenError(false)
+    setChannelOpenFailure(undefined)
     setOpenedChannel(undefined)
     setInviteOpen(false)
     setConfirmMember(undefined)
@@ -1095,6 +1138,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setTransferTarget(undefined)
     setDialog(undefined)
     setCompanyMembersPanel(false)
+    setSearchPane(undefined)
     setConversationDialog(undefined)
     setCreateCompanyOpen(false)
     setWalletOpen(false)
@@ -1207,6 +1251,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
         if (['authentication', 'denied', 'missing', 'invalid'].includes(error)) {directoryCache.delete(accountKey); setDirectory(undefined)}
         setDirectoryError(error)
+
         return
       }
 
@@ -1535,8 +1580,9 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     const still = () => fence() && openSequenceRef.current === sequence
     const companyId = selectedCompanyIdRef.current
     patchCompanySpacePreferences(activeCompanyScope, { tab: 'chat' })
-    setChannelOpenError(false)
+    setChannelOpenFailure(undefined)
     setOpenedChannel(undefined)
+    closeChannelInfoUnlessFor(roomId)
     setOpeningRoomId(roomId)
 
     try {
@@ -1546,6 +1592,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
       for (let attempt = 0; ; attempt += 1) {
         try {
           await openChannelRef.current(roomId, still)
+
           break
         } catch (error) {
           if (!inScope(scope) || !still() || attempt + 1 >= Math.min(convergenceAttempts, CHANNEL_OPEN_ATTEMPTS)) {throw error}
@@ -1564,7 +1611,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
       // is not a failure: the room was simply not opened.
       // On a narrow window the reason is shown where the channel would have been, with the way back.
       if (inScope(scope) && still()) {
-        setChannelOpenError(true)
+        if (companyId) {setChannelOpenFailure({ companyId, roomId })}
 
         if (compact) {setCompactPane('content')}
       }
@@ -1667,6 +1714,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // C2: the sidebar draws sections and private channels only when the directory it holds was read on 1.4.
   const channelsMode = channelsState?.wire === '1.4' && (profile.channels ||
     (channelsState.stale === true && (!discovery || discovery.discovery.state === 'unknown')))
+
   const policy = adminSnapshot?.company.policy.channelCreation ?? 'members'
 
   useEffect(() => {
@@ -1848,6 +1896,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setDraftsOpen(false)
     setOverviewCompanyId(selectedCompanyId)
     setOverviewSection(section)
+    setSettingsSection(section === 'settings' ? 'workspace' : 'people')
     // Overview and settings live on the Chat page. Without moving the active
     // company page first, these menu actions updated hidden state while Board
     // (or Marketplace) stayed painted, which looked exactly like a dead menu.
@@ -1864,6 +1913,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
     switch (action) {
       case 'leave':
+
       case 'remove':
         setConfirmMember({ kind: action, memberRef: member.memberRef, name })
 
@@ -1986,6 +2036,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     }
 
     const still = companyFence()
+
     const next = await ensureCompanyPrivateCos(
       adapter,
       accountKey,
@@ -2005,6 +2056,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     if (next.view.state !== 'ready') {
       return
     }
+
     if (!target) {
       throw new Error('matrix_company_private_cos_room_unavailable')
     }
@@ -2084,6 +2136,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
           setOverviewCompanyId(undefined)
           patchCompanySpacePreferences(activeCompanyScope, { tab: 'chat' })
           await onOpenChannel(current.room.roomId, still)
+
           if (inScope(scope) && compact && still()) {setCompactPane('content')}
 
           return
@@ -2218,14 +2271,31 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     if (!channelsMode) {return}
 
     switch (intent.kind) {
-      case 'browse-channels': setDialog({ kind: 'browse' }); return
-      case 'create-channel': setDialog({ kind: 'create' }); return
+      case 'browse-channels': setDialog({ kind: 'browse' });
+
+ return
+
+      case 'create-channel': setDialog({ kind: 'create' });
+
+ return
+
       case 'channel-details':
         setDialog({ kind: 'details', channelId: intent.channelId, ...(intent.field ? { field: intent.field } : {}) })
+
         return
-      case 'add-people': setDialog({ kind: 'members', channelId: intent.channelId }); return
-      case 'leave-channel': setDialog({ kind: 'leave', channelId: intent.channelId }); return
-      case 'archive-channel': setDialog({ kind: 'archive', channelId: intent.channelId }); return
+
+      case 'add-people': setDialog({ kind: 'members', channelId: intent.channelId });
+
+ return
+
+      case 'leave-channel': setDialog({ kind: 'leave', channelId: intent.channelId });
+
+ return
+
+      case 'archive-channel': setDialog({ kind: 'archive', channelId: intent.channelId });
+
+ return
+
       case 'restore-channel': void restoreChannel(intent.channelId)
     }
   }
@@ -2255,6 +2325,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   const showingDrafts = draftsOpen && !showingOverview
   const activePrivateCosRoom = companyPrivateCosRoom(privateCosState, rooms)
   const activeChannelRoom = activeRoomId ? roomsById.get(activeRoomId) : undefined
+
   const channelContentVerified = !isCompanyPrivateCosClaim(activeChannelRoom) ||
     activePrivateCosRoom?.id === activeRoomId
 
@@ -2267,7 +2338,10 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
   // Keep the transcript mounted while Board is selected; its draft and scroll
   // belong to Chat and must survive a page switch. Visibility alone controls read attention.
-  const visibleChannelContent = boundChannelSelected ? channelContent : undefined
+  // A channel that could not open says so where it was asked for, rather than leaving the previous
+  // channel on screen as if the click did nothing.
+  const channelOpenError = channelOpenFailure?.companyId === selectedCompanyId ? channelOpenFailure : undefined
+  const visibleChannelContent = boundChannelSelected && !channelOpenError ? channelContent : undefined
 
   const savedContent = showingSaved ? (
     <SavedMessagesView
@@ -2305,16 +2379,21 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
       }]
     })
   ]
+
   const authorizedThreads = authorizedCompanyThreads(threads, selectedCompanyId ?? '', activityRooms)
   const authorizedDrafts = authorizedCompanyDrafts(drafts.records, activityRooms)
+
   const authorizedDraftRoomIds = new Set([
     ...activityRooms.map(room => room.roomId),
     ...(activePrivateCosRoom ? [activePrivateCosRoom.id] : [])
   ])
+
   const draftDirectoryReady = Boolean(channelViews && (!profile.conversations || conversationViews))
+
   const inaccessibleDirectoryDrafts = draftDirectoryReady && selectedCompanyId
     ? drafts.records.filter(draft => {
         const room = roomsById.get(draft.room_id)
+
         if (isCompanyPrivateCosClaim(room)) {
           return false
         }
@@ -2325,6 +2404,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         return companyId === selectedCompanyId && !authorizedDraftRoomIds.has(draft.room_id)
       })
     : []
+
   const inaccessiblePrivateCosDrafts = drafts.records.filter(draft => {
     const room = roomsById.get(draft.room_id)
 
@@ -2337,10 +2417,12 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     return !selectedCompanyId || companyId !== selectedCompanyId ||
       Boolean(privateCosState && activePrivateCosRoom?.id !== room?.id)
   })
+
   const inaccessibleDrafts = [...new Map(
     [...inaccessibleDirectoryDrafts, ...inaccessiblePrivateCosDrafts]
       .map(draft => [matrixDraftKey({ roomId: draft.room_id, threadRootId: draft.thread_root_id }), draft])
   ).values()]
+
   const inaccessibleDraftKeys = inaccessibleDrafts.map(draft =>
     matrixDraftKey({ roomId: draft.room_id, threadRootId: draft.thread_root_id })
   ).join('\n')
@@ -2458,12 +2540,21 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // has not confirmed the room to this window yet. Said here, inline, never in a floating banner.
   const openedChannelWaiting = Boolean(openedChannel && openedChannel.companyId === selectedCompanyId && !boundChannelSelected)
 
+  // One short line and at most one action, centred where the transcript will be. Never a fake conversation.
   const channelPaneStatus = showingOverview ? null : openingRoomId ? (
-    <Loader className="size-6" data-matrix-company-channel-pane="opening" label={copy.loadingChannels} />
+    <div className="m-auto grid justify-items-center gap-3 py-16" data-matrix-company-channel-pane="opening">
+      <Loader className="size-6" label={copy.loadingChannels} />
+    </div>
   ) : channelOpenError ? (
-    <p className="text-sm text-destructive" data-matrix-company-channel-pane="failed" role="alert">{copy.channelOpenFailed}</p>
+    <div className="m-auto grid justify-items-center gap-3 py-16 text-center" data-matrix-company-channel-pane="failed" role="alert">
+      <p className="text-sm text-(--atum-ink)">{revampCopy.channelFailed}</p>
+      <Button onClick={() => void openRoom(channelOpenError.roomId)} size="sm" variant="secondary">{revampCopy.tryAgain}</Button>
+    </div>
   ) : convergeNotice || openedChannelWaiting ? (
-    <p className="text-sm text-(--atum-ink-muted)" data-matrix-company-channel-pane="preparing" role="status">{copy.convergeFailed}</p>
+    <div className="m-auto grid justify-items-center gap-3 py-16 text-center" data-matrix-company-channel-pane="preparing" role="status">
+      <Loader aria-hidden className="size-5" label={revampCopy.preparingChannel} role="presentation" size="sm" />
+      <p className="text-sm text-(--atum-ink-muted)">{revampCopy.preparingChannel}</p>
+    </div>
   ) : null
 
   const overviewBackground = showingOverview
@@ -2593,6 +2684,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         const current = document.querySelector<HTMLElement>(
           '[data-matrix-company-sidebar] [aria-current="page"]'
         )
+
         const target = current ?? overviewButtonRef.current
         target?.focus({ preventScroll: true })
       }
@@ -2638,6 +2730,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
     autoSelectedCompanyRef.current = next.id
     const active = roomsRef.current.find(room => room.id === activeRoomId)
+
     const activeCompanyId = active?.companyChannel?.companyId ?? active?.companyConversation?.companyId ??
       active?.companyPrivateCos?.companyId
 
@@ -2742,16 +2835,45 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
 
   const companyAvatarUrl = selectedCompanyId ? companyAvatarUrls[selectedCompanyId] : undefined
 
+  // Settings: People, Workspace, AI and Billing, one at a time. Billing is the wallet, owners' and admins' only.
+  const billingAvailable = menuAllowed.wallet || Boolean(projectsEnabled && canCreateProject && fundingEnabled)
+  const workspaceSettingsAvailable = Boolean(abilities.editPolicy || projectsEnabled)
+
+  const settingsSections = ([
+    ['people', revampCopy.people, Boolean(snapshot11)],
+    ['workspace', revampCopy.workspace, workspaceSettingsAvailable],
+    ['ai', revampCopy.ai, true],
+    ['billing', revampCopy.billing, billingAvailable]
+  ] as const).filter(([, , shown]) => shown)
+
+  const currentSettingsSection = settingsSections.some(([id]) => id === settingsSection)
+    ? settingsSection
+    : settingsSections[0]?.[0] ?? 'ai'
+
+  // Outside the overview sheet (the legacy inline fallback) every section stays in one column.
+  const settingsShows = (section: CompanySettingsSection) => !showingOverview || currentSettingsSection === section
+  const hiringAvailable = companySpaceTabIds(companyMarketplaces[activeCompanyScope]).includes('marketplace')
+
+  // Company message search: asked from the header box, answered in the right pane, never inside settings.
+  const messageSearchReady = Boolean(searchEnabled && bridge.search && bridge.open && onOpenSearchResult && visibleSnapshot)
+
+  const openSearchPane = (query: string) => {
+    searchSerialRef.current += 1
+    setSearchPane({ query, serial: searchSerialRef.current })
+  }
+
   const titleHeading = (
     <h1 className="min-w-0 flex-1 truncate [font:var(--ak-t-headline)] text-(--atum-ink)">{companyTitle}</h1>
   )
 
   const visibleActivity = authorizedCompanyActivity(activity, selectedCompanyId ?? '', activityRooms)
   const unreadActivity = visibleActivity.filter(item => item.unread)
+
   const activityBadge = companyBadge({
     mentions: unreadActivity.filter(item => item.kind === 'mention').length,
     unread: unreadActivity.some(item => item.kind === 'thread_reply')
   })
+
   const visibleThreads = authorizedThreads
 
   const openActivity = () => {
@@ -2770,6 +2892,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     saved: savedMessages.records.length,
     drafts: authorizedDrafts.length
   })
+
   const threadsBadge = companyBadge({
     mentions: visibleThreads.reduce((count, thread) => count + thread.highlights, 0),
     unread: visibleThreads.some(thread => thread.unread)
@@ -2851,16 +2974,35 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         }
         hidden={compact && compactPane === 'content'} label={copy.channels} resizeLabel={copy.resizeSidebar}
         scope={accountKey}>
-        <div className="px-(--ak-s2)" data-matrix-company-sidebar-search>
+        <div className="grid gap-(--ak-s1) px-(--ak-s2)" data-matrix-company-sidebar-search>
           <label className="ak-field ak-field--search">
             <SearchIcon aria-hidden className="ak-icon ak-icon--sm" />
             <input
               aria-label={teamCopy.sidebarSearch(companyTitle)}
               onChange={event => setSidebarQuery(event.currentTarget.value)}
+              onKeyDown={event => {
+                // The header box filters the sidebar as you type; Enter searches the company's messages.
+                if (event.key === 'Enter' && messageSearchReady && [...sidebarQuery.trim()].length >= 2) {
+                  event.preventDefault()
+                  openSearchPane(sidebarQuery.trim())
+                } else if (event.key === 'Escape' && sidebarQuery) {
+                  event.preventDefault()
+                  setSidebarQuery('')
+                }
+              }}
               placeholder={teamCopy.sidebarSearch(companyTitle)}
               value={sidebarQuery}
             />
           </label>
+          {messageSearchReady && [...sidebarQuery.trim()].length >= 2 && (
+            <TeamSpaceSidebarRow
+              ariaLabel={revampCopy.searchMessagesFor(sidebarQuery.trim())}
+              icon={<SearchIcon />}
+              label={revampCopy.searchFor(sidebarQuery.trim())}
+              onSelect={() => openSearchPane(sidebarQuery.trim())}
+              selected={Boolean(searchPane)}
+            />
+          )}
         </div>
         {sidebarEntries.threads && <div data-matrix-company-threads-entry>
           <TeamSpaceSidebarRow
@@ -3165,7 +3307,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         {(showingOverview || overviewFallback) && visibleSnapshot && selectedCompany && (
           <div aria-label={showingOverview ? copy.companyOverview : undefined} aria-modal={showingOverview || undefined}
             className={showingOverview
-              ? 'atum-sheet grid max-h-[min(44rem,calc(100dvh-2rem))] w-full max-w-3xl gap-5 overflow-y-auto p-6'
+              ? 'atum-sheet grid max-h-[min(44rem,calc(100dvh-2rem))] w-full max-w-3xl content-start gap-5 overflow-y-auto p-6 [&>[data-matrix-company-settings-nav]+*]:border-t-0 [&>[data-matrix-company-settings-nav]+*]:pt-0'
               : 'grid gap-5 rounded-(--atum-r-card) bg-(--atum-card) p-5 shadow-(--atum-glass-edge)'}
             data-matrix-company-detail role={showingOverview ? 'dialog' : undefined}>
             {showingOverview && (
@@ -3174,18 +3316,19 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 <Button onClick={() => setOverviewCompanyId(undefined)} size="sm" variant="text">{copy.close}</Button>
               </div>
             )}
-            {searchEnabled && bridge.search && bridge.open && onOpenSearchResult && (
-              <CompanySearch
-                bridge={{ search: bridge.search, open: bridge.open }}
-                companyId={visibleSnapshot.company.id}
-                copy={copy}
-                key={visibleSnapshot.company.id}
-                locale={locale}
-                onOpen={onOpenSearchResult}
-              />
+            {showingOverview && settingsSections.length > 1 && (
+              <div aria-label={revampCopy.settingsSections} className="ak-seg ak-seg--sm justify-self-start"
+                data-matrix-company-settings-nav role="tablist">
+                {settingsSections.map(([id, label]) => (
+                  <button aria-selected={currentSettingsSection === id} className={currentSettingsSection === id ? 'is-selected' : undefined}
+                    data-matrix-company-settings-section={id} key={id} onClick={() => setSettingsSection(id)} role="tab" type="button">
+                    {label}
+                  </button>
+                ))}
+              </div>
             )}
             {convergeNotice && showingOverview && <p className="text-sm text-(--atum-ink-muted)" role="status">{copy.convergeFailed}</p>}
-            {snapshot11 && (
+            {snapshot11 && settingsShows('people') && (
               <MembersPanel
                 blocked={blocked}
                 canInvite={abilities.invite}
@@ -3199,7 +3342,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 viewer={viewerRole}
               />
             )}
-            {abilities.editPolicy && bridge.uploadAvatar && visibleSnapshot && (
+            {abilities.editPolicy && bridge.uploadAvatar && visibleSnapshot && settingsShows('workspace') && (
               <div className="border-t border-(--atum-line) pt-5">
                 <CompanyAvatarSettings
                   avatarUrl={companyAvatarUrl}
@@ -3212,7 +3355,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 />
               </div>
             )}
-            {abilities.editPolicy && adminSnapshot && visibleSnapshot && (
+            {abilities.editPolicy && adminSnapshot && visibleSnapshot && settingsShows('workspace') && (
               <PolicyControl
                 authorityGeneration={adminSnapshot.company.authorityGeneration}
                 blocked={blocked}
@@ -3221,7 +3364,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 value={adminSnapshot.company.policy.channelCreation}
               />
             )}
-            {abilities.editPolicy && adminSnapshot && visibleSnapshot && companyPolicy3(adminSnapshot) && (
+            {abilities.editPolicy && adminSnapshot && visibleSnapshot && companyPolicy3(adminSnapshot) && settingsShows('workspace') && (
               <DirectAddPolicyControl
                 authorityGeneration={adminSnapshot.company.authorityGeneration}
                 blocked={blocked}
@@ -3230,12 +3373,15 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 policy={companyPolicy3(adminSnapshot)!}
               />
             )}
-            {visibleSnapshot && (
-              <div className="border-t border-(--atum-line) pt-5" data-company-ai-setting>
+            {visibleSnapshot && settingsShows('ai') && (
+              <div className="grid gap-3 border-t border-(--atum-line) pt-5" data-company-ai-setting>
                 <CompanyAIStatus accountKey={accountKey} companyId={visibleSnapshot.company.id} manage />
+                {showingOverview && !hiringAvailable && (
+                  <p className="text-sm text-(--atum-ink-muted)" data-matrix-company-hiring-preparing>{revampCopy.hiringPreparing}</p>
+                )}
               </div>
             )}
-            {projectsEnabled && <div className="grid gap-2 border-t border-(--atum-line) pt-5">
+            {projectsEnabled && settingsShows('workspace') && <div className="grid gap-2 border-t border-(--atum-line) pt-5">
               <h3 className="text-(length:--atum-t-title) font-semibold text-(--atum-ink)">{copy.projects}</h3>
               {visibleSnapshot.projects.length === 0 ? <p className="text-sm text-(--atum-ink-muted)">{copy.noProjects}</p> : (
                 <div className="grid gap-4 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
@@ -3382,7 +3528,13 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
                 </form>
               )}
             </div>}
-            {projectsEnabled && canCreateProject && fundingEnabled && (
+            {showingOverview && settingsShows('billing') && menuAllowed.wallet && (
+              <div className="flex items-center justify-between gap-3 border-t border-(--atum-line) pt-5" data-matrix-company-billing-wallet>
+                <h3 className="text-(length:--atum-t-title) font-semibold text-(--atum-ink)">{revampCopy.companyWallet}</h3>
+                <Button onClick={() => setWalletOpen(true)} size="sm" variant="secondary">{revampCopy.openWallet}</Button>
+              </div>
+            )}
+            {projectsEnabled && canCreateProject && fundingEnabled && settingsShows('billing') && (
               <div className="border-t border-(--atum-line) pt-5">
                 <MatrixCompanyFundingPanel
                   accountKey={accountKey}
@@ -3477,10 +3629,34 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
         />
       )}
 
+      {searchPane && messageSearchReady && visibleSnapshot && (
+        <aside aria-label={copy.searchMessages} className={TEAM_SPACE_DETAIL_PANE_CLASS} data-matrix-company-search-pane>
+          <header className="flex h-(--atum-l-header) shrink-0 items-center gap-3 border-b border-(--atum-panel-line) px-5">
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-(--atum-ink)">{revampCopy.search}</h2>
+            <Button onClick={() => setSearchPane(undefined)} size="sm" variant="text">{copy.close}</Button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <CompanySearch
+              bridge={{ search: bridge.search!, open: bridge.open! }}
+              companyId={visibleSnapshot.company.id}
+              copy={copy}
+              initialQuery={searchPane.query}
+              key={`${visibleSnapshot.company.id}:${searchPane.serial}`}
+              locale={locale}
+              onOpen={async result => {
+                await onOpenSearchResult!(result)
+
+                if (compact) {setSearchPane(undefined)}
+              }}
+              pane
+            />
+          </div>
+        </aside>
+      )}
       {companyMembersPanel && visibleSnapshot && (
         <aside
           aria-label={teamCopy.channelMembersTitle}
-          className="absolute inset-y-0 end-0 z-30 flex w-[min(26rem,100%)] flex-col border-s border-(--atum-panel-line) bg-(--atum-main-bg) shadow-nous"
+          className={TEAM_SPACE_DETAIL_PANE_CLASS}
           data-matrix-company-members-panel
         >
           <header className="flex h-(--atum-l-header) shrink-0 items-center gap-3 border-b border-(--atum-panel-line) px-5">

@@ -112,6 +112,8 @@
 
 .sectionContent {
   display: grid;
+  /* One column no wider than the sidebar: a long name fades and a status shortens, never pushing badges out. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.125rem;
   padding-top: 0.25rem;
 }
@@ -179,6 +181,11 @@
   white-space: nowrap;
 }
 
+/* The name keeps most of the row; a status beside it shortens first. */
+.rowButton .rowLabel {
+  min-width: min(10rem, 65%);
+}
+
 .row[data-unread] .rowLabel {
   font-weight: 600;
 }
@@ -235,9 +242,13 @@
 }
 
 .rowTrailing {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
   color: var(--atum-ink-muted);
   font-size: 0.625rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .handle {

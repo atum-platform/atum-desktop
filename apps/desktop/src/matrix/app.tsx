@@ -460,6 +460,7 @@ import {
   useConversationTitle
 } from './team-space/conversation-chrome'
 import { $companyConversations, $companySelfRefs } from './team-space/conversations-store'
+import { useTeamSpaceDetailPane } from './team-space/detail-pane'
 import { activateTeamSpaceCacheAccount } from './team-space/directory-store'
 import { type FormattedText } from './team-space/formatting'
 import { TeamSpaceFormattingBar, TeamSpaceFormattingToggle } from './team-space/formatting-bar'
@@ -498,6 +499,7 @@ import {
   companyPrivateCosBoundRoomId,
   companyPrivateCosRoom
 } from './team-space/private-cos-store'
+import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { useSavedMessagesCopy } from './team-space/saved-messages-copy'
 import { useCompanyChannelFacts } from './team-space/use-channel-facts'
 import { MatrixTerminalOffers } from './terminal'
@@ -2350,7 +2352,6 @@ function MatrixComposer({
   // The company's private Chief of Staff chat: an ordinary company-room send that names the Chief of Staff
   // (the SDK adds its mention), never the person's own assistant's path.
   const privateCos = isCompanyPrivateCosClaim(room)
-  const privateCosName = usePrivateCosName()
   const companyFiles = teamSpaceBox && snapshot.companyDriveFilesEnabled === true
 
   // The box names who you are writing to (Atum Kit mockup: "Message Atum"), a channel by the name
@@ -2366,7 +2367,7 @@ function MatrixComposer({
   const composerTarget = notesSelfRoom
     ? notesCopy.you
     : privateCos
-    ? privateCosName
+    ? teamSpaceRevampCopy(locale).privateChiefOfStaff
     : room.assistant
     ? assistantName
     : companyChannel
@@ -7658,6 +7659,10 @@ function MatrixAccountView({
   // A channel or a company conversation: Team Space's room, shown in the company workspace and in no Personal list.
   const companyChannelBound = isTeamSpaceRoom(room)
 
+  // The thread and the pinned list share Team Space's one right pane with info, search and a task's details.
+  useTeamSpaceDetailPane('thread', Boolean(companyChannelBound && currentThreadView), () => setThreadView(null))
+  useTeamSpaceDetailPane('pins', Boolean(companyChannelBound && pinsOpen), () => setPinnedRoomId(null))
+
   // A raw marker, renderer-only binding, or restored room selection is quarantine, not authority.
   // Only the current strict platform view plus the exact joined-room policy may mount its transcript.
   const companyChannelContentAuthorized = companyChannelBound &&
@@ -8791,7 +8796,7 @@ function MatrixAccountView({
                                 notesSelfBound ? (
                                   matrixTeamSpaceCopy(locale).you
                                 ) : isCompanyPrivateCosClaim(room) ? (
-                                  <span data-matrix-private-cos-title>{matrixCompanyBoardCopy(locale).chiefOfStaff}</span>
+                                  <span data-matrix-private-cos-title>{teamSpaceRevampCopy(locale).privateChiefOfStaff}</span>
                                 ) : isCompanyConversationRoom(room) ? (
                                   <ConversationTitleFor
                                     accountKey={teamSpaceAccountKey(snapshot.identity)}

@@ -247,6 +247,7 @@ it('does not reveal a stale Activity row after the platform directory de-authori
     resetTeamSpace,
     TestResizeObserver
   } = await import('./team-space/test-support')
+
   const { $companyChannels } = await import('./team-space/channels-store')
   const { teamSpaceKey } = await import('./team-space/keys')
 
@@ -255,13 +256,16 @@ it('does not reveal a stale Activity row after the platform directory de-authori
   const source = platform()
   let releaseSelect!: () => void
   const selectGate = new Promise<void>(resolve => { releaseSelect = resolve })
+
   const command = vi.fn(async (value: { kind: string }) => {
     if (value.kind === 'select') {await selectGate}
 
     return null
   })
+
   const onOpenConversation = vi.fn()
   const room = channelRoom(CHANNEL_IDS.general, 'general')
+
   const activity = [{
     companyId: COMPANY_ID,
     roomId: room.id,
@@ -319,6 +323,7 @@ function messageLinkWorkspace(options: {
   const open = options.open ?? vi.fn(async () => ({ ok: true as const }))
   const onOpenConversation = vi.fn()
   const onMessageLinkFailure = vi.fn()
+
   const room = {
     id: messageLinkTarget.roomId,
     name: 'decisions',
@@ -402,6 +407,7 @@ describe('OB1: a clicked channel never leaves the pane empty', () => {
 
   const decisions = { id: '!decisions:test', name: 'decisions', encrypted: false }
   const pane = () => document.querySelector('[data-matrix-company-content]') as HTMLElement
+
   // Plain polling: while the workspace's own default-channel convergence is retrying a room this Mac does not hold,
   // Testing Library's act-wrapped polling never lets the directory read settle.
   const settled = async <T,>(read: () => T | null | undefined, ms = 8_000): Promise<T> => {
@@ -421,11 +427,13 @@ describe('OB1: a clicked channel never leaves the pane empty', () => {
     extra?: { name: string; roomId: string }) {
     const { request } = companyChannelBridge(extra)
     window.atumMatrix = { companies: { pending: vi.fn(async () => ({ ok: true as const, request: null })), request }, command } as unknown as MatrixUiBridge
+
     const ui = (value: MatrixSnapshot['rooms'], selected: string | null) => (
       <I18nProvider configClient={null} initialLocale="en">
         <MatrixWorkspace obstructed={false} snapshot={{ ...snapshot, companyWorkspaceEnabled: true, rooms: value, roomId: selected }} />
       </I18nProvider>
     )
+
     const view = render(ui(rooms, roomId))
 
     return { rerender: (value: MatrixSnapshot['rooms'], selected: string | null = null) => view.rerender(ui(value, selected)) }
@@ -447,6 +455,7 @@ describe('OB1: a clicked channel never leaves the pane empty', () => {
   it('opens the channel clicked last while an earlier channel is still retrying, and never the earlier one', async () => {
     const general = { id: '!general:test', name: 'general', encrypted: false, membership: 'join' as const }
     const command = vi.fn(async (_input: { kind: string; roomId?: string }) => null)
+
     const { rerender } = mountChannel([general], command as unknown as MatrixUiBridge['command'], null,
       { name: 'general', roomId: general.id })
 
@@ -468,7 +477,8 @@ describe('OB1: a clicked channel never leaves the pane empty', () => {
     fireEvent.click(await row())
 
     const failed = await settled(() => within(pane()).queryByRole('alert'))
-    expect(failed.textContent).toBe('Couldn’t open this channel. It may have changed; try again in a moment.')
+    expect(failed.textContent).toContain('Couldn’t open this channel.')
+    expect(within(failed).getByRole('button', { name: 'Try again' })).toBeTruthy()
     expect(command).not.toHaveBeenCalled()
   }, 15_000)
 
@@ -480,8 +490,7 @@ describe('OB1: a clicked channel never leaves the pane empty', () => {
     fireEvent.click(await row())
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: decisions.id }))
 
-    expect((await within(pane()).findByRole('status')).textContent)
-      .toBe('The channel is still being prepared. You can open it when it is ready.')
+    expect((await within(pane()).findByRole('status')).textContent).toBe('Preparing your channel…')
   })
 })
 
@@ -585,6 +594,7 @@ it('does not finish opening an old account’s channel after an account switch',
 
 it('does not select a company room after the company on screen changed while its invitation was being accepted', async () => {
   const { MATRIX_COMPANY_CONVERSATION_TYPE } = await import('../../shared/matrix-company-channel-room')
+
   const { platform, COMPANY_ID, CONVERSATION_IDS, conversationRoomId, OTHER_COMPANY_ID, resetTeamSpace, TestResizeObserver } =
     await import('./team-space/test-support')
 
@@ -599,7 +609,10 @@ it('does not select a company room after the company on screen changed while its
 
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  const command = vi.fn(async (value: { kind: string }) => { if (value.kind === 'join') {await gate}; return null })
+
+  const command = vi.fn(async (value: { kind: string }) => { if (value.kind === 'join') {await gate};
+
+ return null })
 
   window.atumMatrix = { companies: source.bridge, command } as unknown as MatrixUiBridge
 
@@ -639,6 +652,7 @@ it('opens the company Threads inbox and reuses the existing read, follow and thr
   const { request } = companyChannelBridge()
   const command = vi.fn(async () => null)
   const onOpenConversation = vi.fn()
+
   const room = {
     id: '!decisions:test',
     name: 'decisions',
@@ -646,6 +660,7 @@ it('opens the company Threads inbox and reuses the existing read, follow and thr
     encrypted: false,
     companyChannel: { companyId: COMPANY_ID, channelId: '00000000-0000-4000-8000-676a3a34ff0f' }
   }
+
   const thread = {
     companyId: COMPANY_ID,
     roomId: room.id,

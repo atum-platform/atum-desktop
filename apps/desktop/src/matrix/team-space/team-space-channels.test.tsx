@@ -78,6 +78,16 @@ describe('C2 sidebar', () => {
     expect(screen.getByTestId('channel-transcript').closest('[hidden]')).toBeNull()
   })
 
+  it('says No matches when the sidebar filter hides every channel, not that there are none', async () => {
+    renderTeamSpace(platform({ channels: [general] }), { rooms: rooms(general) })
+    await open('general')
+    const box = screen.getByRole('textbox', { name: /^Search / })
+
+    fireEvent.change(box, { target: { value: 'zzzz' } })
+    expect(await screen.findByText('No matches')).toBeTruthy()
+    expect(screen.queryByText('No channels yet.')).toBeNull()
+  })
+
   it('draws Favorites, Channels (a private one marked), and Archived apart, from the admitted directory', async () => {
     const source = platform({ channels: [general, ops, leadership, old] })
     const all = [general, ops, leadership, old]
@@ -849,6 +859,15 @@ describe('C2 channel people', () => {
     const panel = await headerMembersPanel(moderated(), tab)
 
     expect(panel.getAttribute('data-matrix-company-channel-members-panel')).not.toBeNull()
+  })
+
+  it('closes one channel’s info pane when another channel is selected, never showing the old roster', async () => {
+    const panel = await headerMembersPanel(moderated(), 'chat')
+
+    expect(panel.getAttribute('data-matrix-company-channel-members-panel')).not.toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: 'Open # general' }))
+    await waitFor(() => expect(screen.queryByRole('complementary', { name: 'Channel members' })).toBeNull())
+    expect(window.document.querySelector('[data-matrix-company-channel-members-panel]')).toBeNull()
   })
 
   it('opens the company-wide channel roster in the right panel on the 1.1 fallback', async () => {
