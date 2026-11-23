@@ -237,8 +237,7 @@ export async function readMatrixInvocation(
       ...(parseGroupChain(content[GROUP_CHAIN_KEY]) ? { chain: parseGroupChain(content[GROUP_CHAIN_KEY]) } : {}),
       ...(mentionedUserIds ? { mentionedUserIds } : {}),
       ...(invalidMentions ? { invalidMentions: true as const } : {}),
-      // Presence is enough to keep a protected source out of an unrelated model route. The
-      // owner-side protected sender wrote the marker; malformed or forwarded marks fail closed too.
+      // Preserve marker presence as informational provenance.
       ...(Object.prototype.hasOwnProperty.call(content, MATRIX_GOOGLE_PROVENANCE_KEY)
         ? { googleProtected: true as const }
         : {}),

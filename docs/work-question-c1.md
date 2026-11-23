@@ -147,3 +147,5 @@ Release uses user attestation. Provenance is informational and has no effect on
 provider choice, connector answer eligibility, group routing or Work admission.
 Desktop revalidates the live native invocation immediately before returning the
 answer in `ConnectorService.ask`. A future release policy can use this seam.
+
+The SDK also keeps marked, verified messages in the group routing history.
