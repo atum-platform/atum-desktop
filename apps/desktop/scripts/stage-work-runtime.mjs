@@ -39,11 +39,7 @@ export async function stageWorkRuntime({ resources, platform, arch, archive }) {
     for await (const chunk of createReadStream(join(scratch, 't3'))) {
       server.update(chunk)
     }
-    await writeFile(join(scratch, 'pin.json'), JSON.stringify({
-      version: work.version,
-      sha256: server.digest('hex'),
-      ...(work.protectedConnector === true ? { protectedConnector: true } : {})
-    }))
+    await writeFile(join(scratch, 'pin.json'), JSON.stringify({ version: work.version, sha256: server.digest('hex') }))
     await rename(scratch, target)
   } finally {
     await rm(scratch, { force: true, recursive: true })

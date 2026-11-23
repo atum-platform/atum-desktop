@@ -17,8 +17,6 @@ export interface Result {
     | 'timed_out'
     | 'unavailable'
     | 'cancelled'
-    | 'google_requires_atum'
-    | 'provenance_unavailable'
   request_id: string
   question_event_id?: string
   answer?: string

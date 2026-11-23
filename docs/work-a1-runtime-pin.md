@@ -9,14 +9,10 @@ Actual stageWorkRuntime passed under Node 24.21.0, extracted arm64 server digest
 ## Slice C connector admission
 
 Every connector response carrying an answer requires a live T3 invocation check.
-The supervisor passes the private connector credential on an inherited pipe and
-does not include it in child environments. Protected input carries the Matrix
-provenance marker at the SDK send boundary. Desktop declines protected outbound
-questions because its owned-agent roster does not certify the destination's
-cloud model route.
-
-The Work runtime only provisions its local policy when machine and per-user
-managed preference sources are absent.
+The supervisor passes the private connector credential on an inherited pipe.
+Under the November 23 owner decision, answers follow the user's provider choice,
+with provenance retained as an informational field. Work uses T3's native
+managed policy sources.
 
 TODO after the coordinator publishes Work 0.1.12: update the Work version, fork
 commit, archive and SHA-256 in `apps/desktop/runtime-tools.json` together.

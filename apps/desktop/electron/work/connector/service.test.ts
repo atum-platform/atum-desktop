@@ -16,7 +16,7 @@ function fixture() {
     resolve: async () => ({ room: '!dm:test', agent: '@agent:test' }),
     send: vi.fn(async () => '$question'),
     read: async () => undefined,
-    admit: async (_, protectedData) => protectedData ? undefined : { protected: false }
+    admit: async () => true
   }
 
   const file = join(directory, 'receipts.json')
@@ -52,12 +52,11 @@ describe('Work connector receipts and release', () => {
     expect(send).toHaveBeenCalledTimes(2)
     expect(send.mock.calls[0]![0].transaction).toBe(send.mock.calls[1]![0].transaction)
   })
-  it.each(['google', 'unknown'] as const)('withholds %s bytes from plans', async dataClass => {
+  it.each(['google', 'unknown'] as const)('releases %s answers to the live plan session', async dataClass => {
     using f = fixture()
     f.ports.read = async () => ({ body: 'protected answer', dataClass })
     const result = await f.service.ask(caller, { agent: 'owned', question: 'Hello', request_id: randomUUID() }, 0)
-    expect(result.state).toBe(dataClass === 'google' ? 'google_requires_atum' : 'provenance_unavailable')
-    expect(JSON.stringify(result)).not.toContain('protected answer')
+    expect(result).toMatchObject({ state: 'answered', answer: 'protected answer', provenance: dataClass })
   })
   it('rechecks the live provider after reading and never releases after account change', async () => {
     using f = fixture()
@@ -91,22 +90,11 @@ describe('Work connector receipts and release', () => {
     using f = fixture()
     const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
     f.ports.read = async () => {
-      f.ports.admit = async () => undefined
+      f.ports.admit = async () => false
 
       return { body: 'clean', dataClass: 'non_google' }
     }
     expect(await f.service.ask(caller, q, 0)).toMatchObject({ state: 'unavailable' })
-  })
-
-  it('passes the live thread fence to the target resolver before sending', async () => {
-    using f = fixture()
-    f.ports.admit = async () => ({ protected: true })
-    const resolve = vi.fn(async () => undefined)
-    f.ports.resolve = resolve
-    const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
-    expect(await f.service.ask(caller, q, 0)).toMatchObject({ state: 'unavailable' })
-    expect(resolve).toHaveBeenCalledWith('owned', true)
-    expect(f.ports.send).not.toHaveBeenCalled()
   })
 
   it('bounds the overall deadline, without another send', async () => {

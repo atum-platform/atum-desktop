@@ -91,15 +91,18 @@ describe('owner event verifier', () => {
     expect(await fetchWith(source(() => plain({ senderVerified: false })))).toEqual({ kind: 'invalid', reason: 'owner_event_device_not_owner' })
   })
 
-  it('refuses what is not the owner’s own plain request: edits, threads, forwards, protected content, other types', async () => {
+  it('refuses what is not the owner’s own plain request: edits, threads, forwards, other types', async () => {
     const body = { msgtype: 'm.text', body: 'x' }
 
     expect(await fetchWith(source(() => plain({ related: true })))).toMatchObject({ kind: 'invalid' })
     expect(await fetchWith(source(() => plain({ thread: true })))).toMatchObject({ kind: 'invalid' })
     expect(await fetchWith(source(() => plain({ content: { ...body, forwarded: true } })))).toEqual({ kind: 'invalid', reason: 'owner_event_not_owner' })
-    expect(await fetchWith(source(() => plain({ content: { ...body, googleProtected: true } })))).toEqual({ kind: 'invalid', reason: 'owner_event_not_owner' })
     expect(await fetchWith(source(() => plain({ content: { msgtype: 'm.image', body: 'a.png' } })))).toMatchObject({ kind: 'invalid' })
     expect(await fetchWith(source(() => plain({ content: { msgtype: 'm.text', body: '   ' } })))).toMatchObject({ kind: 'invalid' })
+  })
+
+  it('admits a verified owner event carrying informational provenance', async () => {
+    expect(await fetchWith(source(() => plain({ content: { ...plain().content, googleProtected: true } })))).toMatchObject({ kind: 'ok' })
   })
 
   it('maps the SDK’s stable refusals and treats every other failure as unreachable', async () => {

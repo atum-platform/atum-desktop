@@ -9669,10 +9669,6 @@ async function runGroupTurn(
                 const router = groupRelevanceRouter
 
                 try {
-                  if (message.content.googleProtected) {
-                    throw new Error('matrix_group_routing_protected')
-                  }
-
                   if (!router) {
                     throw new Error('matrix_group_routing_unavailable')
                   }
@@ -20542,8 +20538,7 @@ async function start() {
         baseUrl: () => managedModel?.baseUrl,
         probe: (role, signal) =>
           managedModel?.probe(role, signal) ?? Promise.resolve({ ok: false as const, code: 'setup_required' as const }),
-        abortRole: role => managedModel?.abortAgent(role),
-        servesProtectedRoute: signal => managedModel?.servesModel('google-protected', signal) ?? Promise.resolve(null)
+        abortRole: role => managedModel?.abortAgent(role)
       },
       wallet: signal => account.wallet(signal),
       scope: () => account.appScope(),

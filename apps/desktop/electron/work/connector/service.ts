@@ -12,7 +12,6 @@ interface Receipt {
   agent: string
   transaction: string
   deadline: number
-  protectedInput?: boolean
   event?: string
 }
 // Null retains only the request ID so an expired retry can never send again.
@@ -20,11 +19,11 @@ type StoredReceipt = Receipt | null
 
 export interface ConnectorPorts {
   current(): boolean
-  resolve(agent: string, protectedInput: boolean): Promise<{ room: string; agent: string } | undefined>
+  resolve(agent: string): Promise<{ room: string; agent: string } | undefined>
   send(receipt: Receipt): Promise<string>
   read(receipt: Receipt): Promise<Answer | undefined>
-  /** Revalidate native session and route, then durably protect the transcript before returning true. */
-  admit(caller: Caller, protectedData: boolean): Promise<{ protected: boolean } | undefined>
+  /** Revalidate the native caller before sending or releasing a response. */
+  admit(caller: Caller): Promise<boolean>
 }
 export class ConnectorService {
   private readonly receipts: Map<string, StoredReceipt>
@@ -97,9 +96,7 @@ export class ConnectorService {
       return result('cancelled')
     }
 
-    const admission = await this.ports.admit(caller, false)
-
-    if (!admission) {
+    if (!(await this.ports.admit(caller))) {
       return result('unavailable')
     }
 
@@ -146,7 +143,7 @@ export class ConnectorService {
 
       try {
         if (!r) {
-          const target = await this.ports.resolve(q.agent, admission.protected)
+          const target = await this.ports.resolve(q.agent)
 
           if (!current()) {
             return result('cancelled')
@@ -160,7 +157,6 @@ export class ConnectorService {
             request: q,
             thread: caller.threadId,
             ...target,
-            protectedInput: admission.protected,
             transaction: `work-${createHash('sha256').update(q.request_id).digest('hex')}`,
             deadline: Date.now() + 300_000
           }
@@ -174,10 +170,10 @@ export class ConnectorService {
           }
         }
 
-        // Recheck before sending or retrying a transaction built on an earlier route.
-        const sendAdmission = await this.ports.admit(caller, false)
+        // Recheck before sending or retrying a persisted request.
+        const sendAdmission = await this.ports.admit(caller)
 
-        if (!current() || !sendAdmission || sendAdmission.protected !== Boolean(r.protectedInput)) {
+        if (!current() || !sendAdmission) {
           return result(current() ? 'unavailable' : 'cancelled', r)
         }
 
@@ -222,7 +218,7 @@ export class ConnectorService {
       }
 
       if (answer) {
-        const allowed = await this.ports.admit(caller, answer.dataClass !== 'non_google')
+        const allowed = await this.ports.admit(caller)
 
         if (!current()) {
           return result('cancelled', r)
@@ -233,14 +229,7 @@ export class ConnectorService {
         }
 
         if (!allowed) {
-          return result(
-            answer.dataClass === 'unknown'
-              ? 'provenance_unavailable'
-              : answer.dataClass === 'google'
-                ? 'google_requires_atum'
-                : 'unavailable',
-            r
-          )
+          return result('unavailable', r)
         }
 
         return { ...result('answered', r), answer: answer.body, provenance: answer.dataClass }

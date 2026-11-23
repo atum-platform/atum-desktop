@@ -2208,9 +2208,9 @@ def _managed_summary_call(agent, api_request_id: str, request, callback, *, retr
     # A summary is a real auxiliary model attempt. Keep its capability and routing
     # checks while separating its accounting identity from the main/training turn.
     from agent.atum_google_fence import assert_route
-    from agent.workspace_route_guard import protect_agent_request, workspace_route_guard_required
+    from agent.workspace_route_guard import protect_agent_request
     assert_route(getattr(agent, "base_url", None), getattr(agent, "api_mode", None))
-    if getattr(agent, "provider", None) == "atum-managed" or workspace_route_guard_required():
+    if getattr(agent, "provider", None) == "atum-managed" or os.environ.get("ATUM_FILESYSTEM_CAPABILITY_REQUIRED") == "1":
         request = {**request, "extra_headers": dict(request.get("extra_headers") or {})}
         request["extra_headers"].pop("x-atum-request-id", None)
         protect_agent_request(agent, request, purpose="auxiliary")

@@ -1,7 +1,6 @@
 import { Direction, EventType, type MatrixClient, MsgType } from 'matrix-js-sdk'
 
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage } from '../../shared/matrix'
-import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { MATRIX_FIND_TURN } from '../../shared/matrix-turn'
 import { WORK_REQUEST_KEY, workAnswer } from '../../shared/work-question'
 
@@ -32,14 +31,12 @@ export async function sendWorkQuestion(
     requestId: string
     threadId: string
     transactionId: string
-    protectedInput?: boolean
   }
 ): Promise<string> {
   const content = {
     msgtype: MsgType.Text as const,
     body: q.question,
     'm.mentions': { user_ids: [q.agentId] },
-    ...(q.protectedInput ? { [MATRIX_GOOGLE_PROVENANCE_KEY]: { v: 1, google: true } } : {}),
     [WORK_REQUEST_KEY]: { v: 1, request_id: q.requestId, source: 'work', intent: 'question', thread_id: q.threadId }
   }
 

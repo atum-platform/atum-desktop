@@ -139,3 +139,11 @@ policy or admit protected replies. Ordinary Work keeps the native
 administrator policy. A home with protected history requires the guarded
 runtime before it can reopen. The native policy sources are defined at
 `packages/shared/src/managedPolicyFile.ts:36` and `:93` in the Work fork.
+
+
+## November 23 owner decision
+
+Release uses user attestation. Provenance is informational and has no effect on
+provider choice, connector answer eligibility, group routing or Work admission.
+Desktop revalidates the live native invocation immediately before returning the
+answer in `ConnectorService.ask`. A future release policy can use this seam.

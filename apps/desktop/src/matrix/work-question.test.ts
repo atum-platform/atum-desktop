@@ -6,32 +6,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage } from '../../shared/matrix'
 import { MATRIX_FIND_TURN } from '../../shared/matrix-turn'
 
-import { readWorkAnswer, sendWorkQuestion, trustedWorkReply } from './work-question'
-it('carries protected question provenance on the native Matrix send', async () => {
-  const sendEvent = vi.fn<MatrixClient['sendEvent']>().mockResolvedValue({ event_id: '$question' })
-  const client = { sendEvent } as unknown as MatrixClient
-  const question = {
-    roomId: '!dm:test',
-    agentId: '@agent:test',
-    question: 'question',
-    requestId: 'request',
-    threadId: 'thread',
-    transactionId: 'transaction'
-  }
-  expect(await sendWorkQuestion(client, question)).toBe('$question')
-  expect(sendEvent).toHaveBeenLastCalledWith(
-    question.roomId, EventType.RoomMessage, expect.not.objectContaining({ 'io.atum.provenance': expect.anything() }),
-    question.transactionId
-  )
-  await sendWorkQuestion(client, { ...question, protectedInput: true })
-  expect(sendEvent).toHaveBeenLastCalledWith(
-    question.roomId,
-    EventType.RoomMessage,
-    expect.objectContaining({ 'io.atum.provenance': { v: 1, google: true } }),
-    question.transactionId
-  )
-})
-
+import { readWorkAnswer, trustedWorkReply } from './work-question'
 it('requires exact room, sender, relation and encryption trust', () => {
   const message: MatrixInvocationMessage = {
     roomId: '!dm:test',

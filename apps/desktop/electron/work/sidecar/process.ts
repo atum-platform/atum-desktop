@@ -1,13 +1,11 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { lstat, mkdir, readFile } from 'node:fs/promises'
-import { userInfo } from 'node:os'
+import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { protectedThreadsPath, protectedWorkRoute } from '../connector/protected-route'
 import type { TrialContext, TrialHandle } from '../session/update'
 
 export const ATUM_WORK_MODEL = 'atum-managed:binh-minh'
@@ -108,20 +106,6 @@ export function workRuntimeEnvironment(root: string, resources: string): Record<
 
 type Supervisor = ChildProcessByStdio<Writable, Readable, null>
 
-// Match T3's native macOS managed-policy sources so Work cannot mask either.
-async function nativePolicyPresent(): Promise<boolean> {
-  const nativePolicyPaths = [
-    '/Library/Application Support/T3Code/policy.json',
-    '/Library/Managed Preferences/com.t3tools.t3code.plist',
-    join('/Library/Managed Preferences', userInfo().username, 'com.t3tools.t3code.plist')
-  ]
-  const present = await Promise.all(
-    nativePolicyPaths.map(path => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => error.code !== 'ENOENT'))
-  )
-
-  return present.some(Boolean)
-}
-
 async function startProcess(options: WorkProcessOptions, { continuation, trial }: WorkStartOptions, signal: AbortSignal) {
   const { account, resources } = options
   const root = join(account.root, 'work')
@@ -131,17 +115,6 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const source = join(resources, 'runtime', 'hermes-agent')
   const python = join(resources, 'runtime', 'python', 'bin', 'python3.14')
   const profileSource = join(source, 'acp_adapter', 'profiles')
-
-  const pin = await readFile(join(resources, 'work-runtime', 'pin.json'), 'utf8')
-    .then(text => JSON.parse(text) as { protectedConnector?: boolean })
-    .catch(() => undefined)
-
-  const protectedConnector = pin?.protectedConnector === true && !(await nativePolicyPresent())
-
-  // A previous runtime must never reopen a home whose provider fence it cannot enforce.
-  if (!protectedConnector && protectedWorkRoute(account.root) !== 'open') {
-    throw new Error('work_protected_runtime_required')
-  }
 
   const profiles = BROKER_PROFILES.map(({ directory }) => join(root, directory))
   await Promise.all([join(home, 'userdata'), cwd, osHome, ...profiles].map(directory =>
@@ -199,23 +172,6 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     },
     trial,
     profileSource,
-    ...(protectedConnector
-      ? {
-          protectionPolicy: {
-            path: join(root, 'provider-policy.json'),
-            document: {
-              schemaVersion: 1,
-              organization: 'Atum',
-              settings: {
-                [`providerInstances.${ATUM_WORK_PROVIDER}`]: {
-                  value: providerInstances[ATUM_WORK_PROVIDER],
-                  locked: true
-                }
-              }
-            }
-          }
-        }
-      : {}),
     gateways: profiles.map(profile => ({ ...environment, ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))), HERMES_HOME: profile })),
     connectorToken: credentials.ATUM_WORK_CONNECTOR_TOKEN,
     executable: join(resources, 'work-runtime', 't3'),
@@ -224,12 +180,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       ...(credentials.ATUM_WORK_CONNECTOR_URL
       ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
       : {}),
-      ...(protectedConnector
-        ? {
-            ATUM_WORK_CONNECTOR_PROTECTED_DIR: protectedThreadsPath(account.root),
-            ATUM_WORK_CONNECTOR_POLICY: join(root, 'provider-policy.json')
-          }
-        : {})
+
     },
     cwd
   }) + '\n')

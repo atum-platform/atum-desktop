@@ -9,7 +9,7 @@ import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-mode
 import type { SafeStorageLike } from '../encrypted-store'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
-import { admitConnector, protectedThreadsPath, protectedWorkRoute } from '../work/connector/protected-route'
+import { admitConnector } from '../work/connector/admission'
 import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
@@ -72,7 +72,6 @@ export interface MatrixWorkModelPort {
   probe(role: string, signal?: AbortSignal): Promise<{ ok: true } | { ok: false; code: string }>
   /** `MatrixManagedModel.abortAgent`: cancel this role's forwards that are on their way to the gateway. */
   abortRole?(role: string): void
-  servesProtectedRoute?(signal: AbortSignal): Promise<boolean | null>
 }
 
 /** The owner's wallet, a real read of the platform ledger (the one the Matrix wallet shows): `account.wallet`. */
@@ -135,7 +134,7 @@ export interface MatrixWork {
   quit(): Promise<void>
   /** The local keys Work's gateways present to the model proxy, in `MatrixManagedModel`'s `keys()` shape. */
   modelKeys(): [key: string, role: string][]
-  modelRoute(): ReturnType<typeof protectedWorkRoute>
+  modelRoute(): 'open' | 'refused'
 }
 
 // What the page sees of a gate that has not started: nothing enrolled, so no Work entry for assistants.
@@ -375,12 +374,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           owner: () => deps.ownerHost(),
           agent: principal => deps.agentMatrixUser(principal),
           current,
-          admit: (caller, protectedData) =>
-            admitConnector(caller, protectedData, {
+          admit: caller =>
+            admitConnector(caller, {
               origin: () => host.current()?.origin,
               current,
-              servesProtectedRoute: signal => deps.model.servesProtectedRoute?.(signal) ?? Promise.resolve(null),
-              route: () => protectedWorkRoute(bound.root),
               signal,
               secret
             })
@@ -414,7 +411,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       return {
         ...connectorEnvironment,
-        ATUM_WORK_PROTECTED_DIRECTORY: protectedThreadsPath(active.root),
         ATUM_MANAGED_MODEL_BASE_URL: baseUrl,
         ATUM_MANAGED_MODEL_DEFAULT: WORK_DEFAULT_MODEL,
         ATUM_MANAGED_MODEL_PROXY_TOKEN: modelKeys.mint()
@@ -676,10 +672,6 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     update: target => session.update(target),
     modelKeys: () => modelKeys.keys(),
-    modelRoute: () => {
-      const active = account()
-
-      return active ? protectedWorkRoute(active.root) : 'refused'
-    }
+    modelRoute: () => account() ? 'open' : 'refused'
   }
 }

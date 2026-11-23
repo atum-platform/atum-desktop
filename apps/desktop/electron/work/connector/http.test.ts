@@ -14,7 +14,7 @@ it('authenticates the private channel and rejects browser and forged caller inpu
     resolve: async () => undefined,
     send: async () => '$never',
     read: async () => undefined,
-    admit: async () => ({ protected: false })
+    admit: async () => true
   })
 
   const http = new ConnectorHttp(service, 'fixture-secret')
@@ -81,7 +81,7 @@ it('retires the old credential and fails closed across a replacement on the same
 
           return { dataClass: 'non_google', body: 'answer' }
         },
-        admit: async () => ({ protected: false })
+        admit: async () => true
       }),
       secret
     )
