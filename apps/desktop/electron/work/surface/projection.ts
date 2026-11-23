@@ -1,3 +1,4 @@
+import type { AccountPlan } from '../../../shared/account-connections'
 import type {
   MatrixWorkAgentActivity,
   MatrixWorkAssistants,
@@ -7,13 +8,14 @@ import type {
 } from '../../../shared/matrix-work'
 import type { WorkSubscriptionState } from '../gate/contract'
 import type { GateServiceState } from '../gate/service'
+import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
 
 /** The slice of lane G's read-only state the Work screen draws. */
 export type GateSurfaceState = Pick<
   GateServiceState,
   'agents' | 'enrolled' | 'phase' | 'socket' | 'switchOn' | 'workGrantAccepted'
 > &
-  Partial<Pick<GateServiceState, 'planConnected' | 'planSwitchOn'>>
+  Partial<Pick<GateServiceState, 'planConnected' | 'planSwitchOn' | 'connectedPlans' | 'relayAccountConsent'>>
 
 /**
  * The plan switch (gate 4b): drawn while T3 says the plan is connected on this Mac, and whenever it is on (so it can be turned
@@ -28,21 +30,23 @@ export function projectWorkPlan(state: GateSurfaceState | null | undefined): Mat
     return 'on'
   }
 
-  return state.planConnected === 'connected' ? 'off' : undefined
+  return state.planConnected === 'connected' || state.connectedPlans?.length ? 'off' : undefined
 }
 
-/** T3's own provider screen, on the Codex instance (`apps/web/src/routes/_chat.settings.providers.tsx` in the fork). */
-export const WORK_PLAN_CONNECT_PATH = '/settings/providers?instanceId=codex'
 
-/**
- * Gate 4a: the Connect step and row. Hidden until main says every 4a row holds for this account; then `offer` until T3 itself says
- * the plan is connected on this Mac. `unknown` (T3 could not be asked) still offers: the screen it opens is T3's own.
- */
-export function projectWorkPlanConnect(open: boolean, state: GateSurfaceState | null | undefined): MatrixWorkPlanConnect | undefined {
-  if (!open) {
-    return undefined
-  }
+export const WORK_PLAN_CONNECT_PATH = workPlanConnectPath('codex')
 
+/** The same screen on each plan's built-in instance (`PLAN_PROVIDER_BY_INSTANCE`, reversed). */
+export function workPlanConnectPath(plan: AccountPlan = 'codex'): string {
+  const instance = (Object.keys(PLAN_PROVIDER_BY_INSTANCE) as (keyof typeof PLAN_PROVIDER_BY_INSTANCE)[]).find(
+    id => PLAN_PROVIDER_BY_INSTANCE[id] === plan
+  )
+
+  return `/settings/providers?instanceId=${instance ?? 'codex'}`
+}
+
+/** Offer native setup until T3 confirms the plan is connected on this Mac. */
+export function projectWorkPlanConnect(state: GateSurfaceState | null | undefined): MatrixWorkPlanConnect {
   return state?.planConnected === 'connected' ? 'connected' : 'offer'
 }
 
@@ -60,6 +64,7 @@ export function projectWorkConsent(
   const on = record.state === 'on'
   const named = new Set(on ? record.devices : [])
   const names = new Map(read.facts.flatMap(fact => (fact.displayName ? [[fact.deviceServiceId, fact.displayName] as const] : [])))
+
   const ids = [
     ...(thisMac ? [thisMac] : []),
     ...read.facts.filter(fact => fact.status === 'connected').map(fact => fact.deviceServiceId),

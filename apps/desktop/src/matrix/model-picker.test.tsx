@@ -1,11 +1,13 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $accountConnect, $accountConnections, resetAccountConnectionsForTest } from '@/app/connections/store'
 import { $work, $workActive, resetWorkStoreForTests } from '@/app/work/store'
 import { I18nProvider } from '@/i18n'
 
 import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
 import { ownerHomeViewFor } from '../../electron/matrix/agent-home-placement/view'
+import { ACCOUNT_CONNECTIONS_FIXTURE } from '../../shared/account-connections'
 import type {
   MatrixAgentHomeBridge,
   MatrixAgentHomeModelOption,
@@ -30,6 +32,7 @@ import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
 
 beforeEach(() => {
+  resetAccountConnectionsForTest()
   window.localStorage.clear()
   vi.stubGlobal(
     'ResizeObserver',
@@ -319,7 +322,7 @@ interface PickerOptions {
   home?: MatrixAgentHomeView
   cloudOnly?: boolean
   lastFallback?: MatrixSubscriptionFallback
-  workRelay?: MatrixModelPickerRelay
+  workRelay?: readonly MatrixModelPickerRelay[]
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -606,12 +609,15 @@ describe('the T3-layout conversation model picker', () => {
 
   it('lists Atum’s models for a Mac assistant on its own connection; one click switches back AND picks the model', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`setModel:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     let view: ReturnType<typeof picker> | undefined
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
       // As main does: the assistant is back on Atum's AI, so its projection changes under the card.
@@ -619,6 +625,7 @@ describe('the T3-layout conversation model picker', () => {
 
       return { state: 'ready' as const }
     })
+
     const onBackToAtum = vi.fn()
 
     view = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command, useAtumModel }, onBackToAtum })
@@ -647,6 +654,7 @@ describe('the T3-layout conversation model picker', () => {
     const command = vi.fn(async () => {
       throw new Error('matrix_model_choice_unavailable')
     })
+
     const { fail } = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command } })
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
     await waitFor(() => expect(rail(card, 'atum')).toBeTruthy())
@@ -710,7 +718,8 @@ describe('the T3-layout conversation model picker', () => {
     })
     const card = await open('Model: Nguyệt Thực 1.3')
 
-    expect(rail(card, 'openai-codex')).toBeFalsy()
+    // The account's plans always have a rail entry; with none connected each mark is hollow and nothing of this Mac is listed.
+    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
     expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
@@ -736,7 +745,7 @@ describe('the T3-layout conversation model picker', () => {
 
     const card = await open('Model: Nguyệt Thực 1.3')
 
-    expect(rail(card, 'openai-codex')).toBeFalsy()
+    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
     expect(model).toHaveBeenCalledWith('agent-luna', expect.objectContaining({ model: 'nhat-thuc' }))
@@ -855,6 +864,7 @@ describe('the T3-layout conversation model picker', () => {
         bridge: plan()
       }
     )
+
     const card = await open('Model: ChatGPT · GPT-5.6 Luna · Thorough')
 
     const levels = await waitFor(() => within(card).getByRole('radiogroup', { name: /^Thinking: / }))
@@ -1031,14 +1041,17 @@ describe('the thinking column only where a level can be chosen', () => {
     home.placement!.destinations = home.placement!.destinations.map(destination => ({
       ...destination, models: destination.models.map(option => option.model === multi.model ? multi : option)
     }))
+
     const model = vi.fn().mockResolvedValueOnce({ status: 'refused', reason: 'connection_unavailable' })
       .mockResolvedValue({ status: 'saved' })
+
     const view = picker(ROOM, {
       agentPrincipal: 'agent-luna', home, managed: true, cloud: true, local: true, here: 'cloud',
       cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
         models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] },
       bridge: { agentHome: homeBridge(model) }
     })
+
     const card = await open('Model: Nguyệt Thực 1.3')
     const high = () => card.querySelector<HTMLButtonElement>('[data-matrix-model-effort-level="high"]')!
     fireEvent.click(high())
@@ -1048,11 +1061,13 @@ describe('the thinking column only where a level can be chosen', () => {
     await waitFor(() => expect(model).toHaveBeenCalledTimes(2))
     expect(high().disabled).toBe(true)
     expect(view.command).not.toHaveBeenCalled()
+
     const refreshedHome = ownerHomeViewFor(cloudHome(multi), {
       snapshot: ownerSnapshotFixture as Parameters<typeof ownerHomeViewFor>[1]['snapshot'], catalogs: {}
     }, null, null, { source: 'atum', model: multi.model, effort: 'high' }, [
       { alias: multi.model, efforts: multi.efforts, defaultEffort: 'medium', eligible: true }
     ])
+
     view.rerender(ROOM, { home: refreshedHome })
     await waitFor(() => expect(high().disabled).toBe(false))
     expect(high().getAttribute('aria-checked')).toBe('true')
@@ -1228,13 +1243,12 @@ describe('account subscriptions in the model picker', () => {
     expect(card.querySelector('[data-matrix-model-note]')!.textContent).toBe('ChatGPT needs you to sign in again.')
     expect(within(card).queryByText('Reconnect ChatGPT')).toBeNull()
 
-    // Connect opens the service chooser in place; ChatGPT there starts its sign-in.
+    // Connect opens the service chooser in place; ChatGPT there opens the one account connect sheet, never a device code.
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail] [data-matrix-model-connect]')!)
-    const chooser = await screen.findByRole('dialog', { name: 'Your subscription' })
-    expect(within(chooser).getByRole('button', { name: /ChatGPT.*needs you to sign in again/ })).toBeTruthy()
-    fireEvent.click(chooser.querySelector<HTMLButtonElement>('[data-matrix-subscription-choice="openai-codex"]')!)
-    await waitFor(() => expect(screen.getByText('CODE-123')).toBeTruthy())
-    expect(subscriptions.startChatGpt).toHaveBeenCalledOnce()
+    const chooser = await screen.findByRole('dialog', { name: 'Subscriptions' })
+    fireEvent.click(chooser.querySelector<HTMLButtonElement>('[data-matrix-subscription-choice="codex"]')!)
+    expect($accountConnect.get()).toEqual({ plan: 'codex', mode: 'connect' })
+    expect(subscriptions.startChatGpt).not.toHaveBeenCalled()
     expect(onSubscriptions).not.toHaveBeenCalled()
   })
 
@@ -1253,9 +1267,11 @@ describe('account subscriptions in the model picker', () => {
     expect(within(card).queryByText(/Use your ChatGPT|Connect OpenCode|Use your ChatGPT or OpenCode plan/)).toBeNull()
 
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail] [data-matrix-model-connect]')!)
-    const chooser = within(await screen.findByRole('dialog', { name: 'Your subscription' }))
-    expect(chooser.getByRole('button', { name: /ChatGPT/ })).toBeTruthy()
-    expect(chooser.getByRole('button', { name: /OpenCode Go/ })).toBeTruthy()
+    const chooser = within(await screen.findByRole('dialog', { name: 'Subscriptions' }))
+
+    for (const name of [/ChatGPT/, /Claude/, /Antigravity/, /OpenCode Go/]) {
+      expect(chooser.getByRole('button', { name })).toBeTruthy()
+    }
 
     fireEvent.click(chooser.getByRole('button', { name: /OpenCode Go/ }))
     expect(await screen.findByLabelText('OpenCode Go key')).toBeTruthy()
@@ -1322,6 +1338,7 @@ describe('account subscriptions in the model picker', () => {
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
     const command = vi.fn(async () => ({ status: 'applied' as const }))
     const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+
     const bridge = {
       command,
       subscriptions,
@@ -1332,6 +1349,7 @@ describe('account subscriptions in the model picker', () => {
         cap: vi.fn(async () => ({ status: 'saved' as const }))
       }
     }
+
     const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
 
     const view = picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
@@ -1349,6 +1367,7 @@ describe('account subscriptions in the model picker', () => {
       subscription: { source: 'chatgpt_plan', model: 'gpt-6-sol', effort: 'medium', displayName: 'GPT-6 Sol' },
       subscriptionState: 'connected'
     }
+
     view.rerender(ROOM, { cloudChoice: chatgptSaved })
 
     // Rail and list stay; the chosen model is checked; nothing says "no models".
@@ -1379,11 +1398,13 @@ describe('account subscriptions in the model picker', () => {
 
   it('takes an assistant on this Mac from its ChatGPT connection back to an Atum model in one click', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`command:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
 
@@ -1448,6 +1469,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const onSubscriptions = vi.fn()
 
     picker(ROOM, { bridge: { subscriptions }, cloud: true, local: true, managed: true, onSubscriptions })
@@ -1496,6 +1518,31 @@ describe('account subscriptions in the model picker', () => {
     expect(row(card, OPENROUTER_ROUTE)).toBeTruthy()
   })
 
+  it('lists every account plan in the rail: a connected plan the relay does not carry is greyed with one line; one connected nowhere is one Connect', async () => {
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+    picker(ROOM, { cloud: true, here: 'cloud', local: true, managed: true, cloudChoice: { offered: ['default'], current: 'default' } })
+    const card = await open('Model: Nguyệt Thực 1.3')
+
+    // Atum first, connected plans next, the plan to connect last; its mark is hollow.
+    const items = [...card.querySelectorAll('[data-matrix-model-rail-item]')].map(item => item.getAttribute('data-matrix-model-rail-item'))
+    expect(items.indexOf('atum')).toBeLessThan(items.indexOf('claude-plan'))
+    expect(items.indexOf('claude-plan')).toBeLessThan(items.indexOf('antigravity'))
+    expect(rail(card, 'antigravity').className).toMatch(/opacity-45/u)
+
+    fireEvent.click(rail(card, 'claude-plan'))
+    const claude = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
+    expect(claude.disabled).toBe(true)
+    expect(card.textContent).toContain('Works in Work for now')
+
+    fireEvent.click(rail(card, 'antigravity'))
+    const connect = card.querySelector('[data-atum-picker-connect="antigravity"]')!
+    expect(connect.textContent).toContain('Use your Antigravity plan')
+    fireEvent.click(within(connect as HTMLElement).getByRole('button', { name: 'Connect' }))
+    expect($accountConnect.get()).toEqual({ plan: 'antigravity', mode: 'connect' })
+    // No price, limit, relay or Mac text in the picker.
+    expect(card.textContent ?? '').not.toMatch(/relay|offline|Protons|% used/iu)
+  })
+
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {
     picker(ROOM, { cloud: true, connected: CHATGPT, managed: false, onSubscriptions: null })
     const card = await open(/Model:/)
@@ -1521,6 +1568,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const staleChatGpt = { ...HOME_GPT, available: false }
 
     picker(ROOM, {
@@ -1726,9 +1774,11 @@ describe('account subscriptions in the model picker', () => {
 
   it('keeps each provider’s list apart: one model id under ChatGPT and OpenCode Go is two choices', async () => {
     const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+
     const { bridge, writeSubscription, command } = cloudPlanBridge(
       subscriptionsBridge({ chatgpt: ['gpt-6-sol'], opencode: ['gpt-6-sol'] })
     )
+
     const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
 
     picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
@@ -2014,6 +2064,7 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
       },
       { id: 'opencode-go' as const, connected: false }
     ]
+
     const subscriptions = {
       catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers })),
       status: vi.fn(async () => ({ scope: 'account' as const, providers })),
@@ -2027,6 +2078,7 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
       confirmChatGptTraining: confirm,
       revokeChatGptTraining: vi.fn(async () => ({ status: 'unavailable' as const }))
     }
+
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
 
     picker(ROOM, {
@@ -2121,9 +2173,11 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
 
   it('a changed relay connection re-reads, unticks and asks again for the new one; a failure stays calm', async () => {
     const NEXT = '0a1b2c3d-0000-4000-8000-00000000000b'
+
     const confirm = vi.fn<NonNullable<MatrixSubscriptionsBridge['confirmChatGptTraining']>>()
       .mockResolvedValueOnce({ status: 'stale' })
       .mockResolvedValueOnce({ status: 'unavailable' })
+
     const { subscriptions, writeSubscription } = setup(training(), confirm)
     const card = await pickSol()
 
@@ -2175,6 +2229,7 @@ describe('standard managed cloud conversation effort', () => {
       cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: model, effort: 'medium',
         models: [{ alias: model, efforts: ['low', 'medium', 'high'], defaultEffort: 'medium' }] }
     })
+
     const card = await open(model === 'nguyet-thuc' ? 'Model: Nguyệt Thực 1.3' : 'Model: Nhật Thực 1.1')
     const column = card.querySelector('[data-matrix-model-effort-column]')!
     expect(column).not.toBeNull()
@@ -2243,7 +2298,7 @@ describe('relay R1: plan rows from the relay view-model (lane U1)', () => {
       cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' },
       local: true,
       managed: true,
-      workRelay: { view, select, fix, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] }
+      workRelay: [{ view, select, fix, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] }]
     })
 
     return { fix, select, writeSubscription }

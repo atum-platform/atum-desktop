@@ -1,6 +1,5 @@
 import { Direction, EventType, type MatrixClient, MatrixEvent, MsgType } from 'matrix-js-sdk'
 
-import { MATRIX_GOOGLE_PROVENANCE_KEY } from '../../shared/matrix-google-tools'
 import { matrixGroupMode } from '../../shared/matrix-group-room'
 import { matrixReplyWords } from '../../shared/matrix-turn-intake'
 import { type ContextEvent, projectRecentContext, type RoomMember } from '../../shared/room-participation'
@@ -199,17 +198,6 @@ export async function readGroupRecent(
             continue
           }
 
-          if (input.purpose === 'routing' && googleProvenance(content)) {
-            // Treat protected Google-derived text as an unreadable gap. It must influence neither
-            // routing state nor a model prompt, while preserving the fact that room history has a hole.
-            fact.verified = false
-            fact.decrypted = false
-            fact.text = ''
-            events.push(fact)
-
-            continue
-          }
-
           events.push(fact)
 
           if (input.purpose !== 'routing' && raw.sender === input.viewerAgentId) {
@@ -296,8 +284,4 @@ export async function readGroupRecent(
     done = true
     clearTimeout(timer)
   }
-}
-
-function googleProvenance(content: Record<string, unknown>): boolean {
-  return Object.prototype.hasOwnProperty.call(content, MATRIX_GOOGLE_PROVENANCE_KEY)
 }

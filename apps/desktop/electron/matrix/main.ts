@@ -795,7 +795,7 @@ import {
   registerMatrixMemberAvatarIpc,
   registerMatrixProfilesIpc
 } from './main-profiles'
-import { createMatrixWork, type MatrixWork } from './main-work'
+import { createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWork } from './main-work'
 import { matrixManagedAgentPrincipal, MatrixManagedModel } from './managed-model'
 import { dispatchMatrixCommand } from './message-dispatch'
 import { MatrixMessageLinkBroker } from './message-link-broker'
@@ -2954,6 +2954,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
 
   const savedCloud = modelDestinations?.snapshot(principal)?.choices.find(choice => choice.destination === 'cloud')
+
   const cloudModel = cloudDestinationChoice?.external
     ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
       ? {
@@ -6851,6 +6852,7 @@ function publish(next: MatrixSnapshot) {
   companyStore?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   store?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   officialAccounts?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   // Work binds to the account once the window is ready; it is torn down by sign-out, never by a transient state.
   if (!closing && next.state === 'ready' && next.identity) {void work?.activate()}
   // The account may just have changed: the shared Mac names are scoped to it.
@@ -6868,6 +6870,7 @@ function publish(next: MatrixSnapshot) {
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -9669,10 +9672,6 @@ async function runGroupTurn(
                 const router = groupRelevanceRouter
 
                 try {
-                  if (message.content.googleProtected) {
-                    throw new Error('matrix_group_routing_protected')
-                  }
-
                   if (!router) {
                     throw new Error('matrix_group_routing_unavailable')
                   }
@@ -19233,7 +19232,7 @@ async function start() {
       ],
       bearer: refresh => account.managedModelBearer(refresh),
       // The Google fence: a latched default assistant uses only the protected route.
-      route: role => googleAssistant.route(role),
+      route: role => (role === MATRIX_WORK_MODEL_ROLE ? (work?.modelRoute() ?? 'refused') : googleAssistant.route(role)),
       hatchKey: (role, key) =>
         Array.from(matrixPetHatches.values()).some(
           run =>
@@ -20524,6 +20523,7 @@ async function start() {
   // Everything it needs from this window is a port here; `main-work.ts` holds no account logic of its own.
   if (config.domain) {
     const domain = config.domain
+
     const ownerPrincipal = () => {
       try {
         return account.enrollment().identity?.principal
@@ -20555,6 +20555,26 @@ async function start() {
       deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      prepareChatGptConnect: () => account.s1Request(async (token, base, signal) => {
+        // The Shell route checks status first and performs the idempotent account retirement only if needed.
+        const response = await session.defaultSession.fetch(`${base}/api/connections/openai-codex/uncarry`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: '{}',
+          redirect: 'error',
+          signal
+        })
+
+        if (response.status === 401) {
+          throw new Error('matrix_s1_authentication')
+        }
+
+        const status = response.ok ? await response.json() as { state?: unknown } | null : null
+
+        if (status?.state !== 'work') {
+          throw new Error('work_chatgpt_custody_pending')
+        }
+      }, AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       ownerHost: () => {
         const owner = hosts.get('human')
 

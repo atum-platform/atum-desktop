@@ -1,15 +1,21 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 
+import semver from 'semver'
+
+import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
+import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
-export const ATUM_WORK_MODEL = 'atum-managed:binh-minh'
 export const ATUM_WORK_PROVIDER = 'atum-managed'
+export const ATUM_WORK_DEFAULT_ALIAS = MATRIX_DEFAULT_MODEL
+export const ATUM_WORK_MODEL = `${ATUM_WORK_PROVIDER}:${ATUM_WORK_DEFAULT_ALIAS}`
 export const ATUM_WORK_DELEGATED_PROVIDER = 'atum-managed-delegated'
 
 interface WorkAccount {
@@ -19,6 +25,7 @@ interface WorkAccount {
 }
 
 interface WorkProcessOptions {
+  prepare?(signal: AbortSignal): Promise<void>
   account: WorkAccount
   resources: string
   gatewayEnvironment: () => Record<string, string>
@@ -34,6 +41,7 @@ export interface WorkIncarnation {
   home: string
   pid: number
   exited: Promise<void>
+  relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
 }
@@ -54,13 +62,21 @@ export interface WorkStartOptions {
  * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
  * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
  */
-export const WORK_PLAN_CONNECT_SHIPPED = false
+export function workRelayRuntimeReady(resources: string): boolean {
+  try {
+    const pin = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: string }
+
+    return Boolean(pin.version && semver.valid(pin.version) && semver.gte(pin.version, '0.1.12'))
+  } catch {
+    return false
+  }
+}
 
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
 const BROKER_PROFILES = [
-  { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum' },
-  { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)' }
+  { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum', showInPicker: true },
+  { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)', showInPicker: false }
 ]
 
 export function workPairingOrigin(url: string): string | undefined {
@@ -71,17 +87,18 @@ export function workPairingOrigin(url: string): string | undefined {
   }
 }
 
-function provider(python: string, home: string, label: string) {
+function provider(python: string, home: string, label: string, showInPicker: boolean) {
   return {
     driver: 'acpRegistry',
     displayName: label,
     enabled: true,
+    showInPicker,
     config: {
       source: 'local',
       commandPath: python,
       commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed']
     },
-    environment: [{ name: 'HERMES_HOME', value: home }]
+    environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
   }
 }
 
@@ -114,6 +131,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const source = join(resources, 'runtime', 'hermes-agent')
   const python = join(resources, 'runtime', 'python', 'bin', 'python3.14')
   const profileSource = join(source, 'acp_adapter', 'profiles')
+
   const profiles = BROKER_PROFILES.map(({ directory }) => join(root, directory))
   await Promise.all([join(home, 'userdata'), cwd, osHome, ...profiles].map(directory =>
     mkdir(directory, { recursive: true, mode: 0o700 })
@@ -122,13 +140,9 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const environment = workRuntimeEnvironment(root, resources)
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
-  const providerInstances = Object.fromEntries([
-    ['codex', { driver: 'codex', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
-    ['claudeAgent', { driver: 'claudeAgent', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
-    ...BROKER_PROFILES.map(({ directory, instance, label }) => [
-      instance, provider(python, join(root, directory), label)
-    ])
-  ])
+  const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
+    instance, provider(python, join(root, directory), label, showInPicker)
+  ]))
 
   if (signal.aborted || !options.current()) {
     throw new Error('work_account_changed')
@@ -168,11 +182,26 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       textGenerationModelSelection: managedModel,
       providerInstances
     },
+    planProviderDefaults: PLAN_PROVIDER_DEFAULTS,
     trial,
     profileSource,
-    gateways: profiles.map(profile => ({ ...environment, ...credentials, HERMES_HOME: profile })),
+    managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
+    managedProvider: ATUM_WORK_PROVIDER,
+    gateways: profiles.map(profile => ({
+      ...environment,
+      ...Object.fromEntries(Object.entries(credentials).filter(([key]) => !key.startsWith('ATUM_WORK_CONNECTOR_'))),
+      ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
+      HERMES_HOME: profile
+    })),
+    connectorToken: credentials.ATUM_WORK_CONNECTOR_TOKEN,
     executable: join(resources, 'work-runtime', 't3'),
-    environment,
+    environment: {
+      ...environment,
+      ...(credentials.ATUM_WORK_CONNECTOR_URL
+      ? { ATUM_WORK_CONNECTOR_URL: credentials.ATUM_WORK_CONNECTOR_URL }
+      : {}),
+
+    },
     cwd
   }) + '\n')
   void exited.then(() => signal.removeEventListener('abort', stop))
@@ -356,6 +385,8 @@ export class WorkSidecar {
     const signal = controller.signal
 
     try {
+      await this.options.prepare?.(signal)
+      signal.throwIfAborted()
       const { child, exited, home, stop } = await startProcess(this.options, input, signal)
       this.teardown = exited
       const startup = readStartup(child, exited, signal)
@@ -391,6 +422,7 @@ export class WorkSidecar {
         },
         home,
         pid: await startup.pid,
+        relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
         trial,
         takePairingUrl: () => {

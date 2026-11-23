@@ -1,3 +1,5 @@
+import { type AccountConnectionsView } from './account-connections'
+import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
 import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './matrix-work-relay'
 
 /**
@@ -96,6 +98,8 @@ export interface MatrixWorkProjection {
   relayChats?: string[]
   planLimit?: WorkRelayLimit
   planLimits?: readonly WorkRelayLimit[]
+  connectedPlans?: readonly WorkRelayPlan[]
+  relayAccountConsent?: boolean
   view: MatrixWorkViewState
   assistants: MatrixWorkAssistants
   /** Absent: no plan is connected on this Mac and the switch is off, so nothing is drawn. */
@@ -122,7 +126,7 @@ export type MatrixWorkRequest =
   | { kind: 'getSurfaceMode' }
   | { kind: 'setSurfaceMode'; projectId: string; mode: 'work' | 'code' }
   | { kind: 'readRelay'; principal: string; roomId: string }
-  | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string }
+  | { kind: 'selectRelay'; principal: string; expectedRevision: number; model: string; plan?: WorkRelayPlan }
   | { kind: 'stopRelay'; roomId: string; eventId: string }
   | { kind: 'read' }
   | { kind: 'show'; rect: MatrixWorkRect }
@@ -132,10 +136,11 @@ export type MatrixWorkRequest =
   | { kind: 'setAssistants'; on: boolean }
   | { kind: 'setPlan'; on: boolean }
   /** Gate 4a: open T3's own Codex connect screen inside Work. Atum never sees the login. */
-  | { kind: 'openPlanConnect' }
-  | { kind: 'readPlanConsent' }
-  | { kind: 'setPlanConsent'; consent: MatrixWorkPlanConsentInput }
-  | { kind: 'revokePlanConsent' }
+  | { kind: 'openPlanConnect'; plan?: WorkRelayPlan }
+  | { kind: 'readPlanConsent'; plan?: WorkRelayPlan }
+  | { kind: 'setPlanConsent'; consent: MatrixWorkPlanConsentInput; plan?: WorkRelayPlan }
+  | { kind: 'revokePlanConsent'; plan?: WorkRelayPlan }
+  | { kind: 'readConnections' }
   /** Settings: Work itself on or off for this account on this Mac (§8.5). */
   | { kind: 'setWork'; on: boolean }
   | { kind: 'reconnectAssistants' }
@@ -145,7 +150,7 @@ export interface MatrixWorkBridge {
   setSurfaceMode(projectId: string, mode: 'work' | 'code'): Promise<void>
   onSurfaceModeChanged(listener: (snapshot: WorkSurfaceModeSnapshot | null) => void): () => void
   readRelay?(principal: string, roomId: string): Promise<WorkRelayRoomView>
-  selectRelay?(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
+  selectRelay?(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>
   stopRelay?(roomId: string, eventId: string): Promise<void>
   /** Null: Work is not available for this account on this build, so the rail has no Work entry. */
   read(): Promise<MatrixWorkProjection | null>
@@ -161,11 +166,12 @@ export interface MatrixWorkBridge {
   /** "Agents may use my ChatGPT plan here". Off interrupts every plan thread at once. */
   setPlan(on: boolean): Promise<void>
   /** Open T3's own Codex connect screen in Work's view (the caller shows the Work page). */
-  openPlanConnect(): Promise<void>
-  readPlanConsent(): Promise<MatrixWorkPlanConsent>
-  setPlanConsent(consent: MatrixWorkPlanConsentInput): Promise<MatrixWorkPlanConsent>
+  openPlanConnect(plan?: WorkRelayPlan): Promise<void>
+  readPlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
+  setPlanConsent(consent: MatrixWorkPlanConsentInput, plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
+  readConnections?(): Promise<AccountConnectionsView | null>
   /** One tap, every Mac: the platform's record goes off and each Mac stops what the plan runs on its next pull. */
-  revokePlanConsent(): Promise<MatrixWorkPlanConsent>
+  revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent>
   /** Turn Work on or off on this Mac. Off stops what runs and refuses to start it; on lets it start again. */
   setWork(on: boolean): Promise<void>
   /** After `unreachable`: bind the route again. */
@@ -217,6 +223,8 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
   const row = value as Record<string, unknown>
   const keys = Object.keys(row)
 
+  const relayPlan = WORK_RELAY_PLANS.find(plan => plan === row.plan)
+
   switch (row.kind) {
     case 'getSurfaceMode': return keys.length === 1 ? { kind: 'getSurfaceMode' } : null
 
@@ -227,10 +235,12 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'readRelay':
       return keys.length === 3 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255
         ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
+    case 'selectRelay': {
+      if (row.plan !== undefined && !relayPlan) {return null}
 
-    case 'selectRelay':
-      return keys.length === 4 && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
-        ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model } : null
+      return keys.length === ('plan' in row ? 5 : 4) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
+        ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+    }
 
     case 'stopRelay':
       return keys.length === 3 && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255 && typeof row.eventId === 'string' && row.eventId.startsWith('$') && row.eventId.length <= 255
@@ -246,16 +256,21 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
     case 'reconnectAssistants':
 
-    case 'openPlanConnect':
+    case 'readConnections':
+      return keys.length === 1 ? { kind: row.kind } : null
 
     case 'readPlanConsent':
 
     case 'revokePlanConsent':
-      return keys.length === 1 ? { kind: row.kind } : null
-    case 'setPlanConsent': {
-      const consent = keys.length === 2 ? parseConsentInput(row.consent) : null
 
-      return consent ? { kind: 'setPlanConsent', consent } : null
+    case 'openPlanConnect':
+      return keys.length === ('plan' in row ? 2 : 1) && (row.plan === undefined || relayPlan)
+        ? { kind: row.kind, ...(relayPlan ? { plan: relayPlan } : {}) } : null
+    case 'setPlanConsent': {
+      const consent = keys.length === ('plan' in row ? 3 : 2) ? parseConsentInput(row.consent) : null
+
+      return consent && (row.plan === undefined || relayPlan)
+        ? { kind: 'setPlanConsent', consent, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
 
     case 'setAssistants':

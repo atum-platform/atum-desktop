@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import { AtumMainHeaderSurface } from '@/app/atum/shell-surface'
+import { AccountConnectProgress } from '@/app/connections/connect-sheet'
 import { useI18n } from '@/i18n'
 
 import type { MatrixWorkBridge, MatrixWorkProjection, MatrixWorkViewState } from '../../../shared/matrix-work'
@@ -104,7 +105,9 @@ export function WorkScreen({
     <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" data-atum-work data-atum-work-view={projection.view}>
       <AtumMainHeaderSurface
         actions={
-          <div className="flex items-center gap-1.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {/* The connect sheet's Finish / Done: above the view, never over T3's sign-in. */}
+            <AccountConnectProgress />
             {projection.view === 'ready' && projection.protons === 'empty' && (
               <button className="ak-btn ak-btn--sm" data-atum-work-add-protons onClick={onAddProtons} type="button">
                 {copy.addProtons}

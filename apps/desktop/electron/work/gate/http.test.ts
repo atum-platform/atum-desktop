@@ -374,9 +374,7 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
   })
 
   it.each([
-    ['claude', 'claude'],
     ['claudeAgent', 'claudeAgent'],
-    ['antigravity', 'antigravity'],
     ['another case', 'CODEX'],
     ['a padded name', 'codex '],
     ['true', true],

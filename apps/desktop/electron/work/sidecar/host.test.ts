@@ -73,7 +73,7 @@ function lab() {
     resources: '/bundled',
     account: () => account,
     openProtons,
-    accessState: async () => ({ state: 'unavailable' }),
+    readAccess: async () => 'unavailable',
     gatewayEnvironment: () => ({}),
     revokeCredentials: () => undefined
   })
@@ -181,7 +181,7 @@ describe('Work off marker', () => {
       resources: '/bundled',
       account: () => (root ? { key: 'owner', generation: 1, root } : undefined),
       openProtons: async () => undefined,
-      accessState: async () => ({ state: 'unavailable' }),
+      readAccess: async () => 'unavailable',
       gatewayEnvironment: () => ({}),
       revokeCredentials: () => undefined
     })

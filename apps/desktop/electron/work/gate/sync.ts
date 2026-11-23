@@ -115,6 +115,7 @@ export class WorkSync {
   private routeRecoveries = 0
   private routeRecoveryAt = 0
   private contract12Retry = 0
+  private planConsentRetry = 0
   private contract13Retry = 0
 
   constructor(private readonly options: WorkSyncOptions) {
@@ -289,6 +290,15 @@ export class WorkSync {
     }
 
     if (this.now() >= this.contract13Retry) {
+      if (this.now() >= this.planConsentRetry) {
+        try {
+          return await platform.pull({ ...base, contract: '1.3', planConsent: true })
+        } catch (error) {
+          if ((error as { status?: number } | null)?.status !== 400) {throw error}
+          this.planConsentRetry = this.now() + CONTRACT_12_RETRY_MS
+        }
+      }
+
       try {
         return await platform.pull({ ...base, contract: '1.3' })
       } catch (error) {
@@ -362,9 +372,21 @@ export class WorkSync {
       ledger.setMeta('relay_selection_issued_at', relay?.issuedAt ?? 0)
       const consent = page.consent
 
-      if (consent) {
+      if (relay?.planConsents && consent) {
+        // The legacy acknowledgement still belongs to the legacy Codex record.
+        ledger.setConsent(consent)
+
+        for (const snapshot of relay.planConsents) {
+          const results = gate.beginConsent(snapshot)
+          finish.push(() => gate.finishConsent(snapshot, results))
+        }
+      } else if (consent) {
+        ledger.clearPlanConsents()
         const results = gate.beginConsent(consent)
-        finish.push(() => gate.finishConsent(consent, results))
+        finish.push(() => {
+          gate.invalidateConsent()
+          gate.finishConsent(consent, results)
+        })
       }
     })
 

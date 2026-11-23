@@ -24,7 +24,7 @@ const READY = { providerInstanceId: 'codex', driverKind: 'codex', displayName: '
 
 describe('T3\'s own provider status for the plan', () => {
   it('connected only when T3 lists a model and no constraint says it is not ready; the model is the first T3 lists', async () => {
-    expect(await client([READY]).planProvider?.('t')).toEqual({ status: 'connected', selection: { instanceId: 'codex', model: 'gpt-x' } })
+    expect(await client([READY]).planProvider?.('t')).toEqual({ status: 'connected', selection: { instanceId: 'codex', model: 'gpt-x' }, models: ['gpt-x', 'gpt-y'] })
   })
 
   it.each([

@@ -1,6 +1,7 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { $accountConnect } from '@/app/connections/store'
 import { I18nProvider } from '@/i18n'
 
 import type { MatrixReadiness, MatrixSnapshot } from '../../shared/matrix'
@@ -56,22 +57,16 @@ afterEach(() => {
 })
 
 describe('the assistant’s launch, in its own chat', () => {
-  it.each(['line', 'panel'] as const)('opens account sign-in without a parent callback on the %s surface', async variant => {
+  it.each(['line', 'panel'] as const)('opens the one account connect sheet for ChatGPT on the %s surface, never a device code', async variant => {
     const native = bridge()
-    let connected!: () => void
-    const startChatGpt = vi.fn(() => new Promise<{ status: 'connected' }>(resolve => {
-      connected = () => resolve({ status: 'connected' })
-    }))
+    const startChatGpt = vi.fn()
 
-    Object.defineProperty(window, 'atumMatrix', { configurable: true, value: {
-      ...native, subscriptions: { startChatGpt, pollChatGpt: vi.fn(), cancelChatGpt: vi.fn() }
-    } })
+    Object.defineProperty(window, 'atumMatrix', { configurable: true, value: { ...native, subscriptions: { startChatGpt } } })
     draw({ phase: 'blocked', step: 'ai', code: 'plan_sign_in', since: 1 }, {}, { variant })
     fireEvent.click(screen.getByRole('button', { name: 'Connect ChatGPT' }))
-    await waitFor(() => expect(startChatGpt).toHaveBeenCalledOnce())
-    expect(native.retryReadiness).not.toHaveBeenCalled()
-    await act(async () => connected())
-    await waitFor(() => expect(native.retryReadiness).toHaveBeenCalledOnce())
+    await waitFor(() => expect($accountConnect.get()).toEqual({ plan: 'codex', mode: 'connect' }))
+    expect(startChatGpt).not.toHaveBeenCalled()
+    $accountConnect.set(null)
   })
 
   it('says nothing in its chat while the assistant starts as usual: the message box says it', () => {

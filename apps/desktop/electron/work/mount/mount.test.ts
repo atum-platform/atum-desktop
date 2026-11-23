@@ -166,7 +166,7 @@ function build(options: { surface?: 'on' | 'hidden'; composed?: boolean; planRep
       sessions,
       owner: createOwnerEventVerifier(source),
       modelAccess: async () => 'allowed',
-      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
       held: () => rig.held,
       now: clock.now,
       monotonic: clock.monotonic,

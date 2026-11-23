@@ -2,7 +2,9 @@ import { closeSync, existsSync, mkdirSync, openSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
-import { type WorkConsentSnapshot, WorkConsentSnapshotSchema, type WorkScope } from './contract'
+import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
+
+import { type WorkConsentSnapshot, WorkConsentSnapshotSchema, WorkPlanConsentSnapshotSchema, type WorkScope } from './contract'
 
 // The gate's durable store (plan §6.4, §11.3, §11.4). It lives in main's own
 // account directory, outside T3's database and its snapshot, so a SQLite
@@ -586,15 +588,19 @@ export class GateLedger {
 
   // ---- plan consent (gate 4b)
   /** The last consent snapshot this Mac applied durably (with a page), or undefined when none ever arrived or it did not parse. */
-  consent(): WorkConsentSnapshot | undefined {
-    const raw = this.meta('consent')
+  consent(plan = 'codex', legacy = false): WorkConsentSnapshot | undefined {
+    const current = legacy ? undefined : this.meta(`plan_consent:${plan}`)
+    const raw = current ?? (plan === 'codex' ? this.meta('consent') : undefined)
 
     if (!raw) {
       return undefined
     }
 
     try {
-      const parsed = WorkConsentSnapshotSchema.safeParse(JSON.parse(raw))
+      const value: unknown = JSON.parse(raw)
+      const parsed = WorkPlanConsentSnapshotSchema.safeParse(value)
+
+      if (!parsed.success) {return WorkConsentSnapshotSchema.parse(value)}
 
       return parsed.success ? parsed.data : undefined
     } catch {
@@ -602,13 +608,27 @@ export class GateLedger {
     }
   }
 
-  setConsent(snapshot: WorkConsentSnapshot): void {
-    this.setMeta('consent', JSON.stringify(snapshot))
+  clearPlanConsents(): void {
+    for (const plan of WORK_RELAY_PLANS) {
+      this.db.prepare('DELETE FROM meta WHERE k = ?').run(`plan_consent:${plan}`)
+    }
   }
 
-  /** "Agents may use my ChatGPT plan here" on this Mac. OFF until the owner turns it on: OpenAI asks for express consent. */
+  setConsent(snapshot: WorkConsentSnapshot): void {
+    this.setMeta(snapshot.scheduledAgents ? `plan_consent:${snapshot.provider}` : 'consent', JSON.stringify(snapshot))
+  }
+
+  usesAccountPlanConsent(): boolean {
+    return WORK_RELAY_PLANS.some(plan => this.consent(plan)?.scheduledAgents !== undefined)
+  }
+
+  /** An explicit per-Mac choice survives upgrades. New account consent defaults to on. */
   planSwitchOn(): boolean {
-    return this.meta('plan_switch_on') === '1'
+    const preference = this.meta('plan_switch_on')
+
+    return preference === undefined
+      ? this.usesAccountPlanConsent()
+      : preference === '1'
   }
 
   setPlanSwitch(on: boolean): void {
@@ -632,7 +652,7 @@ export class GateLedger {
    * route event, and no T3 session is revoked (step 3 is pre-marked done), because an assistant that lost the plan keeps
    * its Atum access. Rows of the same principal that run on Atum are untouched.
    */
-  planCutoff(principals: string[], reason: string, scheduledOnly = false): CutoffResult[] {
+  planCutoff(principals: string[], reason: string, scheduledOnly = false, plan?: string): CutoffResult[] {
     return this.tx(() => {
       const results: CutoffResult[] = []
       const at = this.now()
@@ -641,9 +661,9 @@ export class GateLedger {
         const owed = Number(
           this.db
             .prepare(
-              "UPDATE receipts SET stop_scope = 'agent', stop_at = COALESCE(stop_at, ?), updated_at = ? WHERE principal = ? AND plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL" + (scheduledOnly ? " AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL" : "")
+              "UPDATE receipts SET stop_scope = 'agent', stop_at = COALESCE(stop_at, ?), updated_at = ? WHERE principal = ? AND plan IS NOT NULL AND state IN ('admitted', 'launched') AND finished = 0 AND settled IS NULL AND stop_scope IS NULL AND (? IS NULL OR plan = ?)" + (scheduledOnly ? " AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL" : "")
             )
-            .run(at, at, principal).changes
+            .run(at, at, principal, plan ?? null, plan ?? null).changes
         )
 
         if (owed === 0) {

@@ -6,8 +6,11 @@ import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electr
 
 import type { WorkSurfaceModeSnapshot } from "../../shared/matrix-work"
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
-import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-model-access'
 import type { SafeStorageLike } from '../encrypted-store'
+import { admitConnector } from '../work/connector/admission'
+import { ConnectorHttp } from '../work/connector/http'
+import { matrixConnector } from '../work/connector/matrix'
+import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,
   createWorkConsentClient,
@@ -27,8 +30,8 @@ import {
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
-import { WorkHost } from '../work/sidecar/host'
-import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
+import { type WorkAccess, WorkHost } from '../work/sidecar/host'
+import { workRelayRuntimeReady } from '../work/sidecar/process'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -36,7 +39,10 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { readAccountConnections } from '../work/surface/account-connections'
+import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
 import { readPlanUsage } from '../work/surface/plan-usage'
+import { readWorkProviders } from '../work/surface/provider-config'
 import { createOwnerRelay } from '../work/surface/relay'
 
 import type { MatrixAgentDefinitionSnapshot } from './agent-definition'
@@ -53,9 +59,6 @@ import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
 
 /** The role the proxy knows Work's key by. Not a host role: no agent runtime answers to it. */
 export const MATRIX_WORK_MODEL_ROLE = 'work'
-
-/** The model name Work's provider advertises; the proxy maps every Atum model name to the model the call should use. */
-const WORK_DEFAULT_MODEL = 'binh-minh'
 
 export interface MatrixWorkModelPort {
   /** The proxy's loopback base URL (`http://127.0.0.1:<port>/v1`), or undefined while it is not running. */
@@ -97,8 +100,8 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
-  /** Gate 4a-1: this account's ChatGPT custody is retired (`chatgpt_carry_status` answers `work`). Absent: not known, so closed. */
-  planCustodyRetired?(): boolean
+  /** Retire the legacy cloud login before opening native Codex setup. */
+  prepareChatGptConnect(): Promise<void>
   /** The owner's own SDK host (`hosts.get('human')`), for the verifier. */
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
@@ -128,6 +131,7 @@ export interface MatrixWork {
   quit(): Promise<void>
   /** The local keys Work's gateways present to the model proxy, in `MatrixManagedModel`'s `keys()` shape. */
   modelKeys(): [key: string, role: string][]
+  modelRoute(): 'open' | 'refused'
 }
 
 // What the page sees of a gate that has not started: nothing enrolled, so no Work entry for assistants.
@@ -144,7 +148,9 @@ const NO_GATE: GateSurfaceState = {
  * The surface's gate door over a gate that is built later (the mount starts it after the session and the enrollment),
  * and rebuilt after a retire. State and events follow whichever service the mount holds now.
  */
-export function createGateDoor(mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>): NonNullable<WorkSurfaceParts['gate']> {
+export function createGateDoor(
+  mount: Pick<WorkMount, 'acceptWorkGrant' | 'onChange' | 'service' | 'setPlanSwitch' | 'setSwitch'>
+): NonNullable<WorkSurfaceParts['gate']> {
   return {
     state: () => {
       const service = mount.service()
@@ -203,7 +209,7 @@ export const WORK_MIN_AVAILABLE_MICRO_PROTONS = 1_000_000
  * through the proxy then confirms the model path (key, sign-in, gateway, catalog). Either can say "empty"; only both
  * saying yes is "allowed", and anything unreadable is "unavailable", never "allowed".
  */
-export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<'allowed' | 'empty' | 'unavailable'> {
+export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<WorkAccess> {
   try {
     const view = await wallet(AbortSignal.timeout(10_000))
 
@@ -254,7 +260,11 @@ export class WorkModelKeys {
       this.forget()
     }
 
-    this.bound ??= { key: randomBytes(32).toString('base64url'), accountKey: scope.accountKey, generation: scope.generation }
+    this.bound ??= {
+      key: randomBytes(32).toString('base64url'),
+      accountKey: scope.accountKey,
+      generation: scope.generation
+    }
 
     return this.bound.key
   }
@@ -266,7 +276,12 @@ export class WorkModelKeys {
 
     const scope = this.ports.scope()
 
-    if (!scope || this.ports.closing() || scope.accountKey !== this.bound.accountKey || scope.generation !== this.bound.generation) {
+    if (
+      !scope ||
+      this.ports.closing() ||
+      scope.accountKey !== this.bound.accountKey ||
+      scope.generation !== this.bound.generation
+    ) {
       this.forget()
 
       return []
@@ -289,7 +304,10 @@ export class WorkModelKeys {
 /** The pin this build ships: `work-runtime/pin.json`, written when the runtime is staged (version and `t3` digest). */
 export function readShippedPin(resources: string): PinRef {
   try {
-    const raw = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: unknown; sha256?: unknown }
+    const raw = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as {
+      version?: unknown
+      sha256?: unknown
+    }
 
     if (typeof raw.version === 'string' && /^\d+\.\d+\.\d+$/u.test(raw.version)) {
       return { version: raw.version, resources, ...(typeof raw.sha256 === 'string' ? { sha256: raw.sha256 } : {}) }
@@ -320,35 +338,85 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
           rootFor
         })
 
+  let connector: ConnectorHttp | undefined
+  let connectorEnvironment: Record<string, string> = {}
+
+  const closeConnector = () => {
+    const old = connector
+    connector = undefined
+    connectorEnvironment = {}
+    void old?.close()
+  }
+
+  const prepareConnector = async (signal: AbortSignal) => {
+    const bound = account()
+
+    if (bound) {
+      closeConnector()
+
+      const current = () => {
+        const active = account()
+
+        return !signal.aborted && active?.key === bound.key && active.generation === bound.generation
+      }
+
+      const secret = randomBytes(32).toString('base64url')
+
+      const service = new ConnectorService(
+        join(bound.root, 'work', 'connector-receipts.json'),
+        matrixConnector({
+          owner: () => deps.ownerHost(),
+          agent: principal => deps.agentMatrixUser(principal),
+          current,
+          admit: caller =>
+            admitConnector(caller, {
+              origin: () => host.current()?.origin,
+              current,
+              signal,
+              secret
+            })
+        })
+      )
+
+      const candidate = new ConnectorHttp(service, secret)
+      const endpoint = await candidate.start()
+
+      if (!current()) {
+        await candidate.close()
+        throw new Error('work_account_changed')
+      }
+
+      connector = candidate
+      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
+    }
+  }
+
   const host = new WorkHost({
     surfaceModeChanged: snapshot => deps.publish(MATRIX_WORK_IPC.surfaceModeChanged, snapshot),
+    prepare: prepareConnector,
     resources: deps.resources,
     account,
     gatewayEnvironment: () => {
       const baseUrl = deps.model.baseUrl()
+      const active = account()
 
-      if (!baseUrl) {
+      if (!baseUrl || !active) {
         throw new Error('work_model_unavailable')
       }
 
       return {
+        ...connectorEnvironment,
         ATUM_MANAGED_MODEL_BASE_URL: baseUrl,
-        ATUM_MANAGED_MODEL_DEFAULT: WORK_DEFAULT_MODEL,
         ATUM_MANAGED_MODEL_PROXY_TOKEN: modelKeys.mint()
       }
     },
     // A stopped or replaced server leaves no key the proxy would still answer to.
-    revokeCredentials: () => modelKeys.forget(),
-    // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
-    accessState: async () => {
-      const access = await readWorkAccess(deps.model, deps.wallet)
-
-      return access === 'allowed'
-        ? ({ state: 'ready', access_alias: 'binh-minh' } as unknown as ManagedModelAccessSnapshot)
-        : access === 'empty'
-          ? ({ state: 'insufficient_funds', access_alias: 'binh-minh' } as unknown as ManagedModelAccessSnapshot)
-          : { state: 'unavailable' }
+    revokeCredentials: () => {
+      modelKeys.forget()
+      closeConnector()
     },
+    // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
+    readAccess: () => readWorkAccess(deps.model, deps.wallet),
     openProtons: deps.openProtons
   })
 
@@ -393,6 +461,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   // The gate's `restartWhenIdle`, the mount that builds the gate and the surface that holds the view need each other.
   let mount!: WorkMount
   let surface!: WorkSurface
+  let planUsage: { incarnation: string; reports: Awaited<ReturnType<typeof readPlanUsage>> } | undefined
 
   const restartWhenIdle = async (): Promise<'restarted' | 'declined'> => {
     const gate = mount.service()?.gate
@@ -411,7 +480,11 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     }
   }
 
-  const ownerSource = createSdkOwnerEventSource({ owner: () => deps.ownerHost(), agentMatrixUser: principal => deps.agentMatrixUser(principal) })
+  const ownerSource = createSdkOwnerEventSource({
+    owner: () => deps.ownerHost(),
+    agentMatrixUser: principal => deps.agentMatrixUser(principal)
+  })
+
   const verifier: OwnerEventVerifier = createOwnerEventVerifier(ownerSource)
   const relayHistory = createWorkHistory(ownerSource, () => deps.ownerHost())
 
@@ -433,22 +506,50 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         account: current,
         deviceServiceId,
         platform: createDeviceServicePlatform({ endpoint, bearer: () => deps.bearer() }),
+        async readPlanCapabilities() {
+          const running = host.current()
+
+          if (!running || running.accountKey !== current.key) {return {}}
+
+          const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(current.key)))
+          const active = account()
+
+          if (host.current()?.id !== running.id || active?.key !== current.key || active.generation !== current.generation) {return {}}
+
+          return projectPlanCapabilities(providers)
+        },
         owner: verifier,
         relayHistory,
-        relayAssistant: deps.agentDefinition ? {
-          assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
-          definition: async principal => {
-            const snapshot = await deps.agentDefinition!(principal)
-            const active = account()
+        relayAssistant: deps.agentDefinition
+          ? {
+              assistantsRoot: join(deps.home, 'Atum', 'Assistants'),
+              definition: async principal => {
+                const snapshot = await deps.agentDefinition!(principal)
+                const active = account()
 
-            if (!active || active.key !== current.key || active.generation !== current.generation || deps.closing()) {
-              throw new Error('relay_account_changed')
+                if (
+                  !active ||
+                  active.key !== current.key ||
+                  active.generation !== current.generation ||
+                  deps.closing()
+                ) {
+                  throw new Error('relay_account_changed')
+                }
+
+                return snapshot
+              }
             }
-
-            return snapshot
-          }
-        } : undefined,
+          : undefined,
         incarnation: () => host.current(),
+        relayRuntimeReady: () => host.current()?.relayRuntimeReady === true,
+        relayLimit: plan => {
+          const usage = planUsage
+          const report = usage?.incarnation === host.current()?.id && usage?.reports.find(each => each.plan === plan)
+
+          return report && (report.resetsAt === undefined || report.resetsAt > Date.now())
+            ? { state: report.state, resetAt: report.resetsAt }
+            : { state: 'unknown' }
+        },
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
         modelAccess: incarnation => host.readModelAccess(incarnation),
@@ -505,9 +606,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
-    read: () => consentFor().read(),
+    read: plan => consentFor().read(plan),
     set: input => consentFor().set(input),
-    revoke: () => consentFor().revoke()
+    revoke: plan => consentFor().revoke(plan)
   }
 
   const parts = (): WorkSurfaceParts => ({
@@ -525,6 +626,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       if (host.current()?.id !== running.id || mount.service() !== service) {return []}
 
+      planUsage = { incarnation: running.id, reports }
+
       return reports.map(({ windowStart, ...limit }) => ({
         ...limit,
         ...(service && windowStart !== undefined
@@ -533,11 +636,28 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }))
     },
     wantServer: () => mount.wantServer(),
-    // Gate 4a also needs this account's custody retired (plan §12, `UC:` 1-3); `planCustodyRetired` is absent until the un-carry
-    // lane reads it, so the step stays hidden by construction.
-    planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
+    prepareChatGptConnect: () => deps.prepareChatGptConnect(),
+    readConnections: () => readAccountConnections({
+      endpoint: () => deps.deviceServicesEndpoint(),
+      bearer: () => deps.bearer(),
+      thisDevice: () => deps.deviceServiceId(),
+      async localCapabilities() {
+        const running = host.current()
+
+        if (!running || !host.enabled()) {return {}}
+
+        const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+
+        return host.current()?.id === running.id ? projectPlanCapabilities(providers) : {}
+      }
+    }),
+    // Work's own provider view owns the login. The staged T3 pin must enforce own-thread MCP scope.
+    planConnectOpen: () => host.current()?.relayRuntimeReady ?? workRelayRuntimeReady(deps.resources),
     deviceServiceId: () => deps.deviceServiceId(),
-    relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
+    relay: createOwnerRelay(mount, consentClient, () => ({
+      endpoint: deps.deviceServicesEndpoint() ?? '',
+      bearer: () => deps.bearer()
+    })),
     consent: consentClient
   })
 
@@ -584,15 +704,18 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     retire: async () => {
       modelKeys.forget()
+      closeConnector()
       await lifecycle.retire()
     },
     quit: () => {
+      closeConnector()
       modelKeys.forget()
 
       return lifecycle.quit()
     },
     setMacPlanFactsEnabled: (deviceServiceId, enabled) => mount.setMacPlanFactsEnabled(deviceServiceId, enabled),
     update: target => session.update(target),
-    modelKeys: () => modelKeys.keys()
+    modelKeys: () => modelKeys.keys(),
+    modelRoute: () => account() ? 'open' : 'refused'
   }
 }

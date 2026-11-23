@@ -109,10 +109,10 @@ describe('the pull negotiates relay and applies legacy consent pages', () => {
 
     expect(await sync.tick()).toBe('ok')
     expect(h.ledger.appliedSeq()).toBe(1)
-    expect(fake.pulls).toEqual([{ contract: '1.3' }, { contract: '1.2' }, { contract: undefined }])
+    expect(fake.pulls).toEqual([{ contract: '1.3' }, { contract: '1.3' }, { contract: '1.2' }, { contract: undefined }])
 
     await sync.tick()
-    expect(fake.pulls.slice(3)).toEqual([{ contract: undefined }])
+    expect(fake.pulls.slice(4)).toEqual([{ contract: undefined }])
 
     h.clock.advance(3_600_001)
     await sync.tick()

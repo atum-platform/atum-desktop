@@ -108,7 +108,7 @@ function realClient(server: Awaited<ReturnType<typeof boot>>) {
     origin: () => server.origin,
     incarnation: () => 'real',
     settingsFile: join(server.home, 'userdata', 'settings.json'),
-    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' }
+    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' }
   })
 }
 
@@ -145,7 +145,7 @@ describe.skipIf(!T3)('the gate against the real pinned t3 binary', () => {
       {
         projectId: projectId as string,
         workspaceStrategy: { type: 'root' },
-        modelSelection: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+        modelSelection: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
         message: 'OWNER (verified, event $e):\nlist the files',
         title: 'List the files',
         clientRequestId: 'AAAAAAAAAAAAAAAAAAAAA1'
@@ -185,7 +185,7 @@ describe.skipIf(!T3)('the gate against the real pinned t3 binary', () => {
       sessions,
       owner: { fetch: async () => ({ kind: 'unreachable' }) },
       modelAccess: async () => 'allowed',
-      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
       held: () => false
     })
 
@@ -215,7 +215,7 @@ describe.skipIf(!T3)('the gate against the real pinned t3 binary', () => {
       origin: () => server.origin,
       incarnation: () => 'real',
       settingsFile: join(server.home, 'userdata', 'settings.json'),
-      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
       plan: { instanceId: 'codex' }
     })
   }
@@ -248,7 +248,7 @@ describe.skipIf(!T3)('the gate against the real pinned t3 binary', () => {
       sessions,
       owner,
       modelAccess: async () => 'allowed',
-      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
       held: () => false
     })
 

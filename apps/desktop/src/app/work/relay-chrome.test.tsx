@@ -3,13 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { I18nProvider } from '@/i18n'
 
-import type { MatrixWorkBridge, MatrixWorkPlanConsent, MatrixWorkProjection } from '../../../shared/matrix-work'
+import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'
 
 import { WorkRelaySharedContextLine, WorkRelayTurnLine } from './relay-chrome'
 import type { WorkRelayTurnChrome } from './relay-view'
-import { $work, $workPlanConsent, resetWorkStoreForTests } from './store'
+import { resetWorkStoreForTests } from './store'
 import { WorkScreen } from './work-screen'
-import { MatrixWorkSettings } from './work-settings'
 
 beforeEach(resetWorkStoreForTests)
 afterEach(cleanup)
@@ -134,70 +133,5 @@ describe('the shared-context line (O14)', () => {
 
     cleanup()
     expect(page(['rin', 'rin']).container.querySelector('[data-work-relay-shared-context]')?.textContent).toContain('Rin’s chat')
-  })
-})
-
-describe('Settings and the consent sheet (§6)', () => {
-  const THIS_MAC = '00000000-0000-4000-8000-00000000a001'
-
-  const OFF: MatrixWorkPlanConsent = {
-    state: 'off',
-    agents: [],
-    eligible: ['rin'],
-    macs: [{ id: THIS_MAC, thisMac: true, named: false }],
-    alsoWhenScheduled: false
-  }
-
-  const port = () => ({
-    setWork: vi.fn(async () => {}),
-    setAssistants: vi.fn(async () => {}),
-    setPlan: vi.fn(async () => {}),
-    openPlanConnect: vi.fn(async () => {}),
-    readPlanConsent: vi.fn(async () => OFF),
-    setPlanConsent: vi.fn(async () => OFF),
-    revokePlanConsent: vi.fn(async () => OFF)
-  })
-
-  it('adds the plan’s usage to the connected row, never a cost', async () => {
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok', planConnect: 'connected' })
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixWorkSettings
-          bridge={port()}
-          claudeLimit={{ plan: 'claude', state: 'exhausted', observedAt: 1, usedPercent: 100, scheduledRuns: 0 }}
-          planLimit={{ plan: 'codex', state: 'available', observedAt: 1, usedPercent: 42, scheduledRuns: 3 }}
-        />
-      </I18nProvider>
-    )
-
-    expect(await screen.findByText('Connected on this Mac · 42% used · 3 scheduled runs')).toBeTruthy()
-    expect(await screen.findByText('100% used · 0 scheduled runs')).toBeTruthy()
-  })
-
-  it('keeps the connected row as it was without a limit', async () => {
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok', planConnect: 'connected' })
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixWorkSettings bridge={port()} />
-      </I18nProvider>
-    )
-
-    expect(await screen.findByText('Connected on this Mac')).toBeTruthy()
-  })
-
-  it.each([
-    [false, 'Only for work they start on your Mac. Stop it anytime.', 'Also for scheduled tasks'],
-    [true, 'Your chats with them run on your Mac with this plan. Stop it anytime.', 'Also for scheduled work']
-  ] as const)('says what the plan does once allowed (chats: %s)', async (relayChats, sentence, scheduled) => {
-    $work.set({ view: 'ready', assistants: 'on', agents: [], protons: 'ok', plan: 'off' })
-    $workPlanConsent.set({})
-    render(
-      <I18nProvider configClient={null} initialLocale="en">
-        <MatrixWorkSettings agents={[{ principal: 'rin', name: 'Rin' }]} bridge={port()} relayChats={relayChats} />
-      </I18nProvider>
-    )
-
-    expect(await screen.findByText(sentence)).toBeTruthy()
-    expect(await screen.findByRole('switch', { name: scheduled })).toBeTruthy()
   })
 })
