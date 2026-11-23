@@ -90,16 +90,16 @@ describe('which plan can answer a cloud assistant now', () => {
 })
 
 describe('a ChatGPT plan carried to cloud custody (S2)', () => {
-  it('keeps the composer available from its cloud snapshot before the picker reads the account', () => {
+  it('does not admit historical cloud custody from a saved snapshot', () => {
     expect(matrixCurrentPlanAvailability({ choice: plan('chatgpt_plan', {
       subscriptionCustody: 'carried', relayPresence: 'offline'
-    }) })).toEqual({ available: true })
+    }) })).toEqual({ available: false, reason: 'no_mac' })
   })
 
-  it('answers with no Mac, whatever presence a stale relay row still carries', () => {
+  it('does not admit historical cloud custody from account status', () => {
     const carried = { state: 'carried' as const, thisMac: false, revision: 5 }
 
-    expect(matrixAccountPlanAvailability(chatgpt(carried))).toEqual({ available: true })
-    expect(matrixAccountPlanAvailability(chatgpt({ ...carried, presence: 'offline' }))).toEqual({ available: true })
+    expect(matrixAccountPlanAvailability(chatgpt(carried))).toEqual({ available: false, reason: 'no_mac' })
+    expect(matrixAccountPlanAvailability(chatgpt({ ...carried, presence: 'offline' }))).toEqual({ available: false, reason: 'no_mac' })
   })
 })

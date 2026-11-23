@@ -180,17 +180,6 @@ export function matrixCodexSignInFile(
   return path.join(shared, 'codex_auth.json')
 }
 
-/** Disconnecting ChatGPT: remove the sign-in file Hermes reads for this account. Safe to repeat. */
-export function forgetMatrixCodexSignIn(
-  config: Pick<MatrixHermesRuntimeConfig, 'profiles' | 'bundled'>,
-  owner: string,
-  sharedCodex: boolean,
-  env: NodeJS.ProcessEnv = process.env,
-  homeDir: string = os.homedir()
-): void {
-  rmSync(matrixCodexSignInFile(config, owner, sharedCodex, env, homeDir), { force: true })
-}
-
 /** Sign-out: the account's ChatGPT sign-in goes with it. Safe to repeat. */
 export function forgetMatrixAccountCodex(config: Pick<MatrixHermesRuntimeConfig, 'profiles'>, owner: string): void {
   const scope = matrixAccountCodexScope(config, owner)
