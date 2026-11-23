@@ -79,14 +79,56 @@ keep their subscription routing and cannot reuse the fenced transcript. The
 scope is direct connector delivery and transcript reuse within Work. Trusted
 same-user processes retain their existing filesystem access.
 
-Reused native seams include `electron/matrix/managed-model.ts` (`servesModel`,
-`withProtectedModel`), `electron/work/sidecar/host.ts` (`current`),
-`electron/work/sidecar/supervisor.py` (locked local profile provisioning), and
-`agent/workspace_route_guard.py` (main and auxiliary request routing).
+Reused native seams include `apps/desktop/electron/matrix/managed-model.ts:231`
+and `:847`, `apps/desktop/electron/work/sidecar/host.ts:51`,
+`apps/desktop/electron/work/sidecar/supervisor.py:225`,
+`apps/desktop/electron/work/connector/matrix.ts:6`, and
+`agent/workspace_route_guard.py:154`, `:216` and `:293`.
 The gateway's `google-protected` policy uses the exact private Vertex route,
 denies data collection, enforces zero retention and disables fallback.
 
 A staged pin must explicitly advertise the protected connector capability.
 An older pin refuses to start against an account home that already has
-protected threads. The checked-in archive pin has no such capability until
-the matching archive is built and the packaged route is verified.
+protected threads. The archive pin now advertises the capability for this
+locally verified candidate.
+
+### Local archive and installed proof
+
+The darwin-arm64 archive was built from Work fork
+`7cbccf6bc5fe2ae10eb7b59ae3dc677ab707c1be` with Node 26.13.1. The standard
+packer (`scripts/build-cli-archive.ts:588` in the Work fork) staged the
+compiled server and branded web client, installed the native dependency
+closure and signed the bundle ad hoc. To stay within the disk budget, the
+unchanged resource monitor, notices and Node licence were reused from the
+previous hash-verified archive. The initial combined build stopped at the
+disk reserve. After redundant outputs were deleted, the standard archive
+packer completed. The Desktop stage helper at
+`apps/desktop/scripts/stage-work-runtime.mjs:13` verified the archive digest
+and arm64 layout and generated the capability-bearing bundle pin. The
+staged server SHA-256 is
+`0800eb39b0f24a7d21407dcd36752bc70bba4668bc44e22bff249a9fb05894d1`.
+
+The staged executable launched a local ACP fixture using the native stdio
+MCP bridge (`packages/provider-acp/src/server/adapter.ts:996` in the fork).
+The fixture discovered `ask_my_agent` and received one clean answer. With a
+locked managed instance and a local protected-route fixture, Desktop
+admission and the staged T3 callback persisted the marker before the
+launched provider received the protected answer. The MCP transcript read
+then refused that protected thread. Those proofs used localhost.
+
+The packaged turnover fixture uses the staged T3 executable and real
+Hermes gateways on a disposable Python 3.14.7 environment with hash-pinned
+core and ACP dependencies. The packaged-policy check exposed a missing
+explicit `sensitive: false` on the non-secret ACP profile path. That field
+is now provided in the schema's canonical form. The final fixture covers
+the native prepared/committed trial and replacement listener and confirms
+the first listener is closed. Focused source verification was 33 T3 tests,
+83 Desktop tests and 27 Hermes route-guard tests. The cloud provenance
+branch also passed its nine existing tests.
+
+These checks cover the local candidate and simulated release authority.
+The deployed gateway, owned Matrix traffic, distribution signing and
+publication still need separate evidence. Per the handoff cleanup
+requirement, the temporary archives and staging resources are removed.
+A release assembler must rebuild and refresh the archive hash against
+the actual retained artifact before distribution.

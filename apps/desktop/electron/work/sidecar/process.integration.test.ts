@@ -54,11 +54,17 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
       expect(settings.providerInstances.codex.enabled).toBe(false)
       expect(settings.providerInstances.claudeAgent.enabled).toBe(false)
       await sidecar.stop()
+      expect(sidecar.current()).toBeUndefined()
+      await expect(fetch(trial.origin, { signal: AbortSignal.timeout(1_000) })).rejects.toThrow()
 
       await exec(join(resources!, 'work-runtime', 't3'), ['theme', 'clear'], {
         env: workRuntimeEnvironment(paths.work, resources!)
       })
-      await sidecar.start({ continuation: false })
+      const restarted = await sidecar.start({ continuation: false })
+      expect(restarted.id).not.toBe(trial.id)
+      expect(restarted.pid).not.toBe(trial.pid)
+      expect(sidecar.current()).toBe(restarted)
+      expect(restarted.takePairingUrl()?.startsWith(restarted.origin + '/pair#token=')).toBe(true)
       expect(JSON.parse(await readFile(settingsPath, 'utf8')).defaultTheme).toBeFalsy()
     } finally {
       await sidecar.stop()

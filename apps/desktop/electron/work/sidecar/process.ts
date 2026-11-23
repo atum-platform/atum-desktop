@@ -83,7 +83,7 @@ function provider(python: string, home: string, label: string) {
       commandPath: python,
       commandArgs: ['-P', '-B', '-X', 'utf8', '-m', 'acp_adapter.managed']
     },
-    environment: [{ name: 'HERMES_HOME', value: home }]
+    environment: [{ name: 'HERMES_HOME', value: home, sensitive: false }]
   }
 }
 
