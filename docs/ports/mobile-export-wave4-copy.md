@@ -321,3 +321,44 @@ Mac's switch is the off switch). Same method as above; producer inputs on atum-a
   above, plus `PenNib`); the Connections copies match `connectionsCopy` in all five locales (215
   comparisons); 44 manifest hashes match; desktop `tsc -p . --noEmit` and the copy vitest files pass;
   outbound guard passes.
+
+## Wave 4d: Team Space revamp pass 1 (#114)
+
+Desktop `677b746d` (#114; #111 at `863079c8` changes no copy). Its new words are in
+`src/matrix/team-space/revamp-copy.ts`, a five-locale table the producer reads directly, so they are
+promoted under their desktop path and nothing goes into `mobileScreensCopy`. Producer inputs are on atum-app
+`chore/mobile-export-wave4d-keys`.
+
+- **Added: 23 entries (21 keys)**, `src.matrix.team-space.revamp-copy.copy.*`: `search`,
+  `searchFor(query)`, `searchMessagesFor(query)`, `settingsSections`, `people`, `workspace`, `ai`,
+  `billing`, `hiringPreparing`, `companyWallet`, `openWallet`, `preparingChannel`, `channelFailed`,
+  `tryAgain`, `privateChiefOfStaff`, `noMatches`, `suggested`, `suggestedHint`,
+  `showAllActivity(count)` (number, exact `count=1` / `count=0` branches), `showLessActivity`,
+  `boardViews`. The file's header says "Desktop only"; the coordinator ruled that the phone's Team Space
+  must match desktop as rendered.
+- **Removed: 1.** `shared.matrix-company-copy.copy.channelOpenFailed`. #114 retired it from the channel
+  pane; nothing draws it now, though the table still defines it. It is replaced by `channelFailed` and
+  `tryAgain`, and recorded as deprecated with those replacements.
+- **Narrowed, kept:** `matrix-company-board-copy.copy.chiefOfStaff` is still the shared Chief of Staff in
+  channels; the private row, header and composer now use `privateChiefOfStaff`. `matrix-company-copy.copy.convergeFailed`
+  is still the overview notice; the channel pane's preparing line is now `preparingChannel`. The board's
+  `myTasks` and `emptyMyTasks` are no longer drawn, but they were never exported.
+- **Refreshed: none.** Every other shared entry still matches the producer byte for byte, including after
+  #111–#113. The inventory gains `revamp-copy.ts`. Catalog: 4110 → 4132 entries.
+
+### Phone parity of #114's behaviours
+
+| Behaviour | Phone | Why |
+|---|---|---|
+| One right pane (thread, pins, info, search results and task details share it; opening one closes the others) | No | It is a layout rule for a side pane. On the phone each of these is its own pushed screen or sheet already. |
+| Header search (the box at the top filters the list; Enter or "Search “…”" runs company message search; search leaves settings) | Yes | Same entry point and words (`searchFor`, `searchMessagesFor`, `noMatches`). If the phone's settings still offer search, they should drop it. |
+| Sectioned, role-aware settings (People, Workspace, AI, Billing, one at a time; Billing for owners and admins; falls back when a role changes; AI says "Company hiring is being prepared" while the Marketplace is hidden) | Yes | The phone can show the sections as a list. Role gating and the fallback are product rules, not layout. |
+| Board/List and Mine (two views plus a Mine filter in both; a saved "My tasks" opens as List with Mine; compact cards; a see-through Suggested lane with its hint; task details with the latest change, Undo and "Show all activity (n)") | Yes | The Mine filter and List suit the phone first. The Board columns are optional on a narrow screen. The words and the migration of "My tasks" apply either way. |
+| Channel opening / "Preparing your channel…" / "Couldn’t open this channel." with Try again (one line, one action; a failed open replaces the old transcript and is held per company and room) | Yes | These are state rules and words. They apply the same way on the phone. |
+| Private Chief of Staff label ("Chief of Staff" in channels, "Private Chief of Staff" for the person's own row, header and composer) | Yes | Naming only. The phone shows both rows. |
+| Narrow sidebar (names keep most of the row, the status shortens first) | No | It is the desktop sidebar's layout. |
+
+- Checks: producer `export.mjs --check` clean and tests 45/45. As before, six desktop glyph aliases the
+  producer cannot map yet got throwaway mappings (`Checks`, `Forward`, `LayoutGallery`, `LayoutGroups`,
+  `PenNib`, and `Laptop` from #112–#113); `glyphs.json` is not spliced. All 44 manifest hashes match. Desktop
+  `tsc -p . --noEmit` and the copy vitest files pass. The outbound guard passes.
