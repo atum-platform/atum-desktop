@@ -16,8 +16,8 @@ import type {
  * (the Mac's SSH relay client, removed in self-work slice B; the platform still states
  * `relay.state` and `relayPresence`, and main's `cloudModelView` projects `subscriptionState`): an enabled relay counts as reachable, anything else as no Mac.
  *
- * On S2 the plan's sign-in is carried to cloud custody (`relay.state: carried`) and the cloud serves
- * it natively, so no Mac is in the path and the plan answers.
+ * Historical cloud-carry snapshots no longer establish availability. Device plans are
+ * discovered through the account connection registry and executed in Work.
  *
  * OpenCode Go is account-wide (no Mac in the path): its one fact is whether the key still works.
  * Pure and dependency-free. Presentation only: the platform still refuses a pick it cannot serve.
@@ -39,16 +39,11 @@ function unavailable(reason: MatrixPlanUnavailableReason): MatrixPlanAvailabilit
   return { available: false, reason }
 }
 
-/** The relay rule: a plan carried to cloud custody (S2) needs no Mac; otherwise presence when known,
- * else the registration state. */
+/** Compatibility for legacy picker callers: presence when known, else registration. */
 function relayAvailability(
-  state: 'enabled' | 'disabled' | 'carried' | undefined,
+  state: 'enabled' | 'disabled' | undefined,
   presence: MatrixRelayPresence | undefined
 ) {
-  if (state === 'carried') {
-    return AVAILABLE
-  }
-
   if (presence === 'offline') {
     return unavailable('mac_offline')
   }
@@ -69,7 +64,9 @@ export function matrixAccountPlanAvailability(
   }
 
   if (provider.id === 'openai-codex') {
-    return relayAvailability(provider.relay?.state, provider.relay?.presence)
+    return provider.relay?.state === 'carried'
+      ? unavailable('no_mac')
+      : relayAvailability(provider.relay?.state, provider.relay?.presence)
   }
 
   return provider.connected ? AVAILABLE : unavailable('reconnect')
@@ -86,7 +83,9 @@ export function matrixCloudPlanAvailability(
   }
 
   if (plan.source === 'chatgpt_plan') {
-    return relayAvailability(choice.subscriptionCustody === 'carried' ? 'carried' : choice.subscriptionState === 'connected' ? 'enabled' : 'disabled', choice.relayPresence)
+    return choice.subscriptionCustody === 'carried'
+      ? unavailable('no_mac')
+      : relayAvailability(choice.subscriptionState === 'connected' ? 'enabled' : 'disabled', choice.relayPresence)
   }
 
   return choice.subscriptionState === 'connected' ? AVAILABLE : unavailable('reconnect')
