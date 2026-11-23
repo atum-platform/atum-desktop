@@ -124,6 +124,8 @@ export interface MatrixWork {
   activate(): Promise<void>
   /** Sign-out, a session the server ended, an account switch: tear everything of this account down. */
   retire(): Promise<void>
+  /** Withdraw or resume publication of this Mac's token-free plan facts. */
+  setMacPlanFactsEnabled(deviceServiceId: string, enabled: boolean): Promise<void>
   /** App quit: not a revocation. */
   quit(): Promise<void>
   /** The local keys Work's gateways present to the model proxy, in `MatrixManagedModel`'s `keys()` shape. */
@@ -707,6 +709,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       return lifecycle.quit()
     },
+    setMacPlanFactsEnabled: (deviceServiceId, enabled) => mount.setMacPlanFactsEnabled(deviceServiceId, enabled),
     update: target => session.update(target),
     modelKeys: () => modelKeys.keys(),
     modelRoute: () => account() ? 'open' : 'refused'

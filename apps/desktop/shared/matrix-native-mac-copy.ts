@@ -1,4 +1,5 @@
 import type { DesktopLocale } from './desktop-locale'
+import type { MatrixNativeSshSetupStep } from './matrix-native-mac'
 
 /**
  * Words for native Hermes reaching this Mac: the one line and action on this Mac's row in
@@ -19,6 +20,30 @@ export interface MatrixNativeMacCopy {
     /** The connection is down or setup did not finish. */
     unreachable: string
     tryAgain: string
+    /** The owner disconnected this Mac. */
+    notConnected: string
+    connect: string
+    /** The quiet reset beside Try again. */
+    disconnect: string
+    /** While an action runs. */
+    working: string
+    disconnecting: string
+    /** Why setup stopped, in plain words; every line ends where the owner can act. */
+    failure: {
+      /** The saved route no longer matches this Mac or its credential. */
+      recovery: string
+      /** Some earlier access is still being removed. */
+      cleanup: string
+      /** Atum could not write this Mac's SSH files. */
+      files: string
+      /** A file Atum needs is missing. */
+      helper: string
+      /** The account sent details this Mac cannot use. */
+      details: string
+      /** An unknown code: the step it stopped at, and the code when there is one. */
+      atStep: (step: string, code?: string) => string
+      steps: Record<MatrixNativeSshSetupStep, string>
+    }
   }
   approval: {
     /** Section name for screen readers. */
@@ -52,7 +77,27 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       fullDisk: 'Turn on “Allow full disk access for remote users” in Remote Login.',
       openSettings: 'Open Settings',
       unreachable: 'Your assistants can’t reach this Mac right now.',
-      tryAgain: 'Try again'
+      tryAgain: 'Try again',
+      notConnected: 'This Mac isn’t connected.',
+      connect: 'Connect',
+      disconnect: 'Disconnect this Mac',
+      working: 'Working…',
+      disconnecting: 'Disconnecting…',
+      failure: {
+        recovery: 'This Mac’s saved connection needs a reset. Disconnect, then Connect.',
+        cleanup: 'Access from before is still being removed. Try Disconnect again.',
+        files: 'Atum couldn’t write this Mac’s SSH files.',
+        helper: 'A file Atum needs is missing. Reinstall Atum.',
+        details: 'The account sent details this Mac can’t use.',
+        atStep: (step, code) => `Setup stopped while ${step}${code ? ` (${code})` : ''}.`,
+        steps: {
+          prepare: 'getting this Mac’s route ready',
+          authorized_keys: 'reading this Mac’s keys',
+          write_keys: 'writing this Mac’s SSH files',
+          start_tunnel: 'starting the tunnel',
+          enroll: 'registering this Mac'
+        }
+      }
     },
     approval: {
       label: 'Command approval',
@@ -78,7 +123,27 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       fullDisk: 'Trong Đăng nhập từ xa, bật “Cho phép người dùng từ xa truy cập toàn bộ ổ đĩa”.',
       openSettings: 'Mở Cài đặt',
       unreachable: 'Trợ lý chưa kết nối được tới máy Mac này.',
-      tryAgain: 'Thử lại'
+      tryAgain: 'Thử lại',
+      notConnected: 'Máy Mac này chưa được kết nối.',
+      connect: 'Kết nối',
+      disconnect: 'Ngắt kết nối máy Mac này',
+      working: 'Đang xử lý…',
+      disconnecting: 'Đang ngắt kết nối…',
+      failure: {
+        recovery: 'Kết nối đã lưu của máy Mac này cần được đặt lại. Hãy ngắt kết nối rồi kết nối lại.',
+        cleanup: 'Quyền truy cập từ trước vẫn đang được gỡ. Hãy ngắt kết nối lại.',
+        files: 'Atum không ghi được tệp SSH của máy Mac này.',
+        helper: 'Thiếu một tệp Atum cần. Hãy cài lại Atum.',
+        details: 'Tài khoản đã gửi thông tin máy Mac này không dùng được.',
+        atStep: (step, code) => `Quá trình thiết lập dừng khi ${step}${code ? ` (${code})` : ''}.`,
+        steps: {
+          prepare: 'chuẩn bị tuyến của máy Mac này',
+          authorized_keys: 'đọc khóa của máy Mac này',
+          write_keys: 'ghi tệp SSH của máy Mac này',
+          start_tunnel: 'khởi động đường hầm',
+          enroll: 'đăng ký máy Mac này'
+        }
+      }
     },
     approval: {
       label: 'Xác nhận lệnh',
@@ -104,7 +169,27 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       fullDisk: 'リモートログインで「リモートユーザにディスクへのフルアクセスを許可」をオンにしてください。',
       openSettings: '設定を開く',
       unreachable: 'アシスタントが今この Mac に接続できません。',
-      tryAgain: '再試行'
+      tryAgain: '再試行',
+      notConnected: 'この Mac はまだ接続されていません。',
+      connect: '接続',
+      disconnect: 'この Mac の接続を解除',
+      working: '処理中…',
+      disconnecting: '接続を解除しています…',
+      failure: {
+        recovery: 'この Mac の保存された接続をリセットする必要があります。接続を解除してから、もう一度接続してください。',
+        cleanup: '以前のアクセスをまだ削除しています。もう一度接続を解除してください。',
+        files: 'この Mac の SSH ファイルを書き込めませんでした。',
+        helper: 'Atum に必要なファイルがありません。Atum を再インストールしてください。',
+        details: 'アカウントからこの Mac では使えない情報が届きました。',
+        atStep: (step, code) => `セットアップは${step}ところで止まりました${code ? `（${code}）` : ''}。`,
+        steps: {
+          prepare: 'この Mac の経路を準備する',
+          authorized_keys: 'この Mac の鍵を読み取る',
+          write_keys: 'この Mac の SSH ファイルを書き込む',
+          start_tunnel: 'トンネルを起動する',
+          enroll: 'この Mac を登録する'
+        }
+      }
     },
     approval: {
       label: 'コマンドの確認',
@@ -130,7 +215,27 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       fullDisk: '在“远程登录”中打开“允许远程用户对磁盘进行完全访问”。',
       openSettings: '打开设置',
       unreachable: '你的助理现在连不上这台 Mac。',
-      tryAgain: '重试'
+      tryAgain: '重试',
+      notConnected: '这台 Mac 尚未连接。',
+      connect: '连接',
+      disconnect: '断开这台 Mac',
+      working: '正在处理…',
+      disconnecting: '正在断开…',
+      failure: {
+        recovery: '这台 Mac 保存的连接需要重置。请先断开，再重新连接。',
+        cleanup: '之前的访问权限还在移除中。请再次断开。',
+        files: 'Atum 无法写入这台 Mac 的 SSH 文件。',
+        helper: '缺少 Atum 需要的文件。请重新安装 Atum。',
+        details: '账户发来的信息这台 Mac 无法使用。',
+        atStep: (step, code) => `设置在${step}时停止了${code ? `（${code}）` : ''}。`,
+        steps: {
+          prepare: '准备这台 Mac 的连接',
+          authorized_keys: '读取这台 Mac 的密钥',
+          write_keys: '写入这台 Mac 的 SSH 文件',
+          start_tunnel: '启动隧道',
+          enroll: '注册这台 Mac'
+        }
+      }
     },
     approval: {
       label: '命令确认',
@@ -156,7 +261,27 @@ export const matrixNativeMacCopy: Record<DesktopLocale, MatrixNativeMacCopy> = {
       fullDisk: '在「遠端登入」中開啟「允許遠端使用者完整取用磁碟」。',
       openSettings: '打開設定',
       unreachable: '你的助理現在連不上這台 Mac。',
-      tryAgain: '重試'
+      tryAgain: '重試',
+      notConnected: '這台 Mac 尚未連線。',
+      connect: '連線',
+      disconnect: '中斷這台 Mac 的連線',
+      working: '正在處理…',
+      disconnecting: '正在中斷連線…',
+      failure: {
+        recovery: '這台 Mac 儲存的連線需要重設。請先中斷連線，再重新連線。',
+        cleanup: '先前的存取權限還在移除中。請再次中斷連線。',
+        files: 'Atum 無法寫入這台 Mac 的 SSH 檔案。',
+        helper: '缺少 Atum 需要的檔案。請重新安裝 Atum。',
+        details: '帳號傳來的資訊這台 Mac 無法使用。',
+        atStep: (step, code) => `設定在${step}時停止了${code ? `（${code}）` : ''}。`,
+        steps: {
+          prepare: '準備這台 Mac 的連線',
+          authorized_keys: '讀取這台 Mac 的金鑰',
+          write_keys: '寫入這台 Mac 的 SSH 檔案',
+          start_tunnel: '啟動通道',
+          enroll: '註冊這台 Mac'
+        }
+      }
     },
     approval: {
       label: '指令確認',

@@ -23,6 +23,7 @@ interface ReportedCapability extends Capability {
 }
 
 const key = (provider: AccountPlanProvider) => provider === 'codex' ? 'plan_fact' : `plan_fact:${provider}`
+const REPORTING_KEY = 'plan_fact_reporting'
 
 export class PlanFact {
   private readonly now: () => number
@@ -63,7 +64,30 @@ export class PlanFact {
     return this.running
   }
 
-  /** A later report must never reconnect the retiring account, even if an earlier request is in flight. */
+  /** Main knows the connect screen just changed something: read now, do not wait for the next cycle. */
+  refresh(): Promise<void> {
+    return this.tick()
+  }
+
+  reportingEnabled(): boolean {
+    return this.options.ledger.meta(REPORTING_KEY) !== 'off'
+  }
+
+  /** A device disconnect stays in effect across ticks and Work restarts. */
+  async setReportingEnabled(enabled: boolean): Promise<void> {
+    this.options.ledger.setMeta(REPORTING_KEY, enabled ? 'on' : 'off')
+
+    // Reconcile through tick so any in-flight connected report settles before the withdrawal.
+    if (!enabled) {
+      await this.tick()
+
+      if (ACCOUNT_PLAN_PROVIDERS.some(provider => this.reported(provider)?.state === 'connected')) {
+        throw new Error('work_plan_fact_cleanup_pending')
+      }
+    }
+  }
+
+  /** The last flush before this Mac stops serving the account: `disconnected`, within the caller's bound. Never throws. */
   async final(): Promise<void> {
     this.closing = true
     this.seen = {}
@@ -71,6 +95,16 @@ export class PlanFact {
   }
 
   private async check(): Promise<void> {
+    if (!this.reportingEnabled()) {
+      this.seen = Object.fromEntries(ACCOUNT_PLAN_PROVIDERS.map(provider => [provider, { state: 'disconnected' as const }]))
+
+      if (ACCOUNT_PLAN_PROVIDERS.some(provider => this.reported(provider)?.state === 'connected')) {
+        await Promise.allSettled(ACCOUNT_PLAN_PROVIDERS.map(provider => this.send(provider, { state: 'disconnected' })))
+      }
+
+      return
+    }
+
     const snapshot = await this.options.read().catch((): PlanCapabilities => ({}))
 
     if (this.closing) {return}

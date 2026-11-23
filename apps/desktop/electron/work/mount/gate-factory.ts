@@ -5,7 +5,7 @@ import type { SafeStorageLike } from '../../encrypted-store'
 import { type GateAccount, WorkGateService, type WorkGateServiceOptions } from '../gate'
 import { WORK_SOCKET_PATH_MAX_BYTES } from '../gate/contract'
 import type { GateOptions } from '../gate/gate'
-import { WORK_PLAN_INSTANCE_IDS } from '../gate/gate'
+import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 import type { ModelAccess, OwnerEventVerifier, T3Port, WorkPlatform } from '../gate/ports'
 import type { RelayHistory } from '../gate/relay'
 import { createT3PairingCodes, T3Sessions } from '../gate/sessions'
@@ -39,6 +39,8 @@ export function workSocketPath(account: Pick<GateAccount, 'key'>, base: string):
 }
 
 export interface WorkGateFactoryInput {
+  relayRuntimeReady?: import('../gate/gate').GateOptions['relayRuntimeReady']
+  relayLimit?: import('../gate/gate').GateOptions['relayLimit']
   account: WorkMountAccount
   /** This Mac's device-service id (from device enrollment): where the platform knows this Mac. */
   deviceServiceId: string
@@ -92,7 +94,7 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       settingsFile: join(paths.userdata, 'settings.json'),
       delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
       // Gate 4b-1: the Codex instance, compiled in for launch admission.
-      plan: { instanceId: WORK_PLAN_INSTANCE_IDS[0] },
+      plan: { instanceId: WORK_RELAY_PROVIDER.codex.instanceId },
       restartWhenIdle: input.restartWhenIdle
     })
 

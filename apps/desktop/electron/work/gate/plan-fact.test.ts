@@ -67,6 +67,39 @@ describe('when the Mac reports the plan fact', () => {
     expect(new Set(sent.map(report => report.observedAt)).size).toBe(3)
   })
 
+  it('withdraws this Mac’s plan fact and keeps it withdrawn while T3 is still signed in', async () => {
+    const { fact, sent } = setup()
+
+    const heartbeat = fact.tick()
+    await fact.setReportingEnabled(false)
+    await heartbeat
+    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected'])
+    expect(sent[1]).toMatchObject({ deviceServiceId: DEVICE, accountId: ACCOUNT, provider: 'codex' })
+    expect((sent[1].observedAt as number) > (sent[0].observedAt as number)).toBe(true)
+
+    h.clock.advance(3_600_000)
+    await fact.tick()
+    expect(sent).toHaveLength(2)
+
+    await fact.setReportingEnabled(true)
+    await fact.tick()
+    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected', 'connected'])
+  })
+
+  it('tolerates an absent fact and retries a failed withdrawal', async () => {
+    const { fact, sent, state } = setup()
+
+    await fact.setReportingEnabled(false)
+    expect(sent).toHaveLength(0)
+    await fact.setReportingEnabled(true)
+    await fact.tick()
+    state.failWith = { status: 503 }
+    await expect(fact.setReportingEnabled(false)).rejects.toThrow('work_plan_fact_cleanup_pending')
+    state.failWith = undefined
+    await fact.tick()
+    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected'])
+  })
+
   it('a status T3 could not give is never claimed either way, and nothing is reported', async () => {
     const { fact, sent, state } = setup()
 

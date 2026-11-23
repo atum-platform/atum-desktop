@@ -163,6 +163,7 @@ export function MatrixYourMacsSection({
   const { locale } = useI18n()
   const copy = matrixKnowledgeSourcesCopy[locale]
   const native = useMatrixNativeMac(macs.some(mac => mac.thisMac), nativeMac)
+  const nativeWords = matrixNativeMacCopy[locale].mac
 
   if (macs.length === 0) {
     return null
@@ -177,19 +178,38 @@ export function MatrixYourMacsSection({
         // One focus per row: this Mac's own fix comes first, then native reach.
         const reach = mac.thisMac && !action ? matrixNativeMacLine(native, matrixNativeMacCopy[locale]) : null
 
+        const reset = reach?.reset ?? (mac.thisMac && !action && native.view?.status === 'needs_full_disk_access_hint'
+          ? { label: nativeWords.disconnect, run: 'disconnect' as const }
+          : undefined)
+
         return (
           <SettingsRow
             control={
               reach ? (
-                <Button
-                  data-matrix-mac-action={`native-${reach.action.run}`}
-                  disabled={native.busy}
-                  onClick={() => native.run(reach.action.run)}
-                  size="sm"
-                  variant="secondary"
-                >
-                  {reach.action.label}
-                </Button>
+                <span className="inline-flex items-center gap-2" data-matrix-mac-native-actions>
+                  <Button
+                    data-matrix-mac-action={`native-${reach.action.run}`}
+                    disabled={native.busy}
+                    onClick={() => native.run(reach.action.run)}
+                    size="sm"
+                    variant="secondary"
+                  >
+                    {native.running === reach.action.run
+                      ? reach.action.run === 'disconnect' ? nativeWords.disconnecting : nativeWords.working
+                      : reach.action.label}
+                  </Button>
+                  {reset && (
+                    <Button
+                      data-matrix-mac-action={`native-${reset.run}`}
+                      disabled={native.busy}
+                      onClick={() => native.run(reset.run)}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {native.running === reset.run ? nativeWords.disconnecting : reset.label}
+                    </Button>
+                  )}
+                </span>
               ) : pane && permissions ? (
                 <Button
                   data-matrix-mac-action="settings"
@@ -206,9 +226,22 @@ export function MatrixYourMacsSection({
               ) : mac.thisMac && native.view ? (
                 <ThisMacSwitch native={native} />
               ) : (
-                <SettingsStatus role="status">
-                  <MatrixMacState copy={copy} state={mac.state} />
-                </SettingsStatus>
+                <span className="inline-flex items-center gap-2">
+                  <SettingsStatus role="status">
+                    <MatrixMacState copy={copy} state={mac.state} />
+                  </SettingsStatus>
+                  {mac.thisMac && native.view?.status === 'connected' && (
+                    <Button
+                      data-matrix-mac-action="native-disconnect"
+                      disabled={native.busy}
+                      onClick={() => native.run('disconnect')}
+                      size="sm"
+                      variant="ghost"
+                    >
+                      {native.running === 'disconnect' ? nativeWords.disconnecting : nativeWords.disconnect}
+                    </Button>
+                  )}
+                </span>
               )
             }
             data-matrix-mac={mac.thisMac ? 'this' : 'other'}

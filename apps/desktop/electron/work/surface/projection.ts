@@ -1,5 +1,4 @@
 import type { AccountPlan } from '../../../shared/account-connections'
-import { WORK_RELAY_PROVIDER, type WorkRelayPlan } from '../../../shared/matrix-work-relay'
 
 import type {
   MatrixWorkAgentActivity,
@@ -35,10 +34,7 @@ export function projectWorkPlan(state: GateSurfaceState | null | undefined): Mat
   return state.planConnected === 'connected' || state.connectedPlans?.length ? 'off' : undefined
 }
 
-/** T3's own provider screen, on the Codex instance (`apps/web/src/routes/_chat.settings.providers.tsx` in the fork). */
-export function workPlanConnectPath(plan: WorkRelayPlan): string {
-  return `/settings/providers?instanceId=${WORK_RELAY_PROVIDER[plan].instanceId}`
-}
+
 export const WORK_PLAN_CONNECT_PATH = workPlanConnectPath('codex')
 
 /** The same screen on each plan's built-in instance (`PLAN_PROVIDER_BY_INSTANCE`, reversed). */

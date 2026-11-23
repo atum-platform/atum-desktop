@@ -32,6 +32,7 @@ export interface WorkViewHandle {
 
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
 export interface WorkSurfaceParts {
+  planConnectOpen?(): boolean
   relay?: {
     read(principal: string, roomId: string): Promise<WorkRelayRoomView>
     select(principal: string, expectedRevision: number, model: string, plan?: WorkRelayPlan): Promise<WorkRelaySelection>

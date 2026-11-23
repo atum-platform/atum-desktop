@@ -6,9 +6,10 @@ import { exportJWK, generateKeyPair, SignJWT } from 'jose'
 import { afterEach, beforeAll, describe, expect, it, type Mock, vi } from 'vitest'
 
 import { MATRIX_PLAIN_SENDER_DEVICE, type MatrixInvocationMessage } from '../../../shared/matrix'
-import type { WorkEnrollmentFacts, WorkSyncPage } from '../gate/contract'
+import type { WorkEnrollmentFacts, WorkSubscriptionReport, WorkSyncPage } from '../gate/contract'
+import { GateLedger } from '../gate/ledger'
 import type { WorkPlatform } from '../gate/ports'
-import { WorkGateService } from '../gate/service'
+import { workGatePaths, WorkGateService } from '../gate/service'
 import { ACCOUNT, Clock, DEVICE, EVENT_A, EVENT_B, FakeSessions, FakeT3, LUNA, REQ_1, REQ_2, REQ_3 } from '../gate/test-support'
 
 import type { WorkMountAccount } from './gate-factory'
@@ -90,7 +91,7 @@ function ownerMessage(eventId: string, overrides: Partial<MatrixInvocationMessag
   }
 }
 
-function build(options: { surface?: 'on' | 'hidden'; composed?: boolean } = {}): void {
+function build(options: { surface?: 'on' | 'hidden'; composed?: boolean; planReports?: WorkSubscriptionReport[] } = {}): void {
   const root = mkdtempSync('/tmp/wma-')
   const run = mkdtempSync('/tmp/wmr-')
   const clock = new Clock()
@@ -127,6 +128,7 @@ function build(options: { surface?: 'on' | 'hidden'; composed?: boolean } = {}):
 
       reported.push(...input.reports.map(report => report.requestId))
     },
+    reportSubscription: options.planReports ? async report => void options.planReports?.push(report) : undefined,
     carryGrant: async carry => void carried.push({ agentPrincipal: carry.agentPrincipal, grant: carry.grant })
   }
 
@@ -680,4 +682,30 @@ describe('an account that never used Work', () => {
     expect(await mount.retire(rig.account!)).toEqual({ settled: true, failed: [] })
     expect(rig.order).toEqual(['host.stop socket=gone'])
   })
+})
+
+it('withdraws a previous plan fact without starting the Work session server', async () => {
+  const planReports: WorkSubscriptionReport[] = []
+  build({ surface: 'hidden', planReports })
+
+  await rig.mount.setMacPlanFactsEnabled(DEVICE, false)
+  expect(rig.built).toHaveLength(0)
+
+  const ledger = new GateLedger(workGatePaths(rig.account!).ledger, ACCOUNT, rig.clock.now)
+  ledger.setMeta('plan_fact', JSON.stringify({ state: 'connected', at: rig.clock.now() }))
+  ledger.setPlanSwitch(true)
+  ledger.close()
+
+  await rig.mount.setMacPlanFactsEnabled(DEVICE, false)
+  expect(planReports).toEqual([expect.objectContaining({ deviceServiceId: DEVICE, accountId: ACCOUNT, state: 'disconnected' })])
+  expect(rig.order).not.toContain('session.start')
+  expect(rig.mount.service()).toBeUndefined()
+
+  const reopened = new GateLedger(workGatePaths(rig.account!).ledger, ACCOUNT, rig.clock.now)
+
+  try {
+    expect(reopened.planSwitchOn()).toBe(false)
+  } finally {
+    reopened.close()
+  }
 })
