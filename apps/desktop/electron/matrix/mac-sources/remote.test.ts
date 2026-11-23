@@ -118,3 +118,21 @@ it('unknown or denied macOS Location authorization never advertises ready', () =
   expect(readiness.snapshot(consent, 'granted', true, 101_000, 'granted').location).toBe('needs_permission')
   expect(readiness.snapshot(consent, 'granted', true, 131_000, 'granted').location).toBe('ready')
 })
+
+
+it('fails closed if account identity is refused or changes during its read', async () => {
+  let scope = 'a'
+  const authority = vi.fn()
+  const request = vi.fn()
+  const deps = { enabled: () => true, scope: () => scope, authority, request }
+  const refused = new RemoteMacSourcesService({ ...deps, ownerPrincipal: async () => { throw new Error('refused') } })
+  expect(await refused.request(read, grant, new AbortController().signal)).toBe('{"error":"disabled"}')
+
+  const replaced = new RemoteMacSourcesService({ ...deps, ownerPrincipal: async () => { scope = 'b';
+
+ return 'owner' } })
+
+  expect(await replaced.request(read, grant, new AbortController().signal)).toBe('{"error":"disabled"}')
+  expect(authority).not.toHaveBeenCalled()
+  expect(request).not.toHaveBeenCalled()
+})

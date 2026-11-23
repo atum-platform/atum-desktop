@@ -17,7 +17,7 @@ export interface RemoteMacSourcesDependencies {
   allowed?(source: Source): boolean
   /** Account generation included; captured around every await. */
   scope(): string | null
-  ownerPrincipal(grant: DeviceGrant): string | null
+  ownerPrincipal(grant: DeviceGrant): string | null | Promise<string | null>
   /** Trusted adapter to 0427; never place a service-role credential in desktop. */
   authority(query: SourceAuthorityQuery, signal: AbortSignal): Promise<unknown>
   request(payload: unknown, context: MacSourcesExecutionContext, signal: AbortSignal): Promise<string>
@@ -65,12 +65,13 @@ export class RemoteMacSourcesService {
     const locallyAllowed = () => this.deps.allowed?.(gate) !== false
 
     if (!locallyAllowed()) {return denied}
-    const ownerPrincipal = this.deps.ownerPrincipal(grant)
-
-    if (!ownerPrincipal) {return denied}
-    const query: SourceAuthorityQuery = { ownerPrincipal, agentPrincipal: grant.agentPrincipal, gate, expectedRevision: null }
 
     try {
+      const ownerPrincipal = await this.deps.ownerPrincipal(grant)
+
+      if (!ownerPrincipal || !current() || !locallyAllowed()) {return denied}
+      const query: SourceAuthorityQuery = { ownerPrincipal, agentPrincipal: grant.agentPrincipal, gate, expectedRevision: null }
+
       const revision = authorityRevision(await this.deps.authority(query, signal), query)
 
       if (revision === null || !current() || !locallyAllowed()) {return denied}

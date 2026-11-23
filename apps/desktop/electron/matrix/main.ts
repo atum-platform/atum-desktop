@@ -497,7 +497,8 @@ import {
   matrixCloudAgentReadinessForUser,
   matrixCloudAgentSetupForUser,
   MatrixPlacedAgents,
-  matrixPlacedCloudOnly
+  matrixPlacedCloudOnly,
+  matrixRosterAgentAnswersInCloud
 } from './cloud-agent-placement'
 import {
   cloudHomeMemoryNote,
@@ -2267,7 +2268,7 @@ function syncExecutionDeviceNamesScope(): void {
 function cloudAgentMacRole(agentRuntime: MatrixAgentRuntime | undefined): MatrixCloudAgentMacRole | undefined {
   const principal = cloudPrincipal(agentRuntime)
 
-  if (!agentRuntime || !principal || !isCloudAgent(agentRuntime)) {
+  if (!agentRuntime || !principal || hostRuntimeAgents.has(principal) || !isCloudAgent(agentRuntime)) {
     return undefined
   }
 
@@ -2702,10 +2703,10 @@ function buildDeviceRuntime(): DeviceRuntime {
         return scope ? `${scope.accountKey}:${scope.generation}` : null
       },
       allowed: source => macSourcesConsentStore().read()[source],
-      ownerPrincipal: grant => {
-        const identity = account?.enrollment().identity
+      ownerPrincipal: async grant => {
+        if (account?.identity()?.userId !== grant.ownerUserId) {return null}
 
-        return identity?.userId === grant.ownerUserId ? identity.principal : null
+        return (await account.readDomain(false)).principal
       },
       authority: (query, signal) => s1Call({ kind: 'source-authority', agentPrincipal: query.agentPrincipal,
         gate: query.gate, expectedRevision: query.expectedRevision }, signal),
@@ -3565,7 +3566,7 @@ function applyAnswering(roster: MatrixAgentDefinitionRecord[]): void {
   }
 
   const next = new Set(
-    roster.filter(agent => agent.status === 'active' && agent.answering === 'cloud').map(agent => agent.principal)
+    roster.filter(agent => agent.status === 'active' && matrixRosterAgentAnswersInCloud(agent)).map(agent => agent.principal)
   )
 
   // The roster now shows the switch a placed create was waiting for: the ordinary saved-policy
@@ -20524,9 +20525,9 @@ async function start() {
   if (config.domain) {
     const domain = config.domain
 
-    const ownerPrincipal = () => {
+    const ownerPrincipal = async () => {
       try {
-        return account.enrollment().identity?.principal
+        return (await account.readDomain(false)).principal
       } catch {
         return undefined
       }
