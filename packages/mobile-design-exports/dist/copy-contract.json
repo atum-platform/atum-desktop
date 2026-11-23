@@ -632,18 +632,6 @@
       "key": "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.pinned.pinnedMessageCount.count=1",
       "value": 1
     },
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": {
-      "alternatives": [
-        {
-          "argumentIndex": 1,
-          "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0",
-          "value": 0
-        }
-      ],
-      "argumentIndex": 1,
-      "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1",
-      "value": 1
-    },
     "src.matrix.person-info-copy.copy.members": {
       "alternatives": [
         {
@@ -2758,6 +2746,7 @@
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.onItsComputer": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.openDrive": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pause": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pauseHint": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.paused": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.queueHint": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.routine": [],
@@ -6563,40 +6552,6 @@
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailable": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailableBody": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.you": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.allow": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.assistants": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.cancel": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.failed": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.granted": [
-      {
-        "kind": "string",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.macs": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.none": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.revoke": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.save": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.title": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.planRow": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows0Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows1Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows2Label": [],

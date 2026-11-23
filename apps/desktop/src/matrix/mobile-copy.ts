@@ -1258,6 +1258,8 @@ const phoneScreensEn = {
   // consent sheet's chats wording (`consentChatsLine`, `consentScheduled`). `plan` is the plan's product
   // name ("ChatGPT"), `model` the Atum model that answered, `at` a formatted time; with no `at` the words
   // say so. relay-copy `greyed` and `fallbackWhy.mac_off` are formatters that never say the plan: here they are words.
+  // Since #106 (connecting a plan covers every assistant) desktop still defines but no longer draws `greyed.allow`,
+  // `chipGreyed.allow`, `fix.allow` (here `fixAllow`), `consentChatsLine` and `consentScheduled`.
   relay: {
     greyed: {
       connect: 'Not connected on any of your Macs',
@@ -1302,26 +1304,6 @@ const phoneScreensEn = {
     usageUnknown: 'Usage not reported',
     consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
     consentScheduled: 'Also for scheduled work'
-  },
-  // The ChatGPT plan's consent sheet (app/work/plan-consent.tsx) and its Settings row title, copied
-  // exactly from app/work/copy.ts (`workCopy`): `consent.*` (each Mac by its own name, an unnamed one as
-  // `otherMac`; `granted` takes a formatted date) and `connect.rowTitle` (here `planRow`). English and
-  // Vietnamese on desktop; the other locales repeat the English, as the desktop shows them.
-  work: {
-    planRow: 'ChatGPT plan',
-    consent: {
-      title: 'Let assistants use your ChatGPT plan?',
-      assistants: 'Assistants',
-      macs: 'Macs',
-      otherMac: (index: number) => `Your other Mac ${index}`,
-      allow: 'Allow',
-      save: 'Save',
-      cancel: 'Cancel',
-      granted: (since: string) => `Allowed since ${since}`,
-      revoke: 'Turn off everywhere',
-      failed: 'Couldn’t save just now.',
-      none: 'No assistant can work on your Mac yet.'
-    }
   },
   // The persona's section titles, as the assistant card writes them into the persona in every locale
   // (shared/matrix-assistant-persona.ts `PERSONA_WHO` and `PERSONA_WHAT`), copied exactly.
@@ -1528,22 +1510,6 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       consentChatsLine: 'Cuộc trò chuyện của bạn với họ chạy trên máy Mac bằng gói này. Dừng bất cứ lúc nào.',
       consentScheduled: 'Cả việc theo lịch'
     },
-    work: {
-      planRow: 'Gói ChatGPT',
-      consent: {
-        title: 'Cho trợ lý dùng gói ChatGPT của bạn?',
-        assistants: 'Trợ lý',
-        macs: 'Máy Mac',
-        otherMac: (index: number) => `Máy Mac khác ${index}`,
-        allow: 'Cho phép',
-        save: 'Lưu',
-        cancel: 'Huỷ',
-        granted: (since: string) => `Đã cho phép từ ${since}`,
-        revoke: 'Tắt ở mọi nơi',
-        failed: 'Chưa lưu được lúc này.',
-        none: 'Chưa có trợ lý nào làm việc được trên máy Mac của bạn.'
-      }
-    },
     assistantCard: {
       personaWho: 'Who you are',
       personaWhat: 'What you do'
@@ -1743,22 +1709,6 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
-    },
-    work: {
-      planRow: 'ChatGPT plan',
-      consent: {
-        title: 'Let assistants use your ChatGPT plan?',
-        assistants: 'Assistants',
-        macs: 'Macs',
-        otherMac: (index: number) => `Your other Mac ${index}`,
-        allow: 'Allow',
-        save: 'Save',
-        cancel: 'Cancel',
-        granted: (since: string) => `Allowed since ${since}`,
-        revoke: 'Turn off everywhere',
-        failed: 'Couldn’t save just now.',
-        none: 'No assistant can work on your Mac yet.'
-      }
     },
     assistantCard: {
       personaWho: 'Who you are',
@@ -1960,22 +1910,6 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
     },
-    work: {
-      planRow: 'ChatGPT plan',
-      consent: {
-        title: 'Let assistants use your ChatGPT plan?',
-        assistants: 'Assistants',
-        macs: 'Macs',
-        otherMac: (index: number) => `Your other Mac ${index}`,
-        allow: 'Allow',
-        save: 'Save',
-        cancel: 'Cancel',
-        granted: (since: string) => `Allowed since ${since}`,
-        revoke: 'Turn off everywhere',
-        failed: 'Couldn’t save just now.',
-        none: 'No assistant can work on your Mac yet.'
-      }
-    },
     assistantCard: {
       personaWho: 'Who you are',
       personaWhat: 'What you do'
@@ -2175,22 +2109,6 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
-    },
-    work: {
-      planRow: 'ChatGPT plan',
-      consent: {
-        title: 'Let assistants use your ChatGPT plan?',
-        assistants: 'Assistants',
-        macs: 'Macs',
-        otherMac: (index: number) => `Your other Mac ${index}`,
-        allow: 'Allow',
-        save: 'Save',
-        cancel: 'Cancel',
-        granted: (since: string) => `Allowed since ${since}`,
-        revoke: 'Turn off everywhere',
-        failed: 'Couldn’t save just now.',
-        none: 'No assistant can work on your Mac yet.'
-      }
     },
     assistantCard: {
       personaWho: 'Who you are',
