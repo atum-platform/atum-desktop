@@ -17853,8 +17853,8 @@ async function start() {
 
   if (process.platform === 'darwin') {
     nativeMacSsh = new NativeMacSsh({
-      ownerPrincipal: () => account?.enrollment().identity?.principal,
       enrollment: () => deviceIdentity?.enrollment() ?? null,
+      setPlanFactsEnabled: async (deviceServiceId, enabled) => work?.setMacPlanFactsEnabled(deviceServiceId, enabled),
       call: request => s1Call({ kind: 'native-ssh', request }, AbortSignal.timeout(20_000)),
       system: createNativeSshSystem(),
       settings: outcomeStore
@@ -17870,6 +17870,11 @@ async function start() {
         case 'status':
           return nativeMacSsh!.status()
 
+        case 'refresh':
+          await nativeMacSsh!.start()
+
+          break
+
         case 'connect':
           await nativeMacSsh!.start(true)
 
@@ -17881,7 +17886,7 @@ async function start() {
           break
 
         case 'disconnect':
-          await nativeMacSsh!.disconnect()
+          await nativeMacSsh!.disconnect({ accountConnection: true })
 
           break
 

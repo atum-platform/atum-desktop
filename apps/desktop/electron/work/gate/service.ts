@@ -200,8 +200,25 @@ export class WorkGateService {
     void this.sync.tick()
   }
 
+  /** Withdraw only this Mac's plan fact and cut off its delegated plan use. */
+  async setPlanFactsEnabled(deviceServiceId: string, enabled: boolean): Promise<void> {
+    if (deviceServiceId !== this.options.deviceServiceId) {
+      throw new Error('work_device_changed')
+    }
+
+    if (!enabled) {
+      this.setPlanSwitch(false)
+    }
+
+    await this.planFact?.setReportingEnabled(enabled)
+  }
+
   /** "Agents may use my ChatGPT plan here" (gate 4b local switch). Off interrupts every plan thread at once. */
   setPlanSwitch(on: boolean): void {
+    if (on && this.planFact?.reportingEnabled() === false) {
+      throw new Error('work_mac_disconnected')
+    }
+
     this.gate.setPlanSwitch(on)
   }
 
