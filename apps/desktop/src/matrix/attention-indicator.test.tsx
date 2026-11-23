@@ -283,3 +283,37 @@ describe('the notification bell', () => {
     expect(onOpen).toHaveBeenCalledWith({ kind: 'approval', tone: 'warn' })
   })
 })
+
+// The Work page paints a native view over the page; the list drops over the same area, so the page needs to know
+// when it is open (and that it is closed again after the item is used or the bell is closed).
+describe('the list tells the page when it is open', () => {
+  it('reports open, then closed, and closed again when the bell goes away', async () => {
+    const seen: boolean[] = []
+
+    const view = render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MatrixAttentionIndicator
+          agentName={() => 'Moon'}
+          onOpen={vi.fn()}
+          onOpenChange={open => void seen.push(open)}
+          snapshot={{ ...base, disk: { state: 'low', freeGb: 8 } }}
+        />
+      </I18nProvider>
+    )
+
+    expect(seen.at(-1)).toBe(false)
+    const bell = screen.getByRole('button', { name: /Needs you/ })
+    fireEvent.pointerDown(bell, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    fireEvent.click(bell)
+    await waitFor(() => expect(seen.at(-1)).toBe(true))
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+    await waitFor(() => expect(seen.at(-1)).toBe(false))
+
+    fireEvent.pointerDown(bell, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    fireEvent.click(bell)
+    await waitFor(() => expect(seen.at(-1)).toBe(true))
+    view.unmount()
+    expect(seen.at(-1)).toBe(false)
+  })
+})

@@ -1,0 +1,484 @@
+import type {
+  MatrixWorkPlanConsent,
+  MatrixWorkPlanConsentInput,
+  MatrixWorkProjection,
+  MatrixWorkRect,
+  MatrixWorkViewState
+} from '../../../shared/matrix-work'
+import type { WorkRelayRoomView, WorkRelaySelection } from '../../../shared/matrix-work-relay'
+import type { GateEvent } from '../gate/gate'
+import type { WorkConsentClient } from '../gate/platform'
+import type { OwnerViewPort } from '../session/pairing'
+import type { OpenOwnerView } from '../session/session'
+import type { WorkAccess } from '../sidecar/host'
+import type { WorkIncarnation } from '../sidecar/process'
+
+import {
+  type GateSurfaceState,
+  projectWorkAgents,
+  projectWorkAssistants,
+  projectWorkConsent,
+  projectWorkPlan,
+  projectWorkPlanConnect,
+  WORK_PLAN_CONNECT_PATH
+} from './projection'
+
+/** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
+export interface WorkViewHandle {
+  port: OwnerViewPort
+  place(rect: MatrixWorkRect | null): void
+}
+
+/** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
+export interface WorkSurfaceParts {
+  relay?: {
+    read(principal: string, roomId: string): Promise<WorkRelayRoomView>
+    select(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection>
+    stop(roomId: string, eventId: string): Promise<void>
+    chats(): string[]
+  }
+  session: { openOwnerView(createView: (incarnation: WorkIncarnation) => OwnerViewPort): Promise<OpenOwnerView> }
+  /** S's per-account Work off marker (§8.5). Off: nothing starts, the page says so. */
+  enabled(): boolean
+  /** Lane G's door. Absent while this Mac has no Work route for the account. */
+  gate?: {
+    state(): GateSurfaceState
+    on(listener: (event: GateEvent) => void): () => void
+    acceptWorkGrant(): Promise<void>
+    setSwitch(on: boolean): Promise<void>
+    /** Gate 4b: "Agents may use my ChatGPT plan here" on this Mac. */
+    setPlanSwitch?(on: boolean): Promise<void>
+    openRoute(): Promise<void>
+    closeRoute(): Promise<void>
+  }
+  /** S's balance read for the Atum provider (`readModelAccess`). */
+  readAccess?(): Promise<WorkAccess>
+  readPlanUsage?(): Promise<MatrixWorkProjection['planLimits']>
+  /** Gate 4a for this account (custody retired, the build ships the unmodified Codex client). False or absent: no Connect step. */
+  planConnectOpen?(): boolean
+  /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
+  consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
+  deviceServiceId?(): string | undefined
+  /** First use: the owner opened Work, so main starts what a sign-in does not (the server and the gate). Never rejects. */
+  wantServer?(): Promise<void>
+}
+
+export interface WorkSurfaceOptions {
+  createView(incarnation: WorkIncarnation): WorkViewHandle
+  publish(projection: MatrixWorkProjection | null): void
+  /** Stable codes only: never a URL, a token or a path. */
+  log?(line: string): void
+  /** The owner's Work switch (§8.5): off runs the cutoff and stops the server, on lets it start again. */
+  setWork?(on: boolean): Promise<void>
+}
+
+const PROTONS: Record<WorkAccess, MatrixWorkProjection['protons']> = {
+  allowed: 'ok',
+  empty: 'empty',
+  unavailable: 'unknown'
+}
+
+type ViewPhase = 'idle' | 'starting' | 'ready' | 'unavailable'
+
+/**
+ * Lane DW's main-side half: one owner view at a time (R's rule), placed where the Work page asks, and one
+ * projection of S, R and G for the Matrix window. It holds no credential and decides no admission.
+ */
+export class WorkSurface {
+  private parts: WorkSurfaceParts | undefined
+  private detachGate: (() => void) | undefined
+  private handle: WorkViewHandle | undefined
+  private phase: ViewPhase = 'idle'
+  private opening: Promise<void> | undefined
+  private rect: MatrixWorkRect | null = null
+  private protons: MatrixWorkProjection['protons'] = 'unknown'
+  private planLimit: MatrixWorkProjection['planLimit']
+  private planLimits: MatrixWorkProjection['planLimits']
+  private generation = 0
+  /** While a restart of the session server runs, nothing opens a view: it would start a second server. */
+  private holds = 0
+  /** Gate 4a: T3's own connect screen, opened in the view as soon as it is painted. */
+  private pendingPath: string | undefined
+
+  constructor(private readonly options: WorkSurfaceOptions) {}
+
+  /** Main calls this when an account's Work is built (parts) or torn down (undefined): sign-out, switch. */
+  attach(parts: WorkSurfaceParts | undefined): void {
+    this.planLimit = undefined
+    this.planLimits = undefined
+    this.generation++
+    this.detachGate?.()
+    this.detachGate = undefined
+    this.closeView()
+    this.parts = parts
+    this.pendingPath = undefined
+    this.phase = 'idle'
+    this.protons = 'unknown'
+    this.detachGate = parts?.gate?.on(() => this.publish())
+    this.publish()
+  }
+
+  projection(): MatrixWorkProjection | null {
+    const parts = this.parts
+
+    if (!parts) {
+      return null
+    }
+
+    const gate = parts.gate?.state()
+
+    const plan = projectWorkPlan(gate)
+    const planConnect = projectWorkPlanConnect(parts.planConnectOpen?.() === true, gate)
+
+    return {
+      ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
+      ...(this.planLimit ? { planLimit: this.planLimit } : {}),
+      ...(this.planLimits?.length ? { planLimits: this.planLimits } : {}),
+      view: this.viewState(parts),
+      assistants: projectWorkAssistants(gate),
+      ...(plan ? { plan } : {}),
+      ...(planConnect ? { planConnect } : {}),
+      agents: projectWorkAgents(gate),
+      protons: this.protons
+    }
+  }
+
+  /** The renderer's read also refreshes the balance, so the Add Protons action follows a top-up. */
+  async read(): Promise<MatrixWorkProjection | null> {
+    const generation = this.generation
+    const readUsage = this.parts?.readPlanUsage
+    const [, limits] = await Promise.all([this.refreshProtons(), readUsage?.().catch(() => undefined)])
+
+    if (generation === this.generation && readUsage) {
+      this.planLimits = limits
+      this.publish()
+    }
+
+    return this.projection()
+  }
+
+  async readRelay(principal: string, roomId: string): Promise<WorkRelayRoomView> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+    const generation = this.generation
+    const view = await this.parts.relay.read(principal, roomId)
+
+    if (generation !== this.generation) {throw new Error('work_relay_account_changed')}
+    const limit = view.status?.limits.find(limit => limit.plan === 'codex')
+    this.planLimit = limit
+    this.publish()
+
+    return view
+  }
+
+  async selectRelay(principal: string, expectedRevision: number, model: string): Promise<WorkRelaySelection> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+
+    return this.parts.relay.select(principal, expectedRevision, model)
+  }
+
+  async stopRelay(roomId: string, eventId: string): Promise<void> {
+    if (!this.parts?.relay) {throw new Error('work_relay_unavailable')}
+    await this.parts.relay.stop(roomId, eventId)
+    this.publish()
+  }
+
+  async show(rect: MatrixWorkRect): Promise<void> {
+    this.rect = rect
+
+    if (this.holds > 0) {
+      return
+    }
+
+    if (this.phase === 'ready') {
+      this.handle?.place(rect)
+
+      return
+    }
+
+    if (this.phase === 'idle') {
+      await this.open()
+    }
+  }
+
+  async hide(): Promise<void> {
+    this.rect = null
+    this.handle?.place(null)
+  }
+
+  /**
+   * Run `work` (a restart of the session server) with the view closed, then paint it again if the page is still
+   * showing. Whatever asks for a view meanwhile (a resize, "Try again") waits: a second open would start a second
+   * server beside the one being restarted.
+   */
+  async suspend<T>(work: () => Promise<T>): Promise<T> {
+    this.holds++
+    this.closeView()
+    this.phase = 'idle'
+    this.publish()
+
+    try {
+      return await work()
+    } finally {
+      this.holds--
+
+      if (this.holds === 0 && this.rect && this.parts?.enabled()) {
+        void this.open()
+      }
+    }
+  }
+
+  async retry(): Promise<void> {
+    if (this.holds > 0 || this.phase !== 'unavailable') {
+      return
+    }
+
+    this.closeView()
+    this.phase = 'idle'
+    await this.open()
+  }
+
+  /** D9: the enrollment text was read and accepted here. The grant opens the route; the switch follows it. */
+  async allowAssistants(): Promise<void> {
+    const gate = this.parts?.gate
+
+    if (!gate) {
+      return
+    }
+
+    await gate.acceptWorkGrant()
+    await gate.setSwitch(true)
+    await this.bindRoute()
+  }
+
+  async setAssistants(on: boolean): Promise<void> {
+    const gate = this.parts?.gate
+
+    if (!gate) {
+      return
+    }
+
+    await gate.setSwitch(on)
+
+    if (on) {
+      await this.bindRoute()
+    } else {
+      await gate.closeRoute()
+      this.publish()
+    }
+  }
+
+  async setPlan(on: boolean): Promise<void> {
+    await this.parts?.gate?.setPlanSwitch?.(on)
+    this.publish()
+  }
+
+  /**
+   * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
+   * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's. Closed gate: nothing happens.
+   */
+  async openPlanConnect(): Promise<void> {
+    if (this.parts?.planConnectOpen?.() !== true) {
+      return
+    }
+
+    this.pendingPath = WORK_PLAN_CONNECT_PATH
+
+    if (this.phase === 'ready') {
+      await this.followPendingPath()
+    }
+  }
+
+  /** Gate 4b-2: the account's consent, as the owner's page reads it. */
+  async readPlanConsent(): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+
+    const entitled = (this.parts?.gate?.state().agents ?? []).map(agent => agent.principal)
+
+    return projectWorkConsent(await consent.read(), this.parts?.deviceServiceId?.(), entitled)
+  }
+
+  /** Express opt-in: the owner named these assistants and Macs. Main sends nothing the page did not name. */
+  async setPlanConsent(input: MatrixWorkPlanConsentInput): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+    await consent.set({ agents: input.agents, devices: input.macs, alsoWhenScheduled: input.alsoWhenScheduled })
+
+    return this.readPlanConsent()
+  }
+
+  async revokePlanConsent(): Promise<MatrixWorkPlanConsent> {
+    const consent = this.consentDoor()
+    await consent.revoke()
+
+    return this.readPlanConsent()
+  }
+
+  async reconnectAssistants(): Promise<void> {
+    await this.bindRoute()
+  }
+
+  /**
+   * Settings: Work off or on for this account on this Mac. Off first stops what is painted, then main's cutoff and
+   * server stop run; on only clears the marker, and the page opens the view again the next time it is shown.
+   */
+  async setWork(on: boolean): Promise<void> {
+    if (!this.parts) {
+      return
+    }
+
+    if (!on) {
+      this.closeView()
+      this.phase = 'idle'
+      this.protons = 'unknown'
+    }
+
+    try {
+      await this.options.setWork?.(on)
+    } finally {
+      this.publish()
+    }
+  }
+
+  private consentDoor(): NonNullable<WorkSurfaceParts['consent']> {
+    const consent = this.parts?.consent
+
+    if (!consent) {
+      throw Object.assign(new Error('work_consent_unavailable'), { code: 'work_consent_unavailable' })
+    }
+
+    return consent
+  }
+
+  private async followPendingPath(): Promise<void> {
+    const path = this.pendingPath
+    const port = this.handle?.port
+
+    if (!path || !port) {
+      return
+    }
+
+    this.pendingPath = undefined
+
+    try {
+      const origin = new URL(port.currentUrl()).origin
+      await port.load(`${origin}${path}`)
+    } catch {
+      this.options.log?.('[work-surface] plan_connect_open_failed')
+    }
+  }
+
+  private async bindRoute(): Promise<void> {
+    try {
+      await this.parts?.gate?.openRoute()
+    } catch (error) {
+      // The gate records why (socket down); the page shows it. Nothing else moves.
+      this.options.log?.(`[work-surface] route_bind_failed ${(error as { code?: string }).code ?? 'unknown'}`)
+    }
+
+    this.publish()
+  }
+
+  private viewState(parts: WorkSurfaceParts): MatrixWorkViewState {
+    if (!parts.enabled()) {
+      return 'off'
+    }
+
+    return this.phase === 'ready' ? 'ready' : this.phase === 'unavailable' ? 'unavailable' : 'starting'
+  }
+
+  private open(): Promise<void> {
+    const parts = this.parts
+
+    if (this.holds > 0) {
+      return Promise.resolve()
+    }
+
+    if (!parts || !parts.enabled()) {
+      this.publish()
+
+      return Promise.resolve()
+    }
+
+    this.opening ??= this.openOnce(parts, this.generation).finally(() => {
+      this.opening = undefined
+    })
+
+    return this.opening
+  }
+
+  private async openOnce(parts: WorkSurfaceParts, generation: number): Promise<void> {
+    this.phase = 'starting'
+    this.publish()
+
+    let outcome: OpenOwnerView
+
+    try {
+      await parts.wantServer?.().catch(() => undefined)
+      outcome = await parts.session.openOwnerView(incarnation => {
+        const handle = this.options.createView(incarnation)
+        this.handle = handle
+
+        return handle.port
+      })
+    } catch (error) {
+      outcome = { state: 'failed', reason: (error as { code?: string }).code ?? 'open_failed' }
+    }
+
+    if (generation !== this.generation) {
+      // The account changed while the view opened: whatever opened belongs to the old one.
+      if (outcome.state !== 'failed') {
+        outcome.view.close()
+      }
+
+      return
+    }
+
+    if (outcome.state === 'failed') {
+      this.options.log?.(`[work-surface] view_failed ${outcome.reason}`)
+      this.closeView()
+      this.phase = 'unavailable'
+      this.publish()
+
+      return
+    }
+
+    const handle = this.handle
+    this.phase = 'ready'
+    outcome.view.onClosed(() => {
+      if (this.handle === handle && generation === this.generation) {
+        // Crashed or closed underneath us: say so, with "Try again". A view that dies at once must not reopen in a loop.
+        this.handle = undefined
+        this.phase = 'unavailable'
+        this.publish()
+      }
+    })
+    handle?.place(this.rect)
+    await this.refreshProtons()
+    this.publish()
+    await this.followPendingPath()
+  }
+
+  private closeView(): void {
+    const handle = this.handle
+    this.handle = undefined
+    handle?.place(null)
+    handle?.port.close()
+  }
+
+  private async refreshProtons(): Promise<void> {
+    const read = this.parts?.readAccess
+
+    if (!read || this.phase !== 'ready') {
+      return
+    }
+
+    try {
+      this.protons = PROTONS[await read()]
+    } catch {
+      this.protons = 'unknown'
+    }
+  }
+
+  private publish(): void {
+    this.options.publish(this.projection())
+  }
+}

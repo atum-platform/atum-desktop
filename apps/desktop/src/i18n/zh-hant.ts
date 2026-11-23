@@ -2976,6 +2976,7 @@ export const zhHant = defineLocale({
       sessionRunning: '工作階段執行中',
       needsInput: '需要您的輸入',
       waitingForAnswer: '等待您的回答',
+      invalidAnswer: '請重新回覆有效答案',
       finishedUnread: '已完成 — 未讀',
       backgroundRunning: '背景任務執行中',
       handoffOrigin: platform => `從 ${platform} 轉接`,

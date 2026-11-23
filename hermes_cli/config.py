@@ -945,6 +945,7 @@ def get_missing_skill_config_vars() -> list[dict[str, Any]]:
 _EXTRA_KNOWN_ROOT_KEYS = {
     "custom_providers",  # legacy list form; modern equivalent is providers: {}
     "fallback_model",    # optional single dict or chain list; omitted when disabled
+    "editor_mcp_tools",  # Allowlist for editor-injected MCP servers
     "mcp_servers",       # MCP server definitions written by setup/tools flows
     "image_gen",         # agent/image_gen_registry.py
     "video_gen",         # agent/video_gen_registry.py
@@ -3082,7 +3083,7 @@ def _default_value_for_key(dotted_key: str):
 # Top-level keys that accept arbitrary user-supplied child keys (schema declares the dict, the
 # user populates it): any path below is accepted without deep checking.
 _OPEN_DICT_TOP_LEVEL_KEYS = frozenset({
-    "providers", "credential_pool_strategies", "mcp_servers", "hooks", "quick_commands",
+    "providers", "credential_pool_strategies", "mcp_servers", "editor_mcp_tools", "hooks", "quick_commands",
     "personalities", "command_allowlist", "model_catalog", "channel_prompts", "server_actions",
     "secrets", "goals", "loops"})
 

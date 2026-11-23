@@ -75,6 +75,18 @@ export async function bundleElectronMain({ root, distDir, dev = false, silent = 
   })
   console.log(`bundled ${mainOut}${dev ? ' (dev)' : ''}`)
 
+  // The isolated Work origin gets only the balance capability.
+  await build({
+    entryPoints: [resolve(root, 'electron/work/sidecar/preload.ts')],
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node20',
+    outfile: resolve(distDir, 'electron-work-preload.js'),
+    external: ['electron'],
+    logLevel: silent ? 'warning' : 'info'
+  })
+
   // Bundle preload.ts → dist/electron-preload.js
   await build({
     entryPoints: [preloadEntry],

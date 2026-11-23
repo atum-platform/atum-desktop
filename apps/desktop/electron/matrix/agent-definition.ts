@@ -22,6 +22,7 @@ import {
   parseAtumAssistantDefinitionSnapshot,
   parseAtumPortableAssistantRecord
 } from '../../shared/atum-agent-portability'
+import type { MatrixOpenAgentListing } from '../../shared/matrix'
 import { type MatrixPetCatalog, parseMatrixPetCatalog, parseMatrixPetSnapshot } from '../../shared/matrix-pet'
 import {
   matrixProfilePhoto,
@@ -185,23 +186,32 @@ export async function listMatrixAgentDefinitions(
 export async function createMatrixAgent(
   resource: string,
   grant: NativeGrant,
-  input: { requestId: string; displayName: string; hireConfirmed?: boolean },
+  input: { requestId: string; displayName: string; hireConfirmed?: boolean; listingId?: string },
   signal: AbortSignal
 ): Promise<MatrixAgentDefinitionRecord & { matrixUser: string; cloudPlacement?: MatrixAgentCloudPlacement }> {
   const name = input.displayName.trim()
 
-  if (!uuid(input.requestId) || !name || Array.from(name).length > 40) {
+  if (
+    !uuid(input.requestId) ||
+    !name ||
+    Array.from(name).length > 40 ||
+    (input.listingId !== undefined && !listingId(input.listingId))
+  ) {
     throw invalid()
+  }
+
+  // An open listing (0535): the platform seeds its definition and skills from the listing.
+  const extra = {
+    ...(input.hireConfirmed ? { hireConfirmed: true } : {}),
+    ...(input.listingId === undefined ? {} : { listingId: input.listingId })
   }
 
   const disclosureVersion = await readCloudDisclosureVersion(resource, grant)
   const body = (version: number | undefined) =>
     JSON.stringify(
       version === undefined
-        ? { requestId: input.requestId, displayName: input.displayName,
-            ...(input.hireConfirmed ? { hireConfirmed: true } : {}) }
-        : { requestId: input.requestId, displayName: input.displayName, disclosureVersion: version,
-            ...(input.hireConfirmed ? { hireConfirmed: true } : {}) }
+        ? { requestId: input.requestId, displayName: input.displayName, ...extra }
+        : { requestId: input.requestId, displayName: input.displayName, disclosureVersion: version, ...extra }
     )
   const post = (version: number | undefined) =>
     requestJson(resource, grant, '/agents', { method: 'POST', body: body(version) }, signal)
@@ -236,6 +246,81 @@ export async function createMatrixAgent(
     matrixUser: record.matrixUser,
     ...(cloudPlacement === undefined ? {} : { cloudPlacement })
   }
+}
+
+/** A listing id the platform accepts (`open/agents/researcher`): 1–128 characters. */
+function listingId(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= 1 && value.length <= 128
+}
+
+/** A localized catalog string: `{ vi, en, ... }` or one plain string. Unusable values drop. */
+function localizedText(value: unknown): Record<string, string> | undefined {
+  if (typeof value === 'string') {
+    return value.trim() ? { en: value } : undefined
+  }
+
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return undefined
+  }
+
+  const entries = Object.entries(value).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim().length > 0
+  )
+
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+
+/** The open listings the person can hire (0535 `matrix_open_agent_catalog`). A row the client
+ * cannot show is left out rather than failing the shelf; a malformed list is empty. */
+export async function listMatrixOpenAgents(
+  resource: string,
+  grant: NativeGrant,
+  signal: AbortSignal
+): Promise<MatrixOpenAgentListing[]> {
+  const value = await requestJson(resource, grant, '/agents?catalog=open', {}, signal)
+
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.flatMap(row => {
+    if (row === null || typeof row !== 'object' || Array.isArray(row)) {
+      return []
+    }
+
+    const each = row as Record<string, unknown>
+    const displayName = typeof each.displayName === 'string' ? each.displayName.trim() : ''
+    const price = each.seatPriceProtons
+
+    if (
+      !listingId(each.listingId) ||
+      !displayName ||
+      Array.from(displayName).length > 40 ||
+      !Number.isSafeInteger(price) ||
+      Number(price) < 0 ||
+      typeof each.hireRequired !== 'boolean'
+    ) {
+      return []
+    }
+
+    const title = localizedText(each.title)
+    const summary = localizedText(each.summary)
+
+    return [
+      {
+        listingId: each.listingId,
+        displayName,
+        ...(title ? { title } : {}),
+        ...(summary ? { summary } : {}),
+        ...(typeof each.glyph === 'string' && each.glyph.length <= 16 ? { glyph: each.glyph } : {}),
+        skills: Array.isArray(each.skills)
+          ? each.skills.filter((skill): skill is string => typeof skill === 'string')
+          : [],
+        seatPriceProtons: Number(price),
+        hireRequired: each.hireRequired
+      }
+    ]
+  })
 }
 
 /** Retires an agent for good (0146). The default agent cannot be retired. */
@@ -915,7 +1000,13 @@ function endpoint(resource: string, path: string): string {
     throw invalid()
   }
 
-  url.pathname = `${url.pathname.replace(/\/+$/u, '')}${path}`
+  // A path may carry a fixed query of its own (`/agents?catalog=open`); the resource never does.
+  const [pathname, query] = path.split('?', 2)
+  url.pathname = `${url.pathname.replace(/\/+$/u, '')}${pathname}`
+
+  if (query) {
+    url.search = query
+  }
 
   return url.href
 }

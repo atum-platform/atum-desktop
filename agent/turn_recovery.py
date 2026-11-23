@@ -1172,6 +1172,7 @@ def max_retries_exhausted_result(
         _billing_block_dict, _billing_or_entitlement_message, _billing_terminal_label,
         _print_billing_or_entitlement_guidance,
     )
+    from agent.system_prompt import atum_instructions_enabled
 
     agent._flush_status_buffer()
     _final_summary = agent._summarize_api_error(api_error)
@@ -1239,6 +1240,7 @@ def max_retries_exhausted_result(
     _billing_block = None
     _billing_unverified = False
     _free_tier_kind = ""
+    _atum_copy = atum_instructions_enabled(agent)
     if _is_billing:
         _billing_unverified = classified.billing_unverified
         _final_response = _billing_terminal_label(_final_summary, _billing_unverified)
@@ -1255,17 +1257,19 @@ def max_retries_exhausted_result(
         _final_response = exhausted_copy(
             classified.reason.value, label=provider_label_for(provider), attempts=attempts,
             summary=_final_summary, reset_seconds=_reset_at - time.time() if _reset_at else None,
+            atum=_atum_copy,
         )
         if _welcome_hint:
             _final_response = _welcome_tier_guidance(classified, model=model, in_chat=True)
             _free_tier_kind = _welcome_surface_kind(classified)
         elif _outage := _welcome_outage_copy(agent, base_url, classified):
             _final_response, _free_tier_kind = _outage, "outage"
-    if _is_thinking_timeout:
+    _show_diagnostic_guidance = not _atum_copy or _is_billing or bool(_free_tier_kind)
+    if _is_thinking_timeout and _show_diagnostic_guidance:
         # Thinking-timeout guidance overrides stream-drop guidance, which would wrongly
         # suggest splitting large file writes.
         _final_response += "\n\n" + build_thinking_timeout_guidance(provider=provider, model=model)
-    elif _is_stream_drop:
+    elif _is_stream_drop and _show_diagnostic_guidance:
         _final_response += (
             "\n\nThe connection kept dropping while the model was writing — this often "
             "happens when it writes a very large file in one go. Ask me to write the file in "

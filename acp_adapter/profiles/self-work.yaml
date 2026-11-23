@@ -1,0 +1,11 @@
+# Install as config.yaml in a dedicated owner-managed gateway profile.
+platform_toolsets:
+  acp: [hermes-acp]
+agent:
+  coding_context: "off"
+  disabled_toolsets: [connections, computer_use]
+approvals:
+  mode: manual
+auxiliary:
+  title_generation:
+    enabled: false

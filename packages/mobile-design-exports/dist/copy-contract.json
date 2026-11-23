@@ -272,6 +272,18 @@
       "key": "shared.agent-conversation.copy.copies.migrationTitle.count=1",
       "value": 1
     },
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes.count=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes.count=1",
+      "value": 1
+    },
     "shared.matrix-company-copy.copy.members": {
       "alternatives": [
         {
@@ -282,6 +294,18 @@
       ],
       "argumentIndex": 1,
       "key": "shared.matrix-company-copy.copy.members.count=1",
+      "value": 1
+    },
+    "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat.minutes=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat.minutes=1",
       "value": 1
     },
     "shared.matrix-team-space-copy.copy.channelMemberCount": {
@@ -560,6 +584,30 @@
       "key": "src.matrix.mobile-copy.mobileChatCopy.newMessages.count=1",
       "value": 1
     },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.percent=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.percent=1",
+      "value": 1
+    },
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null.percent=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null.percent=1",
+      "value": 1
+    },
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.pinned.pinnedMessageCount": {
       "alternatives": [
         {
@@ -570,6 +618,18 @@
       ],
       "argumentIndex": 1,
       "key": "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.pinned.pinnedMessageCount.count=1",
+      "value": 1
+    },
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": {
+      "alternatives": [
+        {
+          "argumentIndex": 1,
+          "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0",
+          "value": 0
+        }
+      ],
+      "argumentIndex": 1,
+      "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1",
       "value": 1
     },
     "src.matrix.person-info-copy.copy.members": {
@@ -2624,6 +2684,86 @@
     "shared.matrix-action-copy.matrixActionCopy.replyQuoteUnreadable": [],
     "shared.matrix-action-copy.matrixActionCopy.runHermes": [],
     "shared.matrix-agent-access-band-copy.matrixAgentAccessBandCopy.paused": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.allSettings": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.ask": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.back": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.composerSteer": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.computerOff": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.controlFailed": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.controls": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.desk": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.devices": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.files": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.less": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes.count=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.minutes.count=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.more": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.moreControls": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.nextRun": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.notifications": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.onDevice": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.onItsComputer": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.openDrive": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pause": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.paused": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.queueHint": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.routine": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.routines": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.save": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.saveShort": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.sentHere": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.steerHint": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.stop": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.usingNow": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.waiting": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.watch": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.working": [],
     "shared.matrix-agent-status-copy.matrixAgentStatusCopy.attachmentUnsupported": [],
     "shared.matrix-agent-status-copy.matrixAgentStatusCopy.couldntConfirm": [],
     "shared.matrix-agent-status-copy.matrixAgentStatusCopy.couldntVerifyMac": [],
@@ -3622,8 +3762,34 @@
     "shared.matrix-starmap-copy.matrixStarmapCopy.scrub": [],
     "shared.matrix-starmap-copy.matrixStarmapCopy.skills": [],
     "shared.matrix-starmap-copy.matrixStarmapCopy.title": [],
+    "shared.matrix-status-line-copy.matrixApprovalWaitCopy": [],
+    "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat.minutes=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "shared.matrix-status-line-copy.matrixProgressCopy.heartbeat.minutes=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
     "shared.matrix-status-line-copy.matrixStatusLineCopy.waited": [],
     "shared.matrix-status-line-copy.matrixStatusLineCopy.waiting": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.delegate": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.draw": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.look": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.read": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.run": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.web": [],
+    "shared.matrix-status-line-copy.matrixToolActivityCopy.write": [],
     "shared.matrix-team-space-copy.copy.addChannels": [],
     "shared.matrix-team-space-copy.copy.addPeopleSearch": [],
     "shared.matrix-team-space-copy.copy.addPeopleTitle": [],
@@ -4162,6 +4328,7 @@
         "nullable": false
       }
     ],
+    "src.matrix.assistant-card.copy.assistantCardCopies.longPersona": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.markColor": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.markShape": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.menuEdit": [],
@@ -4201,6 +4368,7 @@
         "nullable": false
       }
     ],
+    "src.matrix.assistant-card.copy.assistantCardCopies.personaConflict": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.personality": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.personalityEmpty": [],
     "src.matrix.assistant-card.copy.assistantCardCopies.personalityPlaceholder": [],
@@ -4552,6 +4720,8 @@
     "src.matrix.attention-copy.copies.items.runtime": [],
     "src.matrix.attention-copy.copies.items.sign_in": [],
     "src.matrix.attention-copy.copies.notNow": [],
+    "src.matrix.attention-copy.copies.nothing": [],
+    "src.matrix.attention-copy.copies.notifications": [],
     "src.matrix.attention-copy.copies.planSignIn": [
       {
         "kind": "string",
@@ -4885,6 +5055,30 @@
         "nullable": false
       }
     ],
+    "src.matrix.chatgpt-training-copy.COPY.checkbox": [],
+    "src.matrix.chatgpt-training-copy.COPY.confirm": [],
+    "src.matrix.chatgpt-training-copy.COPY.confirmedOn": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.chatgpt-training-copy.COPY.connectedAnotherMac": [],
+    "src.matrix.chatgpt-training-copy.COPY.failed": [],
+    "src.matrix.chatgpt-training-copy.COPY.helper": [],
+    "src.matrix.chatgpt-training-copy.COPY.keep": [],
+    "src.matrix.chatgpt-training-copy.COPY.notConfirmed": [],
+    "src.matrix.chatgpt-training-copy.COPY.readFailed": [],
+    "src.matrix.chatgpt-training-copy.COPY.revoke": [],
+    "src.matrix.chatgpt-training-copy.COPY.revokeFailed": [],
+    "src.matrix.chatgpt-training-copy.COPY.revokePending": [],
+    "src.matrix.chatgpt-training-copy.COPY.revoking": [],
+    "src.matrix.chatgpt-training-copy.COPY.rowTitle": [],
+    "src.matrix.chatgpt-training-copy.COPY.saving": [],
+    "src.matrix.chatgpt-training-copy.COPY.stale": [],
+    "src.matrix.chatgpt-training-copy.COPY.title": [],
+    "src.matrix.chatgpt-training-copy.COPY.transfer": [],
+    "src.matrix.chatgpt-training-copy.COPY.tryAgain": [],
     "src.matrix.check-ins-copy.matrixCheckInsCopy.actions.draft": [],
     "src.matrix.check-ins-copy.matrixCheckInsCopy.actions.prepare": [],
     "src.matrix.check-ins-copy.matrixCheckInsCopy.actions.review": [],
@@ -5059,12 +5253,13 @@
     "src.matrix.drive-copy.matrixDriveCopy.attention.reauthenticate": [],
     "src.matrix.drive-copy.matrixDriveCopy.attention.stopped": [],
     "src.matrix.drive-copy.matrixDriveCopy.back": [],
-    "src.matrix.drive-copy.matrixDriveCopy.browser.allFiles": [],
+    "src.matrix.drive-copy.matrixDriveCopy.browser.drive": [],
     "src.matrix.drive-copy.matrixDriveCopy.browser.recents": [],
     "src.matrix.drive-copy.matrixDriveCopy.cancel": [],
     "src.matrix.drive-copy.matrixDriveCopy.chooseConversation": [],
     "src.matrix.drive-copy.matrixDriveCopy.chooseFolder": [],
     "src.matrix.drive-copy.matrixDriveCopy.clearSelection": [],
+    "src.matrix.drive-copy.matrixDriveCopy.columnView": [],
     "src.matrix.drive-copy.matrixDriveCopy.comingSoon": [],
     "src.matrix.drive-copy.matrixDriveCopy.comingSoonHelp": [],
     "src.matrix.drive-copy.matrixDriveCopy.createOutput": [],
@@ -5099,10 +5294,52 @@
     "src.matrix.drive-copy.matrixDriveCopy.facts.underMinute": [],
     "src.matrix.drive-copy.matrixDriveCopy.failed": [],
     "src.matrix.drive-copy.matrixDriveCopy.filesUnavailable": [],
+    "src.matrix.drive-copy.matrixDriveCopy.galleryView": [],
     "src.matrix.drive-copy.matrixDriveCopy.gettingReady": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.dates.month": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.dates.today": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.dates.week": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.dates.yesterday": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kind": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.archive": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.code": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.document": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.folder": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.image": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.movie": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.music": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.other": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.pdf": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.presentation": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.spreadsheet": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.kinds.text": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.modified": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.none": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.size": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.empty": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.folders": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.gb": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.hundredsKb": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.hundredsMb": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.mb": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.small": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.sizes.tensMb": [],
+    "src.matrix.drive-copy.matrixDriveCopy.groups.title": [],
     "src.matrix.drive-copy.matrixDriveCopy.hero.body": [],
     "src.matrix.drive-copy.matrixDriveCopy.hero.title": [],
     "src.matrix.drive-copy.matrixDriveCopy.hero.where": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.archive": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.code": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.document": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.folder": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.image": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.movie": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.music": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.other": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.pdf": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.presentation": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.spreadsheet": [],
+    "src.matrix.drive-copy.matrixDriveCopy.itemKinds.text": [],
     "src.matrix.drive-copy.matrixDriveCopy.listing.current": [],
     "src.matrix.drive-copy.matrixDriveCopy.listing.loading": [],
     "src.matrix.drive-copy.matrixDriveCopy.listing.partial": [],
@@ -5133,6 +5370,9 @@
     "src.matrix.drive-copy.matrixDriveCopy.resume": [],
     "src.matrix.drive-copy.matrixDriveCopy.retry": [],
     "src.matrix.drive-copy.matrixDriveCopy.reveal": [],
+    "src.matrix.drive-copy.matrixDriveCopy.searchScope.drive": [],
+    "src.matrix.drive-copy.matrixDriveCopy.searchScope.searching": [],
+    "src.matrix.drive-copy.matrixDriveCopy.searchScope.title": [],
     "src.matrix.drive-copy.matrixDriveCopy.selectedFiles": [],
     "src.matrix.drive-copy.matrixDriveCopy.selectionLimit": [],
     "src.matrix.drive-copy.matrixDriveCopy.signIn.action": [],
@@ -5151,6 +5391,12 @@
     "src.matrix.drive-copy.matrixDriveCopy.status.reauthenticate": [],
     "src.matrix.drive-copy.matrixDriveCopy.status.syncing": [],
     "src.matrix.drive-copy.matrixDriveCopy.status.unavailable": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.conflict": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.error": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.paused": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.pending": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.synced": [],
+    "src.matrix.drive-copy.matrixDriveCopy.sync.uploading": [],
     "src.matrix.drive-copy.matrixDriveCopy.taskUnavailable": [],
     "src.matrix.drive-copy.matrixDriveCopy.title": [],
     "src.matrix.drive-copy.matrixDriveCopy.truncated": [],
@@ -5906,7 +6152,10 @@
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswers": [],
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersCloud": [],
     "src.matrix.mobile-copy.mobilePhoneCopy.whoAnswersMac": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.assistantCard.personaWhat": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.assistantCard.personaWho": [],
     "src.matrix.mobile-copy.mobileScreensCopy.cloud.stopRefused": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.cloud.stopping": [],
     "src.matrix.mobile-copy.mobileScreensCopy.dictation.listening": [],
     "src.matrix.mobile-copy.mobileScreensCopy.greeting.afternoon": [],
     "src.matrix.mobile-copy.mobileScreensCopy.greeting.evening": [],
@@ -5916,11 +6165,208 @@
     "src.matrix.mobile-copy.mobileScreensCopy.readAloud.preparing": [],
     "src.matrix.mobile-copy.mobileScreensCopy.readAloud.readAloud": [],
     "src.matrix.mobile-copy.mobileScreensCopy.readAloud.stopReading": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipGreyed.allow": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipGreyed.connect": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipGreyed.encrypted": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipGreyed.google": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipLimit": [
+      {
+        "kind": "string",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.chipLimit.at=null": [
+      {
+        "kind": "string",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.consentChatsLine": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.consentScheduled": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.empty": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.failed": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallback": [
+      {
+        "kind": "string",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallbackWhy.consent_off": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallbackWhy.limit": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallbackWhy.mac_off": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallbackWhy.other": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fallbackWhy.switch_off": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.fixAllow": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.allow": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.connect": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.encrypted": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.greyed.google": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.late": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.limitHeld": [
+      {
+        "kind": "string",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.limitHeld.at=null": [
+      {
+        "kind": "string",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.needsOk": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.queued": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.stop": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.stopped": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.stopping": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageLimit": [
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageLimit.at=null": [
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUnknown": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null.percent=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.at=null.percent=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.percent=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.usageUsed.percent=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      },
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.relay.waiting": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.shell.agentAccountRefused": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentCancel": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentDotNeedsYou": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentDotOffline": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentDotReady": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentDotUnreachable": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.shell.agentHireConfirm": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.shell.agentHireShort": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.shell.agentLimitRefused": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentNameRefused": [],
     "src.matrix.mobile-copy.mobileScreensCopy.shell.agentRetireBody": [
       {
@@ -6085,6 +6531,40 @@
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailable": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailableBody": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.you": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.allow": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.assistants": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.cancel": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.failed": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.granted": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.macs": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.none": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1": [
+      {
+        "kind": "number",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.revoke": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.save": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.title": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.work.planRow": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows0Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows1Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows2Label": [],
@@ -6368,7 +6848,7 @@
     "src.matrix.model-picker-copy.COPY.badgeDefault": [],
     "src.matrix.model-picker-copy.COPY.changesCloudAssistant": [],
     "src.matrix.model-picker-copy.COPY.changesConversation": [],
-    "src.matrix.model-picker-copy.COPY.chatgptCloudNotReady": [],
+    "src.matrix.model-picker-copy.COPY.chatgptInWork": [],
     "src.matrix.model-picker-copy.COPY.chooseModel": [],
     "src.matrix.model-picker-copy.COPY.clearSearch": [],
     "src.matrix.model-picker-copy.COPY.cloud": [],
@@ -6388,6 +6868,31 @@
     "src.matrix.model-picker-copy.COPY.efforts.high": [],
     "src.matrix.model-picker-copy.COPY.efforts.low": [],
     "src.matrix.model-picker-copy.COPY.efforts.medium": [],
+    "src.matrix.model-picker-copy.COPY.fallbackAnswer": [],
+    "src.matrix.model-picker-copy.COPY.fallbackWhy.limit": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.fallbackWhy.offline": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.fallbackWhy.other": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.fallbackWhy.slow": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
     "src.matrix.model-picker-copy.COPY.favorite": [],
     "src.matrix.model-picker-copy.COPY.favoritesEmpty": [],
     "src.matrix.model-picker-copy.COPY.favoritesOnly": [],
@@ -6396,6 +6901,18 @@
       {
         "kind": "string",
         "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.googleSwitched": [
+      {
+        "kind": "string",
+        "nullable": true
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.googleSwitched.model=null": [
+      {
+        "kind": "string",
+        "nullable": true
       }
     ],
     "src.matrix.model-picker-copy.COPY.keyAccount": [],
@@ -6410,6 +6927,24 @@
     "src.matrix.model-picker-copy.COPY.noMatches": [],
     "src.matrix.model-picker-copy.COPY.noModels": [],
     "src.matrix.model-picker-copy.COPY.planAccount": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.planUnavailable.mac_offline": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.planUnavailable.no_mac": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.model-picker-copy.COPY.planUnavailable.reconnect": [
       {
         "kind": "string",
         "nullable": false
@@ -6692,6 +7227,30 @@
     ],
     "src.matrix.roster-create-copy.copies.handleLabel": [],
     "src.matrix.roster-create-copy.copies.handlePlaceholder": [],
+    "src.matrix.roster-create-copy.copies.hireFailed": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.roster-create-copy.copies.hirePrice": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.roster-create-copy.copies.hired": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.roster-create-copy.copies.hiring": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
     "src.matrix.roster-create-copy.copies.historyRule": [],
     "src.matrix.roster-create-copy.copies.historyShared": [],
     "src.matrix.roster-create-copy.copies.members": [
@@ -6762,6 +7321,7 @@
       }
     ],
     "src.matrix.roster-create-copy.copies.rateLimitedSoon": [],
+    "src.matrix.roster-create-copy.copies.readyToHire": [],
     "src.matrix.roster-create-copy.copies.searchFailed": [],
     "src.matrix.roster-create-copy.copies.searching": [],
     "src.matrix.roster-create-copy.copies.signedOut": [],
@@ -7059,6 +7619,7 @@
     "src.matrix.workbench-copy.copy.macApps": [],
     "src.matrix.workbench-copy.copy.openBesideWord": [],
     "src.matrix.workbench-copy.copy.saves": [],
+    "src.matrix.workbench-copy.copy.searchWeb": [],
     "src.matrix.workbench-copy.copy.seeAll": [],
     "src.matrix.workbench-copy.copy.showPanel": [],
     "src.matrix.workbench-copy.copy.unsavedInWord": [],

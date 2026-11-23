@@ -7,6 +7,7 @@ import {
   MATRIX_COMPANY_PRIVATE_COS_ROOM_TYPE,
   MATRIX_COMPANY_PRIVATE_COS_STATE_EVENT
 } from '../../shared/matrix-company-private-cos'
+import { MATRIX_TRANSIENT_REDACTION_REASON } from '../../shared/matrix-transient-lines'
 
 import { conversationRoom } from './conversations'
 import { matrixPreviewLine, matrixRoomDialogue, matrixRoomPreview, matrixRoomUnread } from './room-preview'
@@ -420,6 +421,32 @@ describe('whether anyone has spoken in an assistant’s chat (the first run’s 
       partialEvent(lan, { membership: 'join' }, EventType.RoomMember)
     )
     expect(matrixRoomDialogue(partial)).toBeUndefined()
+  })
+
+  it("never previews an agent's working line its turn cleared, but keeps the answer before it", async () => {
+    const { room, event, add } = fixture()
+
+    await add(event(lan, { msgtype: 'm.text', body: 'Here is the plan' }))
+    const line = await add(event(lan, { msgtype: 'm.notice', body: 'Checking the calendar' }))
+    line.makeRedacted(
+      new MatrixEvent({
+        type: EventType.RoomRedaction,
+        event_id: '$turn-ended',
+        sender: lan,
+        redacts: line.getId(),
+        content: { reason: MATRIX_TRANSIENT_REDACTION_REASON }
+      }),
+      room
+    )
+    expect(matrixRoomPreview(room, me)).toMatchObject({ kind: 'text', text: 'Here is the plan' })
+
+    // The same sender deleting a message for any other reason is still a deleted message.
+    const real = await add(event(lan, { msgtype: 'm.text', body: 'oops' }))
+    real.makeRedacted(
+      new MatrixEvent({ type: EventType.RoomRedaction, event_id: '$real', sender: lan, redacts: real.getId(), content: {} }),
+      room
+    )
+    expect(matrixRoomPreview(room, me)).toMatchObject({ kind: 'deleted' })
   })
 
   it('is started by any message of either side, readable or not, deleted or edited', async () => {

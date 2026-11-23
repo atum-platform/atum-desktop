@@ -60,12 +60,26 @@ configuration afresh every turn once the controller picks up this constant.
   (`cloudConfig`) imports the private copy of `MATRIX_NARRATION_DISPLAY`; it needs
   the same `platforms.matrix.tool_progress: 'off'` (and its test literal in
   `test/hermes-control.test.ts`).
-- The schedule line is a controller notice,
-  `packages/cloud-controller/src/host-authority/publications.ts`
-  (`publishValues`): `` `I updated your schedule (${value.id}). You can see it in
-  your schedule list.` ``. It is load-bearing (an occurrence fires only after its
-  notice is delivered), so keep the notice and change only its words, e.g. the
-  job's name instead of its id and no second sentence.
+- The schedule line was a controller notice (private
+  `packages/cloud-controller/src/host-authority/publications.ts`). Since
+  2026-11-21 schedule changes publish silently: an occurrence waits on the exact
+  enabled revision having been published before its slot, not on a chat notice,
+  and no owner-visible line is sent.
+
+## Roster preview and Watch (2026-11-21)
+
+- An assistant's working line is redacted by its own sender with the reason
+  `Turn ended` (`MATRIX_TRANSIENT_REDACTION_REASON`) when the turn settles. The
+  transcript already treated that as transient (`removedWorkingLine` in
+  `src/matrix/message.ts`); the roster preview (`src/matrix/room-preview.ts`)
+  read it as a deletion, so every assistant row said "Message deleted". The
+  preview now skips it and shows the message before it. Any other deletion
+  still previews as "Message deleted".
+- The working line's Watch button is hidden (`DESK_WATCH_SHOWN = false` in
+  `src/matrix/app.tsx`) until a cloud agent's screen can be watched. The desk
+  panel and its wiring stay; flip the constant to bring Watch back.
+- Verified: `npx vitest run src/matrix/room-preview.test.ts` (17 pass, one new),
+  `npx tsc -p . --noEmit` clean.
 
 ## Verification (2026-11-18)
 

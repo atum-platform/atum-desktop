@@ -10,6 +10,8 @@ import { useModelPickerCopy } from './model-picker-copy'
 
 /** A fallback's reason as one of the four short phrases the reader sees. */
 export const MATRIX_FALLBACK_WHY: Record<MatrixSubscriptionFallback['reason'], 'offline' | 'limit' | 'slow' | 'other'> = {
+  consent_off: 'other',
+  switch_off: 'other',
   offline: 'offline',
   rate_limited: 'limit',
   timeout: 'slow',

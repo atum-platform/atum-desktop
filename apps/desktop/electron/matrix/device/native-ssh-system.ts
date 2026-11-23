@@ -48,7 +48,6 @@ async function atomic(file: string, content: string, mode: number): Promise<void
 
 export interface NativeSshSystemOptions {
   home?: string
-  relayHelper?: string
   run?: typeof exec
   port22?: () => Promise<boolean>
   /** Packaged helper path, overridden only in tests. */
@@ -118,7 +117,7 @@ export function createNativeSshSystem(options: NativeSshSystemOptions = {}): Nat
 
       await mkdir(dir, { recursive: true, mode: 0o700 })
       await chmod(dir, 0o700)
-      await atomic(file, managedKeys(current, keys, options.relayHelper ?? path.join(process.resourcesPath ?? '/', 'app.asar.unpacked', 'atum-chatgpt-relay')), 0o600)
+      await atomic(file, managedKeys(current, keys), 0o600)
     },
     async start(id) {
       const binary = options.helper

@@ -671,7 +671,6 @@ describe('Settings › Connections', () => {
       disconnectChatGpt: vi.fn(async () => {
         connected = false
       }),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
       connectOpenCode: vi.fn(async () => {
         connected = true
 
@@ -814,49 +813,7 @@ describe('Settings › Connections', () => {
     await waitFor(() => expect(row().getByRole('button', { name: 'Connect' })).toBeTruthy())
   })
 
-  it('shows the short agent setup state and retries relay publication in the background', async () => {
-    let published = false
-    let finishPublish: (() => void) | undefined
-    const bridge = useSubscriptions({
-      status: vi.fn(async () => ({
-        scope: 'account' as const,
-        providers: [
-          {
-            id: 'openai-codex' as const,
-            connected: true,
-            localConnected: true,
-            relay: published
-              ? { state: 'enabled' as const, thisMac: true, revision: 1 }
-              : { state: 'disabled' as const, thisMac: false, revision: 0 }
-          },
-          { id: 'opencode-go' as const, connected: false }
-        ]
-      })),
-      useThisMacForChatGpt: vi.fn(() => new Promise<{ status: 'applied' }>(resolve => {
-        finishPublish = () => {
-          published = true
-          resolve({ status: 'applied' as const })
-        }
-      }))
-    })
-
-    view(<Harness initial="subscriptions" />)
-
-    expect(await row().findByText('Setting up for your assistants…')).toBeTruthy()
-    expect(row().queryByText(/this Mac/i)).toBeNull()
-    // Cloud setup is automatic: the row offers no "use this Mac" decision, only the plan's page.
-    expect(row().getByRole('button', { name: 'Change' })).toBeTruthy()
-    await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce())
-    await act(async () => finishPublish?.())
-    await waitFor(() => expect(bridge.status).toHaveBeenCalledTimes(2))
-    // Once this Mac serves the plan, the row says so in the owner's words (2026-11-16).
-    await waitFor(() =>
-      expect(row().getByText('Connected to your ChatGPT plan · used through this Mac')).toBeTruthy()
-    )
-    expect(row().queryByText(/Setting up/)).toBeNull()
-  })
-
-  it('keeps the agent setup state without a hot retry loop when relay publication is unavailable', async () => {
+  it('sets nothing up for the cloud for a ChatGPT sign-in this Mac holds ("Use this Mac for ChatGPT" is gone)', async () => {
     const bridge = useSubscriptions({
       status: vi.fn(async () => ({
         scope: 'account' as const,
@@ -869,31 +826,19 @@ describe('Settings › Connections', () => {
           },
           { id: 'opencode-go' as const, connected: false }
         ]
-      })),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'unavailable' as const }))
+      }))
     })
 
     view(<Harness initial="subscriptions" />)
 
-    expect(await row().findByText('Not ready for your assistants yet.')).toBeTruthy()
-    expect(row().queryByText(/this Mac/i)).toBeNull()
-    await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce())
-    await act(async () => new Promise(resolve => setTimeout(resolve, 20)))
-    expect(bridge.useThisMacForChatGpt).toHaveBeenCalledOnce()
+    expect(await row().findByRole('button', { name: 'Change' })).toBeTruthy()
+    expect(row().queryByText(/Setting up|Not ready/)).toBeNull()
+    expect('useThisMacForChatGpt' in bridge).toBe(false)
 
-    // The plan's page holds the one act, Try again, and it makes exactly one more attempt.
     fireEvent.click(row().getByRole('button', { name: 'Change' }))
     const manage = within(await screen.findByRole('dialog', { name: 'ChatGPT' }))
-    expect(manage.getByText('Not ready for your assistants yet.')).toBeTruthy()
-    expect(manage.queryByText(/this Mac/i)).toBeNull()
-    // Never "Connected" beside "Couldn't connect", and no "Use this Mac" decision.
-    expect(manage.queryByText('Connected')).toBeNull()
-    expect(manage.queryByText(/Couldn’t/)).toBeNull()
-    expect(manage.queryByRole('button', { name: /this Mac|Reconnect/ })).toBeNull()
+    expect(manage.queryByRole('button', { name: /Try again|this Mac/ })).toBeNull()
     expect(manage.getByRole('button', { name: 'Disconnect' })).toBeTruthy()
-    fireEvent.click(manage.getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(bridge.useThisMacForChatGpt).toHaveBeenCalledTimes(2))
-    expect(await manage.findByText('Not ready for your assistants yet.')).toBeTruthy()
   })
 
   it('says it could not check, instead of offering Connect, when the status read fails', async () => {

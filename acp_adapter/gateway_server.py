@@ -65,7 +65,8 @@ def _tools_changed_notice(payload):
 
 
 class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
-    def __init__(self):
+    def __init__(self, *, managed: bool = False):
+        self._managed = managed
         self._conn = None
         self._gateway = None
         self._connection = None
@@ -144,9 +145,11 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
                 prompt_capabilities=PromptCapabilities(image=True),
                 session_capabilities=SessionCapabilities(fork=SessionForkCapabilities(), list=SessionListCapabilities(),
                                                          resume=SessionResumeCapabilities())),
-            auth_methods=build_auth_methods())
+            auth_methods=[] if self._managed else build_auth_methods())
 
     async def authenticate(self, method_id, **kwargs):
+        if self._managed:
+            raise acp.RequestError.method_not_found("authenticate")
         from acp_adapter.server import HermesACPAgent
         return await HermesACPAgent.authenticate(self, method_id, **kwargs)
 
@@ -158,7 +161,15 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
                 # connection instead of the stale error forever.
                 await self._teardown()
             if self._gateway is None:
-                connection = connect_gateway()
+                if self._managed:
+                    from hermes_cli.gateway_runtime import attachable, discover_gateway_endpoint
+
+                    owner = await asyncio.to_thread(discover_gateway_endpoint, self._home)
+                    if not attachable(owner):
+                        raise acp.RequestError.internal_error({"reason": "managed_gateway_not_ready"})
+                    connection = connect_gateway(endpoint=owner.endpoint)
+                else:
+                    connection = connect_gateway()
                 gateway = await connection.__aenter__()
                 try:
                     descriptor = await gateway.rpc("runtime.describe")

@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { MatrixSubscriptionsStatus } from '../../shared/matrix-subscriptions'
-
 import {
   completeMatrixSubscriptionChatGptFollowUp,
   disconnectMatrixSubscriptionChatGpt,
@@ -10,37 +8,11 @@ import {
   MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionHostHome,
   matrixSubscriptionPlanSignInGate,
-  matrixSubscriptionsWithChatGptRelay,
-  retireMatrixChatGptRelayForSignIn,
   updateMatrixSubscriptionSignIn
 } from './account-subscription-flow'
 import { matrixHermesHome } from './hermes-runtime'
 
-const localConnected: MatrixSubscriptionsStatus = {
-  scope: 'account',
-  providers: [
-    { id: 'openai-codex', connected: true },
-    { id: 'opencode-go', connected: false }
-  ]
-}
-
-const disabledRelay = { revision: 0, state: 'disabled' as const, models: [] }
-const enabledRelay = {
-  revision: 1,
-  state: 'enabled' as const,
-  deviceServiceId: '00000000-0000-4000-8000-bd7662a5eeb4',
-  selectedAt: 1,
-  models: [
-    {
-      id: 'gpt-5.6-luna',
-      displayName: 'GPT-5.6 Luna',
-      efforts: ['low', 'medium', 'high'] as const,
-      defaultEffort: 'medium' as const,
-      contextBudget: 128_000,
-      outputBudget: 16_384
-    }
-  ]
-}
+// The SSH ChatGPT relay is gone (self-work plan §12): the follow-up after a ChatGPT sign-in is the assistant refresh alone.
 
 describe('the account ChatGPT connection state machine', () => {
   it('allows account management with zero assistant hosts or enrollments', () => {
@@ -66,167 +38,114 @@ describe('the account ChatGPT connection state machine', () => {
     expect(account).not.toBe(assistant)
   })
 
-  it('keeps the saved account plan connected after optional relay registration, then lists relay models', async () => {
-    let relay = disabledRelay as typeof disabledRelay | typeof enabledRelay
-    const order: string[] = []
+  it('keeps the saved account plan connected after the follow-up refresh runs', async () => {
+    const refresh = vi.fn(async () => undefined)
 
+    const result = await finishMatrixSubscriptionChatGptPoll(
+      { status: 'approved' },
+      { complete: () => completeMatrixSubscriptionChatGptFollowUp({ refresh }) }
+    )
+
+    expect(result).toEqual({ status: 'connected' })
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it('reports a saved account plan as connected when the follow-up refresh fails', async () => {
     const result = await finishMatrixSubscriptionChatGptPoll(
       { status: 'approved' },
       {
-        complete: () => completeMatrixSubscriptionChatGptFollowUp({
-          registerRelay: async () => {
-            order.push('relay')
-            relay = enabledRelay
-            return true
-          },
-          refresh: async () => {
-            order.push('refresh')
-          }
-        })
+        complete: () =>
+          completeMatrixSubscriptionChatGptFollowUp({
+            refresh: async () => {
+              throw new Error('private refresh detail')
+            }
+          })
       }
     )
 
-    const status = matrixSubscriptionsWithChatGptRelay(
-      localConnected,
-      relay,
-      enabledRelay.deviceServiceId
-    )
-
     expect(result).toEqual({ status: 'connected' })
-    expect(order).toEqual(['relay', 'refresh'])
-    expect(status.providers[0]).toMatchObject({
-      id: 'openai-codex',
-      connected: true,
-      localConnected: true,
-      models: ['gpt-5.6-luna'],
-      relay: { state: 'enabled', thisMac: true, revision: 1 }
-    })
-  })
-
-  it('reports a saved account plan as connected when optional relay registration fails', async () => {
-    const refresh = vi.fn(async () => undefined)
-    const result = await finishMatrixSubscriptionChatGptPoll(
-      { status: 'approved' },
-      { complete: () => completeMatrixSubscriptionChatGptFollowUp({ registerRelay: async () => false, refresh }) }
-    )
-    const status = matrixSubscriptionsWithChatGptRelay(localConnected, disabledRelay, undefined)
-
-    expect(result).toEqual({ status: 'connected' })
-    expect(refresh).toHaveBeenCalledOnce()
-    expect(status.providers[0]).toMatchObject({
-      id: 'openai-codex',
-      connected: true,
-      localConnected: true,
-      relay: { state: 'disabled' }
-    })
-    expect(status.providers[0]?.models).toBeUndefined()
-  })
-
-  it('reports this Mac’s last-read plan models while the relay is not up, without making it a cloud plan', () => {
-    const status = matrixSubscriptionsWithChatGptRelay(localConnected, disabledRelay, undefined, true, enabledRelay.models)
-
-    expect(status.providers[0]).toMatchObject({
-      id: 'openai-codex',
-      connected: true,
-      localConnected: true,
-      models: ['gpt-5.6-luna'],
-      relay: { state: 'disabled', thisMac: false }
-    })
-
-    // A signed-out plan never borrows a stale model list.
-    const signedOut = matrixSubscriptionsWithChatGptRelay(
-      { scope: 'account', providers: [{ id: 'openai-codex', connected: false }, { id: 'opencode-go', connected: false }] },
-      disabledRelay,
-      undefined,
-      true,
-      enabledRelay.models
-    )
-    expect(signedOut.providers[0]?.models).toBeUndefined()
-  })
-
-  it('reads the saved account plan when optional relay status cannot be read', () => {
-    expect(matrixSubscriptionsWithChatGptRelay(localConnected, undefined, undefined, true).providers[0]).toEqual({
-      id: 'openai-codex',
-      connected: true,
-      localConnected: true,
-      source: 'platform',
-      models: undefined,
-      modelDetails: undefined
-    })
   })
 
   it('keeps a real provider failure failed and does not run completion work', async () => {
-    const complete = vi.fn(async () => ({ relay: 'ok' as const, refresh: 'ok' as const }))
+    const complete = vi.fn(async () => ({ refresh: 'ok' as const }))
 
-    await expect(
-      finishMatrixSubscriptionChatGptPoll(
-        { status: 'error' },
-        { complete }
-      )
-    ).resolves.toEqual({ status: 'failed' })
+    await expect(finishMatrixSubscriptionChatGptPoll({ status: 'error' }, { complete })).resolves.toEqual({ status: 'failed' })
     expect(complete).not.toHaveBeenCalled()
   })
 
-  it('records one closed status for successful relay publication and agent refresh', async () => {
+  it('records one closed status for the agent refresh', async () => {
     const outcomes: string[] = []
 
-    await expect(completeMatrixSubscriptionChatGptFollowUp({
-      registerRelay: async () => true,
-      refresh: async () => undefined,
-      outcome: (stage, status) => outcomes.push(`${stage}:${status}`)
-    })).resolves.toEqual({ relay: 'ok', refresh: 'ok' })
-    expect(outcomes).toEqual(['relay_publication:ok', 'agent_refresh:ok'])
+    await expect(
+      completeMatrixSubscriptionChatGptFollowUp({
+        refresh: async () => undefined,
+        outcome: (stage, status) => outcomes.push(`${stage}:${status}`)
+      })
+    ).resolves.toEqual({ refresh: 'ok' })
+    expect(outcomes).toEqual(['agent_refresh:ok'])
   })
 
-  it('classifies an unavailable relay and refresh transport failure without leaking error text', async () => {
+  it('classifies a refresh transport failure without leaking error text', async () => {
     const outcomes: string[] = []
 
-    await expect(completeMatrixSubscriptionChatGptFollowUp({
-      registerRelay: async () => false,
-      refresh: async () => { throw new Error('private refresh detail') },
-      outcome: (stage, status) => outcomes.push(`${stage}:${status}`)
-    })).resolves.toEqual({ relay: 'unavailable', refresh: 'transport_error' })
-    expect(outcomes).toEqual(['relay_publication:unavailable', 'agent_refresh:transport_error'])
+    await expect(
+      completeMatrixSubscriptionChatGptFollowUp({
+        refresh: async () => {
+          throw new Error('private refresh detail')
+        },
+        outcome: (stage, status) => outcomes.push(`${stage}:${status}`)
+      })
+    ).resolves.toEqual({ refresh: 'transport_error' })
+    expect(outcomes).toEqual(['agent_refresh:transport_error'])
     expect(outcomes.join(' ')).not.toContain('private refresh detail')
   })
 
-  it('classifies relay timeouts and still refreshes assistants', async () => {
-    const refresh = vi.fn(async () => undefined)
+  it('classifies a refresh timeout', async () => {
     const timeout = new Error('private timeout detail')
+
     timeout.name = 'TimeoutError'
 
-    await expect(completeMatrixSubscriptionChatGptFollowUp({
-      registerRelay: async () => { throw timeout },
-      refresh
-    })).resolves.toEqual({ relay: 'timeout', refresh: 'ok' })
-    expect(refresh).toHaveBeenCalledOnce()
+    await expect(
+      completeMatrixSubscriptionChatGptFollowUp({
+        refresh: async () => {
+          throw timeout
+        }
+      })
+    ).resolves.toEqual({ refresh: 'timeout' })
   })
 
-  it('retries a failed relay in the background and stops after both follow-ups succeed', async () => {
-    const scheduled: Array<() => void> = []
-    const registerRelay = vi.fn()
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
-    const refresh = vi.fn(async () => undefined)
+  it('retries a failed refresh in the background and stops after it succeeds', async () => {
+    const scheduled: (() => void)[] = []
+    const refresh = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue(undefined)
+
     const repair = new MatrixSubscriptionFollowUpRepair({
-      registerRelay,
       refresh,
       current: () => true,
       retryDelays: [10],
       schedule: run => {
         scheduled.push(run)
+
         return () => undefined
       }
     })
 
-    await expect(repair.run()).resolves.toEqual({ relay: 'unavailable', refresh: 'ok' })
+    await expect(repair.run()).resolves.toEqual({ refresh: 'transport_error' })
     expect(scheduled).toHaveLength(1)
     scheduled[0]!()
-    await vi.waitFor(() => {
-      expect(registerRelay).toHaveBeenCalledTimes(2)
-      expect(refresh).toHaveBeenCalledOnce()
-    })
+    await vi.waitFor(() => expect(refresh).toHaveBeenCalledTimes(2))
     expect(scheduled).toHaveLength(1)
+  })
+
+  it('a stopped or no-longer-current repair does nothing', async () => {
+    const refresh = vi.fn(async () => undefined)
+    const stopped = new MatrixSubscriptionFollowUpRepair({ refresh, current: () => true })
+    const stale = new MatrixSubscriptionFollowUpRepair({ refresh, current: () => false })
+
+    stopped.stop()
+
+    await expect(stopped.run()).resolves.toEqual({ refresh: 'cancelled' })
+    await expect(stale.run()).resolves.toEqual({ refresh: 'cancelled' })
+    expect(refresh).not.toHaveBeenCalled()
   })
 
   it('lets an active owner-plan sign-in outrank the signed-out check without consulting cloud access', () => {
@@ -240,29 +159,24 @@ describe('the account ChatGPT connection state machine', () => {
   })
 })
 
-describe('relay identity around ChatGPT sign-in and disconnect', () => {
-  it('disables the relay before the native disconnect and before the credential is forgotten', async () => {
+describe('ChatGPT sign-in and disconnect', () => {
+  it('stops the repair, disconnects natively, then forgets the credential', async () => {
     const order: string[] = []
 
     await disconnectMatrixSubscriptionChatGpt({
       stopRepair: () => order.push('stop-repair'),
-      disableRelay: async () => (order.push('disable-relay'), true),
       disconnect: async () => void order.push('disconnect'),
       forget: async () => void order.push('forget')
     })
 
-    expect(order).toEqual(['stop-repair', 'disable-relay', 'disconnect', 'forget'])
+    expect(order).toEqual(['stop-repair', 'disconnect', 'forget'])
   })
 
-  it('still disconnects when the relay cannot be disabled (the next sign-in starts a fresh session)', async () => {
+  it('still forgets the credential when the native disconnect fails', async () => {
     const order: string[] = []
 
     await disconnectMatrixSubscriptionChatGpt({
       stopRepair: () => order.push('stop-repair'),
-      disableRelay: async () => {
-        order.push('disable-relay')
-        throw new Error('offline')
-      },
       disconnect: async () => {
         order.push('disconnect')
         throw new Error('offline')
@@ -270,45 +184,15 @@ describe('relay identity around ChatGPT sign-in and disconnect', () => {
       forget: async () => void order.push('forget')
     })
 
-    expect(order).toEqual(['stop-repair', 'disable-relay', 'disconnect', 'forget'])
+    expect(order).toEqual(['stop-repair', 'disconnect', 'forget'])
   })
 
-  it('ends a relay this Mac still serves before a new sign-in, and leaves another Mac alone', async () => {
-    const disableRelay = vi.fn(async () => true)
+  it('a new sign-in refreshes assistants again, whatever an earlier flight settled', async () => {
+    const refresh = vi.fn(async () => undefined)
+    const repair = new MatrixSubscriptionFollowUpRepair({ refresh, current: () => true })
 
-    await retireMatrixChatGptRelayForSignIn({ relayOnThisMac: () => true, disableRelay })
-    await retireMatrixChatGptRelayForSignIn({ relayOnThisMac: () => false, disableRelay })
-
-    expect(disableRelay).toHaveBeenCalledOnce()
-  })
-
-  it('publishes a fresh session after a new sign-in, keeps it fresh across retries, then republishes normally', async () => {
-    const register = vi.fn<(input?: { fresh: boolean }) => Promise<boolean>>()
-      .mockResolvedValueOnce(false)
-      .mockResolvedValue(true)
-    const scheduled: Array<() => void> = []
-
-    const repair = new MatrixSubscriptionFollowUpRepair({
-      registerRelay: register,
-      refresh: async () => {},
-      current: () => true,
-      retryDelays: [1],
-      schedule: run => {
-        scheduled.push(run)
-
-        return () => {}
-      }
-    })
-
-    expect(await repair.renew()).toEqual({ relay: 'unavailable', refresh: 'ok' })
-    await Promise.resolve()
-    scheduled.shift()?.()
-    await vi.waitFor(() => expect(register).toHaveBeenCalledTimes(2))
-    // The retry lands; a later ordinary republication (start-up, model refresh) is not fresh.
-    await repair.run()
-    await Promise.resolve()
-    await repair.run()
-
-    expect(register.mock.calls).toEqual([[{ fresh: true }], [{ fresh: true }], []])
+    expect(await repair.renew()).toEqual({ refresh: 'ok' })
+    expect(await repair.renew()).toEqual({ refresh: 'ok' })
+    expect(refresh).toHaveBeenCalledTimes(2)
   })
 })

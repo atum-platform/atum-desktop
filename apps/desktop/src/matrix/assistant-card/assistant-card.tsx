@@ -10,6 +10,7 @@ import { ATUM_AVATAR_ACCEPT } from '@/lib/atum-avatar'
 import { Check, ChevronRight, MessageCircle } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
+import contextFileLimits from '../../../../../hermes_cli/data/context-file-limits.json'
 import { appCatalogNames } from '../../../shared/app-catalog'
 import type { MatrixAgentView, MatrixSnapshot } from '../../../shared/matrix'
 import { matrixAgentActions, matrixAgentNeedsLocalSetup } from '../../../shared/matrix-agent-actions'
@@ -20,7 +21,7 @@ import {
   checkAssistantName,
   isAssistantNameLocked
 } from '../../../shared/matrix-assistant-name'
-import { parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
+import { type ParsedPersona, parsePersona, renderPersona } from '../../../shared/matrix-assistant-persona'
 import { MatrixAgentHomeRow, MatrixAgentPlaceRow } from '../agent-home-control'
 import { agentStatus, RetireAgent } from '../agent-roster'
 import { changeMatrixCheckIns } from '../check-in-card'
@@ -49,7 +50,7 @@ import { setAssistantNameOverride } from './store'
 /** How long a "Saved · Undo" note stays (then it fades). */
 export const ASSISTANT_CARD_NOTE_MS = 6_000
 
-type NoteField = 'name' | keyof PersonaChange | 'checkIns'
+type NoteField = 'name' | PersonaChange['field'] | 'checkIns'
 
 interface Note {
   field: NoteField
@@ -57,7 +58,29 @@ interface Note {
   undo?: () => void
 }
 
-type Band = { kind: 'failure'; retry: () => void } | { kind: 'elsewhere' } | { kind: 'photo' }
+type CardPatch = { displayName: string } | { soul: string }
+type CardWriteOutcome =
+  | { kind: 'saved'; previous: MatrixAssistantCard; card: MatrixAssistantCard }
+  | 'unchanged'
+  | 'elsewhere'
+  | MatrixAssistantCardError
+
+function cardPersona(card: MatrixAssistantCard) {
+  return parsePersona(card.soul, { inherited: card.inherited, primary: card.isDefault })
+}
+
+interface PersonaUndo {
+  currentKind: ParsedPersona['kind']
+  currentField: PersonaChange['field']
+  previousKind: ParsedPersona['kind']
+  inheritedSoul?: string
+}
+
+type Band = { kind: 'failure'; retry: () => void } | { kind: 'elsewhere'; field?: PersonaChange['field'] } | { kind: 'photo' }
+
+function visibleField(persona: ParsedPersona, field: PersonaChange['field']): PersonaChange['field'] {
+  return field === 'who' ? field : persona.kind === 'custom' ? 'instructions' : 'what'
+}
 
 const NAME_PROBLEMS: Partial<Record<MatrixAssistantCardError, AssistantNameProblem>> = {
   reserved: 'reserved',
@@ -109,8 +132,6 @@ export function AssistantCard({
   const live = useRef(true)
   const offline = snapshot.state === 'offline'
 
-  cardRef.current = card
-
   useEffect(() => {
     live.current = true
 
@@ -136,6 +157,7 @@ export function AssistantCard({
         }
 
         if (result.ok) {
+          cardRef.current = result.card
           setCard(result.card)
         } else {
           setLoadFailed(true)
@@ -159,15 +181,28 @@ export function AssistantCard({
     return () => clearTimeout(timer)
   }, [note])
 
-  /** One write at a time, each fenced by the revisions the card holds when it runs. A
-   * conflict re-reads; when the field was not touched elsewhere it is re-applied once. */
+  /** Build the patch from the confirmed card at dispatch, and again after a revision conflict. */
   const write = useCallback(
-    (patch: { displayName?: string; soul?: string }) => {
-      const run = async (attempt: number): Promise<'ok' | 'elsewhere' | MatrixAssistantCardError> => {
+    (prepare: (base: MatrixAssistantCard) => CardPatch | 'unchanged' | 'elsewhere') => {
+      const confirm = (next: MatrixAssistantCard) => {
+        cardRef.current = next
+
+        if (live.current) {
+          setCard(next)
+        }
+      }
+
+      const run = async (attempt: number): Promise<CardWriteOutcome> => {
         const base = cardRef.current
 
         if (!bridge || !base) {
           return 'unavailable'
+        }
+
+        const patch = prepare(base)
+
+        if (typeof patch === 'string') {
+          return patch
         }
 
         const result = await bridge.save({
@@ -177,40 +212,31 @@ export function AssistantCard({
           ...patch
         })
 
-        if (!live.current) {
-          return 'unavailable'
-        }
-
         if (result.ok) {
-          cardRef.current = result.card
-          setCard(result.card)
+          confirm(result.card)
 
-          return 'ok'
+          return { kind: 'saved', previous: base, card: result.card }
         }
 
         if (result.error === 'conflict' && result.card) {
-          cardRef.current = result.card
-          setCard(result.card)
+          confirm(result.card)
 
-          const untouched =
-            patch.displayName !== undefined
-              ? result.card.displayName === base.displayName
-              : result.card.soul === base.soul
+          if (attempt === 0) {
+            return run(1)
+          }
 
-          return untouched && attempt === 0 ? run(1) : 'elsewhere'
+          const retry = prepare(result.card)
+
+          return typeof retry === 'string' ? retry : 'conflict'
         }
 
         return result.error
       }
 
-      const next = queue.current.then(
-        () => run(0),
-        () => run(0)
-      )
-
+      const next = queue.current.then(() => run(0)).catch(() => 'unavailable' as const)
       queue.current = next
 
-      return next.catch(() => 'unavailable' as const)
+      return next
     },
     [agent.principal, bridge]
   )
@@ -235,12 +261,12 @@ export function AssistantCard({
     setBand(undefined)
     setRefusal(undefined)
 
-    void write({ displayName: next }).then(outcome => {
+    void write(base => base.displayName === previous ? { displayName: next } : 'elsewhere').then(outcome => {
       if (!live.current) {
         return
       }
 
-      if (outcome === 'ok') {
+      if (typeof outcome !== 'string') {
         setNote(
           undoing
             ? { field: 'name', kind: 'undone' }
@@ -267,60 +293,81 @@ export function AssistantCard({
     })
   }
 
-  const persona = useMemo(
-    () => (card ? parsePersona(card.soul, { inherited: card.inherited, primary: card.isDefault }) : undefined),
-    [card]
-  )
+  const persona = useMemo(() => (card ? cardPersona(card) : undefined), [card])
+  // Hermes counts Unicode code points after the file read normalizes newlines.
+  const soul = card?.soul
 
-  const saveSoul = (soul: string, field: keyof PersonaChange, undoing = false) => {
-    const previous = cardRef.current
-
-    if (!previous) {
-      return
+  const longPersona = useMemo(() => {
+    if (!soul || soul.length <= contextFileLimits.defaultMaxChars) {
+      return false
     }
 
-    // Undoing the first persona of an assistant that had none: back to none.
-    const before = previous.inherited ? '' : previous.soul
+    return Array.from(soul.trim().replace(/\r\n?/g, '\n')).length > contextFileLimits.defaultMaxChars
+  }, [soul])
+
+  const savePersona = (change: PersonaChange, undo?: PersonaUndo) => {
+    const { field, before, after } = change
     setBand(undefined)
 
-    void write({ soul }).then(outcome => {
+    void write(base => {
+      const current = cardPersona(base)
+
+      const currentField = visibleField(current, field)
+
+      if (field !== 'who' && (undo?.currentField ?? field) !== currentField) {
+        return 'elsewhere'
+      }
+
+      const undoChangesKind = undo && undo.currentKind === current.kind && undo.previousKind !== current.kind
+
+      if (!undoChangesKind && current[currentField].trim() === after.trim()) {
+        return 'unchanged'
+      }
+
+      if (current[currentField].trim() !== before.trim()) {
+        return 'elsewhere'
+      }
+
+      const parsed = undoChangesKind ? { ...current, kind: undo.previousKind } : current
+      const rendered = renderPersona(parsed, { name: base.displayName, [field]: after })
+
+      return { soul: rendered.trim() === undo?.inheritedSoul?.trim() ? '' : rendered }
+    }).then(outcome => {
       if (!live.current) {
         return
       }
 
-      if (outcome === 'ok') {
-        setNote(
-          undoing ? { field, kind: 'undone' } : { field, kind: 'saved', undo: () => saveSoul(before, field, true) }
-        )
+      if (typeof outcome !== 'string') {
+        const saved = cardPersona(outcome.card)
+        const savedField = visibleField(saved, field)
+
+        if (undo) {
+          setNote({ field: savedField, kind: 'undone' })
+
+          return
+        }
+
+        const previous = cardPersona(outcome.previous)
+        setNote({
+          field: savedField,
+          kind: 'saved',
+          undo: () => savePersona(
+            { field, before: saved[savedField], after: previous[field] },
+            {
+              currentKind: saved.kind,
+              currentField: savedField,
+              previousKind: previous.kind,
+              ...(outcome.previous.inherited ? { inheritedSoul: outcome.previous.soul } : {})
+            }
+          )
+        })
       } else if (outcome === 'elsewhere') {
-        setBand({ kind: 'elsewhere' })
-      } else {
-        setBand({ kind: 'failure', retry: () => saveSoul(soul, field, undoing) })
+        setNote(undefined)
+        setBand({ kind: 'elsewhere', field: cardRef.current ? visibleField(cardPersona(cardRef.current), field) : field })
+      } else if (outcome !== 'unchanged') {
+        setBand({ kind: 'failure', retry: () => savePersona(change, undo) })
       }
     })
-  }
-
-  const savePersona = (change: PersonaChange) => {
-    const current = cardRef.current
-
-    if (!current || !persona) {
-      return
-    }
-
-    const soul = renderPersona(
-      parsePersona(current.soul, { inherited: current.inherited, primary: current.isDefault }),
-      {
-        name: current.displayName,
-        ...change
-      }
-    )
-
-    if (soul.trim() === (current.inherited ? '' : current.soul).trim() || (current.inherited && !soul.trim())) {
-      return
-    }
-
-    const field = (Object.keys(change)[0] ?? 'what') as keyof PersonaChange
-    saveSoul(soul, field)
   }
 
   const noteLine = (field: NoteField) =>
@@ -395,7 +442,7 @@ export function AssistantCard({
                   ? copy.saveFailed
                   : band.kind === 'photo'
                     ? copy.photoError
-                    : copy.changedElsewhere(name)}
+                    : band.field ? copy.personaConflict : copy.changedElsewhere(name)}
               </span>
               {band.kind === 'failure' && (
                 <Button onClick={band.retry} size="inline" variant="textStrong">
@@ -426,11 +473,13 @@ export function AssistantCard({
                   ? { field: note.field, node: <CardNote copy={copy} note={note} onUndo={() => setNote(undefined)} /> }
                   : undefined
               }
-              onSave={savePersona}
+              onSave={change => savePersona(change)}
               persona={persona ?? parsePersona('')}
+              rejected={band?.kind === 'elsewhere' && band.field ? band : undefined}
             />
           )}
           <p className="atum-settings-section-foot">{copy.footnote}</p>
+          {longPersona && <p className="atum-settings-section-foot" role="status">{copy.longPersona}</p>}
         </section>
         <CardRows
           agent={agent}

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 
+import { connectWorkBridge } from '@/app/work/store'
 import { AtumAtom } from '@/components/brand/atum-atom'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { Loader } from '@/components/ui/loader'
@@ -18,6 +19,8 @@ import type { DiscoverShelf } from '../store/top-up'
 import { AwarenessGallery } from './awareness-gallery'
 import { PLAYGROUND_SCENARIOS, scenarioSnapshot } from './fixtures'
 import { PlaygroundGoogleSettings } from './google-fixtures'
+import { LISTING_HIRE_VIEWS, PlaygroundListingHire } from './listing-hire-fixtures'
+import { PlaygroundRelay } from './relay-gallery'
 import {
   PLAYGROUND_ASSISTANT,
   PLAYGROUND_WALLET,
@@ -27,6 +30,7 @@ import {
 } from './store-fixtures'
 
 export const PLAYGROUND_VIEWS = [
+  ...LISTING_HIRE_VIEWS,
   'awareness',
   'awareness-stale',
   'awareness-unavailable',
@@ -49,6 +53,8 @@ export const PLAYGROUND_VIEWS = [
   'legacy-sign-in',
   'settings-protons',
   'settings-google',
+  'settings-work',
+  'relay',
   'account-menu',
   'loaders',
   'crash',
@@ -182,6 +188,24 @@ function PlaygroundAccount({ view }: { view: PlaygroundView }) {
   )
 }
 
+function PlaygroundWorkSettings() {
+  const [pane, setPane] = useState<MatrixSettingsPane>('devices')
+  const snapshot = scenarioSnapshot('chat')
+
+  useEffect(() => connectWorkBridge(window.atumMatrix?.work), [])
+
+  return (
+    <MatrixSettingsSheet
+      fail={() => {}}
+      onClose={() => {}}
+      onPaneChange={setPane}
+      open
+      pane={pane}
+      snapshot={snapshot}
+    />
+  )
+}
+
 /**
  * Parts of the window not wired in yet, on fixture data (dev only): Discover with a store
  * provider, the Protons pane, the account slots, and the sign-in window. `?view=` picks one; the app
@@ -205,6 +229,10 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
     )
   }
 
+  if ((LISTING_HIRE_VIEWS as readonly string[]).includes(view)) {
+    return <PlaygroundListingHire key={view} view={view as (typeof LISTING_HIRE_VIEWS)[number]} />
+  }
+
   if (view.startsWith('awareness')) {
     return <AwarenessGallery key={view} view={view} />
   }
@@ -223,6 +251,16 @@ export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
 
   if (view === 'settings-protons' || view === 'account-menu') {
     return <PlaygroundAccount view={view} />
+  }
+
+  // Settings › Devices with Work's rows (slice B): `&work=ready&plan=…&connect=…&consent=…&sheet` (work-fixtures.ts).
+  if (view === 'settings-work') {
+    return <PlaygroundWorkSettings />
+  }
+
+  // Relay R1's picker rows and chip, Work's shared-context line, the plan's usage and the consent: `&relay=…` (relay-gallery.tsx).
+  if (view === 'relay') {
+    return <PlaygroundRelay />
   }
 
   // Settings › Account › Google in the state `?google=` names (google-fixtures.tsx).

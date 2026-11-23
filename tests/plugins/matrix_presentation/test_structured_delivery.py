@@ -24,7 +24,7 @@ def adapter(path):
         'homeserver': 'https://matrix.example.org', 'user_id': '@bot:example.org'}))
     a._presentation_box = p.Outbox(path)
     a._client = SimpleNamespace(mxid='@bot:example.org', device_id='DEVICE',
-        api=SimpleNamespace(token='fixture'), send_message_event=AsyncMock(return_value='$observed'))
+        api=SimpleNamespace(token='fixture', request=AsyncMock(return_value={'chunk': []})), send_message_event=AsyncMock(return_value='$observed'))
     return a
 
 
@@ -86,6 +86,61 @@ async def test_ambiguous_send_retries_exact_frozen_wire_after_freshness_check(tm
         assert writes[0] == writes[1] and len(events) == 1
         assert fresh.await_count == 2
         ack.assert_awaited_once_with('$observed')
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_room_search_recovers_lost_send_without_another_put(tmp_path):
+    a = adapter(tmp_path / 'box.sqlite3')
+    a._client.send_message_event.side_effect = ConnectionError('accepted but reply lost')
+    fresh, ack = AsyncMock(return_value=True), AsyncMock()
+    room = '!room:example.org'
+    try:
+        with pytest.raises(ConnectionError):
+            await a.send_structured_delivery(room, CONTENT, 'receipt', revalidate=fresh, acknowledge=ack)
+        a._client.api.request.return_value = {'chunk': [
+            {'sender': '@other:example.org', 'event_id': '$other',
+             'unsigned': {'transaction_id': 'receipt'}},
+            {'sender': str(a._client.mxid), 'event_id': '$accepted',
+             'unsigned': {'transaction_id': 'receipt'}},
+        ]}
+        result = await a.send_structured_delivery(room, CONTENT, 'receipt', revalidate=fresh, acknowledge=ack)
+        assert result.message_id == '$accepted'
+        a._client.send_message_event.assert_awaited_once()
+        a._client.api.request.assert_awaited_once()
+        ack.assert_awaited_once_with('$accepted')
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_encrypted_retry_shares_keys_and_keeps_wire_transaction(tmp_path):
+    a = adapter(tmp_path / 'box.sqlite3')
+    a._encryption = True
+    a._client.crypto = SimpleNamespace(share_keys=AsyncMock())
+    a._client.send_message_event.side_effect = [ConnectionError('needs key share'), '$observed']
+    try:
+        result = await a.send_structured_delivery('!room:example.org', CONTENT, 'encrypted-txn',
+            revalidate=AsyncMock(return_value=True), acknowledge=AsyncMock())
+        assert result.message_id == '$observed'
+        a._client.crypto.share_keys.assert_awaited_once()
+        first, second = a._client.send_message_event.await_args_list
+        assert first == second
+        assert first.kwargs['txn_id'] == 'encrypted-txn'
+    finally:
+        a._presentation_box.db.close()
+
+
+@pytest.mark.asyncio
+async def test_one_event_limit_checks_utf8_and_formatting(tmp_path):
+    a = adapter(tmp_path / 'box.sqlite3')
+    try:
+        with pytest.raises(ValueError, match='byte budget'):
+            await a.send_structured_delivery('!room:example.org',
+                {**CONTENT, 'formatted_body': '現' * 20_000}, 'too-large',
+                revalidate=AsyncMock(return_value=True), acknowledge=AsyncMock())
+        a._client.send_message_event.assert_not_awaited()
     finally:
         a._presentation_box.db.close()
 
@@ -195,3 +250,62 @@ asyncio.run(main())
     assert success, error
     assert output.exists(), text
     assert json.loads(output.read_text()) == {'event_id': '$script', 'txn': 'script-work-1', 'content': CONTENT}
+
+
+@pytest.mark.asyncio
+async def test_native_sdk_keeps_device_and_recovers_event_after_reconnect(tmp_path):
+    """The token's whoami device and transaction path come from the real Matrix SDK."""
+    from aiohttp import web
+    from mautrix.api import HTTPAPI
+    from mautrix.client import Client
+
+    transactions = []
+    async def whoami(request):
+        assert request.headers['Authorization'] == 'Bearer fixture'
+        return web.json_response({'user_id': '@bot:example.org', 'device_id': 'STABLE'})
+
+    async def put(request):
+        transactions.append(request.match_info['txn'])
+        assert await request.json() == CONTENT
+        return web.json_response({'event_id': '$wire'})
+
+    async def messages(request):
+        return web.json_response({'chunk': [
+            {'sender': '@bot:example.org', 'event_id': '$wire',
+             'unsigned': {'transaction_id': 'same-on-wire'}},
+        ]})
+
+    app = web.Application()
+    app.router.add_get('/_matrix/client/v3/account/whoami', whoami)
+    app.router.add_put('/_matrix/client/v3/rooms/{room}/send/{event_type}/{txn}', put)
+    app.router.add_get('/_matrix/client/v3/rooms/{room}/messages', messages)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    try:
+        site = web.TCPSite(runner, '127.0.0.1', 0)
+        await site.start()
+        [(host, port)] = runner.addresses
+        path = tmp_path / 'outbox.sqlite3'
+        for restart in (False, True):
+            a = adapter(path)
+            api = HTTPAPI(f'http://{host}:{port}', default_retry_count=0)
+            try:
+                a._client = Client(api=api)
+                assert await a._connect_authenticate(a._client, api)
+                assert a._client.device_id == 'STABLE'
+                ack = AsyncMock()
+                result = await a.send_structured_delivery('!room:example.org', CONTENT, 'same-on-wire',
+                    revalidate=AsyncMock(return_value=True), acknowledge=ack)
+                assert result.message_id == '$wire'
+                ack.assert_awaited_once_with('$wire')
+                if not restart:
+                    # Simulate a crash after the homeserver accepted the write but before the
+                    # event ID committed, then reopen the same outbox with a fresh SDK client.
+                    a._presentation_box.db.execute('UPDATE effects SET event=NULL')
+                    a._presentation_box.db.commit()
+            finally:
+                await api.session.close()
+                a._presentation_box.db.close()
+    finally:
+        await runner.cleanup()
+    assert transactions == ['same-on-wire']

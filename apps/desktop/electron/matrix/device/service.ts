@@ -20,7 +20,6 @@ import { ApprovalWindow } from './approval-window'
 import type { ApprovalAnswer } from './approvals'
 import type { AuditWriter } from './audit'
 import { argsHash, deviceMessageHash } from './canonical'
-import type { ChatGptRelayHandler } from './chatgpt-relay'
 import type {
   DeviceApproval,
   DeviceArtifact,
@@ -665,7 +664,6 @@ export interface DeviceIdentityFacts {
 export interface DeviceServiceDeps {
   macSource?(args: Record<string, unknown>, grant: DeviceGrant, signal: AbortSignal): Promise<string>
   connected?(): void
-  relay?: Pick<ChatGptRelayHandler, 'handle' | 'disable'>
   workspace?: {
     finalize(request: WorkspaceFinalize, session: DeviceSessionFacts): Promise<void>
     confirm(request: WorkspaceConfirm, session: DeviceSessionFacts): Promise<void>
@@ -1120,14 +1118,13 @@ export class DeviceService {
         return [this.turnGrant(frame, session)]
 
       case 'ChatGptRelayRequest':
-        return this.deps.relay
-          ? [{ type: 'ChatGptRelayResponse', body: await this.deps.relay.handle(frame.body, session, frame.verdict) }]
-          : [{ type: 'ChatGptRelayResponse', body: {
-              capabilityId: typeof frame.body.capabilityId === 'string'
-                ? frame.body.capabilityId
-                : '00000000-0000-4000-8000-000000000000',
-              state: 'refused', status: 403, code: 'relay_disabled'
-            } }]
+        // The SSH ChatGPT relay is gone (self-work plan §12): a platform that still sends one is refused, the same way a disabled relay was.
+        return [{ type: 'ChatGptRelayResponse', body: {
+          capabilityId: typeof frame.body.capabilityId === 'string'
+            ? frame.body.capabilityId
+            : '00000000-0000-4000-8000-000000000000',
+          state: 'refused', status: 403, code: 'relay_disabled'
+        } }]
 
       case 'Execute':
         return this.execute(frame, session)
@@ -1217,7 +1214,6 @@ export class DeviceService {
     this.fencing = null
     // A Stop (and sign-out, account switch, sleep) ends every task approval window.
     this.approvalWindow.clear()
-    this.deps.relay?.disable()
 
     try {
       this.deps.killAllGroups?.()

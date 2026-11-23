@@ -10941,7 +10941,6 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
       pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
       cancelChatGpt: vi.fn(async () => undefined),
       disconnectChatGpt: vi.fn(async () => undefined),
-      useThisMacForChatGpt: vi.fn(async () => ({ status: 'applied' as const })),
       connectOpenCode: vi.fn(async () => ({ status: 'applied' as const })),
       disconnectOpenCode: vi.fn(async () => undefined)
     }

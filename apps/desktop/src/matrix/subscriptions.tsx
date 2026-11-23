@@ -23,28 +23,19 @@ import {
 } from '../../shared/matrix-subscriptions'
 
 import { useMatrixSettingsCopy } from './settings-copy'
-import {
-  matrixChatGptNeedsCloudSetup,
-  type MatrixSubscriptionCloudSetup,
-  type MatrixSubscriptionView,
-  matrixSubscriptionView
-} from './subscription-view'
+import { type MatrixSubscriptionView, matrixSubscriptionView } from './subscription-view'
 
 /** The bridge, or none in a test/older main: Settings still draws both rows disabled. */
 export function useSubscriptionsBridge(): MatrixSubscriptionsBridge | undefined {
   return typeof window === 'undefined' ? undefined : window.atumMatrix?.subscriptions
 }
 
-/** One account-level read, shared by every assistant of this account. The window also owns its
- * own cloud setup attempt: one per relay revision while Connections is open, then one more each
- * time the person presses Try again. Native main owns the bounded retries in between. */
+/** One account-level read, shared by every assistant of this account. */
 export function useMatrixSubscriptions(scopeKey?: string) {
   const bridge = useSubscriptionsBridge()
   const [status, setStatus] = useState<MatrixSubscriptionsStatus | null>(null)
   const [readFailed, setReadFailed] = useState(false)
-  const [cloudSetup, setCloudSetup] = useState<MatrixSubscriptionCloudSetup>('idle')
   const live = useRef(true)
-  const relayRepair = useRef<string | null>(null)
 
   const reload = useCallback(async () => {
     if (!bridge) {
@@ -78,56 +69,9 @@ export function useMatrixSubscriptions(scopeKey?: string) {
     }
   }, [reload, scopeKey])
 
-  const setUpCloud = useCallback(async () => {
-    if (!bridge) {
-      return
-    }
+  const view = matrixSubscriptionView({ status, readFailed })
 
-    setCloudSetup('working')
-
-    try {
-      const result = await bridge.useThisMacForChatGpt(true)
-
-      if (!live.current) {
-        return
-      }
-
-      setCloudSetup(result.status === 'applied' ? 'idle' : 'failed')
-
-      if (result.status === 'applied') {
-        await reload()
-      }
-    } catch {
-      if (live.current) {
-        setCloudSetup('failed')
-      }
-    }
-  }, [bridge, reload])
-
-  // A saved account plan whose relay is not enabled is honest-but-degraded. Pull one setup
-  // attempt forward while Connections is open; native main owns the bounded retries after it.
-  const chatgpt = subscriptionProviderStatus(status, 'openai-codex')
-  const needsCloudSetup = matrixChatGptNeedsCloudSetup(chatgpt)
-  const repairKey = needsCloudSetup ? `${scopeKey ?? 'account'}:${chatgpt?.relay?.revision ?? 'unknown'}` : null
-
-  useEffect(() => {
-    if (!bridge || !repairKey) {
-      relayRepair.current = null
-
-      return
-    }
-
-    if (relayRepair.current === repairKey) {
-      return
-    }
-
-    relayRepair.current = repairKey
-    void setUpCloud()
-  }, [bridge, repairKey, setUpCloud])
-
-  const view = matrixSubscriptionView({ status, readFailed, cloudSetup })
-
-  return { bridge, reload, retryCloud: setUpCloud, status, view }
+  return { bridge, reload, status, view }
 }
 
 export function subscriptionProviderStatus(
@@ -559,10 +503,6 @@ export function matrixChatGptStateLine(
   switch (state) {
     case 'ready':
       return copy.chatgptReady
-    case 'cloud_setting_up':
-      return copy.chatgptCloudSettingUp
-    case 'cloud_failed':
-      return copy.chatgptCloudFailed
     case 'needs_sign_in':
       return copy.chatgptSignedOut
     case 'unavailable':
@@ -577,7 +517,6 @@ export function SubscriptionManageDialog({
   onChanged,
   onClose,
   onReconnect,
-  onRetryCloud,
   open,
   provider,
   status,
@@ -586,8 +525,6 @@ export function SubscriptionManageDialog({
   onChanged(): void
   onClose(): void
   onReconnect(): void
-  /** ChatGPT only: one more cloud setup attempt (the row's Try again). */
-  onRetryCloud?(): void
   open: boolean
   provider: MatrixSubscriptionProvider
   status?: MatrixSubscriptionProviderStatus
@@ -640,11 +577,7 @@ export function SubscriptionManageDialog({
                 data-matrix-subscription-state={state}
                 role="status"
               >
-                {state === 'ready' ? (
-                  <Check aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.4} />
-                ) : state === 'cloud_setting_up' ? (
-                  <Spinner aria-hidden className="mt-0.5 size-4 shrink-0 animate-spin" />
-                ) : null}
+                {state === 'ready' ? <Check aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.4} /> : null}
                 <span>{matrixChatGptStateLine(copy, state)}</span>
               </p>
               {state === 'ready' && relay?.state === 'enabled' && (
@@ -666,11 +599,6 @@ export function SubscriptionManageDialog({
             </NoticeBand>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {chatgpt && view?.fix === 'retry_cloud' && onRetryCloud && (
-              <Button disabled={pending} onClick={onRetryCloud} size="sm">
-                {copy.tryAgain}
-              </Button>
-            )}
             {!chatgpt && (
               <Button disabled={pending} onClick={onReconnect} size="sm" variant="secondary">
                 {copy.reconnect}

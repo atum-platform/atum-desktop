@@ -6235,6 +6235,12 @@ body:has(.atum-shell) .notice-band:focus-visible {
   font-size: 2.75rem;
 }
 
+/* An assistant you hire is a face, not an app tile: round at every size (STYLE.md §5). */
+.atum-store-art[data-face] {
+  border-radius: var(--atum-r-avatar-lg);
+  corner-shape: round;
+}
+
 /* A house dog's voxel portrait sits on its accent tile; voxels stay square at any size.
    Placed against the tile's own box: a grid cell's auto height cannot size a percentage. */
 .atum-store-art[data-art='pet'] {

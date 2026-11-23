@@ -62,18 +62,3 @@ test('validation outage acknowledged before custody mutation restores local owne
   const f = fixture(async body => body.access_token ? 'not_imported' : 'pending')
   await f.carry.sync(); assert.equal(f.state(), 'local')
 })
-
-test('carried local relay cannot be re-enabled by an in-flight status response', async () => {
-  const { MatrixChatGptRelay } = await import('./chatgpt-relay-client')
-  let finish!: (answer: { status: number; value: unknown }) => void
-  let calls = 0
-  const relay = new MatrixChatGptRelay({ scope: () => ({ accountKey: 'one', generation: 1 }), changed: () => {},
-    call: async () => { calls++; return new Promise(resolve => { finish = resolve }) } })
-  const refreshing = relay.refresh()
-  relay.markCarried()
-  finish({ status: 200, value: { profile: 'atum.chatgpt-relay/1', state: 'disabled', revision: 1, models: [] } })
-  await refreshing
-  assert.equal(relay.view()?.state, 'carried')
-  assert.equal(calls, 1)
-  assert.equal(await relay.enable('synthetic-device', []), false)
-})

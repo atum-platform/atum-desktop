@@ -13,9 +13,8 @@ import type {
  * (`atum.model-choice/1.5`, `atum.cloud-execution/1.14`). The relay's presence
  * (`atum.chatgpt-relay` `relayPresence`: online / offline / unregistered) decides when the
  * platform sends it. Until then the only fact is the relay registration main already reads
- * (`electron/matrix/chatgpt-relay-client.ts` `MatrixChatGptRelaySnapshot.state`, projected as
- * `relay.state` by `matrixSubscriptionsWithChatGptRelay` and as `subscriptionState` by main's
- * `cloudModelView`): an enabled relay counts as reachable, anything else as no Mac.
+ * (the Mac's SSH relay client, removed in self-work slice B; the platform still states
+ * `relay.state` and `relayPresence`, and main's `cloudModelView` projects `subscriptionState`): an enabled relay counts as reachable, anything else as no Mac.
  *
  * On S2 the plan's sign-in is carried to cloud custody (`relay.state: carried`) and the cloud serves
  * it natively, so no Mac is in the path and the plan answers.

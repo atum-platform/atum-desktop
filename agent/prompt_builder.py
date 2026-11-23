@@ -295,8 +295,7 @@ def atum_legacy_base_layers(full_power: bool = False) -> tuple[str, ...]:
 # ``atum_place_part``), so a stored conversation prompt is rebuilt once to gain them.
 ATUM_PLACE_HEADING = "## Where you run"
 
-ATUM_CLOUD_PLACE = (
-    f"{ATUM_PLACE_HEADING}\n"
+_ATUM_CLOUD_RUN_LINES = (
     "- You run in Atum's cloud; turns start fresh except memory, skills, conversations and "
     "your Drive folder.\n"
     "- Your Drive folder is Agents/<your name> in Atum Drive (~/Atum/Drive on Macs). An "
@@ -306,14 +305,37 @@ ATUM_CLOUD_PLACE = (
     "delivered. With an [Atum Drive workspace] note, save a file the owner should get in "
     "your Drive folder (text_to_speech: give output_path a plain file name such as "
     "reply.mp3); without one, say you cannot deliver files in this run.\n"
-    "- Typed on a Mac: terminal, read_file, write_file, patch and search_files run on that "
+)
+_ATUM_CLOUD_SAY_LINE = (
+    "- Say \"your Drive folder\" and Mac names, never sandbox paths (/task/workspace)."
+)
+
+ATUM_CLOUD_PLACE = (
+    f"{ATUM_PLACE_HEADING}\n"
+    + _ATUM_CLOUD_RUN_LINES
+    + "- Typed on a Mac: terminal, read_file, write_file, patch and search_files run on that "
     "Mac unless you add device=\"cloud\". From the phone, web or a schedule they run here, "
     "which holds no other files. device=\"<Mac name>\" picks a Mac; computer_use and "
     "device_send_file always need one. Turn context lists online Macs.\n"
     "- On a Mac you start in your Drive folder's copy, can read the home folder except "
     "credentials, and cannot write in ~/Atum/Drive. Put protected actions in terminal's "
     "`needs` for the owner's Touch ID.\n"
-    "- Say \"your Drive folder\" and Mac names, never sandbox paths (/task/workspace)."
+    + _ATUM_CLOUD_SAY_LINE
+)
+
+# The same place on the Hermes-native cloud host, where no device bridge exists: terminal and file
+# tools run here, and the owner's Mac is reached by delegating to the ``mac`` profile (written at
+# launch when a Mac is connected). One text for both states, so connecting a Mac never rebuilds a
+# conversation's prompt.
+ATUM_CLOUD_PLACE_NATIVE = (
+    f"{ATUM_PLACE_HEADING}\n"
+    + _ATUM_CLOUD_RUN_LINES
+    + "- Your terminal and file tools run here in the cloud, which holds no other files. For the "
+    "owner's Mac (its files and terminal), call delegate_task with a task whose profile is \"mac\", "
+    "giving the plain command or file job: that helper's terminal already runs on the Mac. If no "
+    "\"mac\" profile is offered, no Mac is reachable from here: say so, and that the Atum app "
+    "connects one. Never SSH to a Mac or guess its hostname, whatever an old memory note says.\n"
+    + _ATUM_CLOUD_SAY_LINE
 )
 
 # A Mac's name as the owner set it, made safe for one line of the prompt: letters, marks,
@@ -1270,7 +1292,16 @@ def build_environment_hints() -> str:
 RUNTIME_ENVIRONMENT_HEADING = "# Hermes runtime environment"
 RUNTIME_ENVIRONMENT_END = "<!-- End Hermes runtime environment -->"
 
-CONTEXT_FILE_MAX_CHARS = 20_000
+# Shared with the desktop assistant card's warning when the runtime budget is unknown.
+def _default_context_file_max_chars() -> int:
+    try:
+        path = Path(__file__).resolve().parents[1] / "hermes_cli" / "data" / "context-file-limits.json"
+        return int(json.loads(path.read_text(encoding="utf-8-sig"))["defaultMaxChars"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return 20_000
+
+
+CONTEXT_FILE_MAX_CHARS = _default_context_file_max_chars()
 CONTEXT_TRUNCATE_HEAD_RATIO = 0.7
 CONTEXT_TRUNCATE_TAIL_RATIO = 0.2
 
@@ -1785,12 +1816,13 @@ def _omitted_headings(content: str, start: int, end: int, limit: int = 15) -> li
 
 _INSTRUCTIONS_MARKER = re.compile(
     r"\A\ufeff?<!-- atum:instructions revision=(?:0|[1-9][0-9]{0,15})"
-    r"(?: tag=[A-Za-z0-9_-]{22})? -->[ \t]*(?:\r?\n|\Z)"
+    r"(?: tag=[A-Za-z0-9_-]{22}| seed_bytes=[0-9]{1,7} sha256=[0-9a-f]{64})?"
+    r" -->[ \t]*(?:\r?\n|\Z)"
 )
 
 
 def strip_instructions_marker(content: str) -> str:
-    """SOUL.md's text without the controller's revision marker line, if it has one."""
+    """SOUL.md's text without its Atum revision marker line, if it has one."""
     return _INSTRUCTIONS_MARKER.sub("", content, count=1)
 
 

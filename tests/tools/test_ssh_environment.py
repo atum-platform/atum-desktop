@@ -181,6 +181,31 @@ class TestControlSocketPath:
             f"{env.control_socket} (+{self._SSH_CONTROLMASTER_SUFFIX} = {total_len})"
         )
 
+    def test_a_deep_hermes_home_falls_back_to_the_short_socket_root(self, monkeypatch, tmp_path):
+        """Atum cloud agents: TMPDIR is <home>/cache/scratch under /computer/agents/<uuid>/private, whose
+        ``hermes-ssh/<id>.sock`` overflows the AF_UNIX limit ("ControlPath too long"). The socket then lives
+        under the native socket-safe temp root, and the usual shallow case is left exactly as it was."""
+        deep = "/computer/agents/" + "a" * 36 + "/private/cache/scratch"
+        short_root = tmp_path / "t"
+        short_root.mkdir()
+        monkeypatch.setattr("tools.environments.ssh.tempfile.gettempdir", lambda: deep)
+        monkeypatch.setattr("tools.environments.ssh.socket_safe_tmpdir", lambda: str(short_root))
+        from pathlib import Path as _Path
+        real_mkdir = _Path.mkdir
+        made = []
+        monkeypatch.setattr(_Path, "mkdir", lambda self, *a, **k: made.append(str(self)) or real_mkdir(self, *a, **k)
+                            if str(self).startswith(str(short_root)) else made.append(str(self)))
+
+        env = SSHEnvironment(host="mac-" + "a" * 32 + ".example.test", user="owner", port=22)
+
+        # The usual location really would overflow (the bug), the fallback is taken, and the deep dir is never made.
+        usual = f"{deep}/hermes-ssh/{env.control_socket.name}"
+        assert len(usual) + self._SSH_CONTROLMASTER_SUFFIX > self._MAX_SUN_PATH
+        assert str(env.control_socket).startswith(str(short_root))
+        assert not any(deep in m for m in made)
+        # With a real short root (/tmp) the whole path fits the budget.
+        assert len(f"/tmp/hermes-ssh-10000/{env.control_socket.name}") + self._SSH_CONTROLMASTER_SUFFIX <= self._MAX_SUN_PATH
+
     def test_path_is_deterministic_across_instances(self):
         """Same (user, host, port) must yield the same control socket so
         ControlMaster reuse works across reconnects."""

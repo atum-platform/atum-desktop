@@ -43,7 +43,7 @@ from agent.turn_scripted_prelude import Prelude, play_prelude
 from agent.turn_api_call import handle_api_interrupt, nous_rate_limit_guard, perform_api_call
 from agent.turn_api_error import ATUM_DAILY_CAP_LINE, handle_api_error
 from agent.turn_api_request import build_api_request
-from agent.turn_failure_copy import FAILED_TURN_DISPLAY_KIND, OPEN_TURN_TAIL_ROLES, failed_turn_notice, site_copy
+from agent.turn_failure_copy import OPEN_TURN_TAIL_ROLES, failed_turn_boundary, site_copy
 from agent.turn_final_response import finish_text_response
 from agent.turn_finalizer import finalize_turn
 from agent.turn_iteration_prep import (
@@ -820,6 +820,11 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
     Mutates ``agent._cached_system_prompt`` and persists a freshly-built prompt on first
     build. Row states ``missing``/``null``/``empty``/``present`` are logged and DB
     failures log at WARNING so silent prefix-cache misses show in ``agent.log``."""
+    # Managed owner turns also enter here on a warm gateway cache hit. Compare
+    # the live identity before touching the DB, tools, or any other prompt tier.
+    previous = agent._cached_system_prompt
+    if previous is not None and _stored_prompt_matches_instructions(agent, previous):
+        return
     stored_prompt = None
     stored_state = "missing"
     session_row = None
@@ -837,7 +842,9 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
                 agent.session_id, exc,
             )
 
-    stale = _stored_prompt_stale_reason(agent, stored_prompt) if stored_prompt else None
+    stale = _stored_prompt_stale_reason(agent, stored_prompt) if stored_prompt else (
+        "instructions" if previous is not None else None
+    )
     if stored_prompt and stale is None:
         # NULL/empty rows never reach this probe: they already rebuild below.
         if _bot_chat_prompt_stale(agent, stored_prompt):
@@ -2104,6 +2111,8 @@ def _close_durable_failed_turn(agent, result: Any) -> None:
     tail (``SessionDB.latest_conversation_role``), so a redelivery or a tail already closed by
     another writer is a no-op, and the gateway's own closer then no-ops in turn.
     """
+    from agent.system_prompt import atum_instructions_enabled
+
     try:
         if not isinstance(result, dict) or result.get("completed") is True:
             return
@@ -2122,9 +2131,7 @@ def _close_durable_failed_turn(agent, result: Any) -> None:
         # hedge over the whole list rather than under-report a possible side effect.
         start = result.get("current_turn_user_idx")
         turn_messages = messages[start:] if isinstance(start, int) and 0 <= start < len(messages) else messages
-        boundary = {
-            "role": "assistant", "content": failed_turn_notice(turn_messages), "display_kind": FAILED_TURN_DISPLAY_KIND,
-        }
+        boundary = failed_turn_boundary(turn_messages, atum=atum_instructions_enabled(agent))
         if failure := _failed_turn_display_metadata(agent, result):
             boundary["display_metadata"] = failure
         append_message(messages, boundary)

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { chmod, mkdir, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -185,7 +185,6 @@ import {
   MATRIX_MESSAGE_LINK_IPC,
   type MatrixMessageLinkTarget
 } from '../../shared/matrix-message-link'
-import { matrixModelDisplayName } from '../../shared/matrix-model-display-name'
 import {
   MATRIX_ATUM_PROVIDER,
   MATRIX_CHECK_IN_MODEL_ALIAS,
@@ -295,9 +294,7 @@ import {
   MatrixSubscriptionFollowUpRepair,
   matrixSubscriptionHostExecutor,
   matrixSubscriptionHostHome,
-  matrixSubscriptionPlanSignInGate,
-  matrixSubscriptionsWithChatGptRelay,
-  retireMatrixChatGptRelayForSignIn
+  matrixSubscriptionPlanSignInGate
 } from './account-subscription-flow'
 import {
   forgetSubscriptionChatGpt,
@@ -481,7 +478,6 @@ import { appBotPhotoForRenderer } from './bot-api-media'
 import { createBrowserImport } from './browser-import/compose'
 import { registerBrowserImportIpc } from './browser-import/ipc'
 import { carryCustody, ChatGptCarry, requestChatGptCarry } from './chatgpt-carry'
-import { MatrixChatGptRelay, requestMatrixChatGptRelay } from './chatgpt-relay-client'
 import {
   FileChatGptTrainingRevokeJournal,
   MatrixChatGptTrainingConfirmation,
@@ -572,7 +568,6 @@ import {
   DeviceServiceBootstrap,
   fenceDeviceBeforeOperationLock
 } from './device/bootstrap'
-import { runChatGptRelayProcess } from './device/chatgpt-relay-process'
 import {
   acceptCloudTrial,
   CloudAccessLog,
@@ -696,9 +691,7 @@ import {
   forgetMatrixAccountCodex,
   forgetMatrixAccountCodexSignIn,
   MATRIX_ATUM_FOLDER,
-  matrixAccountCodexScope,
   type MatrixHermesConnection,
-  matrixHermesEnvironment,
   matrixHermesHome,
   type MatrixHermesRuntimeConfig,
   openMatrixHermes,
@@ -802,6 +795,7 @@ import {
   registerMatrixMemberAvatarIpc,
   registerMatrixProfilesIpc
 } from './main-profiles'
+import { createMatrixWork, type MatrixWork } from './main-work'
 import { matrixManagedAgentPrincipal, MatrixManagedModel } from './managed-model'
 import { dispatchMatrixCommand } from './message-dispatch'
 import { MatrixMessageLinkBroker } from './message-link-broker'
@@ -954,7 +948,6 @@ import {
 } from './store-schedules'
 import { MatrixSubscriptionAuthLifecycle } from './subscription-auth-lifecycle'
 import {
-  atumChatGptModelVisible,
   listMatrixSubscriptionCatalog,
   matrixSubscriptionCatalogWithGrant
 } from './subscriptions'
@@ -2060,6 +2053,8 @@ let stagedRecoveryFailed = false
 let updateHandoff: UpdateHandoff | null = null
 let previousRestart: UpdateHandoffResult | null = null
 let matrixApps: ReturnType<typeof createMatrixApps> | undefined
+/** Self-work slice A: the Work page, its server and the assistants' route, for the signed-in account (main-work.ts). */
+let work: MatrixWork | undefined
 let appLoadHost: Host | undefined
 let outcomeStore: EncryptedStore
 let pendingMatrixDrafts: PendingMatrixDrafts | undefined
@@ -2147,7 +2142,6 @@ let executionPolicies: MatrixExecutionPolicyController | undefined
 let cloudModelChoices: MatrixCloudModelChoices | undefined
 let providerConnections: MatrixProviderConnections | undefined
 let chatGptCarry: ChatGptCarry | undefined
-let chatGptRelay: MatrixChatGptRelay | undefined
 let chatGptTraining: MatrixChatGptTrainingConfirmation | undefined
 let videoConsent: MatrixVideoGenerationConsent | undefined
 let modelDestinations: MatrixModelDestinations | undefined
@@ -2761,60 +2755,6 @@ function buildDeviceRuntime(): DeviceRuntime {
     signer: () => deviceIdentity?.approvalSigner() ?? null,
     approvalKey: () => deviceIdentity?.approvalKey() ?? null,
     deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId ?? null,
-    chatGptRelay: {
-      sshBindings: () => nativeMacSsh?.relayBindings() ?? [],
-      authority: () => {
-        const ownerPrincipal = account?.enrollment().identity?.principal
-        const deviceServiceId = deviceIdentity?.enrollment()?.deviceServiceId
-
-        if (!ownerPrincipal || !deviceServiceId || closing || account.sessionEnded() || account.signOutPending()) {
-          return null
-        }
-
-        return {
-          ownerPrincipal,
-          deviceServiceId,
-          agentPrincipals: allAgents().flatMap(agent => {
-            const identity = enrollmentOf(agent).identity
-
-            return !agent.closed && identity?.principal === ownerPrincipal && identity.agentPrincipal
-              ? [identity.agentPrincipal]
-              : []
-          })
-        }
-      },
-      authorize: async (request, signal) => {
-        signal.throwIfAborted()
-        const selected = await chatGptRelay?.refresh()
-        signal.throwIfAborted()
-
-        return selected?.state === 'enabled' && selected.deviceServiceId === request.deviceServiceId &&
-          selected.revision === request.relayRevision
-      },
-      call: async (input, signal) => {
-        const ownerPrincipal = account?.enrollment().identity?.principal
-
-        if (!runtime || !ownerPrincipal || closing) {
-          throw new Error('chatgpt_relay_unavailable')
-        }
-
-        const relayHome = matrixHermesHome(runtime, ownerPrincipal, 'chatgpt-relay')
-        mkdirSync(relayHome, { recursive: true, mode: 0o700 })
-
-        return runChatGptRelayProcess({
-          python: runtime.python,
-          source: runtime.source,
-          env: {
-            ...matrixHermesEnvironment(runtime, relayHome, app.getPath('home'), process.env,
-              sharedCodexHere() ? null : matrixAccountCodexScope(runtime, ownerPrincipal)),
-            // The relay answers on the account's plan: the same auth root as every assistant.
-            ...matrixSubscriptionEnvironment(undefined, subscriptionAuthHome())
-          },
-          ...input,
-          signal
-        })
-      }
-    },
     agentName: userId => allAgents().find(each => each.matrixUser === userId || each.userId === userId)?.name ?? 'Atum',
     deviceName: () => macComputerName(),
     tray: native.tray,
@@ -4997,85 +4937,6 @@ async function retireSubscriptionProviders(): Promise<void> {
   await current?.close()
 }
 
-/** The ChatGPT plan's models as this Mac last read them for relay publication, per account. Shown,
- * disabled, to cloud assistants while the relay is not up yet; ids and effort levels only. */
-let chatGptLocalModels: { accountKey: string; models: ReturnType<typeof chatGptRelayModelRows> } | undefined
-
-function chatGptRelayModelRows(models: readonly string[]) {
-  return models.filter(atumChatGptModelVisible).map(model => ({
-    id: model,
-    displayName: matrixModelDisplayName(model),
-    efforts: ['low', 'medium', 'high'] as const,
-    defaultEffort: 'medium' as const,
-    contextBudget: 128_000,
-    outputBudget: 16_384
-  }))
-}
-
-async function chatGptRelayModels() {
-  const { transport } = subscriptionProvidersFor()
-
-  const catalog = await listMatrixSubscriptionCatalog({
-    forward: value => transport.forward(value),
-    isCurrent: () => transport.current()
-  })
-
-  const chatgpt = catalog.providers.find(provider => provider.id === 'openai-codex')
-
-  if (!chatgpt?.connected || !chatgpt.models?.length) {
-    throw new Error('matrix_subscriptions_unavailable')
-  }
-
-  // The desktop-safe provider snapshot deliberately exposes model ids and effort levels only; the
-  // richer Python runtime catalogue (including live context metadata) is not an Electron contract.
-  // Publish conservative relay ceilings instead of claiming provider maxima: 128K is the lowest
-  // known Codex-OAuth context in Hermes's existing fallback catalogue, while 16K is the bounded
-  // completion ceiling this relay version already enforces. The shared formatter supplies the
-  // readable name without inventing a second model-name catalogue here.
-  const rows = chatGptRelayModelRows(chatgpt.models)
-  const accountKey = account?.appScope()?.accountKey
-
-  chatGptLocalModels = accountKey ? { accountKey, models: rows } : undefined
-
-  return rows
-}
-
-/** Select/clear this enrolled Mac as the account relay. Disable fences the local handler first,
- * then revokes platform grants; enable publishes safe model metadata before opening locally. */
-async function configureThisMacAsChatGptRelay(enabled: boolean, fresh = false): Promise<boolean> {
-  if (!enabled) {
-    deviceBootstrap?.configureChatGptRelay(false)
-
-    return chatGptRelay ? chatGptRelay.disable() : true
-  }
-
-  if (!chatGptRelay || !deviceIdentity || !deviceBootstrap) {
-    return false
-  }
-
-  await reconcileDeviceControl()
-  const deviceServiceId = deviceIdentity.enrollment()?.deviceServiceId
-
-  if (!deviceServiceId) {
-    return false
-  }
-
-  const models = await chatGptRelayModels()
-
-  // A fresh session (a new ChatGPT sign-in) fences this Mac's handler until the new one is up.
-  if (fresh) {
-    deviceBootstrap.configureChatGptRelay(false)
-  }
-
-  if (!(await chatGptRelay.enable(deviceServiceId, models, { fresh }))) {
-    return false
-  }
-
-  deviceBootstrap.configureChatGptRelay(true, models.map(model => model.id))
-
-  return true
-}
-
 /** A subscription changed: idle assistants restart so their next turn sees it. A running turn is
  * never interrupted for a new connection; an explicit Disconnect forces every assistant down, so
  * the credential and its models are gone at once. */
@@ -5133,7 +4994,6 @@ function repairChatGptSubscription(
   stopSubscriptionFollowUpRepair()
 
   const repair = new MatrixSubscriptionFollowUpRepair({
-    registerRelay: input => configureThisMacAsChatGptRelay(true, input?.fresh === true),
     refresh: () => refreshSubscriptionAgents(),
     outcome: (stage, status) => diagnostics.followUp(stage, status),
     current: () => {
@@ -6991,6 +6851,8 @@ function publish(next: MatrixSnapshot) {
   companyStore?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   store?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   officialAccounts?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+  // Work binds to the account once the window is ready; it is torn down by sign-out, never by a transient state.
+  if (!closing && next.state === 'ready' && next.identity) {void work?.activate()}
   // The account may just have changed: the shared Mac names are scoped to it.
   syncExecutionDeviceNamesScope()
   // Company-channel confirmations belong to one signed-in session: a new session (or quit) voids them.
@@ -7004,7 +6866,6 @@ function publish(next: MatrixSnapshot) {
   executionPolicies?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   cloudModelChoices?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
-  chatGptRelay?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
@@ -7414,24 +7275,21 @@ function cloudModelView(principal: string) {
   const base = cloudModelChoices?.view(principal)
   const choice = modelDestinations?.cloudChoice(principal)
   const connection = providerConnections?.view()?.connection
-  const relay = chatGptRelay?.view()
   const subscription = choice?.source === 'opencode_go' || choice?.source === 'chatgpt_plan' ? choice : undefined
 
+  // No Mac serves a ChatGPT plan to a cloud assistant any more (the SSH relay is gone, self-work plan §12): a plan choice has no
+  // connection to read here, and the picker greys it (D6). A plan on this Mac is used through Work, never by the relay.
   const subscriptionState = subscription
     ? subscription.source === 'chatgpt_plan'
-      ? (relay?.state === 'enabled' || relay?.state === 'carried') ? ('connected' as const) : relay ? ('revoked' as const) : ('unavailable' as const)
+      ? ('unavailable' as const)
       : connection?.state === 'connected' ? ('connected' as const) : connection ? ('revoked' as const) : ('unavailable' as const)
     : connection?.state === 'connected'
       ? ('connected' as const)
-      : (relay?.state === 'enabled' || relay?.state === 'carried')
-        ? ('connected' as const)
-        : connection || relay
+      : connection
         ? ('disconnected' as const)
         : ('unavailable' as const)
 
-  const models = subscription?.source === 'chatgpt_plan'
-    ? (relay?.state === 'enabled' || relay?.state === 'carried') ? relay.models : []
-    : connection?.state === 'connected' ? connection.models : []
+  const models = subscription?.source === 'chatgpt_plan' ? [] : connection?.state === 'connected' ? connection.models : []
 
   if (!base && !subscription) {
     return undefined
@@ -7462,7 +7320,6 @@ function cloudModelView(principal: string) {
           }))
         }
       : {}),
-    ...(relay?.state === 'carried' ? { subscriptionCustody: 'carried' as const } : {}),
     subscriptionState
   }
 }
@@ -11019,6 +10876,18 @@ const sdkRendererRecovery = new MatrixSdkRendererRecovery<MatrixHostRole>({
   retrying: (role, attempt) =>
     console.warn(`[Matrix] ${role === 'human' ? 'chat' : 'agent'} engine restart attempt=${attempt}`)
 })
+
+/** The sign-in ended: Work's route is cut, its stops settled and its server stopped. Bounded, and never throws. */
+async function retireWork() {
+  if (!work) {
+    return
+  }
+
+  await Promise.race([
+    work.retire().catch(() => console.warn('[Matrix] work_retire_failed')),
+    new Promise<void>(resolve => setTimeout(resolve, 60_000).unref())
+  ])
+}
 
 async function stopSdk() {
   petOverlays?.clear()
@@ -17512,6 +17381,7 @@ function endChatSession(): Promise<void> {
     }
 
     publish(matrixSessionEndedSnapshot(state))
+    await retireWork()
     await stopSdk().catch(() => console.warn('[Matrix] chat engine cleanup failed after the session ended'))
     await deviceStop?.catch(() => console.warn('[Device] service cleanup failed'))
   })().finally(() => {
@@ -18712,34 +18582,15 @@ async function start() {
       return carryCustody(runtime.python, runtime.source, home, action)
     },
     drain: async () => {
-      deviceBootstrap?.configureChatGptRelay(false, [])
-
       // Do not use refreshSubscriptionAgents: that helper immediately restarts consumers.
       for (const each of allAgents()) {if (!each.closed) {await stopHost(each.role)}}
       await retireSubscriptionProviders()
     },
-    carried: () => { chatGptRelay?.markCarried(); void chatGptRelay?.refresh(); recheckAgents() },
-    restored: () => {
-      const relay = chatGptRelay?.view()
-
-      if (relay?.state === 'enabled' && relay.deviceServiceId === deviceIdentity?.enrollment()?.deviceServiceId) {
-        deviceBootstrap?.configureChatGptRelay(true, relay.models.map(model => model.id))
-      }
-
-      recheckAgents()
-    },
+    carried: () => { recheckAgents() },
+    restored: () => { recheckAgents() },
     call: (body, signal) => account.s1Request(
       (accessToken, resource) => requestChatGptCarry(resource, accessToken, body, signal), signal)
   }) : undefined
-
-  chatGptRelay = config.domain
-    ? new MatrixChatGptRelay({
-        scope: () => account.appScope(),
-        call: (action, signal, body) => account.s1Request(
-          (accessToken, resource) => requestMatrixChatGptRelay(resource, accessToken, action, signal, body), signal),
-        changed: () => publish(state)
-      })
-    : undefined
 
   chatGptTraining = config.domain
     ? new MatrixChatGptTrainingConfirmation({
@@ -19369,6 +19220,8 @@ async function start() {
           // A stopped or retired agent's leftover key completes nothing.
           .filter(({ agent }) => agent === undefined || (agents.has(agent) && !agents.get(agent)!.closed))
           .map(({ key, agent }) => [key, agent === undefined ? 'agent' : `agent:${agent}`] as const),
+        // Work's own gateways present one key; the proxy attributes it to no agent.
+        ...(work?.modelKeys() ?? []),
         ...Array.from(matrixPetHatchKeys.entries())
           .filter(([, run]) => !run.abort.signal.aborted && run.accountKey === account.appScope()?.accountKey)
           .map(([key, run]) => [key, run.role] as const)
@@ -20662,6 +20515,74 @@ async function start() {
     }
   }
 
+  // Self-work slice A: Work (the owner's own server view and the assistants' route) for the signed-in account.
+  // Everything it needs from this window is a port here; `main-work.ts` holds no account logic of its own.
+  if (config.domain) {
+    const domain = config.domain
+    const ownerPrincipal = () => {
+      try {
+        return account.enrollment().identity?.principal
+      } catch {
+        return undefined
+      }
+    }
+
+    work = createMatrixWork({
+      userData: app.getPath('userData'),
+      home: app.getPath('home'),
+      resources: process.resourcesPath,
+      workPreload: path.join(assets, 'matrix-work-preload.js'),
+      safeStorage,
+      ui: () => ui,
+      ipcMain,
+      requireUi: event => requireMatrixCaller(event, ui?.webContents, UI_URL),
+      zoomFactor: () => ui?.webContents.getZoomFactor() ?? 1,
+      sessionFromPartition: partition => session.fromPartition(partition),
+      model: {
+        baseUrl: () => managedModel?.baseUrl,
+        probe: (role, signal) =>
+          managedModel?.probe(role, signal) ?? Promise.resolve({ ok: false as const, code: 'setup_required' as const }),
+        abortRole: role => managedModel?.abortAgent(role)
+      },
+      wallet: signal => account.wallet(signal),
+      scope: () => account.appScope(),
+      ownerPrincipal,
+      deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
+      deviceServicesEndpoint: () => `${domain.resource}/device-services`,
+      bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      ownerHost: () => {
+        const owner = hosts.get('human')
+
+        return owner && !closing
+          ? { userId: owner.identity.userId, command: command => owner.queue.command(command) }
+          : undefined
+      },
+      agentMatrixUser: async principal => {
+        const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
+          each => each.principal === principal && each.status === 'active'
+        )
+
+        return agent?.matrixUser ?? null
+      },
+      agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
+      agentDefinition: async principal => {
+        const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
+          each => each.principal === principal && each.status === 'active'
+        )
+
+        if (!agent) {
+          throw new Error('relay_assistant_unavailable')
+        }
+
+        return account.agentDefinition(agent.id, AbortSignal.timeout(15_000))
+      },
+      openProtons: () => shell.openExternal(`${domain.resource}/payments/protons`),
+      publish: (channel, projection) => ui?.webContents.send(channel, projection),
+      closing: () => closing,
+      log: line => console.warn(line)
+    })
+  }
+
   // Preserve the dedicated-session clearing policy across Electron 44, never
   // the legacy partition or the Matrix SDK session.
   const pdfSession = session.fromPartition('persist:matrix-pdf')
@@ -21145,6 +21066,7 @@ async function start() {
         name?: unknown
         persona?: unknown
         hireConfirmed?: unknown
+        listingId?: unknown
         assistantId?: unknown
         /** `subscriptionChatGptTrainingConfirm`: the relay connection the card read. */
         connectionId?: unknown
@@ -23629,14 +23551,9 @@ async function start() {
         }
 
         const local = matrixSubscriptionsStatus({ accountAuthHome: subscriptionAuthHome(), keys: subscriptionKeys() })
-        const [platform, relay] = await Promise.all([providerConnections?.refresh(), chatGptRelay?.refresh()])
-        const connected = matrixSubscriptionsWithProviderConnections(local, platform)
-        const me = deviceIdentity?.enrollment()?.deviceServiceId
+        const platform = await providerConnections?.refresh()
 
-        const localModels =
-          chatGptLocalModels?.accountKey === account?.appScope()?.accountKey ? chatGptLocalModels?.models : undefined
-
-        return matrixSubscriptionsWithChatGptRelay(connected, relay, me, Boolean(chatGptRelay), localModels)
+        return matrixSubscriptionsWithProviderConnections(local, platform)
       }
 
       if (request?.kind === 'subscriptionCatalog') {
@@ -23731,21 +23648,6 @@ async function start() {
         const { scope } = subscriptionProvidersFor(authLifecycle)
 
         try {
-          // A relay this Mac still serves belongs to the account signed in before: end it first.
-          await retireMatrixChatGptRelayForSignIn({
-            relayOnThisMac: () => {
-              const relay = chatGptRelay?.view()
-              const me = deviceIdentity?.enrollment()?.deviceServiceId
-
-              return relay?.state === 'enabled' && Boolean(me) && relay.deviceServiceId === me
-            },
-            disableRelay: () => {
-              stopSubscriptionFollowUpRepair()
-
-              return configureThisMacAsChatGptRelay(false)
-            }
-          })
-
           const consent = (await scope.request({
             path: '/api/provider-settings/oauth/acknowledge',
             method: 'POST',
@@ -23837,7 +23739,6 @@ async function start() {
         try {
           await disconnectMatrixSubscriptionChatGpt({
             stopRepair: stopSubscriptionFollowUpRepair,
-            disableRelay: () => configureThisMacAsChatGptRelay(false),
             disconnect: async () => {
               await scope.request({
                 path: '/api/provider-settings/oauth/disconnect',
@@ -23847,7 +23748,6 @@ async function start() {
             },
             forget: async () => {
               forgetSubscriptionChatGpt({ config: runtime!, owner, sharedCodex: sharedCodexHere() })
-              chatGptLocalModels = undefined
               // Hermes's DELETE above is the native disconnect. If it did not land, Hermes's own locked
               // clear_provider_auth drops the grant from the account home (never another provider's
               // rows): once before the assistants stop, so a restart cannot borrow it, and once after,
@@ -23863,30 +23763,6 @@ async function start() {
         }
 
         return
-      }
-
-      if (request?.kind === 'subscriptionChatGptRelay') {
-        if (typeof request.enabled !== 'boolean') {
-          throw new Error('matrix_command_invalid')
-        }
-
-        try {
-          if (!request.enabled) {
-            stopSubscriptionFollowUpRepair()
-
-            return {
-              status: await configureThisMacAsChatGptRelay(false) ? 'applied' as const : 'unavailable' as const
-            }
-          }
-
-          const result = await repairChatGptSubscription().run()
-
-          return {
-            status: result.relay === 'ok' ? 'applied' as const : 'unavailable' as const
-          }
-        } finally {
-          await retireSubscriptionProviders()
-        }
       }
 
       // The one-time ChatGPT-with-Google confirmation (Shell training-confirmation r3). Main only
@@ -24562,6 +24438,64 @@ async function start() {
           return matrixInvocationResult(await runHermes(target, request.locale, undefined, undefined, roomAgent))
         } finally {
           release()
+        }
+      }
+
+      if (request?.kind === 'openAgents') {
+        if (!config.domain || !agentCreation || closing || state.state !== 'ready' || !account.identity()) {
+          return []
+        }
+
+        try {
+          return await account.openAgents(AbortSignal.timeout(20_000))
+        } catch (error) {
+          // The shelf is optional: an unreachable catalog hides it, and the sheet still makes one.
+          console.warn('[Matrix] open listings not read:', setupFailureDetail(error))
+
+          return []
+        }
+      }
+
+      if (request?.kind === 'hireAgent') {
+        const listingId = typeof request.listingId === 'string' ? request.listingId : ''
+
+        const checked = checkAssistantName(request.name, {
+          primary: false,
+          principal: '',
+          others: allAgents().flatMap(each =>
+            !each.closed && each.agentPrincipal ? [{ principal: each.agentPrincipal, name: each.name }] : []
+          ),
+          apps: appNames()
+        })
+
+        if (!checked.ok || listingId.length < 1 || listingId.length > 128) {
+          throw new Error('matrix_command_invalid')
+        }
+
+        if (
+          !config.domain ||
+          !agentCreation ||
+          closing ||
+          anyOperation() ||
+          state.state !== 'ready' ||
+          !account.identity()
+        ) {
+          throw new Error('matrix_not_ready')
+        }
+
+        try {
+          // The platform seeds the listing's persona and skills; no persona write follows (0535).
+          const hired = await lifecycle.hire(checked.name, listingId, request.hireConfirmed === true)
+
+          return { principal: hired.principal, assistantId: hired.assistantId }
+        } catch (error) {
+          if (error instanceof MatrixAgentCreationRefused) {
+            return { refused: error.reason }
+          }
+
+          // Never relay a server's error text; the same hire resumes on Retry or at next launch.
+          console.warn('[Matrix] listing hire did not finish:', setupFailureDetail(error))
+          throw new Error('matrix_agent_unavailable')
         }
       }
 
@@ -25936,6 +25870,9 @@ async function start() {
               // cleanup failure must never prevent Matrix credential revocation.
               console.warn('[Matrix] Ephemeral browser cleanup failed during sign-out')
             })
+            // Work first, while its server still runs: the assistants' route is cut and what they started is
+            // stopped before the account is revoked. A slow server must not hold the sign-out for ever.
+            await retireWork()
             await account.signOut(async (identity, agentIdentity, others) => {
               await stopSdk()
 
@@ -26003,6 +25940,7 @@ async function start() {
         if (request.kind === 'signOut') {
           // Vault read/write can fail before closeDevice is reached. Local SDK
           // access still closes; never let its next snapshot undo pending logout.
+          await retireWork()
           await stopSdk()
           await forgetAgents()
         }
@@ -26211,6 +26149,8 @@ if (stagedRecovery === 'exiting') {
 
         const driveStop = timedStop('drive', () => drive?.dispose())
         closing = true
+        // Quitting is not a revocation: Work's gate closes without a cutoff, then its server stops.
+        const workStop = timedStop('work', () => work?.quit())
         ownPresence.stop()
         backgroundSweeps?.stop()
         agentHome?.service.stop()
@@ -26242,7 +26182,7 @@ if (stagedRecovery === 'exiting') {
         // Credential/SDK shutdown starts beside lease release, never behind it.
         try {
           await Promise.allSettled([
-            release, clearNativeApps, brainStop, driveStop, deviceStop,
+            release, clearNativeApps, brainStop, driveStop, deviceStop, workStop,
             timedStop('sdk', () => account ? account.close(stopSdk) : stopSdk()),
             matrixConsumerBrowser.releaseConsumerPartitions()
           ])

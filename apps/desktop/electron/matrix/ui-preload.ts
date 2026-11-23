@@ -44,7 +44,6 @@ import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
-  MatrixSubscriptionRelayResult,
   MatrixSubscriptionSignIn,
   MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
@@ -55,6 +54,7 @@ import type {
 } from '../../shared/matrix-video-consent'
 import { MATRIX_VOICE_IPC } from '../../shared/matrix-voice'
 import { MATRIX_WINDOW_CHANNELS, type MatrixWindowFacts } from '../../shared/matrix-window'
+import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 
 const invoke = (kind: string) => ipcRenderer.invoke(channel.ui, { kind })
 
@@ -95,6 +95,30 @@ const bridge: MatrixUiBridge = {
       ipcRenderer.on(MATRIX_DRIVE_IPC.changed, receive)
 
       return () => ipcRenderer.removeListener(MATRIX_DRIVE_IPC.changed, receive)
+    }
+  },
+  work: {
+    read: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'read' }),
+    show: rect => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'show', rect }),
+    hide: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'hide' }),
+    retry: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'retry' }),
+    allowAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'allowAssistants' }),
+    setAssistants: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setAssistants', on }),
+    setPlan: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlan', on }),
+    setWork: on => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setWork', on }),
+    reconnectAssistants: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'reconnectAssistants' }),
+    openPlanConnect: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'openPlanConnect' }),
+    readRelay: (principal, roomId) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readRelay', principal, roomId }),
+    selectRelay: (principal, expectedRevision, model) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, expectedRevision, model }),
+    stopRelay: (roomId, eventId) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'stopRelay', roomId, eventId }),
+    readPlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent' }),
+    setPlanConsent: consent => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlanConsent', consent }),
+    revokePlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'revokePlanConsent' }),
+    subscribe: listener => {
+      const receive = (_event: Electron.IpcRendererEvent, projection: MatrixWorkProjection | null) => listener(projection)
+      ipcRenderer.on(MATRIX_WORK_IPC.changed, receive)
+
+      return () => ipcRenderer.removeListener(MATRIX_WORK_IPC.changed, receive)
     }
   },
   companies: {
@@ -191,8 +215,6 @@ const bridge: MatrixUiBridge = {
     disconnectChatGpt: async () => {
       await ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptDisconnect' })
     },
-    useThisMacForChatGpt: enabled =>
-      ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptRelay', enabled }) as Promise<MatrixSubscriptionRelayResult>,
     chatGptTraining: () =>
       ipcRenderer.invoke(channel.ui, { kind: 'subscriptionChatGptTraining' }) as Promise<MatrixChatGptTrainingStatus>,
     confirmChatGptTraining: connectionId =>
@@ -658,6 +680,9 @@ const bridge: MatrixUiBridge = {
   cancelHermes: roomId => ipcRenderer.invoke(channel.ui, { kind: 'cancelHermes', roomId }),
   createAgent: (name, persona, hireConfirmed) => ipcRenderer.invoke(channel.ui, { kind: 'createAgent', name, persona, hireConfirmed }),
   importAgent: (name, hireConfirmed) => ipcRenderer.invoke(channel.ui, { kind: 'importAgent', name, hireConfirmed }),
+  openAgents: () => ipcRenderer.invoke(channel.ui, { kind: 'openAgents' }),
+  hireAgent: (name, listingId, hireConfirmed) =>
+    ipcRenderer.invoke(channel.ui, { kind: 'hireAgent', name, listingId, hireConfirmed }),
   retireAgent: principal => ipcRenderer.invoke(channel.ui, { kind: 'retireAgent', principal }),
   renewAgent: assistantId => ipcRenderer.invoke(channel.ui, { kind: 'renewAgent', assistantId }),
   respondHermes: response => ipcRenderer.invoke(channel.ui, { kind: 'respondHermes', response }),

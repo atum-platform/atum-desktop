@@ -148,7 +148,7 @@ def close_discarded_turn(db, conn, row, notice=None, *, replace_after=None, disp
                         "AND role NOT IN ('session_meta','system') ORDER BY id DESC LIMIT 1", (target,)).fetchone()
     if (notice is not None and type(replace_after) is int and tail is not None and tail[0] == 'assistant'
             and tail[3] == FAILED_TURN_DISPLAY_KIND and tail[2] > replace_after):
-        conn.execute("UPDATE messages SET content=?, display_metadata=? WHERE id=?",
+        conn.execute("UPDATE messages SET content=?, api_content=NULL, display_metadata=? WHERE id=?",
                      (notice, db._encode_display_metadata(display_metadata), tail[2]))
         return True
     if notice is None and (tail is None or not (

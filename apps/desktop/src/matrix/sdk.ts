@@ -248,6 +248,7 @@ import {
 import { matrixTimelineKeyRetry } from './timeline-key-retry'
 import { findMatrixTurn, prepareMatrixCron, publishMatrixCron, sendMatrixTurn, sendWithTransaction } from './turn'
 import { observeMatrixUndecryptable } from './undecryptable'
+import { readWorkHistory } from './work-history'
 
 // Raw SDK/provider errors can contain request data. Product state uses closed
 // error codes; do not send SDK logs or decrypted messages to diagnostics.
@@ -2875,6 +2876,9 @@ export async function startMatrixSdk(
         await requireHumanInvitation(client, command, () => !stopped && state === 'ready')
 
         return changeConversationMembership(client, { ...command, kind: 'invite' })
+
+      case 'readWorkHistory':
+        return readWorkHistory(client, command)
 
       case 'readInvocation':
         return readMatrixInvocation(client, command)

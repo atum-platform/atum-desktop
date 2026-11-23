@@ -116,7 +116,6 @@ import type {
   MatrixSubscriptionCatalog,
   MatrixSubscriptionKeyResult,
   MatrixSubscriptionPoll,
-  MatrixSubscriptionRelayResult,
   MatrixSubscriptionsStatus,
   MatrixSubscriptionStart
 } from './matrix-subscriptions'
@@ -131,6 +130,8 @@ import type { MatrixVoiceBridge } from './matrix-voice'
 import type { MatrixWalletBridge, MatrixWalletState } from './matrix-wallet'
 import type { MatrixWindowAppearance, MatrixWindowFacts, MatrixWindowMode } from './matrix-window'
 import type { MatrixWindowFailureDiagnostic } from './matrix-window-failure'
+import type { MatrixWorkBridge } from './matrix-work'
+import type { WorkRelayTurnChrome } from './matrix-work-relay'
 import type { MatrixWebPreviewOffer } from './matrix-workbench-preview'
 import type { GroupRecentTarget } from './room-participation/recent'
 import type { GroupChainPublication, GroupPolicyChange, GroupRuntimeCommand } from './room-participation/runtime'
@@ -450,6 +451,9 @@ export interface MatrixMessage {
   subscriptionFallback?: MatrixSubscriptionFallback
   /** This answer came from a fallback, not the chosen plan: one faint line under it, no cost. */
   answeredByFallback?: MatrixSubscriptionFallback
+  /** Relay R1: this turn's one chrome line (held, stopped, fell back, late), from the relay view-model
+   * (`workRelayTurnChrome`). UI chrome, never a message of the agent. */
+  relayTurn?: WorkRelayTurnChrome
   /** The agent's once-per-conversation Google switch line (S2 `google_route_switched`): one quiet
    * line, shown the first time only (`matrixFoldSubscriptionFallbacks`). */
   googleSwitch?: MatrixGoogleRouteSwitch
@@ -1951,6 +1955,7 @@ export type MatrixSdkCommand =
   | { kind: 'createAppGroup'; name: string; app: string }
   /** `agentIds`: every one of the owner's assistants, none of whom is invited this way. */
   | { kind: 'inviteHuman'; roomId: string; userId: string; agentId?: string; agentIds?: string[] }
+  | { kind: 'readWorkHistory'; boundaryOnly?: boolean; roomId: string; before: string; after: string | null; floor: string | null }
   | { kind: 'readInvocation'; roomId: string; eventId: string; includeAttachment?: boolean }
   /** `anyMember`: a group turn's quote may be anyone's message there (marked as theirs). */
   | { kind: 'readReplyQuote'; roomId: string; eventId: string; ownerId: string; agentId: string; anyMember?: true }
@@ -2095,7 +2100,6 @@ export interface MatrixSubscriptionsBridge {
   pollChatGpt(session: string): Promise<MatrixSubscriptionPoll>
   cancelChatGpt(session: string): Promise<void>
   disconnectChatGpt(): Promise<void>
-  useThisMacForChatGpt(enabled: boolean): Promise<MatrixSubscriptionRelayResult>
   /** The account's one-time ChatGPT-with-Google training-off confirmation (absent on older main). */
   chatGptTraining?(): Promise<MatrixChatGptTrainingStatus>
   /** Only after the person ticked the box and pressed Confirm, for the connection the card read. */
@@ -2119,6 +2123,8 @@ export interface MatrixUiBridge {
   /** The owner's own coarse location and its one switch (0333). */
   ownerLocation?: MatrixOwnerLocationBridge
   drive?: MatrixDriveBridge
+  /** Self-work slice A: the owner's Work view and "Assistants can start work here" (shared/matrix-work.ts). */
+  work?: MatrixWorkBridge
   companies?: MatrixCompanyBridge
   /**
    * Release B Company Desktop adapter (`src/matrix/company-desktop-adapter.ts`),
@@ -2365,6 +2371,21 @@ export interface MatrixUiBridge {
     | { refused: 'name' | 'limit' | 'account' | 'short' }
     | { refused: { hire: number } }
   >
+  /** The open listings this person can hire (0535), for the new-assistant sheet's shelf.
+   * Absent on an older native host; an empty list when the platform has none to show. */
+  openAgents?(): Promise<MatrixOpenAgentListing[]>
+  /** Hires an open listing under `name`. The platform seeds its persona and skills, so no
+   * persona crosses here, and a retry of an unfinished hire of the same listing resumes it.
+   * It always answers in the cloud: there is no room to open on this Mac. */
+  hireAgent?(
+    name: string,
+    listingId: string,
+    hireConfirmed?: boolean
+  ): Promise<
+    | { principal: string; assistantId?: string }
+    | { refused: 'name' | 'limit' | 'account' | 'short' }
+    | { refused: { hire: number } }
+  >
   /** Native folder picker for a verified offline profile; no paths/credentials in the UI. */
   importAgent(
     name: string,
@@ -2493,3 +2514,18 @@ export const MATRIX_CHANNELS = {
   sdkCommand: 'matrix:sdk:command',
   sdkResult: 'matrix:sdk:result'
 } as const
+
+/** One open listing (0535 `matrix_open_agent_catalog`): an assistant anyone can hire. Titles and
+ * summaries are keyed by locale; the seat price is the ordinary hire, in Protons. */
+export interface MatrixOpenAgentListing {
+  listingId: string
+  displayName: string
+  title?: Record<string, string>
+  summary?: Record<string, string>
+  /** The catalog's emoji; the sheet draws its Phosphor counterpart, never the emoji. */
+  glyph?: string
+  skills: string[]
+  seatPriceProtons: number
+  /** True when this hire is the third+ assistant: the price is confirmed before it is made. */
+  hireRequired: boolean
+}

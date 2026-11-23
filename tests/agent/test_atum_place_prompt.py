@@ -22,6 +22,7 @@ import yaml
 from agent.conversation_loop import _restore_or_build_system_prompt
 from agent.prompt_builder import (
     ATUM_CLOUD_PLACE,
+    ATUM_CLOUD_PLACE_NATIVE,
     ATUM_MAC_NAME_MAX,
     ATUM_PLACE_HEADING,
     atum_mac_label,
@@ -493,3 +494,67 @@ class TestStoredPrompt:
         kept = _turn(db)
         assert kept.test_builds == []
         assert kept._cached_system_prompt.encode() == prompt.encode()
+
+
+class TestNativeCloudPlace:
+    """The Hermes-native cloud host has no device bridge: no ``device=`` parameter exists there, so the
+    section must send the agent to the ``mac`` delegation profile instead."""
+
+    def test_a_managed_agent_without_the_device_bridge_gets_the_native_section(self, monkeypatch):
+        _soul()
+        _plain(monkeypatch)
+        stable = _stable(managed=True, tools=MAC_TOOLS)
+        assert f"\n\n{ATUM_CLOUD_PLACE_NATIVE}\n\n" in stable or stable.endswith(ATUM_CLOUD_PLACE_NATIVE)
+        assert ATUM_CLOUD_PLACE not in stable
+        assert stable.count(ATUM_PLACE_HEADING) == 1
+
+    def test_the_native_section_names_the_route_and_none_of_the_bridge(self):
+        # The one route: delegate_task to the mac profile, and what to say when it is not offered.
+        line = _line_with(ATUM_CLOUD_PLACE_NATIVE, "delegate_task")
+        # The profile is a per-task field of delegate_task: a bare profile= argument is dropped and would run in the cloud.
+        assert 'profile is "mac"' in line and "no \"mac\" profile is offered" in line and "Never SSH" in line
+        # The helper is not told where it runs, so the delegator is: its terminal already runs on the Mac.
+        assert "already runs on the Mac" in line
+        # A parameter the host does not have must never be named.
+        for bridge in ("device=", "device_send_file", "`needs`", "Turn context lists online Macs", "tailnet"):
+            assert bridge not in ATUM_CLOUD_PLACE_NATIVE
+        # The Drive and reply rules are the same as in every cloud section.
+        for token in ("Agents/<your name>", "[Atum Drive workspace]", "MEDIA:"):
+            assert token in ATUM_CLOUD_PLACE_NATIVE
+        assert "never" in _line_with(ATUM_CLOUD_PLACE_NATIVE, "/task/workspace")
+
+    def test_the_bridge_section_is_unchanged_where_the_bridge_exists(self, monkeypatch):
+        _soul()
+        _plain(monkeypatch)
+        assert atum_place_part(_shape(managed=True, tools=CLOUD_TOOLS)) == ATUM_CLOUD_PLACE
+
+    def test_a_conversation_stored_with_the_bridge_text_rebuilds_once_to_the_native_text(self, db, monkeypatch):
+        _plain(monkeypatch)
+        _config(managed=True)
+        _soul()
+        stored = _turn(db, history=[], tools=CLOUD_TOOLS)._cached_system_prompt
+        assert ATUM_CLOUD_PLACE in stored
+
+        upgraded = _turn(db, tools=MAC_TOOLS)
+        assert upgraded.test_builds == [None]
+        assert ATUM_CLOUD_PLACE_NATIVE in upgraded._cached_system_prompt
+        assert ATUM_CLOUD_PLACE not in upgraded._cached_system_prompt
+        kept = _turn(db, tools=MAC_TOOLS)
+        assert kept.test_builds == []
+        assert kept._cached_system_prompt.encode() == upgraded._cached_system_prompt.encode()
+
+    def test_the_same_tools_with_the_old_bridge_text_rebuild_once(self, db, monkeypatch):
+        """The live shape: same tool set, stored prompt carries the bridge text (managed agents rebuild via the
+        ``instructions`` reason: the place section is part of the expected identity prefix)."""
+        _plain(monkeypatch)
+        _config(managed=True)
+        _soul()
+        current = _turn(db, history=[], tools=MAC_TOOLS)._cached_system_prompt
+        assert ATUM_CLOUD_PLACE_NATIVE in current
+        db.update_system_prompt(SESSION, current.replace(ATUM_CLOUD_PLACE_NATIVE, ATUM_CLOUD_PLACE, 1))
+
+        upgraded = _turn(db, tools=MAC_TOOLS)
+        assert upgraded.test_builds == [None]
+        assert ATUM_CLOUD_PLACE_NATIVE in upgraded._cached_system_prompt
+        assert ATUM_CLOUD_PLACE not in upgraded._cached_system_prompt
+        assert _turn(db, tools=MAC_TOOLS).test_builds == []

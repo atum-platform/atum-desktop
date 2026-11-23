@@ -1450,6 +1450,7 @@ export const vi = defineLocale({
       sessionRunning: 'Đang chạy',
       needsInput: 'Cần bạn trả lời',
       waitingForAnswer: 'Đang chờ câu trả lời của bạn',
+      invalidAnswer: 'Hãy trả lời lại bằng một câu trả lời hợp lệ',
       finishedUnread: 'Đã hoàn tất — chưa xem',
       backgroundRunning: 'Tác vụ đang chạy nền'
     },

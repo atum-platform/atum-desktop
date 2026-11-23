@@ -142,9 +142,11 @@ class Outbox:
         self.db.executemany('DELETE FROM effects WHERE txn=?', expired)
         self.db.commit()
 
-    async def effect(self, port, room, content, txn, target=None, *, identity=None, before_send=None):
-        self.db.execute('INSERT OR IGNORE INTO effects (txn,room,content,target,event,created,identity) VALUES (?,?,?,?,NULL,?,?)',
-                        (txn, room, json.dumps(content), target, time.time(), identity))
+    async def effect(self, port, room, content, txn, target=None, *, identity=None, before_send=None,
+                     reconcile=None):
+        inserted = self.db.execute(
+            'INSERT OR IGNORE INTO effects (txn,room,content,target,event,created,identity) '
+            'VALUES (?,?,?,?,NULL,?,?)', (txn, room, json.dumps(content), target, time.time(), identity)).rowcount
         self.db.commit()
         row = self.db.execute('SELECT room,content,target,event,identity FROM effects WHERE txn=?', (txn,)).fetchone()
         if identity is not None and (row[0] != room or json.loads(row[1]) != content
@@ -152,9 +154,11 @@ class Outbox:
             raise ValueError('Delivery identity/content changed; reconcile the existing receipt')
         if row[3]:
             return row[3]
-        if before_send is not None and await before_send() is not True:
-            raise ValueError('Delivery is no longer authorized')
-        event = str(await port(row[0], json.loads(row[1]), txn, row[2]))
+        event = await reconcile(room, txn) if reconcile is not None and not inserted else None
+        if event is None:
+            if before_send is not None and await before_send() is not True:
+                raise ValueError('Delivery is no longer authorized')
+            event = str(await port(row[0], json.loads(row[1]), txn, row[2]))
         if identity is not None and not event.startswith('$'):
             raise ValueError('Delivery returned no observed Matrix event ID')
         self.db.execute('UPDATE effects SET event=? WHERE txn=?', (event, txn))
@@ -414,29 +418,35 @@ def adapter_class(base):
             except Exception:
                 logger.warning('Matrix presentation recovery deferred', exc_info=True)
 
-        async def _presentation_resolve(self, room, txn):
+        async def _presentation_resolve(self, room, txn, *, require_complete=False):
             """Read a lost send receipt; never PUT a historical message at boot."""
             from mautrix.api import Method, Path as APIPath
             row = self._presentation_box.db.execute(
                 'SELECT created FROM effects WHERE txn=?', (txn,)).fetchone()
-            since = row[0] * 1000 if row else 0
+            # Compare with the send's local clock with room for homeserver clock skew.
+            since = (row[0] - 300) * 1000 if row else 0
+            client = self._client
             cursor = None
             for _ in range(10):
                 query = {'dir': 'b', 'limit': 100}
                 if cursor:
                     query['from'] = cursor
-                response = await asyncio.wait_for(self._client.api.request(
+                response = await asyncio.wait_for(client.api.request(
                     Method.GET, APIPath.v3.rooms[room].messages, query_params=query), timeout=45)
                 events = response.get('chunk', [])
                 for event in events:
-                    if (event.get('sender') == str(self._client.mxid)
+                    if (event.get('sender') == str(client.mxid)
                             and event.get('unsigned', {}).get('transaction_id') == txn):
                         return event['event_id']
                 next_cursor = response.get('end')
-                if (not events or not next_cursor or next_cursor == cursor
-                        or all(event.get('origin_server_ts', float('inf')) < since for event in events)):
+                if (not next_cursor or (events and
+                        all(event.get('origin_server_ts', float('inf')) < since for event in events))):
                     return None
+                if next_cursor == cursor:
+                    break
                 cursor = next_cursor
+            if require_complete:
+                raise ValueError('Matrix delivery history could not be reconciled within the scan limit')
 
         async def _presentation_send(self, room, content, txn, target):
             from mautrix.types import RoomID, EventType
@@ -670,6 +680,8 @@ def adapter_class(base):
             publishes these originals. Account/device/token rotation requires explicit
             receipt reconciliation, not a blind retry under a new Matrix session.
             """
+            from plugins.platforms.matrix.adapter import _MAX_CONTENT_BYTES, _content_bytes
+
             if (not isinstance(transaction_id, str) or not transaction_id
                     or len(transaction_id) > 255 or not isinstance(content, dict)
                     or content.get('msgtype') != 'm.text' or not isinstance(content.get('body'), str)
@@ -679,19 +691,48 @@ def adapter_class(base):
                 raise ValueError('Expected one exact structured text delivery')
             # A JSON copy freezes caller-owned objects before the first await.
             content = json.loads(json.dumps(content, allow_nan=False))
+            if _content_bytes(content) > _MAX_CONTENT_BYTES:
+                raise ValueError('Structured text delivery exceeds the one-event byte budget')
+            if self._client is None or not self._client.device_id or self._device_id_unverified:
+                raise ValueError('Structured delivery requires an established Matrix device')
+
             def sender_binding():
                 return json.dumps([self._homeserver, str(self._client.mxid),
                     str(getattr(self._client, 'device_id', '') or ''), self._sender_identity(),
                     hashlib.sha256(str(self._client.api.token).encode()).hexdigest()])
             identity = sender_binding()
+
             async def authorized():
                 if await revalidate() is not True:
                     return False
-                if sender_binding() != identity:
+                if self._client is None or sender_binding() != identity:
                     raise ValueError('Delivery identity changed; reconcile the existing receipt')
                 return True
-            event = await self._presentation_box.effect(self._presentation_send, room, content,
-                transaction_id, identity=identity, before_send=authorized)
+            async def send_one(room, content, txn, target):
+                try:
+                    return await self._presentation_send(room, content, txn, target)
+                except Exception:
+                    if not (self._encryption and getattr(self._client, 'crypto', None)):
+                        raise
+                    observed = await reconcile(room, txn)
+                    if observed is not None:
+                        return observed
+                    if await authorized() is not True:
+                        raise ValueError('Delivery is no longer authorized')
+                    await self._client.crypto.share_keys()
+                    if await authorized() is not True:
+                        raise ValueError('Delivery is no longer authorized')
+                    return await self._presentation_send(room, content, txn, target)
+
+            async def reconcile(room, txn):
+                async with asyncio.timeout(45):
+                    event = await self._presentation_resolve(room, txn, require_complete=True)
+                if self._client is None or sender_binding() != identity:
+                    raise ValueError('Delivery identity changed; reconcile the existing receipt')
+                return event
+
+            event = await self._presentation_box.effect(send_one, room, content,
+                transaction_id, identity=identity, before_send=authorized, reconcile=reconcile)
             await acknowledge(event)
             from gateway.platforms.base import SendResult
             return SendResult(success=True, message_id=event)

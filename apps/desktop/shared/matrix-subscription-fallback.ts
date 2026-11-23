@@ -14,6 +14,8 @@ export const MATRIX_PRESENTATION_KEY = 'io.atum.presentation'
 export type MatrixSubscriptionFallbackPlan = 'chatgpt' | 'opencode_go'
 
 export type MatrixSubscriptionFallbackReason =
+  | 'consent_off'
+  | 'switch_off'
   | 'offline'
   | 'refused'
   | 'rate_limited'
@@ -29,7 +31,7 @@ export interface MatrixSubscriptionFallback {
 }
 
 const PLANS = new Set<string>(['chatgpt', 'opencode_go'])
-const REASONS = new Set<string>(['offline', 'refused', 'rate_limited', 'timeout', 'grant_invalid', 'unattended'])
+const REASONS = new Set<string>(['consent_off', 'switch_off', 'offline', 'refused', 'rate_limited', 'timeout', 'grant_invalid', 'unattended'])
 const SERVED_BY = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/u
 const EVENT_ID = /^\$[^\s]{1,254}$/u
 

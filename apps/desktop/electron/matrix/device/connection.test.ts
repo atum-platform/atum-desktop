@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest'
 import { DEVICE_HUB_MAX_PAYLOAD_BYTES, parseFrame } from '../../../../../packages/device-protocol/messages'
 import { decodeMigrationChunk } from '../../../../../packages/device-protocol/migration-chunk'
 
-import { CHATGPT_RELAY_REQUEST_MAX_BYTES, CHATGPT_RELAY_RESPONSE_MAX_BYTES } from './chatgpt-relay'
 import {
   DEVICE_CONNECTION,
   DEVICE_FRAME_BODY_MAX_BYTES,
@@ -420,10 +419,8 @@ describe('the device hub connection', () => {
     expect(hello.body.connectionNonce).toMatch(/^[A-Za-z0-9_-]{43}$/)
     const negotiation = JSON.parse(readFileSync(join(packs, 'chatgpt-relay-negotiation.json'), 'utf8'))
     expect(hello.body).toMatchObject(negotiation.upgraded)
-    expect(hello.body.chatGptRelayMaxBytes).toBe(Math.min(
-      DEVICE_HUB_MAX_PAYLOAD_BYTES, DEVICE_CONNECTION.maxFrameBytes,
-      CHATGPT_RELAY_REQUEST_MAX_BYTES, CHATGPT_RELAY_RESPONSE_MAX_BYTES
-    ))
+    // The Hello field is the platform's wire contract and stays; with the SSH relay gone it only bounds a frame.
+    expect(hello.body.chatGptRelayMaxBytes).toBe(Math.min(DEVICE_HUB_MAX_PAYLOAD_BYTES, DEVICE_CONNECTION.maxFrameBytes))
     expect(parseFrame(JSON.stringify({ v: 1, ...hello }), 'device_to_controller').body).toEqual(hello.body)
     const changed = { ...hello.body, chatGptRelayMaxBytes: Number(hello.body.chatGptRelayMaxBytes) - 1 }
     expect(verifyDeviceSignature(h.signer.identity.public.spki, deviceSignedBytes('Hello', changed), hello.sig)).toBe(false)

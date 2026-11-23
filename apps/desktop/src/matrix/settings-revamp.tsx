@@ -1,5 +1,8 @@
+import { useStore } from '@nanostores/react'
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { $work, $workRelayRooms } from '@/app/work/store'
+import { MatrixWorkSettings } from '@/app/work/work-settings'
 import { ProtonMark } from '@/components/brand/proton-mark'
 import { StatusDot } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
@@ -422,13 +425,14 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
 function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
   const copy = useMatrixSettingsCopy()
   const training = useChatGptTrainingCopy()
-  const { bridge, reload, retryCloud, status, view } = useMatrixSubscriptions(scopeKey)
+  const { bridge, reload, status, view } = useMatrixSubscriptions(scopeKey)
   const [dialog, setDialog] = useState<{ provider: MatrixSubscriptionProvider; kind: 'connect' | 'manage' } | null>(null)
   const [choosing, setChoosing] = useState(false)
   const { provider, state } = view
   const chatgpt = provider === 'openai-codex'
   // One line per state (subscription-view.ts). A connected OpenCode Go plan keeps its name.
   const relay = chatgpt ? subscriptionProviderStatus(status, 'openai-codex')?.relay : undefined
+
   const help = chatgpt
     ? state === 'ready'
       ? relay?.state === 'enabled'
@@ -443,13 +447,19 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
     switch (view.action) {
       case 'manage':
         setDialog({ provider, kind: 'manage' })
+
         break
+
       case 'sign_in':
         setDialog({ provider: 'openai-codex', kind: 'connect' })
+
         break
+
       case 'reload':
         void reload()
+
         break
+
       default:
         setChoosing(true)
     }
@@ -481,7 +491,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
         data-matrix-subscription-state={state}
         data-matrix-subscriptions
         help={help}
-        tip={state === 'cloud_setting_up' || state === 'cloud_failed' ? copy.chatgptCloudTip : undefined}
         title={copy.yourSubscription}
       />
       {chatgpt && state === 'ready' && <ChatGptTrainingSettings bridge={bridge} scopeKey={scopeKey} />}
@@ -507,7 +516,6 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
           onChanged={() => void reload()}
           onClose={() => setDialog(null)}
           onReconnect={() => setDialog({ provider: dialog.provider, kind: 'connect' })}
-          onRetryCloud={() => void retryCloud()}
           open={dialog.kind === 'manage'}
           provider={dialog.provider}
           status={subscriptionProviderStatus(status, dialog.provider)}
@@ -520,7 +528,11 @@ function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
 
 /** Account Connections: subscriptions first, then the sources every assistant may use. */
 function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
+  const work = useStore($work)
+  const relayRooms = useStore($workRelayRooms)
+  const limit = Object.values(relayRooms).flatMap(room => room.status?.limits ?? []).find(each => each.plan === 'codex')
   const copy = useMatrixSettingsCopy()
+  const { t } = useI18n()
   const subscriptionsBridge = useSubscriptionsBridge()
 
   return (
@@ -530,6 +542,19 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
         />
       </SettingsSection>
+      {/* Work on this Mac (its own section; nothing is drawn without Work): the plan's Connect, the switches, the consent. */}
+      <MatrixWorkSettings
+        agents={(snapshot.agents ?? []).map(agent => ({
+          principal: agent.principal,
+          name: matrixRosterAgentName(agent, t.matrixShell.assistantName),
+          avatarUrl: agent.avatarUrl,
+          ...(agent.mark ? { mark: agent.mark } : {}),
+          isDefault: agent.isDefault
+        }))}
+        claudeLimit={work?.planLimits?.find(report => report.plan === 'claude')}
+        planLimit={work?.planLimits?.find(report => report.plan === 'codex') ?? work?.planLimit ?? limit}
+        relayChats={Boolean(work?.relayChats?.length)}
+      />
       <VideoConsentSettings
         bridge={subscriptionsBridge}
         scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
@@ -754,11 +779,13 @@ function PeopleDiscoverySetting() {
     if (!bridge) {
       return
     }
+
     let live = true
     void bridge.privacy().then(result => {
       if (!live) {
         return
       }
+
       if (result.ok) {
         setEnabled(result.enabled)
       } else {
@@ -769,6 +796,7 @@ function PeopleDiscoverySetting() {
         setFailed(true)
       }
     })
+
     return () => { live = false }
   }, [bridge])
 
@@ -780,6 +808,7 @@ function PeopleDiscoverySetting() {
     if (enabled === null || busy) {
       return
     }
+
     const previous = enabled
     setEnabled(next)
     setBusy(true)
@@ -791,6 +820,7 @@ function PeopleDiscoverySetting() {
         setEnabled(previous)
         setFailed(true)
       }
+
       setBusy(false)
     }, () => {
       setEnabled(previous)

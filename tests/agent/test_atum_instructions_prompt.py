@@ -622,6 +622,13 @@ class TestFullPowerRollout:
         The fixture was recorded by running that builder over the same 24 cases (managed or
         not x Mac or not x no tools / terminal / terminal+device_send_file x SOUL.md present
         or absent). Regenerate it only from a pre-O0 checkout, never from this branch.
+
+        One deliberate exception (R32): a managed agent whose tools lack the device bridge
+        (``managed=True|tools=term``, no Mac) now carries ``ATUM_CLOUD_PLACE_NATIVE`` instead of
+        the bridge text, because the Hermes-native cloud host has no ``device=`` parameter. Those
+        two recorded values were rewritten by swapping only that section; a stored conversation
+        rebuilds once at its next turn boundary (managed agents: ``_stored_prompt_matches_instructions``, because the
+        place section is part of the expected identity prefix).
         """
         from agent.system_prompt import identity_prefix
 
