@@ -16,7 +16,8 @@ import {
   matrixCloudAgentReadinessForUser,
   matrixCloudAgentSetupForUser,
   MatrixPlacedAgents,
-  matrixPlacedCloudOnly
+  matrixPlacedCloudOnly,
+  matrixRosterAgentAnswersInCloud
 } from './cloud-agent-placement'
 import { applyMatrixJobsHold, MatrixCronHolds } from './cron-hold'
 
@@ -103,6 +104,7 @@ describe('where a cloud-route agent is served from on this Mac', () => {
   it('runs local readiness for all five production-shaped saved policies on this Mac', () => {
     const macBook = `mac:${MAC_A}` as const
     const macMini = `mac:${MAC_B}` as const
+
     const production = [
       { name: 'Raymond', revision: 9, order: ['cloud', macMini, macBook] },
       { name: 'Alfred', revision: 3, order: ['cloud', macBook, macMini] },
@@ -116,6 +118,7 @@ describe('where a cloud-route agent is served from on this Mac', () => {
         policy: { ...saved, revision: agent.revision, order: [...agent.order], disabled: [] },
         stale: false
       }
+
       const macRole = matrixCloudAgentMacRole({
         view,
         deviceServiceId: MAC_A,
@@ -325,5 +328,16 @@ describe("the ticker's hold follows the lease, with no restart that would hand t
         matrixAgentJobsPlan({ cloudRoute: true, role: role(raymond, 'elsewhere'), runsJobsHere: true })
       )
     ).toBe(false)
+  })
+})
+
+
+describe('cloud runtime roster routing', () => {
+  it('routes S2 Hermes in the cloud even with a stale local answering field', () => {
+    expect(matrixRosterAgentAnswersInCloud({ runtime: 'hermes', answering: 'local' })).toBe(true)
+    expect(matrixRosterAgentAnswersInCloud({ runtime: 'hermes' })).toBe(true)
+    expect(matrixRosterAgentAnswersInCloud({ answering: 'cloud' })).toBe(true)
+    expect(matrixRosterAgentAnswersInCloud({ answering: 'local' })).toBe(false)
+    expect(matrixRosterAgentAnswersInCloud({})).toBe(false)
   })
 })
