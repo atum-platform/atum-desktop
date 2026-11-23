@@ -1,5 +1,4 @@
 import { Tip } from '@/components/ui/tooltip'
-import { Check, Checks } from '@/lib/icons'
 
 import type { MatrixAgentView, MatrixMember, MatrixMessage } from '../../shared/matrix'
 
@@ -13,8 +12,9 @@ const SEEN_AVATARS = 3
 /**
  * Who has read your message, in one quiet line under it: the readers' own avatars under the
  * message each public read receipt names, at most three plus a count. In your assistant's chat the
- * agent's face is the acknowledgement. The time and the Sent/Seen tick sit inside the bubble
- * (`MatrixReceiptTick`). Display only: an assistant's receipt never says what its turn is doing.
+ * agent's face is the acknowledgement. This is the only read signal a message carries (owner
+ * 2026-11-19: the bubble's Sent/Seen ticks said the same thing twice): a message nobody has read
+ * yet shows just its time. Display only: an assistant's receipt never says what its turn is doing.
  */
 export function MatrixSendState({
   agents,
@@ -74,36 +74,6 @@ export function MatrixSendState({
           )}
         </span>
       </Tip>
-    </span>
-  )
-}
-
-/** Whether your message shows a tick in its bubble: two once someone has read it (the readers'
- * faces under it name who), one on your newest message once the server has it, else none. */
-export function matrixReceiptTick(message: MatrixMessage, latest: boolean): 'seen' | 'sent' | undefined {
-  if (message.readBy?.length) {
-    return 'seen'
-  }
-
-  return latest && message.sent ? 'sent' : undefined
-}
-
-/**
- * The tick beside your message's time, inside the bubble, as in Telegram. Seen is drawn only:
- * the faces under the message already say it to a screen reader. Sent is announced once, the
- * way the old line under the message was.
- */
-export function MatrixReceiptTick({ tick }: { tick: 'seen' | 'sent' }) {
-  const chat = useChatCopy()
-
-  return tick === 'seen' ? (
-    <span className="inline-flex items-center" data-matrix-read-tick>
-      <Checks aria-hidden className="size-3.5" />
-    </span>
-  ) : (
-    <span className="inline-flex items-center" data-matrix-sent role="status">
-      <Check aria-hidden className="size-3.5" />
-      <span className="sr-only">{chat.sent}</span>
     </span>
   )
 }

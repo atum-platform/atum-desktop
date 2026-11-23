@@ -37,6 +37,8 @@ const en = {
   badAnswer: 'Bad answer',
   delete: 'Delete',
   seenBy: (count: number) => `Seen by ${count}`,
+  // The forward dialog's own button once the forward went. Never a receipt: a bubble says read
+  // only through its readers' faces (owner 2026-11-19).
   sent: 'Sent',
   seen: 'Seen',
   // Matrix's own message features (launch night): reactions, replies, edits, deleting.

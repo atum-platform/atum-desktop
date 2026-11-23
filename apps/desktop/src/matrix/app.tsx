@@ -429,7 +429,7 @@ import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
 import { $matrixDeviceToShow, VerificationPrompt } from './security-panel'
-import { MatrixReceiptTick, matrixReceiptTick, MatrixSendState } from './send-state'
+import { MatrixSendState } from './send-state'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from './settings-sheet'
 import { MatrixSignIn } from './sign-in'
 import { MatrixStartChatButton } from './start-chat'
@@ -592,7 +592,8 @@ const ConversationActions = createContext<{
   composer?: MatrixComposerActions | null
   /** The newest answer keeps its action row in sight. */
   latestAnswerId?: string
-  /** Your newest message: the one that says Sent (and, in your assistant's chat, Seen). */
+  /** Your newest message: nothing under it says "Sent" any more, but the composer keeps its
+   * starter prompts only until you have written once. */
   latestOwnId?: string
   /** First loaded unread message in a Team Space room. */
   firstUnreadId?: string
@@ -1211,10 +1212,11 @@ function MatrixEventMessageBubble() {
     : undefined
 
   // Every bubble carries its own time in its bottom-right corner, as in Telegram: "edited" before
-  // it and, on yours, the sending clock or the Sent/Seen tick after it. Team Space keeps Slack's
-  // header and gutter times.
+  // it and, on yours, the sending clock while it is still going. Nothing follows the time once the
+  // server has it: the readers' faces under the message are the only delivery/read signal (owner
+  // 2026-11-19), so a message nobody has read yet reads as any messaging app's does. Team Space
+  // keeps Slack's header and gutter times.
   const sending = Boolean(message.own && message.pending && !local)
-  const ownTick = message.own && settled ? matrixReceiptTick(message, message.id === action?.latestOwnId) : undefined
   const editedLabel = mobileChatCopy[locale].edited
 
   const bubbleMeta = !flat && time && (timeEligible || (sending && !status)) ? (
@@ -1230,8 +1232,6 @@ function MatrixEventMessageBubble() {
         <span aria-label={copy.pending} className="inline-flex items-center" data-matrix-sending role="status">
           <Clock aria-hidden className="size-3" />
         </span>
-      ) : ownTick ? (
-        <MatrixReceiptTick tick={ownTick} />
       ) : null}
     </span>
   ) : undefined
@@ -1240,7 +1240,7 @@ function MatrixEventMessageBubble() {
   // (`ch` there): its characters, an icon, and a little air. It never needs to be exact, only
   // never narrower than the corner, so the last word never runs under it.
   const bubbleMetaRoom = `calc(${time.length + (personEdited ? editedLabel.length + 1 : 0)}ch + ${
-    sending || ownTick ? '1.125rem' : '0rem'
+    sending ? '1.125rem' : '0rem'
   } + 0.75rem)`
 
   // How the bubble's text makes room for the corner (styles.css): your plain text's paragraph and
