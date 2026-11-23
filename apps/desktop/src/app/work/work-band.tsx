@@ -68,10 +68,13 @@ export function useWorkSurfaceMode(bridge: Pick<MatrixWorkBridge, 'getSurfaceMod
 }
 
 /**
- * "Work · Code" (spec §8.2): one small `.ak-seg` in the title band, remembered per project by the
- * view's own project settings. Hidden while no project is open: there is nothing to switch.
+ * The page's name and its mode in one place (owner 2026-11-23: a "Work" title on the left and a
+ * Work/Code switch on the right said the same thing twice). With a project open the name IS the
+ * switch, "Work · Code", at the left of the band where a page's name sits; the mode is remembered
+ * per project by the view's own project settings. With no project open there is nothing to
+ * switch, so the band shows the plain name.
  */
-export function WorkModeSwitch({
+export function WorkTitle({
   bridge,
   copy,
   ready
@@ -83,7 +86,7 @@ export function WorkModeSwitch({
   const [snapshot, setSnapshot] = useWorkSurfaceMode(bridge, ready)
 
   if (!snapshot) {
-    return null
+    return <h1 className="truncate [font:var(--ak-t-headline)]">{copy.title}</h1>
   }
 
   const choose = (mode: 'work' | 'code') => {
@@ -98,18 +101,22 @@ export function WorkModeSwitch({
   }
 
   return (
-    <div aria-label={copy.band.mode} className="ak-seg ak-seg--sm [-webkit-app-region:no-drag]" data-atum-work-mode-switch role="group">
-      {(['work', 'code'] as const).map(mode => (
-        <button
-          aria-pressed={snapshot.mode === mode}
-          className={snapshot.mode === mode ? 'is-selected' : undefined}
-          key={mode}
-          onClick={() => choose(mode)}
-          type="button"
-        >
-          {copy.band[mode]}
-        </button>
-      ))}
-    </div>
+    <>
+      {/* The page keeps its name for assistive tech; the switch is what the eye reads. */}
+      <h1 className="sr-only">{copy.title}</h1>
+      <div aria-label={copy.band.mode} className="ak-seg shrink-0 [-webkit-app-region:no-drag]" data-atum-work-mode-switch role="group">
+        {(['work', 'code'] as const).map(mode => (
+          <button
+            aria-pressed={snapshot.mode === mode}
+            className={snapshot.mode === mode ? 'is-selected' : undefined}
+            key={mode}
+            onClick={() => choose(mode)}
+            type="button"
+          >
+            {copy.band[mode]}
+          </button>
+        ))}
+      </div>
+    </>
   )
 }

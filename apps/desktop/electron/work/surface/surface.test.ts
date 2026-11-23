@@ -172,7 +172,7 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
       onClosed: (listener: () => void) => void onClosed.push(listener)
     } as unknown as OwnerViewPort
 
-    return { port, place: rect => void placed.push(rect) }
+    return { port, place: rect => void placed.push(rect), focus: () => void calls.push('focus') }
   }
 
   const session = {
@@ -206,6 +206,11 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
 
   const surface = new WorkSurface({
     createView,
+    runCommand: async command => {
+      calls.push(`run:${command}`)
+
+      return true
+    },
     publish: value => void published.push(value),
     log,
     setWork: async on => {
@@ -277,6 +282,16 @@ describe('WorkSurface', () => {
 
     await surface.hide()
     expect(placed.at(-1)).toBeNull()
+  })
+
+  it('New thread from the band moves focus into the view before it runs, so the caret lands in its composer', async () => {
+    const { calls, parts, surface } = harness()
+
+    surface.attach(parts)
+    await surface.show(RECT)
+    await expect(surface.runCommand('chat.new')).resolves.toBe(true)
+    await surface.runCommand('sidebar.toggle')
+    expect(calls.filter(call => call === 'focus' || call.startsWith('run:'))).toEqual(['focus', 'run:chat.new', 'run:sidebar.toggle'])
   })
 
   it('does not paint a view the page left while it was signing in', async () => {
