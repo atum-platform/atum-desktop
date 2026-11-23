@@ -328,6 +328,7 @@ import { createWordLiveMacAdapter } from './word-live-mac'
 import { WorkMount } from './work/mount'
 import { WorkSession, workSessionPaths } from './work/session'
 import { WorkHost } from './work/sidecar/host'
+import { ATUM_WORK_DEFAULT_ALIAS } from './work/sidecar/process'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { WorkspaceTextFileLeaseProvider } from './workspace-text-file-lease'
 import { isWorkspaceTextRendererApiDenied } from './workspace-text-file-remote'
@@ -12518,7 +12519,11 @@ app.whenReady().then(async () => {
       return { ...proxy, ...broker }
     },
     revokeCredentials: () => atumFilesystemActionBroker?.revokeBackendCredential('work-sidecar'),
-    accessState: async () => await atumManagedModelProxy?.accessState() ?? { state: 'unavailable' },
+    readAccess: async () => {
+      const access = await atumManagedModelProxy?.accessState(ATUM_WORK_DEFAULT_ALIAS)
+
+      return access?.state === 'ready' ? 'allowed' : access?.state === 'insufficient_funds' ? 'empty' : 'unavailable'
+    },
     openProtons: () => shell.openExternal('https://account.atumplatform.com/payments/protons')
   })
   atumWorkHost.registerOwnerPreload()

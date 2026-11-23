@@ -123,16 +123,37 @@ Built on the gate lane. Every screen is one action and at most one line; the con
 
 | Screen | Where | What it does |
 |---|---|---|
-| **Connect step** (gate 4a) | First sign-in, once per Mac (`src/app/work/plan-connect.tsx`, mounted in `app.tsx`) | "Use your ChatGPT plan here" · "Sign in with OpenAI. Atum never sees your login." · **Connect** / **Not now**. Connect shows the Work page and loads T3's own provider screen in the owner view (`/settings/providers?instanceId=codex`, `WorkSurface.openPlanConnect`). There is no Atum-built login. Either answer closes it for good on this Mac (`atum.work.plan-connect.seen.v1`) |
-| **ChatGPT plan row** | Settings › Connections › Work | "Use your Plus or Pro plan in Work." with **Connect**. Once T3 reports it connected: "Connected on this Mac" with **Manage**, which opens the same T3 screen (disconnect lives there) |
+| **Connect step** (gate 4a) | First sign-in, once per Mac (`src/app/work/plan-connect.tsx`, mounted in `app.tsx`) | "Use your ChatGPT plan here" · "Your assistants can use this plan through this Mac." · **Connect** / **Not now**. Connect shows the Work page and loads T3's own provider screen in the owner view (`/settings/providers?instanceId=codex`, `WorkSurface.openPlanConnect`). There is no Atum-built login. Either answer closes it for good on this Mac (`atum.work.plan-connect.seen.v1`) |
+| **ChatGPT plan row** | Settings › Connections › Work | "Connect in Work on this Mac." with **Connect**. Once T3 reports it connected: "Connected on this Mac" with **Manage**, which opens the same T3 screen (disconnect lives there) |
 | **Plan switch** (gate 4b, local) | Same section | "Agents may use my ChatGPT plan here", default off. Help reads "Only the assistants you allow. Off stops their plan work at once." or, when the consent names this Mac, "Rin · since 22 Nov 2026" with **Change**. If the consent does not name this Mac, turning it on opens the consent sheet, and Allow there turns it on |
 | **Consent sheet** (gate 4b-2) | Opened from the switch or Change (`plan-consent.tsx`) | Assistants shown as circles with checkboxes (none ticked), Macs (only when there is more than one; this Mac, then each other Mac **by the owner's own name for it**: the device registry's display name, which `work_subscription_read` now carries on each fact as `displayName`, platform contract 1.2 additive; two Macs sharing a name read "Name 1" / "Name 2", and a Mac the read gave no name for, such as one the record names but that has no fact, reads "Your other Mac n";  the tapped Mac, or the only Mac, starts ticked), "Also for scheduled tasks" (off), **Allow**. When on: "Allowed since …", **Save**, and **Turn off everywhere** (one tap, `work_consent_revoke`). Writes through `work_consent_set` / `_revoke` / `work_subscription_read` (`createWorkConsentClient`), which send only what the owner named |
 | **Picker line** (D6) | A cloud assistant's model picker | ChatGPT models are greyed with no reason on each row. One note: "Your plan works in Work on your Mac", plus **Open Work** when this account has Work on this Mac. No cost, no relay, no "Mac offline" |
 
-**Gate 4a is closed by construction.** `planConnect` is projected only when `WORK_PLAN_CONNECT_SHIPPED` (`sidecar/process.ts`, false while the Codex instance
-ships disabled) AND `planCustodyRetired()` (a port on `main-work.ts`, not supplied yet; the un-carry lane reads `chatgpt_carry_status === 'work'`) are both true.
-The Connect lane flips the constant together with the instance. When the T3 screen opens the OpenAI sign-in, the view policy must allow that one external open:
-that also belongs to the Connect lane.
+### Desktop C1 and the Work picker (2026-11-23)
+
+Work provisions T3's managed Codex mode, Claude Code and Antigravity in the account's existing Work home.
+The startup supervisor replaces the two disabled executable stubs and preserves the native settings of the three plan
+instances across restarts. Work uses the Matrix default Atum model, Nguyệt Thực, for the owner picker, text-generation
+fallback and both Hermes profiles. The cloud gate still selects the dedicated delegated Atum instance by default.
+The delegated instance remains enabled and sends `showInPicker: false` in the server settings.
+
+The Connect offer is available while Work is enabled. The ChatGPT action calls the Shell's idempotent
+`POST /api/connections/openai-codex/uncarry` route. That route checks the account's custody status and retires old cloud
+custody if needed. After it returns `work`, the action opens T3's native Codex provider screen in the current owner view.
+The existing cloud relay admission and per-Mac switch still apply. Account-wide consent and the expanded cloud plan
+set belong to later slices.
+
+The bundled T3 pin needs to decode `showInPicker` and omit hidden instances from the picker while keeping them available
+to the orchestration API. It also needs a native Claude setup action in the embedded provider screen. The pin offers
+Claude's install and login commands in onboarding, which the Work build hides. The browser sign-in handoff needs an
+owner-bound main-process bridge for maker sign-in URLs, including native picker entry points. That bridge must apply
+the same Codex custody preflight. The view currently denies popups and external navigation.
+The managed ACP catalog runtime owns the account lineup and user-facing labels. It needs to use the canonical lineup
+names without the provider prefix and handle unavailable and historical aliases.
+
+Local tests use temporary account roots and a loopback fixture, including real supervisor settings writes and a restart.
+The focused Work and Matrix Vitest suites passed (575 passed, 9 skipped), as did the Electron typecheck and focused ESLint.
+Signed-app login, file-edit turns, zero-Proton billing, sign-out and token-custody acceptance remain release checks.
 
 **Settings placement fix.** The Work rows (Work on this Mac, Assistants can start work here, the plan switch) sat in `DevicesPane`, which no Settings page
 draws any more (`SETTINGS_PAGES.connections` holds only `connections`), so they never appeared. They now form their own **Work** section on Connections,

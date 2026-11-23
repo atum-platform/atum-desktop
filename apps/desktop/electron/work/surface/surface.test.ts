@@ -93,12 +93,10 @@ describe('gate 4a and 4b-2 projections', () => {
     revision: 0
   }
 
-  it('the Connect step is hidden while 4a is closed, whatever T3 says, and offered until T3 says connected', () => {
-    expect(projectWorkPlanConnect(false, { ...OPEN, planConnected: 'connected' })).toBeUndefined()
-    expect(projectWorkPlanConnect(false, OPEN)).toBeUndefined()
-    expect(projectWorkPlanConnect(true, { ...OPEN, planConnected: 'disconnected' })).toBe('offer')
-    expect(projectWorkPlanConnect(true, null)).toBe('offer')
-    expect(projectWorkPlanConnect(true, { ...OPEN, planConnected: 'connected' })).toBe('connected')
+  it('offers the Connect step until T3 reports a connection', () => {
+    expect(projectWorkPlanConnect({ ...OPEN, planConnected: 'disconnected' })).toBe('offer')
+    expect(projectWorkPlanConnect(null)).toBe('offer')
+    expect(projectWorkPlanConnect({ ...OPEN, planConnected: 'connected' })).toBe('connected')
     expect(WORK_PLAN_CONNECT_PATH).toBe('/settings/providers?instanceId=codex')
   })
 
@@ -268,7 +266,7 @@ describe('WorkSurface', () => {
     expect(last()?.view).toBe('starting')
     await surface.show(RECT)
     expect(session.openOwnerView).toHaveBeenCalledTimes(1)
-    expect(last()).toEqual({ view: 'ready', assistants: 'on', agents: [], protons: 'ok' })
+    expect(last()).toEqual({ view: 'ready', assistants: 'on', agents: [], protons: 'ok', planConnect: 'offer' })
     expect(placed.at(-1)).toEqual(RECT)
 
     await surface.show({ ...RECT, height: 400 })
@@ -528,7 +526,7 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
 
   function navigable() {
     const loads: string[] = []
-    const h = harness({ planConnectOpen: () => true })
+    const h = harness()
     const create = (h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView
 
     ;(h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView = () => {
@@ -544,14 +542,13 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
     return { ...h, loads }
   }
 
-  it('projects planConnect only while main says gate 4a is open', async () => {
-    const closed = harness()
-    closed.surface.attach(closed.parts)
-    expect((await closed.surface.read())?.planConnect).toBeUndefined()
+  it('offers native setup before the account custody check runs', async () => {
+    const prepareChatGptConnect = vi.fn(async () => undefined)
+    const { parts, surface } = harness({ prepareChatGptConnect })
+    surface.attach(parts)
 
-    const open = harness({ planConnectOpen: () => true })
-    open.surface.attach(open.parts)
-    expect((await open.surface.read())?.planConnect).toBe('offer')
+    expect((await surface.read())?.planConnect).toBe('offer')
+    expect(prepareChatGptConnect).not.toHaveBeenCalled()
   })
 
   it('Connect opens T3\'s own provider screen on the view\'s own origin, after the view is painted', async () => {
@@ -567,13 +564,20 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
     expect(loads).toHaveLength(2)
   })
 
-  it('Connect does nothing while gate 4a is closed', async () => {
-    const { parts, surface } = navigable()
+  it('keeps the setup offer and waits for custody retirement before navigating', async () => {
+    const { loads, parts, surface } = navigable()
 
-    surface.attach({ ...parts, planConnectOpen: () => false })
+    const prepareChatGptConnect = vi.fn(async () => undefined)
+      .mockRejectedValueOnce(new Error('work_chatgpt_custody_pending'))
+
+    surface.attach({ ...parts, prepareChatGptConnect })
     await surface.show(RECT)
+    await expect(surface.openPlanConnect()).rejects.toThrow('work_chatgpt_custody_pending')
+    expect(loads).toEqual([])
+    expect(surface.projection()?.planConnect).toBe('offer')
+
     await surface.openPlanConnect()
-    expect(surface.projection()?.planConnect).toBeUndefined()
+    expect(loads).toEqual(['http://127.0.0.1:61275/settings/providers?instanceId=codex'])
   })
 
   it('reads, sets and revokes the consent through the owner\'s client, naming this Mac by its id', async () => {

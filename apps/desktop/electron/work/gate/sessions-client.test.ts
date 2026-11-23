@@ -258,7 +258,7 @@ describe('the T3 client', () => {
       origin: () => 'http://127.0.0.1:4321',
       incarnation: () => 'inc-1',
       settingsFile: '/nonexistent',
-      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+      delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
       fetch: (async (_url: string, init?: RequestInit) =>
         String(init?.body).includes('"initialize"')
           ? reply({}, { 'mcp-session-id': 's' })
@@ -266,7 +266,7 @@ describe('the T3 client', () => {
     })
 
     expect(await client.providerReady('t')).toBe(false)
-    models = ['default', 'atum-managed:binh-minh']
+    models = ['default', 'atum-managed:nguyet-thuc']
     expect(await client.providerReady('t')).toBe(true)
   })
 })

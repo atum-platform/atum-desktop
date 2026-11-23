@@ -10,7 +10,7 @@ import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/mat
 import { workCopy } from './copy'
 import { $work, $workPlanConnectSeen, loadWorkPlanConnectSeen, markWorkPlanConnectSeen, openWorkPlanConnect } from './store'
 
-/** The step shows only while gate 4a is open for this account, nothing is connected yet, and it was never answered here. */
+/** Offer native setup before the first plan connection on this Mac. */
 export function workPlanConnectStepShown(projection: MatrixWorkProjection | null | undefined, seen: boolean): boolean {
   return projection?.planConnect === 'offer' && !seen
 }

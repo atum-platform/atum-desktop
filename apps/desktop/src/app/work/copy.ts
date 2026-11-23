@@ -97,11 +97,11 @@ const en: WorkWords = {
   },
   connect: {
     title: 'Use your ChatGPT plan here',
-    line: 'Sign in with OpenAI. Atum never sees your login.',
+    line: 'Your assistants can use this plan through this Mac.',
     action: 'Connect',
     skip: 'Not now',
     rowTitle: 'ChatGPT plan',
-    rowOffer: 'Use your Plus or Pro plan in Work.',
+    rowOffer: 'Connect in Work on this Mac.',
     rowConnected: 'Connected on this Mac',
     manage: 'Manage'
   },
@@ -175,11 +175,11 @@ const vi: WorkWords = {
   },
   connect: {
     title: 'Dùng gói ChatGPT của bạn tại đây',
-    line: 'Đăng nhập với OpenAI. Atum không thấy thông tin đăng nhập.',
+    line: 'Trợ lý của bạn có thể dùng gói này qua máy Mac này.',
     action: 'Kết nối',
     skip: 'Để sau',
     rowTitle: 'Gói ChatGPT',
-    rowOffer: 'Dùng gói Plus hoặc Pro của bạn trong Work.',
+    rowOffer: 'Kết nối trong Work trên máy Mac này.',
     rowConnected: 'Đã kết nối trên máy Mac này',
     manage: 'Quản lý'
   },

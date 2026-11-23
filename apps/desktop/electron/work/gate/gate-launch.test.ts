@@ -25,7 +25,7 @@ describe('launch: the happy path and what the gate builds', () => {
     // built from the allowlist: exactly these fields, the delegated provider forced, the owner's words first
     expect(WorkT3LaunchCallSchema.safeParse(call).success).toBe(true)
     expect(Object.keys(call as object).sort()).toEqual(['clientRequestId', 'message', 'modelSelection', 'projectId', 'title', 'workspaceStrategy'])
-    expect((call as { modelSelection: unknown }).modelSelection).toEqual({ instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' })
+    expect((call as { modelSelection: unknown }).modelSelection).toEqual({ instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' })
     expect((call as { message: string }).message.startsWith('OWNER (verified, event ')).toBe(true)
     expect((call as { message: string }).message).toContain('ASSISTANT (unverified):')
     expect((h.t3.calls[h.t3.calls.length - 1].args as { limit: string }).limit).toBe('approval-required/default')

@@ -5,7 +5,6 @@ import { join } from 'node:path'
 import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electron'
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
-import type { ManagedModelAccessSnapshot } from '../../src/lib/atum-managed-model-access'
 import type { SafeStorageLike } from '../encrypted-store'
 import {
   createDeviceServicePlatform,
@@ -26,8 +25,7 @@ import {
 } from '../work/mount'
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
-import { WorkHost } from '../work/sidecar/host'
-import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
+import { type WorkAccess, WorkHost } from '../work/sidecar/host'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -52,9 +50,6 @@ import { MatrixWorkLifecycle, workAccountFor } from './work-lifecycle'
 
 /** The role the proxy knows Work's key by. Not a host role: no agent runtime answers to it. */
 export const MATRIX_WORK_MODEL_ROLE = 'work'
-
-/** The model name Work's provider advertises; the proxy maps every Atum model name to the model the call should use. */
-const WORK_DEFAULT_MODEL = 'binh-minh'
 
 export interface MatrixWorkModelPort {
   /** The proxy's loopback base URL (`http://127.0.0.1:<port>/v1`), or undefined while it is not running. */
@@ -96,8 +91,8 @@ export interface MatrixWorkDeps {
   deviceServicesEndpoint(): string | undefined
   /** The signed-in owner's current domain bearer. */
   bearer(): Promise<string>
-  /** Gate 4a-1: this account's ChatGPT custody is retired (`chatgpt_carry_status` answers `work`). Absent: not known, so closed. */
-  planCustodyRetired?(): boolean
+  /** Retire the legacy cloud login before opening native Codex setup. */
+  prepareChatGptConnect(): Promise<void>
   /** The owner's own SDK host (`hosts.get('human')`), for the verifier. */
   ownerHost(): OwnerSdkHost | undefined
   /** The Matrix user of the active agent with this principal (`account.agents()`), or null. */
@@ -200,7 +195,7 @@ export const WORK_MIN_AVAILABLE_MICRO_PROTONS = 1_000_000
  * through the proxy then confirms the model path (key, sign-in, gateway, catalog). Either can say "empty"; only both
  * saying yes is "allowed", and anything unreadable is "unavailable", never "allowed".
  */
-export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<'allowed' | 'empty' | 'unavailable'> {
+export async function readWorkAccess(model: MatrixWorkModelPort, wallet: MatrixWorkWalletPort): Promise<WorkAccess> {
   try {
     const view = await wallet(AbortSignal.timeout(10_000))
 
@@ -329,22 +324,13 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
       return {
         ATUM_MANAGED_MODEL_BASE_URL: baseUrl,
-        ATUM_MANAGED_MODEL_DEFAULT: WORK_DEFAULT_MODEL,
         ATUM_MANAGED_MODEL_PROXY_TOKEN: modelKeys.mint()
       }
     },
     // A stopped or replaced server leaves no key the proxy would still answer to.
     revokeCredentials: () => modelKeys.forget(),
     // The one place the gate and the owner view read Work's balance: a free probe through the proxy.
-    accessState: async () => {
-      const access = await readWorkAccess(deps.model, deps.wallet)
-
-      return access === 'allowed'
-        ? ({ state: 'ready', access_alias: 'binh-minh' } as unknown as ManagedModelAccessSnapshot)
-        : access === 'empty'
-          ? ({ state: 'insufficient_funds', access_alias: 'binh-minh' } as unknown as ManagedModelAccessSnapshot)
-          : { state: 'unavailable' }
-    },
+    readAccess: () => readWorkAccess(deps.model, deps.wallet),
     openProtons: deps.openProtons
   })
 
@@ -527,9 +513,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }))
     },
     wantServer: () => mount.wantServer(),
-    // Gate 4a also needs this account's custody retired (plan §12, `UC:` 1-3); `planCustodyRetired` is absent until the un-carry
-    // lane reads it, so the step stays hidden by construction.
-    planConnectOpen: () => WORK_PLAN_CONNECT_SHIPPED && deps.planCustodyRetired?.() === true,
+    prepareChatGptConnect: () => deps.prepareChatGptConnect(),
     deviceServiceId: () => deps.deviceServiceId(),
     relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
     consent: consentClient

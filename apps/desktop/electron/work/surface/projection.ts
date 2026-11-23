@@ -34,15 +34,8 @@ export function projectWorkPlan(state: GateSurfaceState | null | undefined): Mat
 /** T3's own provider screen, on the Codex instance (`apps/web/src/routes/_chat.settings.providers.tsx` in the fork). */
 export const WORK_PLAN_CONNECT_PATH = '/settings/providers?instanceId=codex'
 
-/**
- * Gate 4a: the Connect step and row. Hidden until main says every 4a row holds for this account; then `offer` until T3 itself says
- * the plan is connected on this Mac. `unknown` (T3 could not be asked) still offers: the screen it opens is T3's own.
- */
-export function projectWorkPlanConnect(open: boolean, state: GateSurfaceState | null | undefined): MatrixWorkPlanConnect | undefined {
-  if (!open) {
-    return undefined
-  }
-
+/** Offer native setup until T3 confirms the plan is connected on this Mac. */
+export function projectWorkPlanConnect(state: GateSurfaceState | null | undefined): MatrixWorkPlanConnect {
   return state?.planConnected === 'connected' ? 'connected' : 'offer'
 }
 

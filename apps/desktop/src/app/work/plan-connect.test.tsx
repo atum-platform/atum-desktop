@@ -46,7 +46,7 @@ describe('the first-sign-in Connect step (gate 4a)', () => {
     const bridge = show()
 
     expect(await screen.findByRole('dialog', { name: 'Use your ChatGPT plan here' })).toBeTruthy()
-    expect(screen.getByText('Sign in with OpenAI. Atum never sees your login.')).toBeTruthy()
+    expect(screen.getByText('Your assistants can use this plan through this Mac.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
 
     await waitFor(() => expect(bridge.openPlanConnect).toHaveBeenCalledOnce())

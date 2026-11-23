@@ -182,7 +182,7 @@ describe('MatrixWorkSettings: Connect your ChatGPT plan (gate 4a)', () => {
     $work.set({ ...projection('ready'), planConnect: 'offer' })
     const port = show()
 
-    expect(screen.getByText('Use your Plus or Pro plan in Work.')).toBeTruthy()
+    expect(screen.getByText('Connect in Work on this Mac.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Connect' }))
     await waitFor(() => expect(port.openPlanConnect).toHaveBeenCalledOnce())
     expect($workActive.get()).toBe(true)
