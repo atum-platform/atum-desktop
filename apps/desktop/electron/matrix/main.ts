@@ -297,7 +297,6 @@ import {
   matrixSubscriptionPlanSignInGate
 } from './account-subscription-flow'
 import {
-  forgetSubscriptionChatGpt,
   matrixChatGptGrant,
   matrixSubscriptionEnvironment,
   matrixSubscriptionKeyStore,
@@ -23772,7 +23771,6 @@ async function start() {
               })
             },
             forget: async () => {
-              forgetSubscriptionChatGpt({ config: runtime!, owner, sharedCodex: sharedCodexHere() })
               // Hermes's DELETE above is the native disconnect. If it did not land, Hermes's own locked
               // clear_provider_auth drops the grant from the account home (never another provider's
               // rows): once before the assistants stop, so a restart cannot borrow it, and once after,

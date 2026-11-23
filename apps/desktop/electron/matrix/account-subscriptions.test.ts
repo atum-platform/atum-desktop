@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -7,7 +7,6 @@ import { describe, expect, it, vi } from 'vitest'
 import type { EncryptedStore } from '../encrypted-store'
 
 import {
-  forgetSubscriptionChatGpt,
   matrixChatGptGrant,
   matrixSubscriptionEnvironment,
   matrixSubscriptionKeyStore,
@@ -120,13 +119,6 @@ describe('account subscription custody', () => {
     expect(JSON.stringify(status)).not.toMatch(/secret/)
     expect(matrixSubscriptionsStatus({ accountAuthHome: path.join(root, 'nowhere'), keys: fakeStore() }).providers[0])
       .toEqual({ id: 'openai-codex', connected: false })
-
-    // Disconnect here removes only the retired file; the account store is Hermes's to clear under
-    // its own lock (clearMatrixAccountChatGpt), so this never rewrites it.
-    const before = readFileSync(path.join(home, 'auth.json'), 'utf8')
-    forgetSubscriptionChatGpt({ config, owner: 'owner', sharedCodex: false })
-    expect(existsSync(legacy)).toBe(false)
-    expect(readFileSync(path.join(home, 'auth.json'), 'utf8')).toBe(before)
 
     rmSync(root, { recursive: true, force: true })
   })

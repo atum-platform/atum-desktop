@@ -4,8 +4,6 @@ import path from 'node:path'
 import type { MatrixSubscriptionsStatus } from '../../shared/matrix-subscriptions'
 import type { EncryptedStore } from '../encrypted-store'
 
-import type { MatrixHermesRuntimeConfig } from './hermes-runtime'
-import { forgetMatrixCodexSignIn } from './hermes-runtime'
 
 /**
  * Account-level subscription custody (2026-10-27 owner ask: "connecting subs should be account
@@ -145,18 +143,4 @@ export function matrixSubscriptionsStatus(input: {
       { id: 'opencode-go', connected: opencodeGo }
     ]
   }
-}
-
-/** Disconnect ChatGPT: remove the retired pre-11-04 `codex_auth.json` (no Hermes reads it now).
- * The account sign-in home is cleared by Hermes itself under its store lock
- * (`clearMatrixAccountChatGpt`), never by a read/replace here: that would race another
- * provider's token rotation in the same file. */
-export function forgetSubscriptionChatGpt(input: {
-  config: Pick<MatrixHermesRuntimeConfig, 'profiles' | 'bundled'>
-  owner: string
-  sharedCodex: boolean
-  env?: NodeJS.ProcessEnv
-  homeDir?: string
-}): void {
-  forgetMatrixCodexSignIn(input.config, input.owner, input.sharedCodex, input.env, input.homeDir)
 }
