@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
+import { ACCOUNT_PLAN_NAMES, connectionsCopy } from '@/app/connections/copy'
+import { openAccountConnect } from '@/app/connections/store'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,31 +12,35 @@ import {
 } from '@/components/ui/dialog'
 import { NoticeBand } from '@/components/ui/error-state'
 import { Input } from '@/components/ui/input'
-import { Check, Spinner } from '@/lib/icons'
+import { useI18n } from '@/i18n'
+import { Check } from '@/lib/icons'
 
+import { ACCOUNT_PLANS, type AccountPlan } from '../../shared/account-connections'
 import type { MatrixSubscriptionsBridge } from '../../shared/matrix'
 import {
-  MATRIX_SUBSCRIPTION_PROVIDERS,
   type MatrixSubscriptionProvider,
   matrixSubscriptionProviderLabel,
   type MatrixSubscriptionProviderStatus,
-  type MatrixSubscriptionSignIn,
   type MatrixSubscriptionsStatus
 } from '../../shared/matrix-subscriptions'
 
 import { useMatrixSettingsCopy } from './settings-copy'
-import { type MatrixSubscriptionView, matrixSubscriptionView } from './subscription-view'
 
-/** The bridge, or none in a test/older main: Settings still draws both rows disabled. */
+/**
+ * The account's key-based subscription (OpenCode Go) and the doors into the one connect sheet. Device-held plans (ChatGPT, Claude,
+ * Antigravity) are never signed in here: every Connect for them opens the account connect sheet (`@/app/connections`), which runs
+ * the maker's own sign-in in Work on this Mac.
+ */
+
+/** The bridge, or none in a test/older main. */
 export function useSubscriptionsBridge(): MatrixSubscriptionsBridge | undefined {
   return typeof window === 'undefined' ? undefined : window.atumMatrix?.subscriptions
 }
 
-/** One account-level read, shared by every assistant of this account. */
+/** One account-level read of the key-based subscriptions, shared by every assistant of this account. */
 export function useMatrixSubscriptions(scopeKey?: string) {
   const bridge = useSubscriptionsBridge()
   const [status, setStatus] = useState<MatrixSubscriptionsStatus | null>(null)
-  const [readFailed, setReadFailed] = useState(false)
   const live = useRef(true)
 
   const reload = useCallback(async () => {
@@ -47,15 +53,10 @@ export function useMatrixSubscriptions(scopeKey?: string) {
 
       if (live.current) {
         setStatus(next)
-        setReadFailed(false)
       }
 
       return next
     } catch {
-      if (live.current) {
-        setReadFailed(true)
-      }
-
       return null
     }
   }, [bridge])
@@ -69,9 +70,7 @@ export function useMatrixSubscriptions(scopeKey?: string) {
     }
   }, [reload, scopeKey])
 
-  const view = matrixSubscriptionView({ status, readFailed })
-
-  return { bridge, reload, status, view }
+  return { bridge, reload, status }
 }
 
 export function subscriptionProviderStatus(
@@ -81,71 +80,58 @@ export function subscriptionProviderStatus(
   return status?.providers.find(each => each.id === provider)
 }
 
-type ChatGptState =
-  | { kind: 'starting' }
-  | { kind: 'waiting'; signIn: MatrixSubscriptionSignIn }
-  | { kind: 'failed' }
+type Choice = AccountPlan | 'opencode-go'
 
-/** Preserve user-visible identity, state and recovery behavior across connection changes. */
-export const MATRIX_CONNECTABLE_SERVICES: readonly MatrixSubscriptionProvider[] = MATRIX_SUBSCRIPTION_PROVIDERS
-
-/** The chooser sheet: one row per connectable service, with its state when it is linked already. */
+/** The rail's Connect: every plan and the key subscription, one row each, with its state when it is linked already. */
 export function SubscriptionChooser({
   onChoose,
   onOpenChange,
   open,
   providers
 }: {
-  onChoose(provider: MatrixSubscriptionProvider): void
+  onChoose(choice: Choice): void
   onOpenChange(open: boolean): void
   open: boolean
-  /** The account's current state, so a linked or signed-out service says so. */
+  /** The account's key-based state, so a linked OpenCode Go says so. */
   providers?: readonly MatrixSubscriptionProviderStatus[]
 }) {
   const copy = useMatrixSettingsCopy()
+  const { locale } = useI18n()
+  const words = connectionsCopy(locale)
+  const opencode = providers?.find(each => each.id === 'opencode-go')
+  const choices: readonly Choice[] = [...ACCOUNT_PLANS, 'opencode-go']
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="ak-sheet max-w-none gap-0 overflow-hidden border-0 p-0" data-matrix-subscription-chooser>
         <div className="ak-sheet-head">
-          <DialogTitle className="ak-sheet-title">{copy.yourSubscription}</DialogTitle>
+          <DialogTitle className="ak-sheet-title">{words.subscriptions}</DialogTitle>
           <DialogDescription className="sr-only">{copy.subscriptionHelp}</DialogDescription>
         </div>
         <div className="ak-sheet-body">
-          {MATRIX_CONNECTABLE_SERVICES.map(candidate => {
-            const state = providers?.find(each => each.id === candidate)
-            const linked = state?.connected === true || state?.localConnected === true
-
-            return (
-              <button
-                className="ak-row w-full text-left"
-                data-matrix-subscription-choice={candidate}
-                key={candidate}
-                onClick={() => onChoose(candidate)}
-                type="button"
-              >
-                <span className="ak-row-main">
-                  <span>{matrixSubscriptionProviderLabel(candidate)}</span>
-                  <span className="ak-row-meta">
-                    {linked
-                      ? copy.connected
-                      : state?.needsSignIn
-                        ? copy.chatgptSignedOut
-                        : candidate === 'openai-codex'
-                          ? copy.chatgptHelp
-                          : copy.opencodeHelp}
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+          {choices.map(choice => (
+            <button
+              className="ak-row w-full text-left"
+              data-matrix-subscription-choice={choice}
+              key={choice}
+              onClick={() => onChoose(choice)}
+              type="button"
+            >
+              <span className="ak-row-main">
+                <span>{choice === 'opencode-go' ? matrixSubscriptionProviderLabel('opencode-go') : ACCOUNT_PLAN_NAMES[choice]}</span>
+                {choice === 'opencode-go' && (
+                  <span className="ak-row-meta">{opencode?.connected ? copy.connected : copy.opencodeHelp}</span>
+                )}
+              </span>
+            </button>
+          ))}
         </div>
       </DialogContent>
     </Dialog>
   )
 }
 
-/** The rail's Connect: choose a service, then its own native sign-in or key, all in place. */
+/** The rail's Connect: choose a service; a plan opens the account connect sheet, OpenCode Go its key field. */
 export function SubscriptionConnectFlow({
   bridge,
   onClose,
@@ -157,34 +143,40 @@ export function SubscriptionConnectFlow({
   onConnected(): void
   providers?: readonly MatrixSubscriptionProviderStatus[]
 }) {
-  const [chosen, setChosen] = useState<MatrixSubscriptionProvider | null>(null)
+  const [key, setKey] = useState(false)
 
   return (
     <>
       <SubscriptionChooser
-        onChoose={setChosen}
+        onChoose={choice => {
+          if (choice === 'opencode-go') {
+            setKey(true)
+
+            return
+          }
+
+          onClose()
+          openAccountConnect(choice)
+        }}
         onOpenChange={next => {
-          if (!next && !chosen) {
+          if (!next && !key) {
             onClose()
           }
         }}
-        open={!chosen}
+        open={!key}
         providers={providers}
       />
-      {chosen && (
-        <SubscriptionConnectDialog
-          bridge={bridge}
-          onClose={onClose}
-          onConnected={onConnected}
-          open
-          provider={chosen}
-        />
+      {key && (
+        <SubscriptionConnectDialog bridge={bridge} onClose={onClose} onConnected={onConnected} open provider="opencode-go" />
       )}
     </>
   )
 }
 
-/** The one compact native sign-in: one code, one link, and the note. */
+/**
+ * Connect one subscription. ChatGPT opens the account connect sheet (and this dialog closes at once); OpenCode Go asks for its key
+ * here, which lives in the input for the length of one save.
+ */
 export function SubscriptionConnectDialog({
   bridge: override,
   onClose,
@@ -202,161 +194,33 @@ export function SubscriptionConnectDialog({
   const copy = useMatrixSettingsCopy()
   const windowBridge = useSubscriptionsBridge()
   const bridge = override ?? windowBridge
-  const [chatgpt, setChatgpt] = useState<ChatGptState>({ kind: 'starting' })
   const [key, setKey] = useState('')
   const [pendingKey, setPendingKey] = useState(false)
   const [keyError, setKeyError] = useState(false)
-  const session = useRef<string | null>(null)
   const disposed = useRef(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const closeRef = useRef(onClose)
-  const connectedRef = useRef(onConnected)
-  closeRef.current = onClose
-  connectedRef.current = onConnected
+  const plan = provider === 'openai-codex'
 
-  const stopPolling = useCallback(() => {
-    if (timer.current) {
-      clearTimeout(timer.current)
-      timer.current = null
-    }
-  }, [])
-
-  const cancel = useCallback(() => {
-    const active = session.current
-    session.current = null
-    stopPolling()
-
-    if (active) {
-      void bridge?.cancelChatGpt(active).catch(() => undefined)
-    }
-  }, [bridge, stopPolling])
-
-  const start = useCallback(async () => {
-    if (!bridge) {
-      setChatgpt({ kind: 'failed' })
-
-      return
-    }
-
-    setChatgpt({ kind: 'starting' })
-
-    try {
-      const result = await bridge.startChatGpt()
-
-      if (disposed.current) {
-        return
-      }
-
-      if (result.status === 'cancelled') {
-        closeRef.current()
-
-        return
-      }
-
-      if (result.status === 'connected') {
-        connectedRef.current()
-        closeRef.current()
-
-        return
-      }
-
-      session.current = result.session
-      setChatgpt({ kind: 'waiting', signIn: result })
-    } catch {
-      if (!disposed.current) {
-        setChatgpt({ kind: 'failed' })
-      }
-    }
-  }, [bridge])
-
-  // A fresh dialog starts a fresh flow; closing it cancels the backend's session.
   useEffect(() => {
     disposed.current = false
 
-    if (!open) {
-      cancel()
-      setChatgpt({ kind: 'starting' })
-      setKey('')
-      setKeyError(false)
-
-      return
+    if (open && plan) {
+      openAccountConnect('codex')
+      onClose()
     }
 
-    if (provider === 'openai-codex') {
-      void start()
+    if (!open) {
+      setKey('')
+      setKeyError(false)
     }
 
     return () => {
       disposed.current = true
-      cancel()
     }
-  }, [cancel, open, provider, start])
+  }, [onClose, open, plan])
 
-  // Poll the opaque native handle at the interval Hermes asked for.
-  useEffect(() => {
-    if (chatgpt.kind !== 'waiting' || !bridge) {
-      return
-    }
-
-    const signIn = chatgpt.signIn
-    const deadline = Date.now() + signIn.expiresIn * 1000
-
-    const poll = async () => {
-      if (disposed.current || session.current !== signIn.session) {
-        return
-      }
-
-      if (Date.now() > deadline) {
-        session.current = null
-        setChatgpt({ kind: 'failed' })
-
-        return
-      }
-
-      try {
-        const result = await bridge.pollChatGpt(signIn.session)
-
-        if (disposed.current || session.current !== signIn.session) {
-          return
-        }
-
-        if (result.status === 'connected') {
-          session.current = null
-          connectedRef.current()
-          closeRef.current()
-
-          return
-        }
-
-        if (result.status === 'cancelled') {
-          session.current = null
-          closeRef.current()
-
-          return
-        }
-
-        if (result.status === 'failed') {
-          session.current = null
-          setChatgpt({ kind: 'failed' })
-
-          return
-        }
-      } catch {
-        if (!disposed.current && session.current === signIn.session) {
-          session.current = null
-          setChatgpt({ kind: 'failed' })
-        }
-
-        return
-      }
-
-      timer.current = setTimeout(() => void poll(), signIn.pollInterval * 1000)
-    }
-
-    timer.current = setTimeout(() => void poll(), signIn.pollInterval * 1000)
-
-    return stopPolling
-  }, [bridge, chatgpt, stopPolling])
+  if (plan) {
+    return null
+  }
 
   const saveKey = async () => {
     if (!bridge || pendingKey || key.trim().length === 0) {
@@ -370,8 +234,8 @@ export function SubscriptionConnectDialog({
       const result = await bridge.connectOpenCode(key)
 
       if (result.status === 'applied') {
-        connectedRef.current()
-        closeRef.current()
+        onConnected()
+        onClose()
 
         return
       }
@@ -380,163 +244,70 @@ export function SubscriptionConnectDialog({
         setKeyError(true)
       }
     } finally {
-      // The key lives in this input for the length of one save, never in app state.
       setKey('')
       setPendingKey(false)
     }
   }
 
-  const providerLabel = matrixSubscriptionProviderLabel(provider)
-
   return (
     <Dialog onOpenChange={next => !next && onClose()} open={open}>
       <DialogContent className="max-w-sm" data-matrix-subscription-dialog={provider}>
         <DialogHeader>
-          <DialogTitle>{providerLabel}</DialogTitle>
-          <DialogDescription className="sr-only">{provider === 'openai-codex' ? copy.chatgptHelp : copy.opencodeHelp}</DialogDescription>
+          <DialogTitle>{matrixSubscriptionProviderLabel(provider)}</DialogTitle>
+          <DialogDescription className="sr-only">{copy.opencodeHelp}</DialogDescription>
         </DialogHeader>
-        {provider === 'openai-codex' ? (
-          <div className="grid gap-3">
-            {chatgpt.kind === 'starting' && (
-              <p className="flex items-center gap-2 text-sm text-(--ui-text-secondary)" role="status">
-                <Spinner aria-hidden className="size-4 animate-spin" />
-                {copy.working}
-              </p>
-            )}
-            {chatgpt.kind === 'waiting' && (
-              <>
-                <p className="text-sm text-(--ui-text-secondary)">{copy.codeLabel}</p>
-                <p
-                  className="rounded-md border border-border px-3 py-2 text-center font-mono text-lg tracking-[0.2em] select-text"
-                  data-matrix-subscription-code
-                >
-                  {chatgpt.signIn.userCode}
-                </p>
-                <Button
-                  aria-label={copy.openPage}
-                  className="h-auto justify-start px-0 text-xs"
-                  onClick={() => void window.atumMatrix.openLink(chatgpt.signIn.url).catch(() => undefined)}
-                  size="sm"
-                  variant="link"
-                >
-                  {chatgpt.signIn.url.replace(/^https?:\/\//u, '')}
-                </Button>
-                <p className="flex items-center gap-2 text-xs text-(--ui-text-tertiary)" role="status">
-                  <Spinner aria-hidden className="size-3.5 animate-spin" />
-                  {copy.waiting}
-                </p>
-                <details className="text-xs text-(--ui-text-tertiary)" data-matrix-subscription-steps>
-                  <summary className="cursor-pointer select-none">{copy.howItWorks}</summary>
-                  <ol className="mt-2 grid list-decimal gap-1 ps-4">
-                    {copy.chatgptSteps.map(step => (
-                      <li key={step}>{step}</li>
-                    ))}
-                  </ol>
-                </details>
-                <Button onClick={onClose} size="sm" variant="ghost">
-                  {copy.cancel}
-                </Button>
-              </>
-            )}
-            {chatgpt.kind === 'failed' && (
-              <>
-                <NoticeBand role="alert" tone="failure">
-                  {copy.failed}
-                </NoticeBand>
-                <div className="flex gap-2">
-                  <Button onClick={() => void start()} size="sm">
-                    {copy.tryAgain}
-                  </Button>
-                  <Button onClick={onClose} size="sm" variant="ghost">
-                    {copy.cancel}
-                  </Button>
-                </div>
-              </>
-            )}
-            <p className="text-xs text-(--ui-text-tertiary)" data-matrix-subscription-note>
-              {copy.chatgptNote}
-            </p>
+        <form
+          className="grid gap-3"
+          onSubmit={event => {
+            event.preventDefault()
+            void saveKey()
+          }}
+        >
+          <Input
+            aria-label={copy.keyLabel}
+            autoComplete="off"
+            data-matrix-subscription-key
+            onChange={event => setKey(event.target.value)}
+            placeholder={copy.keyPlaceholder}
+            spellCheck={false}
+            type="password"
+            value={key}
+          />
+          {keyError && (
+            <NoticeBand role="alert" tone="failure">
+              {copy.failed}
+            </NoticeBand>
+          )}
+          <div className="flex gap-2">
+            <Button disabled={pendingKey || key.trim().length === 0} size="sm" type="submit">
+              {pendingKey ? copy.working : copy.save}
+            </Button>
+            <Button onClick={onClose} size="sm" type="button" variant="ghost">
+              {copy.cancel}
+            </Button>
           </div>
-        ) : (
-          <form
-            className="grid gap-3"
-            onSubmit={event => {
-              event.preventDefault()
-              void saveKey()
-            }}
-          >
-            <Input
-              aria-label={copy.keyLabel}
-              autoComplete="off"
-              data-matrix-subscription-key
-              onChange={event => setKey(event.target.value)}
-              placeholder={copy.keyPlaceholder}
-              spellCheck={false}
-              type="password"
-              value={key}
-            />
-            {keyError && (
-              <NoticeBand role="alert" tone="failure">
-                {copy.failed}
-              </NoticeBand>
-            )}
-            <div className="flex gap-2">
-              <Button disabled={pendingKey || key.trim().length === 0} size="sm" type="submit">
-                {pendingKey ? copy.working : copy.save}
-              </Button>
-              <Button onClick={onClose} size="sm" type="button" variant="ghost">
-                {copy.cancel}
-              </Button>
-            </div>
-          </form>
-        )}
+        </form>
       </DialogContent>
     </Dialog>
   )
 }
 
-/** The one line a ChatGPT state reads as, in Settings' row and in its dialog. */
-export function matrixChatGptStateLine(
-  copy: ReturnType<typeof useMatrixSettingsCopy>,
-  state: MatrixSubscriptionView['state']
-): string | undefined {
-  switch (state) {
-    case 'ready':
-      return copy.chatgptReady
-    case 'needs_sign_in':
-      return copy.chatgptSignedOut
-    case 'unavailable':
-      return copy.statusUnavailable
-    default:
-      return undefined
-  }
-}
-
-/** Manage: one honest state line, at most one act that fixes it, and the quiet way out. */
+/** OpenCode Go's Manage: connected, account-wide, Change key, Disconnect. */
 export function SubscriptionManageDialog({
   onChanged,
   onClose,
   onReconnect,
-  open,
-  provider,
-  status,
-  view
+  open
 }: {
   onChanged(): void
   onClose(): void
   onReconnect(): void
   open: boolean
-  provider: MatrixSubscriptionProvider
-  status?: MatrixSubscriptionProviderStatus
-  view?: MatrixSubscriptionView
 }) {
   const copy = useMatrixSettingsCopy()
   const bridge = useSubscriptionsBridge()
   const [pending, setPending] = useState(false)
   const [failed, setFailed] = useState(false)
-  const relay = status?.relay
-  const chatgpt = provider === 'openai-codex'
-  const state = chatgpt ? (view?.state ?? 'ready') : 'ready'
 
   const disconnect = async () => {
     if (!bridge || pending) {
@@ -547,12 +318,7 @@ export function SubscriptionManageDialog({
     setFailed(false)
 
     try {
-      if (chatgpt) {
-        await bridge.disconnectChatGpt()
-      } else {
-        await bridge.disconnectOpenCode()
-      }
-
+      await bridge.disconnectOpenCode()
       onChanged()
       onClose()
     } catch {
@@ -564,46 +330,26 @@ export function SubscriptionManageDialog({
 
   return (
     <Dialog onOpenChange={next => !next && onClose()} open={open}>
-      <DialogContent className="max-w-sm" data-matrix-subscription-manage={provider}>
+      <DialogContent className="max-w-sm" data-matrix-subscription-manage="opencode-go">
         <DialogHeader>
-          <DialogTitle>{matrixSubscriptionProviderLabel(provider)}</DialogTitle>
-          <DialogDescription className="sr-only">{chatgpt ? copy.chatgptHelp : copy.opencodeHelp}</DialogDescription>
+          <DialogTitle>{matrixSubscriptionProviderLabel('opencode-go')}</DialogTitle>
+          <DialogDescription className="sr-only">{copy.opencodeHelp}</DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          {chatgpt ? (
-            <>
-              <p
-                className="flex items-start gap-2 text-sm font-medium text-(--ui-text)"
-                data-matrix-subscription-state={state}
-                role="status"
-              >
-                {state === 'ready' ? <Check aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.4} /> : null}
-                <span>{matrixChatGptStateLine(copy, state)}</span>
-              </p>
-              {state === 'ready' && relay?.state === 'enabled' && (
-                <p className="text-xs text-(--ui-text-tertiary)">{relay.thisMac ? copy.relayOn : copy.relayOnAnotherMac}</p>
-              )}
-            </>
-          ) : (
-            <>
-              <p className="flex items-center gap-2 text-sm font-medium text-(--ui-text)" data-matrix-subscription-connected>
-                <Check aria-hidden className="size-4" strokeWidth={2.4} />
-                {copy.connected}
-              </p>
-              <p className="text-sm text-(--ui-text-secondary)">{copy.accountWide}</p>
-            </>
-          )}
+          <p className="flex items-center gap-2 text-sm font-medium text-(--ui-text)" data-matrix-subscription-connected>
+            <Check aria-hidden className="size-4" strokeWidth={2.4} />
+            {copy.connected}
+          </p>
+          <p className="text-sm text-(--ui-text-secondary)">{copy.accountWide}</p>
           {failed && (
             <NoticeBand role="alert" tone="failure">
               {copy.failed}
             </NoticeBand>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            {!chatgpt && (
-              <Button disabled={pending} onClick={onReconnect} size="sm" variant="secondary">
-                {copy.reconnect}
-              </Button>
-            )}
+            <Button disabled={pending} onClick={onReconnect} size="sm" variant="secondary">
+              {copy.reconnect}
+            </Button>
             <Button disabled={pending} onClick={() => void disconnect()} size="sm" variant="text">
               {pending ? copy.working : copy.disconnect}
             </Button>

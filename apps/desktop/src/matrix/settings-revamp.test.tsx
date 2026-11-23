@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { atom } from 'nanostores'
-import { act, useState } from 'react'
+import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $accountConnect, resetAccountConnectionsForTest } from '@/app/connections/store'
 import { I18nProvider } from '@/i18n'
 
+import { ACCOUNT_CONNECTIONS_FIXTURE, type AccountConnectionsView } from '../../shared/account-connections'
 import type { MatrixSnapshot, MatrixUiBridge } from '../../shared/matrix'
 import type { MatrixOwnerLocationView } from '../../shared/matrix-owner-location'
 import {
@@ -248,12 +250,12 @@ describe('the fixed Settings information architecture', () => {
     const headings = [...pane.querySelectorAll('.ak-section')].map(section => section.textContent)
 
     expect(headings[0]).toContain('Subscriptions')
-    expect(pane.querySelector('[data-matrix-subscriptions]')).toBeTruthy()
+    expect(pane.querySelector('[data-atum-connection="codex"]')).toBeTruthy()
     expect(pane.textContent).not.toMatch(/runs on this Mac|answers with Atum’s AI/iu)
 
     fireEvent.click(screen.getByRole('button', { name: 'Advanced' }))
     const advanced = container.querySelector('[data-matrix-settings-destination="advanced"]')!
-    expect(advanced.querySelector('[data-matrix-subscriptions]')).toBeNull()
+    expect(advanced.querySelector('[data-atum-connection]')).toBeNull()
   })
 
   it('keeps the adjudicated controls at their single destination', () => {
@@ -280,7 +282,7 @@ describe('the fixed Settings information architecture', () => {
     expect(screen.getByRole('button', { name: 'Google connection' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Installed apps' })).toBeTruthy()
     expect(
-      container.querySelector('[data-matrix-settings-destination="connections"] [data-matrix-subscriptions]')
+      container.querySelector('[data-matrix-settings-destination="connections"] [data-atum-connection="codex"]')
     ).toBeTruthy()
     expect(screen.queryByRole('button', { name: 'Keep awake' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Cloud devices' })).toBeNull()
@@ -290,7 +292,7 @@ describe('the fixed Settings information architecture', () => {
     fireEvent.click(within(nav).getByRole('button', { name: 'Account' }))
     expect(screen.getByText('How Atum answers')).toBeTruthy()
     expect(
-      container.querySelector('[data-matrix-settings-destination="account"] [data-matrix-subscriptions]')
+      container.querySelector('[data-matrix-settings-destination="account"] [data-atum-connection]')
     ).toBeNull()
     expect(screen.getByRole('button', { name: 'Recovery key' })).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Trusted devices' })).toBeTruthy()
@@ -305,7 +307,7 @@ describe('the fixed Settings information architecture', () => {
 
     fireEvent.click(within(nav).getByRole('button', { name: 'Advanced' }))
     expect(
-      container.querySelector('[data-matrix-settings-destination="advanced"] [data-matrix-subscriptions]')
+      container.querySelector('[data-matrix-settings-destination="advanced"] [data-atum-connection]')
     ).toBeNull()
     expect(screen.queryByRole('button', { name: 'Providers and ChatGPT' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Repair assistant' })).toBeNull()
@@ -633,44 +635,18 @@ describe('navigation and overlay lifecycle', () => {
 })
 
 describe('Settings › Connections', () => {
-  const disconnected = {
-    scope: 'account' as const,
-    providers: [
-      { id: 'openai-codex' as const, connected: false },
-      { id: 'opencode-go' as const, connected: false }
-    ]
-  }
-
-  function useSubscriptions(overrides: Partial<NonNullable<MatrixUiBridge['subscriptions']>> = {}) {
-    let connected = false
+  function useSubscriptions(opencode = false) {
+    let connected = opencode
 
     const bridge = {
-      status: vi.fn(async () =>
-        connected
-          ? {
-              scope: 'account' as const,
-              providers: [
-                { id: 'openai-codex' as const, connected: true },
-                { id: 'opencode-go' as const, connected: true }
-              ]
-            }
-          : disconnected
-      ),
-      catalog: vi.fn(),
-      startChatGpt: vi.fn(async () => ({
-        status: 'pending' as const,
-        session: 'opaque-session',
-        provider: 'openai-codex' as const,
-        userCode: 'TEST-CODE',
-        url: 'https://auth.openai.com/codex/device',
-        expiresIn: 900,
-        pollInterval: 3600
+      status: vi.fn(async () => ({
+        scope: 'account' as const,
+        providers: [
+          { id: 'openai-codex' as const, connected: false },
+          { id: 'opencode-go' as const, connected }
+        ]
       })),
-      pollChatGpt: vi.fn(async () => ({ status: 'pending' as const })),
-      cancelChatGpt: vi.fn(async () => undefined),
-      disconnectChatGpt: vi.fn(async () => {
-        connected = false
-      }),
+      catalog: vi.fn(),
       connectOpenCode: vi.fn(async () => {
         connected = true
 
@@ -678,8 +654,7 @@ describe('Settings › Connections', () => {
       }),
       disconnectOpenCode: vi.fn(async () => {
         connected = false
-      }),
-      ...overrides
+      })
     }
 
     window.atumMatrix = { ...window.atumMatrix, subscriptions: bridge } as unknown as MatrixUiBridge
@@ -687,187 +662,69 @@ describe('Settings › Connections', () => {
     return bridge
   }
 
-  const row = () => within(window.document.querySelector<HTMLElement>('[data-matrix-subscriptions]')!)
-
-  const choose = async (provider: 'ChatGPT' | 'OpenCode Go') => {
-    fireEvent.click(row().getByRole('button', { name: 'Connect' }))
-    fireEvent.click(within(await screen.findByRole('dialog', { name: 'Your subscription' })).getByRole('button', { name: new RegExp(provider) }))
-  }
-
-  it('opens the account page with zero assistant hosts running and no assistant scope', async () => {
-    const bridge = useSubscriptions()
-    const snapshot: MatrixSnapshot = {
-      ...baseSnapshot,
-      agents: (baseSnapshot.agents ?? []).map(agent => ({
-        ...agent,
-        name: 'Alfred',
-        ready: false,
-        hermes: 'unavailable' as const,
-        answering: 'cloud' as const
-      }))
+  function useWork(view: AccountConnectionsView | null = ACCOUNT_CONNECTIONS_FIXTURE) {
+    const work = {
+      read: vi.fn(async () => null),
+      subscribe: vi.fn(() => () => {}),
+      readConnections: vi.fn(async () => view),
+      openPlanConnect: vi.fn(async () => {}),
+      readPlanConsent: vi.fn(),
+      setPlanConsent: vi.fn(),
+      setPlan: vi.fn(async () => {})
     }
 
-    const { container } = view(<Harness initial="connections" snapshot={snapshot} />)
+    window.atumMatrix = { ...window.atumMatrix, work } as unknown as MatrixUiBridge
 
-    expect(screen.getByRole('heading', { name: 'Connections' })).toBeTruthy()
-    expect(container.querySelector('[data-matrix-settings-destination="connections"] [data-matrix-subscriptions]')).toBeTruthy()
-    expect(container.querySelector('[data-matrix-settings-destination="connections"]')?.textContent).not.toContain('Alfred')
+    return work
+  }
 
-    await waitFor(() => expect(bridge.status).toHaveBeenCalledOnce())
-  })
+  const plan = (id: string) => within(window.document.querySelector<HTMLElement>(`[data-atum-connection="${id}"]`)!)
 
-  it('draws one subscription row and opens the two-service chooser', async () => {
+  beforeEach(() => resetAccountConnectionsForTest())
+
+  it('lists every plan, connected or not, with one Connect each, and no Subscriptions pane anywhere else', async () => {
     useSubscriptions()
-    view(<Harness initial="subscriptions" />)
+    const { container } = view(<Harness initial="subscriptions" />)
+    const pane = container.querySelector('[data-matrix-settings-destination="connections"]')!
 
-    expect(row().getByText('Your subscription')).toBeTruthy()
-    expect(row().getByText('Use ChatGPT, Claude or Gemini you already pay for')).toBeTruthy()
-    expect(row().getAllByRole('button', { name: 'Connect' })).toHaveLength(1)
-    fireEvent.click(row().getByRole('button', { name: 'Connect' }))
-    const chooser = within(await screen.findByRole('dialog', { name: 'Your subscription' }))
-    expect(chooser.getByRole('button', { name: /ChatGPT/ })).toBeTruthy()
-    expect(chooser.getByRole('button', { name: /OpenCode Go/ })).toBeTruthy()
+    expect([...pane.querySelectorAll('[data-atum-connection]')].map(row => row.getAttribute('data-atum-connection'))).toEqual([
+      'codex',
+      'claude',
+      'antigravity',
+      'opencode_go',
+      'owner_chats'
+    ])
+    expect(plan('claude').getByText('Not connected')).toBeTruthy()
+
+    fireEvent.click(plan('claude').getByRole('button', { name: 'Connect' }))
+    expect($accountConnect.get()).toEqual({ plan: 'claude', mode: 'connect' })
+    // No device-code sign-in, terms text or per-assistant list is drawn here.
+    expect(pane.textContent).not.toMatch(/one-time code|device code|Assistants named|Allow/u)
   })
 
-  it('offers Sign in for a ChatGPT sign-in that stopped working and starts a new sign-in directly', async () => {
-    const bridge = useSubscriptions({
-      status: vi.fn(async () => ({
-        scope: 'account' as const,
-        providers: [
-          { id: 'openai-codex' as const, connected: false, needsSignIn: true },
-          { id: 'opencode-go' as const, connected: false }
-        ]
-      }))
-    })
-    view(<Harness initial="subscriptions" />)
-
-    const reconnect = await waitFor(() => row().getByRole('button', { name: 'Sign in' }))
-    expect(row().getByText('ChatGPT needs you to sign in again.')).toBeTruthy()
-    fireEvent.click(reconnect)
-
-    await waitFor(() => expect(screen.getByText('TEST-CODE')).toBeTruthy())
-    expect(bridge.startChatGpt).toHaveBeenCalledOnce()
-  })
-
-  it('opens the compact ChatGPT flow with one code, one link, the note, and How it works behind a drawer', async () => {
-    const bridge = useSubscriptions()
-    view(<Harness initial="subscriptions" />)
-    await choose('ChatGPT')
-
-    await waitFor(() => expect(screen.getByText('TEST-CODE')).toBeTruthy())
-    expect(screen.getByText('Waiting for you…')).toBeTruthy()
-    expect(screen.getByRole('button', { name: 'Open the sign-in page' })).toBeTruthy()
-    expect(screen.getByText('How it works')).toBeTruthy()
-    expect(screen.getByText(/OpenAI hasn’t approved this sign-in/)).toBeTruthy()
-    expect(bridge.startChatGpt).toHaveBeenCalledOnce()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(bridge.cancelChatGpt).toHaveBeenCalledWith('opaque-session')
-  })
-
-  it('dismisses the nested ChatGPT flow before its parent Settings sheet', async () => {
-    const onClosed = vi.fn()
+  it('reads the account registry: where each plan runs, Manage on this Mac opens its screen in Work, home tools listed', async () => {
     useSubscriptions()
-    view(<Harness initial="subscriptions" onClosed={onClosed} />)
-    await choose('ChatGPT')
+    const work = useWork()
+    const closed = vi.fn()
+    view(<Harness initial="connections" onClosed={closed} />)
 
-    const child = await screen.findByRole('dialog', { name: 'ChatGPT' })
-    expect(screen.getByText('TEST-CODE')).toBeTruthy()
+    expect(await plan('codex').findByText('On this Mac')).toBeTruthy()
+    expect(plan('claude').getByText('Last seen on Mac mini')).toBeTruthy()
+    expect(plan('claude').queryByRole('button')).toBeNull()
+    expect(plan('antigravity').getByRole('button', { name: 'Connect' })).toBeTruthy()
+    expect(screen.getByText('Strap')).toBeTruthy()
+    expect(screen.getByText('Every assistant knows your chats.')).toBeTruthy()
 
-    fireEvent.keyDown(child, { key: 'Escape' })
-
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'ChatGPT' })).toBeNull())
-    expect(window.document.querySelector('[data-matrix-settings]:not([hidden])')).toBeTruthy()
-    expect(onClosed).not.toHaveBeenCalled()
-
-    fireEvent.keyDown(window.document, { key: 'Escape' })
-    await waitFor(() => expect(onClosed).toHaveBeenCalledOnce())
-  })
-
-  it('shows Manage when connected, and Disconnect removes it at once', async () => {
-    const bridge = useSubscriptions()
-
-    // Connected from the first read.
-    vi.mocked(bridge.status).mockResolvedValue({
-      scope: 'account',
-      providers: [
-        { id: 'openai-codex', connected: true },
-        { id: 'opencode-go', connected: true }
-      ]
-    })
-    view(<Harness initial="subscriptions" />)
-
-    expect(await row().findByText('ChatGPT · Ready for all your assistants')).toBeTruthy()
-    fireEvent.click(row().getByRole('button', { name: 'Change' }))
-
-    // One state, no second act: a working plan needs nothing from the person but a way out.
-    const manage = within(await screen.findByRole('dialog', { name: 'ChatGPT' }))
-    expect(manage.getByText('Ready for all your assistants')).toBeTruthy()
-    expect(manage.queryByRole('button', { name: /Reconnect|this Mac|Try again/ })).toBeNull()
-    expect(manage.queryByText(/Couldn’t/)).toBeNull()
-
-    vi.mocked(bridge.status).mockResolvedValue(disconnected)
-    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }))
-
-    await waitFor(() => expect(bridge.disconnectChatGpt).toHaveBeenCalledOnce())
-    await waitFor(() => expect(row().getByRole('button', { name: 'Connect' })).toBeTruthy())
-  })
-
-  it('sets nothing up for the cloud for a ChatGPT sign-in this Mac holds ("Use this Mac for ChatGPT" is gone)', async () => {
-    const bridge = useSubscriptions({
-      status: vi.fn(async () => ({
-        scope: 'account' as const,
-        providers: [
-          {
-            id: 'openai-codex' as const,
-            connected: true,
-            localConnected: true,
-            relay: { state: 'disabled' as const, thisMac: false, revision: 0 }
-          },
-          { id: 'opencode-go' as const, connected: false }
-        ]
-      }))
-    })
-
-    view(<Harness initial="subscriptions" />)
-
-    expect(await row().findByRole('button', { name: 'Change' })).toBeTruthy()
-    expect(row().queryByText(/Setting up|Not ready/)).toBeNull()
-    expect('useThisMacForChatGpt' in bridge).toBe(false)
-
-    fireEvent.click(row().getByRole('button', { name: 'Change' }))
-    const manage = within(await screen.findByRole('dialog', { name: 'ChatGPT' }))
-    expect(manage.queryByRole('button', { name: /Try again|this Mac/ })).toBeNull()
-    expect(manage.getByRole('button', { name: 'Disconnect' })).toBeTruthy()
-  })
-
-  it('says it could not check, instead of offering Connect, when the status read fails', async () => {
-    let fail = true
-    const bridge = useSubscriptions({
-      status: vi.fn(async () => {
-        if (fail) {
-          throw new Error('matrix_subscriptions_unavailable')
-        }
-
-        return disconnected
-      })
-    })
-
-    view(<Harness initial="subscriptions" />)
-
-    expect(await row().findByText('Couldn’t check your subscription.')).toBeTruthy()
-    expect(row().queryByRole('button', { name: 'Connect' })).toBeNull()
-    fail = false
-    fireEvent.click(row().getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(bridge.status).toHaveBeenCalledTimes(2))
-    expect(await row().findByRole('button', { name: 'Connect' })).toBeTruthy()
+    fireEvent.click(plan('codex').getByRole('button', { name: 'Manage' }))
+    await waitFor(() => expect(work.openPlanConnect).toHaveBeenCalledWith('codex'))
+    expect(closed).toHaveBeenCalledOnce()
   })
 
   it('saves an OpenCode Go key through native main and clears the field', async () => {
     const bridge = useSubscriptions()
-    view(<Harness initial="subscriptions" />)
-    await choose('OpenCode Go')
+    view(<Harness initial="connections" />)
 
+    fireEvent.click(plan('opencode_go').getByRole('button', { name: 'Connect' }))
     const field = await screen.findByLabelText('OpenCode Go key')
     fireEvent.change(field, { target: { value: 'synthetic-opencode-key' } })
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
@@ -877,170 +734,13 @@ describe('Settings › Connections', () => {
     expect(window.document.body.innerHTML).not.toContain('synthetic-opencode-key')
   })
 
-  it('shows the platform OpenCode Go connection and its models without a key', async () => {
-    const bridge = useSubscriptions({
-      status: vi.fn(async () => ({
-        scope: 'account' as const,
-        providers: [
-          { id: 'openai-codex' as const, connected: false },
-          {
-            id: 'opencode-go' as const,
-            connected: true,
-            source: 'platform' as const,
-            revision: 3,
-            models: ['glm-5.2', 'kimi-k3'],
-            modelDetails: [
-              { id: 'glm-5.2', displayName: 'GLM-5.2', efforts: ['low', 'medium', 'high'] as const, defaultEffort: 'medium' as const },
-              { id: 'kimi-k3', displayName: 'Kimi K3', efforts: [] as const, defaultEffort: 'medium' as const }
-            ]
-          }
-        ]
-      }))
-    })
+  it('shows a connected OpenCode Go in the cloud, and Disconnect removes it', async () => {
+    const bridge = useSubscriptions(true)
+    view(<Harness initial="connections" />)
 
-    view(<Harness initial="subscriptions" />)
-
-    expect(await row().findByRole('button', { name: 'Change' })).toBeTruthy()
-    expect(window.document.body.innerHTML).not.toContain('glm-5.2')
-    expect(window.document.body.innerHTML).not.toMatch(/api[_-]?key|secret|ciphertext/iu)
-
-    fireEvent.click(row().getByRole('button', { name: 'Change' }))
+    expect(await plan('opencode_go').findByText('In the cloud')).toBeTruthy()
+    fireEvent.click(plan('opencode_go').getByRole('button', { name: 'Manage' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }))
     await waitFor(() => expect(bridge.disconnectOpenCode).toHaveBeenCalledOnce())
-  })
-
-  it('keeps the dialog open with an honest failure when the platform refuses the key', async () => {
-    const bridge = useSubscriptions({
-      connectOpenCode: vi.fn(async () => Promise.reject(new Error('matrix_subscriptions_failed')))
-    })
-
-    view(<Harness initial="subscriptions" />)
-    await choose('OpenCode Go')
-    const field = await screen.findByLabelText('OpenCode Go key')
-    fireEvent.change(field, { target: { value: 'synthetic-opencode-key' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
-
-    expect(await screen.findByText('Couldn’t connect. Try again.')).toBeTruthy()
-    expect(screen.getByLabelText('OpenCode Go key')).toHaveProperty('value', '')
-    expect(window.document.body.innerHTML).not.toContain('synthetic-opencode-key')
-    expect(bridge.disconnectOpenCode).not.toHaveBeenCalled()
-  })
-
-  it('says when the ChatGPT sign-in failed and offers Try again', async () => {
-    const bridge = useSubscriptions({ startChatGpt: vi.fn(async () => Promise.reject(new Error('failed'))) })
-    view(<Harness initial="subscriptions" />)
-    await choose('ChatGPT')
-
-    expect(await screen.findByText('Couldn’t connect. Try again.')).toBeTruthy()
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'ChatGPT' })).getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(bridge.startChatGpt).toHaveBeenCalledTimes(2))
-  })
-
-  it('waits through pending polls, then reads the saved account plan and offers Change', async () => {
-    let saved = false
-    let finishFirstPoll: ((value: { status: 'pending' }) => void) | undefined
-    let finishSecondPoll: ((value: { status: 'connected' }) => void) | undefined
-
-    const bridge = useSubscriptions({
-      status: vi.fn(async () =>
-        saved
-          ? {
-              scope: 'account' as const,
-              providers: [
-                {
-                  id: 'openai-codex' as const,
-                  connected: true
-                },
-                { id: 'opencode-go' as const, connected: false }
-              ]
-            }
-          : disconnected
-      ),
-      startChatGpt: vi.fn(async () => ({
-        status: 'pending' as const,
-        session: 'opaque-session',
-        provider: 'openai-codex' as const,
-        userCode: 'TEST-CODE',
-        url: 'https://auth.openai.com/codex/device',
-        expiresIn: 900,
-        pollInterval: 0.001
-      })),
-      pollChatGpt: vi.fn()
-        .mockImplementationOnce(() => new Promise(resolve => {
-          finishFirstPoll = resolve
-        }))
-        .mockImplementationOnce(() => new Promise(resolve => {
-          finishSecondPoll = resolve
-        }))
-    })
-
-    view(<Harness initial="subscriptions" />)
-    await choose('ChatGPT')
-
-    await waitFor(() => expect(bridge.pollChatGpt).toHaveBeenCalledWith('opaque-session'))
-    expect(screen.getByText('Waiting for you…')).toBeTruthy()
-    expect(screen.queryByText('Couldn’t connect. Try again.')).toBeNull()
-
-    await act(async () => finishFirstPoll?.({ status: 'pending' }))
-    await waitFor(() => expect(bridge.pollChatGpt).toHaveBeenCalledTimes(2))
-    expect(screen.getByText('Waiting for you…')).toBeTruthy()
-    expect(screen.queryByText('Couldn’t connect. Try again.')).toBeNull()
-
-    saved = true
-    await act(async () => finishSecondPoll?.({ status: 'connected' }))
-    await waitFor(() => expect(screen.queryByText('TEST-CODE')).toBeNull())
-    await waitFor(() => expect(row().getByRole('button', { name: 'Change' })).toBeTruthy())
-    fireEvent.click(row().getByRole('button', { name: 'Change' }))
-    expect(await screen.findByRole('button', { name: 'Disconnect' })).toBeTruthy()
-    expect((await bridge.status()).providers.find(provider => provider.id === 'openai-codex')).toMatchObject({
-      connected: true
-    })
-  })
-
-  it('keeps the flow disconnected with an honest retry on a real provider failure', async () => {
-    const bridge = useSubscriptions({
-      startChatGpt: vi.fn(async () => ({
-        status: 'pending' as const,
-        session: 'opaque-session',
-        provider: 'openai-codex' as const,
-        userCode: 'TEST-CODE',
-        url: 'https://auth.openai.com/codex/device',
-        expiresIn: 900,
-        pollInterval: 0.001
-      })),
-      pollChatGpt: vi.fn(async () => ({ status: 'failed' as const }))
-    })
-
-    view(<Harness initial="subscriptions" />)
-    await choose('ChatGPT')
-    await act(async () => new Promise(resolve => setTimeout(resolve, 10)))
-
-    expect(await screen.findByText('Couldn’t connect. Try again.')).toBeTruthy()
-    const dialog = within(screen.getByRole('dialog', { name: 'ChatGPT' }))
-    fireEvent.click(dialog.getByRole('button', { name: 'Try again' }))
-    await waitFor(() => expect(bridge.startChatGpt).toHaveBeenCalledTimes(2))
-    expect(bridge.status).toHaveBeenCalledTimes(1)
-  })
-
-  it('closes a cancelled provider flow without showing a failure', async () => {
-    const bridge = useSubscriptions({
-      startChatGpt: vi.fn(async () => ({
-        status: 'pending' as const,
-        session: 'opaque-session',
-        provider: 'openai-codex' as const,
-        userCode: 'TEST-CODE',
-        url: 'https://auth.openai.com/codex/device',
-        expiresIn: 900,
-        pollInterval: 0.001
-      })),
-      pollChatGpt: vi.fn(async () => ({ status: 'cancelled' as const }))
-    })
-
-    view(<Harness initial="subscriptions" />)
-    await choose('ChatGPT')
-
-    await waitFor(() => expect(bridge.pollChatGpt).toHaveBeenCalledWith('opaque-session'))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'ChatGPT' })).toBeNull())
-    expect(screen.queryByText('Couldn’t connect. Try again.')).toBeNull()
   })
 })

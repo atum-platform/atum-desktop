@@ -3,7 +3,7 @@ import type { MatrixSubscriptionProviderStatus, MatrixSubscriptionsStatus } from
 
 /**
  * Settings › Connections and the model picker's ChatGPT states, on fixture data
- * (`?subscriptions=`). Each mode is one real account state (src/matrix/subscription-view.ts):
+ * (`?subscriptions=`). Each mode is one real account state:
  *
  * - `none` — nothing connected; the picker offers "Use your ChatGPT subscription".
  * - `connecting` — nothing connected, and a ChatGPT sign-in waits for its code.

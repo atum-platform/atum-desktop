@@ -1,3 +1,4 @@
+import type { AccountPlan } from '../../../shared/account-connections'
 import type {
   MatrixWorkAgentActivity,
   MatrixWorkAssistants,
@@ -7,6 +8,7 @@ import type {
 } from '../../../shared/matrix-work'
 import type { WorkSubscriptionState } from '../gate/contract'
 import type { GateServiceState } from '../gate/service'
+import { PLAN_PROVIDER_BY_INSTANCE } from '../plan-providers'
 
 /** The slice of lane G's read-only state the Work screen draws. */
 export type GateSurfaceState = Pick<
@@ -33,6 +35,15 @@ export function projectWorkPlan(state: GateSurfaceState | null | undefined): Mat
 
 /** T3's own provider screen, on the Codex instance (`apps/web/src/routes/_chat.settings.providers.tsx` in the fork). */
 export const WORK_PLAN_CONNECT_PATH = '/settings/providers?instanceId=codex'
+
+/** The same screen on each plan's built-in instance (`PLAN_PROVIDER_BY_INSTANCE`, reversed). */
+export function workPlanConnectPath(plan: AccountPlan = 'codex'): string {
+  const instance = (Object.keys(PLAN_PROVIDER_BY_INSTANCE) as (keyof typeof PLAN_PROVIDER_BY_INSTANCE)[]).find(
+    id => PLAN_PROVIDER_BY_INSTANCE[id] === plan
+  )
+
+  return `/settings/providers?instanceId=${instance ?? 'codex'}`
+}
 
 /** Offer native setup until T3 confirms the plan is connected on this Mac. */
 export function projectWorkPlanConnect(state: GateSurfaceState | null | undefined): MatrixWorkPlanConnect {

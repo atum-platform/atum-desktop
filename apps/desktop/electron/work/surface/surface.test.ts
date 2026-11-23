@@ -564,6 +564,31 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
     expect(loads).toHaveLength(2)
   })
 
+  it('opens each plan\'s own built-in screen; only ChatGPT waits for its old cloud copy to retire', async () => {
+    const { loads, parts, surface } = navigable()
+    const prepareChatGptConnect = vi.fn(async () => undefined)
+
+    surface.attach({ ...parts, prepareChatGptConnect })
+    await surface.show(RECT)
+    await surface.openPlanConnect('claude')
+    await surface.openPlanConnect('antigravity')
+
+    expect(loads).toEqual([
+      'http://127.0.0.1:61275/settings/providers?instanceId=claudeAgent',
+      'http://127.0.0.1:61275/settings/providers?instanceId=antigravity'
+    ])
+    expect(prepareChatGptConnect).not.toHaveBeenCalled()
+  })
+
+  it('reads the account\'s connections through its parts, and nothing while no account is attached', async () => {
+    const { parts, surface } = navigable()
+    const view = { source: 'this_mac' as const, connections: [] }
+
+    expect(await surface.readConnections()).toBeNull()
+    surface.attach({ ...parts, readConnections: async () => view })
+    expect(await surface.readConnections()).toBe(view)
+  })
+
   it('keeps the setup offer and waits for custody retirement before navigating', async () => {
     const { loads, parts, surface } = navigable()
 
@@ -628,6 +653,7 @@ describe('registerMatrixWorkIpc', () => {
       setWork: vi.fn(async () => {}),
       reconnectAssistants: vi.fn(async () => {}),
       openPlanConnect: vi.fn(async () => {}),
+      readConnections: vi.fn(async () => null),
       readPlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
       setPlanConsent: vi.fn(async () => ({ state: 'on' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false })),
       revokePlanConsent: vi.fn(async () => ({ state: 'off' as const, agents: [], eligible: [], macs: [], alsoWhenScheduled: false }))
@@ -666,16 +692,22 @@ describe('registerMatrixWorkIpc', () => {
 
     const consent = { agents: ['00000000-0000-4000-8000-00000000b001'], macs: ['00000000-0000-4000-8000-00000000a001'], alsoWhenScheduled: true }
     await call({ kind: 'openPlanConnect' })
+    await call({ kind: 'openPlanConnect', plan: 'claude' })
+    await call({ kind: 'readConnections' })
     await call({ kind: 'readPlanConsent' })
     await call({ kind: 'setPlanConsent', consent })
     await call({ kind: 'revokePlanConsent' })
-    expect(surface.openPlanConnect).toHaveBeenCalledOnce()
+    expect(surface.openPlanConnect).toHaveBeenNthCalledWith(1, undefined)
+    expect(surface.openPlanConnect).toHaveBeenNthCalledWith(2, 'claude')
+    expect(surface.readConnections).toHaveBeenCalledOnce()
     expect(surface.readPlanConsent).toHaveBeenCalledOnce()
     expect(surface.setPlanConsent).toHaveBeenCalledWith(consent)
     expect(surface.revokePlanConsent).toHaveBeenCalledOnce()
 
     for (const value of [
       { kind: 'openPlanConnect', url: 'https://example.invalid' },
+      { kind: 'openPlanConnect', plan: 'gemini' },
+      { kind: 'readConnections', owner: 'someone' },
       { kind: 'setPlanConsent' },
       { kind: 'setPlanConsent', consent: { ...consent, agents: [] } },
       { kind: 'setPlanConsent', consent: { ...consent, agents: ['all'] } },

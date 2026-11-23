@@ -45,15 +45,19 @@ function renderMacs(native: MatrixNativeMacBridge | undefined, macs: MatrixReach
 const thisRow = () => window.document.querySelector('[data-matrix-mac="this"]') as HTMLElement
 
 describe("this Mac's native reach in Your Macs", () => {
-  it('shows only the quiet Ready state when native reach is connected', async () => {
-    const { ssh, value } = bridge({ status: view('connected') })
+  it('shows this Mac\'s one off switch when native reach is connected, and off disconnects it', async () => {
+    const { ssh, value } = bridge({ status: view('connected'), disconnect: view('tunnel_down') })
     renderMacs(value)
 
     await waitFor(() => expect(thisRow().getAttribute('data-matrix-mac-native')).toBe('connected'))
     expect(ssh).toHaveBeenCalledWith('status')
-    expect(within(thisRow()).getByRole('status').textContent).toContain('Ready')
+    const toggle = within(thisRow()).getByRole('switch', { name: 'Assistants can use this Mac' })
+    expect(toggle.getAttribute('data-state')).toBe('checked')
     expect(within(thisRow()).queryByRole('button')).toBeNull()
     expect(screen.queryByText(words.remoteLogin)).toBeNull()
+
+    fireEvent.click(toggle)
+    await waitFor(() => expect(ssh).toHaveBeenCalledWith('disconnect'))
   })
 
   it('offers one Allow… for Remote Login, and that is the only thing that asks for the password', async () => {

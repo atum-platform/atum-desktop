@@ -1,11 +1,13 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { $accountConnect, $accountConnections, resetAccountConnectionsForTest } from '@/app/connections/store'
 import { $work, $workActive, resetWorkStoreForTests } from '@/app/work/store'
 import { I18nProvider } from '@/i18n'
 
 import ownerSnapshotFixture from '../../contracts/atum-agent-home-v2.5/fixtures/owner.placement.snapshot.json'
 import { ownerHomeViewFor } from '../../electron/matrix/agent-home-placement/view'
+import { ACCOUNT_CONNECTIONS_FIXTURE } from '../../shared/account-connections'
 import type {
   MatrixAgentHomeBridge,
   MatrixAgentHomeModelOption,
@@ -30,6 +32,7 @@ import { MatrixModelPicker, type MatrixModelPickerRelay } from './model-picker'
 import { readMatrixModelPickerPreferences, writeMatrixModelPickerPreferences } from './model-picker-preferences'
 
 beforeEach(() => {
+  resetAccountConnectionsForTest()
   window.localStorage.clear()
   vi.stubGlobal(
     'ResizeObserver',
@@ -710,7 +713,8 @@ describe('the T3-layout conversation model picker', () => {
     })
     const card = await open('Model: Nguyệt Thực 1.3')
 
-    expect(rail(card, 'openai-codex')).toBeFalsy()
+    // The account's plans always have a rail entry; with none connected each mark is hollow and nothing of this Mac is listed.
+    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
     expect(rowIds(card)).toEqual([NGUYET_THUC_ROUTE, NHAT_THUC_ROUTE, THAI_CUC_ROUTE])
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
@@ -736,7 +740,7 @@ describe('the T3-layout conversation model picker', () => {
 
     const card = await open('Model: Nguyệt Thực 1.3')
 
-    expect(rail(card, 'openai-codex')).toBeFalsy()
+    expect(rail(card, 'openai-codex').className).toMatch(/opacity-45/u)
     expect(selected(card)).toHaveLength(1)
     fireEvent.click(row(card, NHAT_THUC_ROUTE))
     expect(model).toHaveBeenCalledWith('agent-luna', expect.objectContaining({ model: 'nhat-thuc' }))
@@ -1228,13 +1232,12 @@ describe('account subscriptions in the model picker', () => {
     expect(card.querySelector('[data-matrix-model-note]')!.textContent).toBe('ChatGPT needs you to sign in again.')
     expect(within(card).queryByText('Reconnect ChatGPT')).toBeNull()
 
-    // Connect opens the service chooser in place; ChatGPT there starts its sign-in.
+    // Connect opens the service chooser in place; ChatGPT there opens the one account connect sheet, never a device code.
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail] [data-matrix-model-connect]')!)
-    const chooser = await screen.findByRole('dialog', { name: 'Your subscription' })
-    expect(within(chooser).getByRole('button', { name: /ChatGPT.*needs you to sign in again/ })).toBeTruthy()
-    fireEvent.click(chooser.querySelector<HTMLButtonElement>('[data-matrix-subscription-choice="openai-codex"]')!)
-    await waitFor(() => expect(screen.getByText('CODE-123')).toBeTruthy())
-    expect(subscriptions.startChatGpt).toHaveBeenCalledOnce()
+    const chooser = await screen.findByRole('dialog', { name: 'Subscriptions' })
+    fireEvent.click(chooser.querySelector<HTMLButtonElement>('[data-matrix-subscription-choice="codex"]')!)
+    expect($accountConnect.get()).toEqual({ plan: 'codex', mode: 'connect' })
+    expect(subscriptions.startChatGpt).not.toHaveBeenCalled()
     expect(onSubscriptions).not.toHaveBeenCalled()
   })
 
@@ -1253,9 +1256,10 @@ describe('account subscriptions in the model picker', () => {
     expect(within(card).queryByText(/Use your ChatGPT|Connect OpenCode|Use your ChatGPT or OpenCode plan/)).toBeNull()
 
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail] [data-matrix-model-connect]')!)
-    const chooser = within(await screen.findByRole('dialog', { name: 'Your subscription' }))
-    expect(chooser.getByRole('button', { name: /ChatGPT/ })).toBeTruthy()
-    expect(chooser.getByRole('button', { name: /OpenCode Go/ })).toBeTruthy()
+    const chooser = within(await screen.findByRole('dialog', { name: 'Subscriptions' }))
+    for (const name of [/ChatGPT/, /Claude/, /Antigravity/, /OpenCode Go/]) {
+      expect(chooser.getByRole('button', { name })).toBeTruthy()
+    }
 
     fireEvent.click(chooser.getByRole('button', { name: /OpenCode Go/ }))
     expect(await screen.findByLabelText('OpenCode Go key')).toBeTruthy()
@@ -1494,6 +1498,31 @@ describe('account subscriptions in the model picker', () => {
     picker(ROOM, { ...options, cloudOnly: false })
     card = await open(/Model:/)
     expect(row(card, OPENROUTER_ROUTE)).toBeTruthy()
+  })
+
+  it('lists every account plan in the rail: a connected plan the relay does not carry is greyed with one line; one connected nowhere is one Connect', async () => {
+    $accountConnections.set(ACCOUNT_CONNECTIONS_FIXTURE)
+    picker(ROOM, { cloud: true, here: 'cloud', local: true, managed: true, cloudChoice: { offered: ['default'], current: 'default' } })
+    const card = await open('Model: Nguyệt Thực 1.3')
+
+    // Atum first, connected plans next, the plan to connect last; its mark is hollow.
+    const items = [...card.querySelectorAll('[data-matrix-model-rail-item]')].map(item => item.getAttribute('data-matrix-model-rail-item'))
+    expect(items.indexOf('atum')).toBeLessThan(items.indexOf('claude-plan'))
+    expect(items.indexOf('claude-plan')).toBeLessThan(items.indexOf('antigravity'))
+    expect(rail(card, 'antigravity').className).toMatch(/opacity-45/u)
+
+    fireEvent.click(rail(card, 'claude-plan'))
+    const claude = card.querySelector<HTMLButtonElement>('[data-matrix-model-route="claude-plan:claude-sonnet-5-5"]')!
+    expect(claude.disabled).toBe(true)
+    expect(card.textContent).toContain('Works in Work for now')
+
+    fireEvent.click(rail(card, 'antigravity'))
+    const connect = card.querySelector('[data-atum-picker-connect="antigravity"]')!
+    expect(connect.textContent).toContain('Use your Antigravity plan')
+    fireEvent.click(within(connect as HTMLElement).getByRole('button', { name: 'Connect' }))
+    expect($accountConnect.get()).toEqual({ plan: 'antigravity', mode: 'connect' })
+    // No price, limit, relay or Mac text in the picker.
+    expect(card.textContent ?? '').not.toMatch(/relay|offline|Protons|% used/iu)
   })
 
   it('labels a cloud current-model fallback as Cloud, never This Mac', async () => {

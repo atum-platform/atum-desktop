@@ -1,4 +1,5 @@
-import { $workActive, $workBandOpen, $workPlanConsent } from '@/app/work/store'
+import { openAccountConnect } from '@/app/connections/store'
+import { $workActive, $workBandOpen } from '@/app/work/store'
 
 import type {
   MatrixWorkBridge,
@@ -115,7 +116,9 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
 
   $workActive.set(params.get('page') !== 'chat')
   $workBandOpen.set(params.has('band'))
-  $workPlanConsent.set(params.has('sheet') ? { thisMac: true } : null)
+  if (params.has('sheet')) {
+    openAccountConnect('codex')
+  }
 
   try {
     // The Connect step appears once; the playground shows it whenever `connect=offer` asks.

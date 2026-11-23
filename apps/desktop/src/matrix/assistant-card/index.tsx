@@ -13,7 +13,7 @@ import { AssistantCard, AssistantCardSheet, openAssistantChat } from './assistan
 import { useAssistantCardCopy } from './copy'
 import { $assistantCard, closeAssistantCard } from './store'
 
-export { $assistantCard, $assistantNameOverrides, openAssistantCard, settleAssistantNames, withAssistantNames } from './store'
+export { $assistantCard, $assistantNameOverrides, closeAssistantCard, openAssistantCard, settleAssistantNames, withAssistantNames } from './store'
 
 /**
  * The one card, wherever it was opened from (a roster row's menu, ⌘I, the chat header, an

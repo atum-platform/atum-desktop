@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { ThisMacSwitch } from '@/app/connections/this-mac-switch'
 import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { ChevronRight, DeviceDesktop } from '@/lib/icons'
@@ -202,6 +203,8 @@ export function MatrixYourMacsSection({
                 <Button data-matrix-mac-action="retry" onClick={onRetry} size="sm" variant="secondary">
                   {copy.macs.tryAgain}
                 </Button>
+              ) : mac.thisMac && native.view ? (
+                <ThisMacSwitch native={native} />
               ) : (
                 <SettingsStatus role="status">
                   <MatrixMacState copy={copy} state={mac.state} />

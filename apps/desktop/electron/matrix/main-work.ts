@@ -33,6 +33,7 @@ import {
   WorkSurface,
   type WorkSurfaceParts
 } from '../work/surface'
+import { readAccountConnections } from '../work/surface/account-connections'
 import { projectPlanCapabilities } from '../work/surface/plan-capabilities'
 import { readPlanUsage } from '../work/surface/plan-usage'
 import { readWorkProviders } from '../work/surface/provider-config'
@@ -528,6 +529,20 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
     },
     wantServer: () => mount.wantServer(),
     prepareChatGptConnect: () => deps.prepareChatGptConnect(),
+    readConnections: () => readAccountConnections({
+      endpoint: () => deps.deviceServicesEndpoint(),
+      bearer: () => deps.bearer(),
+      thisDevice: () => deps.deviceServiceId(),
+      async localCapabilities() {
+        const running = host.current()
+
+        if (!running || !host.enabled()) {return {}}
+
+        const providers = await readWorkProviders(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+
+        return host.current()?.id === running.id ? projectPlanCapabilities(providers) : {}
+      }
+    }),
     deviceServiceId: () => deps.deviceServiceId(),
     relay: createOwnerRelay(mount, consentClient, () => ({ endpoint: deps.deviceServicesEndpoint() ?? '', bearer: () => deps.bearer() })),
     consent: consentClient
