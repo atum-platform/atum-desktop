@@ -70,6 +70,7 @@ import { runMatrixCommand } from './text-document-actions'
 /** A chat's composer is named for who you write to ("Message Atum"); a thread's keeps the plain prompt. */
 const COMPOSER = /^Message /
 const THREAD_COMPOSER = 'Reply'
+
 /** New assistant is the New chat sheet's footer action (Atum Kit mockups), not a roster row. */
 async function openNewAssistant() {
   fireEvent.click(await screen.findByRole('button', { name: 'New…' }))
@@ -544,6 +545,7 @@ describe('Team Space threads', () => {
 
     const secondRoot = { ...root, id: '$other-root', body: 'Office lunch?', timestamp: 5 }
     const multiline = { ...root, id: '$multi', body: 'First line\nSecond line', timestamp: 12 }
+
     const reply = {
       ...root,
       id: '$reply',
@@ -654,6 +656,7 @@ describe('Team Space threads', () => {
     const multilineMenu = channel.querySelector<HTMLElement>(
       '[data-matrix-message-id="$multi"] [data-matrix-report-message]'
     )!
+
     fireEvent.keyDown(multilineMenu, { key: 'Enter' })
     fireEvent.click(screen.getByRole('menuitem', { name: 'Save message' }))
     await waitFor(() => expect(command).toHaveBeenCalledWith({
@@ -1053,10 +1056,12 @@ function fixture(
       { kind: 'matrix.owner-rooms', optOutGate: 'team_spaces', availability: 'unavailable' as const, status: 'ready' as const, grantable: true }
     ]
   }
+
   const defaultAgentSources = {
     read: vi.fn(async () => firstRunSources),
     set: vi.fn(async (gate: keyof typeof firstRunSources.gates, enabled: boolean) => {
       firstRunSources = { ...firstRunSources, gates: { ...firstRunSources.gates, [gate]: enabled } }
+
       return firstRunSources
     })
   }
@@ -2036,6 +2041,7 @@ describe('isolated Matrix composition', () => {
         { userId: moon.bot!.user_id, membership: 'join' }
       ]
     }
+
     const botMessage: MatrixSnapshot['messages'][number] = {
       id: '$moon-answer',
       sender: moon.bot!.user_id,
@@ -2056,11 +2062,14 @@ describe('isolated Matrix composition', () => {
         keyboard: [[{ label: 'Sign in', kind: 'url', url: 'https://moon.example/sign-in#continue' }]]
       }
     }
+
     const legacySend = vi.fn(async () => ({
       eventId: '$legacy-turn',
       result: { state: 'publication_pending' as const }
     }))
+
     const appOpen = vi.fn(async () => ({ viewId: 'native-moon' }))
+
     const appMenu: MatrixAppMenu = {
       app: moon,
       routes: [
@@ -2084,6 +2093,7 @@ describe('isolated Matrix composition', () => {
         onState: () => () => {}
       }
     } as unknown as MatrixUiBridge['apps']
+
     const state: MatrixSnapshot = {
       ...signedOut,
       state: 'ready',
@@ -2098,6 +2108,7 @@ describe('isolated Matrix composition', () => {
       messages: [],
       typing: []
     }
+
     f.emit(state)
 
     expect(screen.queryByText('continue')).toBeNull()
@@ -2830,6 +2841,7 @@ describe('isolated Matrix composition', () => {
   it('shows a failed cloud turn as Atum system status, and keeps other notices’ own words', async () => {
     const { emit } = fixture()
     const sentAt = Date.now()
+
     const notice = (id: string, body: string, code: string, offset: number) => ({
       ...controlsState.messages[0]!,
       id,
@@ -2891,6 +2903,7 @@ describe('isolated Matrix composition', () => {
       code: 'plan_sign_in',
       since: 1
     }
+
     const cloud: MatrixSnapshot = {
       ...controlsState,
       readiness: planSignIn,
@@ -2911,6 +2924,7 @@ describe('isolated Matrix composition', () => {
         }
       ]
     }
+
     const { bridge } = fixture(async () => cloud)
 
     await waitFor(() => expect(window.document.querySelector('[data-slot="matrix-startup"]')).toBeNull(), LAUNCH_OPENS)
@@ -3720,6 +3734,7 @@ describe('isolated Matrix composition', () => {
 
     it('does nothing at Home, where there are no companies on screen to move between', async () => {
       const companies = twoCompaniesWithChannel('!launch:test')
+
       const { emit } = fixture(
         undefined,
         'en',
@@ -3728,6 +3743,7 @@ describe('isolated Matrix composition', () => {
         undefined,
         companies
       )
+
       const assistant = controlsState.rooms[0]!
 
       emit({ ...controlsState, companyWorkspaceEnabled: true, roomId: assistant.id, rooms: [assistant, launch] })
@@ -3740,6 +3756,7 @@ describe('isolated Matrix composition', () => {
 
     it('leaves the window header to the company pages when the next company has no channel', async () => {
       const companies = twoCompaniesWithChannel('!launch:test')
+
       const { emit } = fixture(
         undefined,
         'en',
@@ -3748,6 +3765,7 @@ describe('isolated Matrix composition', () => {
         undefined,
         companies
       )
+
       const header = () => window.document.querySelector<HTMLElement>('[data-matrix-header-identity]')!
 
       emit({
@@ -3803,9 +3821,11 @@ describe('isolated Matrix composition', () => {
 
     it('keeps the box closed, quietly, until the platform has said whether the channel is archived', async () => {
       let release!: () => void
+
       const gate = new Promise<void>(resolve => {
         release = resolve
       })
+
       const command = vi.fn(async () => null)
       const companies = companyWorkspaceWithLateDirectory('!launch:test', gate, () => 'archived')
       const { emit } = fixture(undefined, 'en', workplacePages(), command, undefined, companies)
@@ -3840,10 +3860,13 @@ describe('isolated Matrix composition', () => {
 
     it('opens the box once the platform says the channel is active', async () => {
       let release!: () => void
+
       const gate = new Promise<void>(resolve => {
         release = resolve
       })
+
       const companies = companyWorkspaceWithLateDirectory('!launch:test', gate, () => 'active')
+
       const { emit } = fixture(
         undefined,
         'en',
@@ -3871,9 +3894,11 @@ describe('isolated Matrix composition', () => {
     it('keeps a thread’s box closed too while the channel’s state is unknown, then follows the answer', async () => {
       vi.spyOn(document, 'hasFocus').mockReturnValue(true)
       let release!: () => void
+
       const gate = new Promise<void>(resolve => {
         release = resolve
       })
+
       const command = vi.fn(async () => null)
       const companies = companyWorkspaceWithLateDirectory('!launch:test', gate, () => 'archived')
       const { emit } = fixture(undefined, 'en', workplacePages(), command, undefined, companies)
@@ -4003,9 +4028,11 @@ describe('isolated Matrix composition', () => {
 
     it('keeps the box closed until the platform lists the conversation, then opens without default-state notices', async () => {
       let release!: () => void
+
       const gate = new Promise<void>(resolve => {
         release = resolve
       })
+
       const command = vi.fn(async () => null)
       const companies = companyWorkspaceWithConversation('!dm:test', () => 'active', gate)
       const { emit } = fixture(undefined, 'en', workplacePages(), command, undefined, companies)
@@ -4059,6 +4086,7 @@ describe('isolated Matrix composition', () => {
 
     it('is named for the other person in the header, from the platform’s record', async () => {
       const companies = companyWorkspaceWithConversation('!dm:test', () => 'active')
+
       const { emit } = fixture(
         undefined,
         'en',
@@ -4127,7 +4155,9 @@ describe('isolated Matrix composition', () => {
     const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) =>
       value.kind === 'roomShared' ? { section: value.section, items: [], source: 'device', unreadable: 0 } : null
     )
+
     const { emit } = fixture(undefined, 'en', undefined, command)
+
     const person: MatrixSnapshot = {
       ...controlsState,
       roomId: '!linh:test',
@@ -5148,9 +5178,11 @@ describe('isolated Matrix composition', () => {
     expect(view.container.querySelector('[data-matrix-report-message]')).toBeNull()
     // No row under the answer (owner 11-18): Copy and Retry live in "…" with the rest.
     expect(view.container.querySelector('[data-matrix-answer-actions]')).toBeNull()
+
     const toolbar = view.container.querySelector<HTMLElement>(
       '[data-matrix-message-id="$answer"] [data-matrix-message-toolbar]'
     )!
+
     expect(within(toolbar).queryByRole('button', { name: 'Copy' })).toBeNull()
     fireEvent.keyDown(toolbar.querySelector('[data-matrix-answer-menu]')!, { key: 'Enter' })
     expect(screen.getByRole('menuitem', { name: 'Copy' })).toBeTruthy()
@@ -5465,11 +5497,14 @@ describe('isolated Matrix composition', () => {
       rooms: [],
       roomId: null
     }
+
     const search = vi.fn(async () => ({
       ok: true as const,
       value: { limited: false, results: [{ userId: '@user-opaque:test', name: 'Poon Nguyen', handle: 'poon' }] }
     }))
+
     const command = vi.fn<MatrixUiBridge['command']>(async input => input.kind === 'create' ? '!poon:test' : null)
+
     const { view } = fixture(async () => state, 'en', undefined, command, undefined, undefined, undefined, {
       people: {
         search,
@@ -5496,6 +5531,7 @@ describe('isolated Matrix composition', () => {
 
   it('uses a global handle result to find and identify that person’s existing chat', async () => {
     const personId = '@user-opaque:test'
+
     const state: MatrixSnapshot = {
       ...signedOut,
       state: 'ready',
@@ -5509,6 +5545,7 @@ describe('isolated Matrix composition', () => {
       }],
       roomId: null
     }
+
     const search = vi.fn(async () => ({
       ok: true as const,
       value: { limited: false, results: [{ userId: personId, name: 'Poon Nguyen', handle: 'poon' }] }
@@ -5945,6 +5982,7 @@ describe('isolated Matrix composition', () => {
       location: true,
       team_spaces: true
     }
+
     const agentSources = {
       read: vi.fn(async () => ({
         macs: [],
@@ -5968,7 +6006,9 @@ describe('isolated Matrix composition', () => {
       })),
       set: vi.fn()
     }
+
     const { emit } = fixture(undefined, 'en', undefined, undefined, undefined, undefined, agentSources)
+
     const settingsState: MatrixSnapshot = {
       ...controlsState,
       displayPreferences: {
@@ -5978,6 +6018,7 @@ describe('isolated Matrix composition', () => {
         sound: { value: true, writable: true }
       }
     }
+
     emit(settingsState)
     await screen.findByRole('button', { name: 'Account: owner' })
     openAccountSettings()
@@ -6910,12 +6951,15 @@ describe('isolated Matrix composition', () => {
     expect(bridge.command).not.toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'send', roomId: '!assistant:test' })
     )
+
     // The reply posting is announced to a screen reader, never left as stray text under the box.
     const notice = await waitFor(() => {
       const element = window.document.querySelector('[data-matrix-invocation-notice="published"]')
       expect(element).not.toBeNull()
+
       return element as HTMLElement
     })
+
     expect(notice.textContent).toBe('Reply posted.')
     expect(notice.getAttribute('role')).toBe('status')
     expect(notice.className).toBe('sr-only')
@@ -7726,6 +7770,7 @@ describe('isolated Matrix composition', () => {
   it('draws an interim remark as an ordinary agent bubble, never as the answer', async () => {
     const { emit, view } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const room = {
       ...assistantFields,
       id: '!assistant:test',
@@ -7788,6 +7833,7 @@ describe('isolated Matrix composition', () => {
   it('puts the one live working line under the typing bubble and drops it when the answer lands', async () => {
     const { emit, view } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const room = {
       ...assistantFields,
       id: '!assistant:test',
@@ -7899,6 +7945,7 @@ describe('isolated Matrix composition', () => {
   it('never shows an ended or legacy status line, but keeps a real outcome notice', async () => {
     const { emit, view } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const room = {
       ...assistantFields,
       id: '!assistant:test',
@@ -8830,6 +8877,7 @@ describe('isolated Matrix composition', () => {
   )
   it('puts a split disk-full notice and its action directly above the composer', async () => {
     const { emit, bridge, view } = fixture()
+
     const room = {
       id: '!disk-full:test',
       name: 'Atum',
@@ -8838,6 +8886,7 @@ describe('isolated Matrix composition', () => {
       assistant: true,
       ...assistantFields
     }
+
     emit({
       ...signedOut,
       state: 'error',
@@ -9493,6 +9542,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     const drive = taskDrive(undefined, undefined, [
       { id: 'opaque-notes', name: 'notes.txt', kind: 'file', size: 13, modifiedAt: 1 }
     ])
+
     await openChat(ready, drive.bridge)
 
     fireEvent.click(screen.getByRole('button', { name: 'Atum Drive' }))
@@ -10255,6 +10305,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     it('hides the settled cloud home icon while keeping both native bridges idle', async () => {
       const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
       const home = migratedHome()
+
       const migrated: MatrixSnapshot = {
         ...snapshot,
         agents: snapshot.agents?.map(agent => {
@@ -10280,6 +10331,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
           }
         })
       }
+
       const agentHome: MatrixAgentHomeBridge = {
         read: vi.fn(async () => home),
         preflight: vi.fn(),
@@ -10288,6 +10340,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
         model: vi.fn(),
         prepare: vi.fn()
       }
+
       const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, true)
       bridge.executionPolicy = executionPolicy
       bridge.agentHome = agentHome
@@ -10303,12 +10356,14 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     it('uses D1 home with cloud-only switched off', async () => {
       const { executionPolicy, snapshot } = withPolicy(['cloud', MAC_A, MAC_B])
       const home = migratedHome()
+
       const migrated: MatrixSnapshot = {
         ...snapshot,
         agents: snapshot.agents?.map(agent =>
           agent.principal === principal ? { ...agent, home } : agent
         )
       }
+
       const agentHome: MatrixAgentHomeBridge = {
         read: vi.fn(async () => home),
         preflight: vi.fn(),
@@ -10317,6 +10372,7 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
         model: vi.fn(),
         prepare: vi.fn()
       }
+
       const { bridge, emit } = fixture(undefined, 'vi', undefined, undefined, undefined, undefined, undefined, {}, false)
       bridge.executionPolicy = executionPolicy
       bridge.agentHome = agentHome
@@ -10328,7 +10384,9 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
 
         return found!
       })
+
       fireEvent.click(trigger)
+
       const popover = await waitFor(() => {
         const found = document.querySelector<HTMLElement>('[data-agent-home-popover]')
         expect(found).toBeTruthy()
@@ -10965,6 +11023,7 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
 
   it('offers a blocked default assistant an explicit Atum switch and never chooses it silently', async () => {
     const useAtumModel = vi.fn(async () => ({ state: 'ready' as const }))
+
     const harness = fixture(
       async () => chatGptPlansBlocked(),
       'en',
@@ -11304,6 +11363,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
   it('puts every bubble\'s time inside it, bottom right, with room kept on its last line (Telegram, owner 11-18)', async () => {
     const at = Date.UTC(2026, 10, 18, 4, 51)
+
     const snapshot: MatrixSnapshot = {
       ...ready,
       messages: [
@@ -11315,6 +11375,7 @@ describe("Home's chat (launch night, second wave)", () => {
         message('$p', { body: 'Thanks', pending: true, timestamp: at + 5 })
       ]
     }
+
     const { emit, view } = await openChat(snapshot)
     const root = (id: string) => view.container.querySelector<HTMLElement>(`[data-matrix-message-id="${id}"]`)!
     const corner = (id: string) => root(id).querySelector<HTMLElement>('[data-matrix-bubble-meta]')
@@ -11324,15 +11385,18 @@ describe("Home's chat (launch night, second wave)", () => {
       expect(corner(id)?.querySelector('time')?.getAttribute('dateTime')).toBeTruthy()
       expect(corner(id)?.parentElement?.classList.contains('matrix-bubble-timed')).toBe(true)
     }
+
     expect(view.container.querySelector('[data-matrix-run-time]')).toBeNull()
     // The text's last line keeps room as wide as the corner (a CSS spacer sized by --matrix-meta-room).
     expect(root('$q2').querySelector<HTMLElement>('.composer-human-message')?.dataset.matrixMetaFlow).toBe('plain')
     expect(root('$q2').querySelector('.composer-human-message > p')).toBeTruthy()
     expect(root('$q2').querySelector<HTMLElement>('.composer-human-message')?.style.getPropertyValue('--matrix-meta-room')).toMatch(/^calc\(/)
     expect(root('$a2').querySelector('.matrix-chat-bubble')?.getAttribute('data-matrix-meta-flow')).toBe('markdown')
+
     // A corner holds the time, and while sending its clock: nothing else (no tick, no "Sent" word).
     const cornerExtras = (id: string) =>
       [...corner(id)!.children].filter(node => !node.matches('time, [data-matrix-edited], [data-matrix-sending]'))
+
     expect(cornerExtras('$q2')).toHaveLength(0)
     expect(corner('$q2')?.querySelector('svg')).toBeNull()
     // Still sending: the clock sits in the corner, named for screen readers.
@@ -11902,6 +11966,7 @@ describe("Home's chat (launch night, second wave)", () => {
         }
       ]
     }
+
     const { bridge } = await openChat(cloud)
     vi.mocked(bridge.connectHermes).mockClear()
     fireEvent.click(screen.getByRole('button', { name: /^Raymond$/ }))
@@ -12552,16 +12617,19 @@ describe("Home's chat (launch night, second wave)", () => {
     const { emit } = await openChat(ready, command)
     const second = { ...assistantRoom, id: '!second:test', name: 'Atum 2', lastActiveAt: 9 }
     emit({ ...ready, rooms: [assistantRoom, second, group] })
+
     const main = {
       ...assistantRoom,
       conversation: { role: 'main' as const, main: assistantRoom.id, at: 2 },
       conversationOwnerId: owner.userId
     }
+
     const earlier = {
       ...second,
       conversation: { role: 'earlier' as const, main: main.id, at: 2 },
       conversationOwnerId: owner.userId
     }
+
     emit({ ...ready, rooms: [main, earlier, group] })
     await act(async () => {})
     expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ kind: 'select' }))
@@ -13068,7 +13136,9 @@ describe("Home's chat (launch night, second wave)", () => {
         ...ready,
         messages: [message('$old', { sent: true }), message('$new', { pending: true })]
       })
+
       const corner = (id: string) => root(id).querySelector<HTMLElement>('[data-matrix-bubble-meta]')!
+
       // The corner holds the time, and the clock while a message is still going: nothing else.
       const cornerExtras = (id: string) =>
         [...corner(id).children].filter(node => !node.matches('time, [data-matrix-edited], [data-matrix-sending]'))
@@ -13602,6 +13672,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
   const MEMBER_PRINCIPAL = '00000000-0000-4000-8000-7acf30c68b5e'
   const INCARNATION = '00000000-0000-4000-8000-2003d0eebf32'
   const EXECUTOR = '00000000-0000-4000-8000-8d9d536cf024'
+
   const binding = {
     companyId: COMPANY,
     channelId: '00000000-0000-4000-8000-676a3a34ff0f',
@@ -13731,6 +13802,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       companyWorkspaceWithChannel('!launch:test', undefined, COMPANY, role), undefined, { companyDesktop })
 
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const snapshot: MatrixSnapshot = {
       ...signedOut, state: 'ready', identity: { userId: '@owner:test', deviceId: 'OWNER' },
       companyWorkspaceEnabled: true, roomId: '!launch:test',
@@ -13790,6 +13862,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     const { composer } = await openChannel(aiView({ state: 'preparing' }))
 
     fireEvent.change(composer, { target: { value: 'Ask @Chi' } })
+
     const notice = await waitFor(() => {
       const found = window.document.querySelector<HTMLElement>('[data-company-ai-mention-state="preparing"]')
       expect(found).toBeTruthy()
@@ -13807,6 +13880,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
     over: Partial<MatrixSnapshot['messages'][number]> = {}
   ) {
     const root = message('$ask', '@Chief of Staff summarise this', { sender: '@owner:test', own: true })
+
     const status = message('$status', body, {
       sender: COS, thread: true, threadRootId: '$ask', replyTo: '$ask', timestamp: 20, ...over
     })
@@ -13905,6 +13979,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
   ) {
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     const adapter = playgroundCompanyDesktopAdapter(role === 'member')
+
     const companyDesktop = {
       ...adapter,
       readPrivateCosCapability: vi.fn(async () => privateCapability),
@@ -13913,7 +13988,9 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       readPrivateCosReceipt: vi.fn(async () => {throw new Error('not used')}),
       stopPrivateCos: vi.fn(async () => {throw new Error('not used')})
     }
+
     const command = vi.fn(async () => null)
+
     const { emit, view } = fixture(
       undefined,
       locale,
@@ -14392,6 +14469,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
 
     // The person's own default assistant, with its own private room beside the company's.
     const agents = [{ principal: 'raymond-principal', userId: RAYMOND }]
+
     const raymondRoom: MatrixRoom = {
       id: '!raymond:test',
       name: 'Raymond',
@@ -14401,12 +14479,14 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       roomType: MATRIX_ASSISTANT_ROOM_TYPE,
       participants: [{ userId: OWNER, membership: 'join' }, { userId: RAYMOND, membership: 'join' }]
     }
+
     const projected = assistantRooms(
       [conversationRoom(client, sdkRoom), raymondRoom],
       { userId: RAYMOND, deviceId: 'RAYMOND' },
       agents,
       OWNER
     )
+
     const cosRoom = projected.find(room => room.id === PRIVATE_ROOM)!
 
     expect(cosRoom).toMatchObject({ assistant: false, companyPrivateCos: { companyId: COMPANY } })
@@ -14415,6 +14495,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
 
     vi.spyOn(document, 'hasFocus').mockReturnValue(true)
     const adapter = playgroundCompanyDesktopAdapter()
+
     const companyDesktop = {
       ...adapter,
       readAI: vi.fn(async () => aiView()),
@@ -14424,11 +14505,14 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       readPrivateCosReceipt: vi.fn(async () => {throw new Error('not used')}),
       stopPrivateCos: vi.fn(async () => {throw new Error('not used')})
     }
+
     const command = vi.fn(async () => null)
+
     const { bridge, emit, view } = fixture(undefined, 'en', undefined, command, undefined,
       companyWorkspaceWithChannel('!launch:test', undefined, COMPANY), undefined, { companyDesktop })
 
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const signedIn: MatrixSnapshot = {
       ...signedOut,
       state: 'ready',
@@ -14466,6 +14550,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
 
       return found!
     })
+
     fireEvent.click(within(row).getByRole('button', { name: 'Private Chief of Staff' }))
     await waitFor(() => expect(command).toHaveBeenCalledWith({ kind: 'select', roomId: PRIVATE_ROOM }))
 
@@ -14475,11 +14560,11 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       messages: [message('$greeting', 'Hi, I’m your Chief of Staff at Alpha.', { sender: COS })]
     })
 
-    const composer = await screen.findByRole('textbox', { name: 'Message Chief of Staff' })
+    const composer = await screen.findByRole('textbox', { name: 'Message Private Chief of Staff' })
     await screen.findByText('Hi, I’m your Chief of Staff at Alpha.')
 
     const header = view.container.querySelector<HTMLElement>('[data-matrix-header-identity]')!
-    await waitFor(() => expect(header.querySelector('[data-matrix-private-cos-title]')?.textContent).toBe('Chief of Staff'))
+    await waitFor(() => expect(header.querySelector('[data-matrix-private-cos-title]')?.textContent).toBe('Private Chief of Staff'))
     expect(header.querySelector('[data-matrix-private-cos-face]')).toBeTruthy()
     expect(header.textContent).not.toMatch(/Raymond|Chat ·/)
     expect(header.querySelector('[data-matrix-header-card]')).toBeNull()
@@ -14508,13 +14593,14 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
         : room),
       messages: [message('$greeting', 'Hi, I’m your Chief of Staff at Alpha.', { sender: COS })]
     })
-    await screen.findByRole('textbox', { name: 'Message Chief of Staff' })
+    await screen.findByRole('textbox', { name: 'Message Private Chief of Staff' })
     expect(view.container.querySelector('[data-matrix-header-identity]')!.textContent).not.toMatch(/Raymond|Chat ·/)
     expect(screen.queryByText(/not connected to your current assistant/)).toBeNull()
   })
 
   it('keeps a restored stale private-CoS selection unmounted when the platform view is denied', async () => {
     const base = playgroundCompanyDesktopAdapter()
+
     const companyDesktop = {
       ...base,
       readPrivateCosCapability: vi.fn(async () => {throw new Error('denied')}),
@@ -14523,6 +14609,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       readPrivateCosReceipt: vi.fn(async () => {throw new Error('not used')}),
       stopPrivateCos: vi.fn(async () => {throw new Error('not used')})
     }
+
     const { emit, view } = fixture(
       undefined,
       'en',
@@ -14564,6 +14651,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
   it('keeps exact, malformed and platform-bound private-CoS claims out of Personal global search', async () => {
     const { emit } = fixture()
     await screen.findByRole('button', { name: 'Continue with Google' })
+
     const privateClaimBase = {
       ...privateRoom,
       membership: 'join'
@@ -14609,6 +14697,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
       const found = view.container.querySelector<HTMLButtonElement>(
         '[data-matrix-message-id="$quote"] [data-matrix-report-message]'
       )
+
       expect(found).toBeTruthy()
 
       return found!
@@ -14630,6 +14719,7 @@ describe('Company AI honesty and Turn into task in a company channel', () => {
 
       return found!
     })
+
     expect(receipt.textContent).toBe('Added to Board · Open task')
     expect(companySpacePreferences(`@owner:test:OWNER\u0000${COMPANY}`).tab).toBe('chat')
 

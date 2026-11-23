@@ -18,6 +18,7 @@ export interface TeamSpaceRevampCopy {
   channelFailed: string
   tryAgain: string
   privateChiefOfStaff: string
+  noMatches: string
   suggested: string
   suggestedHint: string
   showAllActivity: (count: number) => string
@@ -42,6 +43,7 @@ const copy: Record<string, TeamSpaceRevampCopy> = {
     channelFailed: 'Couldn’t open this channel.',
     tryAgain: 'Try again',
     privateChiefOfStaff: 'Private Chief of Staff',
+    noMatches: 'No matches',
     suggested: 'Suggested',
     suggestedHint: 'Not on the board until someone accepts it',
     showAllActivity: count => `Show all activity (${count})`,
@@ -64,6 +66,7 @@ const copy: Record<string, TeamSpaceRevampCopy> = {
     channelFailed: 'Không mở được kênh này.',
     tryAgain: 'Thử lại',
     privateChiefOfStaff: 'Chief of Staff riêng',
+    noMatches: 'Không có kết quả phù hợp',
     suggested: 'Đề xuất',
     suggestedHint: 'Chưa lên bảng cho đến khi có người chấp nhận',
     showAllActivity: count => `Xem toàn bộ hoạt động (${count})`,
@@ -86,6 +89,7 @@ const copy: Record<string, TeamSpaceRevampCopy> = {
     channelFailed: 'このチャンネルを開けませんでした。',
     tryAgain: 'もう一度',
     privateChiefOfStaff: '自分専用の Chief of Staff',
+    noMatches: '一致する項目はありません',
     suggested: '提案',
     suggestedHint: '誰かが承認するまでボードには載りません',
     showAllActivity: count => `すべてのアクティビティ (${count})`,
@@ -108,6 +112,7 @@ const copy: Record<string, TeamSpaceRevampCopy> = {
     channelFailed: '无法打开此频道。',
     tryAgain: '重试',
     privateChiefOfStaff: '私人 Chief of Staff',
+    noMatches: '没有匹配的结果',
     suggested: '建议',
     suggestedHint: '有人接受后才会加入看板',
     showAllActivity: count => `查看全部动态（${count}）`,
@@ -130,6 +135,7 @@ const copy: Record<string, TeamSpaceRevampCopy> = {
     channelFailed: '無法開啟此頻道。',
     tryAgain: '重試',
     privateChiefOfStaff: '私人 Chief of Staff',
+    noMatches: '沒有相符的結果',
     suggested: '建議',
     suggestedHint: '有人接受後才會加入看板',
     showAllActivity: count => `查看全部動態（${count}）`,

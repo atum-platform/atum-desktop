@@ -499,6 +499,7 @@ import {
   companyPrivateCosBoundRoomId,
   companyPrivateCosRoom
 } from './team-space/private-cos-store'
+import { teamSpaceRevampCopy } from './team-space/revamp-copy'
 import { useSavedMessagesCopy } from './team-space/saved-messages-copy'
 import { useCompanyChannelFacts } from './team-space/use-channel-facts'
 import { MatrixTerminalOffers } from './terminal'
@@ -2351,7 +2352,6 @@ function MatrixComposer({
   // The company's private Chief of Staff chat: an ordinary company-room send that names the Chief of Staff
   // (the SDK adds its mention), never the person's own assistant's path.
   const privateCos = isCompanyPrivateCosClaim(room)
-  const privateCosName = usePrivateCosName()
   const companyFiles = teamSpaceBox && snapshot.companyDriveFilesEnabled === true
 
   // The box names who you are writing to (Atum Kit mockup: "Message Atum"), a channel by the name
@@ -2367,7 +2367,7 @@ function MatrixComposer({
   const composerTarget = notesSelfRoom
     ? notesCopy.you
     : privateCos
-    ? privateCosName
+    ? teamSpaceRevampCopy(locale).privateChiefOfStaff
     : room.assistant
     ? assistantName
     : companyChannel
@@ -8796,7 +8796,7 @@ function MatrixAccountView({
                                 notesSelfBound ? (
                                   matrixTeamSpaceCopy(locale).you
                                 ) : isCompanyPrivateCosClaim(room) ? (
-                                  <span data-matrix-private-cos-title>{matrixCompanyBoardCopy(locale).chiefOfStaff}</span>
+                                  <span data-matrix-private-cos-title>{teamSpaceRevampCopy(locale).privateChiefOfStaff}</span>
                                 ) : isCompanyConversationRoom(room) ? (
                                   <ConversationTitleFor
                                     accountKey={teamSpaceAccountKey(snapshot.identity)}

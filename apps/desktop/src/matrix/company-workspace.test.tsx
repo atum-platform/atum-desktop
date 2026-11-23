@@ -514,6 +514,47 @@ describe('MatrixCompanyWorkspace', () => {
     expect(reveal).not.toHaveBeenCalled()
   })
 
+  it('searches again for the typed query when the tab or file type changes, without a Search click', async () => {
+    const company = { id: '00000000-0000-4000-8000-4423c334534f', displayName: 'Acme', role: 'admin' as const,
+      authorityGeneration: 1 }
+
+    const channelId = '00000000-0000-4000-8000-a6350151b493'
+
+    const result = (eventId: string, snippet: string) => ({ channelId, roomId: '!general:test', channelName: 'general',
+      eventId, sender: '@avery:test', snippet, at: 100 })
+
+    const search = vi.fn(async input => ({ ok: true as const, value: { schemaVersion: 1 as const, companyId: company.id,
+      query: input.query, coverage: { eligibleRooms: 1, searchedRooms: 1, truncated: false },
+      results: input.tab === 'files'
+        ? [{ ...result(`$file-${input.fileType}`, `Launch ${input.fileType} file`),
+            file: { name: `Launch ${input.fileType} file`, mimeType: 'application/pdf', size: 42, type: 'pdfs' as const } }]
+        : [result('$message', 'Launch message')] } }))
+
+    const bridge: MatrixCompanyBridge = {
+      pending: noPending,
+      request: vi.fn(async input => input.action === 'list'
+        ? { ok: true as const, value: directory([company]) }
+        : input.action === 'read'
+          ? { ok: true as const, value: snapshot(company.id, company.displayName) }
+          : { ok: true as const, value: channelDirectory(company.id, ['general']) }),
+      search,
+      open: vi.fn(async () => ({ ok: true as const }))
+    }
+
+    renderWorkspace({ bridge, onOpenSearchResult: vi.fn() })
+    await openCompany('Acme')
+    await openCompanySearch('Acme', 'launch')
+    expect(await screen.findByText('Launch message')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Files' }))
+    expect(await screen.findByText('Launch all file')).toBeTruthy()
+    expect(screen.queryByText('Launch message')).toBeNull()
+
+    fireEvent.click(screen.getByRole('radio', { name: 'PDFs' }))
+    expect(await screen.findByText('Launch pdfs file')).toBeTruthy()
+    expect(search).toHaveBeenLastCalledWith(expect.objectContaining({ query: 'launch', tab: 'files', fileType: 'pdfs' }))
+  })
+
   it('lists and creates Unicode company channels independently of projects', async () => {
     const company = { id: 'company-1', displayName: 'Acme', role: 'admin' as const, authorityGeneration: 1 }
     const requests: MatrixCompanyRequest[] = []
@@ -1139,6 +1180,64 @@ describe('MatrixCompanyWorkspace', () => {
     await screen.findByRole('alert')
     expect(screen.getByRole('heading', { name: 'Acme' })).toBeTruthy()
     expect(screen.getByText('Couldn’t open this channel.')).toBeTruthy()
+  })
+
+  it('keeps a failed channel open with its company: another company shows its transcript and retries its own room', async () => {
+    const alpha = { id: 'company-a', displayName: 'Alpha', role: 'admin' as const, authorityGeneration: 1 }
+    const beta = { id: 'company-b', displayName: 'Beta', role: 'admin' as const, authorityGeneration: 1 }
+    let betaFails = false
+
+    const onOpenChannel = vi.fn(async (roomId: string) => {
+      if (roomId === '!alpha-decisions:test' || (roomId === '!beta-launch:test' && betaFails)) {throw new Error('join denied')}
+    })
+
+    const channelsFor = (companyId: string) => {
+      const value = channelDirectory(companyId, [companyId === alpha.id ? 'decisions' : 'launch'])
+      value.channels[0]!.channel.id = companyId === alpha.id
+        ? '40000000-0000-4000-8000-00000000000a'
+        : '40000000-0000-4000-8000-00000000000b'
+      value.channels[0]!.channel.state = 'active'
+      value.channels[0]!.room = { state: 'ready', roomId: companyId === alpha.id ? '!alpha-decisions:test' : '!beta-launch:test' }
+
+      return value
+    }
+
+    const bridge: MatrixCompanyBridge = { pending: noPending, request: vi.fn(async input => {
+      if (input.action === 'list') {return { ok: true as const, value: directory([alpha, beta]) }}
+
+      if (input.action === 'read') {return { ok: true as const, value: snapshot(input.companyId,
+        input.companyId === alpha.id ? alpha.displayName : beta.displayName) }}
+
+      if (input.action === 'list-channels') {return { ok: true as const, value: channelsFor(input.companyId) }}
+
+      return { ok: false as const, error: 'invalid' as const }
+    }) }
+
+    renderWorkspace({ bridge, channelContent: <div data-testid="bound-transcript">Transcript</div>, onOpenChannel })
+    await screen.findByRole('heading', { name: /^(Alpha|Beta)$/ })
+
+    if (!screen.queryByRole('heading', { name: 'Alpha' })) {await switchCompany('Alpha')}
+
+    await screen.findByRole('heading', { name: 'Alpha' })
+    fireEvent.click(await screen.findByRole('button', { name: 'Open # decisions' }))
+    await screen.findByText('Couldn’t open this channel.')
+    expect(screen.queryByTestId('bound-transcript')).toBeNull()
+
+    await switchCompany('Beta')
+    await screen.findByRole('heading', { name: 'Beta' })
+    expect(await screen.findByTestId('bound-transcript')).toBeTruthy()
+    expect(screen.queryByText('Couldn’t open this channel.')).toBeNull()
+
+    betaFails = true
+    fireEvent.click(await screen.findByRole('button', { name: 'Open # launch' }))
+    await screen.findByText('Couldn’t open this channel.')
+    betaFails = false
+    onOpenChannel.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(onOpenChannel).toHaveBeenCalledWith('!beta-launch:test', expect.any(Function)))
+    expect(onOpenChannel).not.toHaveBeenCalledWith('!alpha-decisions:test', expect.any(Function))
+    await waitFor(() => expect(screen.queryByText('Couldn’t open this channel.')).toBeNull())
+    expect(screen.getByTestId('bound-transcript')).toBeTruthy()
   })
 
   it('shows an unavailable directory as an error, never as an empty company list', async () => {

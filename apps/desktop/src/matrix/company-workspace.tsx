@@ -405,12 +405,14 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   const [openingRoomId, setOpeningRoomId] = useState<string>()
   // A newer open supersedes an older one still retrying: the person's last click wins, never a stale retry.
   const openSequenceRef = useRef(0)
-  const [channelOpenError, setChannelOpenError] = useState(false)
-  // The room a failed open was for, so "Try again" asks for exactly that channel once more.
-  const failedRoomRef = useRef<string>(undefined)
+  // The channel that could not open, held with its company: it is shown only while that company is on screen, "Try
+  // again" asks for exactly that room, and any successful navigation (another room, another company) clears it.
+  const [channelOpenFailure, setChannelOpenFailure] = useState<{ companyId: string; roomId: string }>()
   // The channel this person last opened here, kept until something else is on screen: when Matrix holds it but the window
   // is not shown it (the platform has not confirmed the room yet), the pane says so instead of staying empty.
   const [openedChannel, setOpenedChannel] = useState<{ companyId: string; roomId: string }>()
+  // Another room or another company on screen is a successful navigation: the failure it replaced is gone.
+  useEffect(() => { setChannelOpenFailure(undefined) }, [activeRoomId, selectedCompanyId])
   // The Add people sheet keeps its own query, picks and results (team-space/invite-sheet.tsx); it is keyed by company
   // and opening, so nothing typed or picked in one company is ever sent into another.
   const [inviteOpen, setInviteOpen] = useState(false)
@@ -609,6 +611,25 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setDialog(current => current?.kind === 'members-panel' ? undefined : current)
   })
   useTeamSpaceDetailPane('search', Boolean(searchPane), () => setSearchPane(undefined))
+  // A channel's info pane belongs to that channel: another room on screen closes it, never leaves the old roster up.
+  const channelViewsRef = useRef(channelViews)
+  channelViewsRef.current = channelViews
+
+  const closeChannelInfoUnlessFor = useCallback((roomId: string | null | undefined) => {
+    setDialog(current => current?.kind === 'members-panel' &&
+      channelViewsRef.current?.find(view => view.id === current.channelId)?.room.roomId !== roomId
+      ? undefined
+      : current)
+  }, [])
+
+  const lastActiveRoomRef = useRef(activeRoomId)
+
+  useEffect(() => {
+    if (lastActiveRoomRef.current === activeRoomId) {return}
+
+    lastActiveRoomRef.current = activeRoomId
+    closeChannelInfoUnlessFor(activeRoomId)
+  }, [activeRoomId, closeChannelInfoUnlessFor])
   const [conversationDialog, setConversationDialog] = useState<ConversationDialogMode>()
   // A conversation was started but its room is not here yet; it opens by itself when it is.
   const [conversationNotice, setConversationNotice] = useState(false)
@@ -998,7 +1019,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     setConversationNotice(false)
     setFundingRefresh(0)
     setOpeningRoomId(undefined)
-    setChannelOpenError(false)
+    setChannelOpenFailure(undefined)
     setOpenedChannel(undefined)
     setInviteOpen(false)
     setConfirmMember(undefined)
@@ -1559,8 +1580,9 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
     const still = () => fence() && openSequenceRef.current === sequence
     const companyId = selectedCompanyIdRef.current
     patchCompanySpacePreferences(activeCompanyScope, { tab: 'chat' })
-    setChannelOpenError(false)
+    setChannelOpenFailure(undefined)
     setOpenedChannel(undefined)
+    closeChannelInfoUnlessFor(roomId)
     setOpeningRoomId(roomId)
 
     try {
@@ -1589,8 +1611,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
       // is not a failure: the room was simply not opened.
       // On a narrow window the reason is shown where the channel would have been, with the way back.
       if (inScope(scope) && still()) {
-        failedRoomRef.current = roomId
-        setChannelOpenError(true)
+        if (companyId) {setChannelOpenFailure({ companyId, roomId })}
 
         if (compact) {setCompactPane('content')}
       }
@@ -2319,6 +2340,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   // belong to Chat and must survive a page switch. Visibility alone controls read attention.
   // A channel that could not open says so where it was asked for, rather than leaving the previous
   // channel on screen as if the click did nothing.
+  const channelOpenError = channelOpenFailure?.companyId === selectedCompanyId ? channelOpenFailure : undefined
   const visibleChannelContent = boundChannelSelected && !channelOpenError ? channelContent : undefined
 
   const savedContent = showingSaved ? (
@@ -2526,9 +2548,7 @@ export function MatrixCompanyWorkspace({ accountKey, activeRoomId, activity: syn
   ) : channelOpenError ? (
     <div className="m-auto grid justify-items-center gap-3 py-16 text-center" data-matrix-company-channel-pane="failed" role="alert">
       <p className="text-sm text-(--atum-ink)">{revampCopy.channelFailed}</p>
-      {failedRoomRef.current && (
-        <Button onClick={() => void openRoom(failedRoomRef.current!)} size="sm" variant="secondary">{revampCopy.tryAgain}</Button>
-      )}
+      <Button onClick={() => void openRoom(channelOpenError.roomId)} size="sm" variant="secondary">{revampCopy.tryAgain}</Button>
     </div>
   ) : convergeNotice || openedChannelWaiting ? (
     <div className="m-auto grid justify-items-center gap-3 py-16 text-center" data-matrix-company-channel-pane="preparing" role="status">

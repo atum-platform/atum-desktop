@@ -734,6 +734,42 @@ describe('company board Mine', () => {
     expect(screen.getByRole('button', { name: 'Mine' }).getAttribute('aria-pressed')).toBe('true')
     expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: 'member-1' }))
   })
+
+  it('migrates a remembered My tasks view once, then follows the owner filter and Clear filters', async () => {
+    const mine = boardCard({ owners: ['member-1'], primaryOwner: 'member-1', title: 'Remembered task' })
+    const listBoard = vi.fn(async () => boardPage([mine]))
+    $companySpacePreferences.set({ ...$companySpacePreferences.get(), 'company-1': {
+      ...($companySpacePreferences.get()['company-1'] ?? {}), boardView: 'my_tasks' } as never })
+    fixture([mine], vi.fn(async () => unused()), {
+      listBoard,
+      members: [
+        { memberRef: 'member-1', displayName: 'Minh' },
+        { memberRef: 'member-2', displayName: 'Lan' }
+      ],
+      viewerMemberRef: 'member-1'
+    })
+
+    await screen.findByText('Remembered task')
+    await waitFor(() => expect($companySpacePreferences.get()['company-1']).toEqual(
+      expect.objectContaining({ boardView: 'list', ownerMemberRef: 'member-1' })))
+
+    const openFilters = async () => {
+      fireEvent.keyDown(screen.getByRole('button', { name: 'Filter' }), { key: 'Enter' })
+
+      return screen.findByRole('menu')
+    }
+
+    fireEvent.click(within(await openFilters()).getByRole('menuitemradio', { name: 'Lan' }))
+    await waitFor(() =>
+      expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: 'member-2' })))
+    expect(screen.getByRole('button', { name: 'Mine' }).getAttribute('aria-pressed')).toBe('false')
+
+    fireEvent.click(within(await openFilters()).getByRole('menuitem', { name: /^Clear filter/ }))
+    await waitFor(() =>
+      expect(listBoard).toHaveBeenLastCalledWith('company-1', expect.objectContaining({ ownerMemberRef: null })))
+    expect($companySpacePreferences.get()['company-1']?.ownerMemberRef).toBeNull()
+    expect(screen.getByRole('button', { name: 'List' }).getAttribute('aria-pressed')).toBe('true')
+  })
 })
 
 describe('company board list view', () => {

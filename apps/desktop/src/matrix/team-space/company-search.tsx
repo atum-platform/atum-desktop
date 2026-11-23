@@ -106,13 +106,14 @@ export function CompanySearch({ bridge, companyId, copy, initialQuery = '', loca
 
   searchRef.current = () => search()
 
+  // Changing what is searched answers again for the query already typed: results never just vanish.
   const switchTab = (next: MatrixCompanySearchTab) => {
     attemptRef.current += 1
     setTab(next)
     setValue(undefined)
     setError(undefined)
     setLoading(false)
-
+    void search(next, selectedFileType)
   }
 
   const switchFileType = (next: MatrixCompanySearchFileType) => {
@@ -121,7 +122,7 @@ export function CompanySearch({ bridge, companyId, copy, initialQuery = '', loca
     setValue(undefined)
     setError(undefined)
     setLoading(false)
-
+    void search(tab, next)
   }
 
   const open = async (result: MatrixCompanyMessageSearchResult) => {

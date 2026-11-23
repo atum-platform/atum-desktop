@@ -1558,7 +1558,14 @@ export function CompanyBoard({
   const generation = useRef(0)
 
   // Two views of the one board, Board and List, and one Mine filter over either. A remembered "My tasks"
-  // (the old third view) opens as List with Mine on.
+  // (the old third view) is migrated once to List with the viewer's owner filter; after that the filter is an
+  // ordinary one the person can change or clear. Until the migration lands, the first render already reads that way.
+  useEffect(() => {
+    if (preferences.boardView === 'my_tasks' && viewerMemberRef) {
+      patchCompanySpacePreferences(scope, { boardView: 'list', ownerMemberRef: viewerMemberRef })
+    }
+  }, [preferences.boardView, scope, viewerMemberRef])
+
   const legacyMyTasks = preferences.boardView === 'my_tasks' && Boolean(viewerMemberRef)
   const boardView: Exclude<CompanyBoardViewMode, 'my_tasks'> = preferences.boardView === 'board' ? 'board' : 'list'
   const listOwnerMemberRef = legacyMyTasks ? (viewerMemberRef ?? null) : preferences.ownerMemberRef
@@ -2025,10 +2032,7 @@ export function CompanyBoard({
               aria-pressed={boardView === view}
               className={boardView === view ? 'is-selected' : undefined}
               key={view}
-              onClick={() => patchCompanySpacePreferences(scope, {
-                boardView: view,
-                ...(legacyMyTasks ? { ownerMemberRef: viewerMemberRef ?? null } : {})
-              })}
+              onClick={() => patchCompanySpacePreferences(scope, { boardView: view })}
               type="button"
             >
               {view === 'board' ? copy.board : copy.list}

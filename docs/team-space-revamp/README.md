@@ -64,12 +64,20 @@ view on `origin/main` (`df8195e2`).
 
 ## Not done in this pass
 
-- The "Private Chief of Staff" name changes only the sidebar row. The open private chat's header and composer
-  still say "Chief of Staff". No "only you see this chat" line was added, to avoid explaining a default.
-- Filtering the sidebar to no channels still says "No channels yet.", which is the existing copy. It should
-  read as "no matches".
+- No "only you see this chat" line was added to the private Chief of Staff chat, to avoid explaining a default.
 - The playground's company search fixture returns no hits, so `03` shows the empty result. The results list is
   covered by `company-workspace.test.tsx`.
+
+## Review round 1 (Sol cross-family review)
+
+| Finding | Fix | Test |
+|---|---|---|
+| P1: a failed channel open in one company hid the next company's transcript, and Try again kept the old room | The failure is held with its company and room. It is shown only for that company, and cleared when another room or company comes on screen | `company-workspace.test.tsx` › keeps a failed channel open with its company… |
+| P2: a remembered "My tasks" view kept forcing the viewer as owner | Migrated once to List plus the viewer's owner filter. After that the filter is ordinary | `company-board.test.tsx` › migrates a remembered My tasks view once… |
+| P2: a channel's info pane stayed on the previous channel | Opening another room, or another room arriving as active, closes the members pane unless it is for that room | `team-space-channels.test.tsx` › closes one channel's info pane… |
+| P2: changing the search tab or file type cleared results without searching | The typed query is searched again for the new tab or type | `company-workspace.test.tsx` › searches again for the typed query… |
+| Own gap: private chat header and composer | Header and composer say "Private Chief of Staff" | `app.test.tsx` (existing private CoS test, updated) |
+| Own gap: empty sidebar filter | Says "No matches" | `team-space-channels.test.tsx` › says No matches… |
 
 ## Files
 

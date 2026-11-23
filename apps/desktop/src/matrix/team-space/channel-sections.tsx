@@ -17,6 +17,7 @@ import { TeamSpaceSidebarRow, TeamSpaceSidebarSection } from '../team-space-side
 
 import type { CompanyAbilities } from './abilities'
 import { useTeamSpaceCopy } from './copy'
+import { teamSpaceRevampCopy } from './revamp-copy'
 import { type CompanyChannelView, isDefaultChannel, sortChannels } from './views'
 
 export interface ChannelSectionsProps {
@@ -149,7 +150,9 @@ export function ChannelSections({
         >
           {top}
           {channels.length === 0 && favorites.length === 0 && invited.length === 0 && archived.length === 0 && (
-            <p className="px-2 py-1 text-sm text-(--atum-ink-muted)">{company.noChannels}</p>
+            <p className="px-2 py-1 text-sm text-(--atum-ink-muted)">
+              {query.trim() && live.length > 0 ? teamSpaceRevampCopy(locale).noMatches : company.noChannels}
+            </p>
           )}
           {channels.map(row)}
           {bottom}
