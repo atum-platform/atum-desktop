@@ -362,7 +362,7 @@ export function makeHarness(previous?: Harness, extra: Partial<GateOptions> = {}
     sessions,
     owner,
     modelAccess: async () => access.value,
-    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
     held: () => held.value,
     now: clock.now,
     monotonic: clock.monotonic,

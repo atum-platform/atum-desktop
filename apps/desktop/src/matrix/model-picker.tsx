@@ -1,6 +1,10 @@
 import { useStore } from '@nanostores/react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { AccountPlanConnectState } from '@/app/connections/connect-sheet'
+import { ACCOUNT_PLAN_NAMES, connectionsCopy } from '@/app/connections/copy'
+import { $accountConnections, loadAccountConnections, openAccountConnect } from '@/app/connections/store'
+import { ACCOUNT_PLAN_PICKER_PROVIDER, accountPickerPlans, accountPlanOfPickerProvider } from '@/app/connections/view'
 import { workRelayServedByName } from '@/app/work/relay-chrome'
 import { WORK_RELAY_PLAN_NAMES, workRelayChipText, workRelayCopy } from '@/app/work/relay-copy'
 import type { WorkRelayFix, WorkRelayPickerView } from '@/app/work/relay-view'
@@ -358,6 +362,8 @@ export function MatrixModelPicker({
   const copy = t.matrixShell
   const words = useModelPickerCopy()
   const workHere = Boolean(useStore($work))
+  const accountConnections = useStore($accountConnections)
+  const connectionWords = connectionsCopy(locale)
   const scope = preferenceScope ?? room.id
   const [openState, setOpenState] = useState(false)
   const open = controlledOpen ?? openState
@@ -983,10 +989,52 @@ export function MatrixModelPicker({
             : undefined
 
 
+  // The account's plans (`atum.account-connections/1`): every plan has a rail entry, connected or not. ChatGPT's rows come from the
+  // relay above; a connected plan the relay does not carry yet lists its models greyed with one line; a plan connected nowhere
+  // gets a hollow mark and one Connect state in place of the list (Work UI spec §2.1).
+  const accountPicks = cloudSubscriptions ? accountPickerPlans(accountConnections) : []
+  const listedPlanProviders = new Set(cloudSubscriptionRoutes.map(({ route }) => route.provider))
+
+  const accountPlanRoutes: PickerRoute[] = accountPicks.flatMap(pick => {
+    const provider = ACCOUNT_PLAN_PICKER_PROVIDER[pick.plan]
+
+    if (pick.kind === 'connect' || listedPlanProviders.has(provider) || (pick.kind === 'relay' && relay)) {
+      return []
+    }
+
+    const planName = ACCOUNT_PLAN_NAMES[pick.plan]
+
+    return pick.models.map(model => ({
+      route: {
+        id: matrixModelRouteId(provider, model.id),
+        provider,
+        model: model.id,
+        name: model.displayName,
+        providerLabel: planName,
+        accountLabel: words.planAccount(planName),
+        connection: 'plan' as const,
+        target: 'agent_default' as const,
+        destination: 'cloud' as const,
+        efforts: [],
+        current: false,
+        ready: false
+      },
+      subscription: true,
+      disabled: true,
+      reason: connectionWords.picker.inWork
+    }))
+  })
+
+  const accountPlanSources: PickerFilterSource[] = accountPicks.map(pick => ({
+    id: ACCOUNT_PLAN_PICKER_PROVIDER[pick.plan],
+    label: ACCOUNT_PLAN_NAMES[pick.plan],
+    ready: pick.kind !== 'connect'
+  }))
+
   // Favorites first in the rail, then Atum's line-up and every current-home provider (including
   // the subscription sources, so a cloud OpenCode Go model has a rail entry of its own).
   const subscriptionProviders = [
-    ...(cloudSubscriptions ? cloudSubscriptionRoutes : subscriptionRoutes).map(({ route }) => ({
+    ...(cloudSubscriptions ? [...cloudSubscriptionRoutes, ...accountPlanRoutes] : subscriptionRoutes).map(({ route }) => ({
       id: route.provider,
       label: route.providerLabel
     })),
@@ -1013,7 +1061,10 @@ export function MatrixModelPicker({
       id: each.id,
       label: each.providerLabel,
       ready: each.ready && each.models > 0
-    }))
+    })),
+    // Connected plans first (in the account's order), then the ones to connect.
+    ...accountPlanSources.filter(source => source.ready),
+    ...accountPlanSources.filter(source => !source.ready)
   ].filter((source, index, sources) => sources.findIndex(candidate => candidate.id === source.id) === index)
 
   // Exactly one route is current: the current home's projection, or the one legacy destination
@@ -1041,7 +1092,7 @@ export function MatrixModelPicker({
               ? route.id === pendingConnected.route.id
               : route.current
 
-  const shownSubscriptionRoutes = cloudSubscriptions ? cloudSubscriptionRoutes : subscriptionRoutes
+  const shownSubscriptionRoutes = cloudSubscriptions ? [...cloudSubscriptionRoutes, ...accountPlanRoutes] : subscriptionRoutes
 
   // Never a mixed list: with no (or a vanished) provider chosen, the first provider in the rail.
   const shownFilter: PickerFilter =
@@ -1087,6 +1138,18 @@ export function MatrixModelPicker({
     filter: shownFilter,
     isCurrent
   })
+
+  // A plan connected nowhere, chosen in the rail, with nothing of its own to list: one Connect state instead of the list.
+  const railPlan = shownFilter.favoritesOnly ? undefined : accountPlanOfPickerProvider(shownFilter.source)
+
+  const connectPlan =
+    railPlan &&
+    filterTouched &&
+    !query.trim() &&
+    accountPicks.some(pick => pick.plan === railPlan && pick.kind === 'connect') &&
+    !sections.some(section => section.note || section.rows.some(({ route }) => route.provider === shownFilter.source))
+      ? railPlan
+      : undefined
 
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // answers now (Atum's by default) and lists only that provider's models until the rail changes.
@@ -1265,6 +1328,8 @@ export function MatrixModelPicker({
       setEffortNotice(undefined)
       setRetryPick(null)
       loadCatalog()
+
+      void loadAccountConnections()
 
       if (cloudSubscriptions) {
         void loadAccountSubscriptions()
@@ -2460,7 +2525,15 @@ export function MatrixModelPicker({
             ) : undefined
           }
         >
-          {managed || listable || atumRoutes.length ? (
+          {connectPlan ? (
+            <AccountPlanConnectState
+              onConnect={() => {
+                changeOpen(false)
+                openAccountConnect(connectPlan)
+              }}
+              plan={connectPlan}
+            />
+          ) : managed || listable || atumRoutes.length ? (
             <>
               <ModelPickerList
                 busy={switching || Boolean(pendingEffort)}

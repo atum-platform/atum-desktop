@@ -91,7 +91,7 @@ function build(): void {
     sessions,
     owner,
     modelAccess: async () => 'allowed',
-    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:binh-minh' },
+    delegated: { instanceId: 'atum-managed-delegated', model: 'atum-managed:nguyet-thuc' },
     held: () => false,
     now: clock.now,
     monotonic: clock.monotonic,

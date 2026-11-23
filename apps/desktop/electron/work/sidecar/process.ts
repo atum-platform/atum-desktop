@@ -6,10 +6,13 @@ import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
 
+import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
+import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
-export const ATUM_WORK_MODEL = 'atum-managed:binh-minh'
 export const ATUM_WORK_PROVIDER = 'atum-managed'
+export const ATUM_WORK_DEFAULT_ALIAS = MATRIX_DEFAULT_MODEL
+export const ATUM_WORK_MODEL = `${ATUM_WORK_PROVIDER}:${ATUM_WORK_DEFAULT_ALIAS}`
 export const ATUM_WORK_DELEGATED_PROVIDER = 'atum-managed-delegated'
 
 interface WorkAccount {
@@ -44,23 +47,12 @@ export interface WorkStartOptions {
   trial?: TrialContext
 }
 
-/**
- * Server settings the assistants' route cannot work without. T3 refuses to register a peer-link OAuth client
- * (HTTP 400 at `/oauth/mcp/register`) unless linked environments are on, so a fresh install would never get an
- * agent session. Written before the server opens the home (supervisor.py merges `settings` first).
- */
-/**
- * Gate 4a-2 (plan §10.2): this build ships the maker's own Codex client, unmodified, as an enabled T3 instance. False while the
- * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
- * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
- */
-export const WORK_PLAN_CONNECT_SHIPPED = false
-
+/** Required before T3 can register the agent session's peer-link OAuth client. */
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
 const BROKER_PROFILES = [
-  { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum' },
-  { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)' }
+  { instance: ATUM_WORK_PROVIDER, directory: 'owner', label: 'Atum', showInPicker: true },
+  { instance: ATUM_WORK_DELEGATED_PROVIDER, directory: 'delegated', label: 'Atum (delegated)', showInPicker: false }
 ]
 
 export function workPairingOrigin(url: string): string | undefined {
@@ -71,11 +63,12 @@ export function workPairingOrigin(url: string): string | undefined {
   }
 }
 
-function provider(python: string, home: string, label: string) {
+function provider(python: string, home: string, label: string, showInPicker: boolean) {
   return {
     driver: 'acpRegistry',
     displayName: label,
     enabled: true,
+    showInPicker,
     config: {
       source: 'local',
       commandPath: python,
@@ -122,13 +115,9 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
   const environment = workRuntimeEnvironment(root, resources)
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
-  const providerInstances = Object.fromEntries([
-    ['codex', { driver: 'codex', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
-    ['claudeAgent', { driver: 'claudeAgent', enabled: false, config: { binaryPath: '/usr/bin/false' } }],
-    ...BROKER_PROFILES.map(({ directory, instance, label }) => [
-      instance, provider(python, join(root, directory), label)
-    ])
-  ])
+  const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
+    instance, provider(python, join(root, directory), label, showInPicker)
+  ]))
 
   if (signal.aborted || !options.current()) {
     throw new Error('work_account_changed')
@@ -168,9 +157,17 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
       textGenerationModelSelection: managedModel,
       providerInstances
     },
+    planProviderDefaults: PLAN_PROVIDER_DEFAULTS,
     trial,
     profileSource,
-    gateways: profiles.map(profile => ({ ...environment, ...credentials, HERMES_HOME: profile })),
+    managedModelAlias: ATUM_WORK_DEFAULT_ALIAS,
+    managedProvider: ATUM_WORK_PROVIDER,
+    gateways: profiles.map(profile => ({
+      ...environment,
+      ...credentials,
+      ATUM_MANAGED_MODEL_DEFAULT: ATUM_WORK_DEFAULT_ALIAS,
+      HERMES_HOME: profile
+    })),
     executable: join(resources, 'work-runtime', 't3'),
     environment,
     cwd

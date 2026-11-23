@@ -16,6 +16,7 @@ export function registerMatrixWorkIpc(
     | 'hide'
     | 'openPlanConnect'
     | 'read'
+    | 'readConnections'
     | 'readPlanConsent'
     | 'reconnectAssistants'
     | 'retry'
@@ -71,7 +72,10 @@ export function registerMatrixWorkIpc(
         return surface.reconnectAssistants()
 
       case 'openPlanConnect':
-        return surface.openPlanConnect()
+        return surface.openPlanConnect(request.plan)
+
+      case 'readConnections':
+        return surface.readConnections()
 
       case 'readPlanConsent':
         return surface.readPlanConsent()

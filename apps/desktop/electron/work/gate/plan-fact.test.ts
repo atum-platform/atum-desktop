@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { PlanFact } from './plan-fact'
+import { type PlanCapabilities, PlanFact } from './plan-fact'
 import { createDeviceServicePlatform } from './platform'
 import type { WorkPlatform } from './ports'
 import { ACCOUNT, DEVICE, type Harness, makeHarness } from './test-support'
 
-// Gate 4a: the plan fact (G9). One boolean and a time, from T3's own provider status; never the login, never a name.
+// Work projects only native provider capabilities into each account's device facts.
 
 let h: Harness
 
@@ -14,7 +14,7 @@ afterEach(async () => h?.cleanup())
 function setup() {
   h = makeHarness()
   const sent: Record<string, unknown>[] = []
-  const state = { status: 'connected' as 'connected' | 'disconnected' | 'unknown', failWith: undefined as { status: number } | undefined }
+  const state = { status: 'connected' as 'connected' | 'disconnected' | 'unknown', extras: {} as PlanCapabilities, failWith: undefined as { status: number } | undefined }
 
   const platform: Pick<WorkPlatform, 'reportSubscription'> = {
     async reportSubscription(report) {
@@ -26,9 +26,12 @@ function setup() {
     }
   }
 
-  const fact = new PlanFact({ ledger: h.ledger, platform, accountId: ACCOUNT, deviceServiceId: DEVICE, now: h.clock.now, status: async () => state.status })
+  const create = () => new PlanFact({
+    ledger: h.ledger, platform, accountId: ACCOUNT, deviceServiceId: DEVICE, now: h.clock.now,
+    read: async () => ({ ...state.extras, ...(state.status === 'unknown' ? {} : { codex: { state: state.status } }) })
+  })
 
-  return { fact, sent, state }
+  return { fact: create(), create, sent, state }
 }
 
 describe('when the Mac reports the plan fact', () => {
@@ -90,15 +93,19 @@ describe('when the Mac reports the plan fact', () => {
   })
 
   it('sign-out, account switch and Work off send `disconnected` in the last flush; a new sign-in reports the connection again', async () => {
-    const { fact, sent } = setup()
+    const { fact, create, sent } = setup()
 
     await fact.tick()
     await fact.final()
-    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected'])
+    expect(sent.filter(report => report.provider === 'codex').map(report => report.state)).toEqual(['connected', 'disconnected'])
+    expect(sent.filter(report => report.state === 'disconnected').map(report => report.provider)).toEqual(['codex', 'claude', 'antigravity'])
+
+    await fact.tick()
+    expect(sent).toHaveLength(4)
 
     h.clock.advance(1_000)
-    await fact.tick()
-    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected', 'connected'])
+    await create().tick()
+    expect(sent.filter(report => report.provider === 'codex').map(report => report.state)).toEqual(['connected', 'disconnected', 'connected'])
   })
 
   it('a report carries exactly the contract\'s six keys: no token, e-mail, plan name or login of any kind', async () => {
@@ -109,10 +116,66 @@ describe('when the Mac reports the plan fact', () => {
     expect(Object.keys(sent[0]).sort()).toEqual(['accountId', 'deviceServiceId', 'observedAt', 'provider', 'routeEpoch', 'state'])
   })
 
+  it('reports all native plans and resends a plan when only its model catalog changes', async () => {
+    const { fact, sent, state } = setup()
+    const models = [{ id: 'claude-test', displayName: 'Claude Test' }]
+
+    state.extras = { claude: { state: 'connected', models }, antigravity: { state: 'disconnected' } }
+    await fact.tick()
+    expect(sent).toMatchObject([
+      { provider: 'codex', state: 'connected' },
+      { provider: 'claude', state: 'connected', models },
+      { provider: 'antigravity', state: 'disconnected' }
+    ])
+
+    await fact.tick()
+    expect(sent).toHaveLength(3)
+
+    state.extras.claude = { state: 'connected', models: [...models, { id: 'claude-test-2', displayName: 'Claude Test 2' }] }
+    await fact.tick()
+    expect(sent).toHaveLength(4)
+    expect(sent[3]).toMatchObject({ provider: 'claude', state: 'connected', models: state.extras.claude.models })
+  })
+
+  it('orders a final disconnect ahead of an outstanding connect and keeps the disconnect acknowledgement', async () => {
+    h = makeHarness()
+    let finishConnect!: () => void
+    let startedConnect!: () => void
+    const started = new Promise<void>(resolve => { startedConnect = resolve })
+    const pending = new Promise<void>(resolve => { finishConnect = resolve })
+    const sent: { state: string; observedAt: number }[] = []
+
+    const fact = new PlanFact({
+      ledger: h.ledger, accountId: ACCOUNT, deviceServiceId: DEVICE, now: h.clock.now,
+      read: async () => ({ codex: { state: 'connected' } }),
+      platform: {
+        async reportSubscription(report) {
+          if (report.provider !== 'codex') {return}
+
+          sent.push(report)
+
+          if (report.state === 'connected') {
+            startedConnect()
+            await pending
+          }
+        }
+      }
+    })
+
+    const tick = fact.tick()
+    await started
+    await fact.final()
+    finishConnect()
+    await tick
+    expect(sent.map(report => report.state)).toEqual(['connected', 'disconnected'])
+    expect(sent[1].observedAt).toBeGreaterThan(sent[0].observedAt)
+    expect(fact.reported()?.state).toBe('disconnected')
+  })
+
   it('overlapping checks share one run', async () => {
     const { fact, sent } = setup()
 
-    await Promise.all([fact.tick(), fact.refresh(), fact.tick()])
+    await Promise.all([fact.tick(), fact.tick(), fact.tick()])
     expect(sent).toHaveLength(1)
   })
 })

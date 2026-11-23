@@ -36,12 +36,13 @@ import {
   AtumWindowControlsSurface
 } from '@/app/atum/shell-surface'
 import { ComposerSurface } from '@/app/chat/composer/composer-surface'
+import { AccountConnectSheet } from '@/app/connections/connect-sheet'
+import { openAccountConnect } from '@/app/connections/store'
 import { workCopy } from '@/app/work/copy'
-import { WorkPlanConnectStep } from '@/app/work/plan-connect'
 import { WorkRelayMessageLine } from '@/app/work/relay-chrome'
 import { workRelayFallbackReason, workRelayPickerView, workRelayTurnChrome } from '@/app/work/relay-view'
 import { $work, $workActive, connectWorkBridge, loadWorkEnrollmentDeferred, setWorkActive, workOnRail } from '@/app/work/store'
-import { $workRelayRooms, openWorkPlanConnect, openWorkPlanConsent } from '@/app/work/store'
+import { $workRelayRooms } from '@/app/work/store'
 import { useWorkRelayRoom } from '@/app/work/use-relay'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MarkdownContent } from '@/components/assistant-ui/markdown-surface'
@@ -193,6 +194,7 @@ import {
   $assistantCard,
   $assistantNameOverrides,
   AssistantCardHost,
+  closeAssistantCard,
   openAssistantCard,
   settleAssistantNames,
   withAssistantNames
@@ -4023,10 +4025,8 @@ function MatrixComposer({
 
                         return { status: 'saved' }
                       },
-                      fix: fix => {
-                        if (fix === 'allow') {openWorkPlanConsent({ agent: roomAgent.principal })}
-                        else {void openWorkPlanConnect(window.atumMatrix.work!).catch(fail)}
-                      }
+                      // Both fixes open the one connect sheet: Connect signs in, Allow is its one sentence (Q1).
+                      fix: fix => openAccountConnect('codex', fix === 'allow' ? 'allow' : 'connect')
                     } : undefined}
                   />
                 )}
@@ -8509,8 +8509,15 @@ function MatrixAccountView({
             {chat.skipToComposer}
           </a>
         )}
-        {/* Gate 4a: "Use your ChatGPT plan here", once, only while the gate is open for this account. */}
-        <WorkPlanConnectStep />
+        {/* The one connect sheet for every plan; Continue closes what covers Work and shows its sign-in screen. */}
+        <AccountConnectSheet
+          onLeave={() => {
+            setSettingsOpen(false)
+            setAccountMenuOpen(false)
+            setMobileOpen(false)
+            closeAssistantCard()
+          }}
+        />
         <AtumShellFrame
           compact={compact}
           main={() =>

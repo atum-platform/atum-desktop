@@ -1,7 +1,6 @@
-import { useStore } from '@nanostores/react'
 import { Fragment, type ReactNode, useEffect, useRef, useState } from 'react'
 
-import { $work, $workRelayRooms } from '@/app/work/store'
+import { AccountSubscriptionsSection, AccountToolsSection } from '@/app/connections/connections-section'
 import { MatrixWorkSettings } from '@/app/work/work-settings'
 import { ProtonMark } from '@/components/brand/proton-mark'
 import { StatusDot } from '@/components/status-dot'
@@ -29,17 +28,11 @@ import type { MatrixOwnerLocationView } from '../../shared/matrix-owner-location
 import type { MatrixPageId } from '../../shared/matrix-pages'
 import { type MatrixSettingsDestination } from '../../shared/matrix-settings-revamp-copy'
 import { matrixStoreHoldsCloudItems } from '../../shared/matrix-store-schedules'
-import {
-  type MatrixSubscriptionProvider,
-  matrixSubscriptionProviderLabel
-} from '../../shared/matrix-subscriptions'
 
 import { agentStatus } from './agent-roster'
 import { AppBotSettings } from './app-bots/settings'
 import { openAssistantCard } from './assistant-card/store'
 import { MatrixBrowserImportSettings } from './browser-import-settings'
-import { useChatGptTrainingCopy } from './chatgpt-training-copy'
-import { ChatGptTrainingSettings } from './chatgpt-training-settings'
 import { MatrixCloudDeviceSettings } from './cloud-device-settings'
 import { useMatrixCopy } from './copy'
 import { $matrixFeedbackOpen, MatrixDesktopSettings } from './desktop-settings'
@@ -64,15 +57,7 @@ import { useMatrixSettingsCopy } from './settings-copy'
 import { SettingsRow, SettingsSection, SettingsStatus } from './settings-row'
 import { $matrixSignOutOpen } from './sign-out'
 import { MatrixProtonsPane } from './store/protons-pane'
-import {
-  matrixChatGptStateLine,
-  SubscriptionChooser,
-  SubscriptionConnectDialog,
-  SubscriptionManageDialog,
-  subscriptionProviderStatus,
-  useMatrixSubscriptions,
-  useSubscriptionsBridge
-} from './subscriptions'
+import { useSubscriptionsBridge } from './subscriptions'
 import { VideoConsentSettings } from './video-consent-settings'
 import { wholeProtons } from './wallet-ui'
 import { workplacePageText } from './workplace'
@@ -420,149 +405,22 @@ function DevicesPane({ fail, snapshot }: { fail(): void; snapshot: MatrixSnapsho
   )
 }
 
-/** Settings › Connections: the two account-wide plans, one Connect/Manage row,
- * and the compact native flows they share. The status is the Atum account's, never one agent's. */
-function SubscriptionsSettings({ scopeKey }: { scopeKey?: string }) {
+/**
+ * Account Connections (owner 11-23, plan C4): one list. Every plan and the OpenCode Go key, then Work on this Mac, the data and tools
+ * every assistant has, Google, the browser import, apps, and your Macs with this Mac's one off switch. Connected means every
+ * assistant and every feature can use it; there is no per-assistant list anywhere.
+ */
+function ConnectionsPane({ onClose, snapshot }: { onClose(): void; snapshot: MatrixSnapshot }) {
   const copy = useMatrixSettingsCopy()
-  const training = useChatGptTrainingCopy()
-  const { bridge, reload, status, view } = useMatrixSubscriptions(scopeKey)
-  const [dialog, setDialog] = useState<{ provider: MatrixSubscriptionProvider; kind: 'connect' | 'manage' } | null>(null)
-  const [choosing, setChoosing] = useState(false)
-  const { provider, state } = view
-  const chatgpt = provider === 'openai-codex'
-  // One line per state (subscription-view.ts). A connected OpenCode Go plan keeps its name.
-  const relay = chatgpt ? subscriptionProviderStatus(status, 'openai-codex')?.relay : undefined
-
-  const help = chatgpt
-    ? state === 'ready'
-      ? relay?.state === 'enabled'
-        ? relay.thisMac
-          ? training.connectedThisMac
-          : training.connectedAnotherMac
-        : `ChatGPT · ${copy.chatgptReady}`
-      : (matrixChatGptStateLine(copy, state) ?? copy.subscriptionHelp)
-    : matrixSubscriptionProviderLabel(provider)
-
-  const act = () => {
-    switch (view.action) {
-      case 'manage':
-        setDialog({ provider, kind: 'manage' })
-
-        break
-
-      case 'sign_in':
-        setDialog({ provider: 'openai-codex', kind: 'connect' })
-
-        break
-
-      case 'reload':
-        void reload()
-
-        break
-
-      default:
-        setChoosing(true)
-    }
-  }
-
-  const actionLabel =
-    view.action === 'manage'
-      ? copy.change
-      : view.action === 'sign_in'
-        ? copy.signIn
-        : view.action === 'reload'
-          ? copy.tryAgain
-          : copy.connect
-
-  return (
-    <>
-      <SettingsRow
-        control={
-          <Button
-            data-matrix-subscription-action={view.action}
-            disabled={!bridge}
-            onClick={act}
-            size="sm"
-            variant="secondary"
-          >
-            {actionLabel}
-          </Button>
-        }
-        data-matrix-subscription-state={state}
-        data-matrix-subscriptions
-        help={help}
-        title={copy.yourSubscription}
-      />
-      {chatgpt && state === 'ready' && <ChatGptTrainingSettings bridge={bridge} scopeKey={scopeKey} />}
-      <SubscriptionChooser
-        onChoose={candidate => {
-          setChoosing(false)
-          setDialog({ provider: candidate, kind: 'connect' })
-        }}
-        onOpenChange={setChoosing}
-        open={choosing}
-        providers={status?.providers}
-      />
-      {dialog && (
-        <SubscriptionConnectDialog
-          onClose={() => setDialog(null)}
-          onConnected={() => void reload()}
-          open={dialog.kind === 'connect'}
-          provider={dialog.provider}
-        />
-      )}
-      {dialog && (
-        <SubscriptionManageDialog
-          onChanged={() => void reload()}
-          onClose={() => setDialog(null)}
-          onReconnect={() => setDialog({ provider: dialog.provider, kind: 'connect' })}
-          open={dialog.kind === 'manage'}
-          provider={dialog.provider}
-          status={subscriptionProviderStatus(status, dialog.provider)}
-          view={view}
-        />
-      )}
-    </>
-  )
-}
-
-/** Account Connections: subscriptions first, then the sources every assistant may use. */
-function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
-  const work = useStore($work)
-  const relayRooms = useStore($workRelayRooms)
-  const limit = Object.values(relayRooms).flatMap(room => room.status?.limits ?? []).find(each => each.plan === 'codex')
-  const copy = useMatrixSettingsCopy()
-  const { t } = useI18n()
   const subscriptionsBridge = useSubscriptionsBridge()
+  const scopeKey = snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'
 
   return (
     <div data-matrix-settings-destination="connections">
-      <SettingsSection data-matrix-settings-section="subscriptions" title={copy.subscriptions}>
-        <SubscriptionsSettings
-          scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
-        />
-      </SettingsSection>
-      {/* Work on this Mac (its own section; nothing is drawn without Work): the plan's Connect, the switches, the consent. */}
-      <MatrixWorkSettings
-        agents={(snapshot.agents ?? []).map(agent => ({
-          principal: agent.principal,
-          name: matrixRosterAgentName(agent, t.matrixShell.assistantName),
-          avatarUrl: agent.avatarUrl,
-          ...(agent.mark ? { mark: agent.mark } : {}),
-          isDefault: agent.isDefault
-        }))}
-        claudeLimit={work?.planLimits?.find(report => report.plan === 'claude')}
-        planLimit={work?.planLimits?.find(report => report.plan === 'codex') ?? work?.planLimit ?? limit}
-        relayChats={Boolean(work?.relayChats?.length)}
-      />
-      <VideoConsentSettings
-        bridge={subscriptionsBridge}
-        scopeKey={snapshot.identity ? `${snapshot.identity.userId}:${snapshot.identity.deviceId}` : 'signed-out'}
-      />
-      <MatrixKnowledgeSourcesSettings
-        // Account-wide: the open chat or assistant never remounts (or re-fences) these switches.
-        key={`knowledge-sources:${snapshot.petScope ?? snapshot.identity?.userId ?? 'none'}`}
-      />
+      <AccountSubscriptionsSection onLeave={onClose} scopeKey={scopeKey} />
+      {/* Work on this Mac (its own section; nothing is drawn without Work): Work itself, and whether assistants may start work here. */}
+      <MatrixWorkSettings />
+      <AccountToolsSection />
       {snapshot.identity ? (
         <MatrixGoogleConnectionSettings
           active={snapshot.state === 'ready'}
@@ -575,6 +433,7 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
           <SettingsRow className="atum-settings-row-quiet" role="status" title={copy.notAvailableYet} />
         </SettingsSection>
       )}
+      <VideoConsentSettings bridge={subscriptionsBridge} scopeKey={scopeKey} />
       {snapshot.identity && (
         <MatrixBrowserImportSettings
           key={`browser-import:${snapshot.identity.userId}:${snapshot.identity.deviceId}`}
@@ -584,6 +443,10 @@ function ConnectionsPane({ snapshot }: { snapshot: MatrixSnapshot }) {
       <SettingsSection title={copy.apps}>
         <AppBotSettings snapshot={snapshot} />
       </SettingsSection>
+      <MatrixKnowledgeSourcesSettings
+        // Account-wide: the open chat or assistant never remounts (or re-fences) these switches.
+        key={`knowledge-sources:${snapshot.petScope ?? snapshot.identity?.userId ?? 'none'}`}
+      />
     </div>
   )
 }
@@ -1158,7 +1021,7 @@ export function SettingsRevampPane({
         return <GeneralPane snapshot={snapshot} />
 
       case 'connections':
-        return <ConnectionsPane snapshot={snapshot} />
+        return <ConnectionsPane onClose={onClose} snapshot={snapshot} />
 
       case 'devices':
         return <DevicesPane fail={fail} snapshot={snapshot} />

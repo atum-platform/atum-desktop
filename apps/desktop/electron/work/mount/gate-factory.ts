@@ -43,6 +43,7 @@ export interface WorkGateFactoryInput {
   /** This Mac's device-service id (from device enrollment): where the platform knows this Mac. */
   deviceServiceId: string
   platform: WorkPlatform
+  readPlanCapabilities?: WorkGateServiceOptions['readPlanCapabilities']
   /** Main's own Matrix check of the owner's request (K35). Until one is supplied every launch is `unavailable`. */
   relayHistory?: RelayHistory
   relaySelection?: GateOptions['relaySelection']
@@ -90,7 +91,7 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
       incarnation: () => input.incarnation()?.id,
       settingsFile: join(paths.userdata, 'settings.json'),
       delegated: { instanceId: ATUM_WORK_DELEGATED_PROVIDER, model: ATUM_WORK_MODEL },
-      // Gate 4b-1: the one plan instance, compiled in. T3's own status for it is what the Mac reports and what a launch needs.
+      // Gate 4b-1: the Codex instance, compiled in for launch admission.
       plan: { instanceId: WORK_PLAN_INSTANCE_IDS[0] },
       restartWhenIdle: input.restartWhenIdle
     })
@@ -103,6 +104,7 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
     accountId: account.accountId,
     deviceServiceId: input.deviceServiceId,
     platform: input.platform,
+    readPlanCapabilities: input.readPlanCapabilities,
     owner: input.owner,
     relayHistory: input.relayHistory,
     relaySelection: input.relaySelection ?? (principal => assembly?.selection(principal)),

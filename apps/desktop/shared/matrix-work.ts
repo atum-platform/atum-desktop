@@ -1,3 +1,4 @@
+import { ACCOUNT_PLANS, type AccountConnectionsView, type AccountPlan } from './account-connections'
 import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './matrix-work-relay'
 
 /**
@@ -126,8 +127,10 @@ export type MatrixWorkRequest =
   | { kind: 'allowAssistants' }
   | { kind: 'setAssistants'; on: boolean }
   | { kind: 'setPlan'; on: boolean }
-  /** Gate 4a: open T3's own Codex connect screen inside Work. Atum never sees the login. */
-  | { kind: 'openPlanConnect' }
+  /** Open T3's own sign-in screen for one plan inside Work (Codex when absent). Atum never sees the login. */
+  | { kind: 'openPlanConnect'; plan?: AccountPlan }
+  /** The account's connections (`atum.account-connections/1`), or this Mac's own plan facts when the registry is unreachable. */
+  | { kind: 'readConnections' }
   | { kind: 'readPlanConsent' }
   | { kind: 'setPlanConsent'; consent: MatrixWorkPlanConsentInput }
   | { kind: 'revokePlanConsent' }
@@ -152,8 +155,10 @@ export interface MatrixWorkBridge {
   setAssistants(on: boolean): Promise<void>
   /** "Agents may use my ChatGPT plan here". Off interrupts every plan thread at once. */
   setPlan(on: boolean): Promise<void>
-  /** Open T3's own Codex connect screen in Work's view (the caller shows the Work page). */
-  openPlanConnect(): Promise<void>
+  /** Open T3's own sign-in screen for `plan` (Codex when absent) in Work's view (the caller shows the Work page). */
+  openPlanConnect(plan?: AccountPlan): Promise<void>
+  /** The account's connections. Null: no registry and no Work on this Mac to answer for it. */
+  readConnections?(): Promise<AccountConnectionsView | null>
   readPlanConsent(): Promise<MatrixWorkPlanConsent>
   setPlanConsent(consent: MatrixWorkPlanConsentInput): Promise<MatrixWorkPlanConsent>
   /** One tap, every Mac: the platform's record goes off and each Mac stops what the plan runs on its next pull. */
@@ -224,10 +229,18 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
     case 'retry':
     case 'allowAssistants':
     case 'reconnectAssistants':
-    case 'openPlanConnect':
+    case 'readConnections':
     case 'readPlanConsent':
     case 'revokePlanConsent':
       return keys.length === 1 ? { kind: row.kind } : null
+    case 'openPlanConnect':
+      if (keys.length === 1) {
+        return { kind: 'openPlanConnect' }
+      }
+
+      return keys.length === 2 && (ACCOUNT_PLANS as readonly unknown[]).includes(row.plan)
+        ? { kind: 'openPlanConnect', plan: row.plan as AccountPlan }
+        : null
     case 'setPlanConsent': {
       const consent = keys.length === 2 ? parseConsentInput(row.consent) : null
 

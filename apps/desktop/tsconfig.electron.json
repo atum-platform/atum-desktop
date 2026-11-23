@@ -204,6 +204,7 @@
     "shared/matrix-window.ts",
     "shared/matrix-window-failure.ts",
     "shared/matrix-work.ts",
+    "shared/account-connections.ts",
     "shared/matrix-work-relay.ts",
     "shared/matrix-hermes-activity.ts",
     "shared/matrix-turn.ts",

@@ -1,3 +1,4 @@
+import type { AccountConnectionsView, AccountPlan } from '../../../shared/account-connections'
 import type {
   MatrixWorkPlanConsent,
   MatrixWorkPlanConsentInput,
@@ -20,7 +21,7 @@ import {
   projectWorkConsent,
   projectWorkPlan,
   projectWorkPlanConnect,
-  WORK_PLAN_CONNECT_PATH
+  workPlanConnectPath
 } from './projection'
 
 /** The owner view as main paints it: R's port, plus where it sits in the Matrix window (null: off the window). */
@@ -54,8 +55,10 @@ export interface WorkSurfaceParts {
   /** S's balance read for the Atum provider (`readModelAccess`). */
   readAccess?(): Promise<WorkAccess>
   readPlanUsage?(): Promise<MatrixWorkProjection['planLimits']>
-  /** Gate 4a for this account (custody retired, the build ships the unmodified Codex client). False or absent: no Connect step. */
-  planConnectOpen?(): boolean
+  /** The account's legacy cloud login must be retired before opening native Codex setup. */
+  prepareChatGptConnect?(): Promise<void>
+  /** `atum.account-connections/1`, or this Mac's own plan facts when the registry cannot be read. */
+  readConnections?(): Promise<AccountConnectionsView | null>
   /** The owner's consent client (gate 4b-2), and this Mac's device-service id so the page can name "This Mac". */
   consent?: Pick<WorkConsentClient, 'read' | 'revoke' | 'set'>
   deviceServiceId?(): string | undefined
@@ -128,7 +131,7 @@ export class WorkSurface {
     const gate = parts.gate?.state()
 
     const plan = projectWorkPlan(gate)
-    const planConnect = projectWorkPlanConnect(parts.planConnectOpen?.() === true, gate)
+    const planConnect = parts.enabled() ? projectWorkPlanConnect(gate) : undefined
 
     return {
       ...(parts.relay ? { relayChats: parts.relay.chats() } : {}),
@@ -274,18 +277,34 @@ export class WorkSurface {
 
   /**
    * Gate 4a: open T3's own Codex provider screen in the owner view (the page shows Work). Atum draws no login and never sees the
-   * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's. Closed gate: nothing happens.
+   * token: the screen, the browser sign-in and Codex's own store are T3's and Codex's.
    */
-  async openPlanConnect(): Promise<void> {
-    if (this.parts?.planConnectOpen?.() !== true) {
+  async openPlanConnect(plan: AccountPlan = 'codex'): Promise<void> {
+    const parts = this.parts
+
+    if (!parts?.enabled()) {
       return
     }
 
-    this.pendingPath = WORK_PLAN_CONNECT_PATH
+    // Only ChatGPT ever had a cloud copy (S2 carry); Claude and Antigravity open their screen at once.
+    if (plan === 'codex') {
+      await parts.prepareChatGptConnect?.()
+    }
+
+    if (this.parts !== parts || !parts.enabled()) {
+      return
+    }
+
+    this.pendingPath = workPlanConnectPath(plan)
 
     if (this.phase === 'ready') {
       await this.followPendingPath()
     }
+  }
+
+  /** The account's connections. Null while no account's Work is attached here (nothing to read with). */
+  async readConnections(): Promise<AccountConnectionsView | null> {
+    return (await this.parts?.readConnections?.()) ?? null
   }
 
   /** Gate 4b-2: the account's consent, as the owner's page reads it. */

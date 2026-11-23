@@ -20550,6 +20550,26 @@ async function start() {
       deviceServiceId: () => deviceIdentity?.enrollment()?.deviceServiceId,
       deviceServicesEndpoint: () => `${domain.resource}/device-services`,
       bearer: () => account.s1Request(accessToken => Promise.resolve(accessToken), AbortSignal.timeout(15_000)),
+      prepareChatGptConnect: () => account.s1Request(async (token, base, signal) => {
+        // The Shell route checks status first and performs the idempotent account retirement only if needed.
+        const response = await session.defaultSession.fetch(`${base}/api/connections/openai-codex/uncarry`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: '{}',
+          redirect: 'error',
+          signal
+        })
+
+        if (response.status === 401) {
+          throw new Error('matrix_s1_authentication')
+        }
+
+        const status = response.ok ? await response.json() as { state?: unknown } | null : null
+
+        if (status?.state !== 'work') {
+          throw new Error('work_chatgpt_custody_pending')
+        }
+      }, AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       ownerHost: () => {
         const owner = hosts.get('human')
 

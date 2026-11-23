@@ -4,7 +4,7 @@ import { AccessVerifier, type AssertionResult } from './assertion'
 import { type GateEvent, type GateOptions, type GateState, WorkGate } from './gate'
 import { createGateHandler } from './http'
 import { GateLedger } from './ledger'
-import { PlanFact } from './plan-fact'
+import { type PlanCapabilities, PlanFact } from './plan-fact'
 import type { GateSessions, WorkPlatform } from './ports'
 import { bindGateSocket, type BoundGateSocket, GateSocketError } from './socket'
 import { readFacts, WorkSync } from './sync'
@@ -33,6 +33,7 @@ export interface WorkGateServiceOptions extends Omit<GateOptions, 'ledger' | 'ho
    */
   sessions: GateSessions | ((ledger: GateLedger) => GateSessions)
   platform: WorkPlatform
+  readPlanCapabilities?(): Promise<PlanCapabilities>
   /** The short, protected socket path main created for this enrollment (at most 100 bytes). */
   socketPath: string
   fetchJwks?: (url: string) => Promise<unknown>
@@ -74,12 +75,10 @@ export class WorkGateService {
 
     this.gate = new WorkGate({ ...options, ledger: this.ledger, sessions })
 
-    // Gate 4a: only a T3 client that has a plan instance configured can read the plan's status, and only a platform that speaks 1.2
-    // can take the fact. Either absent (a stand-in, an older composition): nothing is read and nothing is reported.
-    const planProvider = options.t3.planProvider?.bind(options.t3)
+    const { readPlanCapabilities } = options
 
     this.planFact =
-      planProvider && options.platform.reportSubscription
+      readPlanCapabilities && options.platform.reportSubscription
         ? new PlanFact({
             ledger: this.ledger,
             platform: options.platform,
@@ -87,11 +86,7 @@ export class WorkGateService {
             deviceServiceId: options.deviceServiceId,
             now: this.now,
             log: options.log,
-            status: async () => {
-              const owner = await sessions.owner()
-
-              return (await planProvider(owner.token)).status
-            }
+            read: readPlanCapabilities
           })
         : undefined
 

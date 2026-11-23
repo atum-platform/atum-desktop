@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 
-import type { WorkConsentAgent } from '@/app/work/plan-consent'
+import { openAccountConnect } from '@/app/connections/store'
 import type { WorkRelayPickerView } from '@/app/work/relay-view'
-import { $work, $workPlanConsent } from '@/app/work/store'
+import { $work } from '@/app/work/store'
 import { WorkScreen } from '@/app/work/work-screen'
 import { MatrixWorkSettings } from '@/app/work/work-settings'
 
@@ -29,7 +29,6 @@ type GalleryState = (typeof PLAYGROUND_RELAY_GALLERY)[number]
 
 const AGENT = '00000000-0000-4000-8000-00000000c0de'
 const MAC = '00000000-0000-4000-8000-0000000000a1'
-const AGENTS: WorkConsentAgent[] = [{ principal: AGENT, name: 'Rin' }]
 
 const ROOM: MatrixRoom = { id: '!rin:atum.invalid', name: 'Rin', membership: 'join', encrypted: false, assistant: true }
 
@@ -139,7 +138,9 @@ export function PlaygroundRelay() {
       planConnect: 'connected',
       plan: 'off'
     })
-    $workPlanConsent.set(state === 'consent-chats' ? {} : null)
+    if (state === 'consent-chats') {
+      openAccountConnect('codex', 'allow')
+    }
   }, [state])
 
   if (state in PICKER_VIEWS) {
@@ -161,12 +162,7 @@ export function PlaygroundRelay() {
 
   return (
     <div className="mx-auto w-full max-w-[36rem] overflow-y-auto px-6 py-10">
-      <MatrixWorkSettings
-        agents={AGENTS}
-        bridge={workBridge}
-        planLimit={{ plan: 'codex', state: 'available', observedAt: Date.now(), usedPercent: 42, resetsAt: Date.now() + 3 * 3_600_000 }}
-        relayChats={state === 'consent-chats'}
-      />
+      <MatrixWorkSettings bridge={workBridge} />
     </div>
   )
 }

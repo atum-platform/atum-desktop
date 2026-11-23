@@ -3,7 +3,6 @@ import { join } from 'node:path'
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
 
-import type { ManagedModelAccessSnapshot } from '../../../src/lib/atum-managed-model-access'
 import type { WorkSessionPaths } from '../session/paths'
 import type { PinHost } from '../session/update'
 
@@ -25,7 +24,7 @@ interface WorkHostOptions {
   account(): Account | undefined
   gatewayEnvironment(): Record<string, string>
   revokeCredentials(): void
-  accessState(): Promise<ManagedModelAccessSnapshot>
+  readAccess(): Promise<WorkAccess>
   openProtons(): Promise<void>
 }
 
@@ -202,26 +201,12 @@ export class WorkHost {
     }
 
     try {
-      const snapshot = await this.options.accessState()
+      const access = await this.options.readAccess()
 
-      if (this.current() !== incarnation) {
-        return 'unavailable'
-      }
-
-      if ('access_alias' in snapshot && snapshot.access_alias === 'binh-minh') {
-        if (snapshot.state === 'ready') {
-          return 'allowed'
-        }
-
-        if (snapshot.state === 'insufficient_funds') {
-          return 'empty'
-        }
-      }
+      return this.current() === incarnation ? access : 'unavailable'
     } catch {
       return 'unavailable'
     }
-
-    return 'unavailable'
   }
 
   registerOwnerPreload(): void {

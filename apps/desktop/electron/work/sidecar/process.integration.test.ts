@@ -51,8 +51,10 @@ describe.skipIf(!resources)('packaged Work sidecar', () => {
       const settings = JSON.parse(await readFile(settingsPath, 'utf8'))
       expect(settings.defaultTheme).toBe('atum')
       expect(settings.textGenerationModelSelection).toEqual({ instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL })
-      expect(settings.providerInstances.codex.enabled).toBe(false)
-      expect(settings.providerInstances.claudeAgent.enabled).toBe(false)
+      expect(settings.providerInstances.codex).toMatchObject({ enabled: true, config: { setupMode: 'managed' } })
+      expect(settings.providerInstances.claudeAgent.enabled).toBe(true)
+      expect(settings.providerInstances.antigravity.enabled).toBe(true)
+      expect(settings.providerInstances['atum-managed-delegated']).toMatchObject({ enabled: true, showInPicker: false })
       await sidecar.stop()
 
       await exec(join(resources!, 'work-runtime', 't3'), ['theme', 'clear'], {
