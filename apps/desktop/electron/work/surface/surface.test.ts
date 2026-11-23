@@ -324,6 +324,35 @@ describe('WorkSurface', () => {
     }
   })
 
+  it('keeps backing off when each reopened sidecar pairs and dies at once', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const rig = harness()
+      rig.surface.attach(rig.parts)
+      rig.session.openOwnerView.mockImplementation(async factory => {
+        const incarnation = { ...INCARNATION, unexpectedExit: Promise.resolve(true) }
+
+        return { state: 'paired', incarnation, view: factory(incarnation) }
+      })
+      await rig.surface.show(RECT)
+      // Crash-looping runs reopen after 1s, 2s, 4s: the delay grows instead of staying at 1s.
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1999)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(3999)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(4)
+      rig.surface.attach(undefined)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('reopens after a dead sidecar when Retry is clicked', async () => {
     let exit!: (unexpected: boolean) => void
     const unexpectedExit = new Promise<boolean>(resolve => { exit = resolve })

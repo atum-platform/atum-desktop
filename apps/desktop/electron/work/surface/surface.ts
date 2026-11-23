@@ -81,6 +81,9 @@ export interface WorkSurfaceOptions {
   setWork?(on: boolean): Promise<void>
 }
 
+/** A run must last this long before a crash resets the reconnect backoff (matches the sidecar). */
+const HEALTHY_RUN_MS = 60_000
+
 const PROTONS: Record<WorkAccess, MatrixWorkProjection['protons']> = {
   allowed: 'ok',
   empty: 'empty',
@@ -492,9 +495,11 @@ export class WorkSurface {
     const handle = this.handle
     this.phase = 'ready'
     this.recovering = false
-    this.recoveryFailures = 0
+    const readyAt = Date.now()
     void outcome.incarnation.unexpectedExit?.then(unexpected => {
       if (unexpected && this.handle === handle && generation === this.generation && this.holds === 0) {
+        // Only a healthy run earns a fresh backoff; a view that pairs and dies at once keeps backing off.
+        if (Date.now() - readyAt >= HEALTHY_RUN_MS) {this.recoveryFailures = 0}
         this.closeView()
         this.phase = 'unavailable'
         this.recovering = true

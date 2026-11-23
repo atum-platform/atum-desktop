@@ -23,3 +23,7 @@ The owner surface observes unexpected exits, discards the dead view, and reopens
 Behavior tests execute the Python ownership scanner with repeated simulated ps timeouts and a real child, then verify ownership observations resume. A real fake-server subprocess exits with code 7 while the control pipe stays open, proving the wrapper returns on server death. Electron tests exercise unexpected exit, replacement incarnation, capped retries, failed startup during recovery, explicit stop with and without an account change, automatic view recovery, and Retry after death. They assert behavior, not source text.
 
 Focused sidecar/surface Vitest, Electron TypeScript and changed-file ESLint pass (exit 0). The packaged-runtime integration test is skipped without explicitly supplied release resources. Public guard is run against the committed patch before handoff. No installed app, owner data, credentials, builds, CI, deployments or dependency installs are used. Temporary dependency symlinks are removed before commit; clone footprint is approximately 367 MB.
+
+## Review follow-up (2026-11-23)
+
+Sol review P2: the surface reset its reconnect backoff each time a view paired. A sidecar that paired and then died at once was therefore reopened every second, and each reopen cancelled the sidecar's own growing backoff. The surface now resets its backoff only after a run of at least 60 seconds, the same healthy-run rule the sidecar uses. Test: `keeps backing off when each reopened sidecar pairs and dies at once`. It fails on the earlier code and passes with the fix.
