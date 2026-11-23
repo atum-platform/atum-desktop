@@ -19,7 +19,7 @@ def publish(kind, **values):
 
 def processes():
     output = subprocess.check_output(
-        ["/bin/ps", "-axo", "pid=,ppid=,rss=,lstart="], text=True, timeout=1,
+        ["/bin/ps", "-axo", "pid=,ppid=,rss=,lstart="], text=True, timeout=5,
     )
     return {int(pid): (int(parent), int(rss), started) for pid, parent, rss, started in
             (line.split(maxsplit=3) for line in output.splitlines() if line.strip())}
@@ -54,6 +54,8 @@ class Children:
         self.seen = {}
         self.token = secrets.token_hex(16)
         self.tagged_at = 0.0
+        self.scanned_at = 0.0
+        self.rss = 0
 
     def start(self, argv, env, cwd, stdout=subprocess.DEVNULL, pass_fds=()):
         env = {**env, OWNER_VARIABLE: self.token}
@@ -64,7 +66,16 @@ class Children:
         return child
 
     def scan(self, force=False):
-        table = processes()
+        now = time.monotonic()
+        if not force and now - self.scanned_at < 2:
+            return self.rss
+        self.scanned_at = now
+        try:
+            table = processes()
+        except (OSError, subprocess.SubprocessError):
+            # A busy host may not schedule ps before its deadline. Keep the
+            # last ownership snapshot; a missed observation is not child death.
+            return self.rss
         owned = {child.pid for child in self.leaders if child.returncode is None and child.pid in table}
         owned.update(pid for pid, started in self.seen.items()
                      if pid in table and table[pid][2] == started)
@@ -82,7 +93,8 @@ class Children:
                 break
             owned.update(descendants)
         self.seen = {pid: table[pid][2] for pid in owned if pid in table}
-        return sum(table[pid][1] for pid in self.seen)
+        self.rss = sum(table[pid][1] for pid in self.seen)
+        return self.rss
 
     def stop(self):
         try:

@@ -299,6 +299,79 @@ describe('WorkSurface', () => {
     expect(placed.at(-1)).toBeNull()
   })
 
+  it('automatically reopens a dead sidecar and cancels recovery on detach', async () => {
+    vi.useFakeTimers()
+
+    try {
+      let exit!: (unexpected: boolean) => void
+      const unexpectedExit = new Promise<boolean>(resolve => { exit = resolve })
+      const rig = harness()
+      rig.surface.attach(rig.parts)
+      const incarnation = { ...INCARNATION, unexpectedExit }
+      rig.session.openOwnerView.mockImplementationOnce(async factory => ({
+        state: 'paired', incarnation, view: factory(incarnation)
+      }))
+      await rig.surface.show(RECT)
+      exit(true)
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      expect(rig.surface.projection()?.view).toBe('ready')
+      rig.surface.attach(undefined)
+      await vi.advanceTimersByTimeAsync(60_000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps backing off when each reopened sidecar pairs and dies at once', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const rig = harness()
+      rig.surface.attach(rig.parts)
+      rig.session.openOwnerView.mockImplementation(async factory => {
+        const incarnation = { ...INCARNATION, unexpectedExit: Promise.resolve(true) }
+
+        return { state: 'paired', incarnation, view: factory(incarnation) }
+      })
+      await rig.surface.show(RECT)
+      // Crash-looping runs reopen after 1s, 2s, 4s: the delay grows instead of staying at 1s.
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1999)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(3999)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(3)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(rig.session.openOwnerView).toHaveBeenCalledTimes(4)
+      rig.surface.attach(undefined)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('reopens after a dead sidecar when Retry is clicked', async () => {
+    let exit!: (unexpected: boolean) => void
+    const unexpectedExit = new Promise<boolean>(resolve => { exit = resolve })
+    const rig = harness()
+    rig.surface.attach(rig.parts)
+    const incarnation = { ...INCARNATION, unexpectedExit }
+    rig.session.openOwnerView.mockImplementationOnce(async factory => ({
+      state: 'paired', incarnation, view: factory(incarnation)
+    }))
+    await rig.surface.show({ x: 0, y: 0, width: 500, height: 500 })
+    exit(true)
+    await Promise.resolve()
+    expect(rig.surface.projection()?.view).toBe('unavailable')
+    await rig.surface.retry()
+    expect(rig.session.openOwnerView).toHaveBeenCalledTimes(2)
+    expect(rig.surface.projection()?.view).toBe('ready')
+    rig.surface.attach(undefined)
+  })
+
   it('says it could not open, and opens again on retry', async () => {
     let fail = true
 
