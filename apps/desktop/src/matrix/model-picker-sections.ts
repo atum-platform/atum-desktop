@@ -1,6 +1,6 @@
-import type { WorkRelayPlan } from '../../shared/matrix-work-relay'
 import type { MatrixModelRoute } from '../../shared/matrix-models'
 import type { MatrixShelfModelView } from '../../shared/matrix-shelf-models'
+import type { WorkRelayPlan } from '../../shared/matrix-work-relay'
 
 import { matrixModelRouteMatches, matrixModelRoutesForFacet } from './model-picker-preferences'
 
@@ -139,6 +139,7 @@ export function pickerSections(input: PickerSectionsInput): PickerSection[] {
   const allConnected = [...connected, ...subscriptions].filter(
     (each, index, rows) => rows.findIndex(candidate => candidate.route.id === each.route.id) === index
   )
+
   const byId = new Map(allConnected.map(each => [each.route.id, each]))
 
   // The stars keep their own order (newest first); a route the catalog lacks is not drawn.

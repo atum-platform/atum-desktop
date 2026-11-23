@@ -29,10 +29,13 @@ export function accountPlanLine(row: AccountPlanRow, copy: ConnectionsWords): st
   switch (row.state) {
     case 'connected':
       return copy.onMacs(accountPlanMacNames({ ...row, macs: row.macs.filter(mac => !mac.stale) }, copy.thisMac))
+
     case 'stale':
       return copy.lastSeen(accountPlanMacNames(row, copy.thisMac))
+
     case 'needs_attention':
       return copy.needsAttention
+
     default:
       return copy.notConnected
   }

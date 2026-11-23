@@ -5,6 +5,7 @@ import { admitConnector } from './admission'
 it('checks the challenge and caller on the same live Work sidecar', async () => {
   const caller = { threadId: 'thread', providerSessionId: 'session', providerInstanceId: 'provider', admission: 'challenge' }
   let origin = 'http://127.0.0.1:12345'
+
   const callback = vi.fn<typeof fetch>(async (request, init) => {
     expect(String(request)).toBe(`${origin}/atum-work/connector/prepare`)
     const headers = new Headers(init?.headers)

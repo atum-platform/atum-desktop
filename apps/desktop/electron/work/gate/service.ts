@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from '../../../shared/matrix-work-relay'
 
 import { AccessVerifier, type AssertionResult } from './assertion'
@@ -81,7 +82,7 @@ export class WorkGateService {
     const { readPlanCapabilities } = options
 
     this.planFact =
-      readPlanCapabilities && options.platform.reportSubscription
+      options.platform.reportSubscription
         ? new PlanFact({
             ledger: this.ledger,
             platform: options.platform,
@@ -89,7 +90,7 @@ export class WorkGateService {
             deviceServiceId: options.deviceServiceId,
             now: this.now,
             log: options.log,
-            read: readPlanCapabilities
+            read: readPlanCapabilities ?? (async () => ({}))
           })
         : undefined
 

@@ -84,6 +84,7 @@ describe('gate 4a and 4b-2 projections', () => {
   const GONE = '00000000-0000-4000-8000-00000000a003'
   const RIN = '00000000-0000-4000-8000-00000000b001'
   const LUNA = '00000000-0000-4000-8000-00000000b002'
+
   const record = {
     provider: 'codex' as const,
     state: 'off' as const,
@@ -202,6 +203,7 @@ function harness(overrides: Partial<WorkSurfaceParts> = {}, open?: () => Promise
   const enabledNow = { value: true }
   const parts: WorkSurfaceParts = { session, enabled: () => enabledNow.value, gate, readAccess: async () => 'allowed', ...overrides }
   const log = vi.fn()
+
   const surface = new WorkSurface({
     createView,
     publish: value => void published.push(value),
@@ -493,6 +495,7 @@ describe('WorkSurface', () => {
     expect(calls).toEqual([])
 
     surface.attach(parts)
+
     const failing = new WorkSurface({
       createView: () => {
         throw new Error('unused')
@@ -527,6 +530,7 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
   function navigable() {
     const loads: string[] = []
     const h = harness()
+
     const create = (h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView
 
     ;(h.surface as unknown as { options: { createView: () => WorkViewHandle } }).options.createView = () => {
@@ -607,6 +611,7 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
 
   it('reads, sets and revokes the consent through the owner\'s client, naming this Mac by its id', async () => {
     const off = { provider: 'codex' as const, state: 'off' as const, agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
+
     const consent = {
       readRelay: vi.fn(),
       selectRelay: vi.fn(),
@@ -615,6 +620,7 @@ describe('WorkSurface: gate 4a Connect and the 4b-2 consent', () => {
       set: vi.fn(async () => ({ ...off, state: 'on' as const, revision: 1 })),
       revoke: vi.fn(async () => off)
     }
+
     const { parts, surface } = harness({ consent, deviceServiceId: () => MAC })
 
     surface.attach(parts)

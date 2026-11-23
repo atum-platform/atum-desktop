@@ -599,6 +599,7 @@ export class GateLedger {
     try {
       const value: unknown = JSON.parse(raw)
       const parsed = WorkPlanConsentSnapshotSchema.safeParse(value)
+
       if (!parsed.success) {return WorkConsentSnapshotSchema.parse(value)}
 
       return parsed.success ? parsed.data : undefined

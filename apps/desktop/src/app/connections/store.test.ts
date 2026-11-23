@@ -72,15 +72,16 @@ describe('the one connect flow', () => {
     await vi.advanceTimersByTimeAsync(ACCOUNT_CONNECT_POLL_MS * 3)
     expect($accountConnectProgress.get()).toEqual({ plan: 'codex', phase: 'done' })
     // Q1: the connect sentence is the consent: every assistant Work knows, this Mac, scheduled work too; this Mac's switch on.
-    expect(port.setPlanConsent).toHaveBeenCalledWith({ agents: [RIN, LUNA], macs: [THIS_MAC], alsoWhenScheduled: true })
+    expect(port.setPlanConsent).toHaveBeenCalledWith({ agents: [RIN, LUNA], macs: [THIS_MAC], alsoWhenScheduled: true }, 'codex')
     expect(port.setPlan).toHaveBeenCalledWith(true)
 
     await vi.advanceTimersByTimeAsync(3_000)
     expect($accountConnectProgress.get()).toBeNull()
   })
 
-  it('Claude has no consent record to write: it is simply connected', async () => {
+  it('Claude connection grants assistants and scheduled work without a separate opt-in', async () => {
     const port = bridge([ACCOUNT_CONNECTIONS_FIXTURE])
+
     const claudeHere: AccountConnectionsView = {
       ...ACCOUNT_CONNECTIONS_FIXTURE,
       connections: ACCOUNT_CONNECTIONS_FIXTURE.connections.map(row =>
@@ -89,6 +90,7 @@ describe('the one connect flow', () => {
           : row
       )
     }
+
     port.readConnections.mockResolvedValue(claudeHere)
 
     await continueAccountConnect({ plan: 'claude' }, port)
@@ -96,7 +98,8 @@ describe('the one connect flow', () => {
 
     expect(port.openPlanConnect).toHaveBeenCalledWith('claude')
     expect($accountConnectProgress.get()).toEqual({ plan: 'claude', phase: 'done' })
-    expect(port.readPlanConsent).not.toHaveBeenCalled()
+    expect(port.readPlanConsent).toHaveBeenCalledWith('claude')
+    expect(port.setPlanConsent).toHaveBeenCalledWith({ agents: [RIN, LUNA], macs: [THIS_MAC], alsoWhenScheduled: true }, 'claude')
   })
 
   it('a sign-in that never lands says so once, after the wait', async () => {
@@ -131,7 +134,7 @@ describe('the one connect flow', () => {
       agents: [RIN, LUNA],
       macs: ['33333333-3333-4333-8333-33333333abcd', THIS_MAC],
       alsoWhenScheduled: true
-    })
+    }, 'codex')
 
     port.readPlanConsent.mockRejectedValueOnce(new Error('offline'))
     await expect(grantAccountPlanUse(port, 'codex')).resolves.toBeUndefined()

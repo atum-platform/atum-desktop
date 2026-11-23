@@ -1,4 +1,4 @@
-import { type AccountConnectionsView, type AccountPlan } from './account-connections'
+import { type AccountConnectionsView } from './account-connections'
 import { WORK_RELAY_PLANS, type WorkRelayPlan } from './matrix-work-relay'
 import type { WorkRelayLimit, WorkRelayRoomView, WorkRelaySelection } from './matrix-work-relay'
 
@@ -223,21 +223,32 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
         ? { kind: 'readRelay', principal: row.principal, roomId: row.roomId } : null
     case 'selectRelay': {
       if (row.plan !== undefined && !relayPlan) {return null}
+
       return keys.length === ('plan' in row ? 5 : 4) && typeof row.principal === 'string' && UUID.test(row.principal) && typeof row.expectedRevision === 'number' && Number.isSafeInteger(row.expectedRevision) && row.expectedRevision >= 0 && typeof row.model === 'string' && row.model.length > 0 && row.model.length <= 200
         ? { kind: 'selectRelay', principal: row.principal, expectedRevision: row.expectedRevision, model: row.model, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
+
     case 'stopRelay':
       return keys.length === 3 && typeof row.roomId === 'string' && /^![^\s:]+:[^\s]+$/u.test(row.roomId) && row.roomId.length <= 255 && typeof row.eventId === 'string' && row.eventId.startsWith('$') && row.eventId.length <= 255
         ? { kind: 'stopRelay', roomId: row.roomId, eventId: row.eventId } : null
+
     case 'read':
+
     case 'hide':
+
     case 'retry':
+
     case 'allowAssistants':
+
     case 'reconnectAssistants':
+
     case 'readConnections':
       return keys.length === 1 ? { kind: row.kind } : null
+
     case 'readPlanConsent':
+
     case 'revokePlanConsent':
+
     case 'openPlanConnect':
       return keys.length === ('plan' in row ? 2 : 1) && (row.plan === undefined || relayPlan)
         ? { kind: row.kind, ...(relayPlan ? { plan: relayPlan } : {}) } : null
@@ -247,10 +258,13 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
       return consent && (row.plan === undefined || relayPlan)
         ? { kind: 'setPlanConsent', consent, ...(relayPlan ? { plan: relayPlan } : {}) } : null
     }
+
     case 'setAssistants':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setAssistants', on: row.on } : null
+
     case 'setPlan':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setPlan', on: row.on } : null
+
     case 'setWork':
       return keys.length === 2 && typeof row.on === 'boolean' ? { kind: 'setWork', on: row.on } : null
     case 'show': {
@@ -271,6 +285,7 @@ export function parseMatrixWorkRequest(value: unknown): MatrixWorkRequest | null
 
       return { kind: 'show', rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
     }
+
     default:
       return null
   }

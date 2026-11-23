@@ -1,4 +1,3 @@
-import { WORK_RELAY_PLANS, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 import './look/look.css'
 import './team-space/slack-layout.css'
 
@@ -158,6 +157,7 @@ import {
 import { matrixTurnQuote } from '../../shared/matrix-turn-intake'
 import type { MatrixWindowFacts } from '../../shared/matrix-window'
 import type { MatrixWindowFailureSource } from '../../shared/matrix-window-failure'
+import { WORK_RELAY_PLANS, workRelayNoticePlan } from '../../shared/matrix-work-relay'
 import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/room-participation'
 
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
@@ -1621,7 +1621,7 @@ function MatrixEventMessageBubble() {
         <SubscriptionFallbackLine className={underText} fallback={message.answeredByFallback} />
       )}
       {message.relayTurn && message.relayTurn.kind !== 'none' && !message.redacted && (
-        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} roomId={action?.room.id} plan={workRelayNoticePlan(message.answeredByFallback?.plan) ?? relayTurn?.plan ?? operation?.plan} />
+        <WorkRelayMessageLine chrome={message.relayTurn} className={underText} eventId={message.id} plan={workRelayNoticePlan(message.answeredByFallback?.plan) ?? relayTurn?.plan ?? operation?.plan} roomId={action?.room.id} />
       )}
       {savedScope && saved && (
         <Tip label={savedCopy.marker}>

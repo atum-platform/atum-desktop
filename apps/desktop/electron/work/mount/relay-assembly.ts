@@ -3,7 +3,6 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, renameSync
 import { join, resolve } from 'node:path'
 
 import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
-
 import type { MatrixAgentDefinitionSnapshot } from '../../matrix/agent-definition'
 import { WORK_PROVISIONAL, WorkRelaySelectionSchema } from '../gate/contract'
 import type { GateLedger } from '../gate/ledger'
@@ -203,6 +202,7 @@ export class RelayAssembly {
 
       return readFileSync(location, 'utf8')
     })
+
     const revision = /^<!-- Atum persona revision: ([1-9][0-9]*) -->\n/u.exec(instructions[0])
     const personaRevision = Number(revision?.[1])
 

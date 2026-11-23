@@ -609,12 +609,15 @@ describe('the T3-layout conversation model picker', () => {
 
   it('lists Atum’s models for a Mac assistant on its own connection; one click switches back AND picks the model', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`setModel:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     let view: ReturnType<typeof picker> | undefined
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
       // As main does: the assistant is back on Atum's AI, so its projection changes under the card.
@@ -622,6 +625,7 @@ describe('the T3-layout conversation model picker', () => {
 
       return { state: 'ready' as const }
     })
+
     const onBackToAtum = vi.fn()
 
     view = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command, useAtumModel }, onBackToAtum })
@@ -650,6 +654,7 @@ describe('the T3-layout conversation model picker', () => {
     const command = vi.fn(async () => {
       throw new Error('matrix_model_choice_unavailable')
     })
+
     const { fail } = picker(ROOM, { managed: false, connected: CHATGPT, bridge: { ...plan(), command } })
     const card = await open('Model: ChatGPT · GPT-5.6 Luna')
     await waitFor(() => expect(rail(card, 'atum')).toBeTruthy())
@@ -859,6 +864,7 @@ describe('the T3-layout conversation model picker', () => {
         bridge: plan()
       }
     )
+
     const card = await open('Model: ChatGPT · GPT-5.6 Luna · Thorough')
 
     const levels = await waitFor(() => within(card).getByRole('radiogroup', { name: /^Thinking: / }))
@@ -1035,14 +1041,17 @@ describe('the thinking column only where a level can be chosen', () => {
     home.placement!.destinations = home.placement!.destinations.map(destination => ({
       ...destination, models: destination.models.map(option => option.model === multi.model ? multi : option)
     }))
+
     const model = vi.fn().mockResolvedValueOnce({ status: 'refused', reason: 'connection_unavailable' })
       .mockResolvedValue({ status: 'saved' })
+
     const view = picker(ROOM, {
       agentPrincipal: 'agent-luna', home, managed: true, cloud: true, local: true, here: 'cloud',
       cloudChoice: { offered: ['nguyet-thuc'], current: 'nguyet-thuc', effort: 'low',
         models: [{ alias: 'nguyet-thuc', efforts: ['low', 'high'] }] },
       bridge: { agentHome: homeBridge(model) }
     })
+
     const card = await open('Model: Nguyệt Thực 1.3')
     const high = () => card.querySelector<HTMLButtonElement>('[data-matrix-model-effort-level="high"]')!
     fireEvent.click(high())
@@ -1052,11 +1061,13 @@ describe('the thinking column only where a level can be chosen', () => {
     await waitFor(() => expect(model).toHaveBeenCalledTimes(2))
     expect(high().disabled).toBe(true)
     expect(view.command).not.toHaveBeenCalled()
+
     const refreshedHome = ownerHomeViewFor(cloudHome(multi), {
       snapshot: ownerSnapshotFixture as Parameters<typeof ownerHomeViewFor>[1]['snapshot'], catalogs: {}
     }, null, null, { source: 'atum', model: multi.model, effort: 'high' }, [
       { alias: multi.model, efforts: multi.efforts, defaultEffort: 'medium', eligible: true }
     ])
+
     view.rerender(ROOM, { home: refreshedHome })
     await waitFor(() => expect(high().disabled).toBe(false))
     expect(high().getAttribute('aria-checked')).toBe('true')
@@ -1257,6 +1268,7 @@ describe('account subscriptions in the model picker', () => {
 
     fireEvent.click(card.querySelector<HTMLButtonElement>('[data-matrix-model-rail] [data-matrix-model-connect]')!)
     const chooser = within(await screen.findByRole('dialog', { name: 'Subscriptions' }))
+
     for (const name of [/ChatGPT/, /Claude/, /Antigravity/, /OpenCode Go/]) {
       expect(chooser.getByRole('button', { name })).toBeTruthy()
     }
@@ -1326,6 +1338,7 @@ describe('account subscriptions in the model picker', () => {
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
     const command = vi.fn(async () => ({ status: 'applied' as const }))
     const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+
     const bridge = {
       command,
       subscriptions,
@@ -1336,6 +1349,7 @@ describe('account subscriptions in the model picker', () => {
         cap: vi.fn(async () => ({ status: 'saved' as const }))
       }
     }
+
     const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
 
     const view = picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
@@ -1353,6 +1367,7 @@ describe('account subscriptions in the model picker', () => {
       subscription: { source: 'chatgpt_plan', model: 'gpt-6-sol', effort: 'medium', displayName: 'GPT-6 Sol' },
       subscriptionState: 'connected'
     }
+
     view.rerender(ROOM, { cloudChoice: chatgptSaved })
 
     // Rail and list stay; the chosen model is checked; nothing says "no models".
@@ -1383,11 +1398,13 @@ describe('account subscriptions in the model picker', () => {
 
   it('takes an assistant on this Mac from its ChatGPT connection back to an Atum model in one click', async () => {
     const order: string[] = []
+
     const command = vi.fn(async (input: unknown) => {
       order.push(`command:${(input as { model?: string }).model}`)
 
       return { status: 'applied' as const }
     })
+
     const useAtumModel = vi.fn(async () => {
       order.push('useAtumModel')
 
@@ -1452,6 +1469,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const onSubscriptions = vi.fn()
 
     picker(ROOM, { bridge: { subscriptions }, cloud: true, local: true, managed: true, onSubscriptions })
@@ -1550,6 +1568,7 @@ describe('account subscriptions in the model picker', () => {
         ]
       }))
     }
+
     const staleChatGpt = { ...HOME_GPT, available: false }
 
     picker(ROOM, {
@@ -1755,9 +1774,11 @@ describe('account subscriptions in the model picker', () => {
 
   it('keeps each provider’s list apart: one model id under ChatGPT and OpenCode Go is two choices', async () => {
     const agentPrincipal = '00000000-0000-4000-8000-bd7662a5eeb4'
+
     const { bridge, writeSubscription, command } = cloudPlanBridge(
       subscriptionsBridge({ chatgpt: ['gpt-6-sol'], opencode: ['gpt-6-sol'] })
     )
+
     const atumOnly: MatrixCloudModelChoiceView = { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' }
 
     picker(ROOM, { agentPrincipal, bridge, cloud: true, cloudChoice: atumOnly, local: true, managed: true })
@@ -2043,6 +2064,7 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
       },
       { id: 'opencode-go' as const, connected: false }
     ]
+
     const subscriptions = {
       catalog: vi.fn(async () => ({ destination: 'this_mac' as const, providers })),
       status: vi.fn(async () => ({ scope: 'account' as const, providers })),
@@ -2056,6 +2078,7 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
       confirmChatGptTraining: confirm,
       revokeChatGptTraining: vi.fn(async () => ({ status: 'unavailable' as const }))
     }
+
     const writeSubscription = vi.fn(async () => ({ status: 'saved' as const }))
 
     picker(ROOM, {
@@ -2150,9 +2173,11 @@ describe('ChatGPT with Google data: the one-time confirmation inside the picker 
 
   it('a changed relay connection re-reads, unticks and asks again for the new one; a failure stays calm', async () => {
     const NEXT = '0a1b2c3d-0000-4000-8000-00000000000b'
+
     const confirm = vi.fn<NonNullable<MatrixSubscriptionsBridge['confirmChatGptTraining']>>()
       .mockResolvedValueOnce({ status: 'stale' })
       .mockResolvedValueOnce({ status: 'unavailable' })
+
     const { subscriptions, writeSubscription } = setup(training(), confirm)
     const card = await pickSol()
 
@@ -2204,6 +2229,7 @@ describe('standard managed cloud conversation effort', () => {
       cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: model, effort: 'medium',
         models: [{ alias: model, efforts: ['low', 'medium', 'high'], defaultEffort: 'medium' }] }
     })
+
     const card = await open(model === 'nguyet-thuc' ? 'Model: Nguyệt Thực 1.3' : 'Model: Nhật Thực 1.1')
     const column = card.querySelector('[data-matrix-model-effort-column]')!
     expect(column).not.toBeNull()

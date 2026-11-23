@@ -79,7 +79,8 @@ export class PlanFact {
 
     // Reconcile through tick so any in-flight connected report settles before the withdrawal.
     if (!enabled) {
-      await this.tick()
+      await this.running
+      await this.check()
 
       if (ACCOUNT_PLAN_PROVIDERS.some(provider => this.reported(provider)?.state === 'connected')) {
         throw new Error('work_plan_fact_cleanup_pending')
@@ -99,7 +100,7 @@ export class PlanFact {
       this.seen = Object.fromEntries(ACCOUNT_PLAN_PROVIDERS.map(provider => [provider, { state: 'disconnected' as const }]))
 
       if (ACCOUNT_PLAN_PROVIDERS.some(provider => this.reported(provider)?.state === 'connected')) {
-        await Promise.allSettled(ACCOUNT_PLAN_PROVIDERS.map(provider => this.send(provider, { state: 'disconnected' })))
+        await Promise.allSettled(ACCOUNT_PLAN_PROVIDERS.filter(provider => this.reported(provider)?.state === 'connected').map(provider => this.send(provider, { state: 'disconnected' })))
       }
 
       return

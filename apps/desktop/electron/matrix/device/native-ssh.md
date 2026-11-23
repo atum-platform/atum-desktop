@@ -232,14 +232,13 @@ reconnect for the signed-in account on this Mac, revokes the SSH route and
 removes the local tunnel, managed keys, token and route metadata. It also cuts
 off delegated plan use and withdraws this Mac's acknowledged Work plan fact
 through the existing Work publisher, even if Work is stopped. Missing plan
-facts or a missing Work ledger require no platform call. When C3 expands
-publication to more plans, extend that publisher's withdrawal to cover them.
+facts or a missing Work ledger require no platform call. The publisher withdraws every acknowledged native plan.
 The action preserves provider sign-ins.
 
 Window focus uses `nativeMac.ssh('refresh')`, which respects the native service's
 saved Disconnect setting. Only an explicit Connect restarts setup and resumes
-plan-fact publication. Delegated plan use remains off until the owner enables
-it. A failed revoke or withdrawal stays visible as a retryable Disconnect,
+plan-fact publication. Connecting a plan grants all account assistants use,
+including scheduled turns (Q1/Q2); the per-Mac switch is the off switch. A failed revoke or withdrawal stays visible as a retryable Disconnect,
 including after an app restart.
 
 Verification uses mocked owner responses, process calls and Work reports, plus

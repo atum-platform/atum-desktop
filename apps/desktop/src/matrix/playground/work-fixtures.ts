@@ -99,12 +99,14 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
 
   const connect = params.get('connect')
   const plan = params.get('plan')
+
   let projection: MatrixWorkProjection = {
     ...READY,
     ...STATES[state],
     ...(connect === 'offer' || connect === 'connected' ? { planConnect: connect } : {}),
     ...(plan === 'off' || plan === 'on' ? { plan } : {})
   }
+
   let consent = consentFixture(params.get('consent'))
   const listeners = new Set<(projection: MatrixWorkProjection | null) => void>()
   const shot = params.get('workShot')
@@ -116,6 +118,7 @@ export function playgroundWork(params: URLSearchParams): { work?: MatrixWorkBrid
 
   $workActive.set(params.get('page') !== 'chat')
   $workBandOpen.set(params.has('band'))
+
   if (params.has('sheet')) {
     openAccountConnect('codex')
   }

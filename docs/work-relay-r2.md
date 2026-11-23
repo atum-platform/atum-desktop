@@ -29,7 +29,7 @@ with the selection revision. Each admitted receipt keeps the plan for recovery,
 stop and transcript chrome.
 
 An owner turn uses the per-plan account snapshot and the single per-Mac switch.
-Scheduled turns use a separate standing grant for the plan, assistant and Mac.
+Connecting a plan grants all account assistants use on this Mac, including scheduled turns (Q1/Q2). The per-Mac switch turns that use off.
 Antigravity reports unknown usage and maps auto-accept-edits to supervised
 `default`. Claude and Codex use their native modes under the gate ceiling.
 

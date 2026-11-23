@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { type WorkRelayPlan, workRelayModeLimit, workRelayPlan, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+import { WORK_RELAY_PROVIDER, workRelayModeLimit, type WorkRelayPlan, workRelayPlan } from '../../../shared/matrix-work-relay'
 
 import { answerForRow } from './answers'
 import {
@@ -665,6 +665,7 @@ export class WorkGate {
 
       if (args.plan) {
         const instance = WORK_RELAY_PROVIDER[args.plan].instanceId
+
         const plan = await this.options.t3
           .prepare(session.token)
           .then(ready => (ready ? this.options.t3.planProvider?.(session.token, instance) : undefined))

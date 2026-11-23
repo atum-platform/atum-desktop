@@ -89,11 +89,13 @@ describe('Work connector receipts and release', () => {
   it('requires live caller admission even for answers with a clean marker', async () => {
     using f = fixture()
     const q = { agent: 'owned', question: 'Hi', request_id: randomUUID() }
+
     f.ports.read = async () => {
       f.ports.admit = async () => false
 
       return { body: 'clean', dataClass: 'non_google' }
     }
+
     expect(await f.service.ask(caller, q, 0)).toMatchObject({ state: 'unavailable' })
   })
 

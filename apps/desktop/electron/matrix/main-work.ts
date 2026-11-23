@@ -6,9 +6,9 @@ import type { BrowserWindow, IpcMain, IpcMainInvokeEvent, Session } from 'electr
 
 import { MATRIX_WORK_IPC, type MatrixWorkProjection } from '../../shared/matrix-work'
 import type { SafeStorageLike } from '../encrypted-store'
+import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
-import { admitConnector } from '../work/connector/admission'
 import { ConnectorService } from '../work/connector/service'
 import {
   createDeviceServicePlatform,

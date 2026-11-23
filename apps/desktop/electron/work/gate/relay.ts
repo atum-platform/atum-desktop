@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import { type WorkRelayPlan, workRelayModeLimit, workRelayPlan, WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER, workRelayModeLimit, type WorkRelayPlan, workRelayPlan } from '../../../shared/matrix-work-relay'
 
 import { workExpectedThreadId, type WorkRelayQuestionArguments, type WorkSendArguments, WorkSendArgumentsSchema } from './contract'
 import type { CallContext } from './gate'
@@ -820,6 +820,7 @@ export class WorkRelay {
         this.store(ctx, id, { ...latest, hold })
       }
     }
+
     const invalidAnswer = () => {
       setQuestionHold('question_invalid')
 
@@ -882,14 +883,17 @@ export class WorkRelay {
           }
 
           const seen = this.frozen(ctx, id)?.questionSeen
+
           if (questions.length !== 1 || !seen || seen.id !== input.question_id) {
             return result('closed')
           }
 
           const parsed = nativeQuestion.safeParse(questions[0])
+
           if (!parsed.success || seen.text !== renderQuestion(parsed.data)) {
             return result('closed')
           }
+
           const question = parsed.data
 
           const event = await this.o.owner.fetch({ agentPrincipal: ctx.principal, eventId: input.event_id,
@@ -950,12 +954,14 @@ export class WorkRelay {
           if (!current() || (latestIds && !latestIds.includes(input.question_id))) {
             return result('closed')
           }
+
           if (latestIds?.includes(input.question_id)) {
             this.o.ledger.deleteMeta(key)
 
             return invalidAnswer()
           }
         }
+
         if (reply.transport !== 'ok' || reply.isError || typeof reply.data?.sequence !== 'number') {
           return result('held')
         }
@@ -985,6 +991,7 @@ export class WorkRelay {
     }
 
     const parsed = nativeQuestion.safeParse(questions[0])
+
     if (!parsed.success) {
       return result('held')
     }
@@ -996,6 +1003,7 @@ export class WorkRelay {
     }
 
     const questionText = renderQuestion(parsed.data)
+
     if (!parsed.data.question.trim() || Buffer.byteLength(questionText) > 18_000) {
       setQuestionHold()
 
@@ -1003,6 +1011,7 @@ export class WorkRelay {
     }
 
     const latest = this.frozen(ctx, id)!
+
     if (latest.questionSeen?.id !== questionId || latest.questionSeen.text !== questionText) {
       this.store(ctx, id, { ...latest, hold: 'question', questionSeen: { id: questionId, text: questionText, at: this.o.now() } })
     } else if (!isQuestionHold(latest.hold)) {
@@ -1175,6 +1184,7 @@ export class WorkRelay {
       const hold = this.holdReason(workRelayPlan(f.selection.instanceId)!, waited.data)
 
       const nextHold = hold === 'waiting_for_mac' && latest && isQuestionHold(latest.hold) ? latest.hold : hold
+
       if (latest && !latest.answer && latest.hold !== nextHold) {
         this.store(ctx, id, { ...latest, hold: nextHold })
       }

@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 import type { SafeStorageLike } from '../../encrypted-store'
 import { type GateAccount, WorkGateService, type WorkGateServiceOptions } from '../gate'
 import { WORK_SOCKET_PATH_MAX_BYTES } from '../gate/contract'
 import type { GateOptions } from '../gate/gate'
-import { WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 import type { ModelAccess, OwnerEventVerifier, T3Port, WorkPlatform } from '../gate/ports'
 import type { RelayHistory } from '../gate/relay'
 import { createT3PairingCodes, T3Sessions } from '../gate/sessions'
@@ -14,7 +15,7 @@ import { workSessionPaths } from '../session/paths'
 import { createT3AuthCli } from '../session/t3-auth'
 import { ATUM_WORK_DELEGATED_PROVIDER, ATUM_WORK_MODEL, type WorkIncarnation } from '../sidecar/process'
 
-import { RelayAssembly, type RelayAssemblyOptions } from './relay-assembly'
+import { RelayAssembly, type RelayAssemblyOptions, relayProtectedRoots } from './relay-assembly'
 import { createKeychainSecretStore } from './secret-store'
 
 export interface WorkMountAccount extends GateAccount {
@@ -39,8 +40,8 @@ export function workSocketPath(account: Pick<GateAccount, 'key'>, base: string):
 }
 
 export interface WorkGateFactoryInput {
-  relayRuntimeReady?: import('../gate/gate').GateOptions['relayRuntimeReady']
-  relayLimit?: import('../gate/gate').GateOptions['relayLimit']
+  relayRuntimeReady?: GateOptions['relayRuntimeReady']
+  relayLimit?: GateOptions['relayLimit']
   account: WorkMountAccount
   /** This Mac's device-service id (from device enrollment): where the platform knows this Mac. */
   deviceServiceId: string
@@ -156,12 +157,13 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
   if (input.relayAssistant) {
     assembly = new RelayAssembly({
       ...input.relayAssistant, ledger: service.ledger, t3,
+      protectedRoots: relayProtectedRoots(homedir(), input.relayAssistant.assistantsRoot),
       ownerToken: () => {
         if (!ownerToken) {throw new Error('relay_unavailable')}
 
         return ownerToken()
       },
-      fresh: () => service.gate.entitlementsFresh() && service.gate.planConsentState() === 'on',
+      fresh: () => service.gate.entitlementsFresh(),
       now: input.now
     })
   }

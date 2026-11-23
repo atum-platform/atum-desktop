@@ -71,7 +71,7 @@ describe("this Mac's native reach in Your Macs", () => {
     fireEvent.click(allow)
 
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('enable_remote_login'))
-    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
+    await waitFor(() => expect(within(thisRow()).getByRole('switch', { name: 'Assistants can use this Mac' })).toBeTruthy())
     expect(screen.queryByText(words.remoteLogin)).toBeNull()
   })
 
@@ -103,7 +103,7 @@ describe("this Mac's native reach in Your Macs", () => {
     renderMacs(value)
     fireEvent.click(await within(thisRow()).findByRole('button', { name: words.tryAgain }))
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
-    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
+    await waitFor(() => expect(within(thisRow()).getByRole('switch', { name: 'Assistants can use this Mac' })).toBeTruthy())
     fireEvent.focus(window)
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('refresh'))
     expect(ssh.mock.calls.filter(([action]) => action === 'connect')).toHaveLength(1)
@@ -156,7 +156,7 @@ describe("this Mac's native reach in Your Macs", () => {
 
     fireEvent.click(within(thisRow()).getByRole('button', { name: words.connect }))
     await waitFor(() => expect(ssh).toHaveBeenCalledWith('connect'))
-    await waitFor(() => expect(within(thisRow()).getByRole('button', { name: words.disconnect })).toBeTruthy())
+    await waitFor(() => expect(within(thisRow()).getByRole('switch', { name: 'Assistants can use this Mac' })).toBeTruthy())
   })
 
   it('shows Try again working while it retries, and the new reason afterwards', async () => {

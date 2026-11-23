@@ -1,4 +1,4 @@
-import { workRelayPlan, WORK_RELAY_PLANS, type WorkRelayPlan, type WorkRelayReceipt, type WorkRelayRoomView, type WorkRelayStatus } from '../../../shared/matrix-work-relay'
+import { WORK_RELAY_PLANS, workRelayPlan, type WorkRelayPlan, type WorkRelayReceipt, type WorkRelayRoomView, type WorkRelayStatus } from '../../../shared/matrix-work-relay'
 import { WorkRelaySelectionSchema } from '../gate/contract'
 import { deviceServiceCall, type DeviceServicePlatformOptions, type WorkConsentClient } from '../gate/platform'
 import type { WorkMount } from '../mount/mount'
@@ -24,6 +24,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
   return {
     async read(principal: string, roomId: string): Promise<WorkRelayRoomView> {
       const s = mount.service()
+
       const [account, ...others] = await Promise.all(WORK_RELAY_PLANS.map(plan =>
         consent.read(plan).catch(error => {
           if (plan === 'codex') {return consent.read()}
@@ -31,6 +32,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
           if ([400, 404].includes((error as { status?: number }).status ?? 0)) {return null}
           throw error
         })))
+
       if (!account) {throw new Error('work_relay_account_unavailable')}
       account.facts = [account, ...others].flatMap(state => state?.facts ?? [])
 
@@ -40,6 +42,7 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
       // Display keeps the last synced selection even when admission is fenced/offline.
       const selections = JSON.parse(s.ledger.meta('relay_selections') ?? '[]') as { agentPrincipal: string; selection: unknown }[]
       const selected = WorkRelaySelectionSchema.safeParse(selections.find(each => each.agentPrincipal === principal)?.selection)
+
       if (selected.success) {status.selection = selected.data}
       const turns = []
 

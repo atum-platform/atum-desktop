@@ -2954,6 +2954,7 @@ function agentHomeView(principal: string): MatrixAgentHomeView | undefined {
   const cloudDestinationChoice = modelDestinations?.view(principal)?.choices.find(choice => choice.kind === 'cloud')
 
   const savedCloud = modelDestinations?.snapshot(principal)?.choices.find(choice => choice.destination === 'cloud')
+
   const cloudModel = cloudDestinationChoice?.external
     ? cloudDestinationChoice.external.source === 'chatgpt_plan' || cloudDestinationChoice.external.source === 'opencode_go'
       ? {
@@ -6851,6 +6852,7 @@ function publish(next: MatrixSnapshot) {
   companyStore?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   store?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   officialAccounts?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   // Work binds to the account once the window is ready; it is torn down by sign-out, never by a transient state.
   if (!closing && next.state === 'ready' && next.identity) {void work?.activate()}
   // The account may just have changed: the shared Mac names are scoped to it.
@@ -6868,6 +6870,7 @@ function publish(next: MatrixSnapshot) {
   providerConnections?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   chatGptTraining?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
   videoConsent?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
+
   if (!closing && next.state === 'ready' && next.identity) {void chatGptCarry?.sync()}
   modelDestinations?.activate(!closing && next.identity ? (account?.appScope() ?? null) : null)
 
@@ -20520,6 +20523,7 @@ async function start() {
   // Everything it needs from this window is a port here; `main-work.ts` holds no account logic of its own.
   if (config.domain) {
     const domain = config.domain
+
     const ownerPrincipal = () => {
       try {
         return account.enrollment().identity?.principal

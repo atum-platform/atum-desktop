@@ -375,6 +375,7 @@ export class WorkSync {
       if (relay?.planConsents && consent) {
         // The legacy acknowledgement still belongs to the legacy Codex record.
         ledger.setConsent(consent)
+
         for (const snapshot of relay.planConsents) {
           const results = gate.beginConsent(snapshot)
           finish.push(() => gate.finishConsent(snapshot, results))

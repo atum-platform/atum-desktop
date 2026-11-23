@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { WORK_CONSENT_FRESHNESS_BOUND_SECONDS, WORK_REFUSAL_REASONS, workPlanLaunchDecision } from './contract'
 import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+
+import { WORK_CONSENT_FRESHNESS_BOUND_SECONDS, WORK_REFUSAL_REASONS, workPlanLaunchDecision } from './contract'
 import { EVENT_A, EVENT_B, type Harness, LUNA, makeHarness, NOVA, REQ_1, REQ_2, REQ_3 } from './test-support'
 
 // Gate 4b (self-work slice B): the Mac's rule for a launch that names the owner's plan, contract atum.work-route/1.2.

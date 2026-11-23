@@ -138,6 +138,7 @@ export function PlaygroundRelay() {
       planConnect: 'connected',
       plan: 'off'
     })
+
     if (state === 'consent-chats') {
       openAccountConnect('codex', 'allow')
     }

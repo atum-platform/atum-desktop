@@ -329,6 +329,7 @@ export class WorkSurface {
 
   async revokePlanConsent(plan?: WorkRelayPlan): Promise<MatrixWorkPlanConsent> {
     const consent = this.consentDoor()
+
     if (plan) {await consent.revoke(plan)}
     else {await consent.revoke()}
 

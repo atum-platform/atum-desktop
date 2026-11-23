@@ -179,9 +179,11 @@ it('resumes the original persona after a new native thread starts with a newer r
 
 it('recovers the original persona when a project was created before the ledger pin', async () => {
   const f = fixture()
+
   const setMeta = vi.spyOn(h.ledger, 'setMeta').mockImplementationOnce(() => {
     throw new Error('lost before the persona pin')
   })
+
   await expect(f.assembly.provision(LUNA, 'native-1')).rejects.toThrow('lost before the persona pin')
   setMeta.mockRestore()
   f.revision(2)

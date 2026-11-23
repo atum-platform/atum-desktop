@@ -157,11 +157,13 @@ afterEach(() => {
   $assistantCard.set(null)
   cleanup()
   vi.restoreAllMocks()
+
   if (originalScrollIntoView) {
     Object.defineProperty(Element.prototype, 'scrollIntoView', originalScrollIntoView)
   } else {
     Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
   }
+
   Reflect.deleteProperty(window, 'atumMatrix')
 })
 
@@ -354,6 +356,7 @@ describe('the fixed Settings information architecture', () => {
 
   it('offers only a Mac-homed straggler in the assistant picker when the primary is cloud-only', async () => {
     const primary = baseSnapshot.agents?.[0]!
+
     const snapshot: MatrixSnapshot = {
       ...baseSnapshot,
       agents: [

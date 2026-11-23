@@ -45,7 +45,7 @@ describe('the picker rule (relay plan §3.1)', () => {
   it('a plan the relay carries follows the relay; one it does not is greyed in Work; one connected nowhere offers Connect', () => {
     expect(accountPickerPlans(ACCOUNT_CONNECTIONS_FIXTURE).map(pick => [pick.plan, pick.kind])).toEqual([
       ['codex', 'relay'],
-      ['claude', 'in_work'],
+      ['claude', 'relay'],
       ['antigravity', 'connect']
     ])
   })
@@ -53,7 +53,7 @@ describe('the picker rule (relay plan §3.1)', () => {
   it('never greys a plan because its Mac is asleep: a last-seen plan keeps its models', () => {
     const claude = accountPickerPlans(ACCOUNT_CONNECTIONS_FIXTURE).find(pick => pick.plan === 'claude')
 
-    expect(claude?.kind === 'in_work' && claude.models.map(model => model.id)).toEqual(['claude-sonnet-5-5'])
+    expect(claude?.kind === 'relay' && claude.models.map(model => model.id)).toEqual(['claude-sonnet-5-5'])
   })
 })
 

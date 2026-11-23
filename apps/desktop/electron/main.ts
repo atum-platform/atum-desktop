@@ -9321,6 +9321,7 @@ function createWindow() {
   })
   mainWindow.on('focus', () => {
     atumSharedGroupRunner?.wake()
+
     if (atumMessagingRuntime?.currentSession()) {void atumStore?.refresh().catch(() => undefined)}
     void wordCompanionController?.refresh().catch(() => undefined)
     void nativeAppsController?.refresh().catch(() => undefined)
@@ -13173,6 +13174,7 @@ app.on('before-quit', event => {
 
   stopBackendChild(backendConnectionState.getProcess())
   stopAllPoolBackends()
+
   if (atumAppUpdater?.afterTeardown()) {event.preventDefault()}
 })
 

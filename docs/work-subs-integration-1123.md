@@ -16,3 +16,17 @@ Next: merge slice C, R2, and #90; align Q1/Q2 consent; pin and verify Work 0.1.1
 Q1/Q2: account connect grants every eligible assistant and this Mac, including scheduled turns, for each of Codex, Claude and Antigravity. No separate schedule/assistant checkbox; the per-Mac switch remains the off switch. Runtime manifest staged at Work 0.1.12; final verification follows.
 
 4. Merged #90 df5a8c13 (open at start). Conflicts: gate/plan-fact combines durable reporting off/refresh with C4 multi-provider monotonic snapshots and disconnects all plans; native-mac-reach.test retains C4 per-Mac switch UX and #90 route recovery coverage. Typecheck exposed and resolved duplicate connect helper and missing factory/surface option declarations.
+
+## Final assembly corrections and verification
+
+- Retained R2 protected filesystem roots and entitlement freshness in relay provisioning for every plan. Preserved C4 native capability/model objects and managed provider defaults, connector token stdin delivery, R2 runtime readiness gate and per-plan limits.
+- #90 disconnect reporting works before Work starts, withdraws every acknowledged provider, stays disabled across reads, waits for an in-flight publication before withdrawal, and retries failures. Updated #90 notes to Q1/Q2; reconnect resumes publication while connecting a plan supplies assistant/schedule consent.
+- Updated connection tests to assert explicit provider identity for all native plans; adjusted native Mac tests to C4 switch UX while preserving #90 failed-setup reset button.
+- Work manifest: version 0.1.12; Node remains 26.13.1 (embedded binary strings confirm); fork commit 0da3a90a944ca206431940a9f0fa42a8f0cec8a1; archive atum-work-0.1.12-darwin-arm64.tar.gz; archive SHA-256 a563f469a425c735b20352f308a87f7c202950dd46684763326694a8b6cfb5e1; protectedConnector remains true from slice C.
+- Existing stageWorkRuntime script passed archive SHA and arm64 verification (exit 0), generated pin version 0.1.12 and executable SHA-256 d8e1942fe737450729884f53534d9b7b7eadee4b5640f88664f4d1427c88ffdb. No extra executable hash field is required in runtime-tools.json. Staged executable --version returned t3 v0.1.12 (exit 0).
+- Focused vitest command: `npx vitest run electron/work src/app/connections src/app/work src/matrix/model-picker src/matrix/settings src/matrix/native-mac-reach electron/matrix/main-work shared/matrix-work shared/account-connections electron/matrix/device/native-ssh`. Final result: 71 passed files, 3 skipped; 1041 passed tests, 10 skipped, exit 0. Includes connector and relay suites. Earlier runs found assembly failures, corrected before final run.
+- `npm run typecheck --workspace apps/desktop` covers boundary plus four tsconfigs. Initial failed on merge seams; corrected run exit 0; repeated after final factory edits.
+- Focused eslint of changed TypeScript passed (exit 0), five warnings (existing document globals and hook dependencies). Applied import/spacing autofixes across assembled changes. React checklist: atoms stay feature-owned; existing actions/transport retained; no added hooks or duplicate UI.
+- `git diff --check`: exit 0.
+- Public guard: initial raw-object scan stopped to remove a disallowed documentation path from local assembly history; final run recorded below. No guard policy relaxation.
+- Dependency symlinks and staged 404 MiB runtime are removed before final commit. No install, push, PR, CI, deployment or real-account acceptance. Built locally, not live. Installed-app validation and coordinator review remain.

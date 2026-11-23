@@ -1,14 +1,13 @@
-import { readFileSync } from 'node:fs'
-import semver from 'semver'
-import { WORK_RELAY_PROVIDER, WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
-
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import type { Readable, Writable } from 'node:stream'
 import { setTimeout as delay } from 'node:timers/promises'
+
+import semver from 'semver'
 
 import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'

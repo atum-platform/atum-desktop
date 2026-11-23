@@ -1,5 +1,4 @@
 import type { AccountPlan } from '../../../shared/account-connections'
-
 import type {
   MatrixWorkAgentActivity,
   MatrixWorkAssistants,
@@ -65,6 +64,7 @@ export function projectWorkConsent(
   const on = record.state === 'on'
   const named = new Set(on ? record.devices : [])
   const names = new Map(read.facts.flatMap(fact => (fact.displayName ? [[fact.deviceServiceId, fact.displayName] as const] : [])))
+
   const ids = [
     ...(thisMac ? [thisMac] : []),
     ...read.facts.filter(fact => fact.status === 'connected').map(fact => fact.deviceServiceId),

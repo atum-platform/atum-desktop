@@ -1,7 +1,8 @@
-import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 import { join } from 'node:path'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import { WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
 
 import { handoffBudget, historyCost, selectHistory } from './handoff-helper.cjs'
 import { GateLedger } from './ledger'
@@ -599,8 +600,10 @@ describe('R1s standing scheduled permits', () => {
 
 describe('R3 native questions (RT10, RT14 and RT15)', () => {
   const pending = 'runtime-request:one'
+
   const answers = [{ id: 'color', question: 'Which color?', options: [{ label: 'Sea blue', value: 'blue' }],
     allowCustomAnswer: false }]
+
   const questionText = 'Which color?\n1. Sea blue'
   const readQuestion = { request_id: REQ_1, action: 'read' as const }
 
@@ -735,8 +738,10 @@ describe('R3 native questions (RT10, RT14 and RT15)', () => {
     r.native.mockImplementation(async (token, thread, input) => {
       if (input.action === 'respond' && !rejected) {
         rejected = true
+
         return { transport: 'ok', isError: true }
       }
+
       return native(token, thread, input)
     })
 
