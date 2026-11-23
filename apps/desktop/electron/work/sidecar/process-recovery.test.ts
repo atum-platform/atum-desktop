@@ -9,8 +9,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { WorkSidecar } from './process'
 
-const { children, spawn } = vi.hoisted(() => ({ children: [] as any[], spawn: vi.fn() }))
-vi.mock('node:child_process', () => ({ spawn }))
+// No login shell in tests: the PATH capture fails fast and falls back to the inherited PATH.
+const { children, spawn, execFile } = vi.hoisted(() => ({
+  children: [] as any[],
+  spawn: vi.fn(),
+  execFile: vi.fn((_file: string, _args: string[], _options: unknown, callback: (error: Error | null, stdout: string) => void) =>
+    callback(new Error('no shell in tests'), ''))
+}))
+vi.mock('node:child_process', () => ({ spawn, execFile }))
 vi.mock('node:fs/promises', async original => ({
   ...await original<typeof FsPromises>(),
   readFile: vi.fn(async () => JSON.stringify({ pid: 42, origin: 'http://127.0.0.1:1234' }))
