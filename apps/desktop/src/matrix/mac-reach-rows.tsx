@@ -224,7 +224,7 @@ export function MatrixYourMacsSection({
                   {copy.macs.tryAgain}
                 </Button>
               ) : mac.thisMac && native.view ? (
-                <ThisMacSwitch native={native} />
+                <span className="inline-flex items-center gap-2">{native.view.status === 'set_up' && <SettingsStatus role="status">{nativeWords.setUp}</SettingsStatus>}<ThisMacSwitch native={native} /></span>
               ) : (
                 <span className="inline-flex items-center gap-2">
                   <SettingsStatus role="status">

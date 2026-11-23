@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { DEVICE_HUB_MAX_PAYLOAD_BYTES, parseFrame } from '../../../../../packages/device-protocol/messages'
 import { decodeMigrationChunk } from '../../../../../packages/device-protocol/migration-chunk'
@@ -174,6 +174,7 @@ function harness(
     sink?: DeviceFrameSink
     extraPins?: { kid: string; publicKey: string }[]
     log?: string[]
+    refreshRegistration?: () => Promise<void>
     hello?: () => DeviceHelloFacts
   } = {}
 ) {
@@ -237,6 +238,7 @@ function harness(
       return socket
     },
     enrollment,
+    refreshRegistration: options.refreshRegistration,
     signer,
     epochs: {
       accountEpoch: () => accountEpoch,
@@ -924,6 +926,7 @@ describe('the device hub connection', () => {
     const fixtureController = fixture('public-keys.json').keys.find(
       (key: { name: string }) => key.name === 'controller.revoke-public-trusted'
     )
+
     const h = harness({ extraPins: [{ kid: fixtureController.kid, publicKey: fixtureController.publicKey }] })
     h.connection.start()
     const socket = h.sockets[0]!
@@ -1032,6 +1035,7 @@ function chunk(frame: Uint8Array) {
 describe('what the Mac sends back on the connection', () => {
   it("answers a reconnect's StatusQuery with every receipt in one frame, and the trimmed ones whole after", async () => {
     const ids = [randomUUID(), randomUUID(), randomUUID()]
+
     const ledger = [receipt(ids[0]!, Math.floor(DEVICE_FRAME_BODY_MAX_BYTES * 0.45)), receipt(ids[1]!, 10),
       receipt(ids[2]!, Math.floor(DEVICE_FRAME_BODY_MAX_BYTES * 0.6))]
 
@@ -1362,5 +1366,47 @@ it('drops sources first on 4400, then workspace, and reprobes when facts change 
   h.connection.suspend(); h.advance(300_001); h.connection.resume(); await settle()
   h.sockets.at(-1)!.open(); await settle()
   expect(h.sockets.at(-1)!.last('Hello')!.body).toMatchObject({ sourceProtocol: 1, workspaceProtocol: 1 })
+  h.connection.stop()
+})
+
+
+it('refreshes once on 4401 and stays quiet across periodic starts and network retries', async () => {
+  let refreshes = 0
+  const h = harness({ refreshRegistration: async () => { refreshes++ } })
+  h.connection.start()
+  h.sockets[0].onclose?.({ code: 4401 })
+  await settle()
+  expect(refreshes).toBe(1)
+  expect(h.connection.needsRepair()).toBe(true)
+
+  for (let i = 0; i < 10; i++) { h.connection.start(); h.advance(60_000) }
+  expect(h.sockets).toHaveLength(1)
+  expect(refreshes).toBe(1)
+  h.connection.stop()
+})
+
+
+it('tries a changed registration once after refresh, then requires explicit repair on another 4401', async () => {
+  let refreshes = 0
+
+  const h = harness({ refreshRegistration: async () => {
+    refreshes++
+    vi.spyOn(h.enrollment, 'current').mockReturnValue({ ...h.record, enrollmentEpoch: h.record.enrollmentEpoch + 1 })
+  } })
+
+  h.connection.start()
+  h.sockets[0].onclose?.({ code: 4401 })
+  await settle()
+  expect(refreshes).toBe(1)
+  expect(h.sockets).toHaveLength(2)
+  h.sockets[1].onclose?.({ code: 4401 })
+  await settle()
+  h.advance(300_000)
+  h.connection.start()
+  expect(refreshes).toBe(1)
+  expect(h.sockets).toHaveLength(2)
+  expect(h.connection.needsRepair()).toBe(true)
+  h.connection.repair()
+  expect(h.sockets).toHaveLength(3)
   h.connection.stop()
 })

@@ -235,6 +235,7 @@ export type DeviceCloseReason =
   | 'unpinned'
   | 'silence'
   | 'unenrolled'
+  | 'authentication'
 
 /** How a controller frame's signature checked out against the pinned keys. */
 export type FrameVerdict = 'ok' | 'bad_signature' | 'unpinned_controller_key'
@@ -434,6 +435,7 @@ export interface DeviceConnectionDeps {
   }
   signer: Pick<DeviceSigner, 'signIdentity'>
   epochs: Pick<DeviceEpochs, 'accountEpoch' | 'bootId' | 'localGeneration' | 'bumpLocalGeneration'>
+  refreshRegistration?(): Promise<void>
   hello(): DeviceHelloFacts
   sink?: DeviceFrameSink
   origin?: { unreceipted(limit?: number): OriginReceiptBody[]; receipted(receipts: OriginReceiptBody[]): void }
@@ -459,6 +461,9 @@ interface Attempt {
 }
 
 export class DeviceConnection {
+  private registrationRefreshUsed = false
+  private rejectedRegistration?: string
+  private refreshingRegistration = false
   private helloFallback?: { factsKey: string; until: number; source: boolean; workspace: boolean }
   private current?: Attempt
   private connectionState: DeviceConnectionState = 'closed'
@@ -764,6 +769,45 @@ export class DeviceConnection {
     return true
   }
 
+  needsRepair(): boolean {
+    const record = this.deps.enrollment.current()
+
+    return Boolean(record && this.rejectedRegistration === this.registrationKey(record) && !this.refreshingRegistration)
+  }
+
+  repair(): void {
+    this.rejectedRegistration = undefined
+    this.registrationRefreshUsed = false
+    this.start()
+  }
+
+  /** Only enrollment/keys/owner facts count, never a timestamp or another periodic start. */
+  private registrationKey(record: DeviceEnrollmentRecord): string {
+    return JSON.stringify([record.ownerUserId, record.matrixDeviceId, record.matrixFingerprint,
+      record.deviceServiceId, record.enrollmentEpoch, record.identityKid, record.approvalKid,
+      record.pinnedControllerKeys, record.controllerKeys])
+  }
+
+  private async authenticationRejected(record: DeviceEnrollmentRecord): Promise<void> {
+    const key = this.registrationKey(record)
+    const first = !this.registrationRefreshUsed
+    this.registrationRefreshUsed = true
+    this.rejectedRegistration = key
+    this.refreshingRegistration = true
+
+    try {
+      if (first) { await this.deps.refreshRegistration?.() }
+    } catch {
+      this.log('device registration refresh failed; repair required')
+    } finally {
+      this.refreshingRegistration = false
+      this.enter('closed', 'authentication')
+    }
+
+    if (!this.wanted) { return }
+    this.dial()
+  }
+
   private dial(): void {
     if (!this.wanted || this.suspended || this.current) {
       return
@@ -775,6 +819,13 @@ export class DeviceConnection {
       this.lastClose = 'unenrolled'
 
       return
+    }
+
+    if (this.refreshingRegistration) { return }
+
+    if (this.rejectedRegistration) {
+      if (this.registrationKey(record) === this.rejectedRegistration) { return }
+      this.rejectedRegistration = undefined
     }
 
     let socket: DeviceSocket
@@ -828,6 +879,14 @@ export class DeviceConnection {
           this.helloFallback = { factsKey: attempt.factsKey, until: this.monotonic() + 300_000,
             source: true, workspace: !attempt.sourceOffered }
           this.timer('helloFallback', 300_000, () => { this.helloFallback = undefined })
+        }
+
+        if (socketCloseCode(event) === 'close_4401') {
+          this.logClose('authentication', 'close_4401')
+          this.teardown('authentication')
+          void this.authenticationRejected(attempt.record)
+
+          return
         }
 
         this.logClose('drop', socketCloseCode(event))

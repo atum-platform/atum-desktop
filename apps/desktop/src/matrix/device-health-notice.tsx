@@ -1,3 +1,6 @@
+import { useState } from 'react'
+
+import { Button } from '@/components/ui/button'
 import { type Locale } from '@/i18n'
 
 import { MatrixOwnerDeviceRepairNotice, type OwnerDeviceRepairSnapshot } from './owner-device-repair-notice'
@@ -59,6 +62,18 @@ export function matrixDeviceHealthCopy(locale: Locale): DeviceHealthCopy {
 }
 
 /** Preserve user-visible identity, state and recovery behavior across connection changes. */
-export function MatrixDeviceHealthNotice({ snapshot }: { snapshot: OwnerDeviceRepairSnapshot }) {
-  return <MatrixOwnerDeviceRepairNotice snapshot={snapshot} />
+export function MatrixDeviceHealthNotice({ snapshot }: { snapshot: OwnerDeviceRepairSnapshot & { deviceAccessRepair?: boolean } }) {
+  const [busy, setBusy] = useState(false)
+  const repair = snapshot.deviceAccessRepair
+
+  return <>
+    <MatrixOwnerDeviceRepairNotice snapshot={snapshot} />
+    {repair && <div data-matrix-device-access-repair role="status">
+      This Mac’s access needs repair. Cloud chat remains available.
+      <Button disabled={busy} onClick={() => {
+        setBusy(true)
+        void window.atumMatrix?.repairDeviceAccess?.().catch(() => undefined).finally(() => setBusy(false))
+      }}>Repair this Mac</Button>
+    </div>}
+  </>
 }

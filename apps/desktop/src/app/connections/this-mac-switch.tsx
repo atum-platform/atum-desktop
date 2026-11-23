@@ -12,7 +12,7 @@ import { connectionsCopy } from './copy'
 
 /** Whether this Mac is on for the assistants: reachable (files and terminal), and its plans allowed when it holds one. */
 export function thisMacOn(native: MatrixNativeSshView | undefined, plan: 'on' | 'off' | undefined): boolean {
-  return native?.status === 'connected' && plan !== 'off'
+  return (native?.status === 'connected' || native?.status === 'set_up') && plan !== 'off'
 }
 
 /**
