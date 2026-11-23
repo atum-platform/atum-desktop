@@ -13,7 +13,8 @@ Owner asks (2026-11-18), on PR #82 (`feat/chat-message-actions`):
 - `apps/desktop/src/matrix/app.tsx` (`MatrixEventMessageBubble`) builds one
   corner per bubble: "edited" (if any), `<time>` from the Matrix event
   timestamp (`matrixClock` / `matrixFullTime` tooltip, unchanged), then on your
-  own messages the sending clock (`role=status`, "Sending") or the receipt tick.
+  own messages the sending clock (`role=status`, "Sending") while the message is
+  still going, and nothing after the time once the server has it.
 - Placement: inside the text bubble (absolute, bottom right); on the size line of
   a file card (`MatrixFileCard` `meta`); under a deleted message or a bot photo.
   Team Space (flat) keeps its header and hover-gutter times. Status lines,
@@ -23,11 +24,13 @@ Owner asks (2026-11-18), on PR #82 (`feat/chat-message-actions`):
   (`data-matrix-meta-flow` = `plain` | `markdown`, `src/styles.css`). Content
   ending in anything else (code block, table, quote, bot text, Chief of Staff
   answer card) gets `padding-bottom` so the corner has its own row.
-- Receipts (`src/matrix/send-state.tsx`): `matrixReceiptTick` gives one tick on
-  your newest message once sent (with sr-only "Sent"), two ticks when a read
-  receipt names the message; the readers' faces (`data-matrix-seen`, labelled
-  "Seen"/"Seen by N") stay under it. The double tick is Phosphor `checks`, added
-  to `packages/atum-kit/icons.json` and its generated `dist/phosphor-icons.json`.
+- Receipts (`src/matrix/send-state.tsx`): one read signal only — the readers'
+  faces under the message (`data-matrix-seen`, labelled "Seen"/"Seen by N").
+  The bubble used to carry a Sent tick (sr-only "Sent") on your newest message
+  and a double tick once a read receipt named it; both were removed (owner
+  2026-11-19: the faces and the ticks said the same thing twice). A message
+  nobody has read yet shows just its time, as in any messaging app; the state
+  stays announced through the faces' `aria-label`.
 - The under-bubble run time (`data-matrix-run-time`) and the hover-toolbar time
   are gone for bubbles; every bubble now shows its own time.
 

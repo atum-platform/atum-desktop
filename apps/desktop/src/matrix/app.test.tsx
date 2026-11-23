@@ -11332,15 +11332,18 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(root('$q2').querySelector('.composer-human-message > p')).toBeTruthy()
     expect(root('$q2').querySelector<HTMLElement>('.composer-human-message')?.style.getPropertyValue('--matrix-meta-room')).toMatch(/^calc\(/)
     expect(root('$a2').querySelector('.matrix-chat-bubble')?.getAttribute('data-matrix-meta-flow')).toBe('markdown')
-    // Only your newest message carries a Sent tick (the receipts tests cover Sent and Seen).
-    expect(corner('$q')?.querySelector('[data-matrix-sent], [data-matrix-read-tick]')).toBeNull()
-    expect(corner('$q2')?.querySelector('[data-matrix-sent], [data-matrix-read-tick]')).toBeNull()
+    // A corner holds the time, and while sending its clock: nothing else (no tick, no "Sent" word).
+    const cornerExtras = (id: string) =>
+      [...corner(id)!.children].filter(node => !node.matches('time, [data-matrix-edited], [data-matrix-sending]'))
+    expect(cornerExtras('$q2')).toHaveLength(0)
+    expect(corner('$q2')?.querySelector('svg')).toBeNull()
     // Still sending: the clock sits in the corner, named for screen readers.
     expect(within(corner('$p')!).getByRole('status', { name: 'Sending' })).toBeTruthy()
-    // Once the server has it, the same corner says Sent.
+    // Once the server has it, the clock goes and the time is all the corner says.
     emit({ ...snapshot, messages: snapshot.messages.map(m => (m.id === '$p' ? { ...m, pending: false, sent: true } : m)) })
-    await waitFor(() => expect(within(corner('$p')!).getByText('Sent')).toBeTruthy())
-    expect(corner('$p')?.querySelector('[data-matrix-sending]')).toBeNull()
+    await waitFor(() => expect(corner('$p')?.querySelector('[data-matrix-sending]')).toBeNull())
+    expect(cornerExtras('$p')).toHaveLength(0)
+    expect(corner('$p')?.querySelector('svg')).toBeNull()
     // A file shows its time on the size line, never over the Save button.
     expect(root('$f').querySelector('[data-matrix-file-card] [data-matrix-bubble-meta] time')).toBeTruthy()
   })
@@ -11814,11 +11817,13 @@ describe("Home's chat (launch night, second wave)", () => {
     const failed = window.document.querySelector<HTMLElement>('[data-matrix-send-failed]')!
     expect(failed.textContent).toContain("Not sent. Sending when you're back online.")
     expect(within(failed).queryByRole('button', { name: 'Delete' })).toBeNull()
+    // A message that didn't go keeps its one line and its retry, and carries no read marker.
+    const failedRoot = failed.closest<HTMLElement>('[data-matrix-message-id]')!
+    expect(failedRoot.querySelector('[data-matrix-seen]')).toBeNull()
     fireEvent.click(within(failed).getByRole('button', { name: 'Try now' }))
     await waitFor(() =>
       expect(command).toHaveBeenCalledWith({ kind: 'resend', roomId: group.id, eventId: '~!group:test:m1' })
     )
-    const failedRoot = failed.closest<HTMLElement>('[data-matrix-message-id]')!
     fireEvent.keyDown(within(failedRoot).getByRole('button', { name: /Message actions/ }), { key: 'Enter' })
     const items = screen.getAllByRole('menuitem')
     expect(items.at(-1)?.textContent).toBe('Delete')
@@ -13060,31 +13065,35 @@ describe("Home's chat (launch night, second wave)", () => {
       await waitFor(() => expect(agentTyping()).toHaveLength(0))
     })
 
-    it("says Sent under your newest message once the server has it, then Seen in your assistant's chat", async () => {
+    it("carries one read signal: the reader's face under your message, never a tick beside its time (owner 11-19)", async () => {
       const { emit } = await openChat({
         ...ready,
         messages: [message('$old', { sent: true }), message('$new', { pending: true })]
       })
+      const corner = (id: string) => root(id).querySelector<HTMLElement>('[data-matrix-bubble-meta]')!
+      // The corner holds the time, and the clock while a message is still going: nothing else.
+      const cornerExtras = (id: string) =>
+        [...corner(id).children].filter(node => !node.matches('time, [data-matrix-edited], [data-matrix-sending]'))
 
-      // Still sending: a small clock (named for screen readers), nothing says Sent yet.
+      // Still sending: a small clock (named for screen readers), nothing else in the corner.
       expect(within(root('$new')).getByRole('status', { name: 'Sending' })).toBeTruthy()
       expect(within(root('$new')).queryByText('Sending')).toBeNull()
-      expect(window.document.querySelector('[data-matrix-sent]')).toBeNull()
+      expect(root('$new').querySelector('[data-matrix-seen]')).toBeNull()
 
+      // The server has it: the clock goes and the time is all the corner says.
       emit({ ...ready, messages: [message('$old', { sent: true }), message('$new', { sent: true })] })
-      await waitFor(() => expect(within(root('$new')).getByText('Sent')).toBeTruthy())
-      expect(within(root('$old')).queryByText('Sent')).toBeNull()
+      await waitFor(() => expect(corner('$new').querySelector('[data-matrix-sending]')).toBeNull())
+      expect(cornerExtras('$new')).toHaveLength(0)
+      expect(corner('$new').querySelector('svg')).toBeNull()
 
-      // The assistant's receipt: one Seen, no count, on your newest message only.
+      // The assistant's receipt: one Seen, no count, and still nothing after the time.
       emit({
         ...ready,
         messages: [message('$old', { sent: true }), message('$new', { sent: true, readBy: ['@atum:test'] })]
       })
       await waitFor(() => expect(root('$new').querySelector('[data-matrix-seen]')).toBeTruthy())
-      expect(within(root('$new')).queryByText('Sent')).toBeNull()
-      // Inside the bubble, beside its time: the double tick (drawn only; the face says Seen).
-      expect(root('$new').querySelector('[data-matrix-bubble-meta] [data-matrix-read-tick]')).toBeTruthy()
-      expect(root('$old').querySelector('[data-matrix-bubble-meta] [data-matrix-read-tick]')).toBeNull()
+      expect(cornerExtras('$new')).toHaveLength(0)
+      expect(corner('$new').querySelector('svg')).toBeNull()
       expect(root('$old').querySelector('[data-matrix-seen]')).toBeNull()
       expect(screen.queryByText(/Seen by/)).toBeNull()
       // One reader: their face, never a count.
@@ -13094,31 +13103,33 @@ describe("Home's chat (launch night, second wave)", () => {
     })
 
     it.each([
-      ['en', 'Sent', 'Seen'],
-      ['vi', 'Đã gửi', 'Đã xem'],
-      ['ja', '送信済み', '既読'],
-      ['zh', '已发送', '已读'],
-      ['zh-hant', '已傳送', '已讀']
-    ] as const)("Sent becomes Seen once your assistant's receipt covers it (%s)", async (locale, sent, seen) => {
+      ['en', 'Seen'],
+      ['vi', 'Đã xem'],
+      ['ja', '既読'],
+      ['zh', '已读'],
+      ['zh-hant', '已讀']
+    ] as const)("exposes the read state only through the reader's face, in the person's language (%s)", async (locale, seen) => {
       const { emit } = fixture(async () => ({ ...ready, messages: [message('$q', { sent: true })] }), locale)
       await waitFor(() => expect(plate()).toBeNull(), LAUNCH_OPENS)
-      await waitFor(() => expect(within(root('$q')).getByText(sent)).toBeTruthy())
+      // Delivered, nobody has read it: the time, with nothing claiming a delivery.
       expect(root('$q').querySelector('[data-matrix-seen]')).toBeNull()
+      expect(root('$q').querySelector('[data-matrix-bubble-meta] svg')).toBeNull()
 
-      // The agent's public receipt arrives (projected as readBy): its face says Seen, no Sent.
+      // The agent's public receipt arrives (projected as readBy): its face says Seen, nothing else does.
       emit({ ...ready, messages: [message('$q', { sent: true, readBy: ['@atum:test'] })] })
       await waitFor(() => expect(root('$q').querySelector('[data-matrix-seen]')).toBeTruthy())
-      expect(within(root('$q')).queryByText(sent)).toBeNull()
       expect(root('$q').querySelector('[data-matrix-seen]')?.getAttribute('aria-label')).toBe(seen)
+      expect(root('$q').querySelector('[data-matrix-bubble-meta] svg')).toBeNull()
     })
 
-    it('shows the readers who read a message as faces in a chat with people, and Sent on your newest unread one', async () => {
+    it('shows the readers who read a message as faces in a chat with people, and only the time on your newest unread one', async () => {
       await openChat(groupChat([message('$g1', { sent: true, readBy: [linh.userId] }), message('$g2', { sent: true })]))
 
       expect(root('$g1').querySelector('[data-matrix-seen]')?.getAttribute('aria-label')).toBe('Seen by 1')
       expect(root('$g1').querySelectorAll('[data-matrix-reader-avatar]')).toHaveLength(1)
-      expect(within(root('$g2')).getByText('Sent')).toBeTruthy()
+      expect(root('$g1').querySelector('[data-matrix-bubble-meta] svg')).toBeNull()
       expect(root('$g2').querySelector('[data-matrix-seen]')).toBeNull()
+      expect(root('$g2').querySelector('[data-matrix-bubble-meta] svg')).toBeNull()
     })
 
     // Preserve user-visible identity, state and recovery behavior across connection changes.
