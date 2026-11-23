@@ -1305,6 +1305,49 @@ const phoneScreensEn = {
     consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
     consentScheduled: 'Also for scheduled work'
   },
+  // Settings › Connections and the connect sheet (#106), copied exactly from app/connections/copy.ts
+  // (`connectionsCopy`), which the export cannot read (it is outside src/matrix). Desktop has English and
+  // Vietnamese; ja, zh and zh-Hant are a fallback that repeats the English, as the desktop shows them.
+  // `sheet.consent` is the one sentence that is the consent. Formatters of `plan` take the plan id and
+  // give each plan's own words; `names` is the Macs' names, already joined. Left out: `thisMac`, `mac.*`
+  // (this Mac's switch) and `picker.openWork`, which only mean something on a Mac, and the plan names.
+  connections: {
+    subscriptions: 'Subscriptions',
+    dataAndTools: 'Data and tools',
+    onMacs: (names: string) => `On ${names}`,
+    lastSeen: (names: string) => `Last seen on ${names}`,
+    notConnected: 'Not connected',
+    inCloud: 'In the cloud',
+    needsAttention: 'Sign in again',
+    connect: 'Connect',
+    manage: 'Manage',
+    ownerChats: {
+      title: 'Your chats',
+      line: 'Every assistant knows your chats.'
+    },
+    homeTools: {
+      line: 'Every assistant can use it.'
+    },
+    sheet: {
+      title: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Connect ChatGPT', claude: 'Connect Claude', antigravity: 'Connect Antigravity' })[plan],
+      line: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Sign in with OpenAI. Atum never sees your login.', claude: 'Sign in with Anthropic. Atum never sees your login.', antigravity: 'Sign in with Google. Atum never sees your login.' })[plan],
+      consent: 'Your assistants can use this plan through this Mac.',
+      continue: 'Continue',
+      notNow: 'Not now',
+      needsMac: 'Open Atum on your Mac to connect.',
+      close: 'Close'
+    },
+    progress: {
+      signingIn: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Finish signing in to ChatGPT', claude: 'Finish signing in to Claude', antigravity: 'Finish signing in to Antigravity' })[plan],
+      done: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT is connected', claude: 'Claude is connected', antigravity: 'Antigravity is connected' })[plan],
+      failed: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT isn’t connected yet', claude: 'Claude isn’t connected yet', antigravity: 'Antigravity isn’t connected yet' })[plan],
+      tryAgain: 'Try again'
+    },
+    picker: {
+      use: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Use your ChatGPT plan', claude: 'Use your Claude plan', antigravity: 'Use your Antigravity plan' })[plan],
+      inWork: 'Works in Work for now'
+    }
+  },
   // The persona's section titles, as the assistant card writes them into the persona in every locale
   // (shared/matrix-assistant-persona.ts `PERSONA_WHO` and `PERSONA_WHAT`), copied exactly.
   assistantCard: {
@@ -1510,6 +1553,43 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       consentChatsLine: 'Cuộc trò chuyện của bạn với họ chạy trên máy Mac bằng gói này. Dừng bất cứ lúc nào.',
       consentScheduled: 'Cả việc theo lịch'
     },
+    connections: {
+      subscriptions: 'Gói đăng ký',
+      dataAndTools: 'Dữ liệu và công cụ',
+      onMacs: (names: string) => `Trên ${names}`,
+      lastSeen: (names: string) => `Lần cuối trên ${names}`,
+      notConnected: 'Chưa kết nối',
+      inCloud: 'Trên đám mây',
+      needsAttention: 'Cần đăng nhập lại',
+      connect: 'Kết nối',
+      manage: 'Quản lý',
+      ownerChats: {
+        title: 'Cuộc trò chuyện của bạn',
+        line: 'Mọi trợ lý đều biết các cuộc trò chuyện của bạn.'
+      },
+      homeTools: {
+        line: 'Mọi trợ lý đều dùng được.'
+      },
+      sheet: {
+        title: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Kết nối ChatGPT', claude: 'Kết nối Claude', antigravity: 'Kết nối Antigravity' })[plan],
+        line: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Đăng nhập bằng OpenAI. Atum không bao giờ thấy thông tin đăng nhập của bạn.', claude: 'Đăng nhập bằng Anthropic. Atum không bao giờ thấy thông tin đăng nhập của bạn.', antigravity: 'Đăng nhập bằng Google. Atum không bao giờ thấy thông tin đăng nhập của bạn.' })[plan],
+        consent: 'Trợ lý của bạn có thể dùng gói này qua máy Mac này.',
+        continue: 'Tiếp tục',
+        notNow: 'Để sau',
+        needsMac: 'Mở Atum trên máy Mac để kết nối.',
+        close: 'Đóng'
+      },
+      progress: {
+        signingIn: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Hoàn tất đăng nhập ChatGPT', claude: 'Hoàn tất đăng nhập Claude', antigravity: 'Hoàn tất đăng nhập Antigravity' })[plan],
+        done: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Đã kết nối ChatGPT', claude: 'Đã kết nối Claude', antigravity: 'Đã kết nối Antigravity' })[plan],
+        failed: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Chưa kết nối được ChatGPT', claude: 'Chưa kết nối được Claude', antigravity: 'Chưa kết nối được Antigravity' })[plan],
+        tryAgain: 'Thử lại'
+      },
+      picker: {
+        use: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Dùng gói ChatGPT của bạn', claude: 'Dùng gói Claude của bạn', antigravity: 'Dùng gói Antigravity của bạn' })[plan],
+        inWork: 'Hiện chỉ dùng trong Work'
+      }
+    },
     assistantCard: {
       personaWho: 'Who you are',
       personaWhat: 'What you do'
@@ -1709,6 +1789,43 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
+    },
+    connections: {
+      subscriptions: 'Subscriptions',
+      dataAndTools: 'Data and tools',
+      onMacs: (names: string) => `On ${names}`,
+      lastSeen: (names: string) => `Last seen on ${names}`,
+      notConnected: 'Not connected',
+      inCloud: 'In the cloud',
+      needsAttention: 'Sign in again',
+      connect: 'Connect',
+      manage: 'Manage',
+      ownerChats: {
+        title: 'Your chats',
+        line: 'Every assistant knows your chats.'
+      },
+      homeTools: {
+        line: 'Every assistant can use it.'
+      },
+      sheet: {
+        title: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Connect ChatGPT', claude: 'Connect Claude', antigravity: 'Connect Antigravity' })[plan],
+        line: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Sign in with OpenAI. Atum never sees your login.', claude: 'Sign in with Anthropic. Atum never sees your login.', antigravity: 'Sign in with Google. Atum never sees your login.' })[plan],
+        consent: 'Your assistants can use this plan through this Mac.',
+        continue: 'Continue',
+        notNow: 'Not now',
+        needsMac: 'Open Atum on your Mac to connect.',
+        close: 'Close'
+      },
+      progress: {
+        signingIn: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Finish signing in to ChatGPT', claude: 'Finish signing in to Claude', antigravity: 'Finish signing in to Antigravity' })[plan],
+        done: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT is connected', claude: 'Claude is connected', antigravity: 'Antigravity is connected' })[plan],
+        failed: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT isn’t connected yet', claude: 'Claude isn’t connected yet', antigravity: 'Antigravity isn’t connected yet' })[plan],
+        tryAgain: 'Try again'
+      },
+      picker: {
+        use: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Use your ChatGPT plan', claude: 'Use your Claude plan', antigravity: 'Use your Antigravity plan' })[plan],
+        inWork: 'Works in Work for now'
+      }
     },
     assistantCard: {
       personaWho: 'Who you are',
@@ -1910,6 +2027,43 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
     },
+    connections: {
+      subscriptions: 'Subscriptions',
+      dataAndTools: 'Data and tools',
+      onMacs: (names: string) => `On ${names}`,
+      lastSeen: (names: string) => `Last seen on ${names}`,
+      notConnected: 'Not connected',
+      inCloud: 'In the cloud',
+      needsAttention: 'Sign in again',
+      connect: 'Connect',
+      manage: 'Manage',
+      ownerChats: {
+        title: 'Your chats',
+        line: 'Every assistant knows your chats.'
+      },
+      homeTools: {
+        line: 'Every assistant can use it.'
+      },
+      sheet: {
+        title: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Connect ChatGPT', claude: 'Connect Claude', antigravity: 'Connect Antigravity' })[plan],
+        line: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Sign in with OpenAI. Atum never sees your login.', claude: 'Sign in with Anthropic. Atum never sees your login.', antigravity: 'Sign in with Google. Atum never sees your login.' })[plan],
+        consent: 'Your assistants can use this plan through this Mac.',
+        continue: 'Continue',
+        notNow: 'Not now',
+        needsMac: 'Open Atum on your Mac to connect.',
+        close: 'Close'
+      },
+      progress: {
+        signingIn: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Finish signing in to ChatGPT', claude: 'Finish signing in to Claude', antigravity: 'Finish signing in to Antigravity' })[plan],
+        done: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT is connected', claude: 'Claude is connected', antigravity: 'Antigravity is connected' })[plan],
+        failed: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT isn’t connected yet', claude: 'Claude isn’t connected yet', antigravity: 'Antigravity isn’t connected yet' })[plan],
+        tryAgain: 'Try again'
+      },
+      picker: {
+        use: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Use your ChatGPT plan', claude: 'Use your Claude plan', antigravity: 'Use your Antigravity plan' })[plan],
+        inWork: 'Works in Work for now'
+      }
+    },
     assistantCard: {
       personaWho: 'Who you are',
       personaWhat: 'What you do'
@@ -2109,6 +2263,43 @@ export const mobileScreensCopy: Record<Locale, typeof phoneScreensEn> = {
       usageUnknown: 'Usage not reported',
       consentChatsLine: 'Your chats with them run on your Mac with this plan. Stop it anytime.',
       consentScheduled: 'Also for scheduled work'
+    },
+    connections: {
+      subscriptions: 'Subscriptions',
+      dataAndTools: 'Data and tools',
+      onMacs: (names: string) => `On ${names}`,
+      lastSeen: (names: string) => `Last seen on ${names}`,
+      notConnected: 'Not connected',
+      inCloud: 'In the cloud',
+      needsAttention: 'Sign in again',
+      connect: 'Connect',
+      manage: 'Manage',
+      ownerChats: {
+        title: 'Your chats',
+        line: 'Every assistant knows your chats.'
+      },
+      homeTools: {
+        line: 'Every assistant can use it.'
+      },
+      sheet: {
+        title: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Connect ChatGPT', claude: 'Connect Claude', antigravity: 'Connect Antigravity' })[plan],
+        line: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Sign in with OpenAI. Atum never sees your login.', claude: 'Sign in with Anthropic. Atum never sees your login.', antigravity: 'Sign in with Google. Atum never sees your login.' })[plan],
+        consent: 'Your assistants can use this plan through this Mac.',
+        continue: 'Continue',
+        notNow: 'Not now',
+        needsMac: 'Open Atum on your Mac to connect.',
+        close: 'Close'
+      },
+      progress: {
+        signingIn: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Finish signing in to ChatGPT', claude: 'Finish signing in to Claude', antigravity: 'Finish signing in to Antigravity' })[plan],
+        done: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT is connected', claude: 'Claude is connected', antigravity: 'Antigravity is connected' })[plan],
+        failed: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'ChatGPT isn’t connected yet', claude: 'Claude isn’t connected yet', antigravity: 'Antigravity isn’t connected yet' })[plan],
+        tryAgain: 'Try again'
+      },
+      picker: {
+        use: (plan: 'codex' | 'claude' | 'antigravity') => ({ codex: 'Use your ChatGPT plan', claude: 'Use your Claude plan', antigravity: 'Use your Antigravity plan' })[plan],
+        inWork: 'Works in Work for now'
+      }
     },
     assistantCard: {
       personaWho: 'Who you are',

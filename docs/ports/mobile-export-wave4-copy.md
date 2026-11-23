@@ -294,17 +294,30 @@ Mac's switch is the off switch). Same method as above; producer inputs on atum-a
   deleted from `mobileScreensCopy` and recorded as deprecated in the producer, with no replacement
   in the export.
 - **Refreshed: none.** Every other shared entry still matches the producer byte for byte; the
-  inventory and copy map are unchanged. Catalog: 4086 → 4073 entries.
-- **Held back, desktop has English and Vietnamese only** (`app/connections/copy.ts`; ja, zh and
-  zh-Hant read English): `subscriptions`, `dataAndTools`, `onMacs(names)`, `lastSeen(names)`,
+  inventory and copy map are unchanged. Catalog: 4086 → 4110 entries (+38, −14).
+- **Added: 37 Connections entries (25 keys), by coordinator decision.** The words of
+  `app/connections/copy.ts`, which desktop has in English and Vietnamese only, follow the
+  `relay.usageScheduled` precedent: en and vi from desktop, and ja, zh and zh-Hant a fallback
+  that repeats the English, as desktop shows them (marked in `mobile-copy.ts`). Under
+  `MS.connections`: `subscriptions`, `dataAndTools`, `onMacs(names)`, `lastSeen(names)`,
   `notConnected`, `inCloud`, `needsAttention`, `connect`, `manage`, `ownerChats.{title,line}`,
-  `homeTools.line`, `sheet.{title(plan),line(plan),consent,continue,notNow,needsMac,close}`,
-  `progress.{signingIn(plan),done(plan),failed(plan),tryAgain}`, `picker.{use(plan),inWork}`.
-  Mac-only in any case: `thisMac`, `mac.{label,help,otherHelp}` (this Mac's switch) and
-  `picker.openWork`. Not copy: `ACCOUNT_PLAN_NAMES` (product names).
+  `homeTools.line`, `sheet.{title,line,consent,continue,notNow,needsMac,close}`,
+  `progress.{signingIn,done,failed,tryAgain}` and `picker.{use,inWork}`. `sheet.consent` is the
+  consent sentence ("Your assistants can use this plan through this Mac."). The six formatters of
+  the plan (`sheet.title`, `sheet.line`, `progress.signingIn`, `progress.done`, `progress.failed`,
+  `picker.use`) keep desktop's argument: a choice of `codex`, `claude`, `antigravity`, exported as
+  one entry per plan (`….plan=codex` and so on), since `sheet.line` names the plan's maker.
+  `onMacs` and `lastSeen` take the Macs' names (`%1$@`). Left out as Mac-only: `thisMac`,
+  `mac.{label,help,otherHelp}` (this Mac's switch) and `picker.openWork`. Not copy:
+  `ACCOUNT_PLAN_NAMES` (product names).
+- **#107 and #108** (merged into this branch): #107's only new words are Work's title band on
+  the Mac (`work/copy.ts` `band.*`: the Work/Code mode switch, show/hide threads, New thread),
+  which is Work session UI and stays out. #108 is the 0.20.52 release prep. Neither changes an
+  exported entry. #107 adds one desktop glyph alias (`PenNib`) that the producer cannot map yet.
 - **Still exported but no longer drawn by desktop:** relay `greyed.allow`, `chipGreyed.allow`,
   `fixAllow`, `consentChatsLine`, `consentScheduled`. relay-copy still defines them, so they stay
   until desktop removes them.
 - Checks: producer `export.mjs --check` clean, tests 45/45 (same throwaway glyph-map entries as
-  above); 44 manifest hashes match; desktop `tsc -p . --noEmit` and the copy vitest files pass;
+  above, plus `PenNib`); the Connections copies match `connectionsCopy` in all five locales (215
+  comparisons); 44 manifest hashes match; desktop `tsc -p . --noEmit` and the copy vitest files pass;
   outbound guard passes.
