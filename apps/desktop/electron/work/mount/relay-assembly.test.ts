@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -9,7 +9,7 @@ import type { T3Port, WorkPlatform } from '../gate/ports'
 import { WorkSync } from '../gate/sync'
 import { ACCOUNT, DEVICE, type Harness, LUNA, makeHarness } from '../gate/test-support'
 
-import { RelayAssembly } from './relay-assembly'
+import { claudeRelaySettings, RELAY_INSTRUCTION_FILES, RelayAssembly, relayProtectedRoots } from './relay-assembly'
 
 let h: Harness
 let root: string
@@ -29,7 +29,7 @@ function fixture() {
   const projects: { id: string; workspaceRoot: string }[] = []
 
   const createProject = vi.fn(async (_token: string, input: { title: string; workspaceRoot: string }) => {
-    const project = { ...input, id: 'assistant-project' }
+    const project = { ...input, id: `assistant-project-${projects.length + 1}` }
     projects.push(project)
 
     return { transport: 'ok' as const, status: 200, data: project }
@@ -149,7 +149,7 @@ it('falls back to 1.2 on explicit 400 and clears the old relay choice', async ()
   })
 
   expect(await client.tick()).toBe('ok')
-  expect(pulls).toEqual(['1.3', '1.2'])
+  expect(pulls).toEqual(['1.3', '1.3', '1.2'])
   expect(h.ledger.meta('relay_selections')).toBe('[]')
 })
 it('rejects a regressed snapshot without restoring connection', async () => {
@@ -161,17 +161,79 @@ it('rejects a regressed snapshot without restoring connection', async () => {
   expect(h.gate.entitlementsFresh()).toBe(false)
   expect(new RelayAssembly({ ...f.options, fresh: () => h.gate.entitlementsFresh() }).selection(LUNA)).toBeUndefined()
 })
-it('reuses the native project after restart and pins persona until the next native thread (RT11)', async () => {
+it('resumes the original persona after a new native thread starts with a newer revision (RT11)', async () => {
   const f = fixture()
-  expect(await f.assembly.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project', personaRevision: 1 })
-  const folder = join(f.options.assistantsRoot, readdirSync(f.options.assistantsRoot)[0])
-  const first = readFileSync(join(folder, 'AGENTS.md'), 'utf8')
+  expect(await f.assembly.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
   f.revision(2)
   const resumed = new RelayAssembly(f.options)
-  expect((await resumed.provision(LUNA, 'native-1')).personaRevision).toBe(1)
-  expect(readFileSync(join(folder, 'AGENTS.md'), 'utf8')).toBe(first)
-  expect((await resumed.provision(LUNA, 'native-2')).personaRevision).toBe(2)
-  expect(readFileSync(join(folder, 'AGENTS.md'), 'utf8')).toContain('Persona 2')
+  expect(await resumed.provision(LUNA, 'native-2')).toEqual({ projectId: 'assistant-project-2', personaRevision: 2 })
+  expect(await resumed.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
+  const [first, second] = f.createProject.mock.calls.map(([, input]) => input.workspaceRoot)
+  expect(first).not.toBe(second)
+
+  for (const file of RELAY_INSTRUCTION_FILES) {
+    expect(readFileSync(join(first, file), 'utf8')).toBe('<!-- Atum persona revision: 1 -->\nPersona 1\n')
+    expect(readFileSync(join(second, file), 'utf8')).toBe('<!-- Atum persona revision: 2 -->\nPersona 2\n')
+  }
+})
+
+it('recovers the original persona when a project was created before the ledger pin', async () => {
+  const f = fixture()
+  const setMeta = vi.spyOn(h.ledger, 'setMeta').mockImplementationOnce(() => {
+    throw new Error('lost before the persona pin')
+  })
+  await expect(f.assembly.provision(LUNA, 'native-1')).rejects.toThrow('lost before the persona pin')
+  setMeta.mockRestore()
+  f.revision(2)
+  const resumed = new RelayAssembly(f.options)
+  expect(await resumed.provision(LUNA, 'native-1')).toEqual({ projectId: 'assistant-project-1', personaRevision: 1 })
   expect(f.createProject).toHaveBeenCalledOnce()
   expect(readdirSync(f.options.assistantsRoot)).toHaveLength(1)
+})
+
+it('writes each native harness its own read-only instructions and settings once, at session creation', async () => {
+  const f = fixture()
+  const roots = ['/mnt/person/.ssh', '/mnt/person/Library/Keychains']
+  const assembly = new RelayAssembly({ ...f.options, protectedRoots: roots })
+  await assembly.provision(LUNA, 'native-1')
+  const [folder] = f.createProject.mock.calls.map(([, input]) => input.workspaceRoot)
+  const settings = join(folder, '.claude', 'settings.json')
+  const written = readFileSync(settings, 'utf8')
+
+  expect(JSON.parse(written)).toEqual(claudeRelaySettings({ folder, protectedRoots: roots }))
+  expect(JSON.parse(written).sandbox).toMatchObject({
+    enabled: true,
+    failIfUnavailable: true,
+    allowUnsandboxedCommands: false,
+    filesystem: { denyRead: roots, allowRead: [folder] }
+  })
+  expect(JSON.parse(written).permissions.deny).toEqual(
+    expect.arrayContaining(['Read(//mnt/person/.ssh/**)', `Edit(/${join(folder, 'CLAUDE.md')})`])
+  )
+
+  for (const file of [...RELAY_INSTRUCTION_FILES, '.claude/settings.json']) {
+    expect(statSync(join(folder, file)).mode & 0o222).toBe(0)
+  }
+
+  // A resume, a re-provision and a newer definition revision leave every file as it was.
+  f.revision(5)
+  await new RelayAssembly({ ...f.options, protectedRoots: ['/elsewhere'] }).provision(LUNA, 'native-1')
+  expect(readFileSync(settings, 'utf8')).toBe(written)
+  expect(readFileSync(join(folder, 'GEMINI.md'), 'utf8')).toBe('<!-- Atum persona revision: 1 -->\nPersona 1\n')
+})
+
+it('protects the O16 stores and every assistant folder, and keeps the session\'s own folder readable', () => {
+  const roots = relayProtectedRoots('/mnt/person', '/mnt/person/Atum/Assistants')
+
+  expect(roots).toEqual(
+    expect.arrayContaining([
+      '/mnt/person/.ssh',
+      '/mnt/person/.aws',
+      '/mnt/person/.codex',
+      '/mnt/person/Library/Keychains',
+      '/mnt/person/Atum/Assistants'
+    ])
+  )
+  const folder = '/mnt/person/Atum/Assistants/abc'
+  expect(claudeRelaySettings({ folder, protectedRoots: roots }).sandbox.filesystem.allowRead).toEqual([folder])
 })

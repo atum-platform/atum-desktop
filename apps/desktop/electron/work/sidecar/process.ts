@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs'
+import semver from 'semver'
+import { WORK_RELAY_PROVIDER, WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
+
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
@@ -38,6 +42,7 @@ export interface WorkIncarnation {
   home: string
   pid: number
   exited: Promise<void>
+  relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
 }
@@ -48,7 +53,26 @@ export interface WorkStartOptions {
   trial?: TrialContext
 }
 
-/** Required before T3 can register the agent session's peer-link OAuth client. */
+/**
+ * Server settings the assistants' route cannot work without. T3 refuses to register a peer-link OAuth client
+ * (HTTP 400 at `/oauth/mcp/register`) unless linked environments are on, so a fresh install would never get an
+ * agent session. Written before the server opens the home (supervisor.py merges `settings` first).
+ */
+/**
+ * Gate 4a-2 (plan §10.2): this build ships the maker's own Codex client, unmodified, as an enabled T3 instance. False while the
+ * instance below is disabled (`/usr/bin/false`): the Connect step and row stay hidden for every account. The Connect lane flips
+ * both together, after 4a-2, 4a-4 and 4a-6 are proven on the pin.
+ */
+export function workRelayRuntimeReady(resources: string): boolean {
+  try {
+    const pin = JSON.parse(readFileSync(join(resources, 'work-runtime', 'pin.json'), 'utf8')) as { version?: string }
+
+    return Boolean(pin.version && semver.valid(pin.version) && semver.gte(pin.version, '0.1.12'))
+  } catch {
+    return false
+  }
+}
+
 export const WORK_REQUIRED_SERVER_SETTINGS = { linkedEnvironmentsEnabled: true } as const
 
 const BROKER_PROFILES = [
@@ -399,6 +423,7 @@ export class WorkSidecar {
         },
         home,
         pid: await startup.pid,
+        relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
         trial,
         takePairingUrl: () => {

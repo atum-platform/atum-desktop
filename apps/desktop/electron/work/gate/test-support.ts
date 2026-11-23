@@ -101,10 +101,10 @@ export class FakeT3 implements T3Port {
   incarnation = () => (this.alive ? this.incarnationId : undefined)
   settingsFingerprint = () => this.fingerprint
   providerReady = async () => this.providerOk
-  planProvider = async (): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }> => {
+  planProvider = async (_token?: string, instanceId = 'codex'): Promise<{ status: 'connected' | 'disconnected' | 'unknown'; selection?: { instanceId: string; model: string } }> => {
     this.planCalls++
 
-    return this.planStatus === 'connected' ? { status: 'connected', selection: { instanceId: 'codex', model: 'codex-model-1' } } : { status: this.planStatus }
+    return this.planStatus === 'connected' ? { status: 'connected', selection: { instanceId, model: `${instanceId}-model-1` } } : { status: this.planStatus }
   }
   prepare = async () => true
 

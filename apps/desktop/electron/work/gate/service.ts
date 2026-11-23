@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { WORK_RELAY_PLANS, type WorkRelayPlan } from '../../../shared/matrix-work-relay'
 
 import { AccessVerifier, type AssertionResult } from './assertion'
 import { type GateEvent, type GateOptions, type GateState, WorkGate } from './gate'
@@ -55,6 +56,8 @@ export interface GateServiceState extends GateState {
   /** What T3 last said about the plan on this Mac (the fact this Mac reports), `unknown` before the first read or while no server runs. */
   planConnected: 'connected' | 'disconnected' | 'unknown'
   /** What the owner's consent says about this Mac, `unknown` while its snapshot is missing or stale. */
+  connectedPlans?: WorkRelayPlan[]
+  relayAccountConsent?: boolean
   planConsent: 'on' | 'off' | 'unknown'
 }
 
@@ -263,6 +266,8 @@ export class WorkGateService {
       socketReason: this.down,
       planSwitchOn: this.ledger.planSwitchOn(),
       planConnected: this.planFact?.current() ?? 'unknown',
+      connectedPlans: WORK_RELAY_PLANS.filter(plan => this.planFact?.current(plan) === 'connected'),
+      relayAccountConsent: this.ledger.usesAccountPlanConsent(),
       planConsent: this.gate.planConsentState()
     }
   }

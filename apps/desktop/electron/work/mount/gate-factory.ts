@@ -105,6 +105,8 @@ export function createWorkGateService(input: WorkGateFactoryInput): WorkGateServ
     deviceServiceId: input.deviceServiceId,
     platform: input.platform,
     readPlanCapabilities: input.readPlanCapabilities,
+    relayRuntimeReady: input.relayRuntimeReady,
+    relayLimit: input.relayLimit,
     owner: input.owner,
     relayHistory: input.relayHistory,
     relaySelection: input.relaySelection ?? (principal => assembly?.selection(principal)),

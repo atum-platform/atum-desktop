@@ -80,7 +80,7 @@ describe('the picker rows (plan §3.1, O4): greyed only when no Mac has the plan
     }
   })
 
-  it('greys it with Allow when the plan is connected but no consent names this assistant on a connected Mac', () => {
+  it('treats a connected plan as consent for every assistant', () => {
     const cases: WorkRelayConsent[] = [
       consent({ state: 'off', agents: [], devices: [], grantedAt: undefined, revision: 0 }),
       consent({ agents: [LUNA] }),
@@ -90,9 +90,8 @@ describe('the picker rows (plan §3.1, O4): greyed only when no Mac has the plan
 
     for (const each of cases) {
       const view = workRelayPickerView(picker({ account: { consent: each, facts: [fact(MAC_A, 'connected'), fact(MAC_B, 'disconnected')] } }))
-      expect(view.rows).toBe('greyed')
-      expect(view.greyed).toBe('allow')
-      expect(view.fix).toBe('allow')
+      expect(view.rows).toBe('selectable')
+      expect(view.fix).toBeUndefined()
     }
   })
 
@@ -113,10 +112,10 @@ describe('the picker rows (plan §3.1, O4): greyed only when no Mac has the plan
     })
   })
 
-  it('draws nothing before the account is read, and nothing for a plan R1 does not ship', () => {
+  it('draws nothing before the account is read, and connect actions for plans without facts', () => {
     expect(workRelayPickerView(picker({ account: undefined })).rows).toBe('hidden')
-    expect(workRelayPickerView(picker({ plan: 'claude' })).rows).toBe('hidden')
-    expect(workRelayPickerView(picker({ plan: 'antigravity' })).rows).toBe('hidden')
+    expect(workRelayPickerView(picker({ plan: 'claude' })).greyed).toBe('connect')
+    expect(workRelayPickerView(picker({ plan: 'antigravity' })).greyed).toBe('connect')
   })
 
   it('names the selected model, and only for its own plan', () => {
@@ -134,9 +133,9 @@ describe('the composer chip (owner rule 11-11): only while the selection names t
       workRelayPickerView(picker({ selection: SELECTED, lastTurn: { kind: 'fallback', at: 'reply', reason: 'mac_off' } })).chip
     ).toEqual({ kind: 'fallback', reason: 'mac_off' })
     expect(
-      workRelayPickerView(picker({ selection: SELECTED, account: { consent: consent({ agents: [LUNA] }), facts: [fact(MAC_A, 'connected')] } }))
+      workRelayPickerView(picker({ selection: SELECTED, account: { consent: consent({ agents: [LUNA] }), facts: [fact(MAC_A, 'disconnected')] } }))
         .chip
-    ).toEqual({ kind: 'greyed', greyed: 'allow' })
+    ).toEqual({ kind: 'greyed', greyed: 'connect' })
   })
 
   it('stays plain while the plan can answer, when nothing is selected, and while a run is held', () => {

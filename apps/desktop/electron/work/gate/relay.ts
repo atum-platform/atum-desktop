@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
 
+import { type WorkRelayPlan, workRelayModeLimit, workRelayPlan, WORK_RELAY_PLANS, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+
 import { workExpectedThreadId, type WorkRelayQuestionArguments, type WorkSendArguments, WorkSendArgumentsSchema } from './contract'
 import type { CallContext } from './gate'
 import { handoffBudget, type HistoricalMessage, historyCost, renderHistory, selectHistory } from './handoff-helper.cjs'
@@ -70,7 +72,7 @@ export interface RelayAnswer {
 }
 export interface RelayOptions {
   gateId(): { accountId: string; deviceServiceId: string; routeEpoch: number }
-  consent(): Record<string, unknown>
+  consent(plan: WorkRelayPlan, principal: string): Record<string, unknown>
   localSwitch(): boolean
   ledger: GateLedger
   t3: T3Port
@@ -81,10 +83,10 @@ export interface RelayOptions {
   provision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
   authority?(ctx: CallContext): boolean
   resetAuthority?(ctx: CallContext): boolean
-  fence(ctx: CallContext): boolean
+  fence(ctx: CallContext, plan: WorkRelayPlan): boolean
   modeLimit: string
   now(): number
-  limit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
+  limit?(plan: WorkRelayPlan): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
 }
 
 function isQuestionHold(hold?: string): boolean {
@@ -143,8 +145,23 @@ export class WorkRelay {
   private store(ctx: CallContext, id: string, frozen: Frozen): void {
     this.o.ledger.update(ctx.principal, id, { relay_json: JSON.stringify(frozen) })
   }
-  private allowed(ctx: CallContext): boolean {
-    return this.o.fence(ctx)
+  private selectedPlan(ctx: CallContext): WorkRelayPlan | undefined {
+    const candidate = this.o.selection?.(ctx.principal)
+
+    return candidate ? workRelayPlan(candidate.instanceId) : undefined
+  }
+
+  private selectionCurrent(ctx: CallContext, selected: RelaySelection): boolean {
+    const current = this.o.selection?.(ctx.principal)
+
+    return current?.revision === selected.revision && current.instanceId === selected.instanceId && current.model === selected.model
+  }
+
+  private allowed(ctx: CallContext, id?: string): boolean {
+    const selection = (id ? this.frozen(ctx, id)?.selection : undefined) ?? this.o.selection?.(ctx.principal)
+    const plan = selection ? workRelayPlan(selection.instanceId) : 'codex'
+
+    return plan ? this.o.fence(ctx, plan) : false
   }
   private operation(ctx: CallContext, id: string) {
     const f = this.frozen(ctx, id)!
@@ -152,6 +169,7 @@ export class WorkRelay {
 
     return {
       requestId: id,
+      plan: workRelayPlan(f.selection.instanceId),
       eventId: f.input.event_id,
       roomId: f.input.room_id,
       resetEpoch: f.snapshot.epoch,
@@ -243,7 +261,7 @@ export class WorkRelay {
     const retired = this.o.ledger.receipt(ctx.principal, id)
 
     if (retired?.state === 'refused' && !retired.relayJson) {
-      if (!this.allowed(ctx)) {
+      if (!this.allowed(ctx, id)) {
         return this.wire(ctx, id, { class: 'revoked' })
       }
 
@@ -276,7 +294,7 @@ export class WorkRelay {
     return result
   }
   async request(ctx: CallContext, id: string): Promise<RelayAnswer> {
-    if (!this.allowed(ctx)) {
+    if (!this.allowed(ctx, id)) {
       return this.wire(ctx, id, { class: 'revoked' })
     }
 
@@ -336,9 +354,9 @@ export class WorkRelay {
       ? { ...scheduled, room_id: scheduledRoom(scheduled.job_id), event_id: scheduledEvent(scheduled.job_id, scheduled.occurrence_id) }
       : parsed.data as WorkSendArguments & { room_id: string; event_id: string }
 
-    if (!this.allowed(ctx)) {
+    if (!this.allowed(ctx, args.request_id)) {
       if (!this.frozen(ctx, args.request_id)) {
-        const consent = this.o.consent()
+        const consent = this.o.consent(scheduled?.permit.plan ?? this.selectedPlan(ctx) ?? 'codex', ctx.principal)
 
         if (consent.state !== 'on') {return { class: 'refused', reason: 'consent_off' }}
 
@@ -375,12 +393,12 @@ export class WorkRelay {
 
     const permitValid = () => {
       if (!scheduled) {return true}
-      const c = this.o.consent()
+      const c = this.o.consent(scheduled?.permit.plan ?? this.selectedPlan(ctx) ?? 'codex', ctx.principal)
       const p = scheduled.permit
 
       return c.state === 'on' && c.alsoWhenScheduled === true && c.revision === p.consentRevision &&
         p.agentPrincipal === ctx.principal && p.deviceServiceId === this.o.gateId().deviceServiceId &&
-        p.plan === 'codex' && c.provider === p.plan &&
+        p.plan === this.selectedPlan(ctx) && c.provider === p.plan &&
         Array.isArray(c.agents) && c.agents.includes(ctx.principal) &&
         Array.isArray(c.devices) && c.devices.includes(p.deviceServiceId)
     }
@@ -450,15 +468,21 @@ export class WorkRelay {
 
       let selection = this.o.selection?.(ctx.principal)
 
-      if (!selection || selection.revision !== args.selection_rev || selection.instanceId !== 'codex') {
+      const plan = selection && workRelayPlan(selection.instanceId)
+
+      if (!selection || selection.revision !== args.selection_rev || !plan) {
         return { class: 'refused', reason: 'selection_changed' }
       }
 
-      if ((await this.o.t3.planProvider?.(session.token))?.status !== 'connected') {
+      const native = await this.o.t3.planProvider?.(session.token, selection.instanceId)
+
+      if (native?.status !== 'connected' || (native.models && !native.models.includes(selection.model))) {
         return { class: 'unavailable', reason: 'provider_not_ready' }
       }
 
-      if (this.o.limit?.().state === 'exhausted') {
+      const modeLimit = workRelayModeLimit(plan, this.o.modeLimit)
+
+      if (WORK_RELAY_PROVIDER[plan].usage && this.o.limit?.(plan).state === 'exhausted') {
         return { class: 'refused', reason: 'plan_limit' }
       }
 
@@ -573,7 +597,7 @@ export class WorkRelay {
           const configured = await this.o.t3.configure?.(session.token, threadId, {
             instanceId: selection.instanceId,
             model: selection.model
-          })
+          }, modeLimit)
 
           if (!configured || configured.transport !== 'ok' || configured.isError || configured.status !== 200) {
             return { class: 'unavailable', reason: 'provider_not_ready' }
@@ -581,11 +605,11 @@ export class WorkRelay {
         }
       }
 
-      if (!this.allowed(ctx) || this.o.sessions.agentSessionId(ctx.principal) !== session.sessionId) {
+      if (!this.o.fence(ctx, plan) || this.o.sessions.agentSessionId(ctx.principal) !== session.sessionId) {
         return { class: 'revoked' }
       }
 
-      if (!permitValid() || this.o.selection?.(ctx.principal)?.revision !== args.selection_rev) {
+      if (!permitValid() || !this.selectionCurrent(ctx, selection)) {
         return { class: 'refused', reason: 'selection_changed' }
       }
 
@@ -624,7 +648,7 @@ export class WorkRelay {
           t3SessionId: session.sessionId,
           threadId,
           reset: { epoch: binding.epoch, historyFloor: binding.floor },
-          selection: { provider: 'atum-work', plan: 'codex', model: selection.model, revision: selection.revision },
+          selection: { provider: 'atum-work', plan, model: selection.model, revision: selection.revision },
           providerInstance: selection.instanceId,
           personaRevision: binding.selection?.personaRevision ?? selection.personaRevision,
           accepted: args.event_id,
@@ -658,7 +682,7 @@ export class WorkRelay {
           notAfter: this.o.now() + 120_000,
           epoch: ctx.routeEpoch,
           generation: ctx.generation,
-          plan: 'codex'
+          plan
         })
 
         if (!result.ok) {
@@ -678,7 +702,7 @@ export class WorkRelay {
 
       const incarnation = this.o.t3.incarnation()
 
-      if (!incarnation || !this.allowed(ctx)) {
+      if (!incarnation || !this.allowed(ctx, args.request_id) || !this.selectionCurrent(ctx, selection) || !permitValid()) {
         return this.o.ledger.tx(() => {
           this.o.ledger.update(ctx.principal, args.request_id, { state: 'void', reason: 'not_forwarded', settled: 'never_sent' })
           this.save(key, { ...binding, open: null })
@@ -694,8 +718,8 @@ export class WorkRelay {
       // No await between final authority check, forwarded mark and starting native call.
       const reply =
         kind === 'launch'
-          ? await this.o.t3.launch(session.token, call as never, this.o.modeLimit)
-          : await this.o.t3.send?.(session.token, call as never, this.o.modeLimit)
+          ? await this.o.t3.launch(session.token, call as never, modeLimit)
+          : await this.o.t3.send?.(session.token, call as never, modeLimit)
 
       const runId = reply?.data?.runId
 
@@ -713,7 +737,7 @@ export class WorkRelay {
         }
       })
 
-      return this.allowed(ctx) ? answer : { class: 'revoked' }
+      return this.allowed(ctx, args.request_id) ? answer : { class: 'revoked' }
     } catch {
       const row = this.o.ledger.receipt(ctx.principal, args.request_id)
       const frozen = this.frozen(ctx, args.request_id)
@@ -760,7 +784,7 @@ export class WorkRelay {
       const receipt = this.o.ledger.receipt(ctx.principal, id)
       const binding = this.binding(frozen.bindingKey, '')
 
-      return this.allowed(ctx) && !binding.resetPending && binding.open === id &&
+      return this.allowed(ctx, id) && !binding.resetPending && binding.open === id &&
         binding.epoch === frozen.snapshot.epoch && !receipt?.stopScope &&
         receipt?.state === 'launched' && !this.frozen(ctx, id)?.answer &&
         this.o.sessions.agentSessionId(ctx.principal) === row.sessionId
@@ -990,34 +1014,33 @@ export class WorkRelay {
   async status(ctx: CallContext, room: string): Promise<RelayAnswer> {
     const b = this.binding(this.key(ctx, room), '')
     const selection = this.o.selection?.(ctx.principal)
+    const plan = this.selectedPlan(ctx)
 
     return {
       gateId: this.o.gateId(),
       agentPrincipal: ctx.principal,
-      scheduledUsage: this.scheduledUsage(ctx),
-      selection: selection
-        ? { provider: 'atum-work', plan: 'codex', model: selection.model, revision: selection.revision }
+      ...(plan ? { scheduledUsage: this.scheduledUsage(plan) } : {}),
+      selection: selection && plan
+        ? { provider: 'atum-work', plan, model: selection.model, revision: selection.revision }
         : null,
       reset: { epoch: b.epoch, historyFloor: b.floor },
       openOperation: b.open ? this.operation(ctx, b.open) : null,
-      limits: [
-        {
-          plan: 'codex',
-          state: this.o.limit?.().state ?? 'unknown',
-          observedAt: this.o.now(),
-          ...(this.o.limit?.().resetAt ? { resetsAt: this.o.limit!().resetAt } : {})
-        }
-      ],
-      consent: this.o.consent(),
-      connected:
-        Boolean(selection) && this.o.fence(ctx) && (await this.o.t3.planProvider?.((await this.o.sessions.agent(ctx.principal)).token))?.status === 'connected',
+      limits: WORK_RELAY_PLANS.map(each => {
+        const limit = WORK_RELAY_PROVIDER[each].usage ? this.o.limit?.(each) : undefined
+
+        return { plan: each, state: limit?.state ?? 'unknown', observedAt: this.o.now(),
+          ...(limit?.resetAt ? { resetsAt: limit.resetAt } : {}) }
+      }),
+      consent: this.o.consent(plan ?? 'codex', ctx.principal),
+      connected: Boolean(selection && plan && this.o.fence(ctx, plan) &&
+        (await this.o.t3.planProvider?.((await this.o.sessions.agent(ctx.principal)).token, selection.instanceId))?.status === 'connected'),
       localSwitch: this.o.localSwitch()
     }
   }
-  private scheduledUsage(ctx: CallContext) {
+  private scheduledUsage(plan: WorkRelayPlan) {
     // Retain the observed reset boundary. Unknown usage windows stay explicitly unknown.
-    const key = `relay-usage:${this.o.gateId().accountId}:codex`
-    const resetAt = this.o.limit?.().resetAt
+    const key = `relay-usage:${this.o.gateId().accountId}:${plan}`
+    const resetAt = WORK_RELAY_PROVIDER[plan].usage ? this.o.limit?.(plan).resetAt : undefined
     let window = JSON.parse(this.o.ledger.meta(key) ?? 'null') as { start: number; resetAt?: number } | null
 
     if (!window || (window.resetAt !== undefined && this.o.now() >= window.resetAt)) {
@@ -1027,14 +1050,14 @@ export class WorkRelay {
     const encoded = JSON.stringify(window)
 
     if (this.o.ledger.meta(key) !== encoded) {this.o.ledger.setMeta(key, encoded)}
-    const runs = this.o.ledger.scheduledRuns(window.start)
+    const runs = this.o.ledger.scheduledRuns(window.start, window.resetAt, plan)
 
     return { runs, windowStart: window.start, ...(window.resetAt ? { resetsAt: window.resetAt } : {}) }
   }
-  private holdReason(data?: Record<string, unknown> | null): string {
+  private holdReason(plan: WorkRelayPlan, data?: Record<string, unknown> | null): string {
     const thread = (data?.thread ?? data) as Record<string, unknown> | undefined
 
-    if (thread?.hold === 'plan_limit' || thread?.status === 'plan_limit' || this.o.limit?.().state === 'exhausted') {return 'plan_limit'}
+    if (thread?.hold === 'plan_limit' || thread?.status === 'plan_limit' || this.o.limit?.(plan).state === 'exhausted') {return 'plan_limit'}
 
     if (thread?.hold === 'approval' || thread?.status === 'approval' || thread?.pendingApproval || (Array.isArray(thread?.pendingApprovals) && thread.pendingApprovals.length)) {return 'approval'}
 
@@ -1053,7 +1076,7 @@ export class WorkRelay {
       timedOut: !settled || !run, resultRun: run, status: run?.status } }
   }
   private async readRaw(ctx: CallContext, id: string, timeoutMs: number): Promise<RelayAnswer> {
-    if (!this.allowed(ctx)) {
+    if (!this.allowed(ctx, id)) {
       return { class: 'revoked' }
     }
 
@@ -1116,7 +1139,7 @@ export class WorkRelay {
         }
       }
 
-      if (!recovered || !this.allowed(ctx) || this.binding(f.bindingKey, '').epoch !== f.snapshot.epoch)
+      if (!recovered || !this.allowed(ctx, id) || this.binding(f.bindingKey, '').epoch !== f.snapshot.epoch)
         {return { class: 'pending' }}
 
       this.o.ledger.update(ctx.principal, id, { run_id: recovered, state: 'launched' })
@@ -1143,13 +1166,13 @@ export class WorkRelay {
       ? await this.o.t3.wait(session.token, row.threadId, row.runId, Math.min(25_000, Math.max(1000, timeoutMs)))
       : await this.observe(session.token, row.threadId, row.runId)
 
-    if (!this.allowed(ctx)) {
+    if (!this.allowed(ctx, id)) {
       return { class: 'revoked' }
     }
 
     if (waited.transport !== 'ok' || waited.isError || waited.data?.timedOut !== false) {
       const latest = this.frozen(ctx, id)
-      const hold = this.holdReason(waited.data)
+      const hold = this.holdReason(workRelayPlan(f.selection.instanceId)!, waited.data)
 
       const nextHold = hold === 'waiting_for_mac' && latest && isQuestionHold(latest.hold) ? latest.hold : hold
       if (latest && !latest.answer && latest.hold !== nextHold) {
@@ -1254,7 +1277,7 @@ export class WorkRelay {
     }
 
     if (
-      !this.allowed(ctx) ||
+      !this.allowed(ctx, id) ||
       this.binding(f.bindingKey, '').epoch !== f.snapshot.epoch ||
       this.o.ledger.receipt(ctx.principal, id)?.stopScope
     ) {

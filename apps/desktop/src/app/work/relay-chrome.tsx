@@ -136,11 +136,13 @@ export function WorkRelayMessageLine({
   chrome,
   className,
   eventId,
+  plan,
   roomId
 }: {
   chrome: WorkRelayTurnChrome
   className?: string
   eventId: string
+  plan?: WorkRelayPlan
   roomId?: string
 }) {
   const stop = useStore($workRelayStop)
@@ -148,6 +150,7 @@ export function WorkRelayMessageLine({
   return (
     <WorkRelayTurnLine
       chrome={chrome}
+      plan={plan}
       className={className}
       onOpenWork={() => setWorkActive(true)}
       onStop={stop && roomId ? () => stop(roomId, eventId) : undefined}

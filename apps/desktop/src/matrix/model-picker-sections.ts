@@ -1,3 +1,4 @@
+import type { WorkRelayPlan } from '../../shared/matrix-work-relay'
 import type { MatrixModelRoute } from '../../shared/matrix-models'
 import type { MatrixShelfModelView } from '../../shared/matrix-shelf-models'
 
@@ -18,6 +19,7 @@ export type PickerBadge = 'default'
 /** A row of the card: a model, which connection it answers through, and why it cannot be chosen. */
 export interface PickerRoute {
   route: MatrixModelRoute
+  relayPlan?: WorkRelayPlan
   note?: 'default' | 'soon'
   disabled?: boolean
   badges?: readonly PickerBadge[]

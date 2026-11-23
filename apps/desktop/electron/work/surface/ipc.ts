@@ -40,7 +40,7 @@ export function registerMatrixWorkIpc(
     switch (request.kind) {
       case 'readRelay': return surface.readRelay(request.principal, request.roomId)
 
-      case 'selectRelay': return surface.selectRelay(request.principal, request.expectedRevision, request.model)
+      case 'selectRelay': return surface.selectRelay(request.principal, request.expectedRevision, request.model, request.plan)
 
       case 'stopRelay': return surface.stopRelay(request.roomId, request.eventId)
 
@@ -78,13 +78,13 @@ export function registerMatrixWorkIpc(
         return surface.readConnections()
 
       case 'readPlanConsent':
-        return surface.readPlanConsent()
+        return request.plan ? surface.readPlanConsent(request.plan) : surface.readPlanConsent()
 
       case 'setPlanConsent':
-        return surface.setPlanConsent(request.consent)
+        return request.plan ? surface.setPlanConsent(request.consent, request.plan) : surface.setPlanConsent(request.consent)
 
       case 'revokePlanConsent':
-        return surface.revokePlanConsent()
+        return request.plan ? surface.revokePlanConsent(request.plan) : surface.revokePlanConsent()
     }
   })
 }

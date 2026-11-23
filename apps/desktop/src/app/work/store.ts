@@ -1,3 +1,4 @@
+import type { WorkRelayPlan } from '../../../shared/matrix-work-relay'
 import { atom } from 'nanostores'
 
 import type { MatrixWorkBridge, MatrixWorkProjection } from '../../../shared/matrix-work'

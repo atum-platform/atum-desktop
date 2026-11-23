@@ -35,11 +35,11 @@
     ]
   },
   "work": {
-    "version": "0.1.11",
+    "version": "0.1.12",
     "node": "26.13.1",
-    "commit": "7cbccf6bc5fe2ae10eb7b59ae3dc677ab707c1be",
-    "archive": "atum-work-0.1.11-darwin-arm64.tar.gz",
-    "sha256": "21032ae8b5ca2c276f4266dbe3db4962e405dea01fece5311ab2207b877833b0",
+    "commit": "0da3a90a944ca206431940a9f0fa42a8f0cec8a1",
+    "archive": "atum-work-0.1.12-darwin-arm64.tar.gz",
+    "sha256": "a563f469a425c735b20352f308a87f7c202950dd46684763326694a8b6cfb5e1",
     "protectedConnector": true
   }
 }

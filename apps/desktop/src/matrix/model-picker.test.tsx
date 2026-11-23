@@ -322,7 +322,7 @@ interface PickerOptions {
   home?: MatrixAgentHomeView
   cloudOnly?: boolean
   lastFallback?: MatrixSubscriptionFallback
-  workRelay?: MatrixModelPickerRelay
+  workRelay?: readonly MatrixModelPickerRelay[]
 }
 
 function picker(room: MatrixRoom, options: PickerOptions = {}) {
@@ -2272,7 +2272,7 @@ describe('relay R1: plan rows from the relay view-model (lane U1)', () => {
       cloudChoice: { offered: ['nguyet-thuc', 'nhat-thuc'], current: 'nguyet-thuc' },
       local: true,
       managed: true,
-      workRelay: { view, select, fix, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] }
+      workRelay: [{ view, select, fix, models: [{ id: 'gpt-6-sol', displayName: 'GPT-6 Sol' }] }]
     })
 
     return { fix, select, writeSubscription }

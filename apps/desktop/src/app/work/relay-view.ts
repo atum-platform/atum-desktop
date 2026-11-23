@@ -71,15 +71,6 @@ function planMacs(plan: WorkRelayPlan, facts: readonly WorkRelayFact[]): string[
   return facts.filter(fact => fact.provider === plan && fact.status !== 'disconnected').map(fact => fact.deviceServiceId)
 }
 
-function consentNames(consent: WorkRelayConsent, plan: WorkRelayPlan, agent: string, macs: readonly string[]): boolean {
-  return (
-    consent.provider === plan &&
-    consent.state === 'on' &&
-    consent.agents.includes(agent) &&
-    macs.some(mac => consent.devices.includes(mac))
-  )
-}
-
 /**
  * Whether a plan's models can be picked for this assistant. Greyed ONLY when no Mac has the plan connected and consented for it
  * (plus the O1 and O9 scopes); a Mac that is merely asleep or offline never greys it: that turn falls back before dispatch.
@@ -104,11 +95,11 @@ export function workRelayPickerView(input: WorkRelayPickerInput): WorkRelayPicke
             return 'connect'
           }
 
-          return consentNames(input.account.consent, plan, input.agentPrincipal, macs) ? undefined : 'allow'
+          return undefined
         })()
 
   const view: WorkRelayPickerView = greyed
-    ? { ...base, rows: 'greyed', greyed, ...(greyed === 'connect' || greyed === 'allow' ? { fix: greyed } : {}) }
+    ? { ...base, rows: 'greyed', greyed, ...(greyed === 'connect' ? { fix: greyed } : {}) }
     : { ...base, rows: 'selectable' }
 
   const chip = currentModel ? workRelayChip(greyed, input.limit, input.lastTurn) : undefined

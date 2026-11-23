@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 
 import { ACCOUNT_PLAN_PROVIDERS, type AccountPlanProvider } from '../plan-providers'
+import { WORK_RELAY_PLANS } from '../../../shared/matrix-work-relay'
 
 // Client mirror of the Work route contract `atum.work-route/1`, with its additive 1.1 settlement amendment
 // (atum-platform spec/work-route/v1, v1.1 and packages/protocol/src/work-route.ts).
@@ -31,7 +32,7 @@ export const WORK_SETTLEMENT_RETENTION_DAYS = 30
 
 // atum.work-route/1.2: subscriptions (self-work slice B; atum-platform spec/work-route/v1.2 and packages/protocol/src/work-route.ts).
 // Codex is the only plan a launch may name (gate 4b-1). No token, login, e-mail or plan name appears in any of these.
-export const WORK_PLAN_PROVIDERS = ['codex'] as const
+export const WORK_PLAN_PROVIDERS = WORK_RELAY_PLANS
 export type WorkPlanProvider = (typeof WORK_PLAN_PROVIDERS)[number]
 export const WORK_PLAN_REFUSAL_REASONS = [
   'plan_consent_stale',
@@ -175,7 +176,7 @@ export const WorkOwnerSendArgumentsSchema = z.object({
   room_id: z.string().min(3).max(255).regex(/^![^\s:]+:[^\s]+$/u), selection_rev: positive
 }).strict()
 export const WorkRelayStandingPermitSchema = z.object({
-  agentPrincipal: z.string().uuid(), deviceServiceId: z.string().uuid(), plan: z.enum(['codex', 'claude', 'antigravity']),
+  agentPrincipal: z.string().uuid(), deviceServiceId: z.string().uuid(), plan: z.enum(WORK_PLAN_PROVIDERS),
   consentRevision: positive, alsoWhenScheduled: z.literal(true)
 }).strict()
 export const WorkRelayScheduledArgumentsSchema = z.object({
@@ -329,7 +330,10 @@ export const WorkConsentSnapshotSchema = z
     grantedAt: safe.optional()
   })
   .strict()
-export type WorkConsentSnapshot = z.infer<typeof WorkConsentSnapshotSchema>
+export const WorkPlanConsentSnapshotSchema = WorkConsentSnapshotSchema.safeExtend({
+  scheduledAgents: z.array(uuid).max(WORK_CONSENT_AGENTS_MAX)
+})
+export type WorkConsentSnapshot = z.infer<typeof WorkConsentSnapshotSchema> & { scheduledAgents?: string[] }
 
 export const WorkSyncPageSchema = z
   .object({
@@ -350,11 +354,13 @@ export const WorkSyncPageSchema = z
   .refine(page => page.fromSeq <= page.headSeq, 'a page never starts after the head')
 /** Additive 1.3 page; the legacy reader stays strict. Reset remains in the Mac binding ledger. */
 export const WorkRelaySelectionSchema = z.object({
-  provider: z.literal('atum-work'), plan: z.enum(['codex', 'claude', 'antigravity']),
+  provider: z.literal('atum-work'), plan: z.enum(WORK_PLAN_PROVIDERS),
   model: z.string().min(1).max(200), revision: positive
 }).strict()
 export const WorkRelaySyncPageSchema = WorkSyncPageSchema.safeExtend({
   consent: WorkConsentSnapshotSchema,
+  planConsents: z.array(WorkPlanConsentSnapshotSchema).length(WORK_PLAN_PROVIDERS.length)
+    .refine(items => new Set(items.map(item => item.provider)).size === items.length, 'unique plans').optional(),
   selections: z.array(z.object({ agentPrincipal: uuid, selection: WorkRelaySelectionSchema }).strict()).max(256)
 }).superRefine((page, ctx) => {
   if (new Set(page.selections.map(row => row.agentPrincipal)).size !== page.selections.length ||
@@ -414,7 +420,8 @@ export const WorkSubscriptionStateSchema = z
             status: z.enum(['connected', 'disconnected', 'stale']),
             observedAt: safe.optional(),
             // The owner's own label for the Mac (the device registry's display name): shown beside its checkbox, nothing else.
-            displayName: z.string().min(1).max(64).optional()
+            displayName: z.string().min(1).max(64).optional(),
+            models: z.array(z.string().min(1).max(200)).min(1).max(64).optional()
           })
           .strict()
       )

@@ -1,4 +1,4 @@
-import type { WorkRelayReceipt, WorkRelayRoomView, WorkRelayStatus } from '../../../shared/matrix-work-relay'
+import { workRelayPlan, WORK_RELAY_PLANS, type WorkRelayPlan, type WorkRelayReceipt, type WorkRelayRoomView, type WorkRelayStatus } from '../../../shared/matrix-work-relay'
 import { WorkRelaySelectionSchema } from '../gate/contract'
 import { deviceServiceCall, type DeviceServicePlatformOptions, type WorkConsentClient } from '../gate/platform'
 import type { WorkMount } from '../mount/mount'
@@ -24,7 +24,15 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
   return {
     async read(principal: string, roomId: string): Promise<WorkRelayRoomView> {
       const s = mount.service()
-      const account = await consent.read()
+      const [account, ...others] = await Promise.all(WORK_RELAY_PLANS.map(plan =>
+        consent.read(plan).catch(error => {
+          if (plan === 'codex') {return consent.read()}
+
+          if ([400, 404].includes((error as { status?: number }).status ?? 0)) {return null}
+          throw error
+        })))
+      if (!account) {throw new Error('work_relay_account_unavailable')}
+      account.facts = [account, ...others].flatMap(state => state?.facts ?? [])
 
       if (!s) {return { account, status: null, turns: [] }}
       const ctx = context(principal)
@@ -39,16 +47,16 @@ export function createOwnerRelay(mount: WorkMount, consent: Pick<WorkConsentClie
         const frozen = JSON.parse(row.relayJson!)
 
         if (frozen.input.room_id !== roomId) {continue}
-        turns.push({ eventId: frozen.input.event_id as string, sentAt: row.createdAt, receipt: await s.gate.relay.request(ctx, row.requestId) as unknown as WorkRelayReceipt })
+        turns.push({ eventId: frozen.input.event_id as string, plan: workRelayPlan(frozen.selection.instanceId), sentAt: row.createdAt, receipt: await s.gate.relay.request(ctx, row.requestId) as unknown as WorkRelayReceipt })
       }
 
       if (mount.service() !== s) {throw new Error('work_relay_account_changed')}
 
       return { account, status, turns }
     },
-    async select(principal: string, expectedRevision: number, model: string) {
+    async select(principal: string, expectedRevision: number, model: string, plan: WorkRelayPlan = 'codex') {
       const saved = WorkRelaySelectionSchema.parse(await deviceServiceCall(platform())('work_selection_set', {
-        agentPrincipal: principal, expectedRevision, selection: { provider: 'atum-work', plan: 'codex', model }
+        agentPrincipal: principal, expectedRevision, selection: { provider: 'atum-work', plan, model }
       }))
 
       return saved

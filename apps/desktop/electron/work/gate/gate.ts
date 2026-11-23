@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 
+import { type WorkRelayPlan, workRelayModeLimit, workRelayPlan, WORK_RELAY_PROVIDER } from '../../../shared/matrix-work-relay'
+
 import { answerForRow } from './answers'
 import {
   sha256Hex,
@@ -52,7 +54,6 @@ import { RequestStatusReader, threadBusy } from './status'
  * project default. Claude and Antigravity are absent on purpose: they join only when their makers confirm background use in
  * writing, and that is a code change here, not a switch. The Atum instance is the other value a launch can carry (`delegated`).
  */
-export const WORK_PLAN_INSTANCE_IDS: readonly string[] = ['codex']
 
 export type GatePhaseHook = (point: string, key: string) => Promise<void> | void
 
@@ -63,7 +64,8 @@ export interface GateOptions {
   relaySelection?(principal: string): RelaySelection | undefined
   relayProvision?(principal: string, threadId: string): Promise<{ projectId: string; personaRevision: number }>
 
-  relayLimit?(): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
+  relayRuntimeReady?(): boolean
+  relayLimit?(plan: WorkRelayPlan): { state: 'unknown' | 'available' | 'exhausted'; resetAt?: number }
   accountId: string
   deviceServiceId: string
   ledger: GateLedger
@@ -215,8 +217,7 @@ export class WorkGate {
   private lastGoodSync: number | undefined
   private headRegressed = false
   /** The consent snapshot the Mac applied last, and when (monotonic). After a restart the time is unknown: stale until a pull. */
-  private consentSnapshot: WorkConsentSnapshot | undefined
-  private consentAt: number | undefined
+  private readonly consentSnapshots = new Map<WorkRelayPlan, { snapshot: WorkConsentSnapshot; at: number }>()
   private settling: Promise<void> | undefined
   private settleAgain = false
   private closed = false
@@ -226,16 +227,21 @@ export class WorkGate {
     this.now = options.now ?? Date.now
     this.monotonic = options.monotonic ?? (() => performance.now())
     this.modeLimit = options.modeLimit ?? 'approval-required/default'
-    this.consentSnapshot = this.ledger.consent()
     this.relay = new WorkRelay({
       gateId: () => this.gateId(),
       localSwitch: () => this.planSwitchOn(),
-      consent: () => {
-        const c = this.ledger.consent()
+      consent: (plan, principal) => {
+        const c = this.ledger.consent(plan)
 
-        return c
-          ? { ...c, devices: c.state === 'on' ? [options.deviceServiceId] : [] }
-          : { provider: 'codex', state: 'off', agents: [], devices: [], alsoWhenScheduled: false, revision: 0 }
+        return c?.state === 'on' && c.agents.includes(principal)
+          ? {
+              provider: plan, state: c.state, agents: [principal],
+              devices: [options.deviceServiceId],
+              alsoWhenScheduled: c.alsoWhenScheduled && (c.scheduledAgents?.includes(principal) ?? true),
+              revision: Math.max(c.revision, 1),
+              ...(c.grantedAt === undefined ? {} : { grantedAt: c.grantedAt })
+            }
+          : { provider: plan, state: 'off', agents: [], devices: [], alsoWhenScheduled: false, revision: c?.revision ?? 0 }
       },
       ...options,
       history: options.relayHistory,
@@ -250,12 +256,13 @@ export class WorkGate {
         this.entitlementsFresh() &&
         !options.held() &&
         !this.ledger.scopeBlocked(ctx.principal),
-      fence: ctx =>
+      fence: (ctx, plan) =>
+        (options.relayRuntimeReady?.() ?? true) &&
         this.countersCurrent(ctx) &&
         this.entitlementsFresh() &&
         !options.held() &&
         !this.ledger.scopeBlocked(ctx.principal) &&
-        this.planDecision(ctx.principal, false) === 'allowed'
+        this.planDecision(ctx.principal, false, plan) === 'allowed'
     })
     this.statusReader = new RequestStatusReader({
       ledger: this.ledger,
@@ -324,8 +331,7 @@ export class WorkGate {
   // ---- gate 4b: the plan (Codex) and its consent (contract 1.2)
   /** The snapshot, once it was applied durably with a page: its age counts from now on this Mac's monotonic clock. */
   noteConsent(snapshot: WorkConsentSnapshot): void {
-    this.consentSnapshot = snapshot
-    this.consentAt = this.monotonic()
+    this.consentSnapshots.set(snapshot.provider, { snapshot, at: this.monotonic() })
     this.emit({ type: 'change' })
   }
 
@@ -335,26 +341,26 @@ export class WorkGate {
    * (`noteConsent`) restores it. The stored snapshot stays: it is what the ledger keeps for the next 1.2 pull.
    */
   invalidateConsent(): void {
-    if (this.consentAt === undefined) {
+    if (!this.consentSnapshots.size) {
       return
     }
 
-    this.consentAt = undefined
+    this.consentSnapshots.clear()
     this.emit({ type: 'change' })
   }
 
   /** The revision this Mac durably applied (the ack carries it), or undefined when no snapshot was ever applied. */
   consentRevision(): number | undefined {
-    return this.ledger.consent()?.revision
+    return this.ledger.consent('codex', true)?.revision
   }
 
   /** What the owner's consent says about plan launches, for the screen: `unknown` while the snapshot is missing or stale. */
-  planConsentState(): 'on' | 'off' | 'unknown' {
-    const snapshot = this.consentSnapshot
+  planConsentState(plan: WorkRelayPlan = 'codex'): 'on' | 'off' | 'unknown' {
+    const snapshot = this.consentSnapshots.get(plan)?.snapshot
 
     if (
       !snapshot ||
-      this.consentAgeSeconds() > WORK_PROVISIONAL.entitlementFreshnessBoundSeconds ||
+      this.consentAgeSeconds(plan) > WORK_PROVISIONAL.entitlementFreshnessBoundSeconds ||
       this.headRegressed
     ) {
       return 'unknown'
@@ -363,8 +369,10 @@ export class WorkGate {
     return snapshot.state
   }
 
-  private consentAgeSeconds(): number {
-    return this.consentAt === undefined ? Number.POSITIVE_INFINITY : (this.monotonic() - this.consentAt) / 1000
+  private consentAgeSeconds(plan: WorkRelayPlan): number {
+    const applied = this.consentSnapshots.get(plan)
+
+    return applied ? (this.monotonic() - applied.at) / 1000 : Number.POSITIVE_INFINITY
   }
 
   planSwitchOn(): boolean {
@@ -375,18 +383,18 @@ export class WorkGate {
    * The Mac's whole plan rule (the platform's `workPlanLaunchDecision`), evaluated NOW from what this Mac holds: the snapshot,
    * its age on the monotonic clock, the head regression, the local switch. `scheduled` is the caller's: see `admitAndForward`.
    */
-  planDecision(principal: string, scheduled: boolean): 'allowed' | WorkPlanRefusalReason {
-    const snapshot = this.consentSnapshot
+  planDecision(principal: string, scheduled: boolean, plan: WorkRelayPlan = 'codex'): 'allowed' | WorkPlanRefusalReason {
+    const snapshot = this.consentSnapshots.get(plan)?.snapshot
 
     const input: WorkPlanLaunchInput = {
       consent: snapshot?.state ?? 'off',
       agentNamed: snapshot?.agents.includes(principal) ?? false,
       macNamed: (snapshot?.agents.length ?? 0) > 0,
-      snapshotAgeSeconds: this.consentAgeSeconds(),
+      snapshotAgeSeconds: this.consentAgeSeconds(plan),
       headRegressed: this.headRegressed,
       localSwitch: this.ledger.planSwitchOn(),
       scheduled,
-      alsoWhenScheduled: snapshot?.alsoWhenScheduled ?? false
+      alsoWhenScheduled: Boolean(snapshot?.alsoWhenScheduled && (snapshot.scheduledAgents?.includes(principal) ?? true))
     }
 
     return workPlanLaunchDecision(input)
@@ -400,14 +408,17 @@ export class WorkGate {
     this.ledger.setConsent(snapshot)
     const named = snapshot.state === 'on' ? new Set(snapshot.agents) : new Set<string>()
 
+    const scheduled = new Set(snapshot.alsoWhenScheduled ? snapshot.scheduledAgents ?? snapshot.agents : [])
+
     return [
       ...this.ledger.planCutoff(
         this.ledger.planPrincipals().filter(principal => !named.has(principal)),
-        snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off'
+        snapshot.state === 'on' ? 'plan_consent_scope' : 'plan_consent_off', false, snapshot.provider
       ),
-      ...(snapshot.alsoWhenScheduled ? [] : this.ledger.planCutoff(
-        this.ledger.planPrincipals().filter(principal => named.has(principal)), 'plan_not_scheduled', true
-      ))
+      ...this.ledger.planCutoff(
+        this.ledger.planPrincipals().filter(principal => named.has(principal) && !scheduled.has(principal)),
+        'plan_not_scheduled', true, snapshot.provider
+      )
     ]
   }
 
@@ -446,7 +457,7 @@ export class WorkGate {
 
     return plan === null
       ? instance === this.options.delegated.instanceId
-      : plan === 'codex' && WORK_PLAN_INSTANCE_IDS.includes(instance)
+      : workRelayPlan(instance) === plan
   }
 
   // ---- admission (the part after the assertion): the bearer, the counters, the list
@@ -631,7 +642,8 @@ export class WorkGate {
     //     snapshot, then the consent, then the local switch. The first failure is a refused receipt, whatever else is true. The
     //     fourth check (`plan_not_scheduled`) needs the owner's message and is made at step 5.
     if (args.plan) {
-      const decision = this.planDecision(principal, false)
+      if (this.options.relayRuntimeReady?.() === false) {return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }}
+      const decision = this.planDecision(principal, false, args.plan)
 
       if (decision !== 'allowed') {
         return refuse(decision)
@@ -652,14 +664,15 @@ export class WorkGate {
       session = await this.options.sessions.agent(principal)
 
       if (args.plan) {
+        const instance = WORK_RELAY_PROVIDER[args.plan].instanceId
         const plan = await this.options.t3
           .prepare(session.token)
-          .then(ready => (ready ? this.options.t3.planProvider?.(session.token) : undefined))
+          .then(ready => (ready ? this.options.t3.planProvider?.(session.token, instance) : undefined))
 
         if (
           plan?.status !== 'connected' ||
           !plan.selection ||
-          !WORK_PLAN_INSTANCE_IDS.includes(plan.selection.instanceId)
+          plan.selection.instanceId !== instance
         ) {
           return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }
         }
@@ -704,7 +717,7 @@ export class WorkGate {
     // With the consent it still meets the owner-event checks below: slice A has no standing permit, every launch consumes a message.
     if (args.plan) {
       const backed = event.kind === 'ok' && age === 'ok' && !this.ledger.eventClaimed(args.ownerEvent)
-      const decision = this.planDecision(principal, !backed)
+      const decision = this.planDecision(principal, !backed, args.plan)
 
       if (decision !== 'allowed') {
         return refuse(decision, { eventId: args.ownerEvent })
@@ -731,7 +744,8 @@ export class WorkGate {
 
     // the consent as of THIS step, not as of step 1b: it may have been withdrawn while the awaits above ran
     if (args.plan) {
-      const decision = this.planDecision(principal, false)
+      if (this.options.relayRuntimeReady?.() === false) {return { ...head, class: 'unavailable', receipt: 'none', reason: 'provider_not_ready' }}
+      const decision = this.planDecision(principal, false, args.plan)
 
       if (decision !== 'allowed') {
         return refuse(decision, { eventId: args.ownerEvent })
@@ -894,7 +908,9 @@ export class WorkGate {
     }
 
     if (row.plan) {
-      const decision = this.planDecision(principal, false)
+      if (this.options.relayRuntimeReady?.() === false) {return row.forwarded ? hold() : refuseUnsent('plan_consent_stale')}
+      const plan = workRelayPlan(call.modelSelection.instanceId)!
+      const decision = this.planDecision(principal, false, plan)
 
       if (decision !== 'allowed') {
         return row.forwarded ? hold() : refuseUnsent(decision)
@@ -934,7 +950,9 @@ export class WorkGate {
 
     // e. commit the mark, then start the request: no await between the two
     this.ledger.markForwarded(principal, requestId, incarnation)
-    const inflight = this.options.t3.launch(session.token, call, this.modeLimit)
+    const plan = workRelayPlan(call.modelSelection.instanceId)
+    const modeLimit = plan ? workRelayModeLimit(plan, this.modeLimit) : this.modeLimit
+    const inflight = this.options.t3.launch(session.token, call, modeLimit)
 
     return { kind: 'sent', inflight }
   }

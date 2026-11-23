@@ -30,7 +30,7 @@ import {
 import { createWorkHistory } from '../work/mount/history'
 import { homeRunningFromRuntimeFile, partitionFor, type PinRef, type UpdateOutcome, WorkSession, workSessionPaths } from '../work/session'
 import { type WorkAccess, WorkHost } from '../work/sidecar/host'
-import { WORK_PLAN_CONNECT_SHIPPED } from '../work/sidecar/process'
+import { workRelayRuntimeReady } from '../work/sidecar/process'
 import {
   createWorkViewFactory,
   type GateSurfaceState,
@@ -457,6 +457,7 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   // The gate's `restartWhenIdle`, the mount that builds the gate and the surface that holds the view need each other.
   let mount!: WorkMount
   let surface!: WorkSurface
+  let planUsage: { incarnation: string; reports: Awaited<ReturnType<typeof readPlanUsage>> } | undefined
 
   const restartWhenIdle = async (): Promise<'restarted' | 'declined'> => {
     const gate = mount.service()?.gate
@@ -536,6 +537,15 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
             }
           : undefined,
         incarnation: () => host.current(),
+        relayRuntimeReady: () => host.current()?.relayRuntimeReady === true,
+        relayLimit: plan => {
+          const usage = planUsage
+          const report = usage?.incarnation === host.current()?.id && usage?.reports.find(each => each.plan === plan)
+
+          return report && (report.resetsAt === undefined || report.resetsAt > Date.now())
+            ? { state: report.state, resetAt: report.resetsAt }
+            : { state: 'unknown' }
+        },
         authTools: paths => host.authTools(paths),
         safeStorage: deps.safeStorage,
         modelAccess: incarnation => host.readModelAccess(incarnation),
@@ -590,9 +600,9 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   }
 
   const consentClient: NonNullable<WorkSurfaceParts['consent']> = {
-    read: () => consentFor().read(),
+    read: plan => consentFor().read(plan),
     set: input => consentFor().set(input),
-    revoke: () => consentFor().revoke()
+    revoke: plan => consentFor().revoke(plan)
   }
 
   const parts = (): WorkSurfaceParts => ({
@@ -609,6 +619,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       const reports = await readPlanUsage(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
 
       if (host.current()?.id !== running.id || mount.service() !== service) {return []}
+
+      planUsage = { incarnation: running.id, reports }
 
       return reports.map(({ windowStart, ...limit }) => ({
         ...limit,
@@ -633,6 +645,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         return host.current()?.id === running.id ? projectPlanCapabilities(providers) : {}
       }
     }),
+    // Work's own provider view owns the login. The staged T3 pin must enforce own-thread MCP scope.
+    planConnectOpen: () => host.current()?.relayRuntimeReady ?? workRelayRuntimeReady(deps.resources),
     deviceServiceId: () => deps.deviceServiceId(),
     relay: createOwnerRelay(mount, consentClient, () => ({
       endpoint: deps.deviceServicesEndpoint() ?? '',

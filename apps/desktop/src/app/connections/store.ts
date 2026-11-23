@@ -92,13 +92,8 @@ export function closeAccountConnect(): void {
  * a cloud turn that cannot use it answers on Nguyệt Thực.
  */
 export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: AccountPlan): Promise<void> {
-  // The consent record exists for ChatGPT only today; the others have no relay yet, so there is nothing to record.
-  if (plan !== 'codex') {
-    return
-  }
-
   try {
-    const consent = await bridge.readPlanConsent()
+    const consent = await bridge.readPlanConsent(plan)
     const thisMac = consent.macs.find(mac => mac.thisMac)
     const agents = [...new Set([...(consent.state === 'on' ? consent.agents : []), ...consent.eligible])]
 
@@ -108,7 +103,7 @@ export async function grantAccountPlanUse(bridge: ConnectionsBridge, plan: Accou
 
     const macs = [...new Set([...(consent.state === 'on' ? consent.macs.filter(mac => mac.named).map(mac => mac.id) : []), thisMac.id])]
 
-    await bridge.setPlanConsent({ agents, macs, alsoWhenScheduled: true })
+    await bridge.setPlanConsent({ agents, macs, alsoWhenScheduled: true }, plan)
     await bridge.setPlan(true)
   } catch {
     // The per-Mac switch in Connections still turns it on by hand.

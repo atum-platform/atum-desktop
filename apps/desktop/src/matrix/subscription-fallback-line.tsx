@@ -1,3 +1,5 @@
+import { WORK_RELAY_PLAN_NAMES } from '@/app/work/relay-copy'
+import { workRelayNoticePlan } from '../../shared/matrix-work-relay'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
@@ -33,7 +35,8 @@ export function SubscriptionFallbackLine({
   className?: string
 }) {
   const words = useModelPickerCopy()
-  const plan = matrixSubscriptionProviderLabel(fallback.plan === 'chatgpt' ? 'openai-codex' : 'opencode-go')
+  const relayPlan = workRelayNoticePlan(fallback.plan)
+  const plan = relayPlan ? WORK_RELAY_PLAN_NAMES[relayPlan] : matrixSubscriptionProviderLabel('opencode-go')
 
   return (
     <Tip label={words.fallbackWhy[MATRIX_FALLBACK_WHY[fallback.reason]](plan)}>

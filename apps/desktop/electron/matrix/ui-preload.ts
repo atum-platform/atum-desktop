@@ -110,11 +110,11 @@ const bridge: MatrixUiBridge = {
     openPlanConnect: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, plan ? { kind: 'openPlanConnect', plan } : { kind: 'openPlanConnect' }),
     readConnections: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readConnections' }),
     readRelay: (principal, roomId) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readRelay', principal, roomId }),
-    selectRelay: (principal, expectedRevision, model) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, expectedRevision, model }),
+    selectRelay: (principal, expectedRevision, model, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'selectRelay', principal, expectedRevision, model, ...(plan ? { plan } : {}) }),
     stopRelay: (roomId, eventId) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'stopRelay', roomId, eventId }),
-    readPlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent' }),
-    setPlanConsent: consent => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlanConsent', consent }),
-    revokePlanConsent: () => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'revokePlanConsent' }),
+    readPlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'readPlanConsent', ...(plan ? { plan } : {}) }),
+    setPlanConsent: (consent, plan) => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'setPlanConsent', consent, ...(plan ? { plan } : {}) }),
+    revokePlanConsent: plan => ipcRenderer.invoke(MATRIX_WORK_IPC.request, { kind: 'revokePlanConsent', ...(plan ? { plan } : {}) }),
     subscribe: listener => {
       const receive = (_event: Electron.IpcRendererEvent, projection: MatrixWorkProjection | null) => listener(projection)
       ipcRenderer.on(MATRIX_WORK_IPC.changed, receive)
