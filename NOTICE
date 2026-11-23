@@ -20,3 +20,6 @@ Vietnamese core and TUI catalogs adapt hermes-lang-vi by 5ac (MIT,
 Copyright 2026 5ac), including inherited Hermes strings (Copyright 2025 Nous
 Research). See LICENSES/hermes-lang-vi-MIT.txt and locales/README.md for the
 source revision, adaptation details and preserved licence text.
+
+Atum Work runtime: Based on T3 Code / T3 Connect, copyright 2026 T3 Tools Inc.
+MIT notice: LICENSES/T3-Code-MIT.txt. No T3 endorsement is implied.
