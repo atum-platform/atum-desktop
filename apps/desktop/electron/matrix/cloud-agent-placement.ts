@@ -3,6 +3,11 @@ import type { MatrixReadiness, MatrixSnapshot } from '../../shared/matrix'
 
 import { matrixExecutionPolicyKeepsLocalRuntime } from './execution-policy'
 
+/** S2 Hermes is a cloud runtime even when the retired controller's answering field says local. */
+export function matrixRosterAgentAnswersInCloud(agent: { answering?: 'local' | 'cloud'; runtime?: 'hermes' }): boolean {
+  return agent.runtime === 'hermes' || agent.answering === 'cloud'
+}
+
 /** Local/cloud placement follows the saved execution policy and current lease. */
 export type MatrixCloudAgentMacRole = 'answering' | 'standby'
 

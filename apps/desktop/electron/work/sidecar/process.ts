@@ -13,6 +13,8 @@ import { MATRIX_DEFAULT_MODEL } from '../../../shared/matrix-models'
 import { PLAN_PROVIDER_DEFAULTS } from '../plan-providers'
 import type { TrialContext, TrialHandle } from '../session/update'
 
+import { loginShellPath } from './shell-environment'
+
 export const ATUM_WORK_PROVIDER = 'atum-managed'
 export const ATUM_WORK_DEFAULT_ALIAS = MATRIX_DEFAULT_MODEL
 export const ATUM_WORK_MODEL = `${ATUM_WORK_PROVIDER}:${ATUM_WORK_DEFAULT_ALIAS}`
@@ -41,6 +43,7 @@ export interface WorkIncarnation {
   home: string
   pid: number
   exited: Promise<void>
+  unexpectedExit?: Promise<boolean>
   relayRuntimeReady?: boolean
   trial?: TrialHandle
   takePairingUrl(): string | undefined
@@ -102,7 +105,7 @@ function provider(python: string, home: string, label: string, showInPicker: boo
   }
 }
 
-export function workRuntimeEnvironment(root: string, resources: string): Record<string, string> {
+export function workRuntimeEnvironment(root: string, resources: string, shellPath = ''): Record<string, string> {
   const osHome = join(root, 'environment')
 
   return {
@@ -110,7 +113,7 @@ export function workRuntimeEnvironment(root: string, resources: string): Record<
     TMPDIR: osHome,
     XDG_CONFIG_HOME: join(osHome, 'config'),
     XDG_CACHE_HOME: join(osHome, 'cache'),
-    PATH: [join(resources, 'work-runtime'), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':'),
+    PATH: [join(resources, 'work-runtime'), shellPath, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].filter(Boolean).join(':'),
     PYTHONPATH: join(resources, 'runtime', 'hermes-agent'),
     LANG: 'en_US.UTF-8',
     NO_PROXY: 'localhost,127.0.0.1,::1',
@@ -137,7 +140,7 @@ async function startProcess(options: WorkProcessOptions, { continuation, trial }
     mkdir(directory, { recursive: true, mode: 0o700 })
   ))
 
-  const environment = workRuntimeEnvironment(root, resources)
+  const environment = workRuntimeEnvironment(root, resources, await loginShellPath())
   const managedModel = { instanceId: ATUM_WORK_PROVIDER, model: ATUM_WORK_MODEL }
 
   const providerInstances = Object.fromEntries(BROKER_PROFILES.map(({ directory, instance, label, showInPicker }) => [
@@ -348,6 +351,10 @@ export class WorkSidecar {
   private controller?: AbortController
   private starting?: Promise<WorkIncarnation>
   private live?: WorkIncarnation
+  private desired?: WorkStartOptions
+  private retryTimer?: ReturnType<typeof setTimeout>
+  private failures = 0
+  private readyAt = 0
 
   constructor(private readonly options: WorkProcessOptions) {}
 
@@ -364,6 +371,8 @@ export class WorkSidecar {
       return this.starting
     }
 
+    clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
     const controller = new AbortController()
     this.controller = controller
     this.starting = this.launch(input, controller)
@@ -372,6 +381,9 @@ export class WorkSidecar {
   }
 
   async stop(): Promise<void> {
+    this.desired = undefined
+    clearTimeout(this.retryTimer)
+    this.retryTimer = undefined
     const starting = this.starting
     this.live = undefined
     this.controller?.abort()
@@ -405,6 +417,9 @@ export class WorkSidecar {
         origin = paired.origin
         grant = paired.url
         this.live = incarnation
+        this.readyAt = Date.now()
+        // A committed trial recovers as an ordinary run, never replays a trial.
+        this.desired = { continuation: false, resources: input.resources }
       }
 
       const trial = input.trial ? nativeTrial(child, input.trial.update.id, exited, () => !signal.aborted && this.options.current(), activate) : undefined
@@ -424,6 +439,7 @@ export class WorkSidecar {
         pid: await startup.pid,
         relayRuntimeReady: workRelayRuntimeReady(input.resources ?? this.options.resources),
         exited,
+        unexpectedExit: exited.then(() => !signal.aborted && this.options.current()),
         trial,
         takePairingUrl: () => {
           const url = this.current() === incarnation ? grant : undefined
@@ -439,7 +455,12 @@ export class WorkSidecar {
 
       void exited.then(() => {
         grant = undefined
+        const recover = !signal.aborted && this.options.current()
+
+        if (Date.now() - this.readyAt >= 60_000) {this.failures = 0}
         this.clearRun()
+
+        if (recover) {this.scheduleRecovery()}
       })
 
       return incarnation
@@ -447,8 +468,22 @@ export class WorkSidecar {
       controller.abort()
       await this.teardown
       this.clearRun()
+      this.scheduleRecovery()
       throw error
     }
+  }
+
+  private scheduleRecovery() {
+    if (!this.desired || !this.options.current() || this.retryTimer) {return}
+    const wait = Math.min(30_000, 1_000 * 2 ** Math.min(this.failures++, 5))
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = undefined
+
+      if (this.desired && this.options.current()) {
+        void this.start(this.desired).catch(() => undefined)
+      }
+    }, wait)
+    this.retryTimer.unref()
   }
 
   private clearRun() {

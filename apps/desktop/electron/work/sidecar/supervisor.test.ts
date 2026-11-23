@@ -67,6 +67,68 @@ except ProcessLookupError:
     expect(result.stdout.trim()).toBe('DEAD')
   })
 
+  it('keeps children alive through slow process-health scans and observes them afterwards', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ws-sup-'))
+    dirs.push(dir)
+    const script = join(dir, 'drive.py')
+    writeFileSync(script, `
+import importlib.util, os, subprocess, sys
+spec = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(spec); spec.loader.exec_module(sup)
+children = sup.Children()
+child = children.start([sys.executable, "-c", "import time; time.sleep(120)"], dict(os.environ), os.getcwd())
+real = sup.processes
+try:
+    children.scan(force=True)
+    observed, rss = dict(children.seen), children.rss
+    def slow():
+        raise subprocess.TimeoutExpired("ps", 5)
+    sup.processes = slow
+    for _ in range(3):
+        assert children.scan(force=True) == rss
+        assert children.seen == observed
+        assert child.poll() is None
+    sup.processes = real
+    children.scan(force=True)
+    assert child.pid in children.seen
+    print("RECOVERED")
+finally:
+    sup.processes = real
+    children.stop()
+`)
+    const result = spawnSync(python!, ['-I', script, supervisor], { encoding: 'utf8', timeout: 30_000 })
+    expect(result.status).toBe(0)
+    expect(result.stdout.trim()).toBe('RECOVERED')
+  })
+
+  it('returns when the server exits unexpectedly so Electron can recover the whole incarnation', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ws-sup-'))
+    dirs.push(dir)
+    const script = join(dir, 'drive.py')
+    const server = join(dir, 'server')
+    writeFileSync(server, '#!/bin/sh\nsleep 0.1\nexit 7\n', { mode: 0o700 })
+    writeFileSync(script, `
+import importlib.util, os, sys
+spec = importlib.util.spec_from_file_location("supervisor", sys.argv[1])
+sup = importlib.util.module_from_spec(spec); spec.loader.exec_module(sup)
+# Keep Electron's control pipe open: this must be a child exit, not stdin EOF.
+r, w = os.pipe()
+os.dup2(r, 0)
+children = sup.Children()
+try:
+    sup.run(dict(gateways=[], environment=dict(os.environ), executable=sys.argv[2], cwd=os.getcwd()), children, {})
+    children.leaders[0].wait(timeout=5)
+    assert children.leaders[0].returncode == 7
+    print("SERVER_EXITED")
+finally:
+    children.stop()
+    os.close(w)
+`)
+    const result = spawnSync(python!, ['-I', script, supervisor, server], { encoding: 'utf8', timeout: 30_000 })
+    expect(result.status).toBe(0)
+    expect(result.stdout).toContain('SERVER_EXITED')
+  })
+
   it('does not own an unrelated process', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ws-sup-'))
     dirs.push(dir)

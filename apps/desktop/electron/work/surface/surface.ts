@@ -30,6 +30,8 @@ import {
 export interface WorkViewHandle {
   port: OwnerViewPort
   place(rect: MatrixWorkRect | null): void
+  /** Moves keyboard focus into the view, so a band command that lands in its composer shows the caret. */
+  focus?(): void
 }
 
 /** The parts of one signed-in account's Work. Main builds them (lanes S, R, G) and hands them over. */
@@ -81,6 +83,9 @@ export interface WorkSurfaceOptions {
   setWork?(on: boolean): Promise<void>
 }
 
+/** A run must last this long before a crash resets the reconnect backoff (matches the sidecar). */
+const HEALTHY_RUN_MS = 60_000
+
 const PROTONS: Record<WorkAccess, MatrixWorkProjection['protons']> = {
   allowed: 'ok',
   empty: 'empty',
@@ -97,6 +102,9 @@ export class WorkSurface {
   private parts: WorkSurfaceParts | undefined
   private detachGate: (() => void) | undefined
   private handle: WorkViewHandle | undefined
+  private recoveryTimer?: ReturnType<typeof setTimeout>
+  private recovering = false
+  private recoveryFailures = 0
   private phase: ViewPhase = 'idle'
   private opening: Promise<void> | undefined
   private rect: MatrixWorkRect | null = null
@@ -115,6 +123,7 @@ export class WorkSurface {
   attach(parts: WorkSurfaceParts | undefined): void {
     this.planLimit = undefined
     this.planLimits = undefined
+    this.cancelRecovery()
     this.generation++
     this.detachGate?.()
     this.detachGate = undefined
@@ -206,7 +215,7 @@ export class WorkSurface {
       return
     }
 
-    if (this.phase === 'idle') {
+    if (this.phase === 'idle' || this.recovering) {
       await this.open()
     }
   }
@@ -222,6 +231,7 @@ export class WorkSurface {
    * server beside the one being restarted.
    */
   async suspend<T>(work: () => Promise<T>): Promise<T> {
+    this.cancelRecovery()
     this.holds++
     this.closeView()
     this.phase = 'idle'
@@ -239,10 +249,11 @@ export class WorkSurface {
   }
 
   async retry(): Promise<void> {
-    if (this.holds > 0 || this.phase !== 'unavailable') {
+    if (this.holds > 0 || this.phase === 'starting') {
       return
     }
 
+    clearTimeout(this.recoveryTimer)
     this.closeView()
     this.phase = 'idle'
     await this.open()
@@ -289,7 +300,14 @@ export class WorkSurface {
    */
   getSurfaceMode() { return this.options.getSurfaceMode?.() ?? Promise.resolve(null) }
 
-  runCommand(command: WorkBandCommand) { return this.options.runCommand?.(command) ?? Promise.resolve(false) }
+  async runCommand(command: WorkBandCommand): Promise<boolean> {
+    // The click lands in the Atum renderer; New thread ends in the view's composer, so the view takes focus first.
+    if (command === 'chat.new') {
+      this.handle?.focus?.()
+    }
+
+    return (await this.options.runCommand?.(command)) ?? false
+  }
 
   setSurfaceMode(projectId: string, mode: 'work' | 'code') {
     if (!this.options.setSurfaceMode) {return Promise.reject(new Error('work_unavailable'))}
@@ -365,6 +383,7 @@ export class WorkSurface {
     }
 
     if (!on) {
+      this.cancelRecovery()
       this.closeView()
       this.phase = 'idle'
       this.protons = 'unknown'
@@ -477,11 +496,26 @@ export class WorkSurface {
       this.phase = 'unavailable'
       this.publish()
 
+      if (this.recovering) {this.scheduleRecovery(generation)}
+
       return
     }
 
     const handle = this.handle
     this.phase = 'ready'
+    this.recovering = false
+    const readyAt = Date.now()
+    void outcome.incarnation.unexpectedExit?.then(unexpected => {
+      if (unexpected && this.handle === handle && generation === this.generation && this.holds === 0) {
+        // Only a healthy run earns a fresh backoff; a view that pairs and dies at once keeps backing off.
+        if (Date.now() - readyAt >= HEALTHY_RUN_MS) {this.recoveryFailures = 0}
+        this.closeView()
+        this.phase = 'unavailable'
+        this.recovering = true
+        this.publish()
+        this.scheduleRecovery(generation)
+      }
+    })
     outcome.view.onClosed(() => {
       if (this.handle === handle && generation === this.generation) {
         // Crashed or closed underneath us: say so, with "Try again". A view that dies at once must not reopen in a loop.
@@ -494,6 +528,22 @@ export class WorkSurface {
     await this.refreshProtons()
     this.publish()
     await this.followPendingPath()
+  }
+
+  private cancelRecovery(): void {
+    clearTimeout(this.recoveryTimer)
+    this.recovering = false
+    this.recoveryFailures = 0
+  }
+
+  private scheduleRecovery(generation: number): void {
+    clearTimeout(this.recoveryTimer)
+    this.recoveryTimer = setTimeout(() => {
+      if (generation === this.generation && this.recovering && this.rect && this.parts?.enabled() && this.holds === 0) {
+        void this.retry()
+      }
+    }, Math.min(30_000, 1_000 * 2 ** Math.min(this.recoveryFailures++, 5)))
+    this.recoveryTimer.unref?.()
   }
 
   private closeView(): void {

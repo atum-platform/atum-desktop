@@ -10,7 +10,9 @@ import { MATRIX_WORK_IPC, type MatrixWorkProjection, type WorkSurfaceModeSnapsho
 import { type GateEvent, GateLedger, workGatePaths } from '../work/gate'
 import { workSessionPaths } from '../work/session'
 
+import { matrixRosterAgentAnswersInCloud } from './cloud-agent-placement'
 import { createGateDoor, createMatrixWork, MATRIX_WORK_MODEL_ROLE, type MatrixWorkDeps, readWorkAccess, WORK_MIN_AVAILABLE_MICRO_PROTONS, WorkModelKeys } from './main-work'
+import { matrixCloudOnlyReadiness, MatrixReadinessMonitor } from './readiness'
 
 const { handlers } = vi.hoisted(() => ({ handlers: new Map<string, (event: unknown, value?: unknown) => Promise<unknown>>() }))
 
@@ -296,6 +298,65 @@ describe('createMatrixWork', () => {
     expect(await read()).toBeNull()
   })
 
+  it('readies a cloud Hermes agent and exposes Work without any local agent enrollment', async () => {
+    const enroll = vi.fn(async () => { throw new Error('matrix_enrollment_unavailable') })
+    const identity = vi.fn(async () => '67000000-0000-4000-8000-0000000000a1')
+    const { work } = build({ ownerPrincipal: identity }, true)
+
+    const readiness = new MatrixReadinessMonitor({
+      gate: matrixCloudOnlyReadiness([
+        { step: 'signed_in', check: async () => ({ ok: true }) },
+        { step: 'assistant', check: enroll }
+      ], () => matrixRosterAgentAnswersInCloud({ runtime: 'hermes', answering: 'local' })),
+      watch: [],
+      onChange: () => {}
+    })
+
+    try {
+      readiness.start()
+      await vi.waitFor(() => expect(readiness.current.phase).toBe('ready'))
+      await work.activate()
+      expect(await read()).not.toBeNull()
+      expect(enroll).not.toHaveBeenCalled()
+      await work.activate()
+      expect(identity).toHaveBeenCalledOnce()
+    } finally {
+      readiness.stop()
+      await work.quit()
+    }
+  })
+
+  it('keeps Work absent on account identity refusal and recovers on the next activation', async () => {
+    const identity = vi.fn<MatrixWorkDeps['ownerPrincipal']>()
+      .mockRejectedValueOnce(new Error('matrix_domain_connection_required'))
+      .mockResolvedValue('67000000-0000-4000-8000-0000000000a1')
+
+    const { work } = build({ ownerPrincipal: identity }, true)
+
+    await work.activate()
+    expect(await read()).toBeNull()
+    await work.activate()
+    expect(await read()).not.toBeNull()
+    await work.quit()
+  })
+
+  it('discards a late identity answer after the signed-in account changes', async () => {
+    let answer!: (value: string) => void
+    let scope = { accountKey: 'a'.repeat(64), generation: 1 }
+
+    const { work } = build({
+      scope: () => scope,
+      ownerPrincipal: () => new Promise(resolve => { answer = resolve })
+    }, true)
+
+    const starting = work.activate()
+    scope = { accountKey: 'b'.repeat(64), generation: 2 }
+    answer('67000000-0000-4000-8000-0000000000a1')
+    await starting
+    expect(await read()).toBeNull()
+    await work.quit()
+  })
+
   it('draws no Work entry in a build without the staged runtime or the owner-view preload, and says why once', async () => {
     const { logs, work } = build()
 
@@ -305,13 +366,13 @@ describe('createMatrixWork', () => {
     expect(logs).toEqual(['[atum-work] bind_failed work_not_in_this_build'])
   })
 
-  it('draws no Work entry while the model proxy is down', async () => {
+  it('keeps Work visible while the optional local model proxy is down', async () => {
     const { logs, work } = build({ model: { baseUrl: () => undefined, probe: async () => ({ ok: false, code: 'setup_required' }) } }, true)
 
     await work.activate()
 
-    expect(await read()).toBeNull()
-    expect(logs).toEqual(['[atum-work] bind_failed work_model_unavailable'])
+    expect(await read()).not.toBeNull()
+    expect(logs).not.toContain('[atum-work] bind_failed work_model_unavailable')
   })
 
   it('has no account to bind before the owner principal and this Mac\'s enrollment exist, or while the app quits', async () => {

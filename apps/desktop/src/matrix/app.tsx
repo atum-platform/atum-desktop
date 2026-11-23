@@ -9025,6 +9025,7 @@ function MatrixAccountView({
                     offers. Disk-full blocks the composer, so its notice lives with that box. */}
                 <MatrixDeviceHealthNotice
                   snapshot={{
+                    deviceAccessRepair: snapshot.deviceAccessRepair,
                     deviceDamaged: snapshot.deviceDamaged,
                     ownerDeviceRepair: snapshot.ownerDeviceRepair
                   }}

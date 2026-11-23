@@ -560,6 +560,7 @@ const bridge: MatrixUiBridge = {
   readDomain: () => invoke('readDomain'),
   cancelDomain: () => invoke('cancelDomain'),
   enrollment: () => invoke('enrollment'),
+  repairDeviceAccess: () => invoke('repairDeviceAccess'),
   enrollHermes: () => invoke('enrollHermes'),
   setupAssistant: () => invoke('setupAssistant'),
   revokeHermes: () => invoke('revokeHermes'),

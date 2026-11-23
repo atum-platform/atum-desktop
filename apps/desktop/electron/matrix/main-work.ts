@@ -93,8 +93,8 @@ export interface MatrixWorkDeps {
   wallet: MatrixWorkWalletPort
   /** `account.appScope()`. */
   scope(): { accountKey: string; generation: number } | null
-  /** The owner's platform principal (the enrollment's), the account id the platform keys Work by. */
-  ownerPrincipal(): string | undefined
+  /* Verified account identity (/me), independent of any agent executor. */
+  ownerPrincipal(): string | undefined | Promise<string | undefined>
   deviceServiceId(): string | undefined
   /** The platform's `device-services` endpoint: `${resource}/device-services`. */
   deviceServicesEndpoint(): string | undefined
@@ -328,12 +328,32 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
 
   const rootFor = (accountKey: string) => join(deps.userData, 'work-accounts', accountKey.slice(0, 32))
 
+  // Resolve once per signed-in generation. A late /me answer cannot bind another account's Work.
+  let owner: { accountKey: string; generation: number; principal: string } | undefined
+  let resolving: Promise<void> | undefined
+
+  const sameScope = (scope: { accountKey: string; generation: number } | null) =>
+    Boolean(scope && owner?.accountKey === scope.accountKey && owner.generation === scope.generation)
+
+  const resolveOwner = async () => {
+    const scope = deps.scope()
+
+    if (!scope || deps.closing() || sameScope(scope)) {return}
+
+    const principal = await deps.ownerPrincipal()
+    const current = deps.scope()
+
+    if (principal && !deps.closing() && current?.accountKey === scope.accountKey && current.generation === scope.generation) {
+      owner = { ...scope, principal }
+    }
+  }
+
   const account = (): WorkMountAccount | undefined =>
     deps.closing()
       ? undefined
       : workAccountFor({
           scope: deps.scope(),
-          ownerPrincipal: deps.ownerPrincipal(),
+          ownerPrincipal: sameScope(deps.scope()) ? owner?.principal : undefined,
           deviceServiceId: deps.deviceServiceId(),
           rootFor
         })
@@ -665,14 +685,10 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   const lifecycle = new MatrixWorkLifecycle({
     account,
     // A build without the staged runtime or the owner-view preload cannot run Work: draw nothing rather than an entry
-    // that fails on click. The model proxy must be up for the same reason.
+    // that fails on click. Proxy availability belongs to runtime startup, not discovery.
     prepare: async () => {
       if (!existsSync(join(deps.resources, 'work-runtime', 't3')) || !existsSync(deps.workPreload)) {
         throw new Error('work_not_in_this_build')
-      }
-
-      if (!deps.model.baseUrl()) {
-        throw new Error('work_model_unavailable')
       }
     },
     // Retirement and quit drop the model key (and cancel its forwards) synchronously, before any await.
@@ -697,9 +713,14 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
   })
 
   return {
-    activate: () => {
+    activate: async () => {
       // keys() drops a key whose account or generation is no longer the signed-in one, and cancels its forwards
       modelKeys.keys()
+
+      resolving ??= resolveOwner().catch(() => {
+        deps.log('[atum-work] account_identity_unavailable')
+      }).finally(() => { resolving = undefined })
+      await resolving
 
       return lifecycle.activate()
     },
