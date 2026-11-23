@@ -13,6 +13,7 @@ import {
   type WorkAdmissionErrorType,
   type WorkGateId,
   type WorkLaunchArguments,
+  type WorkRelayQuestionArguments,
   type WorkTool
 } from './contract'
 import { type CallContext, GateAdmissionError, type WorkGate } from './gate'
@@ -319,6 +320,9 @@ async function run(gate: WorkGate, ctx: CallContext, tool: WorkTool, args: unkno
   switch (tool) {
     case 'send':
       return gate.relay.send(ctx, args)
+
+    case 'question':
+      return gate.relay.question(ctx, args as WorkRelayQuestionArguments)
 
     case 'close':
       return gate.relay.closeReceipt(ctx, (args as { request_id: string }).request_id)

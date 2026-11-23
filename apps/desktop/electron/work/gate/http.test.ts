@@ -10,7 +10,7 @@ import { WORK_TOOLS } from './contract'
 import { createGateHandler } from './http'
 import type { RelaySelection } from './relay'
 import { bindGateSocket, type BoundGateSocket } from './socket'
-import { ACCOUNT, DEVICE, EVENT_A, type Harness, LUNA, makeHarness, PINNED_T3_TOOLS, REQ_1, REQ_2 } from './test-support'
+import { ACCOUNT, DEVICE, EVENT_A, EVENT_B, type Harness, LUNA, makeHarness, PINNED_T3_TOOLS, REQ_1, REQ_2 } from './test-support'
 
 // The fifteen admission checks in the contract's order, with a REAL signed assertion (RS256, a locally generated key
 // set standing in for Cloudflare's certs) through the REAL gate socket. T3 and the homeserver are fakes.
@@ -420,10 +420,17 @@ describe('B-0: every path from an agent to a plan, with a granted credential, th
     expect(h.t3.calls).toHaveLength(0)
   })
 
-  it('relay adds ids-only send/status/close without exposing native provider tools', async () => {
+  it('relay adds ids-only question continuation without exposing native provider tools', async () => {
     const list = await post({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, await good())
 
-    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['close', 'interrupt', 'launch', 'list', 'read', 'request', 'reset', 'send', 'status', 'wait'])
+    expect(list.json.result.tools.map((tool: { name: string }) => tool.name).sort()).toEqual(['close', 'interrupt', 'launch', 'list', 'question', 'read', 'request', 'reset', 'send', 'status', 'wait'])
+
+    const forged = await post(rpc('question', { action: 'respond', request_id: REQ_1,
+      question_id: 'request:1', question_event_id: '$question', event_id: EVENT_B,
+      answers: { color: 'blue' } }), await good())
+
+    expect(forged.json.result.structuredContent).toMatchObject({ class: 'refused', reason: 'invalid_arguments' })
+    expect(h.t3.calls).toHaveLength(0)
   })
 
   it('consent and the switch are the Mac\'s alone: the answer to an agent names only the check that failed', async () => {

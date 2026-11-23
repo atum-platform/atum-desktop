@@ -3207,6 +3207,7 @@ export const zh = defineLocale({
       sessionRunning: '会话运行中',
       needsInput: '需要你输入',
       waitingForAnswer: '正在等待你的回答',
+      invalidAnswer: '请重新回复有效答案',
       finishedUnread: '已完成 — 未读',
       backgroundRunning: '后台任务运行中',
       handoffOrigin: platform => `从 ${platform} 转接`,

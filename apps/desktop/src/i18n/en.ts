@@ -3043,6 +3043,7 @@ export const en: Translations = {
       sessionRunning: 'Session running',
       needsInput: 'Needs your input',
       waitingForAnswer: 'Waiting for your answer',
+      invalidAnswer: 'Reply again with a valid answer',
       finishedUnread: 'Finished — unread',
       backgroundRunning: 'Background task running',
       handoffOrigin: platform => `Handed off from ${platform}`,

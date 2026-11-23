@@ -50,6 +50,21 @@ describe('WorkRelayTurnLine: one line, at most one action, UI chrome only', () =
     expect(onStop).toHaveBeenCalledTimes(1)
   })
 
+  it('shows a chat question as waiting for an answer and keeps Stop available', () => {
+    line({ kind: 'waiting', at: 'message', action: 'stop', waitingForAnswer: true }, 'en', { onStop: vi.fn() })
+
+    expect(screen.getByRole('status').textContent).toContain('Waiting for your answer')
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Open Work' })).toBeNull()
+  })
+
+  it('asks the owner to reply again after T3 rejects the answer', () => {
+    line({ kind: 'waiting', at: 'message', action: 'stop', waitingForAnswer: true, invalidAnswer: true }, 'en', { onStop: vi.fn() })
+
+    expect(screen.getByRole('status').textContent).toContain('Reply again with a valid answer')
+    expect(screen.getByRole('button', { name: 'Stop' })).toBeTruthy()
+  })
+
   it('offers Open Work for an OK the owner can give on this Mac', () => {
     const onOpenWork = vi.fn()
     line({ kind: 'needs_ok', at: 'message', action: 'open_work' }, 'vi', { onOpenWork })
@@ -149,12 +164,14 @@ describe('Settings and the consent sheet (§6)', () => {
       <I18nProvider configClient={null} initialLocale="en">
         <MatrixWorkSettings
           bridge={port()}
+          claudeLimit={{ plan: 'claude', state: 'exhausted', observedAt: 1, usedPercent: 100, scheduledRuns: 0 }}
           planLimit={{ plan: 'codex', state: 'available', observedAt: 1, usedPercent: 42, scheduledRuns: 3 }}
         />
       </I18nProvider>
     )
 
     expect(await screen.findByText('Connected on this Mac · 42% used · 3 scheduled runs')).toBeTruthy()
+    expect(await screen.findByText('100% used · 0 scheduled runs')).toBeTruthy()
   })
 
   it('keeps the connected row as it was without a limit', async () => {

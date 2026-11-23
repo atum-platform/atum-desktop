@@ -193,9 +193,17 @@ describe('one turn’s line (§3.4, §3.6, O12, O13)', () => {
       action: 'stop'
     })
     expect(workRelayTurnChrome({ operation: operation({ phase: 'held', hold: 'question' }), onBoundMac: true })).toEqual({
-      kind: 'needs_ok',
+      kind: 'waiting',
       at: 'message',
-      action: 'open_work'
+      action: 'stop',
+      waitingForAnswer: true
+    })
+    expect(workRelayTurnChrome({ operation: operation({ phase: 'held', hold: 'question_invalid' }) })).toEqual({
+      kind: 'waiting',
+      at: 'message',
+      action: 'stop',
+      waitingForAnswer: true,
+      invalidAnswer: true
     })
     expect(
       workRelayTurnChrome({
@@ -334,6 +342,8 @@ describe('the words (airy: one line, no cost, no relay, no token)', () => {
     expect(workRelayChipText({ kind: 'fallback', reason: 'mac_off' }, context)).toBe('Nguyệt Thực answered · your Mac was off')
     expect(workRelayChipText({ kind: 'greyed', greyed: 'connect' }, context)).toBe('ChatGPT isn’t connected on any of your Macs')
     expect(workRelayUsageText({ kind: 'used', percent: 42 }, { words: context.words, now: 0, locale: 'en' })).toBe('42% used')
+    const weeklyReset = Date.UTC(2026, 10, 29, 8, 14)
+    expect(workRelayUsageText({ kind: 'used', percent: 42, resetsAt: weeklyReset }, context)).toMatch(/resets .*:\d{2}/u)
     expect(workRelayUsageText({ kind: 'unknown' }, { words: context.words, now: 0, locale: 'en' })).toBe('Usage not reported')
   })
 })

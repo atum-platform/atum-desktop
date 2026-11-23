@@ -227,6 +227,7 @@ export function createT3Client(options: T3ClientOptions): T3Port {
     incarnation: options.incarnation,
     settingsFingerprint: () => fileFingerprint(options.settingsFile),
     read,
+    pendingQuestion: (token, threadId, input) => call(token, 't3_pending_request', { threadId, ...input }, {}, 10_000, input.action !== 'respond'),
     async providerReady(token) {
       const reply = await call(token, 'orchestrator_capabilities', {}, {}, 20_000, true)
       const providers = (reply.data?.providers ?? []) as { providerInstanceId?: string; models?: { id?: string }[] }[]

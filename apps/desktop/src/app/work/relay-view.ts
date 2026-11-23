@@ -208,7 +208,12 @@ function operationChrome(operation: WorkRelayOperation, input: WorkRelayTurnInpu
 
   switch (operation.phase) {
     case 'held':
-      if (operation.hold === 'approval' || operation.hold === 'question') {
+      if (operation.hold === 'question' || operation.hold === 'question_invalid') {
+        return { kind: 'waiting', at: 'message', action: 'stop', waitingForAnswer: true,
+          ...(operation.hold === 'question_invalid' ? { invalidAnswer: true } : {}) }
+      }
+
+      if (operation.hold === 'approval') {
         return { kind: 'needs_ok', at: 'message', action: input.onBoundMac ? 'open_work' : 'stop' }
       }
 

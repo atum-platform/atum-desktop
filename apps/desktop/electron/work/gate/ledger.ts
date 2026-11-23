@@ -297,6 +297,10 @@ export class GateLedger {
       .run(key, String(value))
   }
 
+  deleteMeta(key: string): void {
+    this.db.prepare('DELETE FROM meta WHERE k = ?').run(key)
+  }
+
   routeEpoch(): number {
     return Number(this.meta('route_epoch') ?? 1)
   }
@@ -401,14 +405,19 @@ export class GateLedger {
     return row ? receipt(row) : undefined
   }
 
-  scheduledRuns(start: number): number {
+  scheduledRuns(start: number, end = Number.MAX_SAFE_INTEGER, plan = 'codex'): number {
     return Number((this.db.prepare(
-      "SELECT COUNT(*) AS n FROM receipts WHERE forwarded = 1 AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL AND json_extract(relay_json, '$.scheduledAt') >= ?"
-    ).get(start) as Row).n)
+      "SELECT COUNT(*) AS n FROM receipts WHERE forwarded = 1 AND relay_json IS NOT NULL AND json_extract(relay_json, '$.input.job_id') IS NOT NULL AND json_extract(relay_json, '$.scheduledAt') >= ? AND json_extract(relay_json, '$.scheduledAt') < ? AND plan = ? AND run_id IS NOT NULL"
+    ).get(start, end, plan) as Row).n)
   }
 
   receipts(where = '1 = 1', ...args: (string | number)[]): ReceiptRow[] {
     return (this.db.prepare(`SELECT * FROM receipts WHERE ${where} ORDER BY created_at, request_id`).all(...args) as Row[]).map(receipt)
+  }
+
+  claimQuestionReply(principal: string, requestId: string, eventId: string): boolean {
+    return this.db.prepare('INSERT OR IGNORE INTO claims (account, event_id, principal, request_id) VALUES (?, ?, ?, ?)')
+      .run(this.account, eventId, principal, requestId).changes === 1
   }
 
   eventClaimed(eventId: string): boolean {

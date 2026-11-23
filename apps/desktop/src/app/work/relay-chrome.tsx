@@ -42,7 +42,7 @@ export function WorkRelayTurnLine({
   plan?: WorkRelayPlan
   servedBy?: string
 }) {
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
 
   const line = workRelayTurnText(chrome, {
     words: workRelayCopy(locale),
@@ -58,6 +58,11 @@ export function WorkRelayTurnLine({
 
   const run = line.action?.kind === 'stop' ? onStop : line.action?.kind === 'open_work' ? onOpenWork : undefined
 
+  let text = line.text
+  if (chrome.kind === 'waiting' && chrome.waitingForAnswer) {
+    text = chrome.invalidAnswer ? t.sidebar.row.invalidAnswer : t.sidebar.row.waitingForAnswer
+  }
+
   return (
     <p
       className={cn(
@@ -69,7 +74,7 @@ export function WorkRelayTurnLine({
       role={LIVE.has(chrome.kind) ? 'status' : 'note'}
     >
       {LIVE.has(chrome.kind) && <span aria-hidden className="ak-dot size-1.5 shrink-0 animate-pulse bg-(--ak-ink-3)" />}
-      <span className="min-w-0 truncate">{line.text}</span>
+      <span className="min-w-0 truncate">{text}</span>
       {line.action && run && (
         <>
           <span aria-hidden>·</span>
@@ -115,7 +120,10 @@ export function useWorkRelayUsageText(limit: WorkRelayLimit | undefined, now?: n
   const { locale } = useI18n()
 
   const words = workRelayCopy(locale)
-  const usage = workRelayUsageText(workRelayUsage(limit), { words, now: now ?? Date.now(), locale })
+
+  const usage = workRelayUsageText(limit?.usedPercent !== undefined
+    ? { kind: 'used', percent: Math.round(limit.usedPercent), resetsAt: limit.resetsAt }
+    : workRelayUsage(limit), { words, now: now ?? Date.now(), locale })
 
   return limit?.scheduledRuns === undefined ? usage : `${usage} · ${words.usageScheduled(limit.scheduledRuns)}`
 }
