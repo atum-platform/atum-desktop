@@ -632,18 +632,6 @@
       "key": "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.pinned.pinnedMessageCount.count=1",
       "value": 1
     },
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": {
-      "alternatives": [
-        {
-          "argumentIndex": 1,
-          "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0",
-          "value": 0
-        }
-      ],
-      "argumentIndex": 1,
-      "key": "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1",
-      "value": 1
-    },
     "src.matrix.person-info-copy.copy.members": {
       "alternatives": [
         {
@@ -2758,6 +2746,7 @@
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.onItsComputer": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.openDrive": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pause": [],
+    "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pauseHint": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.paused": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.queueHint": [],
     "shared.matrix-agent-desk-copy.matrixAgentDeskCopy.routine": [],
@@ -6168,6 +6157,233 @@
     "src.matrix.mobile-copy.mobileScreensCopy.assistantCard.personaWho": [],
     "src.matrix.mobile-copy.mobileScreensCopy.cloud.stopRefused": [],
     "src.matrix.mobile-copy.mobileScreensCopy.cloud.stopping": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.connect": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.dataAndTools": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.homeTools.line": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.inCloud": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.lastSeen": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.manage": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.needsAttention": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.notConnected": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.onMacs": [
+      {
+        "kind": "string",
+        "nullable": false
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.ownerChats.line": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.ownerChats.title": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.picker.inWork": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.picker.use.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.picker.use.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.picker.use.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.done.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.done.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.done.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.failed.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.failed.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.failed.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.signingIn.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.signingIn.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.signingIn.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.progress.tryAgain": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.close": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.consent": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.continue": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.line.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.line.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.line.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.needsMac": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.notNow": [],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.title.plan=antigravity": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.title.plan=claude": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.sheet.title.plan=codex": [
+      {
+        "kind": "choice",
+        "nullable": false,
+        "values": [
+          "claude",
+          "antigravity",
+          "codex"
+        ]
+      }
+    ],
+    "src.matrix.mobile-copy.mobileScreensCopy.connections.subscriptions": [],
     "src.matrix.mobile-copy.mobileScreensCopy.dictation.listening": [],
     "src.matrix.mobile-copy.mobileScreensCopy.greeting.afternoon": [],
     "src.matrix.mobile-copy.mobileScreensCopy.greeting.evening": [],
@@ -6563,40 +6779,6 @@
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailable": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.unavailableBody": [],
     "src.matrix.mobile-copy.mobileScreensCopy.teamSpace.saved.you": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.allow": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.assistants": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.cancel": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.failed": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.granted": [
-      {
-        "kind": "string",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.macs": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.none": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=0": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.otherMac.index=1": [
-      {
-        "kind": "number",
-        "nullable": false
-      }
-    ],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.revoke": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.save": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.consent.title": [],
-    "src.matrix.mobile-copy.mobileScreensCopy.work.planRow": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows0Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows1Label": [],
     "src.matrix.mobile-device-copy.mobileDeviceCopy.aboutRows2Label": [],

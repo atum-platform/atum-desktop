@@ -277,3 +277,47 @@ between `46f5a518` and `784f608f`, by the same method as above (generated into
 - Checks: producer `export.mjs --check` clean, producer tests 45/45 (one earlier run had 2
   timing failures that did not recur in two full reruns); 44 manifest hashes match their files;
   desktop `tsc -p . --noEmit` and the copy vitest files pass; outbound guard passes (see the commit).
+
+## Wave 4c: Work connections and relay for every plan (#106)
+
+Desktop `f1d10cf0` (#106) moved the plan's connection and consent out of Work into
+`app/connections/` (connecting a plan covers every assistant, scheduled turns included, and this
+Mac's switch is the off switch). Same method as above; producer inputs on atum-app
+`chore/mobile-export-wave4c-keys`.
+
+- **Added: 1.** `shared.matrix-agent-desk-copy.matrixAgentDeskCopy.pauseHint` ("Still answers
+  you. Starts nothing on its own."), which desktop has in all five locales. Wave 4 left it out
+  because it is Pause's hover tooltip; the phone now has a test waiting for it.
+- **Removed: 14.** `MS.work.planRow` and `MS.work.consent.{title,assistants,macs,otherMac
+  (+ index=0, index=1),allow,save,cancel,granted,revoke,failed,none}`: #106 deleted their source
+  (`work/copy.ts` `connect.*` and `consent.*`, and the consent sheet `plan-consent.tsx`). They are
+  deleted from `mobileScreensCopy` and recorded as deprecated in the producer, with no replacement
+  in the export.
+- **Refreshed: none.** Every other shared entry still matches the producer byte for byte; the
+  inventory and copy map are unchanged. Catalog: 4086 → 4110 entries (+38, −14).
+- **Added: 37 Connections entries (25 keys), by coordinator decision.** The words of
+  `app/connections/copy.ts`, which desktop has in English and Vietnamese only, follow the
+  `relay.usageScheduled` precedent: en and vi from desktop, and ja, zh and zh-Hant a fallback
+  that repeats the English, as desktop shows them (marked in `mobile-copy.ts`). Under
+  `MS.connections`: `subscriptions`, `dataAndTools`, `onMacs(names)`, `lastSeen(names)`,
+  `notConnected`, `inCloud`, `needsAttention`, `connect`, `manage`, `ownerChats.{title,line}`,
+  `homeTools.line`, `sheet.{title,line,consent,continue,notNow,needsMac,close}`,
+  `progress.{signingIn,done,failed,tryAgain}` and `picker.{use,inWork}`. `sheet.consent` is the
+  consent sentence ("Your assistants can use this plan through this Mac."). The six formatters of
+  the plan (`sheet.title`, `sheet.line`, `progress.signingIn`, `progress.done`, `progress.failed`,
+  `picker.use`) keep desktop's argument: a choice of `codex`, `claude`, `antigravity`, exported as
+  one entry per plan (`….plan=codex` and so on), since `sheet.line` names the plan's maker.
+  `onMacs` and `lastSeen` take the Macs' names (`%1$@`). Left out as Mac-only: `thisMac`,
+  `mac.{label,help,otherHelp}` (this Mac's switch) and `picker.openWork`. Not copy:
+  `ACCOUNT_PLAN_NAMES` (product names).
+- **#107 and #108** (merged into this branch): #107's only new words are Work's title band on
+  the Mac (`work/copy.ts` `band.*`: the Work/Code mode switch, show/hide threads, New thread),
+  which is Work session UI and stays out. #108 is the 0.20.52 release prep. Neither changes an
+  exported entry. #107 adds one desktop glyph alias (`PenNib`) that the producer cannot map yet.
+- **Still exported but no longer drawn by desktop:** relay `greyed.allow`, `chipGreyed.allow`,
+  `fixAllow`, `consentChatsLine`, `consentScheduled`. relay-copy still defines them, so they stay
+  until desktop removes them.
+- Checks: producer `export.mjs --check` clean, tests 45/45 (same throwaway glyph-map entries as
+  above, plus `PenNib`); the Connections copies match `connectionsCopy` in all five locales (215
+  comparisons); 44 manifest hashes match; desktop `tsc -p . --noEmit` and the copy vitest files pass;
+  outbound guard passes.
