@@ -107,7 +107,7 @@ Each file is copied word for word:
   (`remixicon-License.txt`, `fontawesome-LICENSE.txt` and `qprogressindicator-LICENSE.txt` from the
   engine source tag).
 - `app/*`: Hermes Agent's `LICENSE`; Squirrel.Mac, Mantle and ReactiveObjC at the commits Electron
-  `v44.10.1` pins in its `DEPS`.
+  `v45.3.2` pins in its `DEPS`.
 - `runtime/python/*`: python-build-standalone's licence files at release `20260901`.
 - `local-brain/bun-LICENSE.md`: Bun's `LICENSE.md` at `bun-v1.4.2`.
   `local-brain/pglite-POSTGRES-LICENSE.txt`: PGlite's `POSTGRES-LICENSE` at `@electric-sql/pglite@0.4.3`.
