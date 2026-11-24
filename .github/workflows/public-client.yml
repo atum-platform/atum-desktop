@@ -60,6 +60,12 @@ jobs:
         with:
           python-version: '3.14'
       - run: python -m pip install uv==0.13.5
+      # Use the checked-in lock, as the client job does. Auto-activation builds
+      # a PM workspace and re-resolves optional wheel metadata before any tests.
+      - name: Prepare locked shard Python environment
+        run: |
+          uv sync --locked --python 3.14 --group dev --group test --extra all
+          echo "HERMES_PYTHON=$GITHUB_WORKSPACE/.venv/bin/python" >> "$GITHUB_ENV"
       - run: bash scripts/run_tests.sh --slice ${{ matrix.slice }}/8 -j 2 --file-timeout 300
 
   # Branch protection requires the single context `hermes`; it passes only when every slice passed.
