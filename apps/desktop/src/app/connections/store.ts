@@ -17,10 +17,25 @@ export const $accountConnections = atom<AccountConnectionsView | null | undefine
  */
 export interface AccountConnectRequest {
   plan: AccountPlan
-  mode?: 'connect' | 'allow'
+  mode?: 'connect' | 'allow' | 'renew'
 }
 
 export const $accountConnect = atom<AccountConnectRequest | null>(null)
+export const $nativeRenewal = atom<AccountPlan | null>(null)
+
+export async function refreshNativeRenewal(bridge = workBridge()): Promise<void> {
+  if (!bridge) {return}
+  for (const plan of ['codex', 'claude', 'antigravity'] as const) {
+    try {
+      const consent = await bridge.readPlanConsent(plan)
+      if (consent.state === 'on' && ['soon', 'needed'].includes(consent.nativeRenewal ?? '')) {
+        $nativeRenewal.set(plan)
+        return
+      }
+    } catch { /* Keep the rest of Connections usable while Work is offline. */ }
+  }
+  $nativeRenewal.set(null)
+}
 
 /** After Continue: what the Work title band says until the plan is connected on this Mac. */
 export interface AccountConnectProgress {
@@ -135,8 +150,9 @@ export async function continueAccountConnect(
     return
   }
 
-  if (request.mode === 'allow') {
+  if (request.mode === 'allow' || request.mode === 'renew') {
     await grantAccountPlanUse(bridge, request.plan)
+    await refreshNativeRenewal(bridge)
     finish(request.plan, 'done')
 
     return

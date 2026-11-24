@@ -20625,6 +20625,18 @@ async function start() {
         return agent?.matrixUser ?? null
       },
       agentName: principal => allAgents().find(each => each.agentPrincipal === principal)?.name,
+      nativeAgents: async () => (await account.agents(AbortSignal.timeout(15_000)))
+        .filter(agent => agent.status === 'active').map(agent => agent.principal),
+      nativeRequest: (agent, nativePath, method, body) => account.s1Request(async (token, base, signal) => {
+        const response = await session.defaultSession.fetch(new URL('/api/host/native-t3', base).href, {
+          method: 'POST', redirect: 'error', signal,
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json',
+            'X-Atum-Host-Bridge-Contract': 'atum.s2.host-bridge/1.0.0' },
+          body: JSON.stringify({ agent, path: nativePath, method, body })
+        })
+        if (!response.ok) {throw new Error('native_profile_unavailable')}
+        return response.json()
+      }, AbortSignal.timeout(60_000), { timeoutMs: 60_000 }),
       agentDefinition: async principal => {
         const agent = (await account.agents(AbortSignal.timeout(15_000))).find(
           each => each.principal === principal && each.status === 'active'

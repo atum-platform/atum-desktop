@@ -12,6 +12,8 @@ import { admitConnector } from '../work/connector/admission'
 import { ConnectorHttp } from '../work/connector/http'
 import { matrixConnector } from '../work/connector/matrix'
 import { ConnectorService } from '../work/connector/service'
+import { NativeConnector, type NativePath } from '../work/connector/native'
+import { readConnectMcpUrl } from '../work/surface/connect-endpoint'
 import {
   createDeviceServicePlatform,
   createWorkConsentClient,
@@ -111,6 +113,8 @@ export interface MatrixWorkDeps {
   agentName(principal: string): string | undefined
   /** The existing account agent-record/definition reader, fenced to the signed-in account. */
   agentDefinition?(principal: string): Promise<MatrixAgentDefinitionSnapshot>
+  nativeAgents?(): Promise<string[]>
+  nativeRequest?(agent: string, path: NativePath, method: 'GET' | 'POST', body?: unknown): Promise<unknown>
   /** The owner's top-up page (what `openTopUp` opens). */
   openProtons(): Promise<void>
   publish(channel: string, payload: MatrixWorkProjection | WorkSurfaceModeSnapshot | WorkSidebarSnapshot | null): void
@@ -360,9 +364,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
 
   let connector: ConnectorHttp | undefined
+  let nativeConnector: NativeConnector | undefined
   let connectorEnvironment: Record<string, string> = {}
 
   const closeConnector = () => {
+    nativeConnector?.revoke()
+    nativeConnector = undefined
     const old = connector
     connector = undefined
     connectorEnvironment = {}
@@ -399,7 +406,12 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
         })
       )
 
-      const candidate = new ConnectorHttp(service, secret)
+      const native = deps.nativeAgents && deps.nativeRequest && deps.deviceServiceId()
+        ? new NativeConnector(join(bound.root, 'work'), deps.deviceServiceId()!, {
+          current, agents: () => deps.nativeAgents!(), request: (...args) => deps.nativeRequest!(...args)
+        }) : undefined
+      if (native) {await native.consent()}
+      const candidate = new ConnectorHttp(service, secret, native)
       const endpoint = await candidate.start()
 
       if (!current()) {
@@ -408,7 +420,8 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       }
 
       connector = candidate
-      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret }
+      nativeConnector = native
+      connectorEnvironment = { ATUM_WORK_CONNECTOR_URL: endpoint, ATUM_WORK_CONNECTOR_TOKEN: secret, ...native?.environment(endpoint) }
     }
   }
 
@@ -685,6 +698,21 @@ export function createMatrixWork(deps: MatrixWorkDeps): MatrixWork {
       endpoint: deps.deviceServicesEndpoint() ?? '',
       bearer: () => deps.bearer()
     })),
+    nativeConsent: {
+      renewal: () => nativeConnector?.renewal(),
+      async approve(input, plan) {
+        const mac = deps.deviceServiceId()
+        if (!nativeConnector || !mac || !input.macs.includes(mac)) {return}
+        const running = host.current()
+        if (!running) {throw new Error('native_work_unavailable')}
+        const connectUrl = await readConnectMcpUrl(running.origin, deps.sessionFromPartition(partitionFor(running.accountKey)))
+        await Promise.all(input.agents.map(agent => nativeConnector!.handle('/native-consent', 'POST', {
+          agent, mac, plan: plan ?? 'codex', alsoWhenScheduled: input.alsoWhenScheduled, connectUrl
+        })))
+        await nativeConnector.consent()
+      },
+      revoke: () => nativeConnector?.revoke()
+    },
     consent: consentClient
   })
 

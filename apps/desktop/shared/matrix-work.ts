@@ -69,6 +69,7 @@ export interface MatrixWorkConsentMac {
  * e-mail or plan name is part of it.
  */
 export interface MatrixWorkPlanConsent {
+  nativeRenewal?: 'needed' | 'soon' | 'current'
   state: 'on' | 'off'
   /** Principals of the assistants named. */
   agents: string[]
