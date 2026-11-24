@@ -1,0 +1,17 @@
+{
+  "repository": "pingdotgg/t3code",
+  "tag": "v0.1.11",
+  "commit": "59651c1761f6c63e9b6056839067066968e6a406",
+  "license": "MIT",
+  "files": {
+    "LICENSE": "935d8f2af0c703f9c39517ee57cc4930b19d02d533be930b63f0e82f93614b43",
+    "apps/web/src/index.css": "56bf2e9f13723da30dfe09b2564c8e1bfe021cc6c403bc89763619a78098f38e",
+    "apps/web/src/themePalette.ts": "28645eb9c42f4a3e8826fcfbdd29c972eb2e1ca1205395583f3417d9132e38d7",
+    "apps/web/src/appearanceContrast.ts": "eb7cfaefcd7b5d5479edf3d80763a26d5e90c016b4ecb79be25aa7f177c94e68",
+    "apps/web/src/panelAnimations.ts": "7e77b90f51d77aa57873f83d357f9cc816fd9d659bfdd6f8e8bcbc23afaf678a",
+    "apps/web/src/components/chat/ComposerSurface.tsx": "08798c74ba09fbfaf36586ea9382e5425b670b9b37c786cd94fcfd547b4cde23",
+    "apps/web/src/components/ui/button.tsx": "ee4b5bea5aa08a2f519e9b0810edcc29cca02010fcb724b937413d64d85fa342",
+    "apps/web/src/components/ui/menu.tsx": "22f6bcdd43217cced2184e18c18ccc33217c5ed04f075031a2ed128fbae53584",
+    "apps/web/src/components/ui/dialog.tsx": "79c49ed7f949bd984bd7cf81c96513777b9d01d64d5ecb82e75d9f41226481ba"
+  }
+}

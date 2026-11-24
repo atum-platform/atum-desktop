@@ -83,6 +83,7 @@ import {
   LayoutSidebarRight,
   Messages,
   MoreHorizontal,
+  Paperclip,
   Pencil,
   Plus,
   X
@@ -2259,11 +2260,11 @@ function MatrixSendButton({
   const hasText = useAuiState(state => state.composer.text.trim().length > 0)
   const Icon = editing ? Check : ArrowUp
 
-  // Atum Kit: the ink send circle, faint until there is something to send.
+  // T3's send (ComposerPrimaryActions): a 32px round ink button, a 12% tint until there is something to send.
   return !hasText && file ? (
     <button
       aria-label={label}
-      className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
+      className="atum-composer-send"
       disabled={disabled}
       onClick={onSendFile}
       type="button"
@@ -2274,7 +2275,7 @@ function MatrixSendButton({
     <ComposerPrimitive.Send asChild>
       <button
         aria-label={label}
-        className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30"
+        className="atum-composer-send"
         disabled={disabled || !hasText}
         type="submit"
       >
@@ -3913,7 +3914,8 @@ function MatrixComposer({
         </NoticeBand>
       )}
       <ComposerPrimitive.Root
-        className="group/composer relative z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full shrink-0 rounded-[var(--ak-r-xl)] pt-2 pb-[var(--composer-shell-pad-block-end)]"
+        className="group/composer relative z-30 mx-auto w-[min(var(--composer-width),calc(100%-2rem))] max-w-full shrink-0 rounded-[1rem] pt-2 pb-[var(--composer-shell-pad-block-end)]"
+        data-composer-recipe="t3"
         data-matrix-kit-composer
         data-slot="composer-root"
       >
@@ -4053,7 +4055,7 @@ function MatrixComposer({
                   aria-label={cloudStop.stopping ? t.cloud.stopping : matrixActionCopy[locale].cancelHermes}
                   className={cloudStop.stopping
                     ? 'ak-btn ak-btn--sm ak-btn--primary disabled:opacity-30'
-                    : 'ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary disabled:opacity-30'}
+                    : 'atum-composer-send'}
                   data-matrix-cloud-stopping={cloudStop.stopping || undefined}
                   disabled={!cloudStop.ready}
                   onClick={cloudStop.stop}
@@ -4068,7 +4070,7 @@ function MatrixComposer({
               ) : running ? (
                 <button
                   aria-label={matrixActionCopy[locale].cancelHermes}
-                  className="ak-iconbtn ak-iconbtn--sm ak-iconbtn--primary"
+                  className="atum-composer-send"
                   onClick={() => void window.atumMatrix.cancelHermes(room.id).catch(fail)}
                   type="button"
                 >
@@ -4303,12 +4305,13 @@ function MatrixComposer({
                     type="button"
                     variant="ghost"
                   >
-                    <Plus aria-hidden className="size-4" />
+                    <Paperclip aria-hidden className="size-4 translate-y-px" />
                   </Button>
                 </span>
               </Tip>
             )
           )}
+          recipe="t3"
           stacked
           surfaceRef={node => void node?.setAttribute('data-pet-perch', 'composer')}
           top={

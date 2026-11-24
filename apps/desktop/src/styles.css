@@ -8086,3 +8086,137 @@ body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:f
 [data-atum-main]:has(> [data-atum-main-split] > [data-atum-work])::before {
   display: none;
 }
+
+/* ---------- T3 composer (owner 2026-11-24, option B) ----------
+   T3 Code v0.1.11's ComposerSurface + ChatComposer footer recipe (pingdotgg/t3code, MIT; vendored in
+   packages/atum-kit/t3/), on T3's own variables: --app-theme-* (Atum's palette as a T3 theme, from the Kit),
+   --glass-* and --control-radius. A 16px card with a 1px outline (and an inset highlight in dark), the editor
+   at 14/22.75 starting two lines tall, then a footer: paperclip left; model chip, mic and a 32px round send
+   right. Icons stay Atum's (Phosphor). ComposerSurface recipe="t3" renders the slots; the selectors are
+   specific enough to win over the older shell, Kit and Team Space composer rules above, and sit last. */
+/* (.atum-shell: outranks the shell's and Team Space's own root radius; outside the shell the root's class sets it.) */
+.atum-shell [data-slot='composer-root'][data-matrix-kit-composer][data-composer-recipe='t3'] {
+  border-radius: 1rem;
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] {
+  --t3-composer-surface: var(--app-theme-surface-raised);
+  --t3-composer-outline: var(--app-theme-toolbar-border);
+  --t3-composer-highlight: transparent;
+  border-radius: inherit;
+  border-color: transparent;
+  border-width: 0;
+  /* The glass is the surface's own (the fill stays bare for the pet's rim, as in the shell). */
+  background: color-mix(in srgb, var(--t3-composer-surface) var(--glass-opacity), transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  /* T3 --shadow-composer */
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  min-height: 0;
+}
+.dark [data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] {
+  --t3-composer-outline: color-mix(in srgb, var(--app-theme-input) 30%, var(--app-theme-canvas));
+  --t3-composer-highlight: color-mix(in srgb, var(--app-theme-input) 12%, transparent);
+  box-shadow: none;
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3']::after {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 1px solid var(--t3-composer-outline);
+  border-radius: inherit;
+  box-shadow: inset 0 1px var(--t3-composer-highlight);
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-fill'] {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  [data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] {
+    background: var(--t3-composer-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-fade'] {
+  padding: 0;
+  gap: 0;
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-top'] {
+  padding: 8px 8px 0;
+}
+/* ChatComposer: the body is px-4 pt-4 pb-2, the footer px-2 pb-2. */
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-body'] {
+  padding: 16px 16px 8px;
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-footer'] {
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] :is([data-slot='composer-leading'], [data-slot='composer-actions']) {
+  gap: 2px;
+}
+/* text-sm, leading-relaxed; min-h 2lh. */
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-rich-input'] {
+  display: block;
+  font: 400 14px/22.75px var(--ak-font);
+  min-height: 45.5px;
+  padding: 0;
+  color: var(--app-theme-text);
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-rich-input']::placeholder {
+  color: var(--app-theme-placeholder);
+}
+/* Button variant="ghost" size="icon-sm": 28px on the 8px control radius, the icon in the muted colour. */
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-footer'] :is(.atum-icon-btn, [data-slot='button'][data-variant='ghost']) {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--control-radius);
+  color: var(--app-theme-muted-foreground);
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-footer'] :is(.atum-icon-btn, [data-slot='button'][data-variant='ghost']):is(:hover, [data-state='open'], [aria-pressed='true']):not(:disabled) {
+  background: var(--app-theme-accent-surface);
+  color: var(--app-theme-text);
+}
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-footer'] :is(.atum-icon-btn, [data-slot='button'][data-variant='ghost']) svg {
+  width: 16px;
+  height: 16px;
+}
+/* ComposerPrimaryActions' send: 32px, round, the message action; a 12% tint while there is nothing to send. */
+.atum-composer-send {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-inline-start: 6px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--app-theme-message-action);
+  color: var(--app-theme-message-action-foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--app-theme-message-action) 24%, transparent);
+  transition:
+    background-color 150ms,
+    transform 150ms,
+    box-shadow 150ms;
+}
+.atum-composer-send:hover:not(:disabled) {
+  background: var(--app-theme-message-action-hover);
+  transform: scale(1.05);
+}
+.atum-composer-send:active:not(:disabled) {
+  box-shadow: none;
+}
+.atum-composer-send:disabled {
+  background: color-mix(in srgb, var(--app-theme-text) 12%, transparent);
+  color: var(--app-theme-muted-foreground);
+  box-shadow: none;
+}
+.atum-composer-send svg {
+  width: 16px;
+  height: 16px;
+}

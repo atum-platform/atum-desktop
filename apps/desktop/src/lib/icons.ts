@@ -178,6 +178,7 @@ const Package = phosphorIcon('package')
 const Palette = phosphorIcon('palette')
 const PanelBottom = phosphorIcon('rows')
 const PanelLeftIcon = phosphorIcon('sidebar-simple')
+const Paperclip = phosphorIcon('paperclip')
 const Pause = phosphorIcon('pause')
 const PawPrint = phosphorIcon('paw-print')
 const Pencil = phosphorIcon('pencil-simple')
@@ -432,6 +433,7 @@ export {
   Palette,
   PanelBottom,
   PanelLeftIcon,
+  Paperclip,
   Pause,
   PawPrint,
   Pencil,

@@ -2,56 +2,22 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import spec from '../src/matrix/model-picker-spec.json' with { type: 'json' }
+import { buildWorkTheme } from './build-work-theme.mjs'
 
-import { buildWorkTheme, workPickerCss, workThemeColors } from './build-work-theme.mjs'
-
-const HEX = /^#[0-9a-f]{6}$/
-
-describe('the Work theme (T3 environment theme from the Atum Kit)', () => {
+describe('the Work theme (the Atum Kit palette as a T3 theme file)', () => {
   it('is what the sidecar ships, so a Kit change cannot leave Work on an old palette', () => {
-    const shipped = JSON.parse(readFileSync(new URL('../electron/work/sidecar/atum.json', import.meta.url), 'utf8'))
+    const shipped = readFileSync(new URL('../electron/work/sidecar/atum.json', import.meta.url), 'utf8')
 
-    expect(shipped).toEqual(buildWorkTheme())
+    expect(shipped).toBe(buildWorkTheme())
   })
 
-  it('gives every role an opaque color in both appearances, ink as the accent', () => {
-    const light = workThemeColors('light')
-    const dark = workThemeColors('dark')
+  it('is colours only, in both appearances: Work is stock T3 in Atum colours', () => {
+    const theme = JSON.parse(buildWorkTheme())
 
-    expect(Object.keys(dark)).toEqual(Object.keys(light))
-    for (const palette of [light, dark]) {
-      for (const value of Object.values(palette)) {
-        expect(value).toMatch(HEX)
-      }
-
-      expect(palette.accent).toBe(palette.text)
-    }
-
-    expect(dark.canvas).not.toBe(light.canvas)
-  })
-
-  it('stays inside what T3 publishes: one CSS string under its cap, no remote loads', () => {
-    const { css, variants, appearance } = buildWorkTheme()
-
-    expect(appearance).toBe('light')
-    expect(Object.keys(variants)).toEqual(['dark'])
-    expect(css.length).toBeLessThanOrEqual(100_000)
-    expect(css).not.toMatch(/@import|url\(\s*["']?https?:/i)
-    // Work's selectors are T3 data- hooks, never its class names.
-    expect(css).toContain("[data-app-sidebar]")
-    expect(css).toContain("[data-slot='sidebar-inset']")
-  })
-
-  it("gives Work's picker the shared spec's chip, type and search colour, so a spec change moves both pickers", () => {
-    const changed = structuredClone(spec)
-    changed.trigger.height = spec.trigger.height + 4
-    changed.type.size = spec.type.size + 1
-    changed.search.focusUnderline.light = '#123456'
-
-    expect(buildWorkTheme().css).toContain(workPickerCss())
-    expect(workPickerCss(changed)).toContain(`height: ${changed.trigger.height}px`)
-    expect(workPickerCss(changed)).toContain(`--text-sm: ${changed.type.size}px`)
-    expect(workPickerCss(changed)).toContain('--ring: #123456')
+    expect(theme).toMatchObject({ version: 1, name: 'Atum', appearance: 'light' })
+    expect(theme).not.toHaveProperty('css')
+    expect(Object.keys(theme.variants)).toEqual(['dark'])
+    expect(Object.keys(theme.variants.dark)).toEqual(Object.keys(theme.colors))
+    expect(theme.variants.dark.canvas).not.toBe(theme.colors.canvas)
   })
 })
