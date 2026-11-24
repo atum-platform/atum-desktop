@@ -284,7 +284,7 @@ import { MatrixChatMenu } from './conversation-menu'
 import { ConversationRetryLine } from './conversation-recovery'
 import { useMatrixCopy } from './copy'
 import { MatrixUpdateFooter } from './desktop-settings'
-import { $matrixDestinationRequests } from './destination-requests'
+import { $matrixDestinationRequests, $matrixLastChat } from './destination-requests'
 import { MatrixApprovalSheet } from './device-approval'
 import { matrixDeviceHealthCopy, MatrixDeviceHealthNotice } from './device-health-notice'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
@@ -7626,6 +7626,18 @@ function MatrixAccountView({
     }
   }, [createdAssistantRoomId, snapshot.rooms])
   const room = snapshot.rooms.find(value => value.id === snapshot.roomId)
+  const chatAccount = snapshot.identity ? JSON.stringify([snapshot.identity.userId, snapshot.identity.deviceId]) : null
+  useEffect(() => {
+    if (!chatAccount || $matrixLastChat.get()?.account !== chatAccount) {
+      $matrixLastChat.set(null)
+    }
+
+    // Store/app snapshots may retain the previous room or clear it. Neither is a new Chat choice.
+    if (chatAccount && room && !isTeamSpaceRoom(room) &&
+      (!snapshot.destination || snapshot.destination.kind === 'room')) {
+      $matrixLastChat.set({ account: chatAccount, roomId: room.id })
+    }
+  }, [chatAccount, room, snapshot.destination])
   const privateCosAccountPrefix = `${teamSpaceAccountKey(snapshot.identity)}\n`
 
   const verifiedPrivateCosRoom = room && Object.entries(privateCosRecords).some(([key, state]) =>
@@ -7896,13 +7908,18 @@ function MatrixAccountView({
   }
 
   const selectDefaultConversation = () => {
-    if (room && !isTeamSpaceRoom(room)) {
+    if (room && !isTeamSpaceRoom(room) && !appDestination) {
       return
     }
 
     const homeRooms = snapshot.rooms.filter(value => !isTeamSpaceRoom(value))
+    const remembered = $matrixLastChat.get()
 
-    const defaultRoom =
+    const lastChat = remembered?.account === chatAccount
+      ? homeRooms.find(value => value.id === remembered.roomId && value.membership === 'join')
+      : undefined
+
+    const defaultRoom = lastChat ??
       homeRooms.find(value => isAssistantRoom(value, snapshot.identity?.userId, snapshot.assistant?.userId)) ??
       // An unavailable platform default is not permission to enter another agent's history.
       (!snapshot.assistant && !primaryAgent(snapshot) ? sortConversations(homeRooms)[0] : undefined)
