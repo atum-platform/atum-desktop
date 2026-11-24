@@ -11,7 +11,7 @@ import { workCopy, type WorkWords } from './copy'
 import { WorkRelaySharedContextLine } from './relay-chrome'
 import { workRelaySharedContext } from './relay-view'
 import { useWorkViewPlacement } from './use-work-view-placement'
-import { useWorkSidebar, WorkRosterControls, WorkTitle } from './work-band'
+import { useWorkHistoryArrows, useWorkSidebar, WorkRosterControls, WorkTitle } from './work-band'
 
 export interface WorkScreenProps {
   bridge: MatrixWorkBridge
@@ -94,6 +94,7 @@ export function WorkScreen({
 
   useWorkViewPlacement(bridge, host, projection.view !== 'off' && projection.view !== 'unavailable' && !obstructed)
   const sidebar = useWorkSidebar(bridge, projection.view === 'ready')
+  useWorkHistoryArrows(bridge, sidebar)
   // The view fills this section from its left edge, so the list's edge in the view is its edge here.
   const roster = sidebar?.open && sidebar.edge > 0 ? sidebar.edge : undefined
 

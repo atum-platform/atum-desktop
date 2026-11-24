@@ -209,6 +209,7 @@ import {
   withAssistantNames
 } from './assistant-card'
 import { useAssistantCardCopy } from './assistant-card/copy'
+import { MatrixAssistantInfoPanel } from './assistant-info-panel'
 import { matrixComposerHint, useAttentionCopy } from './attention-copy'
 import {
   MatrixAttentionAnnouncer,
@@ -297,7 +298,7 @@ import { MatrixChatMenu } from './conversation-menu'
 import { ConversationRetryLine } from './conversation-recovery'
 import { useMatrixCopy } from './copy'
 import { MatrixUpdateFooter } from './desktop-settings'
-import { $matrixDestinationRequests, $matrixLastChat } from './destination-requests'
+import { $matrixComposerAsk, $matrixDestinationRequests, $matrixLastChat } from './destination-requests'
 import { MatrixApprovalSheet } from './device-approval'
 import { matrixDeviceHealthCopy, MatrixDeviceHealthNotice } from './device-health-notice'
 import { focusDialogField, MatrixDialogHeader } from './dialog-header'
@@ -5403,6 +5404,17 @@ function Conversation({
     setComposerState(next)
   }, [])
 
+  // Words another screen asked for in this chat's box (Drive's "Ask Atum about it"): taken once, here.
+  const composerAsk = useStore($matrixComposerAsk)
+
+  useEffect(() => {
+    if (composerAsk && composer?.ready && composerAsk.roomId === selectedRoomId) {
+      $matrixComposerAsk.set(null)
+      const typed = composer.draft().trim()
+      composer.edit(typed ? `${typed} ${composerAsk.text}` : composerAsk.text)
+    }
+  }, [composer, composerAsk, selectedRoomId])
+
   // One conversation per agent: a chat of the agent's that is no longer its main (0.20's move to
   // a plain room, or a change made on another device) gives way to the main, with what was typed
   // carried over. Left open, its sends would never go out: the agent answers only in its main.
@@ -7939,15 +7951,37 @@ function MatrixAccountView({
   const conversationInfo =
     !founderDraftShown && !driveActive && !appDestination ? matrixConversationInfo(room, snapshot) : null
 
+  // An assistant's own chat: its neutral panel is the assistant's card (layout r2 §2). What the
+  // chat opened (a document, the desk) still lives in the workbench, which the toggle reopens
+  // while it holds tabs; `conversationInfo` stays null so the desk keeps working as before.
+  const assistantInfo =
+    !conversationInfo && !founderDraftShown && !driveActive && !appDestination
+      ? matrixAgentDeskAgent(snapshot, room)
+      : undefined
+
+  const panelOpensInfo = Boolean(conversationInfo || (assistantInfo && workspaceTabCount === 0))
+
   const openSidePanel = () => {
-    if (conversationInfo) {
+    if (panelOpensInfo) {
       setMatrixRightPanel('chat', true)
     }
 
-    openWorkspace(conversationInfo ? 'info' : 'workbench')
+    openWorkspace(panelOpensInfo ? 'info' : 'workbench')
   }
 
-  const infoShown = Boolean(workspaceOpen && workspaceKind === 'info' && conversationInfo && room)
+  const infoShown = Boolean(
+    workspaceOpen && workspaceKind === 'info' && (conversationInfo || assistantInfo) && room
+  )
+
+  // A card panel belongs to its chat: on Drive, Store or Team Space (no card to show) it goes rather
+  // than leave the chat's workbench standing beside that screen. Coming back opens it again (below).
+  const infoOrphaned = workspaceOpen && workspaceKind === 'info' && !conversationInfo && !assistantInfo
+
+  useEffect(() => {
+    if (infoOrphaned) {
+      setWorkspaceScope(null)
+    }
+  }, [infoOrphaned])
 
   // Chat's right panel is open by default and remembered (layout r2 §2): each conversation opens with
   // the person's or assistant's card beside it, unless the person closed it or the window is narrow.
@@ -7955,7 +7989,10 @@ function MatrixAccountView({
   const chatPanelScope = useRef<string | null>(null)
 
   useEffect(() => {
-    const scope = conversationInfo && room && !workplaceActive && !driveActive && !workActive ? currentWorkspaceScope : null
+    const scope =
+      (conversationInfo || assistantInfo) && room && !workplaceActive && !driveActive && !workActive
+        ? currentWorkspaceScope
+        : null
 
     if (scope === chatPanelScope.current) {
       return
@@ -7969,7 +8006,31 @@ function MatrixAccountView({
       setWorkspaceExpanded(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- a new conversation is the only trigger.
-  }, [currentWorkspaceScope, Boolean(conversationInfo), workplaceActive, driveActive, workActive])
+  }, [currentWorkspaceScope, Boolean(conversationInfo || assistantInfo), workplaceActive, driveActive, workActive])
+
+  // Drive's folder panel "Ask Atum about it": the primary assistant's own chat, with the folder's place
+  // in its box for the person to finish. Nothing is sent and no path leaves the window.
+  const askAgent = primaryAgent(snapshot)
+
+  const askAtumRoom = askAgent
+    ? snapshot.rooms
+        .filter(each => each.agentPrincipal === askAgent.principal && each.membership === 'join' && !each.appBot)
+        .sort((a, b) => (b.lastActiveAt ?? 0) - (a.lastActiveAt ?? 0))[0]
+    : undefined
+
+  const askAtumAbout = (text: string) => {
+    if (!askAtumRoom) {
+      return
+    }
+
+    $matrixComposerAsk.set({ roomId: askAtumRoom.id, text })
+    setDriveActive(false)
+    setWorkplaceActive(false)
+
+    if (askAtumRoom.id !== snapshot.roomId) {
+      void runMatrixCommand({ kind: 'select', roomId: askAtumRoom.id }).catch(fail)
+    }
+  }
 
   const revealDocument = () => {
     openWorkspace()
@@ -9081,12 +9142,12 @@ function MatrixAccountView({
                       </Tip>
                     ) : !workspaceOpen ? (
                       // The glyph that closes the panel opens it; a boxed plus read as "new chat".
-                      <Tip label={conversationInfo ? personInfoCopy.showInfo : workbenchCopy.showPanel}>
+                      <Tip label={conversationInfo ? personInfoCopy.showInfo : panelOpensInfo ? rightPanelToggleCopy(locale).show : workbenchCopy.showPanel}>
                         <button
                           aria-expanded={false}
-                          aria-label={conversationInfo ? personInfoCopy.showInfo : workbenchCopy.showPanel}
+                          aria-label={conversationInfo ? personInfoCopy.showInfo : panelOpensInfo ? rightPanelToggleCopy(locale).show : workbenchCopy.showPanel}
                           className="atum-icon-btn relative size-7"
-                          data-matrix-side-panel-opens={conversationInfo ? 'info' : 'workbench'}
+                          data-matrix-side-panel-opens={panelOpensInfo ? 'info' : 'workbench'}
                           data-workspace-tab-count={workspaceTabCount}
                           onClick={openSidePanel}
                           ref={workspaceOpener}
@@ -9390,6 +9451,7 @@ function MatrixAccountView({
                 <MatrixDrive
                   bridge={window.atumMatrix.drive}
                   destination={driveDestination}
+                  onAskAbout={askAtumRoom ? askAtumAbout : undefined}
                   onDestinationChange={setDriveDestination}
                   onPreview={row => {
                     setDrivePreviewRequest(current => ({
@@ -9566,6 +9628,31 @@ function MatrixAccountView({
           sidebarShowing={sidebarShowing && !workplaceOnScreen && !workOnScreen}
           workspace={motion => (
             <>
+              {infoShown && assistantInfo && !conversationInfo && (
+                <MatrixAssistantInfoPanel
+                  agent={assistantInfo}
+                  compact={compact}
+                  expanded={workspaceExpanded}
+                  motion={motion}
+                  onClose={() => {
+                    setMatrixRightPanel('chat', false)
+                    closeWorkspace()
+                  }}
+                  onExpand={setWorkspaceExpanded}
+                  onPercentChange={setWorkspacePercent}
+                  percent={workspacePercent}
+                  snapshot={snapshot}
+                  windowControls={
+                    compact || !sidebarShowing ? (
+                      <AtumWindowControlsSurface
+                        onToggleSidebar={toggle}
+                        reserveLights={!facts.isFullscreen && Boolean(facts.windowButtonPosition)}
+                        sidebarLabel={sidebarToggleLabel}
+                      />
+                    ) : null
+                  }
+                />
+              )}
               {infoShown && conversationInfo && room && (
                 <MatrixPersonInfoPanel
                   compact={compact}

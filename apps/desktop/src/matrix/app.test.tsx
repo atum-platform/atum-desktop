@@ -4229,6 +4229,76 @@ describe('isolated Matrix composition', () => {
     expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(false)
   })
 
+  // Kit step 5 (owner 2026-11-24, primary-agent parity): an assistant's chat opens with its own card in
+  // the right panel, the same card the sheet shows, minus only the sheet's Done and Message.
+  it('opens the primary assistant’s chat with its card in the right panel, and the toggle brings it back', async () => {
+    setMatrixRightPanel('chat', true)
+    const { emit } = fixture()
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        {
+          principal: 'main-a',
+          userId: '@atum:test',
+          ready: true,
+          isDefault: true,
+          atumModel: true,
+          hermes: 'ready',
+          answering: 'cloud'
+        }
+      ]
+    } as MatrixSnapshot)
+
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    const panel = window.document.querySelector('[data-matrix-assistant-info="main-a"]')!
+    expect(panel.querySelector('.atum-card-body[data-placement="panel"]')).toBeTruthy()
+    expect(panel.querySelector('[data-assistant-card-done]')).toBeNull()
+    expect(panel.querySelector('[data-assistant-card-message]')).toBeNull()
+    // The primary is never retired, here or in the sheet: no Delete row.
+    expect(panel.querySelector('[data-assistant-card-delete]')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close workspace' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info]')).toBeNull())
+    expect(JSON.parse(window.localStorage.getItem('io.atum.rightPanel') ?? '{}').chat).toBe(false)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Show right panel' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+  })
+
+  it('drops the assistant’s card panel on Drive, never leaving the chat’s workbench there, and brings it back in Chat', async () => {
+    setMatrixRightPanel('chat', true)
+
+    const drive = {
+      read: vi.fn(async () => ({ state: 'ready', revision: 1, canGoBack: false, truncated: false, rows: [] })),
+      subscribe: vi.fn(() => () => {}),
+      taskStatus: vi.fn(async () => ({ state: 'unavailable' as const }))
+    } as unknown as MatrixDriveBridge
+
+    const { emit } = fixture(undefined, 'en', undefined, undefined, drive)
+
+    emit({
+      ...controlsState,
+      rooms: controlsState.rooms.map(each => ({ ...each, agentPrincipal: 'main-a' })),
+      agents: [
+        { principal: 'main-a', userId: '@atum:test', ready: true, isDefault: true, atumModel: true, hermes: 'ready', answering: 'cloud' }
+      ]
+    } as MatrixSnapshot)
+
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+    fireEvent.click(await screen.findByRole('button', { name: 'Atum Drive' }))
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info]')).toBeNull())
+    await waitFor(() =>
+      expect(
+        [...window.document.querySelectorAll<HTMLElement>('[data-atum-workspace]')].every(node => node.hidden || node.closest('[hidden]'))
+      ).toBe(true)
+    )
+
+    fireEvent.click(window.document.querySelector<HTMLElement>('[data-atum-nav-home]')!)
+    await waitFor(() => expect(window.document.querySelector('[data-matrix-assistant-info="main-a"]')).toBeTruthy())
+  })
+
   it('opens conversation info from the titlebar in a chat with a person, and the workbench in an assistant chat', async () => {
     const command = vi.fn(async (value: Parameters<MatrixUiBridge['command']>[0]) =>
       value.kind === 'roomShared' ? { section: value.section, items: [], source: 'device', unreadable: 0 } : null

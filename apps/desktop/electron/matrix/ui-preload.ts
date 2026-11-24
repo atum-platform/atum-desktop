@@ -87,6 +87,7 @@ const bridge: MatrixUiBridge = {
     closePreview: token => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'closePreview', token }),
     open: id => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'open', id }),
     reveal: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'reveal' }),
+    share: () => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'share' }),
     create: (entry, name) => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'create', entry, name }),
     upload: entry => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'upload', entry }),
     taskStatus: roomId => ipcRenderer.invoke(MATRIX_DRIVE_IPC.request, { kind: 'taskStatus', roomId }),

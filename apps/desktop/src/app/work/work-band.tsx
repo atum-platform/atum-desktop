@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { FolderPlus, GitBranch, MessagePlus } from '@/lib/icons'
+import { setMatrixNavLocal } from '@/matrix/navigation-history'
 import { MatrixPlusMenu } from '@/matrix/plus-menu'
 
 import type { MatrixWorkBridge, WorkBandCommand, WorkSidebarSnapshot, WorkSurfaceModeSnapshot } from '../../../shared/matrix-work'
@@ -91,6 +92,26 @@ export function useWorkSidebar(bridge: Pick<MatrixWorkBridge, 'getSidebar' | 'on
   }, [bridge, ready])
 
   return snapshot
+}
+
+/**
+ * The window's ← → step T3's own history first while Work is on screen (layout r2 §1), as they step
+ * Drive's folders, then the window's places. The view says whether its history can step (in its
+ * sidebar report); a step is T3's own history.back / history.forward through the band.
+ */
+export function useWorkHistoryArrows(bridge: Pick<MatrixWorkBridge, 'runCommand'>, sidebar: WorkSidebarSnapshot | null) {
+  const back = Boolean(bridge.runCommand && sidebar?.back)
+  const forward = Boolean(bridge.runCommand && sidebar?.forward)
+
+  useEffect(() => {
+    setMatrixNavLocal({
+      back,
+      forward,
+      step: delta => void bridge.runCommand?.(delta < 0 ? 'history.back' : 'history.forward').catch(() => false)
+    })
+  }, [back, bridge, forward])
+
+  useEffect(() => () => setMatrixNavLocal(null), [])
 }
 
 /**
