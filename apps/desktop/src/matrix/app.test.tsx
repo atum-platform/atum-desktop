@@ -11797,6 +11797,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
     const cloud: MatrixSnapshot = {
       ...ready,
+      assistant: undefined,
       rooms: ready.rooms.map(each => (each.assistant ? { ...each, agentPrincipal: 'cloud-t' } : each)),
       agents: [
         {
@@ -11947,7 +11948,29 @@ describe("Home's chat (launch night, second wave)", () => {
     expect(screen.queryByText('This assistant isn’t available right now. Try again in a moment.')).toBeNull()
   })
 
-  it('opens a cloud assistant chat without asking this Mac to connect a local host', async () => {
+  it('holds the existing launch while the roster is delayed and suppresses provisional setup notices', async () => {
+    const cold: MatrixSnapshot = {
+      ...ready, assistant: undefined, agents: [], domainEnabled: true,
+      assistantSetup: 'failed',
+      readiness: { phase: 'blocked', step: 'assistant', code: 'setup_failed', since: 1 },
+      agentRoster: { state: 'loading', since: 1 }
+    }
+    const { emit, view } = fixture(async () => cold)
+    await waitFor(() => expect(view.container.querySelector('[data-slot="matrix-startup"]')).toBeTruthy())
+    expect(screen.queryByText('Atum isn’t set up on this Mac yet.')).toBeNull()
+    expect(screen.queryByText(/not connected to your current assistant/)).toBeNull()
+    expect(screen.queryByText(/Your assistant isn't ready yet/)).toBeNull()
+    emit({
+      ...cold, agentRoster: { state: 'ready', since: 2 }, assistantSetup: undefined,
+      readiness: { phase: 'ready', since: 2 },
+      agents: [{ principal: 'root', userId: '@atum:test', name: 'Raymond', isDefault: true,
+        ready: true, hermes: 'unavailable', atumModel: true, answering: 'cloud' }]
+    })
+    await waitFor(() => expect(view.container.querySelector('[data-slot="matrix-startup"]')).toBeNull())
+    expect(screen.getByRole('button', { name: /^Raymond$/ })).toBeTruthy()
+  })
+
+  it('opens the cloud primary’s existing chat without local custody', async () => {
     const cloud: MatrixSnapshot = {
       ...ready,
       rooms: ready.rooms.map(room =>
@@ -11969,6 +11992,7 @@ describe("Home's chat (launch night, second wave)", () => {
 
     const { bridge } = await openChat(cloud)
     vi.mocked(bridge.connectHermes).mockClear()
+    vi.mocked(bridge.command).mockClear()
     fireEvent.click(screen.getByRole('button', { name: /^Raymond$/ }))
     await waitFor(() =>
       expect(bridge.command).toHaveBeenCalledWith({ kind: 'select', roomId: assistantRoom.id })

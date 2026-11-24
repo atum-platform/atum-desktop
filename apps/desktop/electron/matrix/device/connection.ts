@@ -428,6 +428,7 @@ export interface DeviceHelloFacts {
 export interface DeviceConnectionDeps {
   url: string
   socket?: DeviceSocketFactory
+  enabled?(): boolean
   enrollment: {
     current(): DeviceEnrollmentRecord | null
     controllerKey(kid: string): string | null
@@ -566,6 +567,11 @@ export class DeviceConnection {
    * device runtime comes up and every minute while a cloud agent needs the link.
    */
   start(): void {
+    if (this.deps.enabled?.() === false) {
+      this.stop('stop')
+
+      return
+    }
     this.wanted = true
     this.suspended = false
 
@@ -809,6 +815,11 @@ export class DeviceConnection {
   }
 
   private dial(): void {
+    if (this.deps.enabled?.() === false) {
+      this.stop('stop')
+
+      return
+    }
     if (!this.wanted || this.suspended || this.current) {
       return
     }

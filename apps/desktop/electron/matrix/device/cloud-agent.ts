@@ -901,6 +901,7 @@ export interface MacDeviceIdentityOptions {
   /** The Secure Enclave helper, or null when this build has none. */
   helper: string | null
   hubUrl: string
+  hubRequired?(): boolean
   /** S1 owner routes, with the owner's native grant (the controller keys need none). */
   call: S1Call
   /** The owner's Matrix device on this Mac, with its fingerprint; null while signed out, or why it
@@ -1002,6 +1003,7 @@ export class MacDeviceIdentity {
 
     const connection = new DeviceConnection({
       url: this.options.hubUrl,
+      enabled: this.options.hubRequired,
       socket: this.options.socket,
       enrollment,
       refreshRegistration: async () => {
@@ -1372,7 +1374,7 @@ export class MacDeviceIdentity {
       ? {
           state: 'enrolled',
           connection: device.connection.state(),
-          repairRequired: device.connection.needsRepair() || undefined,
+          repairRequired: (this.options.hubRequired?.() !== false && device.connection.needsRepair()) || undefined,
           deviceServiceId: record.deviceServiceId,
           enrollmentEpoch: record.enrollmentEpoch
         }

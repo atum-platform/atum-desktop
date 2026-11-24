@@ -386,6 +386,7 @@ function identity(
     signerFor?: NonNullable<MacDeviceIdentityOptions['signerFor']>
     owner?: MacDeviceIdentityOptions['owner']
     helper?: string | null
+    hubRequired?: () => boolean
     directory?: string
     onEnrolled?: NonNullable<MacDeviceIdentityOptions['onEnrolled']>
   } = {}
@@ -410,6 +411,7 @@ function identity(
         ? '/Applications/Atum.app/Contents/Resources/app.asar.unpacked/atum-device-key'
         : options.helper,
     hubUrl: 'wss://devices.atumplatform.com/v1',
+    hubRequired: options.hubRequired,
     call: da.call,
     owner:
       options.owner ??
@@ -1498,4 +1500,24 @@ it('requires both native bearer and this Matrix device proof for Mac source auth
   }))
   await requestS1('https://api.test/api/matrix/v1', { kind: 'device-services' }, 'account-token', signal(), fetchImpl, 'matrix-device-token')
   expect(fetchImpl.mock.calls.at(-1)?.[1]?.headers).toEqual({ Authorization: 'Bearer account-token' })
+})
+
+it('keeps S2 registration without dialing the hub, then resumes for a legacy account', async () => {
+  let legacy = false
+  const { subject, sockets } = identity({ hubRequired: () => legacy })
+  await subject.activate()
+  expect(subject.presence()).toMatchObject({ state: 'enrolled' })
+  expect(subject.enrollment()?.state).toBe('active')
+  subject.connection()?.start()
+  subject.resume()
+  expect(sockets).toHaveLength(0)
+  expect(subject.presence()).not.toHaveProperty('repairRequired', true)
+  legacy = true
+  await subject.activate()
+  expect(sockets).toHaveLength(1)
+  legacy = false
+  subject.connection()?.start()
+  expect(subject.connection()?.state()).toBe('closed')
+  subject.resume()
+  expect(sockets).toHaveLength(1)
 })

@@ -5734,7 +5734,7 @@ function Conversation({
             />
           )}
           {room.membership !== 'join' && <ConversationMembership room={room} snapshot={snapshot} />}
-          {room.assistant && room.membership === 'join' && !assistantEligible && (
+          {snapshot.agentRoster?.state === 'ready' && room.assistant && room.membership === 'join' && !assistantEligible && (
             <NoticeBand tone="notice">{t.matrixShell.assistantHistoryOnly}</NoticeBand>
           )}
           {room.assistant && snapshot.domainEnabled && snapshot.linkedDocument && usableAgentRoom(room) && (
@@ -5742,7 +5742,7 @@ function Conversation({
           )}
           {/* The assistant still starting (the window opens with the person's chats), stopped
             or paused: said here, in its own chat, with the one action that helps. */}
-          {localAssistant && (
+          {snapshot.agentRoster?.state === 'ready' && localAssistant && (
             <MatrixLaunchNotice
               cloudOnly={cloudOnly}
               fail={fail}
@@ -6520,7 +6520,8 @@ function MatrixRoster({
   // A cloud-only default (the first sign-up assistant) never runs local setup: no local
   // identity or setup state is expected, so it is never asked to set up on this Mac.
   const primaryAgent = snapshot.agents?.find(agent => agent.isDefault)
-  const localSetupRequired = !primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly)
+  const localSetupRequired = snapshot.agentRoster?.state === 'ready' &&
+    (!primaryAgent || matrixAgentNeedsLocalSetup(primaryAgent, cloudOnly))
 
   const globalCompanyIds = useMemo(() => [...new Set(snapshot.rooms.flatMap(value => {
     const companyId = value.companyChannel?.companyId ?? value.companyConversation?.companyId
@@ -6645,7 +6646,7 @@ function MatrixRoster({
     closeDrawer()
   }
 
-  const openAssistant = async (fresh = false, agentId = snapshot.assistant?.userId, preferredRoomId?: string) => {
+  const openAssistant = async (fresh = false, agentId = primaryAgent?.userId ?? snapshot.assistant?.userId, preferredRoomId?: string) => {
     if (!agentId || !snapshot.identity || assistantOpening) {
       return
     }
@@ -8474,8 +8475,8 @@ function MatrixAccountView({
         name={matrixPrimaryAgentName(snapshot, shell.assistantName)}
         snapshot={snapshot}
       />
-    ) : matrixLaunchNoticeKind(snapshot.readiness) === 'starting' ||
-      matrixLaunchNoticeKind(snapshot.readiness) === 'blocked' ? (
+    ) : snapshot.agentRoster?.state === 'ready' && (matrixLaunchNoticeKind(snapshot.readiness) === 'starting' ||
+      matrixLaunchNoticeKind(snapshot.readiness) === 'blocked') ? (
       <MatrixLaunchNotice
         cloudOnly={cloudOnly}
         fail={fail}

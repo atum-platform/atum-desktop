@@ -17,24 +17,13 @@ describe('the default assistant’s local setup after the first roster sync', ()
   })
 })
 
-describe('a cold first roster read that does not name the default', () => {
-  it('waits the first backoff instead of failing the setup', () => {
-    expect(matrixAssistantSetupRosterRetry({ roster: undefined, defaultPrincipal: undefined })).toBe(
-      MATRIX_READINESS_TIMINGS.backoffMs[0]
-    )
-    expect(
-      matrixAssistantSetupRosterRetry({
-        roster: { ok: false, code: 'agent_roster_unavailable' },
-        defaultPrincipal: undefined
-      })
-    ).toBe(MATRIX_READINESS_TIMINGS.backoffMs[0])
+describe('a cold roster read', () => {
+  it('waits the first backoff while placement is unknown, including failed discovery', () => {
+    expect(matrixAssistantSetupRosterRetry({ placementKnown: false })).toBe(MATRIX_READINESS_TIMINGS.backoffMs[0])
   })
 
-  it('continues once the roster names the default, or once a sync has already named it', () => {
-    expect(matrixAssistantSetupRosterRetry({ roster: { ok: true }, defaultPrincipal: undefined })).toBeUndefined()
-    expect(
-      matrixAssistantSetupRosterRetry({ roster: { ok: false, code: 'agent_roster_unavailable' }, defaultPrincipal: 'p' })
-    ).toBeUndefined()
+  it('continues only after placement is known', () => {
+    expect(matrixAssistantSetupRosterRetry({ placementKnown: true })).toBeUndefined()
   })
 })
 
@@ -73,13 +62,17 @@ describe('localExecutorRequired for an enrollment target', () => {
     ).toBe(true)
   })
 
-  it('defaults an unknown named principal to local enrollment', () => {
+  it('does not enroll an unknown named principal', () => {
     expect(
       matrixLocalExecutorRequired({
         principal: 'unknown',
         defaultCloudOnly: true,
         namedCloudOnly: () => undefined
       })
-    ).toBe(true)
+    ).toBe(false)
   })
+})
+
+it('does not enroll the default before its placement is known', () => {
+  expect(matrixLocalExecutorRequired({ principal: undefined, defaultCloudOnly: undefined, namedCloudOnly: () => undefined })).toBe(false)
 })
