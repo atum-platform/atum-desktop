@@ -7094,7 +7094,11 @@
     "src.matrix.model-picker-copy.COPY.effortProtons": [],
     "src.matrix.model-picker-copy.COPY.efforts.high": [],
     "src.matrix.model-picker-copy.COPY.efforts.low": [],
+    "src.matrix.model-picker-copy.COPY.efforts.max": [],
     "src.matrix.model-picker-copy.COPY.efforts.medium": [],
+    "src.matrix.model-picker-copy.COPY.efforts.minimal": [],
+    "src.matrix.model-picker-copy.COPY.efforts.none": [],
+    "src.matrix.model-picker-copy.COPY.efforts.xhigh": [],
     "src.matrix.model-picker-copy.COPY.fallbackAnswer": [],
     "src.matrix.model-picker-copy.COPY.fallbackWhy.limit": [
       {
