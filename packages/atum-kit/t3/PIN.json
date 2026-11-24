@@ -12,6 +12,10 @@
     "apps/web/src/components/chat/ComposerSurface.tsx": "08798c74ba09fbfaf36586ea9382e5425b670b9b37c786cd94fcfd547b4cde23",
     "apps/web/src/components/ui/button.tsx": "ee4b5bea5aa08a2f519e9b0810edcc29cca02010fcb724b937413d64d85fa342",
     "apps/web/src/components/ui/menu.tsx": "22f6bcdd43217cced2184e18c18ccc33217c5ed04f075031a2ed128fbae53584",
-    "apps/web/src/components/ui/dialog.tsx": "79c49ed7f949bd984bd7cf81c96513777b9d01d64d5ecb82e75d9f41226481ba"
+    "apps/web/src/components/ui/dialog.tsx": "79c49ed7f949bd984bd7cf81c96513777b9d01d64d5ecb82e75d9f41226481ba",
+    "apps/web/src/components/ui/dialog-styles.ts": "e0e987bd3bcf354286d0323db8a448d1953fce676c2503ee3d6c02dfd0a82fbb",
+    "apps/web/src/components/ui/popover.tsx": "6b5fd69930b94c5bae836d47b15e8db3a8b79ec2e0d7bda47d1d660d54d78594",
+    "apps/web/src/components/ui/tooltip.tsx": "0c7445e2212f870e13978c67065b412f6c7207f508ee3964f025212f752ec49d",
+    "apps/web/src/components/ui/toast.tsx": "f749894a8273b20f902e998c7d0356a55305d9e58a80d17d5bc816d3287ef397"
   }
 }

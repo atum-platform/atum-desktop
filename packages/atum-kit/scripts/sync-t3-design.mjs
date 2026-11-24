@@ -19,7 +19,7 @@ export const REPOSITORY = 'pingdotgg/t3code'
 export const TAG = 'v0.1.11'
 export const COMMIT = '59651c1761f6c63e9b6056839067066968e6a406'
 
-/** What the Kit takes from T3: tokens and glass (index.css), the theme roles, the composer and controls. */
+/** What the Kit takes from T3: tokens and glass (index.css), the theme roles, the composer, controls and overlays. */
 export const FILES = [
   'LICENSE',
   'apps/web/src/index.css',
@@ -29,7 +29,11 @@ export const FILES = [
   'apps/web/src/components/chat/ComposerSurface.tsx',
   'apps/web/src/components/ui/button.tsx',
   'apps/web/src/components/ui/menu.tsx',
-  'apps/web/src/components/ui/dialog.tsx'
+  'apps/web/src/components/ui/dialog.tsx',
+  'apps/web/src/components/ui/dialog-styles.ts',
+  'apps/web/src/components/ui/popover.tsx',
+  'apps/web/src/components/ui/tooltip.tsx',
+  'apps/web/src/components/ui/toast.tsx'
 ]
 
 const PACKAGE = resolve(dirname(fileURLToPath(import.meta.url)), '..')

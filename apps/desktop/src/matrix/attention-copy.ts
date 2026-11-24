@@ -33,7 +33,6 @@ export interface AttentionCopy {
   notNow: string
   /** Before the label, for assistive tech: the indicator is a request, not a status. */
   a11yPrefix: string
-  snooze: string
   /** A verification the person did, after it ends. */
   verified: string
   close: string
@@ -52,13 +51,11 @@ const copies: Record<Locale, AttentionCopy> = {
     items: {
       approval: 'Confirm new device',
       device_damaged: 'Sign in again on this Mac',
-      disk_critical: 'Mac is out of space',
       recovery: 'Unlock this Mac',
       sign_in: 'Sign in again',
       protons: 'Out of Protons',
       runtime: 'Update Atum',
-      connect: 'Connect your Atum account',
-      disk_low: 'Mac almost full'
+      connect: 'Connect your Atum account'
     },
     agent: name => `${name} needs you`,
     planSignIn: name => `${name}: connect ChatGPT`,
@@ -70,7 +67,6 @@ const copies: Record<Locale, AttentionCopy> = {
     deviceCompareHelp: 'Continue only if this device shows the same symbols as this Mac.',
     notNow: 'Not now',
     a11yPrefix: 'Needs you:',
-    snooze: 'Remind me later',
     verified: 'Verified',
     close: 'Close',
     composerStarting: name => `${name} is starting… You can type ahead.`,
@@ -85,13 +81,11 @@ const copies: Record<Locale, AttentionCopy> = {
     items: {
       approval: 'Xác nhận máy mới',
       device_damaged: 'Đăng nhập lại trên Mac này',
-      disk_critical: 'Mac gần hết dung lượng',
       recovery: 'Mở khóa Mac này',
       sign_in: 'Đăng nhập lại',
       protons: 'Hết Proton',
       runtime: 'Cập nhật Atum',
-      connect: 'Kết nối tài khoản Atum',
-      disk_low: 'Mac sắp đầy'
+      connect: 'Kết nối tài khoản Atum'
     },
     agent: name => `${name} cần bạn`,
     planSignIn: name => `${name}: kết nối ChatGPT`,
@@ -103,7 +97,6 @@ const copies: Record<Locale, AttentionCopy> = {
     deviceCompareHelp: 'Chỉ tiếp tục nếu thiết bị này hiển thị các ký hiệu giống hệt trên Mac này.',
     notNow: 'Để sau',
     a11yPrefix: 'Cần bạn:',
-    snooze: 'Nhắc lại sau',
     verified: 'Đã xác minh',
     close: 'Đóng',
     composerStarting: name => `${name} đang khởi động… Bạn có thể soạn trước.`,
@@ -118,13 +111,11 @@ const copies: Record<Locale, AttentionCopy> = {
     items: {
       approval: '新しいデバイスを確認',
       device_damaged: 'この Mac でもう一度サインイン',
-      disk_critical: 'Mac の空き容量がありません',
       recovery: 'この Mac のロックを解除',
       sign_in: 'もう一度サインイン',
       protons: 'Proton が不足しています',
       runtime: 'Atum をアップデート',
-      connect: 'Atum アカウントに接続',
-      disk_low: 'Mac の空き容量が少なくなっています'
+      connect: 'Atum アカウントに接続'
     },
     agent: name => `${name} の対応が必要です`,
     planSignIn: name => `${name}: ChatGPT に接続`,
@@ -136,7 +127,6 @@ const copies: Record<Locale, AttentionCopy> = {
     deviceCompareHelp: 'この端末に、この Mac と同じ記号が表示されている場合にのみ続行してください。',
     notNow: '今はしない',
     a11yPrefix: '対応が必要:',
-    snooze: 'あとで通知',
     verified: '確認済み',
     close: '閉じる',
     composerStarting: name => `${name} を起動しています… 先に入力できます。`,
@@ -151,13 +141,11 @@ const copies: Record<Locale, AttentionCopy> = {
     items: {
       approval: '确认新设备',
       device_damaged: '在这台 Mac 上重新登录',
-      disk_critical: 'Mac 空间不足',
       recovery: '解锁这台 Mac',
       sign_in: '重新登录',
       protons: 'Proton 已用完',
       runtime: '更新 Atum',
-      connect: '连接你的 Atum 账户',
-      disk_low: 'Mac 空间快满了'
+      connect: '连接你的 Atum 账户'
     },
     agent: name => `${name} 需要你处理`,
     planSignIn: name => `${name}：连接 ChatGPT`,
@@ -169,7 +157,6 @@ const copies: Record<Locale, AttentionCopy> = {
     deviceCompareHelp: '仅当这台设备显示的符号与这台 Mac 完全相同时才继续。',
     notNow: '暂不',
     a11yPrefix: '需要你处理：',
-    snooze: '稍后提醒',
     verified: '已验证',
     close: '关闭',
     composerStarting: name => `${name} 正在启动… 你可以先输入。`,
@@ -184,13 +171,11 @@ const copies: Record<Locale, AttentionCopy> = {
     items: {
       approval: '確認新裝置',
       device_damaged: '在這台 Mac 上重新登入',
-      disk_critical: 'Mac 空間不足',
       recovery: '解鎖這台 Mac',
       sign_in: '重新登入',
       protons: 'Proton 已用完',
       runtime: '更新 Atum',
-      connect: '連接你的 Atum 帳號',
-      disk_low: 'Mac 空間快滿了'
+      connect: '連接你的 Atum 帳號'
     },
     agent: name => `${name} 需要你處理`,
     planSignIn: name => `${name}：連接 ChatGPT`,
@@ -202,7 +187,6 @@ const copies: Record<Locale, AttentionCopy> = {
     deviceCompareHelp: '僅當這台裝置顯示的符號與這台 Mac 完全相同時才繼續。',
     notNow: '暫不',
     a11yPrefix: '需要你處理：',
-    snooze: '稍後提醒',
     verified: '已驗證',
     close: '關閉',
     composerStarting: name => `${name} 正在啟動… 你可以先輸入。`,

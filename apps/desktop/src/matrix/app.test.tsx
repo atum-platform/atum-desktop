@@ -72,10 +72,16 @@ import { runMatrixCommand } from './text-document-actions'
 const COMPOSER = /^Message /
 const THREAD_COMPOSER = 'Reply'
 
-/** New assistant is the New chat sheet's footer action (Atum Kit mockups), not a roster row. */
+/** The roster's "+" is a menu of what Chat can make (layout r2 §4, owner 2026-11-24); this picks one item. */
+async function chooseFromNewMenu(item: RegExp | string) {
+  const plus = await screen.findByRole('button', { name: 'New…' })
+  fireEvent.pointerDown(plus, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+  fireEvent.click(await screen.findByRole('menuitem', { name: item }))
+}
+
+/** New assistant is an item of the roster's "+" menu, not a roster row. */
 async function openNewAssistant() {
-  fireEvent.click(await screen.findByRole('button', { name: 'New…' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'New assistant' }))
+  await chooseFromNewMenu('New assistant')
 }
 
 /** The way into Connections: the two-column picker's rail item, or the plain menu's subscription row. */
@@ -4406,7 +4412,8 @@ describe('isolated Matrix composition', () => {
       rooms: state.rooms.filter(room => room.id === '!old:test')
     }))
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Chats$/ }))
+    // The rail names its badge after the place ("Chats · Waiting for you: 1", layout r2 G).
+    fireEvent.click(await screen.findByRole('button', { name: /^Chats(?: · |$)/ }))
     fireEvent.click(screen.getByRole('button', { name: /^Atum Main$/ }))
     await act(async () => {})
     // The roster primary can start a new chat without a local enrollment. Never enter the old history.
@@ -6426,13 +6433,10 @@ describe('isolated Matrix composition', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show sidebar' }))
     const trigger = screen.getByRole('button', { name: 'New…' })
     expect(trigger.closest('[data-matrix-settings]')).toBeNull()
-    fireEvent.click(trigger)
+    // The "+" is a menu of what Chat can make; New group opens its sheet.
+    await chooseFromNewMenu('New group')
     expect(bridge.command).not.toHaveBeenCalled()
-    // The "+" is the start sheet: who you already talk to, then making something new.
-    const start = screen.getByRole('dialog', { name: 'Start a chat' })
-    expect(within(start).getByRole('group', { name: 'People' })).toBeTruthy()
-    fireEvent.click(within(start).getByRole('button', { name: 'New group' }))
-    const dialog = screen.getByRole('dialog', { name: 'New group' })
+    const dialog = await screen.findByRole('dialog', { name: 'New group' })
     fireEvent.change(within(dialog).getByLabelText('Group name'), { target: { value: 'Friends' } })
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Alice' }))
     // Nobody is asked for a Matrix address, but a whole one still works for someone who knows it.
@@ -6502,11 +6506,8 @@ describe('isolated Matrix composition', () => {
     }
 
     emit(state)
-    fireEvent.click(await screen.findByRole('button', { name: 'New…' }))
-    fireEvent.click(
-      within(screen.getByRole('dialog', { name: 'Start a chat' })).getByRole('button', { name: 'New group' })
-    )
-    const dialog = screen.getByRole('dialog', { name: 'New group' })
+    await chooseFromNewMenu('New group')
+    const dialog = await screen.findByRole('dialog', { name: 'New group' })
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Bea' }))
     fireEvent.click(within(dialog).getByRole('checkbox', { name: 'Cam' }))
     fireEvent.change(within(dialog).getByLabelText('Group name'), { target: { value: 'Planning' } })
@@ -8946,7 +8947,8 @@ describe('isolated Matrix composition', () => {
   })
   // Preserve user-visible identity, state and recovery behavior across connection changes.
   // it was dismissed. A filling disk is the status indicator's, top right, and nowhere in the panel.
-  it('keeps a nearly full disk out of the chat panel: the status indicator says it, no band or pill', async () => {
+  // Layout r1/r2 (owner 2026-11-24): the "Mac is full" alert goes; no item, no band, no pill.
+  it('keeps a nearly full disk out of the window: no attention item, no band or pill', async () => {
     const { emit, view } = fixture()
     emit({
       ...signedOut,
@@ -8959,7 +8961,8 @@ describe('isolated Matrix composition', () => {
       roomId: '!chat:test'
     })
 
-    await screen.findByRole('button', { name: /Mac is out of space/ })
+    await waitFor(() => expect(view.container.querySelector('[data-matrix-rail-account]')).toBeTruthy())
+    expect(screen.queryByRole('button', { name: /Mac is out of space/ })).toBeNull()
     expect(view.container.querySelector('[data-matrix-status-stack] [data-matrix-disk]')).toBeNull()
     expect(view.container.querySelector('[data-matrix-disk-dismissed]')).toBeNull()
     expect(screen.queryByText(/Storage critical/)).toBeNull()
@@ -9475,7 +9478,8 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
     rows: MatrixDriveView['rows'] = []
   ) {
     const view: MatrixDriveView = { state: 'ready', revision: 9, rows, canGoBack: false, truncated: false }
-    let listener: ((next: typeof view) => void) | undefined
+    // Like the preload (ipcRenderer.on), every subscriber hears each view: the chat and the rail's Drive badge.
+    const listeners = new Set<(next: typeof view) => void>()
 
     const bridge: MatrixDriveBridge = {
       read: vi.fn(async () => view),
@@ -9499,13 +9503,13 @@ describe('the local assistant path (plan 2026-09-26-reliable-local-first-chat)',
       taskStatus,
       sendTask,
       subscribe: vi.fn(next => {
-        listener = next
+        listeners.add(next)
 
-        return vi.fn()
+        return vi.fn(() => void listeners.delete(next))
       })
     }
 
-    return { bridge, sendTask, taskStatus, emit: (next = view) => act(() => listener?.(next)) }
+    return { bridge, sendTask, taskStatus, emit: (next = view) => act(() => listeners.forEach(each => each(next))) }
   }
 
   function stageTask() {
@@ -11185,11 +11189,9 @@ describe("the person's other agents (per-agent runtime plan §2.8)", () => {
       return { principal: 'bea', roomId: '!bea:test' }
     })
 
-    fireEvent.click(await screen.findByRole('button', { name: 'New…' }))
-    const start = screen.getByRole('dialog', { name: 'Start a chat' })
-    fireEvent.click(within(start).getByRole('button', { name: 'New assistant' }))
+    await chooseFromNewMenu('New assistant')
     const sheet = await screen.findByRole('dialog', { name: 'New assistant' })
-    // The start sheet handed over: one dialog at a time.
+    // One dialog at a time.
     expect(screen.getAllByRole('dialog')).toEqual([sheet])
     fireEvent.change(within(sheet).getByRole('textbox', { name: 'Display name' }), { target: { value: 'Bea' } })
     fireEvent.change(within(sheet).getByRole('textbox', { name: 'What they do' }), {

@@ -245,7 +245,7 @@ export function AdoptPetDialog({
             </StoreOfferCard>
             <DialogFooter>
               <button
-                className="rounded-full px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
+                className="rounded-(--control-radius) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
                 disabled={purchaseBusy}
                 onClick={() => setPhase('choose')}
                 type="button"
@@ -302,7 +302,7 @@ export function AdoptPetDialog({
 
         <DialogFooter>
           <button
-            className="rounded-full px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
+            className="rounded-(--control-radius) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-ink-muted) hover:bg-(--atum-hover)"
             onClick={() => onOpenChange(false)}
             type="button"
           >
@@ -311,7 +311,7 @@ export function AdoptPetDialog({
           {!adoptedFor && (
             <button
               aria-busy={busy || purchaseBusy || undefined}
-              className="rounded-full bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
+              className="rounded-(--control-radius) bg-(--atum-ink) px-4 py-2 text-(length:--atum-t-control) font-medium text-(--atum-on-accent) disabled:opacity-50"
               data-atum-adopt-pet-confirm
               disabled={busy || purchaseBusy || priceUnknown}
               onClick={() => void adopt()}

@@ -129,6 +129,11 @@ export interface AtumNavSwitchSurfaceProps {
   /** Something waits in Workplace: a count of mentions, else a dot. `label` names it for assistive tech. */
   workplaceBadge?: { mentions: number; label: string }
   /**
+   * The other places' badges (layout r2 G, owner 2026-11-24; they replace the bell): `waiting` a red
+   * count, `new` an ink dot, `problem` a red dot (Drive only). `label` names it for assistive tech.
+   */
+  badges?: Partial<Record<Exclude<SurfaceId, 'teamSpace'>, AtumRailBadge>>
+  /**
    * Self-work slice A: Work, drawn right below Chats when present. Not a platform surface id yet (§9.1):
    * the shell passes it only while main reports Work for this account on this Mac.
    */
@@ -136,6 +141,11 @@ export interface AtumNavSwitchSurfaceProps {
   onDestinationChange(destination: AtumShellDestination): void
   tray?: boolean
 }
+
+export type AtumRailBadge =
+  | { kind: 'waiting'; count: number; label: string }
+  | { kind: 'new'; label: string }
+  | { kind: 'problem'; label: string }
 
 const NAV_PLACES = {
   home: { destination: 'chat', Icon: MessageCircle, marker: 'data-atum-nav-home' },
@@ -170,7 +180,8 @@ export function AtumNavSwitchSurface({
   workLabel,
   workplaceBadge,
   workplaceLabel,
-  workplaceSoonLabel
+  workplaceSoonLabel,
+  badges
 }: AtumNavSwitchSurfaceProps) {
   const labels: Record<SurfaceId, string> = {
     home: homeLabel,
@@ -199,10 +210,17 @@ export function AtumNavSwitchSurface({
             ? surfaceCopy.needsSetup
             : ''
 
-    const badge = id === 'teamSpace' && !unavailable ? workplaceBadge : undefined
+    const placeBadge: AtumRailBadge | undefined = unavailable
+      ? undefined
+      : id === 'teamSpace'
+        ? workplaceBadge &&
+          (workplaceBadge.mentions > 0
+            ? { kind: 'waiting', count: workplaceBadge.mentions, label: workplaceBadge.label }
+            : { kind: 'new', label: workplaceBadge.label })
+        : badges?.[id]
 
-    const label = badge
-      ? `${labels[id]} · ${badge.label}${badge.mentions > 0 ? `: ${badge.mentions}` : ''}`
+    const label = placeBadge
+      ? `${labels[id]} · ${placeBadge.label}${placeBadge.kind === 'waiting' ? `: ${placeBadge.count}` : ''}`
       : state === 'coming_soon' && id === 'teamSpace' && workplaceSoonLabel
         ? workplaceSoonLabel
         : state === 'coming_soon' && id === 'discover' && disabledDiscoverLabel
@@ -231,20 +249,7 @@ export function AtumNavSwitchSurface({
       >
         {/* The place you are in draws its glyph solid (Phosphor Fill), as in the mockups. */}
         <Icon aria-hidden className={cn('size-4', current && 'fill-current')} />
-        {badge && (
-          <span
-            aria-hidden
-            className={cn(
-              'absolute grid place-items-center rounded-full text-[0.5625rem] leading-none font-semibold text-(--atum-on-accent)',
-              badge.mentions > 0
-                ? 'top-0 right-0 h-3.5 min-w-3.5 bg-(--atum-danger) px-1'
-                : 'top-1 right-1 size-2 bg-(--atum-ink)'
-            )}
-            data-atum-nav-badge={badge.mentions > 0 ? 'mention' : 'unread'}
-          >
-            {badge.mentions > 0 ? (badge.mentions > 99 ? '99+' : badge.mentions) : null}
-          </span>
-        )}
+        {placeBadge && <RailBadgeMark badge={placeBadge} />}
       </button>
     )
 
@@ -306,5 +311,25 @@ export function AtumNavSwitchSurface({
         )
       })}
     </nav>
+  )
+}
+
+/** Red count: waiting for you; ink dot: new; red dot: a problem only you can fix (layout r2 G). */
+function RailBadgeMark({ badge }: { badge: AtumRailBadge }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'absolute grid place-items-center rounded-full text-[0.5625rem] leading-none font-semibold text-(--atum-on-accent)',
+        badge.kind === 'waiting'
+          ? 'top-0 right-0 h-3.5 min-w-3.5 bg-(--atum-danger) px-1'
+          : badge.kind === 'problem'
+            ? 'top-1 right-1 size-2 bg-(--atum-danger)'
+            : 'top-1 right-1 size-2 bg-(--atum-ink)'
+      )}
+      data-atum-nav-badge={badge.kind === 'waiting' ? 'mention' : badge.kind === 'problem' ? 'problem' : 'unread'}
+    >
+      {badge.kind === 'waiting' ? (badge.count > 99 ? '99+' : badge.count) : null}
+    </span>
   )
 }

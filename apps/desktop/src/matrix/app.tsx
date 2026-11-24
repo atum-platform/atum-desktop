@@ -86,6 +86,8 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  Settings,
+  UserPlus,
   X
 } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -162,7 +164,12 @@ import { WORK_RELAY_PLANS, workRelayNoticePlan } from '../../shared/matrix-work-
 import { DAILY_TURNS_DEFAULT, effectiveMode, roomBudget } from '../../shared/room-participation'
 
 import { MATRIX_SNAPSHOT_UNAVAILABLE, MatrixAccountUnavailable, matrixAccountUnavailable } from './account-unavailable'
-import { matrixAgentAttention, type MatrixAttentionItem } from './agent-attention'
+import {
+  matrixAgentAttention,
+  type MatrixAttentionItem,
+  matrixAttentionItems,
+  useMatrixAttentionNow
+} from './agent-attention'
 import { matrixAgentDeskAgent, matrixAgentDeskSteers } from './agent-desk-model'
 import { useMatrixAgentHandleBackfill } from './agent-handle-backfill'
 import { agentHomeTitleIconShown, MatrixAgentHomeRow } from './agent-home-control'
@@ -419,6 +426,8 @@ import { privateCosGreetingMarkdown } from './private-cos-greeting'
 import { MatrixProfileAvatar } from './profile-avatar'
 import { MatrixProfileEditor } from './profile-editor'
 import { MatrixRailAccount, OwnAvatar, useOwnName } from './rail-account'
+import { useRailBadgeCopy } from './rail-badge-copy'
+import { matrixChatRailBadge, matrixDriveRailBadge, useMatrixDriveRailView } from './rail-badges'
 import { railSurfaceState } from './rail-surfaces'
 import { useMatrixReadAttention } from './read-attention'
 import { matrixFirstUnreadMessageId } from './read-marker'
@@ -429,6 +438,7 @@ import { sortConversations } from './room-navigation'
 import { MatrixRosterConversations } from './roster-conversations'
 import { useRosterCopy } from './roster-copy'
 import { MatrixRosterCreate, type MatrixRosterCreation } from './roster-create'
+import { useRosterCreateCopy } from './roster-create-copy'
 import { matrixRosterGlobalSearchPending, useMatrixRosterGlobalSearch } from './roster-global-search'
 import { matrixPrimaryAgentName, matrixRosterAgentName, normalizeMatrixRosterQuery, projectMatrixRoster } from './roster-model'
 import { matrixAgentConversationRoom } from './roster-preview'
@@ -6479,6 +6489,7 @@ function MatrixRoster({
   onAppInfo,
   onEditAgent,
   onNavigate,
+  onOpenSettings,
   onToggle,
   newMessageRef,
   openRef,
@@ -6501,6 +6512,8 @@ function MatrixRoster({
   onAppInfo?(app: AppDescriptor): void
   onEditAgent?(agent: MatrixAgentView, focus?: 'name'): void
   onNavigate(): void
+  /** The foot's gear (layout r2 E: Chat = Add friends + ⚙). */
+  onOpenSettings?(): void
   onToggle: () => void
   /** The roster's own way to open (or start) an assistant's chat, for ⌘N and the palette. */
   openRef?: MutableRefObject<((fresh?: boolean, agentId?: string, roomId?: string) => Promise<void>) | null>
@@ -6518,6 +6531,7 @@ function MatrixRoster({
 
   const knownHandles = useMatrixHandles(snapshot.identity?.userId)
   const [creating, setCreating] = useState<MatrixRosterCreation | null>(null)
+  const createCopy = useRosterCreateCopy()
   // The roster lists the apps kept here (Discover lives in the rail, G1-17f): one row per
   // official bot, carrying its chat (roster-model.ts). Opening one waits for the one before.
   // The start menu opens an app the same way its row does (app-bots/use-open-app.ts).
@@ -6811,13 +6825,18 @@ function MatrixRoster({
       <div className="flex shrink-0 items-center gap-1.5 px-2 pt-1 pb-2" data-atum-search-actions>
         <SearchField
           aria-label={t.atum.roster.search}
-          containerClassName="h-[2.125rem] min-w-0 flex-1 rounded-full border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
+          containerClassName="h-[2.125rem] min-w-0 flex-1 rounded-(--control-radius) border-none bg-(--atum-sunk) px-3 text-[0.8125rem] !opacity-100 transition-colors focus-within:bg-(--atum-hover)"
           inputClassName="min-w-0 flex-1 text-(--atum-ink) placeholder:text-(--atum-ink-faint)"
           onChange={setQuery}
           placeholder={t.atum.roster.searchPlaceholder}
           value={query}
         />
-        <MatrixStartChatButton disabled={snapshot.state !== 'ready'} onClick={() => setCreating({ kind: 'start' })} />
+        <MatrixStartChatButton
+          canCreateAssistant={Boolean(snapshot.assistant && snapshot.agentCreation)}
+          canFindPeople={Boolean(snapshot.domainEnabled && window.atumMatrix?.aliases)}
+          disabled={snapshot.state !== 'ready'}
+          onCreate={kind => setCreating({ kind })}
+        />
       </div>
       <MatrixRosterCreate
         creating={creating}
@@ -6901,6 +6920,35 @@ function MatrixRoster({
           query={query}
           snapshot={snapshot}
         />
+      </div>
+      {/* The left panel's foot (layout r2 E, owner 2026-11-24): Add friends, then the gear. */}
+      <div className="atum-panel-foot" data-atum-roster-foot>
+        {snapshot.domainEnabled && window.atumMatrix?.aliases ? (
+          <button
+            className="atum-panel-foot-action"
+            disabled={snapshot.state !== 'ready'}
+            onClick={() => setCreating({ kind: 'friend' })}
+            type="button"
+          >
+            <UserPlus aria-hidden className="size-4" />
+            {createCopy.addFriendTitle}
+          </button>
+        ) : (
+          <span className="flex-1" />
+        )}
+        {onOpenSettings && (
+          <Tip label={t.atum.nav.settings}>
+            <button
+              aria-label={t.atum.nav.settings}
+              className="ak-iconbtn ak-iconbtn--sm"
+              data-atum-roster-settings
+              onClick={onOpenSettings}
+              type="button"
+            >
+              <Settings aria-hidden className="ak-icon" />
+            </button>
+          </Tip>
+        )}
       </div>
       {compact && <span className="sr-only">{copy.title}</span>}
     </aside>
@@ -7268,13 +7316,6 @@ function MatrixAccountView({
   const selectedAssistant = useRef<string | null>(null)
   const rosterOpen = useRef<((fresh?: boolean, agentId?: string, roomId?: string) => Promise<void>) | null>(null)
   const newMessageOpen = useRef<(() => void) | null>(null)
-  const openNewMessageAfterStore = useRef(false)
-  useEffect(() => {
-    if (!storeOpen && openNewMessageAfterStore.current) {
-      openNewMessageAfterStore.current = false
-      newMessageOpen.current?.()
-    }
-  }, [storeOpen])
   // The header's search in the open chat (⌘F and the palette open it).
   const chatSearchOpen = useRef<(() => void) | null>(null)
   const chatSearch = useChatSearchCopy()
@@ -8066,6 +8107,27 @@ function MatrixAccountView({
     }
   }, [appDestination, driveActive, room, settingsTrip])
 
+  // The rail's badges (layout r2 G, owner 2026-11-24): they replace the bell. An assistant that asks for
+  // the person counts on Chat beside the chats that wait; Drive shows a red dot for a problem only they can fix.
+  const attentionNow = useMatrixAttentionNow(snapshot)
+  const attentionItems = matrixAttentionItems(snapshot, attentionNow)
+  const railCopy = useRailBadgeCopy()
+  const driveRailView = useMatrixDriveRailView(window.atumMatrix?.drive)
+
+  const railBadges = {
+    home: matrixChatRailBadge(
+      snapshot.rooms,
+      attentionItems.filter(item => item.kind === 'agent' || item.kind === 'plan_sign_in').length,
+      railCopy
+    ),
+    drive: matrixDriveRailBadge(driveRailView, railCopy.driveProblem)
+  }
+
+  // The quiet bell is gone (layout r1/r2). Its list still holds what the rail can't act on yet (another
+  // device asking for approval, a sign-in elsewhere, the room an assistant's listening stopped in), so it
+  // shows only while it holds an item (owner question in docs/kit-t3-step3-1124.md).
+  const attentionShown = attentionItems.length > 0
+
   // Unread and mentions across the company's channels, for the rail's Workplace icon.
   const roomsBadge = companyRoomsBadge(snapshot.rooms)
   // Company invitations addressed to this person count there too: an invitation is not a room, so without this it
@@ -8318,7 +8380,7 @@ function MatrixAccountView({
   const titleBarLeads = compact || !sidebarShowing || workplaceOnScreen || workOnScreen
   const workBand = workCopy(locale).band
 
-  const attentionBell = snapshot.identity ? (
+  const attentionBell = snapshot.identity && attentionShown ? (
     <MatrixAttentionIndicator
       agentName={principal => {
         const agent = snapshot.agents?.find(each => each.principal === principal)
@@ -8362,6 +8424,7 @@ function MatrixAccountView({
         setWorkplaceActive(false)
         setDriveActive(false)
       }}
+      onOpenSettings={() => setSettingsOpen(true)}
       onToggle={toggle}
       openRef={rosterOpen}
       snapshot={snapshot}
@@ -8372,11 +8435,6 @@ function MatrixAccountView({
   const roster = storeOpen ? (
     <MatrixStoreSidebar
       compact={compact}
-      newChatDisabled={snapshot.state !== 'ready'}
-      onNewChat={() => {
-        openNewMessageAfterStore.current = true
-        selectDefaultConversation()
-      }}
       onQueryChange={setStoreQuery}
       onShelfChange={next => {
         setStoreShelf(next)
@@ -9224,6 +9282,7 @@ function MatrixAccountView({
             <>
               <AtumNavSwitchSurface
                 ariaLabel={shell.navigation}
+                badges={railBadges}
                 destination={
                   workOnScreen
                     ? 'work'

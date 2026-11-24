@@ -6,8 +6,6 @@ import { useI18n } from '@/i18n'
 import { CheckCircle2, Compass, Monitor, PawPrint, SearchIcon, Sparkles, UserCircle } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
-import { MatrixStartChatButton } from '../start-chat'
-
 import { matrixStoreCopy } from './store-copy'
 import { $matrixStoreShelfRequest, type DiscoverShelf } from './top-up'
 
@@ -77,8 +75,6 @@ export function useMatrixStoreNavigation({
 
 interface MatrixStoreSidebarProps extends MatrixStoreNavigation {
   compact?: boolean
-  newChatDisabled?: boolean
-  onNewChat?(): void
   /** The title bar's bell, while this column leads the window's row. */
   titleBarAction?: ReactNode
   windowControls?: ReactNode
@@ -87,8 +83,6 @@ interface MatrixStoreSidebarProps extends MatrixStoreNavigation {
 /** Store navigation replaces the conversation roster while the Store is the active destination. */
 export function MatrixStoreSidebar({
   compact = false,
-  newChatDisabled,
-  onNewChat,
   onQueryChange,
   onShelfChange,
   query,
@@ -135,7 +129,7 @@ export function MatrixStoreSidebar({
           type="search"
           value={query}
         />
-        {onNewChat && <MatrixStartChatButton disabled={newChatDisabled} onClick={onNewChat} />}
+        {/* No plus here: you create nothing in the Store (layout r2 §5, owner 2026-11-24). */}
       </div>
       {/* Atum Kit Store board: the shelves sit on the roster panel itself, a hairline between rows,
           never inside a card of their own. */}

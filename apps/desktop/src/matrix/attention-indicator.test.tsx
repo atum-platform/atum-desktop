@@ -49,12 +49,11 @@ describe('the indicator is a dot at every width', () => {
     [
       'several items',
       {
-        disk: { state: 'low', freeGb: 8 },
+        deviceDamaged: true,
         security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
       },
       '2 things need you'
     ],
-    ['a disk item', { disk: { state: 'low', freeGb: 8 } }, 'Mac almost full'],
     ['a damaged device', { deviceDamaged: true }, 'Sign in again on this Mac'],
     [
       'one item that opens its place',
@@ -73,7 +72,7 @@ describe('the indicator is a dot at every width', () => {
   it('still opens its list from the tip’s trigger', async () => {
     draw({
       ...base,
-      disk: { state: 'low', freeGb: 8 },
+      deviceDamaged: true,
       security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
     })
 
@@ -86,23 +85,12 @@ describe('the indicator is a dot at every width', () => {
 
 // Preserve user-visible identity, state and recovery behavior across connection changes.
 // a "Storage critical" pill there that broke the panel and stayed after it was dismissed).
-describe('a nearly full disk', () => {
-  afterEach(() => {
-    Reflect.deleteProperty(window, 'atumMatrix')
-  })
-
-  it('is the indicator’s item, and its popover says so with the Storage action', async () => {
-    const openStorageSettings = vi.fn(async () => {})
-    Object.defineProperty(window, 'atumMatrix', { configurable: true, value: { openStorageSettings } })
+describe('a nearly full disk (layout r1/r2, owner 2026-11-24: the "Mac is full" alert goes)', () => {
+  it('is not an item: the bell stays quiet', () => {
     draw({ ...base, disk: { state: 'critical', freeGb: 1.6 } })
 
-    const pill = screen.getByRole('button', { name: /Mac is out of space/ })
-    fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
-    fireEvent.click(pill)
-
-    expect(await screen.findByText(/Your Mac is nearly out of space \(1\.6 GB free\)/)).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Open Storage settings' }))
-    await waitFor(() => expect(openStorageSettings).toHaveBeenCalledOnce())
+    expect(screen.queryByRole('button', { name: /Needs you/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Notifications' })).toBeTruthy()
   })
 })
 
@@ -215,7 +203,7 @@ describe('a new sign-in on another device', () => {
   })
 
   it('says its label once in a list of several', async () => {
-    draw({ ...base, newSignIn: signIn, disk: { state: 'low', freeGb: 8 } })
+    draw({ ...base, newSignIn: signIn, deviceDamaged: true })
 
     const pill = screen.getByRole('button', { name: 'Needs you: 2 things need you' })
     fireEvent.pointerDown(pill, { button: 0, ctrlKey: false, pointerType: 'mouse' })
@@ -254,7 +242,7 @@ describe('the notification bell', () => {
   })
 
   it('wears a badge in the item’s tone while something needs the person', () => {
-    draw({ ...base, disk: { state: 'critical', freeGb: 1 } })
+    draw({ ...base, deviceDamaged: true })
 
     const badge = screen.getByRole('button', { name: /Needs you/ }).querySelector('[data-matrix-attention-badge]')
     expect(badge?.getAttribute('data-matrix-attention-badge')).toBe('danger')
@@ -296,7 +284,7 @@ describe('the list tells the page when it is open', () => {
           agentName={() => 'Moon'}
           onOpen={vi.fn()}
           onOpenChange={open => void seen.push(open)}
-          snapshot={{ ...base, disk: { state: 'low', freeGb: 8 } }}
+          snapshot={{ ...base, deviceDamaged: true }}
         />
       </I18nProvider>
     )

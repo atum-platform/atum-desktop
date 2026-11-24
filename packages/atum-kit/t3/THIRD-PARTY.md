@@ -14,8 +14,10 @@ Atum uses them as the base of the Atum Kit (owner decision 2026-11-24, option B)
   file in that format (`dist/atum-t3-theme.json`).
 - `apps/web/src/components/chat/ComposerSurface.tsx` and `components/ui/button.tsx`: the composer and control
   recipes the desktop composer copies (`apps/desktop/src/styles.css`, "T3 composer").
-- `components/ui/menu.tsx`, `dialog.tsx`, `apps/web/src/appearanceContrast.ts`, `panelAnimations.ts`: the next
-  migration steps (menus, dialogs, panels).
+- `components/ui/menu.tsx`, `popover.tsx`, `dialog.tsx` + `dialog-styles.ts`, `tooltip.tsx`, `toast.tsx`: the overlay
+  recipes (glass, radius, rows, backdrop) that `apps/desktop/src/styles.css` ("T3 overlays") paints Atum's Radix menus,
+  popovers, dialogs, tooltips and toasts with (migration step 3).
+- `apps/web/src/appearanceContrast.ts`, `panelAnimations.ts`: the next migration steps (panels).
 
 Atum keeps its own icons (Phosphor), brand, avatars and Vietnamese type. Re-sync or move the pin with
 `npm run --workspace @atum/kit sync:t3`; `npm run --workspace @atum/kit check` fails if these files drift.

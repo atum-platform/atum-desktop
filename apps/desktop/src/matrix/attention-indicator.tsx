@@ -13,25 +13,12 @@ import type { MatrixApprovalView } from '../../shared/matrix-security'
 
 import { type MatrixAttentionItem, matrixAttentionItems, useMatrixAttentionNow } from './agent-attention'
 import { type AttentionCopy, useAttentionCopy } from './attention-copy'
-import { matrixDeviceHealthCopy } from './device-health-notice'
 import { matrixDeviceLastSeen } from './device-last-seen'
 import { runMatrixReadinessAction } from './launch-actions'
 import { useLaunchCopy } from './launch-copy'
 import { MatrixNewSignInDetail, matrixNewSignInLabel } from './new-sign-in-notice'
 import { MatrixOwnerDeviceRepairNotice } from './owner-device-repair-notice'
 import { matrixSecurityCopy } from './security-copy'
-
-/** "Remind me later" on a Mac almost full: a day, on this Mac only. */
-const DISK_SNOOZE_KEY = 'io.atum.attention.diskLowUntil'
-const DISK_SNOOZE_MS = 24 * 60 * 60_000
-
-function diskSnoozedUntil(): number {
-  try {
-    return Number(window.localStorage.getItem(DISK_SNOOZE_KEY)) || 0
-  } catch {
-    return 0
-  }
-}
 
 /** "Not now" on a device to verify: until tomorrow, on this Mac only (device ID → that day). */
 const DEVICE_PUT_OFF_KEY = 'io.atum.attention.devicePutOff'
@@ -51,12 +38,10 @@ function devicesPutOff(ownerId: string): Record<string, string> {
 }
 
 /** Items that say more before they act: a sign-in that replaces this Mac's device, a sign-in on
- * another device, the disk, or one of the person's devices to verify. */
+ * another device, or one of the person's devices to verify. */
 const DETAILED = new Set<MatrixAttentionItem['kind']>([
   'device_damaged',
   'new_sign_in',
-  'disk_low',
-  'disk_critical',
   'device_unverified'
 ])
 
@@ -104,7 +89,6 @@ function Detail({
   item,
   onOpen,
   onPutOff,
-  onSnooze,
   snapshot
 }: {
   /** Under its own label in a list of several: the label is not said twice. */
@@ -113,19 +97,13 @@ function Detail({
   /** Opens the place the item's action lives (the devices list, for a device to verify). */
   onOpen(item: MatrixAttentionItem): void
   onPutOff(deviceId: string): void
-  onSnooze(): void
   snapshot: MatrixSnapshot
 }) {
   const { locale } = useI18n()
   const copy = useAttentionCopy()
   const words = useLaunchCopy()
-  const health = matrixDeviceHealthCopy(locale)
   const [pending, setPending] = useState(false)
   const [failed, setFailed] = useState(false)
-
-  const free = snapshot.disk
-    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(snapshot.disk.freeGb)
-    : ''
 
   const bridge = window.atumMatrix
 
@@ -213,25 +191,7 @@ function Detail({
     )
   }
 
-  return (
-    <div className="flex flex-col gap-2 p-1.5 text-(length:--atum-t-ui)" data-matrix-attention-detail={item.kind}>
-      <p className="text-(--atum-ink-muted)">
-        {item.kind === 'disk_critical' ? health.diskCritical(free) : health.diskLow(free)}
-      </p>
-      <span className="flex flex-wrap gap-2">
-        {bridge?.openStorageSettings && (
-          <Button onClick={() => void bridge.openStorageSettings?.().catch(() => {})} size="sm" variant="secondary">
-            {health.openStorage}
-          </Button>
-        )}
-        {item.kind === 'disk_low' && (
-          <Button onClick={onSnooze} size="sm" variant="text">
-            {copy.snooze}
-          </Button>
-        )}
-      </span>
-    </div>
-  )
+  return null
 }
 
 /**
@@ -259,14 +219,13 @@ function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: Indic
   const { locale } = useI18n()
   const copy = useAttentionCopy()
   const now = useMatrixAttentionNow(snapshot)
-  const [snoozedUntil, setSnoozedUntil] = useState(diskSnoozedUntil)
   const ownerId = snapshot.identity?.userId ?? ''
   const [putOff, setPutOff] = useState(() => devicesPutOff(ownerId))
   const [open, setOpen] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const seen = useRef<Set<string> | null>(null)
 
-  const items = matrixAttentionItems(snapshot, now, { diskLowSnoozed: snoozedUntil > now })
+  const items = matrixAttentionItems(snapshot, now)
 
   const keys = items.map(itemKey).join('|')
 
@@ -300,19 +259,6 @@ function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: Indic
     return () => onOpenChange?.(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the parent's callback is stable state; only `open` is news.
   }, [open])
-
-  const snooze = () => {
-    const until = Date.now() + DISK_SNOOZE_MS
-
-    try {
-      window.localStorage.setItem(DISK_SNOOZE_KEY, String(until))
-    } catch {
-      // Storage off: snoozed for this window only.
-    }
-
-    setSnoozedUntil(until)
-    setOpen(false)
-  }
 
   // Today's put-offs only: an older one has nothing left to hold back.
   const putDeviceOff = (deviceId: string) => {
@@ -400,7 +346,6 @@ function AttentionIndicator({ agentName, onOpen, onOpenChange, snapshot }: Indic
                         item={item}
                         onOpen={openItem}
                         onPutOff={putDeviceOff}
-                        onSnooze={snooze}
                         snapshot={snapshot}
                       />
                     </div>

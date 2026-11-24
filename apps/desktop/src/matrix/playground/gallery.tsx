@@ -8,6 +8,8 @@ import { Spinner } from '@/lib/icons'
 
 import type { MatrixSignInMethod, MatrixSnapshot } from '../../../shared/matrix'
 import { MatrixCrashFallback } from '../crash-fallback'
+import { BUNDLED_GIGI } from '../pet/bundled-gigi'
+import { PetChatBox } from '../pet/chat-box'
 import { MatrixRailAccount } from '../rail-account'
 import { type MatrixSettingsPane, MatrixSettingsSheet } from '../settings-sheet'
 import { MatrixSignIn } from '../sign-in'
@@ -58,7 +60,8 @@ export const PLAYGROUND_VIEWS = [
   'account-menu',
   'loaders',
   'crash',
-  'crash-legacy'
+  'crash-legacy',
+  'pet-chat'
 ] as const
 export type PlaygroundView = (typeof PLAYGROUND_VIEWS)[number]
 
@@ -212,6 +215,10 @@ function PlaygroundWorkSettings() {
  * scenarios stay in PLAYGROUND_SCENARIOS.
  */
 export function PlaygroundGallery({ view }: { view: PlaygroundView }) {
+  if (view === 'pet-chat') {
+    return <PlaygroundPetChat />
+  }
+
   if (view === 'loaders') {
     return <PlaygroundLoaders />
   }
@@ -424,4 +431,30 @@ function PlaygroundLoaders() {
 
 function PlaygroundThrow(): never {
   throw new Error("Cannot read properties of undefined (reading 'roomId')")
+}
+
+/** The pet's glass chat box on its own (it lives in the pet overlay window, not the main one). */
+function PlaygroundPetChat() {
+  const [draft, setDraft] = useState('')
+
+  return (
+    <div className="grid h-dvh place-items-center bg-(--ak-ground)">
+      <PetChatBox
+        available
+        className="h-[380px] w-[320px]"
+        draft={draft}
+        locale="en"
+        name="Gigi"
+        onClose={() => {}}
+        onDraft={setDraft}
+        onRetry={() => {}}
+        onSend={() => setDraft('')}
+        sprite={BUNDLED_GIGI}
+        turns={[
+          { role: 'user', text: 'Hi Gigi! Did you sleep well?', at: '2026-11-24T08:01:00.000Z' },
+          { role: 'pet', text: 'Mm, I curled up by the window all night. Is it breakfast time?', at: '2026-11-24T08:01:05.000Z' }
+        ]}
+      />
+    </div>
+  )
 }

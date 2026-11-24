@@ -19,7 +19,6 @@ export type MatrixAttentionKind =
   | 'approval'
   | 'device_damaged'
   | 'new_sign_in'
-  | 'disk_critical'
   | 'recovery'
   | 'sign_in'
   | 'protons'
@@ -28,7 +27,6 @@ export type MatrixAttentionKind =
   | 'plan_sign_in'
   | 'agent'
   | 'device_unverified'
-  | 'disk_low'
 
 interface Rule {
   /** `account`: the same cause for every agent (this Mac, the account, the install): one
@@ -182,15 +180,13 @@ const ORDER: MatrixAttentionKind[] = [
   'approval',
   'device_damaged',
   'new_sign_in',
-  'disk_critical',
   'recovery',
   'sign_in',
   'protons',
   'runtime',
   'connect',
   'plan_sign_in',
-  'agent',
-  'disk_low'
+  'agent'
 ]
 
 const LIVE_APPROVAL = new Set(['asked', 'waiting', 'compare', 'unlocking'])
@@ -215,7 +211,8 @@ export function matrixAttentionAgents(snapshot: MatrixSnapshot): (AgentFacts & {
 
 /**
  * What the indicator holds, most pressing first, one item per cause: a cause every agent shares
- * is one item, never one per agent. `diskLowSnoozed`: the person asked to be reminded later.
+ * is one item, never one per agent. This Mac's disk is not an item (layout r1/r2, owner 2026-11-24: the
+ * "Mac is full" alert goes); a full disk that blocks chats says so in the composer.
  *
  * Never a device of the person's to verify (0.20): new chats are plain, so no assistant refuses
  * a device there and the reminder's words would be false. An assistant's refusal of an
@@ -224,8 +221,7 @@ export function matrixAttentionAgents(snapshot: MatrixSnapshot): (AgentFacts & {
  */
 export function matrixAttentionItems(
   snapshot: MatrixSnapshot,
-  now: number,
-  options: { diskLowSnoozed?: boolean } = {}
+  now: number
 ): MatrixAttentionItem[] {
   if (!snapshot.identity) {
     return []
@@ -242,12 +238,6 @@ export function matrixAttentionItems(
 
   if (snapshot.deviceDamaged) {
     kinds.add('device_damaged')
-  }
-
-  if (snapshot.disk?.state === 'critical') {
-    kinds.add('disk_critical')
-  } else if (snapshot.disk?.state === 'low' && !options.diskLowSnoozed) {
-    kinds.add('disk_low')
   }
 
   // This Mac's own facts (a request main holds, its device, its disk) stay through a connection
@@ -277,7 +267,7 @@ export function matrixAttentionItems(
     } else if (kind === 'plan_sign_in') {
       items.push(...planSignIns.map(principal => ({ kind, principal, tone: 'warn' as const })))
     } else if (kinds.has(kind)) {
-      items.push({ kind, tone: kind === 'device_damaged' || kind === 'disk_critical' ? 'danger' : 'warn' })
+      items.push({ kind, tone: kind === 'device_damaged' ? 'danger' : 'warn' })
     }
   }
 

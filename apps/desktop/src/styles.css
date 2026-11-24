@@ -2995,11 +2995,11 @@ body:has(.atum-shell) [data-slot='dialog-close-button'] {
   display: none;
 }
 
-/* §3 buttons, applied to the shared Button by variant inside the product. Atum Kit 0.1: every
-   action is a capsule, never a rounded rectangle (owner: nothing square-ish). */
+/* §3 buttons, applied to the shared Button by variant inside the product. Kit on T3 (owner 2026-11-24,
+   option B): T3's Button shape, the 8px control radius (it replaced Kit 0.1's capsule). */
 .atum-shell [data-slot='button'],
 body:has(.atum-shell) [data-slot='dialog-content'] [data-slot='button'] {
-  border-radius: 9999px;
+  border-radius: var(--control-radius);
   font-size: var(--atum-t-ui);
   font-weight: 500;
   transition:
@@ -3094,12 +3094,12 @@ body:has(.atum-shell)
   text-decoration: none;
 }
 
-/* Icon-sized buttons are circles (Atum Kit icon buttons). */
+/* Icon-sized buttons: T3's icon Button, square on the 8px control radius. */
 .atum-shell [data-slot='button']:is([data-size='icon'], [data-size='icon-xs'], [data-size='icon-titlebar']),
 body:has(.atum-shell) [data-slot='dialog-content'] [data-slot='button']:is([data-size='icon'], [data-size='icon-xs']) {
   min-height: 0;
   padding-inline: 0;
-  border-radius: 9999px;
+  border-radius: var(--control-radius);
 }
 
 /* §3 inputs 42 r12 sunk 14px; focus white 90% + ink 12% ring. */
@@ -8159,14 +8159,14 @@ body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:f
   gap: 2px;
 }
 /* text-sm, leading-relaxed; min-h 2lh. */
-[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-rich-input'] {
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] :is([data-slot='composer-rich-input'], [data-pet-chat-input]) {
   display: block;
   font: 400 14px/22.75px var(--ak-font);
   min-height: 45.5px;
   padding: 0;
   color: var(--app-theme-text);
 }
-[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] [data-slot='composer-rich-input']::placeholder {
+[data-matrix-kit-composer] [data-slot='composer-surface'][data-composer-recipe='t3'] :is([data-slot='composer-rich-input'], [data-pet-chat-input])::placeholder {
   color: var(--app-theme-placeholder);
 }
 /* Button variant="ghost" size="icon-sm": 28px on the 8px control radius, the icon in the muted colour. */
@@ -8219,4 +8219,173 @@ body:has(.atum-shell) .atum-assistant-card textarea.atum-input.atum-card-field:f
 .atum-composer-send svg {
   width: 16px;
   height: 16px;
+}
+
+/* ---------- T3 overlays (owner 2026-11-24, option B; migration step 3) ----------
+   Menus, popovers, selects, dialogs, tooltips and toasts take T3 Code v0.1.11's recipes (pingdotgg/t3code, MIT;
+   vendored in packages/atum-kit/t3/: menu.tsx, popover.tsx, dialog.tsx + dialog-styles.ts, tooltip.tsx, toast.tsx
+   and their glass utilities in index.css) on T3's own variables (--app-theme-*, --glass-*). Atum keeps Radix
+   underneath (behaviour, focus and the app-view overlay hold are unchanged); only the material and geometry move.
+   T3's --popover is --app-theme-surface-overlay, --background is --app-theme-canvas, --accent is
+   --app-theme-accent-surface, and its 10% --contrast-foreground edge is the theme text at 10%. Sits last, so it
+   wins over the older glass-strong sheet recipe above at equal specificity. */
+body:has(.atum-shell) {
+  --t3-popover: var(--app-theme-surface-overlay);
+  --t3-edge: color-mix(in srgb, var(--app-theme-text) 10%, transparent);
+  /* dropdown-glass */
+  --t3-dropdown-glass: color-mix(
+    in srgb,
+    var(--t3-popover) 18%,
+    color-mix(in srgb, var(--t3-popover) var(--glass-opacity), transparent)
+  );
+  --t3-glass-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  --t3-menu-shadow: 0 16px 40px -18px rgb(0 0 0 / 55%);
+  --t3-dialog-shadow: 0 24px 64px -24px rgb(0 0 0 / 65%);
+}
+.dark body:has(.atum-shell) {
+  --t3-edge: color-mix(in srgb, #fff 8%, transparent);
+  --t3-menu-shadow: 0 18px 44px -18px rgb(0 0 0 / 80%);
+  --t3-dialog-shadow: inset 0 1px rgb(255 255 255 / 4%), 0 24px 72px -20px rgb(0 0 0 / 90%);
+}
+
+/* MenuPopup / PopoverPopup / SelectPopup: dropdown-glass, rounded-lg (8px), 1px edge, p-1. */
+body:has(.atum-shell) :is(
+    [data-slot='popover-content'],
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='context-menu-sub-content'],
+    [data-slot='select-content']
+  ) {
+  border: 1px solid var(--t3-edge);
+  border-radius: var(--control-radius);
+  background: var(--t3-dropdown-glass);
+  box-shadow: var(--t3-menu-shadow);
+  color: var(--app-theme-text);
+  -webkit-backdrop-filter: var(--t3-glass-filter);
+  backdrop-filter: var(--t3-glass-filter);
+}
+
+/* MenuItem: min-h-7, px-2 py-1, rounded-sm (4px), text-sm, gap-2, 16px muted icons; highlighted = accent. */
+body:has(.atum-shell) :is([data-slot='dropdown-menu-item'], [data-slot='context-menu-item'], [data-slot='dropdown-menu-sub-trigger'], [data-slot='context-menu-sub-trigger'], [data-slot='dropdown-menu-checkbox-item'], [data-slot='dropdown-menu-radio-item']) {
+  min-height: 28px;
+  gap: 8px;
+  border-radius: calc(var(--control-radius) - 4px);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--app-theme-text);
+}
+body:has(.atum-shell) :is([data-slot='dropdown-menu-item'], [data-slot='context-menu-item'], [data-slot='dropdown-menu-sub-trigger'], [data-slot='context-menu-sub-trigger'], [data-slot='dropdown-menu-checkbox-item'], [data-slot='dropdown-menu-radio-item']):is(:focus, [data-highlighted], [data-state='open']) {
+  background: var(--app-theme-accent-surface);
+  color: var(--app-theme-accent-surface-foreground);
+}
+body:has(.atum-shell) :is([data-slot='dropdown-menu-item'], [data-slot='context-menu-item'])[data-variant='destructive'] {
+  color: var(--app-theme-error-foreground);
+}
+body:has(.atum-shell) :is([data-slot='dropdown-menu-item'], [data-slot='context-menu-item']) > svg:not([class*='text-']) {
+  color: var(--app-theme-muted-foreground);
+}
+/* MenuGroupLabel: px-2 py-1.5, text-xs medium muted. MenuSeparator: mx-2 my-1, the border colour. */
+body:has(.atum-shell) :is([data-slot='dropdown-menu-label'], [data-slot='context-menu-label']) {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--app-theme-muted-foreground);
+}
+body:has(.atum-shell) :is([data-slot='dropdown-menu-separator'], [data-slot='context-menu-separator']) {
+  background: var(--app-theme-border);
+}
+
+/* DialogPopup: dialog-glass (the canvas at the glass opacity), rounded-2xl (16px), 1px edge; p-6 (24px). */
+body:has(.atum-shell) :is([data-slot='dialog-content'], [data-slot='sheet-content']) {
+  border: 1px solid var(--t3-edge);
+  border-radius: calc(var(--control-radius) + 8px);
+  background: color-mix(in srgb, var(--app-theme-canvas) var(--glass-opacity), transparent);
+  box-shadow: var(--t3-dialog-shadow);
+  color: var(--app-theme-text);
+  -webkit-backdrop-filter: var(--t3-glass-filter);
+  backdrop-filter: var(--t3-glass-filter);
+}
+body:has(.atum-shell) [data-slot='dialog-content']:not(.atum-settings) {
+  padding: 1.5rem;
+}
+/* DialogTitle: text-xl semibold, leading-snug. */
+body:has(.atum-shell) [data-slot='dialog-title'] {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.375;
+  letter-spacing: normal;
+}
+/* dialog-backdrop: the canvas at 60% (64% dark) with a 4px blur. */
+body:has(.atum-shell) :is([data-slot='dialog-overlay'], [data-slot='sheet-overlay']) {
+  background: color-mix(in srgb, var(--app-theme-canvas) 60%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+.dark body:has(.atum-shell) :is([data-slot='dialog-overlay'], [data-slot='sheet-overlay']) {
+  background: color-mix(in srgb, var(--app-theme-canvas) 64%, transparent);
+}
+
+/* TooltipPopup variant="glass": dropdown-glass, rounded-md (6px), text-xs, px-2 py-1, shadow-xl black/25. */
+body:has(.atum-shell) [data-slot='tooltip-content'] > span {
+  display: inline-block;
+  border: 1px solid var(--t3-edge);
+  border-radius: calc(var(--control-radius) - 2px);
+  padding: 0.25rem 0.5rem;
+  background: var(--t3-dropdown-glass);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 25%), 0 8px 10px -6px rgb(0 0 0 / 25%);
+  color: var(--app-theme-text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.375;
+  -webkit-backdrop-filter: var(--t3-glass-filter);
+  backdrop-filter: var(--t3-glass-filter);
+}
+
+/* Toasts (toast.tsx): dropdown-glass, rounded-lg, shadow-xl black/25; the semantic tint stays a 4% whisper. */
+body:has(.atum-shell) [data-slot='notification-region'] [data-slot='alert'] {
+  border: 1px solid var(--t3-edge);
+  border-radius: var(--control-radius);
+  background: var(--t3-dropdown-glass);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 25%), 0 8px 10px -6px rgb(0 0 0 / 25%);
+  color: var(--app-theme-text);
+  -webkit-backdrop-filter: var(--t3-glass-filter);
+  backdrop-filter: var(--t3-glass-filter);
+}
+body:has(.atum-shell) [data-slot='notification-region'] [data-slot='alert'][data-variant='destructive'] {
+  background:
+    linear-gradient(color-mix(in srgb, var(--app-theme-error) 4%, transparent), color-mix(in srgb, var(--app-theme-error) 4%, transparent)),
+    var(--t3-dropdown-glass);
+}
+
+/* ---------- Left panel foot (layout r2 E, owner 2026-11-24) ----------
+   Chat's foot: Add friends left, the gear right. T3's sidebar footer: a quiet row on the panel itself,
+   its action a ghost control on the 8px control radius. */
+.atum-panel-foot {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 8px;
+}
+.atum-panel-foot-action {
+  display: inline-flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: var(--control-radius);
+  color: var(--app-theme-muted-foreground);
+  font: 400 14px/20px var(--ak-font);
+  text-align: start;
+  transition: background-color 150ms, color 150ms;
+}
+.atum-panel-foot-action:hover:not(:disabled) {
+  background: var(--app-theme-sidebar-row-hover);
+  color: var(--app-theme-text);
+}
+.atum-panel-foot-action:disabled {
+  opacity: 0.45;
 }

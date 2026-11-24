@@ -503,24 +503,30 @@ describe('another device asking this one to approve it', () => {
     await waitFor(() => expect(bridge.approval!.dismiss).toHaveBeenCalled())
   })
 
-  it('counts two causes in one indicator, most pressing first', async () => {
+  it('counts two causes in one indicator, most pressing first, and never a disk almost full', async () => {
     fixture(
-      window6(ready, {
-        disk: { state: 'low', freeGb: 8 },
-        security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
-      })
+      window6(
+        name =>
+          name === 'Moon'
+            ? { phase: 'blocked', step: 'assistant', code: 'agent_reconnect_required', since: Date.now() }
+            : ready(),
+        {
+          disk: { state: 'low', freeGb: 8 },
+          security: { recovery: 'idle', approval: { role: 'approve', state: 'asked', since: Date.now() } }
+        }
+      )
     )
 
     await screen.findByRole('button', { name: 'Account: owner' })
     const indicator = await screen.findByRole('button', { name: 'Needs you: 2 things need you' })
     expect(indicators().length).toBe(1)
-    // A disk almost full is no longer a band.
+    // A disk almost full is neither a band nor an item (layout r1/r2: the "Mac is full" alert goes).
     expect(stack()?.children.length).toBe(0)
     fireEvent.click(indicator)
     const list = await waitFor(() => window.document.querySelector<HTMLElement>('[data-matrix-attention-list]')!)
     expect(within(list).getByRole('button', { name: /Confirm new device/ })).toBeTruthy()
-    expect(list.textContent).toContain('Mac almost full')
-    expect(list.textContent!.indexOf('Confirm new device')).toBeLessThan(list.textContent!.indexOf('Mac almost full'))
+    expect(list.textContent).not.toContain('Mac almost full')
+    expect(list.textContent!.indexOf('Confirm new device')).toBeLessThan(list.textContent!.indexOf('Moon needs you'))
   })
 })
 
@@ -555,7 +561,7 @@ describe('the title bar bell and the roster plus', () => {
   const rosterHeader = () => window.document.querySelector<HTMLElement>('[data-atum-roster-header]')!
   const searchRow = () => window.document.querySelector<HTMLElement>('[data-atum-search-actions]')!
 
-  it('puts New, a kit plus, to the right of the search field and opens the start sheet from there', async () => {
+  it('puts New, a kit plus, to the right of the search field; its menu opens the start sheet (layout r2 §4)', async () => {
     fixture(window6(ready))
     await screen.findByRole('button', { name: 'Account: owner' })
 
@@ -566,7 +572,8 @@ describe('the title bar bell and the roster plus', () => {
     expect(field.compareDocumentPosition(plus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(within(rosterHeader()).queryByRole('button', { name: 'New…' })).toBeNull()
 
-    fireEvent.click(plus)
+    fireEvent.pointerDown(plus, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+    fireEvent.click(await screen.findByRole('menuitem', { name: /New chat/ }))
     expect(await screen.findByRole('dialog', { name: 'Start a chat' })).toBeTruthy()
   })
 
@@ -577,17 +584,14 @@ describe('the title bar bell and the roster plus', () => {
     expect(searchRow().querySelector('input')!.getAttribute('placeholder')).toBe('Search')
   })
 
-  it('keeps a quiet bell in the left title bar while nothing needs the person', async () => {
+  // Layout r1/r2 (owner 2026-11-24): the quiet bell goes; with nothing to say there is no bell and no rail badge.
+  it('draws no bell while nothing needs the person', async () => {
     fixture(window6(ready))
     await screen.findByRole('button', { name: 'Account: owner' })
 
-    const bell = within(rosterHeader()).getByRole('button', { name: 'Notifications' })
-    expect(bell.querySelector('[data-matrix-attention-badge]')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Notifications' })).toBeNull()
     expect(indicators().length).toBe(0)
-
-    fireEvent.click(bell)
-    const list = await waitFor(() => window.document.querySelector<HTMLElement>('[data-matrix-attention-list]')!)
-    expect(list.textContent).toContain('Nothing needs you right now')
+    expect(window.document.querySelector('[data-atum-nav-home] [data-atum-nav-badge]')).toBeNull()
   })
 
   it('moves the attention mark off the conversation header into the bell, with its items and actions', async () => {
@@ -618,11 +622,35 @@ describe('the title bar bell and the roster plus', () => {
   })
 
   it('goes with the window controls into the main header when the sidebar is hidden, and stays single', async () => {
-    fixture(window6(ready))
+    fixture(
+      window6(name =>
+        name === 'Moon'
+          ? { phase: 'blocked', step: 'assistant', code: 'agent_reconnect_required', since: Date.now() }
+          : ready()
+      )
+    )
     await screen.findByRole('button', { name: 'Account: owner' })
+    await waitFor(() => expect(indicators().length).toBe(1))
 
     fireEvent.click(within(rosterHeader()).getByRole('button', { name: 'Hide sidebar' }))
-    await waitFor(() => expect(within(header()).getByRole('button', { name: 'Notifications' })).toBeTruthy())
-    expect(screen.getAllByRole('button', { name: 'Notifications', hidden: true })).toHaveLength(1)
+    await waitFor(() => expect(within(header()).getByRole('button', { name: /Needs you/ })).toBeTruthy())
+    expect(screen.getAllByRole('button', { name: /Needs you/, hidden: true })).toHaveLength(1)
+  })
+
+  it('counts an assistant that asks for the person on Chat in the rail (layout r2 G)', async () => {
+    fixture(
+      window6(name =>
+        name === 'Moon'
+          ? { phase: 'blocked', step: 'assistant', code: 'agent_reconnect_required', since: Date.now() }
+          : ready()
+      )
+    )
+    await screen.findByRole('button', { name: 'Account: owner' })
+
+    await waitFor(() =>
+      expect(window.document.querySelector('[data-atum-nav-home] [data-atum-nav-badge="mention"]')?.textContent).toBe(
+        '1'
+      )
+    )
   })
 })
