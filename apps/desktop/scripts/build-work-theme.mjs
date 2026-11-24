@@ -142,15 +142,34 @@ export function workThemeColors(appearance) {
 
 /**
  * The shared model picker (src/matrix/model-picker-spec.json) in Work: T3's picker already has the
- * spec's geometry, so only what Atum adds to it is set here: the Kit's type, the capsule chip and the
- * search's focus colour. The desktop picker reads the same file.
+ * spec's geometry, so only what Atum adds to it is set here: the Kit's glass card with untinted
+ * columns, the rail without a rule under Favorites, the Kit's type, the capsule chip and the search's
+ * focus colour. The desktop picker reads the same file.
  */
 export function workPickerCss(spec = pickerSpec) {
-  const { trigger, type, search } = spec
+  const { card, rail, row, trigger, type, search } = spec
   const text = `${type.size}px`
+  // T3's popup holding the picker (the popover's own glass is T3's `dropdown-glass`).
+  const popup = '[data-slot="popover-popup"]:has([data-model-picker-content])'
 
   return [
     '/* The shared model picker (GENERATED from src/matrix/model-picker-spec.json). */',
+    // The card's material is the Kit's frosted glass at its menu radius, as the desktop card has it.
+    ...(card.surface === 'glass'
+      ? [
+          `${popup} { border: 0; border-radius: var(--ak-r-${card.radius}); background: var(--ak-glass); -webkit-backdrop-filter: var(--ak-blur); backdrop-filter: var(--ak-blur); box-shadow: inset 0 0 0 .5px var(--ak-glass-edge), inset 0 1px 0 var(--ak-glass-rim), var(--ak-shadow-2); }`,
+          `@media (prefers-reduced-transparency: reduce) { ${popup} { background: var(--ak-raised); -webkit-backdrop-filter: none; backdrop-filter: none; } }`
+        ]
+      : []),
+    // The rail and the thinking column sit straight on the card, with hairlines between them.
+    ...(card.tint
+      ? []
+      : [':is([data-model-picker-sidebar], [data-model-picker-list], [data-model-picker-effort]) { background: transparent; }']),
+    // A row's ⌘1–⌘9 hint is the Kit's menu key: plain text, no keycap.
+    ...(row.shortcut === 'menu-key'
+      ? ['[data-model-picker-content] [data-slot="kbd"] { background: none; padding: 0; font: var(--ak-t-callout); color: var(--ak-ink-3); letter-spacing: .04em; }']
+      : []),
+    ...(rail.favoritesRule ? [] : ['[data-model-picker-sidebar] [data-model-picker-provider="favorites"] + [aria-hidden="true"] { display: none; }']),
     `[data-chat-provider-model-picker] { height: ${trigger.height}px; padding-inline: ${trigger.paddingX}px; gap: ${trigger.gap}px; border-radius: ${trigger.radius === 'full' ? 'var(--ak-r-full)' : `${trigger.radius}px`}; font-size: ${trigger.size}px; font-weight: ${trigger.weight}; }`,
     // T3 sizes the picker's text with text-sm and draws the search rule in its ring colour: both are
     // its own variables, scoped here to the picker.

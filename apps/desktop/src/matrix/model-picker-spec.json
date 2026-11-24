@@ -1,9 +1,50 @@
 {
-  "about": "The one model picker (owner 2026-11-08, 2026-11-24): the agent chats' picker and Work's (T3 Code's own) share these measures, in CSS pixels. Geometry is T3's (ModelPickerSidebar, ModelListRow, ComboboxSearchInput, ComposerModelEffort, ComposerControl as measured 2026-11-24); type, the capsule and the focus colour are the Atum Kit's. The desktop picker reads every value through model-picker-style.ts; scripts/build-work-theme.mjs gives Work the values T3 does not already have. Change a value here and both pickers follow.",
-  "card": { "listWidth": 316, "effortWidth": 192, "bodyHeight": 346 },
-  "rail": { "width": 44, "item": 36, "itemRadius": 8, "icon": 20, "indicatorWidth": 3, "indicatorHeight": 20, "indicatorInset": 4 },
-  "search": { "insetTop": 10, "insetX": 12, "height": 26, "icon": 16, "underline": 1, "focusUnderline": { "light": "#007aff", "dark": "#0a84ff" } },
-  "row": { "height": 32, "paddingX": 8, "radius": 6, "gap": 8, "mark": 16 },
+  "about": "The one model picker (owner 2026-11-08, 2026-11-24): the agent chats' picker and Work's (T3 Code's own) share these measures, in CSS pixels. Geometry is T3's (ModelPickerSidebar, ModelListRow, ComboboxSearchInput, ComposerModelEffort, ComposerControl as measured 2026-11-24); type, the capsule and the focus colour are the Atum Kit's. The desktop picker reads every value through model-picker-style.ts; scripts/build-work-theme.mjs gives Work the values T3 does not already have. Change a value here and both pickers follow. Round 3 (owner 2026-11-24, \"make them match, consistent to our Atum kit\"): the card is the Kit's frosted glass at its menu radius (STYLE.md §7) with no tint on the rail, list or thinking column; the rail has no rule under Favorites; a row is T3's shape (STYLE.md §12): mark, name, the check beside the name, then Atum's muted tagline, the star on hover and the ⌘1–⌘9 hint as the Kit's menu key (.ak-menu-key: plain ink-3 text, no keycap). Words live in model-picker-labels.json.",
+  "card": {
+    "listWidth": 316,
+    "effortWidth": 192,
+    "bodyHeight": 346,
+    "surface": "glass",
+    "radius": "lg",
+    "tint": false
+  },
+  "rail": {
+    "width": 44,
+    "item": 36,
+    "itemRadius": 8,
+    "icon": 20,
+    "indicatorWidth": 3,
+    "indicatorHeight": 20,
+    "indicatorInset": 4,
+    "favoritesRule": false
+  },
+  "search": {
+    "insetTop": 10,
+    "insetX": 12,
+    "height": 26,
+    "icon": 16,
+    "underline": 1,
+    "focusUnderline": { "light": "#007aff", "dark": "#0a84ff" }
+  },
+  "row": {
+    "height": 32,
+    "paddingX": 8,
+    "radius": 6,
+    "gap": 8,
+    "mark": 16,
+    "check": "afterName",
+    "tagline": true,
+    "shortcut": "menu-key"
+  },
   "type": { "size": 13, "weight": 400 },
-  "trigger": { "height": 28, "paddingX": 8, "gap": 6, "mark": 16, "size": 13, "weight": 500, "radius": "full", "chevron": false }
+  "trigger": {
+    "height": 28,
+    "paddingX": 8,
+    "gap": 6,
+    "mark": 16,
+    "size": 13,
+    "weight": 500,
+    "radius": "full",
+    "chevron": false
+  }
 }

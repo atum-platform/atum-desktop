@@ -2,7 +2,6 @@ import { type MouseEvent as ReactMouseEvent } from 'react'
 
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
-import { Kbd } from '@/components/ui/kbd'
 import { RowButton } from '@/components/ui/row-button'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
@@ -118,6 +117,16 @@ function PickerRowView({
             <span className="min-w-0 shrink truncate leading-tight text-(--atum-ink)" data-matrix-model-name>
               {name}
             </span>
+            {/* The saved choice carries a check beside its name, as T3 Code's row does (STYLE.md §12); the
+                shade alone reads as hover or focus. */}
+            {current && (
+              <Check
+                aria-hidden
+                className="size-3.5 shrink-0 self-center text-(--atum-ink)"
+                data-matrix-model-check
+                strokeWidth={2.4}
+              />
+            )}
             {shelf ? (
               // The list is already OpenRouter's and the mark names the maker: the price follows the
               // name, and a model that costs more than Nhật Thực says so (a label, never a confirmation).
@@ -149,15 +158,6 @@ function PickerRowView({
               )
             )}
           </span>
-          {/* The saved choice carries a check (the shade alone reads as hover or focus). */}
-          {current && (
-            <Check
-              aria-hidden
-              className="size-4 shrink-0 text-(--atum-ink)"
-              data-matrix-model-check
-              strokeWidth={2.4}
-            />
-          )}
         </RowButton>
 
         <span className="pointer-events-none absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-1">
@@ -185,9 +185,10 @@ function PickerRowView({
             </Tip>
           )}
           {hint && (
-            <Kbd aria-hidden data-matrix-model-shortcut size="sm" variant="ghost">
+            // The Kit's menu key (plain text, no keycap), as Work's picker shows it (spec `row.shortcut`).
+            <span aria-hidden className="ak-menu-key pe-1" data-matrix-model-shortcut>
               {`⌘${hint}`}
-            </Kbd>
+            </span>
           )}
         </span>
       </li>

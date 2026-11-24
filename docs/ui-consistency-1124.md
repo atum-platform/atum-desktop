@@ -58,8 +58,45 @@ thread list; both chips are T3's mark + name; Thái Cực stays out of Work unti
 
 Evidence (before/after): `~/.atum/operations/evidence/ui-consistency-1124/r2/`.
 
-Known differences kept: surface tints (T3's rail and list tints versus the desktop card's glass),
-the desktop's ⌘1–⌘9 hints and Atum taglines on rows, and the chip's warning glyph replacing the mark.
+Known differences kept after round 2 (closed in round 3, below): surface tints, the ⌘1–⌘9 hints and
+taglines. Still kept: the chip's warning glyph replacing the mark.
 
 Verification: desktop typecheck 0; eslint 0 errors on touched files; vitest 858 + 512 (app shell) pass;
 `tests/acp_adapter` 518 pass.
+
+## Round 3 (same day): one set of thinking words, the pickers match
+
+Owner, 2026-11-24: thinking levels "go consistent" (Quick / Balanced / Thorough everywhere, one extra
+top level only where a model offers it); the remaining picker differences "make them match - UI should
+be consistent to our Atum kit". Companion: atum-work `feat/ui-consistency-1124` (round 3 in
+`docs/work-ui-consistency-1124.md`).
+
+- **One set of words.** `src/matrix/model-picker-labels.json` holds the thinking heading and levels in
+  every desktop locale, keyed by the provider's id (`low` Quick, `medium` Balanced, `high` Thorough,
+  `xhigh` Extra thorough, `max` Maximum, `minimal` Instant, `none`/`off` Off; aliases fold
+  `extra-high`, `maximum`), plus Atum's line-up taglines and "Suggested". `model-picker-copy.ts`
+  `pickerLabels()` reads it; the ids sent to providers are untouched. The desktop offers only
+  low/medium/high, so its visible words do not change. Work relabels every provider's reasoning
+  control from its copy of the same file.
+- **The pickers match, per the Kit.** Decisions (recorded in `model-picker-spec.json` and
+  `packages/atum-kit/STYLE.md` §12): the card is the Kit's frosted glass at the menu radius (§7,
+  `ak-glass`, `--ak-r-lg`) with no tint on rail, list or thinking column and no rule under Favorites;
+  a row is T3's shape: mark, name, the check beside the name, Atum's muted line, the star on hover
+  and ⌘1–⌘9 as the Kit's menu key (`.ak-menu-key`, plain ink-3 text, no keycap). Desktop:
+  `model-picker-panel.tsx` (`MODEL_PICKER_GLASS`), `model-picker-list.tsx` (check, menu key). Work:
+  the generated theme (`build-work-theme.mjs` `workPickerCss()`: glass, untinted columns, no rule,
+  menu key) and Atum-build-only code in the fork (taglines, labels).
+- **The two copies cannot drift silently.** `model-picker-digests.json` records the sha256 of the
+  spec and the labels file; each repo keeps byte-identical copies of all three and tests its copies
+  against it (`model-picker-style.test.ts` here; `apps/web/src/atum/pickerLabels.logic.test.ts` in
+  the fork, now in Atum's CI). Editing one copy fails that repo's test until the digest is updated,
+  and the digest file says to copy all three files across. It cannot see the other repo's working
+  tree: a change made and re-digested in one repo only is caught when the files are copied, by review.
+  The JSON is laid out as the fork's formatter wants it, so both repos accept the same bytes.
+
+Evidence: `~/.atum/operations/evidence/ui-consistency-1124/r3/` (`desktop-picker-*`, `work-picker-*`:
+default, open light and dark with the thinking column, hover).
+
+Verification: desktop typecheck 0; eslint 0 on touched files; `build-work-theme.mjs --check` 0;
+vitest 735 (picker, work, theme, app, agent home, composer) + 96 (i18n, mobile copy) pass.
+

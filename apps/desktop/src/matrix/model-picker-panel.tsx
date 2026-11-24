@@ -6,18 +6,23 @@ import { useModelPickerCopy } from './model-picker-copy'
 import { ModelPickerFilter, type PickerFilterSource } from './model-picker-filter'
 import type { PickerFilter } from './model-picker-sections'
 
+/**
+ * The card's material, as Work's picker has it (model-picker-spec.json `card.surface`): the Kit's
+ * frosted glass for a popover (STYLE.md §7), its menu radius, and no tint on the rail, the list or
+ * the thinking column, which sit straight on the glass with hairlines between them.
+ */
+const MODEL_PICKER_GLASS = 'ak-glass rounded-(--ak-r-lg) border-0 bg-transparent'
+
 /** The card's popover classes: one size for every model picker in Atum, the shared spec's (T3 Code's)
  * proportions: the rail, the list, and the thinking column beside it. The card carries MODEL_PICKER_VARS. */
-export const MODEL_PICKER_CARD =
-  'h-(--mp-body-h) max-h-[min(80vh,var(--mp-body-h))] w-[calc(var(--mp-rail-w)+var(--mp-list-w)+var(--mp-effort-w)+2px)] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
+export const MODEL_PICKER_CARD = `${MODEL_PICKER_GLASS} h-(--mp-body-h) max-h-[min(80vh,var(--mp-body-h))] w-[calc(var(--mp-rail-w)+var(--mp-list-w)+var(--mp-effort-w)+2px)] max-w-[calc(100vw-1rem)] overflow-hidden p-0`
 
 /**
  * The same card without the thinking column beside the list (an Atum-only lineup, or any
  * card whose current model takes fewer than two savable levels): narrower and no taller
  * than its rows, so the empty column's width never ships as empty air.
  */
-export const MODEL_PICKER_CARD_COMPACT =
-  'flex h-auto max-h-[min(80vh,var(--mp-body-h))] flex-col w-[calc(var(--mp-rail-w)+var(--mp-list-w)+2px)] max-w-[calc(100vw-1rem)] overflow-hidden p-0'
+export const MODEL_PICKER_CARD_COMPACT = `${MODEL_PICKER_GLASS} flex h-auto max-h-[min(80vh,var(--mp-body-h))] flex-col w-[calc(var(--mp-rail-w)+var(--mp-list-w)+2px)] max-w-[calc(100vw-1rem)] overflow-hidden p-0`
 
 /**
  * The card's keyboard: arrows/Home/End move between rows, `/` jumps to search, typing on the card

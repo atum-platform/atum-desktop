@@ -324,6 +324,16 @@ exceptions.
   description after the name, muted, and the ⌘1–⌘9 hint on the row. A
   thinking column sits on the right only when the current model has levels to
   choose from.
+- **One picker in agent chats and Work** (owner, 2026-11-24: "make them match"):
+  the card is the frosted glass of §7 at the menu radius, with no tint on the
+  rail, the list or the thinking column, and no rule under Favorites. A row
+  reads mark, name, the check beside the name, Atum's muted line, then the star
+  on hover and ⌘1–⌘9. Measures: `apps/desktop/src/matrix/model-picker-spec.json`.
+- **Thinking levels have one set of words everywhere** (owner, 2026-11-24): Quick,
+  Balanced, Thorough; Extra thorough and Maximum only where a model offers them
+  (and Off or Instant for a model that goes below Quick). The words come from
+  `apps/desktop/src/matrix/model-picker-labels.json`, keyed by the provider's
+  id, which is never changed.
 
 ## 13. Controls and patterns
 
